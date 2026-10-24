@@ -68,3 +68,6 @@ All classes and functions must have a docstring that explains their inputs, outp
 
 ### COR-00018 Zen of Python
 The code must follow the Zen of Python guidelines.
+
+### COR-00019 User interface library
+The user interface (view) code must be written with PyQt.
