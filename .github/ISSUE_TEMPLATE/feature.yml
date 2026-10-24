@@ -1,0 +1,62 @@
+name: Feature
+description: Propose a new feature and track its implementation (PCR-00008, PCR-00009).
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill in the feature description, need and urgency when you open the issue.
+        Fill in the implementation, tests and evidence before the pull request is merged (PCR-00014).
+
+  - type: textarea
+    id: feature_description
+    attributes:
+      label: Feature description
+      description: What should the feature do? List the related requirement IDs (HLFR/LLFR) if they exist.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_needed
+    attributes:
+      label: Why the app needs it
+      description: What problem does it solve or what value does it add?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency
+      description: How urgent is the implementation? (PCR-00009)
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: How the implementation was done
+      description: Summary of the design and code changes. Fill in before merging.
+    validations:
+      required: false
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests used
+      description: Which tests check that the implementation fulfils the feature, and which requirements (LLFR IDs) they cover. Fill in before merging.
+    validations:
+      required: false
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Test output, screenshots or logs showing the feature works as required. Fill in before merging.
+    validations:
+      required: false
