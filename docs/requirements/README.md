@@ -16,7 +16,8 @@ An ID is a prefix, a hyphen and a 5-digit integer padded with zeros: `<PREFIX>-<
 - Numbers are plain integers counted from 1 (`00001`, `00002`, ...). Each prefix has its own count.
 - Five digits give room for 10000 requirements per prefix and beyond (up to `99999`).
 - No sub-numbering (no `1.2`). An LLFR is linked to its HLFR with a `Parent:` line, not through its number.
-- An ID is never reused or renumbered. A requirement that is no longer valid stays in the file, with `Status: Withdrawn` below its heading.
+- An ID is never reused or renumbered. New requirements continue from the next number, even after a deletion.
+- A deleted requirement keeps its ID in the file, and its title and text are replaced by `DELETED` (PCR-00027).
 - Regular expression for a valid ID: `^(COR|PCR|HLFR|LLFR)-\d{5}$`
 
 ## Requirement entry
@@ -35,6 +36,13 @@ A requirement may end with an optional `Note:` line that adds guidance without a
 A GitHub issue must be created to track the development of every fix and new feature.
 
 Note: Every issue must be created from one of the two templates: Fix or Feature.
+```
+
+A deleted requirement:
+
+```markdown
+### PCR-00099 DELETED
+DELETED
 ```
 
 An LLFR also names its parent HLFR:

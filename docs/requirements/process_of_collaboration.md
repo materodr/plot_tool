@@ -99,3 +99,6 @@ The `develop` and `main` branches must be kept free of crashes.
 
 ### PCR-00026 Worktrees
 Worktrees must be used to give each agent a separate environment.
+
+### PCR-00027 Deleted requirements
+When a requirement is deleted, its ID must stay in the file and its title and text must be replaced by `DELETED`. The ID must never be reused, and new requirements must continue from the next number.
