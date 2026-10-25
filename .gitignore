@@ -219,3 +219,10 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .DS_Store
+
+# Standalone executables built from src (COR-00007)
+bin/*
+!bin/.gitkeep
+
+# Test matrix built by CI
+test_matrix_ci.md
