@@ -19,7 +19,8 @@ from matplotlib.backend_bases import MouseButton
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.colors import to_hex
 from matplotlib.figure import Figure
-from PyQt6.QtCore import QPoint, pyqtSignal
+from PyQt6 import sip
+from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 # LLFR-00021: same literal string the signal list uses for its drags.
@@ -36,7 +37,10 @@ ZOOM_IN_FACTOR_F = 0.8
 SINGLE_SAMPLE_HALF_RANGE_S = 0.5
 VALUE_MARGIN_RATIO_F = 0.05
 CONSTANT_VALUE_HALF_RANGE_F = 0.5
-LEGEND_COLUMN_WIDTH_PX = 150.0
+LEGEND_FONT_SIZE_LIST = [10.0, 9.0, 8.0, 7.0, 6.0]
+LEGEND_MAXIMUM_HEIGHT_RATIO_F = 0.4
+LEGEND_USABLE_WIDTH_RATIO_F = 0.95
+POINTS_PER_INCH_F = 72.0
 TIP_OFFSET_POINTS_F = 10.0
 DEFAULT_TIP_COLOR_STR = "#000000"
 
@@ -147,8 +151,10 @@ class PlotWidget(QWidget):
         self.pinned_tip_list = []
         self.pinned_annotation_list = []
         self.pinned_marker_list = []
+        self.curve_sorted_list = []
         self.tip_mode_b = False
         self.hover_point_tuple = ()
+        self.pending_menu_point = QPoint()
 
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
@@ -170,6 +176,8 @@ class PlotWidget(QWidget):
         self.canvas.mpl_connect("button_press_event", self.on_mouse_press)
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
         self.canvas.mpl_connect("figure_leave_event", self.on_mouse_leave)
+        # LLFR-00035: the legend is fitted again when the canvas resizes.
+        self.canvas.mpl_connect("resize_event", self.on_canvas_resize)
 
         self.time_range_s_tuple = (0.0, 1.0)
         self.rebuild_axes()
@@ -194,6 +202,11 @@ class PlotWidget(QWidget):
              int(width_i))
             for (signal_name_str, time_array, value_array, color_str,
                  width_i) in curve_data_list]
+        # LLFR-00042: a sorted time array allows a fast hit test.
+        self.curve_sorted_list = [
+            bool(curve_tuple[1].size < 2
+                 or np.all(np.diff(curve_tuple[1]) >= 0.0))
+            for curve_tuple in self.curve_data_list]
         # LLFR-00070: a new set of curves shows the whole time range.
         self.time_range_s_tuple = self.full_time_range_tuple()
         self.rebuild_axes()
@@ -279,7 +292,7 @@ class PlotWidget(QWidget):
         self.hover_annotation = self.axes.annotate(
             "", xy=(0.0, 0.0), xytext=(TIP_OFFSET_POINTS_F,
                                        TIP_OFFSET_POINTS_F),
-            textcoords="offset points",
+            textcoords="offset points", parse_math=False,
             bbox={"boxstyle": "round", "facecolor": "#ffffe0",
                   "alpha": 0.9},
             zorder=10)
@@ -304,18 +317,55 @@ class PlotWidget(QWidget):
         if not self.curve_line_dict:
             return
         # LLFR-00035: the legend sits above the axes, outside them, and
-        # spans their width; the number of columns follows the width.
+        # spans their width. The font size and the number of columns are
+        # chosen so that the whole legend fits in the figure.
         line_list = list(self.curve_line_dict.values())
-        column_count_i = max(1, min(len(line_list), int(
-            self.width() // LEGEND_COLUMN_WIDTH_PX)))
+        name_list = list(self.curve_line_dict.keys())
+        renderer = self.canvas.get_renderer()
+        figure_width_px = float(self.figure.bbox.width)
+        maximum_height_px = (float(self.figure.bbox.height)
+                             * LEGEND_MAXIMUM_HEIGHT_RATIO_F)
+        for font_size_f in LEGEND_FONT_SIZE_LIST:
+            legend = self.place_legend(line_list, name_list, 1,
+                                       font_size_f)
+            text_width_px = max(text.get_window_extent(renderer).width
+                                for text in legend.get_texts())
+            spacing_px = ((legend.handlelength + legend.handletextpad
+                           + legend.columnspacing) * font_size_f
+                          * self.figure.dpi / POINTS_PER_INCH_F)
+            column_count_i = max(1, min(len(line_list), int(
+                figure_width_px * LEGEND_USABLE_WIDTH_RATIO_F
+                // (text_width_px + spacing_px))))
+            legend.remove()
+            legend = self.place_legend(line_list, name_list,
+                                       column_count_i, font_size_f)
+            if legend.get_window_extent(renderer).height <= (
+                    maximum_height_px):
+                break
+
+    def place_legend(self, line_list: list, name_list: list,
+                     column_count_i: int, font_size_f: float):
+        """Create the legend above the axes with plain-text names.
+
+        Inputs:
+            line_list: the curves' Line2D objects, in curve order.
+            name_list: the signal names, in the same order.
+            column_count_i: number of legend columns.
+            font_size_f: font size in points.
+        Outputs: the matplotlib Legend.
+        """
+        # LLFR-00035: anchored on top of the axes, outside them.
         legend = self.axes.legend(
-            line_list, list(self.curve_line_dict.keys()),
-            loc="lower left", bbox_to_anchor=(0.0, 1.02, 1.0, 0.2),
-            mode="expand", ncol=column_count_i, borderaxespad=0.0,
-            frameon=False)
-        # LLFR-00037: each name has the color of its curve.
+            line_list, name_list, loc="lower left",
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.2), mode="expand",
+            ncol=column_count_i, borderaxespad=0.0, frameon=False,
+            fontsize=font_size_f)
         for text, line in zip(legend.get_texts(), line_list):
+            # LLFR-00036: names are shown literally, never as mathtext.
+            text.set_parse_math(False)
+            # LLFR-00037: each name has the color of its curve.
             text.set_color(line.get_color())
+        return legend
 
     def draw_pinned_tips(self) -> None:
         """Draw the stored pinned tips, replacing the previous ones.
@@ -340,7 +390,7 @@ class PlotWidget(QWidget):
                 format_tip_text(signal_name_str, time_s, value_f),
                 xy=(time_s, value_f),
                 xytext=(TIP_OFFSET_POINTS_F, TIP_OFFSET_POINTS_F),
-                textcoords="offset points",
+                textcoords="offset points", parse_math=False,
                 bbox={"boxstyle": "round", "facecolor": "#ffffff",
                       "edgecolor": color_str, "alpha": 0.9},
                 zorder=9)
@@ -419,17 +469,14 @@ class PlotWidget(QWidget):
             annotation.set_verticalalignment(
                 "top" if upper_half_b else "bottom")
 
-    def resizeEvent(self, event) -> None:
-        """Rebuild the legend columns for the new width.
+    def on_canvas_resize(self, event) -> None:
+        """Fit the legend again after the canvas changed size.
 
         Inputs:
-            event: the QResizeEvent.
+            event: the matplotlib ResizeEvent.
         Outputs: none.
         """
-        # LLFR-00035: the legend stays tidy above the axes after resize.
-        super().resizeEvent(event)
-        if not hasattr(self, "hover_annotation"):
-            return
+        # LLFR-00035: the legend stays whole above the axes after resize.
         self.update_legend()
         self.canvas.draw_idle()
 
@@ -573,14 +620,30 @@ class PlotWidget(QWidget):
             return ()
         point_array = np.array([display_x_px, display_y_px])
         tolerance_px = PICK_TOLERANCE_PIXELS_I * self.pixel_ratio_f()
+        inverse_transform = self.axes.transData.inverted()
+        window_start_s = float(inverse_transform.transform(
+            (display_x_px - tolerance_px, display_y_px))[0])
+        window_end_s = float(inverse_transform.transform(
+            (display_x_px + tolerance_px, display_y_px))[0])
         best_distance_px = tolerance_px
         best_tuple = ()
-        for (signal_name_str, time_array, value_array, color_str,
-             width_i) in self.curve_data_list:
-            if time_array.size == 0:
+        for curve_tuple, sorted_b in zip(self.curve_data_list,
+                                         self.curve_sorted_list):
+            signal_name_str, time_array, value_array = curve_tuple[:3]
+            if sorted_b:
+                # Only samples near the mouse time can be within the
+                # tolerance; one more on each side keeps the segments
+                # that cross the window.
+                first_i = max(0, int(np.searchsorted(
+                    time_array, window_start_s, side="left")) - 1)
+                last_i = min(time_array.size, int(np.searchsorted(
+                    time_array, window_end_s, side="right")) + 1)
+            else:
+                first_i, last_i = 0, time_array.size
+            if last_i <= first_i:
                 continue
-            sample_array = self.axes.transData.transform(
-                np.column_stack((time_array, value_array)))
+            sample_array = self.axes.transData.transform(np.column_stack(
+                (time_array[first_i:last_i], value_array[first_i:last_i])))
             if sample_array.shape[0] == 1:
                 distance_px = float(np.hypot(
                     *(sample_array[0] - point_array)))
@@ -592,7 +655,7 @@ class PlotWidget(QWidget):
                 sample_distance_array = np.hypot(
                     sample_array[:, 0] - point_array[0],
                     sample_array[:, 1] - point_array[1])
-                index_i = int(np.argmin(sample_distance_array))
+                index_i = first_i + int(np.argmin(sample_distance_array))
                 best_distance_px = distance_px
                 best_tuple = (signal_name_str, float(time_array[index_i]),
                               float(value_array[index_i]))
@@ -642,49 +705,147 @@ class PlotWidget(QWidget):
     # User actions
     # ----------------------------------------------------------------
 
-    def build_context_menu(self, widget_point) -> QMenu:
-        """Build the menu that a right-click at a point shows.
+    def context_menu_and_requests(self, widget_point) -> tuple:
+        """Build the context menu for a point and the request of each item.
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: a QMenu (not shown). On a pinned tip it has "Delete";
-            on a curve "Delete signal" and a "Width" submenu with 1..5;
-            elsewhere "Delete plot".
+        Outputs: a tuple (menu, request_list). The data of each action is
+            the index in request_list of the function (no arguments) that
+            emits that action's request. No action is connected yet.
         """
         menu = QMenu(self)
+        request_list = []
+
+        def add_request_action(target_menu, text_str: str, request):
+            """Add an action and remember the request it stands for.
+
+            Inputs:
+                target_menu: the QMenu that receives the action.
+                text_str: the action text.
+                request: function without arguments that emits the
+                    request.
+            Outputs: the new QAction.
+            """
+            # LLFR-00038, LLFR-00040, LLFR-00046, LLFR-00048.
+            action = target_menu.addAction(text_str)
+            action.setData(len(request_list))
+            request_list.append(request)
+            return action
+
         # LLFR-00046: a pinned tip has priority over a curve under it.
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i >= 0:
-            delete_action = menu.addAction("Delete")
-            delete_action.triggered.connect(
-                lambda checked_b=False, index_i=tip_index_i:
+            add_request_action(
+                menu, "Delete",
+                lambda index_i=tip_index_i:
                 self.pinned_tip_delete_requested.emit(index_i))
-            return menu
+            return menu, request_list
         signal_name_str = self.curve_at(widget_point)
         if signal_name_str:
             # LLFR-00038: delete the curve.
-            delete_action = menu.addAction("Delete signal")
-            delete_action.triggered.connect(
-                lambda checked_b=False, name_str=signal_name_str:
+            add_request_action(
+                menu, "Delete signal",
+                lambda name_str=signal_name_str:
                 self.curve_delete_requested.emit(name_str))
             # LLFR-00040: the preset widths, the current one checked.
             width_menu = menu.addMenu("Width")
             current_width_i = self.curve_width_dict.get(signal_name_str, 1)
             for width_i in sorted(WIDTH_PIXELS_DICT):
-                width_action = width_menu.addAction(str(width_i))
-                width_action.setCheckable(True)
-                width_action.setChecked(width_i == current_width_i)
-                width_action.triggered.connect(
-                    lambda checked_b=False, name_str=signal_name_str,
+                width_action = add_request_action(
+                    width_menu, str(width_i),
+                    lambda name_str=signal_name_str,
                     chosen_width_i=width_i:
                     self.curve_width_requested.emit(name_str,
                                                     chosen_width_i))
-            return menu
+                width_action.setCheckable(True)
+                width_action.setChecked(width_i == current_width_i)
+            return menu, request_list
         # LLFR-00048: empty area of the plot.
-        delete_plot_action = menu.addAction("Delete plot")
-        delete_plot_action.triggered.connect(
-            lambda checked_b=False: self.plot_delete_requested.emit())
+        add_request_action(menu, "Delete plot",
+                           lambda: self.plot_delete_requested.emit())
+        return menu, request_list
+
+    def build_context_menu(self, widget_point) -> QMenu:
+        """Build the menu that a right-click at a point shows.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: a QMenu (not shown) whose actions emit their request
+            when triggered. On a pinned tip it has "Delete"; on a curve
+            "Delete signal" and a "Width" submenu with 1..5; elsewhere
+            "Delete plot".
+        """
+        # LLFR-00038, LLFR-00040, LLFR-00046, LLFR-00048.
+        menu, request_list = self.context_menu_and_requests(widget_point)
+        action_list = list(menu.actions())
+        for action in list(action_list):
+            if action.menu() is not None:
+                action_list.extend(action.menu().actions())
+        for action in action_list:
+            if action.data() is not None:
+                action.triggered.connect(
+                    lambda checked_b=False,
+                    request=request_list[action.data()]: request())
         return menu
+
+    def request_context_menu(self, widget_point) -> None:
+        """Open the context menu for a point once control is back in Qt.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none.
+        """
+        # LLFR-00038, LLFR-00046, LLFR-00048: the menu is not run inside
+        # the mouse press handling, so a request that deletes this
+        # widget never deletes code that is still running.
+        self.pending_menu_point = QPoint(widget_point)
+        QTimer.singleShot(0, self.show_pending_context_menu)
+
+    def show_pending_context_menu(self) -> None:
+        """Show the menu asked for by request_context_menu.
+
+        Inputs: none.
+        Outputs: none. Does nothing if the widget was deleted meanwhile.
+        """
+        # LLFR-00038, LLFR-00046, LLFR-00048.
+        if sip.isdeleted(self):
+            return
+        self.show_context_menu(self.pending_menu_point)
+
+    def execute_menu(self, menu, global_point):
+        """Run a menu modally and return the chosen action.
+
+        Inputs:
+            menu: the QMenu to show.
+            global_point: QPoint in screen coordinates.
+        Outputs: the chosen QAction, or None when the menu was closed
+            without a choice. Tests replace this method to choose an
+            action without a real modal menu.
+        """
+        # LLFR-00038, LLFR-00046, LLFR-00048: the modal menu.
+        return menu.exec(global_point)
+
+    def show_context_menu(self, widget_point) -> None:
+        """Show the context menu at a point and emit the chosen request.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. The request is emitted after the menu has closed
+            and been deleted, as the very last step, so the receiver may
+            delete this widget.
+        """
+        # LLFR-00039, LLFR-00041, LLFR-00047, LLFR-00049: run the menu,
+        # clean it up, then emit.
+        menu, request_list = self.context_menu_and_requests(widget_point)
+        chosen_action = self.execute_menu(menu,
+                                          self.mapToGlobal(widget_point))
+        chosen_index = (chosen_action.data() if chosen_action is not None
+                        else None)
+        sip.delete(menu)
+        if chosen_index is None:
+            return
+        request_list[chosen_index]()
 
     def hover_at(self, widget_point) -> None:
         """Show or hide the hover tip for the mouse at a point.
@@ -760,6 +921,18 @@ class PlotWidget(QWidget):
         new_end_s = center_s + (end_s - center_s) * factor_f
         if not new_end_s > new_start_s:
             return
+        # LLFR-00070: zooming out never goes beyond the data's range.
+        full_start_s, full_end_s = self.full_time_range_tuple()
+        if new_end_s - new_start_s >= full_end_s - full_start_s:
+            new_start_s, new_end_s = full_start_s, full_end_s
+        elif new_start_s < full_start_s:
+            new_start_s, new_end_s = (
+                full_start_s, full_start_s + new_end_s - new_start_s)
+        elif new_end_s > full_end_s:
+            new_start_s, new_end_s = (
+                full_end_s - (new_end_s - new_start_s), full_end_s)
+        if (new_start_s, new_end_s) == (start_s, end_s):
+            return
         self.time_range_s_tuple = (new_start_s, new_end_s)
         self.apply_time_range()
         self.canvas.draw_idle()
@@ -786,15 +959,18 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
+        # LLFR-00045: the second press of a double-click must not pin the
+        # same tip again.
+        if event.dblclick:
+            return
         widget_point = self.display_to_widget_point(event.x, event.y)
         if event.button == MouseButton.LEFT:
             # LLFR-00045: a left click pins the shown tip.
             self.click_at(widget_point)
         elif event.button == MouseButton.RIGHT:
-            # LLFR-00038, LLFR-00046, LLFR-00048: show the menu.
-            menu = self.build_context_menu(widget_point)
-            menu.exec(self.mapToGlobal(widget_point))
-            menu.deleteLater()
+            # LLFR-00038, LLFR-00046, LLFR-00048: show the menu once this
+            # press has been handled.
+            self.request_context_menu(widget_point)
 
     def on_mouse_scroll(self, event) -> None:
         """Handle a matplotlib scroll on the canvas.

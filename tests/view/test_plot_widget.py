@@ -59,11 +59,15 @@ class PlotWidgetTestCase(unittest.TestCase):
         self.ramp_array = self.time_array * 0.1 + 3.0
 
     def tearDown(self) -> None:
-        """Close and delete the plot widget.
+        """Close and delete the plot widget, unless a test deleted it.
 
         Inputs: none.
         Outputs: none.
         """
+        from PyQt6 import sip
+        self.application.processEvents()
+        if sip.isdeleted(self.plot_widget):
+            return
         self.plot_widget.close()
         self.plot_widget.deleteLater()
         self.application.processEvents()
@@ -232,6 +236,54 @@ class CurveDrawingTest(PlotWidgetTestCase):
                     float(np.cos(large_time_array[500000])))), "Big")
 
 
+class LargeDataTest(PlotWidgetTestCase):
+    """Hit tests stay fast and right with large or unsorted arrays."""
+
+    @covers("LLFR-00042", "LLFR-00038")
+    def test_hover_is_fast_on_large_curves(self) -> None:
+        """Hovering 3 curves of 1e6 samples takes well under 50 ms each.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import time
+        large_time_array = np.linspace(0.0, 100.0, 1000000)
+        self.plot_widget.set_curves([
+            (f"Big {index_i}", large_time_array,
+             np.cos(large_time_array) + 3.0 * index_i, RED_STR, 1)
+            for index_i in range(3)])
+        self.plot_widget.set_tip_mode(True)
+        self.draw()
+        point_list = [self.plot_widget.data_to_widget_point(
+            float(large_time_array[index_i]),
+            float(np.cos(large_time_array[index_i])))
+            for index_i in range(100000, 900000, 80000)]
+        start_s = time.perf_counter()
+        for point in point_list:
+            self.plot_widget.hover_at(point)
+            self.assertIn("Big 0 = ", self.plot_widget.hover_tip_text())
+        elapsed_s = time.perf_counter() - start_s
+        self.assertLess(elapsed_s / len(point_list), 0.05)
+
+    @covers("LLFR-00042", "LLFR-00043", "LLFR-00044")
+    def test_unsorted_time_still_found(self) -> None:
+        """A curve whose time is not sorted is still hit at its samples.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = np.array([0.0, 4.0, 2.0, 8.0, 6.0, 10.0])
+        value_array = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+        self.plot_widget.set_curves([
+            ("Zigzag", time_array, value_array, RED_STR, 1)])
+        self.plot_widget.set_tip_mode(True)
+        self.draw()
+        self.plot_widget.hover_at(
+            self.plot_widget.data_to_widget_point(2.0, 2.0))
+        self.assertEqual(self.plot_widget.hover_tip_text(),
+                         "t = 2 s\nZigzag = 2")
+
+
 class LegendTest(PlotWidgetTestCase):
     """Legend above the axes with names in curve colors."""
 
@@ -272,6 +324,61 @@ class LegendTest(PlotWidgetTestCase):
         axes_box = self.plot_widget.axes.get_window_extent(renderer)
         self.assertGreaterEqual(legend_box.y0, axes_box.y1)
         self.assertEqual(len(self.plot_widget.legend_entry_list()), 9)
+
+    @covers("LLFR-00035")
+    def test_legend_not_clipped_in_short_plot(self) -> None:
+        """Many curves in a short, wide plot: the legend fits fully.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        curve_list = [(f"Signal number {index_i}", self.time_array,
+                       self.sine_array + index_i, RED_STR, 1)
+                      for index_i in range(12)]
+        self.plot_widget.set_curves(curve_list)
+        self.plot_widget.resize(800, 130)
+        self.draw()
+        renderer = self.plot_widget.canvas.get_renderer()
+        legend_box = self.plot_widget.axes.get_legend().get_window_extent(
+            renderer)
+        axes_box = self.plot_widget.axes.get_window_extent(renderer)
+        self.assertGreaterEqual(legend_box.y0, axes_box.y1)
+        self.assertLessEqual(legend_box.y1,
+                             self.plot_widget.figure.bbox.height + 1.0)
+        self.assertEqual(len(self.plot_widget.legend_entry_list()), 12)
+
+    @covers("LLFR-00036", "LLFR-00042", "LLFR-00044", "LLFR-00045")
+    def test_dollar_names_are_shown_literally(self) -> None:
+        """Names with $...$ are drawn as plain text, never as mathtext.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        math_name_str = "x_$y$"
+        broken_name_str = "a$\\frac$b"
+        self.plot_widget.set_curves([
+            (math_name_str, self.time_array, self.sine_array, RED_STR, 1),
+            (broken_name_str, self.time_array, self.ramp_array, BLUE_STR,
+             1)])
+        self.plot_widget.set_pinned_tips([(broken_name_str, 5.0, 3.5)])
+        self.plot_widget.set_tip_mode(True)
+        self.draw()
+        self.assertEqual(self.plot_widget.legend_entry_list(),
+                         [(math_name_str, RED_STR),
+                          (broken_name_str, BLUE_STR)])
+        for text in self.plot_widget.axes.get_legend().get_texts():
+            self.assertFalse(text.get_parse_math())
+        self.plot_widget.hover_at(self.sample_point("Ramp", 30))
+        self.assertEqual(self.plot_widget.hover_tip_text(),
+                         f"t = 3 s\n{broken_name_str} = 3.3")
+        self.assertFalse(
+            self.plot_widget.hover_annotation.get_parse_math())
+        self.assertFalse(
+            self.plot_widget.pinned_annotation_list[0].get_parse_math())
+        # Drawing must not raise, and the pinned tip is still hit.
+        self.plot_widget.canvas.draw()
+        self.assertEqual(self.plot_widget.pinned_tip_at(
+            self.sample_point("Ramp", 50)), 0)
 
     @covers("LLFR-00036", "LLFR-00037")
     def test_legend_names_and_colors(self) -> None:
@@ -316,6 +423,28 @@ class HitTestTest(PlotWidgetTestCase):
             self.assertEqual(self.plot_widget.curve_at(
                 self.sample_point("Ramp", index_i)), "Ramp")
         self.assertEqual(self.plot_widget.curve_at(self.empty_point()), "")
+
+    @covers("LLFR-00038", "LLFR-00042")
+    def test_conversion_matches_matplotlib(self) -> None:
+        """widget_to_display_tuple agrees with matplotlib's own mapping.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        self.set_two_curves()
+        canvas = self.plot_widget.canvas
+        for x_i, y_i in ((0, 0), (37, 211), (590, 12), (300, 399)):
+            widget_point = QPoint(x_i, y_i)
+            canvas_point = canvas.mapFrom(self.plot_widget, widget_point)
+            expected_tuple = canvas.mouseEventCoords(canvas_point)
+            actual_tuple = self.plot_widget.widget_to_display_tuple(
+                widget_point)
+            self.assertAlmostEqual(actual_tuple[0], expected_tuple[0])
+            self.assertAlmostEqual(actual_tuple[1], expected_tuple[1])
+            back_point = self.plot_widget.display_to_widget_point(
+                *expected_tuple)
+            self.assertEqual((back_point.x(), back_point.y()), (x_i, y_i))
 
     @covers("LLFR-00038")
     def test_curve_found_between_samples(self) -> None:
@@ -503,6 +632,155 @@ class ContextMenuTest(PlotWidgetTestCase):
         self.assertEqual(self.plot_widget.pinned_tip_at(box_point), 0)
 
 
+class DeferredMenuTest(PlotWidgetTestCase):
+    """The real right-click path: deferred menu, emit after it closes."""
+
+    def choose_action_text(self, text_str: str) -> list:
+        """Make the menu return the action with a text instead of blocking.
+
+        Inputs:
+            text_str: text of the action to choose ("" for none).
+        Outputs: a list that receives the texts of every shown menu's
+            top-level actions.
+        """
+        shown_list = []
+
+        def fake_execute_menu(menu, global_point):
+            """Record the menu and return the chosen action.
+
+            Inputs:
+                menu: the QMenu that would be shown.
+                global_point: QPoint in screen coordinates.
+            Outputs: the matching QAction, or None.
+            """
+            shown_list.append(menu_action_text_list(menu))
+            action_list = list(menu.actions())
+            for action in list(action_list):
+                if action.menu() is not None:
+                    action_list.extend(action.menu().actions())
+            for action in action_list:
+                if action.text() == text_str and action.menu() is None:
+                    return action
+            return None
+
+        self.plot_widget.execute_menu = fake_execute_menu
+        return shown_list
+
+    def right_press(self, widget_point) -> None:
+        """Send a matplotlib right-button press at a widget point.
+
+        Inputs:
+            widget_point: QPoint in the widget's coordinates.
+        Outputs: none.
+        """
+        from matplotlib.backend_bases import MouseEvent
+        display_x_px, display_y_px = (
+            self.plot_widget.widget_to_display_tuple(widget_point))
+        press_event = MouseEvent("button_press_event",
+                                 self.plot_widget.canvas, display_x_px,
+                                 display_y_px, button=3)
+        self.plot_widget.canvas.callbacks.process("button_press_event",
+                                                  press_event)
+
+    @covers("LLFR-00048", "LLFR-00049")
+    def test_delete_plot_slot_may_delete_widget(self) -> None:
+        """A slot that deletes the widget on "Delete plot" is safe.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6 import sip
+        self.set_two_curves()
+        shown_list = self.choose_action_text("Delete plot")
+        record_list = []
+
+        def delete_widget() -> None:
+            """Record the request and delete the plot widget.
+
+            Inputs: none.
+            Outputs: none.
+            """
+            record_list.append("deleted")
+            self.plot_widget.deleteLater()
+
+        self.plot_widget.plot_delete_requested.connect(delete_widget)
+        self.right_press(self.empty_point())
+        # The menu is not shown inside the press handling.
+        self.assertEqual(shown_list, [])
+        for _ in range(3):
+            self.application.processEvents()
+        self.assertEqual(shown_list, [["Delete plot"]])
+        self.assertEqual(record_list, ["deleted"])
+        self.assertTrue(sip.isdeleted(self.plot_widget))
+
+    @covers("LLFR-00038", "LLFR-00039")
+    def test_delete_signal_slot_may_delete_widget(self) -> None:
+        """A slot that deletes the widget at once on "Delete signal" is safe.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6 import sip
+        self.set_two_curves()
+        self.choose_action_text("Delete signal")
+        record_list = []
+
+        def delete_widget(signal_name_str: str) -> None:
+            """Record the name and delete the plot widget right away.
+
+            Inputs:
+                signal_name_str: the signal to delete.
+            Outputs: none.
+            """
+            record_list.append(signal_name_str)
+            sip.delete(self.plot_widget)
+
+        self.plot_widget.curve_delete_requested.connect(delete_widget)
+        self.right_press(self.sample_point("Ramp", 30))
+        for _ in range(3):
+            self.application.processEvents()
+        self.assertEqual(record_list, ["Ramp"])
+        self.assertTrue(sip.isdeleted(self.plot_widget))
+
+    @covers("LLFR-00040", "LLFR-00041", "LLFR-00046", "LLFR-00047")
+    def test_deferred_menu_emits_width_and_tip_delete(self) -> None:
+        """The deferred menu emits width and pinned tip requests.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_two_curves()
+        width_list = self.recorder(self.plot_widget.curve_width_requested)
+        self.choose_action_text("4")
+        self.right_press(self.sample_point("Sine", 40))
+        self.application.processEvents()
+        self.assertEqual(width_list, [("Sine", 4)])
+        self.plot_widget.set_pinned_tips([("Sine", 4.0,
+                                           float(self.sine_array[40]))])
+        self.draw()
+        tip_list = self.recorder(
+            self.plot_widget.pinned_tip_delete_requested)
+        self.choose_action_text("Delete")
+        self.right_press(self.sample_point("Sine", 40))
+        self.application.processEvents()
+        self.assertEqual(tip_list, [(0,)])
+
+    @covers("LLFR-00048")
+    def test_closing_menu_without_choice_emits_nothing(self) -> None:
+        """Closing the menu without choosing emits no request.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_two_curves()
+        record_list = self.recorder(self.plot_widget.plot_delete_requested)
+        shown_list = self.choose_action_text("")
+        self.right_press(self.empty_point())
+        self.application.processEvents()
+        self.assertEqual(shown_list, [["Delete plot"]])
+        self.assertEqual(record_list, [])
+
+
 class TipTest(PlotWidgetTestCase):
     """Hover tips in tip mode and pinning them."""
 
@@ -576,6 +854,30 @@ class TipTest(PlotWidgetTestCase):
         self.assertEqual(name_str, "Ramp")
         self.assertAlmostEqual(time_s, 5.0)
         self.assertAlmostEqual(value_f, 3.5)
+
+    @covers("LLFR-00045")
+    def test_double_click_pins_once(self) -> None:
+        """A double-click pins the shown tip only once.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.backend_bases import MouseEvent
+        self.set_two_curves()
+        record_list = self.recorder(self.plot_widget.tip_pin_requested)
+        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.hover_at(self.sample_point("Ramp", 50))
+        display_x_px, display_y_px = (
+            self.plot_widget.axes.transData.transform((5.0, 3.5)))
+        for double_click_b in (False, True):
+            press_event = MouseEvent(
+                "button_press_event", self.plot_widget.canvas,
+                display_x_px, display_y_px, button=1,
+                dblclick=double_click_b)
+            self.plot_widget.canvas.callbacks.process(
+                "button_press_event", press_event)
+        self.assertEqual(len(record_list), 1)
+        self.assertEqual(record_list[0][0], "Ramp")
 
     @covers("LLFR-00045", "LLFR-00047")
     def test_set_pinned_tips_draws_annotations(self) -> None:
@@ -768,6 +1070,31 @@ class TimeRangeTest(PlotWidgetTestCase):
         self.plot_widget.wheel_at(center_point, -1.0)
         wide_start_s, wide_end_s = record_list[1]
         self.assertGreater(wide_end_s - wide_start_s, end_s - start_s)
+
+    @covers("LLFR-00070")
+    def test_zoom_out_stops_at_full_range(self) -> None:
+        """Zooming out never goes beyond the data's full time range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_two_curves()
+        record_list = self.recorder(self.plot_widget.time_range_changed)
+        edge_point = self.plot_widget.data_to_widget_point(9.0, 0.0)
+        for _ in range(3):
+            self.plot_widget.wheel_at(edge_point, 1.0)
+        for _ in range(500):
+            self.plot_widget.wheel_at(edge_point, -1.0)
+        start_s, end_s = self.plot_widget.time_range_tuple()
+        self.assertAlmostEqual(start_s, 0.0)
+        self.assertAlmostEqual(end_s, 10.0)
+        for emitted_start_s, emitted_end_s in record_list:
+            self.assertGreaterEqual(emitted_start_s, -1e-9)
+            self.assertLessEqual(emitted_end_s, 10.0 + 1e-9)
+        # At the full range a further zoom out changes nothing.
+        emitted_count_i = len(record_list)
+        self.plot_widget.wheel_at(edge_point, -1.0)
+        self.assertEqual(len(record_list), emitted_count_i)
 
     @covers("LLFR-00070")
     def test_scroll_event_runs_zoom(self) -> None:
