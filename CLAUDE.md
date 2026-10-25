@@ -5,11 +5,11 @@ A Python application that reads files containing time series and displays the da
 ## Requirements
 
 The requirements below are loaded into every session. Follow them in all work.
-Functional requirements (HLFR, LLFR) are not written yet.
 
 @docs/requirements/README.md
 @docs/requirements/code_and_organization.md
 @docs/requirements/process_of_collaboration.md
+@docs/requirements/functional_requirements.md
 
 ## How to work in this repository
 
