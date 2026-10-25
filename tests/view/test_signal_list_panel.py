@@ -138,6 +138,23 @@ class SignalListPanelTest(unittest.TestCase):
                     name_str)
 
     @covers("LLFR-00021")
+    def test_non_ascii_name_round_trips_as_utf8(self) -> None:
+        """A non-ASCII name decodes back from the custom MIME bytes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_str = "Temperatur \u00b0C \u00fc"
+        self.panel.show_signal_names(["Time", name_str])
+        widget = self.panel.signal_list_widget
+        mime_data = widget.mimeData([widget.item(1)])
+        payload_bytes = bytes(mime_data.data(
+            self.panel_module.SIGNAL_MIME_TYPE_STR))
+        self.assertEqual(payload_bytes, name_str.encode("utf-8"))
+        self.assertEqual(payload_bytes.decode("utf-8"), name_str)
+        self.assertEqual(mime_data.text(), name_str)
+
+    @covers("LLFR-00021")
     def test_model_drag_data_uses_override(self) -> None:
         """The data Qt builds for a drag goes through the override.
 

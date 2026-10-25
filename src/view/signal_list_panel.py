@@ -1,6 +1,6 @@
 """Signal list panel: shows the signals of the opened file."""
 
-from PyQt6.QtCore import QMimeData, pyqtSignal
+from PyQt6.QtCore import QByteArray, QMimeData, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView, QLabel, QListWidget, QVBoxLayout, QWidget)
 
@@ -61,8 +61,9 @@ class SignalListWidget(QListWidget):
             return mime_data
         signal_name_str = item_list[0].text()
         mime_data.setText(signal_name_str)
-        mime_data.setData(SIGNAL_MIME_TYPE_STR,
-                          signal_name_str.encode(TEXT_ENCODING_STR))
+        # LLFR-00021: the plot widget decodes these bytes as UTF-8.
+        mime_data.setData(SIGNAL_MIME_TYPE_STR, QByteArray(
+            signal_name_str.encode(TEXT_ENCODING_STR)))
         return mime_data
 
 
