@@ -48,7 +48,6 @@ class PlotWidgetTestCase(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        print(f"::warning::TEMP start {self.id()}", flush=True)
         self.application = get_qt_application()
         from view.plot_widget import PlotWidget
         self.plot_widget = PlotWidget(7)
