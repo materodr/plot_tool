@@ -23,8 +23,10 @@ PALETTE_COLOR_TUPLE = (
 # every color already used in the plot.
 MINIMUM_COLOR_DISTANCE_F = 70.0
 # LLFR-00034: colors lighter than this relative luminance (0 to 1) are
-# hard to see on a white background and are not used.
-MAXIMUM_LUMINANCE_F = 0.75
+# hard to see on a white background and are not used. The value is just
+# above the lightest palette color (cyan, about 0.61), so random colors
+# keep at least the contrast of the palette.
+MAXIMUM_LUMINANCE_F = 0.62
 # LLFR-00034: random tries before the minimum distance is relaxed.
 TRIES_PER_DISTANCE_I = 200
 # LLFR-00034: factor applied to the minimum distance after each round of

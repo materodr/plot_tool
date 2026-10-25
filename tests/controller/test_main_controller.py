@@ -4,18 +4,21 @@ import unittest
 
 from tests.support import covers
 
+from tests.controller.test_plot_controller import FakePlotView
+
 from controller.main_controller import MainController
 
 
-class FakeMainWindow:
+class FakeMainWindow(FakePlotView):
     """Stand-in for MainWindow that records whether it was shown."""
 
     def __init__(self) -> None:
-        """Start as not shown.
+        """Start as not shown, with the plot-panel fake facade.
 
         Inputs: none.
         Outputs: none.
         """
+        super().__init__()
         self.shown_b = False
         self.open_file_handler = None
 
@@ -63,6 +66,25 @@ class MainControllerStartTest(unittest.TestCase):
         self.assertEqual(fake_window.open_file_handler,
                          controller.file_controller.open_file_requested)
         self.assertIs(controller.file_controller.view, fake_window)
+
+    @covers("LLFR-00015", "LLFR-00019", "LLFR-00024")
+    def test_plot_controller_is_wired(self) -> None:
+        """The plot controller listens to files and to the view.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        fake_window = FakeMainWindow()
+        controller = MainController(fake_window)
+        plot_controller = controller.plot_controller
+        self.assertIs(plot_controller.view, fake_window)
+        self.assertIn(plot_controller.on_file_opened,
+                      controller.file_controller.file_opened_listener_list)
+        self.assertEqual(fake_window.handler_dict["double_click"],
+                         plot_controller.on_signal_double_clicked)
+        self.assertEqual(fake_window.handler_dict["tip_mode"],
+                         plot_controller.on_tip_mode_changed)
+        self.assertEqual(list(fake_window.tab_dict.values()), ["Tab 1"])
 
 
 if __name__ == "__main__":

@@ -6,6 +6,9 @@
   holds the maximum number of plots (LLFR-00032).
 - Replace File box: question asked before an open file is replaced
   (HLFR-00010).
+- Unexpected Error box: error box shown when an unexpected error
+  reaches the event loop, instead of letting the app abort
+  (HLFR-00002, PCR-00025).
 
 Each box is made by a ``build_*`` function, so tests can inspect it
 without opening a modal dialog. The ``show_*`` and ``ask_*`` functions
@@ -25,6 +28,10 @@ REPLACE_FILE_MESSAGE_STR = (
     "Another file is already open. Proceeding will close the current "
     "file and all its plots. Do you want to proceed?"
 )
+UNEXPECTED_ERROR_TITLE_STR = "Error"
+UNEXPECTED_ERROR_INTRO_STR = (
+    "An unexpected error occurred. The app keeps running, but the last "
+    "action may not have finished.")
 
 
 def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
@@ -129,3 +136,37 @@ def ask_replace_file(parent) -> bool:
     else:
         result_value_i = int(result)
     return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def build_unexpected_error_box(parent, message_str: str) -> QMessageBox:
+    """Build the box shown for an unexpected error.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the description of the error.
+    Outputs: a QMessageBox with the critical icon, the title
+        UNEXPECTED_ERROR_TITLE_STR, a text that starts with
+        UNEXPECTED_ERROR_INTRO_STR and ends with message_str, and an OK
+        button.
+    """
+    # LLFR-00071: an error box titled "Error" that describes the error
+    # (HLFR-00002).
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Critical)
+    box.setWindowTitle(UNEXPECTED_ERROR_TITLE_STR)
+    box.setText(f"{UNEXPECTED_ERROR_INTRO_STR}\n\n{message_str}")
+    box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    box.setDefaultButton(QMessageBox.StandardButton.Ok)
+    return box
+
+
+def show_unexpected_error(parent, message_str: str) -> None:
+    """Show the unexpected error box and wait until it is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the description of the error.
+    Outputs: none.
+    """
+    # LLFR-00071: notify the error instead of aborting (HLFR-00002).
+    build_unexpected_error_box(parent, message_str).exec()

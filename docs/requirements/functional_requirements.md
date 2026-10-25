@@ -130,6 +130,11 @@ The top panel must be placed above the other two panels, and the signal list pan
 
 *Parent: HLFR-00001*
 
+#### LLFR-00071 Unexpected error box
+If an unexpected error occurs while the app handles a user action, the app must show an error box titled "Error" that describes the error, and must keep running.
+
+*Parent: HLFR-00002*
+
 ### Top panel
 
 #### LLFR-00004 Open file button

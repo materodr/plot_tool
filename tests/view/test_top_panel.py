@@ -75,9 +75,9 @@ class TopPanelTest(unittest.TestCase):
         self.assertLess(tip_x_i + self.top_panel.tip_button.width(),
                         self.top_panel.width() // 2)
 
-    @covers("LLFR-00001", "LLFR-00003")
+    @covers("LLFR-00001", "LLFR-00002")
     def test_buttons_have_separate_states(self) -> None:
-        """Activating one button does not activate the other.
+        """Activating or deactivating one button leaves the other alone.
 
         Inputs: none.
         Outputs: none.
@@ -87,6 +87,10 @@ class TopPanelTest(unittest.TestCase):
         self.assertFalse(self.top_panel.open_file_button.is_active())
         self.assertNotEqual(self.top_panel.tip_button.objectName(),
                             self.top_panel.open_file_button.objectName())
+        self.top_panel.open_file_button.click()
+        self.top_panel.tip_button.click()
+        self.assertFalse(self.top_panel.tip_button.is_active())
+        self.assertTrue(self.top_panel.open_file_button.is_active())
 
 
 if __name__ == "__main__":
