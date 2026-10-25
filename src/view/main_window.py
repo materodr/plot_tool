@@ -164,6 +164,213 @@ class MainWindow(QMainWindow):
         # LLFR-00042: the hover tip is shown while Tip is active.
         self.tip_mode_handler = handler
 
+    # ----------------------------------------------------------------
+    # Plot panel facade, used by the plot controller (plain types only)
+    # ----------------------------------------------------------------
+
+    def set_tab_handlers(self, add_tab_handler, delete_tab_handler,
+                         rename_tab_handler) -> None:
+        """Set the functions called for the tab requests of the user.
+
+        Inputs:
+            add_tab_handler: function without arguments ("+" clicked).
+            delete_tab_handler: function taking a tab id.
+            rename_tab_handler: function taking a tab id and a name.
+        Outputs: none.
+        """
+        # LLFR-00026, LLFR-00028, LLFR-00030: the controller decides.
+        self.plot_panel.set_tab_handlers(add_tab_handler,
+                                         delete_tab_handler,
+                                         rename_tab_handler)
+
+    def set_plot_handlers(self, **handler_dict) -> None:
+        """Set the functions called for the requests made on a plot.
+
+        Inputs:
+            handler_dict: handler name -> function; see
+                view.plot_panel.PLOT_SIGNAL_HANDLER_DICT.
+        Outputs: none.
+        """
+        # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
+        # LLFR-00049, LLFR-00070: plot requests go to the controller.
+        self.plot_panel.set_plot_handlers(**handler_dict)
+
+    def add_tab_view(self, tab_id_i: int, name_str: str) -> None:
+        """Add a tab after the last one.
+
+        Inputs:
+            tab_id_i: id of the tab in the model.
+            name_str: name shown on the tab.
+        Outputs: none.
+        """
+        # LLFR-00024, LLFR-00026: show a new tab.
+        self.plot_panel.add_tab_view(tab_id_i, name_str)
+
+    def remove_tab_view(self, tab_id_i: int) -> None:
+        """Remove a tab and its plots.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        # LLFR-00028: remove the tab.
+        self.plot_panel.remove_tab_view(tab_id_i)
+
+    def rename_tab_view(self, tab_id_i: int, name_str: str) -> None:
+        """Show a new name on a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            name_str: the new name.
+        Outputs: none.
+        """
+        # LLFR-00030: show the name chosen by the user.
+        self.plot_panel.rename_tab_view(tab_id_i, name_str)
+
+    def clear_tab_views(self) -> None:
+        """Remove every tab and plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00015: close all tabs and plots of the previous file.
+        self.plot_panel.clear_tab_views()
+
+    def set_current_tab(self, tab_id_i: int) -> None:
+        """Select a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        # LLFR-00026: a new tab becomes the current one.
+        self.plot_panel.set_current_tab(tab_id_i)
+
+    def current_tab_id(self) -> int:
+        """Return the id of the selected tab.
+
+        Inputs: none.
+        Outputs: the tab id, or -1 when there is no tab.
+        """
+        # LLFR-00019: double-click plots go into the current tab.
+        return self.plot_panel.current_tab_id()
+
+    def tab_name_list(self) -> list:
+        """Return the names of the tabs, from left to right.
+
+        Inputs: none.
+        Outputs: a list of str.
+        """
+        # LLFR-00024, LLFR-00030: the names shown on the tabs.
+        return self.plot_panel.tab_name_list()
+
+    def set_tab_delete_enabled(self, enabled_b: bool) -> None:
+        """Enable or disable "Delete" in the tab menu.
+
+        Inputs:
+            enabled_b: False when only one tab is left.
+        Outputs: none.
+        """
+        # LLFR-00066: the last tab cannot be deleted.
+        self.plot_panel.set_tab_delete_enabled(enabled_b)
+
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+        """Create a plot at the bottom of a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            plot_id_i: id of the plot in the model.
+        Outputs: none.
+        """
+        # LLFR-00019, LLFR-00069: the new plot goes below the others.
+        self.plot_panel.add_plot_view(tab_id_i, plot_id_i)
+
+    def remove_plot_view(self, plot_id_i: int) -> None:
+        """Remove a plot from its tab.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: none.
+        """
+        # LLFR-00049, LLFR-00050: the other plots fill the space.
+        self.plot_panel.remove_plot_view(plot_id_i)
+
+    def plot_view(self, plot_id_i: int):
+        """Return the plot widget of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: the PlotWidget, or None for an unknown id.
+        """
+        # LLFR-00020, LLFR-00021: the widget the curves are drawn in.
+        return self.plot_panel.plot_view(plot_id_i)
+
+    def draw_plot(self, plot_id_i: int, curve_data_list: list,
+                  pinned_tip_list: list) -> None:
+        """Draw the curves and pinned tips of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            curve_data_list: tuples (signal_name_str, time_array,
+                value_array, color_str, width_i).
+            pinned_tip_list: tuples (signal_name_str, time_s, value_f).
+        Outputs: none. The plot shows the full time range afterwards.
+        """
+        # LLFR-00020, LLFR-00021, LLFR-00068: draw against time.
+        # LLFR-00045: draw the pinned tips.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is None:
+            return
+        plot_widget.set_curves(curve_data_list)
+        plot_widget.set_pinned_tips(pinned_tip_list)
+
+    def set_plot_time_range(self, plot_id_i: int, start_s: float,
+                            end_s: float) -> None:
+        """Show a time range in a plot without reporting it back.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            start_s: start of the range, in seconds.
+            end_s: end of the range, in seconds.
+        Outputs: none.
+        """
+        # LLFR-00070: the plots of a tab share the time range.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_time_range(start_s, end_s)
+
+    def plot_time_range(self, plot_id_i: int) -> tuple:
+        """Return the time range shown by a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: a tuple (start_s, end_s), or () for an unknown id.
+        """
+        # LLFR-00070: the range a new plot of the tab takes.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is None:
+            return ()
+        return plot_widget.time_range_tuple()
+
+    def set_tip_mode(self, enabled_b: bool) -> None:
+        """Turn hover tips on or off in every plot, now and later.
+
+        Inputs:
+            enabled_b: True while the Tip button is active.
+        Outputs: none.
+        """
+        # LLFR-00042: tips only while the Tip button is active.
+        self.plot_panel.set_tip_mode(enabled_b)
+
+    def show_full_tab_notification(self) -> None:
+        """Show the Full Tab Notification box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00032: the tab is full; add a tab or delete a plot.
+        message_boxes.show_full_tab_notification(self)
+
     def _on_open_file_activated(self) -> None:
         """Run the open-file handler after the Open file button is clicked.
 
