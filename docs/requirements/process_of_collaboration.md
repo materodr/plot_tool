@@ -102,3 +102,15 @@ Worktrees must be used to give each agent a separate environment.
 
 ### PCR-00027 Deleted requirements
 When a requirement is deleted, its ID must stay in the file and its title and text must be replaced by `DELETED`. The ID must never be reused, and new requirements must continue from the next number.
+
+### PCR-00028 Functional requirement categories
+Functional requirements must be divided into two categories: high-level functional requirements (HLFR) and low-level functional requirements (LLFR).
+
+### PCR-00029 HLFR approval
+High-level functional requirements must have human approval to be created or modified.
+
+### PCR-00030 LLFR ownership
+Low-level functional requirements must be created and edited by agents during development.
+
+### PCR-00031 LLFR traceability
+Every low-level functional requirement must be linked to at least one high-level functional requirement.

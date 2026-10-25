@@ -10,8 +10,8 @@ An ID is a prefix, a hyphen and a 5-digit integer padded with zeros: `<PREFIX>-<
 |---|---|---|
 | `COR` | Code and organization requirement | [code_and_organization.md](code_and_organization.md) |
 | `PCR` | Process of collaboration requirement | [process_of_collaboration.md](process_of_collaboration.md) |
-| `HLFR` | High-level functional requirement | to be added |
-| `LLFR` | Low-level functional requirement | to be added |
+| `HLFR` | High-level functional requirement | [functional_requirements.md](functional_requirements.md) |
+| `LLFR` | Low-level functional requirement | [functional_requirements.md](functional_requirements.md) |
 
 - Numbers are plain integers counted from 1 (`00001`, `00002`, ...). Each prefix has its own count.
 - Five digits give room for 10000 requirements per prefix and beyond (up to `99999`).
@@ -22,7 +22,7 @@ An ID is a prefix, a hyphen and a 5-digit integer padded with zeros: `<PREFIX>-<
 
 ## Requirement entry
 
-Each requirement is a level-3 heading with the ID and a short title, followed by the requirement statement:
+Each requirement is a heading with the ID and a short title, followed by the requirement statement. The heading is level 3 (`###`), except in [functional_requirements.md](functional_requirements.md), where it is level 4 (`####`) because the requirements are grouped by part of the interface:
 
 ```markdown
 ### COR-00001 Programming language
@@ -45,10 +45,11 @@ A deleted requirement:
 DELETED
 ```
 
-An LLFR also names its parent HLFR:
+An LLFR also names its parent HLFR, in italics, after the statement. An LLFR with several parents lists them separated by commas (`*Parent: HLFR-00001, HLFR-00002*`):
 
 ```markdown
 ### LLFR-00001 <short title>
-Parent: HLFR-00001
 <statement>
+
+*Parent: HLFR-00001*
 ```
