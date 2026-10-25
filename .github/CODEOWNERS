@@ -1,0 +1,6 @@
+# Code owners for plot_tool.
+#
+# @materodr owns every file. With "Require review from Code Owners" turned on
+# in the protect-main ruleset, only an approval from @materodr counts on pull
+# requests into main, so agent accounts cannot approve them (PCR-00015).
+* @materodr
