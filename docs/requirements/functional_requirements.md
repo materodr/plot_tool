@@ -212,6 +212,43 @@ The app must match the time signal name `Time` (HLFR-00006) case-sensitively, so
 
 *Parent: HLFR-00006*
 
+#### LLFR-00059 CSV and Excel layout
+In CSV and Excel files, the app must read each column as one signal and each row below the first as one sample, and must take the signal names from the first row.
+
+*Parent: HLFR-00005*
+
+#### LLFR-00060 Excel first sheet
+In Excel files, the app must read only the first sheet and ignore any other sheets.
+
+*Parent: HLFR-00005*
+
+#### LLFR-00061 CSV style detection
+The app must detect automatically whether a CSV file uses `,` as the separator and `.` as the decimal mark, or `;` as the separator and `,` as the decimal mark, and read the file in the detected style.
+
+*Parent: HLFR-00005*
+
+#### LLFR-00062 MAT file signals
+In MAT files, the app must read each top-level variable that holds a one-dimensional numeric array (1×N or N×1) as one signal, named after the variable.
+
+*Parent: HLFR-00005*
+
+#### LLFR-00063 Other MAT variables
+In MAT files, the app must ignore top-level variables that do not hold a one-dimensional numeric array, and must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read.
+
+*Parent: HLFR-00005, HLFR-00008, HLFR-00009*
+
+#### LLFR-00064 MAT v7.3 files
+If a MAT file was saved in the MATLAB v7.3 format, the app must show the File Open Error box saying that the file could not be read.
+
+Note: Support for v7.3 files needs an extra library and may be added later (COR-00011).
+
+*Parent: HLFR-00005, HLFR-00002*
+
+#### LLFR-00065 Missing or non-numeric values
+If a sample of any signal in a CSV or Excel file is empty or is not a number, the app must show the File Open Error box saying that the file could not be read.
+
+*Parent: HLFR-00004, HLFR-00002*
+
 ### Signal list panel
 
 #### LLFR-00019 Double-click creates a plot
@@ -407,3 +444,28 @@ When the last curve of a plot is removed (LLFR-00039), the app must delete that 
 When the app draws a new curve, it must use preset width 1.
 
 *Parent: HLFR-00023*
+
+#### LLFR-00066 Keep at least one tab
+When the plot panel has only one tab, the app must show the "Delete" option of the tab menu (LLFR-00027) as disabled, so that the last tab cannot be deleted.
+
+*Parent: HLFR-00016, HLFR-00014*
+
+#### LLFR-00067 Empty tab name
+If the user enters a tab name that is empty or made only of spaces (LLFR-00030), the app must keep the tab's previous name and must not show any message.
+
+*Parent: HLFR-00017*
+
+#### LLFR-00068 Time on the x-axis
+Every plot must use the time signal (HLFR-00006) as its x-axis.
+
+*Parent: HLFR-00012, HLFR-00013, HLFR-00007*
+
+#### LLFR-00069 Vertical stacking of plots
+The plots in a tab must be stacked vertically, one below the other.
+
+*Parent: HLFR-00014, HLFR-00018*
+
+#### LLFR-00070 Shared time axis
+The plots in a tab must share the same x-axis range, so that a change to the time range of one plot applies to all plots in that tab.
+
+*Parent: HLFR-00014*
