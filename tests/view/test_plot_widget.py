@@ -48,6 +48,7 @@ class PlotWidgetTestCase(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
+        print(f"::warning::TEMP start {self.id()}", flush=True)
         self.application = get_qt_application()
         from view.plot_widget import PlotWidget
         self.plot_widget = PlotWidget(7)
@@ -666,8 +667,10 @@ class DropTest(PlotWidgetTestCase):
         """
         record_list = self.recorder(self.plot_widget.signal_dropped)
         self.assertTrue(self.plot_widget.acceptDrops())
+        # The events keep a pointer to the data, so it is kept alive.
+        mime_data = self.mime_data(True, "Time")
         enter_event, move_event, drop_event = self.drag_events_tuple(
-            self.mime_data(True, "Time"))
+            mime_data)
         self.plot_widget.dragEnterEvent(enter_event)
         self.assertTrue(enter_event.isAccepted())
         self.plot_widget.dragMoveEvent(move_event)
@@ -684,8 +687,9 @@ class DropTest(PlotWidgetTestCase):
         Outputs: none.
         """
         record_list = self.recorder(self.plot_widget.signal_dropped)
+        mime_data = self.mime_data(False, "Sine")
         enter_event, move_event, drop_event = self.drag_events_tuple(
-            self.mime_data(False, "Sine"))
+            mime_data)
         self.plot_widget.dragEnterEvent(enter_event)
         self.assertFalse(enter_event.isAccepted())
         self.plot_widget.dragMoveEvent(move_event)
@@ -702,9 +706,9 @@ class DropTest(PlotWidgetTestCase):
         Outputs: none.
         """
         record_list = self.recorder(self.plot_widget.signal_dropped)
+        mime_data = self.mime_data(True, "Sine")
         for _ in range(2):
-            drop_event = self.drag_events_tuple(
-                self.mime_data(True, "Sine"))[2]
+            drop_event = self.drag_events_tuple(mime_data)[2]
             self.plot_widget.dropEvent(drop_event)
         self.assertEqual(record_list, [("Sine",), ("Sine",)])
 
