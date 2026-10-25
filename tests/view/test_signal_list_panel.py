@@ -87,7 +87,17 @@ class SignalListPanelTest(unittest.TestCase):
         self.panel.show_signal_names(NAME_LIST)
         self.application.processEvents()
         widget = self.panel.signal_list_widget
-        center = widget.visualItemRect(widget.item(2)).center()
+        # Lay the items out now, so their rectangles are known.
+        widget.doItemsLayout()
+        self.application.processEvents()
+        item_rect = widget.visualItemRect(widget.item(2))
+        self.assertFalse(item_rect.isEmpty())
+        center = item_rect.center()
+        # A press on the item first, as a real double-click starts
+        # with one; the item view only reports a double-click on the
+        # item that was pressed.
+        QTest.mouseClick(widget.viewport(), Qt.MouseButton.LeftButton,
+                         Qt.KeyboardModifier.NoModifier, center)
         QTest.mouseDClick(widget.viewport(), Qt.MouseButton.LeftButton,
                           Qt.KeyboardModifier.NoModifier, center)
         self.application.processEvents()
