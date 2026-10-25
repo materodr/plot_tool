@@ -1,0 +1,66 @@
+name: Fix
+description: Report a bug and track its fix (PCR-00006, PCR-00007).
+title: "[Fix]: "
+labels: ["fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill in the bug description, severity and reproduction steps when you open the issue.
+        Fill in the solution, testing and evidence before the pull request is merged (PCR-00014).
+
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Bug description
+      description: What is wrong? What did you expect to happen, and what happened instead?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is the bug? (PCR-00007)
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Step-by-step description of how to reproduce the bug.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution
+      description: What was changed to fix the bug? Fill in before merging.
+    validations:
+      required: false
+
+  - type: textarea
+    id: how_tested
+    attributes:
+      label: How the solution was tested
+      description: Which tests were run or added, and which requirements (LLFR IDs) they cover. Fill in before merging.
+    validations:
+      required: false
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Test output, screenshots or logs showing the bug is solved. Fill in before merging.
+    validations:
+      required: false
