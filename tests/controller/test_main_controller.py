@@ -17,6 +17,16 @@ class FakeMainWindow:
         Outputs: none.
         """
         self.shown_b = False
+        self.open_file_handler = None
+
+    def set_open_file_handler(self, handler) -> None:
+        """Record the handler of the Open file button.
+
+        Inputs:
+            handler: the function called when Open file is clicked.
+        Outputs: none.
+        """
+        self.open_file_handler = handler
 
     def show(self) -> None:
         """Record that the window was shown.
@@ -40,6 +50,19 @@ class MainControllerStartTest(unittest.TestCase):
         fake_window = FakeMainWindow()
         MainController(fake_window).start()
         self.assertTrue(fake_window.shown_b)
+
+    @covers("LLFR-00005")
+    def test_open_file_button_runs_file_controller(self) -> None:
+        """The Open file handler is the file controller's flow.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        fake_window = FakeMainWindow()
+        controller = MainController(fake_window)
+        self.assertEqual(fake_window.open_file_handler,
+                         controller.file_controller.open_file_requested)
+        self.assertIs(controller.file_controller.view, fake_window)
 
 
 if __name__ == "__main__":
