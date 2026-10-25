@@ -262,7 +262,8 @@ def table_signals(file_name_str: str, row_list: list,
         raise read_error(file_name_str, "the file is empty")
     column_count_i = len(row_list[0])
     while column_count_i > 0 and all(
-            is_empty_cell(row[column_count_i - 1]) for row in row_list):
+            is_empty_cell(cell_row_list[column_count_i - 1])
+            for cell_row_list in row_list):
         column_count_i -= 1
     if column_count_i == 0:
         raise read_error(file_name_str, "the file is empty")
