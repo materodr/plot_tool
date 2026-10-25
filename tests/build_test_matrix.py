@@ -73,7 +73,12 @@ def read_requirements() -> tuple:
 
 
 class RecordingResult(unittest.TextTestResult):
-    """Test result that keeps the status of every test."""
+    """Test result that keeps one status for every test.
+
+    A test is recorded once. "failed" wins over any other status, so a
+    test with a failing subtest is failed even if unittest reports
+    nothing else for it.
+    """
 
     def __init__(self, *argument_tuple, **keyword_dict) -> None:
         """Create the result with an empty status record.
@@ -82,19 +87,34 @@ class RecordingResult(unittest.TextTestResult):
         Outputs: none.
         """
         super().__init__(*argument_tuple, **keyword_dict)
-        self.status_list = []
+        self.status_dict = {}
+
+    @property
+    def status_list(self) -> list:
+        """Return the recorded tests in the order they first finished.
+
+        Inputs: none.
+        Outputs: a list of (test ID, requirement list, status) tuples.
+        """
+        return [(test_id_str, requirement_list, status_str)
+                for test_id_str, (requirement_list, status_str)
+                in self.status_dict.items()]
 
     def record(self, test, status_str: str) -> None:
         """Store a test, its requirement tags and its status.
 
         Inputs:
-            test: the finished unittest.TestCase.
+            test: the finished unittest.TestCase (for a subtest, the
+                parent test).
             status_str: PASSED_STR, FAILED_STR or SKIPPED_STR.
         Outputs: none.
         """
         method = getattr(test, getattr(test, "_testMethodName", ""), None)
         requirement_list = getattr(method, COVERED_ATTRIBUTE_STR, [])
-        self.status_list.append((test.id(), requirement_list, status_str))
+        previous_tuple = self.status_dict.get(test.id())
+        if previous_tuple and previous_tuple[1] == FAILED_STR:
+            return
+        self.status_dict[test.id()] = (requirement_list, status_str)
 
     def addSuccess(self, test) -> None:
         """Record a passed test.
@@ -139,19 +159,32 @@ class RecordingResult(unittest.TextTestResult):
         super().addSkip(test, reason_str)
         self.record(test, SKIPPED_STR)
 
+    def addSubTest(self, test, subtest, error_tuple) -> None:
+        """Record the parent test as failed when one of its subtests fails.
 
-def run_all_tests() -> list:
+        Inputs:
+            test: the parent test.
+            subtest: the subtest that finished.
+            error_tuple: the exception information, or None on success.
+        Outputs: none.
+        """
+        super().addSubTest(test, subtest, error_tuple)
+        if error_tuple is not None:
+            self.record(test, FAILED_STR)
+
+
+def run_all_tests():
     """Discover and run every test in the tests folder.
 
     Inputs: none.
-    Outputs: the list of (test ID, requirement list, status) tuples.
+    Outputs: the RecordingResult of the run.
     """
     loader = unittest.TestLoader()
     suite = loader.discover(TESTS_FOLDER_STR, pattern="test_*.py",
                             top_level_dir=REPOSITORY_ROOT_STR)
     runner = unittest.TextTestRunner(resultclass=RecordingResult,
                                      verbosity=1)
-    return runner.run(suite).status_list
+    return runner.run(suite)
 
 
 def hlfr_result(status_list: list) -> str:
@@ -245,7 +278,8 @@ def main() -> int:
     if argument_namespace.require_qt and not QT_AVAILABLE_B:
         print("PyQt6 is required but not installed.", file=sys.stderr)
         return 1
-    test_status_list = run_all_tests()
+    test_result = run_all_tests()
+    test_status_list = test_result.status_list
     matrix_str, untested_list = build_matrix(test_status_list)
     with open(argument_namespace.output, "w",
               encoding="utf-8") as matrix_file:
@@ -256,7 +290,7 @@ def main() -> int:
         print("LLFRs without tests: " + ", ".join(untested_list))
     failed_b = any(status_str == FAILED_STR
                    for _, _, status_str in test_status_list)
-    return 1 if failed_b else 0
+    return 1 if failed_b or not test_result.wasSuccessful() else 0
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 The checks read the source files with ``ast`` and cover:
 - COR-00017: every class and function in src and tests has a docstring;
+- COR-00009 and COR-00019: src/model and src/controller don't import Qt;
 - COR-00010: every function in src names at least one LLFR;
 - COR-00013: every variable name is shorter than 40 characters;
 - COR-00014 and COR-00015: a variable whose type is known from its type
@@ -57,6 +58,7 @@ NUMPY_ARRAY_FUNCTION_SET = {
 }
 PANDAS_FRAME_FUNCTION_SET = {"DataFrame", "read_csv", "read_excel"}
 IGNORED_NAME_SET = {"self", "cls", "_"}
+QT_MODULE_SET = {"PyQt6", "PyQt5", "PySide6", "PySide2"}
 
 
 def python_file_list() -> list:
@@ -285,6 +287,34 @@ class CodeConventionsTest(unittest.TestCase):
                             f"{relative_path(path_str)}:{node.lineno} "
                             f"{node.name}")
         self.assertEqual(missing_list, [], "Functions without an LLFR ID")
+
+    @covers("COR-00009", "COR-00019")
+    def test_model_and_controller_do_not_import_qt(self) -> None:
+        """Only the view uses PyQt; model and controller never import it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        importing_list = []
+        for folder_str in ("model", "controller"):
+            root_str = os.path.join(REPOSITORY_ROOT_STR, "src", folder_str)
+            for path_str in python_file_list():
+                if not path_str.startswith(root_str + os.sep):
+                    continue
+                source_str, tree = parse_file(path_str)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Import):
+                        module_list = [alias.name for alias in node.names]
+                    elif isinstance(node, ast.ImportFrom):
+                        module_list = [node.module or ""]
+                    else:
+                        continue
+                    for module_str in module_list:
+                        if module_str.split(".")[0] in QT_MODULE_SET:
+                            importing_list.append(
+                                f"{relative_path(path_str)}:{node.lineno} "
+                                f"{module_str}")
+        self.assertEqual(importing_list, [], "Qt imported outside the view")
 
     @covers("COR-00013")
     def test_variable_names_are_shorter_than_40_characters(self) -> None:

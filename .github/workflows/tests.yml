@@ -54,16 +54,25 @@ jobs:
         if: always() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if [ -f test_matrix_ci.md ]; then
-            {
-              echo "<!-- test-matrix -->"
-              echo "CI run for commit ${{ github.event.pull_request.head.sha }}"
-              echo
-              cat test_matrix_ci.md
-            } > matrix_comment.md
-            gh pr comment "${{ github.event.pull_request.number }}" \
-              --repo "${{ github.repository }}" --body-file matrix_comment.md
+          if [ ! -f test_matrix_ci.md ]; then exit 0; fi
+          {
+            echo "<!-- test-matrix -->"
+            echo "CI run for commit ${{ github.event.pull_request.head.sha }}"
+            echo
+            cat test_matrix_ci.md
+          } > matrix_comment.md
+          # Update the existing matrix comment, or create it the first time.
+          comment_id=$(gh api "repos/$REPOSITORY/issues/$PULL_NUMBER/comments" \
+            --paginate --jq '.[] | select(.body | startswith("<!-- test-matrix -->")) | .id' | tail -1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPOSITORY/issues/comments/$comment_id" \
+              -F body=@matrix_comment.md > /dev/null
+          else
+            gh api "repos/$REPOSITORY/issues/$PULL_NUMBER/comments" \
+              -F body=@matrix_comment.md > /dev/null
           fi
 
       # PCR-00019 and PCR-00022: keep the committed matrix at the last
@@ -80,9 +89,13 @@ jobs:
           git add tests/test_matrix.md
           git commit -m "Update test matrix from CI run ${{ github.run_id }}"
           for attempt in 1 2 3; do
-            git pull --rebase origin develop && git push origin HEAD:develop && break
+            if git pull --rebase origin develop && git push origin HEAD:develop; then
+              exit 0
+            fi
             sleep 5
           done
+          echo "::error title=Test matrix not committed::could not push tests/test_matrix.md to develop"
+          exit 1
 
       - name: Upload the test matrix
         if: always()
