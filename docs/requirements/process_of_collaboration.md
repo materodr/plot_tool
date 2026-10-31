@@ -62,13 +62,13 @@ If a new bug is found while creating a feature or fixing a bug:
 2. if it is not correlated, a new issue must be opened.
 
 ### PCR-00014 Pull request preconditions
-A pull request can only be merged if its issue has all the information required by PCR-00006 (fixes) or PCR-00008 (features).
+A pull request must only be merged if its issue has all the information required by PCR-00006 (fixes) or PCR-00008 (features).
 
 ### PCR-00015 Human approval for main
 Pull requests into `main` must be approved by humans.
 
 ### PCR-00016 Agent merges
-Pull requests into other branches can be merged by AI agents, after an agent different from the one that did the implementation has reviewed and tested it independently.
+An AI agent must only merge a pull request into a branch other than `main` after an agent different from the one that did the implementation has reviewed and tested it independently.
 
 ### PCR-00017 Issue list for develop to main
 A pull request from `develop` to `main` must list all the issues that track the code changes since the last merge into `main`.

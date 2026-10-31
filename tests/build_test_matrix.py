@@ -32,11 +32,16 @@ if REPOSITORY_ROOT_STR not in sys.path:
 
 from tests.support import COVERED_ATTRIBUTE_STR, QT_AVAILABLE_B  # noqa
 
-REQUIREMENTS_PATH_STR = os.path.join(REPOSITORY_ROOT_STR, "docs",
-                                     "requirements",
-                                     "functional_requirements.md")
+REQUIREMENTS_FOLDER_STR = os.path.join(REPOSITORY_ROOT_STR, "docs",
+                                       "requirements")
+REQUIREMENTS_PATH_TUPLE = (
+    os.path.join(REQUIREMENTS_FOLDER_STR,
+                 "high_level_functional_requirements.md"),
+    os.path.join(REQUIREMENTS_FOLDER_STR,
+                 "low_level_functional_requirements.md"),
+)
 DEFAULT_OUTPUT_PATH_STR = os.path.join(TESTS_FOLDER_STR, "test_matrix.md")
-HEADING_PATTERN_STR = r"^#### ((?:HLFR|LLFR)-\d{5}) (.+)$"
+HEADING_PATTERN_STR = r"^### ((?:HLFR|LLFR)-\d{5}) (.+)$"
 PARENT_PATTERN_STR = r"^\*Parent: (.+)\*$"
 PASSED_STR = "passed"
 FAILED_STR = "failed"
@@ -46,13 +51,19 @@ SKIPPED_STR = "skipped"
 def read_requirements() -> tuple:
     """Read the HLFRs and the LLFR parent links from the requirements.
 
-    Inputs: none (reads docs/requirements/functional_requirements.md).
+    Inputs: none (reads the high-level and low-level functional
+        requirement files in docs/requirements, in that order).
     Outputs: a tuple (hlfr_list, children_dict) where hlfr_list holds
-        (ID, title) pairs in file order and children_dict maps each HLFR
-        ID to the list of its child LLFR IDs.
+        (ID, title) pairs sorted by ID and children_dict maps each HLFR
+        ID to the list of its child LLFR IDs, sorted by ID. Sorting keeps
+        the matrix in ID order, although the files group requirements by
+        part of the interface.
     """
-    with open(REQUIREMENTS_PATH_STR, encoding="utf-8") as requirement_file:
-        line_list = requirement_file.read().splitlines()
+    line_list = []
+    for requirement_path_str in REQUIREMENTS_PATH_TUPLE:
+        with open(requirement_path_str,
+                  encoding="utf-8") as requirement_file:
+            line_list.extend(requirement_file.read().splitlines())
     hlfr_list = []
     children_dict = {}
     current_id_str = ""
@@ -69,7 +80,9 @@ def read_requirements() -> tuple:
             for parent_str in parent_match.group(1).split(","):
                 children_dict.setdefault(parent_str.strip(), []).append(
                     current_id_str)
-    return hlfr_list, children_dict
+    for child_list in children_dict.values():
+        child_list.sort()
+    return sorted(hlfr_list), children_dict
 
 
 class RecordingResult(unittest.TextTestResult):
