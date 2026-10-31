@@ -84,6 +84,10 @@ class MainWindow(QMainWindow):
         self.top_panel.plot_tool_changed.connect(self._on_plot_tool_changed)
         self.signal_list_panel.signal_double_clicked.connect(
             self._on_signal_double_clicked)
+        # LLFR-00095: the search text goes to the signal list controller.
+        self.search_text_handler = None
+        self.signal_list_panel.search_text_changed.connect(
+            self._on_search_text_changed)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -147,6 +151,37 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00017, LLFR-00054: replace the shown names.
         self.signal_list_panel.show_signal_names(signal_name_list)
+
+    def set_search_text_handler(self, handler) -> None:
+        """Set the function called when the search box text changes.
+
+        Inputs:
+            handler: a function taking the new text (str).
+        Outputs: none.
+        """
+        # LLFR-00095: the signal list controller filters the list.
+        self.search_text_handler = handler
+
+    def show_no_match_message(self, visible_b: bool,
+                              message_str: str) -> None:
+        """Show or hide the no-match text in the signal list.
+
+        Inputs:
+            visible_b: True when no signal matches the search.
+            message_str: the text to show ("No matching signals").
+        Outputs: none.
+        """
+        # LLFR-00097: tell the user that no signal matches.
+        self.signal_list_panel.show_no_match_message(visible_b, message_str)
+
+    def clear_search(self) -> None:
+        """Empty the search box of the signal list panel.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00104: the search is cleared when the file is replaced.
+        self.signal_list_panel.clear_search()
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Set the function called when a signal name is double-clicked.
@@ -422,6 +457,17 @@ class MainWindow(QMainWindow):
             self.set_plot_tool(tool_str)
             return
         self.plot_tool_handler(tool_str)
+
+    def _on_search_text_changed(self, text_str: str) -> None:
+        """Pass the new search box text to its handler.
+
+        Inputs:
+            text_str: the text now in the search box.
+        Outputs: none.
+        """
+        # LLFR-00095: every change re-filters the signal list.
+        if self.search_text_handler is not None:
+            self.search_text_handler(text_str)
 
     def _on_signal_double_clicked(self, signal_name_str: str) -> None:
         """Pass a double-clicked signal name to its handler.
