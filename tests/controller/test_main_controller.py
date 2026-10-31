@@ -21,6 +21,7 @@ class FakeMainWindow(FakePlotView):
         super().__init__()
         self.shown_b = False
         self.open_file_handler = None
+        self.search_text_handler = None
 
     def set_open_file_handler(self, handler) -> None:
         """Record the handler of the Open file button.
@@ -30,6 +31,15 @@ class FakeMainWindow(FakePlotView):
         Outputs: none.
         """
         self.open_file_handler = handler
+
+    def set_search_text_handler(self, handler) -> None:
+        """Record the handler of the search box.
+
+        Inputs:
+            handler: the function called with the new search text.
+        Outputs: none.
+        """
+        self.search_text_handler = handler
 
     def show(self) -> None:
         """Record that the window was shown.
@@ -85,6 +95,26 @@ class MainControllerStartTest(unittest.TestCase):
         self.assertEqual(fake_window.handler_dict["tip_mode"],
                          plot_controller.on_tip_mode_changed)
         self.assertEqual(list(fake_window.tab_dict.values()), ["Tab 1"])
+
+    @covers("LLFR-00095", "LLFR-00104")
+    def test_signal_list_controller_is_wired(self) -> None:
+        """The search box handler and the file listener are connected.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        fake_window = FakeMainWindow()
+        controller = MainController(fake_window)
+        signal_list_controller = controller.signal_list_controller
+        self.assertIs(signal_list_controller.view, fake_window)
+        self.assertEqual(fake_window.search_text_handler,
+                         signal_list_controller.on_search_text_changed)
+        listener_list = controller.file_controller.file_opened_listener_list
+        self.assertIn(signal_list_controller.on_file_opened, listener_list)
+        # LLFR-00017: the search listener runs after the plot listener,
+        # so it gives the final signal list of a new file.
+        self.assertEqual(listener_list[-1],
+                         signal_list_controller.on_file_opened)
 
 
 if __name__ == "__main__":
