@@ -310,6 +310,8 @@ When the app starts, the plot panel must contain one tab.
 ### LLFR-00025 Add tab button
 The plot panel must show a "+" button in the same row as the tabs, always directly to the right of the last tab.
 
+Note: When the tabs are wider than the plot panel and the tab row shows scroll buttons, the "+" button is placed at the right end of the tab row, right after the scroll buttons, so that it stays visible and covers neither a tab nor a scroll button.
+
 *Parent: HLFR-00015*
 
 ### LLFR-00026 Add tab button action
