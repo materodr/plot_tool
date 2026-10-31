@@ -23,6 +23,8 @@ from PyQt6 import sip
 from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
+from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR
+
 # LLFR-00021: same literal string the signal list uses for its drags.
 SIGNAL_MIME_TYPE_STR = "application/x-plot-tool-signal"
 # LLFR-00041, LLFR-00052: preset width -> matplotlib line width; a
@@ -33,7 +35,10 @@ WIDTH_PIXELS_DICT = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.5, 5: 6.0}
 PICK_TOLERANCE_PIXELS_I = 6
 
 TIME_AXIS_LABEL_STR = "Time (s)"
+# LLFR-00074: range width kept per forward wheel step.
 ZOOM_IN_FACTOR_F = 0.8
+# LLFR-00078: a click with the Zoom tool halves the range width.
+CLICK_ZOOM_FACTOR_F = 0.5
 SINGLE_SAMPLE_HALF_RANGE_S = 0.5
 VALUE_MARGIN_RATIO_F = 0.05
 CONSTANT_VALUE_HALF_RANGE_F = 0.5
@@ -77,6 +82,75 @@ def padded_range_tuple(low_f: float, high_f: float,
     if high_f - low_f <= 0.0:
         return (low_f - half_range_f, high_f + half_range_f)
     return (low_f, high_f)
+
+
+def visible_value_range_tuple(time_array, value_array, start_s: float,
+                              end_s: float, sorted_b: bool) -> tuple:
+    """Return the lowest and highest value a curve shows in a time range.
+
+    The curve is drawn as straight segments between its samples, so the
+    part of a segment inside the range is cut at the range's ends and the
+    values at the cuts are interpolated. This also covers a segment that
+    crosses the whole range between two samples outside it.
+
+    Inputs:
+        time_array: the curve's time samples in seconds (numpy array).
+        value_array: the curve's values (numpy array, same size).
+        start_s: start of the shown range, in seconds.
+        end_s: end of the shown range, in seconds.
+        sorted_b: True when time_array is sorted in increasing order,
+            which allows looking only at the samples near the range.
+    Outputs: a tuple (low_f, high_f), or an empty tuple when no part of
+        the curve is inside the range.
+    """
+    # LLFR-00076: every visible part of the curve must fit in the y range.
+    if time_array.size == 0:
+        return ()
+    if time_array.size == 1:
+        if start_s <= time_array[0] <= end_s:
+            return (float(value_array[0]), float(value_array[0]))
+        return ()
+    if sorted_b:
+        # Only the samples inside the range and one neighbour on each
+        # side can belong to a visible segment.
+        first_i = max(0, int(np.searchsorted(time_array, start_s,
+                                             side="left")) - 1)
+        last_i = min(time_array.size, int(np.searchsorted(
+            time_array, end_s, side="right")) + 1)
+        time_array = time_array[first_i:last_i]
+        value_array = value_array[first_i:last_i]
+        if time_array.size < 2:
+            return visible_value_range_tuple(time_array, value_array,
+                                             start_s, end_s, False)
+    segment_start_s_array = time_array[:-1]
+    segment_end_s_array = time_array[1:]
+    overlap_array = ((np.maximum(segment_start_s_array, segment_end_s_array)
+                      >= start_s)
+                     & (np.minimum(segment_start_s_array,
+                                   segment_end_s_array) <= end_s))
+    if not np.any(overlap_array):
+        return ()
+    segment_start_s_array = segment_start_s_array[overlap_array]
+    segment_end_s_array = segment_end_s_array[overlap_array]
+    start_value_array = value_array[:-1][overlap_array]
+    end_value_array = value_array[1:][overlap_array]
+    duration_s_array = segment_end_s_array - segment_start_s_array
+    safe_duration_s_array = np.where(duration_s_array != 0.0,
+                                     duration_s_array, 1.0)
+    value_list = []
+    for endpoint_s_array, vertical_ratio_f in ((segment_start_s_array, 0.0),
+                                               (segment_end_s_array, 1.0)):
+        # The ends of the visible part of each segment. A vertical
+        # segment (two samples at the same time) shows both its values.
+        cut_s_array = np.clip(endpoint_s_array, start_s, end_s)
+        ratio_array = np.where(
+            duration_s_array != 0.0,
+            (cut_s_array - segment_start_s_array) / safe_duration_s_array,
+            vertical_ratio_f)
+        value_list.append(start_value_array + ratio_array
+                          * (end_value_array - start_value_array))
+    visible_array = np.concatenate(value_list)
+    return (float(np.min(visible_array)), float(np.max(visible_array)))
 
 
 def segment_distance_array(point_array, start_array, end_array):
@@ -152,7 +226,8 @@ class PlotWidget(QWidget):
         self.pinned_annotation_list = []
         self.pinned_marker_list = []
         self.curve_sorted_list = []
-        self.tip_mode_b = False
+        # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
+        self.plot_tool_str = NO_TOOL_STR
         self.hover_point_tuple = ()
         self.pending_menu_point = QPoint()
 
@@ -226,18 +301,37 @@ class PlotWidget(QWidget):
         self.draw_pinned_tips()
         self.canvas.draw_idle()
 
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Turn the hover tips on or off.
+    def set_plot_tool(self, tool_str: str) -> None:
+        """Choose how the plot reacts to hovers and left clicks.
 
         Inputs:
-            enabled_b: True while the Tip button is active.
-        Outputs: none. Turning the mode off hides the hover tip.
+            tool_str: a name of controller.plot_tools: TIP_TOOL_STR
+                (hover tips and pinning), ZOOM_TOOL_STR (click to zoom),
+                MARKER_TOOL_STR, or NO_TOOL_STR.
+        Outputs: none. Leaving the Tip tool hides the hover tip.
         """
-        # LLFR-00042: hover tips are only shown while the Tip button is
-        # active.
-        self.tip_mode_b = bool(enabled_b)
-        if not self.tip_mode_b:
+        # LLFR-00042, LLFR-00045: tips only with the Tip tool.
+        # LLFR-00078: click zoom only with the Zoom tool.
+        self.plot_tool_str = str(tool_str)
+        if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
+
+    def set_tip_mode(self, enabled_b: bool) -> None:
+        """Turn the Tip tool on or off (kept for the plot panel).
+
+        Inputs:
+            enabled_b: True selects the Tip tool; False leaves no tool
+                active if the Tip tool was active, and otherwise keeps
+                the current tool.
+        Outputs: none.
+        """
+        # LLFR-00042: PlotPanel.add_plot_view still calls this with its
+        # own tip state; MainWindow then applies the real tool with
+        # set_plot_tool, so a False here never ends another tool.
+        if enabled_b:
+            self.set_plot_tool(TIP_TOOL_STR)
+        elif self.plot_tool_str == TIP_TOOL_STR:
+            self.set_plot_tool(NO_TOOL_STR)
 
     def set_time_range(self, start_s: float, end_s: float) -> None:
         """Show the given time range without emitting time_range_changed.
@@ -272,6 +366,10 @@ class PlotWidget(QWidget):
         # LLFR-00068: the x-axis is time in seconds.
         self.axes.clear()
         self.axes.set_xlabel(TIME_AXIS_LABEL_STR)
+        # LLFR-00075: matplotlib's own pan and zoom never act on these
+        # axes (there is no navigation toolbar either); the y range is
+        # only set by apply_time_range (LLFR-00076).
+        self.axes.set_navigate(False)
         self.curve_line_dict = {}
         self.curve_width_dict = {}
         for (signal_name_str, time_array, value_array, color_str,
@@ -422,19 +520,21 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00070: x shows the stored range, y fits what is visible.
+        # LLFR-00070: x shows the stored range.
         start_s, end_s = self.time_range_s_tuple
         self.axes.set_xlim(start_s, end_s)
-        visible_list = []
-        for curve_tuple in self.curve_data_list:
-            time_array, value_array = curve_tuple[1], curve_tuple[2]
-            inside_array = (time_array >= start_s) & (time_array <= end_s)
-            visible_list.append(value_array[inside_array])
-        visible_array = (np.concatenate(visible_list) if visible_list
-                         else np.zeros(0))
-        if visible_array.size > 0:
-            low_f = float(np.min(visible_array))
-            high_f = float(np.max(visible_array))
+        # LLFR-00076: y fits every curve, including segments that cross
+        # the range between two samples outside it.
+        range_list = []
+        for curve_tuple, sorted_b in zip(self.curve_data_list,
+                                         self.curve_sorted_list):
+            range_tuple = visible_value_range_tuple(
+                curve_tuple[1], curve_tuple[2], start_s, end_s, sorted_b)
+            if range_tuple:
+                range_list.append(range_tuple)
+        if range_list:
+            low_f = min(range_tuple[0] for range_tuple in range_list)
+            high_f = max(range_tuple[1] for range_tuple in range_list)
             margin_f = (high_f - low_f) * VALUE_MARGIN_RATIO_F
             self.axes.set_ylim(*padded_range_tuple(
                 low_f - margin_f, high_f + margin_f,
@@ -854,8 +954,8 @@ class PlotWidget(QWidget):
             widget_point: QPoint in this widget's coordinates.
         Outputs: none.
         """
-        # LLFR-00042: tips only in tip mode and only on a curve.
-        if not self.tip_mode_b:
+        # LLFR-00042: tips only with the Tip tool and only on a curve.
+        if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
             return
         nearest_tuple = self.nearest_curve_tuple(widget_point)
@@ -888,40 +988,90 @@ class PlotWidget(QWidget):
         self.canvas.draw_idle()
 
     def click_at(self, widget_point) -> None:
-        """Do what a left click at a point does: pin the shown tip.
+        """Do what a left click at a point does with the active tool.
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: none. Emits tip_pin_requested when a hover tip is shown.
+        Outputs: none. With the Tip tool, emits tip_pin_requested when a
+            hover tip is shown; with the Zoom tool, zooms in (see
+            zoom_click_at). Other tools do nothing here.
         """
+        # LLFR-00109: using a tool never changes the active tool.
+        if self.plot_tool_str == ZOOM_TOOL_STR:
+            # LLFR-00078: click to zoom.
+            self.zoom_click_at(widget_point)
+            return
         # LLFR-00045: pin the point of the hover tip that is shown.
-        if not self.tip_mode_b or not self.hover_point_tuple:
+        if self.plot_tool_str != TIP_TOOL_STR or not self.hover_point_tuple:
             return
         signal_name_str, time_s, value_f = self.hover_point_tuple
         self.tip_pin_requested.emit(signal_name_str, time_s, value_f)
+
+    def time_at(self, widget_point) -> float:
+        """Return the time on the x-axis under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the time in seconds.
+        """
+        # LLFR-00074, LLFR-00078: zooms are centred on this time.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        return float(self.axes.transData.inverted().transform(
+            (display_x_px, display_y_px))[0])
+
+    def zoom_click_at(self, widget_point) -> None:
+        """Zoom the time axis in by 2, centred on the clicked time.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits time_range_changed with the new range. A
+            click outside the axes area does nothing.
+        """
+        # LLFR-00078: only a click on the axes has a time to zoom on.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return
+        center_s = self.time_at(widget_point)
+        start_s, end_s = self.time_range_tuple()
+        # LLFR-00078: half the width, centred on the click.
+        half_width_s = (end_s - start_s) * CLICK_ZOOM_FACTOR_F / 2.0
+        self.zoom_to_range(center_s - half_width_s, center_s + half_width_s)
 
     def wheel_at(self, widget_point, step_f: float) -> None:
         """Zoom the time axis around a point, as the mouse wheel does.
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-            step_f: wheel steps; positive zooms in, negative zooms out.
+            step_f: wheel steps; positive (forward) zooms in, negative
+                (backward) zooms out.
         Outputs: none. Emits time_range_changed with the new range.
         """
-        # LLFR-00070: zoom around the time under the mouse.
+        # LLFR-00074: zoom around the time under the mouse.
+        # LLFR-00108: whatever plot tool is active, or none.
         if step_f == 0:
             return
-        display_x_px, display_y_px = self.widget_to_display_tuple(
-            widget_point)
-        center_s = float(self.axes.transData.inverted().transform(
-            (display_x_px, display_y_px))[0])
+        center_s = self.time_at(widget_point)
         factor_f = ZOOM_IN_FACTOR_F ** float(step_f)
         start_s, end_s = self.time_range_tuple()
-        new_start_s = center_s + (start_s - center_s) * factor_f
-        new_end_s = center_s + (end_s - center_s) * factor_f
+        self.zoom_to_range(center_s + (start_s - center_s) * factor_f,
+                           center_s + (end_s - center_s) * factor_f)
+
+    def zoom_to_range(self, new_start_s: float, new_end_s: float) -> None:
+        """Show a zoomed time range, kept inside the data's range.
+
+        Inputs:
+            new_start_s: wanted start of the range, in seconds.
+            new_end_s: wanted end of the range, in seconds.
+        Outputs: none. Emits time_range_changed when the range changed,
+            so that the whole tab follows (LLFR-00070).
+        """
+        # LLFR-00074, LLFR-00078: an empty range cannot be shown.
         if not new_end_s > new_start_s:
             return
-        # LLFR-00070: zooming out never goes beyond the data's range.
+        start_s, end_s = self.time_range_tuple()
+        # LLFR-00074: zooming out never goes beyond the data's range.
         full_start_s, full_end_s = self.full_time_range_tuple()
         if new_end_s - new_start_s >= full_end_s - full_start_s:
             new_start_s, new_end_s = full_start_s, full_end_s
@@ -933,9 +1083,11 @@ class PlotWidget(QWidget):
                 full_end_s - (new_end_s - new_start_s), full_end_s)
         if (new_start_s, new_end_s) == (start_s, end_s):
             return
+        # LLFR-00076: apply_time_range fits y to the new range.
         self.time_range_s_tuple = (new_start_s, new_end_s)
         self.apply_time_range()
         self.canvas.draw_idle()
+        # LLFR-00070: the plot panel shares the range with the tab.
         self.time_range_changed.emit(new_start_s, new_end_s)
 
     # ----------------------------------------------------------------
@@ -959,13 +1111,14 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
-        # LLFR-00045: the second press of a double-click must not pin the
-        # same tip again.
+        # LLFR-00045, LLFR-00078: the second press of a double-click must
+        # not pin the same tip again nor zoom a second time.
         if event.dblclick:
             return
         widget_point = self.display_to_widget_point(event.x, event.y)
         if event.button == MouseButton.LEFT:
-            # LLFR-00045: a left click pins the shown tip.
+            # LLFR-00045: a left click pins the shown tip; LLFR-00078:
+            # with the Zoom tool it zooms in.
             self.click_at(widget_point)
         elif event.button == MouseButton.RIGHT:
             # LLFR-00038, LLFR-00046, LLFR-00048: show the menu once this
@@ -979,7 +1132,8 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent of the wheel.
         Outputs: none.
         """
-        # LLFR-00070: the wheel runs the zoom code.
+        # LLFR-00074, LLFR-00108: the wheel runs the zoom code with any
+        # tool.
         self.wheel_at(self.display_to_widget_point(event.x, event.y),
                       float(event.step))
 
