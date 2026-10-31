@@ -10,6 +10,8 @@ The matching names are returned in the three groups of LLFR-00102.
 This module is pure Python and has no user interface code (COR-00009).
 """
 
+import functools
+
 # LLFR-00097: text the view shows when no signal matches.
 NO_MATCH_TEXT_STR = "No matching signals"
 
@@ -73,6 +75,31 @@ def allowed_typo_count(word_str: str) -> int:
     return len(word_str) // CHARACTERS_PER_TYPO_I
 
 
+@functools.lru_cache(maxsize=256)
+def word_bit_masks(word_str: str) -> tuple:
+    """Build the bit masks of a search word for has_close_substring.
+
+    The result is cached, because the same few words are compared with
+    every signal name on each keystroke.
+
+    Inputs:
+        word_str: a normalized, non-empty search word.
+    Outputs: a tuple (position_mask_dict, all_bits_i, last_bit_i):
+        position_mask_dict maps each character of the word to an int
+        whose bit i is set when word_str[i] is that character;
+        all_bits_i has one set bit per word character; last_bit_i has
+        only the bit of the last word character set.
+    """
+    # LLFR-00101: bit masks of the positions of each character.
+    position_mask_dict = {}
+    for position_i, character_str in enumerate(word_str):
+        position_mask_dict[character_str] = (
+            position_mask_dict.get(character_str, 0) | (1 << position_i))
+    all_bits_i = (1 << len(word_str)) - 1
+    last_bit_i = 1 << (len(word_str) - 1)
+    return position_mask_dict, all_bits_i, last_bit_i
+
+
 def has_close_substring(word_str: str, name_str: str,
                         maximum_distance_i: int) -> bool:
     """Check if some part of a name is close enough to a search word.
@@ -94,14 +121,11 @@ def has_close_substring(word_str: str, name_str: str,
     word_length_i = len(word_str)
     if word_length_i <= maximum_distance_i:
         return True
-    # LLFR-00101: bit masks of the positions of each character in the
-    # word (bit i is set when word_str[i] is that character).
-    position_mask_dict = {}
-    for position_i, character_str in enumerate(word_str):
-        position_mask_dict[character_str] = (
-            position_mask_dict.get(character_str, 0) | (1 << position_i))
-    all_bits_i = (1 << word_length_i) - 1
-    last_bit_i = 1 << (word_length_i - 1)
+    # LLFR-00101: a part of the name is at most len(name_str) long, so
+    # at least word_length_i - len(name_str) characters are missing.
+    if word_length_i - len(name_str) > maximum_distance_i:
+        return False
+    position_mask_dict, all_bits_i, last_bit_i = word_bit_masks(word_str)
     positive_vertical_i = all_bits_i
     negative_vertical_i = 0
     # LLFR-00101: distance between the whole word and the best part of
@@ -170,6 +194,10 @@ def search_signals(signal_name_list: list, text_str: str) -> list:
     if not word_list:
         return list(signal_name_list)
     first_word_str = word_list[0]
+    # LLFR-00105: the words may match in any order, so they are checked
+    # with the smallest typo allowance first; a name that misses a short
+    # word is then rejected before the slower typo checks run.
+    check_word_list = sorted(word_list, key=allowed_typo_count)
     starts_with_first_word_list = []
     other_exact_list = []
     typo_list = []
@@ -179,7 +207,7 @@ def search_signals(signal_name_list: list, text_str: str) -> list:
         # LLFR-00105: every word must match, in any order.
         needs_typo_b = False
         matches_b = True
-        for word_str in word_list:
+        for word_str in check_word_list:
             match_kind_str = word_match_kind(word_str, normalized_name_str)
             if match_kind_str == NO_MATCH_STR:
                 matches_b = False

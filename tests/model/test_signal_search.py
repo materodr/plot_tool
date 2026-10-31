@@ -332,7 +332,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "engine"),
                          ["_Engine-Speed", "X_Engine"])
 
-    @covers("LLFR-00099", "LLFR-00054", "HLFR-00033")
+    @covers("LLFR-00098", "LLFR-00099", "HLFR-00034")
     def test_time_signal_searchable(self) -> None:
         """The time signal is found like any other signal.
 
@@ -345,7 +345,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "TI"),
                          ["Time", "Lap_Time"])
 
-    @covers("LLFR-00095", "HLFR-00033")
+    @covers("HLFR-00033")
     def test_fast_enough_for_typing(self) -> None:
         """1,000 long names and 3 words are searched quickly.
 
@@ -359,6 +359,27 @@ class SearchSignalsTest(unittest.TestCase):
         start_s = time.perf_counter()
         search_signals(name_list, "engine speed_front temperature")
         elapsed_s = time.perf_counter() - start_s
+        self.assertLess(elapsed_s, 0.5)
+
+    @covers("LLFR-00101", "HLFR-00034")
+    def test_fast_enough_when_every_word_needs_a_typo(self) -> None:
+        """1,000 names that match 3 words only by typos are fast.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        generator = random.Random(101)
+        letters_str = "abcdefghijklmnopqrstuvwxyz"
+        name_list = []
+        for _ in range(1000):
+            filler_str = "".join(generator.choice(letters_str)
+                                 for _ in range(28))
+            name_list.append(filler_str[:10] + "enxine_" + filler_str[10:20]
+                             + "spxed_" + filler_str[20:] + "temxerature")
+        start_s = time.perf_counter()
+        result_list = search_signals(name_list, "engine speed temperature")
+        elapsed_s = time.perf_counter() - start_s
+        self.assertEqual(result_list, name_list)
         self.assertLess(elapsed_s, 0.5)
 
 
