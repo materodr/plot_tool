@@ -177,6 +177,13 @@ The top panel must contain a button called "Vertical marker".
 
 *Parent: HLFR-00028, HLFR-00032*
 
+### LLFR-00109 Plot tools stay active
+A plot tool button must stay active after its tool is used, until the user clicks the button again (LLFR-00002) or activates another plot tool (LLFR-00079).
+
+Note: For a plot tool, the function of LLFR-00003 finishes only when the tool is deactivated, not after each zoom, pin or placed marker.
+
+*Parent: HLFR-00032, HLFR-00003*
+
 ## Signal list panel
 
 ### LLFR-00019 Double-click creates a plot
@@ -240,7 +247,7 @@ When the search box is empty or contains only spaces, the signal list must show 
 *Parent: HLFR-00033*
 
 ### LLFR-00097 No matching signals
-When no signal matches the text in the search box, the signal list must be empty and must show the text "No matching signals".
+When no signal matches the text in the search box, the signal list must show no signals and must show the text "No matching signals".
 
 *Parent: HLFR-00033*
 
@@ -262,14 +269,17 @@ Note: For example, `enginespeed` finds `Engine_Speed`.
 *Parent: HLFR-00034*
 
 ### LLFR-00101 Typo-tolerant search
-When a search word (LLFR-00105), after LLFR-00098 and LLFR-00100 are applied, has 4 or more characters, it must also match a signal whose name contains a part that differs from the word by at most one wrong, missing or extra character for every 4 characters of the word.
+When a search word (LLFR-00105), after LLFR-00098 and LLFR-00100 are applied, has 4 or more characters, it must also match a signal whose name contains a part that differs from the word by at most one wrong, missing or extra character for every full 4 characters of the word (1 for 4 to 7 characters, 2 for 8 to 11 characters, and so on).
 
 Note: For example, `presure` finds `Pressure`, and `sine_2hz` finds `Sine_3Hz`.
 
 *Parent: HLFR-00034*
 
 ### LLFR-00102 Order of search results
-The app must list the matching signals in this order: first the signals whose name starts with the first search word, then the other signals matched without LLFR-00101, then the signals that need LLFR-00101 for at least one search word. Within each of these groups, the signals must keep their order in the file.
+The app must list the matching signals, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105), in three groups in this order, keeping the file order within each group:
+1. the signals that match every search word without LLFR-00101 and whose name, after LLFR-00098 and LLFR-00100 are applied, starts with the first search word;
+2. the other signals that match every search word without LLFR-00101;
+3. the signals that need LLFR-00101 for at least one search word.
 
 *Parent: HLFR-00034*
 
@@ -507,7 +517,7 @@ The app must show the name of a vertical marker in a label at the top of its lin
 *Parent: HLFR-00028*
 
 ### LLFR-00085 Default marker name
-The app must name each new vertical marker "Marker N", where N is 1 for the first marker placed in that plot and grows by 1 for each new marker in that plot. Numbers of deleted markers must not be reused in that plot.
+The app must name each new vertical marker "Marker N", where N is 1 for the first marker placed in that plot and grows by 1 for each new marker in that plot.
 
 *Parent: HLFR-00028*
 
@@ -522,7 +532,7 @@ When the user right-clicks a vertical marker, the app must show a menu with a "R
 *Parent: HLFR-00030*
 
 ### LLFR-00088 Rename marker action
-When the user chooses "Rename" in the marker menu (LLFR-00087), the app must let the user type a new name for that marker and show it in the marker's label.
+When the user chooses "Rename" in the marker menu (LLFR-00087), the app must let the user type a new name for that marker.
 
 *Parent: HLFR-00030*
 
@@ -560,3 +570,25 @@ The tabs must be aligned to the left of the top edge of the plot panel, with the
 The "+" button (LLFR-00025) must have the same height, background, border and corner shape as an unselected tab, and must be narrower than a tab, like the new tab button of a modern web browser.
 
 *Parent: HLFR-00015*
+
+### LLFR-00108 Wheel zoom with any plot tool
+The app must apply mouse wheel zoom (LLFR-00074) whether or not a plot tool is active.
+
+Note: Mouse wheel zoom is not a plot tool (HLFR-00032).
+
+*Parent: HLFR-00027, HLFR-00032*
+
+### LLFR-00110 Marker menu over a curve
+When the user right-clicks a point where a vertical marker overlaps a curve, the app must show the marker menu (LLFR-00087, LLFR-00090) and not the curve menu (LLFR-00038, LLFR-00040).
+
+*Parent: HLFR-00030, HLFR-00031*
+
+### LLFR-00111 Marker numbers not reused
+The app must not reuse the number of a deleted vertical marker (LLFR-00085) for a new marker in the same plot.
+
+*Parent: HLFR-00028*
+
+### LLFR-00112 Renamed marker label
+After the user types a new marker name (LLFR-00088), the app must show the new name in the marker's label (LLFR-00084).
+
+*Parent: HLFR-00030*

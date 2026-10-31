@@ -54,8 +54,10 @@ def read_requirements() -> tuple:
     Inputs: none (reads the high-level and low-level functional
         requirement files in docs/requirements, in that order).
     Outputs: a tuple (hlfr_list, children_dict) where hlfr_list holds
-        (ID, title) pairs in file order and children_dict maps each HLFR
-        ID to the list of its child LLFR IDs.
+        (ID, title) pairs sorted by ID and children_dict maps each HLFR
+        ID to the list of its child LLFR IDs, sorted by ID. Sorting keeps
+        the matrix in ID order, although the files group requirements by
+        part of the interface.
     """
     line_list = []
     for requirement_path_str in REQUIREMENTS_PATH_TUPLE:
@@ -78,7 +80,9 @@ def read_requirements() -> tuple:
             for parent_str in parent_match.group(1).split(","):
                 children_dict.setdefault(parent_str.strip(), []).append(
                     current_id_str)
-    return hlfr_list, children_dict
+    for child_list in children_dict.values():
+        child_list.sort()
+    return sorted(hlfr_list), children_dict
 
 
 class RecordingResult(unittest.TextTestResult):
