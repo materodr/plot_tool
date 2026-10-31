@@ -62,7 +62,7 @@ class FakePlotView:
         range_dict: plot id -> (start_s, end_s) shown.
         delete_enabled_b: last value given to set_tab_delete_enabled.
         full_tab_count_i: how many Full Tab boxes were shown.
-        tip_mode_b: last value given to set_tip_mode.
+        plot_tool_str: last value given to set_plot_tool.
     """
 
     def __init__(self) -> None:
@@ -79,7 +79,7 @@ class FakePlotView:
         self.range_dict = {}
         self.delete_enabled_b = True
         self.full_tab_count_i = 0
-        self.tip_mode_b = False
+        self.plot_tool_str = ""
         self.handler_dict = {}
 
     def set_signal_double_click_handler(self, handler) -> None:
@@ -91,14 +91,14 @@ class FakePlotView:
         """
         self.handler_dict["double_click"] = handler
 
-    def set_tip_mode_handler(self, handler) -> None:
-        """Record the Tip button handler.
+    def set_plot_tool_handler(self, handler) -> None:
+        """Record the plot tool handler.
 
         Inputs:
-            handler: function taking a bool.
+            handler: function taking a plot tool name.
         Outputs: none.
         """
-        self.handler_dict["tip_mode"] = handler
+        self.handler_dict["plot_tool"] = handler
 
     def set_tab_handlers(self, add_tab_handler, delete_tab_handler,
                          rename_tab_handler) -> None:
@@ -262,15 +262,15 @@ class FakePlotView:
         """
         return self.range_dict[plot_id_i]
 
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Record the tip mode.
+    def set_plot_tool(self, tool_str: str) -> None:
+        """Record the plot tool.
 
         Inputs:
-            enabled_b: the new tip mode.
+            tool_str: the new plot tool name.
         Outputs: none.
         """
-        self.call_list.append(("set_tip_mode", enabled_b))
-        self.tip_mode_b = enabled_b
+        self.call_list.append(("set_plot_tool", tool_str))
+        self.plot_tool_str = tool_str
 
     def show_full_tab_notification(self) -> None:
         """Count a Full Tab box.
@@ -844,20 +844,20 @@ class TipTest(PlotControllerTestCase):
     """Tip button, pinned tips (HLFR-00024, HLFR-00025)."""
 
     @covers("LLFR-00042", "HLFR-00024")
-    def test_tip_button_sets_tip_mode(self) -> None:
-        """Tip on and off is passed to the view.
+    def test_tip_button_sets_tip_tool(self) -> None:
+        """Tip on and off is passed to the view as the plot tool.
 
         Inputs: none.
         Outputs: none.
         """
-        self.view.handler_dict["tip_mode"](True)
-        self.assertTrue(self.view.tip_mode_b)
-        self.assertTrue(self.controller.tip_mode_b)
-        self.view.handler_dict["tip_mode"](False)
-        self.assertFalse(self.view.tip_mode_b)
+        self.view.handler_dict["plot_tool"]("tip")
+        self.assertEqual(self.view.plot_tool_str, "tip")
+        self.assertEqual(self.controller.plot_tool_str, "tip")
+        self.view.handler_dict["plot_tool"]("")
+        self.assertEqual(self.view.plot_tool_str, "")
         self.assertEqual([call_tuple for call_tuple in self.view.call_list
-                          if call_tuple[0] == "set_tip_mode"],
-                         [("set_tip_mode", True), ("set_tip_mode", False)])
+                          if call_tuple[0] == "set_plot_tool"],
+                         [("set_plot_tool", "tip"), ("set_plot_tool", "")])
 
     @covers("LLFR-00045", "HLFR-00025")
     def test_pin_stores_and_draws_tip(self) -> None:

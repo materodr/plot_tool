@@ -9,16 +9,17 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``clear_tab_views``, ``set_current_tab``, ``current_tab_id``,
   ``set_tab_delete_enabled``;
 - plots: ``add_plot_view``, ``remove_plot_view``, ``draw_plot``,
-  ``set_plot_time_range``, ``plot_time_range``, ``set_tip_mode``;
+  ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``;
 - boxes: ``show_full_tab_notification``;
 - handler setters: ``set_signal_double_click_handler``,
-  ``set_tip_mode_handler``, ``set_tab_handlers`` and
+  ``set_plot_tool_handler``, ``set_tab_handlers`` and
   ``set_plot_handlers``.
 
 Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
 """
 
+from controller.plot_tools import NO_TOOL_STR, is_known_plot_tool
 from model.workspace import Workspace
 
 
@@ -34,7 +35,8 @@ class PlotController:
         view: the view facade.
         workspace: the Workspace with the tabs, plots and curves.
         signal_file: the open SignalFile, or None before the first file.
-        tip_mode_b: True while the Tip button is active.
+        plot_tool_str: the active plot tool (a name of
+            controller.plot_tools), NO_TOOL_STR when none is active.
     """
 
     def __init__(self, view, file_controller, workspace=None) -> None:
@@ -52,12 +54,13 @@ class PlotController:
         self.view = view
         self.workspace = workspace
         self.signal_file = None
-        self.tip_mode_b = False
+        self.plot_tool_str = NO_TOOL_STR
         # LLFR-00015, LLFR-00016: reset the tabs for every opened file.
         file_controller.add_file_opened_listener(self.on_file_opened)
-        # LLFR-00019, LLFR-00042: signal list and Tip button requests.
+        # LLFR-00019: signal list requests.
         view.set_signal_double_click_handler(self.on_signal_double_clicked)
-        view.set_tip_mode_handler(self.on_tip_mode_changed)
+        # LLFR-00079, LLFR-00109: the plot tool buttons of the top panel.
+        view.set_plot_tool_handler(self.on_plot_tool_changed)
         # LLFR-00026, LLFR-00028, LLFR-00030: tab menu and "+" button.
         view.set_tab_handlers(self.on_add_tab, self.on_delete_tab,
                               self.on_rename_tab)
@@ -321,19 +324,26 @@ class PlotController:
                                           end_s)
 
     # ----------------------------------------------------------------
-    # Tips
+    # Plot tools and tips
     # ----------------------------------------------------------------
 
-    def on_tip_mode_changed(self, enabled_b: bool) -> None:
-        """Turn hover tips on or off in every plot.
+    def on_plot_tool_changed(self, tool_str: str) -> None:
+        """Apply the plot tool chosen in the top panel to every plot.
 
         Inputs:
-            enabled_b: True when the Tip button became active.
-        Outputs: none.
+            tool_str: the active plot tool (TIP_TOOL_STR, ZOOM_TOOL_STR,
+                MARKER_TOOL_STR) or NO_TOOL_STR when none is active.
+        Outputs: none. An unknown name is ignored.
         """
-        # LLFR-00042: hover tips only while the Tip button is active.
-        self.tip_mode_b = bool(enabled_b)
-        self.view.set_tip_mode(self.tip_mode_b)
+        # LLFR-00079: one tool at a time; the view keeps the buttons
+        # consistent and reports the tool that is now active.
+        if not is_known_plot_tool(tool_str):
+            return
+        # LLFR-00002, LLFR-00109: NO_TOOL_STR when the active button was
+        # clicked again. LLFR-00042, LLFR-00045, LLFR-00078: the plots
+        # react to clicks and hovers according to the tool.
+        self.plot_tool_str = tool_str
+        self.view.set_plot_tool(tool_str)
 
     def on_tip_pin(self, plot_id_i: int, signal_name_str: str,
                    time_s: float, value_f: float) -> None:

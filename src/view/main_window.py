@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QFileDialog, QMainWindow, QSplitter, QVBoxLayout, QWidget)
 
+from controller.plot_tools import NO_TOOL_STR
 from view import message_boxes
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -70,13 +71,13 @@ class MainWindow(QMainWindow):
         # LLFR-00005: handlers set by the controllers.
         self.open_file_handler = None
         self.signal_double_click_handler = None
-        self.tip_mode_handler = None
+        self.plot_tool_handler = None
+        # LLFR-00079: the tool applied to every plot, now and later.
+        self.plot_tool_str = NO_TOOL_STR
         self.top_panel.open_file_button.activated.connect(
             self._on_open_file_activated)
-        self.top_panel.tip_button.activated.connect(
-            self._on_tip_activated)
-        self.top_panel.tip_button.deactivated.connect(
-            self._on_tip_deactivated)
+        # LLFR-00079, LLFR-00002: the top panel reports the active tool.
+        self.top_panel.plot_tool_changed.connect(self._on_plot_tool_changed)
         self.signal_list_panel.signal_double_clicked.connect(
             self._on_signal_double_clicked)
 
@@ -153,16 +154,42 @@ class MainWindow(QMainWindow):
         # LLFR-00019: the plot controller creates a plot through it.
         self.signal_double_click_handler = handler
 
-    def set_tip_mode_handler(self, handler) -> None:
-        """Set the function called when the Tip button changes state.
+    def set_plot_tool_handler(self, handler) -> None:
+        """Set the function called when the active plot tool changes.
 
         Inputs:
-            handler: a function taking True when the Tip button becomes
-                active and False when it is deactivated.
+            handler: a function taking the new tool name (a str of
+                controller.plot_tools), NO_TOOL_STR when no tool is
+                active any more.
         Outputs: none.
         """
-        # LLFR-00042: the hover tip is shown while Tip is active.
-        self.tip_mode_handler = handler
+        # LLFR-00079, LLFR-00002, LLFR-00109: the controller is told of
+        # every change of the plot tool.
+        self.plot_tool_handler = handler
+
+    def set_plot_tool(self, tool_str: str) -> None:
+        """Apply a plot tool to every plot, now and to plots made later.
+
+        Inputs:
+            tool_str: the tool name, NO_TOOL_STR for none.
+        Outputs: none. The tool buttons are shown to match.
+        """
+        # LLFR-00079: the buttons always show the tool in use.
+        self.plot_tool_str = tool_str
+        self.top_panel.show_plot_tool(tool_str)
+        # LLFR-00042, LLFR-00045, LLFR-00078: every plot reacts to the
+        # mouse according to the tool.
+        for plot_widget in self.plot_panel.plot_widget_dict.values():
+            plot_widget.set_plot_tool(tool_str)
+
+    def current_plot_tool(self) -> str:
+        """Return the plot tool applied to the plots.
+
+        Inputs: none.
+        Outputs: the tool name, NO_TOOL_STR when none is active.
+        """
+        # LLFR-00079, LLFR-00109: the tool stays until it is changed.
+        return self.plot_tool_str
 
     # ----------------------------------------------------------------
     # Plot panel facade, used by the plot controller (plain types only)
@@ -284,6 +311,10 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00019, LLFR-00069: the new plot goes below the others.
         self.plot_panel.add_plot_view(tab_id_i, plot_id_i)
+        # LLFR-00042, LLFR-00078: a new plot starts with the active tool.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_plot_tool(self.plot_tool_str)
 
     def remove_plot_view(self, plot_id_i: int) -> None:
         """Remove a plot from its tab.
@@ -352,16 +383,6 @@ class MainWindow(QMainWindow):
             return ()
         return plot_widget.time_range_tuple()
 
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Turn hover tips on or off in every plot, now and later.
-
-        Inputs:
-            enabled_b: True while the Tip button is active.
-        Outputs: none.
-        """
-        # LLFR-00042: tips only while the Tip button is active.
-        self.plot_panel.set_tip_mode(enabled_b)
-
     def show_full_tab_notification(self) -> None:
         """Show the Full Tab Notification box.
 
@@ -384,25 +405,19 @@ class MainWindow(QMainWindow):
             return
         self.open_file_handler()
 
-    def _on_tip_activated(self) -> None:
-        """Tell the tip handler that the Tip button became active.
+    def _on_plot_tool_changed(self, tool_str: str) -> None:
+        """Pass the plot tool chosen in the top panel to its handler.
 
-        Inputs: none.
+        Inputs:
+            tool_str: the new tool name, NO_TOOL_STR for none.
         Outputs: none.
         """
-        # LLFR-00042: tip mode on.
-        if self.tip_mode_handler is not None:
-            self.tip_mode_handler(True)
-
-    def _on_tip_deactivated(self) -> None:
-        """Tell the tip handler that the Tip button was deactivated.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        # LLFR-00002, LLFR-00042: tip mode off.
-        if self.tip_mode_handler is not None:
-            self.tip_mode_handler(False)
+        # LLFR-00079, LLFR-00002: the controller applies the tool; with
+        # no controller the window applies it itself.
+        if self.plot_tool_handler is None:
+            self.set_plot_tool(tool_str)
+            return
+        self.plot_tool_handler(tool_str)
 
     def _on_signal_double_clicked(self, signal_name_str: str) -> None:
         """Pass a double-clicked signal name to its handler.
