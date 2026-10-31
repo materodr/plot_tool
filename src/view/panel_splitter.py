@@ -2,7 +2,8 @@
 
 The user drags its handle to change the widths of the two panels
 (LLFR-00073). When it is first shown, it gives the signal list panel a
-fixed fraction of the width and the plot panel the rest (LLFR-00072).
+fixed fraction of the app window's width and the plot panel the rest of
+the splitter (LLFR-00072).
 """
 
 from PyQt6.QtCore import Qt
@@ -17,9 +18,10 @@ class PanelSplitter(QSplitter):
     """Horizontal splitter whose last widget starts with a set fraction.
 
     Inputs:
-        last_widget_fraction_f: share of the width, between 0 and 1, that
-            the last widget (the signal list panel) gets at first show;
-            the other widgets share the rest by their stretch factors.
+        last_widget_fraction_f: share of the app window's width, between
+            0 and 1, that the last widget (the signal list panel) gets at
+            first show; the other widgets share the rest of the splitter
+            by their stretch factors.
         parent: optional parent widget.
     Attributes:
         last_widget_fraction_f: the share given to the last widget.
@@ -44,13 +46,16 @@ class PanelSplitter(QSplitter):
         self.setChildrenCollapsible(False)
         self.setOpaqueResize(True)
 
-    def initial_size_list(self, total_width_i: int) -> list:
-        """Return the start widths of the widgets for a splitter width.
+    def initial_size_list(self, total_width_i: int,
+                          window_width_i: int) -> list:
+        """Return the start widths of the widgets.
 
         Inputs:
             total_width_i: width of the splitter, in pixels.
+            window_width_i: width of the app window, in pixels.
         Outputs: a list of int, one width per widget (handles excluded);
-            the last one is last_widget_fraction_f of the widths' sum.
+            the last one is last_widget_fraction_f of window_width_i
+            (at most what the splitter has), the others share the rest.
         """
         # LLFR-00072: the last widget gets its fraction, the others the
         # rest, split by their stretch factors (equally when all are 0).
@@ -61,8 +66,10 @@ class PanelSplitter(QSplitter):
         panel_total_i = max(0, total_width_i - handle_total_i)
         if widget_count_i == 1:
             return [panel_total_i]
-        last_width_i = int(round(panel_total_i
-                                 * self.last_widget_fraction_f))
+        # LLFR-00072: the share is of the window's width, not of the
+        # splitter's (which lacks the window margins and the handle).
+        last_width_i = min(panel_total_i, int(round(
+            window_width_i * self.last_widget_fraction_f)))
         rest_width_i = panel_total_i - last_width_i
         stretch_list = [max(0, self.widget(index_i).sizePolicy()
                             .horizontalStretch())
@@ -89,7 +96,8 @@ class PanelSplitter(QSplitter):
         if self.initial_sizes_set_b or self.count() == 0:
             return
         self.initial_sizes_set_b = True
-        self.setSizes(self.initial_size_list(self.width()))
+        self.setSizes(self.initial_size_list(self.width(),
+                                             self.window().width()))
 
     def showEvent(self, event) -> None:
         """Apply the start widths when the splitter is first shown.

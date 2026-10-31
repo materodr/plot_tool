@@ -99,7 +99,7 @@ class LayoutTestCase(unittest.TestCase):
 
 
 class InitialWidthTest(LayoutTestCase):
-    """LLFR-00072: the signal list starts at 25% of the width."""
+    """LLFR-00072: the signal list starts at 25% of the window width."""
 
     @covers("LLFR-00072", "HLFR-00026", "HLFR-00001")
     def test_signal_list_takes_a_quarter_at_start(self) -> None:
@@ -114,38 +114,40 @@ class InitialWidthTest(LayoutTestCase):
                 self.show_window(main_window)
                 splitter = main_window.lower_splitter
                 plot_width_i, list_width_i = self.width_tuple(main_window)
-                panel_total_i = plot_width_i + list_width_i
+                self.assertEqual(main_window.width(), width_i)
+                # 25% of the app window's width, not of the splitter's.
+                self.assertAlmostEqual(list_width_i,
+                                       0.25 * main_window.width(),
+                                       delta=WIDTH_TOLERANCE_I)
                 # The plot panel takes the rest: the two panels and the
                 # handle fill the whole splitter.
-                self.assertEqual(panel_total_i + splitter.handleWidth(),
-                                 splitter.width())
-                self.assertAlmostEqual(list_width_i, panel_total_i * 0.25,
-                                       delta=WIDTH_TOLERANCE_I)
-                self.assertAlmostEqual(plot_width_i, panel_total_i * 0.75,
-                                       delta=WIDTH_TOLERANCE_I)
-                # The splitter spans the window, apart from the margins
-                # of the central layout, so 25% also holds for the window.
-                self.assertAlmostEqual(list_width_i / width_i, 0.25,
-                                       delta=0.02)
+                self.assertEqual(
+                    plot_width_i + list_width_i + splitter.handleWidth(),
+                    splitter.width())
 
     @covers("LLFR-00072")
     def test_start_size_list_for_a_given_width(self) -> None:
-        """The start sizes split any width 3:1 after the handle.
+        """The list gets 25% of the window width, the plots the rest.
 
         Inputs: none.
         Outputs: none.
         """
         splitter = self.main_window.lower_splitter
         handle_width_i = splitter.handleWidth()
-        for total_width_i in (400, 1001, 1203):
+        for total_width_i, window_width_i in ((400, 420), (1001, 1023),
+                                              (1203, 1225)):
             with self.subTest(total_width_i=total_width_i):
-                size_list = splitter.initial_size_list(total_width_i)
+                size_list = splitter.initial_size_list(total_width_i,
+                                                       window_width_i)
                 self.assertEqual(len(size_list), 2)
                 self.assertEqual(sum(size_list) + handle_width_i,
                                  total_width_i)
-                self.assertAlmostEqual(
-                    size_list[1], (total_width_i - handle_width_i) / 4,
-                    delta=1)
+                self.assertEqual(size_list[1], round(window_width_i / 4))
+        # A window far wider than the splitter: the list gets at most
+        # what the splitter has, and no width is negative.
+        size_list = splitter.initial_size_list(100, 10000)
+        self.assertEqual(sum(size_list) + handle_width_i, 100)
+        self.assertTrue(all(width_i >= 0 for width_i in size_list))
 
     @covers("LLFR-00072", "LLFR-00073")
     def test_start_widths_applied_only_once(self) -> None:
@@ -466,8 +468,8 @@ class TabRowTest(LayoutTestCase):
         # A wide window fits the tabs again: back beside the last tab.
         self.main_window.resize(4000, 600)
         self.process_events()
-        if not tab_widget.tabs_overflow():
-            self.assert_button_beside_last_tab()
+        self.assertFalse(tab_widget.tabs_overflow())
+        self.assert_button_beside_last_tab()
         # Deleting tabs until they fit also brings it back.
         self.main_window.resize(800, 600)
         self.process_events()
