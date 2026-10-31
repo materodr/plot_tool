@@ -1,0 +1,579 @@
+"""Plot panel: the tabs that hold the plots (HLFR-00014).
+
+The panel shows a QTabWidget whose pages are TabPage widgets, each with
+its PlotWidgets. A "+" button sits directly beside the last tab
+(LLFR-00025), and a right-click on a tab opens a menu with "Delete" and
+"Rename" (LLFR-00027, LLFR-00029).
+
+It offers a plain-Python facade (ids of the model, names, bools; no Qt
+types), used through MainWindow by the plot controller (COR-00009).
+Tabs and plots are always found by id, never by index.
+"""
+
+from functools import partial
+
+from PyQt6.QtCore import QEvent, QTimer, Qt
+from PyQt6.QtWidgets import (
+    QInputDialog, QLineEdit, QMenu, QTabWidget, QToolButton, QVBoxLayout,
+    QWidget)
+
+from view.plot_widget import PlotWidget
+from view.tab_page import TabPage
+
+ADD_TAB_TEXT_STR = "+"
+ADD_TAB_TOOL_TIP_STR = "Add a new tab"
+DELETE_TAB_TEXT_STR = "Delete"
+RENAME_TAB_TEXT_STR = "Rename"
+RENAME_DIALOG_TITLE_STR = "Rename tab"
+RENAME_DIALOG_LABEL_STR = "New tab name:"
+# LLFR-00025: pixels between the last tab and the "+" button.
+ADD_BUTTON_GAP_I = 2
+# LLFR-00025: events of the tab bar after which the button is moved.
+TAB_BAR_EVENT_TUPLE = (QEvent.Type.Resize, QEvent.Type.Move,
+                       QEvent.Type.LayoutRequest, QEvent.Type.Show)
+# LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
+# LLFR-00049, LLFR-00070: plot widget signal -> name of its handler.
+PLOT_SIGNAL_HANDLER_DICT = {
+    "curve_delete_requested": "curve_delete_handler",
+    "curve_width_requested": "curve_width_handler",
+    "plot_delete_requested": "plot_delete_handler",
+    "signal_dropped": "signal_drop_handler",
+    "tip_pin_requested": "tip_pin_handler",
+    "pinned_tip_delete_requested": "pinned_tip_delete_handler",
+    "time_range_changed": "time_range_handler",
+}
+
+
+def escape_tab_text(name_str: str) -> str:
+    """Return a tab name with "&" doubled, so Qt shows it as typed.
+
+    Inputs:
+        name_str: the tab name.
+    Outputs: the text to give to QTabWidget.setTabText.
+    """
+    # LLFR-00030: "&" would otherwise be read as a keyboard shortcut.
+    return name_str.replace("&", "&&")
+
+
+class PlotTabWidget(QTabWidget):
+    """Tab widget with a "+" button placed directly beside the last tab.
+
+    Inputs:
+        parent: optional parent widget.
+    Attributes:
+        add_tab_button: the "+" QToolButton (LLFR-00025).
+        corner_spacer: empty corner widget that keeps room for the
+            button when the tabs fill the whole width.
+    """
+
+    def __init__(self, parent=None) -> None:
+        """Create the tab widget and its "+" button.
+
+        Inputs:
+            parent: optional parent widget.
+        Outputs: none.
+        """
+        super().__init__(parent)
+        # LLFR-00025: the "+" button is a child of the tab widget and is
+        # moved next to the last tab whenever the tabs change.
+        self.add_tab_button = QToolButton(self)
+        self.add_tab_button.setObjectName("add_tab_button")
+        self.add_tab_button.setText(ADD_TAB_TEXT_STR)
+        self.add_tab_button.setToolTip(ADD_TAB_TOOL_TIP_STR)
+        self.add_tab_button.setAutoRaise(True)
+        self.corner_spacer = QWidget(self)
+        self.corner_spacer.setFixedSize(
+            self.add_tab_button.sizeHint().width() + 2 * ADD_BUTTON_GAP_I,
+            1)
+        self.setCornerWidget(self.corner_spacer, Qt.Corner.TopRightCorner)
+        # LLFR-00025: a child timer, so a pending move never runs after
+        # the widget was deleted.
+        self.reposition_timer = QTimer(self)
+        self.reposition_timer.setSingleShot(True)
+        self.reposition_timer.setInterval(0)
+        self.reposition_timer.timeout.connect(self.reposition_add_button)
+        self.tabBar().installEventFilter(self)
+        self.reposition_add_button()
+
+    def reposition_add_button(self) -> None:
+        """Move the "+" button directly to the right of the last tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00025: the button sits on the tab row, right after the
+        # last tab (or at the start of the row when there is no tab).
+        if getattr(self, "reposition_timer", None) is None:
+            # Called by Qt before __init__ finished: nothing to move yet.
+            return
+        tab_bar = self.tabBar()
+        bar_geometry = tab_bar.geometry()
+        tab_count_i = tab_bar.count()
+        if tab_count_i > 0:
+            last_rect = tab_bar.tabRect(tab_count_i - 1)
+            right_edge_i = min(last_rect.x() + last_rect.width(),
+                               tab_bar.width())
+            top_i = last_rect.y()
+            height_i = last_rect.height()
+        else:
+            right_edge_i = 0
+            top_i = 0
+            height_i = max(bar_geometry.height(),
+                           self.add_tab_button.sizeHint().height())
+        button_width_i = self.add_tab_button.sizeHint().width()
+        left_i = bar_geometry.x() + right_edge_i + ADD_BUTTON_GAP_I
+        left_i = max(0, min(left_i, self.width() - button_width_i))
+        self.add_tab_button.setGeometry(left_i, bar_geometry.y() + top_i,
+                                        button_width_i, height_i)
+        self.add_tab_button.raise_()
+
+    def schedule_reposition(self) -> None:
+        """Move the "+" button now and again once Qt has laid out.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00025: the tab bar may finish its layout later.
+        self.reposition_add_button()
+        self.reposition_timer.start()
+
+    def tabInserted(self, index_i: int) -> None:
+        """Move the "+" button after a tab was added.
+
+        Inputs:
+            index_i: index of the new tab.
+        Outputs: none.
+        """
+        # LLFR-00025, LLFR-00026: the button follows the new last tab.
+        super().tabInserted(index_i)
+        self.schedule_reposition()
+
+    def tabRemoved(self, index_i: int) -> None:
+        """Move the "+" button after a tab was removed.
+
+        Inputs:
+            index_i: index the removed tab had.
+        Outputs: none.
+        """
+        # LLFR-00025, LLFR-00028: the button follows the last tab.
+        super().tabRemoved(index_i)
+        self.schedule_reposition()
+
+    def resizeEvent(self, event) -> None:
+        """Move the "+" button after the widget was resized.
+
+        Inputs:
+            event: the QResizeEvent.
+        Outputs: none.
+        """
+        # LLFR-00025: keep the button beside the last tab.
+        super().resizeEvent(event)
+        self.reposition_add_button()
+
+    def showEvent(self, event) -> None:
+        """Move the "+" button when the widget is shown.
+
+        Inputs:
+            event: the QShowEvent.
+        Outputs: none.
+        """
+        # LLFR-00025: the final geometry is known once shown.
+        super().showEvent(event)
+        self.schedule_reposition()
+
+    def eventFilter(self, watched, event) -> bool:
+        """Move the "+" button when the tab bar changes its geometry.
+
+        Inputs:
+            watched: the object that received the event.
+            event: the QEvent.
+        Outputs: False, so the event is handled normally.
+        """
+        # LLFR-00025: the tab bar is resized when a tab is renamed.
+        if watched is self.tabBar() and event.type() in TAB_BAR_EVENT_TUPLE:
+            self.reposition_add_button()
+        return super().eventFilter(watched, event)
+
+
+class PlotPanel(QWidget):
+    """Panel placed below the top panel, left of the signal list.
+
+    Inputs: none.
+    Attributes:
+        panel_layout: vertical layout that holds the tab widget.
+        tab_widget: the PlotTabWidget with one TabPage per tab.
+        add_tab_button: the "+" button beside the last tab.
+        page_dict: tab id -> TabPage.
+        plot_widget_dict: plot id -> PlotWidget.
+        tab_delete_enabled_b: whether "Delete" is enabled in the tab
+            menu (LLFR-00066).
+        tip_mode_b: tip mode given to every plot widget (LLFR-00042).
+    """
+
+    def __init__(self) -> None:
+        """Create the panel with an empty tab widget.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().__init__()
+        # LLFR-00058: the plot panel exists and is placed by MainWindow.
+        self.setObjectName("plot_panel")
+        self.panel_layout = QVBoxLayout(self)
+        self.panel_layout.setContentsMargins(0, 0, 0, 0)
+        # HLFR-00014: the plots are organized in tabs.
+        self.tab_widget = PlotTabWidget()
+        self.tab_widget.setObjectName("plot_tab_widget")
+        self.panel_layout.addWidget(self.tab_widget)
+        self.add_tab_button = self.tab_widget.add_tab_button
+        self.page_dict = {}
+        self.plot_widget_dict = {}
+        self.tab_delete_enabled_b = False
+        self.tip_mode_b = False
+        self.add_tab_handler = None
+        self.delete_tab_handler = None
+        self.rename_tab_handler = None
+        self.plot_handler_dict = {}
+        # LLFR-00026: the "+" button asks for a new tab.
+        self.add_tab_button.clicked.connect(self.request_add_tab)
+        # LLFR-00027, LLFR-00029: right-click on a tab opens its menu.
+        tab_bar = self.tab_widget.tabBar()
+        tab_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        tab_bar.customContextMenuRequested.connect(self.show_tab_menu)
+
+    # ----------------------------------------------------------------
+    # Handlers
+    # ----------------------------------------------------------------
+
+    def set_tab_handlers(self, add_tab_handler, delete_tab_handler,
+                         rename_tab_handler) -> None:
+        """Set the functions called for the tab requests of the user.
+
+        Inputs:
+            add_tab_handler: function without arguments ("+" clicked).
+            delete_tab_handler: function taking a tab id ("Delete").
+            rename_tab_handler: function taking a tab id and the typed
+                name ("Rename").
+        Outputs: none.
+        """
+        # LLFR-00026, LLFR-00028, LLFR-00030: the controller decides.
+        self.add_tab_handler = add_tab_handler
+        self.delete_tab_handler = delete_tab_handler
+        self.rename_tab_handler = rename_tab_handler
+
+    def set_plot_handlers(self, **handler_dict) -> None:
+        """Set the functions called for the requests made on a plot.
+
+        Inputs:
+            handler_dict: handler name (the values of
+                PLOT_SIGNAL_HANDLER_DICT) -> function. Each function gets
+                the plot id first, then the arguments of the signal.
+        Outputs: none.
+        """
+        # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
+        # LLFR-00049, LLFR-00070: requests go to the controller.
+        self.plot_handler_dict.update(handler_dict)
+
+    def forward_plot_request(self, handler_name_str: str, plot_id_i: int,
+                             *argument_tuple) -> None:
+        """Call a plot handler with the plot id and the signal arguments.
+
+        Inputs:
+            handler_name_str: name of the handler.
+            plot_id_i: id of the plot that emitted the request.
+            argument_tuple: the arguments of the plot widget's signal.
+        Outputs: none.
+        """
+        # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
+        # LLFR-00049, LLFR-00070: add the plot id to every request.
+        handler = self.plot_handler_dict.get(handler_name_str)
+        if handler is not None:
+            handler(plot_id_i, *argument_tuple)
+
+    def request_add_tab(self) -> None:
+        """Ask the controller for a new tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00026: the "+" button adds a new tab.
+        if self.add_tab_handler is not None:
+            self.add_tab_handler()
+
+    def request_delete_tab(self, tab_id_i: int) -> None:
+        """Ask the controller to delete a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        # LLFR-00028: "Delete" in the tab menu.
+        if self.delete_tab_handler is not None:
+            self.delete_tab_handler(tab_id_i)
+
+    def request_rename_tab(self, tab_id_i: int) -> None:
+        """Ask the user for a new tab name and pass it to the controller.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none. Nothing happens when the dialog is cancelled.
+        """
+        # LLFR-00030: let the user type the new name, starting from the
+        # current one.
+        page = self.page_dict.get(tab_id_i)
+        if page is None:
+            return
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, RENAME_DIALOG_TITLE_STR, RENAME_DIALOG_LABEL_STR,
+            QLineEdit.EchoMode.Normal, page.name_str)
+        if not accepted_b:
+            return
+        # LLFR-00067: the controller keeps the old name for a blank one.
+        if self.rename_tab_handler is not None:
+            self.rename_tab_handler(tab_id_i, str(new_name_str))
+
+    # ----------------------------------------------------------------
+    # Tab menu
+    # ----------------------------------------------------------------
+
+    def tab_id_at_index(self, tab_index_i: int) -> int:
+        """Return the id of the tab at an index of the tab widget.
+
+        Inputs:
+            tab_index_i: index of the tab.
+        Outputs: the tab id, or -1 when there is no tab there.
+        """
+        # LLFR-00027, LLFR-00029: the menu acts on the clicked tab.
+        page = self.tab_widget.widget(tab_index_i)
+        if not isinstance(page, TabPage):
+            return -1
+        return page.tab_id_i
+
+    def build_tab_menu(self, tab_index_i: int) -> QMenu:
+        """Build the menu shown by a right-click on a tab.
+
+        Inputs:
+            tab_index_i: index of the clicked tab.
+        Outputs: a QMenu with "Delete" (disabled when the panel has only
+            one tab) and "Rename".
+        """
+        tab_id_i = self.tab_id_at_index(tab_index_i)
+        menu = QMenu(self)
+        # LLFR-00027, LLFR-00066: "Delete", disabled on the last tab.
+        delete_action = menu.addAction(DELETE_TAB_TEXT_STR)
+        delete_action.setEnabled(self.tab_delete_enabled_b
+                                 and self.tab_widget.count() > 1)
+        delete_action.triggered.connect(
+            lambda *_: self.request_delete_tab(tab_id_i))
+        # LLFR-00029: "Rename".
+        rename_action = menu.addAction(RENAME_TAB_TEXT_STR)
+        rename_action.triggered.connect(
+            lambda *_: self.request_rename_tab(tab_id_i))
+        return menu
+
+    def show_tab_menu(self, position) -> None:
+        """Show the tab menu for a right-click on the tab bar.
+
+        Inputs:
+            position: the QPoint of the click, in tab bar coordinates.
+        Outputs: none.
+        """
+        # LLFR-00027, LLFR-00029: only a click on a tab opens the menu.
+        tab_bar = self.tab_widget.tabBar()
+        tab_index_i = tab_bar.tabAt(position)
+        if tab_index_i < 0:
+            return
+        menu = self.build_tab_menu(tab_index_i)
+        menu.exec(tab_bar.mapToGlobal(position))
+        menu.deleteLater()
+
+    # ----------------------------------------------------------------
+    # Tab facade
+    # ----------------------------------------------------------------
+
+    def add_tab_view(self, tab_id_i: int, name_str: str) -> None:
+        """Add a tab after the last one.
+
+        Inputs:
+            tab_id_i: id of the tab in the model.
+            name_str: name shown on the tab.
+        Outputs: none.
+        """
+        # LLFR-00024, LLFR-00026: show the new tab.
+        if tab_id_i in self.page_dict:
+            return
+        page = TabPage(tab_id_i, name_str)
+        self.page_dict[tab_id_i] = page
+        self.tab_widget.addTab(page, escape_tab_text(name_str))
+
+    def remove_tab_view(self, tab_id_i: int) -> None:
+        """Remove a tab and all its plots.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        # LLFR-00028: remove the tab.
+        page = self.page_dict.pop(tab_id_i, None)
+        if page is None:
+            return
+        for plot_widget in list(page.plot_widget_list):
+            self.plot_widget_dict.pop(plot_widget.plot_id_i, None)
+        self.tab_widget.removeTab(self.tab_widget.indexOf(page))
+        page.deleteLater()
+
+    def rename_tab_view(self, tab_id_i: int, name_str: str) -> None:
+        """Show a new name on a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            name_str: the new name.
+        Outputs: none.
+        """
+        # LLFR-00030: show the name chosen by the user.
+        page = self.page_dict.get(tab_id_i)
+        if page is None:
+            return
+        page.name_str = name_str
+        self.tab_widget.setTabText(self.tab_widget.indexOf(page),
+                                   escape_tab_text(name_str))
+        # LLFR-00025: the last tab may have changed its width.
+        self.tab_widget.schedule_reposition()
+
+    def clear_tab_views(self) -> None:
+        """Remove every tab and plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00015: close all tabs and plots of the previous file.
+        for tab_id_i in list(self.page_dict):
+            self.remove_tab_view(tab_id_i)
+
+    def set_current_tab(self, tab_id_i: int) -> None:
+        """Select a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        # LLFR-00026: a new tab becomes the current one.
+        page = self.page_dict.get(tab_id_i)
+        if page is not None:
+            self.tab_widget.setCurrentWidget(page)
+
+    def current_tab_id(self) -> int:
+        """Return the id of the selected tab.
+
+        Inputs: none.
+        Outputs: the tab id, or -1 when there is no tab.
+        """
+        # LLFR-00019: double-click plots go into the current tab.
+        page = self.tab_widget.currentWidget()
+        if not isinstance(page, TabPage):
+            return -1
+        return page.tab_id_i
+
+    def tab_name_list(self) -> list:
+        """Return the names of the tabs, from left to right.
+
+        Inputs: none.
+        Outputs: a list of str.
+        """
+        # LLFR-00024, LLFR-00030: the names shown on the tabs.
+        return [self.tab_widget.widget(index_i).name_str
+                for index_i in range(self.tab_widget.count())]
+
+    def set_tab_delete_enabled(self, enabled_b: bool) -> None:
+        """Enable or disable "Delete" in the tab menu.
+
+        Inputs:
+            enabled_b: False when only one tab is left.
+        Outputs: none.
+        """
+        # LLFR-00066: the last tab cannot be deleted.
+        self.tab_delete_enabled_b = bool(enabled_b)
+
+    # ----------------------------------------------------------------
+    # Plot facade
+    # ----------------------------------------------------------------
+
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+        """Create a plot widget at the bottom of a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            plot_id_i: id of the plot in the model.
+        Outputs: none.
+        """
+        # LLFR-00019, LLFR-00069: the new plot goes below the others.
+        page = self.page_dict.get(tab_id_i)
+        if page is None or plot_id_i in self.plot_widget_dict:
+            return
+        plot_widget = PlotWidget(plot_id_i)
+        plot_widget.setObjectName(f"plot_widget_{plot_id_i}")
+        # LLFR-00042: a new plot starts in the current tip mode.
+        plot_widget.set_tip_mode(self.tip_mode_b)
+        # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
+        # LLFR-00049, LLFR-00070: every request carries the plot id.
+        for signal_name_str, handler_name_str in (
+                PLOT_SIGNAL_HANDLER_DICT.items()):
+            getattr(plot_widget, signal_name_str).connect(partial(
+                self.forward_plot_request, handler_name_str, plot_id_i))
+        self.plot_widget_dict[plot_id_i] = plot_widget
+        page.add_plot_widget(plot_widget)
+
+    def remove_plot_view(self, plot_id_i: int) -> None:
+        """Remove a plot widget from its tab.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: none.
+        """
+        # LLFR-00049: remove the plot and its curves from the tab.
+        plot_widget = self.plot_widget_dict.pop(plot_id_i, None)
+        if plot_widget is None:
+            return
+        # LLFR-00050: the page gives the free space to the other plots.
+        for page in self.page_dict.values():
+            if page.remove_plot_widget(plot_widget):
+                break
+        # The widget may be running the menu that asked for this, so it
+        # is deleted later by the event loop, not now.
+        plot_widget.deleteLater()
+
+    def plot_view(self, plot_id_i: int):
+        """Return the plot widget of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: the PlotWidget, or None for an unknown id.
+        """
+        # LLFR-00020, LLFR-00021: the widget the controller draws in.
+        return self.plot_widget_dict.get(plot_id_i)
+
+    def plot_id_list(self, tab_id_i: int) -> list:
+        """Return the plot ids of a tab, from top to bottom.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: a list of int (empty for an unknown tab).
+        """
+        # LLFR-00069: the order in which the plots are stacked.
+        page = self.page_dict.get(tab_id_i)
+        if page is None:
+            return []
+        return [plot_widget.plot_id_i
+                for plot_widget in page.plot_widget_list]
+
+    def set_tip_mode(self, enabled_b: bool) -> None:
+        """Turn hover tips on or off in every plot, now and later.
+
+        Inputs:
+            enabled_b: True while the Tip button is active.
+        Outputs: none.
+        """
+        # LLFR-00042: tips only while the Tip button is active.
+        self.tip_mode_b = bool(enabled_b)
+        for plot_widget in self.plot_widget_dict.values():
+            plot_widget.set_tip_mode(self.tip_mode_b)

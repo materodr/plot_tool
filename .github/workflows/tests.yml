@@ -1,0 +1,106 @@
+name: Tests
+
+# Runs every test with PyQt6 offscreen, builds the test matrix
+# (PCR-00019 to PCR-00023) and checks PEP 8 (COR-00002).
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: write        # commit tests/test_matrix.md on develop
+  pull-requests: write   # post the test matrix on pull requests
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system libraries for Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 \
+            libfontconfig1 libdbus-1-3
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pycodestyle
+
+      - name: Check PEP 8
+        run: python -m pycodestyle src tests
+
+      - name: Run tests and build the test matrix
+        run: python tests/build_test_matrix.py --require-qt --output test_matrix_ci.md
+
+      - name: Show the test matrix
+        if: always()
+        run: |
+          if [ -f test_matrix_ci.md ]; then
+            cat test_matrix_ci.md
+            cat test_matrix_ci.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Post the test matrix on the pull request
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ ! -f test_matrix_ci.md ]; then exit 0; fi
+          {
+            echo "<!-- test-matrix -->"
+            echo "CI run for commit ${{ github.event.pull_request.head.sha }}"
+            echo
+            cat test_matrix_ci.md
+          } > matrix_comment.md
+          # Update the existing matrix comment, or create it the first time.
+          comment_id=$(gh api "repos/$REPOSITORY/issues/$PULL_NUMBER/comments" \
+            --paginate --jq '.[] | select(.body | startswith("<!-- test-matrix -->")) | .id' | tail -1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPOSITORY/issues/comments/$comment_id" \
+              -F body=@matrix_comment.md > /dev/null
+          else
+            gh api "repos/$REPOSITORY/issues/$PULL_NUMBER/comments" \
+              -F body=@matrix_comment.md > /dev/null
+          fi
+
+      # PCR-00019 and PCR-00022: keep the committed matrix at the last
+      # run on develop. Pushes made with the workflow token don't start
+      # another run, so this doesn't loop.
+      - name: Commit the test matrix to develop
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        run: |
+          if [ ! -f test_matrix_ci.md ]; then exit 0; fi
+          cp test_matrix_ci.md tests/test_matrix.md
+          if git diff --quiet -- tests/test_matrix.md; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/test_matrix.md
+          git commit -m "Update test matrix from CI run ${{ github.run_id }}"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin develop && git push origin HEAD:develop; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error title=Test matrix not committed::could not push tests/test_matrix.md to develop"
+          exit 1
+
+      - name: Upload the test matrix
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-matrix
+          path: test_matrix_ci.md
+          if-no-files-found: ignore
