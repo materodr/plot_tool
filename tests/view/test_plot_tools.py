@@ -479,7 +479,10 @@ class YAxisTest(PlotWidgetToolTestCase):
 
     @covers("LLFR-00075")
     def test_no_user_path_changes_the_y_axis(self) -> None:
-        """No toolbar, no key handler, no navigation; y only fits.
+        """No toolbar, no figure manager, no navigation; y only fits.
+
+        matplotlib connects its navigation keys (zoom, pan, log scale)
+        only through a figure manager, which this canvas does not have.
 
         Inputs: none.
         Outputs: none.
@@ -488,8 +491,6 @@ class YAxisTest(PlotWidgetToolTestCase):
         self.assertIsNone(getattr(canvas, "toolbar", None))
         self.assertIsNone(getattr(canvas, "manager", None))
         self.assertFalse(self.plot_widget.axes.get_navigate())
-        self.assertEqual(
-            len(canvas.callbacks.callbacks.get("key_press_event", {})), 0)
         from matplotlib.backend_bases import KeyEvent
         fitted_tuple = self.plot_widget.axes.get_ylim()
         for key_str in ("o", "p", "l", "k", "h", "r"):
@@ -508,9 +509,17 @@ class YAxisTest(PlotWidgetToolTestCase):
             self.plot_widget.click_at(self.point_at(5.0, value_f))
             result_list.append((self.plot_widget.time_range_tuple(),
                                 self.plot_widget.axes.get_ylim()))
-        self.assertEqual(result_list[0][1], result_list[1][1])
-        self.assertAlmostEqual(result_list[0][0][0], result_list[1][0][0],
-                               delta=0.05)
+        # The clicked times differ only by pixel rounding.
+        for index_i in range(2):
+            self.assertAlmostEqual(result_list[0][0][index_i],
+                                   result_list[1][0][index_i], delta=0.05)
+            self.assertAlmostEqual(result_list[0][1][index_i],
+                                   result_list[1][1][index_i], delta=0.05)
+        # The y range is exactly the automatic fit of the x range.
+        zoomed_tuple = self.plot_widget.axes.get_ylim()
+        self.plot_widget.apply_time_range()
+        self.assertEqual(self.plot_widget.axes.get_ylim(), zoomed_tuple)
+        self.assert_curves_fit()
 
     @covers("LLFR-00076", "LLFR-00074", "LLFR-00078")
     def test_curves_fit_after_every_zoom(self) -> None:
