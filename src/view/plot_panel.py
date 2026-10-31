@@ -130,8 +130,6 @@ class PlotTabWidget(QTabWidget):
         parent: optional parent widget.
     Attributes:
         add_tab_button: the "+" QToolButton (LLFR-00025).
-        corner_spacer: empty corner widget that keeps room for the
-            button when the tabs fill the whole width.
     """
 
     def __init__(self, parent=None) -> None:
@@ -152,6 +150,8 @@ class PlotTabWidget(QTabWidget):
         tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
         tab_bar.setDrawBase(False)
         self.setTabBar(tab_bar)
+        # setTabBar resets "expanding", so it is set again afterwards.
+        tab_bar.setExpanding(False)
         # LLFR-00025: the "+" button is a child of the tab widget and is
         # moved next to the last tab whenever the tabs change.
         self.add_tab_button = QToolButton(self)
@@ -161,12 +161,9 @@ class PlotTabWidget(QTabWidget):
         # LLFR-00107: narrower than a tab, styled like an unselected tab.
         self.add_tab_button.setFixedWidth(ADD_BUTTON_WIDTH_I)
         self.setStyleSheet(build_tab_style_sheet())
-        # LLFR-00025: reserved room at the right end of the tab row, where
-        # the button goes when the tabs overflow the width.
-        self.corner_spacer = QWidget(self)
-        self.corner_spacer.setFixedSize(
-            ADD_BUTTON_WIDTH_I + 2 * ADD_BUTTON_GAP_I, 1)
-        self.setCornerWidget(self.corner_spacer, Qt.Corner.TopRightCorner)
+        # LLFR-00025: the tab bar never takes the room at the right end of
+        # the tab row where the button goes when the tabs overflow.
+        self.limit_tab_bar_width()
         # LLFR-00025: a child timer, so a pending move never runs after
         # the widget was deleted.
         self.reposition_timer = QTimer(self)
@@ -213,6 +210,19 @@ class PlotTabWidget(QTabWidget):
         self.add_tab_button.setGeometry(left_i, bar_geometry.y() + top_i,
                                         button_width_i, height_i)
         self.add_tab_button.raise_()
+
+    def limit_tab_bar_width(self) -> None:
+        """Keep the tab bar narrow enough to leave room for the button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00025: a corner widget would not do this, because the
+        # style sheet position of the tab bar (LLFR-00106) ignores
+        # corner widgets; QWidget.setGeometry respects the maximum width.
+        reserved_width_i = ADD_BUTTON_WIDTH_I + 2 * ADD_BUTTON_GAP_I
+        self.tabBar().setMaximumWidth(max(0, self.width()
+                                          - reserved_width_i))
 
     def tabs_overflow(self) -> bool:
         """Return whether the tabs are wider than the tab bar.
@@ -267,6 +277,7 @@ class PlotTabWidget(QTabWidget):
         """
         # LLFR-00025: keep the button beside the last tab, also when the
         # new width makes the tabs overflow (or fit again).
+        self.limit_tab_bar_width()
         super().resizeEvent(event)
         self.schedule_reposition()
 

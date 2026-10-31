@@ -189,23 +189,28 @@ class DragBorderTest(LayoutTestCase):
             QPoint(start.x() + distance_i * step_i // step_count_i,
                    start.y())
             for step_i in range(1, step_count_i + 1)]
+        # The handle moves during the drag, so every global position is
+        # taken from where the handle was when the button was pressed.
+        global_point_list = [handle.mapToGlobal(point)
+                             for point in point_list]
         no_modifier = Qt.KeyboardModifier.NoModifier
         left_button = Qt.MouseButton.LeftButton
         press_event = QMouseEvent(
             QEvent.Type.MouseButtonPress, QPointF(start),
-            QPointF(handle.mapToGlobal(start)), left_button, left_button,
+            QPointF(global_point_list[0]), left_button, left_button,
             no_modifier)
         self.application.sendEvent(handle, press_event)
-        for point in point_list[1:]:
+        for global_point in global_point_list[1:]:
+            local_point = handle.mapFromGlobal(global_point)
             move_event = QMouseEvent(
-                QEvent.Type.MouseMove, QPointF(point),
-                QPointF(handle.mapToGlobal(point)),
-                Qt.MouseButton.NoButton, left_button, no_modifier)
+                QEvent.Type.MouseMove, QPointF(local_point),
+                QPointF(global_point), Qt.MouseButton.NoButton,
+                left_button, no_modifier)
             self.application.sendEvent(handle, move_event)
-        end = point_list[-1]
+        end = global_point_list[-1]
         release_event = QMouseEvent(
-            QEvent.Type.MouseButtonRelease, QPointF(end),
-            QPointF(handle.mapToGlobal(end)), left_button,
+            QEvent.Type.MouseButtonRelease,
+            QPointF(handle.mapFromGlobal(end)), QPointF(end), left_button,
             Qt.MouseButton.NoButton, no_modifier)
         self.application.sendEvent(handle, release_event)
         self.process_events()
