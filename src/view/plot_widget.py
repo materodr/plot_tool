@@ -1,10 +1,15 @@
 """Plot widget: one plot area where signal curves are drawn.
 
 The widget is pure view (COR-00003, COR-00009). It draws the curves,
-legend and tips it is given and emits a Qt signal for every request the
-user makes (delete a curve, change a width, delete the plot, pin a tip,
-delete a pinned tip, drop a signal, change the time range). The plot
+legend, tips and vertical markers it is given and emits a Qt signal for
+every request the user makes (delete a curve, change a width, delete
+the plot, pin a tip, delete a pinned tip, drop a signal, change the time
+range, place, move, rename or delete a vertical marker). The plot
 controller decides what to do with each request.
+
+A right-click picks the topmost item under the mouse, in drawing order:
+a pinned tip, then a vertical marker, then a curve, else the empty plot
+area (LLFR-00046, LLFR-00110, LLFR-00038, LLFR-00048).
 
 Two coordinate systems are used:
 - widget coordinates: Qt pixels of this widget, y grows downwards;
@@ -23,7 +28,9 @@ from PyQt6 import sip
 from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
-from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR
+from controller.plot_tools import (
+    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+from model.curve_colors import MARKER_COLOR_STR
 
 # LLFR-00021: same literal string the signal list uses for its drags.
 SIGNAL_MIME_TYPE_STR = "application/x-plot-tool-signal"
@@ -48,6 +55,20 @@ LEGEND_USABLE_WIDTH_RATIO_F = 0.95
 POINTS_PER_INCH_F = 72.0
 TIP_OFFSET_POINTS_F = 10.0
 DEFAULT_TIP_COLOR_STR = "#000000"
+# LLFR-00082, LLFR-00083, LLFR-00084, LLFR-00092: look of a vertical
+# marker. The marker is drawn above the curves and below the tips.
+MARKER_LINE_WIDTH_F = 1.5
+MARKER_ZORDER_F = 8.0
+MARKER_FONT_SIZE_F = 9.0
+# LLFR-00084: gap (points) between the line top and its label.
+MARKER_LABEL_OFFSET_POINTS_F = 3.0
+# LLFR-00092: gap (points) between the label and the time below it.
+MARKER_TIME_GAP_POINTS_F = 3.0
+MARKER_TEXT_BOX_DICT = {"boxstyle": "square,pad=0.15",
+                        "facecolor": "#ffffff", "edgecolor": "none",
+                        "alpha": 0.8}
+# LLFR-00086: no marker is being dragged.
+NO_MARKER_ID_I = -1
 
 
 def format_tip_text(signal_name_str: str, time_s: float,
@@ -63,7 +84,18 @@ def format_tip_text(signal_name_str: str, time_s: float,
     """
     # LLFR-00043: the x value is shown in seconds.
     # LLFR-00044: the y value is shown as stored, without a unit.
-    return f"t = {time_s:.6g} s\n{signal_name_str} = {value_f:.6g}"
+    return f"{format_time_text(time_s)}\n{signal_name_str} = {value_f:.6g}"
+
+
+def format_time_text(time_s: float) -> str:
+    """Return a time as shown in tips and below marker labels.
+
+    Inputs:
+        time_s: the time, in seconds.
+    Outputs: the text ``t = <time> s`` with 6 significant digits.
+    """
+    # LLFR-00043, LLFR-00092: times are shown in seconds.
+    return f"t = {time_s:.6g} s"
 
 
 def padded_range_tuple(low_f: float, high_f: float,
@@ -193,6 +225,12 @@ class PlotWidget(QWidget):
             tip; the index refers to the list given to set_pinned_tips.
         time_range_changed(float, float): the user changed the time
             range (start in s, end in s).
+        marker_place_requested(float): a left click with the Vertical
+            marker tool, not on a marker (time in s).
+        marker_move_requested(int, float): a marker was dragged and
+            released (marker id, time in s).
+        marker_rename_requested(int): "Rename" chosen on a marker.
+        marker_delete_requested(int): "Delete" chosen on a marker.
     Attributes:
         plot_id_i: the identifier given at creation.
         figure: the matplotlib Figure.
@@ -207,6 +245,10 @@ class PlotWidget(QWidget):
     tip_pin_requested = pyqtSignal(str, float, float)
     pinned_tip_delete_requested = pyqtSignal(int)
     time_range_changed = pyqtSignal(float, float)
+    marker_place_requested = pyqtSignal(float)
+    marker_move_requested = pyqtSignal(int, float)
+    marker_rename_requested = pyqtSignal(int)
+    marker_delete_requested = pyqtSignal(int)
 
     def __init__(self, plot_id_i: int, parent=None) -> None:
         """Create an empty plot.
@@ -226,6 +268,15 @@ class PlotWidget(QWidget):
         self.pinned_annotation_list = []
         self.pinned_marker_list = []
         self.curve_sorted_list = []
+        # LLFR-00081, LLFR-00084, LLFR-00092: markers to draw, as tuples
+        # (marker_id_i, name_str, time_s), and their artists by id as
+        # tuples (line, label annotation, time annotation).
+        self.marker_data_list = []
+        self.marker_artist_dict = {}
+        # LLFR-00086, LLFR-00093: the marker being dragged, if any.
+        self.drag_marker_id_i = NO_MARKER_ID_I
+        self.drag_time_s = 0.0
+        self.drag_moved_b = False
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
         self.plot_tool_str = NO_TOOL_STR
         self.hover_point_tuple = ()
@@ -249,6 +300,9 @@ class PlotWidget(QWidget):
         # events go to the same code as the public helpers.
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
         self.canvas.mpl_connect("button_press_event", self.on_mouse_press)
+        # LLFR-00086: the release ends a marker drag.
+        self.canvas.mpl_connect("button_release_event",
+                                self.on_mouse_release)
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
         self.canvas.mpl_connect("figure_leave_event", self.on_mouse_leave)
         # LLFR-00035: the legend is fitted again when the canvas resizes.
@@ -315,23 +369,29 @@ class PlotWidget(QWidget):
         self.plot_tool_str = str(tool_str)
         if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
+        # LLFR-00086: a marker is only dragged with the Vertical marker
+        # tool; leaving it drops the drag (the marker stays where it was).
+        if self.plot_tool_str != MARKER_TOOL_STR:
+            self.cancel_marker_drag()
 
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Turn the Tip tool on or off (kept for the plot panel).
+    def set_markers(self, marker_data_list: list) -> None:
+        """Replace the vertical markers drawn in the plot.
 
         Inputs:
-            enabled_b: True selects the Tip tool; False leaves no tool
-                active if the Tip tool was active, and otherwise keeps
-                the current tool.
-        Outputs: none.
+            marker_data_list: list of tuples (marker_id_i, name_str,
+                time_s), in placing order.
+        Outputs: none. Only the markers are redrawn.
         """
-        # LLFR-00042: PlotPanel.add_plot_view still calls this with its
-        # own tip state; MainWindow then applies the real tool with
-        # set_plot_tool, so a False here never ends another tool.
-        if enabled_b:
-            self.set_plot_tool(TIP_TOOL_STR)
-        elif self.plot_tool_str == TIP_TOOL_STR:
-            self.set_plot_tool(NO_TOOL_STR)
+        # LLFR-00081, LLFR-00091, LLFR-00112: draw exactly these markers.
+        self.marker_data_list = [
+            (int(marker_id_i), str(name_str), float(time_s))
+            for (marker_id_i, name_str, time_s) in marker_data_list]
+        # LLFR-00086: a drag of a marker that is gone ends here.
+        if self.drag_marker_id_i not in {
+                marker_tuple[0] for marker_tuple in self.marker_data_list}:
+            self.cancel_marker_drag()
+        self.draw_markers()
+        self.canvas.draw_idle()
 
     def set_time_range(self, start_s: float, end_s: float) -> None:
         """Show the given time range without emitting time_range_changed.
@@ -399,6 +459,10 @@ class PlotWidget(QWidget):
         self.pinned_annotation_list = []
         self.pinned_marker_list = []
         self.draw_pinned_tips()
+        # LLFR-00081: the markers survive a redraw of the curves; the
+        # old artists went away with axes.clear().
+        self.marker_artist_dict = {}
+        self.draw_markers()
         self.apply_time_range()
         self.canvas.draw_idle()
 
@@ -497,6 +561,97 @@ class PlotWidget(QWidget):
             self.pinned_annotation_list.append(annotation)
         self.place_tips()
 
+    def draw_markers(self) -> None:
+        """Draw the stored vertical markers, replacing the previous ones.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00091: remove the old lines and labels first.
+        for artist_tuple in self.marker_artist_dict.values():
+            for artist in artist_tuple:
+                artist.remove()
+        self.marker_artist_dict = {}
+        for marker_id_i, name_str, time_s in self.marker_data_list:
+            # LLFR-00082: axvline spans the axes in axes coordinates
+            # (0 to 1) in y, so it covers the whole y range at any zoom.
+            # LLFR-00083: in the reserved marker color.
+            line = self.axes.axvline(
+                time_s, color=MARKER_COLOR_STR,
+                linewidth=MARKER_LINE_WIDTH_F, zorder=MARKER_ZORDER_F)
+            line.set_in_layout(False)
+            # LLFR-00084: the name at the top of the line, inside the
+            # axes, shown literally (never as mathtext).
+            label = self.axes.annotate(
+                name_str, xy=(time_s, 1.0),
+                xycoords=self.axes.get_xaxis_transform(),
+                xytext=(MARKER_LABEL_OFFSET_POINTS_F,
+                        -MARKER_LABEL_OFFSET_POINTS_F),
+                textcoords="offset points", parse_math=False,
+                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
+                horizontalalignment="left", verticalalignment="top",
+                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
+            label.set_in_layout(False)
+            # LLFR-00092: the time directly below the label. Its anchor
+            # is the label's own box, so it follows the label.
+            time_text = self.axes.annotate(
+                format_time_text(time_s), xy=(0.0, 0.0), xycoords=label,
+                xytext=(0.0, -MARKER_TIME_GAP_POINTS_F),
+                textcoords="offset points", parse_math=False,
+                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
+                horizontalalignment="left", verticalalignment="top",
+                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
+            time_text.set_in_layout(False)
+            self.marker_artist_dict[marker_id_i] = (line, label, time_text)
+        self.place_markers()
+
+    def place_markers(self) -> None:
+        """Show the markers inside the time range, beside their line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00084, LLFR-00092: the label and time follow their marker
+        # when the range changes. A marker outside the shown range is
+        # hidden (its line is also clipped by the axes).
+        start_s, end_s = sorted(self.axes.get_xlim())
+        for line, label, time_text in self.marker_artist_dict.values():
+            time_s = float(line.get_xdata()[0])
+            visible_b = bool(start_s <= time_s <= end_s)
+            for artist in (line, label, time_text):
+                artist.set_visible(visible_b)
+            # A marker in the right half has its texts on its left, so
+            # that they stay inside the plot.
+            right_half_b = time_s > (start_s + end_s) / 2.0
+            label.set_position((
+                -MARKER_LABEL_OFFSET_POINTS_F if right_half_b
+                else MARKER_LABEL_OFFSET_POINTS_F,
+                -MARKER_LABEL_OFFSET_POINTS_F))
+            alignment_str = "right" if right_half_b else "left"
+            label.set_horizontalalignment(alignment_str)
+            time_text.set_horizontalalignment(alignment_str)
+            time_text.xy = (1.0 if right_half_b else 0.0, 0.0)
+
+    def move_marker_artists(self, marker_id_i: int, time_s: float) -> None:
+        """Move a drawn marker's line, label and time to a new time.
+
+        Inputs:
+            marker_id_i: id of the marker.
+            time_s: the new time, in seconds.
+        Outputs: none. Only the drawing changes; the stored markers are
+            changed by the controller after the drag.
+        """
+        # LLFR-00086: the marker follows the mouse while dragged.
+        artist_tuple = self.marker_artist_dict.get(marker_id_i)
+        if artist_tuple is None:
+            return
+        line, label, time_text = artist_tuple
+        line.set_xdata([time_s, time_s])
+        label.xy = (time_s, 1.0)
+        # LLFR-00093: the time shown follows the marker's position.
+        time_text.set_text(format_time_text(time_s))
+        self.place_markers()
+
     def full_time_range_tuple(self) -> tuple:
         """Return the time range that covers all the curves.
 
@@ -541,6 +696,8 @@ class PlotWidget(QWidget):
                 max(CONSTANT_VALUE_HALF_RANGE_F,
                     abs(low_f) * VALUE_MARGIN_RATIO_F)))
         self.place_tips()
+        # LLFR-00082, LLFR-00084: markers follow the new range.
+        self.place_markers()
 
     def place_tips(self) -> None:
         """Turn tip boxes towards the inside of the axes.
@@ -628,6 +785,69 @@ class PlotWidget(QWidget):
         """
         # LLFR-00045: one annotation per pinned tip.
         return len(self.pinned_annotation_list)
+
+    def marker_count(self) -> int:
+        """Return how many vertical markers are drawn.
+
+        Inputs: none.
+        Outputs: the number of markers in the plot.
+        """
+        # LLFR-00081, LLFR-00091: one line per marker.
+        return len(self.marker_artist_dict)
+
+    def marker_id_list(self) -> list:
+        """Return the ids of the drawn markers, in placing order.
+
+        Inputs: none.
+        Outputs: a list of int.
+        """
+        # LLFR-00081: the markers given to set_markers.
+        return [marker_tuple[0] for marker_tuple in self.marker_data_list]
+
+    def marker_label_text(self, marker_id_i: int) -> str:
+        """Return the text of a marker's label.
+
+        Inputs:
+            marker_id_i: id of the marker.
+        Outputs: the name shown, or "" for an unknown id.
+        """
+        # LLFR-00084, LLFR-00112: the label shows the marker's name.
+        artist_tuple = self.marker_artist_dict.get(marker_id_i)
+        return artist_tuple[1].get_text() if artist_tuple else ""
+
+    def marker_time_text(self, marker_id_i: int) -> str:
+        """Return the time text shown below a marker's label.
+
+        Inputs:
+            marker_id_i: id of the marker.
+        Outputs: the text, or "" for an unknown id.
+        """
+        # LLFR-00092, LLFR-00093: the marker's time in seconds.
+        artist_tuple = self.marker_artist_dict.get(marker_id_i)
+        return artist_tuple[2].get_text() if artist_tuple else ""
+
+    def marker_time_s(self, marker_id_i: int) -> float:
+        """Return the time at which a marker's line is drawn.
+
+        Inputs:
+            marker_id_i: id of the marker.
+        Outputs: the time in seconds, or NaN for an unknown id.
+        """
+        # LLFR-00086: where the line is, also during a drag.
+        artist_tuple = self.marker_artist_dict.get(marker_id_i)
+        if artist_tuple is None:
+            return float("nan")
+        return float(artist_tuple[0].get_xdata()[0])
+
+    def marker_artist_tuple(self, marker_id_i: int) -> tuple:
+        """Return the artists of a marker.
+
+        Inputs:
+            marker_id_i: id of the marker.
+        Outputs: a tuple (line, label, time_text), or () when unknown.
+        """
+        # LLFR-00082, LLFR-00084, LLFR-00092: for position checks.
+        return self.marker_artist_dict.get(marker_id_i, ())
 
     # ----------------------------------------------------------------
     # Coordinates
@@ -801,6 +1021,39 @@ class PlotWidget(QWidget):
                 return index_i
         return -1
 
+    def marker_at(self, widget_point) -> int:
+        """Return the id of the vertical marker under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the marker id, or -1 when no marker is there. A marker
+            is hit within PICK_TOLERANCE_PIXELS_I of its line inside the
+            axes, or on its label or time text.
+        """
+        # LLFR-00081, LLFR-00086, LLFR-00087, LLFR-00110: hit test in
+        # display pixels; the last placed marker is on top.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        tolerance_px = PICK_TOLERANCE_PIXELS_I * self.pixel_ratio_f()
+        inside_b = self.inside_axes_b(display_x_px, display_y_px)
+        renderer = self.canvas.get_renderer()
+        for marker_id_i in reversed(self.marker_id_list()):
+            artist_tuple = self.marker_artist_dict.get(marker_id_i)
+            if artist_tuple is None:
+                continue
+            line, label, time_text = artist_tuple
+            if not line.get_visible():
+                continue
+            line_x_px = float(self.axes.transData.transform(
+                (float(line.get_xdata()[0]), 0.0))[0])
+            if inside_b and abs(line_x_px - display_x_px) <= tolerance_px:
+                return marker_id_i
+            for text in (label, time_text):
+                if text.get_window_extent(renderer).contains(
+                        display_x_px, display_y_px):
+                    return marker_id_i
+        return NO_MARKER_ID_I
+
     # ----------------------------------------------------------------
     # User actions
     # ----------------------------------------------------------------
@@ -833,13 +1086,27 @@ class PlotWidget(QWidget):
             request_list.append(request)
             return action
 
-        # LLFR-00046: a pinned tip has priority over a curve under it.
+        # LLFR-00046: a pinned tip has priority over a curve under it
+        # (and over a marker: tips are drawn on top of markers).
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i >= 0:
             add_request_action(
                 menu, "Delete",
                 lambda index_i=tip_index_i:
                 self.pinned_tip_delete_requested.emit(index_i))
+            return menu, request_list
+        # LLFR-00110: a marker has priority over a curve under it.
+        # LLFR-00087, LLFR-00090: whatever plot tool is active.
+        marker_id_i = self.marker_at(widget_point)
+        if marker_id_i != NO_MARKER_ID_I:
+            add_request_action(
+                menu, "Rename",
+                lambda chosen_id_i=marker_id_i:
+                self.marker_rename_requested.emit(chosen_id_i))
+            add_request_action(
+                menu, "Delete",
+                lambda chosen_id_i=marker_id_i:
+                self.marker_delete_requested.emit(chosen_id_i))
             return menu, request_list
         signal_name_str = self.curve_at(widget_point)
         if signal_name_str:
@@ -861,7 +1128,8 @@ class PlotWidget(QWidget):
                 width_action.setCheckable(True)
                 width_action.setChecked(width_i == current_width_i)
             return menu, request_list
-        # LLFR-00048: empty area of the plot.
+        # LLFR-00048: empty area of the plot (no curve, pinned tip or
+        # vertical marker under the mouse).
         add_request_action(menu, "Delete plot",
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
@@ -872,9 +1140,9 @@ class PlotWidget(QWidget):
         Inputs:
             widget_point: QPoint in this widget's coordinates.
         Outputs: a QMenu (not shown) whose actions emit their request
-            when triggered. On a pinned tip it has "Delete"; on a curve
-            "Delete signal" and a "Width" submenu with 1..5; elsewhere
-            "Delete plot".
+            when triggered. On a pinned tip it has "Delete"; on a marker
+            "Rename" and "Delete"; on a curve "Delete signal" and a
+            "Width" submenu with 1..5; elsewhere "Delete plot".
         """
         # LLFR-00038, LLFR-00040, LLFR-00046, LLFR-00048.
         menu, request_list = self.context_menu_and_requests(widget_point)
@@ -994,18 +1262,130 @@ class PlotWidget(QWidget):
             widget_point: QPoint in this widget's coordinates.
         Outputs: none. With the Tip tool, emits tip_pin_requested when a
             hover tip is shown; with the Zoom tool, zooms in (see
-            zoom_click_at). Other tools do nothing here.
+            zoom_click_at); with the Vertical marker tool, emits
+            marker_place_requested unless the click is on a marker.
         """
         # LLFR-00109: using a tool never changes the active tool.
         if self.plot_tool_str == ZOOM_TOOL_STR:
             # LLFR-00078: click to zoom.
             self.zoom_click_at(widget_point)
             return
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            # LLFR-00081: place a marker at the clicked time.
+            self.marker_click_at(widget_point)
+            return
         # LLFR-00045: pin the point of the hover tip that is shown.
         if self.plot_tool_str != TIP_TOOL_STR or not self.hover_point_tuple:
             return
         signal_name_str, time_s, value_f = self.hover_point_tuple
         self.tip_pin_requested.emit(signal_name_str, time_s, value_f)
+
+    def marker_click_at(self, widget_point) -> None:
+        """Ask for a new marker at the time of a clicked point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits marker_place_requested with the time, unless
+            the click is outside the axes or on an existing marker.
+        """
+        # LLFR-00081: only a click on the axes, and not on a marker.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return
+        if self.marker_at(widget_point) != NO_MARKER_ID_I:
+            return
+        self.marker_place_requested.emit(self.time_at(widget_point))
+
+    def press_at(self, widget_point) -> None:
+        """Do what a left press at a point does with the active tool.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. With the Vertical marker tool, a press on a marker
+            starts dragging it; any other press is a click (click_at).
+        """
+        # LLFR-00086: a press on a marker starts a drag and does nothing
+        # else (no new marker, no zoom, no pin).
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            marker_id_i = self.marker_at(widget_point)
+            if marker_id_i != NO_MARKER_ID_I:
+                self.drag_marker_id_i = marker_id_i
+                self.drag_time_s = self.marker_time_s(marker_id_i)
+                self.drag_moved_b = False
+                return
+        self.click_at(widget_point)
+
+    def drag_time_s_at(self, widget_point) -> float:
+        """Return the time a dragged marker takes for a mouse point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the time under the point, in seconds, clamped to the
+            time range shown, so the marker never leaves the plot.
+        """
+        # LLFR-00086: the marker moves along the x-axis with the mouse.
+        start_s, end_s = sorted(self.time_range_tuple())
+        return min(max(self.time_at(widget_point), start_s), end_s)
+
+    def drag_to(self, widget_point) -> None:
+        """Move the dragged marker to the time under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Does nothing when no marker is dragged.
+        """
+        # LLFR-00086, LLFR-00093: line, label and time follow the mouse.
+        if self.drag_marker_id_i == NO_MARKER_ID_I:
+            return
+        time_s = self.drag_time_s_at(widget_point)
+        if time_s == self.drag_time_s:
+            return
+        self.drag_time_s = time_s
+        self.drag_moved_b = True
+        self.move_marker_artists(self.drag_marker_id_i, time_s)
+        self.canvas.draw_idle()
+
+    def release_at(self, widget_point) -> None:
+        """End a marker drag at a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits marker_move_requested once, as the last
+            step, when the marker was moved; a press and release without
+            movement emits nothing.
+        """
+        # LLFR-00086: the marker is left where the button is released.
+        if self.drag_marker_id_i == NO_MARKER_ID_I:
+            return
+        self.drag_to(widget_point)
+        marker_id_i = self.drag_marker_id_i
+        time_s = self.drag_time_s
+        moved_b = self.drag_moved_b
+        # The drawn marker stays where it was released; the controller
+        # redraws it there from the model.
+        self.drag_marker_id_i = NO_MARKER_ID_I
+        self.drag_moved_b = False
+        if moved_b:
+            # The receiver may redraw (or delete) this widget, so this is
+            # the very last step.
+            self.marker_move_requested.emit(marker_id_i, time_s)
+
+    def cancel_marker_drag(self) -> None:
+        """Forget the marker drag in progress, if any.
+
+        Inputs: none.
+        Outputs: none. The stored markers are drawn again where they
+            were, if a dragged marker was moved.
+        """
+        # LLFR-00086: without a release, the marker is not moved.
+        moved_b = (self.drag_marker_id_i != NO_MARKER_ID_I
+                   and self.drag_moved_b)
+        self.drag_marker_id_i = NO_MARKER_ID_I
+        self.drag_moved_b = False
+        if moved_b:
+            self.draw_markers()
+            self.canvas.draw_idle()
 
     def time_at(self, widget_point) -> float:
         """Return the time on the x-axis under a point.
@@ -1101,8 +1481,13 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
-        # LLFR-00042: a move runs the hover code.
-        self.hover_at(self.display_to_widget_point(event.x, event.y))
+        # LLFR-00086, LLFR-00093: a move with a marker held drags it.
+        widget_point = self.display_to_widget_point(event.x, event.y)
+        if self.drag_marker_id_i != NO_MARKER_ID_I:
+            self.drag_to(widget_point)
+            return
+        # LLFR-00042: any other move runs the hover code.
+        self.hover_at(widget_point)
 
     def on_mouse_press(self, event) -> None:
         """Handle a matplotlib mouse press on the canvas.
@@ -1118,12 +1503,25 @@ class PlotWidget(QWidget):
         widget_point = self.display_to_widget_point(event.x, event.y)
         if event.button == MouseButton.LEFT:
             # LLFR-00045: a left click pins the shown tip; LLFR-00078:
-            # with the Zoom tool it zooms in.
-            self.click_at(widget_point)
+            # with the Zoom tool it zooms in; LLFR-00081, LLFR-00086:
+            # with the Vertical marker tool it places or grabs a marker.
+            self.press_at(widget_point)
         elif event.button == MouseButton.RIGHT:
             # LLFR-00038, LLFR-00046, LLFR-00048: show the menu once this
             # press has been handled.
             self.request_context_menu(widget_point)
+
+    def on_mouse_release(self, event) -> None:
+        """Handle a matplotlib mouse release on the canvas.
+
+        Inputs:
+            event: the matplotlib MouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00086: releasing the left button leaves a dragged marker.
+        if event.button != MouseButton.LEFT:
+            return
+        self.release_at(self.display_to_widget_point(event.x, event.y))
 
     def on_mouse_scroll(self, event) -> None:
         """Handle a matplotlib scroll on the canvas.

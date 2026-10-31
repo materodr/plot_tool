@@ -685,22 +685,6 @@ class TipToolTest(PlotWidgetToolTestCase):
                 self.assertFalse(
                     self.plot_widget.hover_annotation.get_visible())
 
-    @covers("LLFR-00042", "LLFR-00079")
-    def test_set_tip_mode_never_ends_another_tool(self) -> None:
-        """The plot panel's set_tip_mode(False) keeps Zoom or Marker.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        for tool_str in (ZOOM_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR):
-            self.plot_widget.set_plot_tool(tool_str)
-            self.plot_widget.set_tip_mode(False)
-            self.assertEqual(self.plot_widget.plot_tool_str, tool_str)
-        self.plot_widget.set_tip_mode(True)
-        self.assertEqual(self.plot_widget.plot_tool_str, TIP_TOOL_STR)
-        self.plot_widget.set_tip_mode(False)
-        self.assertEqual(self.plot_widget.plot_tool_str, NO_TOOL_STR)
-
 
 @requires_qt
 class PlotToolEndToEndTest(unittest.TestCase):

@@ -63,6 +63,12 @@ class FakePlotView:
         delete_enabled_b: last value given to set_tab_delete_enabled.
         full_tab_count_i: how many Full Tab boxes were shown.
         plot_tool_str: last value given to set_plot_tool.
+        marker_drawn_dict: plot id -> marker_data_list of the last
+            draw_plot call.
+        marker_name_answer_list: answers returned, in order, by
+            ask_marker_name (None stands for a cancelled dialog).
+        marker_name_question_list: the current names given to
+            ask_marker_name.
     """
 
     def __init__(self) -> None:
@@ -81,6 +87,9 @@ class FakePlotView:
         self.full_tab_count_i = 0
         self.plot_tool_str = ""
         self.handler_dict = {}
+        self.marker_drawn_dict = {}
+        self.marker_name_answer_list = []
+        self.marker_name_question_list = []
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -223,17 +232,20 @@ class FakePlotView:
         del self.plot_tab_dict[plot_id_i]
 
     def draw_plot(self, plot_id_i: int, curve_data_list: list,
-                  pinned_tip_list: list) -> None:
+                  pinned_tip_list: list, marker_data_list=()) -> None:
         """Record what a plot draws; resets its range like PlotWidget.
 
         Inputs:
             plot_id_i: id of the plot.
             curve_data_list: the curve tuples.
             pinned_tip_list: the pinned tip tuples.
+            marker_data_list: the vertical marker tuples (marker_id_i,
+                name_str, time_s).
         Outputs: none.
         """
         self.call_list.append(("draw_plot", plot_id_i))
         self.drawn_dict[plot_id_i] = (curve_data_list, pinned_tip_list)
+        self.marker_drawn_dict[plot_id_i] = list(marker_data_list)
         if curve_data_list:
             time_array = curve_data_list[0][1]
             self.range_dict[plot_id_i] = (float(time_array[0]),
@@ -280,6 +292,20 @@ class FakePlotView:
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+
+    def ask_marker_name(self, current_name_str: str):
+        """Answer a marker name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of marker_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.call_list.append(("ask_marker_name", current_name_str))
+        self.marker_name_question_list.append(current_name_str)
+        if not self.marker_name_answer_list:
+            return None
+        return self.marker_name_answer_list.pop(0)
 
     def plot_id_list(self, tab_id_i: int) -> list:
         """Return the shown plots of a tab, in creation order.
