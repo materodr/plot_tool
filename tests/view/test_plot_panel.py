@@ -380,21 +380,21 @@ class TabPageTest(PlotPanelTestCase):
         self.assertEqual(box_mock.call_count, 0)
 
     @covers("LLFR-00042")
-    def test_new_plots_start_in_current_tip_mode(self) -> None:
-        """Tip mode applies to existing plots and to later ones.
+    def test_new_plots_start_with_current_tip_tool(self) -> None:
+        """The Tip tool applies to existing plots and to later ones.
 
         Inputs: none.
         Outputs: none.
         """
         first = self.add_plots(1)[0]
-        self.main_window.set_tip_mode(True)
-        self.assertTrue(first.tip_mode_b)
+        self.main_window.set_plot_tool("tip")
+        self.assertEqual(first.plot_tool_str, "tip")
         self.main_window.signal_double_click_handler("force")
         second = self.current_page().plot_widget_list[1]
-        self.assertTrue(second.tip_mode_b)
-        self.main_window.set_tip_mode(False)
-        self.assertFalse(first.tip_mode_b)
-        self.assertFalse(second.tip_mode_b)
+        self.assertEqual(second.plot_tool_str, "tip")
+        self.main_window.set_plot_tool("")
+        self.assertEqual(first.plot_tool_str, "")
+        self.assertEqual(second.plot_tool_str, "")
 
 
 class FacadeTest(PlotPanelTestCase):

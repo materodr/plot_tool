@@ -6,6 +6,8 @@ import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
 
+from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
+
 WIDGET_WIDTH_I = 600
 WIDGET_HEIGHT_I = 400
 RED_STR = "#ff0000"
@@ -214,7 +216,7 @@ class CurveDrawingTest(PlotWidgetTestCase):
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertLess(start_s, 2.0)
         self.assertGreater(end_s, 2.0)
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.plot_widget.hover_at(
             self.plot_widget.data_to_widget_point(2.0, 5.0))
         self.assertIn("One = 5", self.plot_widget.hover_tip_text())
@@ -252,7 +254,7 @@ class LargeDataTest(PlotWidgetTestCase):
             (f"Big {index_i}", large_time_array,
              np.cos(large_time_array) + 3.0 * index_i, RED_STR, 1)
             for index_i in range(3)])
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.draw()
         point_list = [self.plot_widget.data_to_widget_point(
             float(large_time_array[index_i]),
@@ -276,7 +278,7 @@ class LargeDataTest(PlotWidgetTestCase):
         value_array = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
         self.plot_widget.set_curves([
             ("Zigzag", time_array, value_array, RED_STR, 1)])
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.draw()
         self.plot_widget.hover_at(
             self.plot_widget.data_to_widget_point(2.0, 2.0))
@@ -361,7 +363,7 @@ class LegendTest(PlotWidgetTestCase):
             (broken_name_str, self.time_array, self.ramp_array, BLUE_STR,
              1)])
         self.plot_widget.set_pinned_tips([(broken_name_str, 5.0, 3.5)])
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.draw()
         self.assertEqual(self.plot_widget.legend_entry_list(),
                          [(math_name_str, RED_STR),
@@ -782,10 +784,10 @@ class DeferredMenuTest(PlotWidgetTestCase):
 
 
 class TipTest(PlotWidgetTestCase):
-    """Hover tips in tip mode and pinning them."""
+    """Hover tips with the Tip tool and pinning them."""
 
     @covers("LLFR-00042", "LLFR-00043", "LLFR-00044")
-    def test_hover_tip_only_in_tip_mode(self) -> None:
+    def test_hover_tip_only_with_tip_tool(self) -> None:
         """No tip when off; time in s and value when on; hidden off again.
 
         Inputs: none.
@@ -795,12 +797,12 @@ class TipTest(PlotWidgetTestCase):
         ramp_point = self.sample_point("Ramp", 50)
         self.plot_widget.hover_at(ramp_point)
         self.assertEqual(self.plot_widget.hover_tip_text(), "")
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.plot_widget.hover_at(ramp_point)
         tip_text_str = self.plot_widget.hover_tip_text()
         self.assertEqual(tip_text_str, "t = 5 s\nRamp = 3.5")
         self.assertTrue(self.plot_widget.hover_annotation.get_visible())
-        self.plot_widget.set_tip_mode(False)
+        self.plot_widget.set_plot_tool(NO_TOOL_STR)
         self.assertEqual(self.plot_widget.hover_tip_text(), "")
         self.assertFalse(self.plot_widget.hover_annotation.get_visible())
 
@@ -812,7 +814,7 @@ class TipTest(PlotWidgetTestCase):
         Outputs: none.
         """
         self.set_two_curves()
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.plot_widget.hover_at(self.sample_point("Sine", 10))
         self.assertTrue(self.plot_widget.hover_tip_text().startswith("t = "))
         self.plot_widget.hover_at(self.empty_point())
@@ -826,7 +828,7 @@ class TipTest(PlotWidgetTestCase):
         Outputs: none.
         """
         self.set_two_curves()
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.plot_widget.hover_at(self.sample_point("Sine", 13))
         expected_str = (f"t = {self.time_array[13]:.6g} s\n"
                         f"Sine = {self.sine_array[13]:.6g}")
@@ -844,7 +846,7 @@ class TipTest(PlotWidgetTestCase):
         ramp_point = self.sample_point("Ramp", 50)
         self.plot_widget.click_at(ramp_point)
         self.assertEqual(record_list, [])
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.plot_widget.click_at(self.empty_point())
         self.assertEqual(record_list, [])
         self.plot_widget.hover_at(ramp_point)
@@ -865,7 +867,7 @@ class TipTest(PlotWidgetTestCase):
         from matplotlib.backend_bases import MouseEvent
         self.set_two_curves()
         record_list = self.recorder(self.plot_widget.tip_pin_requested)
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.plot_widget.hover_at(self.sample_point("Ramp", 50))
         display_x_px, display_y_px = (
             self.plot_widget.axes.transData.transform((5.0, 3.5)))
@@ -1126,7 +1128,7 @@ class TimeRangeTest(PlotWidgetTestCase):
         """
         from matplotlib.backend_bases import MouseEvent
         self.set_two_curves()
-        self.plot_widget.set_tip_mode(True)
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         display_x_px, display_y_px = (
             self.plot_widget.axes.transData.transform(
                 (float(self.time_array[50]), float(self.ramp_array[50]))))

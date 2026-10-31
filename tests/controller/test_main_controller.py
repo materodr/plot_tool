@@ -92,8 +92,8 @@ class MainControllerStartTest(unittest.TestCase):
                       controller.file_controller.file_opened_listener_list)
         self.assertEqual(fake_window.handler_dict["double_click"],
                          plot_controller.on_signal_double_clicked)
-        self.assertEqual(fake_window.handler_dict["tip_mode"],
-                         plot_controller.on_tip_mode_changed)
+        self.assertEqual(fake_window.handler_dict["plot_tool"],
+                         plot_controller.on_plot_tool_changed)
         self.assertEqual(list(fake_window.tab_dict.values()), ["Tab 1"])
 
     @covers("LLFR-00095", "LLFR-00104")

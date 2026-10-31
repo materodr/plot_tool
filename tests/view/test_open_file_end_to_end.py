@@ -269,17 +269,17 @@ class MainWindowFacadeTest(unittest.TestCase):
 
     @covers("LLFR-00018", "LLFR-00001", "LLFR-00002")
     def test_tip_handler_receives_state(self) -> None:
-        """The tip handler gets True on activation, False on deactivation.
+        """The plot tool handler gets "tip", then "" on deactivation.
 
         Inputs: none.
         Outputs: none.
         """
         state_list = []
-        self.main_window.set_tip_mode_handler(state_list.append)
+        self.main_window.set_plot_tool_handler(state_list.append)
         tip_button = self.main_window.top_panel.tip_button
         tip_button.click()
         tip_button.click()
-        self.assertEqual(state_list, [True, False])
+        self.assertEqual(state_list, ["tip", ""])
 
     @covers("LLFR-00019")
     def test_double_click_handler_receives_name(self) -> None:
