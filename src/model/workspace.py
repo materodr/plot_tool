@@ -18,6 +18,8 @@ PRESET_WIDTH_TUPLE = (1, 2, 3, 4, 5)
 DEFAULT_WIDTH_I = 1
 # LLFR-00024: prefix of the default tab names ("Tab 1", "Tab 2", ...).
 TAB_NAME_PREFIX_STR = "Tab "
+# LLFR-00085: default name of a new vertical marker ("Marker 1", ...).
+DEFAULT_MARKER_NAME_FORMAT_STR = "Marker {}"
 
 
 @dataclass
@@ -50,6 +52,52 @@ class PinnedTip:
     value_f: float
 
 
+@dataclass
+class VerticalMarker:
+    """A vertical line drawn across a plot at one time value (HLFR-00028).
+
+    Inputs:
+        marker_id_i: id of the marker, unique within the workspace and
+            never reused.
+        name_str: name shown in the marker's label (LLFR-00084).
+        time_s: time of the marker on the x-axis, in seconds.
+    """
+
+    marker_id_i: int
+    name_str: str
+    time_s: float
+
+
+class MarkerIdCounter:
+    """Hands out vertical marker ids that are never reused.
+
+    One counter is shared by all plots of a workspace, so that marker
+    ids are unique across the whole workspace.
+
+    Inputs: none.
+    """
+
+    def __init__(self) -> None:
+        """Create a counter whose first id is 1.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00091: ids count up, so a deleted marker's id stays unused.
+        self.next_marker_id_i = 1
+
+    def take_next_id(self) -> int:
+        """Return a new marker id and advance the counter.
+
+        Inputs: none.
+        Outputs: the new id.
+        """
+        # LLFR-00081: every placed marker gets its own id.
+        marker_id_i = self.next_marker_id_i
+        self.next_marker_id_i += 1
+        return marker_id_i
+
+
 class Plot:
     """An area of a tab in which signal curves are drawn.
 
@@ -57,14 +105,19 @@ class Plot:
         plot_id_i: id of the plot, unique within the workspace.
         random_generator: random.Random used for the curve colors from
             the 9th curve on (LLFR-00034).
+        marker_id_counter: optional MarkerIdCounter shared with the other
+            plots of the workspace; a new one is used when it is None.
     """
 
-    def __init__(self, plot_id_i: int, random_generator) -> None:
+    def __init__(self, plot_id_i: int, random_generator,
+                 marker_id_counter=None) -> None:
         """Create an empty plot.
 
         Inputs:
             plot_id_i: id of the plot, unique within the workspace.
             random_generator: random.Random used for curve colors.
+            marker_id_counter: optional shared MarkerIdCounter for the
+                vertical marker ids.
         Outputs: none.
         """
         # LLFR-00019: a new plot starts with no curves and no tips.
@@ -74,6 +127,14 @@ class Plot:
         self.pinned_tip_list = []
         # LLFR-00033: counts every curve ever drawn here, for the colors.
         self.drawn_count_i = 0
+        # LLFR-00081: vertical markers in the order they were placed.
+        if marker_id_counter is None:
+            marker_id_counter = MarkerIdCounter()
+        self.marker_id_counter = marker_id_counter
+        self.marker_list = []
+        # LLFR-00085, LLFR-00111: number of the next "Marker N"; it only
+        # grows, so a deleted marker's number is never reused.
+        self.next_marker_number_i = 1
 
     def has_signal(self, signal_name_str: str) -> bool:
         """Tell whether the plot shows a signal.
@@ -197,8 +258,94 @@ class Plot:
         Inputs: none.
         Outputs: True when the plot has no curves.
         """
-        # LLFR-00051: an empty plot is deleted by the workspace.
+        # LLFR-00051: an empty plot is deleted by the workspace; markers
+        # are not curves, so they do not keep the plot alive.
         return not self.curve_list
+
+    def add_marker(self, time_s: float) -> VerticalMarker:
+        """Place a new vertical marker in the plot.
+
+        Inputs:
+            time_s: time of the marker, in seconds; stored as given.
+        Outputs: the new VerticalMarker, named "Marker N" (LLFR-00085).
+        """
+        # LLFR-00081: the marker is placed at the clicked time.
+        # LLFR-00085: "Marker N" with N counting per plot.
+        name_str = DEFAULT_MARKER_NAME_FORMAT_STR.format(
+            self.next_marker_number_i)
+        # LLFR-00111: the number only grows and is never reused.
+        self.next_marker_number_i += 1
+        marker = VerticalMarker(self.marker_id_counter.take_next_id(),
+                                name_str, float(time_s))
+        self.marker_list.append(marker)
+        return marker
+
+    def find_marker(self, marker_id_i: int):
+        """Return a vertical marker of this plot by its id.
+
+        Inputs:
+            marker_id_i: id of the marker.
+        Outputs: the VerticalMarker, or None when it is not in this plot.
+        """
+        # LLFR-00086, LLFR-00088, LLFR-00091: markers are found by id.
+        for marker in self.marker_list:
+            if marker.marker_id_i == marker_id_i:
+                return marker
+        return None
+
+    def move_marker(self, marker_id_i: int, time_s: float) -> bool:
+        """Move a vertical marker to a new time.
+
+        Inputs:
+            marker_id_i: id of the marker.
+            time_s: new time of the marker, in seconds; stored as given.
+        Outputs: True when the marker was moved, False when it is not in
+            this plot.
+        """
+        # LLFR-00086: the marker is left where the mouse button is
+        # released.
+        marker = self.find_marker(marker_id_i)
+        if marker is None:
+            return False
+        marker.time_s = float(time_s)
+        return True
+
+    def rename_marker(self, marker_id_i: int, new_name_str: str) -> bool:
+        """Rename a vertical marker.
+
+        Inputs:
+            marker_id_i: id of the marker.
+            new_name_str: the name typed by the user; surrounding spaces
+                are removed.
+        Outputs: True when the marker was renamed; False when the name is
+            empty or only spaces (LLFR-00089) or the marker is not in
+            this plot.
+        """
+        # LLFR-00089: an empty or blank name keeps the previous name.
+        stripped_name_str = new_name_str.strip()
+        marker = self.find_marker(marker_id_i)
+        if marker is None or not stripped_name_str:
+            return False
+        # LLFR-00088, LLFR-00112: the label shows the typed name.
+        marker.name_str = stripped_name_str
+        return True
+
+    def remove_marker(self, marker_id_i: int) -> bool:
+        """Remove a vertical marker from the plot.
+
+        Inputs:
+            marker_id_i: id of the marker.
+        Outputs: True when the marker was removed, False when it is not
+            in this plot.
+        """
+        # LLFR-00091: the marker and its label leave the plot.
+        marker = self.find_marker(marker_id_i)
+        if marker is None:
+            return False
+        # LLFR-00111: next_marker_number_i is not lowered, so the
+        # deleted number is not reused.
+        self.marker_list.remove(marker)
+        return True
 
 
 class Tab:
@@ -268,6 +415,9 @@ class Workspace:
         # LLFR-00024: ids count up and are never reused.
         self.next_tab_id_i = 1
         self.next_plot_id_i = 1
+        # LLFR-00081: marker ids are unique across all plots and keep
+        # counting up after reset().
+        self.marker_id_counter = MarkerIdCounter()
         self.tab_list = []
         # LLFR-00024: the app starts with one tab.
         self.reset()
@@ -379,7 +529,8 @@ class Workspace:
         if tab is None or tab.is_full():
             return None
         # LLFR-00069: the new plot goes below the existing ones.
-        plot = Plot(self.next_plot_id_i, self.random_generator)
+        plot = Plot(self.next_plot_id_i, self.random_generator,
+                    self.marker_id_counter)
         self.next_plot_id_i += 1
         tab.plot_list.append(plot)
         return plot
