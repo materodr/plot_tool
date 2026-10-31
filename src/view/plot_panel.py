@@ -1,8 +1,11 @@
 """Plot panel: the tabs that hold the plots (HLFR-00014).
 
 The panel shows a QTabWidget whose pages are TabPage widgets, each with
-its PlotWidgets. A "+" button sits directly beside the last tab
-(LLFR-00025), and a right-click on a tab opens a menu with "Delete" and
+its PlotWidgets. The tabs are aligned to the left (LLFR-00106). A "+"
+button sits directly beside the last tab (LLFR-00025), or at the right
+end of the tab row when the tabs overflow and the tab bar scrolls, and
+it is styled like an unselected tab, only narrower (LLFR-00107). A
+right-click on a tab opens a menu with "Delete" and
 "Rename" (LLFR-00027, LLFR-00029).
 
 It offers a plain-Python facade (ids of the model, names, bools; no Qt
@@ -14,8 +17,8 @@ from functools import partial
 
 from PyQt6.QtCore import QEvent, QTimer, Qt
 from PyQt6.QtWidgets import (
-    QInputDialog, QLineEdit, QMenu, QTabWidget, QToolButton, QVBoxLayout,
-    QWidget)
+    QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget, QToolButton,
+    QVBoxLayout, QWidget)
 
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
@@ -28,6 +31,35 @@ RENAME_DIALOG_TITLE_STR = "Rename tab"
 RENAME_DIALOG_LABEL_STR = "New tab name:"
 # LLFR-00025: pixels between the last tab and the "+" button.
 ADD_BUTTON_GAP_I = 2
+# LLFR-00106, LLFR-00107: object names used by the style sheet.
+TAB_WIDGET_OBJECT_NAME_STR = "plot_tab_widget"
+TAB_BAR_OBJECT_NAME_STR = "plot_tab_bar"
+ADD_BUTTON_OBJECT_NAME_STR = "add_tab_button"
+# LLFR-00107: the look shared by the unselected tabs and the "+" button,
+# so that the two always match (background, border, corner shape).
+TAB_BACKGROUND_COLOR_STR = "#e4e4e4"
+TAB_HOVER_COLOR_STR = "#d4d4d4"
+TAB_SELECTED_COLOR_STR = "#ffffff"
+TAB_TEXT_COLOR_STR = "#202020"
+TAB_BORDER_COLOR_STR = "#a0a0a0"
+TAB_BORDER_WIDTH_I = 1
+TAB_CORNER_RADIUS_I = 6
+# LLFR-00107: the tabs are wider than the "+" button.
+TAB_MINIMUM_TEXT_WIDTH_I = 48
+TAB_HORIZONTAL_PADDING_I = 12
+TAB_VERTICAL_PADDING_I = 4
+TAB_SPACING_I = 2
+ADD_BUTTON_WIDTH_I = 28
+# LLFR-00107: one declaration block for background, border and corners,
+# used by both the unselected tab rule and the "+" button rule.
+SHARED_TAB_SHAPE_STR = (
+    f"background: {TAB_BACKGROUND_COLOR_STR}; "
+    f"color: {TAB_TEXT_COLOR_STR}; "
+    f"border: {TAB_BORDER_WIDTH_I}px solid {TAB_BORDER_COLOR_STR}; "
+    f"border-top-left-radius: {TAB_CORNER_RADIUS_I}px; "
+    f"border-top-right-radius: {TAB_CORNER_RADIUS_I}px; "
+    "border-bottom-left-radius: 0px; "
+    "border-bottom-right-radius: 0px;")
 # LLFR-00025: events of the tab bar after which the button is moved.
 TAB_BAR_EVENT_TUPLE = (QEvent.Type.Resize, QEvent.Type.Move,
                        QEvent.Type.LayoutRequest, QEvent.Type.Show)
@@ -42,6 +74,42 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "pinned_tip_delete_requested": "pinned_tip_delete_handler",
     "time_range_changed": "time_range_handler",
 }
+
+
+def build_tab_style_sheet() -> str:
+    """Return the style sheet of the plot tab widget.
+
+    Inputs: none.
+    Outputs: a Qt style sheet that aligns the tab bar to the left
+        (LLFR-00106) and gives the unselected tabs and the "+" button the
+        same shape block SHARED_TAB_SHAPE_STR (LLFR-00107).
+    """
+    # LLFR-00106: tabs start at the left edge on every platform (macOS
+    # centres them by default).
+    tab_widget_str = f"QTabWidget#{TAB_WIDGET_OBJECT_NAME_STR}"
+    tab_str = f"QTabBar#{TAB_BAR_OBJECT_NAME_STR}::tab"
+    button_str = f"QToolButton#{ADD_BUTTON_OBJECT_NAME_STR}"
+    rule_list = [
+        f"{tab_widget_str}::tab-bar {{ alignment: left; left: 0px; }}",
+        f"{tab_widget_str}::pane {{ border: {TAB_BORDER_WIDTH_I}px solid "
+        f"{TAB_BORDER_COLOR_STR}; top: -{TAB_BORDER_WIDTH_I}px; }}",
+        # LLFR-00107: size of every tab; the "+" gets the tab height
+        # from its geometry (PlotTabWidget.reposition_add_button).
+        f"{tab_str} {{ {SHARED_TAB_SHAPE_STR} "
+        f"min-width: {TAB_MINIMUM_TEXT_WIDTH_I}px; "
+        f"padding: {TAB_VERTICAL_PADDING_I}px "
+        f"{TAB_HORIZONTAL_PADDING_I}px; "
+        f"margin: 0px {TAB_SPACING_I}px 0px 0px; }}",
+        f"{tab_str}:!selected {{ {SHARED_TAB_SHAPE_STR} }}",
+        f"{tab_str}:!selected:hover {{ background: {TAB_HOVER_COLOR_STR}; }}",
+        f"{tab_str}:selected {{ background: {TAB_SELECTED_COLOR_STR}; "
+        f"border-bottom-color: {TAB_SELECTED_COLOR_STR}; }}",
+        f"{button_str} {{ {SHARED_TAB_SHAPE_STR} padding: 0px; "
+        "margin: 0px; }",
+        f"{button_str}:hover {{ background: {TAB_HOVER_COLOR_STR}; }}",
+        f"{button_str}:pressed {{ background: {TAB_SELECTED_COLOR_STR}; }}",
+    ]
+    return "\n".join(rule_list)
 
 
 def escape_tab_text(name_str: str) -> str:
@@ -74,17 +142,30 @@ class PlotTabWidget(QTabWidget):
         Outputs: none.
         """
         super().__init__(parent)
+        self.setObjectName(TAB_WIDGET_OBJECT_NAME_STR)
+        # LLFR-00106: left-aligned tabs; when they do not fit, the tab
+        # bar scrolls instead of squeezing or centring them.
+        tab_bar = QTabBar(self)
+        tab_bar.setObjectName(TAB_BAR_OBJECT_NAME_STR)
+        tab_bar.setExpanding(False)
+        tab_bar.setUsesScrollButtons(True)
+        tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
+        tab_bar.setDrawBase(False)
+        self.setTabBar(tab_bar)
         # LLFR-00025: the "+" button is a child of the tab widget and is
         # moved next to the last tab whenever the tabs change.
         self.add_tab_button = QToolButton(self)
-        self.add_tab_button.setObjectName("add_tab_button")
+        self.add_tab_button.setObjectName(ADD_BUTTON_OBJECT_NAME_STR)
         self.add_tab_button.setText(ADD_TAB_TEXT_STR)
         self.add_tab_button.setToolTip(ADD_TAB_TOOL_TIP_STR)
-        self.add_tab_button.setAutoRaise(True)
+        # LLFR-00107: narrower than a tab, styled like an unselected tab.
+        self.add_tab_button.setFixedWidth(ADD_BUTTON_WIDTH_I)
+        self.setStyleSheet(build_tab_style_sheet())
+        # LLFR-00025: reserved room at the right end of the tab row, where
+        # the button goes when the tabs overflow the width.
         self.corner_spacer = QWidget(self)
         self.corner_spacer.setFixedSize(
-            self.add_tab_button.sizeHint().width() + 2 * ADD_BUTTON_GAP_I,
-            1)
+            ADD_BUTTON_WIDTH_I + 2 * ADD_BUTTON_GAP_I, 1)
         self.setCornerWidget(self.corner_spacer, Qt.Corner.TopRightCorner)
         # LLFR-00025: a child timer, so a pending move never runs after
         # the widget was deleted.
@@ -113,19 +194,36 @@ class PlotTabWidget(QTabWidget):
             last_rect = tab_bar.tabRect(tab_count_i - 1)
             right_edge_i = min(last_rect.x() + last_rect.width(),
                                tab_bar.width())
+            if self.tabs_overflow():
+                # LLFR-00025: with scroll buttons, the button goes to the
+                # right end of the tab row, after the scroll buttons, so
+                # it never covers them or a tab.
+                right_edge_i = tab_bar.width()
             top_i = last_rect.y()
+            # LLFR-00107: same height as a tab.
             height_i = last_rect.height()
         else:
             right_edge_i = 0
             top_i = 0
             height_i = max(bar_geometry.height(),
                            self.add_tab_button.sizeHint().height())
-        button_width_i = self.add_tab_button.sizeHint().width()
+        button_width_i = ADD_BUTTON_WIDTH_I
         left_i = bar_geometry.x() + right_edge_i + ADD_BUTTON_GAP_I
         left_i = max(0, min(left_i, self.width() - button_width_i))
         self.add_tab_button.setGeometry(left_i, bar_geometry.y() + top_i,
                                         button_width_i, height_i)
         self.add_tab_button.raise_()
+
+    def tabs_overflow(self) -> bool:
+        """Return whether the tabs are wider than the tab bar.
+
+        Inputs: none.
+        Outputs: True when the tab bar shows its scroll buttons.
+        """
+        # LLFR-00025: the scroll buttons are tool buttons of the tab bar.
+        tab_bar = self.tabBar()
+        return any(not scroll_button.isHidden()
+                   for scroll_button in tab_bar.findChildren(QToolButton))
 
     def schedule_reposition(self) -> None:
         """Move the "+" button now and again once Qt has laid out.
@@ -135,7 +233,8 @@ class PlotTabWidget(QTabWidget):
         """
         # LLFR-00025: the tab bar may finish its layout later.
         self.reposition_add_button()
-        self.reposition_timer.start()
+        if getattr(self, "reposition_timer", None) is not None:
+            self.reposition_timer.start()
 
     def tabInserted(self, index_i: int) -> None:
         """Move the "+" button after a tab was added.
@@ -166,9 +265,10 @@ class PlotTabWidget(QTabWidget):
             event: the QResizeEvent.
         Outputs: none.
         """
-        # LLFR-00025: keep the button beside the last tab.
+        # LLFR-00025: keep the button beside the last tab, also when the
+        # new width makes the tabs overflow (or fit again).
         super().resizeEvent(event)
-        self.reposition_add_button()
+        self.schedule_reposition()
 
     def showEvent(self, event) -> None:
         """Move the "+" button when the widget is shown.
@@ -189,9 +289,11 @@ class PlotTabWidget(QTabWidget):
             event: the QEvent.
         Outputs: False, so the event is handled normally.
         """
-        # LLFR-00025: the tab bar is resized when a tab is renamed.
+        # LLFR-00025: the tab bar is resized when a tab is renamed. The
+        # filter runs before the tab bar lays out its tabs and scroll
+        # buttons, so the button is moved again once that is done.
         if watched is self.tabBar() and event.type() in TAB_BAR_EVENT_TUPLE:
-            self.reposition_add_button()
+            self.schedule_reposition()
         return super().eventFilter(watched, event)
 
 

@@ -1,10 +1,10 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QFileDialog, QMainWindow, QSplitter, QVBoxLayout, QWidget)
+    QFileDialog, QMainWindow, QVBoxLayout, QWidget)
 
 from view import message_boxes
+from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
 from view.top_panel import TopPanel
@@ -35,8 +35,11 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE_STR = "plot_tool"
     INITIAL_WIDTH_I = 1200
     INITIAL_HEIGHT_I = 800
-    PLOT_PANEL_STRETCH_I = 4
+    # LLFR-00072: the signal list panel starts at 25% of the width and
+    # keeps that share (3:1) when the window grows or shrinks.
+    PLOT_PANEL_STRETCH_I = 3
     SIGNAL_LIST_STRETCH_I = 1
+    SIGNAL_LIST_WIDTH_FRACTION_F = 0.25
 
     def __init__(self) -> None:
         """Create the panels and arrange them in the window.
@@ -53,8 +56,9 @@ class MainWindow(QMainWindow):
         self.signal_list_panel = SignalListPanel()
 
         # LLFR-00058: the signal list panel is to the right of the plot
-        # panel, and the user can drag the divider between them.
-        self.lower_splitter = QSplitter(Qt.Orientation.Horizontal)
+        # panel. LLFR-00073: the user can drag the border between them.
+        self.lower_splitter = PanelSplitter(
+            self.SIGNAL_LIST_WIDTH_FRACTION_F)
         self.lower_splitter.addWidget(self.plot_panel)
         self.lower_splitter.addWidget(self.signal_list_panel)
         self.lower_splitter.setStretchFactor(0, self.PLOT_PANEL_STRETCH_I)
