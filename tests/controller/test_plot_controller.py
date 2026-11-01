@@ -71,6 +71,7 @@ class FakePlotView:
             ask_marker_name.
         grid_shown_b: last value given to set_grid_shown.
         undo_enabled_b: last value given to set_undo_enabled.
+        redo_enabled_b: last value given to set_redo_enabled.
         delta_drawn_dict: plot id -> delta_marker_data_list of the last
             draw_plot call.
         delta_first_point_dict: plot id -> point tuple last given to
@@ -98,6 +99,7 @@ class FakePlotView:
         self.marker_name_question_list = []
         self.grid_shown_b = None
         self.undo_enabled_b = None
+        self.redo_enabled_b = None
         self.delta_drawn_dict = {}
         self.delta_first_point_dict = {}
 
@@ -180,6 +182,26 @@ class FakePlotView:
         Outputs: none.
         """
         self.undo_enabled_b = enabled_b
+
+    def set_redo_handler(self, handler) -> None:
+        """Record the Redo button and shortcut handler.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        self.handler_dict["redo"] = handler
+
+    def set_redo_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Redo button is enabled.
+
+        Not added to call_list, like set_undo_enabled.
+
+        Inputs:
+            enabled_b: True when an undone action can be redone.
+        Outputs: none.
+        """
+        self.redo_enabled_b = enabled_b
 
     def set_grid_shown(self, shown_b: bool) -> None:
         """Record whether the grid is shown.
