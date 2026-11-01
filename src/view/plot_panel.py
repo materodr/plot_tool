@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
     QToolButton, QVBoxLayout, QWidget)
 
+from view import theme
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
 
@@ -30,36 +31,30 @@ RENAME_TAB_TEXT_STR = "Rename"
 RENAME_DIALOG_TITLE_STR = "Rename tab"
 RENAME_DIALOG_LABEL_STR = "New tab name:"
 # LLFR-00025: pixels between the last tab and the "+" button.
-ADD_BUTTON_GAP_I = 2
+ADD_BUTTON_GAP_I = theme.TAB_SPACING_I
 # LLFR-00106, LLFR-00107: object names used by the style sheet.
 TAB_WIDGET_OBJECT_NAME_STR = "plot_tab_widget"
 TAB_BAR_OBJECT_NAME_STR = "plot_tab_bar"
 ADD_BUTTON_OBJECT_NAME_STR = "add_tab_button"
 # LLFR-00107: the look shared by the unselected tabs and the "+" button,
-# so that the two always match (background, border, corner shape).
-TAB_BACKGROUND_COLOR_STR = "#e4e4e4"
-TAB_HOVER_COLOR_STR = "#d4d4d4"
-TAB_SELECTED_COLOR_STR = "#ffffff"
-TAB_TEXT_COLOR_STR = "#202020"
-TAB_BORDER_COLOR_STR = "#a0a0a0"
-TAB_BORDER_WIDTH_I = 1
-TAB_CORNER_RADIUS_I = 6
+# so that the two always match (background, border, corner shape). The
+# values are design tokens of view.theme.
+TAB_BACKGROUND_COLOR_STR = theme.TAB_BACKGROUND_COLOR_STR
+TAB_HOVER_COLOR_STR = theme.TAB_HOVER_COLOR_STR
+TAB_SELECTED_COLOR_STR = theme.TAB_SELECTED_COLOR_STR
+TAB_TEXT_COLOR_STR = theme.TAB_TEXT_COLOR_STR
+TAB_BORDER_COLOR_STR = theme.TAB_BORDER_COLOR_STR
+TAB_BORDER_WIDTH_I = theme.TAB_BORDER_WIDTH_I
+TAB_CORNER_RADIUS_I = theme.TAB_CORNER_RADIUS_I
 # LLFR-00107: the tabs are wider than the "+" button.
-TAB_MINIMUM_TEXT_WIDTH_I = 48
-TAB_HORIZONTAL_PADDING_I = 12
-TAB_VERTICAL_PADDING_I = 4
-TAB_SPACING_I = 2
-ADD_BUTTON_WIDTH_I = 28
+TAB_MINIMUM_TEXT_WIDTH_I = theme.TAB_MINIMUM_TEXT_WIDTH_I
+TAB_HORIZONTAL_PADDING_I = theme.TAB_HORIZONTAL_PADDING_I
+TAB_VERTICAL_PADDING_I = theme.TAB_VERTICAL_PADDING_I
+TAB_SPACING_I = theme.TAB_SPACING_I
+ADD_BUTTON_WIDTH_I = theme.ADD_BUTTON_WIDTH_I
 # LLFR-00107: one declaration block for background, border and corners,
 # used by both the unselected tab rule and the "+" button rule.
-SHARED_TAB_SHAPE_STR = (
-    f"background: {TAB_BACKGROUND_COLOR_STR}; "
-    f"color: {TAB_TEXT_COLOR_STR}; "
-    f"border: {TAB_BORDER_WIDTH_I}px solid {TAB_BORDER_COLOR_STR}; "
-    f"border-top-left-radius: {TAB_CORNER_RADIUS_I}px; "
-    f"border-top-right-radius: {TAB_CORNER_RADIUS_I}px; "
-    "border-bottom-left-radius: 0px; "
-    "border-bottom-right-radius: 0px;")
+SHARED_TAB_SHAPE_STR = theme.SHARED_TAB_SHAPE_STR
 # LLFR-00025: events of the tab bar after which the button is moved.
 TAB_BAR_EVENT_TUPLE = (QEvent.Type.Resize, QEvent.Type.Move,
                        QEvent.Type.LayoutRequest, QEvent.Type.Show)
@@ -91,32 +86,10 @@ def build_tab_style_sheet() -> str:
         (LLFR-00106) and gives the unselected tabs and the "+" button the
         same shape block SHARED_TAB_SHAPE_STR (LLFR-00107).
     """
-    # LLFR-00106: tabs start at the left edge on every platform (macOS
-    # centres them by default).
-    tab_widget_str = f"QTabWidget#{TAB_WIDGET_OBJECT_NAME_STR}"
-    tab_str = f"QTabBar#{TAB_BAR_OBJECT_NAME_STR}::tab"
-    button_str = f"QToolButton#{ADD_BUTTON_OBJECT_NAME_STR}"
-    rule_list = [
-        f"{tab_widget_str}::tab-bar {{ alignment: left; left: 0px; }}",
-        f"{tab_widget_str}::pane {{ border: {TAB_BORDER_WIDTH_I}px solid "
-        f"{TAB_BORDER_COLOR_STR}; top: -{TAB_BORDER_WIDTH_I}px; }}",
-        # LLFR-00107: size of every tab; the "+" gets the tab height
-        # from its geometry (PlotTabWidget.reposition_add_button).
-        f"{tab_str} {{ {SHARED_TAB_SHAPE_STR} "
-        f"min-width: {TAB_MINIMUM_TEXT_WIDTH_I}px; "
-        f"padding: {TAB_VERTICAL_PADDING_I}px "
-        f"{TAB_HORIZONTAL_PADDING_I}px; "
-        f"margin: 0px {TAB_SPACING_I}px 0px 0px; }}",
-        f"{tab_str}:!selected {{ {SHARED_TAB_SHAPE_STR} }}",
-        f"{tab_str}:!selected:hover {{ background: {TAB_HOVER_COLOR_STR}; }}",
-        f"{tab_str}:selected {{ background: {TAB_SELECTED_COLOR_STR}; "
-        f"border-bottom-color: {TAB_SELECTED_COLOR_STR}; }}",
-        f"{button_str} {{ {SHARED_TAB_SHAPE_STR} padding: 0px; "
-        "margin: 0px; }",
-        f"{button_str}:hover {{ background: {TAB_HOVER_COLOR_STR}; }}",
-        f"{button_str}:pressed {{ background: {TAB_SELECTED_COLOR_STR}; }}",
-    ]
-    return "\n".join(rule_list)
+    # LLFR-00106, LLFR-00107: the rules are built by view.theme.
+    return theme.tab_style_sheet(TAB_WIDGET_OBJECT_NAME_STR,
+                                 TAB_BAR_OBJECT_NAME_STR,
+                                 ADD_BUTTON_OBJECT_NAME_STR)
 
 
 def escape_tab_text(name_str: str) -> str:

@@ -106,6 +106,35 @@ jobs:
               -F body=@matrix_comment.md > /dev/null
           fi
 
+      # Screenshots of the real window, so reviewers can see the
+      # interface: posted as base64 comments (read them back with
+      # tests/user_tests/fetch_screenshots.py) and uploaded as an
+      # artifact. Earlier screenshot comments of the PR are replaced.
+      - name: Make screenshots of the interface
+        if: always() && github.event_name == 'pull_request'
+        run: python tests/user_tests/make_screenshots.py --output screenshots
+
+      - name: Post the screenshots on the pull request
+        if: >-
+          always() && github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! ls screenshots/*.png > /dev/null 2>&1; then exit 0; fi
+          python tests/user_tests/post_screenshots.py \
+            ${{ github.event.pull_request.number }} \
+            --input screenshots --repository "${{ github.repository }}" \
+            --commit "${{ github.event.pull_request.head.sha }}"
+
+      - name: Upload the screenshots
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/*.png
+          if-no-files-found: ignore
+
       # PCR-00019 and PCR-00022: keep the committed matrix at the last
       # run on develop. Pushes made with the workflow token don't start
       # another run, so this doesn't loop.

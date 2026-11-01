@@ -2,36 +2,28 @@
 
 The button is checkable: its checked state is its active state. Its look
 is set in a single place (``_apply_style``), called whenever the checked
-state changes, so the color always follows the state.
+state changes, so the color always follows the state. The colors and the
+style sheet come from view.theme; the names below are kept so that the
+rest of the view and the tests read the state colors from one place.
 
 Colors:
-    ACTIVE_COLOR_STR: dark green background shown while the button is
+    ACTIVE_COLOR_STR: dark ink background shown while the button is
         active (LLFR-00001), with white text for contrast.
-    NORMAL_COLOR_STR: light grey background shown while the button is
-        not active (LLFR-00002, LLFR-00003).
+    NORMAL_COLOR_STR: light background shown while the button is not
+        active (LLFR-00002, LLFR-00003).
 """
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QPushButton
 
-ACTIVE_COLOR_STR = "#2e7d32"
-ACTIVE_TEXT_COLOR_STR = "#ffffff"
-NORMAL_COLOR_STR = "#e0e0e0"
-NORMAL_TEXT_COLOR_STR = "#000000"
-BORDER_COLOR_STR = "#9e9e9e"
-DEFAULT_OBJECT_NAME_STR = "toggle_button"
+from view import theme
 
-# The same border and padding are used in both states, so the button
-# keeps its size when it changes color.
-STYLE_TEMPLATE_STR = (
-    "QPushButton#{object_name} {{"
-    " background-color: {background};"
-    " color: {text};"
-    " border: 1px solid " + BORDER_COLOR_STR + ";"
-    " border-radius: 3px;"
-    " padding: 4px 12px;"
-    " }}"
-)
+ACTIVE_COLOR_STR = theme.ACTIVE_COLOR_STR
+ACTIVE_TEXT_COLOR_STR = theme.ACTIVE_TEXT_COLOR_STR
+NORMAL_COLOR_STR = theme.NORMAL_COLOR_STR
+NORMAL_TEXT_COLOR_STR = theme.NORMAL_TEXT_COLOR_STR
+BORDER_COLOR_STR = theme.BUTTON_BORDER_COLOR_STR
+DEFAULT_OBJECT_NAME_STR = "toggle_button"
 
 
 class ToggleButton(QPushButton):
@@ -65,6 +57,8 @@ class ToggleButton(QPushButton):
         # child widgets; a default name is given when none is set.
         if not self.objectName():
             self.setObjectName(DEFAULT_OBJECT_NAME_STR)
+        # Place in a joined group of buttons; only the corners change.
+        self.segment_position_str = theme.SEGMENT_SINGLE_STR
         self.toggled.connect(self._apply_style)
         self.objectNameChanged.connect(self._apply_style)
         self.clicked.connect(self._emit_click_signal)
@@ -91,6 +85,21 @@ class ToggleButton(QPushButton):
         # ``activated`` nor ``deactivated`` is emitted here.
         self.setChecked(False)
 
+    def set_segment_position(self, segment_position_str: str) -> None:
+        """Draw the button as a part of a joined group of buttons.
+
+        Inputs:
+            segment_position_str: theme.SEGMENT_SINGLE_STR,
+                SEGMENT_FIRST_STR, SEGMENT_MIDDLE_STR or
+                SEGMENT_LAST_STR.
+        Outputs: none. Only the corners and the shared border change;
+            the colors still follow the state.
+        """
+        # LLFR-00001, LLFR-00079: the exclusive plot tools are drawn as
+        # one group; the active one is still shown by its color.
+        self.segment_position_str = str(segment_position_str)
+        self._apply_style()
+
     def current_background_color_str(self) -> str:
         """Return the background color in use for the current state.
 
@@ -112,14 +121,9 @@ class ToggleButton(QPushButton):
         """
         # LLFR-00001, LLFR-00002, LLFR-00003: the only place where the
         # look of the button is set.
-        if self.isChecked():
-            text_color_str = ACTIVE_TEXT_COLOR_STR
-        else:
-            text_color_str = NORMAL_TEXT_COLOR_STR
-        self.setStyleSheet(STYLE_TEMPLATE_STR.format(
-            object_name=self.objectName(),
-            background=self.current_background_color_str(),
-            text=text_color_str))
+        self.setStyleSheet(theme.toggle_button_style_sheet(
+            self.objectName(), self.isChecked(),
+            self.segment_position_str))
 
     def _emit_click_signal(self, checked_b: bool) -> None:
         """Emit ``activated`` or ``deactivated`` after a user click.

@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget)
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
-from view import message_boxes, plot_export
+from view import message_boxes, plot_export, theme
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -68,6 +68,9 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         super().__init__()
+        # LLFR-00058: one style sheet and one plot style for the whole
+        # application, from view.theme.
+        theme.apply_application_theme(QApplication.instance())
         # LLFR-00058: the window holds the three panels of HLFR-00001.
         self.setWindowTitle(self.WINDOW_TITLE_STR)
         self.resize(self.INITIAL_WIDTH_I, self.INITIAL_HEIGHT_I)
@@ -83,10 +86,16 @@ class MainWindow(QMainWindow):
         self.lower_splitter.addWidget(self.signal_list_panel)
         self.lower_splitter.setStretchFactor(0, self.PLOT_PANEL_STRETCH_I)
         self.lower_splitter.setStretchFactor(1, self.SIGNAL_LIST_STRETCH_I)
+        # LLFR-00073: a comfortable handle to grab between the panels.
+        self.lower_splitter.setHandleWidth(theme.SPLITTER_HANDLE_WIDTH_I)
 
         # LLFR-00058: the top panel is above the other two panels.
         central_widget = QWidget()
         central_layout = QVBoxLayout(central_widget)
+        central_layout.setContentsMargins(
+            theme.WINDOW_MARGIN_I, theme.WINDOW_TOP_MARGIN_I,
+            theme.WINDOW_MARGIN_I, theme.WINDOW_MARGIN_I)
+        central_layout.setSpacing(theme.PANEL_SPACING_I)
         central_layout.addWidget(self.top_panel)
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)

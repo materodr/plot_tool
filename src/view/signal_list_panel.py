@@ -11,6 +11,8 @@ from PyQt6.QtWidgets import (
     QAbstractItemView, QLabel, QLineEdit, QListWidget, QVBoxLayout,
     QWidget)
 
+from view import theme
+
 # LLFR-00021: MIME type of a dragged signal name. The plot widget
 # accepts drops of this type, so the literal must stay the same there.
 SIGNAL_MIME_TYPE_STR = "application/x-plot-tool-signal"
@@ -121,8 +123,13 @@ class SignalListPanel(QWidget):
         # MainWindow.
         self.setObjectName("signal_list_panel")
         self.panel_layout = QVBoxLayout(self)
+        # LLFR-00094: the title, the list and the search box are spaced
+        # evenly; the window margins frame the panel.
+        self.panel_layout.setContentsMargins(0, 0, 0, 0)
+        self.panel_layout.setSpacing(theme.SIGNAL_PANEL_SPACING_I)
         # HLFR-00011: the panel shows the signal names under a title.
         self.title_label = QLabel(TITLE_TEXT_STR)
+        self.title_label.setObjectName("signal_list_title")
         self.signal_list_widget = SignalListWidget()
         self.signal_list_widget.setObjectName("signal_list_widget")
         self.panel_layout.addWidget(self.title_label)
