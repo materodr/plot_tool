@@ -929,8 +929,8 @@ class TipTest(PlotControllerTestCase):
         self.view.handler_dict["tip_pin_handler"](plot_id_i, "s1", 4.0,
                                                   4.0)
         curve_data_list, pinned_tip_list = self.view.drawn_dict[plot_id_i]
-        self.assertEqual(pinned_tip_list, [("s1", 2.0, 2.0),
-                                           ("s1", 4.0, 4.0)])
+        self.assertEqual(pinned_tip_list, [("s1", 2.0, 2.0, ()),
+                                           ("s1", 4.0, 4.0, ())])
         self.assertEqual(len(curve_data_list), 1)
         self.assertEqual(len(self.workspace.find_plot(plot_id_i)
                              .pinned_tip_list), 2)
@@ -964,7 +964,7 @@ class TipTest(PlotControllerTestCase):
                                                       time_s, time_s)
         self.view.handler_dict["pinned_tip_delete_handler"](plot_id_i, 1)
         self.assertEqual(self.view.drawn_dict[plot_id_i][1],
-                         [("s1", 1.0, 1.0), ("s1", 3.0, 3.0)])
+                         [("s1", 1.0, 1.0, ()), ("s1", 3.0, 3.0, ())])
         call_count_i = len(self.view.call_list)
         for tip_index_i in (-1, 2, 7):
             self.view.handler_dict["pinned_tip_delete_handler"](
@@ -988,7 +988,7 @@ class TipTest(PlotControllerTestCase):
                                                   2.0)
         self.view.handler_dict["curve_delete_handler"](plot_id_i, "s1")
         self.assertEqual(self.view.drawn_dict[plot_id_i][1],
-                         [("s2", 1.0, 2.0)])
+                         [("s2", 1.0, 2.0, ())])
 
 
 class TabActionTest(PlotControllerTestCase):

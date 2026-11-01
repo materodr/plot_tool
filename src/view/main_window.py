@@ -500,7 +500,8 @@ class MainWindow(QMainWindow):
             plot_id_i: id of the plot.
             curve_data_list: tuples (signal_name_str, time_array,
                 value_array, color_str, width_i).
-            pinned_tip_list: tuples (signal_name_str, time_s, value_f).
+            pinned_tip_list: tuples (signal_name_str, time_s, value_f,
+                label_offset_tuple); see PlotWidget.set_pinned_tips.
             marker_data_list: tuples (marker_id_i, name_str, time_s).
         Outputs: none. The plot shows the full time range afterwards.
         """
