@@ -1981,7 +1981,9 @@ class PlotWidget(QWidget):
         # the width is kept.
         new_start_s = min(max(new_start_s, full_start_s),
                           full_end_s - width_s)
-        if new_start_s == start_s:
+        # A shift far below one pixel is floating-point noise of the
+        # pixel-to-time conversion, not a move of the pointer.
+        if abs(new_start_s - start_s) <= width_s * FULL_RANGE_TOLERANCE_F:
             return
         new_end_s = new_start_s + width_s
         # LLFR-00120: apply_time_range fits y to the new range.
