@@ -19,7 +19,8 @@ import unittest
 import numpy as np
 
 from tests.support import (
-    REPOSITORY_ROOT_STR, covers, get_qt_application, requires_qt)
+    REPOSITORY_ROOT_STR, button_name, covers, get_qt_application,
+    requires_qt)
 
 from model.curve_colors import MARKER_COLOR_STR, PALETTE_COLOR_TUPLE
 from view import theme
@@ -255,7 +256,7 @@ class ThemeWidgetTestCase(unittest.TestCase):
                                         theme.SEGMENT_MIDDLE_STR,
                                         theme.SEGMENT_LAST_STR])
         for button in top_panel.plot_tool_button_dict.values():
-            with self.subTest(button=button.text()):
+            with self.subTest(button=button_name(button)):
                 button.setChecked(True)
                 self.application.processEvents()
                 image = button.grab().toImage()

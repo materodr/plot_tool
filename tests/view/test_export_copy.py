@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from tests.support import covers, get_qt_application, requires_qt
+from tests.support import button_name, covers, get_qt_application, requires_qt
 
 FILE_TEXT_STR = (
     "Time,speed,force\n"
@@ -221,7 +221,7 @@ class ExportCopyTest(unittest.TestCase):
         for button, text_str in ((self.top_panel.export_button, "Export"),
                                  (self.top_panel.copy_button, "Copy")):
             self.assertIsInstance(button, ToggleButton)
-            self.assertEqual(button.text(), text_str)
+            self.assertEqual(button_name(button), text_str)
             self.assertTrue(button.isVisible())
             self.assertFalse(button.is_active())
             self.assertIs(button.parentWidget(), self.top_panel)

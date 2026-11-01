@@ -2,7 +2,7 @@
 
 import unittest
 
-from tests.support import covers, get_qt_application, requires_qt
+from tests.support import button_name, covers, get_qt_application, requires_qt
 
 
 @requires_qt
@@ -42,7 +42,7 @@ class TopPanelTest(unittest.TestCase):
         from view.toggle_button import ToggleButton
         button = self.top_panel.open_file_button
         self.assertIsInstance(button, ToggleButton)
-        self.assertEqual(button.text(), "Open file")
+        self.assertEqual(button_name(button), "Open file")
         self.assertTrue(button.isVisible())
         self.assertFalse(button.is_active())
         self.assertIs(button.parentWidget(), self.top_panel)
@@ -57,7 +57,7 @@ class TopPanelTest(unittest.TestCase):
         from view.toggle_button import ToggleButton
         button = self.top_panel.tip_button
         self.assertIsInstance(button, ToggleButton)
-        self.assertEqual(button.text(), "Tip")
+        self.assertEqual(button_name(button), "Tip")
         self.assertTrue(button.isVisible())
         self.assertFalse(button.is_active())
         self.assertIs(button.parentWidget(), self.top_panel)

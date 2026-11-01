@@ -21,6 +21,9 @@ Contents:
   style sheet of the whole application, set once on the QApplication;
 - ``toggle_button_style_sheet``: the per-state style sheet of the top
   panel buttons (LLFR-00001, LLFR-00141);
+- icon tokens: the colors of the button icons in each state and their
+  sizes (LLFR-00158 to LLFR-00160), and the colors of the app icon
+  (LLFR-00183);
 - ``tab_style_sheet``: the tab bar and "+" button rules (LLFR-00106,
   LLFR-00107);
 - ``MATPLOTLIB_STYLE_DICT``, ``apply_matplotlib_style`` and the
@@ -81,6 +84,33 @@ SEGMENT_MIDDLE_STR = "middle"
 SEGMENT_LAST_STR = "last"
 
 # ----------------------------------------------------------------------
+# Icons of the top panel buttons (LLFR-00158 to LLFR-00160)
+# ----------------------------------------------------------------------
+# LLFR-00158: the buttons are squares that show only their icon.
+ICON_BUTTON_SIZE_I = 32
+ICON_SIZE_I = 20
+# LLFR-00160: the icon is drawn in the button's text color in each
+# state: dark ink on the light normal button, white on the dark active
+# button, and a paler grey on the disabled button that still keeps a
+# contrast of at least 3:1 with the disabled background.
+ICON_COLOR_STR = NORMAL_TEXT_COLOR_STR
+ICON_ACTIVE_COLOR_STR = ACTIVE_TEXT_COLOR_STR
+ICON_DISABLED_COLOR_STR = "#87929d"
+# LLFR-00160: smallest contrast between an icon and its background.
+MINIMUM_ICON_CONTRAST_F = 3.0
+
+# ----------------------------------------------------------------------
+# App icon (LLFR-00183)
+# ----------------------------------------------------------------------
+# LLFR-00183: a light rounded square, lit from the top, with dark axes;
+# the curves use the palette blue and red of LLFR-00144 (they are read
+# from model/curve_colors.py by view.icons).
+APP_ICON_TOP_COLOR_STR = "#ffffff"
+APP_ICON_BOTTOM_COLOR_STR = "#e6ebf0"
+APP_ICON_BORDER_COLOR_STR = CONTROL_BORDER_COLOR_STR
+APP_ICON_AXIS_COLOR_STR = ACTIVE_COLOR_STR
+
+# ----------------------------------------------------------------------
 # Spacing (an 8 px grid, with 4 px half steps)
 # ----------------------------------------------------------------------
 WINDOW_MARGIN_I = 12
@@ -93,6 +123,7 @@ SPLITTER_HANDLE_WIDTH_I = 8
 PLOT_SPACING_I = 6
 CONTROL_RADIUS_I = 6
 MENU_RADIUS_I = 6
+TOOLTIP_RADIUS_I = 4
 
 # ----------------------------------------------------------------------
 # Tabs of the plot panel (LLFR-00106, LLFR-00107)
@@ -213,7 +244,8 @@ def segment_corner_rule(segment_str: str) -> str:
 
 def toggle_button_style_sheet(object_name_str: str, active_b: bool,
                               segment_str: str = SEGMENT_SINGLE_STR,
-                              disabled_rule_b: bool = False) -> str:
+                              disabled_rule_b: bool = False,
+                              icon_only_b: bool = False) -> str:
     """Return the style sheet of a top panel button in one state.
 
     Inputs:
@@ -224,6 +256,8 @@ def toggle_button_style_sheet(object_name_str: str, active_b: bool,
         segment_str: the button's place in a joined group.
         disabled_rule_b: True to add the paler disabled rule
             (LLFR-00141).
+        icon_only_b: True for a square button that shows only its icon
+            (LLFR-00158); the icon is centred with no padding.
     Outputs: a Qt style sheet. The same border and padding are used in
         every state, so the button keeps its size when it changes color.
         The hover color of an active button is the active color itself,
@@ -243,12 +277,17 @@ def toggle_button_style_sheet(object_name_str: str, active_b: bool,
         border_str = BUTTON_BORDER_COLOR_STR
         hover_str = NORMAL_HOVER_COLOR_STR
         pressed_str = NORMAL_PRESSED_COLOR_STR
+    # LLFR-00158: an icon button has no padding; its fixed square size
+    # (ICON_BUTTON_SIZE_I) frames the icon.
+    if icon_only_b:
+        padding_str = "padding: 0px;"
+    else:
+        padding_str = (f"padding: {BUTTON_VERTICAL_PADDING_I}px "
+                       f"{BUTTON_HORIZONTAL_PADDING_I}px;")
     rule_list = [
         f"{selector_str} {{ background-color: {background_str}; "
         f"color: {text_str}; border: 1px solid {border_str}; "
-        f"{segment_corner_rule(segment_str)} "
-        f"padding: {BUTTON_VERTICAL_PADDING_I}px "
-        f"{BUTTON_HORIZONTAL_PADDING_I}px; }}",
+        f"{segment_corner_rule(segment_str)} {padding_str} }}",
         f"{selector_str}:hover {{ background-color: {hover_str}; }}",
         f"{selector_str}:pressed {{ background-color: {pressed_str}; }}",
     ]
@@ -377,9 +416,10 @@ def application_style_sheet() -> str:
         f"QMenu::item:disabled {{ color: {DISABLED_TEXT_COLOR_STR}; }}",
         f"QMenu::separator {{ height: 1px; background: "
         f"{HAIRLINE_COLOR_STR}; margin: 4px 6px; }}",
+        # LLFR-00181: the name of a top panel button shown on hover.
         f"QToolTip {{ background: {SURFACE_COLOR_STR}; color: "
-        f"{TEXT_COLOR_STR}; border: 1px solid {HAIRLINE_COLOR_STR}; "
-        "padding: 4px 6px; }",
+        f"{TEXT_COLOR_STR}; border: 1px solid {CONTROL_BORDER_COLOR_STR}; "
+        f"border-radius: {TOOLTIP_RADIUS_I}px; padding: 3px 7px; }}",
         # Buttons of message boxes and dialogs (the top panel buttons
         # have their own scoped rules, which take precedence).
         f"QDialog QPushButton, QMessageBox QPushButton {{ "

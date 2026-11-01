@@ -12,7 +12,7 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers, get_qt_application, requires_qt
+from tests.support import button_name, covers, get_qt_application, requires_qt
 from tests.view.test_plot_tools import (
     ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 
@@ -833,8 +833,8 @@ class NavigationEndToEndTest(unittest.TestCase):
         grid_button = self.top_panel.grid_button
         self.assertIsInstance(reset_button, ActionButton)
         self.assertIsInstance(grid_button, ToggleButton)
-        self.assertEqual(reset_button.text(), "Reset zoom")
-        self.assertEqual(grid_button.text(), "Grid")
+        self.assertEqual(button_name(reset_button), "Reset zoom")
+        self.assertEqual(button_name(grid_button), "Grid")
         for button in (reset_button, grid_button):
             self.assertTrue(button.isVisible())
             self.assertIs(button.parentWidget(), self.top_panel)

@@ -6,6 +6,10 @@ state changes, so the color always follows the state. The colors and the
 style sheet come from view.theme; the names below are kept so that the
 rest of the view and the tests read the state colors from one place.
 
+A button made with an icon name shows only that icon (LLFR-00158),
+drawn by view.icons in the color of the button's state (LLFR-00160),
+and keeps its name as its hover tip and accessible name (LLFR-00181).
+
 Colors:
     ACTIVE_COLOR_STR: dark ink background shown while the button is
         active (LLFR-00001), with white text for contrast.
@@ -13,10 +17,10 @@ Colors:
         active (LLFR-00002, LLFR-00003).
 """
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import QSize, pyqtSignal
 from PyQt6.QtWidgets import QPushButton
 
-from view import theme
+from view import icons, theme
 
 ACTIVE_COLOR_STR = theme.ACTIVE_COLOR_STR
 ACTIVE_TEXT_COLOR_STR = theme.ACTIVE_TEXT_COLOR_STR
@@ -30,8 +34,15 @@ class ToggleButton(QPushButton):
     """Button that shows when it is active (HLFR-00003).
 
     Inputs:
-        text_str: the text shown on the button, e.g. "Open file".
+        text_str: the button's name, e.g. "Open file": shown on the
+            button when it has no icon, else shown only in its hover tip.
         parent: optional parent widget.
+        icon_name_str: a name of view.icon_shapes.ICON_NAME_TUPLE, or ""
+            for a button that shows its name as text.
+    Attributes:
+        button_name_str: the button's name.
+        icon_name_str: the icon name, "" for a text button.
+        segment_position_str: the button's place in a joined group.
     Signals:
         activated: emitted when a click makes the button active
             (LLFR-00001).
@@ -42,15 +53,32 @@ class ToggleButton(QPushButton):
     activated = pyqtSignal()
     deactivated = pyqtSignal()
 
-    def __init__(self, text_str: str, parent=None) -> None:
+    def __init__(self, text_str: str, parent=None,
+                 icon_name_str: str = "") -> None:
         """Create an inactive, checkable button.
 
         Inputs:
-            text_str: the text shown on the button.
+            text_str: the button's name.
             parent: optional parent widget.
+            icon_name_str: the icon to show instead of the name, or "".
         Outputs: none.
         """
-        super().__init__(text_str, parent)
+        super().__init__(parent)
+        self.button_name_str = str(text_str)
+        self.icon_name_str = str(icon_name_str)
+        # LLFR-00158: the name is the accessible name in every case; an
+        # icon button shows only its icon. LLFR-00181: Qt shows the
+        # tooltip next to the pointer while it rests on the button and
+        # hides it when the pointer leaves.
+        self.setAccessibleName(self.button_name_str)
+        if self.icon_name_str:
+            self.setIcon(icons.icon_for(self.icon_name_str))
+            self.setIconSize(QSize(theme.ICON_SIZE_I, theme.ICON_SIZE_I))
+            self.setFixedSize(theme.ICON_BUTTON_SIZE_I,
+                              theme.ICON_BUTTON_SIZE_I)
+            self.setToolTip(self.button_name_str)
+        else:
+            self.setText(self.button_name_str)
         # LLFR-00001: the checked state is the active state.
         self.setCheckable(True)
         # The stylesheet is scoped by objectName so it does not leak to
@@ -63,6 +91,15 @@ class ToggleButton(QPushButton):
         self.objectNameChanged.connect(self._apply_style)
         self.clicked.connect(self._emit_click_signal)
         self._apply_style()
+
+    def button_name(self) -> str:
+        """Return the button's name, shown in its hover tip.
+
+        Inputs: none.
+        Outputs: the name, e.g. "Open file" (LLFR-00158, LLFR-00181).
+        """
+        # LLFR-00158: the name a button is "called" by the requirements.
+        return self.button_name_str
 
     def is_active(self) -> bool:
         """Tell whether the button is active.
@@ -121,9 +158,11 @@ class ToggleButton(QPushButton):
         """
         # LLFR-00001, LLFR-00002, LLFR-00003: the only place where the
         # look of the button is set.
+        # LLFR-00158: an icon button has the square icon-only look.
         self.setStyleSheet(theme.toggle_button_style_sheet(
             self.objectName(), self.isChecked(),
-            self.segment_position_str))
+            self.segment_position_str,
+            icon_only_b=bool(self.icon_name_str)))
 
     def _emit_click_signal(self, checked_b: bool) -> None:
         """Emit ``activated`` or ``deactivated`` after a user click.

@@ -11,7 +11,7 @@ from unittest import mock
 
 import numpy as np
 
-from tests.support import covers, get_qt_application, requires_qt
+from tests.support import button_name, covers, get_qt_application, requires_qt
 
 
 @requires_qt
@@ -114,7 +114,7 @@ class UndoButtonTest(UndoWindowTestCase):
         """
         from PyQt6.QtWidgets import QPushButton
         self.assertIsInstance(self.undo_button, QPushButton)
-        self.assertEqual(self.undo_button.text(), "Undo")
+        self.assertEqual(button_name(self.undo_button), "Undo")
         self.assertIs(self.undo_button.parentWidget(), self.top_panel)
         self.assertTrue(self.undo_button.isVisible())
         self.assertGreater(self.undo_button.x(),

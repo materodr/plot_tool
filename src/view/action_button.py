@@ -21,10 +21,12 @@ class ActionButton(ToggleButton):
     """Toggle button that turns normal again once its action is done.
 
     Inputs:
-        text_str: the text shown on the button, e.g. "Reset zoom".
+        text_str: the button's name, e.g. "Reset zoom".
         minimum_active_time_ms_i: the shortest time, in milliseconds,
             the button stays active after a click.
         parent: optional parent widget.
+        icon_name_str: the icon shown instead of the name, or ""
+            (LLFR-00158).
     Signals:
         triggered: emitted on every click, after the button became
             active; the receiver runs the action and then calls
@@ -38,16 +40,18 @@ class ActionButton(ToggleButton):
 
     def __init__(self, text_str: str,
                  minimum_active_time_ms_i: int = MINIMUM_ACTIVE_TIME_MS_I,
-                 parent=None) -> None:
+                 parent=None, icon_name_str: str = "") -> None:
         """Create an inactive action button.
 
         Inputs:
-            text_str: the text shown on the button.
+            text_str: the button's name.
             minimum_active_time_ms_i: the minimum active time in ms.
             parent: optional parent widget.
+            icon_name_str: the icon shown instead of the name, or "".
         Outputs: none.
         """
-        super().__init__(text_str, parent)
+        # LLFR-00158: the icon, if any, is set by ToggleButton.
+        super().__init__(text_str, parent, icon_name_str)
         # LLFR-00116: the minimum time starts at each click; the timer is
         # a child, so it never fires after the button is deleted.
         self.action_running_b = False

@@ -64,3 +64,18 @@ def get_qt_application():
     if application is None:
         application = QApplication([])
     return application
+
+
+def button_name(button) -> str:
+    """Return the name a top panel button is called by.
+
+    The top panel buttons show only an icon (LLFR-00158); the name the
+    requirements call a button by ("Open file", "Tip", ...) is its hover
+    tip (LLFR-00181), also set as its accessible name. Tests find and
+    check buttons by this name, never by ``text()``.
+
+    Inputs:
+        button: a QPushButton of the top panel.
+    Outputs: the button's accessible name.
+    """
+    return button.accessibleName()

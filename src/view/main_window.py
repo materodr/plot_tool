@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget)
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
-from view import message_boxes, plot_export, theme
+from view import icons, message_boxes, plot_export, theme
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -73,6 +73,12 @@ class MainWindow(QMainWindow):
         theme.apply_application_theme(QApplication.instance())
         # LLFR-00058: the window holds the three panels of HLFR-00001.
         self.setWindowTitle(self.WINDOW_TITLE_STR)
+        # LLFR-00182: the app icon in the title bar and, set on the
+        # application, in the Dock and app switcher (macOS) and the
+        # taskbar (Windows) when the app is run from source.
+        self.setWindowIcon(icons.app_icon())
+        if QApplication.instance() is not None:
+            QApplication.instance().setWindowIcon(self.windowIcon())
         self.resize(self.INITIAL_WIDTH_I, self.INITIAL_HEIGHT_I)
         self.top_panel = TopPanel()
         self.plot_panel = PlotPanel()

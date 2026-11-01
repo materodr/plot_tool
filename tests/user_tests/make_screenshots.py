@@ -9,7 +9,11 @@ CSV file and creates a state that shows most of the interface: two
 tabs, three plots with several curves, a pinned tip, two vertical
 markers, the grid, a search with results and an active plot tool. It
 then saves PNG images of the whole window at 1400x900 and 1000x700, of
-the window with a search that matches nothing, and of a message box.
+the window with a search that matches nothing, and of a message box,
+plus close-ups of the icons (issue #74): the top panel at 1x and 2x
+pixel density with a hover tip, every button icon in its normal, active
+and disabled colors at 1x and 2x, and the app icon at its standard
+sizes.
 
 CI runs it on every pull request and posts the images as PR comments
 (see .github/workflows/tests.yml); fetch_screenshots.py downloads them.
@@ -178,6 +182,125 @@ def save_message_box(main_window, application, path_str: str) -> None:
     print(f"saved {path_str}")
 
 
+def save_top_panel(main_window, application, path_str: str) -> None:
+    """Save the top panel at 1x and 2x density, with a hover tip.
+
+    Inputs:
+        main_window: the MainWindow (its top panel is drawn).
+        application: the QApplication.
+        path_str: the PNG file to write.
+    Outputs: none.
+    """
+    from PyQt6.QtCore import QPoint
+    from PyQt6.QtGui import QColor, QImage, QPainter
+    from PyQt6.QtWidgets import QToolTip
+    from view import theme
+    top_panel = main_window.top_panel
+    # The panel width up to its last button.
+    width_i = max(button.geometry().right() for button in
+                  top_panel.button_list()) + 8
+    height_i = top_panel.height()
+    margin_i = 12
+    # A hover tip on the Zoom button, as the user sees it.
+    zoom_button = top_panel.zoom_button
+    QToolTip.showText(zoom_button.mapToGlobal(QPoint(
+        zoom_button.width() // 2, zoom_button.height() + 4)),
+        zoom_button.toolTip(), zoom_button)
+    process_events(application)
+    tip_image = None
+    for widget in application.topLevelWidgets():
+        if widget.inherits("QTipLabel") and widget.isVisible():
+            tip_image = widget.grab().toImage()
+    QToolTip.hideText()
+    tip_height_i = tip_image.height() + 8 if tip_image is not None else 0
+    sheet = QImage(margin_i * 3 + width_i * 3,
+                   margin_i * 2 + height_i * 2 + tip_height_i,
+                   QImage.Format.Format_ARGB32)
+    sheet.fill(QColor(theme.WINDOW_COLOR_STR))
+    painter = QPainter(sheet)
+    for scale_i, left_i in ((1, margin_i), (2, margin_i * 2 + width_i)):
+        panel_image = QImage(width_i * scale_i, height_i * scale_i,
+                             QImage.Format.Format_ARGB32)
+        panel_image.setDevicePixelRatio(scale_i)
+        panel_image.fill(QColor(theme.WINDOW_COLOR_STR))
+        panel_painter = QPainter(panel_image)
+        top_panel.render(panel_painter)
+        panel_painter.end()
+        panel_image.setDevicePixelRatio(1)
+        painter.drawImage(left_i, margin_i, panel_image)
+    if tip_image is not None:
+        tip_left_i = margin_i + zoom_button.geometry().left()
+        painter.drawImage(tip_left_i, margin_i + height_i + 4, tip_image)
+    painter.end()
+    if not sheet.save(path_str, "PNG"):
+        raise RuntimeError(f"could not save {path_str}")
+    print(f"saved {path_str}")
+
+
+def save_icon_sheet(application, path_str: str) -> None:
+    """Save every button icon in each state, and the app icon.
+
+    Inputs:
+        application: the QApplication.
+        path_str: the PNG file to write.
+    Outputs: none. Rows: normal, active and disabled at 1x (20 px on a
+        32 px button), the same at 2x, then the app icon at 16, 24, 32,
+        48, 64, 128 and 256 px and the 1024 px macOS version scaled to
+        256 px.
+    """
+    from PyQt6.QtCore import QRectF, QSize
+    from PyQt6.QtGui import QColor, QIcon, QImage, QPainter, QPen
+    from view import icon_shapes, icons, theme
+    state_list = [
+        (theme.NORMAL_COLOR_STR, theme.BUTTON_BORDER_COLOR_STR,
+         QIcon.Mode.Normal, QIcon.State.Off),
+        (theme.ACTIVE_COLOR_STR, theme.ACTIVE_COLOR_STR,
+         QIcon.Mode.Normal, QIcon.State.On),
+        (theme.DISABLED_COLOR_STR, theme.DISABLED_BORDER_COLOR_STR,
+         QIcon.Mode.Disabled, QIcon.State.Off),
+    ]
+    name_tuple = icon_shapes.ICON_NAME_TUPLE
+    gap_i = 10
+    app_size_tuple = (16, 24, 32, 48, 64, 128, 256)
+    width_i = max(gap_i + len(name_tuple) * (64 + gap_i),
+                  gap_i + sum(app_size_tuple) + 256 + gap_i * 9)
+    height_i = gap_i * 8 + 3 * 32 + 3 * 64 + 256
+    sheet = QImage(width_i, height_i, QImage.Format.Format_ARGB32)
+    sheet.fill(QColor(theme.WINDOW_COLOR_STR))
+    painter = QPainter(sheet)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    top_i = gap_i
+    for scale_i in (1, 2):
+        button_i = theme.ICON_BUTTON_SIZE_I * scale_i
+        icon_i = theme.ICON_SIZE_I * scale_i
+        for background_str, border_str, mode, state in state_list:
+            for index_i, icon_name_str in enumerate(name_tuple):
+                left_i = gap_i + index_i * (64 + gap_i)
+                painter.setPen(QPen(QColor(border_str), scale_i))
+                painter.setBrush(QColor(background_str))
+                painter.drawRoundedRect(
+                    QRectF(left_i + scale_i / 2.0, top_i + scale_i / 2.0,
+                           button_i - scale_i, button_i - scale_i),
+                    theme.BUTTON_RADIUS_I * scale_i,
+                    theme.BUTTON_RADIUS_I * scale_i)
+                pixmap = icons.icon_for(icon_name_str).pixmap(
+                    QSize(icon_i, icon_i), mode, state)
+                inset_i = (button_i - icon_i) // 2
+                painter.drawPixmap(left_i + inset_i, top_i + inset_i, pixmap)
+            top_i += button_i + gap_i
+    left_i = gap_i
+    for size_i in app_size_tuple:
+        painter.drawImage(left_i, top_i, icons.app_icon_image(size_i))
+        left_i += size_i + gap_i
+    macos_image = icons.app_icon_image(1024, 0.098).scaled(256, 256)
+    painter.drawImage(left_i, top_i, macos_image)
+    painter.end()
+    process_events(application)
+    if not sheet.save(path_str, "PNG"):
+        raise RuntimeError(f"could not save {path_str}")
+    print(f"saved {path_str}")
+
+
 def main() -> int:
     """Build the window states and save the screenshots.
 
@@ -216,9 +339,13 @@ def main() -> int:
                         output_path("no_match_1000x700"))
             save_message_box(main_window, application,
                              output_path("full_tab_box"))
+        else:
+            save_top_panel(main_window, application,
+                           output_path("top_panel_icons"))
         main_window.close()
         main_window.deleteLater()
         process_events(application)
+    save_icon_sheet(application, output_path("icon_sheet"))
     return 0
 
 
