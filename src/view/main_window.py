@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from controller.plot_tools import (
     DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
     TIP_TOOL_STR)
+from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     file_writing, icons, message_boxes, plot_export, synthetic_dialogs,
     theme)
@@ -868,16 +869,20 @@ class MainWindow(QMainWindow):
         # LLFR-00066: the last tab cannot be deleted.
         self.plot_panel.set_tab_delete_enabled(enabled_b)
 
-    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int,
+                      kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create a plot at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
             plot_id_i: id of the plot in the model.
+            kind_str: TIME_PLOT_KIND_STR for a time plot or
+                FREQUENCY_PLOT_KIND_STR for a frequency plot (LLFR-00256).
         Outputs: none.
         """
         # LLFR-00019, LLFR-00069: the new plot goes below the others.
-        self.plot_panel.add_plot_view(tab_id_i, plot_id_i)
+        # LLFR-00256: with frequency or time on its x-axis.
+        self.plot_panel.add_plot_view(tab_id_i, plot_id_i, kind_str)
         # LLFR-00042, LLFR-00078: a new plot starts with the active tool.
         plot_widget = self.plot_panel.plot_view(plot_id_i)
         if plot_widget is not None:
@@ -1018,6 +1023,16 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00032: the tab is full; add a tab or delete a plot.
         message_boxes.show_full_tab_notification(self)
+
+    def show_plot_kind_mismatch_notification(self) -> None:
+        """Show the box saying FFT and time signals need separate plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00257: an FFT signal dropped on a time plot, or another
+        # signal dropped on a frequency plot, is not drawn.
+        message_boxes.show_plot_kind_mismatch_notification(self)
 
     def show_tab_name_taken_notification(self, name_str: str) -> None:
         """Show the Tab Name Taken box.

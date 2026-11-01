@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
     QToolButton, QVBoxLayout, QWidget)
 
+from model.workspace import TIME_PLOT_KIND_STR
 from view import theme
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
@@ -619,19 +620,23 @@ class PlotPanel(QWidget):
     # Plot facade
     # ----------------------------------------------------------------
 
-    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int,
+                      kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create a plot widget at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
             plot_id_i: id of the plot in the model.
+            kind_str: TIME_PLOT_KIND_STR or FREQUENCY_PLOT_KIND_STR
+                (LLFR-00256).
         Outputs: none.
         """
         # LLFR-00019, LLFR-00069: the new plot goes below the others.
         page = self.page_dict.get(tab_id_i)
         if page is None or plot_id_i in self.plot_widget_dict:
             return
-        plot_widget = PlotWidget(plot_id_i)
+        # LLFR-00256: a time plot or a frequency plot.
+        plot_widget = PlotWidget(plot_id_i, kind_str=kind_str)
         plot_widget.setObjectName(f"plot_widget_{plot_id_i}")
         # LLFR-00042, LLFR-00078, LLFR-00081: the new plot starts with no
         # tool; MainWindow.add_plot_view applies the active plot tool.

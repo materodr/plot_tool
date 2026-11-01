@@ -46,6 +46,12 @@ TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
 TAB_NAME_TAKEN_MESSAGE_STR = (
     "A tab named '{name}' already exists. The tab keeps its previous "
     "name. Type a different name.")
+# LLFR-00257: the information box of a drop that mixes an FFT signal and
+# a time signal in one plot.
+PLOT_KIND_MISMATCH_TITLE_STR = "Frequency Plot"
+PLOT_KIND_MISMATCH_MESSAGE_STR = (
+    "FFT signals and time signals cannot be drawn in the same plot. "
+    "Double-click the signal to draw it in a new plot.")
 REPLACE_FILE_TITLE_STR = "Replace File"
 REPLACE_FILE_MESSAGE_STR = (
     "Another file is already open. Proceeding will close the current "
@@ -160,6 +166,26 @@ def build_tab_name_taken_box(parent, name_str: str) -> QMessageBox:
     return box
 
 
+def build_plot_kind_mismatch_box(parent) -> QMessageBox:
+    """Build the box of a drop that mixes FFT and time signals.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+    Outputs: a QMessageBox with the information icon (it is not an error
+        box), the title PLOT_KIND_MISMATCH_TITLE_STR, the text
+        PLOT_KIND_MISMATCH_MESSAGE_STR and an OK button.
+    """
+    # LLFR-00257: information message saying that FFT signals and time
+    # signals cannot be drawn in the same plot.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Information)
+    box.setWindowTitle(PLOT_KIND_MISMATCH_TITLE_STR)
+    box.setText(PLOT_KIND_MISMATCH_MESSAGE_STR)
+    box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    box.setDefaultButton(QMessageBox.StandardButton.Ok)
+    return box
+
+
 def build_replace_file_box(parent) -> QMessageBox:
     """Build the Replace File confirmation box.
 
@@ -215,6 +241,17 @@ def show_tab_name_taken_notification(parent, name_str: str) -> None:
     """
     # LLFR-00211: notify that another tab already has the name.
     build_tab_name_taken_box(parent, name_str).exec()
+
+
+def show_plot_kind_mismatch_notification(parent) -> None:
+    """Show the box of a drop that mixes FFT and time signals.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+    Outputs: none.
+    """
+    # LLFR-00257: the dropped signal was not drawn.
+    build_plot_kind_mismatch_box(parent).exec()
 
 
 def ask_replace_file(parent) -> bool:

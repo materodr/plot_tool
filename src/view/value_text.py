@@ -55,6 +55,48 @@ def format_delta_x_text(delta_s: float) -> str:
     return f"{DELTA_SIGN_STR}t = {format_time_value(delta_s)} s"
 
 
+def format_frequency_text(frequency_hz: float) -> str:
+    """Return a frequency as shown in the data tips of a frequency plot.
+
+    Inputs:
+        frequency_hz: the frequency, in Hz.
+    Outputs: the text ``f = <frequency> Hz``, in the number format of
+        the times (LLFR-00043).
+    """
+    # LLFR-00260: frequency plots show the x value in Hz.
+    return f"f = {format_time_value(frequency_hz)} Hz"
+
+
+def format_frequency_tip_text(signal_name_str: str, frequency_hz: float,
+                              value_f: float) -> str:
+    """Return the two-line text of a data tip on a frequency plot.
+
+    Inputs:
+        signal_name_str: name of the FFT signal of the curve.
+        frequency_hz: x-axis value of the point, in Hz.
+        value_f: y-axis value of the point (the amplitude).
+    Outputs: the text ``f = <frequency> Hz`` and ``<name> = <value>``
+        on two lines.
+    """
+    # LLFR-00260: the x value in Hz, instead of seconds; LLFR-00044: the
+    # y value as for every data tip.
+    return (f"{format_frequency_text(frequency_hz)}\n"
+            f"{signal_name_str} = {format_signal_value(value_f)}")
+
+
+def format_delta_frequency_text(delta_hz: float) -> str:
+    """Return the text of a Delta X marker on a frequency plot.
+
+    Inputs:
+        delta_hz: frequency of the second point minus frequency of the
+            first, in Hz.
+    Outputs: the text ``Δf = <value> Hz``.
+    """
+    # LLFR-00261: signed, in Hz, in the number format of the data tip's
+    # x value (LLFR-00260).
+    return f"{DELTA_SIGN_STR}f = {format_time_value(delta_hz)} Hz"
+
+
 def format_delta_y_text(delta_f: float) -> str:
     """Return the text of a Delta Y marker.
 
