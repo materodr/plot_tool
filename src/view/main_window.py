@@ -1,7 +1,8 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
 from PyQt6.QtWidgets import (
-    QFileDialog, QInputDialog, QLineEdit, QMainWindow, QVBoxLayout, QWidget)
+    QDialog, QFileDialog, QInputDialog, QLineEdit, QMainWindow, QVBoxLayout,
+    QWidget)
 
 from controller.plot_tools import NO_TOOL_STR
 from view import message_boxes, plot_export
@@ -22,6 +23,9 @@ RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
 # LLFR-00128: title and filter of the PDF save file dialog.
 SAVE_PDF_DIALOG_TITLE_STR = "Save all tabs as PDF"
 SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
+# LLFR-00128: added by the dialog to a name typed without an extension,
+# so that its overwrite question names the file really written.
+SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
 
 
 class MainWindow(QMainWindow):
@@ -510,11 +514,57 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: the chosen path, or "" when the user cancelled.
         """
-        # LLFR-00128: a save file dialog filtered to .pdf files.
+        # LLFR-00128: a save file dialog for a .pdf file.
         # LLFR-00130: an empty path means the dialog was cancelled.
-        path_str, _ = QFileDialog.getSaveFileName(
-            self, SAVE_PDF_DIALOG_TITLE_STR, "", SAVE_PDF_FILTER_STR)
-        return path_str or ""
+        dialog = self.build_pdf_save_dialog()
+        try:
+            return self.run_pdf_save_dialog(dialog) or ""
+        finally:
+            dialog.deleteLater()
+
+    def build_pdf_save_dialog(self) -> QFileDialog:
+        """Build the save file dialog of the PDF export, not shown.
+
+        Inputs: none.
+        Outputs: a QFileDialog in save mode, filtered to .pdf files,
+            that adds ".pdf" to a name typed without an extension and
+            asks before overwriting the resulting file.
+        """
+        # LLFR-00128: the dialog is for a .pdf file; the overwrite
+        # question is asked by Qt for the name with the suffix.
+        dialog = QFileDialog(self, SAVE_PDF_DIALOG_TITLE_STR, "",
+                             SAVE_PDF_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setDefaultSuffix(SAVE_PDF_DEFAULT_SUFFIX_STR)
+        return dialog
+
+    def run_pdf_save_dialog(self, dialog) -> str:
+        """Run the PDF save dialog modally and return the chosen path.
+
+        Inputs:
+            dialog: the QFileDialog built by build_pdf_save_dialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00128, LLFR-00130: the modal dialog.
+        if dialog.exec() != QDialog.DialogCode.Accepted.value:
+            return ""
+        selected_file_list = dialog.selectedFiles()
+        if not selected_file_list:
+            return ""
+        return str(selected_file_list[0])
+
+    def ask_replace_existing_file(self, path_str: str) -> bool:
+        """Ask whether to replace an existing file.
+
+        Inputs:
+            path_str: the path of the existing file.
+        Outputs: True when the user chose to replace it.
+        """
+        # LLFR-00128: asked when ".pdf" was added after the dialog and
+        # the resulting file already exists.
+        return message_boxes.ask_replace_existing_file(self, path_str)
 
     def save_tabs_pdf(self, path_str: str) -> tuple:
         """Save the plots of every tab that holds a plot to a PDF file.

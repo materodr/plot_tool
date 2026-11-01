@@ -46,6 +46,10 @@ EXPORT_ERROR_TITLE_STR = "Export Error"
 EXPORT_ERROR_INTRO_STR = "The file could not be saved."
 COPY_ERROR_TITLE_STR = "Copy Error"
 COPY_ERROR_INTRO_STR = "The plots could not be copied to the clipboard."
+# LLFR-00128: question asked before an existing .pdf file is replaced.
+REPLACE_EXISTING_TITLE_STR = "Replace File"
+REPLACE_EXISTING_MESSAGE_STR = (
+    "The file '{path}' already exists. Do you want to replace it?")
 
 
 def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
@@ -281,3 +285,42 @@ def build_copy_error_box(parent, reason_str: str) -> QMessageBox:
     return build_message_box(parent, QMessageBox.Icon.Critical,
                              COPY_ERROR_TITLE_STR,
                              join_reason(COPY_ERROR_INTRO_STR, reason_str))
+
+
+def build_replace_existing_file_box(parent, path_str: str) -> QMessageBox:
+    """Build the question asked before an existing file is replaced.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        path_str: the path of the existing file.
+    Outputs: a QMessageBox with the question icon, the title
+        REPLACE_EXISTING_TITLE_STR, a text naming the file and the
+        buttons Yes and No, where No is the default and escape button.
+    """
+    # LLFR-00128: the user decides whether the existing file is lost.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(REPLACE_EXISTING_TITLE_STR)
+    box.setText(REPLACE_EXISTING_MESSAGE_STR.format(path=path_str))
+    box.setStandardButtons(QMessageBox.StandardButton.Yes
+                           | QMessageBox.StandardButton.No)
+    box.setDefaultButton(QMessageBox.StandardButton.No)
+    box.setEscapeButton(QMessageBox.StandardButton.No)
+    return box
+
+
+def ask_replace_existing_file(parent, path_str: str) -> bool:
+    """Ask whether to replace an existing file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        path_str: the path of the existing file.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00128: only Yes replaces the file.
+    result = build_replace_existing_file_box(parent, path_str).exec()
+    if isinstance(result, QMessageBox.StandardButton):
+        result_value_i = int(result.value)
+    else:
+        result_value_i = int(result)
+    return result_value_i == QMessageBox.StandardButton.Yes.value

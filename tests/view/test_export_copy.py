@@ -151,12 +151,11 @@ class ExportCopyTest(unittest.TestCase):
 
         Inputs:
             answer_path_str: the path the dialog returns ("" = cancel).
-        Outputs: the mock of QFileDialog.getSaveFileName.
+        Outputs: the mock of MainWindow.run_pdf_save_dialog.
         """
         self.menu_choice_str = "Save all tabs as PDF"
-        with mock.patch.object(
-                self.file_dialog_class, "getSaveFileName",
-                return_value=(answer_path_str, "")) as dialog_mock:
+        with mock.patch.object(self.main_window, "run_pdf_save_dialog",
+                               return_value=answer_path_str) as dialog_mock:
             self.click(self.top_panel.export_button)
         return dialog_mock
 
@@ -239,27 +238,28 @@ class ExportCopyTest(unittest.TestCase):
         self.plot_signal("force")
         state_list = []
 
-        def answer_dialog(*argument_tuple, **argument_dict) -> tuple:
-            """Record the dialog arguments and the button state.
+        def answer_dialog(dialog) -> str:
+            """Record the dialog settings and the button state.
 
             Inputs:
-                argument_tuple: positional arguments of the dialog.
-                argument_dict: keyword arguments of the dialog.
+                dialog: the QFileDialog that would be shown.
             Outputs: the chosen path without the .pdf extension.
             """
             state_list.append(
-                (argument_tuple, self.top_panel.export_button.is_active()))
-            return (os.path.join(self.folder_str, "plots"), "")
+                (dialog.acceptMode(), dialog.defaultSuffix(),
+                 dialog.nameFilters(),
+                 self.top_panel.export_button.is_active()))
+            return os.path.join(self.folder_str, "plots")
 
         self.menu_choice_str = "Save all tabs as PDF"
-        with mock.patch.object(self.file_dialog_class, "getSaveFileName",
+        with mock.patch.object(self.main_window, "run_pdf_save_dialog",
                                side_effect=answer_dialog):
             self.click(self.top_panel.export_button)
-        # LLFR-00128: one dialog for a .pdf file; LLFR-00001: the
+        # LLFR-00128: one save dialog for a .pdf file; LLFR-00001: the
         # button is active while it is shown.
-        self.assertEqual(len(state_list), 1)
-        self.assertIn("*.pdf", state_list[0][0][3])
-        self.assertTrue(state_list[0][1])
+        self.assertEqual(state_list, [
+            (self.file_dialog_class.AcceptMode.AcceptSave, "pdf",
+             ["PDF files (*.pdf)"], True)])
         path_str = os.path.join(self.folder_str, "plots.pdf")
         self.assertTrue(os.path.isfile(path_str))
         with open(path_str, "rb") as pdf_file:
@@ -268,6 +268,111 @@ class ExportCopyTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
         # LLFR-00003: the button is back to normal.
         self.assertFalse(self.top_panel.export_button.is_active())
+
+    @covers("LLFR-00128")
+    def test_save_dialog_names_the_real_file(self) -> None:
+        """The dialog saves, filters .pdf and adds the pdf suffix.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        dialog = self.main_window.build_pdf_save_dialog()
+        self.assertEqual(dialog.acceptMode(),
+                         self.file_dialog_class.AcceptMode.AcceptSave)
+        self.assertEqual(dialog.defaultSuffix(), "pdf")
+        self.assertEqual(dialog.nameFilters(), ["PDF files (*.pdf)"])
+        # Qt asks before overwriting: the option is not switched off.
+        self.assertFalse(dialog.testOption(
+            self.file_dialog_class.Option.DontConfirmOverwrite))
+        dialog.deleteLater()
+
+    @covers("LLFR-00129")
+    def test_plots_are_sharp_on_the_page(self) -> None:
+        """Each plot is drawn on the page at 200 dots per inch or more.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import plot_export
+        self.plot_signal("speed")
+        self.plot_signal("force")
+        plot_widget_list = [
+            self.main_window.plot_view(plot_id_i) for plot_id_i in
+            self.main_window.plot_panel.plot_id_list(
+                self.main_window.current_tab_id())]
+        screen_dpi_list = [widget.figure.dpi for widget in plot_widget_list]
+        drawn_list = []
+        original_draw = plot_export.draw_page_image
+
+        def recording_draw(*argument_tuple):
+            """Draw the page and record the plot images it drew.
+
+            Inputs:
+                argument_tuple: the arguments of draw_page_image.
+            Outputs: the list returned by draw_page_image.
+            """
+            result_list = original_draw(*argument_tuple)
+            drawn_list.extend(result_list)
+            return result_list
+
+        with mock.patch.object(plot_export, "draw_page_image",
+                               side_effect=recording_draw):
+            self.export_to(os.path.join(self.folder_str, "sharp.pdf"))
+        self.assertEqual(len(drawn_list), 2)
+        for target_rect, plot_image in drawn_list:
+            width_inches_f = (target_rect.width()
+                              / plot_export.PDF_RESOLUTION_I)
+            self.assertGreaterEqual(plot_image.width() / width_inches_f,
+                                    200.0)
+            height_inches_f = (target_rect.height()
+                               / plot_export.PDF_RESOLUTION_I)
+            self.assertGreaterEqual(plot_image.height() / height_inches_f,
+                                    200.0)
+            # The sharp image has the plot's on-screen aspect ratio.
+            self.assertAlmostEqual(
+                plot_image.width() / plot_image.height(),
+                target_rect.width() / target_rect.height(), delta=0.05)
+        # The plots on screen keep their resolution.
+        self.assertEqual([widget.figure.dpi for widget in plot_widget_list],
+                         screen_dpi_list)
+
+    @covers("LLFR-00129")
+    def test_current_tab_restored_after_error(self) -> None:
+        """The tab shown before the export is shown again after an error.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import plot_export
+        self.plot_signal("speed")
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.add_tab(SECOND_TAB_NAME_STR)
+        self.plot_signal("force")
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.application.processEvents()
+        original_grab = plot_export.grab_page_image
+        call_list = []
+
+        def failing_grab(page):
+            """Grab the first page, then fail on the second one.
+
+            Inputs:
+                page: the TabPage to grab.
+            Outputs: the grabbed QImage for the first page.
+            """
+            call_list.append(page.name_str)
+            if len(call_list) > 1:
+                raise RuntimeError("grab failed")
+            return original_grab(page)
+
+        path_str = os.path.join(self.folder_str, "error.pdf")
+        with mock.patch.object(plot_export, "grab_page_image",
+                               side_effect=failing_grab):
+            with self.assertRaises(RuntimeError):
+                self.main_window.save_tabs_pdf(path_str)
+        self.assertEqual(call_list, ["Tab 1", SECOND_TAB_NAME_STR])
+        self.assertEqual(self.main_window.current_tab_id(), first_tab_id_i)
+        self.assertFalse(os.path.exists(path_str))
 
     @covers("LLFR-00129")
     def test_empty_tab_gets_no_page(self) -> None:
@@ -418,6 +523,31 @@ class ExportCopyTest(unittest.TestCase):
         self.export_to(folder_path_str)
         self.assertEqual(self.box_title_list(), ["Export Error"])
         self.assertTrue(os.path.isdir(folder_path_str))
+
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0,
+                     "root may write read-only files")
+    @covers("LLFR-00131")
+    def test_read_only_file_survives_failed_export(self) -> None:
+        """A read-only existing PDF is kept unchanged and an error shown.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.plot_signal("speed")
+        path_str = os.path.join(self.folder_str, "report.pdf")
+        with open(path_str, "wb") as existing_file:
+            existing_file.write(b"old report")
+        os.chmod(path_str, 0o444)
+        self.addCleanup(os.chmod, path_str, 0o644)
+        self.export_to(path_str)
+        self.assertEqual(self.box_title_list(), ["Export Error"])
+        self.assertTrue(self.box_record_list[0][2].startswith(
+            "The file could not be saved."))
+        with open(path_str, "rb") as existing_file:
+            self.assertEqual(existing_file.read(), b"old report")
+        self.assertEqual(sorted(os.listdir(self.folder_str)),
+                         ["data.csv", "report.pdf"])
+        self.assertFalse(self.top_panel.export_button.is_active())
 
     @covers("LLFR-00131")
     def test_failed_document_shows_error(self) -> None:

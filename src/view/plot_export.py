@@ -8,23 +8,32 @@ vertical markers and pinned tips (LLFR-00129, LLFR-00133).
 PDF layout (LLFR-00129): one landscape A4 page per tab that holds at
 least one plot, in tab order, with a margin of PAGE_MARGIN_MM_F on each
 side. The tab name is written at the top of the page in bold, and the
-image of the tab's plots fills the rest of the page, scaled to fit and
-keeping its aspect ratio. A tab that is not the current one is shown
-for a moment, so that it is laid out at the size of the visible tab
-page before its image is taken; the current tab is selected again
-afterwards.
+image of the tab fills the rest of the page, scaled to fit and keeping
+its aspect ratio. A tab that is not the current one is shown for a
+moment, so that it is laid out at the size of the visible tab page
+before its image is taken; the current tab is selected again
+afterwards, even after an error.
 
-The PDF is first written to memory and then to the file in one Python
-``write``, so every write error (missing folder, no permission, full
-disk) is reported with its reason (LLFR-00131).
+Print quality (LLFR-00129): the screen grab only gives the page its
+layout and background. Each plot's matplotlib figure is rendered again,
+at the same size in inches and so with the same look, at a resolution
+that gives at least TARGET_FIGURE_DPI_F dots per inch on the page, and
+drawn over its place in the grab.
+
+The PDF is made in memory and then written with
+``file_writing.write_file_safely``, which never damages a file that was
+already there (LLFR-00131).
 """
 
-import os
+import io
 
-from PyQt6.QtCore import QBuffer, QIODevice, QMarginsF, QPointF, QRectF, Qt
-from PyQt6.QtGui import QFont, QPageLayout, QPageSize, QPainter, QPdfWriter
+from PyQt6.QtCore import (
+    QBuffer, QIODevice, QMarginsF, QPoint, QPointF, QRectF, Qt)
+from PyQt6.QtGui import (
+    QFont, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter)
 from PyQt6.QtWidgets import QApplication
 
+from view.file_writing import write_file_safely
 from view.tab_page import TabPage
 
 # LLFR-00129: page size, orientation, margins and resolution of the PDF.
@@ -35,9 +44,18 @@ TITLE_FONT_POINT_SIZE_F = 14.0
 # LLFR-00129: space between the tab name and the plots, in title line
 # heights.
 TITLE_GAP_RATIO_F = 0.5
+# LLFR-00129: width of the paintable area of a landscape A4 page.
+MILLIMETERS_PER_INCH_F = 25.4
+A4_LONG_SIDE_MM_F = 297.0
+PAINT_WIDTH_INCHES_F = ((A4_LONG_SIDE_MM_F - 2.0 * PAGE_MARGIN_MM_F)
+                        / MILLIMETERS_PER_INCH_F)
+# LLFR-00129: resolution of the plots on the page, and an upper bound
+# that keeps the images small for very narrow tabs.
+TARGET_FIGURE_DPI_F = 300.0
+MAXIMUM_FIGURE_DPI_F = 1200.0
+FIGURE_IMAGE_FORMAT_STR = "png"
 # LLFR-00131: reasons given when the file could not be written.
 PDF_RENDER_FAILED_STR = "The PDF document could not be created."
-EMPTY_FILE_REASON_STR = "Nothing was written to the file."
 # LLFR-00133: reason given when no image could be made.
 COPY_FAILED_REASON_STR = "The image of the plots could not be created."
 
@@ -101,33 +119,98 @@ def lay_out_page_like(page, reference_size) -> None:
     QApplication.processEvents()
 
 
+def render_figure_image(figure, dpi_f: float):
+    """Render a matplotlib figure to an image at a given resolution.
+
+    Inputs:
+        figure: the matplotlib Figure of a plot.
+        dpi_f: dots per inch of the rendered image.
+    Outputs: a QImage of the whole figure, with the same size in inches
+        and so the same layout as on screen.
+    """
+    # LLFR-00129: time range, curves, legend, grid, markers and pinned
+    # tips are drawn as on screen, only with more pixels.
+    image_buffer = io.BytesIO()
+    figure.savefig(image_buffer, format=FIGURE_IMAGE_FORMAT_STR,
+                   dpi=dpi_f)
+    return QImage.fromData(image_buffer.getvalue(),
+                           FIGURE_IMAGE_FORMAT_STR.upper())
+
+
+def figure_export_dpi_f(figure, canvas_width_px: float,
+                        page_width_px: float) -> float:
+    """Return the resolution at which a plot is rendered for the PDF.
+
+    Inputs:
+        figure: the matplotlib Figure of the plot.
+        canvas_width_px: width of the plot's canvas, in logical pixels.
+        page_width_px: width of the tab page, in logical pixels.
+    Outputs: dots per inch that give the figure at least
+        TARGET_FIGURE_DPI_F on the page, where the tab is at most
+        PAINT_WIDTH_INCHES_F wide; never less than the screen's and
+        never more than MAXIMUM_FIGURE_DPI_F.
+    """
+    # LLFR-00129: the plots stay sharp when the PDF is printed.
+    figure_width_inches_f = max(float(figure.get_size_inches()[0]), 1e-6)
+    page_share_f = canvas_width_px / max(page_width_px, 1.0)
+    on_page_inches_f = PAINT_WIDTH_INCHES_F * page_share_f
+    dpi_f = TARGET_FIGURE_DPI_F * on_page_inches_f / figure_width_inches_f
+    return min(max(dpi_f, float(figure.dpi)), MAXIMUM_FIGURE_DPI_F)
+
+
+def plot_image_list(page) -> list:
+    """Return a sharp image of each plot of a page and its place.
+
+    Inputs:
+        page: a visible TabPage, already laid out.
+    Outputs: a list of tuples (QRectF of the canvas in the page's
+        logical pixels, QImage of the figure).
+    """
+    # LLFR-00129: every plot of the tab, at its on-screen position.
+    page_width_px = float(page.width())
+    entry_list = []
+    for plot_widget in page.plot_widget_list:
+        canvas = plot_widget.canvas
+        top_left = canvas.mapTo(page, QPoint(0, 0))
+        canvas_rect = QRectF(float(top_left.x()), float(top_left.y()),
+                             float(canvas.width()), float(canvas.height()))
+        dpi_f = figure_export_dpi_f(plot_widget.figure,
+                                    float(canvas.width()), page_width_px)
+        entry_list.append(
+            (canvas_rect, render_figure_image(plot_widget.figure, dpi_f)))
+    return entry_list
+
+
 def grab_exportable_images(tab_widget) -> list:
-    """Return the name and image of every tab that holds a plot.
+    """Return the name and images of every tab that holds a plot.
 
     The tabs are shown one after the other; the tab that was current is
     selected again at the end, even after an error.
 
     Inputs:
         tab_widget: the QTabWidget of the plot panel.
-    Outputs: a list of tuples (tab name str, QImage), in tab order.
+    Outputs: a list of tuples (tab name str, QImage of the page, list of
+        plot images as returned by plot_image_list), in tab order.
     """
-    # LLFR-00129: one image per tab with a plot, in tab order.
+    # LLFR-00129: one page per tab with a plot, in tab order.
     current_page = tab_widget.currentWidget()
     reference_size = (current_page.size() if current_page is not None
                       else tab_widget.size())
-    titled_image_list = []
+    snapshot_list = []
     try:
         for page in exportable_page_list(tab_widget):
             if page is not tab_widget.currentWidget():
                 tab_widget.setCurrentWidget(page)
                 lay_out_page_like(page, reference_size)
-            titled_image_list.append((page.name_str, grab_page_image(page)))
+            page_image = grab_page_image(page)
+            snapshot_list.append(
+                (page.name_str, page_image, plot_image_list(page)))
     finally:
         # LLFR-00129: the user keeps the tab that was shown.
         if current_page is not None:
             tab_widget.setCurrentWidget(current_page)
             QApplication.processEvents()
-    return titled_image_list
+    return snapshot_list
 
 
 def build_pdf_writer(device):
@@ -178,37 +261,50 @@ def draw_page_title(painter, name_str: str, page_width_i: int) -> int:
 
 
 def draw_page_image(painter, image, top_i: int, page_width_i: int,
-                    page_height_i: int) -> None:
+                    page_height_i: int, plot_entry_list=()) -> list:
     """Draw a tab image below the title, scaled to fit the page.
 
     Inputs:
         painter: the QPainter drawing on the PDF writer.
-        image: the QImage of the tab's plots.
+        image: the QImage of the tab page (screen grab).
         top_i: first device pixel row free below the title.
         page_width_i: width of the paintable area, in device pixels.
         page_height_i: height of the paintable area, in device pixels.
-    Outputs: none.
+        plot_entry_list: tuples (QRectF in the page's logical pixels,
+            QImage of the figure) drawn over the grab.
+    Outputs: a list of tuples (QRectF on the PDF page in device pixels,
+        QImage) of the plot images drawn.
     """
     # LLFR-00129: the plots below the name, as shown on screen, with
     # their aspect ratio kept.
+    pixel_ratio_f = max(float(image.devicePixelRatio()), 1e-6)
+    logical_width_f = max(image.width() / pixel_ratio_f, 1.0)
+    logical_height_f = max(image.height() / pixel_ratio_f, 1.0)
     free_height_i = max(page_height_i - top_i, 1)
-    image_width_i = max(image.width(), 1)
-    image_height_i = max(image.height(), 1)
-    scale_f = min(page_width_i / image_width_i,
-                  free_height_i / image_height_i)
-    target_width_f = image_width_i * scale_f
-    target_height_f = image_height_i * scale_f
-    left_f = (page_width_i - target_width_f) / 2.0
+    scale_f = min(page_width_i / logical_width_f,
+                  free_height_i / logical_height_f)
+    left_f = (page_width_i - logical_width_f * scale_f) / 2.0
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-    painter.drawImage(QRectF(left_f, float(top_i), target_width_f,
-                             target_height_f), image)
+    painter.drawImage(QRectF(left_f, float(top_i), logical_width_f * scale_f,
+                             logical_height_f * scale_f), image)
+    # LLFR-00129: each plot is drawn again from its sharp image.
+    drawn_list = []
+    for canvas_rect, plot_image in plot_entry_list:
+        target_rect = QRectF(left_f + canvas_rect.x() * scale_f,
+                             top_i + canvas_rect.y() * scale_f,
+                             canvas_rect.width() * scale_f,
+                             canvas_rect.height() * scale_f)
+        painter.drawImage(target_rect, plot_image)
+        drawn_list.append((target_rect, plot_image))
+    return drawn_list
 
 
-def build_pdf_bytes(titled_image_list: list) -> bytes:
-    """Make a PDF document with one page per titled image.
+def build_pdf_bytes(snapshot_list: list) -> bytes:
+    """Make a PDF document with one page per tab snapshot.
 
     Inputs:
-        titled_image_list: tuples (tab name str, QImage), in page order.
+        snapshot_list: tuples (tab name str, page QImage, plot image
+            list) from grab_exportable_images, in page order.
     Outputs: the bytes of the PDF document.
     Raises:
         OSError: when Qt cannot create the document.
@@ -226,12 +322,13 @@ def build_pdf_bytes(titled_image_list: list) -> bytes:
     try:
         page_width_i = writer.width()
         page_height_i = writer.height()
-        for page_index_i, (name_str, image) in enumerate(titled_image_list):
+        for page_index_i, snapshot_tuple in enumerate(snapshot_list):
+            name_str, image, plot_entry_list = snapshot_tuple
             if page_index_i > 0 and not writer.newPage():
                 raise OSError(PDF_RENDER_FAILED_STR)
             top_i = draw_page_title(painter, name_str, page_width_i)
             draw_page_image(painter, image, top_i, page_width_i,
-                            page_height_i)
+                            page_height_i, plot_entry_list)
     finally:
         ended_b = painter.end()
         buffer.close()
@@ -254,45 +351,6 @@ def describe_os_error(error) -> str:
     return reason_str
 
 
-def write_file_bytes(path_str: str, content_bytes: bytes) -> tuple:
-    """Write bytes to a file and report whether it worked.
-
-    Inputs:
-        path_str: the path of the file.
-        content_bytes: the bytes to write.
-    Outputs: a tuple (written_b, reason_str); reason_str is "" when the
-        file was written. A partly written file is removed.
-    """
-    # LLFR-00131: every write error is reported with its reason.
-    try:
-        with open(path_str, "wb") as output_file:
-            output_file.write(content_bytes)
-    except OSError as error:
-        remove_partial_file(path_str)
-        return (False, describe_os_error(error))
-    # LLFR-00131: the file must exist and hold the whole document.
-    if (not os.path.isfile(path_str)
-            or os.path.getsize(path_str) != len(content_bytes)
-            or not content_bytes):
-        return (False, EMPTY_FILE_REASON_STR)
-    return (True, "")
-
-
-def remove_partial_file(path_str: str) -> None:
-    """Remove a file left half written by a failed write, if any.
-
-    Inputs:
-        path_str: the path of the file.
-    Outputs: none. Errors while removing are ignored.
-    """
-    # LLFR-00131: a failed export leaves no broken PDF behind.
-    try:
-        if os.path.isfile(path_str):
-            os.remove(path_str)
-    except OSError:
-        pass
-
-
 def save_tabs_pdf(tab_widget, path_str: str) -> tuple:
     """Save the plots of every tab that holds a plot to a PDF file.
 
@@ -303,13 +361,14 @@ def save_tabs_pdf(tab_widget, path_str: str) -> tuple:
         was not saved, "" when it was.
     """
     # LLFR-00129: grab the tabs, then lay them out on PDF pages.
-    titled_image_list = grab_exportable_images(tab_widget)
+    snapshot_list = grab_exportable_images(tab_widget)
     try:
-        content_bytes = build_pdf_bytes(titled_image_list)
+        content_bytes = build_pdf_bytes(snapshot_list)
     except OSError as error:
         # LLFR-00131: the document could not be made.
         return (False, describe_os_error(error))
-    return write_file_bytes(path_str, content_bytes)
+    # LLFR-00131: a failed write leaves any existing file untouched.
+    return write_file_safely(path_str, content_bytes)
 
 
 def copy_current_tab_image(tab_widget) -> tuple:

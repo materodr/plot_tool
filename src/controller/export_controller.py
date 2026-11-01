@@ -8,12 +8,15 @@ method calls (no Qt code), so it can be tested with a fake view
 - ``exportable_tab_count()``: number of tabs that hold a plot;
 - ``current_tab_plot_count()``: number of plots in the current tab;
 - ``ask_pdf_save_path()``: the chosen path, "" when cancelled;
+- ``ask_replace_existing_file(path_str)``: True to replace the file;
 - ``save_tabs_pdf(path_str)``: a tuple (saved_b, reason_str);
 - ``copy_current_tab_image()``: a tuple (copied_b, reason_str);
 - ``show_nothing_to_export()``, ``show_nothing_to_copy()``;
 - ``show_export_error(reason_str)``, ``show_copy_error(reason_str)``;
 - ``finish_export_button()``, ``finish_copy_button()``.
 """
+
+import os
 
 # LLFR-00128: the extension of the saved file.
 PDF_SUFFIX_STR = ".pdf"
@@ -96,9 +99,15 @@ class ExportController:
         # LLFR-00130: a cancelled dialog saves nothing.
         if not path_str:
             return
+        # LLFR-00128: the dialog asked about the path it returned; when
+        # ".pdf" is added here, an existing file of that name is only
+        # replaced after the user agrees.
+        pdf_path_str = ensure_pdf_suffix(path_str)
+        if (pdf_path_str != path_str and os.path.exists(pdf_path_str)
+                and not self.view.ask_replace_existing_file(pdf_path_str)):
+            return
         # LLFR-00129: one page per tab that holds a plot.
-        saved_b, reason_str = self.view.save_tabs_pdf(
-            ensure_pdf_suffix(path_str))
+        saved_b, reason_str = self.view.save_tabs_pdf(pdf_path_str)
         # LLFR-00131: the user is told when the file was not written.
         if not saved_b:
             self.view.show_export_error(reason_str)

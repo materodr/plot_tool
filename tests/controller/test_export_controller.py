@@ -1,5 +1,7 @@
 """Tests for the export controller with a fake view (no Qt needed)."""
 
+import os
+import tempfile
 import unittest
 
 from tests.support import covers
@@ -32,7 +34,18 @@ class FakeExportView:
         self.save_result_tuple = (True, "")
         self.copy_result_tuple = (True, "")
         self.save_error = None
+        self.replace_answer_b = False
         self.call_list = []
+
+    def ask_replace_existing_file(self, path_str: str) -> bool:
+        """Record the question and return the prepared answer.
+
+        Inputs:
+            path_str: the path of the existing file.
+        Outputs: replace_answer_b.
+        """
+        self.call_list.append(("ask_replace_existing_file", path_str))
+        return self.replace_answer_b
 
     def exportable_tab_count(self) -> int:
         """Return the number of tabs that hold a plot.
@@ -194,6 +207,47 @@ class ExportFlowTest(unittest.TestCase):
         self.view.answer_path_str = "/folder/report"
         self.controller.on_export_requested()
         self.assertIn(("save_tabs_pdf", "/folder/report.pdf"),
+                      self.view.call_list)
+
+    @covers("LLFR-00128")
+    def test_added_suffix_asks_before_replacing(self) -> None:
+        """When ".pdf" is added and that file exists, the user is asked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with tempfile.TemporaryDirectory() as folder_str:
+            existing_path_str = os.path.join(folder_str, "report.pdf")
+            with open(existing_path_str, "wb") as existing_file:
+                existing_file.write(b"old")
+            self.view.answer_path_str = os.path.join(folder_str, "report")
+            self.controller.on_export_requested()
+            self.assertIn(("ask_replace_existing_file", existing_path_str),
+                          self.view.call_list)
+            self.assertNotIn("save_tabs_pdf", self.view.called_names_list())
+            self.assertEqual(self.view.call_list[-1], "finish_export_button")
+            self.view.call_list.clear()
+            self.view.replace_answer_b = True
+            self.controller.on_export_requested()
+            self.assertIn(("save_tabs_pdf", existing_path_str),
+                          self.view.call_list)
+
+    @covers("LLFR-00128")
+    def test_path_from_dialog_is_not_asked_again(self) -> None:
+        """A path already ending in .pdf is saved without a question.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with tempfile.TemporaryDirectory() as folder_str:
+            existing_path_str = os.path.join(folder_str, "report.pdf")
+            with open(existing_path_str, "wb") as existing_file:
+                existing_file.write(b"old")
+            self.view.answer_path_str = existing_path_str
+            self.controller.on_export_requested()
+        self.assertNotIn("ask_replace_existing_file",
+                         self.view.called_names_list())
+        self.assertIn(("save_tabs_pdf", existing_path_str),
                       self.view.call_list)
 
     @covers("LLFR-00130", "LLFR-00003")
