@@ -62,6 +62,22 @@ redraws the preview and never the curves. Its artists are not added to
 the axes, so a full draw, the PDF export (LLFR-00129) and the copied
 image (LLFR-00133) never contain it.
 
+With the Zoom tool, a left press on the drawing area starts a candidate
+(LLFR-00078, LLFR-00208). While the pointer stays less than 5 pixels
+from the press point, the release is a click zoom on the pressed time.
+Once it gets 5 pixels or more away, the press becomes a time span
+selection: a dashed horizontal line at the height of the press, from
+the pressed time to the time under the pointer (clamped to the drawing
+area), with a short vertical tick at each end. It is drawn by the same
+blitting as the marker preview, so it never appears in a full draw, the
+PDF export or the copied image. The release zooms every plot to the
+selected span (LLFR-00209), limited to the file's time range.
+
+On macOS, a wheel event whose delta the system inverted ("natural
+scrolling") is turned back to the physical direction, so that fingers
+moving up on the trackpad zoom in like a mouse wheel turned forward
+(LLFR-00206).
+
 A delta marker's bracket and leader lines are computed again in display
 pixels at every draw (screen, image and PDF export), from the current
 position of its two points (DeltaBracketPatch), so they stay attached
@@ -72,6 +88,8 @@ every curve stays fully visible (LLFR-00076).
 """
 
 import functools
+import math
+import sys
 
 import numpy as np
 from matplotlib.backend_bases import MouseButton
@@ -80,6 +98,7 @@ from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.text import Annotation
+from matplotlib.transforms import IdentityTransform
 from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QCursor
@@ -115,6 +134,19 @@ ZOOM_IN_FACTOR_F = 0.95
 WHEEL_NOTCH_EIGHTHS_I = 120
 # LLFR-00078: a click with the Zoom tool narrows the range to 95%.
 CLICK_ZOOM_FACTOR_F = 0.95
+# LLFR-00078, LLFR-00208: a left press with the Zoom tool becomes a
+# time span selection once the pointer is this many screen pixels (Qt
+# logical pixels, whatever the device pixel ratio) from the press
+# point; a release closer than that is a click zoom.
+SPAN_SELECTION_THRESHOLD_PIXELS_F = 5.0
+# LLFR-00208: look of the selection line, in the reserved marker color:
+# dashed like a marker, with a solid tick of this half height (points)
+# at each end.
+SPAN_LINE_WIDTH_F = 1.5
+SPAN_TICK_HALF_HEIGHT_POINTS_F = 5.0
+# LLFR-00206: macOS reports the "natural scrolling" setting through
+# QWheelEvent.inverted(); the physical direction is only restored there.
+RUNNING_ON_MACOS_B = sys.platform == "darwin"
 # LLFR-00118: relative tolerance used to tell that a plot shows the
 # whole time range of the file.
 FULL_RANGE_TOLERANCE_F = 1e-9
@@ -263,14 +295,37 @@ def is_shift_horizontal_wheel(wheel_event) -> bool:
             and angle_delta.x() != 0)
 
 
+def physical_wheel_sign_f(wheel_event) -> float:
+    """Return the sign that turns a Qt wheel delta into its physical
+    direction.
+
+    Inputs:
+        wheel_event: a QWheelEvent (or an object without ``inverted``).
+    Outputs: -1.0 on macOS when the system inverted the delta (natural
+        scrolling), else 1.0.
+    """
+    # LLFR-00206: with natural scrolling, macOS inverts the deltas of
+    # the trackpad (fingers up give a backward delta) and says so with
+    # inverted(); turning them back makes fingers moving up zoom in,
+    # like a mouse wheel turned forward (LLFR-00074), whatever the
+    # setting. Other systems keep their deltas as they are.
+    if not RUNNING_ON_MACOS_B:
+        return 1.0
+    inverted_method = getattr(wheel_event, "inverted", None)
+    if callable(inverted_method) and inverted_method():
+        return -1.0
+    return 1.0
+
+
 def wheel_step_f(event) -> float:
     """Return how many wheel notches a matplotlib scroll event stands for.
 
     Inputs:
         event: the matplotlib MouseEvent of a scroll; its ``guiEvent``
             is the QWheelEvent when the event came from Qt.
-    Outputs: the number of notches, positive forward, possibly
-        fractional (touchpads and high-resolution wheels).
+    Outputs: the number of notches, positive forward (on macOS, fingers
+        moving up on the trackpad, LLFR-00206), possibly fractional
+        (touchpads and high-resolution wheels).
     """
     # LLFR-00113: Qt gives the rotation in eighths of a degree for mice
     # and touchpads alike, and one notch is 120 of them. matplotlib's
@@ -281,13 +336,15 @@ def wheel_step_f(event) -> float:
     if gui_event is not None and hasattr(gui_event, "angleDelta"):
         angle_delta = gui_event.angleDelta()
     if angle_delta is not None:
+        # LLFR-00206: every Qt wheel path gets the physical direction.
+        sign_f = physical_wheel_sign_f(gui_event)
         angle_eighths_i = int(angle_delta.y())
         # LLFR-00113: some touchpads report only pixels; 120 pixels are
         # then taken as one notch, so that they still zoom in proportion.
         if angle_eighths_i == 0 and hasattr(gui_event, "pixelDelta"):
-            return (float(gui_event.pixelDelta().y())
+            return (sign_f * float(gui_event.pixelDelta().y())
                     / WHEEL_NOTCH_EIGHTHS_I)
-        return float(angle_eighths_i) / WHEEL_NOTCH_EIGHTHS_I
+        return sign_f * float(angle_eighths_i) / WHEEL_NOTCH_EIGHTHS_I
     return float(event.step)
 
 
@@ -572,7 +629,7 @@ class PlotWidget(QWidget):
         # canvas image it is blitted on; its artists (made by
         # rebuild_axes).
         self.preview_time_s = None
-        self.preview_background = None
+        self.overlay_background = None
         self.preview_line = None
         self.preview_time_text = None
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
@@ -590,6 +647,18 @@ class PlotWidget(QWidget):
         # the mouse; the time span selection sets it on this instance, so
         # that the Z key does nothing during its drag.
         self.time_span_drag_b = False
+        # LLFR-00078, LLFR-00208: where the left button was pressed with
+        # the Zoom tool (widget point, time, display y); whether the
+        # pointer got far enough for a span selection, so that its line
+        # is shown; the time at the other end of the span; and the
+        # artists of the line (made by rebuild_axes).
+        self.span_press_point = QPoint()
+        self.span_press_time_s = 0.0
+        self.span_press_y_px = 0.0
+        self.time_span_shown_b = False
+        self.span_end_time_s = 0.0
+        self.span_line = None
+        self.span_end_ticks = None
         # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
         # grid is drawn; hidden until the Grid button is clicked.
         self.grid_shown_b = False
@@ -704,6 +773,10 @@ class PlotWidget(QWidget):
         self.plot_tool_str = str(tool_str)
         if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
+        # LLFR-00208: leaving the Zoom tool (for example with the Tip
+        # key) cancels a time span selection and removes its line.
+        if self.plot_tool_str != ZOOM_TOOL_STR:
+            self.cancel_time_span()
         # LLFR-00086: a marker is only dragged with the Vertical marker
         # tool; leaving it drops the drag (the marker stays where it was).
         if self.plot_tool_str != MARKER_TOOL_STR:
@@ -847,12 +920,13 @@ class PlotWidget(QWidget):
         # LLFR-00070, LLFR-00129: a draw by the PDF export or a resize
         # already shows the current range.
         self.redraw_pending_b = False
-        # LLFR-00203: the canvas image changed, so the preview is blitted
-        # again on the new image once this draw is shown. Not inside an
-        # export (savefig), whose image must not contain it.
-        self.preview_background = None
-        if self.preview_time_s is not None and not self.canvas.is_saving():
-            QTimer.singleShot(0, self.blit_marker_preview)
+        # LLFR-00203, LLFR-00208: the canvas image changed, so the
+        # preview or the selection line is blitted again on the new image
+        # once this draw is shown. Not inside an export (savefig), whose
+        # image must not contain them.
+        self.overlay_background = None
+        if self.overlay_shown() and not self.canvas.is_saving():
+            QTimer.singleShot(0, self.blit_overlay)
 
     def time_range_tuple(self) -> tuple:
         """Return the time range currently shown.
@@ -947,6 +1021,8 @@ class PlotWidget(QWidget):
         self.draw_delta_first_point()
         # LLFR-00203: the preview artists went away with axes.clear().
         self.create_preview_artists()
+        # LLFR-00208: so did those of the time span selection line.
+        self.create_span_artists()
         self.apply_time_range()
         self.canvas.draw_idle()
 
@@ -1423,7 +1499,58 @@ class PlotWidget(QWidget):
             artist.axes = self.axes
             # The line is cut at the edges of the drawing area.
             artist.set_clip_box(self.axes.bbox)
-        self.preview_background = None
+        self.overlay_background = None
+
+    def create_span_artists(self) -> None:
+        """Create the hidden line of the time span selection.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00208, LLFR-00129, LLFR-00133: like the marker preview,
+        # the artists are not added to the axes, so no full draw, export
+        # or copy ever draws them; only blit_overlay draws them. They are
+        # placed in display pixels (identity transform), so that the line
+        # stays at the screen height of the press.
+        # LLFR-00208, LLFR-00083, LLFR-00172: a dashed horizontal line in
+        # the reserved marker color...
+        self.span_line = Line2D(
+            [0.0, 0.0], [0.0, 0.0], transform=IdentityTransform(),
+            color=MARKER_COLOR_STR, linewidth=SPAN_LINE_WIDTH_F,
+            linestyle=MARKER_LINE_STYLE_TUPLE)
+        # ...with a short solid vertical line at each end (one artist,
+        # the two ticks separated by a NaN point).
+        self.span_end_ticks = Line2D(
+            [0.0] * 5, [0.0] * 5, transform=IdentityTransform(),
+            color=MARKER_COLOR_STR, linewidth=SPAN_LINE_WIDTH_F,
+            linestyle="-")
+        for artist in (self.span_line, self.span_end_ticks):
+            artist.set_figure(self.figure)
+            artist.axes = self.axes
+            # The ends never leave the drawing area (span_time_at).
+            artist.set_clip_box(self.axes.bbox)
+        self.overlay_background = None
+
+    def place_span_artists(self) -> None:
+        """Put the selection line between the pressed and current times.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00208: from the time of the press to the time under the
+        # pointer, at the height of the press, ticks at both ends.
+        start_x_px = float(self.axes.transData.transform(
+            (self.span_press_time_s, 0.0))[0])
+        end_x_px = float(self.axes.transData.transform(
+            (self.span_end_time_s, 0.0))[0])
+        y_px = self.span_press_y_px
+        half_tick_px = (SPAN_TICK_HALF_HEIGHT_POINTS_F
+                        * self.pixels_per_point_f())
+        self.span_line.set_data([start_x_px, end_x_px], [y_px, y_px])
+        self.span_end_ticks.set_data(
+            [start_x_px, start_x_px, np.nan, end_x_px, end_x_px],
+            [y_px - half_tick_px, y_px + half_tick_px, np.nan,
+             y_px - half_tick_px, y_px + half_tick_px])
 
     def place_preview_artists(self) -> None:
         """Put the preview line and time text at the preview's time.
@@ -1446,19 +1573,40 @@ class PlotWidget(QWidget):
         self.preview_time_text.set_horizontalalignment(
             "right" if right_half_b else "left")
 
+    def overlay_shown(self) -> bool:
+        """Tell whether something is blitted over the canvas image.
+
+        Inputs: none.
+        Outputs: True while the marker preview (LLFR-00203) or the time
+            span selection line (LLFR-00208) is shown.
+        """
+        # LLFR-00203, LLFR-00208: both use the same fast drawing.
+        return self.preview_time_s is not None or self.time_span_shown_b
+
     def blit_marker_preview(self) -> None:
         """Draw the marker preview over the last full draw of the canvas.
 
         Inputs: none.
-        Outputs: none. Only the preview is drawn: the image of the last
-            full draw is put back first, then the preview is drawn over
-            it while it is shown.
+        Outputs: none. See blit_overlay.
         """
-        # LLFR-00203: fast enough to follow the mouse on every plot of
-        # the tab. Nothing is drawn for a deleted, removed or hidden plot.
+        # LLFR-00203: the preview is one of the blitted overlays.
+        self.blit_overlay()
+
+    def blit_overlay(self) -> None:
+        """Draw the preview and the selection line over the last full draw.
+
+        Inputs: none.
+        Outputs: none. Only these artists are drawn: the image of the
+            last full draw is put back first, then the marker preview
+            and the time span selection line are drawn over it while
+            they are shown.
+        """
+        # LLFR-00203, LLFR-00208: fast enough to follow the mouse on
+        # every plot of the tab. Nothing is drawn for a deleted, removed
+        # or hidden plot.
         if sip.isdeleted(self) or self.retired_b or not self.isVisible():
             return
-        if self.preview_line is None:
+        if self.preview_line is None or self.span_line is None:
             return
         if getattr(self.canvas, "_draw_pending", False):
             # A full draw is coming (zoom, pan, new curves): blitting now
@@ -1467,23 +1615,28 @@ class PlotWidget(QWidget):
             return
         if getattr(self.canvas, "renderer", None) is None:
             # The canvas was never drawn: draw it, and on_canvas_drawn
-            # blits the preview afterwards.
-            if self.preview_time_s is not None:
+            # blits the overlays afterwards.
+            if self.overlay_shown():
                 self.canvas.draw_idle()
             return
-        if self.preview_background is None:
+        if self.overlay_background is None:
             # The image is that of the last full draw (on_canvas_drawn
             # forgets the background at every draw), so it is clean.
-            if self.preview_time_s is None:
+            if not self.overlay_shown():
                 return
-            self.preview_background = self.canvas.copy_from_bbox(
+            self.overlay_background = self.canvas.copy_from_bbox(
                 self.figure.bbox)
         else:
-            self.canvas.restore_region(self.preview_background)
+            self.canvas.restore_region(self.overlay_background)
         if self.preview_time_s is not None:
             self.place_preview_artists()
             self.axes.draw_artist(self.preview_line)
             self.axes.draw_artist(self.preview_time_text)
+        if self.time_span_shown_b:
+            # LLFR-00208: the selection line, updated live.
+            self.place_span_artists()
+            self.axes.draw_artist(self.span_line)
+            self.axes.draw_artist(self.span_end_ticks)
         self.canvas.blit(self.figure.bbox)
 
     def show_marker_preview(self, time_s: float) -> None:
@@ -1500,6 +1653,11 @@ class PlotWidget(QWidget):
             self.hide_marker_preview()
             return
         if self.drag_marker_id_i != NO_MARKER_ID_I:
+            return
+        # LLFR-00203, LLFR-00208: the preview and the selection line of
+        # the Zoom tool are never shown together.
+        if self.time_span_drag_b:
+            self.hide_marker_preview()
             return
         if self.preview_time_s == time_s:
             return
@@ -2560,8 +2718,10 @@ class PlotWidget(QWidget):
             widget_point: QPoint in this widget's coordinates.
         Outputs: none. A press on a pinned tip starts moving it, with any
             tool or none; with the Vertical marker tool, a press on a
-            marker starts dragging it; any other press is a click
-            (click_at).
+            marker starts dragging it; with the Zoom tool, a press starts
+            a click zoom or a time span selection, decided by the mouse
+            moves and the release (span_press_at); any other press is a
+            click (click_at).
         """
         # LLFR-00086, LLFR-00152: a drag whose release was lost (no move
         # came after it) is dropped; the item stays where it was.
@@ -2587,6 +2747,12 @@ class PlotWidget(QWidget):
                 self.drag_offset_s = (self.drag_time_s
                                       - self.time_at(widget_point))
                 return
+        # LLFR-00078, LLFR-00208: with the Zoom tool, whether the press
+        # is a click or a span selection is known only later. A press on
+        # a vertical marker is treated like any other press there.
+        if self.plot_tool_str == ZOOM_TOOL_STR:
+            self.span_press_at(widget_point)
+            return
         self.click_at(widget_point)
 
     def drag_time_s_at(self, widget_point) -> float:
@@ -2874,6 +3040,8 @@ class PlotWidget(QWidget):
         self.panning_b = False
         self.cancel_marker_drag()
         self.cancel_tip_drag()
+        # LLFR-00208: a time span selection ends without a zoom.
+        self.cancel_time_span()
 
     def is_mouse_drag_in_progress(self) -> bool:
         """Tell whether the user is dragging the mouse on this plot.
@@ -2914,8 +3082,10 @@ class PlotWidget(QWidget):
         # LLFR-00203: a removed plot shows no preview.
         self.preview_time_s = None
         # LLFR-00207, LLFR-00208: a time span selection stops too, so a
-        # removed plot never blocks the Z key.
+        # removed plot never blocks the Z key; its line is not drawn
+        # again.
         self.time_span_drag_b = False
+        self.time_span_shown_b = False
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
         self.retired_b = True
         self.blockSignals(True)
@@ -2951,6 +3121,172 @@ class PlotWidget(QWidget):
         # LLFR-00078: 95% of the width, centred on the click.
         half_width_s = (end_s - start_s) * CLICK_ZOOM_FACTOR_F / 2.0
         self.zoom_to_range(center_s - half_width_s, center_s + half_width_s)
+
+    def span_press_at(self, widget_point) -> None:
+        """Start a click zoom or a time span selection at a press point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed with the Zoom tool.
+        Outputs: none. A press outside the drawing area does nothing.
+        """
+        # LLFR-00078, LLFR-00208: only a press on the drawing area has a
+        # time to zoom on or to start a span from.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return
+        # LLFR-00207: from the press to the release, the Z key does
+        # nothing (is_mouse_drag_in_progress).
+        self.time_span_drag_b = True
+        self.time_span_shown_b = False
+        self.span_press_point = QPoint(widget_point)
+        self.span_press_time_s = self.time_at(widget_point)
+        self.span_press_y_px = float(display_y_px)
+        self.span_end_time_s = self.span_press_time_s
+        # LLFR-00203: the preview is never shown with the selection.
+        self.leave_marker_preview()
+
+    def span_reached_b(self, widget_point) -> bool:
+        """Tell whether a point is far enough from the press for a span.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True when the point is 5 pixels or more from the press
+            point (straight-line distance, in screen pixels).
+        """
+        # LLFR-00208, LLFR-00078: widget points are Qt logical pixels,
+        # which are screen pixels whatever the device pixel ratio.
+        distance_px = math.hypot(
+            widget_point.x() - self.span_press_point.x(),
+            widget_point.y() - self.span_press_point.y())
+        return distance_px >= SPAN_SELECTION_THRESHOLD_PIXELS_F
+
+    def span_time_at(self, widget_point) -> float:
+        """Return the time at the end of a span for a pointer position.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the time under the point, in seconds; for a point left
+            or right of the drawing area, the time at that edge.
+        """
+        # LLFR-00209: a pointer outside the drawing area ends the span at
+        # the nearer left or right edge.
+        display_x_px, _ = self.widget_to_display_tuple(widget_point)
+        left_px, right_px = sorted((float(self.axes.bbox.x0),
+                                    float(self.axes.bbox.x1)))
+        display_x_px = min(max(display_x_px, left_px), right_px)
+        return float(self.axes.transData.inverted().transform(
+            (display_x_px, self.span_press_y_px))[0])
+
+    def span_drag_to(self, widget_point) -> None:
+        """Follow the pointer during a time span selection.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. The selection line is shown once the pointer is 5
+            pixels or more from the press point, and then follows it.
+        """
+        # LLFR-00208: below 5 pixels the press may still be a click.
+        if not self.time_span_drag_b:
+            return
+        newly_shown_b = False
+        if not self.time_span_shown_b:
+            if not self.span_reached_b(widget_point):
+                return
+            self.time_span_shown_b = True
+            newly_shown_b = True
+        end_time_s = self.span_time_at(widget_point)
+        if end_time_s == self.span_end_time_s and not newly_shown_b:
+            return
+        self.span_end_time_s = end_time_s
+        # LLFR-00208: updated live, by redrawing only the line.
+        self.blit_overlay()
+
+    def span_release_at(self, widget_point) -> None:
+        """End a click zoom or a time span selection at a release point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits time_range_changed, as the last step, when
+            the range changed.
+        """
+        # LLFR-00078, LLFR-00209: a release less than 5 pixels from the
+        # press (and never moved that far) is a click zoom.
+        if not self.time_span_drag_b:
+            return
+        if not self.time_span_shown_b and not self.span_reached_b(
+                widget_point):
+            press_point = QPoint(self.span_press_point)
+            self.cancel_time_span()
+            self.click_at(press_point)
+            return
+        self.span_drag_to(widget_point)
+        self.finish_time_span()
+
+    def finish_time_span(self) -> None:
+        """Zoom every plot to the selected time span, as at a release.
+
+        Inputs: none.
+        Outputs: none. Emits time_range_changed, as the last step, when
+            the range changed.
+        """
+        # LLFR-00209: the line goes, then the span between the two
+        # times becomes the x range. Also used when the release was lost,
+        # so that the span the user last saw is applied.
+        if not self.time_span_drag_b:
+            return
+        selected_b = self.time_span_shown_b
+        span_start_s, span_end_s = sorted((self.span_press_time_s,
+                                           self.span_end_time_s))
+        self.cancel_time_span()
+        if not selected_b:
+            return
+        # LLFR-00209, LLFR-00119: the span is limited to the file's time
+        # range; a span of zero width after that does nothing.
+        full_start_s, full_end_s = self.full_time_range_tuple()
+        span_start_s = min(max(span_start_s, full_start_s), full_end_s)
+        span_end_s = min(max(span_end_s, full_start_s), full_end_s)
+        if not span_end_s > span_start_s:
+            return
+        # LLFR-00209, LLFR-00076, LLFR-00070: the span's ends become the
+        # plot's edges, y is fitted, and every plot of every tab follows.
+        # Not an undoable action (LLFR-00140): zooms never are.
+        self.zoom_to_range(span_start_s, span_end_s)
+
+    def cancel_time_span(self) -> None:
+        """Forget the time span selection in progress, if any.
+
+        Inputs: none.
+        Outputs: none. The selection line is removed; nothing zooms.
+        """
+        # LLFR-00208: the line goes away with the selection.
+        shown_b = self.time_span_shown_b
+        self.time_span_drag_b = False
+        self.time_span_shown_b = False
+        if shown_b:
+            self.blit_overlay()
+
+    def time_span_line_shown(self) -> bool:
+        """Tell whether the time span selection line is shown.
+
+        Inputs: none.
+        Outputs: True while the line is shown.
+        """
+        # LLFR-00208: for the tests.
+        return self.time_span_shown_b
+
+    def time_span_tuple(self) -> tuple:
+        """Return the times at the two ends of the selection line.
+
+        Inputs: none.
+        Outputs: a tuple (pressed time in s, time under the pointer in
+            s), or () while no line is shown.
+        """
+        # LLFR-00208: for the tests.
+        if not self.time_span_shown_b:
+            return ()
+        return (self.span_press_time_s, self.span_end_time_s)
 
     def wheel_at(self, widget_point, step_f: float) -> None:
         """Zoom the time axis around a point, as the mouse wheel does.
@@ -3013,9 +3349,11 @@ class PlotWidget(QWidget):
         """
         # LLFR-00117: the time under the pointer is held under it while
         # the mouse moves; any plot tool, or none, may be active.
-        # LLFR-00086, LLFR-00152: not while a marker or tip is dragged.
+        # LLFR-00086, LLFR-00152, LLFR-00208: not while a marker or tip
+        # is dragged, or a time span is selected.
         if (self.drag_marker_id_i != NO_MARKER_ID_I
-                or self.drag_tip_index_i != NO_TIP_INDEX_I):
+                or self.drag_tip_index_i != NO_TIP_INDEX_I
+                or self.time_span_drag_b):
             return
         self.panning_b = True
         self.pan_anchor_s = self.time_at(widget_point)
@@ -3115,6 +3453,15 @@ class PlotWidget(QWidget):
                 return
             self.drag_to(widget_point)
             return
+        if self.time_span_drag_b:
+            # LLFR-00208: a move with the left button held after a Zoom
+            # press follows the span. A lost release applies the span
+            # last shown, as if the button had been released there.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_time_span()
+                return
+            self.span_drag_to(widget_point)
+            return
         # LLFR-00042: any other move runs the hover code.
         self.hover_at(widget_point)
         # LLFR-00203: and moves the marker preview with the pointer.
@@ -3155,9 +3502,10 @@ class PlotWidget(QWidget):
             return
         if event.button == MouseButton.LEFT:
             # LLFR-00153: a press on a pinned tip moves it; LLFR-00045: a
-            # left click pins the shown tip; LLFR-00078: with the Zoom
-            # tool it zooms in; LLFR-00081, LLFR-00086: with the Vertical
-            # marker tool it places or grabs a marker.
+            # left click pins the shown tip; LLFR-00078, LLFR-00208: with
+            # the Zoom tool it starts a click zoom or a span; LLFR-00081,
+            # LLFR-00086: with the Vertical marker tool it places or grabs
+            # a marker.
             self.press_at(widget_point)
 
     def on_mouse_release(self, event) -> None:
@@ -3178,6 +3526,11 @@ class PlotWidget(QWidget):
         # LLFR-00152: or a dragged pinned tip.
         if self.drag_tip_index_i != NO_TIP_INDEX_I:
             self.tip_release_at(widget_point)
+            return
+        # LLFR-00078, LLFR-00209: or ends a Zoom press: a click zoom or
+        # a zoom to the selected span.
+        if self.time_span_drag_b:
+            self.span_release_at(widget_point)
             return
         self.release_at(widget_point)
 
@@ -3211,7 +3564,9 @@ class PlotWidget(QWidget):
                 and is_shift_horizontal_wheel(event)):
             widget_point = self.mapFrom(self.canvas,
                                         event.position().toPoint())
-            self.wheel_at(widget_point, float(event.angleDelta().x())
+            # LLFR-00206: in its physical direction, as on_mouse_scroll.
+            self.wheel_at(widget_point, physical_wheel_sign_f(event)
+                          * float(event.angleDelta().x())
                           / WHEEL_NOTCH_EIGHTHS_I)
             event.accept()
             return True
