@@ -181,7 +181,7 @@ PINNED_TIP_BOX_DICT = {"boxstyle": "round,pad=0.45,rounding_size=0.35",
 # rounded patch so they stay readable over the curves.
 MARKER_TEXT_BOX_DICT = {"boxstyle": "round,pad=0.2,rounding_size=0.25",
                         "facecolor": PLOT_BACKGROUND_COLOR_STR,
-                        "edgecolor": "none", "alpha": 0.85}
+                        "edgecolor": "none", "alpha": 0.92}
 
 
 def segment_corner_rule(segment_str: str) -> str:
