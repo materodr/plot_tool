@@ -131,9 +131,12 @@ def build_window(size_tuple: tuple):
     plot_controller.on_tip_pin(
         first_plot_id_i, PINNED_TIP_SIGNAL_STR, PINNED_TIP_TIME_S,
         math.sin(2.0 * math.pi * PINNED_TIP_TIME_S))
+    # Markers are placed only while the Vertical marker tool is active.
+    main_window.top_panel.marker_button.click()
     for marker_time_s in MARKER_TIME_TUPLE:
         plot_controller.on_marker_place(first_plot_id_i, marker_time_s)
-    # The Grid and Tip buttons are clicked like a user would.
+    # The Grid and Tip buttons are clicked like a user would; Tip ends
+    # the Vertical marker tool.
     main_window.top_panel.grid_button.click()
     main_window.top_panel.tip_button.click()
     main_window.signal_list_panel.search_box.setText(SEARCH_TEXT_STR)
