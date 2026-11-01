@@ -34,6 +34,15 @@ AUTOMATIC_LABEL_OFFSET_TUPLE = ()
 DELTA_X_KIND_STR = "x"
 DELTA_Y_KIND_STR = "y"
 DELTA_KIND_TUPLE = (DELTA_X_KIND_STR, DELTA_Y_KIND_STR)
+# LLFR-00256, HLFR-00058: the two kinds of plots, a time plot (time in
+# seconds on its x-axis, LLFR-00068) and a frequency plot (frequency in
+# Hz on its x-axis, for FFT signals). Plot.kind_str holds one of them.
+TIME_PLOT_KIND_STR = "time"
+FREQUENCY_PLOT_KIND_STR = "frequency"
+PLOT_KIND_TUPLE = (TIME_PLOT_KIND_STR, FREQUENCY_PLOT_KIND_STR)
+# LLFR-00258: Plot.frequency_range_tuple of a frequency plot that shows
+# its whole frequency range, from 0 Hz to its highest frequency.
+WHOLE_FREQUENCY_RANGE_TUPLE = ()
 
 
 @dataclass
@@ -194,16 +203,34 @@ class MarkerIdCounter:
 class Plot:
     """An area of a tab in which signal curves are drawn.
 
+    A plot is a time plot or a frequency plot (HLFR-00058), as its
+    ``kind_str`` says; the kind is chosen when the plot is created and
+    never changes. A frequency plot only draws FFT signals, a time plot
+    only the other signals (LLFR-00257); the controller checks this.
+
     Inputs:
         plot_id_i: id of the plot, unique within the workspace.
         random_generator: random.Random used for the curve colors from
             the 9th curve on (LLFR-00034).
         marker_id_counter: optional MarkerIdCounter shared with the other
             plots of the workspace; a new one is used when it is None.
+        kind_str: TIME_PLOT_KIND_STR (the default) or
+            FREQUENCY_PLOT_KIND_STR.
+    Attributes:
+        kind_str: the kind of the plot, one of PLOT_KIND_TUPLE.
+        frequency_range_tuple: for a frequency plot, its own x-axis range
+            (start_hz, end_hz) (LLFR-00258), or
+            WHOLE_FREQUENCY_RANGE_TUPLE (the empty tuple) while it shows
+            its whole frequency range; always () for a time plot, whose
+            range is shared by every time plot (LLFR-00070) and kept by
+            the controller. It is view state: it is not part of the undo
+            states (plot_state_tuple), as zooms are not undoable
+            (LLFR-00140).
     """
 
     def __init__(self, plot_id_i: int, random_generator,
-                 marker_id_counter=None) -> None:
+                 marker_id_counter=None,
+                 kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create an empty plot.
 
         Inputs:
@@ -211,8 +238,15 @@ class Plot:
             random_generator: random.Random used for curve colors.
             marker_id_counter: optional shared MarkerIdCounter for the
                 delta marker ids.
-        Outputs: none.
+            kind_str: TIME_PLOT_KIND_STR or FREQUENCY_PLOT_KIND_STR.
+        Outputs: none. Raises ValueError for an unknown kind.
         """
+        # LLFR-00256, HLFR-00058: a time plot or a frequency plot.
+        if kind_str not in PLOT_KIND_TUPLE:
+            raise ValueError(f"Unknown plot kind {kind_str!r}.")
+        self.kind_str = kind_str
+        # LLFR-00258: a new frequency plot shows its whole range.
+        self.frequency_range_tuple = WHOLE_FREQUENCY_RANGE_TUPLE
         # LLFR-00019: a new plot starts with no curves and no tips.
         self.plot_id_i = plot_id_i
         self.random_generator = random_generator
@@ -229,6 +263,36 @@ class Plot:
         # LLFR-00164, LLFR-00174: any number of delta markers, in the
         # order they were placed.
         self.delta_marker_list = []
+
+    def is_frequency_plot(self) -> bool:
+        """Tell whether the plot is a frequency plot.
+
+        Inputs: none.
+        Outputs: True for a frequency plot, False for a time plot.
+        """
+        # LLFR-00256, HLFR-00058: frequency in Hz on the x-axis.
+        return self.kind_str == FREQUENCY_PLOT_KIND_STR
+
+    def set_frequency_range(self, start_hz: float, end_hz: float) -> bool:
+        """Keep the x-axis range a frequency plot shows.
+
+        Inputs:
+            start_hz: start of the range, in Hz.
+            end_hz: end of the range, in Hz, greater than start_hz.
+        Outputs: True when the range was kept; False for a time plot or
+            a range that is not finite or not increasing.
+        """
+        # LLFR-00258: each frequency plot has its own range; time plots
+        # share theirs (LLFR-00070), which the plot does not keep.
+        if not self.is_frequency_plot():
+            return False
+        start_hz = float(start_hz)
+        end_hz = float(end_hz)
+        if not (math.isfinite(start_hz) and math.isfinite(end_hz)
+                and end_hz > start_hz):
+            return False
+        self.frequency_range_tuple = (start_hz, end_hz)
+        return True
 
     def has_signal(self, signal_name_str: str) -> bool:
         """Tell whether the plot shows a signal.
@@ -561,7 +625,8 @@ def plot_state_tuple(plot) -> tuple:
         (signal_name_str, color_str, width_i), pinned tip tuples
         (signal_name_str, time_s, value_f, label_offset_tuple), delta
         marker tuples (delta_marker_id_i, kind_str, first_point_tuple,
-        second_point_tuple)).
+        second_point_tuple), plot kind_str). For a frequency plot, the
+        time_s of the tips and delta marker points is a frequency in Hz.
     """
     # LLFR-00140: curves with color and width, pinned tips with their
     # label offsets, and the counter that picks the next color. The
@@ -579,8 +644,10 @@ def plot_state_tuple(plot) -> tuple:
          tuple(delta_marker.first_point_tuple),
          tuple(delta_marker.second_point_tuple))
         for delta_marker in plot.delta_marker_list)
+    # LLFR-00256, LLFR-00140: creating a frequency plot is undoable like
+    # creating a time plot, and an undo gives the plot back its kind.
     return (plot.plot_id_i, plot.drawn_count_i, curve_tuple,
-            pinned_tip_tuple, delta_marker_tuple)
+            pinned_tip_tuple, delta_marker_tuple, plot.kind_str)
 
 
 def tabs_state_tuple(tab_list: list, marker_list: list) -> tuple:
@@ -919,21 +986,25 @@ class Workspace:
         tab.name_str = stripped_name_str
         return True
 
-    def add_plot(self, tab_id_i: int):
+    def add_plot(self, tab_id_i: int,
+                 kind_str: str = TIME_PLOT_KIND_STR):
         """Add a new empty plot at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
+            kind_str: TIME_PLOT_KIND_STR (the default) for a time plot or
+                FREQUENCY_PLOT_KIND_STR for a frequency plot.
         Outputs: the new Plot, or None when the tab is full (LLFR-00031)
-            or no tab has that id.
+            or no tab has that id. Raises ValueError for an unknown kind.
         """
-        # LLFR-00031: a full tab gets no new plot.
+        # LLFR-00031, LLFR-00256: a full tab gets no new plot, of either
+        # kind: a frequency plot counts towards the maximum too.
         tab = self.find_tab(tab_id_i)
         if tab is None or tab.is_full():
             return None
         # LLFR-00069: the new plot goes below the existing ones.
         plot = Plot(self.next_plot_id_i, self.random_generator,
-                    self.marker_id_counter)
+                    self.marker_id_counter, kind_str)
         self.next_plot_id_i += 1
         tab.plot_list.append(plot)
         return plot
@@ -1006,7 +1077,10 @@ class Workspace:
         Inputs: none.
         Outputs: True when at least one plot exists.
         """
-        # LLFR-00205: markers are only kept while a plot exists.
+        # LLFR-00205: markers are only kept while a plot exists. A
+        # frequency plot is a plot too (HLFR-00058), so the markers are
+        # kept while one exists, even though it does not show them
+        # (LLFR-00259); a time plot created later shows them again.
         return any(tab.plot_list for tab in self.tab_list)
 
     def clear_markers_without_plots(self) -> None:

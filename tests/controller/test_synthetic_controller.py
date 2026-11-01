@@ -867,29 +867,6 @@ class PlotSyntheticTest(SyntheticControllerTestCase):
             self.controller.store.get("integral_Speed").value_array)
         np.testing.assert_allclose(curve_list[1][2], 19.8)
 
-    @covers("LLFR-00242", "LLFR-00257")
-    def test_fft_signals_are_not_plotted_yet(self) -> None:
-        """FFT signals: no plot, no curve and no message (until #109).
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.create("Speed", "fft")
-        fft_name_str = self.store_names()[0]
-        self.double_click(fft_name_str)
-        self.assertEqual(self.plot_id_list(), [])
-        self.double_click("Speed")
-        plot_id_i = self.plot_id_list()[0]
-        self.view.handler_dict["signal_drop_handler"](plot_id_i,
-                                                      fft_name_str)
-        self.assertEqual(self.view.drawn_names(plot_id_i), ["Speed"])
-        self.assertEqual(self.view.full_tab_count_i, 0)
-        self.assertEqual(self.view.information_list, [])
-        self.assertTrue(self.plot_controller.is_fft_signal_blocked(
-            fft_name_str))
-        self.assertFalse(self.plot_controller.is_fft_signal_blocked(
-            "Speed"))
-
     @covers("LLFR-00263", "LLFR-00039", "LLFR-00049", "LLFR-00028")
     def test_removing_curves_keeps_the_synthetic_signal(self) -> None:
         """Curve, plot and tab deletions keep the signal in the list.
