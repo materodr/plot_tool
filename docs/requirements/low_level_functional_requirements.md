@@ -44,7 +44,7 @@ The user must be able to drag the border between the plot panel and the signal l
 *Parent: HLFR-00026*
 
 ### LLFR-00138 Undo action
-When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, plots, curves, tips and markers to the state they were in before that action.
+When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, plots, curves, data tips and markers to the state they were in before that action.
 
 *Parent: HLFR-00040*
 
@@ -54,9 +54,9 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 *Parent: HLFR-00040*
 
 ### LLFR-00140 Undoable actions
-The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a tip, moving a pinned tip, deleting a pinned tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker, deleting a vertical marker, placing a delta marker and deleting a delta marker.
+The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker, deleting a vertical marker, placing a delta marker and deleting a delta marker.
 
-Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable.
+Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either.
 
 *Parent: HLFR-00040*
 
@@ -66,7 +66,7 @@ When the app opens a file or replaces the current file (LLFR-00013), it must cle
 *Parent: HLFR-00040, HLFR-00010, HLFR-00048*
 
 ### LLFR-00192 Redo action
-When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, plots, curves, tips and markers to the state they were in after that action, and must make that action available to undo again.
+When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, plots, curves, data tips and markers to the state they were in after that action, and must make that action available to undo again.
 
 Note: The user can redo, one by one, every action undone since the last new undoable action, so at most 30 (LLFR-00139).
 
@@ -78,14 +78,14 @@ When the user does an undoable action (LLFR-00140) after undoing, the app must d
 *Parent: HLFR-00048*
 
 ### LLFR-00195 Redo shortcut while typing
-While the keyboard focus is in a text field (LLFR-00157), the Redo shortcut (LLFR-00191) must not redo actions on the tabs, plots, curves, tips and markers.
+While the keyboard focus is in a text field (LLFR-00157), the Redo shortcut (LLFR-00191) must not redo actions on the tabs, plots, curves, data tips and markers.
 
 Note: This lets Ctrl+Y act on the text being typed, as text fields usually do.
 
 *Parent: HLFR-00048*
 
 ### LLFR-00196 Undo shortcut while typing
-While the keyboard focus is in a text field (LLFR-00157), the Undo shortcut (LLFR-00137) must not undo actions on the tabs, plots, curves, tips and markers.
+While the keyboard focus is in a text field (LLFR-00157), the Undo shortcut (LLFR-00137) must not undo actions on the tabs, plots, curves, data tips and markers.
 
 Note: This lets Ctrl+Z (Cmd+Z on macOS) act on the text being typed, as text fields usually do.
 
@@ -213,8 +213,8 @@ When the app replaces the current file (LLFR-00013), the signal list panel must 
 
 *Parent: HLFR-00010, HLFR-00011*
 
-### LLFR-00018 Tip button
-The top panel must contain a button called "Tip".
+### LLFR-00018 Data tip button
+The top panel must contain a button called "Data tip".
 
 *Parent: HLFR-00024, HLFR-00032*
 
@@ -293,7 +293,7 @@ When the user clicks the Reset zoom button, the button must show its active colo
 *Parent: HLFR-00035, HLFR-00003*
 
 ### LLFR-00207 Z key resets the zoom
-When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116). While the user is dragging the mouse (a pan, a marker or tip drag, or a time span selection), the Z key must do nothing.
+When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116). While the user is dragging the mouse (a pan, a marker or data tip drag, or a time span selection), the Z key must do nothing.
 
 Note: Ctrl+Z and Cmd+Z stay Undo (LLFR-00137).
 
@@ -325,7 +325,7 @@ When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a s
 *Parent: HLFR-00038*
 
 ### LLFR-00129 PDF content
-The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page and the tab's plots below it as they are shown on screen, including their time range, curves, legends, grid, vertical markers, delta markers and pinned tips.
+The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page and the tab's plots below it as they are shown on screen, including their time range, curves, legends, grid, vertical markers, delta markers and pinned data tips.
 
 *Parent: HLFR-00038*
 
@@ -401,20 +401,20 @@ If the current tab holds no plot when the user clicks the Copy button, the app m
 
 *Parent: HLFR-00039*
 
-### LLFR-00148 Hold the Tip key
-While the user holds down the Tip key alone, with no other keyboard key, the app must keep the Tip button (LLFR-00018) active, deactivating any other plot tool as in LLFR-00079.
+### LLFR-00148 Hold the Data tip key
+While the user holds down the Data tip key alone, with no other keyboard key, the app must keep the Data tip button (LLFR-00018) active, deactivating any other plot tool as in LLFR-00079.
 
-Note: The **Tip key** is the Command key on macOS and the Ctrl key on Windows.
-
-*Parent: HLFR-00024, HLFR-00032*
-
-### LLFR-00149 Release the Tip key
-When the user releases the Tip key after LLFR-00148, the app must deactivate the Tip button, so that no plot tool is active, whatever plot tool was active before the Tip key was pressed.
+Note: The **Data tip key** is the Command key on macOS and the Ctrl key on Windows.
 
 *Parent: HLFR-00024, HLFR-00032*
 
-### LLFR-00150 Tip key with another key
-If the user presses another keyboard key while holding the Tip key (for example Cmd+Z, Ctrl+Z or Ctrl+Y), the app must end the Tip activation of LLFR-00148 as in LLFR-00149.
+### LLFR-00149 Release the Data tip key
+When the user releases the Data tip key after LLFR-00148, the app must deactivate the Data tip button, so that no plot tool is active, whatever plot tool was active before the Data tip key was pressed.
+
+*Parent: HLFR-00024, HLFR-00032*
+
+### LLFR-00150 Data tip key with another key
+If the user presses another keyboard key while holding the Data tip key (for example Cmd+Z, Ctrl+Z or Ctrl+Y), the app must end the Data tip activation of LLFR-00148 as in LLFR-00149.
 
 *Parent: HLFR-00024, HLFR-00032*
 
@@ -473,7 +473,7 @@ Note: This lets the user type capital letters and use keyboard shortcuts in text
 ### LLFR-00158 Icon instead of the name
 Each button in the top panel must show only its icon, without its name written on the button.
 
-Note: The name a button is "called" in the other requirements (for example "Open file" in LLFR-00004) is the name shown in its hover tip (LLFR-00181).
+Note: The name a button is "called" in the other requirements (for example "Open file" in LLFR-00004) is the name shown in its button tip (LLFR-00181).
 
 *Parent: HLFR-00042*
 
@@ -481,7 +481,7 @@ Note: The name a button is "called" in the other requirements (for example "Open
 The app must show these icons, the same on every operating system:
 1. Open file: an open folder;
 2. Undo: an arrow curving to the left;
-3. Tip: a callout box pointing at a dot on a curve;
+3. Data tip: a callout box pointing at a dot on a curve;
 4. Zoom: a magnifying glass with a plus sign;
 5. Reset zoom: a magnifying glass with two arrows pointing away from each other, to the left and to the right;
 6. Vertical marker: a dashed vertical line with a small flag at its top;
@@ -490,9 +490,11 @@ The app must show these icons, the same on every operating system:
 9. Grid: a square divided into 3 by 3 cells;
 10. Export: a sheet of paper with an arrow pointing out of it;
 11. Copy: two overlapping sheets of paper;
-12. Redo: an arrow curving to the right.
+12. Redo: an arrow curving to the right;
+13. Save layout: a sheet of paper with two small stacked plots and an arrow pointing down into it;
+14. Load layout: a sheet of paper with two small stacked plots and an arrow pointing up out of it.
 
-*Parent: HLFR-00042, HLFR-00048*
+*Parent: HLFR-00042, HLFR-00048, HLFR-00049, HLFR-00050*
 
 ### LLFR-00160 Icon visibility
 Each icon must be clearly visible against its button's background in the normal, active (LLFR-00001) and disabled (LLFR-00141) states, and must be shown paler while the button is disabled.
@@ -510,11 +512,180 @@ The top panel must contain a button called "Delta Y".
 *Parent: HLFR-00044, HLFR-00032*
 
 ### LLFR-00181 Button name on hover
-When the user holds the mouse pointer over a button in the top panel, the app must show a small tip with the button's name next to the pointer, and must hide it when the pointer leaves the button.
+When the user holds the mouse pointer over a button in the top panel, the app must show a button tip with the button's name next to the pointer, and must hide it when the pointer leaves the button.
 
 Note: This helps a user who is starting to use the app to learn what each icon does.
 
 *Parent: HLFR-00042*
+
+### LLFR-00213 Shortcut in the button tip
+When a top panel button has a keyboard shortcut, its button tip (LLFR-00181) must show the shortcut on a second line, below the button's name, in a paler color than the name.
+
+*Parent: HLFR-00042*
+
+### LLFR-00214 Mouse use in the button tip
+When a top panel button has no keyboard shortcut but its tool is used with the mouse on the plots, its button tip (LLFR-00181) must show, on one or two lines below the button's name and in a paler color than the name, a summary of a few words of how to use the tool with the mouse or the trackpad.
+
+*Parent: HLFR-00042*
+
+### LLFR-00215 Button tip texts
+The line below the name in the button tip of each button with a shortcut (LLFR-00213) must be, on macOS and on Windows:
+
+| Button | macOS | Windows |
+|---|---|---|
+| Undo | Cmd+Z | Ctrl+Z |
+| Redo | Cmd+Y | Ctrl+Y |
+| Data tip | Hold Cmd | Hold Ctrl |
+| Vertical marker | Hold Shift | Hold Shift |
+| Delta X | Hold X | Hold X |
+| Delta Y | Hold Y | Hold Y |
+| Reset zoom | Z | Z |
+
+The button tip of the Zoom button (LLFR-00214) must show two lines below its name, on macOS and on Windows: "Click or drag to zoom in" and "Wheel or two-finger swipe to zoom in or out".
+
+The button tips of the Open file, Save layout, Load layout, Grid, Export and Copy buttons must show only the button's name.
+
+Note: The texts follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00078, LLFR-00208, LLFR-00074 and LLFR-00206. When a shortcut or a mouse use changes, its button tip text must change with it.
+
+*Parent: HLFR-00042*
+
+### LLFR-00216 Save layout button
+The top panel must contain a button called "Save layout", placed directly to the right of the Open file button (LLFR-00004).
+
+*Parent: HLFR-00049*
+
+### LLFR-00217 Load layout button
+The top panel must contain a button called "Load layout", placed directly to the right of the Save layout button (LLFR-00216).
+
+*Parent: HLFR-00050*
+
+### LLFR-00218 Layout buttons need a data file
+While no data file is open, the app must show the Save layout and Load layout buttons as disabled, in a paler color, and neither button must do anything.
+
+*Parent: HLFR-00049, HLFR-00050, HLFR-00003*
+
+### LLFR-00219 Save layout dialog
+When the user clicks the Save layout button, the app must show a save file dialog in which the user chooses the folder and types the name of the layout file. If the typed name has no extension, the app must add `.json`.
+
+*Parent: HLFR-00049*
+
+### LLFR-00220 Layout dialog starting folder
+The first time after the app starts that the user clicks the Save layout or Load layout button, the dialog (LLFR-00219, LLFR-00221) must show the folder that the file selection dialog of the Open file button would show at that moment (LLFR-00204). After that, it must show the folder of the last layout file that the app saved or loaded successfully.
+
+*Parent: HLFR-00049, HLFR-00050*
+
+### LLFR-00221 Load layout dialog
+When the user clicks the Load layout button, the app must show a file selection dialog that lists the layout files (`.json`), in which the user chooses the layout file to load.
+
+*Parent: HLFR-00050*
+
+### LLFR-00222 Layout dialog cancelled
+If the user cancels the dialog of LLFR-00219 or LLFR-00221, the app must not save or load any file and must keep the current layout unchanged.
+
+*Parent: HLFR-00049, HLFR-00050*
+
+### LLFR-00223 Replace an existing layout file
+If the user chooses the name of a file that already exists in the dialog of LLFR-00219, the app must ask the user whether to replace it, and must save the layout only if the user agrees.
+
+*Parent: HLFR-00049*
+
+### LLFR-00224 Layout save failure
+If the layout file cannot be written, the app must show an error box saying that the layout file could not be saved.
+
+*Parent: HLFR-00049, HLFR-00002*
+
+### LLFR-00225 Layout file content
+The layout file must hold:
+1. the names of the tabs, in tab order, and which tab is shown;
+2. for each tab, its plots, from top to bottom;
+3. for each plot, its curves, in the order they were drawn, each with its signal name, color and width;
+4. the x-axis range shared by the plots (LLFR-00070), in seconds;
+5. whether the grid is shown (HLFR-00037);
+6. for each vertical marker, its name and time;
+7. for each pinned data tip, its plot, the signal and time of its point, and its position relative to the point;
+8. for each delta marker, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
+9. the widths of the plot panel and the signal list panel;
+10. for each synthetic signal, in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency (Low-pass and High-pass filters), the window size (Moving average), the constant (Comparison operations and Arithmetic operations with a constant) or the time range (FFT).
+
+*Parent: HLFR-00049, HLFR-00056*
+
+### LLFR-00226 Not in the layout file
+The layout file must not hold the name or the path of the data file, the undo and redo history, the active plot tool or the text of the search box.
+
+*Parent: HLFR-00049*
+
+### LLFR-00227 Layout file format
+The app must write the layout file as JSON text in UTF-8, indented by 2 spaces, with each value on its own line, with keys that are English words describing their value (for example `tabs`, `plots`, `signal`, `width`), and with each time in seconds written as a decimal number with enough digits to be read back as the same value.
+
+Note: JSON can be read and written with Python's standard library, so no new library is needed (COR-00011), and text editors such as Notepad++ highlight it.
+
+*Parent: HLFR-00051*
+
+### LLFR-00228 Layout file identification
+The layout file must start with an entry `format` with the value `plot_tool layout` and an entry `version` with the number of the layout file format, so that the app can tell a layout file from other JSON files.
+
+*Parent: HLFR-00051, HLFR-00050*
+
+### LLFR-00229 Layout added in new tabs
+When the user loads a layout file (LLFR-00221) and the current tabs hold at least one plot, the app must keep the current tabs, with their plots, curves, pinned data tips and delta markers, unchanged, and must add the tabs of the layout file after the last current tab. When no current tab holds a plot, the app must replace the current tabs with the tabs of the layout file. In both cases, the app must show the first tab of the layout file.
+
+Note: Loading a layout never asks for confirmation, because it removes no plot.
+
+*Parent: HLFR-00050*
+
+### LLFR-00230 Rebuild the layout
+When the app loads a layout file, it must build the tabs, plots, curves, delta markers and pinned data tips of the file in the file's order, in the tabs of LLFR-00229, add the vertical markers of the file to the current ones (LLFR-00205), and apply the file's time range to every plot (LLFR-00070), the file's grid setting to every plot (LLFR-00122, LLFR-00123) and the file's panel widths, using the signals of the opened data file and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235.
+
+*Parent: HLFR-00050*
+
+### LLFR-00231 Missing signals in a layout
+When loading a layout, the app must not draw a curve whose signal is not in the opened data file, must not create a plot that is left with no curve, and must still create every tab of the file, even one left with no plot.
+
+*Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-00232 Data tips and delta markers in a layout
+When loading a layout, the app must rebuild a pinned data tip or a delta marker only if the signal of each of its points is drawn in its plot and has a sample whose time differs from the saved time by at most 1 microsecond, and must place each point on that sample.
+
+*Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-00233 Vertical markers in a layout
+When loading a layout, the app must rebuild a vertical marker only if its time is within the time range of the opened data file.
+
+*Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-00234 Time range in a layout
+When loading a layout, the app must limit the saved x-axis range to the time range of the opened data file (LLFR-00119). If the saved range does not overlap the file's time range, the app must show the whole time range of the file.
+
+*Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-00235 Unusable values in a layout
+When loading a layout, the app must replace a value it cannot use with the value it would use for a new item: a curve width that is not one of the preset widths 1 to 5 with width 1 (LLFR-00052), a color that is not valid or is already used in the plot with the next color of LLFR-00033 and LLFR-00034, and a tab name that is empty or already used with a name as in LLFR-00210. It must not create the plots of a tab beyond the maximum of HLFR-00018.
+
+Note: Such values appear only when the file was edited by hand.
+
+*Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-00236 Unreadable layout file
+If the chosen file cannot be read, is not valid JSON or does not identify itself as a layout file (LLFR-00228), the app must show an error box saying that the file could not be read as a layout file, and must keep the current layout unchanged.
+
+*Parent: HLFR-00050, HLFR-00002*
+
+### LLFR-00237 Layout load report
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. If everything was rebuilt as saved, the app must not show any message.
+
+Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long list must be scrollable.
+
+*Parent: HLFR-00052*
+
+### LLFR-00238 Undo history on layout load
+When the app loads a layout, it must clear the undo and redo history (LLFR-00142). Saving and loading a layout must not be undoable actions (LLFR-00140).
+
+*Parent: HLFR-00050, HLFR-00040, HLFR-00048*
+
+### LLFR-00262 Synthetic signals on layout load
+When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must remove the current synthetic signals and create the synthetic signals of the file, in the file's order and with their saved names, using the saved operation, signals and parameter (LLFR-00225), and, for an FFT, the saved time range limited to the time range of the opened data file. A synthetic signal must not be created when a signal it is computed from is missing, when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272), when the operation cannot be done (LLFR-00247, LLFR-00250), or when its saved name is the name of a signal of the data file. Its curves must then be treated as curves of a missing signal (LLFR-00231), and the load report (LLFR-00237) must name it with the reason.
+
+*Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
 ## Signal list panel
 
@@ -632,6 +803,194 @@ Note: For example, with the signals `mateus_soares_rodrigues 2026` and `mateus_s
 
 *Parent: HLFR-00034*
 
+### LLFR-00239 Synthetic signal menu
+When the user right-clicks a signal name in the signal list panel, the app must show a menu with a "Create synthetic signal" option that lists the operations of LLFR-00268, showing only these operation names and not the names the new signals will have (LLFR-00240). Choosing an operation must create the synthetic signal of that operation from the right-clicked signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-00240 Synthetic signal names
+The app must name a synthetic signal with the operation name `integral`, `derivative`, `lowpass`, `highpass`, `movingaverage`, `max`, `min`, `greater`, `less`, `greaterorequal`, `lessorequal`, `add`, `subtract`, `multiply`, `divide`, `product` or `fft`, an underscore and the full current name of the signal it was computed from. When that signal is itself a synthetic signal, its whole name is used, so that the operations build up from left to right, for example `integral_Speed`, `derivative_integral_Speed` or `fft_lowpass_Speed_1.5s_to_3s`. A Product with signal must be named `product`, an underscore, the full current name of the right-clicked signal, an underscore and the full current name of the second signal (LLFR-00275), for example `product_Speed_Torque`.
+
+An FFT signal's name must end with an underscore and its time range (LLFR-00248), written as `<start>s_to_<end>s`, with the start and end times in seconds in the same number format as the data tip's x value (LLFR-00043), for example `fft_Speed_1.5s_to_3s`. Two FFTs of the same signal over different time ranges therefore get different names.
+
+*Parent: HLFR-00054*
+
+### LLFR-00264 Synthetic signals from synthetic signals
+The app must let the user create a synthetic signal from a synthetic signal in the same way as from a signal of the data file (LLFR-00239), except as in LLFR-00251.
+
+*Parent: HLFR-00053*
+
+### LLFR-00241 Synthetic signal name already used
+If the name of LLFR-00240 is already the name of a signal in the signal list, the app must add an underscore and the smallest number from 2 up that makes the name unique, for example `lowpass_Speed_2`.
+
+Note: This happens, for example, when the same signal is filtered twice with different cutoff frequencies, or compared with two different constants.
+
+*Parent: HLFR-00054*
+
+### LLFR-00242 Synthetic signals in the signal list
+The signal list panel must show the synthetic signals after the signals of the data file, in the order they were created, in italic letters, and the user must be able to search for them (HLFR-00033) and plot them (LLFR-00019, LLFR-00021) like the signals of the data file, except as in LLFR-00257.
+
+*Parent: HLFR-00053, HLFR-00011*
+
+### LLFR-00243 Integral
+The Integral of a signal must have, at each time sample, the integral of the signal over time from the first time sample up to that sample, computed with the trapezoidal rule, so that its first sample is 0.
+
+*Parent: HLFR-00053*
+
+### LLFR-00244 Derivative
+The Derivative of a signal must have, at each time sample, the rate of change of the signal with respect to time, computed from the neighboring samples on both sides, and from the one neighbor at the first and last samples.
+
+*Parent: HLFR-00053*
+
+### LLFR-00245 Filter cutoff dialog
+When the user chooses "Low-pass filter" or "High-pass filter" (LLFR-00239), the app must show a dialog that asks for the cutoff frequency in Hz and states the allowed range: greater than 0 and less than half the sampling rate (LLFR-00247). The app must create the filtered signal only when the user confirms a value in the allowed range. If the value is outside the range or not a number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-00246 Filter type
+The Low-pass filter and the High-pass filter must be second-order Butterworth filters with the cutoff frequency of LLFR-00245, applied forward and then backward over the signal, so that the filtered curve is not delayed in time.
+
+*Parent: HLFR-00053*
+
+### LLFR-00247 Evenly spaced time samples
+The app must compute the sampling rate as 1 divided by the mean time step of the time signal. If any time step differs from the mean time step by more than 1%, the app must not create a Low-pass filter, High-pass filter or FFT signal, and must show an information box saying that the operation needs evenly spaced time samples.
+
+*Parent: HLFR-00053*
+
+### LLFR-00248 FFT time range
+The FFT must use only the samples of the signal whose time is within the x-axis range shared by the time plots (LLFR-00070) when the FFT is created, or all samples when no time plot exists. A later change of the time range must not change the FFT signal.
+
+*Parent: HLFR-00057*
+
+### LLFR-00249 FFT result
+The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-00248, from 0 Hz up to half the sampling rate (LLFR-00247), computed with a Hann window and scaled so that a sine wave of amplitude A over the whole time range gives a peak of height close to A.
+
+*Parent: HLFR-00053, HLFR-00057*
+
+### LLFR-00250 Too few samples for an FFT
+If fewer than 8 samples of the signal are within the time range of LLFR-00248, the app must not create the FFT signal and must show an information box saying that the time range holds too few samples.
+
+*Parent: HLFR-00053, HLFR-00057*
+
+### LLFR-00251 No operations on FFT signals
+When the user right-clicks an FFT signal, the app must show the "Create synthetic signal" option (LLFR-00239) as disabled.
+
+Note: An FFT signal has frequency, not time, on its x-axis, so the operations do not apply to it.
+
+*Parent: HLFR-00053*
+
+### LLFR-00252 Synthetic signals on file replace
+When the app opens a data file or replaces the current one (LLFR-00013), it must remove every synthetic signal of the previous data file.
+
+*Parent: HLFR-00053, HLFR-00010*
+
+### LLFR-00253 Data file unchanged
+The app must never write synthetic signals, or anything else, to the data file. Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255), the data file is replaced (LLFR-00252) or the app is closed.
+
+Note: A layout file can create them again (LLFR-00262).
+
+*Parent: HLFR-00055*
+
+### LLFR-00254 Delete synthetic signal option
+When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Delete signal" option in the menu of LLFR-00239. The menu of a signal of the data file must not have this option.
+
+*Parent: HLFR-00059*
+
+### LLFR-00255 Delete synthetic signal action
+When the user chooses "Delete signal" (LLFR-00254), the app must ask the user whether to proceed, naming the synthetic signals that were computed from it, directly or through other synthetic signals. If the user proceeds, the app must remove the signal and those synthetic signals from the signal list, remove their curves from every plot (deleting each plot left with no curve as in LLFR-00051), and clear the undo and redo history.
+
+Note: Creating and deleting a synthetic signal are not undoable actions (LLFR-00140).
+
+*Parent: HLFR-00059*
+
+### LLFR-00263 Removing a synthetic curve keeps the signal
+When the user removes the curve of a synthetic signal from a plot (LLFR-00039), or deletes a plot or tab that holds it (LLFR-00049, LLFR-00028), the app must keep the synthetic signal in the signal list. Only "Delete signal" (LLFR-00255) must remove a synthetic signal from the list.
+
+*Parent: HLFR-00059, HLFR-00022*
+
+### LLFR-00265 Rename synthetic signal option
+When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Rename" option in the menu of LLFR-00239. The menu of a signal of the data file must not have this option.
+
+*Parent: HLFR-00060*
+
+### LLFR-00266 Rename synthetic signal action
+When the user chooses "Rename" (LLFR-00265), the app must let the user type a new name for the synthetic signal, and must then show the new name in the signal list and in the legend of every plot that draws the signal. The names of synthetic signals already computed from it must not change; synthetic signals created from it afterwards must use the new name (LLFR-00240).
+
+Note: Renaming a synthetic signal is not an undoable action (LLFR-00140) and does not clear the undo and redo history.
+
+*Parent: HLFR-00060*
+
+### LLFR-00267 Invalid synthetic signal name
+If the user enters a name that, without leading and trailing spaces, is empty or is the name of another signal in the signal list, the app must keep the previous name. For a name already in use, it must show an information box saying that a signal with that name already exists; for an empty name, it must not show any message.
+
+*Parent: HLFR-00060*
+
+### LLFR-00268 Synthetic operation groups
+The "Create synthetic signal" option (LLFR-00239) must list the operations in these groups, in this order:
+1. Calculus: "Integral", "Derivative";
+2. Filters: "Low-pass filter", "High-pass filter", "Moving average";
+3. Statistics: "Max", "Min";
+4. Comparison: "Greater than", "Less than", "Greater than or equal", "Less than or equal";
+5. Arithmetic: "Add constant", "Subtract constant", "Multiply by constant", "Divide by constant", "Product with signal";
+6. Spectrum: "FFT".
+
+*Parent: HLFR-00053*
+
+### LLFR-00269 Moving average window dialog
+When the user chooses "Moving average", the app must show a dialog that asks for the window size as a whole number of samples and states the allowed range: from 2 up to the number of samples of the signal. The app must create the signal only when the user confirms a value in the allowed range. If the value is outside the range or not a whole number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-00270 Moving average
+The Moving average of a signal must have, at each time sample, the mean of the window of LLFR-00269 centered on that sample, with one more sample after it than before it when the window size is even. Near the first and last samples, the window must hold only the samples that exist.
+
+*Parent: HLFR-00053*
+
+### LLFR-00271 Max and Min
+The Max and the Min of a signal must be constant signals, with at every time sample the largest and the smallest value, respectively, of all samples of the signal over the whole time range of the data file, whatever time range the plots show.
+
+*Parent: HLFR-00053*
+
+### LLFR-00272 Constant value dialog
+When the user chooses a Comparison or an Arithmetic operation other than "Product with signal" (LLFR-00268), the app must show a dialog that asks for a constant number. The app must create the signal only when the user confirms a number, which must not be 0 for "Divide by constant". If the value is not a number, or is 0 for "Divide by constant", the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-00273 Comparison operations
+A Comparison signal must have, at each time sample, the value 1 when the signal's sample is greater than ("Greater than"), less than ("Less than"), greater than or equal to ("Greater than or equal") or less than or equal to ("Less than or equal") the constant of LLFR-00272, and the value 0 otherwise.
+
+*Parent: HLFR-00053*
+
+### LLFR-00274 Arithmetic with a constant
+An "Add constant", "Subtract constant", "Multiply by constant" or "Divide by constant" signal must have, at each time sample, the signal's sample plus, minus, multiplied by or divided by the constant of LLFR-00272, respectively.
+
+*Parent: HLFR-00053*
+
+### LLFR-00275 Second signal dialog
+When the user chooses "Product with signal", the app must show a dialog that lists every signal of the signal list except the FFT signals, including the right-clicked signal, in which the user chooses the second signal. If the user cancels the dialog, the app must not create any signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-00276 Product with signal
+The Product of two signals must have, at each time sample, the sample of the right-clicked signal multiplied by the sample of the second signal (LLFR-00275) at the same time sample.
+
+*Parent: HLFR-00053*
+
+### LLFR-00277 Copy name option
+When the user right-clicks a signal name in the signal list panel, the app must show a "Copy name" option in the menu of LLFR-00239. When the user chooses it, the app must put the signal's name on the system clipboard as text.
+
+*Parent: HLFR-00061*
+
+### LLFR-00278 Copy equation option
+When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Copy equation" option in the menu of LLFR-00239. The menu of a signal of the data file must not have this option.
+
+*Parent: HLFR-00062*
+
+### LLFR-00279 Copy equation action
+When the user chooses "Copy equation" (LLFR-00278), the app must put on the system clipboard, as text, the entries that the layout file uses for synthetic signals (LLFR-00225, LLFR-00227) for that synthetic signal and for every synthetic signal it is computed from, directly or through other synthetic signals, in the order they were created, written as a JSON list that can be pasted into the list of synthetic signals of a layout file.
+
+*Parent: HLFR-00062, HLFR-00056*
+
 ## Plot panel
 
 ### LLFR-00024 Initial tab
@@ -740,38 +1099,38 @@ When the user chooses a preset width in the "Width" option of the curve menu (LL
 
 *Parent: HLFR-00023*
 
-### LLFR-00042 Hover tip
-While the Tip button (LLFR-00018) is active and the user hovers over a curve, the app must show a tip with the x-axis and y-axis values of the hovered point.
+### LLFR-00042 Hover data tip
+While the Data tip button (LLFR-00018) is active and the user hovers over a curve, the app must show a hover data tip with the x-axis and y-axis values of the hovered point.
 
 *Parent: HLFR-00024*
 
-### LLFR-00043 Tip x value
-The tip must show the x-axis value in seconds.
+### LLFR-00043 Data tip x value
+The data tip must show the x-axis value in seconds.
 
 *Parent: HLFR-00024, HLFR-00007*
 
-### LLFR-00044 Tip y value
-The tip must show the y-axis value as stored in the file, without a unit.
+### LLFR-00044 Data tip y value
+The data tip must show the y-axis value as stored in the file, without a unit.
 
 *Parent: HLFR-00024*
 
-### LLFR-00045 Pin a tip
-If the user left-clicks a curve while the hover tip (LLFR-00042) is shown, the app must fix the tip at that point in the plot.
+### LLFR-00045 Pin a data tip
+If the user left-clicks a curve while the hover data tip (LLFR-00042) is shown, the app must fix the data tip at that point in the plot.
 
 *Parent: HLFR-00025*
 
-### LLFR-00046 Pinned tip menu
-When the user right-clicks a pinned tip, the app must show a menu with a "Delete" option.
+### LLFR-00046 Pinned data tip menu
+When the user right-clicks a pinned data tip, the app must show a menu with a "Delete" option.
 
 *Parent: HLFR-00025*
 
-### LLFR-00047 Remove a pinned tip
-When the user chooses "Delete" in the pinned tip menu (LLFR-00046), the app must remove the pinned tip from the plot.
+### LLFR-00047 Remove a pinned data tip
+When the user chooses "Delete" in the pinned data tip menu (LLFR-00046), the app must remove the pinned data tip from the plot.
 
 *Parent: HLFR-00025*
 
 ### LLFR-00048 Plot menu delete option
-When the user right-clicks an empty area of a plot (not on a curve, a pinned tip, a vertical marker or a delta marker), the app must show a menu with a "Delete plot" option.
+When the user right-clicks an empty area of a plot (not on a curve, a pinned data tip, a vertical marker or a delta marker), the app must show a menu with a "Delete plot" option.
 
 *Parent: HLFR-00019*
 
@@ -813,7 +1172,7 @@ Note: The app stores a tab name without its leading and trailing spaces. The inf
 *Parent: HLFR-00017*
 
 ### LLFR-00068 Time on the x-axis
-Every plot must use the time signal (HLFR-00006) as its x-axis.
+Every time plot (HLFR-00058) must use the time signal (HLFR-00006) as its x-axis.
 
 *Parent: HLFR-00012, HLFR-00013, HLFR-00007*
 
@@ -823,7 +1182,7 @@ The plots in a tab must be stacked vertically, one below the other.
 *Parent: HLFR-00014, HLFR-00018*
 
 ### LLFR-00070 Shared time axis
-All plots in all tabs must share the same x-axis range, so that a change to the time range of one plot applies to every plot in every tab.
+All time plots in all tabs must share the same x-axis range, so that a change to the time range of one time plot applies to every time plot in every tab.
 
 *Parent: HLFR-00014, HLFR-00027, HLFR-00036*
 
@@ -917,14 +1276,14 @@ While the user drags a vertical marker (LLFR-00086), the app must update the mar
 *Parent: HLFR-00029*
 
 ### LLFR-00203 Marker preview
-While the Vertical marker button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing vertical marker, the app must show a preview of the marker that a click would place on every plot of the current tab: a dashed vertical line at the time under the pointer, in a paler version of the marker color (LLFR-00083), with its time value (LLFR-00092). The app must hide the preview when the pointer leaves the plot's drawing area, moves over an existing vertical marker, or the button is deactivated. The preview must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133).
+While the Vertical marker button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing vertical marker, the app must show a preview of the marker that a click would place on every time plot of the current tab: a dashed vertical line at the time under the pointer, in a paler version of the marker color (LLFR-00083), with its time value (LLFR-00092). The app must hide the preview when the pointer leaves the plot's drawing area, moves over an existing vertical marker, or the button is deactivated. The preview must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133).
 
 Note: Plots in tabs that are not shown don't need the preview.
 
 *Parent: HLFR-00028*
 
 ### LLFR-00205 Markers on every plot
-Every vertical marker must be shown on every plot in every tab, including plots created after the marker. Moving (LLFR-00086), renaming (LLFR-00088) or deleting (LLFR-00091) a marker on any plot must apply to it on every plot; while a marker is dragged, it must follow the pointer on every plot of the current tab, and on the plots of the other tabs it must be at its new time at the latest when the button is released. When no plot is left in any tab, whether because a plot is deleted (LLFR-00049, LLFR-00051), a tab is deleted (LLFR-00028) or the file is replaced (LLFR-00015), the app must delete every vertical marker. When the cause is deleting a plot or a tab, the markers must be deleted as part of that same action, so that undoing it (LLFR-00138) brings the markers back.
+Every vertical marker must be shown on every time plot in every tab, including time plots created after the marker. Moving (LLFR-00086), renaming (LLFR-00088) or deleting (LLFR-00091) a marker on any time plot must apply to it on every time plot; while a marker is dragged, it must follow the pointer on every time plot of the current tab, and on the time plots of the other tabs it must be at its new time at the latest when the button is released. When no plot is left in any tab, whether because a plot is deleted (LLFR-00049, LLFR-00051), a tab is deleted (LLFR-00028) or the file is replaced (LLFR-00015), the app must delete every vertical marker. When the cause is deleting a plot or a tab, the markers must be deleted as part of that same action, so that undoing it (LLFR-00138) brings the markers back.
 
 Note: Each of these remains one undoable action (LLFR-00140).
 
@@ -985,7 +1344,7 @@ Note: A release less than 5 pixels from the press is a click (LLFR-00078).
 *Parent: HLFR-00027*
 
 ### LLFR-00115 Reset zoom action
-When the user clicks the Reset zoom button (LLFR-00114), the app must set the x-axis range of every plot in every tab to the whole time range of the file, and must set their y-axis ranges as in LLFR-00076.
+When the user clicks the Reset zoom button (LLFR-00114), the app must set the x-axis range of every time plot in every tab to the whole time range of the file, and must set their y-axis ranges as in LLFR-00076. Frequency plots are reset as in LLFR-00258.
 
 *Parent: HLFR-00035*
 
@@ -1039,18 +1398,18 @@ When the app starts, the grid must be hidden.
 
 *Parent: HLFR-00037*
 
-### LLFR-00151 Tip leader line
-The app must connect each pinned tip (LLFR-00045) to the point whose values it shows with a dashed line.
+### LLFR-00151 Data tip leader line
+The app must connect each pinned data tip (LLFR-00045) to the point whose values it shows with a dashed line.
 
 *Parent: HLFR-00025*
 
-### LLFR-00152 Drag a pinned tip
-When the user presses the left mouse button on a pinned tip and drags it, the app must move the tip with the mouse pointer and leave it where the button is released, while the tip keeps showing the values of the same point.
+### LLFR-00152 Drag a pinned data tip
+When the user presses the left mouse button on a pinned data tip and drags it, the app must move the data tip with the mouse pointer and leave it where the button is released, while the data tip keeps showing the values of the same point.
 
 *Parent: HLFR-00041*
 
-### LLFR-00153 Press on a pinned tip
-A left mouse button press on a pinned tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new tip, zoom, place a vertical marker or pick a delta marker point.
+### LLFR-00153 Press on a pinned data tip
+A left mouse button press on a pinned data tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new data tip, zoom, place a vertical marker or pick a delta marker point.
 
 *Parent: HLFR-00041, HLFR-00032*
 
@@ -1080,26 +1439,26 @@ When the Delta X or Delta Y button is deactivated while a first point is picked 
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00168 Delta X marker
-A Delta X marker must mark its two points with dots and draw a dashed horizontal curly bracket whose two ends are at the times of the two points, placed just above the higher of the two points, with its middle tip pointing up, away from the points.
+A Delta X marker must mark its two points with dots and draw a dashed horizontal curly bracket whose two ends are at the times of the two points, placed just above the higher of the two points, with its middle point pointing up, away from the points.
 
 Note: The curly bracket gives delta markers a visual identity of their own, different from the straight dashed line of a vertical marker (LLFR-00143), although both use the same color (LLFR-00172).
 
 *Parent: HLFR-00043*
 
 ### LLFR-00169 Delta X value
-A Delta X marker must show the text "Δt = <value> s" next to the middle tip of its curly bracket, where the value is the time of the second point minus the time of the first point, in seconds, in the same number format as the tip's x value (LLFR-00043).
+A Delta X marker must show the text "Δt = <value> s" next to the middle point of its curly bracket, where the value is the time of the second point minus the time of the first point, in seconds, in the same number format as the data tip's x value (LLFR-00043).
 
 *Parent: HLFR-00043, HLFR-00007*
 
 ### LLFR-00170 Delta Y marker
-A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle tip pointing right, away from the points. When the bracket and its value (LLFR-00171) do not fit to the right of the later point inside the plot's drawing area, the app must draw them mirrored, just to the left of the earlier of the two points, with the middle tip pointing left.
+A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle point pointing right, away from the points. When the bracket and its value (LLFR-00171) do not fit to the right of the later point inside the plot's drawing area, the app must draw them mirrored, just to the left of the earlier of the two points, with the middle point pointing left.
 
 Note: If neither side has room for the bracket and its value, the app uses the side with more room. The bracket is cut at the edge of the plot only when one of its points is itself outside the shown x-axis range, or when the two points leave less room than the bracket needs on both sides.
 
 *Parent: HLFR-00044*
 
 ### LLFR-00171 Delta Y value
-A Delta Y marker must show the text "Δy = <value>" next to the middle tip of its curly bracket, where the value is the y-axis value of the second point minus the y-axis value of the first point, without a unit, in the same number format as the tip's y value (LLFR-00044).
+A Delta Y marker must show the text "Δy = <value>" next to the middle point of its curly bracket, where the value is the y-axis value of the second point minus the y-axis value of the first point, without a unit, in the same number format as the data tip's y value (LLFR-00044).
 
 *Parent: HLFR-00044*
 
@@ -1138,14 +1497,44 @@ When a curve is removed from a plot (LLFR-00039), the app must also remove every
 
 *Parent: HLFR-00043, HLFR-00044, HLFR-00022*
 
-### LLFR-00179 Pinned tip kept inside the plot
-Whenever a plot changes size or x-axis or y-axis range (for example when plots are added to or deleted from its tab, when the window or the panels are resized, or after a zoom or a pan), and when a tip drag ends (LLFR-00152), the app must draw each pinned tip whose point is within the shown range at the position the user gave it (LLFR-00045, LLFR-00152), moved by the shortest distance needed to keep the whole tip inside the plot's drawing area, still connected to its point by its leader line (LLFR-00151).
+### LLFR-00179 Pinned data tip kept inside the plot
+Whenever a plot changes size or x-axis or y-axis range (for example when plots are added to or deleted from its tab, when the window or the panels are resized, or after a zoom or a pan), and when a data tip drag ends (LLFR-00152), the app must draw each pinned data tip whose point is within the shown range at the position the user gave it (LLFR-00045, LLFR-00152), moved by the shortest distance needed to keep the whole data tip inside the plot's drawing area, still connected to its point by its leader line (LLFR-00151).
 
-Note: When the plot grows again, the tip returns towards the position the user gave it.
+Note: When the plot grows again, the data tip returns towards the position the user gave it.
 
 *Parent: HLFR-00025, HLFR-00041*
 
 ### LLFR-00180 Time range of a new plot
-A new plot must show the x-axis range shared by the existing plots (LLFR-00070), or the whole time range of the file when no other plot exists.
+A new time plot must show the x-axis range shared by the existing time plots (LLFR-00070), or the whole time range of the file when no other time plot exists.
 
 *Parent: HLFR-00012, HLFR-00014*
+
+### LLFR-00256 Frequency plot
+When the user double-clicks an FFT signal (LLFR-00019), the app must create a frequency plot in the current tab, with frequency in Hz on its x-axis, labeled "Frequency (Hz)", and draw the FFT signal in it. A frequency plot counts towards the maximum number of plots of a tab (HLFR-00018).
+
+*Parent: HLFR-00058*
+
+### LLFR-00257 FFT and time signals in separate plots
+If the user drops an FFT signal on a time plot, or any other signal on a frequency plot, the app must not draw the signal and must show an information box saying that FFT signals and time signals cannot be drawn in the same plot.
+
+*Parent: HLFR-00058, HLFR-00013*
+
+### LLFR-00258 Frequency plot x-axis range
+Each frequency plot must have its own x-axis range, which must not follow the time plots (LLFR-00070) or the other frequency plots. A new frequency plot must show the frequencies from 0 Hz up to the highest frequency of its curves. Mouse wheel zoom (LLFR-00074), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117) must change only the frequency plot they are used on, limited to that frequency range, and Reset zoom (LLFR-00115) must return every frequency plot to that frequency range.
+
+*Parent: HLFR-00058, HLFR-00027, HLFR-00035, HLFR-00036*
+
+### LLFR-00259 No vertical markers on frequency plots
+The app must not show vertical markers or their preview (LLFR-00203, LLFR-00205) on frequency plots, and a click on a frequency plot while the Vertical marker button is active must not place a marker.
+
+*Parent: HLFR-00058, HLFR-00028*
+
+### LLFR-00260 Data tip on a frequency plot
+A data tip on a frequency plot must show the x-axis value in Hz, instead of seconds (LLFR-00043).
+
+*Parent: HLFR-00058, HLFR-00024*
+
+### LLFR-00261 Delta X on a frequency plot
+A Delta X marker on a frequency plot must show the text "Δf = <value> Hz", where the value is the frequency of the second point minus the frequency of the first point, instead of the text of LLFR-00169.
+
+*Parent: HLFR-00058, HLFR-00043*
