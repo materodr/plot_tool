@@ -2,17 +2,25 @@
 
 Run from the repository root:
 
-    python tests/user_tests/make_user_test_files.py
+    python tests/user_tests/make_user_test_files.py [--hdf5-only]
 
 It writes two folders next to this script:
-- ``good/``: files the app must open (one per supported format);
+- ``good/``: files the app must open (at least one per supported format,
+  PCR-00032);
 - ``bad/``: files the app must refuse, each with a different File Open
   Error box message.
+
+The HDF5 files need h5py. Without it the other files are still written
+and the HDF5 ones are skipped with a message. ``--hdf5-only`` writes only
+the HDF5 files; CI uses it to add them to a pull request branch when
+``good/signals.h5`` is missing (see .github/workflows/tests.yml).
 
 The files are generated, not tested, so this script is not named
 ``test_*.py`` and is not run by tests/build_test_matrix.py.
 """
 
+import argparse
+import importlib.util
 import os
 
 import numpy as np
@@ -23,6 +31,13 @@ USER_TESTS_FOLDER_STR = os.path.dirname(os.path.abspath(__file__))
 SAMPLE_COUNT_I = 5000
 DURATION_S = 10.0
 RANDOM_SEED_I = 1
+# LLFR-00134: the good HDF5 file keeps "Time" and these signals at the
+# top level; the other signals go into groups, by this group path.
+HDF5_TOP_LEVEL_SET = {"Time", "Sine_1Hz", "Cosine_1Hz", "Ramp", "Noise"}
+HDF5_GROUP_DICT = {
+    "Sine_3Hz": "waves", "Square_0p5Hz": "waves", "Sawtooth_2Hz": "waves",
+    "Damped_sine": "waves/decaying", "Step_at_5s": "events",
+    "Temperature": "sensors", "Pressure": "sensors"}
 
 
 def sample_signals() -> dict:
@@ -128,19 +143,85 @@ def write_bad_files(folder_str: str, signal_dict: dict) -> None:
         binary_file.write(b"not a mat file " * 50)
 
 
-def main() -> None:
-    """Create the good/ and bad/ folders and write all sample files.
+def write_hdf5_files(good_folder_str: str, bad_folder_str: str,
+                     signal_dict: dict) -> None:
+    """Write the HDF5 sample files (PCR-00032).
 
-    Inputs: none.
+    Inputs:
+        good_folder_str: folder of the files that must open.
+        bad_folder_str: folder of the files that must be refused.
+        signal_dict: the signals returned by sample_signals.
+    Outputs: none. Writes good/signals.h5, bad/corrupt.h5 and
+        bad/time_in_group.h5. Needs h5py.
+    """
+    import h5py
+    # LLFR-00134: "Time" at the top level, some signals in groups (named
+    # by their path), one stored as a 1xN row, one as an Nx1 column and
+    # one as integers.
+    with h5py.File(os.path.join(good_folder_str, "signals.h5"),
+                   "w") as hdf5_file:
+        for name_str, signal_array in signal_dict.items():
+            group_str = HDF5_GROUP_DICT.get(name_str, "")
+            path_str = f"{group_str}/{name_str}" if group_str else name_str
+            if name_str == "Ramp":
+                signal_array = signal_array.reshape(1, -1)
+            elif name_str == "Pressure":
+                signal_array = signal_array.reshape(-1, 1)
+            elif name_str == "Step_at_5s":
+                signal_array = signal_array.astype(np.int32)
+            hdf5_file.create_dataset(path_str, data=signal_array,
+                                     track_times=False)
+        # LLFR-00135: datasets that must be ignored: a 2-D matrix, a
+        # text, a scalar and a boolean vector.
+        hdf5_file.create_dataset("matrix_2d", data=np.ones((3, 3)),
+                                 track_times=False)
+        hdf5_file.create_dataset("description", data="sample signals",
+                                 track_times=False)
+        hdf5_file.create_dataset("sensors/calibration_gain", data=1.5,
+                                 track_times=False)
+        hdf5_file.create_dataset(
+            "events/flags", data=np.zeros(SAMPLE_COUNT_I, dtype=bool),
+            track_times=False)
+    # LLFR-00053, LLFR-00134: a "Time" inside a group is not the time
+    # signal, so this file has none (HLFR-00008, LLFR-00012).
+    with h5py.File(os.path.join(bad_folder_str, "time_in_group.h5"),
+                   "w") as hdf5_file:
+        hdf5_file.create_dataset("run/Time", data=signal_dict["Time"],
+                                 track_times=False)
+        hdf5_file.create_dataset("run/Sine_1Hz",
+                                 data=signal_dict["Sine_1Hz"],
+                                 track_times=False)
+    # LLFR-00008: an .h5 file whose content is not HDF5.
+    with open(os.path.join(bad_folder_str, "corrupt.h5"),
+              "wb") as binary_file:
+        binary_file.write(b"not an hdf5 file " * 50)
+
+
+def main() -> None:
+    """Create the good/ and bad/ folders and write the sample files.
+
+    Inputs: the optional command-line flag --hdf5-only.
     Outputs: none. Prints the folder the files were written to.
     """
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--hdf5-only", action="store_true",
+                        help="write only the HDF5 sample files")
+    argument_namespace = parser.parse_args()
     signal_dict = sample_signals()
     good_folder_str = os.path.join(USER_TESTS_FOLDER_STR, "good")
     bad_folder_str = os.path.join(USER_TESTS_FOLDER_STR, "bad")
     os.makedirs(good_folder_str, exist_ok=True)
     os.makedirs(bad_folder_str, exist_ok=True)
-    write_good_files(good_folder_str, signal_dict)
-    write_bad_files(bad_folder_str, signal_dict)
+    if not argument_namespace.hdf5_only:
+        write_good_files(good_folder_str, signal_dict)
+        write_bad_files(bad_folder_str, signal_dict)
+    # PCR-00032: the HDF5 files need h5py.
+    if importlib.util.find_spec("h5py") is not None:
+        write_hdf5_files(good_folder_str, bad_folder_str, signal_dict)
+    elif argument_namespace.hdf5_only:
+        raise SystemExit("h5py is not installed: no HDF5 file written.")
+    else:
+        print("h5py is not installed: the HDF5 files were not written.")
     print(f"Sample files written to {USER_TESTS_FOLDER_STR}")
 
 
