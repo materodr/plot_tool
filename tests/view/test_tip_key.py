@@ -1,7 +1,8 @@
 """Tests for holding the Tip key (LLFR-00148, LLFR-00149, LLFR-00150).
 
-The first class drives the TipKeyFilter state machine with real Qt key
-events and recording callbacks. The second class runs the whole chain:
+The first class drives the ToolKeyFilter state machine with real Qt key
+events and recording callbacks. The Shift key of the same filter is
+tested in test_shift_key.py. The second class runs the whole chain:
 key events sent to widgets of a MainWindow with the real controllers,
 checking the tool buttons, the window, the controller and the plots.
 No modal dialog or menu is ever opened.
@@ -68,12 +69,16 @@ class TipKeyFilterTest(unittest.TestCase):
         Outputs: none.
         """
         self.application = get_qt_application()
-        from PyQt6.QtWidgets import QWidget
-        from view.tip_key_filter import TipKeyFilter
+        from PyQt6.QtWidgets import QLineEdit, QWidget
+        from view.tip_key_filter import MARKER_KEY_I, TIP_KEY_I, ToolKeyFilter
         self.call_list = []
-        self.tip_key_filter = TipKeyFilter(
-            lambda: self.call_list.append("activate"),
-            lambda: self.call_list.append("release"))
+        # "activate" for the Tip tool, "activate marker" for the Shift key.
+        self.tip_key_filter = ToolKeyFilter(
+            {TIP_KEY_I: TIP_TOOL_STR, MARKER_KEY_I: MARKER_TOOL_STR},
+            lambda tool_str: self.call_list.append(
+                "activate" if tool_str == TIP_TOOL_STR
+                else "activate " + tool_str),
+            lambda: self.call_list.append("release"), (QLineEdit,))
         self.application.installEventFilter(self.tip_key_filter)
         self.widget = QWidget()
 
@@ -204,12 +209,13 @@ class TipKeyFilterTest(unittest.TestCase):
         self.release("Key_A", "ControlModifier")
         self.release("Key_Control")
         self.assertEqual(self.call_list, [])
-        # Shift held (a modifier other than Ctrl).
-        self.press("Key_Shift", "ShiftModifier")
-        self.release("Key_Shift")
-        self.press("Key_Control", "ShiftModifier")
+        # Alt held (a modifier other than Ctrl, here without its own
+        # key event, as when it was pressed before the window had the
+        # keyboard).
+        self.press("Key_Control", "AltModifier")
         self.release("Key_Control")
         self.assertEqual(self.call_list, [])
+        self.assertEqual(self.tip_key_filter.held_key_set, set())
         # Alone again: it activates.
         self.press("Key_Control")
         self.assertEqual(self.call_list, ["activate"])
@@ -521,9 +527,10 @@ class TipKeyMainWindowTest(unittest.TestCase):
         QTest.keyRelease(widget, Qt.Key.Key_Control)
         self.assert_tool_everywhere(NO_TOOL_STR)
 
-    @covers("LLFR-00148", "LLFR-00149", "LLFR-00150")
-    def test_works_while_the_search_box_has_focus(self) -> None:
-        """Tip key works in the search box, and typing is never stolen.
+    @covers("LLFR-00157", "LLFR-00148")
+    def test_not_applied_while_the_search_box_has_focus(self) -> None:
+        """In the search box the Tip key activates nothing, and Ctrl+A
+        and typing still work there.
 
         Inputs: none.
         Outputs: none.
@@ -535,16 +542,20 @@ class TipKeyMainWindowTest(unittest.TestCase):
         self.assertEqual(self.search_box.text(), "spe")
         self.assert_tool_everywhere(NO_TOOL_STR)
         self.press_tip_key(self.search_box)
-        self.assert_tool_everywhere(TIP_TOOL_STR)
+        self.assert_tool_everywhere(NO_TOOL_STR)
         self.release_tip_key(self.search_box)
         self.assert_tool_everywhere(NO_TOOL_STR)
-        # Ctrl held, then Ctrl+A: Tip ends and the box selects all.
+        # A tool chosen before is kept: neither press nor release of the
+        # Tip key in the box changes it.
+        self.top_panel.zoom_button.click()
         self.press_tip_key(self.search_box)
-        self.assert_tool_everywhere(TIP_TOOL_STR)
+        self.assert_tool_everywhere(ZOOM_TOOL_STR)
+        # Ctrl held, then Ctrl+A: the box selects all.
         QTest.keyClick(self.search_box, Qt.Key.Key_A,
                        Qt.KeyboardModifier.ControlModifier)
-        self.assert_tool_everywhere(NO_TOOL_STR)
         self.assertEqual(self.search_box.selectedText(), "spe")
+        self.release_tip_key(self.search_box)
+        self.assert_tool_everywhere(ZOOM_TOOL_STR)
         # Typing goes on normally.
         QTest.keyClicks(self.search_box, "ed")
         self.assertEqual(self.search_box.text(), "ed")
