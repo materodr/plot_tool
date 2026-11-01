@@ -13,13 +13,14 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - tabs: ``add_tab_view``, ``remove_tab_view``, ``rename_tab_view``,
   ``clear_tab_views``, ``set_current_tab``, ``current_tab_id``,
   ``set_tab_delete_enabled``;
-- plots: ``add_plot_view``, ``remove_plot_view``, ``draw_plot``,
-  ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``,
-  ``set_delta_first_point``;
+- plots: ``add_plot_view(tab_id_i, plot_id_i, kind_str)``,
+  ``remove_plot_view``, ``draw_plot``, ``set_plot_time_range``,
+  ``plot_time_range``, ``set_plot_tool``, ``set_delta_first_point``;
 - vertical markers: ``set_markers`` (the shared markers, drawn on every
   plot of every tab);
 - boxes: ``show_full_tab_notification``,
-  ``show_tab_name_taken_notification``, ``ask_marker_name``;
+  ``show_tab_name_taken_notification``,
+  ``show_plot_kind_mismatch_notification``, ``ask_marker_name``;
 - grid: ``set_grid_shown``;
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
@@ -41,14 +42,36 @@ and redo returns to it through the same rebuild as undo (LLFR-00192).
 A new undoable action empties the redo stack (LLFR-00193), and opening
 a file empties both (LLFR-00142).
 
-Shared time axis (LLFR-00070, LLFR-00180): all plots in all tabs show
-one x-axis range, kept here in ``shared_time_range_tuple``. A range
-change in any plot is applied to every other plot of every tab, hidden
-tabs included, so that switching tabs and the PDF export (LLFR-00129)
-show it too. The empty tuple stands for the whole time range of the
-file: it is used at start, after a zoom reset (LLFR-00115), when a file
-is opened and when the last plot of the workspace disappears, so that
-the next plot starts at the whole range (LLFR-00180).
+Shared time axis (LLFR-00070, LLFR-00180): all time plots in all tabs
+show one x-axis range, kept here in ``shared_time_range_tuple``. A
+range change in any time plot is applied to every other time plot of
+every tab, hidden tabs included, so that switching tabs and the PDF
+export (LLFR-00129) show it too. The empty tuple stands for the whole
+time range of the file: it is used at start, after a zoom reset
+(LLFR-00115), when a file is opened and when the last time plot of the
+workspace disappears, so that the next time plot starts at the whole
+range (LLFR-00180).
+
+Frequency plots (HLFR-00058): a double-click on an FFT signal creates a
+frequency plot (``Plot.kind_str`` is FREQUENCY_PLOT_KIND_STR), which
+draws its FFT signals against their frequencies in Hz (LLFR-00256). An
+FFT signal dropped on a time plot, or another signal dropped on a
+frequency plot, is not drawn and the view shows an information box
+(LLFR-00257). Each frequency plot keeps its own x-axis range in
+``Plot.frequency_range_tuple`` (() for its whole range, from 0 Hz to the
+highest frequency of its curves); it never follows the time plots or the
+other frequency plots, and the shared time range ignores the frequency
+plots (LLFR-00258, LLFR-00070, LLFR-00180, LLFR-00248). The zoom and pan
+limits are those of the plot's curves, so adding an FFT signal with a
+higher highest frequency widens the limit; removing it narrows the
+limit and the kept range is cut to it. Reset zoom returns every
+frequency plot to its whole range. A frequency plot never shows the
+vertical markers and never places one (LLFR-00259); it still counts as
+a plot for the rule that deletes the markers when no plot is left
+(LLFR-00205), so the markers stay while a frequency plot exists and come
+back on the next time plot. The frequency ranges are view state, like
+the shared time range: zooms are not undoable (LLFR-00140), so an undo
+or a redo keeps the range each frequency plot shows.
 
 Vertical markers (LLFR-00205): the markers belong to the workspace, not
 to a plot, so every plot of every tab shows the same ones, plots created
@@ -88,7 +111,9 @@ from controller.plot_tools import (
     is_known_plot_tool)
 from model.layout_file import build_layout_dict, rebuild_layout
 from model.undo_history import UndoHistory
-from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR, Workspace
+from model.workspace import (
+    DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
+    TIME_PLOT_KIND_STR, WHOLE_FREQUENCY_RANGE_TUPLE, Workspace)
 
 
 class PlotController:
@@ -107,7 +132,7 @@ class PlotController:
             controller.plot_tools), NO_TOOL_STR when none is active.
         grid_shown_b: True while the grid is shown on the plots.
         shared_time_range_tuple: the (start_s, end_s) range shown by
-            every plot, or () for the whole time range of the file.
+            every time plot, or () for the whole time range of the file.
         undo_history: the UndoHistory of the saved workspace states.
         pending_delta_tuple: the first point of a delta marker being
             placed, as (plot_id_i, (signal_name_str, time_s, value_f)),
@@ -270,21 +295,31 @@ class PlotController:
         return (self.synthetic_store is not None
                 and self.synthetic_store.contains(signal_name_str))
 
-    def is_fft_signal_blocked(self, signal_name_str: str) -> bool:
-        """Tell whether a signal is an FFT signal, not plotted for now.
-
-        Issue #109 adds the frequency plots of LLFR-00256 and LLFR-00257
-        and replaces this method. Until then, a double-click on an FFT
-        signal or a drop of one on a plot does nothing: no plot, no
-        curve and no message (PCR-00025).
+    def is_fft_signal(self, signal_name_str: str) -> bool:
+        """Tell whether a signal is an FFT signal.
 
         Inputs:
             signal_name_str: a signal name.
-        Outputs: True for an FFT signal (HLFR-00058).
+        Outputs: True for an FFT signal, which is drawn only in frequency
+            plots (HLFR-00058, LLFR-00257).
         """
-        # LLFR-00242, LLFR-00257: FFT signals are not drawn in time plots.
+        # LLFR-00256, LLFR-00257: FFT signals have frequency on x.
         return (self.synthetic_store is not None
                 and self.synthetic_store.is_fft(signal_name_str))
+
+    def plot_kind_for_signal(self, signal_name_str: str) -> str:
+        """Return the kind of plot a signal is drawn in.
+
+        Inputs:
+            signal_name_str: a signal name.
+        Outputs: FREQUENCY_PLOT_KIND_STR for an FFT signal, else
+            TIME_PLOT_KIND_STR.
+        """
+        # LLFR-00256: an FFT signal gets a frequency plot; LLFR-00068:
+        # every other signal a time plot.
+        if self.is_fft_signal(signal_name_str):
+            return FREQUENCY_PLOT_KIND_STR
+        return TIME_PLOT_KIND_STR
 
     def has_signal(self, signal_name_str: str) -> bool:
         """Tell whether a signal of the signal list can be plotted.
@@ -292,7 +327,7 @@ class PlotController:
         Inputs:
             signal_name_str: the signal name sent by the view.
         Outputs: True when a file is open and the name is one of its
-            signals or a synthetic signal that is not an FFT signal.
+            signals or a synthetic signal (FFT signals included).
         """
         # LLFR-00020, LLFR-00021, LLFR-00055: the signals of the open
         # file, Time included, can be drawn.
@@ -300,9 +335,9 @@ class PlotController:
             return False
         if signal_name_str in self.signal_file.signal_dict:
             return True
-        # LLFR-00242: and the synthetic signals, except FFT signals.
-        return (self.is_synthetic_signal(signal_name_str)
-                and not self.is_fft_signal_blocked(signal_name_str))
+        # LLFR-00242: and the synthetic signals; LLFR-00256: FFT signals
+        # too, in frequency plots.
+        return self.is_synthetic_signal(signal_name_str)
 
     def signal_values(self, signal_name_str: str):
         """Return the samples of a data file or synthetic signal.
@@ -319,22 +354,61 @@ class PlotController:
             return self.synthetic_store.get(signal_name_str).value_array
         raise KeyError(signal_name_str)
 
+    def signal_x_values(self, signal_name_str: str):
+        """Return the x-axis values a signal is drawn against.
+
+        Inputs:
+            signal_name_str: name of a signal of the signal list.
+        Outputs: the numpy array of the frequencies in Hz of an FFT
+            signal, or else the time signal of the file, in seconds.
+        """
+        # LLFR-00256: an FFT signal is drawn against its frequencies.
+        if self.is_fft_signal(signal_name_str):
+            return self.synthetic_store.get(signal_name_str).frequency_array
+        # LLFR-00068: every other signal against the time signal.
+        return self.signal_file.time_array
+
     def curve_data_list(self, plot) -> list:
         """Return the drawing data of every curve of a plot.
 
         Inputs:
             plot: the model Plot.
-        Outputs: a list of tuples (signal_name_str, time_array,
-            value_array, color_str, width_i) in curve order.
+        Outputs: a list of tuples (signal_name_str, x_array,
+            value_array, color_str, width_i) in curve order; x_array is
+            the time signal in a time plot and the frequencies in Hz in
+            a frequency plot.
         """
-        # LLFR-00068: every curve is drawn against the time signal.
-        time_array = self.signal_file.time_array
-        # LLFR-00033, LLFR-00034, LLFR-00041, LLFR-00052: colors and
-        # widths come from the model. LLFR-00242: synthetic signals too.
-        return [(curve.signal_name_str, time_array,
+        # LLFR-00068: every curve of a time plot is drawn against the
+        # time signal; LLFR-00256: of a frequency plot, against its
+        # frequencies. LLFR-00033, LLFR-00034, LLFR-00041, LLFR-00052:
+        # colors and widths come from the model. LLFR-00242: synthetic
+        # signals too.
+        return [(curve.signal_name_str,
+                 self.signal_x_values(curve.signal_name_str),
                  self.signal_values(curve.signal_name_str),
                  curve.color_str, curve.width_i)
                 for curve in plot.curve_list]
+
+    def frequency_limit_tuple(self, plot) -> tuple:
+        """Return the whole frequency range of a frequency plot.
+
+        Inputs:
+            plot: the model Plot, a frequency plot.
+        Outputs: (0.0, highest frequency of its curves in Hz), or ()
+            when it has no curve with a finite frequency above 0 Hz.
+        """
+        # LLFR-00258: from 0 Hz up to the highest frequency of its
+        # curves; it grows when a curve with higher frequencies is added.
+        highest_hz = -math.inf
+        for curve in plot.curve_list:
+            frequency_array = np.asarray(
+                self.signal_x_values(curve.signal_name_str), dtype=float)
+            frequency_array = frequency_array[np.isfinite(frequency_array)]
+            if frequency_array.size:
+                highest_hz = max(highest_hz, float(np.max(frequency_array)))
+        if not highest_hz > 0.0:
+            return ()
+        return (0.0, highest_hz)
 
     def pinned_tip_data_list(self, plot) -> list:
         """Return the drawing data of every pinned tip of a plot.
@@ -349,6 +423,20 @@ class PlotController:
         return [(pinned_tip.signal_name_str, pinned_tip.time_s,
                  pinned_tip.value_f, pinned_tip.label_offset_tuple)
                 for pinned_tip in plot.pinned_tip_list]
+
+    def plot_marker_data_list(self, plot) -> list:
+        """Return the vertical markers a plot shows.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: marker_data_list() for a time plot, [] for a frequency
+            plot.
+        """
+        # LLFR-00205: every time plot shows every marker; LLFR-00259: a
+        # frequency plot shows none.
+        if plot.is_frequency_plot():
+            return []
+        return self.marker_data_list()
 
     def marker_data_list(self) -> list:
         """Return the drawing data of every vertical marker.
@@ -398,31 +486,76 @@ class PlotController:
         Inputs: none.
         Outputs: a list of Plot objects, tab by tab, top to bottom.
         """
-        # LLFR-00070: the plots that share the time range.
+        # LLFR-00070, LLFR-00258: time plots and frequency plots.
         return [plot for tab in self.workspace.tab_list
                 for plot in tab.plot_list]
 
+    def time_plot_list(self) -> list:
+        """Return every time plot of every tab.
+
+        Inputs: none.
+        Outputs: a list of Plot objects, tab by tab, top to bottom,
+            without the frequency plots.
+        """
+        # LLFR-00070: the plots that share the time range; LLFR-00258:
+        # frequency plots never follow it.
+        return [plot for plot in self.all_plot_list()
+                if not plot.is_frequency_plot()]
+
     def forget_range_without_plots(self) -> None:
-        """Go back to the whole time range when no plot is left.
+        """Go back to the whole time range when no time plot is left.
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00180: with no other plot, a new plot shows the whole
-        # time range of the file, whatever range was shared before.
-        if not self.all_plot_list():
+        # LLFR-00180: with no other time plot, a new time plot shows the
+        # whole time range of the file, whatever range was shared
+        # before; the frequency plots do not keep the shared range.
+        if not self.time_plot_list():
             self.shared_time_range_tuple = ()
 
+    def frequency_range_tuple(self, plot) -> tuple:
+        """Return the range a frequency plot shows, within its limits.
+
+        Inputs:
+            plot: the model Plot, a frequency plot.
+        Outputs: (start_hz, end_hz): its kept range cut to its whole
+            frequency range; () for its whole range, also when the kept
+            range is outside the whole range.
+        """
+        # LLFR-00258: zooms and pans stay within 0 Hz and the highest
+        # frequency of the plot's curves, which can drop when a curve is
+        # removed.
+        limit_tuple = self.frequency_limit_tuple(plot)
+        if not plot.frequency_range_tuple or not limit_tuple:
+            return WHOLE_FREQUENCY_RANGE_TUPLE
+        start_hz = min(max(plot.frequency_range_tuple[0], limit_tuple[0]),
+                       limit_tuple[1])
+        end_hz = min(max(plot.frequency_range_tuple[1], limit_tuple[0]),
+                     limit_tuple[1])
+        if not end_hz > start_hz:
+            return WHOLE_FREQUENCY_RANGE_TUPLE
+        return (start_hz, end_hz)
+
     def apply_shared_range(self, plot) -> None:
-        """Show the shared time range in a plot that was just drawn.
+        """Show its x-axis range in a plot that was just drawn.
 
         Inputs:
             plot: the model Plot.
-        Outputs: none. With no shared range the plot keeps the whole
-            time range that draw_plot gave it.
+        Outputs: none. A time plot shows the shared time range, a
+            frequency plot its own range; with no such range the plot
+            keeps the whole range that draw_plot gave it.
         """
-        # LLFR-00070, LLFR-00180: the range of all the other plots; the
-        # view's set_plot_time_range does not report back (no loop).
+        # LLFR-00258: a frequency plot keeps its own range, cut to its
+        # limits; the view's set_plot_time_range does not report back.
+        if plot.is_frequency_plot():
+            plot.frequency_range_tuple = self.frequency_range_tuple(plot)
+            if plot.frequency_range_tuple:
+                start_hz, end_hz = plot.frequency_range_tuple
+                self.view.set_plot_time_range(plot.plot_id_i, start_hz,
+                                              end_hz)
+            return
+        # LLFR-00070, LLFR-00180: the range of all the other time plots.
         if self.shared_time_range_tuple:
             start_s, end_s = self.shared_time_range_tuple
             self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
@@ -438,12 +571,14 @@ class PlotController:
         # LLFR-00205: the shared markers, also on a plot created after
         # them, are drawn on the same path as the curves.
         # LLFR-00168, LLFR-00170: and the delta markers.
+        # LLFR-00259: a frequency plot gets no vertical marker.
         self.view.draw_plot(plot.plot_id_i, self.curve_data_list(plot),
                             self.pinned_tip_data_list(plot),
-                            self.marker_data_list(),
+                            self.plot_marker_data_list(plot),
                             self.delta_marker_data_list(plot))
         # LLFR-00070, LLFR-00180: draw_plot shows the whole range; a new
-        # or redrawn plot takes the range shared by all plots.
+        # or redrawn time plot takes the range shared by all time plots.
+        # LLFR-00258: a frequency plot its own range.
         self.apply_shared_range(plot)
 
     # ----------------------------------------------------------------
@@ -492,16 +627,18 @@ class PlotController:
         tab = self.workspace.find_tab(self.view.current_tab_id())
         if tab is None:
             return
-        # LLFR-00140: creating a plot is undoable.
+        # LLFR-00140: creating a plot is undoable, a frequency plot too.
         snapshot = self.take_snapshot()
-        # LLFR-00031: a full tab gets no new plot.
-        plot = self.workspace.add_plot(tab.tab_id_i)
+        # LLFR-00031, LLFR-00256: a full tab gets no new plot; an FFT
+        # signal gets a frequency plot, which counts towards the maximum.
+        plot = self.workspace.add_plot(
+            tab.tab_id_i, self.plot_kind_for_signal(signal_name_str))
         if plot is None:
             # LLFR-00032: tell the user to add a tab or delete a plot.
             self.view.show_full_tab_notification()
             return
         # LLFR-00019, LLFR-00069: the new plot goes below the others.
-        self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i)
+        self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i, plot.kind_str)
         # LLFR-00020, LLFR-00052: draw the signal with width 1.
         plot.add_curve(signal_name_str)
         # LLFR-00140: the plot and its curve are one undoable action.
@@ -522,6 +659,11 @@ class PlotController:
         # anything; there is no other path from a drop to a new plot.
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not self.has_signal(signal_name_str):
+            return
+        # LLFR-00257: an FFT signal on a time plot, or another signal on
+        # a frequency plot, is not drawn; an information box says why.
+        if self.plot_kind_for_signal(signal_name_str) != plot.kind_str:
+            self.view.show_plot_kind_mismatch_notification()
             return
         # LLFR-00140: adding a curve is undoable.
         snapshot = self.take_snapshot()
@@ -624,11 +766,9 @@ class PlotController:
             start_s: start of the range, in seconds.
             end_s: end of the range, in seconds.
         Outputs: none. An unknown plot or a range that is not finite
-            is ignored.
+            is ignored. For a frequency plot, the range is in Hz and is
+            kept for that plot only.
         """
-        # LLFR-00070: all plots in all tabs share the x-axis range,
-        # hidden tabs included. The view's set_plot_time_range does not
-        # report back, so there is no loop.
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None:
             return
@@ -636,9 +776,17 @@ class PlotController:
         end_s = float(end_s)
         if not (math.isfinite(start_s) and math.isfinite(end_s)):
             return
-        # LLFR-00180: kept for the plots created later.
+        # LLFR-00258: a zoom or a pan of a frequency plot changes only
+        # that plot; the view already shows it there.
+        if plot.is_frequency_plot():
+            plot.set_frequency_range(start_s, end_s)
+            return
+        # LLFR-00070: all time plots in all tabs share the x-axis range,
+        # hidden tabs included. The view's set_plot_time_range does not
+        # report back, so there is no loop. LLFR-00180: kept for the
+        # time plots created later.
         self.shared_time_range_tuple = (start_s, end_s)
-        for other_plot in self.all_plot_list():
+        for other_plot in self.time_plot_list():
             if other_plot is not plot:
                 self.view.set_plot_time_range(other_plot.plot_id_i,
                                               start_s, end_s)
@@ -668,27 +816,39 @@ class PlotController:
             no time plot exists or the plots show the whole range; ()
             when no file is open.
         """
-        # LLFR-00248: the range an FFT is computed from.
-        if self.all_plot_list() and self.shared_time_range_tuple:
+        # LLFR-00248: the range an FFT is computed from; only the time
+        # plots count (LLFR-00258: frequency plots have no time range).
+        if self.time_plot_list() and self.shared_time_range_tuple:
             return tuple(self.shared_time_range_tuple)
         return self.file_time_range_tuple()
 
     def on_reset_zoom(self) -> None:
-        """Show the whole time range in every plot of every tab.
+        """Show the whole range in every plot of every tab.
 
         Inputs: none.
-        Outputs: none.
+        Outputs: none. Time plots show the whole time range of the file,
+            frequency plots their whole frequency range.
         """
-        # LLFR-00115: every plot in every tab; the view fits each y-axis
-        # to the new range (LLFR-00076). LLFR-00070, LLFR-00180: the
-        # whole range is now the shared one, also for new plots.
+        # LLFR-00115: every time plot in every tab; the view fits each
+        # y-axis to the new range (LLFR-00076). LLFR-00070, LLFR-00180:
+        # the whole range is now the shared one, also for new plots.
         range_tuple = self.file_time_range_tuple()
         if not range_tuple:
             return
         self.shared_time_range_tuple = ()
         start_s, end_s = range_tuple
         for plot in self.all_plot_list():
-            self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
+            if not plot.is_frequency_plot():
+                self.view.set_plot_time_range(plot.plot_id_i, start_s,
+                                              end_s)
+                continue
+            # LLFR-00258: a frequency plot returns to 0 Hz up to the
+            # highest frequency of its curves.
+            plot.frequency_range_tuple = WHOLE_FREQUENCY_RANGE_TUPLE
+            limit_tuple = self.frequency_limit_tuple(plot)
+            if limit_tuple:
+                self.view.set_plot_time_range(plot.plot_id_i,
+                                              *limit_tuple)
 
     def on_grid_toggled(self, shown_b: bool) -> None:
         """Show or hide the grid on every plot of every tab.
@@ -898,6 +1058,9 @@ class PlotController:
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not math.isfinite(float(time_s)):
             return
+        # LLFR-00259: a click on a frequency plot places no marker.
+        if plot.is_frequency_plot():
+            return
         # LLFR-00140: placing a marker is undoable.
         snapshot = self.take_snapshot()
         # LLFR-00085, LLFR-00111: the model names it "Marker N" and
@@ -923,6 +1086,9 @@ class PlotController:
             return
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not math.isfinite(float(time_s)):
+            return
+        # LLFR-00259: a frequency plot shows no marker to drag.
+        if plot.is_frequency_plot():
             return
         # LLFR-00140: moving a marker is undoable; a drag that ends where
         # it started changes nothing and is not recorded.
@@ -1147,8 +1313,18 @@ class PlotController:
         # LLFR-00167: the views are rebuilt, so a first point is
         # discarded (it is not part of any snapshot).
         self.discard_pending_delta()
+        # LLFR-00258, LLFR-00140 Note: zooms are not undoable, so each
+        # frequency plot that is still there keeps the range it shows.
+        frequency_range_dict = {
+            plot.plot_id_i: plot.frequency_range_tuple
+            for plot in self.all_plot_list() if plot.is_frequency_plot()}
         # LLFR-00138, LLFR-00192: the model takes the saved state.
         self.workspace.restore(snapshot)
+        for plot in self.all_plot_list():
+            if plot.is_frequency_plot() and (
+                    plot.plot_id_i in frequency_range_dict):
+                plot.frequency_range_tuple = frequency_range_dict[
+                    plot.plot_id_i]
         # LLFR-00141, LLFR-00194: the buttons follow the history.
         self.update_undo_enabled()
         # LLFR-00138, LLFR-00192: select the tab that was selected in the
@@ -1175,8 +1351,10 @@ class PlotController:
             self.view.add_tab_view(tab.tab_id_i, tab.name_str)
         for tab in self.workspace.tab_list:
             for plot in tab.plot_list:
-                # LLFR-00069: the plots in their order, top to bottom.
-                self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i)
+                # LLFR-00069: the plots in their order, top to bottom;
+                # LLFR-00256: each with its kind.
+                self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i,
+                                        plot.kind_str)
                 # LLFR-00068: time on the x-axis; LLFR-00070,
                 # LLFR-00180: then the range shared by all plots.
                 self.redraw_plot(plot)

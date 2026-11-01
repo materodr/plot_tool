@@ -78,6 +78,8 @@ class FakePlotView:
             draw_plot call.
         delta_first_point_dict: plot id -> point tuple last given to
             set_delta_first_point (() when the dot was removed).
+        plot_kind_dict: plot id -> kind_str given to add_plot_view.
+        kind_mismatch_count_i: how many boxes of LLFR-00257 were shown.
     """
 
     def __init__(self) -> None:
@@ -105,6 +107,8 @@ class FakePlotView:
         self.redo_enabled_b = None
         self.delta_drawn_dict = {}
         self.delta_first_point_dict = {}
+        self.plot_kind_dict = {}
+        self.kind_mismatch_count_i = 0
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -293,16 +297,19 @@ class FakePlotView:
         """
         self.delete_enabled_b = enabled_b
 
-    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int,
+                      kind_str: str = "time") -> None:
         """Add a plot at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
             plot_id_i: id of the plot.
+            kind_str: "time" or "frequency".
         Outputs: none.
         """
         self.call_list.append(("add_plot_view", tab_id_i, plot_id_i))
         self.plot_tab_dict[plot_id_i] = tab_id_i
+        self.plot_kind_dict[plot_id_i] = kind_str
         self.range_dict[plot_id_i] = (0.0, 1.0)
 
     def remove_plot_view(self, plot_id_i: int) -> None:
@@ -407,6 +414,15 @@ class FakePlotView:
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+
+    def show_plot_kind_mismatch_notification(self) -> None:
+        """Count a box of LLFR-00257 (FFT and time signals mixed).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.call_list.append(("show_plot_kind_mismatch_notification",))
+        self.kind_mismatch_count_i += 1
 
     def show_tab_name_taken_notification(self, name_str: str) -> None:
         """Record a Tab Name Taken box.

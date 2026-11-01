@@ -1208,7 +1208,7 @@ All time plots in all tabs must share the same x-axis range, so that a change to
 *Parent: HLFR-00014, HLFR-00027, HLFR-00036*
 
 ### LLFR-00074 Mouse wheel zoom
-When the user turns the mouse wheel over a plot, the app must zoom in the plot's x-axis when the wheel turns forward and zoom out when it turns backward, centered on the time under the mouse pointer.
+When the user turns the mouse wheel over a plot, the app must zoom in the plot's x-axis when the wheel turns forward and zoom out when it turns backward, centered on the time (the frequency, on a frequency plot) under the mouse pointer.
 
 *Parent: HLFR-00027*
 
@@ -1225,7 +1225,7 @@ After every zoom, the app must set the y-axis range of each plot so that every c
 *Parent: HLFR-00027*
 
 ### LLFR-00078 Click to zoom
-While the Zoom button (LLFR-00077) is active and the user left-clicks a plot and releases the button less than 5 pixels from where it was pressed (LLFR-00208), the app must narrow the plot's x-axis range to 95% of its width, centered on the time of the clicked point.
+While the Zoom button (LLFR-00077) is active and the user left-clicks a plot and releases the button less than 5 pixels from where it was pressed (LLFR-00208), the app must narrow the plot's x-axis range to 95% of its width, centered on the time (the frequency, on a frequency plot) of the clicked point.
 
 *Parent: HLFR-00027*
 
@@ -1353,12 +1353,12 @@ On macOS, the app must zoom in when the user's fingers move up on the trackpad a
 *Parent: HLFR-00027*
 
 ### LLFR-00208 Time span selection
-While the Zoom button (LLFR-00077) is active and the user presses the left mouse button on a plot and moves the pointer 5 pixels or more from where the button was pressed, the app must show a horizontal dashed line at the height of the press, from the time of the press to the time under the pointer, with a short vertical line at each end, in the reserved marker color (LLFR-00083, LLFR-00172).
+While the Zoom button (LLFR-00077) is active and the user presses the left mouse button on a plot and moves the pointer 5 pixels or more from where the button was pressed, the app must show a horizontal dashed line at the height of the press, from the time of the press to the time under the pointer (the frequencies, on a frequency plot), with a short vertical line at each end, in the reserved marker color (LLFR-00083, LLFR-00172).
 
 *Parent: HLFR-00027*
 
 ### LLFR-00209 Zoom to the selected span
-When the user releases the left mouse button after LLFR-00208, the app must remove the selection line and set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every plot (LLFR-00070), with the y-axis ranges set as in LLFR-00076. If the button is released outside the plot's drawing area, the end of the span must be the time at the nearer left or right edge of the drawing area. The span must be limited to the file's time range (LLFR-00119).
+When the user releases the left mouse button after LLFR-00208, the app must remove the selection line and set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every time plot (LLFR-00070), with the y-axis ranges set as in LLFR-00076. If the button is released outside the plot's drawing area, the end of the span must be the time at the nearer left or right edge of the drawing area. The span must be limited to the file's time range (LLFR-00119). On a frequency plot, the span zoom changes only that plot and is limited as in LLFR-00258.
 
 Note: A release less than 5 pixels from the press is a click (LLFR-00078).
 
@@ -1375,12 +1375,12 @@ When the user holds the mouse wheel pressed over a plot and moves the mouse left
 *Parent: HLFR-00036*
 
 ### LLFR-00118 No pan without zoom
-While a plot shows the whole time range of the file, holding the mouse wheel pressed and moving the mouse must not change the plot's x-axis range.
+While a plot shows the whole time range of the file (for a frequency plot, its whole frequency range, LLFR-00258), holding the mouse wheel pressed and moving the mouse must not change the plot's x-axis range.
 
 *Parent: HLFR-00036*
 
 ### LLFR-00119 Pan limits
-The app must not pan a plot's x-axis range before the first time sample or after the last time sample of the file.
+The app must not pan a time plot's x-axis range before the first time sample or after the last time sample of the file. A frequency plot's pan is limited as in LLFR-00258.
 
 *Parent: HLFR-00036*
 

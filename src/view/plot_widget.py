@@ -87,6 +87,18 @@ to them when the range or the size changes (LLFR-00173). While a Delta
 X marker is in the shown range, the top of the y-axis range is raised,
 if needed, so that its bracket and value fit above its higher point;
 every curve stays fully visible (LLFR-00076).
+
+A plot widget is a time plot or a frequency plot (HLFR-00058), chosen
+when it is created (``kind_str``). A frequency plot draws its curves
+against their frequencies in Hz, labels its x-axis "Frequency (Hz)"
+(LLFR-00256), never shows vertical markers or their preview and never
+asks to place one (LLFR-00259), shows the x value of its data tips as
+``f = <value> Hz`` (LLFR-00260) and the value of its Delta X markers as
+``Δf = <value> Hz`` (LLFR-00261). Its zoom and pan are limited to the
+range from 0 Hz to the highest frequency of its curves (LLFR-00258); in
+the zoom and pan code, "time" and the "_s" names then stand for the
+frequency in Hz. The controller shares a time plot's range with every
+time plot (LLFR-00070), but a frequency plot's range with none.
 """
 
 import functools
@@ -110,7 +122,8 @@ from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
     is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR
-from model.workspace import DELTA_X_KIND_STR
+from model.workspace import (
+    DELTA_X_KIND_STR, FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
 from view import delta_geometry, theme, value_text
 from view.delta_geometry import DeltaBracketPatch
 
@@ -128,6 +141,8 @@ WIDTH_PIXELS_DICT = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.5, 5: 6.0}
 PICK_TOLERANCE_PIXELS_I = 6
 
 TIME_AXIS_LABEL_STR = "Time (s)"
+# LLFR-00256: the x-axis label of a frequency plot.
+FREQUENCY_AXIS_LABEL_STR = "Frequency (Hz)"
 # LLFR-00074, LLFR-00113: range width kept per forward wheel notch
 # (narrow to 95%; a backward notch widens to 1/0.95).
 ZOOM_IN_FACTOR_F = 0.95
@@ -517,6 +532,8 @@ class PlotWidget(QWidget):
     Inputs:
         plot_id_i: identifier of the plot, chosen by the caller.
         parent: optional parent widget.
+        kind_str: TIME_PLOT_KIND_STR (the default) for a time plot, or
+            FREQUENCY_PLOT_KIND_STR for a frequency plot (LLFR-00256).
     Signals:
         curve_delete_requested(str): "Delete signal" chosen for a curve.
         curve_width_requested(str, int): a preset width 1..5 chosen.
@@ -551,6 +568,7 @@ class PlotWidget(QWidget):
             the other plots of the tab follow (LLFR-00203).
     Attributes:
         plot_id_i: the identifier given at creation.
+        frequency_plot_b: True for a frequency plot (HLFR-00058).
         figure: the matplotlib Figure.
         canvas: the FigureCanvasQTAgg that shows the figure.
         axes: the matplotlib Axes where the curves are drawn.
@@ -577,17 +595,21 @@ class PlotWidget(QWidget):
     marker_drag_moved = pyqtSignal(int, float)
     marker_preview_changed = pyqtSignal(float)
 
-    def __init__(self, plot_id_i: int, parent=None) -> None:
+    def __init__(self, plot_id_i: int, parent=None,
+                 kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create an empty plot.
 
         Inputs:
             plot_id_i: identifier of the plot.
             parent: optional parent widget.
+            kind_str: TIME_PLOT_KIND_STR or FREQUENCY_PLOT_KIND_STR.
         Outputs: none.
         """
         super().__init__(parent)
         # LLFR-00068: the plot starts as empty axes with time on x.
         self.plot_id_i = plot_id_i
+        # LLFR-00256: or, for a frequency plot, with frequency on x.
+        self.frequency_plot_b = kind_str == FREQUENCY_PLOT_KIND_STR
         self.curve_data_list = []
         self.curve_line_dict = {}
         self.curve_width_dict = {}
@@ -804,9 +826,11 @@ class PlotWidget(QWidget):
         Outputs: none. Only the markers are redrawn.
         """
         # LLFR-00081, LLFR-00091, LLFR-00112: draw exactly these markers.
+        # LLFR-00259: a frequency plot never shows vertical markers.
         self.marker_data_list = [
             (int(marker_id_i), str(name_str), float(time_s))
-            for (marker_id_i, name_str, time_s) in marker_data_list]
+            for (marker_id_i, name_str, time_s) in marker_data_list
+            if not self.frequency_plot_b]
         # LLFR-00086: a drag of a marker that is gone ends here.
         if self.drag_marker_id_i not in {
                 marker_tuple[0] for marker_tuple in self.marker_data_list}:
@@ -971,9 +995,11 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00068: the x-axis is time in seconds.
+        # LLFR-00068: the x-axis is time in seconds; LLFR-00256: or the
+        # frequency in Hz for a frequency plot.
         self.axes.clear()
-        self.axes.set_xlabel(TIME_AXIS_LABEL_STR)
+        self.axes.set_xlabel(FREQUENCY_AXIS_LABEL_STR if self.frequency_plot_b
+                             else TIME_AXIS_LABEL_STR)
         # LLFR-00075: matplotlib's own pan and zoom never act on these
         # axes (there is no navigation toolbar either); the y range is
         # only set by apply_time_range (LLFR-00076).
@@ -1114,7 +1140,7 @@ class PlotWidget(QWidget):
                 markersize=5, linestyle="none", zorder=9)
             marker.set_in_layout(False)
             annotation = self.axes.annotate(
-                format_tip_text(signal_name_str, time_s, value_f),
+                self.point_tip_text(signal_name_str, time_s, value_f),
                 xy=(time_s, value_f),
                 xytext=(TIP_OFFSET_POINTS_F, TIP_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
@@ -1259,7 +1285,10 @@ class PlotWidget(QWidget):
             markeredgewidth=DELTA_DOT_EDGE_WIDTH_F,
             zorder=DELTA_ZORDER_F + 0.1)
         dots.set_in_layout(False)
-        if kind_str == DELTA_X_KIND_STR:
+        if kind_str == DELTA_X_KIND_STR and self.frequency_plot_b:
+            # LLFR-00261: "Δf = <value> Hz" on a frequency plot.
+            text_str = value_text.format_delta_frequency_text(delta_f)
+        elif kind_str == DELTA_X_KIND_STR:
             # LLFR-00169: "Δt = <value> s".
             text_str = value_text.format_delta_x_text(delta_f)
         else:
@@ -1651,7 +1680,9 @@ class PlotWidget(QWidget):
         # LLFR-00203: also used by the plot panel for the other plots of
         # the tab. Never while a marker is dragged (LLFR-00086).
         time_s = float(time_s)
-        if not np.isfinite(time_s):
+        # LLFR-00259: a frequency plot never shows the preview, also when
+        # a time plot of its tab shows one.
+        if not np.isfinite(time_s) or self.frequency_plot_b:
             self.hide_marker_preview()
             return
         if self.drag_marker_id_i != NO_MARKER_ID_I:
@@ -1722,6 +1753,9 @@ class PlotWidget(QWidget):
         # LLFR-00203: the preview shows the marker a click would place
         # (LLFR-00081); LLFR-00153: a click on a pinned tip moves it.
         if self.plot_tool_str != MARKER_TOOL_STR or self.retired_b:
+            return NO_PREVIEW_TIME_S
+        # LLFR-00259: a click on a frequency plot places no marker.
+        if self.frequency_plot_b:
             return NO_PREVIEW_TIME_S
         if (self.drag_marker_id_i != NO_MARKER_ID_I
                 or self.drag_tip_index_i != NO_TIP_INDEX_I):
@@ -1830,7 +1864,8 @@ class PlotWidget(QWidget):
 
         Inputs: none.
         Outputs: a tuple (start_s, end_s); (0, 1) when there are no
-            curves.
+            curves. For a frequency plot, the frequency range (start_hz,
+            end_hz) from 0 Hz to the highest frequency of its curves.
         """
         # LLFR-00070: the default view shows all samples.
         time_list = [curve_tuple[1] for curve_tuple in self.curve_data_list
@@ -1839,6 +1874,10 @@ class PlotWidget(QWidget):
             return (0.0, 1.0)
         start_s = min(float(np.min(time_array)) for time_array in time_list)
         end_s = max(float(np.max(time_array)) for time_array in time_list)
+        # LLFR-00258: a frequency plot's range starts at 0 Hz and ends at
+        # the highest frequency of its curves; zooms and pans stay in it.
+        if self.frequency_plot_b:
+            start_s = min(start_s, 0.0)
         return padded_range_tuple(start_s, end_s,
                                   SINGLE_SAMPLE_HALF_RANGE_S)
 
@@ -2018,6 +2057,24 @@ class PlotWidget(QWidget):
         # LLFR-00041, LLFR-00052: the width the curve is drawn with.
         line = self.curve_line_dict.get(signal_name_str)
         return float(line.get_linewidth()) if line is not None else 0.0
+
+    def point_tip_text(self, signal_name_str: str, x_value_f: float,
+                       value_f: float) -> str:
+        """Return the text of a data tip at a point of this plot.
+
+        Inputs:
+            signal_name_str: name of the signal of the curve.
+            x_value_f: x-axis value of the point: a time in seconds on a
+                time plot, a frequency in Hz on a frequency plot.
+            value_f: y-axis value of the point, as stored.
+        Outputs: the two-line text of the data tip.
+        """
+        # LLFR-00260: the x value in Hz on a frequency plot.
+        if self.frequency_plot_b:
+            return value_text.format_frequency_tip_text(
+                signal_name_str, x_value_f, value_f)
+        # LLFR-00043, LLFR-00044: the time in seconds, value as stored.
+        return format_tip_text(signal_name_str, x_value_f, value_f)
 
     def hover_tip_text(self) -> str:
         """Return the text of the visible hover tip.
@@ -2627,9 +2684,10 @@ class PlotWidget(QWidget):
             return
         signal_name_str, time_s, value_f = nearest_tuple
         self.hover_point_tuple = nearest_tuple
-        # LLFR-00043, LLFR-00044: time in seconds, value as stored.
+        # LLFR-00043, LLFR-00044: time in seconds, value as stored;
+        # LLFR-00260: the frequency in Hz on a frequency plot.
         self.hover_annotation.set_text(
-            format_tip_text(signal_name_str, time_s, value_f))
+            self.point_tip_text(signal_name_str, time_s, value_f))
         self.hover_annotation.xy = (time_s, value_f)
         self.hover_annotation.set_visible(True)
         self.place_tips()
@@ -2704,6 +2762,9 @@ class PlotWidget(QWidget):
         Outputs: none. Emits marker_place_requested with the time, unless
             the click is outside the axes or on an existing marker.
         """
+        # LLFR-00259: never on a frequency plot.
+        if self.frequency_plot_b:
+            return
         # LLFR-00081: only a click on the axes, and not on a marker.
         display_x_px, display_y_px = self.widget_to_display_tuple(
             widget_point)
