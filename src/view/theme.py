@@ -61,6 +61,10 @@ RESIZE_BORDER_WIDTH_I = 2
 # LLFR-00213, LLFR-00214: the paler color of the lines below the name
 # in a button tip; still readable on the tip background.
 TOOLTIP_DETAIL_COLOR_STR = MUTED_TEXT_COLOR_STR
+# LLFR-00245, LLFR-00269, LLFR-00272: the reason shown in a parameter
+# dialog when a typed value is not allowed; a dark red, readable on the
+# dialog surface.
+DIALOG_ERROR_TEXT_COLOR_STR = "#b3261e"
 
 # ----------------------------------------------------------------------
 # Buttons of the top panel (HLFR-00003)

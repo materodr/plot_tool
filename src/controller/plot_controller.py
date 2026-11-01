@@ -131,6 +131,9 @@ class PlotController:
         self.undo_history = UndoHistory()
         # LLFR-00163: no delta marker point is picked yet.
         self.pending_delta_tuple = ()
+        # LLFR-00242: the synthetic signals that can be plotted like the
+        # data file signals; set by the SyntheticController.
+        self.synthetic_store = None
         # LLFR-00015, LLFR-00016: reset the tabs for every opened file.
         file_controller.add_file_opened_listener(self.on_file_opened)
         # LLFR-00019: signal list requests.
@@ -237,18 +240,76 @@ class PlotController:
         self.undo_history.record(snapshot)
         self.update_undo_enabled()
 
+    def set_synthetic_store(self, synthetic_store) -> None:
+        """Use a store of synthetic signals for the curves.
+
+        Inputs:
+            synthetic_store: the SyntheticSignalStore of the open data
+                file, or None for no synthetic signals.
+        Outputs: none.
+        """
+        # LLFR-00242: synthetic signals are plotted like data signals.
+        self.synthetic_store = synthetic_store
+
+    def is_synthetic_signal(self, signal_name_str: str) -> bool:
+        """Tell whether a name is the name of a synthetic signal.
+
+        Inputs:
+            signal_name_str: a signal name.
+        Outputs: True when the synthetic store holds the signal.
+        """
+        # LLFR-00242: synthetic signals are in the signal list too.
+        return (self.synthetic_store is not None
+                and self.synthetic_store.contains(signal_name_str))
+
+    def is_fft_signal_blocked(self, signal_name_str: str) -> bool:
+        """Tell whether a signal is an FFT signal, not plotted for now.
+
+        Issue #109 adds the frequency plots of LLFR-00256 and LLFR-00257
+        and replaces this method. Until then, a double-click on an FFT
+        signal or a drop of one on a plot does nothing: no plot, no
+        curve and no message (PCR-00025).
+
+        Inputs:
+            signal_name_str: a signal name.
+        Outputs: True for an FFT signal (HLFR-00058).
+        """
+        # LLFR-00242, LLFR-00257: FFT signals are not drawn in time plots.
+        return (self.synthetic_store is not None
+                and self.synthetic_store.is_fft(signal_name_str))
+
     def has_signal(self, signal_name_str: str) -> bool:
-        """Tell whether the open file has a signal of that name.
+        """Tell whether a signal of the signal list can be plotted.
 
         Inputs:
             signal_name_str: the signal name sent by the view.
-        Outputs: True when a file is open and holds the signal.
+        Outputs: True when a file is open and the name is one of its
+            signals or a synthetic signal that is not an FFT signal.
         """
-        # LLFR-00020, LLFR-00021, LLFR-00055: only signals of the open
+        # LLFR-00020, LLFR-00021, LLFR-00055: the signals of the open
         # file, Time included, can be drawn.
         if self.signal_file is None:
             return False
-        return signal_name_str in self.signal_file.signal_dict
+        if signal_name_str in self.signal_file.signal_dict:
+            return True
+        # LLFR-00242: and the synthetic signals, except FFT signals.
+        return (self.is_synthetic_signal(signal_name_str)
+                and not self.is_fft_signal_blocked(signal_name_str))
+
+    def signal_values(self, signal_name_str: str):
+        """Return the samples of a data file or synthetic signal.
+
+        Inputs:
+            signal_name_str: name of a signal of the signal list.
+        Outputs: its numpy array, one value per time sample.
+        Raises: KeyError for an unknown name.
+        """
+        # LLFR-00242: synthetic signals are looked up by current name.
+        if signal_name_str in self.signal_file.signal_dict:
+            return self.signal_file.signal_array(signal_name_str)
+        if self.is_synthetic_signal(signal_name_str):
+            return self.synthetic_store.get(signal_name_str).value_array
+        raise KeyError(signal_name_str)
 
     def curve_data_list(self, plot) -> list:
         """Return the drawing data of every curve of a plot.
@@ -261,9 +322,9 @@ class PlotController:
         # LLFR-00068: every curve is drawn against the time signal.
         time_array = self.signal_file.time_array
         # LLFR-00033, LLFR-00034, LLFR-00041, LLFR-00052: colors and
-        # widths come from the model.
+        # widths come from the model. LLFR-00242: synthetic signals too.
         return [(curve.signal_name_str, time_array,
-                 self.signal_file.signal_array(curve.signal_name_str),
+                 self.signal_values(curve.signal_name_str),
                  curve.color_str, curve.width_i)
                 for curve in plot.curve_list]
 
@@ -589,6 +650,20 @@ class PlotController:
         if time_array.size == 0:
             return ()
         return (float(np.min(time_array)), float(np.max(time_array)))
+
+    def time_plot_range_tuple(self) -> tuple:
+        """Return the time range shown by the time plots.
+
+        Inputs: none.
+        Outputs: the x-axis range (start_s, end_s) shared by the time
+            plots (LLFR-00070), or the whole time range of the file when
+            no time plot exists or the plots show the whole range; ()
+            when no file is open.
+        """
+        # LLFR-00248: the range an FFT is computed from.
+        if self.all_plot_list() and self.shared_time_range_tuple:
+            return tuple(self.shared_time_range_tuple)
+        return self.file_time_range_tuple()
 
     def on_reset_zoom(self) -> None:
         """Show the whole time range in every plot of every tab.
@@ -1103,3 +1178,72 @@ class PlotController:
         self.view.set_current_tab(current_tab_id_i)
         # LLFR-00066: "Delete" only when more than one tab is left.
         self.update_tab_delete_enabled()
+
+    # ----------------------------------------------------------------
+    # Synthetic signals
+    # ----------------------------------------------------------------
+
+    def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
+        """Show a renamed synthetic signal under its new name.
+
+        Inputs:
+            old_name_str: the previous name of the signal.
+            new_name_str: its new name.
+        Outputs: none. The rename is not an undoable action and keeps
+            the undo and redo history, whose saved states are renamed
+            too, so that an undo or a redo draws the curve under its
+            new name.
+        """
+        # LLFR-00266: not undoable; the history is kept, with the new
+        # name in every saved state.
+        for snapshot in self.undo_history.saved_snapshot_list():
+            snapshot.rename_signal(old_name_str, new_name_str)
+        # LLFR-00163: a first point on the curve keeps its point.
+        if self.pending_delta_tuple:
+            plot_id_i, point_tuple = self.pending_delta_tuple
+            if point_tuple[0] == old_name_str:
+                self.pending_delta_tuple = (
+                    plot_id_i, (new_name_str,) + tuple(point_tuple[1:]))
+                self.view.set_delta_first_point(
+                    plot_id_i, self.pending_delta_tuple[1])
+        if not self.workspace.rename_signal(old_name_str, new_name_str):
+            return
+        # LLFR-00266: every legend that shows the signal shows the new
+        # name; the other plots are not drawn again.
+        for plot in self.all_plot_list():
+            if plot.has_signal(new_name_str):
+                self.redraw_plot(plot)
+
+    def remove_signals(self, signal_name_list: list) -> None:
+        """Remove the curves of deleted synthetic signals from every plot.
+
+        Inputs:
+            signal_name_list: the names of the deleted signals.
+        Outputs: none. The plots left with no curve are deleted, and
+            the undo and redo history is cleared.
+        """
+        # LLFR-00255: the curves leave every plot; LLFR-00051: an
+        # emptied plot is deleted; LLFR-00205: with no plot left, the
+        # vertical markers are deleted too.
+        removed_name_set = set(signal_name_list)
+        changed_plot_list = [
+            plot for plot in self.all_plot_list()
+            if any(plot.has_signal(name_str)
+                   for name_str in removed_name_set)]
+        deleted_plot_id_list = self.workspace.remove_signal_curves(
+            removed_name_set)
+        # LLFR-00167: a first point on a removed curve is discarded.
+        self.discard_pending_delta_if_gone()
+        # LLFR-00255: the undo and redo history is cleared; deleting a
+        # synthetic signal is not undoable (LLFR-00140).
+        self.undo_history.clear()
+        self.update_undo_enabled()
+        # LLFR-00050, LLFR-00180: the other plots fill the space, and
+        # with no plot left a new plot shows the whole range.
+        for plot_id_i in deleted_plot_id_list:
+            self.view.remove_plot_view(plot_id_i)
+        self.forget_range_without_plots()
+        # LLFR-00255: the plots that keep other curves are drawn again.
+        for plot in changed_plot_list:
+            if plot.plot_id_i not in deleted_plot_id_list:
+                self.redraw_plot(plot)

@@ -4,11 +4,20 @@ Below the list there is a search box (HLFR-00033) whose text is passed
 to the signal list controller, which decides which names are shown and
 gives the text shown when nothing matches (the view does not import the
 model, COR-00009).
+
+A right-click on a signal name opens the signal menu (LLFR-00239):
+"Create synthetic signal" with the operations given by the controller,
+in groups (LLFR-00268), disabled for an FFT signal (LLFR-00251); "Copy
+name" (LLFR-00277); and, for a synthetic signal, "Copy equation"
+(LLFR-00278), "Rename" (LLFR-00265) and "Delete signal" (LLFR-00254).
+Synthetic signals are shown in italics (LLFR-00242). The menu is shown
+once the right-click has been handled, and its request is emitted after
+the menu is closed, so a request may change the list safely.
 """
 
-from PyQt6.QtCore import QByteArray, QMimeData, Qt, pyqtSignal
+from PyQt6.QtCore import QByteArray, QMimeData, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QLabel, QLineEdit, QListWidget, QVBoxLayout,
+    QAbstractItemView, QLabel, QLineEdit, QListWidget, QMenu, QVBoxLayout,
     QWidget)
 
 from view import theme
@@ -21,6 +30,13 @@ TITLE_TEXT_STR = "Signals"
 TEXT_ENCODING_STR = "utf-8"
 # LLFR-00094: hint shown in the empty search box.
 SEARCH_PLACEHOLDER_TEXT_STR = "Search signals"
+# LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278: the
+# options of the signal menu.
+CREATE_SYNTHETIC_TEXT_STR = "Create synthetic signal"
+COPY_NAME_TEXT_STR = "Copy name"
+COPY_EQUATION_TEXT_STR = "Copy equation"
+RENAME_SIGNAL_TEXT_STR = "Rename"
+DELETE_SIGNAL_TEXT_STR = "Delete signal"
 
 
 class SignalListWidget(QListWidget):
@@ -133,10 +149,24 @@ class SignalListPanel(QWidget):
             the user double-clicked (LLFR-00019).
         search_text_changed(str): emitted with the new text each time
             the text of the search box changes (LLFR-00095).
+        synthetic_operation_requested(str, str): the signal name and the
+            operation id chosen in "Create synthetic signal"
+            (LLFR-00239).
+        copy_name_requested(str), copy_equation_requested(str),
+        rename_signal_requested(str), delete_signal_requested(str): the
+            signal name of the chosen menu option (LLFR-00277,
+            LLFR-00279, LLFR-00266, LLFR-00255).
     """
 
     signal_double_clicked = pyqtSignal(str)
     search_text_changed = pyqtSignal(str)
+    # LLFR-00239: (signal name, operation id) chosen in the menu.
+    synthetic_operation_requested = pyqtSignal(str, str)
+    # LLFR-00277, LLFR-00279, LLFR-00266, LLFR-00255: the other options.
+    copy_name_requested = pyqtSignal(str)
+    copy_equation_requested = pyqtSignal(str)
+    rename_signal_requested = pyqtSignal(str)
+    delete_signal_requested = pyqtSignal(str)
 
     def __init__(self) -> None:
         """Create the panel with its title and an empty signal list.
@@ -171,6 +201,18 @@ class SignalListPanel(QWidget):
             self._emit_signal_double_clicked)
         # LLFR-00095: every change of the text is passed on.
         self.search_box.textChanged.connect(self.search_text_changed.emit)
+        # LLFR-00268: the operation groups given by the controller, as
+        # (group label, [(operation id, operation label)]).
+        self.operation_group_list = []
+        # LLFR-00242, LLFR-00251: the synthetic and FFT signal names.
+        self.synthetic_name_set = set()
+        self.fft_name_set = set()
+        # LLFR-00239: the signal and screen point of a pending menu.
+        self.pending_menu_tuple = ()
+        self.signal_list_widget.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu)
+        self.signal_list_widget.customContextMenuRequested.connect(
+            self.request_signal_menu)
 
     def show_signal_names(self, signal_name_list: list) -> None:
         """Replace the shown names with the given ones, in their order.
@@ -185,6 +227,13 @@ class SignalListPanel(QWidget):
         self.signal_list_widget.clear()
         self.signal_list_widget.addItems(
             [str(name_str) for name_str in signal_name_list])
+        # LLFR-00242: synthetic signals are shown in italic letters.
+        for row_i in range(self.signal_list_widget.count()):
+            item = self.signal_list_widget.item(row_i)
+            if item.text() in self.synthetic_name_set:
+                item_font = item.font()
+                item_font.setItalic(True)
+                item.setFont(item_font)
 
     def show_no_match_message(self, visible_b: bool,
                               message_str: str) -> None:
@@ -249,3 +298,198 @@ class SignalListPanel(QWidget):
         """
         # LLFR-00019: the name of the double-clicked signal.
         self.signal_double_clicked.emit(item.text())
+
+    # ----------------------------------------------------------------
+    # Synthetic signals and the signal menu
+    # ----------------------------------------------------------------
+
+    def set_operation_groups(self, group_list: list) -> None:
+        """Keep the operations listed by "Create synthetic signal".
+
+        Inputs:
+            group_list: list of (group label, list of (operation id,
+                operation label)), in menu order.
+        Outputs: none.
+        """
+        # LLFR-00268: the groups and operations, in this order.
+        self.operation_group_list = [
+            (str(group_str), [(str(operation_str), str(label_str))
+                              for operation_str, label_str
+                              in operation_list])
+            for group_str, operation_list in group_list]
+
+    def set_signal_kinds(self, synthetic_name_set: set,
+                         fft_name_set: set) -> None:
+        """Keep which names are synthetic and which are FFT signals.
+
+        Inputs:
+            synthetic_name_set: the synthetic signal names.
+            fft_name_set: the FFT signal names among them.
+        Outputs: none. Used by the next show_signal_names and menus.
+        """
+        # LLFR-00242: italics; LLFR-00251, LLFR-00254: the menu options.
+        self.synthetic_name_set = set(synthetic_name_set)
+        self.fft_name_set = set(fft_name_set)
+
+    def is_name_italic(self, name_str: str) -> bool:
+        """Tell whether a shown name is written in italic letters.
+
+        Inputs:
+            name_str: a shown signal name.
+        Outputs: True when its row uses an italic font.
+        """
+        # LLFR-00242: synthetic signals in italics.
+        for row_i in range(self.signal_list_widget.count()):
+            item = self.signal_list_widget.item(row_i)
+            if item.text() == name_str:
+                return item.font().italic()
+        return False
+
+    def signal_menu_and_requests(self, name_str: str) -> tuple:
+        """Build the signal menu of a signal and its requests.
+
+        Inputs:
+            name_str: the right-clicked signal name.
+        Outputs: a tuple (menu, request_list): a QMenu (not shown) whose
+            actions hold, as data, the index of their request in
+            request_list, a list of functions without arguments that
+            emit the request of the option.
+        """
+        menu = QMenu(self)
+        request_list = []
+
+        def add_request_action(target_menu, text_str: str, request):
+            """Add an option that runs a request when it is chosen.
+
+            Inputs:
+                target_menu: the QMenu to add the option to.
+                text_str: the text of the option.
+                request: function without arguments.
+            Outputs: the new QAction.
+            """
+            # LLFR-00239: each option emits its own request.
+            action = target_menu.addAction(text_str)
+            action.setData(len(request_list))
+            request_list.append(request)
+            return action
+
+        # LLFR-00239, LLFR-00268: the operations, in groups, with only
+        # their names (not the names of the new signals).
+        create_menu = menu.addMenu(CREATE_SYNTHETIC_TEXT_STR)
+        create_menu.setObjectName("create_synthetic_menu")
+        for group_str, operation_list in self.operation_group_list:
+            create_menu.addSection(group_str)
+            for operation_str, label_str in operation_list:
+                add_request_action(
+                    create_menu, label_str,
+                    lambda chosen_str=operation_str:
+                    self.synthetic_operation_requested.emit(name_str,
+                                                            chosen_str))
+        # LLFR-00251: no operation on an FFT signal.
+        create_enabled_b = name_str not in self.fft_name_set
+        create_menu.setEnabled(create_enabled_b)
+        create_menu.menuAction().setEnabled(create_enabled_b)
+        menu.addSeparator()
+        # LLFR-00277: every signal's name can be copied.
+        add_request_action(menu, COPY_NAME_TEXT_STR,
+                           lambda: self.copy_name_requested.emit(name_str))
+        if name_str in self.synthetic_name_set:
+            # LLFR-00278: the equation of a synthetic signal.
+            add_request_action(
+                menu, COPY_EQUATION_TEXT_STR,
+                lambda: self.copy_equation_requested.emit(name_str))
+            menu.addSeparator()
+            # LLFR-00265, LLFR-00254: only synthetic signals.
+            add_request_action(
+                menu, RENAME_SIGNAL_TEXT_STR,
+                lambda: self.rename_signal_requested.emit(name_str))
+            add_request_action(
+                menu, DELETE_SIGNAL_TEXT_STR,
+                lambda: self.delete_signal_requested.emit(name_str))
+        return menu, request_list
+
+    def build_signal_menu(self, name_str: str) -> QMenu:
+        """Build the signal menu of a signal, not shown.
+
+        Inputs:
+            name_str: the right-clicked signal name.
+        Outputs: a QMenu whose actions emit their request when
+            triggered, so tests can choose an option without a modal
+            menu.
+        """
+        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278.
+        menu, request_list = self.signal_menu_and_requests(name_str)
+        action_list = list(menu.actions())
+        for action in list(action_list):
+            if action.menu() is not None:
+                action_list.extend(action.menu().actions())
+        for action in action_list:
+            if action.data() is not None:
+                action.triggered.connect(
+                    lambda checked_b=False,
+                    request=request_list[action.data()]: request())
+        return menu
+
+    def request_signal_menu(self, widget_point) -> None:
+        """Open the signal menu once the right-click has been handled.
+
+        Inputs:
+            widget_point: QPoint of the click, in the list's viewport
+                coordinates.
+        Outputs: none. A click outside every name opens no menu.
+        """
+        # LLFR-00239: only a right-click on a signal name opens the menu.
+        item = self.signal_list_widget.itemAt(widget_point)
+        if item is None:
+            return
+        global_point = self.signal_list_widget.viewport().mapToGlobal(
+            QPoint(widget_point))
+        self.pending_menu_tuple = (item.text(), global_point)
+        QTimer.singleShot(0, self.show_pending_signal_menu)
+
+    def show_pending_signal_menu(self) -> None:
+        """Show the menu asked for by request_signal_menu.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00239: the menu of the right-clicked name.
+        if not self.pending_menu_tuple:
+            return
+        name_str, global_point = self.pending_menu_tuple
+        self.pending_menu_tuple = ()
+        self.show_signal_menu(name_str, global_point)
+
+    def execute_menu(self, menu, global_point):
+        """Run a menu modally and return the chosen action.
+
+        Inputs:
+            menu: the QMenu to show.
+            global_point: QPoint in screen coordinates.
+        Outputs: the chosen QAction, or None when the menu was closed
+            without a choice. Tests replace this method to choose an
+            option without a real modal menu.
+        """
+        # LLFR-00239: the modal menu.
+        return menu.exec(global_point)
+
+    def show_signal_menu(self, name_str: str, global_point) -> None:
+        """Show the signal menu and emit the chosen option's request.
+
+        Inputs:
+            name_str: the right-clicked signal name.
+            global_point: QPoint in screen coordinates.
+        Outputs: none. The request is emitted after the menu has been
+            closed and deleted, as the very last step, so the receiver
+            may change the list.
+        """
+        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278.
+        menu, request_list = self.signal_menu_and_requests(name_str)
+        chosen_action = self.execute_menu(menu, global_point)
+        request_index = None
+        if chosen_action is not None:
+            request_index = chosen_action.data()
+        menu.deleteLater()
+        if isinstance(request_index, int) and (
+                0 <= request_index < len(request_list)):
+            request_list[request_index]()

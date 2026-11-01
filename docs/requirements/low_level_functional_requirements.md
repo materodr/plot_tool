@@ -617,7 +617,7 @@ The layout file must hold:
 7. for each pinned data tip, its plot, the signal and time of its point, and its position relative to the point;
 8. for each delta marker, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
 9. the widths of the plot panel and the signal list panel;
-10. for each synthetic signal, in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency (Low-pass and High-pass filters), the window size (Moving average), the constant (Comparison operations and Arithmetic operations with a constant) or the time range (FFT).
+10. for each synthetic signal, in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency and the filter order (Low-pass and High-pass filters), the window size (Moving average), the constant (Comparison operations and Arithmetic operations with a constant) or the time range (FFT).
 
 *Parent: HLFR-00049, HLFR-00056*
 
@@ -835,7 +835,7 @@ The app must let the user create a synthetic signal from a synthetic signal in t
 ### LLFR-00241 Synthetic signal name already used
 If the name of LLFR-00240 is already the name of a signal in the signal list, the app must add an underscore and the smallest number from 2 up that makes the name unique, for example `lowpass_Speed_2`.
 
-Note: This happens, for example, when the same signal is filtered twice with different cutoff frequencies, or compared with two different constants.
+Note: This happens, for example, when the same signal is filtered twice with different cutoff frequencies or filter orders, or compared with two different constants.
 
 *Parent: HLFR-00054*
 
@@ -854,13 +854,15 @@ The Derivative of a signal must have, at each time sample, the rate of change of
 
 *Parent: HLFR-00053*
 
-### LLFR-00245 Filter cutoff dialog
-When the user chooses "Low-pass filter" or "High-pass filter" (LLFR-00239), the app must show a dialog that asks for the cutoff frequency in Hz and states the allowed range: greater than 0 and less than half the sampling rate (LLFR-00247). The app must create the filtered signal only when the user confirms a value in the allowed range. If the value is outside the range or not a number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+### LLFR-00245 Filter dialog
+When the user chooses "Low-pass filter" or "High-pass filter" (LLFR-00239), the app must show a dialog that asks for the cutoff frequency in Hz and for the filter order, and states both allowed ranges: for the cutoff frequency, greater than 0 and less than half the sampling rate (LLFR-00247); for the order, a whole number from 1 to 8. The dialog must show 2 as the starting value of the order. The app must create the filtered signal only when the user confirms two values in their allowed ranges. If a value is outside its range or not a number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00246 Filter type
-The Low-pass filter and the High-pass filter must be second-order Butterworth filters with the cutoff frequency of LLFR-00245, applied forward and then backward over the signal, so that the filtered curve is not delayed in time.
+The Low-pass filter and the High-pass filter must be Butterworth filters of the order of LLFR-00245, with its cutoff frequency, applied once over the signal, forward in time, as a real-time filter would be, so that the filtered curve is delayed like the output of a real filter. The filter must start as if the signal had kept the value of its first sample before the first sample (steady-state initial conditions), so that the filtered curve does not jump at the start.
+
+Note: A constant signal therefore stays unchanged through a Low-pass filter and gives 0 through a High-pass filter, from the first sample on.
 
 *Parent: HLFR-00053*
 
