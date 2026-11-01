@@ -1,5 +1,6 @@
 """Tests for holding the Shift key (LLFR-00154 to LLFR-00156) and for the
-plot tool keys while typing in a text field (LLFR-00157).
+plot tool keys while typing in a text field (LLFR-00157), with signal
+drags and the wheel zoom while Shift or Ctrl is held.
 
 The first class drives the ToolKeyFilter state machine with real Qt key
 events and recording callbacks. The second class runs the whole chain:
@@ -308,8 +309,9 @@ class ShiftKeyFilterTest(unittest.TestCase):
 
 
 @requires_qt
-class ShiftKeyMainWindowTest(unittest.TestCase):
-    """Holding Shift in the main window with the real controllers."""
+class ShiftKeyWindowTestCase(unittest.TestCase):
+    """Base class: a shown main window with the real controllers, a file
+    and two plots, and helpers for keys and mouse events."""
 
     def setUp(self) -> None:
         """Create a window with a file and two plots, and show it.
@@ -444,6 +446,11 @@ class ShiftKeyMainWindowTest(unittest.TestCase):
         self.application.processEvents()
         for plot_widget in self.plot_widgets():
             plot_widget.canvas.draw()
+
+
+@requires_qt
+class ShiftKeyMainWindowTest(ShiftKeyWindowTestCase):
+    """Holding Shift in the main window with the real controllers."""
 
     @covers("LLFR-00154", "LLFR-00079", "LLFR-00080")
     def test_holding_shift_activates_the_marker_tool(self) -> None:
@@ -697,6 +704,234 @@ class ShiftKeyMainWindowTest(unittest.TestCase):
         self.assert_tool_everywhere(MARKER_TOOL_STR)
         self.release_shift(plot_widget.canvas)
         self.assert_tool_everywhere(NO_TOOL_STR)
+
+
+@requires_qt
+class ShiftDragDropTest(ShiftKeyWindowTestCase):
+    """Dragging a signal with Shift or Ctrl held copies it to the plot."""
+
+    def send_drag_to_plot(self, plot_widget, mime_data, possible_actions,
+                          modifier_name_str: str):
+        """Send drag-enter, drag-move and drop events to a plot widget.
+
+        Inputs:
+            plot_widget: the PlotWidget the signal is dropped on.
+            mime_data: the QMimeData of the drag.
+            possible_actions: the Qt.DropAction flags of the drag.
+            modifier_name_str: name of the Qt.KeyboardModifier held.
+        Outputs: the drop action the plot chose, or IgnoreAction when it
+            did not accept the drop.
+        """
+        from PyQt6.QtCore import QPointF, Qt
+        from PyQt6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent
+        center_point = plot_widget.rect().center()
+        modifiers = getattr(Qt.KeyboardModifier, modifier_name_str)
+        no_button = Qt.MouseButton.NoButton
+        # Qt itself proposes the action from the modifiers (a move with
+        # Shift on Linux and Windows).
+        enter_event = QDragEnterEvent(center_point, possible_actions,
+                                      mime_data, no_button, modifiers)
+        self.application.sendEvent(plot_widget, enter_event)
+        self.assertTrue(enter_event.isAccepted())
+        self.assertEqual(enter_event.dropAction(),
+                         Qt.DropAction.CopyAction)
+        move_event = QDragMoveEvent(center_point, possible_actions,
+                                    mime_data, no_button, modifiers)
+        self.application.sendEvent(plot_widget, move_event)
+        self.assertTrue(move_event.isAccepted())
+        self.assertEqual(move_event.dropAction(), Qt.DropAction.CopyAction)
+        drop_event = QDropEvent(QPointF(center_point), possible_actions,
+                                mime_data, no_button, modifiers)
+        self.application.sendEvent(plot_widget, drop_event)
+        self.application.processEvents()
+        if not drop_event.isAccepted():
+            return Qt.DropAction.IgnoreAction
+        return drop_event.dropAction()
+
+    def signal_list_names(self) -> list:
+        """Return the names shown in the signal list, in order.
+
+        Inputs: none.
+        Outputs: a list of str.
+        """
+        list_widget = self.main_window.signal_list_panel.signal_list_widget
+        return [list_widget.item(row_i).text()
+                for row_i in range(list_widget.count())]
+
+    def drag_from_list(self, signal_name_str: str,
+                       modifier_name_str: str) -> list:
+        """Drag a signal from the list onto the first plot.
+
+        Qt's own drag loop (QAbstractItemView.startDrag) cannot run in a
+        test, so it is replaced by a stand-in that does what Qt does: it
+        drags the list's data with the actions the list offers, and,
+        when the drop ends as a move, removes the dragged row.
+
+        Inputs:
+            signal_name_str: the signal to drag.
+            modifier_name_str: name of the Qt.KeyboardModifier held.
+        Outputs: the list of action flags the list offered to Qt.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QListWidget
+        list_widget = self.main_window.signal_list_panel.signal_list_widget
+        item = list_widget.findItems(signal_name_str,
+                                     Qt.MatchFlag.MatchExactly)[0]
+        list_widget.setCurrentItem(item)
+        plot_widget = self.plot_widgets()[0]
+        offered_list = []
+        test_case = self
+
+        def qt_start_drag(widget, supported_actions) -> None:
+            """Stand-in for Qt's startDrag (see drag_from_list).
+
+            Inputs:
+                widget: the list widget.
+                supported_actions: the Qt.DropAction flags offered.
+            Outputs: none.
+            """
+            offered_list.append(supported_actions)
+            mime_data = widget.mimeData(widget.selectedItems())
+            result_action = test_case.send_drag_to_plot(
+                plot_widget, mime_data, supported_actions,
+                modifier_name_str)
+            if result_action == Qt.DropAction.MoveAction:
+                widget.takeItem(widget.currentRow())
+
+        with mock.patch.object(QListWidget, "startDrag", qt_start_drag):
+            list_widget.startDrag(Qt.DropAction.CopyAction
+                                  | Qt.DropAction.MoveAction)
+        return offered_list
+
+    @covers("LLFR-00021", "LLFR-00154", "LLFR-00148")
+    def test_drag_with_shift_or_ctrl_copies_the_signal(self) -> None:
+        """With Shift, Ctrl or nothing held, a dragged signal is drawn in
+        the plot and the signal list keeps every name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        name_list = self.signal_list_names()
+        self.assertEqual(name_list, ["Time", "speed", "force"])
+        for signal_name_str, modifier_name_str in (
+                ("force", "ShiftModifier"), ("Time", "ControlModifier"),
+                ("speed", "NoModifier")):
+            offered_list = self.drag_from_list(signal_name_str,
+                                               modifier_name_str)
+            self.assertEqual(offered_list, [Qt.DropAction.CopyAction])
+            curve_name_list = [curve_tuple[0] for curve_tuple in
+                               self.plot_widgets()[0].curve_data_list]
+            self.assertIn(signal_name_str, curve_name_list)
+            self.assertEqual(self.signal_list_names(), name_list)
+
+    @covers("LLFR-00021", "LLFR-00154")
+    def test_plot_turns_a_proposed_move_into_a_copy(self) -> None:
+        """A drag that allows a move, with Shift or Ctrl held, still ends
+        as a copy on the plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        list_widget = self.main_window.signal_list_panel.signal_list_widget
+        for row_i, modifier_name_str in ((2, "ShiftModifier"),
+                                         (0, "ControlModifier")):
+            mime_data = list_widget.mimeData([list_widget.item(row_i)])
+            plot_widget = self.plot_widgets()[0]
+            self.assertEqual(self.send_drag_to_plot(
+                plot_widget, mime_data,
+                Qt.DropAction.CopyAction | Qt.DropAction.MoveAction,
+                modifier_name_str), Qt.DropAction.CopyAction)
+        curve_name_list = [curve_tuple[0] for curve_tuple in
+                           self.plot_widgets()[0].curve_data_list]
+        self.assertIn("force", curve_name_list)
+        self.assertIn("Time", curve_name_list)
+        self.assertEqual(self.signal_list_names(),
+                         ["Time", "speed", "force"])
+
+    @covers("LLFR-00021")
+    def test_list_offers_only_a_copy(self) -> None:
+        """The signal list's drags and drops are copies only.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        list_widget = self.main_window.signal_list_panel.signal_list_widget
+        self.assertEqual(list_widget.defaultDropAction(),
+                         Qt.DropAction.CopyAction)
+        self.assertEqual(list_widget.supportedDropActions(),
+                         Qt.DropAction.CopyAction)
+
+
+@requires_qt
+class ShiftWheelTest(ShiftKeyWindowTestCase):
+    """The wheel still zooms while Shift is held (macOS sends it sideways)."""
+
+    def send_wheel(self, angle_x_i: int, angle_y_i: int,
+                   modifier_name_str: str) -> tuple:
+        """Send a Qt wheel event to the first plot's canvas.
+
+        Inputs:
+            angle_x_i: horizontal rotation, in eighths of a degree.
+            angle_y_i: vertical rotation, in eighths of a degree.
+            modifier_name_str: name of the Qt.KeyboardModifier held.
+        Outputs: a tuple (width before, width after) of the time range,
+            in seconds.
+        """
+        from PyQt6.QtCore import QPoint, QPointF, Qt
+        from PyQt6.QtGui import QWheelEvent
+        self.draw_plots()
+        plot_widget = self.plot_widgets()[0]
+        start_s, end_s = plot_widget.time_range_tuple()
+        canvas = plot_widget.canvas
+        local_point = QPointF(canvas.rect().center())
+        wheel_event = QWheelEvent(
+            local_point, QPointF(canvas.mapToGlobal(local_point)),
+            QPoint(0, 0), QPoint(angle_x_i, angle_y_i),
+            Qt.MouseButton.NoButton,
+            getattr(Qt.KeyboardModifier, modifier_name_str),
+            Qt.ScrollPhase.NoScrollPhase, False)
+        self.application.sendEvent(canvas, wheel_event)
+        self.application.processEvents()
+        new_start_s, new_end_s = self.plot_widgets()[0].time_range_tuple()
+        return (end_s - start_s, new_end_s - new_start_s)
+
+    @covers("LLFR-00074", "LLFR-00113", "LLFR-00154", "LLFR-00108")
+    def test_sideways_shift_wheel_zooms(self) -> None:
+        """Shift+wheel reported sideways zooms like the vertical wheel,
+        with the marker tool held by Shift.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.press_shift()
+        self.assert_tool_everywhere(MARKER_TOOL_STR)
+        width_before_s, width_after_s = self.send_wheel(
+            120, 0, "ShiftModifier")
+        self.assertAlmostEqual(width_after_s, width_before_s * 0.95)
+        width_before_s, width_after_s = self.send_wheel(
+            -120, 0, "ShiftModifier")
+        self.assertAlmostEqual(width_after_s, width_before_s / 0.95)
+        # The vertical wheel with Shift keeps working too.
+        width_before_s, width_after_s = self.send_wheel(
+            0, 120, "ShiftModifier")
+        self.assertAlmostEqual(width_after_s, width_before_s * 0.95)
+        self.release_shift()
+        self.assert_tool_everywhere(NO_TOOL_STR)
+
+    @covers("LLFR-00074", "LLFR-00075")
+    def test_sideways_wheel_without_shift_does_not_zoom(self) -> None:
+        """A sideways wheel without Shift (a tilt or a touchpad swipe) does
+        not zoom.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        width_before_s, width_after_s = self.send_wheel(
+            120, 0, "NoModifier")
+        self.assertAlmostEqual(width_after_s, width_before_s)
 
 
 if __name__ == "__main__":

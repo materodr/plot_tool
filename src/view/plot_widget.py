@@ -39,7 +39,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.colors import to_hex
 from matplotlib.figure import Figure
 from PyQt6 import sip
-from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
@@ -146,6 +146,23 @@ def format_time_text(time_s: float) -> str:
     """
     # LLFR-00043, LLFR-00092: times are shown in seconds.
     return f"t = {time_s:.6g} s"
+
+
+def is_shift_horizontal_wheel(wheel_event) -> bool:
+    """Tell whether a Qt wheel event is a Shift+wheel turned sideways.
+
+    Inputs:
+        wheel_event: a QWheelEvent.
+    Outputs: True when Shift is held, the vertical rotation is 0 and the
+        horizontal one is not, as macOS reports Shift+wheel.
+    """
+    # LLFR-00154, LLFR-00074: holding Shift for the marker tool must not
+    # stop the wheel zoom; macOS turns Shift+wheel into a sideways wheel.
+    shift_held_b = bool(wheel_event.modifiers()
+                        & Qt.KeyboardModifier.ShiftModifier)
+    angle_delta = wheel_event.angleDelta()
+    return (shift_held_b and angle_delta.y() == 0
+            and angle_delta.x() != 0)
 
 
 def wheel_step_f(event) -> float:
@@ -414,6 +431,9 @@ class PlotWidget(QWidget):
         self.canvas.mpl_connect("button_release_event",
                                 self.on_mouse_release)
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
+        # LLFR-00154, LLFR-00074: matplotlib drops a sideways wheel, so
+        # the Shift+wheel of macOS is caught before it (eventFilter).
+        self.canvas.installEventFilter(self)
         self.canvas.mpl_connect("figure_leave_event", self.on_mouse_leave)
         # LLFR-00035: the legend is fitted again when the canvas resizes.
         self.canvas.mpl_connect("resize_event", self.on_canvas_resize)
@@ -2120,6 +2140,28 @@ class PlotWidget(QWidget):
         self.wheel_at(self.display_to_widget_point(event.x, event.y),
                       wheel_step_f(event))
 
+    def eventFilter(self, watched, event) -> bool:
+        """Zoom on a Shift+wheel turned sideways, which matplotlib drops.
+
+        Inputs:
+            watched: the object the event is sent to (the canvas).
+            event: the QEvent.
+        Outputs: True only for a sideways Shift+wheel on the canvas, which
+            is then handled here; False for every other event.
+        """
+        # LLFR-00154, LLFR-00074, LLFR-00108: holding Shift (the marker
+        # key) still zooms with the wheel; matplotlib only reads the
+        # vertical wheel, so this case never reaches on_mouse_scroll.
+        if (event.type() == QEvent.Type.Wheel and watched is self.canvas
+                and is_shift_horizontal_wheel(event)):
+            widget_point = self.mapFrom(self.canvas,
+                                        event.position().toPoint())
+            self.wheel_at(widget_point, float(event.angleDelta().x())
+                          / WHEEL_NOTCH_EIGHTHS_I)
+            event.accept()
+            return True
+        return super().eventFilter(watched, event)
+
     def on_mouse_leave(self, event) -> None:
         """Hide the hover tip when the mouse leaves the canvas.
 
@@ -2155,9 +2197,12 @@ class PlotWidget(QWidget):
             event: the QDragEnterEvent.
         Outputs: none.
         """
-        # LLFR-00021: accept signal drags, ignore anything else.
+        # LLFR-00021: accept signal drags, ignore anything else. The drop
+        # is always a copy, also with Shift or Cmd held (LLFR-00154), so
+        # the signal list never removes the dragged name.
         if self.signal_name_from_mime(event.mimeData()):
-            event.acceptProposedAction()
+            event.setDropAction(Qt.DropAction.CopyAction)
+            event.accept()
         else:
             event.ignore()
 
@@ -2168,9 +2213,10 @@ class PlotWidget(QWidget):
             event: the QDragMoveEvent.
         Outputs: none.
         """
-        # LLFR-00021: same rule as on enter.
+        # LLFR-00021: same rule as on enter, always as a copy.
         if self.signal_name_from_mime(event.mimeData()):
-            event.acceptProposedAction()
+            event.setDropAction(Qt.DropAction.CopyAction)
+            event.accept()
         else:
             event.ignore()
 
@@ -2187,5 +2233,7 @@ class PlotWidget(QWidget):
         if not signal_name_str:
             event.ignore()
             return
-        event.acceptProposedAction()
+        # LLFR-00021: a copy, never a move (see dragEnterEvent).
+        event.setDropAction(Qt.DropAction.CopyAction)
+        event.accept()
         self.signal_dropped.emit(signal_name_str)
