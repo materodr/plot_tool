@@ -639,9 +639,9 @@ The layout file must start with an entry `format` with the value `plot_tool layo
 *Parent: HLFR-00051, HLFR-00050*
 
 ### LLFR-00229 Layout added in new tabs
-When the user loads a layout file (LLFR-00221) and the current tabs hold at least one plot, the app must keep the current tabs, with their plots, curves, pinned data tips and delta markers, unchanged, and must add the tabs of the layout file after the last current tab. When no current tab holds a plot, the app must replace the current tabs with the tabs of the layout file. In both cases, the app must show the first tab of the layout file.
+When the user loads a layout file (LLFR-00221) and the current tabs hold at least one plot, the app must keep the current tabs, with their plots, curves, pinned data tips and delta markers, unchanged except for the curves of synthetic signals removed as in LLFR-00282, and must add the tabs of the layout file after the last current tab. When no current tab holds a plot, after LLFR-00282 is applied, the app must replace the current tabs with the tabs of the layout file. In both cases, the app must show the first tab of the layout file.
 
-Note: Loading a layout never asks for confirmation, because it removes no plot.
+Note: Loading a layout never asks for confirmation. Apart from LLFR-00282, it removes no plot.
 
 *Parent: HLFR-00050*
 
@@ -683,7 +683,7 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 *Parent: HLFR-00050, HLFR-00002*
 
 ### LLFR-00237 Layout load report
-After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. If everything was rebuilt as saved, the app must not show any message.
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262, LLFR-00282), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each curve of a current tab that was removed with its synthetic signal (LLFR-00282), with its plot and tab, under the heading "Removed from the current tabs:"; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. If everything was rebuilt as saved, the app must not show any message.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long list must be scrollable.
 
@@ -698,6 +698,13 @@ When the app loads a layout, it must clear the undo and redo history (LLFR-00142
 When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must remove the current synthetic signals and create the synthetic signals of the file, in the file's order and with their saved names, using the saved operation, signals and parameter (LLFR-00225), and, for an FFT, the saved time range limited to the time range of the opened data file. A synthetic signal must not be created when a signal it is computed from is missing, when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272), when the operation cannot be done (LLFR-00247, LLFR-00250), or when its saved name is the name of a signal of the data file. Its curves must then be treated as curves of a missing signal (LLFR-00231), and the load report (LLFR-00237) must name it with the reason.
 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
+
+### LLFR-00282 Synthetic curves in kept tabs
+When the app removes the current synthetic signals on a layout load (LLFR-00262), a curve of one of them in a current tab (LLFR-00229) must stay when the layout file creates a synthetic signal with the same name, operation, signals, parameter and samples. Otherwise, the app must remove the curve with its pinned data tips and delta markers, and must delete each plot left with no curve (LLFR-00051). When no plot is left in any current tab, the tabs of the layout file must replace the current tabs (LLFR-00229), and the vertical markers must be removed (LLFR-00205).
+
+Note: Loading the same layout again therefore changes nothing in the current tabs.
+
+*Parent: HLFR-00050, HLFR-00056*
 
 ## Signal list panel
 

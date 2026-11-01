@@ -226,8 +226,8 @@ class LayoutReport:
             line_str: the text of the entry.
         Outputs: none.
         """
-        # LLFR-00262, LLFR-00229: the current synthetic signals are
-        # removed, so their curves in the kept tabs go too.
+        # LLFR-00282, LLFR-00237: the current synthetic signals are
+        # removed, so their changed curves in the kept tabs go too.
         self.removed_line_list.append(str(line_str))
 
     def add_not_rebuilt(self, line_str: str) -> None:
@@ -1361,7 +1361,15 @@ class LayoutBuilder:
         Outputs: the LayoutResult to apply to the view.
         """
         # LLFR-00262: the synthetic signals come first, so that the
-        # plots are rebuilt with them.
+        # plots are rebuilt with them. LLFR-00235: a value that is not a
+        # list creates none, and is reported.
+        synthetic_value = layout_dict.get(SYNTHETIC_SIGNALS_KEY_STR)
+        if synthetic_value is not None and not isinstance(
+                synthetic_value, list):
+            self.report.add_not_rebuilt(
+                f"Synthetic signals: the entry "
+                f"\"{SYNTHETIC_SIGNALS_KEY_STR}\" is not a list, so no "
+                f"synthetic signal was created.")
         if synthetic_signal_builder is not None:
             self.add_synthetic_signals(synthetic_signal_builder(
                 synthetic_signal_entry_list(layout_dict), self.report))

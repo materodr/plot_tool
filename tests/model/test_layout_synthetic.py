@@ -378,6 +378,17 @@ class CreateEntriesTest(unittest.TestCase):
         names_list = data_file.store.names()
         self.assertEqual(names_list, [])
 
+    @covers("LLFR-00262", "LLFR-00237")
+    def test_source_name_that_is_not_a_text(self) -> None:
+        """A source that is not a text is reported as such."""
+        data_file = DataFile()
+        not_created_list, _ = load_entries(
+            [valid_entry("a", "integral", [1]),
+             valid_entry("b", "integral", ["Speed", "Torque"])],
+            data_file)
+        self.assertIn("must be texts", not_created_list[0][1])
+        self.assertIn("1 signal name(s)", not_created_list[1][1])
+
     @covers("LLFR-00262")
     def test_unexpected_errors_skip_only_the_entry(self) -> None:
         """An unexpected failure of one entry is reported, not raised."""
@@ -564,6 +575,30 @@ class RebuildWithSyntheticTest(unittest.TestCase):
         self.assertIn(f"the signal {name_list[7]} is not drawn",
                       report_str)
         self.assertEqual(result.report.missing_signal_list, [])
+
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00262")
+    def test_synthetic_signals_that_are_not_a_list(self) -> None:
+        """A "synthetic_signals" value that is not a list is reported;
+        a missing one is not."""
+        data_file = DataFile()
+        layout_dict = build_layout_dict(
+            Workspace(random.Random(1)), 0, (0.0, 10.0), False)
+        for value, reported_b in (({"name": "x"}, True), ("x", True),
+                                  (3, True), ([], False)):
+            layout_dict[LAYOUT_KEY_STR] = value
+            result = rebuild_layout(Workspace(random.Random(1)),
+                                    layout_dict, data_file.signal_dict,
+                                    data_file.time_array,
+                                    self.builder_for(data_file))
+            self.assertEqual(
+                "\"synthetic_signals\" is not a list"
+                in result.report.text(), reported_b, value)
+        del layout_dict[LAYOUT_KEY_STR]
+        result = rebuild_layout(Workspace(random.Random(1)), layout_dict,
+                                data_file.signal_dict,
+                                data_file.time_array,
+                                self.builder_for(data_file))
+        self.assertTrue(result.report.is_empty())
 
     @covers("LLFR-00230", "LLFR-00262")
     def test_builder_returning_nothing(self) -> None:

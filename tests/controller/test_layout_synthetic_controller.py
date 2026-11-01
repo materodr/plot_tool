@@ -334,7 +334,7 @@ class KeptTabsTest(LayoutSyntheticTestCase):
     """The current synthetic signals are removed (LLFR-00262) while
     the current tabs are kept (LLFR-00229)."""
 
-    @covers("LLFR-00262", "LLFR-00229")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
     def test_same_signals_keep_the_kept_curves(self) -> None:
         """Loading the same signals keeps the curves of kept tabs."""
         name_list = self.build_synthetic_layout()
@@ -348,7 +348,8 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         self.assertEqual(len(self.workspace.tab_list[0].plot_list[0]
                              .pinned_tip_list), 1)
 
-    @covers("LLFR-00262", "LLFR-00229", "LLFR-00237", "LLFR-00051")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00237",
+            "LLFR-00051")
     def test_changed_signals_lose_their_kept_curves(self) -> None:
         """A changed or dropped synthetic signal leaves the kept tabs."""
         name_list = self.build_synthetic_layout()
@@ -380,7 +381,7 @@ class KeptTabsTest(LayoutSyntheticTestCase):
             [plot.plot_id_i
              for plot in self.workspace.tab_list[0].plot_list])
 
-    @covers("LLFR-00262", "LLFR-00229")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
     def test_all_kept_plots_removed_replaces_the_tabs(self) -> None:
         """With no plot left, the file's tabs replace the current ones."""
         self.build_synthetic_layout()
@@ -417,6 +418,83 @@ class FailedLoadTest(LayoutSyntheticTestCase):
         self.assertEqual(self.store.names(), name_list)
         self.assertEqual(self.curve_names(), old_curve_list)
         self.assertEqual(self.view.synthetic_name_set, set(name_list))
+
+    def assert_screen_matches_model(self) -> None:
+        """Check that every plot is drawn with its signals' samples.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for tab in self.workspace.tab_list:
+            self.assertEqual(
+                self.view.plot_id_list(tab.tab_id_i),
+                [plot.plot_id_i for plot in tab.plot_list])
+            for plot in tab.plot_list:
+                curve_data_list, _ = self.view.drawn_dict[plot.plot_id_i]
+                self.assertEqual(
+                    [curve_data[0] for curve_data in curve_data_list],
+                    [curve.signal_name_str for curve in plot.curve_list])
+                for curve_data in curve_data_list:
+                    np.testing.assert_array_equal(
+                        curve_data[2],
+                        self.plot_controller.signal_values(curve_data[0]))
+
+    def fail_while_rebuilding_tabs(self, layout_dict: dict) -> None:
+        """Load a layout while rebuilding its tabs raises an error.
+
+        Inputs:
+            layout_dict: the content of the layout file.
+        Outputs: none.
+        """
+        path_str = self.write_layout("failing.json", layout_dict)
+        with mock.patch(
+                "model.layout_file.LayoutBuilder.rebuild_tabs",
+                side_effect=RuntimeError("boom")):
+            self.load(path_str)
+
+    def check_failed_load(self, layout_dict: dict) -> None:
+        """Check that a failed load leaves model and screen as before.
+
+        Inputs:
+            layout_dict: the content of the layout file.
+        Outputs: none.
+        """
+        name_list = self.store.names()
+        value_dict = {name_str: self.store.get(name_str).value_array
+                      for name_str in name_list}
+        old_curve_list = self.curve_names()
+        self.fail_while_rebuilding_tabs(layout_dict)
+        # LLFR-00236: the box shows the real error.
+        self.assertEqual(len(self.view.load_error_list), 1)
+        self.assertIn("unexpected error: boom",
+                      self.view.load_error_list[0])
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual(self.store.names(), name_list)
+        for name_str in name_list:
+            self.assertIs(self.store.get(name_str).value_array,
+                          value_dict[name_str])
+        self.assertEqual(self.curve_names(), old_curve_list)
+        self.assertEqual(self.view.synthetic_name_set, set(name_list))
+        self.assert_screen_matches_model()
+        self.assertEqual(len(self.workspace.tab_list[0].plot_list[0]
+                             .pinned_tip_list), 1)
+
+    @covers("LLFR-00236", "LLFR-00262")
+    def test_failure_with_no_synthetic_signals_in_the_file(self) -> None:
+        """A file without synthetic signals fails: all is put back."""
+        self.build_synthetic_layout()
+        layout_dict = read_layout_file(self.save("layout.json"))
+        layout_dict[LAYOUT_KEY_STR] = []
+        self.check_failed_load(layout_dict)
+
+    @covers("LLFR-00236", "LLFR-00262")
+    def test_failure_with_a_changed_parameter(self) -> None:
+        """A file with other samples for the same names fails: the old
+        samples are drawn again."""
+        self.build_synthetic_layout()
+        layout_dict = read_layout_file(self.save("layout.json"))
+        layout_dict[LAYOUT_KEY_STR][0]["parameter"]["order"] = 5
+        self.check_failed_load(layout_dict)
 
     @covers("LLFR-00236", "LLFR-00262")
     def test_unreadable_file_keeps_the_signals(self) -> None:

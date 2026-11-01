@@ -223,12 +223,11 @@ class LayoutController:
         # layout, with the synthetic signals of the file.
         try:
             result = self.plot_controller.load_layout(
-                layout_dict, self.synthetic_signal_builder)
+                layout_dict, self.synthetic_signal_builder,
+                restore_function)
         except Exception as error:
-            # PCR-00025, LLFR-00236: the plot controller put the layout
-            # back as it was, and the synthetic signals are put back.
-            if restore_function is not None:
-                restore_function()
+            # PCR-00025, LLFR-00236: the plot controller put the
+            # synthetic signals and then the layout back as they were.
             self.view.show_layout_load_error(
                 UNEXPECTED_LOAD_ERROR_STR.format(path=path_str, error=error))
             return

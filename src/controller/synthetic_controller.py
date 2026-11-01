@@ -619,7 +619,8 @@ class SyntheticController:
             its data tips and delta markers, deleting each plot left
             with no curve (LLFR-00051), and is listed in the report.
         """
-        # LLFR-00262, LLFR-00229: the removed signals leave the plots.
+        # LLFR-00282, LLFR-00262, LLFR-00229: the removed signals leave
+        # the plots.
         removed_name_set = set()
         for old_signal in old_signal_list:
             name_str = old_signal.name_str
@@ -638,9 +639,11 @@ class SyntheticController:
         if not line_list:
             return
         for line_str in line_list:
-            # LLFR-00237: the report says what changed in kept tabs.
+            # LLFR-00237, LLFR-00282: the report says what changed in
+            # the kept tabs.
             report.add_removed(line_str)
-        # LLFR-00255, LLFR-00051: as when deleting a synthetic signal;
+        # LLFR-00282, LLFR-00051, LLFR-00205: as when deleting a
+        # synthetic signal;
         # the plot controller rebuilds every view after the load.
         workspace.remove_signal_curves(removed_name_set)
 

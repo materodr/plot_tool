@@ -363,12 +363,16 @@ class SyntheticSignalStore:
         expected_count_i = operations.find_operation(
             operation_str).source_count_i
         if (not isinstance(source_name_list, (list, tuple))
-                or len(source_name_list) != expected_count_i
-                or not all(isinstance(name_str, str)
-                           for name_str in source_name_list)):
+                or len(source_name_list) != expected_count_i):
             raise SyntheticEntryError(
                 f'The operation "{operation_str}" is computed from '
                 f'{expected_count_i} signal name(s).')
+        # LLFR-00262: a hand-edited entry may hold other values.
+        if not all(isinstance(name_str, str)
+                   for name_str in source_name_list):
+            raise SyntheticEntryError(
+                'The names of the signals it is computed from must be '
+                'texts.')
         for name_str in source_name_list:
             # LLFR-00262: a missing source stops the creation.
             if name_str not in data_name_set and not self.contains(
@@ -820,7 +824,7 @@ def same_signal(old_signal: SyntheticSignal, store: SyntheticSignalStore,
         sources and parameter) and the same samples, so that a curve of
         a kept tab shows exactly what it showed before (LLFR-00229).
     """
-    # LLFR-00229, LLFR-00262: the curve would not change.
+    # LLFR-00282: the curve of a kept tab would not change.
     if store.layout_entry(old_signal) != store.layout_entry(new_signal):
         return False
     if not np.array_equal(np.asarray(old_signal.value_array),
