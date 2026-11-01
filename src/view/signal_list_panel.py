@@ -49,6 +49,9 @@ class SignalListWidget(QListWidget):
         self.setDragEnabled(True)
         self.setAcceptDrops(False)
         self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        # LLFR-00021, LLFR-00154: a drag only copies the name, also with
+        # Shift or Cmd held, so that Qt never removes the dragged row.
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
         # LLFR-00097: text shown inside the list area when no signal
         # matches the search. It is a label, not an item, so it can
         # never be double-clicked or dragged as a signal.
@@ -61,6 +64,29 @@ class SignalListWidget(QListWidget):
         no_match_layout.addWidget(self.no_match_label, 0,
                                   Qt.AlignmentFlag.AlignTop)
         self.no_match_label.hide()
+
+    def supportedDropActions(self):
+        """Return the drop actions a drag from this list may end with.
+
+        Inputs: none.
+        Outputs: Qt.DropAction.CopyAction only.
+        """
+        # LLFR-00021, LLFR-00154: never a move, which would remove the
+        # row from the list.
+        return Qt.DropAction.CopyAction
+
+    def startDrag(self, supported_actions) -> None:
+        """Start dragging the selected signal name, as a copy only.
+
+        Inputs:
+            supported_actions: the Qt.DropAction flags Qt proposes; they
+                are replaced by CopyAction.
+        Outputs: none.
+        """
+        # LLFR-00021, LLFR-00154: with Shift (or Cmd on macOS) held, Qt
+        # would make the drop a move and then delete the dragged row;
+        # offering only a copy keeps the signal list unchanged.
+        super().startDrag(Qt.DropAction.CopyAction)
 
     def mimeTypes(self) -> list:
         """Return the MIME types used by a drag from this list.
