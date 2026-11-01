@@ -673,9 +673,9 @@ When loading a layout, the app must limit the saved x-axis range to the time ran
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00235 Unusable values in a layout
-When loading a layout, the app must replace a value it cannot use with the value it would use for a new item: a curve width that is not one of the preset widths 1 to 5 with width 1 (LLFR-00052), a color that is not valid or is already used in the plot with the next color of LLFR-00033 and LLFR-00034, and the name of a tab it creates (LLFR-00231) that is empty, is not a text or is the name of an earlier tab it created from the same layout file with a name as in LLFR-00210. It must not create the plots of a tab beyond the maximum of HLFR-00018. A tab name of the file that is valid but is already the name of another tab, for example a kept tab (LLFR-00229), must also be replaced with a name as in LLFR-00210, but this replacement must not be listed in the load report and must not on its own cause the report to be shown (LLFR-00237).
+When loading a layout, the app must replace a value it cannot use with the value it would use for a new item: a curve width that is not one of the preset widths 1 to 5 with width 1 (LLFR-00052), a color that is not valid or is already used in the plot with the next color of LLFR-00033 and LLFR-00034, and the name of a tab it creates (LLFR-00231) that is empty, is not a text or is the name of an earlier tab it created from the same layout file with a name as in LLFR-00210. It must not create the plots of a tab beyond the maximum of HLFR-00018. A tab name of the file that is valid but is already the name of another tab, for example a kept tab (LLFR-00229) or a tab created earlier in the same load, must also be replaced with a name as in LLFR-00210, and this rename must be listed in the load report (LLFR-00237).
 
-Note: Such values appear only when the file was edited by hand.
+Note: Except for tab names already in use, such values appear only when the file was edited by hand.
 
 *Parent: HLFR-00050, HLFR-00052*
 
@@ -685,7 +685,7 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 *Parent: HLFR-00050, HLFR-00002*
 
 ### LLFR-00237 Layout load report
-After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262, LLFR-00283), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. A tab of the file that is not created (LLFR-00231) and a synthetic signal renamed or reused as in LLFR-00282 must not be listed on their own. If everything was rebuilt as saved, the app must not show any message.
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262, LLFR-00282, LLFR-00283), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use (LLFR-00235, LLFR-00282), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. A tab of the file that is not created (LLFR-00231) and a synthetic signal reused as in LLFR-00282 must not be listed on their own. If everything was rebuilt as saved, the app must not show any message.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long list must be scrollable.
 
@@ -697,7 +697,7 @@ When the app loads a layout, it must clear the undo and redo history (LLFR-00142
 *Parent: HLFR-00050, HLFR-00040, HLFR-00048*
 
 ### LLFR-00262 Synthetic signals on layout load
-When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must keep the current synthetic signals and their curves, and must create the synthetic signals of the file, in the file's order, with their saved names except as in LLFR-00282, using the saved operation, signals and parameter (LLFR-00225). A synthetic signal must not be created when it is an FFT signal (LLFR-00283), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272), or when the operation cannot be done (LLFR-00247). Its curves must then be treated as curves of a missing signal (LLFR-00231), even when another signal of the signal list has its name, and the load report (LLFR-00237) must name it with the reason.
+When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must keep the current synthetic signals and their curves, and must create the synthetic signals of the file, in the file's order, with their saved names except as in LLFR-00282 (each rename is listed in the load report, LLFR-00237), using the saved operation, signals and parameter (LLFR-00225). A synthetic signal must not be created when it is an FFT signal (LLFR-00283), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272), or when the operation cannot be done (LLFR-00247). Its curves must then be treated as curves of a missing signal (LLFR-00231), even when another signal of the signal list has its name, and the load report (LLFR-00237) must name it with the reason.
 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
@@ -706,7 +706,9 @@ When a synthetic signal of the layout file (LLFR-00262) has the name of a signal
 1. when that signal, or a synthetic signal whose name is made from that name as in LLFR-00241 (for example by an earlier load), has the same operation, the same signals it is computed from (after the renames of item 2) and the same parameter, create nothing and use that signal;
 2. otherwise, create the signal of the file with its name made unique as in LLFR-00241, and use the new name for every curve, pinned data tip and delta marker of the file that names it, and for every later synthetic signal of the file that is computed from it.
 
-Note: Loading the same layout twice therefore adds nothing to the signal list the second time. These renames are not listed in the load report (LLFR-00237), like the tab names of LLFR-00235.
+Each rename of item 2 must be listed in the load report (LLFR-00237), with the saved and the new name.
+
+Note: Loading the same layout twice therefore adds nothing to the signal list the second time.
 
 *Parent: HLFR-00050, HLFR-00056*
 

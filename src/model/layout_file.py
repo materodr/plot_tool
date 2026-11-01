@@ -148,6 +148,10 @@ NEWER_VERSION_REASON_STR = (
 
 # LLFR-00237: the headings of the load report.
 SYNTHETIC_HEADING_STR = "Synthetic signals not created:"
+RENAMED_HEADING_STR = "Renamed:"
+# LLFR-00237: how a renamed tab or synthetic signal is listed.
+RENAMED_TAB_LINE_STR = "Tab \"{saved}\" \u2192 \"{new}\""
+RENAMED_SIGNAL_LINE_STR = "Synthetic signal \"{saved}\" \u2192 \"{new}\""
 MISSING_HEADING_STR = "Signals not in the data file:"
 NOT_REBUILT_HEADING_STR = "Not rebuilt:"
 TIME_RANGE_HEADING_STR = "Time range:"
@@ -170,6 +174,9 @@ class LayoutReport:
     Attributes:
         synthetic_line_list: synthetic signals not created, with the
             reason (LLFR-00262; filled by the synthetic signal builder).
+        renamed_line_list: tabs and synthetic signals of the file given
+            another name because theirs was in use (LLFR-00235,
+            LLFR-00282).
         missing_signal_list: the signals not in the data file, each named
             once, in the order they were met (LLFR-00231).
         not_rebuilt_line_list: data tips, vertical markers, delta
@@ -188,6 +195,7 @@ class LayoutReport:
         """
         # LLFR-00237: one list per kind of entry of the report.
         self.synthetic_line_list = []
+        self.renamed_line_list = []
         self.missing_signal_list = []
         self.not_rebuilt_line_list = []
         self.time_range_line_list = []
@@ -213,6 +221,17 @@ class LayoutReport:
         """
         # LLFR-00262, LLFR-00237: filled by the synthetic builder.
         self.synthetic_line_list.append(str(line_str))
+
+    def add_renamed(self, line_str: str) -> None:
+        """Note a tab or synthetic signal of the file that was renamed.
+
+        Inputs:
+            line_str: the text of the entry, "<saved> \u2192 <new>".
+        Outputs: none.
+        """
+        # LLFR-00237: each renamed tab and synthetic signal, with its
+        # saved and its new name.
+        self.renamed_line_list.append(str(line_str))
 
     def add_not_rebuilt(self, line_str: str) -> None:
         """Note a part of the layout that was not rebuilt.
@@ -251,7 +270,8 @@ class LayoutReport:
         Outputs: True when there is nothing to report.
         """
         # LLFR-00237: then no message is shown.
-        return not (self.synthetic_line_list or self.missing_signal_list
+        return not (self.synthetic_line_list or self.renamed_line_list
+                    or self.missing_signal_list
                     or self.not_rebuilt_line_list
                     or self.time_range_line_list or self.replaced_line_list)
 
@@ -263,9 +283,11 @@ class LayoutReport:
             of LLFR-00237.
         """
         # LLFR-00237: synthetic signals, missing signals, items not
-        # rebuilt, the time range and the replaced values.
+        # rebuilt, the time range and the replaced values; the renamed
+        # tabs and synthetic signals.
         section_list = [
             (SYNTHETIC_HEADING_STR, self.synthetic_line_list),
+            (RENAMED_HEADING_STR, self.renamed_line_list),
             (MISSING_HEADING_STR, self.missing_signal_list),
             (NOT_REBUILT_HEADING_STR, self.not_rebuilt_line_list),
             (TIME_RANGE_HEADING_STR, self.time_range_line_list),
@@ -1106,7 +1128,7 @@ class LayoutBuilder:
             text, is empty or repeats an earlier tab of the file is
             reported (LLFR-00235); a valid name that another tab already
             has (a kept tab, LLFR-00229, or a tab this load named) is
-            replaced without a report.
+            replaced and listed as renamed (LLFR-00237).
         """
         name_value = (tab_entry.get(NAME_KEY_STR)
                       if isinstance(tab_entry, dict) else None)
@@ -1120,8 +1142,12 @@ class LayoutBuilder:
             else:
                 file_name_set.add(stripped_name_str)
                 # LLFR-00235, LLFR-00210, LLFR-00212: a valid name that
-                # another tab has is replaced silently (LLFR-00237).
+                # another tab has is replaced, and reported as renamed
+                # (LLFR-00237).
                 if self.workspace.is_tab_name_taken(stripped_name_str):
+                    self.report.add_renamed(RENAMED_TAB_LINE_STR.format(
+                        saved=stripped_name_str,
+                        new=self.workspace.next_tab_name()))
                     return ""
                 return stripped_name_str
         elif isinstance(name_value, str):

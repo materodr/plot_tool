@@ -314,7 +314,9 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertIn(f"  - {name_list[1]}: The signal "
                       f"\"{name_list[0]}\" it is computed from was not "
                       f"created.", report_str)
-        self.assertNotIn("Torque_2", report_str)
+        # LLFR-00282, LLFR-00237: the rename is reported.
+        self.assertIn('Renamed:\n  - Synthetic signal "Torque" \u2192 '
+                      '"Torque_2"', report_str)
         self.assertIn("Signals not in the data file:", report_str)
         # LLFR-00231: plot 2 lost every curve and was not created.
         self.assertEqual(self.curve_names(), [("Tab 1", [["Speed"]])])
@@ -384,8 +386,14 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         old_curve_list = self.curve_names()
         path_str = self.save("layout.json")
         for load_number_i in range(2):
+            self.view.report_list.clear()
             self.load(path_str)
-            self.assertEqual(self.view.report_list, [])
+            # LLFR-00237: only the tab name in use is reported; no
+            # synthetic signal is renamed.
+            self.assertEqual(len(self.view.report_list), 1)
+            self.assertTrue(self.view.report_list[0].startswith(
+                'Renamed:\n  - Tab "Tab 1" \u2192 "Tab '))
+            self.assertNotIn("Synthetic signal", self.view.report_list[0])
             self.assertEqual(self.store.names(), name_list)
             curve_list = self.curve_names()
             # The kept tab, its frequency plot included, is unchanged.
@@ -406,9 +414,13 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         layout_dict[LAYOUT_KEY_STR][0]["parameter"]["order"] = 4
         path_str = self.write_layout("edited.json", layout_dict)
         self.load(path_str)
-        self.assertEqual(self.view.report_list, [])
         renamed_list = [name_list[index_i] + "_2"
                         for index_i in (0, 1, 2, 4)]
+        # LLFR-00237: every rename, saved and new name, in one section.
+        self.assertEqual(self.view.report_list, ["Renamed:\n" + "\n".join(
+            [f'  - Synthetic signal "{name_list[index_i]}" \u2192 '
+             f'"{name_list[index_i]}_2"' for index_i in (0, 1, 2, 4)]
+            + ['  - Tab "Tab 1" \u2192 "Tab 2"'])])
         self.assertEqual(self.store.names(), name_list + renamed_list)
         curve_list = self.curve_names()
         self.assertEqual(curve_list[0], old_curve_list[0])

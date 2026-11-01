@@ -756,6 +756,8 @@ class LayoutSignalLoader:
             made unique by LLFR-00282), or None when it was not created.
         not_created_list: (label_str, reason_str) of each entry that was
             not created (LLFR-00237).
+        renamed_list: (saved name, new name) of each entry created under
+            a new name because its name was in use (LLFR-00282).
     """
 
     def __init__(self, store: SyntheticSignalStore, signal_lookup,
@@ -772,6 +774,7 @@ class LayoutSignalLoader:
         self.data_name_set = set(data_name_set)
         self.name_dict = {}
         self.not_created_list = []
+        self.renamed_list = []
 
     def source_name(self, file_name_str):
         """Return the signal a source name of the file stands for.
@@ -861,6 +864,9 @@ class LayoutSignalLoader:
                 # from it: it is used, and nothing is created.
                 self.store.signal_list.remove(signal)
                 return candidate_name_str
+        if signal.name_str != name_str:
+            # LLFR-00282, LLFR-00237: the rename is reported.
+            self.renamed_list.append((name_str, signal.name_str))
         return signal.name_str
 
     def load(self, entry_list) -> None:

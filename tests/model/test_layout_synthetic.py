@@ -18,8 +18,8 @@ from tests.support import covers
 from tests.model.test_synthetic_signals import DataFile
 
 from model.layout_file import (
-    LayoutReport, SYNTHETIC_HEADING_STR, build_layout_dict, layout_text,
-    parse_layout_text, rebuild_layout)
+    LayoutReport, RENAMED_SIGNAL_LINE_STR, SYNTHETIC_HEADING_STR,
+    build_layout_dict, layout_text, parse_layout_text, rebuild_layout)
 from model.synthetic_signals import (
     LAYOUT_KEY_STR, SyntheticSignalStore, create_layout_signals,
     LayoutSignalLoader, entries_text, recipe)
@@ -399,7 +399,7 @@ class CreateEntriesTest(unittest.TestCase):
     @covers("LLFR-00282", "LLFR-00262", "LLFR-00237")
     def test_name_of_a_data_file_signal_is_renamed(self) -> None:
         """A saved name of a data file signal gets a unique name, and
-        the later entries of the file follow it, without a report."""
+        the later entries of the file follow it."""
         data_file = DataFile()
         loader = LayoutSignalLoader(data_file.store, data_file.lookup,
                                     data_file.time_array,
@@ -407,6 +407,8 @@ class CreateEntriesTest(unittest.TestCase):
         loader.load([valid_entry("Torque", "integral"),
                      valid_entry("integral_x", "integral", ["Torque"])])
         self.assertEqual(loader.not_created_list, [])
+        # LLFR-00237: the rename is listed for the report.
+        self.assertEqual(loader.renamed_list, [("Torque", "Torque_2")])
         self.assertEqual(data_file.store.names(),
                          ["Torque_2", "integral_x"])
         self.assertEqual(data_file.store.get("integral_x")
@@ -617,6 +619,9 @@ class RebuildWithSyntheticTest(unittest.TestCase):
             loader.load(entry_list)
             for label_str, reason_str in loader.not_created_list:
                 report.add_synthetic_signal(f"{label_str}: {reason_str}")
+            for saved_name_str, new_name_str in loader.renamed_list:
+                report.add_renamed(RENAMED_SIGNAL_LINE_STR.format(
+                    saved=saved_name_str, new=new_name_str))
             return loader.drawn_name_dict()
 
         return builder
@@ -691,7 +696,7 @@ class RebuildWithSyntheticTest(unittest.TestCase):
         self.assertIn("Delta X marker between 1 s and 4 s", report_str)
 
     @covers("LLFR-00282", "LLFR-00230", "LLFR-00232", "LLFR-00262",
-            "LLFR-00231")
+            "LLFR-00231", "LLFR-00237")
     def test_curves_follow_renamed_signals(self) -> None:
         """Curves, tips and deltas of the file draw the renamed signal;
         a failed entry's curves are missing even when a current signal
@@ -717,8 +722,10 @@ class RebuildWithSyntheticTest(unittest.TestCase):
                                 data_file.signal_dict,
                                 data_file.time_array,
                                 self.builder_for(data_file))
-        # LLFR-00282: renames are not reported.
-        self.assertTrue(result.report.is_empty(), result.report.text())
+        # LLFR-00282, LLFR-00237: the renames are reported, nothing else.
+        self.assertEqual(result.report.text(), "Renamed:\n" + "\n".join(
+            f'  - Synthetic signal "{name_list[index_i]}" \u2192 '
+            f'"{name_list[index_i]}_2"' for index_i in (0, 1, 2, 4, 5, 6)))
         new_plot = new_workspace.tab_list[0].plot_list[0]
         renamed_str = name_list[1] + "_2"
         self.assertEqual([curve.signal_name_str
@@ -820,13 +827,19 @@ class ReportTest(unittest.TestCase):
 
     @covers("LLFR-00237")
     def test_sections_in_order(self) -> None:
-        """Synthetic signals come first, then the missing signals."""
+        """Synthetic signals come first, then the renames, then the
+        missing signals; a rename alone shows the report."""
         report = LayoutReport()
         self.assertTrue(report.is_empty())
-        report.add_synthetic_signal("a: reason")
+        report.add_renamed('Tab "a" \u2192 "b"')
         self.assertFalse(report.is_empty())
+        report.add_synthetic_signal("a: reason")
         report.add_missing_signal("b")
         text_str = report.text()
+        self.assertLess(text_str.index(SYNTHETIC_HEADING_STR),
+                        text_str.index("Renamed:"))
+        self.assertLess(text_str.index("Renamed:"),
+                        text_str.index("Signals not in the data file:"))
         self.assertNotIn("Removed from the current tabs:", text_str)
         self.assertLess(text_str.index(SYNTHETIC_HEADING_STR),
                         text_str.index("Signals not in the data file:"))

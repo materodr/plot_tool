@@ -39,6 +39,7 @@ from model import synthetic_operations as operations
 from model.errors import (
     EmptySyntheticNameError, SyntheticNameInUseError, SyntheticSignalError)
 from model.number_format import format_signal_value
+from model.layout_file import RENAMED_SIGNAL_LINE_STR
 from model.synthetic_signals import (
     LayoutSignalLoader, SyntheticSignalStore)
 
@@ -565,7 +566,8 @@ class SyntheticController:
         Inputs:
             entry_list: the "synthetic_signals" list of the file.
             report: the LayoutReport of the load; the signals not
-                created are added to it (LLFR-00237).
+                created and the renamed ones are added to it
+                (LLFR-00237).
         Outputs: a dict signal name of the file -> (name of the signal
             drawn for it, its samples), or None when the file's signal
             was not created; it also holds every synthetic signal of
@@ -582,6 +584,10 @@ class SyntheticController:
             # LLFR-00237: each signal not created, with the reason.
             report.add_synthetic_signal(NOT_CREATED_LINE_STR.format(
                 label=label_str, reason=reason_str))
+        for saved_name_str, new_name_str in loader.renamed_list:
+            # LLFR-00282, LLFR-00237: each rename, old and new name.
+            report.add_renamed(RENAMED_SIGNAL_LINE_STR.format(
+                saved=saved_name_str, new=new_name_str))
         # LLFR-00242: the signal list shows the new synthetic signals.
         self.show_synthetic_signals()
         # LLFR-00230, LLFR-00282: what the file's names draw.

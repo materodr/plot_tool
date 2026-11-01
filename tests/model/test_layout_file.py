@@ -547,13 +547,16 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         self.assertEqual(result.first_tab_id_i,
                          self.workspace.tab_list[1].tab_id_i)
         # LLFR-00235, LLFR-00237: the name "Tab 1" of the kept tab was
-        # replaced without a report.
-        self.assertTrue(result.report.is_empty(), result.report.text())
+        # replaced, and the rename is the only line of the report.
+        self.assertEqual(result.report.renamed_line_list,
+                         ['Tab "Tab 1" \u2192 "Tab 2"'])
+        self.assertEqual(result.report.text(),
+                         'Renamed:\n  - Tab "Tab 1" \u2192 "Tab 2"')
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00212")
-    def test_clash_with_kept_tab_cascades_silently(self) -> None:
+    def test_clash_with_kept_tab_cascades_and_is_reported(self) -> None:
         """File tabs "Tab 1" and "Tab 2" after a kept "Tab 1" become
-        "Tab 2" and "Tab 3", with nothing to report.
+        "Tab 2" and "Tab 3", and both renames are reported.
 
         Inputs: none.
         Outputs: none.
@@ -565,8 +568,10 @@ class LayoutTabsTest(LayoutRebuildTestCase):
              one_plot_tab([curve("Torque")], "Tab 2")]))
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
                          ["Tab 1", "Tab 2", "Tab 3"])
-        self.assertTrue(result.report.is_empty(), result.report.text())
-        self.assertEqual(result.report.text(), "")
+        self.assertEqual(result.report.renamed_line_list,
+                         ['Tab "Tab 1" \u2192 "Tab 2"',
+                          'Tab "Tab 2" \u2192 "Tab 3"'])
+        self.assertEqual(result.report.replaced_line_list, [])
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00210",
             "LLFR-00212")
