@@ -1,13 +1,20 @@
 """Top panel: holds the controls for opening a file and the plot tools.
 
 Every button shows only its icon (LLFR-00158, LLFR-00159); its name,
-for example "Open file", is its hover tip (LLFR-00181) and accessible
-name, so a button "called" X in the requirements is the button whose
-name is X.
+for example "Open file", is the first line of its button tip
+(LLFR-00181) and its accessible name, so a button "called" X in the
+requirements is the button whose name is X. Below the name, the button
+tip shows the button's keyboard shortcut (LLFR-00213) or how its tool
+is used with the mouse (LLFR-00214), in a paler color, with the texts
+of LLFR-00215, built from BUTTON_TIP_SHORTCUT_DICT.
 """
+
+import html
+import sys
 
 from PyQt6 import sip
 from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
+from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QHBoxLayout, QMenu, QWidget
 
 from controller.plot_tools import (
@@ -15,11 +22,14 @@ from controller.plot_tools import (
     TIP_TOOL_STR, ZOOM_TOOL_STR)
 from view import icon_shapes, theme
 from view.action_button import ActionButton
+from view.tip_key_filter import (
+    DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I, RESET_ZOOM_KEY_I, TIP_KEY_I)
 from view.toggle_button import ToggleButton
 from view.undo_button import UndoButton
 
 OPEN_FILE_TEXT_STR = "Open file"
-TIP_TEXT_STR = "Tip"
+# LLFR-00018: the button of the data tip tool (HLFR-00024).
+TIP_TEXT_STR = "Data tip"
 ZOOM_TEXT_STR = "Zoom"
 MARKER_TEXT_STR = "Vertical marker"
 # LLFR-00161, LLFR-00162: the delta marker tool buttons.
@@ -50,6 +60,152 @@ BUTTON_ICON_DICT = {
     REDO_TEXT_STR: icon_shapes.REDO_ICON_STR,
 }
 
+# ----------------------------------------------------------------------
+# Button tips (LLFR-00213 to LLFR-00215)
+# ----------------------------------------------------------------------
+# LLFR-00191: the Redo shortcut; Qt maps Ctrl to the Command key on
+# macOS, so the same sequence is Cmd+Y there. MainWindow builds its
+# QShortcut from this constant, so the shortcut and its tip text change
+# together (LLFR-00215 Note).
+REDO_SHORTCUT_STR = "Ctrl+Y"
+# LLFR-00137: the Undo shortcut is Qt's standard Undo key (Ctrl+Z, or
+# Cmd+Z on macOS); MainWindow builds its QShortcut from it.
+UNDO_STANDARD_KEY = QKeySequence.StandardKey.Undo
+# LLFR-00215: how the shortcut of each kind is written below the name.
+SHORTCUT_SEQUENCE_STR = "sequence"
+SHORTCUT_HOLD_STR = "hold"
+SHORTCUT_PRESS_STR = "press"
+MOUSE_USE_STR = "mouse"
+# LLFR-00215: the word "Hold" before a held key (LLFR-00148, LLFR-00154,
+# LLFR-00197, LLFR-00200).
+HOLD_PREFIX_STR = "Hold "
+# LLFR-00148: Qt reports the Command key of macOS as Key_Control, so the
+# Data tip key is written "Cmd" on macOS and "Ctrl" elsewhere.
+MACOS_COMMAND_NAME_STR = "Cmd"
+CONTROL_NAME_STR = "Ctrl"
+# LLFR-00154: the name of the Shift key on every operating system.
+SHIFT_NAME_STR = "Shift"
+# LLFR-00078, LLFR-00208, LLFR-00074, LLFR-00206: how the Zoom tool is
+# used with the mouse or the trackpad (LLFR-00214, LLFR-00215).
+ZOOM_MOUSE_LINE_TUPLE = ("Click or drag to zoom in",
+                         "Wheel or two-finger swipe to zoom in or out")
+# LLFR-00213 to LLFR-00215: the shortcut or mouse use of each button,
+# next to the keys the app really uses (view.tip_key_filter and the
+# shortcuts above), as (kind, value). A button that is not listed (Open
+# file, Grid, Export, Copy, Save layout, Load layout) shows only its
+# name.
+BUTTON_TIP_SHORTCUT_DICT = {
+    UNDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, UNDO_STANDARD_KEY),
+    REDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, REDO_SHORTCUT_STR),
+    TIP_TEXT_STR: (SHORTCUT_HOLD_STR, TIP_KEY_I),
+    MARKER_TEXT_STR: (SHORTCUT_HOLD_STR, MARKER_KEY_I),
+    DELTA_X_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_X_KEY_I),
+    DELTA_Y_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_Y_KEY_I),
+    RESET_ZOOM_TEXT_STR: (SHORTCUT_PRESS_STR, RESET_ZOOM_KEY_I),
+    ZOOM_TEXT_STR: (MOUSE_USE_STR, ZOOM_MOUSE_LINE_TUPLE),
+}
+
+
+def running_on_macos() -> bool:
+    """Tell whether the app runs on macOS.
+
+    Inputs: none.
+    Outputs: True on macOS; False on Windows and every other system,
+        which get the Windows texts of LLFR-00215. Tests replace this
+        function to check the texts of both systems.
+    """
+    # LLFR-00215: the texts differ only between macOS and the others.
+    return sys.platform == "darwin"
+
+
+def key_name_str(key_i: int, macos_b: bool) -> str:
+    """Return the name of a single key as the button tips write it.
+
+    Inputs:
+        key_i: a Qt.Key value, e.g. TIP_KEY_I.
+        macos_b: True for the macOS names.
+    Outputs: "Cmd" or "Ctrl" for the Data tip key, "Shift" for Shift,
+        and the capital letter for a letter key, e.g. "X".
+    """
+    # LLFR-00215: the names of the table, derived from the key values.
+    if key_i == TIP_KEY_I:
+        return MACOS_COMMAND_NAME_STR if macos_b else CONTROL_NAME_STR
+    if key_i == MARKER_KEY_I:
+        return SHIFT_NAME_STR
+    # LLFR-00197, LLFR-00200, LLFR-00207: Qt's letter keys have the
+    # code of the capital letter (Qt.Key.Key_X is ord("X")).
+    return chr(key_i)
+
+
+def key_sequence_name_str(sequence_value, macos_b: bool) -> str:
+    """Return the text of a keyboard shortcut, e.g. "Ctrl+Z".
+
+    Inputs:
+        sequence_value: a QKeySequence.StandardKey or a portable
+            sequence string such as "Ctrl+Y".
+        macos_b: True for the macOS text, where Ctrl is Cmd.
+    Outputs: the text, e.g. "Cmd+Z" on macOS and "Ctrl+Z" elsewhere.
+    """
+    # LLFR-00137, LLFR-00191, LLFR-00215: the portable text of the real
+    # shortcut, whose Ctrl is the Command key on macOS.
+    sequence_str = QKeySequence(sequence_value).toString(
+        QKeySequence.SequenceFormat.PortableText)
+    if macos_b:
+        sequence_str = sequence_str.replace(
+            CONTROL_NAME_STR + "+", MACOS_COMMAND_NAME_STR + "+")
+    return sequence_str
+
+
+def button_tip_detail_list(name_str: str, macos_b: bool) -> list:
+    """Return the lines shown below a button's name in its button tip.
+
+    Inputs:
+        name_str: the button's name, e.g. "Undo".
+        macos_b: True for the macOS texts, False for the Windows texts.
+    Outputs: a list of str: one shortcut line (LLFR-00213), the mouse
+        use lines of the Zoom button (LLFR-00214), or an empty list for
+        a button that shows only its name (LLFR-00215).
+    """
+    # LLFR-00215: every text comes from BUTTON_TIP_SHORTCUT_DICT.
+    if name_str not in BUTTON_TIP_SHORTCUT_DICT:
+        return []
+    kind_str, value = BUTTON_TIP_SHORTCUT_DICT[name_str]
+    if kind_str == SHORTCUT_SEQUENCE_STR:
+        return [key_sequence_name_str(value, macos_b)]
+    if kind_str == SHORTCUT_HOLD_STR:
+        return [HOLD_PREFIX_STR + key_name_str(value, macos_b)]
+    if kind_str == SHORTCUT_PRESS_STR:
+        return [key_name_str(value, macos_b)]
+    # LLFR-00214: the Zoom tool is used with the mouse.
+    return list(value)
+
+
+def button_tip_text_str(name_str: str, macos_b: bool) -> str:
+    """Return the button tip of a top panel button.
+
+    Inputs:
+        name_str: the button's name.
+        macos_b: True for the macOS texts.
+    Outputs: the plain name for a button with nothing below its name;
+        otherwise rich text with the name on the first line and each
+        line of button_tip_detail_list below it, in the paler color
+        theme.TOOLTIP_DETAIL_COLOR_STR.
+    """
+    # LLFR-00181: the name alone, as plain text.
+    detail_list = button_tip_detail_list(name_str, macos_b)
+    if not detail_list:
+        return name_str
+    # LLFR-00213, LLFR-00214: one block per line, the lines below the
+    # name in the paler color; nowrap keeps each line on one line.
+    block_list = [f'<div style="white-space:nowrap">'
+                  f'{html.escape(name_str)}</div>']
+    for detail_str in detail_list:
+        block_list.append(
+            f'<div style="white-space:nowrap; color:'
+            f'{theme.TOOLTIP_DETAIL_COLOR_STR}">'
+            f'{html.escape(detail_str)}</div>')
+    return "".join(block_list)
+
 
 def new_icon_button(button_class, name_str: str, object_name_str: str):
     """Create a top panel button that shows only its icon.
@@ -58,12 +214,16 @@ def new_icon_button(button_class, name_str: str, object_name_str: str):
         button_class: ToggleButton or one of its subclasses.
         name_str: the button's name, e.g. "Open file".
         object_name_str: the objectName that scopes its style sheet.
-    Outputs: the new button, with the icon of BUTTON_ICON_DICT and the
-        name as its hover tip and accessible name.
+    Outputs: the new button, with the icon of BUTTON_ICON_DICT, the
+        name as its accessible name and the button tip of
+        button_tip_text_str.
     """
     # LLFR-00158, LLFR-00159, LLFR-00181: icon only, name on hover.
     button = button_class(name_str, icon_name_str=BUTTON_ICON_DICT[name_str])
     button.setObjectName(object_name_str)
+    # LLFR-00213 to LLFR-00215: the shortcut or mouse use below the name,
+    # with the texts of the system the app runs on.
+    button.setToolTip(button_tip_text_str(name_str, running_on_macos()))
     return button
 
 
@@ -78,7 +238,7 @@ class TopPanel(QWidget):
     Attributes:
         button_layout: horizontal layout that holds the panel's buttons.
         open_file_button: the "Open file" ToggleButton (LLFR-00004).
-        tip_button: the "Tip" ToggleButton (LLFR-00018).
+        tip_button: the "Data tip" ToggleButton (LLFR-00018).
         zoom_button: the "Zoom" ToggleButton (LLFR-00077).
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
         delta_x_button: the "Delta X" ToggleButton (LLFR-00161).

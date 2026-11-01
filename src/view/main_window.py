@@ -17,6 +17,7 @@ from view.signal_list_panel import SignalListPanel
 from view.tip_key_filter import (
     DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I, RESET_ZOOM_KEY_I, TIP_KEY_I,
     ToolKeyFilter)
+from view import top_panel
 from view.top_panel import TopPanel
 
 
@@ -42,8 +43,10 @@ TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
                            QAbstractSpinBox)
 # LLFR-00191: the Redo shortcut. "Ctrl" is the Command key on macOS in a
 # portable key sequence, so this is Ctrl+Y on Windows and Cmd+Y on
-# macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS).
-REDO_SHORTCUT_STR = "Ctrl+Y"
+# macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS). It is kept
+# with the button tip texts in view.top_panel, so that the shortcut and
+# its button tip change together (LLFR-00215).
+REDO_SHORTCUT_STR = top_panel.REDO_SHORTCUT_STR
 
 
 class MainWindow(QMainWindow):
@@ -177,7 +180,7 @@ class MainWindow(QMainWindow):
         self.undo_handler = None
         self.top_panel.undo_button.triggered.connect(
             self._on_undo_triggered)
-        self.undo_shortcut = QShortcut(QKeySequence.StandardKey.Undo, self)
+        self.undo_shortcut = QShortcut(top_panel.UNDO_STANDARD_KEY, self)
         self.undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.undo_shortcut.activated.connect(self._on_undo_shortcut)
         # LLFR-00190, LLFR-00192: the Redo button goes to the plot
