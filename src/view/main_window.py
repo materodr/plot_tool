@@ -1,13 +1,15 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
 from PyQt6.QtWidgets import (
-    QFileDialog, QInputDialog, QLineEdit, QMainWindow, QVBoxLayout, QWidget)
+    QApplication, QFileDialog, QInputDialog, QLineEdit, QMainWindow,
+    QVBoxLayout, QWidget)
 
-from controller.plot_tools import NO_TOOL_STR
+from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
 from view import message_boxes
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
+from view.tip_key_filter import TipKeyFilter
 from view.top_panel import TopPanel
 
 
@@ -104,6 +106,15 @@ class MainWindow(QMainWindow):
             lambda: self._on_grid_clicked(True))
         self.top_panel.grid_button.deactivated.connect(
             lambda: self._on_grid_clicked(False))
+        # LLFR-00148, LLFR-00149, LLFR-00150: holding the Tip key keeps
+        # the Tip tool active; the filter sees the keys of every widget
+        # and dialog of the application, and consumes none.
+        self.tip_key_changing_tool_b = False
+        self.tip_key_filter = TipKeyFilter(
+            self.on_tip_key_activate, self.on_tip_key_release, self)
+        application = QApplication.instance()
+        if application is not None:
+            application.installEventFilter(self.tip_key_filter)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -245,6 +256,38 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00079, LLFR-00109: the tool stays until it is changed.
         return self.plot_tool_str
+
+    def on_tip_key_activate(self) -> None:
+        """Make Tip the active tool because the Tip key is held alone.
+
+        Inputs: none.
+        Outputs: none. The tool change goes the same way as a click on
+            the Tip button, so the controller is told of it.
+        """
+        # LLFR-00148: the Tip button becomes active and the other tool
+        # buttons are deactivated as in LLFR-00079.
+        self.tip_key_changing_tool_b = True
+        try:
+            self.top_panel.tip_button.setChecked(True)
+            self.top_panel.activate_plot_tool(TIP_TOOL_STR)
+        finally:
+            self.tip_key_changing_tool_b = False
+
+    def on_tip_key_release(self) -> None:
+        """Leave no plot tool active because the Tip key hold ended.
+
+        Inputs: none.
+        Outputs: none. The tool change goes the same way as a second
+            click on the active tool button.
+        """
+        # LLFR-00149, LLFR-00150: no plot tool is active afterwards,
+        # whatever tool was active before the Tip key was pressed.
+        self.tip_key_changing_tool_b = True
+        try:
+            self.top_panel.show_plot_tool(NO_TOOL_STR)
+            self.top_panel.deactivate_plot_tools()
+        finally:
+            self.tip_key_changing_tool_b = False
 
     def set_reset_zoom_handler(self, handler) -> None:
         """Set the function called when Reset zoom is clicked.
@@ -547,6 +590,10 @@ class MainWindow(QMainWindow):
             tool_str: the new tool name, NO_TOOL_STR for none.
         Outputs: none.
         """
+        # LLFR-00079, LLFR-00149: a tool chosen with the mouse while the
+        # Tip key is held is kept; the later release changes nothing.
+        if not self.tip_key_changing_tool_b:
+            self.tip_key_filter.cancel_activation()
         # LLFR-00079, LLFR-00002: the controller applies the tool; with
         # no controller the window applies it itself.
         if self.plot_tool_handler is None:
