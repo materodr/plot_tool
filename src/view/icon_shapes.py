@@ -34,7 +34,7 @@ INK_ROLE_STR = "ink"
 MARKER_DASH_START_TUPLE = (11.25, 15.0, 18.75)
 MARKER_DASH_LENGTH_F = 2.25
 
-# LLFR-00159: the names of the 12 icons. Delta X and Delta Y are drawn
+# LLFR-00159: the names of the 14 icons. Delta X and Delta Y are drawn
 # here for their buttons (LLFR-00161, LLFR-00162).
 OPEN_FILE_ICON_STR = "open_file"
 UNDO_ICON_STR = "undo"
@@ -49,6 +49,9 @@ EXPORT_ICON_STR = "export"
 COPY_ICON_STR = "copy"
 # LLFR-00159 item 12, LLFR-00190: the Redo icon.
 REDO_ICON_STR = "redo"
+# LLFR-00159 items 13 and 14, LLFR-00216, LLFR-00217: the layout icons.
+SAVE_LAYOUT_ICON_STR = "save_layout"
+LOAD_LAYOUT_ICON_STR = "load_layout"
 
 
 def ink_layer(command_list: list) -> tuple:
@@ -342,6 +345,56 @@ def copy_shape() -> list:
             ink_layer(back_list)]
 
 
+def layout_sheet_layer_list() -> list:
+    """Return the sheet with two stacked plots of the layout icons.
+
+    Inputs: none.
+    Outputs: the list of layers: a sheet whose top edge is open in the
+        middle, where the arrow goes in or out, and two small curves
+        stacked one above the other.
+    """
+    # LLFR-00159 items 13 and 14: a sheet of paper with two small
+    # stacked plots; the gap in the top edge lets the arrow through.
+    sheet_list = [("M", 9.0, 9.0), ("L", 6.0, 9.0), ("Q", 4.0, 9.0, 4.0, 11.0),
+                  ("L", 4.0, 20.0), ("Q", 4.0, 22.0, 6.0, 22.0),
+                  ("L", 18.0, 22.0), ("Q", 20.0, 22.0, 20.0, 20.0),
+                  ("L", 20.0, 12.5), ("L", 16.5, 9.0), ("L", 15.0, 9.0)]
+    # LLFR-00159: the folded corner of the sheet, as in the Export icon.
+    fold_list = polyline([(16.5, 9.0), (16.5, 12.5), (20.0, 12.5)])
+    upper_plot_list = polyline([(6.75, 15.5), (9.5, 13.0), (13.0, 14.75),
+                                (17.25, 13.75)])
+    lower_plot_list = polyline([(6.75, 20.0), (9.5, 17.5), (13.0, 19.25),
+                                (17.25, 18.25)])
+    return [ink_layer(sheet_list), ink_layer(fold_list),
+            ink_layer(upper_plot_list), ink_layer(lower_plot_list)]
+
+
+def save_layout_shape() -> list:
+    """Return the Save layout icon: an arrow down into the sheet (13).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 13: the arrow comes from above and points down into
+    # the sheet through the gap of its top edge.
+    return layout_sheet_layer_list() + [
+        ink_layer(segment(12.0, 1.5, 12.0, 10.75)),
+        ink_layer(arrow_head(12.0, 10.75, "down", 2.75))]
+
+
+def load_layout_shape() -> list:
+    """Return the Load layout icon: an arrow up out of the sheet (14).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 14: the arrow starts inside the sheet and points up
+    # out of it through the gap of its top edge.
+    return layout_sheet_layer_list() + [
+        ink_layer(segment(12.0, 10.75, 12.0, 1.5)),
+        ink_layer(arrow_head(12.0, 1.5, "up", 2.75))]
+
+
 # LLFR-00159: icon name -> function that returns its layers.
 ICON_SHAPE_FUNCTION_DICT = {
     OPEN_FILE_ICON_STR: open_file_shape,
@@ -356,6 +409,8 @@ ICON_SHAPE_FUNCTION_DICT = {
     EXPORT_ICON_STR: export_shape,
     COPY_ICON_STR: copy_shape,
     REDO_ICON_STR: redo_shape,
+    SAVE_LAYOUT_ICON_STR: save_layout_shape,
+    LOAD_LAYOUT_ICON_STR: load_layout_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 

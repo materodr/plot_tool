@@ -671,7 +671,7 @@ When loading a layout, the app must limit the saved x-axis range to the time ran
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00235 Unusable values in a layout
-When loading a layout, the app must replace a value it cannot use with the value it would use for a new item: a curve width that is not one of the preset widths 1 to 5 with width 1 (LLFR-00052), a color that is not valid or is already used in the plot with the next color of LLFR-00033 and LLFR-00034, and a tab name that is empty or already used with a name as in LLFR-00210. It must not create the plots of a tab beyond the maximum of HLFR-00018.
+When loading a layout, the app must replace a value it cannot use with the value it would use for a new item: a curve width that is not one of the preset widths 1 to 5 with width 1 (LLFR-00052), a color that is not valid or is already used in the plot with the next color of LLFR-00033 and LLFR-00034, and a tab name that is empty, is not a text or is the name of an earlier tab of the same layout file with a name as in LLFR-00210. It must not create the plots of a tab beyond the maximum of HLFR-00018. A tab name of the file that is valid but is already the name of another tab, for example a kept tab (LLFR-00229), must also be replaced with a name as in LLFR-00210, but this replacement must not be listed in the load report and must not on its own cause the report to be shown (LLFR-00237).
 
 Note: Such values appear only when the file was edited by hand.
 

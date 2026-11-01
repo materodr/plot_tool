@@ -20,7 +20,8 @@ DISABLED_BORDER_COLOR_STR = theme.DISABLED_BORDER_COLOR_STR
 
 class UndoButton(ActionButton):
     """Action button with a paler look while disabled (LLFR-00141,
-    LLFR-00194); used for the Undo and the Redo buttons.
+    LLFR-00194); used for the Undo and the Redo buttons, and for the
+    Save layout and Load layout buttons (LLFR-00218).
 
     Inputs:
         text_str: the button's name, "Undo" or "Redo".
