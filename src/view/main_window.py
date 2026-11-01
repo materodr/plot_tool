@@ -431,7 +431,9 @@ class MainWindow(QMainWindow):
             dialog.deleteLater()
 
     def ask_second_signal(self, title_str: str, prompt_str: str,
-                          name_list: list, selected_name_str: str):
+                          name_list: list, selected_name_str: str,
+                          search_function=None,
+                          no_match_text_str: str = ""):
         """Ask for the second signal of a product.
 
         Inputs:
@@ -439,11 +441,16 @@ class MainWindow(QMainWindow):
             prompt_str: the question.
             name_list: the names to choose from.
             selected_name_str: the name selected at first.
+            search_function: text -> the names of name_list that match
+                it, in the order to show them; None shows every name.
+            no_match_text_str: the text shown when no name matches.
         Outputs: the chosen name, or None when the user cancelled.
         """
-        # LLFR-00275: the second signal dialog.
+        # LLFR-00275, LLFR-00285: the second signal dialog, with its
+        # search box.
         dialog = synthetic_dialogs.build_second_signal_dialog(
-            self, title_str, prompt_str, name_list, selected_name_str)
+            self, title_str, prompt_str, name_list, selected_name_str,
+            search_function, no_match_text_str)
         try:
             if not self.run_modal_dialog(dialog):
                 return None

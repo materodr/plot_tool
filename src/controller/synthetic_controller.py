@@ -25,7 +25,11 @@ must offer:
   then the chosen id; returns that value_list when accepted, or None
   when cancelled;
 - ``ask_second_signal(title_str, prompt_str, name_list,
-  selected_name_str)``: the chosen name, or None when cancelled;
+  selected_name_str, search_function, no_match_text_str)``: the chosen
+  name, or None when cancelled; the dialog has a search box, and
+  ``search_function(text_str)`` returns the names of name_list that
+  match the typed text, in the order to show them (LLFR-00285);
+  no_match_text_str is shown when it returns none;
 - ``ask_delete_synthetic_signal(name_str, dependent_name_list)``: True
   when the user proceeds;
 - ``ask_synthetic_signal_name(current_name_str)``: the typed name, or
@@ -40,6 +44,7 @@ from model.errors import (
     EmptySyntheticNameError, SyntheticNameInUseError, SyntheticSignalError)
 from model.number_format import format_signal_value
 from model.layout_file import RENAMED_SIGNAL_LINE_STR
+from model.signal_search import NO_MATCH_TEXT_STR, search_signals
 from model.synthetic_signals import (
     LayoutSignalLoader, SyntheticSignalStore)
 
@@ -133,9 +138,11 @@ class SyntheticController:
         plot_controller.set_synthetic_store(self.store)
         # LLFR-00252: a new data file removes every synthetic signal.
         file_controller.add_file_opened_listener(self.on_file_opened)
-        # LLFR-00239, LLFR-00268: the operations of the menu, in groups.
+        # LLFR-00239, LLFR-00268: the operations of the menu, in groups,
+        # each with its abbreviation in parentheses.
         view.set_synthetic_operation_groups([
-            (group_str, [(operation.operation_str, operation.label_str)
+            (group_str, [(operation.operation_str,
+                          operation.menu_label_str)
                          for operation in operation_list])
             for group_str, operation_list
             in operations.operation_group_list()])
@@ -442,10 +449,23 @@ class SyntheticController:
         # including the right-clicked one.
         name_list = [name_str for name_str in self.signal_list_name_list()
                      if not self.store.is_fft(name_str)]
+
+        def matching_names(text_str: str) -> list:
+            """Return the dialog's signals that match the typed text.
+
+            Inputs:
+                text_str: the text of the dialog's search box.
+            Outputs: the matching names of name_list, in the order of
+                the search of the signal list panel.
+            """
+            # LLFR-00285: the same search, rules and order as the signal
+            # list panel (LLFR-00095 to LLFR-00102, LLFR-00105).
+            return search_signals(name_list, str(text_str))
+
         chosen_name_str = self.view.ask_second_signal(
             operation.label_str,
             SECOND_SIGNAL_PROMPT_STR.format(name=source_name_str),
-            name_list, source_name_str)
+            name_list, source_name_str, matching_names, NO_MATCH_TEXT_STR)
         if chosen_name_str is None or chosen_name_str not in name_list:
             return None
         return str(chosen_name_str)

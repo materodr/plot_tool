@@ -5,7 +5,7 @@
   constant of a Comparison or Arithmetic operation, LLFR-00272). It
   stays open, and says why, while the typed value is not allowed.
 - SecondSignalDialog: asks for the second signal of a "Product with
-  signal" (LLFR-00275).
+  signal" (LLFR-00275), with a search box above the list (LLFR-00285).
 
 The view does not import the model (COR-00009): the controller gives
 the prompt, which states the allowed ranges, the fields, and a check
@@ -25,6 +25,9 @@ from view import theme
 
 # LLFR-00245: the dialogs are wide enough for the stated range.
 MINIMUM_DIALOG_WIDTH_I = 380
+# LLFR-00285: hint shown in the empty search box of the second signal
+# dialog.
+SEARCH_PLACEHOLDER_TEXT_STR = "Search signals"
 
 
 class ParameterDialog(QDialog):
@@ -234,20 +237,41 @@ class ParameterDialog(QDialog):
 class SecondSignalDialog(QDialog):
     """Dialog that lists the signals a product can be computed with.
 
+    Above the list there is a search box (LLFR-00285). The dialog does
+    not search by itself (COR-00009): each time the text changes, it
+    asks search_function for the names to show, so that the rules and
+    the order are those of the signal list panel's search.
+
+    Enter in the search box presses OK, which accepts the selected
+    signal. After each change of the text, the selected signal is kept
+    when it is still shown, and otherwise the first signal shown is
+    selected, so Enter takes the best match. When no signal is shown,
+    nothing is selected and Enter (or OK) does nothing.
+
     Inputs:
         parent: parent widget, or None.
         title_str: the window title ("Product with signal").
         prompt_str: the question.
         name_list: the signal names to choose from, in list order.
         selected_name_str: the name selected when the dialog opens.
+        search_function: function text -> list of the names of
+            name_list that match it, in the order to show them; None
+            shows every name whatever the text.
+        no_match_text_str: the text shown when no name matches
+            ("No matching signals").
     Attributes:
         prompt_label: the label with the question.
-        signal_list_widget: the QListWidget with the names.
+        search_box: the QLineEdit above the list, with the keyboard
+            focus when the dialog opens.
+        signal_list_widget: the QListWidget with the names shown.
+        no_match_label: the label shown when no name matches.
         button_box: the OK and Cancel buttons.
     """
 
     def __init__(self, parent, title_str: str, prompt_str: str,
-                 name_list: list, selected_name_str: str) -> None:
+                 name_list: list, selected_name_str: str,
+                 search_function=None,
+                 no_match_text_str: str = "") -> None:
         """Create the dialog, not shown.
 
         Inputs:
@@ -256,6 +280,8 @@ class SecondSignalDialog(QDialog):
             prompt_str: the question.
             name_list: the names to choose from.
             selected_name_str: the name selected at first.
+            search_function: text -> matching names, or None.
+            no_match_text_str: the text shown when nothing matches.
         Outputs: none.
         """
         super().__init__(parent)
@@ -263,19 +289,24 @@ class SecondSignalDialog(QDialog):
         self.setWindowTitle(title_str)
         self.setModal(True)
         self.setMinimumWidth(MINIMUM_DIALOG_WIDTH_I)
+        self.all_name_list = [str(name_str) for name_str in name_list]
+        self.search_function = search_function
         dialog_layout = QVBoxLayout(self)
         self.prompt_label = QLabel(prompt_str)
         self.prompt_label.setObjectName("second_signal_prompt_label")
         self.prompt_label.setWordWrap(True)
+        # LLFR-00285: the search box is above the list of signals.
+        self.search_box = QLineEdit()
+        self.search_box.setObjectName("second_signal_search_box")
+        self.search_box.setPlaceholderText(SEARCH_PLACEHOLDER_TEXT_STR)
+        self.search_box.setClearButtonEnabled(True)
         self.signal_list_widget = QListWidget()
         self.signal_list_widget.setObjectName("second_signal_list")
-        self.signal_list_widget.addItems([str(name_str)
-                                          for name_str in name_list])
-        for row_i, name_str in enumerate(name_list):
-            if name_str == selected_name_str:
-                self.signal_list_widget.setCurrentRow(row_i)
-        if self.signal_list_widget.currentRow() < 0 and name_list:
-            self.signal_list_widget.setCurrentRow(0)
+        # LLFR-00285, LLFR-00097: the text shown when nothing matches.
+        self.no_match_label = QLabel(str(no_match_text_str))
+        self.no_match_label.setObjectName("second_signal_no_match_label")
+        self.no_match_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.no_match_label.hide()
         self.button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel)
@@ -286,8 +317,76 @@ class SecondSignalDialog(QDialog):
         self.signal_list_widget.itemDoubleClicked.connect(
             lambda *_: self.try_accept())
         dialog_layout.addWidget(self.prompt_label)
+        dialog_layout.addWidget(self.search_box)
         dialog_layout.addWidget(self.signal_list_widget, 1)
+        dialog_layout.addWidget(self.no_match_label)
         dialog_layout.addWidget(self.button_box)
+        # LLFR-00285, LLFR-00096: an empty search shows every signal.
+        self.show_names(self.all_name_list, str(selected_name_str))
+        # LLFR-00285, LLFR-00095: filter each time the text changes.
+        self.search_box.textChanged.connect(self.on_search_text_changed)
+        # LLFR-00285: the keyboard focus starts in the search box.
+        self.search_box.setFocus()
+        self.setFocusProxy(self.search_box)
+
+    def show_names(self, shown_name_list: list,
+                   selected_name_str: str) -> None:
+        """Show some of the names in the list and select one.
+
+        Inputs:
+            shown_name_list: the names to show, in order.
+            selected_name_str: the name to select when it is shown;
+                otherwise the first name shown is selected.
+        Outputs: none.
+        """
+        # LLFR-00285: the list holds only the matching signals.
+        self.signal_list_widget.clear()
+        self.signal_list_widget.addItems(shown_name_list)
+        for row_i, name_str in enumerate(shown_name_list):
+            if name_str == selected_name_str:
+                self.signal_list_widget.setCurrentRow(row_i)
+        if self.signal_list_widget.currentRow() < 0 and shown_name_list:
+            self.signal_list_widget.setCurrentRow(0)
+        # LLFR-00285, LLFR-00097: "No matching signals" when none is
+        # shown; the list itself is then empty.
+        self.no_match_label.setVisible(not shown_name_list)
+
+    def on_search_text_changed(self, text_str: str) -> None:
+        """Show only the signals that match the new search text.
+
+        Inputs:
+            text_str: the text now in the search box.
+        Outputs: none.
+        """
+        # LLFR-00285: the same rules and order as the signal list panel.
+        if self.search_function is None:
+            shown_name_list = list(self.all_name_list)
+        else:
+            shown_name_list = [str(name_str) for name_str
+                               in self.search_function(str(text_str))]
+        selected_name_str = self.chosen_name() or ""
+        self.show_names(shown_name_list, selected_name_str)
+
+    def set_search_text(self, text_str: str) -> None:
+        """Type a text in the search box.
+
+        Inputs:
+            text_str: the text.
+        Outputs: none.
+        """
+        # LLFR-00285: as if the user typed it.
+        self.search_box.setText(str(text_str))
+
+    def no_match_text(self) -> str:
+        """Return the text shown when no signal matches.
+
+        Inputs: none.
+        Outputs: the text, or "" while it is hidden.
+        """
+        # LLFR-00285, LLFR-00097: "No matching signals".
+        if self.no_match_label.isHidden():
+            return ""
+        return self.no_match_label.text()
 
     def name_list(self) -> list:
         """Return the names listed in the dialog.
@@ -295,7 +394,7 @@ class SecondSignalDialog(QDialog):
         Inputs: none.
         Outputs: a list of str, from top to bottom.
         """
-        # LLFR-00275: every signal except the FFT signals.
+        # LLFR-00275, LLFR-00285: the signals shown, without FFTs.
         return [self.signal_list_widget.item(row_i).text()
                 for row_i in range(self.signal_list_widget.count())]
 
@@ -332,7 +431,8 @@ class SecondSignalDialog(QDialog):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00275: OK needs a chosen signal.
+        # LLFR-00275: OK needs a chosen signal; LLFR-00285: with no
+        # matching signal, OK and Enter do nothing.
         if self.chosen_name() is None:
             return
         self.accept()
@@ -358,8 +458,10 @@ def build_parameter_dialog(parent, title_str: str, prompt_str: str,
 
 
 def build_second_signal_dialog(parent, title_str: str, prompt_str: str,
-                               name_list: list,
-                               selected_name_str: str) -> SecondSignalDialog:
+                               name_list: list, selected_name_str: str,
+                               search_function=None,
+                               no_match_text_str: str = ""
+                               ) -> SecondSignalDialog:
     """Build the dialog that asks for the second signal, not shown.
 
     Inputs:
@@ -368,11 +470,15 @@ def build_second_signal_dialog(parent, title_str: str, prompt_str: str,
         prompt_str: the question.
         name_list: the names to choose from.
         selected_name_str: the name selected at first.
+        search_function: text -> matching names, or None.
+        no_match_text_str: the text shown when nothing matches.
     Outputs: the SecondSignalDialog.
     """
-    # LLFR-00275: the list of the signals a product can use.
+    # LLFR-00275, LLFR-00285: the signals a product can use, with a
+    # search box.
     return SecondSignalDialog(parent, title_str, prompt_str, name_list,
-                              selected_name_str)
+                              selected_name_str, search_function,
+                              no_match_text_str)
 
 
 def run_dialog(dialog) -> bool:

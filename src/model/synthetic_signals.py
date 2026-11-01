@@ -8,9 +8,9 @@ data file holds them in creation order.
 
 Public API:
 
-- ``synthetic_name(operation_str, source_name_list, time_range_tuple,
+- ``synthetic_name(operation_str, source_name_list, parameter,
   used_name_set)``: the name of a new synthetic signal (LLFR-00240,
-  LLFR-00241).
+  LLFR-00241); ``base_synthetic_name`` gives it before LLFR-00241.
 - ``SyntheticSignal``: one synthetic signal.
 - ``SyntheticSignalStore``: create, look up, rename and delete
   synthetic signals, and turn them into layout file entries and back.
@@ -32,8 +32,12 @@ object with these keys:
 - ``"operation"``: the operation id (string), one of ``integral``,
   ``derivative``, ``lowpass``, ``highpass``, ``movingaverage``, ``max``,
   ``min``, ``greater``, ``less``, ``greaterorequal``, ``lessorequal``,
-  ``add``, ``subtract``, ``multiply``, ``divide``, ``product`` (an
-  ``fft`` entry is reported and not created, LLFR-00283);
+  ``add``, ``subtract``, ``multiply``, ``divide``, ``abs``, ``product``
+  (an ``fft`` entry is reported and not created, LLFR-00283). These ids
+  are not the abbreviations of the menu (LLFR-00268) that start the
+  signal names (LLFR-00240): they stay as they were, so that older
+  layout files, whose entries hold the older names, still load with the
+  names they saved;
 - ``"signals"``: the current names of the signals it is computed from
   (list of strings; two names for ``product``, the right-clicked signal
   first, one name otherwise);
@@ -49,7 +53,7 @@ Example::
 
     [
       {
-        "name": "lowpass_Speed",
+        "name": "lpf_2.5Hz_order2_Speed",
         "operation": "lowpass",
         "signals": [
           "Speed"
@@ -61,10 +65,10 @@ Example::
         }
       },
       {
-        "name": "product_lowpass_Speed_Torque",
+        "name": "lpf_2.5Hz_order2_Speed_prod_Torque",
         "operation": "product",
         "signals": [
-          "lowpass_Speed",
+          "lpf_2.5Hz_order2_Speed",
           "Torque"
         ],
         "parameter": null
@@ -84,7 +88,7 @@ from model import synthetic_operations as operations
 from model.errors import (
     EmptySyntheticNameError, SyntheticEntryError, SyntheticNameInUseError,
     SyntheticSignalError, SyntheticSourceError)
-from model.number_format import format_time_value
+from model.number_format import format_signal_value, format_time_value
 
 # LLFR-00227: keys of a layout file entry of a synthetic signal.
 NAME_KEY_STR = "name"
@@ -106,8 +110,71 @@ FFT_NOT_LOADED_STR = "FFT signals are not loaded from layout files."
 FIRST_SUFFIX_NUMBER_I = 2
 
 
+def parameter_name_part(operation_str: str, parameter) -> str:
+    """Return the part of a synthetic name that shows the parameter.
+
+    Inputs:
+        operation_str: the operation id, e.g. "lowpass".
+        parameter: the checked parameter of the operation (see
+            model.synthetic_operations), or None.
+    Outputs: "" for the operations without a parameter (and for the
+        product, whose second signal is a source); else the text that
+        LLFR-00240 puts between the abbreviation and the source name:
+        "<constant>", "<cutoff>Hz_order<order>", "<window>samples" or
+        "<start>s_to_<end>s". Numbers are in the number format of the
+        data tip values (LLFR-00043, LLFR-00044), which never holds a
+        space.
+    """
+    # LLFR-00240: the parameter in the data tip number format; how a
+    # filter starts is never part of the name.
+    kind_str = operations.find_operation(operation_str).parameter_kind_str
+    if kind_str == operations.CONSTANT_PARAMETER_STR:
+        return format_signal_value(parameter)
+    if kind_str == operations.FILTER_PARAMETER_STR:
+        cutoff_hz, order_i = parameter[0], parameter[1]
+        return f"{format_signal_value(cutoff_hz)}Hz_order{int(order_i)}"
+    if kind_str == operations.WINDOW_PARAMETER_STR:
+        return f"{int(parameter)}samples"
+    if kind_str == operations.TIME_RANGE_PARAMETER_STR:
+        # LLFR-00240: the FFT time range, as the data tip's x value.
+        start_s, end_s = parameter
+        return (f"{format_time_value(start_s)}s_to_"
+                f"{format_time_value(end_s)}s")
+    return ""
+
+
+def base_synthetic_name(operation_str: str, source_name_list: list,
+                        parameter) -> str:
+    """Return the name of LLFR-00240, before LLFR-00241 is applied.
+
+    Inputs:
+        operation_str: the operation id, e.g. "integral".
+        source_name_list: the current names of the signals it is
+            computed from (two for "product", the right-clicked signal
+            first).
+        parameter: the checked parameter of the operation, or None.
+    Outputs: ``<abbreviation>_<signal>``,
+        ``<abbreviation>_<parameter>_<signal>``, or for a product
+        ``<first>_prod_<second>``.
+    """
+    # LLFR-00240: the abbreviation of the menu (LLFR-00268) and the full
+    # current name of each source, so that chains build up from left to
+    # right.
+    abbreviation_str = operations.find_operation(
+        operation_str).abbreviation_str
+    source_list = [str(name_str) for name_str in source_name_list]
+    if operation_str == operations.PRODUCT_STR:
+        # LLFR-00240: <right-clicked signal>_prod_<second signal>.
+        return "_".join([source_list[0], abbreviation_str] + source_list[1:])
+    parameter_str = parameter_name_part(operation_str, parameter)
+    part_list = [abbreviation_str]
+    if parameter_str:
+        part_list.append(parameter_str)
+    return "_".join(part_list + source_list)
+
+
 def synthetic_name(operation_str: str, source_name_list: list,
-                   time_range_tuple, used_name_set: set) -> str:
+                   parameter, used_name_set: set) -> str:
     """Return the name of a new synthetic signal.
 
     Inputs:
@@ -115,22 +182,17 @@ def synthetic_name(operation_str: str, source_name_list: list,
         source_name_list: the current names of the signals it is
             computed from (two for "product", the right-clicked signal
             first).
-        time_range_tuple: (start_s, end_s) for "fft", else None.
+        parameter: the checked parameter of the operation (the time
+            range (start_s, end_s) for "fft"), or None.
         used_name_set: the names of every signal in the signal list
             (data file and synthetic signals).
-    Outputs: ``<operation>_<source>`` (``product_<first>_<second>``,
-        ``fft_<source>_<start>s_to_<end>s``), followed by ``_2``,
+    Outputs: the name of base_synthetic_name, followed by ``_2``,
         ``_3``... (the smallest number from 2 up) when the name is
         already used.
     """
-    # LLFR-00240: operation name, underscore, full current source names.
-    base_name_str = "_".join([operation_str] + list(source_name_list))
-    if operation_str == operations.FFT_STR:
-        # LLFR-00240: FFT names end with the time range, in the number
-        # format of the data tip's x value (LLFR-00043).
-        start_s, end_s = time_range_tuple
-        base_name_str += (f"_{format_time_value(start_s)}s_to_"
-                          f"{format_time_value(end_s)}s")
+    # LLFR-00240: abbreviation, parameter and full current source names.
+    base_name_str = base_synthetic_name(operation_str, source_name_list,
+                                        parameter)
     # LLFR-00241: smallest number from 2 up that makes the name unique.
     return unique_name(base_name_str, used_name_set)
 

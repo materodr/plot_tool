@@ -7,9 +7,10 @@ their input arrays and always return new float64 arrays.
 Public API (used by model.synthetic_signals and the user interface):
 
 - ``OPERATION_DICT``: operation id -> SyntheticOperation (menu label,
-  group, parameter kind). The operation id is also the name prefix of
-  the synthetic signal (LLFR-00240) and the ``operation`` value of the
-  layout file entries (LLFR-00225).
+  abbreviation, group, parameter kind). The operation id is the
+  ``operation`` value of the layout file entries (LLFR-00225); it is not
+  the abbreviation, which the menu shows in parentheses (LLFR-00268) and
+  which starts the names of the synthetic signals (LLFR-00240).
 - ``OPERATION_GROUP_LIST``: the menu groups of LLFR-00268, in order, as
   tuples (group label, tuple of operation ids).
 - ``operation_group_list()``: the same groups with SyntheticOperation
@@ -17,7 +18,8 @@ Public API (used by model.synthetic_signals and the user interface):
 - The operations: ``integral``, ``derivative``, ``lowpass``,
   ``highpass``, ``moving_average``, ``maximum``, ``minimum``,
   ``greater``, ``less``, ``greater_or_equal``, ``less_or_equal``,
-  ``add``, ``subtract``, ``multiply``, ``divide``, ``product``, ``fft``.
+  ``add``, ``subtract``, ``multiply``, ``divide``, ``absolute``,
+  ``product``, ``fft``.
 - The parameter rules for the dialogs: ``sampling_rate_hz``,
   ``allowed_cutoff_range_hz``, ``allowed_filter_order_range`` (and
   ``DEFAULT_FILTER_ORDER_I``, the order the filter dialog starts with),
@@ -55,7 +57,9 @@ from model.errors import (
     UnevenTimeStepError)
 from model.number_format import format_signal_value
 
-# LLFR-00240: operation ids, which are also the synthetic name prefixes.
+# LLFR-00225: operation ids, the "operation" values of the layout file
+# entries. They are kept as they were before the abbreviations of
+# LLFR-00268, so that older layout files still load.
 INTEGRAL_STR = "integral"
 DERIVATIVE_STR = "derivative"
 LOWPASS_STR = "lowpass"
@@ -71,6 +75,7 @@ ADD_STR = "add"
 SUBTRACT_STR = "subtract"
 MULTIPLY_STR = "multiply"
 DIVIDE_STR = "divide"
+ABSOLUTE_STR = "abs"
 PRODUCT_STR = "product"
 FFT_STR = "fft"
 
@@ -116,9 +121,12 @@ class SyntheticOperation:
     """One operation of the "Create synthetic signal" menu (LLFR-00268).
 
     Inputs:
-        operation_str: the operation id, which is also the name prefix
-            of the synthetic signal (LLFR-00240), e.g. "lowpass".
-        label_str: the menu label, e.g. "Low-pass filter".
+        operation_str: the operation id of the layout file entries
+            (LLFR-00225), e.g. "lowpass".
+        label_str: the operation's name, e.g. "Low-pass filter", also
+            the title of its parameter dialog.
+        abbreviation_str: the abbreviation that starts the names of its
+            synthetic signals (LLFR-00240), e.g. "lpf".
         group_str: the menu group, e.g. "Filters".
         parameter_kind_str: one of the *_PARAMETER_STR kinds.
         source_count_i: number of signals it is computed from (2 for
@@ -127,48 +135,64 @@ class SyntheticOperation:
 
     operation_str: str
     label_str: str
+    abbreviation_str: str
     group_str: str
     parameter_kind_str: str
     source_count_i: int = 1
 
+    @property
+    def menu_label_str(self) -> str:
+        """Return the text of the operation in the menu.
 
-# LLFR-00268: the menu groups and their operations, in menu order.
+        Inputs: none.
+        Outputs: the name followed by the abbreviation in parentheses,
+            e.g. "Low-pass filter (lpf)".
+        """
+        # LLFR-00268: each operation shows its abbreviation.
+        return f"{self.label_str} ({self.abbreviation_str})"
+
+
+# LLFR-00268: the menu groups and their operations, in menu order:
+# (operation id, name, abbreviation, parameter kind).
 OPERATION_TABLE_TUPLE = (
     ("Calculus", (
-        (INTEGRAL_STR, "Integral", NO_PARAMETER_STR),
-        (DERIVATIVE_STR, "Derivative", NO_PARAMETER_STR))),
+        (INTEGRAL_STR, "Integral", "int", NO_PARAMETER_STR),
+        (DERIVATIVE_STR, "Derivative", "der", NO_PARAMETER_STR))),
     ("Filters", (
-        (LOWPASS_STR, "Low-pass filter", FILTER_PARAMETER_STR),
-        (HIGHPASS_STR, "High-pass filter", FILTER_PARAMETER_STR),
-        (MOVING_AVERAGE_STR, "Moving average", WINDOW_PARAMETER_STR))),
+        (LOWPASS_STR, "Low-pass filter", "lpf", FILTER_PARAMETER_STR),
+        (HIGHPASS_STR, "High-pass filter", "hpf", FILTER_PARAMETER_STR),
+        (MOVING_AVERAGE_STR, "Moving average", "mavg",
+         WINDOW_PARAMETER_STR))),
     ("Statistics", (
-        (MAXIMUM_STR, "Max", NO_PARAMETER_STR),
-        (MINIMUM_STR, "Min", NO_PARAMETER_STR))),
+        (MAXIMUM_STR, "Max", "max", NO_PARAMETER_STR),
+        (MINIMUM_STR, "Min", "min", NO_PARAMETER_STR))),
     ("Comparison", (
-        (GREATER_STR, "Greater than", CONSTANT_PARAMETER_STR),
-        (LESS_STR, "Less than", CONSTANT_PARAMETER_STR),
-        (GREATER_OR_EQUAL_STR, "Greater than or equal",
+        (GREATER_STR, "Greater than", "gt", CONSTANT_PARAMETER_STR),
+        (LESS_STR, "Less than", "lt", CONSTANT_PARAMETER_STR),
+        (GREATER_OR_EQUAL_STR, "Greater than or equal", "ge",
          CONSTANT_PARAMETER_STR),
-        (LESS_OR_EQUAL_STR, "Less than or equal",
+        (LESS_OR_EQUAL_STR, "Less than or equal", "le",
          CONSTANT_PARAMETER_STR))),
     ("Arithmetic", (
-        (ADD_STR, "Add constant", CONSTANT_PARAMETER_STR),
-        (SUBTRACT_STR, "Subtract constant", CONSTANT_PARAMETER_STR),
-        (MULTIPLY_STR, "Multiply by constant", CONSTANT_PARAMETER_STR),
-        (DIVIDE_STR, "Divide by constant", CONSTANT_PARAMETER_STR),
-        (PRODUCT_STR, "Product with signal",
+        (ADD_STR, "Add constant", "add", CONSTANT_PARAMETER_STR),
+        (SUBTRACT_STR, "Subtract constant", "sub", CONSTANT_PARAMETER_STR),
+        (MULTIPLY_STR, "Multiply by constant", "mul",
+         CONSTANT_PARAMETER_STR),
+        (DIVIDE_STR, "Divide by constant", "div", CONSTANT_PARAMETER_STR),
+        (ABSOLUTE_STR, "Absolute value", "abs", NO_PARAMETER_STR),
+        (PRODUCT_STR, "Product with signal", "prod",
          SECOND_SIGNAL_PARAMETER_STR))),
     ("Spectrum", (
-        (FFT_STR, "FFT", TIME_RANGE_PARAMETER_STR),)),
+        (FFT_STR, "FFT", "fft", TIME_RANGE_PARAMETER_STR),)),
 )
 
 # LLFR-00268: operation id -> SyntheticOperation, in menu order.
 OPERATION_DICT = {
     operation_str: SyntheticOperation(
-        operation_str, label_str, group_str, kind_str,
+        operation_str, label_str, abbreviation_str, group_str, kind_str,
         2 if kind_str == SECOND_SIGNAL_PARAMETER_STR else 1)
     for group_str, row_tuple in OPERATION_TABLE_TUPLE
-    for operation_str, label_str, kind_str in row_tuple}
+    for operation_str, label_str, abbreviation_str, kind_str in row_tuple}
 
 # LLFR-00268: (group label, operation ids) in menu order.
 OPERATION_GROUP_LIST = [
@@ -194,7 +218,7 @@ def find_operation(operation_str: str) -> SyntheticOperation:
     """Return the operation with the given id.
 
     Inputs:
-        operation_str: an operation id of LLFR-00240, e.g. "integral".
+        operation_str: an operation id of LLFR-00225, e.g. "integral".
     Outputs: its SyntheticOperation.
     Raises: SyntheticOperationError when the id is not known.
     """
@@ -590,6 +614,17 @@ def divide(value_array, constant_f: float) -> np.ndarray:
     return as_float_array(value_array) / constant_f
 
 
+def absolute(value_array) -> np.ndarray:
+    """Return the absolute value of a signal.
+
+    Inputs:
+        value_array: the signal samples.
+    Outputs: the absolute value of each sample.
+    """
+    # LLFR-00284: "Absolute value", sample by sample.
+    return np.abs(as_float_array(value_array))
+
+
 def product(first_array, second_array) -> np.ndarray:
     """Return two signals multiplied sample by sample.
 
@@ -865,7 +900,7 @@ def compute(operation_str: str, time_array, source_array_list: list,
     Raises: SyntheticSignalError subclasses when the operation can't be
         done.
     """
-    # LLFR-00243 to LLFR-00276: dispatch to the operation.
+    # LLFR-00243 to LLFR-00276, LLFR-00284: dispatch to the operation.
     first_array = source_array_list[0]
     operation_function_dict = {
         INTEGRAL_STR: lambda: integral(time_array, first_array),
@@ -887,6 +922,7 @@ def compute(operation_str: str, time_array, source_array_list: list,
         SUBTRACT_STR: lambda: subtract(first_array, parameter),
         MULTIPLY_STR: lambda: multiply(first_array, parameter),
         DIVIDE_STR: lambda: divide(first_array, parameter),
+        ABSOLUTE_STR: lambda: absolute(first_array),
         PRODUCT_STR: lambda: product(first_array, source_array_list[-1]),
     }
     find_operation(operation_str)
