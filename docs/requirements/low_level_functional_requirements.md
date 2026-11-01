@@ -910,7 +910,7 @@ Note: Plots in tabs that are not shown don't need the preview.
 *Parent: HLFR-00028*
 
 ### LLFR-00205 Markers on every plot
-Every vertical marker must be shown on every plot in every tab, including plots created after the marker. Moving (LLFR-00086), renaming (LLFR-00088) or deleting (LLFR-00091) a marker on any plot must apply to it on every plot; while a marker is dragged, it must follow the pointer on every plot of the current tab, and on the plots of the other tabs it must be at its new time at the latest when the button is released. When no plot is left in any tab, whether because a plot is deleted (LLFR-00049, LLFR-00051), a tab is deleted (LLFR-00028) or the file is replaced (LLFR-00015), the app must delete every vertical marker, as part of the same action, so that undoing that action (LLFR-00138) brings the markers back.
+Every vertical marker must be shown on every plot in every tab, including plots created after the marker. Moving (LLFR-00086), renaming (LLFR-00088) or deleting (LLFR-00091) a marker on any plot must apply to it on every plot; while a marker is dragged, it must follow the pointer on every plot of the current tab, and on the plots of the other tabs it must be at its new time at the latest when the button is released. When no plot is left in any tab, whether because a plot is deleted (LLFR-00049, LLFR-00051), a tab is deleted (LLFR-00028) or the file is replaced (LLFR-00015), the app must delete every vertical marker. When the cause is deleting a plot or a tab, the markers must be deleted as part of that same action, so that undoing it (LLFR-00138) brings the markers back.
 
 Note: Each of these remains one undoable action (LLFR-00140).
 
@@ -959,7 +959,7 @@ On macOS, the app must zoom in when the user's fingers move up on the trackpad a
 *Parent: HLFR-00027*
 
 ### LLFR-00208 Time span selection
-While the Zoom button (LLFR-00077) is active and the user presses the left mouse button on a plot and drags the mouse 5 pixels or more, the app must show a horizontal dashed line at the height of the press, from the time of the press to the time under the pointer, with a short vertical line at each end, in the reserved marker color (LLFR-00083, LLFR-00172).
+While the Zoom button (LLFR-00077) is active and the user presses the left mouse button on a plot and moves the pointer 5 pixels or more from where the button was pressed, the app must show a horizontal dashed line at the height of the press, from the time of the press to the time under the pointer, with a short vertical line at each end, in the reserved marker color (LLFR-00083, LLFR-00172).
 
 *Parent: HLFR-00027*
 
