@@ -1,4 +1,4 @@
-"""Number formats of the values the plots show (no Qt needed).
+"""Texts of the values the plots show (no Qt needed).
 
 The hover and pinned tips, the vertical marker times and the delta
 marker values all format their numbers here, so that a delta marker
@@ -6,33 +6,14 @@ shows its value "in the same number format as the tip" (LLFR-00169,
 LLFR-00171).
 """
 
-# LLFR-00043, LLFR-00044: 6 significant digits, as Python's "g" format.
-VALUE_FORMAT_STR = ".6g"
+# LLFR-00043, LLFR-00044: the number formats live in the model, so
+# that the names of FFT signals (LLFR-00240) use the same time format.
+from model.number_format import (  # noqa: F401 (re-exported)
+    VALUE_FORMAT_STR, format_signal_value, format_time_value)
+
 # LLFR-00169, LLFR-00171: "Δ" is a plain Unicode character, drawn by the
 # plot fonts (every font of view.theme.PLOT_FONT_FAMILY_LIST has it).
 DELTA_SIGN_STR = "Δ"
-
-
-def format_time_value(time_s: float) -> str:
-    """Return a time as the tips show it, without the unit.
-
-    Inputs:
-        time_s: the time, in seconds.
-    Outputs: the number with 6 significant digits.
-    """
-    # LLFR-00043: the tip's x value.
-    return format(float(time_s), VALUE_FORMAT_STR)
-
-
-def format_signal_value(value_f: float) -> str:
-    """Return a y-axis value as the tips show it.
-
-    Inputs:
-        value_f: the value, as stored in the file.
-    Outputs: the number with 6 significant digits.
-    """
-    # LLFR-00044: the tip's y value, without a unit.
-    return format(float(value_f), VALUE_FORMAT_STR)
 
 
 def format_time_text(time_s: float) -> str:
