@@ -63,15 +63,17 @@ the axes, so a full draw, the PDF export (LLFR-00129) and the copied
 image (LLFR-00133) never contain it.
 
 With the Zoom tool, a left press on the drawing area starts a candidate
-(LLFR-00078, LLFR-00208). While the pointer stays less than 5 pixels
-from the press point, the release is a click zoom on the pressed time.
-Once it gets 5 pixels or more away, the press becomes a time span
-selection: a dashed horizontal line at the height of the press, from
-the pressed time to the time under the pointer (clamped to the drawing
-area), with a short vertical tick at each end. It is drawn by the same
-blitting as the marker preview, so it never appears in a full draw, the
-PDF export or the copied image. The release zooms every plot to the
-selected span (LLFR-00209), limited to the file's time range.
+(LLFR-00078, LLFR-00208). Once the pointer gets 5 pixels or more away
+from the press point, a time span selection is shown: a dashed
+horizontal line at the height of the press, from the pressed time to
+the time under the pointer (clamped to the drawing area), with a short
+vertical tick at each end. It is drawn by the same blitting as the
+marker preview, so it never appears in a full draw, the PDF export or
+the copied image. Only the release point decides what the press does:
+a release less than 5 pixels from the press point is a click zoom on
+the pressed time, even after the pointer went further away (the line
+is then removed); any other release zooms every plot to the selected
+span (LLFR-00209), limited to the file's time range.
 
 On macOS, a wheel event whose delta the system inverted ("natural
 scrolling") is turned back to the physical direction, so that fingers
@@ -3212,11 +3214,11 @@ class PlotWidget(QWidget):
             the range changed.
         """
         # LLFR-00078, LLFR-00209: a release less than 5 pixels from the
-        # press (and never moved that far) is a click zoom.
+        # press is a click zoom on the pressed point, wherever the
+        # pointer went in between; the line, if shown, is removed.
         if not self.time_span_drag_b:
             return
-        if not self.time_span_shown_b and not self.span_reached_b(
-                widget_point):
+        if not self.span_reached_b(widget_point):
             press_point = QPoint(self.span_press_point)
             self.cancel_time_span()
             self.click_at(press_point)
@@ -3239,8 +3241,12 @@ class PlotWidget(QWidget):
         selected_b = self.time_span_shown_b
         span_start_s, span_end_s = sorted((self.span_press_time_s,
                                            self.span_end_time_s))
+        press_point = QPoint(self.span_press_point)
         self.cancel_time_span()
         if not selected_b:
+            # LLFR-00078: a lost release before the pointer got 5 pixels
+            # away is a click on the pressed point.
+            self.click_at(press_point)
             return
         # LLFR-00209, LLFR-00119: the span is limited to the file's time
         # range; a span of zero width after that does nothing.

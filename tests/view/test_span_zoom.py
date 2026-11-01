@@ -240,25 +240,36 @@ class ClickOrSpanTest(SpanWidgetTestCase):
                 press_point + QPoint(0, 5)))
             self.plot_widget.cancel_time_span()
 
-    @covers("LLFR-00208")
-    def test_back_within_5_pixels_stays_a_span(self) -> None:
-        """Once the line is shown, coming back near the press point and
-        releasing there does not turn the span into a click zoom.
+    @covers("LLFR-00078", "LLFR-00208", "LLFR-00209")
+    def test_release_back_within_5_pixels_is_a_click_zoom(self) -> None:
+        """After the line was shown, a release less than 5 pixels from
+        the press (sideways or straight back) removes the line and is
+        the 95% click zoom around the pressed time, emitted once.
 
         Inputs: none.
         Outputs: none.
         """
         from PyQt6.QtCore import QPoint
-        press_point = self.point_at(5.0, 0.0)
-        self.left_press(press_point)
-        self.move_to(press_point + QPoint(40, 0))
-        self.assertTrue(self.plot_widget.time_span_line_shown())
-        self.move_to(press_point + QPoint(0, 2))
-        self.left_release(press_point + QPoint(0, 2))
-        # A span of zero width: nothing zooms, no click zoom either.
-        self.assertEqual(self.range_list, [])
-        self.assertEqual(self.plot_widget.time_range_tuple(), (0.0, 10.0))
-        self.assertFalse(self.plot_widget.time_span_line_shown())
+        for offset_tuple in ((3, 0), (0, 2)):
+            with self.subTest(offset=offset_tuple):
+                self.plot_widget.set_time_range(0.0, 10.0)
+                self.draw()
+                self.range_list.clear()
+                press_point = self.point_at(5.0, 0.0)
+                pressed_s = self.plot_widget.time_at(press_point)
+                release_point = press_point + QPoint(*offset_tuple)
+                self.left_press(press_point)
+                self.move_to(press_point + QPoint(40, 0))
+                self.assertTrue(self.plot_widget.time_span_line_shown())
+                self.move_to(release_point)
+                self.left_release(release_point)
+                self.assertFalse(self.plot_widget.time_span_line_shown())
+                self.assertFalse(
+                    self.plot_widget.is_mouse_drag_in_progress())
+                self.assertEqual(len(self.range_list), 1)
+                start_s, end_s = self.plot_widget.time_range_tuple()
+                self.assertAlmostEqual(end_s - start_s, 9.5)
+                self.assertAlmostEqual((start_s + end_s) / 2.0, pressed_s)
 
     @covers("LLFR-00078", "LLFR-00208")
     def test_press_outside_the_drawing_area_does_nothing(self) -> None:
@@ -688,6 +699,38 @@ class SpanInteractionTest(SpanWidgetTestCase):
         self.assertFalse(self.plot_widget.time_span_line_shown())
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
         self.assert_range(2.0, 6.0)
+
+    @covers("LLFR-00078", "LLFR-00208")
+    def test_lost_release_before_5_pixels_is_a_click_zoom(self) -> None:
+        """A press, a 3 pixel move with the button held, then a move
+        without it (the release was lost): a click zoom at the press.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
+        from PyQt6.QtGui import QMouseEvent
+        canvas = self.plot_widget.canvas
+        press_point = self.point_at(5.0, 0.0)
+        pressed_s = self.plot_widget.time_at(press_point)
+        for event_type, offset_x_i, button, buttons in (
+                (QEvent.Type.MouseButtonPress, 0, Qt.MouseButton.LeftButton,
+                 Qt.MouseButton.LeftButton),
+                (QEvent.Type.MouseMove, 3, Qt.MouseButton.NoButton,
+                 Qt.MouseButton.LeftButton),
+                (QEvent.Type.MouseMove, 3, Qt.MouseButton.NoButton,
+                 Qt.MouseButton.NoButton)):
+            local_point = QPointF(canvas.mapFrom(
+                self.plot_widget, press_point + QPoint(offset_x_i, 0)))
+            self.application.sendEvent(canvas, QMouseEvent(
+                event_type, local_point,
+                QPointF(canvas.mapToGlobal(local_point)), button, buttons,
+                Qt.KeyboardModifier.NoModifier))
+        self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
+        self.assertEqual(len(self.range_list), 1)
+        start_s, end_s = self.plot_widget.time_range_tuple()
+        self.assertAlmostEqual(end_s - start_s, 9.5)
+        self.assertAlmostEqual((start_s + end_s) / 2.0, pressed_s)
 
 
 @requires_qt
