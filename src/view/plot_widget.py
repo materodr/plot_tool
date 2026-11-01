@@ -277,6 +277,10 @@ class PlotWidget(QWidget):
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_time_s = 0.0
         self.drag_moved_b = False
+        # LLFR-00086: x pixel of the press, and the time from the mouse
+        # to the line, so the grabbed line does not jump to the mouse.
+        self.drag_press_x_i = 0
+        self.drag_offset_s = 0.0
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
         self.plot_tool_str = NO_TOOL_STR
         self.hover_point_tuple = ()
@@ -1313,6 +1317,9 @@ class PlotWidget(QWidget):
                 self.drag_marker_id_i = marker_id_i
                 self.drag_time_s = self.marker_time_s(marker_id_i)
                 self.drag_moved_b = False
+                self.drag_press_x_i = widget_point.x()
+                self.drag_offset_s = (self.drag_time_s
+                                      - self.time_at(widget_point))
                 return
         self.click_at(widget_point)
 
@@ -1321,12 +1328,14 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: the time under the point, in seconds, clamped to the
-            time range shown, so the marker never leaves the plot.
+        Outputs: the time under the point plus the grab offset, in
+            seconds, clamped to the time range shown, so the marker never
+            leaves the plot.
         """
         # LLFR-00086: the marker moves along the x-axis with the mouse.
         start_s, end_s = sorted(self.time_range_tuple())
-        return min(max(self.time_at(widget_point), start_s), end_s)
+        time_s = self.time_at(widget_point) + self.drag_offset_s
+        return min(max(time_s, start_s), end_s)
 
     def drag_to(self, widget_point) -> None:
         """Move the dragged marker to the time under a point.
@@ -1337,6 +1346,10 @@ class PlotWidget(QWidget):
         """
         # LLFR-00086, LLFR-00093: line, label and time follow the mouse.
         if self.drag_marker_id_i == NO_MARKER_ID_I:
+            return
+        # LLFR-00086: until the mouse leaves the pressed pixel column,
+        # nothing moves (a press and release is not a drag).
+        if not self.drag_moved_b and widget_point.x() == self.drag_press_x_i:
             return
         time_s = self.drag_time_s_at(widget_point)
         if time_s == self.drag_time_s:
