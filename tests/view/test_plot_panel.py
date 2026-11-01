@@ -421,19 +421,24 @@ class FacadeTest(PlotPanelTestCase):
         self.main_window.draw_plot(999, [], [])
 
     @covers("LLFR-00070", "HLFR-00014")
-    def test_zoom_in_one_plot_applies_to_tab(self) -> None:
-        """A user zoom in one plot gives the same range to its tab.
+    def test_zoom_in_one_plot_applies_to_every_tab(self) -> None:
+        """A user zoom in one plot gives the same range to every tab.
 
         Inputs: none.
         Outputs: none.
         """
-        for name_str in ("speed", "force"):
-            self.main_window.signal_double_click_handler(name_str)
+        self.main_window.signal_double_click_handler("speed")
+        first_tab_id_i = self.panel.current_tab_id()
+        self.panel.request_add_tab()
+        self.main_window.signal_double_click_handler("force")
+        hidden_plot_id_i = self.panel.plot_id_list(first_tab_id_i)[0]
+        self.main_window.signal_double_click_handler("speed")
         first, second = self.current_page().plot_widget_list
         first.time_range_changed.emit(0.5, 1.5)
-        start_s, end_s = second.time_range_tuple()
-        self.assertAlmostEqual(start_s, 0.5)
-        self.assertAlmostEqual(end_s, 1.5)
+        for plot_id_i in (second.plot_id_i, hidden_plot_id_i):
+            start_s, end_s = self.main_window.plot_time_range(plot_id_i)
+            self.assertAlmostEqual(start_s, 0.5)
+            self.assertAlmostEqual(end_s, 1.5)
 
     @covers("LLFR-00019", "LLFR-00024")
     def test_unknown_ids_are_ignored(self) -> None:

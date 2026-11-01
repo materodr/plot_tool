@@ -20,8 +20,8 @@ class UndoHistoryTest(unittest.TestCase):
         Outputs: none.
         """
         history = UndoHistory()
-        self.assertEqual(MAXIMUM_UNDO_DEPTH_I, 5)
-        self.assertEqual(history.maximum_depth_i, 5)
+        self.assertEqual(MAXIMUM_UNDO_DEPTH_I, 20)
+        self.assertEqual(history.maximum_depth_i, 20)
         self.assertFalse(history.can_undo())
         self.assertEqual(history.depth(), 0)
         with self.assertRaises(IndexError):
@@ -42,21 +42,21 @@ class UndoHistoryTest(unittest.TestCase):
         self.assertFalse(history.can_undo())
 
     @covers("LLFR-00139")
-    def test_keeps_only_the_five_most_recent(self) -> None:
-        """After 7 records only the last 5 can be undone, oldest dropped.
+    def test_keeps_only_the_twenty_most_recent(self) -> None:
+        """After 22 records only the last 20 can be undone, oldest dropped.
 
         Inputs: none.
         Outputs: none.
         """
         history = UndoHistory()
-        for index_i in range(7):
+        for index_i in range(22):
             history.record(index_i)
-            self.assertLessEqual(history.depth(), 5)
-        self.assertEqual(history.depth(), 5)
+            self.assertLessEqual(history.depth(), 20)
+        self.assertEqual(history.depth(), 20)
         popped_list = []
         while history.can_undo():
             popped_list.append(history.pop())
-        self.assertEqual(popped_list, [6, 5, 4, 3, 2])
+        self.assertEqual(popped_list, list(range(21, 1, -1)))
 
     @covers("LLFR-00139")
     def test_recording_after_undo_continues(self) -> None:

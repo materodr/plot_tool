@@ -20,7 +20,7 @@ from tests.controller.test_plot_controller import (
 
 
 class ResetZoomControllerTest(PlotControllerTestCase):
-    """Reset zoom sets the whole file range in the current tab only."""
+    """Reset zoom sets the whole file range in every plot of every tab."""
 
     def reset_zoom(self) -> None:
         """Run the Reset zoom handler as the button does.
@@ -31,16 +31,18 @@ class ResetZoomControllerTest(PlotControllerTestCase):
         self.view.handler_dict["reset_zoom"]()
 
     def zoom_tab(self, tab_id_i: int, start_s: float, end_s: float) -> None:
-        """Give every plot of a tab a zoomed range, as the view would.
+        """Zoom the first plot of a tab as the view would report it.
 
         Inputs:
             tab_id_i: id of the tab.
             start_s: start of the range, in seconds.
             end_s: end of the range, in seconds.
-        Outputs: none.
+        Outputs: none. The controller shares the range with every plot.
         """
-        for plot in self.workspace.find_tab(tab_id_i).plot_list:
-            self.view.range_dict[plot.plot_id_i] = (start_s, end_s)
+        plot_id_i = self.workspace.find_tab(tab_id_i).plot_list[0].plot_id_i
+        self.view.set_plot_time_range(plot_id_i, start_s, end_s)
+        self.view.handler_dict["time_range_handler"](plot_id_i, start_s,
+                                                     end_s)
 
     @covers("LLFR-00115", "LLFR-00070")
     def test_reset_sets_the_file_range_on_every_plot_of_the_tab(
@@ -65,34 +67,35 @@ class ResetZoomControllerTest(PlotControllerTestCase):
         self.assertEqual(self.view.method_names(),
                          ["set_plot_time_range"] * 3)
 
-    @covers("LLFR-00115")
-    def test_reset_leaves_other_tabs_unchanged(self) -> None:
-        """Plots of a tab that is not the current one keep their zoom.
+    @covers("LLFR-00115", "LLFR-00070", "LLFR-00180")
+    def test_reset_applies_to_every_tab(self) -> None:
+        """Plots of the tabs that are not shown are reset too.
 
         Inputs: none.
         Outputs: none.
         """
         self.double_click("s1")
         first_tab_id_i = self.first_tab_id()
-        self.zoom_tab(first_tab_id_i, 1.0, 2.0)
         self.view.handler_dict["add_tab"]()
         second_tab_id_i = self.view.current_tab_id()
         self.double_click("s2")
         self.double_click("s3")
         self.zoom_tab(second_tab_id_i, 4.0, 6.0)
+        for tab_id_i in (first_tab_id_i, second_tab_id_i):
+            for plot in self.workspace.find_tab(tab_id_i).plot_list:
+                self.assertEqual(self.view.range_dict[plot.plot_id_i],
+                                 (4.0, 6.0))
         self.reset_zoom()
-        for plot in self.workspace.find_tab(second_tab_id_i).plot_list:
-            self.assertEqual(self.view.range_dict[plot.plot_id_i],
-                             (0.0, 10.0))
-        for plot in self.workspace.find_tab(first_tab_id_i).plot_list:
-            self.assertEqual(self.view.range_dict[plot.plot_id_i],
-                             (1.0, 2.0))
-        # Back on the first tab, a reset resets that one.
+        for tab_id_i in (first_tab_id_i, second_tab_id_i):
+            for plot in self.workspace.find_tab(tab_id_i).plot_list:
+                self.assertEqual(self.view.range_dict[plot.plot_id_i],
+                                 (0.0, 10.0))
+        # A plot created after the reset starts at the whole range.
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
         self.view.set_current_tab(first_tab_id_i)
-        self.reset_zoom()
-        for plot in self.workspace.find_tab(first_tab_id_i).plot_list:
-            self.assertEqual(self.view.range_dict[plot.plot_id_i],
-                             (0.0, 10.0))
+        self.view.call_list.clear()
+        self.double_click("s4")
+        self.assertNotIn("set_plot_time_range", self.view.method_names())
 
     @covers("LLFR-00115")
     def test_reset_uses_first_and_last_time_sample(self) -> None:
@@ -128,17 +131,20 @@ class ResetZoomControllerTest(PlotControllerTestCase):
         self.assertEqual(view.call_list, [])
 
     @covers("LLFR-00115")
-    def test_reset_with_unknown_current_tab_does_nothing(self) -> None:
-        """A stale current tab id is ignored (PCR-00025).
+    def test_reset_does_not_depend_on_the_current_tab(self) -> None:
+        """A stale current tab id still resets every plot (PCR-00025).
 
         Inputs: none.
         Outputs: none.
         """
         self.double_click("s1")
+        plot_id_i = self.current_plot_ids()[0]
+        self.zoom_tab(self.first_tab_id(), 2.0, 3.0)
         self.view.current_tab_id_i = 9999
         self.view.call_list.clear()
         self.reset_zoom()
-        self.assertEqual(self.view.call_list, [])
+        self.assertEqual(self.view.call_list,
+                         [("set_plot_time_range", plot_id_i, 0.0, 10.0)])
 
     @covers("LLFR-00115", "LLFR-00109")
     def test_reset_keeps_the_plot_tool(self) -> None:

@@ -881,6 +881,308 @@ class NavigationEndToEndTest(unittest.TestCase):
         self.assertEqual(first_widget.time_range_tuple(),
                          second_widget.time_range_tuple())
 
+    @covers("LLFR-00115", "LLFR-00070", "LLFR-00076")
+    def test_reset_zoom_resets_every_tab(self) -> None:
+        """The plots of the tabs that are not shown are reset too.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        self.main_window.signal_double_click_handler("angle")
+        self.process_events()
+        self.zoom_current_tab()
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.process_events()
+        self.assertEqual(len(self.all_plot_widgets()), 3)
+        for plot_widget in self.all_plot_widgets():
+            start_s, end_s = plot_widget.time_range_tuple()
+            self.assertLess(end_s - start_s, 4.0)
+        self.click(self.top_panel.reset_zoom_button)
+        self.process_events()
+        for plot_widget in self.all_plot_widgets():
+            self.assertEqual(plot_widget.time_range_tuple(), (0.0, 4.0))
+            # LLFR-00076: the y-axis fits the whole curve again.
+            low_f, high_f = plot_widget.axes.get_ylim()
+            curve_value_array = plot_widget.curve_data_list[0][2]
+            self.assertLessEqual(low_f, float(np.min(curve_value_array)))
+            self.assertGreaterEqual(high_f,
+                                    float(np.max(curve_value_array)))
+
+    @covers("LLFR-00070", "LLFR-00180", "HLFR-00014")
+    def test_zoom_in_one_tab_shows_in_the_other_tab(self) -> None:
+        """After a zoom in tab 1, the plots of tab 2 show the same range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        second_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.signal_double_click_handler("angle")
+        self.process_events()
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.process_events()
+        self.zoom_current_tab()
+        zoomed_tuple = self.plot_widgets()[0].time_range_tuple()
+        self.assertLess(zoomed_tuple[1] - zoomed_tuple[0], 4.0)
+        self.main_window.set_current_tab(second_tab_id_i)
+        self.process_events()
+        other_widget = self.plot_widgets()[0]
+        for index_i in range(2):
+            self.assertAlmostEqual(other_widget.time_range_tuple()[index_i],
+                                   zoomed_tuple[index_i])
+        self.assertAlmostEqual(
+            self.main_window.plot_time_range(
+                other_widget.plot_id_i)[0], zoomed_tuple[0])
+        # LLFR-00180: a new plot in that tab takes the shared range.
+        self.main_window.signal_double_click_handler("speed")
+        self.process_events()
+        new_widget = self.plot_widgets()[1]
+        for index_i in range(2):
+            self.assertAlmostEqual(new_widget.time_range_tuple()[index_i],
+                                   zoomed_tuple[index_i])
+        # LLFR-00076: y fits the visible part of the new curve.
+        visible_array = np.linspace(zoomed_tuple[0], zoomed_tuple[1],
+                                    11) * 2.0
+        low_f, high_f = new_widget.axes.get_ylim()
+        self.assertLessEqual(low_f, float(np.min(visible_array)) + 1e-9)
+        self.assertGreaterEqual(high_f,
+                                float(np.max(visible_array)) - 1e-9)
+        self.assertLess(high_f - low_f, 8.0)
+
+    @covers("LLFR-00116", "LLFR-00001", "LLFR-00003")
+    def test_finished_action_waits_for_the_minimum_time(self) -> None:
+        """Finishing at once still shows the active color 100 ms.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view.toggle_button import ACTIVE_COLOR_STR, NORMAL_COLOR_STR
+        start_s = time.monotonic()
+        self.button.click()
+        self.assertEqual(len(self.trigger_list), 1)
+        self.assertTrue(self.button.is_active())
+        self.assertEqual(self.button.current_background_color_str(),
+                         ACTIVE_COLOR_STR)
+        self.button.finish()
+        self.assertTrue(self.button.is_active())
+        normal_s = self.wait_until_normal()
+        self.assertFalse(self.button.is_active())
+        self.assertEqual(self.button.current_background_color_str(),
+                         NORMAL_COLOR_STR)
+        self.assertGreaterEqual(normal_s - start_s, 0.1)
+
+    @covers("LLFR-00116", "LLFR-00003")
+    def test_unfinished_action_keeps_the_button_active(self) -> None:
+        """Past the minimum time the button waits for finish.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtTest import QTest
+        self.button.click()
+        QTest.qWait(250)
+        self.assertTrue(self.button.is_active())
+        self.button.finish()
+        self.assertFalse(self.button.is_active())
+
+    @covers("LLFR-00116", "LLFR-00001")
+    def test_click_while_active_runs_again_and_stays_active(self) -> None:
+        """A second click is a new run, never a deactivation.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtTest import QTest
+        self.button.click()
+        self.button.finish()
+        QTest.qWait(60)
+        second_click_s = time.monotonic()
+        self.button.click()
+        self.assertTrue(self.button.is_active())
+        self.assertEqual(len(self.trigger_list), 2)
+        self.button.finish()
+        normal_s = self.wait_until_normal()
+        self.assertFalse(self.button.is_active())
+        self.assertGreaterEqual(normal_s - second_click_s, 0.1)
+
+
+@requires_qt
+class NavigationEndToEndTest(unittest.TestCase):
+    """Reset zoom, Grid and pan through MainWindow and the controllers."""
+
+    def setUp(self) -> None:
+        """Create the window and controllers, open a file, add 2 plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+        from controller.main_controller import MainController
+        from view.main_window import MainWindow
+        self.main_window = MainWindow()
+        self.main_window.resize(1100, 800)
+        self.controller = MainController(self.main_window)
+        self.controller.start()
+        self.plot_controller = self.controller.plot_controller
+        self.plot_controller.on_file_opened(self.make_file(4.0), False)
+        self.top_panel = self.main_window.top_panel
+        self.main_window.show()
+        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("force")
+        self.process_events()
+
+    def tearDown(self) -> None:
+        """Close the window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.close()
+        self.main_window.deleteLater()
+        self.process_events()
+
+    def make_file(self, end_s: float):
+        """Build an in-memory file whose time runs from 0 to end_s.
+
+        Inputs:
+            end_s: the last time sample, in seconds.
+        Outputs: a SignalFile with Time, speed, force and angle.
+        """
+        from model.signal_file import SignalFile
+        time_array = np.linspace(0.0, end_s, 41)
+        return SignalFile("memory.csv", {
+            "Time": time_array, "speed": time_array * 2.0,
+            "force": np.sin(time_array), "angle": np.cos(time_array)})
+
+    def process_events(self) -> None:
+        """Let Qt lay out and draw the plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for _ in range(3):
+            self.application.processEvents()
+        for plot_widget in self.main_window.plot_panel.plot_widget_dict.\
+                values():
+            plot_widget.canvas.draw()
+
+    def plot_widgets(self) -> list:
+        """Return the plot widgets of the current tab, top to bottom.
+
+        Inputs: none.
+        Outputs: a list of PlotWidget.
+        """
+        panel = self.main_window.plot_panel
+        return list(panel.page_dict[panel.current_tab_id()]
+                    .plot_widget_list)
+
+    def all_plot_widgets(self) -> list:
+        """Return the plot widgets of every tab.
+
+        Inputs: none.
+        Outputs: a list of PlotWidget.
+        """
+        return list(self.main_window.plot_panel.plot_widget_dict.values())
+
+    def click(self, button) -> None:
+        """Click a button with the left mouse button.
+
+        Inputs:
+            button: the QPushButton.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+
+    def wait_until_normal(self, button) -> float:
+        """Process events until a button is normal; return the time.
+
+        Inputs:
+            button: the ToggleButton to watch.
+        Outputs: the monotonic time when the button was seen normal.
+        """
+        from PyQt6.QtTest import QTest
+        deadline_s = time.monotonic() + MAXIMUM_WAIT_TIME_S
+        while button.is_active() and time.monotonic() < deadline_s:
+            QTest.qWait(5)
+        return time.monotonic()
+
+    def zoom_current_tab(self) -> None:
+        """Zoom the current tab in with the wheel in the first plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_widget = self.plot_widgets()[0]
+        first_widget.wheel_at(first_widget.data_to_widget_point(1.0, 0.0),
+                              10.0)
+        self.process_events()
+
+    @covers("LLFR-00114", "LLFR-00121", "LLFR-00147")
+    def test_buttons_exist_after_the_plot_tools(self) -> None:
+        """Reset zoom and Grid follow Vertical marker, both inactive.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view.action_button import ActionButton
+        from view.toggle_button import ToggleButton
+        reset_button = self.top_panel.reset_zoom_button
+        grid_button = self.top_panel.grid_button
+        self.assertIsInstance(reset_button, ActionButton)
+        self.assertIsInstance(grid_button, ToggleButton)
+        self.assertEqual(reset_button.text(), "Reset zoom")
+        self.assertEqual(grid_button.text(), "Grid")
+        for button in (reset_button, grid_button):
+            self.assertTrue(button.isVisible())
+            self.assertIs(button.parentWidget(), self.top_panel)
+            self.assertFalse(button.is_active())
+            self.assertNotIn(button,
+                             self.top_panel.plot_tool_button_dict.values())
+        layout = self.top_panel.button_layout
+        index_list = [layout.indexOf(button) for button in (
+            self.top_panel.marker_button, reset_button, grid_button)]
+        self.assertEqual(index_list, sorted(index_list))
+        self.assertGreater(reset_button.x(),
+                           self.top_panel.marker_button.x())
+        self.assertGreater(grid_button.x(), reset_button.x())
+        # LLFR-00147: the grid is hidden at start.
+        self.assertFalse(self.main_window.is_grid_shown())
+        self.assertFalse(self.plot_controller.grid_shown_b)
+        for plot_widget in self.all_plot_widgets():
+            self.assertFalse(plot_widget.grid_shown())
+
+    @covers("LLFR-00115", "LLFR-00070", "LLFR-00076")
+    def test_reset_zoom_shows_the_whole_range_in_the_tab(self) -> None:
+        """All plots of the tab go back to 0..4 s with the start y.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        start_ylim_list = [plot_widget.axes.get_ylim()
+                           for plot_widget in self.plot_widgets()]
+        self.zoom_current_tab()
+        for plot_widget in self.plot_widgets():
+            start_s, end_s = plot_widget.time_range_tuple()
+            self.assertLess(end_s - start_s, 4.0)
+        self.click(self.top_panel.reset_zoom_button)
+        self.process_events()
+        for plot_widget, start_ylim_tuple in zip(self.plot_widgets(),
+                                                 start_ylim_list):
+            self.assertEqual(plot_widget.time_range_tuple(), (0.0, 4.0))
+            for index_i in range(2):
+                self.assertAlmostEqual(plot_widget.axes.get_ylim()[index_i],
+                                       start_ylim_tuple[index_i])
+        # A zoom after the reset is shared again by the tab.
+        self.zoom_current_tab()
+        first_widget, second_widget = self.plot_widgets()
+        self.assertEqual(first_widget.time_range_tuple(),
+                         second_widget.time_range_tuple())
+
     @covers("LLFR-00115")
     def test_reset_zoom_leaves_other_tabs_zoomed(self) -> None:
         """Only the current tab is reset.
