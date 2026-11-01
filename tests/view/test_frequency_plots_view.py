@@ -16,7 +16,8 @@ import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
 
-from controller.plot_tools import MARKER_TOOL_STR, TIP_TOOL_STR
+from controller.plot_tools import (
+    MARKER_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 from model.workspace import FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR
 
 WIDGET_WIDTH_I = 600
@@ -181,6 +182,75 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
                                                start_point.y()))
         self.assertAlmostEqual(range_list[-1][0], 0.0)
         self.assertAlmostEqual(range_list[-1][1], 5.0)
+
+    def axes_edge_point(self, right_b: bool, outside_px_i: int):
+        """Return a widget point beside the left or right axes edge.
+
+        Inputs:
+            right_b: True for the right edge, False for the left one.
+            outside_px_i: widget pixels beyond the edge.
+        Outputs: QPoint in the widget's coordinates, at mid height.
+        """
+        from PyQt6.QtCore import QPoint
+        box = self.plot_widget.axes.bbox
+        edge_point = self.plot_widget.display_to_widget_point(
+            box.x1 if right_b else box.x0, (box.y0 + box.y1) / 2.0)
+        offset_i = outside_px_i if right_b else -outside_px_i
+        return QPoint(edge_point.x() + offset_i, edge_point.y())
+
+    def span_zoom(self, press_point, release_point) -> None:
+        """Select a span with the Zoom tool, from a press to a release.
+
+        Inputs:
+            press_point: QPoint of the press, on the drawing area.
+            release_point: QPoint of the release.
+        Outputs: none.
+        """
+        self.plot_widget.span_press_at(press_point)
+        self.plot_widget.span_drag_to(release_point)
+        self.plot_widget.span_release_at(release_point)
+        self.draw()
+
+    @covers("LLFR-00258", "LLFR-00209", "LLFR-00208")
+    def test_span_zoom_stays_in_the_frequency_range(self) -> None:
+        """A span dragged past an edge stops at 0 Hz or at the highest
+        frequency.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        range_list = self.recorder(self.plot_widget.time_range_changed)
+        self.plot_widget.set_plot_tool(ZOOM_TOOL_STR)
+        # At the whole range, the edges are 0 Hz and 25 Hz.
+        self.span_zoom(self.plot_widget.data_to_widget_point(10.0, 0.5),
+                       self.axes_edge_point(False, 40))
+        self.assertEqual(len(range_list), 1)
+        start_hz, end_hz = range_list[-1]
+        self.assertAlmostEqual(start_hz, 0.0, places=9)
+        self.assertAlmostEqual(end_hz, 10.0, delta=0.2)
+        self.plot_widget.set_time_range(0.0, 25.0)
+        self.draw()
+        self.span_zoom(self.plot_widget.data_to_widget_point(15.0, 0.5),
+                       self.axes_edge_point(True, 40))
+        start_hz, end_hz = range_list[-1]
+        self.assertAlmostEqual(start_hz, 15.0, delta=0.2)
+        self.assertAlmostEqual(end_hz, 25.0, places=9)
+        # Shown wider than its frequency range, the span is still cut
+        # to 0 Hz and to the highest frequency.
+        self.plot_widget.set_time_range(-10.0, 35.0)
+        self.draw()
+        self.span_zoom(self.plot_widget.data_to_widget_point(10.0, 0.5),
+                       self.axes_edge_point(False, 40))
+        self.assertEqual(range_list[-1][0], 0.0)
+        self.assertAlmostEqual(range_list[-1][1], 10.0, delta=0.3)
+        self.plot_widget.set_time_range(-10.0, 35.0)
+        self.draw()
+        self.span_zoom(self.plot_widget.data_to_widget_point(15.0, 0.5),
+                       self.axes_edge_point(True, 40))
+        self.assertAlmostEqual(range_list[-1][0], 15.0, delta=0.3)
+        self.assertEqual(range_list[-1][1], 25.0)
+        self.assertEqual(self.plot_widget.time_range_tuple(),
+                         range_list[-1])
 
     @covers("LLFR-00259", "LLFR-00203", "LLFR-00205", "LLFR-00081")
     def test_no_marker_and_no_preview(self) -> None:
@@ -427,6 +497,58 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         self.assertEqual(frequency_widget.time_range_tuple()[0], 0.0)
         self.assertAlmostEqual(frequency_widget.time_range_tuple()[1],
                                SAMPLE_RATE_HZ / 2.0)
+
+    @covers("LLFR-00258", "LLFR-00209", "LLFR-00070")
+    def test_span_zooms_stay_apart(self) -> None:
+        """A span zoom of a frequency plot leaves the time plots alone,
+        and a span zoom of a time plot leaves the frequency plot alone.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        fft_name_str = self.create_fft()
+        time_widget = self.double_click("Torque")
+        other_time_widget = self.double_click("Speed")
+        frequency_widget = self.double_click(fft_name_str)
+        self.plot_controller.on_plot_tool_changed(ZOOM_TOOL_STR)
+        self.application.processEvents()
+        for plot_widget in (time_widget, other_time_widget,
+                            frequency_widget):
+            plot_widget.canvas.draw()
+        time_range_tuple = time_widget.time_range_tuple()
+        # Span zoom of the frequency plot, from 1 Hz to 6 Hz.
+        press_point = frequency_widget.data_to_widget_point(1.0, 0.5)
+        release_point = frequency_widget.data_to_widget_point(6.0, 0.5)
+        frequency_widget.span_press_at(press_point)
+        frequency_widget.span_drag_to(release_point)
+        frequency_widget.span_release_at(release_point)
+        self.application.processEvents()
+        start_hz, end_hz = frequency_widget.time_range_tuple()
+        self.assertAlmostEqual(start_hz, 1.0, delta=0.2)
+        self.assertAlmostEqual(end_hz, 6.0, delta=0.2)
+        frequency_plot = self.plot_controller.workspace.find_plot(
+            frequency_widget.plot_id_i)
+        self.assertEqual(frequency_plot.frequency_range_tuple,
+                         (start_hz, end_hz))
+        self.assertEqual(time_widget.time_range_tuple(), time_range_tuple)
+        self.assertEqual(other_time_widget.time_range_tuple(),
+                         time_range_tuple)
+        self.assertEqual(self.plot_controller.shared_time_range_tuple, ())
+        # Span zoom of a time plot, from 2 s to 5 s: every time plot.
+        time_widget.canvas.draw()
+        press_point = time_widget.data_to_widget_point(2.0, 10.0)
+        release_point = time_widget.data_to_widget_point(5.0, 10.0)
+        time_widget.span_press_at(press_point)
+        time_widget.span_drag_to(release_point)
+        time_widget.span_release_at(release_point)
+        self.application.processEvents()
+        zoomed_tuple = time_widget.time_range_tuple()
+        self.assertAlmostEqual(zoomed_tuple[0], 2.0, delta=0.1)
+        self.assertAlmostEqual(zoomed_tuple[1], 5.0, delta=0.1)
+        self.assertEqual(other_time_widget.time_range_tuple(),
+                         zoomed_tuple)
+        self.assertEqual(frequency_widget.time_range_tuple(),
+                         (start_hz, end_hz))
 
     @covers("LLFR-00259", "LLFR-00203", "LLFR-00205")
     def test_markers_skip_the_frequency_plot(self) -> None:
