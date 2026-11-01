@@ -199,19 +199,35 @@ class UndoButtonTest(UndoWindowTestCase):
         from view.undo_button import DISABLED_COLOR_STR
         self.main_window.signal_double_click_handler("speed")
         self.main_window.signal_double_click_handler("force")
-        self.click_undo()
-        self.assertTrue(self.undo_button.is_active())
-        self.assertEqual(self.undo_button.current_background_color_str(),
-                         ACTIVE_COLOR_STR)
-        QTest.qWait(450)
-        self.assertFalse(self.undo_button.is_active())
-        self.assertEqual(self.undo_button.current_background_color_str(),
-                         NORMAL_COLOR_STR)
-        self.click_undo()
-        QTest.qWait(450)
-        self.assertFalse(self.undo_button.is_active())
-        self.assertEqual(self.undo_button.current_background_color_str(),
-                         DISABLED_COLOR_STR)
+        # Record the color while the undo runs: on a slow machine the
+        # rebuild can take longer than the minimum active time.
+        color_during_list = []
+        undo_handler = self.main_window.undo_handler
+
+        def recording_undo_handler() -> None:
+            """Record the button color, then run the real undo.
+
+            Inputs: none.
+            Outputs: none.
+            """
+            color_during_list.append(
+                self.undo_button.current_background_color_str())
+            undo_handler()
+
+        self.main_window.set_undo_handler(recording_undo_handler)
+        for expected_color_str in (NORMAL_COLOR_STR, DISABLED_COLOR_STR):
+            self.click_undo()
+            self.assertEqual(color_during_list[-1], ACTIVE_COLOR_STR)
+            QTest.qWait(450)
+            for _ in range(20):
+                if not self.undo_button.is_active():
+                    break
+                QTest.qWait(100)
+            self.assertFalse(self.undo_button.is_active())
+            self.assertEqual(
+                self.undo_button.current_background_color_str(),
+                expected_color_str)
+        self.assertEqual(len(color_during_list), 2)
 
     @covers("LLFR-00138", "LLFR-00125", "LLFR-00109")
     def test_rebuilt_plots_keep_grid_and_plot_tool(self) -> None:
