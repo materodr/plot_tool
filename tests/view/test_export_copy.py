@@ -159,6 +159,45 @@ class ExportCopyTest(unittest.TestCase):
             self.click(self.top_panel.export_button)
         return dialog_mock
 
+    def assert_plots_still_drawn(self, plot_widget_list: list) -> None:
+        """Check that each plot's canvas still shows its plot on screen.
+
+        Inputs:
+            plot_widget_list: the PlotWidgets to check.
+        Outputs: none.
+        """
+        import numpy as np
+        self.application.processEvents()
+        for plot_widget in plot_widget_list:
+            canvas = plot_widget.canvas
+            # The stored screen image has the screen size and is not
+            # blank.
+            buffer_array = np.asarray(canvas.buffer_rgba())
+            self.assertEqual(buffer_array.shape[1],
+                             int(round(plot_widget.figure.bbox.width)))
+            self.assertEqual(buffer_array.shape[0],
+                             int(round(plot_widget.figure.bbox.height)))
+            colored_i = int((buffer_array[..., :3] < 250).any(-1).sum())
+            self.assertGreater(colored_i, 0)
+            # A repaint of the canvas shows the plot, not an empty area.
+            image = canvas.grab().toImage()
+            color_set = set()
+            for x_i in range(0, image.width(), max(image.width() // 40, 1)):
+                for y_i in range(0, image.height(),
+                                 max(image.height() // 20, 1)):
+                    color_set.add(image.pixel(x_i, y_i))
+            self.assertGreater(len(color_set), 2)
+
+    def tab_plot_widget_list(self, tab_id_i: int) -> list:
+        """Return the PlotWidgets of a tab, from top to bottom.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: a list of PlotWidget.
+        """
+        return [self.main_window.plot_view(plot_id_i) for plot_id_i in
+                self.main_window.plot_panel.plot_id_list(tab_id_i)]
+
     def box_title_list(self) -> list:
         """Return the titles of the boxes shown so far.
 
@@ -335,6 +374,64 @@ class ExportCopyTest(unittest.TestCase):
         # The plots on screen keep their resolution.
         self.assertEqual([widget.figure.dpi for widget in plot_widget_list],
                          screen_dpi_list)
+
+    @covers("LLFR-00129")
+    def test_plots_stay_drawn_after_export(self) -> None:
+        """After an export, the plots of the current and of a hidden tab
+        are still drawn on screen.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.plot_signal("speed")
+        self.plot_signal("force")
+        first_tab_id_i = self.main_window.current_tab_id()
+        second_tab_id_i = self.add_tab(SECOND_TAB_NAME_STR)
+        self.plot_signal("force")
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.application.processEvents()
+        path_str = os.path.join(self.folder_str, "drawn.pdf")
+        self.export_to(path_str)
+        self.assertTrue(os.path.isfile(path_str))
+        self.assert_plots_still_drawn(
+            self.tab_plot_widget_list(first_tab_id_i))
+        # The hidden tab is checked where it was exported, then shown.
+        self.assert_plots_still_drawn(
+            self.tab_plot_widget_list(second_tab_id_i))
+        self.main_window.set_current_tab(second_tab_id_i)
+        self.assert_plots_still_drawn(
+            self.tab_plot_widget_list(second_tab_id_i))
+
+    @covers("LLFR-00129")
+    def test_plots_stay_drawn_after_failed_render(self) -> None:
+        """A failing high-resolution render still leaves the plot drawn.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.figure import Figure
+        self.plot_signal("speed")
+        plot_widget_list = self.tab_plot_widget_list(
+            self.main_window.current_tab_id())
+        original_savefig = Figure.savefig
+
+        def failing_savefig(figure, *argument_tuple, **argument_dict):
+            """Render like savefig, then fail.
+
+            Inputs:
+                figure: the Figure being saved.
+                argument_tuple: positional arguments of savefig.
+                argument_dict: keyword arguments of savefig.
+            Outputs: none. Raises RuntimeError.
+            """
+            original_savefig(figure, *argument_tuple, **argument_dict)
+            raise RuntimeError("render failed")
+
+        with mock.patch.object(Figure, "savefig", new=failing_savefig):
+            with self.assertRaises(RuntimeError):
+                self.main_window.save_tabs_pdf(
+                    os.path.join(self.folder_str, "failed.pdf"))
+        self.assert_plots_still_drawn(plot_widget_list)
 
     @covers("LLFR-00129")
     def test_current_tab_restored_after_error(self) -> None:
@@ -609,6 +706,9 @@ class ExportCopyTest(unittest.TestCase):
                                delta=0.02)
         self.assertEqual(self.box_record_list, [])
         self.assertFalse(self.top_panel.copy_button.is_active())
+        # The copied plots are still drawn on screen.
+        self.assert_plots_still_drawn(self.tab_plot_widget_list(
+            self.main_window.current_tab_id()))
 
     @covers("LLFR-00146", "LLFR-00003")
     def test_copy_without_plots_keeps_clipboard(self) -> None:

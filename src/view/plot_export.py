@@ -126,13 +126,24 @@ def render_figure_image(figure, dpi_f: float):
         figure: the matplotlib Figure of a plot.
         dpi_f: dots per inch of the rendered image.
     Outputs: a QImage of the whole figure, with the same size in inches
-        and so the same layout as on screen.
+        and so the same layout as on screen. The figure is drawn again
+        on its canvas afterwards, at its screen resolution.
     """
     # LLFR-00129: time range, curves, legend, grid, markers and pinned
     # tips are drawn as on screen, only with more pixels.
     image_buffer = io.BytesIO()
-    figure.savefig(image_buffer, format=FIGURE_IMAGE_FORMAT_STR,
-                   dpi=dpi_f)
+    screen_dpi_f = float(figure.dpi)
+    try:
+        figure.savefig(image_buffer, format=FIGURE_IMAGE_FORMAT_STR,
+                       dpi=dpi_f)
+    finally:
+        # LLFR-00129: savefig renders on the plot's own canvas and leaves
+        # its screen image empty, so the plot is drawn again at its
+        # screen resolution and stays visible after the export, even
+        # after an error.
+        if float(figure.dpi) != screen_dpi_f:
+            figure.set_dpi(screen_dpi_f)
+        figure.canvas.draw()
     return QImage.fromData(image_buffer.getvalue(),
                            FIGURE_IMAGE_FORMAT_STR.upper())
 
