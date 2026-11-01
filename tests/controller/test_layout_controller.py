@@ -591,6 +591,33 @@ class LoadLayoutTest(LayoutControllerTestCase):
             self.assertEqual(len(self.view.marker_drawn_dict[plot_id_i]), 1)
         self.assertEqual(self.view.report_list, [])
 
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229")
+    def test_add_mode_with_default_tab_names_shows_no_report(self) -> None:
+        """Loading a layout of the same file after its own tabs renames
+        the clashing default names silently and shows no box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        handler_dict = self.view.handler_dict
+        handler_dict["double_click"]("Speed")
+        plot_id_i = self.workspace.tab_list[0].plot_list[0].plot_id_i
+        handler_dict["tip_pin_handler"](plot_id_i, "Speed", 2.0, 2.0)
+        handler_dict["plot_tool"](MARKER_TOOL_STR)
+        handler_dict["marker_place_handler"](plot_id_i, 4.0)
+        handler_dict["add_tab"]()
+        handler_dict["double_click"]("Torque")
+        path_str = self.path("same.json")
+        self.save(path_str)
+        self.load(path_str)
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2", "Tab 3", "Tab 4"])
+        self.assertEqual(len(self.workspace.tab_list[2].plot_list), 1)
+        self.assertEqual(self.view.current_tab_id(),
+                         self.workspace.tab_list[2].tab_id_i)
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual(self.view.load_error_list, [])
+
     @covers("LLFR-00231", "LLFR-00232", "LLFR-00237")
     def test_missing_signal_report(self) -> None:
         """A missing signal draws nothing; the box lists it and the data

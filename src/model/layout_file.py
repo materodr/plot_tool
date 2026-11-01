@@ -586,17 +586,22 @@ def parse_layout_text(text_str: str, path_str: str = "") -> dict:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NOT_LAYOUT_REASON_STR))
     version_value = layout_dict.get(VERSION_KEY_STR)
-    if (layout_dict.get(FORMAT_KEY_STR) != LAYOUT_FORMAT_STR
-            or isinstance(version_value, bool)
-            or not isinstance(version_value, int)
-            or version_value < 1):
+    # LLFR-00228: a whole number, also when hand-edited as 1.0.
+    version_i = 0
+    if isinstance(version_value, int) and not isinstance(version_value,
+                                                         bool):
+        version_i = int(version_value)
+    elif (isinstance(version_value, float) and math.isfinite(version_value)
+          and version_value.is_integer()):
+        version_i = int(version_value)
+    if layout_dict.get(FORMAT_KEY_STR) != LAYOUT_FORMAT_STR or version_i < 1:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NOT_LAYOUT_REASON_STR))
     # LLFR-00228: a later format may hold entries this app cannot read.
-    if version_value > LAYOUT_VERSION_I:
+    if version_i > LAYOUT_VERSION_I:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NEWER_VERSION_REASON_STR.format(
-                version=version_value, supported=LAYOUT_VERSION_I)))
+                version=version_i, supported=LAYOUT_VERSION_I)))
     return layout_dict
 
 
@@ -1043,28 +1048,43 @@ class LayoutBuilder:
         self.rebuild_delta_markers(plot, plot_entry_value, owner_str)
         return True
 
-    def tab_name(self, tab_entry, tab_number_i: int) -> str:
+    def tab_name(self, tab_entry, tab_number_i: int,
+                 file_name_set: set) -> str:
         """Return the saved name of a tab, if it can be used.
 
         Inputs:
             tab_entry: the tab entry of the file.
             tab_number_i: the position of the tab in the file, from 1.
-        Outputs: the name without surrounding spaces, or "" when it is
-            empty, not text or already the name of another tab (then
-            reported, LLFR-00235).
+            file_name_set: the stripped valid names of the earlier tabs
+                of the same file; this tab's valid name is added to it.
+        Outputs: the name without surrounding spaces, or "" when the tab
+            gets the next default name instead. A name that is not a
+            text, is empty or repeats an earlier tab of the file is
+            reported (LLFR-00235); a valid name that another tab already
+            has (a kept tab, LLFR-00229, or a tab this load named) is
+            replaced without a report.
         """
-        # LLFR-00235, LLFR-00211: a name that is not empty and that no
-        # other tab has.
         name_value = (tab_entry.get(NAME_KEY_STR)
                       if isinstance(tab_entry, dict) else None)
         if isinstance(name_value, str) and name_value.strip():
-            if not self.workspace.is_tab_name_taken(name_value):
-                return name_value.strip()
-            reason_str = "is already the name of another tab"
+            stripped_name_str = name_value.strip()
+            # LLFR-00235: a repeat within the file is a hand edit; the
+            # name is still noted so that later repeats are found too.
+            if stripped_name_str in file_name_set:
+                reason_str = ("is already the name of an earlier tab of "
+                              "the file")
+            else:
+                file_name_set.add(stripped_name_str)
+                # LLFR-00235, LLFR-00210, LLFR-00212: a valid name that
+                # another tab has is replaced silently (LLFR-00237).
+                if self.workspace.is_tab_name_taken(stripped_name_str):
+                    return ""
+                return stripped_name_str
         elif isinstance(name_value, str):
             reason_str = "is empty"
         else:
             reason_str = "is not a text"
+        # LLFR-00235, LLFR-00237: the replaced value is reported.
         self.report.add_replaced(
             f"Name {describe_value(name_value)} of tab {tab_number_i} of "
             f"the file {reason_str}; replaced by "
@@ -1078,12 +1098,15 @@ class LayoutBuilder:
             tab_entry_list: the "tabs" list of the file.
         Outputs: the id of the first created tab, -1 when none.
         """
+        # LLFR-00235: the valid names met so far in the file.
+        file_name_set = set()
         first_tab_id_i = -1
         for tab_index_i, tab_entry in enumerate(tab_entry_list):
             # LLFR-00231: every tab of the file is created, even one left
             # with no plot. LLFR-00235, LLFR-00210: a name that cannot be
             # used is replaced by the next default name.
-            name_str = self.tab_name(tab_entry, tab_index_i + 1)
+            name_str = self.tab_name(tab_entry, tab_index_i + 1,
+                                     file_name_set)
             if name_str:
                 tab = self.workspace.add_named_tab(name_str)
             else:
@@ -1226,7 +1249,9 @@ class LayoutBuilder:
         """Return the saved panel widths, if they can be used.
 
         Inputs:
-            widths_value: the "panel_widths" entry of the file.
+            widths_value: the "panel_widths" entry of the file, None when
+                it is missing or null (the app writes null when it does
+                not know the widths).
         Outputs: (plot panel width, signal list panel width) in pixels,
             or () when they are missing or not two positive whole numbers
             (reported unless missing; the widths are then left as they
@@ -1288,7 +1313,12 @@ class LayoutBuilder:
         time_range_tuple = self.time_range(
             layout_dict.get(TIME_RANGE_KEY_STR))
         # LLFR-00230: the grid and the panel widths.
-        grid_shown_b = self.grid_setting(layout_dict.get(GRID_KEY_STR))
+        # A missing "grid" or "panel_widths" entry leaves the grid or the
+        # widths as they are, without a report; a value that is there but
+        # cannot be used is reported (LLFR-00235).
+        grid_shown_b = None
+        if GRID_KEY_STR in layout_dict:
+            grid_shown_b = self.grid_setting(layout_dict[GRID_KEY_STR])
         panel_width_tuple = self.panel_widths(
             layout_dict.get(PANEL_WIDTHS_KEY_STR))
         return LayoutResult(self.report, first_tab_id_i, time_range_tuple,

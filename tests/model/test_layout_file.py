@@ -371,6 +371,15 @@ class LayoutReadTest(unittest.TestCase):
                     parse_layout_text(text_str, "x.json")
         self.assertEqual(parse_layout_text(
             '{"format": "plot_tool layout", "version": 1}')["version"], 1)
+        # LLFR-00228: a hand-edited 1.0 is version 1; 2.0 is too new.
+        parse_layout_text('{"format": "plot_tool layout", "version": 1.0}')
+        with self.assertRaises(LayoutFileError) as context:
+            parse_layout_text(
+                '{"format": "plot_tool layout", "version": 2.0}')
+        self.assertIn("version 2", str(context.exception))
+        with self.assertRaises(LayoutFileError):
+            parse_layout_text(
+                '{"format": "plot_tool layout", "version": 1.5}')
 
     @covers("LLFR-00236")
     def test_byte_order_mark_is_accepted(self) -> None:
@@ -508,7 +517,7 @@ class LayoutTabsTest(LayoutRebuildTestCase):
                          self.workspace.tab_list[0].tab_id_i)
         self.assertTrue(result.report.is_empty())
 
-    @covers("LLFR-00229", "LLFR-00235", "LLFR-00210")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00210")
     def test_tabs_added_after_tabs_with_plots(self) -> None:
         """Current tabs with a plot are kept; the file's tabs follow.
 
@@ -530,14 +539,34 @@ class LayoutTabsTest(LayoutRebuildTestCase):
                          ["Tab 1", "Tab 2", "Other"])
         self.assertEqual(result.first_tab_id_i,
                          self.workspace.tab_list[1].tab_id_i)
-        # LLFR-00235: the used name "Tab 1" was replaced and reported.
-        self.assertEqual(len(result.report.replaced_line_list), 1)
-        self.assertIn('"Tab 1"', result.report.replaced_line_list[0])
-        self.assertIn('"Tab 2"', result.report.replaced_line_list[0])
+        # LLFR-00235, LLFR-00237: the name "Tab 1" of the kept tab was
+        # replaced without a report.
+        self.assertTrue(result.report.is_empty(), result.report.text())
 
-    @covers("LLFR-00235", "LLFR-00210", "LLFR-00212")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00212")
+    def test_clash_with_kept_tab_cascades_silently(self) -> None:
+        """File tabs "Tab 1" and "Tab 2" after a kept "Tab 1" become
+        "Tab 2" and "Tab 3", with nothing to report.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_tab = self.workspace.tab_list[0]
+        self.workspace.add_plot(first_tab.tab_id_i).add_curve("Power")
+        result = self.rebuild(minimal_layout(
+            [one_plot_tab([curve("Speed")], "Tab 1"),
+             one_plot_tab([curve("Torque")], "Tab 2")]))
+        self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
+                         ["Tab 1", "Tab 2", "Tab 3"])
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        self.assertEqual(result.report.text(), "")
+
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00210",
+            "LLFR-00212")
     def test_empty_duplicate_and_wrong_type_tab_names(self) -> None:
-        """Empty, duplicate or non-text tab names get default names.
+        """Empty, non-text or repeated (within the file) tab names get
+        default names and are reported; a valid name that a tab of this
+        load already has is renamed silently.
 
         Inputs: none.
         Outputs: none.
@@ -549,15 +578,38 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         name_list = [tab.name_str for tab in self.workspace.tab_list]
         self.assertEqual(len(name_list), 6)
         self.assertEqual(len(set(name_list)), 6)
-        # LLFR-00210: "Tab 1" of the replaced tab is used up.
-        self.assertEqual(name_list[:2], ["Tab 2", "Tab 3"])
+        # LLFR-00210: "Tab 1" of the replaced tab is used up; the empty
+        # name became "Tab 2", so the file's first "Tab 2" is silently
+        # "Tab 3" and its repeat is "Tab 4".
+        self.assertEqual(name_list, ["Tab 2", "Tab 3", "Tab 4", "Tab 5",
+                                     "Tab 6", "Tab 7"])
         replaced_list = result.report.replaced_line_list
-        self.assertEqual(len(replaced_list), 6)
+        self.assertEqual(len(replaced_list), 5)
         self.assertIn("is empty", replaced_list[0])
-        self.assertIn("already", replaced_list[1])
-        self.assertIn("already", replaced_list[2])
+        self.assertIn("earlier tab of the file", replaced_list[1])
+        self.assertIn('"Tab 4"', replaced_list[1])
+        self.assertIn("not a text", replaced_list[2])
         self.assertIn("not a text", replaced_list[3])
-        self.assertIn('"Tab 3"', replaced_list[1])
+        self.assertIn("not a text", replaced_list[4])
+
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229")
+    def test_repeat_in_file_found_after_a_silent_rename(self) -> None:
+        """A valid name renamed silently still counts as met in the file,
+        so its repeat later in the file is reported.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_tab = self.workspace.tab_list[0]
+        self.workspace.add_plot(first_tab.tab_id_i).add_curve("Power")
+        result = self.rebuild(minimal_layout([
+            {"name": "Tab 1", "plots": []}, {"name": " Tab 1 ", "plots": []},
+            {"name": "Own", "plots": []}]))
+        self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
+                         ["Tab 1", "Tab 2", "Tab 3", "Own"])
+        self.assertEqual(len(result.report.replaced_line_list), 1)
+        self.assertIn("earlier tab of the file",
+                      result.report.replaced_line_list[0])
 
     @covers("LLFR-00231", "LLFR-00229")
     def test_tabs_entry_that_is_not_a_list(self) -> None:
@@ -940,11 +992,19 @@ class LayoutValueTest(LayoutRebuildTestCase):
 
     @covers("LLFR-00235", "LLFR-00230")
     def test_bad_grid_and_panel_widths(self) -> None:
-        """A grid that is not true or false and bad widths are reported.
+        """A grid that is not true or false and bad widths are reported;
+        missing entries leave both unchanged without a report.
 
         Inputs: none.
         Outputs: none.
         """
+        layout_dict = minimal_layout([])
+        del layout_dict["grid"]
+        del layout_dict["panel_widths"]
+        result = self.rebuild(layout_dict)
+        self.assertIsNone(result.grid_shown_b)
+        self.assertEqual(result.panel_width_tuple, ())
+        self.assertTrue(result.report.is_empty(), result.report.text())
         for grid_value, widths_value in (
                 ("yes", {"plot_panel": 0, "signal_list_panel": 3}),
                 (None, {"plot_panel": 2.5, "signal_list_panel": 3}),
