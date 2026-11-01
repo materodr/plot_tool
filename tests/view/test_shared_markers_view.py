@@ -557,5 +557,6 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.hover(plot_widget, 3.0)
         self.assert_preview_on_current_tab(3.0)
 
+
 if __name__ == "__main__":
     unittest.main()
