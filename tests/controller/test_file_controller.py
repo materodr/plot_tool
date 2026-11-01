@@ -1,14 +1,17 @@
 """Tests for the open-file flow of FileController (no Qt needed)."""
 
 import os
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import REPOSITORY_ROOT_STR, covers
 
-from controller.file_controller import FileController
+from controller.file_controller import (
+    REPOSITORY_FOLDER_STR, FileController, first_start_folder_str)
 from model.errors import (
     OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
     ContentCheckError, FileAccessError, FileReadError,
@@ -57,14 +60,17 @@ class FakeView:
         self.call_list = []
         self.error_message_list = []
         self.shown_name_list = []
+        self.start_folder_list = []
 
-    def ask_open_file_path(self) -> str:
+    def ask_open_file_path(self, start_folder_str: str) -> str:
         """Record the call and return the next scripted path.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: the folder the dialog would show.
         Outputs: the next path of path_list.
         """
         self.call_list.append("ask_open_file_path")
+        self.start_folder_list.append(start_folder_str)
         return self.path_list.pop(0)
 
     def show_file_open_error(self, message_str: str) -> None:
@@ -464,6 +470,102 @@ class FileControllerTest(unittest.TestCase):
         """
         controller = FileController(FakeView([]))
         self.assertIs(controller.load_function, load_signal_file)
+
+
+class StartFolderTest(unittest.TestCase):
+    """Check the folder shown by the file selection dialog (LLFR-00204)."""
+
+    @covers("LLFR-00204", "LLFR-00005")
+    def test_from_source_the_repository_folder(self) -> None:
+        """Run from source, the first folder is the repository folder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(os.path.realpath(REPOSITORY_FOLDER_STR),
+                         os.path.realpath(REPOSITORY_ROOT_STR))
+        self.assertTrue(os.path.isdir(os.path.join(REPOSITORY_FOLDER_STR,
+                                                   "src", "controller")))
+        self.assertEqual(first_start_folder_str(frozen_b=False),
+                         os.path.abspath(REPOSITORY_FOLDER_STR))
+        self.assertEqual(
+            first_start_folder_str(False, "/ignored/python", "/repo"),
+            "/repo")
+
+    @covers("LLFR-00204")
+    def test_frozen_executable_folder(self) -> None:
+        """A build that is not a macOS bundle uses the executable's folder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(
+            first_start_folder_str(True, "/opt/bin/plot_tool/plot_tool"),
+            "/opt/bin/plot_tool")
+        self.assertEqual(
+            first_start_folder_str(True, "/opt/MacOS/plot_tool"),
+            "/opt/MacOS")
+        self.assertEqual(
+            first_start_folder_str(True, "/opt/x.app/MacOS/plot_tool"),
+            "/opt/x.app/MacOS")
+
+    @covers("LLFR-00204")
+    def test_frozen_macos_bundle_uses_the_folder_of_the_app(self) -> None:
+        """Inside plot_tool.app the folder holding the bundle is used.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        executable_path_str = (
+            "/Users/me/Apps/bin/plot_tool.app/Contents/MacOS/plot_tool")
+        self.assertEqual(first_start_folder_str(True, executable_path_str),
+                         "/Users/me/Apps/bin")
+
+    @covers("LLFR-00204")
+    def test_defaults_read_sys(self) -> None:
+        """Without arguments the folder comes from sys.frozen.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with mock.patch.object(sys, "frozen", True, create=True), \
+                mock.patch.object(sys, "executable",
+                                  "/apps/plot_tool.app/Contents/MacOS/x"):
+            self.assertEqual(first_start_folder_str(), "/apps")
+        if not getattr(sys, "frozen", False):
+            self.assertEqual(first_start_folder_str(),
+                             os.path.abspath(REPOSITORY_FOLDER_STR))
+        controller = FileController(FakeView([]))
+        self.assertEqual(controller.dialog_folder_str,
+                         first_start_folder_str())
+
+    @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010",
+            "LLFR-00014")
+    def test_folder_follows_only_successful_opens(self) -> None:
+        """Cancel, failed open and declined replace keep the folder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_file = build_signal_file("/data/a/first.csv", ["a"])
+        second_file = build_signal_file("/data/b/second.csv", ["b"])
+        loader = ScriptedLoader({
+            "/data/a/first.csv": first_file,
+            "/data/bad/broken.csv": FileReadError("could not be read"),
+            "/data/crash/crash.csv": RuntimeError("boom"),
+            "/data/b/second.csv": second_file,
+        })
+        view = FakeView(["", "/data/a/first.csv", "",
+                         "/data/bad/broken.csv", "/data/crash/crash.csv",
+                         "/data/b/second.csv", "/data/b/second.csv",
+                         ""], [False, True])
+        controller = FileController(view, loader, "/start")
+        for _ in range(8):
+            controller.open_file_requested()
+        self.assertEqual(view.start_folder_list, [
+            "/start", "/start", "/data/a", "/data/a", "/data/a",
+            "/data/a", "/data/a", "/data/b"])
+        self.assertIs(controller.current_file, second_file)
 
 
 class FileControllerRealLoaderTest(unittest.TestCase):

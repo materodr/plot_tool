@@ -192,17 +192,21 @@ class MainWindow(QMainWindow):
         # LLFR-00005: the controller shows the dialog through ``handler``.
         self.open_file_handler = handler
 
-    def ask_open_file_path(self) -> str:
+    def ask_open_file_path(self, start_folder_str: str = "") -> str:
         """Show the file selection dialog and return the chosen path.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: folder the dialog shows when it opens; ""
+                lets Qt choose.
         Outputs: the path of the selected file, or "" when the user
             cancelled the dialog.
         """
         # LLFR-00005: show the file selection dialog.
         # LLFR-00007: an empty path means the dialog was cancelled.
+        # LLFR-00204: the folder is chosen by the file controller.
         path_str, _ = QFileDialog.getOpenFileName(
-            self, OPEN_FILE_DIALOG_TITLE_STR, "", OPEN_FILE_FILTER_STR)
+            self, OPEN_FILE_DIALOG_TITLE_STR, start_folder_str,
+            OPEN_FILE_FILTER_STR)
         return path_str or ""
 
     def finish_open_file_button(self) -> None:
