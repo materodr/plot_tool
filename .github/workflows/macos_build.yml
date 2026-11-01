@@ -74,9 +74,17 @@ jobs:
 
       - name: Measure the startup time
         run: |
-          python tests/user_tests/measure_startup.py --runs 3 \
+          python tests/user_tests/measure_startup.py --runs 6 \
             --limit-s 10 --probe-good-files -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      - name: Show crash reports
+        if: always()
+        run: |
+          for report in ~/Library/Logs/DiagnosticReports/plot_tool*; do
+            [ -f "$report" ] || continue
+            echo "== $report"; head -c 20000 "$report"; echo
+          done
 
       - name: Show the kept matplotlib cache
         if: always()
