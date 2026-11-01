@@ -135,28 +135,6 @@ jobs:
           path: screenshots/*.png
           if-no-files-found: ignore
 
-      # PCR-00019 and PCR-00022: keep the committed matrix at the last
-      # run on develop. Pushes made with the workflow token don't start
-      # another run, so this doesn't loop.
-      - name: Commit the test matrix to develop
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/develop'
-        run: |
-          if [ ! -f test_matrix_ci.md ]; then exit 0; fi
-          cp test_matrix_ci.md tests/test_matrix.md
-          if git diff --quiet -- tests/test_matrix.md; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/test_matrix.md
-          git commit -m "Update test matrix from CI run ${{ github.run_id }}"
-          for attempt in 1 2 3; do
-            if git pull --rebase origin develop && git push origin HEAD:develop; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error title=Test matrix not committed::could not push tests/test_matrix.md to develop"
-          exit 1
-
       - name: Upload the test matrix
         if: always()
         uses: actions/upload-artifact@v4
@@ -164,3 +142,37 @@ jobs:
           name: test-matrix
           path: test_matrix_ci.md
           if-no-files-found: ignore
+
+  # PCR-00019 and PCR-00022: keep the committed matrix at the last run
+  # on develop. A separate job so that only this short step is
+  # serialized: runs for develop queue here (cancel-in-progress: false)
+  # instead of racing each other, while the tests of pull requests and
+  # of develop still run in parallel. A queued run replaced by a newer
+  # one would have skipped anyway (see tests/ci/commit_test_matrix.sh).
+  # Pushes made with the workflow token don't start another run, so
+  # this doesn't loop.
+  commit-matrix:
+    needs: tests
+    if: >-
+      always() && needs.tests.result != 'cancelled' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: test-matrix-commit-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download the test matrix
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: test-matrix
+          path: matrix_artifact
+
+      - name: Commit the test matrix to develop
+        run: >-
+          bash tests/ci/commit_test_matrix.sh
+          matrix_artifact/test_matrix_ci.md "$GITHUB_SHA" "$GITHUB_RUN_ID"
