@@ -952,6 +952,77 @@ class NavigationEndToEndTest(unittest.TestCase):
                                 float(np.max(visible_array)) - 1e-9)
         self.assertLess(high_f - low_f, 8.0)
 
+    @covers("LLFR-00070", "LLFR-00076")
+    def test_hidden_tab_is_drawn_only_when_shown(self) -> None:
+        """A zoom does not draw hidden plots; showing the tab draws once.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from unittest import mock
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        second_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.signal_double_click_handler("angle")
+        self.main_window.signal_double_click_handler("speed")
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.process_events()
+        panel = self.main_window.plot_panel
+        hidden_widget_list = list(
+            panel.page_dict[second_tab_id_i].plot_widget_list)
+        self.assertEqual(len(hidden_widget_list), 2)
+        drawn_range_dict = {id(plot_widget): []
+                            for plot_widget in hidden_widget_list}
+        for plot_widget in hidden_widget_list:
+            self.assertFalse(plot_widget.isVisible())
+
+            def recording_draw(plot_widget=plot_widget,
+                               original_draw=plot_widget.canvas.draw):
+                """Record the x range of each draw, then draw.
+
+                Inputs:
+                    plot_widget: the PlotWidget whose canvas draws.
+                    original_draw: the canvas's own draw method.
+                Outputs: none.
+                """
+                drawn_range_dict[id(plot_widget)].append(
+                    plot_widget.time_range_tuple())
+                original_draw()
+
+            canvas_patch = mock.patch.object(plot_widget.canvas, "draw",
+                                             side_effect=recording_draw)
+            canvas_patch.start()
+            self.addCleanup(canvas_patch.stop)
+        # Zoom steps in the shown tab, with real event loops in between.
+        first_widget = self.plot_widgets()[0]
+        for _ in range(3):
+            first_widget.wheel_at(
+                first_widget.data_to_widget_point(1.0, 0.0), 3.0)
+            for _ in range(3):
+                self.application.processEvents()
+        zoomed_tuple = first_widget.time_range_tuple()
+        self.assertLess(zoomed_tuple[1] - zoomed_tuple[0], 4.0)
+        for plot_widget in hidden_widget_list:
+            self.assertEqual(drawn_range_dict[id(plot_widget)], [])
+            self.assertTrue(plot_widget.redraw_pending_b)
+            # The range is already known for the export and the facade.
+            for index_i in range(2):
+                self.assertAlmostEqual(
+                    self.main_window.plot_time_range(
+                        plot_widget.plot_id_i)[index_i],
+                    zoomed_tuple[index_i])
+        self.main_window.set_current_tab(second_tab_id_i)
+        for _ in range(5):
+            self.application.processEvents()
+        for plot_widget in hidden_widget_list:
+            self.assertTrue(plot_widget.isVisible())
+            self.assertFalse(plot_widget.redraw_pending_b)
+            drawn_list = drawn_range_dict[id(plot_widget)]
+            self.assertEqual(len(drawn_list), 1)
+            for index_i in range(2):
+                self.assertAlmostEqual(drawn_list[0][index_i],
+                                       zoomed_tuple[index_i])
+
     @covers("LLFR-00116", "LLFR-00001", "LLFR-00003")
     def test_reset_button_active_for_at_least_0_3_seconds(self) -> None:
         """The button is active from the click for 0.3 s, then normal.

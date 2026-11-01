@@ -318,6 +318,8 @@ class PlotWidget(QWidget):
         figure: the matplotlib Figure.
         canvas: the FigureCanvasQTAgg that shows the figure.
         axes: the matplotlib Axes where the curves are drawn.
+        redraw_pending_b: True when a time range was set while the
+            widget was hidden and the canvas still shows the old one.
     """
 
     curve_delete_requested = pyqtSignal(str)
@@ -419,6 +421,10 @@ class PlotWidget(QWidget):
         self.canvas.mpl_connect("resize_event", self.on_canvas_resize)
 
         self.time_range_s_tuple = (0.0, 1.0)
+        # LLFR-00070: a hidden plot (another tab) draws its new time
+        # range only when it is shown; any real draw clears the flag.
+        self.redraw_pending_b = False
+        self.canvas.mpl_connect("draw_event", self.on_canvas_drawn)
         self.rebuild_axes()
 
     # ----------------------------------------------------------------
@@ -523,11 +529,42 @@ class PlotWidget(QWidget):
             end_s: end of the range, in seconds.
         Outputs: none.
         """
-        # LLFR-00070: the plot panel applies a range shared by the tab.
+        # LLFR-00070: the controller applies the range shared by every
+        # plot of every tab. The range, x limits and y fit (LLFR-00076)
+        # are always updated, so time_range_tuple and the PDF export
+        # (LLFR-00129) see them; the costly canvas draw of a hidden plot
+        # waits until it is shown (showEvent).
         self.time_range_s_tuple = padded_range_tuple(
             start_s, end_s, SINGLE_SAMPLE_HALF_RANGE_S)
         self.apply_time_range()
-        self.canvas.draw_idle()
+        if self.isVisible():
+            self.canvas.draw_idle()
+        else:
+            self.redraw_pending_b = True
+
+    def showEvent(self, event) -> None:
+        """Draw a time range that was set while the plot was hidden.
+
+        Inputs:
+            event: the QShowEvent.
+        Outputs: none.
+        """
+        # LLFR-00070: a tab shown again displays the shared time range.
+        super().showEvent(event)
+        if self.redraw_pending_b:
+            self.redraw_pending_b = False
+            self.canvas.draw_idle()
+
+    def on_canvas_drawn(self, event) -> None:
+        """Forget a pending redraw once the canvas has been drawn.
+
+        Inputs:
+            event: the matplotlib DrawEvent.
+        Outputs: none.
+        """
+        # LLFR-00070, LLFR-00129: a draw by the PDF export or a resize
+        # already shows the current range.
+        self.redraw_pending_b = False
 
     def time_range_tuple(self) -> tuple:
         """Return the time range currently shown.
