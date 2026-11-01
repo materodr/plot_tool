@@ -4,7 +4,10 @@ name: macOS build
 # that it is a one-folder app bundle that starts quickly (issue #67):
 # no one-file launcher, the window shown by the launched process itself,
 # every sample file of tests/user_tests/good opened by the bundled
-# loaders, and the warm launch under 10 s. The main test workflow
+# loaders, and the warm launch under 10 s. It also checks that the
+# bundle carries the app icon (LLFR-00182): Contents/Resources holds
+# plot_tool.icns, Info.plist names it in CFBundleIconFile, and iconutil
+# can read every image of it. The main test workflow
 # (tests.yml) is not changed.
 on:
   pull_request:
@@ -16,6 +19,9 @@ on:
       - src/view/startup_probe.py
       - src/view/matplotlib_cache.py
       - src/model/file_loader.py
+      - src/view/icons.py
+      - src/view/icon_shapes.py
+      - src/view/app_icon_files.py
       - tests/user_tests/measure_startup.py
       - .github/workflows/macos_build.yml
   push:
@@ -71,6 +77,35 @@ jobs:
           du -sh "$app"/Contents/Frameworks/* "$app"/Contents/Resources/* 2>/dev/null | sort -h | tail -15
           echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
           exit $failed
+
+      # LLFR-00182: the bundle icon replaces PyInstaller's default one.
+      - name: Check the app icon
+        run: |
+          app=bin/plot_tool.app
+          icon="$app/Contents/Resources/plot_tool.icns"
+          failed=0
+          fail() { echo "::error title=App icon::$1"; failed=1; }
+          ls -la "$app/Contents/Resources"/*.icns || true
+          [ -f "$icon" ] || fail "no $icon"
+          icon_name=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$app/Contents/Info.plist" || echo "")
+          echo "CFBundleIconFile: $icon_name"
+          [ "$icon_name" = "plot_tool.icns" ] || [ "$icon_name" = "plot_tool" ] || fail "Info.plist names '$icon_name', not plot_tool.icns"
+          rm -rf app_icon.iconset
+          iconutil -c iconset -o app_icon.iconset "$icon" || fail "iconutil cannot read $icon"
+          ls -la app_icon.iconset || true
+          for name in icon_16x16 icon_32x32 icon_128x128 icon_256x256 icon_512x512 icon_512x512@2x; do
+            [ -f "app_icon.iconset/$name.png" ] || fail "no $name in the icon"
+          done
+          sips -g pixelWidth app_icon.iconset/icon_512x512@2x.png || true
+          exit $failed
+
+      - name: Upload the app icon images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-icon
+          path: app_icon.iconset/*.png
+          if-no-files-found: ignore
 
       # PYTHONFAULTHANDLER prints where Python was if a launch crashes.
       - name: Measure the startup time

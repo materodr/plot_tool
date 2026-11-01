@@ -10,7 +10,7 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers, get_qt_application, requires_qt
+from tests.support import button_name, covers, get_qt_application, requires_qt
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, PLOT_TOOL_TUPLE, TIP_TOOL_STR,
@@ -109,7 +109,7 @@ class TopPanelToolTest(unittest.TestCase):
         for tool_str, text_str in expected_dict.items():
             button = self.button(tool_str)
             self.assertIsInstance(button, ToggleButton)
-            self.assertEqual(button.text(), text_str)
+            self.assertEqual(button_name(button), text_str)
             self.assertTrue(button.isVisible())
             self.assertFalse(button.is_active())
             self.assertIs(button.parentWidget(), self.top_panel)

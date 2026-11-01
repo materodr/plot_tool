@@ -21,20 +21,26 @@ class UndoButton(ActionButton):
     """Action button with a paler look while disabled (LLFR-00141).
 
     Inputs:
-        text_str: the text shown on the button, e.g. "Undo".
+        text_str: the button's name, e.g. "Undo".
         parent: optional parent widget.
+        icon_name_str: the icon shown instead of the name, or ""
+            (LLFR-00158); Qt draws it paler while the button is disabled
+            (LLFR-00160).
     """
 
-    def __init__(self, text_str: str, parent=None) -> None:
+    def __init__(self, text_str: str, parent=None,
+                 icon_name_str: str = "") -> None:
         """Create an enabled, inactive Undo button.
 
         Inputs:
-            text_str: the text shown on the button.
+            text_str: the button's name.
             parent: optional parent widget.
+            icon_name_str: the icon shown instead of the name, or "".
         Outputs: none.
         """
         # LLFR-00136: the button of the top panel.
-        super().__init__(text_str, parent=parent)
+        super().__init__(text_str, parent=parent,
+                         icon_name_str=icon_name_str)
 
     def current_background_color_str(self) -> str:
         """Return the background color in use for the current state.
@@ -60,7 +66,8 @@ class UndoButton(ActionButton):
         # state; the :disabled rule overrides the colors when disabled.
         self.setStyleSheet(theme.toggle_button_style_sheet(
             self.objectName(), self.isChecked(),
-            self.segment_position_str, disabled_rule_b=True))
+            self.segment_position_str, disabled_rule_b=True,
+            icon_only_b=bool(self.icon_name_str)))
 
     def changeEvent(self, event) -> None:
         """Restyle when the button is enabled or disabled.

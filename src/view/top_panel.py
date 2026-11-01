@@ -1,4 +1,10 @@
-"""Top panel: holds the controls for opening a file and the plot tools."""
+"""Top panel: holds the controls for opening a file and the plot tools.
+
+Every button shows only its icon (LLFR-00158, LLFR-00159); its name,
+for example "Open file", is its hover tip (LLFR-00181) and accessible
+name, so a button "called" X in the requirements is the button whose
+name is X.
+"""
 
 from PyQt6 import sip
 from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
@@ -6,7 +12,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QMenu, QWidget
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
-from view import theme
+from view import icon_shapes, theme
 from view.action_button import ActionButton
 from view.toggle_button import ToggleButton
 from view.undo_button import UndoButton
@@ -22,6 +28,34 @@ EXPORT_TEXT_STR = "Export"
 SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
 COPY_TEXT_STR = "Copy"
 UNDO_TEXT_STR = "Undo"
+# LLFR-00159: the icon of each button, by button name.
+BUTTON_ICON_DICT = {
+    OPEN_FILE_TEXT_STR: icon_shapes.OPEN_FILE_ICON_STR,
+    TIP_TEXT_STR: icon_shapes.TIP_ICON_STR,
+    ZOOM_TEXT_STR: icon_shapes.ZOOM_ICON_STR,
+    MARKER_TEXT_STR: icon_shapes.MARKER_ICON_STR,
+    RESET_ZOOM_TEXT_STR: icon_shapes.RESET_ZOOM_ICON_STR,
+    GRID_TEXT_STR: icon_shapes.GRID_ICON_STR,
+    EXPORT_TEXT_STR: icon_shapes.EXPORT_ICON_STR,
+    COPY_TEXT_STR: icon_shapes.COPY_ICON_STR,
+    UNDO_TEXT_STR: icon_shapes.UNDO_ICON_STR,
+}
+
+
+def new_icon_button(button_class, name_str: str, object_name_str: str):
+    """Create a top panel button that shows only its icon.
+
+    Inputs:
+        button_class: ToggleButton or one of its subclasses.
+        name_str: the button's name, e.g. "Open file".
+        object_name_str: the objectName that scopes its style sheet.
+    Outputs: the new button, with the icon of BUTTON_ICON_DICT and the
+        name as its hover tip and accessible name.
+    """
+    # LLFR-00158, LLFR-00159, LLFR-00181: icon only, name on hover.
+    button = button_class(name_str, icon_name_str=BUTTON_ICON_DICT[name_str])
+    button.setObjectName(object_name_str)
+    return button
 
 
 class TopPanel(QWidget):
@@ -69,17 +103,17 @@ class TopPanel(QWidget):
         self.button_layout.setContentsMargins(0, 0, 0, 0)
         self.button_layout.setSpacing(0)
         # LLFR-00004: the "Open file" button; LLFR-00001: it shows when
-        # it is active.
-        self.open_file_button = ToggleButton(OPEN_FILE_TEXT_STR)
-        self.open_file_button.setObjectName("open_file_button")
+        # it is active. LLFR-00158: each button shows only its icon.
+        self.open_file_button = new_icon_button(
+            ToggleButton, OPEN_FILE_TEXT_STR, "open_file_button")
         # LLFR-00018, LLFR-00077, LLFR-00080: the plot tool buttons,
         # placed after "Open file".
-        self.tip_button = ToggleButton(TIP_TEXT_STR)
-        self.tip_button.setObjectName("tip_button")
-        self.zoom_button = ToggleButton(ZOOM_TEXT_STR)
-        self.zoom_button.setObjectName("zoom_button")
-        self.marker_button = ToggleButton(MARKER_TEXT_STR)
-        self.marker_button.setObjectName("marker_button")
+        self.tip_button = new_icon_button(
+            ToggleButton, TIP_TEXT_STR, "tip_button")
+        self.zoom_button = new_icon_button(
+            ToggleButton, ZOOM_TEXT_STR, "zoom_button")
+        self.marker_button = new_icon_button(
+            ToggleButton, MARKER_TEXT_STR, "marker_button")
         self.plot_tool_button_dict = {
             TIP_TOOL_STR: self.tip_button,
             ZOOM_TOOL_STR: self.zoom_button,
@@ -102,20 +136,20 @@ class TopPanel(QWidget):
         # LLFR-00114, LLFR-00121: Reset zoom and Grid come after the plot
         # tools. They are not in plot_tool_button_dict, so the plot tools
         # never deactivate them and they never deactivate a plot tool.
-        self.reset_zoom_button = ActionButton(RESET_ZOOM_TEXT_STR)
-        self.reset_zoom_button.setObjectName("reset_zoom_button")
-        self.grid_button = ToggleButton(GRID_TEXT_STR)
-        self.grid_button.setObjectName("grid_button")
+        self.reset_zoom_button = new_icon_button(
+            ActionButton, RESET_ZOOM_TEXT_STR, "reset_zoom_button")
+        self.grid_button = new_icon_button(
+            ToggleButton, GRID_TEXT_STR, "grid_button")
         self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         self.button_layout.addWidget(self.reset_zoom_button)
         self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
         self.button_layout.addWidget(self.grid_button)
         # LLFR-00126, LLFR-00132: the Export and Copy buttons; they are
         # active while their function runs (LLFR-00001, LLFR-00003).
-        self.export_button = ToggleButton(EXPORT_TEXT_STR)
-        self.export_button.setObjectName("export_button")
-        self.copy_button = ToggleButton(COPY_TEXT_STR)
-        self.copy_button.setObjectName("copy_button")
+        self.export_button = new_icon_button(
+            ToggleButton, EXPORT_TEXT_STR, "export_button")
+        self.copy_button = new_icon_button(
+            ToggleButton, COPY_TEXT_STR, "copy_button")
         self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         self.button_layout.addWidget(self.export_button)
         self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
@@ -128,14 +162,25 @@ class TopPanel(QWidget):
             lambda: QTimer.singleShot(0, self.emit_pending_copy))
         # LLFR-00136: the Undo button; LLFR-00141: disabled until there
         # is an action to undo. Not a plot tool.
-        self.undo_button = UndoButton(UNDO_TEXT_STR)
-        self.undo_button.setObjectName("undo_button")
+        self.undo_button = new_icon_button(
+            UndoButton, UNDO_TEXT_STR, "undo_button")
         self.undo_button.setEnabled(False)
         self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         self.button_layout.addWidget(self.undo_button)
         # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
         # left.
         self.button_layout.addStretch(1)
+
+    def button_list(self) -> list:
+        """Return the buttons of the panel, from left to right.
+
+        Inputs: none.
+        Outputs: a list of ToggleButton objects.
+        """
+        # LLFR-00158, LLFR-00181: every button of the panel.
+        return [self.button_layout.itemAt(index_i).widget()
+                for index_i in range(self.button_layout.count())
+                if self.button_layout.itemAt(index_i).widget() is not None]
 
     def activate_plot_tool(self, tool_str: str) -> None:
         """Make one plot tool the only active one and report it.
