@@ -13,15 +13,6 @@ import os
 import re
 
 import numpy as np
-import pandas as pd
-import scipy.io
-
-try:
-    # LLFR-00134: HDF5 files need h5py (COR-00011). Without it the app
-    # still opens the other formats, and an HDF5 file gets a read error.
-    import h5py
-except ImportError:
-    h5py = None
 
 from model.errors import (
     OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
@@ -42,6 +33,33 @@ COMMA_STYLE_TUPLE = (",", ".")
 # accessed; other errors raised by a parser mean it can't be read.
 ACCESS_ERROR_TUPLE = (FileNotFoundError, PermissionError, IsADirectoryError)
 SEMICOLON_STYLE_TUPLE = (";", ",")
+
+# LLFR-00059, LLFR-00062, LLFR-00134: pandas, scipy.io and h5py are
+# imported only when a file of their format is opened, so that the app
+# window shows without waiting for them (issue #67). ``h5py`` holds the
+# library once imported, None when it is not installed, and
+# H5PY_NOT_IMPORTED before the first HDF5 file is opened.
+H5PY_NOT_IMPORTED = object()
+h5py = H5PY_NOT_IMPORTED
+
+
+def hdf5_library() -> object:
+    """Return the h5py library, importing it the first time.
+
+    Inputs: none.
+    Outputs: the h5py module, or None when h5py is not installed. The
+        result is kept in the module attribute ``h5py``.
+    """
+    # LLFR-00134: HDF5 files need h5py (COR-00011). Without it the app
+    # still opens the other formats, and an HDF5 file gets a read error.
+    global h5py
+    if h5py is H5PY_NOT_IMPORTED:
+        try:
+            import h5py as imported_h5py
+        except ImportError:
+            imported_h5py = None
+        h5py = imported_h5py
+    return h5py
 
 
 def load_signal_file(path_str: str) -> SignalFile:
@@ -187,6 +205,8 @@ def read_csv_signals(path_str: str) -> dict:
     if not text_str:
         raise read_error(file_name_str, "the file is empty")
     header_line_str = text_str.splitlines()[0]
+    # LLFR-00059: pandas is imported on the first CSV or Excel file.
+    import pandas as pd
     style_list = detect_csv_style_list(header_line_str)
     last_error = None
     for separator_str, decimal_str in style_list:
@@ -221,6 +241,8 @@ def read_excel_signals(path_str: str) -> dict:
     """
     # LLFR-00060: only the first sheet is read.
     file_name_str = os.path.basename(path_str)
+    # LLFR-00059: pandas is imported on the first CSV or Excel file.
+    import pandas as pd
     try:
         table_df = pd.read_excel(path_str, sheet_name=0, header=None,
                                  engine="openpyxl", dtype=object)
@@ -383,6 +405,8 @@ def read_mat_signals(path_str: str) -> dict:
         for v7.3, corrupt files and missing (NaN) or infinite values.
     """
     file_name_str = os.path.basename(path_str)
+    # LLFR-00062: scipy.io is imported on the first MAT file.
+    import scipy.io
     try:
         variable_dict = scipy.io.loadmat(path_str)
     except NotImplementedError as error:
@@ -478,13 +502,14 @@ def read_hdf5_signals(path_str: str) -> dict:
         file is corrupt or not HDF5, and for NaN or infinite values.
     """
     file_name_str = os.path.basename(path_str)
-    # LLFR-00134: HDF5 needs h5py (COR-00011).
-    if h5py is None:
+    # LLFR-00134: HDF5 needs h5py (COR-00011), imported on first use.
+    h5py_library = hdf5_library()
+    if h5py_library is None:
         raise read_error(file_name_str,
                          "HDF5 support is not installed (the h5py "
                          "library is missing)")
     try:
-        with h5py.File(path_str, "r") as hdf5_file:
+        with h5py_library.File(path_str, "r") as hdf5_file:
             # LLFR-00134: collect the datasets of every group.
             dataset_list = []
 
@@ -497,7 +522,7 @@ def read_hdf5_signals(path_str: str) -> dict:
                 Outputs: none. Appends (path, dataset) to dataset_list.
                 """
                 # LLFR-00134: groups only hold the datasets.
-                if isinstance(item, h5py.Dataset):
+                if isinstance(item, h5py_library.Dataset):
                     dataset_list.append((name_str, item))
 
             hdf5_file.visititems(collect_dataset)

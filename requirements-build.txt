@@ -1,0 +1,4 @@
+# Build tools for the standalone executable (build_executable.py). They
+# are not runtime libraries of the app (COR-00011), so they are kept out
+# of requirements.txt.
+pyinstaller>=6.0

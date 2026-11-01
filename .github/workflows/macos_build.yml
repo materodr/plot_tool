@@ -1,0 +1,121 @@
+name: macOS build
+
+# Builds the standalone macOS app with build_executable.py and checks
+# that it is a one-folder app bundle that starts quickly (issue #67):
+# no one-file launcher, the window shown by the launched process itself,
+# every sample file of tests/user_tests/good opened by the bundled
+# loaders, and the warm launch under 10 s. The main test workflow
+# (tests.yml) is not changed.
+on:
+  pull_request:
+    paths:
+      - build_executable.py
+      - requirements.txt
+      - requirements-build.txt
+      - src/main.py
+      - src/view/startup_probe.py
+      - src/view/matplotlib_cache.py
+      - src/model/file_loader.py
+      - tests/user_tests/measure_startup.py
+      - .github/workflows/macos_build.yml
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-build.txt
+
+      - name: Build the app
+        run: python build_executable.py
+
+      - name: Check the app bundle
+        run: |
+          app=bin/plot_tool.app
+          launcher="$app/Contents/MacOS/plot_tool"
+          failed=0
+          fail() { echo "::error title=Bundle::$1"; failed=1; }
+          ls -la bin "$app/Contents" "$app/Contents/MacOS" || true
+          [ -x "$launcher" ] || fail "no launcher $launcher"
+          [ -d "$app/Contents/Frameworks" ] || fail "no Contents/Frameworks"
+          [ ! -e bin/plot_tool ] || fail "bin/plot_tool was not removed"
+          # A one-file build is a single launcher that holds the whole
+          # app; in a one-folder bundle the launcher (bootloader plus
+          # the archive of pure Python modules) is a small part of it,
+          # next to hundreds of library files.
+          file_count=$(find "$app" -type f | wc -l | tr -d ' ')
+          launcher_bytes=$(stat -f %z "$launcher" || echo 0)
+          echo "files: $file_count, launcher bytes: $launcher_bytes"
+          [ "$file_count" -gt 100 ] || fail "only $file_count files"
+          bundle_bytes=$(( $(du -sk "$app" | cut -f1) * 1024 ))
+          [ $(( launcher_bytes * 4 )) -lt "$bundle_bytes" ] || fail "launcher is $launcher_bytes of $bundle_bytes bytes (one-file build?)"
+          tk_list=$(find "$app" -iname '*tkinter*')
+          [ -z "$tk_list" ] || fail "tkinter was bundled: $tk_list"
+          codesign --verify --deep --strict "$app" || fail "codesign verify failed"
+          bundle_size=$(du -sh "$app" | cut -f1)
+          echo "Largest parts of the bundle:"
+          du -sh "$app"/Contents/Frameworks/* "$app"/Contents/Resources/* 2>/dev/null | sort -h | tail -15
+          echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
+          exit $failed
+
+      # PYTHONFAULTHANDLER prints where Python was if a launch crashes.
+      - name: Measure the startup time
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          python tests/user_tests/measure_startup.py --runs 6 \
+            --limit-s 10 --probe-good-files -- \
+            bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      - name: Show the kept matplotlib cache
+        if: always()
+        run: ls -la ~/Library/Caches/plot_tool/matplotlib || true
+
+      # For comparison only: the same launches from source.
+      - name: Measure the startup time from source
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          python tests/user_tests/measure_startup.py --runs 2 \
+            --limit-s 1000 -- python src/main.py
+
+      # Opening the bundle with `open` is what Finder does. Reported for
+      # information; the timed check is the step above.
+      - name: Launch the bundle as Finder does
+        if: always()
+        continue-on-error: true
+        run: |
+          rm -f open_output.txt
+          start_s=$(python -c 'import time; print(time.time())')
+          open -W -n --env PLOT_TOOL_STARTUP_PROBE=1 \
+            --stdout "$PWD/open_output.txt" --stderr "$PWD/open_output.txt" \
+            bin/plot_tool.app
+          cat open_output.txt
+          python - "$start_s" <<'PYTHON'
+          import sys
+          sys.path.insert(0, "tests/user_tests")
+          from measure_startup import parse_startup_line
+          with open("open_output.txt", encoding="utf-8") as output_file:
+              startup_dict = parse_startup_line(output_file.read())
+          if not startup_dict:
+              print("::warning title=Open from Finder::no startup line")
+              sys.exit(1)
+          elapsed_s = startup_dict["window_shown_epoch_s"] - float(sys.argv[1])
+          print(f"::notice title=Open from Finder::window shown {elapsed_s:.2f} s after open")
+          PYTHON
