@@ -881,35 +881,147 @@ class NavigationEndToEndTest(unittest.TestCase):
         self.assertEqual(first_widget.time_range_tuple(),
                          second_widget.time_range_tuple())
 
-    @covers("LLFR-00115")
-    def test_reset_zoom_leaves_other_tabs_zoomed(self) -> None:
-        """Only the current tab is reset.
+    @covers("LLFR-00115", "LLFR-00070", "LLFR-00076")
+    def test_reset_zoom_resets_every_tab(self) -> None:
+        """The plots of the tabs that are not shown are reset too.
 
         Inputs: none.
         Outputs: none.
         """
-        self.zoom_current_tab()
         first_tab_id_i = self.main_window.current_tab_id()
-        first_range_tuple = self.plot_widgets()[0].time_range_tuple()
         self.main_window.plot_panel.request_add_tab()
         self.main_window.signal_double_click_handler("angle")
         self.process_events()
         self.zoom_current_tab()
         self.main_window.set_current_tab(first_tab_id_i)
         self.process_events()
+        self.assertEqual(len(self.all_plot_widgets()), 3)
+        for plot_widget in self.all_plot_widgets():
+            start_s, end_s = plot_widget.time_range_tuple()
+            self.assertLess(end_s - start_s, 4.0)
         self.click(self.top_panel.reset_zoom_button)
         self.process_events()
-        for plot_widget in self.plot_widgets():
+        for plot_widget in self.all_plot_widgets():
             self.assertEqual(plot_widget.time_range_tuple(), (0.0, 4.0))
-        other_widget_list = [
-            plot_widget for plot_widget in self.all_plot_widgets()
-            if plot_widget not in self.plot_widgets()]
-        self.assertEqual(len(other_widget_list), 1)
-        start_s, end_s = other_widget_list[0].time_range_tuple()
-        self.assertLess(end_s - start_s, 4.0)
-        self.assertEqual(self.plot_widgets()[0].time_range_tuple(),
-                         (0.0, 4.0))
-        self.assertNotEqual(first_range_tuple, (0.0, 4.0))
+            # LLFR-00076: the y-axis fits the whole curve again.
+            low_f, high_f = plot_widget.axes.get_ylim()
+            curve_value_array = plot_widget.curve_data_list[0][2]
+            self.assertLessEqual(low_f, float(np.min(curve_value_array)))
+            self.assertGreaterEqual(high_f,
+                                    float(np.max(curve_value_array)))
+
+    @covers("LLFR-00070", "LLFR-00180", "HLFR-00014")
+    def test_zoom_in_one_tab_shows_in_the_other_tab(self) -> None:
+        """After a zoom in tab 1, the plots of tab 2 show the same range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        second_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.signal_double_click_handler("angle")
+        self.process_events()
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.process_events()
+        self.zoom_current_tab()
+        zoomed_tuple = self.plot_widgets()[0].time_range_tuple()
+        self.assertLess(zoomed_tuple[1] - zoomed_tuple[0], 4.0)
+        self.main_window.set_current_tab(second_tab_id_i)
+        self.process_events()
+        other_widget = self.plot_widgets()[0]
+        for index_i in range(2):
+            self.assertAlmostEqual(other_widget.time_range_tuple()[index_i],
+                                   zoomed_tuple[index_i])
+        self.assertAlmostEqual(
+            self.main_window.plot_time_range(
+                other_widget.plot_id_i)[0], zoomed_tuple[0])
+        # LLFR-00180: a new plot in that tab takes the shared range.
+        self.main_window.signal_double_click_handler("speed")
+        self.process_events()
+        new_widget = self.plot_widgets()[1]
+        for index_i in range(2):
+            self.assertAlmostEqual(new_widget.time_range_tuple()[index_i],
+                                   zoomed_tuple[index_i])
+        # LLFR-00076: y fits the visible part of the new curve.
+        visible_array = np.linspace(zoomed_tuple[0], zoomed_tuple[1],
+                                    11) * 2.0
+        low_f, high_f = new_widget.axes.get_ylim()
+        self.assertLessEqual(low_f, float(np.min(visible_array)) + 1e-9)
+        self.assertGreaterEqual(high_f,
+                                float(np.max(visible_array)) - 1e-9)
+        self.assertLess(high_f - low_f, 8.0)
+
+    @covers("LLFR-00070", "LLFR-00076")
+    def test_hidden_tab_is_drawn_only_when_shown(self) -> None:
+        """A zoom does not draw hidden plots; showing the tab draws once.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from unittest import mock
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        second_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.signal_double_click_handler("angle")
+        self.main_window.signal_double_click_handler("speed")
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.process_events()
+        panel = self.main_window.plot_panel
+        hidden_widget_list = list(
+            panel.page_dict[second_tab_id_i].plot_widget_list)
+        self.assertEqual(len(hidden_widget_list), 2)
+        drawn_range_dict = {id(plot_widget): []
+                            for plot_widget in hidden_widget_list}
+        for plot_widget in hidden_widget_list:
+            self.assertFalse(plot_widget.isVisible())
+
+            def recording_draw(plot_widget=plot_widget,
+                               original_draw=plot_widget.canvas.draw):
+                """Record the x range of each draw, then draw.
+
+                Inputs:
+                    plot_widget: the PlotWidget whose canvas draws.
+                    original_draw: the canvas's own draw method.
+                Outputs: none.
+                """
+                drawn_range_dict[id(plot_widget)].append(
+                    plot_widget.time_range_tuple())
+                original_draw()
+
+            canvas_patch = mock.patch.object(plot_widget.canvas, "draw",
+                                             side_effect=recording_draw)
+            canvas_patch.start()
+            self.addCleanup(canvas_patch.stop)
+        # Zoom steps in the shown tab, with real event loops in between.
+        first_widget = self.plot_widgets()[0]
+        for _ in range(3):
+            first_widget.wheel_at(
+                first_widget.data_to_widget_point(1.0, 0.0), 3.0)
+            for _ in range(3):
+                self.application.processEvents()
+        zoomed_tuple = first_widget.time_range_tuple()
+        self.assertLess(zoomed_tuple[1] - zoomed_tuple[0], 4.0)
+        for plot_widget in hidden_widget_list:
+            self.assertEqual(drawn_range_dict[id(plot_widget)], [])
+            self.assertTrue(plot_widget.redraw_pending_b)
+            # The range is already known for the export and the facade.
+            for index_i in range(2):
+                self.assertAlmostEqual(
+                    self.main_window.plot_time_range(
+                        plot_widget.plot_id_i)[index_i],
+                    zoomed_tuple[index_i])
+        self.main_window.set_current_tab(second_tab_id_i)
+        for _ in range(5):
+            self.application.processEvents()
+        for plot_widget in hidden_widget_list:
+            self.assertTrue(plot_widget.isVisible())
+            self.assertFalse(plot_widget.redraw_pending_b)
+            drawn_list = drawn_range_dict[id(plot_widget)]
+            self.assertEqual(len(drawn_list), 1)
+            for index_i in range(2):
+                self.assertAlmostEqual(drawn_list[0][index_i],
+                                       zoomed_tuple[index_i])
 
     @covers("LLFR-00116", "LLFR-00001", "LLFR-00003")
     def test_reset_button_active_for_at_least_0_3_seconds(self) -> None:

@@ -164,7 +164,7 @@ class PlaceMarkerTest(MarkerControllerTestCase):
                 self.assertEqual(self.draw_count(), draw_count_i)
                 self.assertEqual(self.plot.marker_list, [])
 
-    @covers("LLFR-00081")
+    @covers("LLFR-00081", "LLFR-00070")
     def test_place_keeps_the_time_range(self) -> None:
         """Placing a marker in a zoomed plot keeps the zoom.
 
@@ -172,6 +172,8 @@ class PlaceMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.view.set_plot_time_range(self.plot_id_i, 2.0, 4.0)
+        self.view.handler_dict["time_range_handler"](self.plot_id_i,
+                                                     2.0, 4.0)
         self.place(3.0)
         self.assertEqual(self.view.range_dict[self.plot_id_i], (2.0, 4.0))
 

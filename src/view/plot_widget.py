@@ -31,7 +31,17 @@ Two coordinate systems are used:
   and the values are scaled by the device pixel ratio.
 All conversions between them go through ``widget_to_display_tuple`` and
 ``display_to_widget_point``.
+
+A pinned tip's label is drawn at the position the user gave it, moved
+by the shortest distance that keeps its whole box inside the axes
+(LLFR-00179). This is done each time the tip is drawn, after the
+constrained layout has given the axes their final size, so it follows
+every resize, zoom, pan and drag. Only the drawn position is moved: the
+stored offset is kept, so the label goes back towards it when the plot
+grows again.
 """
+
+import functools
 
 import numpy as np
 from matplotlib.backend_bases import MouseButton
@@ -286,6 +296,33 @@ def segment_distance_array(point_array, start_array, end_array):
     return np.sqrt(np.sum((nearest_array - point_array) ** 2, axis=1))
 
 
+def inside_shift_px(box_low_px: float, box_high_px: float,
+                    area_low_px: float, area_high_px: float,
+                    keep_high_b: bool) -> float:
+    """Return the shortest shift that puts a segment inside another one.
+
+    Inputs:
+        box_low_px: low end of the segment to move, in display pixels.
+        box_high_px: high end of the segment to move.
+        area_low_px: low end of the segment it must stay in.
+        area_high_px: high end of that segment.
+        keep_high_b: when the segment is longer than the area, True
+            aligns the high ends, False aligns the low ends.
+    Outputs: the shift in display pixels (0 when already inside).
+    """
+    # LLFR-00179: the label moves only as far as needed; a label larger
+    # than the plot is aligned to one edge (top or left) instead.
+    if box_high_px - box_low_px > area_high_px - area_low_px:
+        if keep_high_b:
+            return area_high_px - box_high_px
+        return area_low_px - box_low_px
+    if box_low_px < area_low_px:
+        return area_low_px - box_low_px
+    if box_high_px > area_high_px:
+        return area_high_px - box_high_px
+    return 0.0
+
+
 class PlotWidget(QWidget):
     """One plot: signal curves against time, legend, menus and tips.
 
@@ -318,6 +355,8 @@ class PlotWidget(QWidget):
         figure: the matplotlib Figure.
         canvas: the FigureCanvasQTAgg that shows the figure.
         axes: the matplotlib Axes where the curves are drawn.
+        redraw_pending_b: True when a time range was set while the
+            widget was hidden and the canvas still shows the old one.
     """
 
     curve_delete_requested = pyqtSignal(str)
@@ -419,6 +458,10 @@ class PlotWidget(QWidget):
         self.canvas.mpl_connect("resize_event", self.on_canvas_resize)
 
         self.time_range_s_tuple = (0.0, 1.0)
+        # LLFR-00070: a hidden plot (another tab) draws its new time
+        # range only when it is shown; any real draw clears the flag.
+        self.redraw_pending_b = False
+        self.canvas.mpl_connect("draw_event", self.on_canvas_drawn)
         self.rebuild_axes()
 
     # ----------------------------------------------------------------
@@ -523,11 +566,42 @@ class PlotWidget(QWidget):
             end_s: end of the range, in seconds.
         Outputs: none.
         """
-        # LLFR-00070: the plot panel applies a range shared by the tab.
+        # LLFR-00070: the controller applies the range shared by every
+        # plot of every tab. The range, x limits and y fit (LLFR-00076)
+        # are always updated, so time_range_tuple and the PDF export
+        # (LLFR-00129) see them; the costly canvas draw of a hidden plot
+        # waits until it is shown (showEvent).
         self.time_range_s_tuple = padded_range_tuple(
             start_s, end_s, SINGLE_SAMPLE_HALF_RANGE_S)
         self.apply_time_range()
-        self.canvas.draw_idle()
+        if self.isVisible():
+            self.canvas.draw_idle()
+        else:
+            self.redraw_pending_b = True
+
+    def showEvent(self, event) -> None:
+        """Draw a time range that was set while the plot was hidden.
+
+        Inputs:
+            event: the QShowEvent.
+        Outputs: none.
+        """
+        # LLFR-00070: a tab shown again displays the shared time range.
+        super().showEvent(event)
+        if self.redraw_pending_b:
+            self.redraw_pending_b = False
+            self.canvas.draw_idle()
+
+    def on_canvas_drawn(self, event) -> None:
+        """Forget a pending redraw once the canvas has been drawn.
+
+        Inputs:
+            event: the matplotlib DrawEvent.
+        Outputs: none.
+        """
+        # LLFR-00070, LLFR-00129: a draw by the PDF export or a resize
+        # already shows the current range.
+        self.redraw_pending_b = False
 
     def time_range_tuple(self) -> tuple:
         """Return the time range currently shown.
@@ -718,9 +792,32 @@ class PlotWidget(QWidget):
                             "shrinkA": 0.0, "shrinkB": 0.0},
                 zorder=9)
             annotation.set_in_layout(False)
+            # LLFR-00179: every draw of the label first keeps it inside
+            # the axes, with the axes size of that very draw.
+            annotation.draw = functools.partial(
+                self.draw_pinned_tip, len(self.pinned_annotation_list),
+                annotation, annotation.draw)
             self.pinned_marker_list.append(marker)
             self.pinned_annotation_list.append(annotation)
         self.place_tips()
+
+    def draw_pinned_tip(self, tip_index_i: int, annotation, original_draw,
+                        renderer) -> None:
+        """Draw a pinned tip after keeping its label inside the axes.
+
+        Inputs:
+            tip_index_i: index of the tip in the list of set_pinned_tips.
+            annotation: the matplotlib Annotation of the tip.
+            original_draw: the Annotation's own draw method.
+            renderer: the matplotlib renderer of this draw.
+        Outputs: none.
+        """
+        # LLFR-00179: matplotlib calls this for each draw (screen, image
+        # and PDF export), after the layout gave the axes their size.
+        if (tip_index_i < len(self.pinned_annotation_list)
+                and self.pinned_annotation_list[tip_index_i] is annotation):
+            self.place_pinned_tip(tip_index_i, annotation, renderer)
+        original_draw(renderer)
 
     def draw_markers(self) -> None:
         """Draw the stored vertical markers, replacing the previous ones.
@@ -863,41 +960,104 @@ class PlotWidget(QWidget):
         self.place_markers()
 
     def place_tips(self) -> None:
-        """Turn tip boxes towards the inside of the axes.
+        """Place the hover tip and the pinned tips around their points.
 
         Inputs: none.
         Outputs: none.
         """
+        # LLFR-00042, LLFR-00045, LLFR-00179: every tip is placed again
+        # after a change of range, size or drag.
+        for index_i, annotation in enumerate(self.pinned_annotation_list):
+            self.place_pinned_tip(index_i, annotation)
+        if self.hover_point_tuple:
+            self.place_tip_beside_point(self.hover_annotation)
+
+    def place_tip_beside_point(self, annotation) -> None:
+        """Turn a tip box towards the inside of the axes.
+
+        Inputs:
+            annotation: the matplotlib Annotation of a tip.
+        Outputs: none.
+        """
         # LLFR-00042, LLFR-00045: a tip near the right or top edge is
         # drawn on the other side of its point so it stays readable.
-        annotation_list = []
-        for index_i, annotation in enumerate(self.pinned_annotation_list):
-            # LLFR-00152: a moved tip's label keeps its offset from the
-            # point, centred there, at any zoom or pan.
-            offset_tuple = self.tip_label_offset_tuple(index_i)
-            if offset_tuple:
-                annotation.set_position(offset_tuple)
-                annotation.set_horizontalalignment("center")
-                annotation.set_verticalalignment("center")
-            else:
-                annotation_list.append(annotation)
-        if self.hover_point_tuple:
-            annotation_list.append(self.hover_annotation)
         start_s, end_s = self.axes.get_xlim()
         low_f, high_f = self.axes.get_ylim()
-        for annotation in annotation_list:
-            time_s, value_f = annotation.xy
-            right_half_b = time_s > (start_s + end_s) / 2.0
-            upper_half_b = value_f > (low_f + high_f) / 2.0
-            annotation.set_position((
-                -TIP_OFFSET_POINTS_F if right_half_b
-                else TIP_OFFSET_POINTS_F,
-                -TIP_OFFSET_POINTS_F if upper_half_b
-                else TIP_OFFSET_POINTS_F))
-            annotation.set_horizontalalignment(
-                "right" if right_half_b else "left")
-            annotation.set_verticalalignment(
-                "top" if upper_half_b else "bottom")
+        time_s, value_f = annotation.xy
+        right_half_b = time_s > (start_s + end_s) / 2.0
+        upper_half_b = value_f > (low_f + high_f) / 2.0
+        annotation.set_position((
+            -TIP_OFFSET_POINTS_F if right_half_b
+            else TIP_OFFSET_POINTS_F,
+            -TIP_OFFSET_POINTS_F if upper_half_b
+            else TIP_OFFSET_POINTS_F))
+        annotation.set_horizontalalignment(
+            "right" if right_half_b else "left")
+        annotation.set_verticalalignment(
+            "top" if upper_half_b else "bottom")
+
+    def place_pinned_tip(self, tip_index_i: int, annotation,
+                         renderer=None) -> None:
+        """Place a pinned tip's label where the user put it, inside the axes.
+
+        Inputs:
+            tip_index_i: index of the tip in the list of set_pinned_tips.
+            annotation: the matplotlib Annotation of the tip.
+            renderer: the matplotlib renderer, or None for the canvas's.
+        Outputs: none. Only the drawn position changes, never the stored
+            offset.
+        """
+        # LLFR-00152: a moved tip's label keeps its offset from the
+        # point, centred there, at any zoom or pan.
+        offset_tuple = self.tip_label_offset_tuple(tip_index_i)
+        if offset_tuple:
+            annotation.set_position(offset_tuple)
+            annotation.set_horizontalalignment("center")
+            annotation.set_verticalalignment("center")
+        else:
+            # LLFR-00045: otherwise it is placed beside its point.
+            self.place_tip_beside_point(annotation)
+        # LLFR-00179: then it is moved into the axes when needed.
+        self.keep_tip_inside_axes(annotation, renderer)
+
+    def keep_tip_inside_axes(self, annotation, renderer=None) -> None:
+        """Move a pinned tip's label the shortest way into the axes.
+
+        Inputs:
+            annotation: the matplotlib Annotation of the tip, already at
+                the position the user gave it.
+            renderer: the matplotlib renderer, or None for the canvas's.
+        Outputs: none. A tip whose point is outside the shown range is
+            left alone (matplotlib does not draw it).
+        """
+        # LLFR-00179: only tips whose point is shown are kept inside.
+        if renderer is None:
+            renderer = self.canvas.get_renderer()
+        point_x_px, point_y_px = self.axes.transData.transform(
+            annotation.xy)
+        if not self.inside_axes_b(float(point_x_px), float(point_y_px)):
+            return
+        # LLFR-00151, LLFR-00179: the label box as drawn at the current
+        # axes position; the leader line then joins it to the point.
+        annotation.update_positions(renderer)
+        box = self.tip_box_extent(annotation, renderer)
+        axes_box = self.axes.bbox
+        shift_x_px = inside_shift_px(float(box.x0), float(box.x1),
+                                     float(axes_box.x0),
+                                     float(axes_box.x1), False)
+        shift_y_px = inside_shift_px(float(box.y0), float(box.y1),
+                                     float(axes_box.y0),
+                                     float(axes_box.y1), True)
+        if shift_x_px == 0.0 and shift_y_px == 0.0:
+            return
+        # The offset is in points; the figure dpi already includes the
+        # device pixel ratio, as for matplotlib's "offset points".
+        pixels_per_point_f = self.pixels_per_point_f()
+        position_x_f, position_y_f = annotation.get_position()
+        annotation.set_position((
+            float(position_x_f) + shift_x_px / pixels_per_point_f,
+            float(position_y_f) + shift_y_px / pixels_per_point_f))
+        annotation.update_positions(renderer)
 
     def on_canvas_resize(self, event) -> None:
         """Fit the legend again after the canvas changed size.

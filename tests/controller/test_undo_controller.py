@@ -554,25 +554,28 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
         self.assertFalse(self.view.undo_enabled_b)
 
     @covers("LLFR-00139", "LLFR-00138")
-    def test_six_actions_give_five_undos(self) -> None:
-        """Only the 5 most recent of 6 actions can be undone, in order.
+    def test_twenty_one_actions_give_twenty_undos(self) -> None:
+        """Only the 20 most recent of 21 actions can be undone, in order.
 
         Inputs: none.
         Outputs: none.
         """
         state_list = [self.workspace.state_tuple()]
-        for name_str in ("A", "B", "C", "D", "E", "F"):
+        name_list = [f"Name {index_i}" for index_i in range(1, 22)]
+        for name_str in name_list:
             self.handler("rename_tab")(self.first_tab_id_i, name_str)
             state_list.append(self.workspace.state_tuple())
-        self.assertEqual(self.depth(), 5)
-        for expected_index_i in (5, 4, 3, 2, 1):
+        self.assertEqual(self.depth(), 20)
+        for expected_index_i in range(20, 0, -1):
+            self.assertTrue(self.view.undo_enabled_b)
             self.undo()
             self.assertEqual(self.workspace.state_tuple(),
                              state_list[expected_index_i])
         self.assertFalse(self.view.undo_enabled_b)
+        # The first action fell out of the history: it stays done.
         self.undo()
         self.assertEqual(self.workspace.state_tuple(), state_list[1])
-        self.assertEqual(self.view.tab_dict[self.first_tab_id_i], "A")
+        self.assertEqual(self.view.tab_dict[self.first_tab_id_i], "Name 1")
 
     @covers("LLFR-00138", "LLFR-00140")
     def test_mixed_actions_undo_in_reverse_order(self) -> None:
@@ -641,34 +644,73 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
 class UndoViewStateTest(UndoControllerTestCase):
     """Time ranges, tab selection and plot tool after an undo."""
 
-    @covers("LLFR-00138", "LLFR-00070")
-    def test_tab_keeps_its_time_range(self) -> None:
-        """A recreated plot takes the zoomed range of its tab.
+    @covers("LLFR-00138", "LLFR-00070", "LLFR-00180")
+    def test_restored_plot_shows_the_shared_range(self) -> None:
+        """A recreated plot, and every other plot, show the shared range.
 
         Inputs: none.
         Outputs: none.
         """
         self.handler("time_range_handler")(self.plot_id_i, 2.0, 5.0)
-        self.view.range_dict[self.plot_id_i] = (2.0, 5.0)
         self.handler("plot_delete_handler")(self.plot_id_i)
         self.undo()
-        self.assertEqual(self.view.range_dict[self.plot_id_i], (2.0, 5.0))
-        self.assertEqual(self.view.range_dict[self.second_plot_id_i],
-                         (2.0, 5.0))
+        for plot_id_i in (self.plot_id_i, self.second_plot_id_i,
+                          self.lone_plot_id_i):
+            self.assertEqual(self.view.range_dict[plot_id_i], (2.0, 5.0))
 
-    @covers("LLFR-00138", "LLFR-00070")
-    def test_tab_without_plots_shows_the_whole_range(self) -> None:
-        """A plot recreated in a tab left without plots shows all time.
+    @covers("LLFR-00138", "LLFR-00070", "LLFR-00180")
+    def test_plot_restored_in_an_empty_tab_shows_the_shared_range(
+            self) -> None:
+        """A plot recreated in a tab left without plots takes the range.
 
         Inputs: none.
         Outputs: none.
         """
+        self.handler("time_range_handler")(self.second_plot_id_i, 3.0, 4.0)
         self.view.set_current_tab(self.second_tab_id_i)
-        self.view.range_dict[self.lone_plot_id_i] = (3.0, 4.0)
         self.handler("plot_delete_handler")(self.lone_plot_id_i)
         self.undo()
         self.assertEqual(self.view.range_dict[self.lone_plot_id_i],
+                         (3.0, 4.0))
+
+    @covers("LLFR-00138", "LLFR-00180")
+    def test_plots_restored_after_all_were_deleted_show_whole_range(
+            self) -> None:
+        """With no plot left before the undo, the restored ones are unzoomed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.handler("time_range_handler")(self.plot_id_i, 3.0, 4.0)
+        self.handler("delete_tab")(self.second_tab_id_i)
+        self.handler("plot_delete_handler")(self.plot_id_i)
+        self.handler("plot_delete_handler")(self.second_plot_id_i)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.undo()
+        self.assertEqual(self.view.range_dict[self.second_plot_id_i],
                          (0.0, 10.0))
+        self.undo()
+        self.undo()
+        for plot_id_i in (self.plot_id_i, self.second_plot_id_i,
+                          self.lone_plot_id_i):
+            self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
+
+    @covers("LLFR-00138", "LLFR-00180")
+    def test_undo_to_no_plots_resets_the_shared_range(self) -> None:
+        """Undoing the creation of the only plot forgets the shared range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_controller.open(make_signal_file(3), True)
+        self.double_click("s1")
+        plot_id_i = self.current_plot_ids()[0]
+        self.handler("time_range_handler")(plot_id_i, 3.0, 4.0)
+        self.undo()
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.view.call_list.clear()
+        self.double_click("s2")
+        self.assertNotIn("set_plot_time_range", self.view.method_names())
 
     @covers("LLFR-00138", "LLFR-00109")
     def test_plot_tool_and_grid_are_kept(self) -> None:
