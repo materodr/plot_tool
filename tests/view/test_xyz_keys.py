@@ -474,8 +474,8 @@ class XyKeyMainWindowTest(XyzKeyWindowTestCase):
         plot_id_i = self.plot_widgets()[0].plot_id_i
         self.press_key("Key_X")
         plot_controller.on_delta_point_pick(plot_id_i, "speed", 1.0, 2.0)
-        plot_controller.on_delta_point_pick(plot_id_i, "force", 2.0,
-                                            float(np.sin(2.0)))
+        # The first plot holds only "speed" (2 * time).
+        plot_controller.on_delta_point_pick(plot_id_i, "speed", 2.0, 4.0)
         self.application.processEvents()
         self.release_key("Key_X")
         self.assertEqual(
