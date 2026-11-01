@@ -26,6 +26,7 @@ its three panels being shown; it is a build check, not a function.
 import os
 import sys
 import time
+import traceback
 
 from PyQt6.QtCore import QTimer
 
@@ -183,8 +184,14 @@ def install_startup_probe(application, main_window, main_start_s: float,
         if not exposed_b and time.perf_counter() < deadline_s:
             return
         poll_timer.stop()
-        report_startup(application, main_start_s, exposed_b, load_file,
-                       environment_dict)
+        try:
+            report_startup(application, main_start_s, exposed_b,
+                           load_file, environment_dict)
+        except Exception:
+            # LLFR-00058: a probe failure must end the run with an
+            # error, not open an error box that waits for a user.
+            traceback.print_exc()
+            application.exit(1)
 
     poll_timer.timeout.connect(check_window)
     poll_timer.start()
