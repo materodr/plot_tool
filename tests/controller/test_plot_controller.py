@@ -636,8 +636,8 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(self.view.full_tab_count_i, 0)
         self.assertEqual(len(self.current_plot_ids()), 5)
 
-    @covers("LLFR-00070", "LLFR-00019")
-    def test_new_plot_takes_the_tab_time_range(self) -> None:
+    @covers("LLFR-00070", "LLFR-00180", "LLFR-00019")
+    def test_new_plot_takes_the_shared_time_range(self) -> None:
         """A new plot in a tab with plots gets their time range.
 
         Inputs: none.
@@ -645,17 +645,35 @@ class DoubleClickTest(PlotControllerTestCase):
         """
         self.double_click("s1")
         first_plot_id_i = self.current_plot_ids()[0]
+        self.view.set_plot_time_range(first_plot_id_i, 2.0, 4.0)
         self.view.handler_dict["time_range_handler"](first_plot_id_i,
                                                      2.0, 4.0)
-        self.view.range_dict[first_plot_id_i] = (2.0, 4.0)
         self.double_click("s2")
         second_plot_id_i = self.current_plot_ids()[1]
         self.assertEqual(self.view.range_dict[second_plot_id_i],
                          (2.0, 4.0))
 
-    @covers("LLFR-00070")
+    @covers("LLFR-00070", "LLFR-00180", "HLFR-00014")
+    def test_new_plot_in_another_tab_takes_the_shared_range(self) -> None:
+        """A plot created in a new tab shows the range zoomed elsewhere.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        first_plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](first_plot_id_i,
+                                                     1.5, 3.0)
+        self.view.handler_dict["add_tab"]()
+        self.double_click("s2")
+        new_plot_id_i = self.current_plot_ids()[0]
+        self.assertEqual(self.view.range_dict[new_plot_id_i], (1.5, 3.0))
+        self.assertEqual(self.controller.shared_time_range_tuple,
+                         (1.5, 3.0))
+
+    @covers("LLFR-00070", "LLFR-00180")
     def test_first_plot_keeps_full_range(self) -> None:
-        """The first plot of a tab shows its full range.
+        """The first plot of the workspace shows the whole time range.
 
         Inputs: none.
         Outputs: none.
@@ -664,6 +682,73 @@ class DoubleClickTest(PlotControllerTestCase):
         plot_id_i = self.current_plot_ids()[0]
         self.assertNotIn("set_plot_time_range", self.view.method_names())
         self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
+
+    @covers("LLFR-00180", "LLFR-00049")
+    def test_plot_after_deleting_every_plot_shows_whole_range(
+            self) -> None:
+        """Once every plot is gone, the next plot starts unzoomed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        self.double_click("s2")
+        first_plot_id_i, second_plot_id_i = self.current_plot_ids()
+        self.view.handler_dict["time_range_handler"](first_plot_id_i,
+                                                     2.0, 3.0)
+        self.view.handler_dict["plot_delete_handler"](first_plot_id_i)
+        # One plot is still there: the shared range is kept.
+        self.assertEqual(self.controller.shared_time_range_tuple,
+                         (2.0, 3.0))
+        self.view.handler_dict["plot_delete_handler"](second_plot_id_i)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.view.call_list.clear()
+        self.double_click("s3")
+        new_plot_id_i = self.current_plot_ids()[0]
+        self.assertNotIn("set_plot_time_range", self.view.method_names())
+        self.assertEqual(self.view.range_dict[new_plot_id_i], (0.0, 10.0))
+
+    @covers("LLFR-00180", "LLFR-00051", "LLFR-00028")
+    def test_last_plot_removed_by_curve_or_tab_resets_range(self) -> None:
+        """Removing the last curve, or the last tab with plots, also resets.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 3.0)
+        self.view.handler_dict["curve_delete_handler"](plot_id_i, "s1")
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        # A tab that holds the only plot is deleted.
+        self.view.handler_dict["add_tab"]()
+        second_tab_id_i = self.view.current_tab_id()
+        self.double_click("s2")
+        plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](plot_id_i, 4.0, 5.0)
+        self.view.handler_dict["delete_tab"](second_tab_id_i)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.double_click("s3")
+        self.assertEqual(
+            self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
+
+    @covers("LLFR-00180", "LLFR-00015")
+    def test_file_replace_resets_the_shared_range(self) -> None:
+        """A newly opened file starts with the whole time range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 3.0)
+        self.file_controller.open(make_signal_file(3), True)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.view.call_list.clear()
+        self.double_click("s1")
+        self.assertNotIn("set_plot_time_range", self.view.method_names())
+        self.assertEqual(
+            self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
 
 
 class DropTest(PlotControllerTestCase):
@@ -766,14 +851,15 @@ class DropTest(PlotControllerTestCase):
 
     @covers("LLFR-00021", "LLFR-00070")
     def test_drop_keeps_the_plot_time_range(self) -> None:
-        """Redrawing after a drop keeps the range the plot shows.
+        """Redrawing after a drop keeps the shared range of the plot.
 
         Inputs: none.
         Outputs: none.
         """
         self.double_click("s1")
         plot_id_i = self.current_plot_ids()[0]
-        self.view.range_dict[plot_id_i] = (3.0, 5.0)
+        self.view.set_plot_time_range(plot_id_i, 3.0, 5.0)
+        self.view.handler_dict["time_range_handler"](plot_id_i, 3.0, 5.0)
         self.drop(plot_id_i, "s2")
         self.assertEqual(self.view.range_dict[plot_id_i], (3.0, 5.0))
 
@@ -883,8 +969,8 @@ class CurveAndPlotActionTest(PlotControllerTestCase):
         self.assertEqual(len(self.view.call_list), call_count_i)
 
     @covers("LLFR-00070", "HLFR-00014")
-    def test_time_range_applies_to_the_tab(self) -> None:
-        """A range change in one plot goes to the others of its tab only.
+    def test_time_range_applies_to_every_tab(self) -> None:
+        """A range change in one plot goes to every plot of every tab.
 
         Inputs: none.
         Outputs: none.
@@ -895,17 +981,59 @@ class CurveAndPlotActionTest(PlotControllerTestCase):
         plot_id_list = self.current_plot_ids()
         self.view.handler_dict["add_tab"]()
         self.double_click("s4")
-        other_tab_plot_i = self.current_plot_ids()[0]
+        self.double_click("s5")
+        other_tab_plot_list = self.current_plot_ids()
+        # The first tab is shown again; the second one is hidden.
+        self.view.set_current_tab(self.first_tab_id())
         call_count_i = len(self.view.call_list)
         self.view.handler_dict["time_range_handler"](plot_id_list[1],
                                                      1.5, 6.0)
         set_call_list = self.view.call_list[call_count_i:]
         self.assertEqual(
             sorted(set_call_list),
-            sorted([("set_plot_time_range", plot_id_list[0], 1.5, 6.0),
-                    ("set_plot_time_range", plot_id_list[2], 1.5, 6.0)]))
-        self.assertEqual(self.view.range_dict[other_tab_plot_i],
-                         (0.0, 10.0))
+            sorted([("set_plot_time_range", plot_id_i, 1.5, 6.0)
+                    for plot_id_i in (plot_id_list[0], plot_id_list[2],
+                                      *other_tab_plot_list)]))
+        for plot_id_i in other_tab_plot_list:
+            self.assertEqual(self.view.range_dict[plot_id_i], (1.5, 6.0))
+
+    @covers("LLFR-00070")
+    def test_time_range_from_a_hidden_tab_applies_everywhere(self) -> None:
+        """A change reported by a plot of another tab reaches all plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        first_plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["add_tab"]()
+        self.double_click("s2")
+        second_plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](second_plot_id_i,
+                                                     7.0, 9.0)
+        self.assertEqual(self.view.range_dict[first_plot_id_i], (7.0, 9.0))
+        self.view.handler_dict["time_range_handler"](first_plot_id_i,
+                                                     1.0, 2.0)
+        self.assertEqual(self.view.range_dict[second_plot_id_i],
+                         (1.0, 2.0))
+
+    @covers("LLFR-00070")
+    def test_time_range_that_is_not_finite_is_ignored(self) -> None:
+        """A NaN or infinite range is neither stored nor applied.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        self.double_click("s2")
+        first_plot_id_i = self.current_plot_ids()[0]
+        call_count_i = len(self.view.call_list)
+        self.view.handler_dict["time_range_handler"](
+            first_plot_id_i, float("nan"), 2.0)
+        self.view.handler_dict["time_range_handler"](
+            first_plot_id_i, 1.0, float("inf"))
+        self.assertEqual(len(self.view.call_list), call_count_i)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
 
     @covers("LLFR-00070")
     def test_time_range_of_unknown_plot_is_ignored(self) -> None:
