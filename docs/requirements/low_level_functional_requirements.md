@@ -149,9 +149,7 @@ When the user clicks the open file button (LLFR-00004), the app must show a file
 *Parent: HLFR-00004*
 
 ### LLFR-00204 File dialog starting folder
-The first time the user clicks the Open file button after the app starts, the file selection dialog (LLFR-00005) must show the folder that contains the standalone executable (COR-00007): the folder that holds `plot_tool.app` on macOS, or the folder that holds the executable on Windows. After that, it must show the folder of the last file the user opened.
-
-Note: When the app runs from source, the first folder is the repository folder.
+The first time the user clicks the Open file button after the app starts, the file selection dialog (LLFR-00005) must show the folder that contains the standalone executable (COR-00007): the folder that holds `plot_tool.app` on macOS, or the folder that holds the executable on Windows. When the app runs from source, the first folder must be the repository folder. After that, it must show the folder of the last file the app opened successfully.
 
 *Parent: HLFR-00004*
 
@@ -295,9 +293,9 @@ When the user clicks the Reset zoom button, the button must show its active colo
 *Parent: HLFR-00035, HLFR-00003*
 
 ### LLFR-00207 Z key resets the zoom
-When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116).
+When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116). While the user is dragging the mouse (a pan, a marker or tip drag, or a time span selection), the Z key must do nothing.
 
-Note: Ctrl+Z and Cmd+Z stay Undo (LLFR-00137). The Z key does nothing while the user is dragging the mouse (a pan, a marker or tip drag, or a time span selection).
+Note: Ctrl+Z and Cmd+Z stay Undo (LLFR-00137).
 
 *Parent: HLFR-00035*
 
@@ -369,7 +367,7 @@ The top panel must contain a button called "Undo".
 *Parent: HLFR-00040*
 
 ### LLFR-00137 Undo shortcut
-The app must run the Undo button's action (LLFR-00138) when the user presses Ctrl+Z (Cmd+Z on macOS).
+The app must run the Undo button's action (LLFR-00138) when the user presses Ctrl+Z (Cmd+Z on macOS), except as in LLFR-00196.
 
 *Parent: HLFR-00040*
 
@@ -384,7 +382,7 @@ The top panel must contain a button called "Redo", placed directly to the right 
 *Parent: HLFR-00048*
 
 ### LLFR-00191 Redo shortcut
-The app must run the Redo button's action (LLFR-00192) when the user presses Ctrl+Y (Cmd+Y on macOS).
+The app must run the Redo button's action (LLFR-00192) when the user presses Ctrl+Y (Cmd+Y on macOS), except as in LLFR-00195.
 
 *Parent: HLFR-00048*
 
@@ -654,9 +652,7 @@ When the user clicks the "+" button (LLFR-00025), the app must add a new tab.
 *Parent: HLFR-00015*
 
 ### LLFR-00210 Tab numbers not reused
-The app must name each new tab "Tab N", where N grows by 1 for each new tab, and must not reuse the number of a deleted tab.
-
-Note: When a file is opened or replaced, numbering restarts with "Tab 1" (LLFR-00016).
+The app must name each new tab "Tab N", where N grows by 1 for each new tab, and must not reuse the number of a deleted tab, even when the tab's creation is undone. When a file is opened or replaced, numbering must restart with "Tab 1" (LLFR-00016).
 
 *Parent: HLFR-00015*
 
@@ -835,7 +831,7 @@ After every zoom, the app must set the y-axis range of each plot so that every c
 *Parent: HLFR-00027*
 
 ### LLFR-00078 Click to zoom
-While the Zoom button (LLFR-00077) is active and the user left-clicks a plot without dragging the mouse (LLFR-00208), the app must narrow the plot's x-axis range to 95% of its width, centered on the time of the clicked point.
+While the Zoom button (LLFR-00077) is active and the user left-clicks a plot and releases the button less than 5 pixels from where it was pressed (LLFR-00208), the app must narrow the plot's x-axis range to 95% of its width, centered on the time of the clicked point.
 
 *Parent: HLFR-00027*
 
@@ -907,16 +903,16 @@ While the user drags a vertical marker (LLFR-00086), the app must update the mar
 *Parent: HLFR-00029*
 
 ### LLFR-00203 Marker preview
-While the Vertical marker button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing vertical marker, the app must show a preview of the marker that a click would place on every plot of the current tab: a dashed vertical line at the time under the pointer, in a paler version of the marker color (LLFR-00083), with its time value (LLFR-00092). The app must hide the preview when the pointer leaves the plot or the button is deactivated.
+While the Vertical marker button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing vertical marker, the app must show a preview of the marker that a click would place on every plot of the current tab: a dashed vertical line at the time under the pointer, in a paler version of the marker color (LLFR-00083), with its time value (LLFR-00092). The app must hide the preview when the pointer leaves the plot's drawing area, moves over an existing vertical marker, or the button is deactivated. The preview must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133).
 
 Note: Plots in tabs that are not shown don't need the preview.
 
 *Parent: HLFR-00028*
 
 ### LLFR-00205 Markers on every plot
-Every vertical marker must be shown on every plot in every tab, including plots created after the marker. Moving (LLFR-00086), renaming (LLFR-00088) or deleting (LLFR-00091) a marker on any plot must apply to it on every plot. When the last plot in the app is deleted, the app must delete every vertical marker.
+Every vertical marker must be shown on every plot in every tab, including plots created after the marker. Moving (LLFR-00086), renaming (LLFR-00088) or deleting (LLFR-00091) a marker on any plot must apply to it on every plot; while a marker is dragged, it must follow the pointer on every plot of the current tab, and on the plots of the other tabs it must be at its new time at the latest when the button is released. When no plot is left in any tab, whether because a plot is deleted (LLFR-00049, LLFR-00051), a tab is deleted (LLFR-00028) or the file is replaced (LLFR-00015), the app must delete every vertical marker, as part of the same action, so that undoing that action (LLFR-00138) brings the markers back.
 
-Note: Each of these remains one undoable action (LLFR-00140). Undoing the deletion of the last plot brings its markers back.
+Note: Each of these remains one undoable action (LLFR-00140).
 
 *Parent: HLFR-00028, HLFR-00029, HLFR-00030, HLFR-00031*
 
@@ -943,7 +939,7 @@ When the user right-clicks a point where a vertical marker overlaps a curve, the
 *Parent: HLFR-00030, HLFR-00031*
 
 ### LLFR-00111 Marker numbers not reused
-The app must not reuse the number of a deleted vertical marker (LLFR-00085) for a new marker, until a file is opened or replaced.
+The app must not reuse the number of a deleted vertical marker (LLFR-00085) for a new marker, even when the marker's placement is undone, until a file is opened or replaced.
 
 *Parent: HLFR-00028*
 
@@ -963,14 +959,14 @@ On macOS, the app must zoom in when the user's fingers move up on the trackpad a
 *Parent: HLFR-00027*
 
 ### LLFR-00208 Time span selection
-While the Zoom button (LLFR-00077) is active and the user presses the left mouse button on a plot and drags the mouse, the app must show a horizontal dashed line at the height of the press, from the time of the press to the time under the pointer, with a short vertical line at each end, in the reserved marker color (LLFR-00083, LLFR-00172).
+While the Zoom button (LLFR-00077) is active and the user presses the left mouse button on a plot and drags the mouse 5 pixels or more, the app must show a horizontal dashed line at the height of the press, from the time of the press to the time under the pointer, with a short vertical line at each end, in the reserved marker color (LLFR-00083, LLFR-00172).
 
 *Parent: HLFR-00027*
 
 ### LLFR-00209 Zoom to the selected span
-When the user releases the left mouse button after LLFR-00208, the app must remove the selection line and set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every plot (LLFR-00070), with the y-axis ranges set as in LLFR-00076.
+When the user releases the left mouse button after LLFR-00208, the app must remove the selection line and set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every plot (LLFR-00070), with the y-axis ranges set as in LLFR-00076. If the button is released outside the plot's drawing area, the end of the span must be the time at the nearer left or right edge of the drawing area. The span must be limited to the file's time range (LLFR-00119).
 
-Note: A press and release that moves less than a few pixels is a click (LLFR-00078). The span is limited to the file's time range (LLFR-00119).
+Note: A release less than 5 pixels from the press is a click (LLFR-00078).
 
 *Parent: HLFR-00027*
 
