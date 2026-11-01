@@ -1202,7 +1202,8 @@ class NavigationEndToEndTest(unittest.TestCase):
             self.click(self.top_panel.plot_tool_button_dict[tool_str])
             self.assertTrue(grid_button.is_active())
             self.assertEqual(self.top_panel.active_plot_tool(), tool_str)
-        self.click(self.top_panel.marker_button)
+        # A second click on the last tool leaves no tool active.
+        self.click(self.top_panel.plot_tool_button_dict[PLOT_TOOL_TUPLE[-1]])
         self.assertEqual(self.top_panel.active_plot_tool(), NO_TOOL_STR)
         self.assertTrue(grid_button.is_active())
         self.click(self.top_panel.marker_button)

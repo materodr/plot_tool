@@ -484,7 +484,10 @@ class DeltaDrawingTest(DeltaWidgetTestCase):
         for marker_id_i in range(1, 21):
             for patch in self.plot_widget.delta_artist_tuple(
                     marker_id_i)[:2]:
-                self.assertIsNotNone(patch.get_clip_path())
+                # The rectangular axes patch is applied as a clip box.
+                self.assertTrue(patch.get_clip_on())
+                self.assertTrue(patch.get_clip_box() is not None
+                                or patch.get_clip_path() is not None)
         # Drawing with points out of view raises nothing.
         self.plot_widget.canvas.draw()
 
