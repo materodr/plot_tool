@@ -224,11 +224,16 @@ class UndoDuringDragTest(UndoWindowTestCase):
         Outputs: none.
         """
         from PyQt6 import sip
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
         from controller.plot_tools import MARKER_TOOL_STR
+        QTest.mouseClick(self.top_panel.marker_button,
+                         Qt.MouseButton.LeftButton)
+        self.application.processEvents()
         self.plot_controller.on_marker_place(self.plot_id_i, 2.0)
         self.make_last_action_a_width_change()
         plot_widget = self.old_widget()
-        plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.assertEqual(plot_widget.plot_tool_str, MARKER_TOOL_STR)
         marker_id_i = plot_widget.marker_id_list()[0]
         move_recorder = mock.Mock()
         plot_widget.marker_move_requested.connect(move_recorder)
