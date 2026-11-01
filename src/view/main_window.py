@@ -791,6 +791,16 @@ class MainWindow(QMainWindow):
         # LLFR-00032: the tab is full; add a tab or delete a plot.
         message_boxes.show_full_tab_notification(self)
 
+    def show_tab_name_taken_notification(self, name_str: str) -> None:
+        """Show the Tab Name Taken box.
+
+        Inputs:
+            name_str: the name the user typed, without surrounding spaces.
+        Outputs: none.
+        """
+        # LLFR-00211: another tab already has the typed name.
+        message_boxes.show_tab_name_taken_notification(self, name_str)
+
     # ----------------------------------------------------------------
     # Export facade, used by the export controller (plain types only)
     # ----------------------------------------------------------------

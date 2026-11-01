@@ -132,6 +132,100 @@ class TabTest(unittest.TestCase):
         self.assertEqual(workspace.next_tab_name(), "Tab 2")
         self.assertEqual(workspace.next_tab_name(), "Tab 2")
 
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00026", "HLFR-00015")
+    def test_new_tab_skips_names_in_use(self) -> None:
+        """Renamed "Tab 5" is skipped and deleted numbers stay used.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        first_tab = workspace.tab_list[0]
+        self.assertTrue(workspace.rename_tab(first_tab.tab_id_i, "Tab 5"))
+        name_list = [workspace.add_tab().name_str for _ in range(5)]
+        self.assertEqual(name_list,
+                         ["Tab 2", "Tab 3", "Tab 4", "Tab 6", "Tab 7"])
+        all_name_list = [tab.name_str for tab in workspace.tab_list]
+        self.assertEqual(len(set(all_name_list)), len(all_name_list))
+        # LLFR-00210: deleting the renamed "Tab 5" does not free 5, and a
+        # deleted tab's number is not reused either.
+        workspace.delete_tab(first_tab.tab_id_i)
+        workspace.delete_tab(workspace.tab_list[-1].tab_id_i)
+        self.assertEqual(workspace.add_tab().name_str, "Tab 8")
+
+    @covers("LLFR-00212", "LLFR-00210")
+    def test_skipped_numbers_are_used_up(self) -> None:
+        """Numbers skipped for a name in use are not handed out later.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        first_tab = workspace.tab_list[0]
+        workspace.rename_tab(first_tab.tab_id_i, "Tab 3")
+        second_tab = workspace.add_tab()
+        workspace.rename_tab(second_tab.tab_id_i, "Tab 4")
+        # Tab 3 and Tab 4 are taken, so the next free number is 5.
+        self.assertEqual(workspace.next_tab_name(), "Tab 5")
+        self.assertEqual(workspace.next_tab_name(), "Tab 5")
+        self.assertEqual(workspace.add_tab().name_str, "Tab 5")
+        workspace.rename_tab(first_tab.tab_id_i, "Engine")
+        workspace.rename_tab(second_tab.tab_id_i, "Brakes")
+        # Tab 3 and Tab 4 are free again, but their numbers were used up.
+        self.assertEqual(workspace.add_tab().name_str, "Tab 6")
+
+    @covers("LLFR-00212", "LLFR-00016")
+    def test_reset_gives_tab_1_whatever_the_names(self) -> None:
+        """After reset there is one tab "Tab 1", with no conflict.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        workspace.rename_tab(workspace.tab_list[0].tab_id_i, "Tab 2")
+        workspace.reset()
+        self.assertEqual([tab.name_str for tab in workspace.tab_list],
+                         ["Tab 1"])
+        self.assertEqual(workspace.add_tab().name_str, "Tab 2")
+
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    def test_rename_to_another_tab_name_is_refused(self) -> None:
+        """Another tab's name, trimmed and exact, keeps the old name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        first_tab = workspace.tab_list[0]
+        second_tab = workspace.add_tab()
+        for name_str in ("Tab 1", "  Tab 1  ", "\tTab 1"):
+            self.assertFalse(workspace.rename_tab(second_tab.tab_id_i,
+                                                  name_str))
+            self.assertEqual(second_tab.name_str, "Tab 2")
+        self.assertEqual(first_tab.name_str, "Tab 1")
+        # Exact comparison: a different case is a different name.
+        self.assertTrue(workspace.rename_tab(second_tab.tab_id_i, "tab 1"))
+        self.assertEqual(second_tab.name_str, "tab 1")
+        # A tab's own name is not a conflict.
+        self.assertTrue(workspace.rename_tab(first_tab.tab_id_i, " Tab 1 "))
+        self.assertEqual(first_tab.name_str, "Tab 1")
+
+    @covers("LLFR-00211", "LLFR-00212")
+    def test_is_tab_name_taken(self) -> None:
+        """is_tab_name_taken trims, is exact and can leave a tab out.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        first_tab = workspace.tab_list[0]
+        self.assertTrue(workspace.is_tab_name_taken("Tab 1"))
+        self.assertTrue(workspace.is_tab_name_taken("  Tab 1 "))
+        self.assertFalse(workspace.is_tab_name_taken("TAB 1"))
+        self.assertFalse(workspace.is_tab_name_taken("Tab 1x"))
+        self.assertFalse(workspace.is_tab_name_taken("Tab 1",
+                                                     first_tab.tab_id_i))
+
     @covers("LLFR-00028", "HLFR-00016")
     def test_delete_tab_removes_it_with_its_plots(self) -> None:
         """delete_tab removes the tab and its plots.

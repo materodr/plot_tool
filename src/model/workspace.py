@@ -697,29 +697,69 @@ class Workspace:
         # LLFR-00016: one tab with no plots; ids keep counting up.
         self.add_tab()
 
+    def next_tab_number(self) -> int:
+        """Return the number of the default name of a new tab.
+
+        Inputs: none.
+        Outputs: the smallest number n, starting at the tab counter, for
+            which no tab is named "Tab <n>". The counter is not advanced;
+            add_tab does that.
+        """
+        # LLFR-00210: start at the counter, so a deleted tab's number is
+        # not reused.
+        tab_number_i = self.next_tab_number_i
+        # LLFR-00212: skip every number whose "Tab N" name another tab
+        # already has (for example a tab the user renamed "Tab 5").
+        while self.is_tab_name_taken(f"{TAB_NAME_PREFIX_STR}{tab_number_i}"):
+            tab_number_i += 1
+        return tab_number_i
+
     def next_tab_name(self) -> str:
         """Return the default name of a new tab.
 
         Inputs: none.
-        Outputs: "Tab <n>", where n is the next number of the tab
-            counter. The counter is not advanced; add_tab does that.
+        Outputs: "Tab <n>", where n is next_tab_number(). The counter is
+            not advanced; add_tab does that.
         """
-        # LLFR-00026, LLFR-00210: default names "Tab 1", "Tab 2", ...
-        # numbered by a counter, so a deleted tab's number is not reused.
-        return f"{TAB_NAME_PREFIX_STR}{self.next_tab_number_i}"
+        # LLFR-00026, LLFR-00210, LLFR-00212: default names "Tab 1",
+        # "Tab 2", ... that no other tab has.
+        return f"{TAB_NAME_PREFIX_STR}{self.next_tab_number()}"
+
+    def is_tab_name_taken(self, name_str: str,
+                          except_tab_id_i: int = -1) -> bool:
+        """Tell whether another tab already has a name.
+
+        Inputs:
+            name_str: the name to look for; leading and trailing spaces
+                are ignored.
+            except_tab_id_i: id of a tab left out of the search (the tab
+                being renamed), -1 to search all tabs.
+        Outputs: True when a tab other than except_tab_id_i has exactly
+            this name (case-sensitive) after trimming.
+        """
+        # LLFR-00211, LLFR-00212: names are compared exactly, after
+        # removing leading and trailing spaces.
+        stripped_name_str = name_str.strip()
+        return any(tab.name_str.strip() == stripped_name_str
+                   for tab in self.tab_list
+                   if tab.tab_id_i != except_tab_id_i)
 
     def add_tab(self) -> Tab:
         """Add a new empty tab after the last one.
 
         Inputs: none.
-        Outputs: the new Tab.
+        Outputs: the new Tab, named as next_tab_name() says.
         """
         # LLFR-00026: the "+" button adds a new tab.
-        tab = Tab(self.next_tab_id_i, self.next_tab_name())
+        # LLFR-00210, LLFR-00212: a never-reused number, skipping names
+        # other tabs already have.
+        tab_number_i = self.next_tab_number()
+        tab = Tab(self.next_tab_id_i, f"{TAB_NAME_PREFIX_STR}{tab_number_i}")
         self.next_tab_id_i += 1
-        # LLFR-00210: the number is used up, even if the tab is deleted
-        # or its creation undone (restore() never rolls it back).
-        self.next_tab_number_i += 1
+        # LLFR-00210: the number and the skipped ones are used up, even if
+        # the tab is deleted or its creation undone (restore() never rolls
+        # the counter back).
+        self.next_tab_number_i = tab_number_i + 1
         self.tab_list.append(tab)
         return tab
 
@@ -769,12 +809,16 @@ class Workspace:
             new_name_str: the name typed by the user; surrounding spaces
                 are removed.
         Outputs: True when the tab was renamed; False when the name is
-            empty or only spaces (LLFR-00067) or no tab has that id.
+            empty or only spaces (LLFR-00067), is the name of another tab
+            (LLFR-00211) or no tab has that id.
         """
         # LLFR-00067: an empty or blank name keeps the previous name.
         stripped_name_str = new_name_str.strip()
         tab = self.find_tab(tab_id_i)
         if tab is None or not stripped_name_str:
+            return False
+        # LLFR-00211: another tab's name keeps the previous name.
+        if self.is_tab_name_taken(stripped_name_str, tab_id_i):
             return False
         # LLFR-00030: the tab takes the typed name.
         tab.name_str = stripped_name_str

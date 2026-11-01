@@ -16,7 +16,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - plots: ``add_plot_view``, ``remove_plot_view``, ``draw_plot``,
   ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``,
   ``set_delta_first_point``;
-- boxes: ``show_full_tab_notification``, ``ask_marker_name``;
+- boxes: ``show_full_tab_notification``,
+  ``show_tab_name_taken_notification``, ``ask_marker_name``;
 - grid: ``set_grid_shown``;
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
@@ -747,6 +748,13 @@ class PlotController:
             new_name_str: the typed name.
         Outputs: none.
         """
+        # LLFR-00211: another tab's name (compared without surrounding
+        # spaces) keeps the previous name and tells the user; nothing
+        # changed, so no undo step is recorded (LLFR-00140).
+        if self.workspace.is_tab_name_taken(str(new_name_str), tab_id_i):
+            self.view.show_tab_name_taken_notification(
+                str(new_name_str).strip())
+            return
         # LLFR-00140: renaming a tab is undoable; the same name again
         # changes nothing and is not recorded.
         snapshot = self.take_snapshot()

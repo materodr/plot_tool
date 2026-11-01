@@ -160,6 +160,45 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(shown_box.text(),
                          self.message_module.FULL_TAB_MESSAGE_STR)
 
+    @covers("LLFR-00211")
+    def test_tab_name_taken_box_content(self) -> None:
+        """The tab name box is information and names the taken name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        box = self.message_module.build_tab_name_taken_box(
+            self.parent_widget, "Engine")
+        self.assertEqual(box.icon(),
+                         self.message_box_class.Icon.Information)
+        self.assertNotEqual(box.icon(),
+                            self.message_box_class.Icon.Critical)
+        self.assertEqual(box.windowTitle(), "Rename Tab")
+        self.assertIn("'Engine'", box.text())
+        self.assertIn("already exists", box.text())
+        self.assertEqual(self.button_value_set(box),
+                         {self.message_box_class.StandardButton.Ok.value})
+
+    @covers("LLFR-00211")
+    def test_show_tab_name_taken_notification_runs_box(self) -> None:
+        """``show_tab_name_taken_notification`` runs the information box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        ok_value_i = self.message_box_class.StandardButton.Ok.value
+        with self.patch_exec(ok_value_i):
+            self.message_module.show_tab_name_taken_notification(
+                self.parent_widget, "Tab 1")
+        self.assertEqual(len(self.shown_box_list), 1)
+        shown_box = self.shown_box_list[0]
+        self.assertEqual(shown_box.icon(),
+                         self.message_box_class.Icon.Information)
+        self.assertEqual(
+            shown_box.text(),
+            self.message_module.TAB_NAME_TAKEN_MESSAGE_STR.format(
+                name="Tab 1"))
+
     @covers("HLFR-00010")
     def test_replace_file_box_content(self) -> None:
         """The replace box asks a question with Yes and No, No by default.
