@@ -17,7 +17,8 @@ from view.top_panel import TopPanel
 # lets the user pick an unsupported file, which then gets the error of
 # LLFR-00011.
 OPEN_FILE_DIALOG_TITLE_STR = "Open file"
-OPEN_FILE_FILTER_STR = "Time series files (*.csv *.xlsx *.mat);;All files (*)"
+OPEN_FILE_FILTER_STR = ("Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)"
+                        ";;All files (*)")
 # LLFR-00088: title and label of the marker rename dialog.
 RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
 RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
