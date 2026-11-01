@@ -652,7 +652,14 @@ When the user clicks the "+" button (LLFR-00025), the app must add a new tab.
 *Parent: HLFR-00015*
 
 ### LLFR-00210 Tab numbers not reused
-The app must name each new tab "Tab N", where N grows by 1 for each new tab, and must not reuse the number of a deleted tab, even when the tab's creation is undone. When a file is opened or replaced, numbering must restart with "Tab 1" (LLFR-00016).
+The app must name each new tab "Tab N", where N grows by 1 for each new tab, and must not reuse the number of a deleted tab, even when the tab's creation is undone. It must also skip every number whose name another tab already has (LLFR-00212). When a file is opened or replaced, numbering must restart with "Tab 1" (LLFR-00016).
+
+*Parent: HLFR-00015*
+
+### LLFR-00212 New tab name not in use
+When the app names a new tab (LLFR-00210), it must skip every number N for which another tab is already named "Tab N", so that no two tabs share a name. A skipped number is used up like the number of a deleted tab.
+
+Note: For example, after the user renames "Tab 2" to "Tab 3", the next new tab is named "Tab 4". Names are compared as in LLFR-00211.
 
 *Parent: HLFR-00015*
 
@@ -795,6 +802,13 @@ When the plot panel has only one tab, the app must show the "Delete" option of t
 
 ### LLFR-00067 Empty tab name
 If the user enters a tab name that is empty or made only of spaces (LLFR-00030), the app must keep the tab's previous name and must not show any message.
+
+*Parent: HLFR-00017*
+
+### LLFR-00211 Unique tab name on rename
+If the user enters a tab name (LLFR-00030) that, without leading and trailing spaces, is the name of another tab, the app must keep the tab's previous name and must show an information box saying that a tab with that name already exists. Names must be compared exactly, so that names that differ only in uppercase and lowercase letters are different names. Entering the tab's own current name is not a conflict.
+
+Note: The app stores a tab name without its leading and trailing spaces. The information box is not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A rejected rename changes nothing, so it is not an undoable action (LLFR-00140).
 
 *Parent: HLFR-00017*
 

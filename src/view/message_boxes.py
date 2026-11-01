@@ -4,6 +4,8 @@
   (HLFR-00002).
 - Full Tab Notification box: information box shown when a tab already
   holds the maximum number of plots (LLFR-00032).
+- Tab Name Taken box: information box shown when the user renames a
+  tab to the name of another tab (LLFR-00211).
 - Replace File box: question asked before an open file is replaced
   (HLFR-00010).
 - Unexpected Error box: error box shown when an unexpected error
@@ -27,6 +29,11 @@ FULL_TAB_MESSAGE_STR = (
     "This tab already holds the maximum of 5 plots, so no new plot was "
     "created. Add a new tab or delete a plot from this tab."
 )
+# LLFR-00211: the information box of a rename to another tab's name.
+TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
+TAB_NAME_TAKEN_MESSAGE_STR = (
+    "A tab named '{name}' already exists. The tab keeps its previous "
+    "name. Type a different name.")
 REPLACE_FILE_TITLE_STR = "Replace File"
 REPLACE_FILE_MESSAGE_STR = (
     "Another file is already open. Proceeding will close the current "
@@ -92,6 +99,28 @@ def build_full_tab_box(parent) -> QMessageBox:
     return box
 
 
+def build_tab_name_taken_box(parent, name_str: str) -> QMessageBox:
+    """Build the Tab Name Taken box.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        name_str: the name the user typed, without surrounding spaces.
+    Outputs: a QMessageBox with the information icon (it is not an error
+        box), the title TAB_NAME_TAKEN_TITLE_STR, the text
+        TAB_NAME_TAKEN_MESSAGE_STR with the name filled in and an OK
+        button.
+    """
+    # LLFR-00211: information message saying that a tab with that name
+    # already exists.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Information)
+    box.setWindowTitle(TAB_NAME_TAKEN_TITLE_STR)
+    box.setText(TAB_NAME_TAKEN_MESSAGE_STR.format(name=name_str))
+    box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    box.setDefaultButton(QMessageBox.StandardButton.Ok)
+    return box
+
+
 def build_replace_file_box(parent) -> QMessageBox:
     """Build the Replace File confirmation box.
 
@@ -135,6 +164,18 @@ def show_full_tab_notification(parent) -> None:
     """
     # LLFR-00032: notify that the tab is full.
     build_full_tab_box(parent).exec()
+
+
+def show_tab_name_taken_notification(parent, name_str: str) -> None:
+    """Show the Tab Name Taken box and wait until it is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        name_str: the name the user typed, without surrounding spaces.
+    Outputs: none.
+    """
+    # LLFR-00211: notify that another tab already has the name.
+    build_tab_name_taken_box(parent, name_str).exec()
 
 
 def ask_replace_file(parent) -> bool:
