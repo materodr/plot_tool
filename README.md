@@ -52,7 +52,7 @@ Where the app ends up (in `bin/`, never committed):
 | Windows | `bin\plot_tool\plot_tool.exe` | Double-click it; keep the whole `plot_tool` folder together |
 | Linux | `bin/plot_tool/plot_tool` | Run it; keep the whole `plot_tool` folder together |
 
-On macOS the bundle is signed ad hoc, so an app you build yourself opens without extra Gatekeeper checks. An app copied from another computer or downloaded still has to be approved once (right-click it, then Open). The very first launch is also slower than the next ones, because matplotlib builds its font cache (kept in `~/.matplotlib`).
+On macOS the bundle is signed ad hoc, so an app you build yourself opens without extra Gatekeeper checks. An app copied from another computer or downloaded still has to be approved once (right-click it, then Open). The very first launch is also slower than the next ones (about 15 to 25 s on a GitHub macOS runner, against 1 to 2 s afterwards), because matplotlib builds its list of the installed fonts. The built app keeps that list in `~/Library/Caches/plot_tool/matplotlib` (macOS), `%LOCALAPPDATA%\plot_tool\matplotlib` (Windows) or `~/.cache/plot_tool/matplotlib` (Linux); without this, PyInstaller would give every launch a new temporary folder and the list would be built again each time.
 
 ### Check the startup time
 
