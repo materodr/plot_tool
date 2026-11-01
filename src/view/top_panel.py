@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QMenu, QWidget
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+from view import theme
 from view.action_button import ActionButton
 from view.toggle_button import ToggleButton
 from view.undo_button import UndoButton
@@ -62,6 +63,11 @@ class TopPanel(QWidget):
         # LLFR-00058: the top panel exists and is placed by MainWindow.
         self.setObjectName("top_panel")
         self.button_layout = QHBoxLayout(self)
+        # LLFR-00058: the window margins frame the panel; the buttons are
+        # spaced by explicit gaps, small inside a group of related
+        # buttons and wider between groups.
+        self.button_layout.setContentsMargins(0, 0, 0, 0)
+        self.button_layout.setSpacing(0)
         # LLFR-00004: the "Open file" button; LLFR-00001: it shows when
         # it is active.
         self.open_file_button = ToggleButton(OPEN_FILE_TEXT_STR)
@@ -79,7 +85,14 @@ class TopPanel(QWidget):
             ZOOM_TOOL_STR: self.zoom_button,
             MARKER_TOOL_STR: self.marker_button}
         self.button_layout.addWidget(self.open_file_button)
-        for tool_str, button in self.plot_tool_button_dict.items():
+        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
+        # LLFR-00079: only one plot tool is active at a time, so the
+        # three tool buttons are drawn joined, as one group.
+        segment_list = [theme.SEGMENT_FIRST_STR, theme.SEGMENT_MIDDLE_STR,
+                        theme.SEGMENT_LAST_STR]
+        for segment_str, (tool_str, button) in zip(
+                segment_list, self.plot_tool_button_dict.items()):
+            button.set_segment_position(segment_str)
             self.button_layout.addWidget(button)
             # LLFR-00079: activating a tool button deactivates the others.
             button.activated.connect(
@@ -93,7 +106,9 @@ class TopPanel(QWidget):
         self.reset_zoom_button.setObjectName("reset_zoom_button")
         self.grid_button = ToggleButton(GRID_TEXT_STR)
         self.grid_button.setObjectName("grid_button")
+        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         self.button_layout.addWidget(self.reset_zoom_button)
+        self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
         self.button_layout.addWidget(self.grid_button)
         # LLFR-00126, LLFR-00132: the Export and Copy buttons; they are
         # active while their function runs (LLFR-00001, LLFR-00003).
@@ -101,7 +116,9 @@ class TopPanel(QWidget):
         self.export_button.setObjectName("export_button")
         self.copy_button = ToggleButton(COPY_TEXT_STR)
         self.copy_button.setObjectName("copy_button")
+        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         self.button_layout.addWidget(self.export_button)
+        self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
         self.button_layout.addWidget(self.copy_button)
         # LLFR-00127, LLFR-00133: the menu and the copy run once control
         # is back in Qt, so the active color is painted first.
@@ -114,6 +131,7 @@ class TopPanel(QWidget):
         self.undo_button = UndoButton(UNDO_TEXT_STR)
         self.undo_button.setObjectName("undo_button")
         self.undo_button.setEnabled(False)
+        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         self.button_layout.addWidget(self.undo_button)
         # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
         # left.

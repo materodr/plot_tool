@@ -7,21 +7,14 @@ paler colors, so the user sees that a click does nothing (LLFR-00141).
 
 from PyQt6.QtCore import QEvent
 
+from view import theme
 from view.action_button import ActionButton
 
-# LLFR-00141: paler background, text and border of the disabled button.
-DISABLED_COLOR_STR = "#f5f5f5"
-DISABLED_TEXT_COLOR_STR = "#b0b0b0"
-DISABLED_BORDER_COLOR_STR = "#d6d6d6"
-# LLFR-00141: the rule for the disabled state; it comes after the rule
-# of ToggleButton, so it wins while the button is disabled.
-DISABLED_STYLE_TEMPLATE_STR = (
-    " QPushButton#{object_name}:disabled {{"
-    " background-color: " + DISABLED_COLOR_STR + ";"
-    " color: " + DISABLED_TEXT_COLOR_STR + ";"
-    " border: 1px solid " + DISABLED_BORDER_COLOR_STR + ";"
-    " }}"
-)
+# LLFR-00141: paler background, text and border of the disabled button,
+# defined in view.theme.
+DISABLED_COLOR_STR = theme.DISABLED_COLOR_STR
+DISABLED_TEXT_COLOR_STR = theme.DISABLED_TEXT_COLOR_STR
+DISABLED_BORDER_COLOR_STR = theme.DISABLED_BORDER_COLOR_STR
 
 
 class UndoButton(ActionButton):
@@ -57,7 +50,7 @@ class UndoButton(ActionButton):
         return super().current_background_color_str()
 
     def _apply_style(self, *_ignored_tuple) -> None:
-        """Set the stylesheet of ToggleButton plus the disabled rule.
+        """Set the stylesheet of the state plus the disabled rule.
 
         Inputs:
             _ignored_tuple: the arguments of the triggering signal.
@@ -65,9 +58,9 @@ class UndoButton(ActionButton):
         """
         # LLFR-00001, LLFR-00003, LLFR-00141: one stylesheet for every
         # state; the :disabled rule overrides the colors when disabled.
-        super()._apply_style()
-        self.setStyleSheet(self.styleSheet() + DISABLED_STYLE_TEMPLATE_STR
-                           .format(object_name=self.objectName()))
+        self.setStyleSheet(theme.toggle_button_style_sheet(
+            self.objectName(), self.isChecked(),
+            self.segment_position_str, disabled_rule_b=True))
 
     def changeEvent(self, event) -> None:
         """Restyle when the button is enabled or disabled.

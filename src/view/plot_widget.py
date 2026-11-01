@@ -45,6 +45,11 @@ from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 from model.curve_colors import MARKER_COLOR_STR
+from view import theme
+
+# LLFR-00068: every plot uses the look of view.theme (spines, ticks,
+# grid, fonts); curve and marker colors are always given explicitly.
+theme.apply_matplotlib_style()
 
 # LLFR-00021: same literal string the signal list uses for its drags.
 SIGNAL_MIME_TYPE_STR = "application/x-plot-tool-signal"
@@ -75,7 +80,7 @@ LEGEND_MAXIMUM_HEIGHT_RATIO_F = 0.4
 LEGEND_USABLE_WIDTH_RATIO_F = 0.95
 POINTS_PER_INCH_F = 72.0
 TIP_OFFSET_POINTS_F = 10.0
-DEFAULT_TIP_COLOR_STR = "#000000"
+DEFAULT_TIP_COLOR_STR = theme.DEFAULT_TIP_COLOR_STR
 # LLFR-00082, LLFR-00083, LLFR-00084, LLFR-00092: look of a vertical
 # marker. The marker is drawn above the curves and below the tips.
 MARKER_LINE_WIDTH_F = 1.5
@@ -87,9 +92,7 @@ MARKER_FONT_SIZE_F = 9.0
 MARKER_LABEL_OFFSET_POINTS_F = 3.0
 # LLFR-00092: gap (points) between the label and the time below it.
 MARKER_TIME_GAP_POINTS_F = 3.0
-MARKER_TEXT_BOX_DICT = {"boxstyle": "square,pad=0.15",
-                        "facecolor": "#ffffff", "edgecolor": "none",
-                        "alpha": 0.8}
+MARKER_TEXT_BOX_DICT = theme.MARKER_TEXT_BOX_DICT
 # LLFR-00086: no marker is being dragged.
 NO_MARKER_ID_I = -1
 # LLFR-00152: no pinned tip is being moved.
@@ -591,8 +594,9 @@ class PlotWidget(QWidget):
             "", xy=(0.0, 0.0), xytext=(TIP_OFFSET_POINTS_F,
                                        TIP_OFFSET_POINTS_F),
             textcoords="offset points", parse_math=False,
-            bbox={"boxstyle": "round", "facecolor": "#ffffe0",
-                  "alpha": 0.9},
+            color=theme.TIP_TEXT_COLOR_STR,
+            fontsize=theme.PLOT_TIP_FONT_SIZE_F,
+            bbox=dict(theme.HOVER_TIP_BOX_DICT),
             zorder=10)
         self.hover_annotation.set_visible(False)
         self.hover_annotation.set_in_layout(False)
@@ -696,8 +700,9 @@ class PlotWidget(QWidget):
                 xy=(time_s, value_f),
                 xytext=(TIP_OFFSET_POINTS_F, TIP_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
-                bbox={"boxstyle": "round", "facecolor": "#ffffff",
-                      "edgecolor": color_str, "alpha": 0.9},
+                color=theme.TIP_TEXT_COLOR_STR,
+                fontsize=theme.PLOT_TIP_FONT_SIZE_F,
+                bbox=dict(theme.PINNED_TIP_BOX_DICT, edgecolor=color_str),
                 # LLFR-00151: a dashed leader line from the label's box
                 # to the point, in the curve's color.
                 arrowprops={"arrowstyle": "-", "color": color_str,
