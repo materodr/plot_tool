@@ -115,6 +115,26 @@ class TipKeyFilterTest(unittest.TestCase):
         send_key(self.widget, "KeyRelease", key_name_str, modifier_name_str,
                  auto_repeat_b)
 
+    @covers("LLFR-00148", "LLFR-00150")
+    def test_lost_key_release_does_not_block_the_tip_key(self) -> None:
+        """Ctrl, Z, then Ctrl released without the Z release (macOS can
+        drop it): the next Ctrl alone activates Tip again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.press("Key_Control", "ControlModifier")
+        self.press("Key_Z", "ControlModifier")
+        self.assertEqual(self.call_list, ["activate", "release"])
+        self.release("Key_Control")
+        self.assertEqual(self.tip_key_filter.held_key_set, set())
+        self.press("Key_Control", "ControlModifier")
+        self.assertEqual(self.call_list, ["activate", "release", "activate"])
+        self.assertTrue(self.tip_key_filter.is_activation_on())
+        self.release("Key_Control")
+        self.assertEqual(self.call_list,
+                         ["activate", "release", "activate", "release"])
+
     @covers("LLFR-00148", "LLFR-00149")
     def test_press_alone_activates_and_release_ends(self) -> None:
         """Ctrl alone activates once; its release ends the activation.
@@ -432,7 +452,7 @@ class TipKeyMainWindowTest(unittest.TestCase):
 
     @covers("LLFR-00150", "LLFR-00149")
     def test_other_key_ends_tip_and_still_reaches_its_handler(self) -> None:
-        """Ctrl+Z ends the Tip activation and Ctrl+Z still reaches a widget.
+        """Ctrl+K ends the Tip activation and Ctrl+K still reaches a widget.
 
         Inputs: none.
         Outputs: none.
@@ -458,39 +478,48 @@ class TipKeyMainWindowTest(unittest.TestCase):
         self.top_panel.zoom_button.click()
         self.press_tip_key(key_recorder)
         self.assert_tool_everywhere(TIP_TOOL_STR)
-        send_key(key_recorder, "KeyPress", "Key_Z", "ControlModifier")
+        # Ctrl+K: a combination with no shortcut, so the widget gets it.
+        # Ctrl+Z is the Undo shortcut (test_ctrl_z_ends_tip_and_runs_undo).
+        send_key(key_recorder, "KeyPress", "Key_K", "ControlModifier")
         self.assert_tool_everywhere(NO_TOOL_STR)
-        self.assertIn((int(Qt.Key.Key_Z.value),
+        self.assertIn((int(Qt.Key.Key_K.value),
                        Qt.KeyboardModifier.ControlModifier), received_list)
-        send_key(key_recorder, "KeyRelease", "Key_Z", "ControlModifier")
+        send_key(key_recorder, "KeyRelease", "Key_K", "ControlModifier")
         self.release_tip_key(key_recorder)
         self.assert_tool_everywhere(NO_TOOL_STR)
         key_recorder.deleteLater()
 
-    @covers("LLFR-00150")
-    def test_ctrl_z_shortcut_still_fires(self) -> None:
-        """A Ctrl+Z QShortcut fires while the Tip activation ends.
+    @covers("LLFR-00150", "LLFR-00137", "LLFR-00138")
+    def test_ctrl_z_ends_tip_and_runs_undo(self) -> None:
+        """Ctrl held, then Z: the Tip activation ends and undo runs.
 
         Inputs: none.
         Outputs: none.
         """
         from PyQt6.QtCore import Qt
-        from PyQt6.QtGui import QKeySequence, QShortcut
         from PyQt6.QtTest import QTest
-        fired_list = []
-        shortcut = QShortcut(QKeySequence("Ctrl+Z"), self.main_window)
-        shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
-        shortcut.activated.connect(lambda: fired_list.append(True))
         self.main_window.activateWindow()
         self.assertTrue(QTest.qWaitForWindowActive(self.main_window))
+        self.top_panel.open_file_button.setFocus()
+        self.assertEqual(len(self.plot_widgets()), 2)
+        self.assertTrue(self.top_panel.undo_button.isEnabled())
         widget = self.main_window.plot_panel
         QTest.keyPress(widget, Qt.Key.Key_Control)
         self.assert_tool_everywhere(TIP_TOOL_STR)
         QTest.keyClick(widget, Qt.Key.Key_Z,
                        Qt.KeyboardModifier.ControlModifier)
-        self.assertEqual(fired_list, [True])
+        self.application.processEvents()
+        # LLFR-00138: the second plot is undone; LLFR-00150: no tool is
+        # active, also in the plot rebuilt by the undo.
+        self.assertEqual(len(self.plot_widgets()), 1)
         self.assert_tool_everywhere(NO_TOOL_STR)
-        shortcut.deleteLater()
+        QTest.keyRelease(widget, Qt.Key.Key_Control)
+        self.assert_tool_everywhere(NO_TOOL_STR)
+        # The Tip key alone works again afterwards.
+        QTest.keyPress(widget, Qt.Key.Key_Control)
+        self.assert_tool_everywhere(TIP_TOOL_STR)
+        QTest.keyRelease(widget, Qt.Key.Key_Control)
+        self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00148", "LLFR-00149", "LLFR-00150")
     def test_works_while_the_search_box_has_focus(self) -> None:

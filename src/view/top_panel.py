@@ -8,6 +8,7 @@ from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 from view.action_button import ActionButton
 from view.toggle_button import ToggleButton
+from view.undo_button import UndoButton
 
 OPEN_FILE_TEXT_STR = "Open file"
 TIP_TEXT_STR = "Tip"
@@ -19,6 +20,7 @@ GRID_TEXT_STR = "Grid"
 EXPORT_TEXT_STR = "Export"
 SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
 COPY_TEXT_STR = "Copy"
+UNDO_TEXT_STR = "Undo"
 
 
 class TopPanel(QWidget):
@@ -42,6 +44,8 @@ class TopPanel(QWidget):
             tool, it shows whether the grid is shown (LLFR-00124).
         export_button: the "Export" ToggleButton (LLFR-00126).
         copy_button: the "Copy" ToggleButton (LLFR-00132).
+        undo_button: the "Undo" UndoButton (LLFR-00136); not a plot
+            tool, disabled while nothing can be undone (LLFR-00141).
     """
 
     plot_tool_changed = pyqtSignal(str)
@@ -105,6 +109,12 @@ class TopPanel(QWidget):
             lambda: QTimer.singleShot(0, self.show_pending_export_menu))
         self.copy_button.activated.connect(
             lambda: QTimer.singleShot(0, self.emit_pending_copy))
+        # LLFR-00136: the Undo button; LLFR-00141: disabled until there
+        # is an action to undo. Not a plot tool.
+        self.undo_button = UndoButton(UNDO_TEXT_STR)
+        self.undo_button.setObjectName("undo_button")
+        self.undo_button.setEnabled(False)
+        self.button_layout.addWidget(self.undo_button)
         # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
         # left.
         self.button_layout.addStretch(1)

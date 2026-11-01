@@ -19,6 +19,8 @@ Rules:
       the Tip key is held ends the activation; it is not renewed until
       the Tip key is released and pressed again.
     - Auto-repeat key events are ignored.
+    - Releasing the Tip key also forgets every other held key, because
+      macOS can drop the release of a key pressed together with Cmd.
     - When the app or its window loses the keyboard (application state
       change to not active, ``WindowDeactivate``, or ``FocusOut`` with
       ``ActiveWindowFocusReason``) the activation ends as on a release,
@@ -182,6 +184,11 @@ class TipKeyFilter(QObject):
         if key_i == TIP_KEY_I:
             # LLFR-00149: releasing the Tip key ends the activation.
             self.tip_key_held_b = False
+            # LLFR-00148: macOS may never send the release of a key
+            # pressed together with Cmd (e.g. the Z of Cmd+Z), so the
+            # held keys are forgotten here; otherwise such a key would
+            # stay "held" and block the next Tip key press alone.
+            self.held_key_set.clear()
             self._end_activation()
             return
         # LLFR-00148: the other key is no longer held.
@@ -208,14 +215,18 @@ class TipKeyFilter(QObject):
         Outputs: always False, so every event goes on to its receiver.
         """
         # LLFR-00148, LLFR-00149, LLFR-00150: dispatch the key events.
+        # The type is checked first, so that most events cost only one
+        # comparison and no isinstance call.
         event_type = event.type()
-        is_key_event_b = isinstance(event, QKeyEvent)
-        if event_type in KEY_PRESS_TYPE_TUPLE and is_key_event_b:
-            self.handle_key_press(int(event.key()), modifier_value_i(event),
-                                  bool(event.isAutoRepeat()))
-        elif event_type == QEvent.Type.KeyRelease and is_key_event_b:
-            self.handle_key_release(int(event.key()),
-                                    bool(event.isAutoRepeat()))
+        if event_type in KEY_PRESS_TYPE_TUPLE:
+            if isinstance(event, QKeyEvent):
+                self.handle_key_press(int(event.key()),
+                                      modifier_value_i(event),
+                                      bool(event.isAutoRepeat()))
+        elif event_type == QEvent.Type.KeyRelease:
+            if isinstance(event, QKeyEvent):
+                self.handle_key_release(int(event.key()),
+                                        bool(event.isAutoRepeat()))
         elif event_type == QEvent.Type.WindowDeactivate:
             # LLFR-00149: the window lost the keyboard.
             self.handle_keyboard_lost()
