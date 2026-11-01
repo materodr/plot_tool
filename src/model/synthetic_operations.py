@@ -343,9 +343,12 @@ def butterworth_filter(time_array, value_array, cutoff_hz: float,
     sample before it (scipy.signal.sosfilt_zi times the first sample),
     so the curve does not jump at the start: a constant signal stays
     constant through a low-pass filter and gives 0 through a high-pass
-    filter. With the "zero" start, the state starts at 0, like a filter
-    switched on at the first sample: a low-pass output starts near 0
-    and settles.
+    filter. With the "zero" start, the state starts at 0, as if the
+    signal had been 0 before the first sample, like a filter switched
+    on at the first sample, so the curve settles after the start: for
+    a constant signal, a low-pass output starts below the constant and
+    rises towards it, and a high-pass output starts at a part of the
+    constant and decays towards 0.
     """
     # LLFR-00246: Butterworth filter of the chosen order, applied once,
     # forward in time, as a real-time filter. scipy.signal is imported
