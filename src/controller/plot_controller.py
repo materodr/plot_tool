@@ -27,10 +27,18 @@ of the workspace before it changes the model, but only when it really
 changes something. Undo restores the snapshot and rebuilds every tab
 and plot view from the model. The tab, plot and marker id counters are
 never rolled back, so ids stay unique. View-only state is not part of a
-snapshot (LLFR-00140 Note): after an undo, the plots of a tab that
-already had a plot keep that plot's time range, the plots of other
-tabs show the whole time range, and the grid and the plot tool stay as
-they are.
+snapshot (LLFR-00140 Note): after an undo, every plot shows the time
+range shared by all plots, and the grid and the plot tool stay as they
+are.
+
+Shared time axis (LLFR-00070, LLFR-00180): all plots in all tabs show
+one x-axis range, kept here in ``shared_time_range_tuple``. A range
+change in any plot is applied to every other plot of every tab, hidden
+tabs included, so that switching tabs and the PDF export (LLFR-00129)
+show it too. The empty tuple stands for the whole time range of the
+file: it is used at start, after a zoom reset (LLFR-00115), when a file
+is opened and when the last plot of the workspace disappears, so that
+the next plot starts at the whole range (LLFR-00180).
 
 Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
@@ -61,6 +69,8 @@ class PlotController:
         plot_tool_str: the active plot tool (a name of
             controller.plot_tools), NO_TOOL_STR when none is active.
         grid_shown_b: True while the grid is shown on the plots.
+        shared_time_range_tuple: the (start_s, end_s) range shown by
+            every plot, or () for the whole time range of the file.
         undo_history: the UndoHistory of the saved workspace states.
     """
 
@@ -82,7 +92,9 @@ class PlotController:
         self.plot_tool_str = NO_TOOL_STR
         # LLFR-00147: the grid is hidden at start.
         self.grid_shown_b = False
-        # LLFR-00139: the 5 most recent undoable actions.
+        # LLFR-00070, LLFR-00180: no plot yet, so the whole range.
+        self.shared_time_range_tuple = ()
+        # LLFR-00139: the 20 most recent undoable actions.
         self.undo_history = UndoHistory()
         # LLFR-00015, LLFR-00016: reset the tabs for every opened file.
         file_controller.add_file_opened_listener(self.on_file_opened)
@@ -178,7 +190,7 @@ class PlotController:
         # LLFR-00140: only an action that changed something is undoable.
         if self.workspace.is_unchanged_since(snapshot):
             return
-        # LLFR-00139: the history keeps the 5 most recent actions.
+        # LLFR-00139: the history keeps the 20 most recent actions.
         self.undo_history.record(snapshot)
         self.update_undo_enabled()
 
@@ -238,48 +250,57 @@ class PlotController:
         return [(marker.marker_id_i, marker.name_str, marker.time_s)
                 for marker in plot.marker_list]
 
-    def other_plot_list(self, plot) -> list:
-        """Return the other plots in the tab of a plot.
+    def all_plot_list(self) -> list:
+        """Return every plot of every tab.
+
+        Inputs: none.
+        Outputs: a list of Plot objects, tab by tab, top to bottom.
+        """
+        # LLFR-00070: the plots that share the time range.
+        return [plot for tab in self.workspace.tab_list
+                for plot in tab.plot_list]
+
+    def forget_range_without_plots(self) -> None:
+        """Go back to the whole time range when no plot is left.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00180: with no other plot, a new plot shows the whole
+        # time range of the file, whatever range was shared before.
+        if not self.all_plot_list():
+            self.shared_time_range_tuple = ()
+
+    def apply_shared_range(self, plot) -> None:
+        """Show the shared time range in a plot that was just drawn.
 
         Inputs:
             plot: the model Plot.
-        Outputs: a list of Plot objects, from top to bottom.
+        Outputs: none. With no shared range the plot keeps the whole
+            time range that draw_plot gave it.
         """
-        # LLFR-00070: the plots that share the time range with ``plot``.
-        tab = self.workspace.tab_of_plot(plot.plot_id_i)
-        if tab is None:
-            return []
-        return [other_plot for other_plot in tab.plot_list
-                if other_plot is not plot]
+        # LLFR-00070, LLFR-00180: the range of all the other plots; the
+        # view's set_plot_time_range does not report back (no loop).
+        if self.shared_time_range_tuple:
+            start_s, end_s = self.shared_time_range_tuple
+            self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
 
-    def redraw_plot(self, plot, new_plot_b: bool = False) -> None:
+    def redraw_plot(self, plot) -> None:
         """Draw a plot's curves, pinned tips and vertical markers again.
 
         Inputs:
-            plot: the model Plot.
-            new_plot_b: True for a plot drawn for the first time.
-        Outputs: none. The plot keeps the time range it showed; a new
-            plot takes the range of the other plots in its tab.
+            plot: the model Plot, new or already shown.
+        Outputs: none. The plot shows the shared time range afterwards.
         """
-        # LLFR-00070: the range to keep after the redraw. A new plot
-        # takes the range of its tab; an existing one keeps its own.
-        if not new_plot_b:
-            range_tuple = self.view.plot_time_range(plot.plot_id_i)
-        else:
-            other_plot_list = self.other_plot_list(plot)
-            range_tuple = ()
-            if other_plot_list:
-                range_tuple = self.view.plot_time_range(
-                    other_plot_list[0].plot_id_i)
         # LLFR-00068: time on the x-axis; LLFR-00045: pinned tips.
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112: the markers
         # are drawn on the same path as the curves.
         self.view.draw_plot(plot.plot_id_i, self.curve_data_list(plot),
                             self.pinned_tip_data_list(plot),
                             self.marker_data_list(plot))
-        if range_tuple:
-            start_s, end_s = range_tuple
-            self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
+        # LLFR-00070, LLFR-00180: draw_plot shows the whole range; a new
+        # or redrawn plot takes the range shared by all plots.
+        self.apply_shared_range(plot)
 
     # ----------------------------------------------------------------
     # File
@@ -298,6 +319,8 @@ class PlotController:
         # LLFR-00015, LLFR-00016: close all tabs and plots and leave one
         # tab with no plots (also harmless for the first file).
         self.workspace.reset()
+        # LLFR-00180: the new file's plots start at its whole range.
+        self.shared_time_range_tuple = ()
         # LLFR-00142: the actions on the previous file cannot be undone.
         self.undo_history.clear()
         self.update_undo_enabled()
@@ -334,7 +357,8 @@ class PlotController:
         plot.add_curve(signal_name_str)
         # LLFR-00140: the plot and its curve are one undoable action.
         self.record_undo(snapshot)
-        self.redraw_plot(plot, new_plot_b=True)
+        # LLFR-00180: the new plot shows the range of the other plots.
+        self.redraw_plot(plot)
 
     def on_signal_dropped(self, plot_id_i: int,
                           signal_name_str: str) -> None:
@@ -384,6 +408,8 @@ class PlotController:
             # LLFR-00051, LLFR-00049, LLFR-00050: the plot had no curves
             # left and was deleted; the others fill the space.
             self.view.remove_plot_view(plot_id_i)
+            # LLFR-00180: it may have been the last plot of all.
+            self.forget_range_without_plots()
             return
         self.redraw_plot(plot)
 
@@ -427,26 +453,36 @@ class PlotController:
         self.record_undo(snapshot)
         # LLFR-00050: the tab page resizes the remaining plots.
         self.view.remove_plot_view(plot_id_i)
+        # LLFR-00180: it may have been the last plot of all.
+        self.forget_range_without_plots()
 
     def on_time_range_changed(self, plot_id_i: int, start_s: float,
                               end_s: float) -> None:
-        """Apply a plot's new time range to every plot of its tab.
+        """Apply a plot's new time range to every plot of every tab.
 
         Inputs:
             plot_id_i: id of the plot whose range the user changed.
             start_s: start of the range, in seconds.
             end_s: end of the range, in seconds.
-        Outputs: none.
+        Outputs: none. An unknown plot or a range that is not finite
+            is ignored.
         """
-        # LLFR-00070: the plots of a tab share the x-axis range. The
-        # view's set_plot_time_range does not report back, so there is
-        # no loop.
+        # LLFR-00070: all plots in all tabs share the x-axis range,
+        # hidden tabs included. The view's set_plot_time_range does not
+        # report back, so there is no loop.
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None:
             return
-        for other_plot in self.other_plot_list(plot):
-            self.view.set_plot_time_range(other_plot.plot_id_i, start_s,
-                                          end_s)
+        start_s = float(start_s)
+        end_s = float(end_s)
+        if not (math.isfinite(start_s) and math.isfinite(end_s)):
+            return
+        # LLFR-00180: kept for the plots created later.
+        self.shared_time_range_tuple = (start_s, end_s)
+        for other_plot in self.all_plot_list():
+            if other_plot is not plot:
+                self.view.set_plot_time_range(other_plot.plot_id_i,
+                                              start_s, end_s)
 
     def file_time_range_tuple(self) -> tuple:
         """Return the whole time range of the open file.
@@ -465,20 +501,20 @@ class PlotController:
         return (float(np.min(time_array)), float(np.max(time_array)))
 
     def on_reset_zoom(self) -> None:
-        """Show the whole time range in every plot of the current tab.
+        """Show the whole time range in every plot of every tab.
 
         Inputs: none.
-        Outputs: none. Plots of other tabs keep their range.
+        Outputs: none.
         """
-        # LLFR-00115: only the current tab; the view fits each y-axis to
-        # the new range (LLFR-00076), and all plots get the same range
-        # (LLFR-00070).
-        tab = self.workspace.find_tab(self.view.current_tab_id())
+        # LLFR-00115: every plot in every tab; the view fits each y-axis
+        # to the new range (LLFR-00076). LLFR-00070, LLFR-00180: the
+        # whole range is now the shared one, also for new plots.
         range_tuple = self.file_time_range_tuple()
-        if tab is None or not range_tuple:
+        if not range_tuple:
             return
+        self.shared_time_range_tuple = ()
         start_s, end_s = range_tuple
-        for plot in tab.plot_list:
+        for plot in self.all_plot_list():
             self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
 
     def on_grid_toggled(self, shown_b: bool) -> None:
@@ -630,6 +666,8 @@ class PlotController:
         self.record_undo(snapshot)
         # LLFR-00028: remove the tab and its plots from the view.
         self.view.remove_tab_view(tab_id_i)
+        # LLFR-00180: its plots may have been the last ones.
+        self.forget_range_without_plots()
         self.update_tab_delete_enabled()
 
     def on_rename_tab(self, tab_id_i: int, new_name_str: str) -> None:
@@ -771,9 +809,6 @@ class PlotController:
         if not self.undo_history.can_undo():
             self.update_undo_enabled()
             return
-        # LLFR-00070, LLFR-00140 Note: the time ranges are view state;
-        # remember them so that the rebuilt plots keep them.
-        tab_range_dict = self.shown_tab_range_dict()
         shown_tab_id_i = self.view.current_tab_id()
         # LLFR-00138: return the model to the state before the action.
         snapshot = self.undo_history.pop()
@@ -784,58 +819,30 @@ class PlotController:
         current_tab_id_i = snapshot.current_tab_id_i
         if self.workspace.find_tab(current_tab_id_i) is None:
             current_tab_id_i = shown_tab_id_i
-        self.rebuild_all_views(current_tab_id_i, tab_range_dict)
+        # LLFR-00070, LLFR-00140 Note: the shared range is view state and
+        # is kept; LLFR-00180: with no plot left, it is the whole range.
+        self.forget_range_without_plots()
+        self.rebuild_all_views(current_tab_id_i)
 
-    def shown_tab_range_dict(self) -> dict:
-        """Return the time range shown in each tab that holds a plot.
-
-        Inputs: none.
-        Outputs: a dict tab id -> (start_s, end_s) of the tab's first
-            plot; tabs without plots, or whose range is unknown, are
-            left out.
-        """
-        # LLFR-00070: all plots of a tab share one time range.
-        tab_range_dict = {}
-        for tab in self.workspace.tab_list:
-            if not tab.plot_list:
-                continue
-            range_tuple = self.view.plot_time_range(
-                tab.plot_list[0].plot_id_i)
-            if range_tuple:
-                tab_range_dict[tab.tab_id_i] = tuple(range_tuple)
-        return tab_range_dict
-
-    def rebuild_all_views(self, current_tab_id_i: int,
-                          tab_range_dict: dict) -> None:
+    def rebuild_all_views(self, current_tab_id_i: int) -> None:
         """Show every tab, plot, curve, tip and marker of the workspace.
 
         Inputs:
             current_tab_id_i: id of the tab to select; the first tab is
                 selected when no tab has that id.
-            tab_range_dict: tab id -> (start_s, end_s) to show in the
-                plots of that tab; plots of other tabs show the whole
-                time range.
-        Outputs: none.
+        Outputs: none. Every plot shows the shared time range.
         """
         # LLFR-00138: the view shows the restored model, from scratch.
         self.view.clear_tab_views()
         for tab in self.workspace.tab_list:
             self.view.add_tab_view(tab.tab_id_i, tab.name_str)
         for tab in self.workspace.tab_list:
-            range_tuple = tab_range_dict.get(tab.tab_id_i, ())
             for plot in tab.plot_list:
                 # LLFR-00069: the plots in their order, top to bottom.
                 self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i)
-                # LLFR-00068: time on the x-axis, the full range first.
-                self.view.draw_plot(
-                    plot.plot_id_i, self.curve_data_list(plot),
-                    self.pinned_tip_data_list(plot),
-                    self.marker_data_list(plot))
-                if range_tuple:
-                    # LLFR-00070: the range the tab showed before.
-                    start_s, end_s = range_tuple
-                    self.view.set_plot_time_range(plot.plot_id_i, start_s,
-                                                  end_s)
+                # LLFR-00068: time on the x-axis; LLFR-00070,
+                # LLFR-00180: then the range shared by all plots.
+                self.redraw_plot(plot)
         # LLFR-00138: select the tab of the state before the action.
         if self.workspace.find_tab(current_tab_id_i) is None:
             current_tab_id_i = self.workspace.tab_list[0].tab_id_i

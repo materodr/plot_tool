@@ -5,8 +5,8 @@ state of the workspace before each undoable action (LLFR-00140) and
 takes the most recent one back when the user undoes (LLFR-00138).
 """
 
-# LLFR-00139: only the 5 most recent undoable actions can be undone.
-MAXIMUM_UNDO_DEPTH_I = 5
+# LLFR-00139: only the 20 most recent undoable actions can be undone.
+MAXIMUM_UNDO_DEPTH_I = 20
 
 
 class UndoHistory:

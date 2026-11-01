@@ -600,6 +600,58 @@ class ExportCopyTest(unittest.TestCase):
         # The tab the user was looking at is shown again.
         self.assertEqual(self.main_window.current_tab_id(), first_tab_id_i)
 
+    @covers("LLFR-00129", "LLFR-00070")
+    def test_hidden_tab_is_exported_at_the_shared_range(self) -> None:
+        """A zoom in the shown tab is also on the page of a hidden tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import plot_export
+        self.plot_signal("speed")
+        first_tab_id_i = self.main_window.current_tab_id()
+        hidden_plot_id_i = self.main_window.plot_panel.plot_id_list(
+            first_tab_id_i)[0]
+        second_tab_id_i = self.add_tab(SECOND_TAB_NAME_STR)
+        self.plot_signal("force")
+        shown_plot_id_i = self.main_window.plot_panel.plot_id_list(
+            second_tab_id_i)[0]
+        shown_widget = self.main_window.plot_view(shown_plot_id_i)
+        shown_widget.wheel_at(shown_widget.data_to_widget_point(1.0, 0.0),
+                              8.0)
+        self.application.processEvents()
+        zoomed_tuple = shown_widget.time_range_tuple()
+        self.assertLess(zoomed_tuple[1] - zoomed_tuple[0], 2.0)
+        hidden_widget = self.main_window.plot_view(hidden_plot_id_i)
+        self.assertEqual(self.main_window.current_tab_id(), second_tab_id_i)
+        self.assertFalse(hidden_widget.isVisible())
+        rendered_range_list = []
+        original_render = plot_export.render_figure_image
+
+        def recording_render(figure, dpi_f: float):
+            """Record the x range of a figure when it is rendered.
+
+            Inputs:
+                figure: the matplotlib Figure of a plot.
+                dpi_f: dots per inch of the rendered image.
+            Outputs: the image returned by render_figure_image.
+            """
+            rendered_range_list.append(
+                (figure, tuple(figure.axes[0].get_xlim())))
+            return original_render(figure, dpi_f)
+
+        with mock.patch.object(plot_export, "render_figure_image",
+                               side_effect=recording_render):
+            self.export_to(os.path.join(self.folder_str, "zoom.pdf"))
+        rendered_figure_list = [record_tuple[0]
+                                for record_tuple in rendered_range_list]
+        self.assertIn(hidden_widget.figure, rendered_figure_list)
+        self.assertIn(shown_widget.figure, rendered_figure_list)
+        for _, range_tuple in rendered_range_list:
+            for index_i in range(2):
+                self.assertAlmostEqual(range_tuple[index_i],
+                                       zoomed_tuple[index_i])
+
     @covers("LLFR-00129")
     def test_page_image_shows_the_plot(self) -> None:
         """The image put on a page is the plot as drawn on screen.
