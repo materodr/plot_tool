@@ -16,6 +16,13 @@ MAIN_START_S = time.perf_counter()
 
 import sys  # noqa: E402
 
+from view.matplotlib_cache import (  # noqa: E402
+    use_persistent_matplotlib_folder)
+
+# LLFR-00068: before matplotlib is imported (by the view below), so a
+# built app keeps matplotlib's font list between launches (issue #67).
+use_persistent_matplotlib_folder()
+
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from controller.main_controller import MainController  # noqa: E402

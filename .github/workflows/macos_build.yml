@@ -14,6 +14,7 @@ on:
       - requirements-build.txt
       - src/main.py
       - src/view/startup_probe.py
+      - src/view/matplotlib_cache.py
       - src/model/file_loader.py
       - tests/user_tests/measure_startup.py
       - .github/workflows/macos_build.yml
@@ -77,9 +78,22 @@ jobs:
             --limit-s 10 --probe-good-files -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
 
+      - name: Show the kept matplotlib cache
+        if: always()
+        run: ls -la ~/Library/Caches/plot_tool/matplotlib || true
+
+      # For comparison only: the same launches from source.
+      - name: Measure the startup time from source
+        if: always()
+        continue-on-error: true
+        run: |
+          python tests/user_tests/measure_startup.py --runs 2 \
+            --limit-s 1000 -- python src/main.py
+
       # Opening the bundle with `open` is what Finder does. Reported for
       # information; the timed check is the step above.
       - name: Launch the bundle as Finder does
+        if: always()
         continue-on-error: true
         run: |
           rm -f open_output.txt
