@@ -551,19 +551,19 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
         self.assertFalse(self.view.undo_enabled_b)
 
     @covers("LLFR-00139", "LLFR-00138")
-    def test_twenty_one_actions_give_twenty_undos(self) -> None:
-        """Only the 20 most recent of 21 actions can be undone, in order.
+    def test_thirty_one_actions_give_thirty_undos(self) -> None:
+        """Only the 30 most recent of 31 actions can be undone, in order.
 
         Inputs: none.
         Outputs: none.
         """
         state_list = [self.workspace.state_tuple()]
-        name_list = [f"Name {index_i}" for index_i in range(1, 22)]
+        name_list = [f"Name {index_i}" for index_i in range(1, 32)]
         for name_str in name_list:
             self.handler("rename_tab")(self.first_tab_id_i, name_str)
             state_list.append(self.workspace.state_tuple())
-        self.assertEqual(self.depth(), 20)
-        for expected_index_i in range(20, 0, -1):
+        self.assertEqual(self.depth(), 30)
+        for expected_index_i in range(30, 0, -1):
             self.assertTrue(self.view.undo_enabled_b)
             self.undo()
             self.assertEqual(self.workspace.state_tuple(),

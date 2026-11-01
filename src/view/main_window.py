@@ -32,10 +32,15 @@ SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
 # LLFR-00128: added by the dialog to a name typed without an extension,
 # so that its overwrite question names the file really written.
 SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
-# LLFR-00137: widgets whose own Ctrl+Z (Cmd+Z) undoes the typed text, so
-# the workspace undo must not run while one of them has the focus.
+# LLFR-00196, LLFR-00195: widgets whose own Ctrl+Z (Cmd+Z) and Ctrl+Y
+# (Cmd+Y) act on the typed text, so the workspace undo and redo must not
+# run while one of them has the focus.
 TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
                            QAbstractSpinBox)
+# LLFR-00191: the Redo shortcut. "Ctrl" is the Command key on macOS in a
+# portable key sequence, so this is Ctrl+Y on Windows and Cmd+Y on
+# macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS).
+REDO_SHORTCUT_STR = "Ctrl+Y"
 
 
 class MainWindow(QMainWindow):
@@ -167,6 +172,14 @@ class MainWindow(QMainWindow):
         self.undo_shortcut = QShortcut(QKeySequence.StandardKey.Undo, self)
         self.undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.undo_shortcut.activated.connect(self._on_undo_shortcut)
+        # LLFR-00190, LLFR-00192: the Redo button goes to the plot
+        # controller; LLFR-00191: so does Ctrl+Y (Cmd+Y on macOS).
+        self.redo_handler = None
+        self.top_panel.redo_button.triggered.connect(
+            self._on_redo_triggered)
+        self.redo_shortcut = QShortcut(QKeySequence(REDO_SHORTCUT_STR), self)
+        self.redo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.redo_shortcut.activated.connect(self._on_redo_shortcut)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -179,17 +192,21 @@ class MainWindow(QMainWindow):
         # LLFR-00005: the controller shows the dialog through ``handler``.
         self.open_file_handler = handler
 
-    def ask_open_file_path(self) -> str:
+    def ask_open_file_path(self, start_folder_str: str = "") -> str:
         """Show the file selection dialog and return the chosen path.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: folder the dialog shows when it opens; ""
+                lets Qt choose.
         Outputs: the path of the selected file, or "" when the user
             cancelled the dialog.
         """
         # LLFR-00005: show the file selection dialog.
         # LLFR-00007: an empty path means the dialog was cancelled.
+        # LLFR-00204: the folder is chosen by the file controller.
         path_str, _ = QFileDialog.getOpenFileName(
-            self, OPEN_FILE_DIALOG_TITLE_STR, "", OPEN_FILE_FILTER_STR)
+            self, OPEN_FILE_DIALOG_TITLE_STR, start_folder_str,
+            OPEN_FILE_FILTER_STR)
         return path_str or ""
 
     def finish_open_file_button(self) -> None:
@@ -441,6 +458,48 @@ class MainWindow(QMainWindow):
             return
         # LLFR-00138: reverse the most recent undoable action.
         self.undo_handler()
+
+    def set_redo_handler(self, handler) -> None:
+        """Set the function called by the Redo button and its shortcut.
+
+        Inputs:
+            handler: a function without arguments that reapplies the
+                most recently undone action.
+        Outputs: none.
+        """
+        # LLFR-00192: the controller restores the state after the action.
+        self.redo_handler = handler
+
+    def set_redo_enabled(self, enabled_b: bool) -> None:
+        """Enable the Redo button, or disable it and show it paler.
+
+        Inputs:
+            enabled_b: True while an undone action can be redone.
+        Outputs: none.
+        """
+        # LLFR-00194: disabled and paler when nothing is left to redo.
+        self.top_panel.redo_button.setEnabled(bool(enabled_b))
+
+    def is_redo_enabled(self) -> bool:
+        """Tell whether the Redo button is enabled.
+
+        Inputs: none.
+        Outputs: True while an undone action can be redone.
+        """
+        # LLFR-00194: the state the shortcut follows too.
+        return self.top_panel.redo_button.isEnabled()
+
+    def run_redo(self) -> None:
+        """Run the redo handler when an undone action can be redone.
+
+        Inputs: none.
+        Outputs: none. Does nothing while the Redo button is disabled.
+        """
+        # LLFR-00194: with nothing to redo, nothing happens.
+        if not self.is_redo_enabled() or self.redo_handler is None:
+            return
+        # LLFR-00192: reapply the most recently undone action.
+        self.redo_handler()
 
     # ----------------------------------------------------------------
     # Plot panel facade, used by the plot controller (plain types only)
@@ -702,6 +761,16 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00032: the tab is full; add a tab or delete a plot.
         message_boxes.show_full_tab_notification(self)
+
+    def show_tab_name_taken_notification(self, name_str: str) -> None:
+        """Show the Tab Name Taken box.
+
+        Inputs:
+            name_str: the name the user typed, without surrounding spaces.
+        Outputs: none.
+        """
+        # LLFR-00211: another tab already has the typed name.
+        message_boxes.show_tab_name_taken_notification(self, name_str)
 
     # ----------------------------------------------------------------
     # Export facade, used by the export controller (plain types only)
@@ -972,11 +1041,52 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00137: the shortcut runs the Undo button's action, except
         # in a text field (search box, dialog line edit), whose own
-        # Ctrl+Z undoes the typed text.
-        if isinstance(QApplication.focusWidget(), TEXT_INPUT_WIDGET_TUPLE):
+        # Ctrl+Z undoes the typed text (LLFR-00196).
+        if self.text_field_has_focus():
             return
         # LLFR-00141: the shortcut does nothing while Undo is disabled.
         self.run_undo()
+
+    def _on_redo_triggered(self) -> None:
+        """Run the redo after a click, then let the Redo button finish.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00192: redo the most recently undone action. LLFR-00001,
+        # LLFR-00003: the button shows its active color briefly and is
+        # never left active, even when the redo failed.
+        try:
+            self.run_redo()
+        finally:
+            self.top_panel.redo_button.finish()
+
+    def _on_redo_shortcut(self) -> None:
+        """Run the redo when Ctrl+Y (Cmd+Y on macOS) is pressed.
+
+        Inputs: none.
+        Outputs: none. Ignored while a text field has the focus, so that
+            Ctrl+Y there acts on the typing instead.
+        """
+        # LLFR-00191, LLFR-00195: the shortcut runs the Redo button's
+        # action, except in a text field.
+        if self.text_field_has_focus():
+            return
+        # LLFR-00194: the shortcut does nothing while Redo is disabled.
+        self.run_redo()
+
+    @staticmethod
+    def text_field_has_focus() -> bool:
+        """Tell whether the keyboard focus is in a text field.
+
+        Inputs: none.
+        Outputs: True when the focused widget is one of
+            TEXT_INPUT_WIDGET_TUPLE (search box, name editors).
+        """
+        # LLFR-00157, LLFR-00195, LLFR-00196: the text fields keep their
+        # own undo and redo of the typed text.
+        return isinstance(QApplication.focusWidget(),
+                          TEXT_INPUT_WIDGET_TUPLE)
 
     def _on_grid_clicked(self, shown_b: bool) -> None:
         """Pass a click on the Grid button to its handler.

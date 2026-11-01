@@ -29,11 +29,12 @@ BUTTON_NAME_DICT = {
     "export_button": "Export",
     "copy_button": "Copy",
     "undo_button": "Undo",
+    "redo_button": "Redo",
 }
-# LLFR-00159: the 11 icons of the requirement, in its order.
+# LLFR-00159: the 12 icons of the requirement, in its order.
 REQUIRED_ICON_TUPLE = (
     "open_file", "undo", "tip", "zoom", "reset_zoom", "vertical_marker",
-    "delta_x", "delta_y", "grid", "export", "copy")
+    "delta_x", "delta_y", "grid", "export", "copy", "redo")
 
 
 def hex_to_rgb_tuple(color_str: str) -> tuple:
@@ -94,8 +95,9 @@ class IconShapeDataTest(unittest.TestCase):
     """Checks of the icon shapes that need no Qt (view.icon_shapes)."""
 
     @covers("LLFR-00159")
-    def test_all_eleven_icons_are_defined(self) -> None:
-        """Every icon of LLFR-00159 has a shape, including Delta X and Y.
+    def test_all_twelve_icons_are_defined(self) -> None:
+        """Every icon of LLFR-00159 has a shape, including Delta X and Y
+        and Redo.
 
         Inputs: none.
         Outputs: none.
@@ -196,6 +198,30 @@ class IconShapeDataTest(unittest.TestCase):
         self.assertEqual(sorted(swapped(command_tuple) for command_tuple in
                                 commands("delta_x")),
                          sorted(commands("delta_y")))
+        # Redo is Undo mirrored left to right (LLFR-00159 item 12): an
+        # arrow curving to the right.
+
+        def mirrored(command_tuple: tuple) -> tuple:
+            """Return a command with its x values mirrored on the grid.
+
+            Inputs:
+                command_tuple: a command with (x, y) pairs.
+            Outputs: the mirrored command.
+            """
+            value_list = list(command_tuple[1:])
+            for index_i in range(0, len(value_list) - 1, 2):
+                value_list[index_i] = (icon_shapes.ICON_GRID_F
+                                       - value_list[index_i])
+            return (command_tuple[0],) + tuple(value_list)
+        self.assertEqual(sorted(mirrored(command_tuple) for command_tuple in
+                                commands("undo")),
+                         sorted(commands("redo")))
+        self.assertNotEqual(commands("undo"), commands("redo"))
+        # The redo arrow head points right: its tip is the rightmost
+        # point of the icon.
+        redo_x_list = [command_tuple[-2] for command_tuple in
+                       commands("redo")]
+        self.assertEqual(max(redo_x_list), 19.5)
         # Copy: two sheets, the front one a whole rounded rectangle.
         self.assertEqual(letters("copy").count("R"), 1)
         self.assertEqual(len(icon_shapes.icon_layer_list("copy")), 2)
@@ -302,9 +328,10 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00158", "LLFR-00004", "LLFR-00018", "LLFR-00077",
             "LLFR-00080", "LLFR-00114", "LLFR-00121", "LLFR-00126",
-            "LLFR-00132", "LLFR-00136", "LLFR-00161", "LLFR-00162")
+            "LLFR-00132", "LLFR-00136", "LLFR-00161", "LLFR-00162",
+            "LLFR-00190")
     def test_every_button_shows_only_its_icon(self) -> None:
-        """All 11 buttons have an icon, no text and a square icon size.
+        """All 12 buttons have an icon, no text and a square icon size.
 
         Inputs: none.
         Outputs: none.
@@ -374,7 +401,8 @@ class ButtonIconTest(unittest.TestCase):
         from PyQt6.QtCore import QEvent, QPoint
         from PyQt6.QtGui import QHelpEvent
         from PyQt6.QtWidgets import QApplication, QToolTip
-        for attribute_str in ("zoom_button", "undo_button", "copy_button"):
+        for attribute_str in ("zoom_button", "undo_button", "copy_button",
+                              "redo_button"):
             button = getattr(self.top_panel, attribute_str)
             name_str = BUTTON_NAME_DICT[attribute_str]
             with self.subTest(button=name_str):
@@ -391,7 +419,7 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00159")
     def test_each_icon_renders_a_distinct_picture(self) -> None:
-        """All 11 icons draw something, and no two draw the same picture.
+        """All 12 icons draw something, and no two draw the same picture.
 
         Inputs: none.
         Outputs: none.
@@ -497,7 +525,7 @@ class ButtonIconTest(unittest.TestCase):
                     target_tuple))
         return min(distance_list)
 
-    @covers("LLFR-00160", "LLFR-00001", "LLFR-00141")
+    @covers("LLFR-00160", "LLFR-00001", "LLFR-00141", "LLFR-00194")
     def test_painted_buttons_show_the_state_icon_color(self) -> None:
         """Painted buttons show ink, white when active, pale when disabled.
 
@@ -525,6 +553,18 @@ class ButtonIconTest(unittest.TestCase):
         self.application.processEvents()
         self.assertLess(self.closest_distance_f(
             undo_button, theme.ICON_COLOR_STR), 30.0)
+        # The Redo button too (LLFR-00194): pale while disabled, ink
+        # when enabled.
+        redo_button = self.top_panel.redo_button
+        self.assertFalse(redo_button.isEnabled())
+        self.assertLess(self.closest_distance_f(
+            redo_button, theme.ICON_DISABLED_COLOR_STR), 30.0)
+        self.assertGreater(self.closest_distance_f(
+            redo_button, theme.ICON_COLOR_STR), 60.0)
+        redo_button.setEnabled(True)
+        self.application.processEvents()
+        self.assertLess(self.closest_distance_f(
+            redo_button, theme.ICON_COLOR_STR), 30.0)
 
 
 @requires_qt

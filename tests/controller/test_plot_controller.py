@@ -62,6 +62,8 @@ class FakePlotView:
         range_dict: plot id -> (start_s, end_s) shown.
         delete_enabled_b: last value given to set_tab_delete_enabled.
         full_tab_count_i: how many Full Tab boxes were shown.
+        tab_name_taken_list: names given to
+            show_tab_name_taken_notification, in order.
         plot_tool_str: last value given to set_plot_tool.
         marker_drawn_dict: plot id -> marker_data_list of the last
             draw_plot or set_markers call.
@@ -71,6 +73,7 @@ class FakePlotView:
             ask_marker_name.
         grid_shown_b: last value given to set_grid_shown.
         undo_enabled_b: last value given to set_undo_enabled.
+        redo_enabled_b: last value given to set_redo_enabled.
         delta_drawn_dict: plot id -> delta_marker_data_list of the last
             draw_plot call.
         delta_first_point_dict: plot id -> point tuple last given to
@@ -91,6 +94,7 @@ class FakePlotView:
         self.range_dict = {}
         self.delete_enabled_b = True
         self.full_tab_count_i = 0
+        self.tab_name_taken_list = []
         self.plot_tool_str = ""
         self.handler_dict = {}
         self.marker_drawn_dict = {}
@@ -98,6 +102,7 @@ class FakePlotView:
         self.marker_name_question_list = []
         self.grid_shown_b = None
         self.undo_enabled_b = None
+        self.redo_enabled_b = None
         self.delta_drawn_dict = {}
         self.delta_first_point_dict = {}
 
@@ -180,6 +185,26 @@ class FakePlotView:
         Outputs: none.
         """
         self.undo_enabled_b = enabled_b
+
+    def set_redo_handler(self, handler) -> None:
+        """Record the Redo button and shortcut handler.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        self.handler_dict["redo"] = handler
+
+    def set_redo_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Redo button is enabled.
+
+        Not added to call_list, like set_undo_enabled.
+
+        Inputs:
+            enabled_b: True when an undone action can be redone.
+        Outputs: none.
+        """
+        self.redo_enabled_b = enabled_b
 
     def set_grid_shown(self, shown_b: bool) -> None:
         """Record whether the grid is shown.
@@ -382,6 +407,17 @@ class FakePlotView:
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+
+    def show_tab_name_taken_notification(self, name_str: str) -> None:
+        """Record a Tab Name Taken box.
+
+        Inputs:
+            name_str: the name the box says is taken.
+        Outputs: none.
+        """
+        self.call_list.append(("show_tab_name_taken_notification",
+                               name_str))
+        self.tab_name_taken_list.append(name_str)
 
     def ask_marker_name(self, current_name_str: str):
         """Answer a marker name question with the next prepared answer.
@@ -1196,6 +1232,35 @@ class TabActionTest(PlotControllerTestCase):
                          self.workspace.tab_list[1].tab_id_i)
         self.assertTrue(self.view.delete_enabled_b)
 
+    @covers("LLFR-00210", "LLFR-00026", "LLFR-00028", "LLFR-00138",
+            "LLFR-00016", "HLFR-00015")
+    def test_tab_numbers_not_reused_until_a_file_opens(self) -> None:
+        """Deleted and undone tab numbers stay used; a file restarts them.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.handler_dict["add_tab"]()
+        second_tab_id_i = self.view.current_tab_id()
+        self.view.handler_dict["add_tab"]()
+        self.view.handler_dict["delete_tab"](second_tab_id_i)
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 4"])
+        # LLFR-00210: undoing the add of Tab 4 does not free its number.
+        self.view.handler_dict["undo"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3"])
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 5"])
+        # LLFR-00210, LLFR-00016: a replaced file restarts at Tab 1.
+        self.file_controller.open(make_signal_file(2), True)
+        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+
     @covers("LLFR-00028", "LLFR-00066", "HLFR-00016")
     def test_delete_tab_removes_it_but_never_the_last(self) -> None:
         """Delete removes a tab; the last tab is kept, Delete disabled.
@@ -1244,6 +1309,141 @@ class TabActionTest(PlotControllerTestCase):
         self.view.handler_dict["rename_tab"](999, "x")
         self.assertEqual(len(self.view.call_list), call_count_i)
         self.assertEqual(self.view.tab_dict[tab_id_i], "Tab 1")
+
+
+class UniqueTabNameTest(PlotControllerTestCase):
+    """Tabs never share a name (LLFR-00211, LLFR-00212)."""
+
+    def setUp(self) -> None:
+        """Open a file and add a second tab, "Tab 2".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().setUp()
+        self.view.handler_dict["add_tab"]()
+        self.second_tab_id_i = self.view.current_tab_id()
+
+    def rename(self, tab_id_i: int, name_str: str) -> None:
+        """Run the rename handler.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            name_str: the typed name.
+        Outputs: none.
+        """
+        self.view.handler_dict["rename_tab"](tab_id_i, name_str)
+
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    def test_rename_to_another_tab_name_is_refused(self) -> None:
+        """The previous name is kept and the box names the taken name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        call_count_i = len(self.view.call_list)
+        self.rename(self.second_tab_id_i, "Tab 1")
+        self.assertEqual(self.view.call_list[call_count_i:],
+                         [("show_tab_name_taken_notification", "Tab 1")])
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+        self.assertEqual(
+            self.workspace.find_tab(self.second_tab_id_i).name_str, "Tab 2")
+        self.assertEqual(self.view.full_tab_count_i, 0)
+
+    @covers("LLFR-00211", "HLFR-00017")
+    def test_surrounding_spaces_do_not_avoid_the_conflict(self) -> None:
+        """"  Tab 1 " is the name of Tab 1; the box shows it trimmed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.first_tab_id(), "Engine")
+        self.rename(self.second_tab_id_i, "  Engine \t")
+        self.assertEqual(self.view.tab_name_taken_list, ["Engine"])
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Engine", "Tab 2"])
+
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    def test_own_name_and_other_case_are_accepted(self) -> None:
+        """A tab's own name and a name differing only in case are free.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.second_tab_id_i, " Tab 2 ")
+        self.rename(self.second_tab_id_i, "tab 1")
+        self.assertEqual(self.view.tab_name_taken_list, [])
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "tab 1"])
+        self.rename(self.second_tab_id_i, "TAB 1")
+        self.assertEqual(self.view.tab_dict[self.second_tab_id_i], "TAB 1")
+        self.assertEqual(self.view.tab_name_taken_list, [])
+
+    @covers("LLFR-00211", "LLFR-00067")
+    def test_blank_name_shows_no_box(self) -> None:
+        """A blank name is still refused silently, not as a conflict.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.first_tab_id(), "   ")
+        self.assertEqual(self.view.tab_name_taken_list, [])
+        self.assertEqual(self.view.tab_dict[self.first_tab_id()], "Tab 1")
+
+    @covers("LLFR-00211", "LLFR-00140")
+    def test_refused_rename_records_no_undo_step(self) -> None:
+        """A refused rename leaves the undo history as it was.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.undo_history.clear()
+        self.view.set_undo_enabled(False)
+        self.rename(self.second_tab_id_i, "Tab 1")
+        self.assertFalse(self.controller.undo_history.can_undo())
+        # LLFR-00140: an accepted rename is still recorded.
+        self.rename(self.second_tab_id_i, "Brakes")
+        self.assertTrue(self.controller.undo_history.can_undo())
+        self.view.handler_dict["undo"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+        self.assertFalse(self.controller.undo_history.can_undo())
+
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00026", "HLFR-00015")
+    def test_new_tab_skips_a_renamed_tab_name(self) -> None:
+        """A tab renamed "Tab 3" makes the next new tab "Tab 4".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.second_tab_id_i, "Tab 3")
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 4"])
+        self.assertEqual(len(set(self.view.tab_dict.values())), 3)
+
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00138")
+    def test_undo_keeps_tab_names_unique(self) -> None:
+        """An undone rename and later adds never give two equal names.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # Tab 2 renamed "Tab 5"; undo brings back "Tab 2" after Tab 3
+        # was added, and new tabs then skip nothing but used numbers.
+        self.rename(self.second_tab_id_i, "Tab 5")
+        self.view.handler_dict["add_tab"]()
+        self.view.handler_dict["undo"]()
+        self.view.handler_dict["undo"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+        for _ in range(3):
+            self.view.handler_dict["add_tab"]()
+        name_list = list(self.view.tab_dict.values())
+        self.assertEqual(name_list,
+                         ["Tab 1", "Tab 2", "Tab 4", "Tab 5", "Tab 6"])
+        self.assertEqual(len(set(name_list)), len(name_list))
 
 
 if __name__ == "__main__":
