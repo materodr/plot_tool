@@ -17,8 +17,8 @@ from functools import partial
 
 from PyQt6.QtCore import QEvent, QTimer, Qt
 from PyQt6.QtWidgets import (
-    QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget, QToolButton,
-    QVBoxLayout, QWidget)
+    QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
+    QToolButton, QVBoxLayout, QWidget)
 
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
@@ -535,8 +535,11 @@ class PlotPanel(QWidget):
         page = self.page_dict.pop(tab_id_i, None)
         if page is None:
             return
+        self.move_focus_out_of(page)
         for plot_widget in list(page.plot_widget_list):
             self.plot_widget_dict.pop(plot_widget.plot_id_i, None)
+            # LLFR-00138: no late request from the removed plot.
+            plot_widget.retire()
         self.tab_widget.removeTab(self.tab_widget.indexOf(page))
         page.deleteLater()
 
@@ -652,6 +655,9 @@ class PlotPanel(QWidget):
         plot_widget = self.plot_widget_dict.pop(plot_id_i, None)
         if plot_widget is None:
             return
+        # LLFR-00138: no late request from the removed plot.
+        self.move_focus_out_of(plot_widget)
+        plot_widget.retire()
         # LLFR-00050: the page gives the free space to the other plots.
         for page in self.page_dict.values():
             if page.remove_plot_widget(plot_widget):
@@ -659,6 +665,24 @@ class PlotPanel(QWidget):
         # The widget may be running the menu that asked for this, so it
         # is deleted later by the event loop, not now.
         plot_widget.deleteLater()
+
+    def move_focus_out_of(self, removed_widget) -> None:
+        """Keep the keyboard focus off text fields when a widget goes.
+
+        Inputs:
+            removed_widget: the tab page or plot widget being removed.
+        Outputs: none. When the focus is in that widget, it moves to
+            this panel instead of to the next widget of the focus chain,
+            which could be the search box.
+        """
+        # LLFR-00137: after an undo removes the clicked plot, the next
+        # Ctrl+Z (Cmd+Z) must still run the workspace undo.
+        focus_widget = QApplication.focusWidget()
+        if focus_widget is None:
+            return
+        if (focus_widget is removed_widget
+                or removed_widget.isAncestorOf(focus_widget)):
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def plot_view(self, plot_id_i: int):
         """Return the plot widget of a plot.
