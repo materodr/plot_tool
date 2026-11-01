@@ -423,7 +423,7 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: the name of the FFT signal.
         """
-        self.choose("Speed", "FFT")
+        self.choose("Speed", "FFT (fft)")
         return self.panel.signal_name_list()[-1]
 
     @covers("LLFR-00256", "LLFR-00249", "LLFR-00019", "HLFR-00058",
@@ -435,7 +435,8 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.assertTrue(fft_name_str.startswith("fft_Speed_"))
+        self.assertTrue(fft_name_str.startswith("fft_"))
+        self.assertTrue(fft_name_str.endswith("s_Speed"))
         plot_widget = self.double_click(fft_name_str)
         self.assertTrue(plot_widget.frequency_plot_b)
         self.assertEqual(plot_widget.axes.get_xlabel(), "Frequency (Hz)")

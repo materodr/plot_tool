@@ -64,7 +64,7 @@ class OperationTableTest(unittest.TestCase):
                             "Less than or equal"]),
             ("Arithmetic", ["Add constant", "Subtract constant",
                             "Multiply by constant", "Divide by constant",
-                            "Product with signal"]),
+                            "Absolute value", "Product with signal"]),
             ("Spectrum", ["FFT"]),
         ]
         found_list = [(group_str, [operation.label_str
@@ -76,9 +76,41 @@ class OperationTableTest(unittest.TestCase):
             for operation in operation_list:
                 self.assertEqual(operation.group_str, group_str)
 
-    @covers("LLFR-00240")
-    def test_operation_ids_are_the_name_prefixes(self) -> None:
-        """The operation ids are exactly the names of LLFR-00240.
+    @covers("LLFR-00268", "LLFR-00239")
+    def test_menu_labels_show_the_abbreviations(self) -> None:
+        """Each menu label is the name and the abbreviation in brackets.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        expected_list = [
+            ("Calculus", ["Integral (int)", "Derivative (der)"]),
+            ("Filters", ["Low-pass filter (lpf)", "High-pass filter (hpf)",
+                         "Moving average (mavg)"]),
+            ("Statistics", ["Max (max)", "Min (min)"]),
+            ("Comparison", ["Greater than (gt)", "Less than (lt)",
+                            "Greater than or equal (ge)",
+                            "Less than or equal (le)"]),
+            ("Arithmetic", ["Add constant (add)", "Subtract constant (sub)",
+                            "Multiply by constant (mul)",
+                            "Divide by constant (div)",
+                            "Absolute value (abs)",
+                            "Product with signal (prod)"]),
+            ("Spectrum", ["FFT (fft)"]),
+        ]
+        found_list = [(group_str, [operation.menu_label_str
+                                   for operation in operation_list])
+                      for group_str, operation_list
+                      in operations.operation_group_list()]
+        self.assertEqual(found_list, expected_list)
+        abbreviation_list = [operation.abbreviation_str for operation
+                             in operations.OPERATION_DICT.values()]
+        self.assertEqual(len(set(abbreviation_list)),
+                         len(abbreviation_list))
+
+    @covers("LLFR-00225", "LLFR-00262")
+    def test_operation_ids_of_the_layout_file(self) -> None:
+        """The layout ids are unchanged, plus "abs" for Absolute value.
 
         Inputs: none.
         Outputs: none.
@@ -87,7 +119,7 @@ class OperationTableTest(unittest.TestCase):
             "integral", "derivative", "lowpass", "highpass",
             "movingaverage", "max", "min", "greater", "less",
             "greaterorequal", "lessorequal", "add", "subtract",
-            "multiply", "divide", "product", "fft"])
+            "multiply", "divide", "abs", "product", "fft"])
 
     @covers("LLFR-00245", "LLFR-00269", "LLFR-00272", "LLFR-00275",
             "LLFR-00248")
@@ -100,7 +132,8 @@ class OperationTableTest(unittest.TestCase):
         kind_dict = {operation_str: operation.parameter_kind_str
                      for operation_str, operation
                      in operations.OPERATION_DICT.items()}
-        for operation_str in ("integral", "derivative", "max", "min"):
+        for operation_str in ("integral", "derivative", "max", "min",
+                              "abs"):
             self.assertEqual(kind_dict[operation_str], "none")
         for operation_str in ("lowpass", "highpass"):
             self.assertEqual(kind_dict[operation_str], "filter")
@@ -745,6 +778,29 @@ class ArithmeticTest(unittest.TestCase):
             operations.divide(np.array([1.0]), 0)
         with self.assertRaises(SyntheticParameterError):
             operations.divide(np.array([1.0]), -0.0)
+
+    @covers("LLFR-00284")
+    def test_absolute_value(self) -> None:
+        """abs gives the absolute value of every sample, as a copy.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        value_array = np.array([1.5, -2.0, 0.0, -0.0, -1e9, np.nan])
+        result_array = operations.absolute(value_array)
+        np.testing.assert_array_equal(result_array[:5],
+                                      [1.5, 2.0, 0.0, 0.0, 1e9])
+        self.assertTrue(np.isnan(result_array[5]))
+        self.assertEqual(result_array.dtype, np.float64)
+        self.assertEqual(value_array[1], -2.0)
+        computed_array, frequency_array = operations.compute(
+            "abs", np.arange(3.0), [np.array([-1, 2, -3])], None)
+        np.testing.assert_array_equal(computed_array, [1.0, 2.0, 3.0])
+        self.assertIsNone(frequency_array)
+        self.assertIsNone(operations.check_parameter(
+            "abs", None, np.arange(3.0), 3))
+        with self.assertRaises(SyntheticParameterError):
+            operations.check_parameter("abs", 1.0, np.arange(3.0), 3)
 
     @covers("LLFR-00276")
     def test_product_of_two_signals(self) -> None:
