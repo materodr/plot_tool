@@ -24,7 +24,7 @@ from tests.controller.test_synthetic_controller import (
 
 from controller.main_controller import MainController
 from model.layout_file import (
-    REMOVED_HEADING_STR, SYNTHETIC_HEADING_STR, read_layout_file)
+    SYNTHETIC_HEADING_STR, read_layout_file)
 from model.synthetic_signals import LAYOUT_KEY_STR
 
 
@@ -300,10 +300,12 @@ class LoadTest(LayoutSyntheticTestCase):
         entry_list[3]["name"] = "Torque"
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
-        # Only the FFT of Speed is created: the others need lowpass.
-        # The signals that need lowpass are not created, nor Torque.
-        self.assertEqual(self.store.names(), [])
-        self.assertEqual(self.view.synthetic_name_set, set())
+        # The signals that need lowpass are not created; the entry
+        # named like the data signal Torque is renamed (LLFR-00282).
+        self.assertEqual(self.store.names(), ["Torque_2"])
+        self.assertEqual(self.store.get("Torque_2").operation_str,
+                         "greaterorequal")
+        self.assertEqual(self.view.synthetic_name_set, {"Torque_2"})
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
         self.assertIn(SYNTHETIC_HEADING_STR, report_str)
@@ -312,8 +314,7 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertIn(f"  - {name_list[1]}: The signal "
                       f"\"{name_list[0]}\" it is computed from was not "
                       f"created.", report_str)
-        self.assertIn("  - Torque: \"Torque\" is the name of a signal "
-                      "of the data file.", report_str)
+        self.assertNotIn("Torque_2", report_str)
         self.assertIn("Signals not in the data file:", report_str)
         # LLFR-00231: plot 2 lost every curve and was not created.
         self.assertEqual(self.curve_names(), [("Tab 1", [["Speed"]])])
@@ -372,87 +373,87 @@ class LoadTest(LayoutSyntheticTestCase):
 
 
 class KeptTabsTest(LayoutSyntheticTestCase):
-    """The current synthetic signals are removed (LLFR-00262) while
-    the current tabs are kept (LLFR-00229)."""
+    """The current synthetic signals and tabs are kept (LLFR-00229,
+    LLFR-00262); the file's signals are reused or renamed (LLFR-00282).
+    """
 
     @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
-    def test_same_signals_keep_the_kept_curves(self) -> None:
-        """Loading the same signals keeps the curves of kept tabs."""
-        name_list = self.build_synthetic_layout()
+    def test_same_layout_twice_adds_nothing(self) -> None:
+        """Loading the same layout again reuses every signal."""
+        name_list = self.build_synthetic_layout(with_fft_b=True)
         old_curve_list = self.curve_names()
-        self.load(self.save("layout.json"))
-        self.assertEqual(self.view.report_list, [])
-        self.assertEqual(self.store.names(), name_list)
-        curve_list = self.curve_names()
-        self.assertEqual(curve_list[0], old_curve_list[0])
-        self.assertEqual(curve_list[1][1], old_curve_list[0][1])
+        path_str = self.save("layout.json")
+        for load_number_i in range(2):
+            self.load(path_str)
+            self.assertEqual(self.view.report_list, [])
+            self.assertEqual(self.store.names(), name_list)
+            curve_list = self.curve_names()
+            # The kept tab, its frequency plot included, is unchanged.
+            self.assertEqual(curve_list[0], old_curve_list[0])
+            self.assertEqual(curve_list[load_number_i + 1][1],
+                             old_curve_list[0][1][:2])
         self.assertEqual(len(self.workspace.tab_list[0].plot_list[0]
                              .pinned_tip_list), 1)
+        self.assertEqual(self.view.synthetic_name_set, set(name_list))
 
-    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00237",
-            "LLFR-00051")
-    def test_changed_signals_lose_their_kept_curves(self) -> None:
-        """A changed or dropped synthetic signal leaves the kept tabs."""
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00237")
+    def test_changed_signals_get_new_names(self) -> None:
+        """A changed recipe creates "_2" signals; the file's curves and
+        later entries use them; the kept tabs are unchanged."""
         name_list = self.build_synthetic_layout()
+        old_curve_list = self.curve_names()
         layout_dict = read_layout_file(self.save("layout.json"))
-        # The low-pass gets another order: it and the signals computed
-        # from it change; the moving average is left out of the file.
         layout_dict[LAYOUT_KEY_STR][0]["parameter"]["order"] = 4
-        del layout_dict[LAYOUT_KEY_STR][2]
-        layout_dict["tabs"] = []
-        self.load(self.write_layout("edited.json", layout_dict))
-        self.assertEqual(self.store.names(),
-                         [name_list[index_i]
-                          for index_i in (0, 1, 3, 4)])
-        # Plot 1 keeps Speed; plot 2 (moving average and product) is
-        # deleted, being left with no curve.
-        self.assertEqual(self.curve_names(), [("Tab 1", [["Speed"]])])
-        self.assertEqual(self.workspace.tab_list[0].plot_list[0]
-                         .pinned_tip_list, [])
-        report_str = self.view.report_list[0]
-        self.assertIn(REMOVED_HEADING_STR, report_str)
-        for name_str, plot_i in ((name_list[0], 1), (name_list[2], 2),
-                                 (name_list[4], 2)):
-            self.assertIn(f"Curve of {name_str} in plot {plot_i} of tab "
-                          f"\"Tab 1\": removed", report_str)
-        # The views show the model again.
-        tab_id_i = self.workspace.tab_list[0].tab_id_i
-        self.assertEqual(
-            self.view.plot_id_list(tab_id_i),
-            [plot.plot_id_i
-             for plot in self.workspace.tab_list[0].plot_list])
-
-    @covers("LLFR-00282", "LLFR-00283", "LLFR-00237")
-    def test_kept_frequency_plot_loses_its_fft(self) -> None:
-        """The FFT signal is removed and not created again, so its
-        frequency plot in a kept tab is deleted and reported."""
-        name_list = self.build_synthetic_layout(with_fft_b=True)
-        self.load(self.save("layout.json"))
-        self.assertEqual(self.store.names(), name_list[:5])
-        kept_plot_list = self.workspace.tab_list[0].plot_list
-        self.assertEqual(len(kept_plot_list), 2)
-        self.assertFalse(any(plot.is_frequency_plot()
-                             for plot in kept_plot_list))
-        self.assertEqual(len(self.view.report_list), 1)
-        self.assertIn(REMOVED_HEADING_STR, self.view.report_list[0])
-        self.assertIn(f"Curve of {name_list[5]} in plot 3 of tab "
-                      f"\"Tab 1\": removed", self.view.report_list[0])
-        self.assertNotIn(SYNTHETIC_HEADING_STR, self.view.report_list[0])
+        path_str = self.write_layout("edited.json", layout_dict)
+        self.load(path_str)
+        self.assertEqual(self.view.report_list, [])
+        renamed_list = [name_list[index_i] + "_2"
+                        for index_i in (0, 1, 2, 4)]
+        self.assertEqual(self.store.names(), name_list + renamed_list)
+        curve_list = self.curve_names()
+        self.assertEqual(curve_list[0], old_curve_list[0])
+        self.assertEqual(curve_list[1][1], [
+            [renamed_list[0], "Speed"], [renamed_list[2], renamed_list[3]]])
+        new_plot_list = self.workspace.tab_list[1].plot_list
+        self.assertEqual(new_plot_list[0].pinned_tip_list[0]
+                         .signal_name_str, renamed_list[0])
+        self.assertEqual(new_plot_list[1].delta_marker_list[0]
+                         .first_point_tuple[0], renamed_list[3])
+        self.assertEqual(self.store.get(renamed_list[3]).source_name_list,
+                         [renamed_list[0], "Torque"])
+        # The same edited file again: nothing new.
+        self.load(path_str)
+        self.assertEqual(self.store.names(), name_list + renamed_list)
+        self.assert_screen_matches_model()
 
     @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
-    def test_all_kept_plots_removed_replaces_the_tabs(self) -> None:
-        """With no plot left, the file's tabs replace the current ones."""
-        self.build_synthetic_layout()
+    def test_kept_curves_of_signals_left_out_stay(self) -> None:
+        """Signals and curves the file does not hold are kept."""
+        name_list = self.build_synthetic_layout(with_fft_b=True)
+        old_curve_list = self.curve_names()
         layout_dict = read_layout_file(self.save("layout.json"))
         layout_dict[LAYOUT_KEY_STR] = []
         layout_dict["tabs"] = [{"name": "Other", "plots": [
             {"curves": [{"signal": "Torque", "color": "#0000ff",
                          "width": 1}]}]}]
-        self.view.handler_dict["curve_delete_handler"](
-            self.workspace.tab_list[0].plot_list[0].plot_id_i, "Speed")
         self.load(self.write_layout("edited.json", layout_dict))
-        self.assertEqual(self.store.names(), [])
-        self.assertEqual(self.curve_names(), [("Other", [["Torque"]])])
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual(self.store.names(), name_list)
+        self.assertEqual(self.curve_names(),
+                         old_curve_list + [("Other", [["Torque"]])])
+
+    def assert_screen_matches_model(self) -> None:
+        """Check that every plot is drawn with its own curves.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for tab in self.workspace.tab_list:
+            for plot in tab.plot_list:
+                curve_data_list, _ = self.view.drawn_dict[plot.plot_id_i]
+                self.assertEqual(
+                    [curve_data[0] for curve_data in curve_data_list],
+                    [curve.signal_name_str for curve in plot.curve_list])
 
 
 class EmptyTabsTest(LayoutSyntheticTestCase):

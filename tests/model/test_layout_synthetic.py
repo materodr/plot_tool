@@ -22,7 +22,7 @@ from model.layout_file import (
     parse_layout_text, rebuild_layout)
 from model.synthetic_signals import (
     LAYOUT_KEY_STR, SyntheticSignalStore, create_layout_signals,
-    entries_text, same_signal)
+    LayoutSignalLoader, entries_text, recipe)
 from model.workspace import (
     DELTA_X_KIND_STR, FREQUENCY_PLOT_KIND_STR, Workspace)
 
@@ -279,8 +279,8 @@ class CreateEntriesTest(unittest.TestCase):
                          [signal.name_str for signal in old_signal_list])
         for old_signal in old_signal_list:
             new_signal = data_file.store.get(old_signal.name_str)
-            self.assertTrue(same_signal(old_signal, data_file.store,
-                                        new_signal), old_signal.name_str)
+            self.assertEqual(recipe(data_file.store, new_signal),
+                             recipe(data_file.store, old_signal))
             np.testing.assert_array_equal(new_signal.value_array,
                                           old_signal.value_array)
 
@@ -396,36 +396,105 @@ class CreateEntriesTest(unittest.TestCase):
             for name_str in ("fft_Speed_1s_to_5s", "fft_Speed_-5s_to_20s",
                              "odd")])
 
-    @covers("LLFR-00262", "LLFR-00237")
-    def test_name_of_a_data_file_signal(self) -> None:
-        """A saved name of a data file signal is not created."""
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00237")
+    def test_name_of_a_data_file_signal_is_renamed(self) -> None:
+        """A saved name of a data file signal gets a unique name, and
+        the later entries of the file follow it, without a report."""
         data_file = DataFile()
-        not_created_list = load_entries(
-            [valid_entry("Torque"), valid_entry("integral_x", "integral",
-                                                ["Torque"])],
-            data_file)
-        # LLFR-00262: the dependent uses the data file's Torque.
-        self.assertEqual(data_file.store.names(), ["integral_x"])
-        self.assertEqual(not_created_list[0][0], "Torque")
-        self.assertIn("data file", not_created_list[0][1])
+        loader = LayoutSignalLoader(data_file.store, data_file.lookup,
+                                    data_file.time_array,
+                                    data_file.data_name_set())
+        loader.load([valid_entry("Torque", "integral"),
+                     valid_entry("integral_x", "integral", ["Torque"])])
+        self.assertEqual(loader.not_created_list, [])
+        self.assertEqual(data_file.store.names(),
+                         ["Torque_2", "integral_x"])
+        self.assertEqual(data_file.store.get("integral_x")
+                         .source_name_list, ["Torque_2"])
+        self.assertEqual(loader.name_dict,
+                         {"Torque": "Torque_2", "integral_x": "integral_x"})
+        drawn_dict = loader.drawn_name_dict()
+        self.assertEqual(drawn_dict["Torque"][0], "Torque_2")
 
-    @covers("LLFR-00262", "LLFR-00237")
-    def test_duplicate_names(self) -> None:
-        """A second entry with an earlier entry's name is reported."""
+    @covers("LLFR-00282", "LLFR-00262")
+    def test_duplicate_names_in_the_file(self) -> None:
+        """The same entry twice is created once; another recipe under
+        the same name gets the next free number."""
         data_file = DataFile()
         not_created_list = load_entries(
             [valid_entry("twice", "integral"),
-             valid_entry(" twice ", "derivative")], data_file)
-        self.assertEqual(data_file.store.names(), ["twice"])
-        self.assertEqual(data_file.store.get("twice").operation_str,
-                         "integral")
-        self.assertEqual(not_created_list[0][0], "twice")
-        self.assertIn("earlier synthetic signal", not_created_list[0][1])
+             valid_entry(" twice ", "integral"),
+             valid_entry("twice", "derivative"),
+             valid_entry("twice", "max")], data_file)
+        self.assertEqual(not_created_list, [])
+        self.assertEqual(data_file.store.names(),
+                         ["twice", "twice_2", "twice_3"])
+        self.assertEqual([data_file.store.get(name_str).operation_str
+                          for name_str in data_file.store.names()],
+                         ["integral", "derivative", "max"])
+
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
+    def test_current_signals_are_kept_reused_or_renamed(self) -> None:
+        """Identical signals are reused; changed ones get a new name;
+        loading twice adds nothing; chains of renames follow."""
+        data_file = DataFile()
+        name_list = make_chained_store(data_file)
+        entry_list = json.loads(entries_text(
+            data_file.store.layout_entries()))
+        old_names_list = data_file.store.names()
+
+        def load_kept(entries) -> LayoutSignalLoader:
+            """Load entries into the store without emptying it.
+
+            Inputs:
+                entries: the "synthetic_signals" list.
+            Outputs: the loader.
+            """
+            loader = LayoutSignalLoader(
+                data_file.store, data_file.lookup, data_file.time_array,
+                data_file.data_name_set())
+            loader.load(entries)
+            return loader
+
+        for _ in range(2):
+            loader = load_kept(entry_list)
+            self.assertEqual(loader.not_created_list, [])
+            self.assertEqual(data_file.store.names(), old_names_list)
+        # The low-pass gets another order: it and every signal computed
+        # from it, directly or not, get "_2"; greater is reused.
+        changed_list = json.loads(json.dumps(entry_list))
+        changed_list[0]["parameter"]["order"] = 4
+        loader = load_kept(changed_list)
+        self.assertEqual(loader.not_created_list, [])
+        renamed_list = [name_list[index_i] + "_2"
+                        for index_i in (0, 1, 2, 4, 5, 6)]
+        self.assertEqual(data_file.store.names(),
+                         old_names_list + renamed_list)
+        self.assertEqual(loader.name_dict[name_list[3]], name_list[3])
+        self.assertEqual(loader.name_dict[name_list[6]],
+                         name_list[6] + "_2")
+        store = data_file.store
+        self.assertEqual(store.get(name_list[1] + "_2").source_name_list,
+                         [name_list[0] + "_2"])
+        self.assertEqual(store.get(name_list[5] + "_2").source_name_list,
+                         [name_list[4] + "_2", "Speed"])
+        self.assertEqual(store.get(name_list[0] + "_2").parameter,
+                         (5.0, 4, "first_value"))
+        # The current signals are unchanged.
+        self.assertEqual(store.get(name_list[0]).parameter,
+                         (5.0, 2, "first_value"))
+        # Loading the changed file again reuses the "_2" signals.
+        load_kept(changed_list)
+        self.assertEqual(data_file.store.names(),
+                         old_names_list + renamed_list)
+        # The FFT signal stays in the store; it is not in the file.
+        self.assertTrue(store.is_fft(name_list[7]))
 
     @covers("LLFR-00262", "LLFR-00237")
     def test_forward_references_and_cycles(self) -> None:
         """A source that comes later in the list is reported."""
         data_file = DataFile()
+        # LLFR-00262: "self" names no signal yet when it is created.
         entry_list = [
             valid_entry("first", "integral", ["second"]),
             valid_entry("second", "integral", ["Speed"]),
@@ -523,38 +592,6 @@ class CreateEntriesTest(unittest.TestCase):
         self.assertIn("disk on fire", not_created_list[0][1])
 
 
-class SameSignalTest(unittest.TestCase):
-    """Whether a recreated synthetic signal equals the old one."""
-
-    @covers("LLFR-00262", "LLFR-00229")
-    def test_same_and_changed_signals(self) -> None:
-        """Same entry and samples are equal; any change is not."""
-        data_file = DataFile()
-        old_signal = data_file.create("lowpass", ["Torque"],
-                                      (5.0, 2, "first_value"))
-        other_store = SyntheticSignalStore()
-        same_entry = data_file.store.layout_entry(old_signal)
-        other_file = DataFile()
-        other_file.store = other_store
-        new_signal = other_file.create_from_entry(same_entry)
-        self.assertTrue(same_signal(old_signal, other_store, new_signal))
-        changed_entry = copy.deepcopy(same_entry)
-        changed_entry["parameter"]["order"] = 3
-        changed_entry["name"] = "changed"
-        changed_signal = other_file.create_from_entry(changed_entry)
-        changed_signal.name_str = old_signal.name_str
-        self.assertFalse(same_signal(old_signal, other_store,
-                                     changed_signal))
-        # Same entry but other samples (the source changed).
-        new_signal.value_array = new_signal.value_array + 1.0
-        self.assertFalse(same_signal(old_signal, other_store, new_signal))
-        fft_signal = data_file.create("fft", ["Torque"], (0.0, 5.0))
-        self.assertFalse(same_signal(old_signal, data_file.store,
-                                     fft_signal))
-        self.assertTrue(same_signal(fft_signal, data_file.store,
-                                    fft_signal))
-
-
 class RebuildWithSyntheticTest(unittest.TestCase):
     """The plots are rebuilt with the created signals (LLFR-00230)."""
 
@@ -572,13 +609,15 @@ class RebuildWithSyntheticTest(unittest.TestCase):
             Inputs:
                 entry_list: the "synthetic_signals" list.
                 report: the LayoutReport.
-            Outputs: name -> samples of the created signals.
+            Outputs: the drawn_name_dict of the loader.
             """
-            not_created_list = load_entries(entry_list, data_file)
-            for label_str, reason_str in not_created_list:
+            loader = LayoutSignalLoader(
+                data_file.store, data_file.lookup, data_file.time_array,
+                data_file.data_name_set())
+            loader.load(entry_list)
+            for label_str, reason_str in loader.not_created_list:
                 report.add_synthetic_signal(f"{label_str}: {reason_str}")
-            return {signal.name_str: signal.value_array
-                    for signal in data_file.store.signal_list}
+            return loader.drawn_name_dict()
 
         return builder
 
@@ -625,6 +664,8 @@ class RebuildWithSyntheticTest(unittest.TestCase):
         # signal computed from it are lost.
         broken_dict = copy.deepcopy(layout_dict)
         broken_dict[LAYOUT_KEY_STR][0]["signals"] = ["Pressure"]
+        # As after reopening the data file: no synthetic signal yet.
+        data_file.store.clear()
         new_workspace = Workspace(random.Random(1))
         result = rebuild_layout(new_workspace, broken_dict,
                                 data_file.signal_dict,
@@ -648,6 +689,60 @@ class RebuildWithSyntheticTest(unittest.TestCase):
                          [name_list[0], name_list[6], name_list[2]])
         self.assertIn("Data tip at 2 s", report_str)
         self.assertIn("Delta X marker between 1 s and 4 s", report_str)
+
+    @covers("LLFR-00282", "LLFR-00230", "LLFR-00232", "LLFR-00262",
+            "LLFR-00231")
+    def test_curves_follow_renamed_signals(self) -> None:
+        """Curves, tips and deltas of the file draw the renamed signal;
+        a failed entry's curves are missing even when a current signal
+        has its name."""
+        data_file = DataFile()
+        name_list = make_chained_store(data_file)
+        workspace = Workspace(random.Random(1))
+        tab = workspace.tab_list[0]
+        plot = workspace.add_plot(tab.tab_id_i)
+        plot.add_curve(name_list[1])
+        plot.add_curve(name_list[3])
+        value_array = data_file.store.get(name_list[1]).value_array
+        plot.add_pinned_tip(name_list[1], 2.0, float(value_array[200]))
+        plot.add_delta_marker(
+            DELTA_X_KIND_STR, (name_list[1], 1.0, float(value_array[100])),
+            (name_list[3], 4.0, 1.0))
+        layout_dict = json.loads(layout_text(build_layout_dict(
+            workspace, tab.tab_id_i, (0.0, 10.0), False, (),
+            data_file.store.layout_entries())))
+        layout_dict[LAYOUT_KEY_STR][0]["parameter"]["order"] = 3
+        new_workspace = Workspace(random.Random(1))
+        result = rebuild_layout(new_workspace, layout_dict,
+                                data_file.signal_dict,
+                                data_file.time_array,
+                                self.builder_for(data_file))
+        # LLFR-00282: renames are not reported.
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        new_plot = new_workspace.tab_list[0].plot_list[0]
+        renamed_str = name_list[1] + "_2"
+        self.assertEqual([curve.signal_name_str
+                          for curve in new_plot.curve_list],
+                         [renamed_str, name_list[3]])
+        new_value_array = data_file.store.get(renamed_str).value_array
+        self.assertEqual(new_plot.pinned_tip_list[0].signal_name_str,
+                         renamed_str)
+        self.assertEqual(new_plot.pinned_tip_list[0].value_f,
+                         float(new_value_array[200]))
+        self.assertEqual(new_plot.delta_marker_list[0]
+                         .first_point_tuple[0], renamed_str)
+        # A failed entry: the current signal of its name is not drawn.
+        layout_dict[LAYOUT_KEY_STR][0]["parameter"]["order"] = 99
+        new_workspace = Workspace(random.Random(1))
+        result = rebuild_layout(new_workspace, layout_dict,
+                                data_file.signal_dict,
+                                data_file.time_array,
+                                self.builder_for(data_file))
+        new_plot = new_workspace.tab_list[0].plot_list[0]
+        self.assertEqual([curve.signal_name_str
+                          for curve in new_plot.curve_list],
+                         [name_list[3]])
+        self.assertIn(name_list[1], result.report.missing_signal_list)
 
     @covers("LLFR-00283", "LLFR-00231", "LLFR-00237")
     def test_fft_entry_and_its_curves_in_a_file(self) -> None:
@@ -725,17 +820,15 @@ class ReportTest(unittest.TestCase):
 
     @covers("LLFR-00237")
     def test_sections_in_order(self) -> None:
-        """Synthetic signals come first, then removed curves."""
+        """Synthetic signals come first, then the missing signals."""
         report = LayoutReport()
         self.assertTrue(report.is_empty())
-        report.add_removed("Curve of a in plot 1 of tab \"Tab 1\"")
+        report.add_synthetic_signal("a: reason")
         self.assertFalse(report.is_empty())
         report.add_missing_signal("b")
-        report.add_synthetic_signal("a: reason")
         text_str = report.text()
+        self.assertNotIn("Removed from the current tabs:", text_str)
         self.assertLess(text_str.index(SYNTHETIC_HEADING_STR),
-                        text_str.index("Removed from the current tabs:"))
-        self.assertLess(text_str.index("Removed from the current tabs:"),
                         text_str.index("Signals not in the data file:"))
         self.assertIn("  - a: reason", text_str)
 

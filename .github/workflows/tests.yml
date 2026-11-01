@@ -95,6 +95,24 @@ jobs:
             echo
             cat test_matrix_ci.md
           } > matrix_comment.md
+          # GitHub refuses comments longer than 262144 characters (HTTP
+          # 422): cut a longer matrix and point to the full one, which
+          # is in the step summary and the "test-matrix" artifact.
+          limit_i=255000
+          if [ "$(wc -m < matrix_comment.md)" -gt "$limit_i" ]; then
+            python3 - "$limit_i" <<'PYTHON'
+          import sys
+          limit_i = int(sys.argv[1])
+          with open("matrix_comment.md", encoding="utf-8") as comment_file:
+              text_str = comment_file.read()
+          cut_str = text_str[:limit_i].rsplit("\n", 1)[0]
+          cut_str += ("\n\n_The test matrix is too long for a comment and "
+                      "was cut here. The full matrix is in the run's step "
+                      "summary and in its \"test-matrix\" artifact._\n")
+          with open("matrix_comment.md", "w", encoding="utf-8") as comment_file:
+              comment_file.write(cut_str)
+          PYTHON
+          fi
           # Update the existing matrix comment, or create it the first time.
           comment_id=$(gh api "repos/$REPOSITORY/issues/$PULL_NUMBER/comments" \
             --paginate --jq '.[] | select(.body | startswith("<!-- test-matrix -->")) | .id' | tail -1)

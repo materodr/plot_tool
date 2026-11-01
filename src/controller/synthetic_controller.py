@@ -40,7 +40,7 @@ from model.errors import (
     EmptySyntheticNameError, SyntheticNameInUseError, SyntheticSignalError)
 from model.number_format import format_signal_value
 from model.synthetic_signals import (
-    SyntheticSignalStore, create_layout_signals, same_signal)
+    LayoutSignalLoader, SyntheticSignalStore)
 
 # LLFR-00247, LLFR-00250: title of the information boxes of a creation.
 CREATE_TITLE_STR = "Create synthetic signal"
@@ -69,9 +69,6 @@ DIVIDE_CONSTANT_PROMPT_STR = "The constant number, not 0."
 CONSTANT_FIELD_LABEL_STR = "Constant:"
 # LLFR-00237, LLFR-00262: the lines of the layout load report.
 NOT_CREATED_LINE_STR = "{label}: {reason}"
-REMOVED_CURVE_LINE_STR = (
-    "Curve of {name} in plot {plot} of tab \"{tab}\": removed, because "
-    "the layout file replaced the synthetic signals.")
 # LLFR-00275: prompt of the second signal dialog.
 SECOND_SIGNAL_PROMPT_STR = "Multiply '{name}' by the signal:"
 
@@ -560,78 +557,35 @@ class SyntheticController:
         return self.store.layout_entries()
 
     def load_layout_signals(self, entry_list, report) -> dict:
-        """Replace the synthetic signals with those of a layout file.
+        """Add the synthetic signals of a layout file.
 
-        Called by the layout builder before the plots are rebuilt.
+        Called by the layout builder before the plots are rebuilt. The
+        current synthetic signals and their curves are kept (LLFR-00229).
 
         Inputs:
             entry_list: the "synthetic_signals" list of the file.
             report: the LayoutReport of the load; the signals not
-                created and the removed curves of kept tabs are added to
-                it (LLFR-00237).
-        Outputs: a dict name -> samples of the created signals; no FFT
-            signal is created (LLFR-00283).
+                created are added to it (LLFR-00237).
+        Outputs: a dict signal name of the file -> (name of the signal
+            drawn for it, its samples), or None when the file's signal
+            was not created; it also holds every synthetic signal of
+            the signal list that is not an FFT signal under its own name.
         """
-        # LLFR-00262: remove the current synthetic signals.
-        old_signal_list = list(self.store.signal_list)
-        self.store.clear()
-        not_created_list = []
-        if self.signal_file is not None:
-            # LLFR-00262: create those of the file, in its order.
-            not_created_list = create_layout_signals(
-                self.store, entry_list, self.signal_lookup,
-                self.signal_file.time_array, self.data_name_set())
-        for label_str, reason_str in not_created_list:
+        # LLFR-00262, LLFR-00282: create, reuse or rename, in order.
+        if self.signal_file is None:
+            return {}
+        loader = LayoutSignalLoader(
+            self.store, self.signal_lookup, self.signal_file.time_array,
+            self.data_name_set())
+        loader.load(entry_list)
+        for label_str, reason_str in loader.not_created_list:
             # LLFR-00237: each signal not created, with the reason.
             report.add_synthetic_signal(NOT_CREATED_LINE_STR.format(
                 label=label_str, reason=reason_str))
-        self.remove_replaced_curves(old_signal_list, report)
         # LLFR-00242: the signal list shows the new synthetic signals.
         self.show_synthetic_signals()
-        return {signal.name_str: signal.value_array
-                for signal in self.store.signal_list}
-
-    def remove_replaced_curves(self, old_signal_list: list,
-                               report) -> None:
-        """Remove the kept curves of the removed synthetic signals.
-
-        Inputs:
-            old_signal_list: the synthetic signals before the load.
-            report: the LayoutReport of the load.
-        Outputs: none. A curve of a kept tab (LLFR-00229) stays when the
-            file created a signal of the same name with the same entry
-            and samples, since it then shows exactly the same; any
-            other curve of a removed synthetic signal is removed, with
-            its data tips and delta markers, deleting each plot left
-            with no curve (LLFR-00051), and is listed in the report.
-        """
-        # LLFR-00282, LLFR-00262, LLFR-00229: the removed signals leave
-        # the plots.
-        removed_name_set = set()
-        for old_signal in old_signal_list:
-            name_str = old_signal.name_str
-            if not (self.store.contains(name_str) and same_signal(
-                    old_signal, self.store, self.store.get(name_str))):
-                removed_name_set.add(name_str)
-        workspace = self.plot_controller.workspace
-        line_list = []
-        for tab in workspace.tab_list:
-            for plot_index_i, plot in enumerate(tab.plot_list):
-                for curve in plot.curve_list:
-                    if curve.signal_name_str in removed_name_set:
-                        line_list.append(REMOVED_CURVE_LINE_STR.format(
-                            name=curve.signal_name_str,
-                            plot=plot_index_i + 1, tab=tab.name_str))
-        if not line_list:
-            return
-        for line_str in line_list:
-            # LLFR-00237, LLFR-00282: the report says what changed in
-            # the kept tabs.
-            report.add_removed(line_str)
-        # LLFR-00282, LLFR-00051, LLFR-00205: as when deleting a
-        # synthetic signal;
-        # the plot controller rebuilds every view after the load.
-        workspace.remove_signal_curves(removed_name_set)
+        # LLFR-00230, LLFR-00282: what the file's names draw.
+        return loader.drawn_name_dict()
 
     def layout_snapshot(self):
         """Remember the synthetic signals before a layout load.
