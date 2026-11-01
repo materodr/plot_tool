@@ -14,7 +14,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import button_name, covers, get_qt_application
-from tests.support import requires_qt
+from tests.support import button_tip_line_list, requires_qt
 
 from controller.plot_tools import (
     DELTA_TOOL_TUPLE, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
@@ -818,7 +818,7 @@ class DeltaButtonTest(DeltaWindowTestCase):
                 self.assertIs(self.top_panel.plot_tool_button_dict[tool_str],
                               button)
                 self.assertEqual(button_name(button), name_str)
-                self.assertEqual(button.toolTip(), name_str)
+                self.assertEqual(button_tip_line_list(button)[0], name_str)
                 self.assertEqual(button.text(), "")
                 self.assertEqual(button.icon_name_str, icon_str)
                 self.assertFalse(button.icon().isNull())
