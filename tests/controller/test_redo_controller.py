@@ -180,8 +180,8 @@ class RedoEachActionTest(RedoControllerTestCase):
         self.assert_redoable(
             lambda: self.handler("marker_delete_handler")(self.plot_id_i,
                                                           marker_id_i))
-        plot = self.workspace.find_plot(self.plot_id_i)
-        self.assertIsNone(plot.find_marker(marker_id_i))
+        # LLFR-00205: the markers belong to the workspace.
+        self.assertIsNone(self.workspace.find_marker(marker_id_i))
 
     @covers("LLFR-00192", "LLFR-00164", "LLFR-00176", "LLFR-00178")
     def test_delta_marker_actions(self) -> None:

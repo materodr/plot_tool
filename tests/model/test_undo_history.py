@@ -225,9 +225,10 @@ class WorkspaceSnapshotTest(unittest.TestCase):
         self.plot.set_curve_width("force", 4)
         pinned_tip = self.plot.add_pinned_tip("speed", 1.0, 2.0)
         self.plot.move_pinned_tip(pinned_tip, (10.0, -5.0))
-        self.plot.add_marker(0.5)
-        self.plot.add_marker(1.5)
-        self.plot.rename_marker(self.plot.marker_list[0].marker_id_i, "Go")
+        self.workspace.add_marker(0.5)
+        self.workspace.add_marker(1.5)
+        self.workspace.rename_marker(
+            self.workspace.marker_list[0].marker_id_i, "Go")
         second_tab = self.workspace.add_tab()
         self.workspace.add_plot(second_tab.tab_id_i).add_curve("speed")
 
@@ -245,8 +246,11 @@ class WorkspaceSnapshotTest(unittest.TestCase):
         # Change every kind of thing.
         self.plot.set_curve_width("speed", 5)
         self.plot.move_pinned_tip(self.plot.pinned_tip_list[0], (1.0, 1.0))
-        self.plot.move_marker(self.plot.marker_list[1].marker_id_i, 3.0)
-        self.plot.rename_marker(self.plot.marker_list[0].marker_id_i, "X")
+        self.workspace.move_marker(
+            self.workspace.marker_list[1].marker_id_i, 3.0)
+        self.workspace.rename_marker(
+            self.workspace.marker_list[0].marker_id_i, "X")
+        self.workspace.add_marker(4.0)
         self.plot.add_curve("torque")
         self.workspace.rename_tab(self.workspace.tab_list[0].tab_id_i, "Y")
         self.workspace.delete_tab(self.workspace.tab_list[1].tab_id_i)
@@ -267,16 +271,19 @@ class WorkspaceSnapshotTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        tab_state = self.workspace.state_tuple()[0]
+        tab_tuple, marker_tuple = self.workspace.state_tuple()
+        tab_state = tab_tuple[0]
         self.assertEqual(tab_state[1], "Engine")
         plot_state = tab_state[2][0]
         self.assertEqual(plot_state[0], self.plot.plot_id_i)
         self.assertEqual(plot_state[1], 2)
-        self.assertEqual(plot_state[2], 3)
-        self.assertEqual([curve[2] for curve in plot_state[3]], [1, 4])
-        self.assertEqual(plot_state[4][0][3], (10.0, -5.0))
-        self.assertEqual([marker[1] for marker in plot_state[5]],
+        self.assertEqual([curve[2] for curve in plot_state[2]], [1, 4])
+        self.assertEqual(plot_state[3][0][3], (10.0, -5.0))
+        # LLFR-00205: the vertical markers are the workspace's.
+        self.assertEqual([marker[1] for marker in marker_tuple],
                          ["Go", "Marker 2"])
+        self.assertEqual([marker[2] for marker in marker_tuple],
+                         [0.5, 1.5])
 
     @covers("LLFR-00138", "LLFR-00111")
     def test_ids_are_never_reused_after_restore(self) -> None:
@@ -288,18 +295,17 @@ class WorkspaceSnapshotTest(unittest.TestCase):
         snapshot = self.workspace.snapshot()
         added_tab = self.workspace.add_tab()
         added_plot = self.workspace.add_plot(added_tab.tab_id_i)
-        added_marker = self.plot.add_marker(2.0)
+        added_marker = self.workspace.add_marker(2.0)
         self.workspace.restore(snapshot)
         new_tab = self.workspace.add_tab()
         new_plot = self.workspace.add_plot(new_tab.tab_id_i)
-        restored_plot = self.workspace.find_plot(self.plot.plot_id_i)
-        new_marker = restored_plot.add_marker(2.0)
+        new_marker = self.workspace.add_marker(2.0)
         self.assertGreater(new_tab.tab_id_i, added_tab.tab_id_i)
         self.assertGreater(new_plot.plot_id_i, added_plot.plot_id_i)
         self.assertGreater(new_marker.marker_id_i, added_marker.marker_id_i)
-        # LLFR-00085: the restored plot names the marker as before the
-        # undone action.
-        self.assertEqual(new_marker.name_str, "Marker 3")
+        # LLFR-00111: an undone placement does not free its number.
+        self.assertEqual(added_marker.name_str, "Marker 3")
+        self.assertEqual(new_marker.name_str, "Marker 4")
 
     @covers("LLFR-00138")
     def test_restored_plots_share_the_generator_and_counter(self) -> None:

@@ -1013,13 +1013,14 @@ class MarkerEndToEndTest(unittest.TestCase):
                          float(target_x_px), float(press_y_px),
                          LEFT_BUTTON_I)
         self.process_events()
-        plot = self.controller.plot_controller.workspace.find_plot(
-            self.plot_widget.plot_id_i)
-        self.assertEqual(len(plot.marker_list), 1)
-        self.assertAlmostEqual(plot.marker_list[0].time_s, 1.5, delta=0.02)
+        # LLFR-00205: the markers belong to the workspace.
+        workspace = self.controller.plot_controller.workspace
+        self.assertEqual(len(workspace.marker_list), 1)
+        self.assertAlmostEqual(workspace.marker_list[0].time_s, 1.5,
+                               delta=0.02)
         self.assertEqual(self.drawn_names(), ["Marker 1"])
         self.assertEqual(self.plot_widget.marker_time_text(marker_id_i),
-                         f"t = {plot.marker_list[0].time_s:.6g} s")
+                         f"t = {workspace.marker_list[0].time_s:.6g} s")
 
 
 if __name__ == "__main__":

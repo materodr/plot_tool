@@ -701,7 +701,8 @@ class MainWindow(QMainWindow):
                 value_array, color_str, width_i).
             pinned_tip_list: tuples (signal_name_str, time_s, value_f,
                 label_offset_tuple); see PlotWidget.set_pinned_tips.
-            marker_data_list: tuples (marker_id_i, name_str, time_s).
+            marker_data_list: tuples (marker_id_i, name_str, time_s), the
+                vertical markers shared by every plot (LLFR-00205).
             delta_marker_data_list: tuples (delta_marker_id_i, kind_str,
                 first_point_tuple, second_point_tuple, delta_f); see
                 PlotWidget.set_delta_markers.
@@ -718,6 +719,18 @@ class MainWindow(QMainWindow):
         plot_widget.set_markers(marker_data_list)
         # LLFR-00168, LLFR-00170, LLFR-00176: draw the delta markers.
         plot_widget.set_delta_markers(delta_marker_data_list)
+
+    def set_markers(self, marker_data_list: list) -> None:
+        """Draw the shared vertical markers on every plot of every tab.
+
+        Inputs:
+            marker_data_list: tuples (marker_id_i, name_str, time_s), in
+                placing order.
+        Outputs: none. Only the markers are drawn again.
+        """
+        # LLFR-00205: every marker on every plot, after it was placed,
+        # moved, renamed or deleted on any of them.
+        self.plot_panel.set_markers(marker_data_list)
 
     def set_delta_first_point(self, plot_id_i: int,
                               point_tuple: tuple) -> None:

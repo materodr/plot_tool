@@ -66,7 +66,7 @@ class FakePlotView:
             show_tab_name_taken_notification, in order.
         plot_tool_str: last value given to set_plot_tool.
         marker_drawn_dict: plot id -> marker_data_list of the last
-            draw_plot call.
+            draw_plot or set_markers call.
         marker_name_answer_list: answers returned, in order, by
             ask_marker_name (None stands for a cancelled dialog).
         marker_name_question_list: the current names given to
@@ -339,6 +339,18 @@ class FakePlotView:
             time_array = curve_data_list[0][1]
             self.range_dict[plot_id_i] = (float(time_array[0]),
                                           float(time_array[-1]))
+
+    def set_markers(self, marker_data_list: list) -> None:
+        """Record the shared markers drawn on every shown plot.
+
+        Inputs:
+            marker_data_list: the vertical marker tuples (marker_id_i,
+                name_str, time_s).
+        Outputs: none.
+        """
+        self.call_list.append(("set_markers", len(marker_data_list)))
+        for plot_id_i in self.plot_tab_dict:
+            self.marker_drawn_dict[plot_id_i] = list(marker_data_list)
 
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:

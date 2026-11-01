@@ -47,6 +47,21 @@ every resize, zoom, pan and drag. Only the drawn position is moved: the
 stored offset is kept, so the label goes back towards it when the plot
 grows again.
 
+Vertical markers are shared by every plot (LLFR-00205): the controller
+gives every plot the same list. While a marker is dragged, the widget
+emits marker_drag_moved on every move, and the plot panel moves the
+same marker on the other plots of the tab (the plots of hidden tabs get
+the new time from the controller when the button is released).
+
+With the Vertical marker tool, a pale dashed preview line with its time
+shows where a click would place a marker (LLFR-00203). The hovered plot
+emits marker_preview_changed, and the plot panel shows the same preview
+on the other plots of the tab. The preview is drawn by blitting, on top
+of the image of the last full draw, so that following the mouse only
+redraws the preview and never the curves. Its artists are not added to
+the axes, so a full draw, the PDF export (LLFR-00129) and the copied
+image (LLFR-00133) never contain it.
+
 A delta marker's bracket and leader lines are computed again in display
 pixels at every draw (screen, image and PDF export), from the current
 position of its two points (DeltaBracketPatch), so they stay attached
@@ -61,10 +76,13 @@ import functools
 import numpy as np
 from matplotlib.backend_bases import MouseButton
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.colors import to_hex
+from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
+from matplotlib.text import Annotation
 from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
@@ -123,6 +141,13 @@ MARKER_TIME_GAP_POINTS_F = 3.0
 MARKER_TEXT_BOX_DICT = theme.MARKER_TEXT_BOX_DICT
 # LLFR-00086: no marker is being dragged.
 NO_MARKER_ID_I = -1
+# LLFR-00203: the preview is the marker color mixed with this much of
+# the plot background (a paler version of the same color), drawn with
+# the same dashes as a marker and a thinner line.
+MARKER_PREVIEW_PALE_RATIO_F = 0.55
+MARKER_PREVIEW_LINE_WIDTH_F = 1.2
+# LLFR-00203: the value marker_preview_changed carries to hide it.
+NO_PREVIEW_TIME_S = float("nan")
 # LLFR-00152: no pinned tip is being moved.
 NO_TIP_INDEX_I = -1
 # LLFR-00151: look of the dashed leader line from a pinned tip's label
@@ -403,6 +428,30 @@ def inside_shift_px(box_low_px: float, box_high_px: float,
     return 0.0
 
 
+def pale_color_str(color_str: str, background_str: str,
+                   pale_ratio_f: float) -> str:
+    """Return a paler version of a color, mixed with a background.
+
+    Inputs:
+        color_str: the color to make paler, any matplotlib color.
+        background_str: the background color it is mixed with.
+        pale_ratio_f: share of the background in the mix, 0 to 1.
+    Outputs: the mixed color, written as "#rrggbb".
+    """
+    # LLFR-00203: the preview uses a paler version of the marker color.
+    color_tuple = to_rgb(color_str)
+    background_tuple = to_rgb(background_str)
+    return to_hex(tuple(
+        (1.0 - pale_ratio_f) * color_f + pale_ratio_f * background_f
+        for color_f, background_f in zip(color_tuple, background_tuple)))
+
+
+# LLFR-00203: the color of the marker preview.
+MARKER_PREVIEW_COLOR_STR = pale_color_str(
+    MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR,
+    MARKER_PREVIEW_PALE_RATIO_F)
+
+
 class PlotWidget(QWidget):
     """One plot: signal curves against time, legend, menus and tips.
 
@@ -435,6 +484,12 @@ class PlotWidget(QWidget):
             and value of the nearest sample).
         delta_marker_delete_requested(int): "Delete" chosen on a delta
             marker (its id).
+        marker_drag_moved(int, float): a dragged marker is now shown at
+            this time (marker id, time in s), so that the other plots of
+            the tab show it there too (LLFR-00205).
+        marker_preview_changed(float): the marker preview of the hovered
+            plot moved to this time in s, or was hidden (NaN), so that
+            the other plots of the tab follow (LLFR-00203).
     Attributes:
         plot_id_i: the identifier given at creation.
         figure: the matplotlib Figure.
@@ -460,6 +515,8 @@ class PlotWidget(QWidget):
     marker_delete_requested = pyqtSignal(int)
     delta_point_picked = pyqtSignal(str, float, float)
     delta_marker_delete_requested = pyqtSignal(int)
+    marker_drag_moved = pyqtSignal(int, float)
+    marker_preview_changed = pyqtSignal(float)
 
     def __init__(self, plot_id_i: int, parent=None) -> None:
         """Create an empty plot.
@@ -511,6 +568,13 @@ class PlotWidget(QWidget):
         self.tip_grab_offset_tuple = (0.0, 0.0)
         self.tip_drag_offset_tuple = ()
         self.tip_drag_moved_b = False
+        # LLFR-00203: time of the marker preview, None while hidden; the
+        # canvas image it is blitted on; its artists (made by
+        # rebuild_axes).
+        self.preview_time_s = None
+        self.preview_background = None
+        self.preview_line = None
+        self.preview_time_text = None
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
         self.plot_tool_str = NO_TOOL_STR
         self.hover_point_tuple = ()
@@ -644,6 +708,13 @@ class PlotWidget(QWidget):
         # tool; leaving it drops the drag (the marker stays where it was).
         if self.plot_tool_str != MARKER_TOOL_STR:
             self.cancel_marker_drag()
+            # LLFR-00203: the preview goes when the tool is deactivated.
+            self.hide_marker_preview()
+        else:
+            # LLFR-00203, LLFR-00154: a tool activated with the pointer
+            # already on the plot (Shift pressed) shows the preview at
+            # once, without waiting for a mouse move.
+            self.update_marker_preview_from_cursor()
         # LLFR-00167: leaving the delta tools removes the dot of a first
         # point (the controller also says so).
         if not is_delta_tool(self.plot_tool_str):
@@ -665,8 +736,25 @@ class PlotWidget(QWidget):
         if self.drag_marker_id_i not in {
                 marker_tuple[0] for marker_tuple in self.marker_data_list}:
             self.cancel_marker_drag()
+        # LLFR-00203: a marker may now be under the pointer (one was just
+        # placed there); the next mouse move shows the preview again.
+        self.hide_marker_preview()
         self.draw_markers()
-        self.canvas.draw_idle()
+        # LLFR-00205: the markers change on every plot of every tab; a
+        # hidden plot draws them only when it is shown (showEvent).
+        self.draw_when_visible()
+
+    def draw_when_visible(self) -> None:
+        """Redraw the canvas now if shown, else when it is shown.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00070, LLFR-00205: hidden tabs do not pay for a draw.
+        if self.isVisible():
+            self.canvas.draw_idle()
+        else:
+            self.redraw_pending_b = True
 
     def set_delta_markers(self, delta_marker_data_list: list) -> None:
         """Replace the delta markers drawn in the plot.
@@ -759,6 +847,12 @@ class PlotWidget(QWidget):
         # LLFR-00070, LLFR-00129: a draw by the PDF export or a resize
         # already shows the current range.
         self.redraw_pending_b = False
+        # LLFR-00203: the canvas image changed, so the preview is blitted
+        # again on the new image once this draw is shown. Not inside an
+        # export (savefig), whose image must not contain it.
+        self.preview_background = None
+        if self.preview_time_s is not None and not self.canvas.is_saving():
+            QTimer.singleShot(0, self.blit_marker_preview)
 
     def time_range_tuple(self) -> tuple:
         """Return the time range currently shown.
@@ -851,6 +945,8 @@ class PlotWidget(QWidget):
         self.delta_first_point_artist = None
         self.draw_delta_markers()
         self.draw_delta_first_point()
+        # LLFR-00203: the preview artists went away with axes.clear().
+        self.create_preview_artists()
         self.apply_time_range()
         self.canvas.draw_idle()
 
@@ -1292,6 +1388,262 @@ class PlotWidget(QWidget):
             label.set_horizontalalignment(alignment_str)
             time_text.set_horizontalalignment(alignment_str)
             time_text.xy = (1.0 if right_half_b else 0.0, 0.0)
+
+    def create_preview_artists(self) -> None:
+        """Create the hidden line and time text of the marker preview.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00203, LLFR-00129, LLFR-00133: the artists are not added
+        # to the axes, so no full draw, export or copy ever draws them,
+        # and they are not among the plot's lines and texts; only
+        # blit_marker_preview draws them, over the axes.
+        # LLFR-00203: a dashed vertical line across the plot, in a paler
+        # marker color. LLFR-00082, LLFR-00143: the same shape as a
+        # marker's line: x in data, y from bottom (0) to top (1).
+        x_axis_transform = self.axes.get_xaxis_transform()
+        self.preview_line = Line2D(
+            [0.0, 0.0], [0.0, 1.0], transform=x_axis_transform,
+            color=MARKER_PREVIEW_COLOR_STR,
+            linewidth=MARKER_PREVIEW_LINE_WIDTH_F,
+            linestyle=MARKER_LINE_STYLE_TUPLE)
+        # LLFR-00092: the time value in seconds, at the top of the line.
+        self.preview_time_text = Annotation(
+            "", xy=(0.0, 1.0), xycoords=x_axis_transform,
+            xytext=(MARKER_LABEL_OFFSET_POINTS_F,
+                    -MARKER_LABEL_OFFSET_POINTS_F),
+            textcoords="offset points", parse_math=False,
+            color=MARKER_PREVIEW_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
+            horizontalalignment="left", verticalalignment="top",
+            bbox=dict(MARKER_TEXT_BOX_DICT,
+                      edgecolor=MARKER_PREVIEW_COLOR_STR))
+        for artist in (self.preview_line, self.preview_time_text):
+            artist.set_figure(self.figure)
+            artist.axes = self.axes
+            # The line is cut at the edges of the drawing area.
+            artist.set_clip_box(self.axes.bbox)
+        self.preview_background = None
+
+    def place_preview_artists(self) -> None:
+        """Put the preview line and time text at the preview's time.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00203: the line at the time under the pointer, its time
+        # value beside its top, on the inner side like a marker's label.
+        time_s = self.preview_time_s
+        start_s, end_s = sorted(self.axes.get_xlim())
+        self.preview_line.set_xdata([time_s, time_s])
+        self.preview_time_text.xy = (time_s, 1.0)
+        self.preview_time_text.set_text(format_time_text(time_s))
+        right_half_b = time_s > (start_s + end_s) / 2.0
+        self.preview_time_text.set_position((
+            -MARKER_LABEL_OFFSET_POINTS_F if right_half_b
+            else MARKER_LABEL_OFFSET_POINTS_F,
+            -MARKER_LABEL_OFFSET_POINTS_F))
+        self.preview_time_text.set_horizontalalignment(
+            "right" if right_half_b else "left")
+
+    def blit_marker_preview(self) -> None:
+        """Draw the marker preview over the last full draw of the canvas.
+
+        Inputs: none.
+        Outputs: none. Only the preview is drawn: the image of the last
+            full draw is put back first, then the preview is drawn over
+            it while it is shown.
+        """
+        # LLFR-00203: fast enough to follow the mouse on every plot of
+        # the tab. Nothing is drawn for a deleted, removed or hidden plot.
+        if sip.isdeleted(self) or self.retired_b or not self.isVisible():
+            return
+        if self.preview_line is None:
+            return
+        if getattr(self.canvas, "_draw_pending", False):
+            # A full draw is coming (zoom, pan, new curves): blitting now
+            # would make Qt run it at once, inside this mouse event, and
+            # on_canvas_drawn blits the preview right after it anyway.
+            return
+        if getattr(self.canvas, "renderer", None) is None:
+            # The canvas was never drawn: draw it, and on_canvas_drawn
+            # blits the preview afterwards.
+            if self.preview_time_s is not None:
+                self.canvas.draw_idle()
+            return
+        if self.preview_background is None:
+            # The image is that of the last full draw (on_canvas_drawn
+            # forgets the background at every draw), so it is clean.
+            if self.preview_time_s is None:
+                return
+            self.preview_background = self.canvas.copy_from_bbox(
+                self.figure.bbox)
+        else:
+            self.canvas.restore_region(self.preview_background)
+        if self.preview_time_s is not None:
+            self.place_preview_artists()
+            self.axes.draw_artist(self.preview_line)
+            self.axes.draw_artist(self.preview_time_text)
+        self.canvas.blit(self.figure.bbox)
+
+    def show_marker_preview(self, time_s: float) -> None:
+        """Show the marker preview at a time.
+
+        Inputs:
+            time_s: time of the preview line, in seconds.
+        Outputs: none. Emits nothing; see update_marker_preview.
+        """
+        # LLFR-00203: also used by the plot panel for the other plots of
+        # the tab. Never while a marker is dragged (LLFR-00086).
+        time_s = float(time_s)
+        if not np.isfinite(time_s):
+            self.hide_marker_preview()
+            return
+        if self.drag_marker_id_i != NO_MARKER_ID_I:
+            return
+        if self.preview_time_s == time_s:
+            return
+        self.preview_time_s = time_s
+        self.blit_marker_preview()
+
+    def hide_marker_preview(self) -> None:
+        """Hide the marker preview if it is shown.
+
+        Inputs: none.
+        Outputs: none. Emits nothing.
+        """
+        # LLFR-00203: the canvas shows the last full draw again.
+        if self.preview_time_s is None:
+            return
+        self.preview_time_s = None
+        self.blit_marker_preview()
+
+    def marker_preview_time_s(self) -> float:
+        """Return the time of the marker preview.
+
+        Inputs: none.
+        Outputs: the time in seconds, or NaN while the preview is hidden.
+        """
+        # LLFR-00203: for the plot panel and the tests.
+        if self.preview_time_s is None:
+            return NO_PREVIEW_TIME_S
+        return float(self.preview_time_s)
+
+    def marker_preview_shown(self) -> bool:
+        """Tell whether the marker preview is shown.
+
+        Inputs: none.
+        Outputs: True while the preview is shown.
+        """
+        # LLFR-00203: for the tests.
+        return self.preview_time_s is not None
+
+    def marker_preview_text(self) -> str:
+        """Return the time text of the marker preview.
+
+        Inputs: none.
+        Outputs: the text, or "" while the preview is hidden.
+        """
+        # LLFR-00203, LLFR-00092: the time value of the preview.
+        if self.preview_time_s is None:
+            return ""
+        return format_time_text(self.preview_time_s)
+
+    def marker_preview_time_at(self, widget_point) -> float:
+        """Return where a click at a point would place a marker.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the time under the point, in seconds, or NaN when a
+            click there would not place a marker: no Vertical marker
+            tool, a drag in progress, outside the drawing area, or on an
+            existing marker or a pinned tip.
+        """
+        # LLFR-00203: the preview shows the marker a click would place
+        # (LLFR-00081); LLFR-00153: a click on a pinned tip moves it.
+        if self.plot_tool_str != MARKER_TOOL_STR or self.retired_b:
+            return NO_PREVIEW_TIME_S
+        if (self.drag_marker_id_i != NO_MARKER_ID_I
+                or self.drag_tip_index_i != NO_TIP_INDEX_I):
+            return NO_PREVIEW_TIME_S
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return NO_PREVIEW_TIME_S
+        if self.marker_at(widget_point) != NO_MARKER_ID_I:
+            return NO_PREVIEW_TIME_S
+        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
+            return NO_PREVIEW_TIME_S
+        return self.time_at(widget_point)
+
+    def update_marker_preview(self, widget_point) -> None:
+        """Show or hide the preview for the pointer at a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                mouse pointer is.
+        Outputs: none. Emits marker_preview_changed when the preview of
+            this plot moved or was hidden, as the last step.
+        """
+        # LLFR-00203: the preview follows the mouse on the hovered plot.
+        time_s = self.marker_preview_time_at(widget_point)
+        old_time_s = self.marker_preview_time_s()
+        if np.isfinite(time_s):
+            self.show_marker_preview(time_s)
+        else:
+            self.hide_marker_preview()
+        new_time_s = self.marker_preview_time_s()
+        if (new_time_s != old_time_s
+                and not (np.isnan(new_time_s) and np.isnan(old_time_s))):
+            # LLFR-00203: the plot panel shows it on the other plots of
+            # the current tab.
+            self.marker_preview_changed.emit(new_time_s)
+
+    def leave_marker_preview(self) -> None:
+        """Hide the preview because the pointer left the plot.
+
+        Inputs: none.
+        Outputs: none. Emits marker_preview_changed(NaN) when the preview
+            was shown.
+        """
+        # LLFR-00203: no preview once the pointer leaves the plots.
+        if self.preview_time_s is None:
+            return
+        self.hide_marker_preview()
+        self.marker_preview_changed.emit(NO_PREVIEW_TIME_S)
+
+    def update_marker_preview_from_cursor(self) -> None:
+        """Show the preview when the pointer already is on the plot.
+
+        Inputs: none.
+        Outputs: none. Does nothing when the plot is hidden or the
+            pointer is not on its canvas.
+        """
+        # LLFR-00203, LLFR-00154: holding Shift without moving the mouse
+        # shows the preview too.
+        if self.retired_b or not self.isVisible():
+            return
+        canvas_point = self.canvas.mapFromGlobal(QCursor.pos())
+        if not self.canvas.rect().contains(canvas_point):
+            return
+        self.update_marker_preview(self.canvas.mapTo(self, canvas_point))
+
+    def follow_marker_drag(self, marker_id_i: int, time_s: float) -> None:
+        """Show a marker dragged on another plot at its current time.
+
+        Inputs:
+            marker_id_i: id of the dragged marker.
+            time_s: the time it is shown at on the dragged plot, in s.
+        Outputs: none. The stored markers do not change.
+        """
+        # LLFR-00205: while a marker is dragged on one plot, it follows
+        # the pointer on every plot of the current tab. LLFR-00093: its
+        # time value too.
+        if marker_id_i not in self.marker_artist_dict:
+            return
+        self.hide_marker_preview()
+        self.move_marker_artists(int(marker_id_i), float(time_s))
+        self.draw_when_visible()
 
     def move_marker_artists(self, marker_id_i: int, time_s: float) -> None:
         """Move a drawn marker's line, label and time to a new time.
@@ -2226,6 +2578,8 @@ class PlotWidget(QWidget):
         if self.plot_tool_str == MARKER_TOOL_STR:
             marker_id_i = self.marker_at(widget_point)
             if marker_id_i != NO_MARKER_ID_I:
+                # LLFR-00203: no preview while a marker is dragged.
+                self.leave_marker_preview()
                 self.drag_marker_id_i = marker_id_i
                 self.drag_time_s = self.marker_time_s(marker_id_i)
                 self.drag_moved_b = False
@@ -2270,6 +2624,8 @@ class PlotWidget(QWidget):
         self.drag_moved_b = True
         self.move_marker_artists(self.drag_marker_id_i, time_s)
         self.canvas.draw_idle()
+        # LLFR-00205: the other plots of the tab show the marker here.
+        self.marker_drag_moved.emit(self.drag_marker_id_i, time_s)
 
     def release_at(self, widget_point) -> None:
         """End a marker drag at a point.
@@ -2319,11 +2675,17 @@ class PlotWidget(QWidget):
         # LLFR-00086: without a release, the marker is not moved.
         moved_b = (self.drag_marker_id_i != NO_MARKER_ID_I
                    and self.drag_moved_b)
+        marker_id_i = self.drag_marker_id_i
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_moved_b = False
         if moved_b:
             self.draw_markers()
             self.canvas.draw_idle()
+            # LLFR-00205: the other plots of the tab show it back at its
+            # stored time.
+            for stored_id_i, _, stored_time_s in self.marker_data_list:
+                if stored_id_i == marker_id_i:
+                    self.marker_drag_moved.emit(marker_id_i, stored_time_s)
 
     def tip_label_offset_tuple(self, tip_index_i: int) -> tuple:
         """Return the label offset a pinned tip is drawn with now.
@@ -2549,6 +2911,8 @@ class PlotWidget(QWidget):
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_moved_b = False
         self.reset_tip_drag()
+        # LLFR-00203: a removed plot shows no preview.
+        self.preview_time_s = None
         # LLFR-00207, LLFR-00208: a time span selection stops too, so a
         # removed plot never blocks the Z key.
         self.time_span_drag_b = False
@@ -2731,6 +3095,8 @@ class PlotWidget(QWidget):
             if not mouse_button_held_b(event, Qt.MouseButton.MiddleButton):
                 self.panning_b = False
                 return
+            # LLFR-00203: the grabbed time stays under the pointer, so the
+            # preview stays where it is; the draw of the pan blits it again.
             self.pan_to(widget_point)
             return
         # LLFR-00152: a move with a pinned tip held moves its label. A
@@ -2751,6 +3117,8 @@ class PlotWidget(QWidget):
             return
         # LLFR-00042: any other move runs the hover code.
         self.hover_at(widget_point)
+        # LLFR-00203: and moves the marker preview with the pointer.
+        self.update_marker_preview(widget_point)
 
     def on_mouse_press(self, event) -> None:
         """Handle a matplotlib mouse press on the canvas.
@@ -2822,8 +3190,10 @@ class PlotWidget(QWidget):
         """
         # LLFR-00074, LLFR-00108: the wheel runs the zoom code with any
         # tool. LLFR-00113: the notches come from Qt's rotation angle.
-        self.wheel_at(self.display_to_widget_point(event.x, event.y),
-                      wheel_step_f(event))
+        widget_point = self.display_to_widget_point(event.x, event.y)
+        self.wheel_at(widget_point, wheel_step_f(event))
+        # LLFR-00203: after a zoom, another time is under the pointer.
+        self.update_marker_preview(widget_point)
 
     def eventFilter(self, watched, event) -> bool:
         """Zoom on a Shift+wheel turned sideways, which matplotlib drops.
@@ -2856,6 +3226,8 @@ class PlotWidget(QWidget):
         """
         # LLFR-00042: no curve under the mouse, no tip.
         self.hide_hover_tip()
+        # LLFR-00203: the pointer left the plot's drawing area.
+        self.leave_marker_preview()
 
     # ----------------------------------------------------------------
     # Drag and drop

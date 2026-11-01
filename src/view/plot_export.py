@@ -98,6 +98,9 @@ def grab_page_image(page):
     # LLFR-00129, LLFR-00133: every plot is drawn with its current
     # state before the page is grabbed, so nothing pending is missed.
     for plot_widget in page.plot_widget_list:
+        # LLFR-00203: the marker preview is never part of an export or a
+        # copy; it comes back at the next mouse move over a plot.
+        plot_widget.hide_marker_preview()
         plot_widget.canvas.draw()
     return page.grab().toImage()
 
