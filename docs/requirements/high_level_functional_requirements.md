@@ -120,10 +120,10 @@ Note: For example, typing part of the name, typing it in a different case, leavi
 ### HLFR-00053 Synthetic signals
 The user must be able to create, from a signal in the signal list, including a synthetic signal, a new signal computed from it.
 
-Note: Such a signal is called a **synthetic signal**. The operations that create one are Integral, Derivative, Low-pass filter, High-pass filter, Moving average, Max, Min, Greater than, Less than, Greater than or equal, Less than or equal, Add constant, Subtract constant, Multiply by constant, Divide by constant, Product with signal and FFT. Product with signal multiplies two signals sample by sample; the Comparison and the other Arithmetic operations use a constant number. An FFT signal is a synthetic signal created by the FFT operation.
+Note: Such a signal is called a **synthetic signal**. The operations that create one are Integral, Derivative, Low-pass filter, High-pass filter, Moving average, Max, Min, Greater than, Less than, Greater than or equal, Less than or equal, Add constant, Subtract constant, Multiply by constant, Divide by constant, Absolute value, Product with signal and FFT. Product with signal multiplies two signals sample by sample; the Comparison operations and the other Arithmetic operations, except Absolute value, use a constant number. An FFT signal is a synthetic signal created by the FFT operation.
 
 ### HLFR-00054 Synthetic signal name
-The app must name each synthetic signal with the name of its operation, an underscore and the name of the signal it was computed from, or, for an operation on two signals, the names of both signals separated by an underscore. The name of an FFT signal must also show the time range it was computed from (HLFR-00057).
+The app must name each synthetic signal with the abbreviation of its operation shown in the menu, an underscore, the value of its parameter when it has one, an underscore and the name of the signal it was computed from. For the product of two signals, the name must be the name of the first signal, the abbreviation of the operation and the name of the second signal, separated by underscores. The parameter of an FFT signal is the time range it was computed from (HLFR-00057).
 
 ### HLFR-00055 Synthetic signals in memory
 The app must keep synthetic signals only in its memory and must not add them to the data file.

@@ -617,7 +617,7 @@ The layout file must hold:
 7. for each pinned data tip of a time plot, its plot, the signal and time of its point, and its position relative to the point;
 8. for each delta marker of a time plot, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
 9. the widths of the plot panel and the signal list panel;
-10. for each synthetic signal that is not an FFT signal (LLFR-00283), in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average) or the constant (Comparison operations and Arithmetic operations with a constant).
+10. for each synthetic signal that is not an FFT signal (LLFR-00283), in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average) or the constant (Comparison operations and Arithmetic operations with a constant); Integral, Derivative, Max, Min and Absolute value have no parameter.
 
 *Parent: HLFR-00049, HLFR-00056*
 
@@ -839,9 +839,19 @@ When the user right-clicks a signal name in the signal list panel, the app must 
 *Parent: HLFR-00053*
 
 ### LLFR-00240 Synthetic signal names
-The app must name a synthetic signal with the operation name `integral`, `derivative`, `lowpass`, `highpass`, `movingaverage`, `max`, `min`, `greater`, `less`, `greaterorequal`, `lessorequal`, `add`, `subtract`, `multiply`, `divide`, `product` or `fft`, an underscore and the full current name of the signal it was computed from. When that signal is itself a synthetic signal, its whole name is used, so that the operations build up from left to right, for example `integral_Speed`, `derivative_integral_Speed` or `fft_lowpass_Speed_1.5s_to_3s`. A Product with signal must be named `product`, an underscore, the full current name of the right-clicked signal, an underscore and the full current name of the second signal (LLFR-00275), for example `product_Speed_Torque`.
+The app must name a synthetic signal as follows, using the abbreviation of its operation (LLFR-00268) and the full current name of each signal it was computed from:
 
-An FFT signal's name must end with an underscore and its time range (LLFR-00248), written as `<start>s_to_<end>s`, with the start and end times in seconds in the same number format as the data tip's x value (LLFR-00043), for example `fft_Speed_1.5s_to_3s`. Two FFTs of the same signal over different time ranges therefore get different names.
+| Operation | Name | Example |
+|---|---|---|
+| Integral, Derivative, Max, Min, Absolute value | `<abbreviation>_<signal>` | `int_Speed`, `abs_Speed` |
+| Add, Subtract, Multiply and Divide by constant | `<abbreviation>_<constant>_<signal>` | `add_2.5_Speed`, `div_-4_Speed` |
+| Greater than, Less than, Greater than or equal, Less than or equal | `<abbreviation>_<constant>_<signal>` | `gt_2.5_Speed` |
+| Low-pass filter, High-pass filter | `<abbreviation>_<cutoff>Hz_order<order>_<signal>` | `lpf_5Hz_order2_Speed` |
+| Moving average | `mavg_<window>samples_<signal>` | `mavg_10samples_Speed` |
+| FFT | `fft_<start>s_to_<end>s_<signal>` | `fft_1.5s_to_3s_Speed` |
+| Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `Speed_prod_Torque` |
+
+The constant, the cutoff frequency and the times must be written in the same number format as the data tip's values (LLFR-00043, LLFR-00044); the FFT times are the time range of LLFR-00248, so two FFTs of the same signal over different time ranges get different names. How a filter starts (LLFR-00246) must not be part of the name. When a signal it was computed from is itself a synthetic signal, its whole name is used, so that the names build up from left to right, for example `der_int_Speed` or `fft_1.5s_to_3s_lpf_5Hz_order2_Speed`.
 
 *Parent: HLFR-00054*
 
@@ -851,9 +861,9 @@ The app must let the user create a synthetic signal from a synthetic signal in t
 *Parent: HLFR-00053*
 
 ### LLFR-00241 Synthetic signal name already used
-If the name of LLFR-00240 is already the name of a signal in the signal list, the app must add an underscore and the smallest number from 2 up that makes the name unique, for example `lowpass_Speed_2`.
+If the name of LLFR-00240 is already the name of a signal in the signal list, the app must add an underscore and the smallest number from 2 up that makes the name unique, for example `lpf_5Hz_order2_Speed_2`.
 
-Note: This happens, for example, when the same signal is filtered twice with different cutoff frequencies or filter orders, or compared with two different constants.
+Note: This happens, for example, when the same signal is filtered twice with the same cutoff frequency and order but different starts (LLFR-00246).
 
 *Parent: HLFR-00054*
 
@@ -959,12 +969,14 @@ If the user enters a name that, without leading and trailing spaces, is empty or
 
 ### LLFR-00268 Synthetic operation groups
 The "Create synthetic signal" option (LLFR-00239) must list the operations in these groups, in this order:
-1. Calculus: "Integral", "Derivative";
-2. Filters: "Low-pass filter", "High-pass filter", "Moving average";
-3. Statistics: "Max", "Min";
-4. Comparison: "Greater than", "Less than", "Greater than or equal", "Less than or equal";
-5. Arithmetic: "Add constant", "Subtract constant", "Multiply by constant", "Divide by constant", "Product with signal";
-6. Spectrum: "FFT".
+1. Calculus: "Integral (int)", "Derivative (der)";
+2. Filters: "Low-pass filter (lpf)", "High-pass filter (hpf)", "Moving average (mavg)";
+3. Statistics: "Max (max)", "Min (min)";
+4. Comparison: "Greater than (gt)", "Less than (lt)", "Greater than or equal (ge)", "Less than or equal (le)";
+5. Arithmetic: "Add constant (add)", "Subtract constant (sub)", "Multiply by constant (mul)", "Divide by constant (div)", "Absolute value (abs)", "Product with signal (prod)";
+6. Spectrum: "FFT (fft)".
+
+The text in parentheses is the operation's abbreviation, which the app uses in the names of the synthetic signals (LLFR-00240).
 
 *Parent: HLFR-00053*
 
@@ -984,7 +996,7 @@ The Max and the Min of a signal must be constant signals, with at every time sam
 *Parent: HLFR-00053*
 
 ### LLFR-00272 Constant value dialog
-When the user chooses a Comparison or an Arithmetic operation other than "Product with signal" (LLFR-00268), the app must show a dialog that asks for a constant number. The app must create the signal only when the user confirms a number, which must not be 0 for "Divide by constant". If the value is not a number, or is 0 for "Divide by constant", the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+When the user chooses a Comparison or an Arithmetic operation other than "Absolute value" and "Product with signal" (LLFR-00268), the app must show a dialog that asks for a constant number. The app must create the signal only when the user confirms a number, which must not be 0 for "Divide by constant". If the value is not a number, or is 0 for "Divide by constant", the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
 
 *Parent: HLFR-00053*
 
@@ -1007,6 +1019,18 @@ When the user chooses "Product with signal", the app must show a dialog that lis
 The Product of two signals must have, at each time sample, the sample of the right-clicked signal multiplied by the sample of the second signal (LLFR-00275) at the same time sample.
 
 *Parent: HLFR-00053*
+
+### LLFR-00284 Absolute value
+The Absolute value of a signal must have, at each time sample, the absolute value of the signal's sample.
+
+*Parent: HLFR-00053*
+
+### LLFR-00285 Search in the second signal dialog
+The dialog of LLFR-00275 must contain a search box above its list of signals. Each time the text in the search box changes, the dialog must show only the signals that match it, with the same rules and in the same order as the search of the signal list panel (LLFR-00095, LLFR-00098 to LLFR-00102, LLFR-00105). When the search box is empty or contains only spaces, the dialog must show all its signals (LLFR-00096); when no signal matches, it must show no signals and the text "No matching signals" (LLFR-00097). When the dialog opens, the keyboard focus must be in its search box.
+
+Note: The search box is a text field (LLFR-00157), so typing in it never activates a plot tool, undoes or redoes (LLFR-00195, LLFR-00196).
+
+*Parent: HLFR-00053, HLFR-00034*
 
 ### LLFR-00277 Copy name option
 When the user right-clicks a signal name in the signal list panel, the app must show a "Copy name" option in the menu of LLFR-00239. When the user chooses it, the app must put the signal's name on the system clipboard as text.
