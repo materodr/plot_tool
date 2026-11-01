@@ -3,11 +3,12 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QAbstractSpinBox, QApplication, QFileDialog, QInputDialog, QLineEdit,
-    QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout, QWidget)
+    QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
+    QLineEdit, QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout,
+    QWidget)
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
-from view import message_boxes
+from view import message_boxes, plot_export
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -23,6 +24,12 @@ OPEN_FILE_FILTER_STR = "Time series files (*.csv *.xlsx *.mat);;All files (*)"
 # LLFR-00088: title and label of the marker rename dialog.
 RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
 RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
+# LLFR-00128: title and filter of the PDF save file dialog.
+SAVE_PDF_DIALOG_TITLE_STR = "Save all tabs as PDF"
+SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
+# LLFR-00128: added by the dialog to a name typed without an extension,
+# so that its overwrite question names the file really written.
+SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
 # LLFR-00137: widgets whose own Ctrl+Z (Cmd+Z) undoes the typed text, so
 # the workspace undo must not run while one of them has the focus.
 TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
@@ -112,6 +119,13 @@ class MainWindow(QMainWindow):
             lambda: self._on_grid_clicked(True))
         self.top_panel.grid_button.deactivated.connect(
             lambda: self._on_grid_clicked(False))
+        # LLFR-00127, LLFR-00133: the export controller saves the PDF
+        # and copies the image.
+        self.pdf_export_handler = None
+        self.copy_handler = None
+        self.top_panel.pdf_export_requested.connect(
+            self._on_pdf_export_requested)
+        self.top_panel.copy_requested.connect(self._on_copy_requested)
         # LLFR-00148, LLFR-00149, LLFR-00150: holding the Tip key keeps
         # the Tip tool active; the filter sees the keys of every widget
         # and dialog of the application, and consumes none.
@@ -627,6 +641,205 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00032: the tab is full; add a tab or delete a plot.
         message_boxes.show_full_tab_notification(self)
+
+    # ----------------------------------------------------------------
+    # Export facade, used by the export controller (plain types only)
+    # ----------------------------------------------------------------
+
+    def set_export_handlers(self, pdf_export_handler,
+                            copy_handler) -> None:
+        """Set the functions called by the Export menu and Copy button.
+
+        Inputs:
+            pdf_export_handler: function without arguments, called when
+                "Save all tabs as PDF" is chosen.
+            copy_handler: function without arguments, called when the
+                Copy button is clicked.
+        Outputs: none.
+        """
+        # LLFR-00128, LLFR-00133: the controller runs the flows.
+        self.pdf_export_handler = pdf_export_handler
+        self.copy_handler = copy_handler
+
+    def exportable_tab_count(self) -> int:
+        """Return the number of tabs that hold at least one plot.
+
+        Inputs: none.
+        Outputs: an int.
+        """
+        # LLFR-00129, LLFR-00145: the tabs that get a PDF page.
+        return len(plot_export.exportable_page_list(
+            self.plot_panel.tab_widget))
+
+    def current_tab_plot_count(self) -> int:
+        """Return the number of plots in the current tab.
+
+        Inputs: none.
+        Outputs: an int, 0 when there is no tab.
+        """
+        # LLFR-00146: a tab without plots has nothing to copy.
+        return len(self.plot_panel.plot_id_list(self.current_tab_id()))
+
+    def ask_pdf_save_path(self) -> str:
+        """Show the save file dialog for a .pdf file.
+
+        Inputs: none.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-00128: a save file dialog for a .pdf file.
+        # LLFR-00130: an empty path means the dialog was cancelled.
+        dialog = self.build_pdf_save_dialog()
+        try:
+            return self.run_pdf_save_dialog(dialog) or ""
+        finally:
+            dialog.deleteLater()
+
+    def build_pdf_save_dialog(self) -> QFileDialog:
+        """Build the save file dialog of the PDF export, not shown.
+
+        Inputs: none.
+        Outputs: a QFileDialog in save mode, filtered to .pdf files,
+            that adds ".pdf" to a name typed without an extension and
+            asks before overwriting the resulting file.
+        """
+        # LLFR-00128: the dialog is for a .pdf file; the overwrite
+        # question is asked by Qt for the name with the suffix.
+        dialog = QFileDialog(self, SAVE_PDF_DIALOG_TITLE_STR, "",
+                             SAVE_PDF_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setDefaultSuffix(SAVE_PDF_DEFAULT_SUFFIX_STR)
+        return dialog
+
+    def run_pdf_save_dialog(self, dialog) -> str:
+        """Run the PDF save dialog modally and return the chosen path.
+
+        Inputs:
+            dialog: the QFileDialog built by build_pdf_save_dialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00128, LLFR-00130: the modal dialog.
+        if dialog.exec() != QDialog.DialogCode.Accepted.value:
+            return ""
+        selected_file_list = dialog.selectedFiles()
+        if not selected_file_list:
+            return ""
+        return str(selected_file_list[0])
+
+    def ask_replace_existing_file(self, path_str: str) -> bool:
+        """Ask whether to replace an existing file.
+
+        Inputs:
+            path_str: the path of the existing file.
+        Outputs: True when the user chose to replace it.
+        """
+        # LLFR-00128: asked when ".pdf" was added after the dialog and
+        # the resulting file already exists.
+        return message_boxes.ask_replace_existing_file(self, path_str)
+
+    def save_tabs_pdf(self, path_str: str) -> tuple:
+        """Save the plots of every tab that holds a plot to a PDF file.
+
+        Inputs:
+            path_str: the path of the .pdf file.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-00129, LLFR-00131: one page per tab with a plot.
+        return plot_export.save_tabs_pdf(self.plot_panel.tab_widget,
+                                         path_str)
+
+    def copy_current_tab_image(self) -> tuple:
+        """Put an image of the current tab's plots on the clipboard.
+
+        Inputs: none.
+        Outputs: a tuple (copied_b, reason_str).
+        """
+        # LLFR-00133: the plots of the current tab, as on screen.
+        return plot_export.copy_current_tab_image(
+            self.plot_panel.tab_widget)
+
+    def show_nothing_to_export(self) -> None:
+        """Show the box saying that there are no plots to export.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00145: an information box.
+        message_boxes.build_nothing_to_export_box(self).exec()
+
+    def show_nothing_to_copy(self) -> None:
+        """Show the box saying that there are no plots to copy.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00146: an information box.
+        message_boxes.build_nothing_to_copy_box(self).exec()
+
+    def show_export_error(self, reason_str: str) -> None:
+        """Show the error box saying that the PDF could not be saved.
+
+        Inputs:
+            reason_str: why the file could not be written.
+        Outputs: none.
+        """
+        # LLFR-00131: an error box (HLFR-00002).
+        message_boxes.build_export_error_box(self, reason_str).exec()
+
+    def show_copy_error(self, reason_str: str) -> None:
+        """Show the error box saying that the image could not be copied.
+
+        Inputs:
+            reason_str: why the copy failed.
+        Outputs: none.
+        """
+        # LLFR-00133: an error box (HLFR-00002).
+        message_boxes.build_copy_error_box(self, reason_str).exec()
+
+    def finish_export_button(self) -> None:
+        """Return the Export button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the export has finished.
+        self.top_panel.export_button.finish()
+
+    def finish_copy_button(self) -> None:
+        """Return the Copy button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the copy has finished.
+        self.top_panel.copy_button.finish()
+
+    def _on_pdf_export_requested(self) -> None:
+        """Run the PDF export handler after the menu choice.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00128: the controller shows the save file dialog.
+        if self.pdf_export_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_export_button()
+            return
+        self.pdf_export_handler()
+
+    def _on_copy_requested(self) -> None:
+        """Run the copy handler after the Copy button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00133: the controller copies the image.
+        if self.copy_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_copy_button()
+            return
+        self.copy_handler()
 
     def _on_open_file_activated(self) -> None:
         """Run the open-file handler after the Open file button is clicked.

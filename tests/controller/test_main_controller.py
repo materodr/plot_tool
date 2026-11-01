@@ -22,6 +22,18 @@ class FakeMainWindow(FakePlotView):
         self.shown_b = False
         self.open_file_handler = None
         self.search_text_handler = None
+        self.export_handler_tuple = ()
+
+    def set_export_handlers(self, pdf_export_handler,
+                            copy_handler) -> None:
+        """Record the handlers of the Export menu and the Copy button.
+
+        Inputs:
+            pdf_export_handler: called for "Save all tabs as PDF".
+            copy_handler: called when Copy is clicked.
+        Outputs: none.
+        """
+        self.export_handler_tuple = (pdf_export_handler, copy_handler)
 
     def set_open_file_handler(self, handler) -> None:
         """Record the handler of the Open file button.
@@ -115,6 +127,21 @@ class MainControllerStartTest(unittest.TestCase):
         # so it gives the final signal list of a new file.
         self.assertEqual(listener_list[-1],
                          signal_list_controller.on_file_opened)
+
+    @covers("LLFR-00128", "LLFR-00133")
+    def test_export_controller_is_wired(self) -> None:
+        """The Export menu and Copy button run the export controller.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        fake_window = FakeMainWindow()
+        controller = MainController(fake_window)
+        export_controller = controller.export_controller
+        self.assertIs(export_controller.view, fake_window)
+        self.assertEqual(fake_window.export_handler_tuple,
+                         (export_controller.on_export_requested,
+                          export_controller.on_copy_requested))
 
 
 if __name__ == "__main__":
