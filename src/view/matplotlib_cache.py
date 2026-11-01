@@ -30,7 +30,7 @@ def user_cache_folder_str(platform_str: str, environment_dict: dict,
     Outputs: ~/Library/Caches on macOS, %LOCALAPPDATA% on Windows, and
         $XDG_CACHE_HOME or ~/.cache elsewhere.
     """
-    # LLFR-00068: a folder that survives between launches.
+    # LLFR-00068, LLFR-00189: a folder that survives between launches.
     if platform_str == "darwin":
         return os.path.join(home_folder_str, "Library", "Caches")
     if platform_str == "win32":
@@ -52,7 +52,8 @@ def persistent_matplotlib_folder_str(platform_str: str,
         home_folder_str: the user's home folder.
     Outputs: <user cache folder>/plot_tool/matplotlib.
     """
-    # LLFR-00068: matplotlib keeps its font list for the plots here.
+    # LLFR-00068, LLFR-00189: matplotlib keeps its font list for the
+    # plots here.
     return os.path.join(
         user_cache_folder_str(platform_str, environment_dict,
                               home_folder_str),
@@ -72,8 +73,8 @@ def use_persistent_matplotlib_folder(environment_dict=None,
         nothing was changed (app run from source, or the folder can't
         be created, in which case matplotlib keeps its own choice).
     """
-    # LLFR-00068: only a built app needs this; from source matplotlib
-    # already keeps its cache.
+    # LLFR-00068, LLFR-00189: only a built app needs this; from source
+    # matplotlib already keeps its cache.
     if environment_dict is None:
         environment_dict = os.environ
     if frozen_b is None:
