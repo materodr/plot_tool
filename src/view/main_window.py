@@ -7,12 +7,13 @@ from PyQt6.QtWidgets import (
     QLineEdit, QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout,
     QWidget)
 
-from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
+from controller.plot_tools import (
+    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR)
 from view import icons, message_boxes, plot_export, theme
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
-from view.tip_key_filter import TipKeyFilter
+from view.tip_key_filter import MARKER_KEY_I, TIP_KEY_I, ToolKeyFilter
 from view.top_panel import TopPanel
 
 
@@ -142,15 +143,21 @@ class MainWindow(QMainWindow):
         self.top_panel.pdf_export_requested.connect(
             self._on_pdf_export_requested)
         self.top_panel.copy_requested.connect(self._on_copy_requested)
-        # LLFR-00148, LLFR-00149, LLFR-00150: holding the Tip key keeps
-        # the Tip tool active; the filter sees the keys of every widget
-        # and dialog of the application, and consumes none.
+        # LLFR-00148 to LLFR-00150: holding the Tip key keeps the Tip
+        # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
+        # Vertical marker tool active; LLFR-00157: not in text fields.
+        # The filter sees the keys of every widget and dialog of the
+        # application, and consumes none.
         self.tip_key_changing_tool_b = False
-        self.tip_key_filter = TipKeyFilter(
-            self.on_tip_key_activate, self.on_tip_key_release, self)
+        self.tool_key_filter = ToolKeyFilter(
+            {TIP_KEY_I: TIP_TOOL_STR, MARKER_KEY_I: MARKER_TOOL_STR},
+            self.on_tool_key_activate, self.on_tool_key_release,
+            TEXT_INPUT_WIDGET_TUPLE, self)
+        # LLFR-00148: the name used before the Shift key was added.
+        self.tip_key_filter = self.tool_key_filter
         application = QApplication.instance()
         if application is not None:
-            application.installEventFilter(self.tip_key_filter)
+            application.installEventFilter(self.tool_key_filter)
         # LLFR-00136, LLFR-00138: the Undo button goes to the plot
         # controller. LLFR-00137: so does Ctrl+Z (Cmd+Z on macOS, which
         # QKeySequence.StandardKey.Undo maps to), in this window.
@@ -302,31 +309,34 @@ class MainWindow(QMainWindow):
         # LLFR-00079, LLFR-00109: the tool stays until it is changed.
         return self.plot_tool_str
 
-    def on_tip_key_activate(self) -> None:
-        """Make Tip the active tool because the Tip key is held alone.
+    def on_tool_key_activate(self, tool_str: str) -> None:
+        """Make a tool active because its tool key is held alone.
 
-        Inputs: none.
+        Inputs:
+            tool_str: TIP_TOOL_STR for the Tip key, MARKER_TOOL_STR for
+                the Shift key.
         Outputs: none. The tool change goes the same way as a click on
-            the Tip button, so the controller is told of it.
+            the tool's button, so the controller is told of it.
         """
-        # LLFR-00148: the Tip button becomes active and the other tool
-        # buttons are deactivated as in LLFR-00079.
+        # LLFR-00148, LLFR-00154: the tool's button becomes active and the
+        # other tool buttons are deactivated as in LLFR-00079.
         self.tip_key_changing_tool_b = True
         try:
-            self.top_panel.tip_button.setChecked(True)
-            self.top_panel.activate_plot_tool(TIP_TOOL_STR)
+            self.top_panel.plot_tool_button_dict[tool_str].setChecked(True)
+            self.top_panel.activate_plot_tool(tool_str)
         finally:
             self.tip_key_changing_tool_b = False
 
-    def on_tip_key_release(self) -> None:
-        """Leave no plot tool active because the Tip key hold ended.
+    def on_tool_key_release(self) -> None:
+        """Leave no plot tool active because a tool key hold ended.
 
         Inputs: none.
         Outputs: none. The tool change goes the same way as a second
             click on the active tool button.
         """
-        # LLFR-00149, LLFR-00150: no plot tool is active afterwards,
-        # whatever tool was active before the Tip key was pressed.
+        # LLFR-00149, LLFR-00150, LLFR-00155, LLFR-00156, LLFR-00157: no
+        # plot tool is active afterwards, whatever tool was active before
+        # the tool key was pressed.
         self.tip_key_changing_tool_b = True
         try:
             self.top_panel.show_plot_tool(NO_TOOL_STR)
@@ -877,10 +887,11 @@ class MainWindow(QMainWindow):
             tool_str: the new tool name, NO_TOOL_STR for none.
         Outputs: none.
         """
-        # LLFR-00079, LLFR-00149: a tool chosen with the mouse while the
-        # Tip key is held is kept; the later release changes nothing.
+        # LLFR-00079, LLFR-00149, LLFR-00155: a tool chosen with the
+        # mouse while a tool key is held is kept; the later release
+        # changes nothing.
         if not self.tip_key_changing_tool_b:
-            self.tip_key_filter.cancel_activation()
+            self.tool_key_filter.cancel_activation()
         # LLFR-00079, LLFR-00002: the controller applies the tool; with
         # no controller the window applies it itself.
         if self.plot_tool_handler is None:

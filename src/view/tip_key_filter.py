@@ -1,9 +1,14 @@
-"""Application-wide filter that turns the Tip key into a hold-to-tip key.
+"""Application-wide filter that turns keys into hold-to-use plot tool keys.
 
-While the user holds the Tip key alone, the Tip tool is active
-(LLFR-00148); releasing the key leaves no plot tool active (LLFR-00149);
-pressing any other key while the Tip key is held ends the activation at
-once (LLFR-00150).
+Two keys work this way:
+    - the Tip key keeps the Tip tool active while it is held alone
+      (LLFR-00148); releasing it leaves no plot tool active (LLFR-00149);
+      pressing any other key while it is held ends the activation at
+      once (LLFR-00150);
+    - the Shift key does the same for the Vertical marker tool
+      (LLFR-00154, LLFR-00155, LLFR-00156).
+Neither key activates a tool while the keyboard focus is in a text field
+(LLFR-00157), so that capital letters and shortcuts can be typed there.
 
 The Tip key:
     The Tip key is ``Qt.Key.Key_Control``. On Windows and Linux this is the
@@ -14,28 +19,40 @@ The Tip key:
     key on macOS and the Ctrl key elsewhere, as LLFR-00148 asks.
 
 Rules:
-    - "Alone" means that, when the Tip key is pressed, no other key is
-      held and no modifier other than Ctrl is down. A key pressed while
-      the Tip key is held ends the activation; it is not renewed until
-      the Tip key is released and pressed again.
+    - "Alone" means that, when a tool key is pressed, no other key is
+      held and no modifier other than the key's own one is down. A key
+      pressed while a tool key is held ends the activation; it is not
+      renewed until the tool key is released and pressed again.
+    - The two tool keys count as "another key" for each other: with one
+      held, pressing the other ends the first activation, and the second
+      key is not alone, so it activates nothing. No plot tool is then
+      active.
     - Auto-repeat key events are ignored.
-    - Releasing the Tip key also forgets every other held key, because
-      macOS can drop the release of a key pressed together with Cmd.
+    - Releasing a tool key also forgets every other held key except the
+      other tool key, because macOS can drop the release of a key pressed
+      together with Cmd.
     - When the app or its window loses the keyboard (application state
       change to not active, ``WindowDeactivate``, or ``FocusOut`` with
       ``ActiveWindowFocusReason``) the activation ends as on a release,
       and the record of held keys is cleared, since their release events
       will never arrive. A ``FocusOut`` with another reason only moves
       the focus inside the window (for example a click on a plot) and
-      is ignored, so it does not interrupt the tip.
+      is ignored, so it does not interrupt the tool.
+    - A tool key pressed while a text field has the keyboard focus (the
+      receiver of the key or ``QApplication.focusWidget()`` is one of the
+      text field classes given to the filter) activates nothing. When a
+      text field gets the focus (``FocusIn``) while an activation is on,
+      the activation ends as on a release.
     - ``cancel_activation`` ends the temporary state WITHOUT calling the
       release callback. MainWindow calls it whenever the plot tool changes
       for any reason other than this filter (a mouse click on a tool
       button), so the user's click is kept and the later release of the
-      Tip key changes nothing.
+      tool key changes nothing.
     - The filter never consumes an event: every key, including the key
-      combination of LLFR-00150 (e.g. Ctrl+Z) and every key typed in a
-      text box, still reaches its normal handler.
+      combinations of LLFR-00150 and LLFR-00156 (e.g. Ctrl+Z, Shift+A)
+      and every key typed in a text box, still reaches its normal handler.
+      Mouse events are not looked at, so Shift+click and Shift+drag on a
+      plot work as plain clicks and drags of the Vertical marker tool.
 
 Qt delivers one key press several times to an application event filter
 (a ``ShortcutOverride`` first, then the ``KeyPress`` to the window and to
@@ -45,13 +62,22 @@ so these repeated deliveries change nothing.
 
 from PyQt6.QtCore import QEvent, QObject, Qt
 from PyQt6.QtGui import QFocusEvent, QGuiApplication, QKeyEvent
+from PyQt6.QtWidgets import QApplication
+
+from controller.plot_tools import NO_TOOL_STR
 
 # LLFR-00148: the Tip key (Command on macOS, Ctrl elsewhere; see above).
 TIP_KEY_I = int(Qt.Key.Key_Control.value)
-# LLFR-00148: modifiers that may be down while the Tip key is "alone".
-ALLOWED_MODIFIER_MASK_I = int(
-    Qt.KeyboardModifier.ControlModifier.value
-    | Qt.KeyboardModifier.KeypadModifier.value)
+# LLFR-00154: the key that holds the Vertical marker tool.
+MARKER_KEY_I = int(Qt.Key.Key_Shift.value)
+# LLFR-00148, LLFR-00154: the modifier each tool key sets by itself; with
+# the keypad flag, the only modifiers allowed while the key is "alone".
+OWN_MODIFIER_DICT = {
+    TIP_KEY_I: int(Qt.KeyboardModifier.ControlModifier.value),
+    MARKER_KEY_I: int(Qt.KeyboardModifier.ShiftModifier.value)}
+KEYPAD_MODIFIER_I = int(Qt.KeyboardModifier.KeypadModifier.value)
+# LLFR-00148, LLFR-00149: no activation is on.
+NO_KEY_I = 0
 # LLFR-00148, LLFR-00150: the key events the filter looks at.
 KEY_PRESS_TYPE_TUPLE = (QEvent.Type.KeyPress, QEvent.Type.ShortcutOverride)
 
@@ -62,7 +88,8 @@ def application_is_active() -> bool:
     Inputs: none.
     Outputs: True while the application state is ApplicationActive.
     """
-    # LLFR-00149: an inactive application can no longer see the release.
+    # LLFR-00149, LLFR-00155: an inactive application can no longer see
+    # the release.
     return (QGuiApplication.applicationState()
             == Qt.ApplicationState.ApplicationActive)
 
@@ -74,101 +101,147 @@ def modifier_value_i(event) -> int:
         event: a QKeyEvent.
     Outputs: the modifier flags, as an int.
     """
-    # LLFR-00148: PyQt6 flags convert to int through ``.value``.
+    # LLFR-00148, LLFR-00154: PyQt6 flags convert to int through
+    # ``.value``.
     modifiers = event.modifiers()
     return int(getattr(modifiers, "value", modifiers))
 
 
-class TipKeyFilter(QObject):
-    """Event filter that keeps the Tip tool active while the Tip key is held.
+class ToolKeyFilter(QObject):
+    """Event filter that keeps a plot tool active while its key is held.
 
     Install it on ``QApplication.instance()`` so it sees every key event.
 
     Inputs:
-        on_tip_key_activate: function without arguments, called when the
-            Tip key is pressed alone (LLFR-00148).
-        on_tip_key_release: function without arguments, called when an
-            activation ends: release of the Tip key (LLFR-00149), another
-            key pressed (LLFR-00150) or the keyboard lost.
+        key_tool_dict: dict from a tool key code (TIP_KEY_I, MARKER_KEY_I)
+            to the name of the plot tool it holds (controller.plot_tools).
+        on_tool_key_activate: function taking a tool name, called when a
+            tool key is pressed alone (LLFR-00148, LLFR-00154).
+        on_tool_key_release: function without arguments, called when an
+            activation ends: release of the key (LLFR-00149, LLFR-00155),
+            another key pressed (LLFR-00150, LLFR-00156), a text field
+            focused (LLFR-00157) or the keyboard lost.
+        text_field_widget_tuple: tuple of the widget classes that are
+            text fields (LLFR-00157).
         parent: optional parent QObject (its lifetime bounds the filter).
     Attributes:
-        tip_key_held_b: True while the Tip key is down.
-        activation_b: True while the temporary Tip activation is on.
-        held_key_set: the other keys (int codes) currently down.
+        held_key_set: the keys (int codes) currently down, tool keys
+            included.
+        active_key_i: the tool key whose activation is on, NO_KEY_I when
+            none is.
     """
 
-    def __init__(self, on_tip_key_activate, on_tip_key_release,
+    def __init__(self, key_tool_dict: dict, on_tool_key_activate,
+                 on_tool_key_release, text_field_widget_tuple: tuple,
                  parent=None) -> None:
-        """Create the filter with its two callbacks.
+        """Create the filter with its keys, callbacks and text fields.
 
         Inputs:
-            on_tip_key_activate: see the class docstring.
-            on_tip_key_release: see the class docstring.
+            key_tool_dict: see the class docstring.
+            on_tool_key_activate: see the class docstring.
+            on_tool_key_release: see the class docstring.
+            text_field_widget_tuple: see the class docstring.
             parent: optional parent QObject.
         Outputs: none.
         """
         super().__init__(parent)
-        # LLFR-00148, LLFR-00149: what to do on activation and its end.
-        self.on_tip_key_activate = on_tip_key_activate
-        self.on_tip_key_release = on_tip_key_release
-        self.tip_key_held_b = False
-        self.activation_b = False
+        # LLFR-00148, LLFR-00154: which key holds which tool, and what to
+        # do on activation and its end.
+        self.key_tool_dict = dict(key_tool_dict)
+        self.on_tool_key_activate = on_tool_key_activate
+        self.on_tool_key_release = on_tool_key_release
+        # LLFR-00157: the widgets in which the tool keys do nothing.
+        self.text_field_widget_tuple = tuple(text_field_widget_tuple)
         self.held_key_set = set()
+        self.active_key_i = NO_KEY_I
 
     def is_activation_on(self) -> bool:
-        """Tell whether the Tip key is holding the Tip tool active.
+        """Tell whether a tool key is holding its tool active.
 
         Inputs: none.
-        Outputs: True during an activation of LLFR-00148.
+        Outputs: True during an activation of LLFR-00148 or LLFR-00154.
         """
-        # LLFR-00148: the temporary state.
-        return self.activation_b
+        # LLFR-00148, LLFR-00154: the temporary state.
+        return self.active_key_i != NO_KEY_I
+
+    def active_tool(self) -> str:
+        """Return the tool held active by a tool key.
+
+        Inputs: none.
+        Outputs: the tool name, NO_TOOL_STR when no activation is on.
+        """
+        # LLFR-00148, LLFR-00154: the tool of the held key.
+        return self.key_tool_dict.get(self.active_key_i, NO_TOOL_STR)
 
     def cancel_activation(self) -> None:
         """End the temporary state without calling the release callback.
 
         Called when the user changes the plot tool in another way (a
-        click on a tool button) while the Tip key is held, so that the
+        click on a tool button) while a tool key is held, so that the
         release of the key does not override that choice.
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00079, LLFR-00149: the user's click wins; the release that
-        # follows changes nothing.
-        self.activation_b = False
+        # LLFR-00079, LLFR-00149, LLFR-00155: the user's click wins; the
+        # release that follows changes nothing.
+        self.active_key_i = NO_KEY_I
+
+    def is_text_field(self, widget) -> bool:
+        """Tell whether a widget is a text field.
+
+        Inputs:
+            widget: a QObject, or None.
+        Outputs: True when it is an instance of a text field class.
+        """
+        # LLFR-00157: the search box and the name fields are QLineEdit.
+        return isinstance(widget, self.text_field_widget_tuple)
 
     def handle_key_press(self, key_i: int, modifier_mask_i: int,
-                         auto_repeat_b: bool) -> None:
+                         auto_repeat_b: bool,
+                         text_field_focused_b: bool = False) -> None:
         """React to a key being pressed.
 
         Inputs:
             key_i: the Qt key code.
             modifier_mask_i: the keyboard modifiers of the event, as an int.
             auto_repeat_b: True for an auto-repeated press.
+            text_field_focused_b: True when a text field has the keyboard
+                focus.
         Outputs: none. May call one of the callbacks.
         """
-        # LLFR-00148: auto-repeat presses are not new presses.
+        # LLFR-00148, LLFR-00154: auto-repeat presses are not new presses.
         if auto_repeat_b:
             return
-        if key_i == TIP_KEY_I:
-            # LLFR-00148: a repeated delivery of the same press, or the
-            # extra Ctrl press some senders add, changes nothing.
-            if self.tip_key_held_b:
-                return
-            self.tip_key_held_b = True
-            other_modifier_b = bool(
-                modifier_mask_i & ~ALLOWED_MODIFIER_MASK_I)
-            if self.held_key_set or other_modifier_b:
-                # LLFR-00148: the Tip key is not pressed alone.
-                return
-            self.activation_b = True
-            self.on_tip_key_activate()
+        if key_i in self.held_key_set:
+            # LLFR-00148, LLFR-00154: a repeated delivery of the press
+            # that started the activation, or the extra Ctrl press some
+            # senders add, changes nothing. LLFR-00150, LLFR-00156: any
+            # other key ends the activation, even one whose release was
+            # never seen.
+            if key_i != self.active_key_i:
+                self._end_activation()
             return
-        # LLFR-00150: any other key, also an unknown one, ends the
-        # activation; the event itself is never consumed.
+        other_key_held_b = bool(self.held_key_set)
         self.held_key_set.add(key_i)
+        # LLFR-00150, LLFR-00156: a new key, also an unknown one or the
+        # other tool key, ends a running activation; the event itself is
+        # never consumed.
         self._end_activation()
+        tool_str = self.key_tool_dict.get(key_i, NO_TOOL_STR)
+        if tool_str == NO_TOOL_STR:
+            return
+        allowed_modifier_mask_i = (OWN_MODIFIER_DICT.get(key_i, 0)
+                                   | KEYPAD_MODIFIER_I)
+        other_modifier_b = bool(modifier_mask_i & ~allowed_modifier_mask_i)
+        if other_key_held_b or other_modifier_b:
+            # LLFR-00148, LLFR-00154: the tool key is not pressed alone.
+            return
+        if text_field_focused_b:
+            # LLFR-00157: typing in a text field activates no tool.
+            return
+        self.active_key_i = key_i
+        self.on_tool_key_activate(tool_str)
 
     def handle_key_release(self, key_i: int, auto_repeat_b: bool) -> None:
         """React to a key being released.
@@ -178,21 +251,22 @@ class TipKeyFilter(QObject):
             auto_repeat_b: True for an auto-repeated release.
         Outputs: none. May call the release callback.
         """
-        # LLFR-00148: auto-repeat releases do not end the hold.
+        # LLFR-00148, LLFR-00154: auto-repeat releases do not end the
+        # hold.
         if auto_repeat_b:
             return
-        if key_i == TIP_KEY_I:
-            # LLFR-00149: releasing the Tip key ends the activation.
-            self.tip_key_held_b = False
-            # LLFR-00148: macOS may never send the release of a key
-            # pressed together with Cmd (e.g. the Z of Cmd+Z), so the
-            # held keys are forgotten here; otherwise such a key would
-            # stay "held" and block the next Tip key press alone.
-            self.held_key_set.clear()
-            self._end_activation()
-            return
-        # LLFR-00148: the other key is no longer held.
         self.held_key_set.discard(key_i)
+        if key_i not in self.key_tool_dict:
+            return
+        # LLFR-00148: macOS may never send the release of a key pressed
+        # together with Cmd (e.g. the Z of Cmd+Z), so the held keys other
+        # than the tool keys are forgotten here; otherwise such a key
+        # would stay "held" and block the next tool key press alone.
+        self.held_key_set.intersection_update(self.key_tool_dict)
+        # LLFR-00149, LLFR-00155: releasing the tool key ends its
+        # activation.
+        if key_i == self.active_key_i:
+            self._end_activation()
 
     def handle_keyboard_lost(self) -> None:
         """React to the app or its window losing the keyboard.
@@ -200,10 +274,19 @@ class TipKeyFilter(QObject):
         Inputs: none.
         Outputs: none. May call the release callback.
         """
-        # LLFR-00149: the release would never be seen, so end now and
-        # forget every held key, so nothing can stay stuck.
-        self.tip_key_held_b = False
+        # LLFR-00149, LLFR-00155: the release would never be seen, so end
+        # now and forget every held key, so nothing can stay stuck.
         self.held_key_set.clear()
+        self._end_activation()
+
+    def handle_text_field_focused(self) -> None:
+        """React to a text field getting the keyboard focus.
+
+        Inputs: none.
+        Outputs: none. May call the release callback.
+        """
+        # LLFR-00157: no tool stays held while the user types; the held
+        # keys are kept, since their releases will still arrive.
         self._end_activation()
 
     def eventFilter(self, watched, event) -> bool:
@@ -214,33 +297,59 @@ class TipKeyFilter(QObject):
             event: the QEvent.
         Outputs: always False, so every event goes on to its receiver.
         """
-        # LLFR-00148, LLFR-00149, LLFR-00150: dispatch the key events.
-        # The type is checked first, so that most events cost only one
-        # comparison and no isinstance call.
+        # LLFR-00148 to LLFR-00150, LLFR-00154 to LLFR-00157: dispatch the
+        # key and focus events. The type is checked first, so that most
+        # events cost only a few comparisons and no isinstance call.
         event_type = event.type()
         if event_type in KEY_PRESS_TYPE_TUPLE:
             if isinstance(event, QKeyEvent):
-                self.handle_key_press(int(event.key()),
-                                      modifier_value_i(event),
-                                      bool(event.isAutoRepeat()))
+                self.dispatch_key_press(watched, event)
         elif event_type == QEvent.Type.KeyRelease:
             if isinstance(event, QKeyEvent):
                 self.handle_key_release(int(event.key()),
                                         bool(event.isAutoRepeat()))
+        elif event_type == QEvent.Type.FocusIn:
+            # LLFR-00157: the focus moved into a text field.
+            if self.is_activation_on() and self.is_text_field(watched):
+                self.handle_text_field_focused()
         elif event_type == QEvent.Type.WindowDeactivate:
-            # LLFR-00149: the window lost the keyboard.
+            # LLFR-00149, LLFR-00155: the window lost the keyboard.
             self.handle_keyboard_lost()
         elif (event_type == QEvent.Type.FocusOut
               and isinstance(event, QFocusEvent)):
-            # LLFR-00149: only a focus change to another window counts.
+            # LLFR-00149, LLFR-00155: only a focus change to another
+            # window counts.
             if event.reason() == Qt.FocusReason.ActiveWindowFocusReason:
                 self.handle_keyboard_lost()
         elif event_type == QEvent.Type.ApplicationStateChange:
-            # LLFR-00149: the whole application lost the keyboard.
+            # LLFR-00149, LLFR-00155: the whole application lost the
+            # keyboard.
             if not application_is_active():
                 self.handle_keyboard_lost()
-        # LLFR-00150: never consume, so key combinations still work.
+        # LLFR-00150, LLFR-00156: never consume, so key combinations and
+        # typing still work.
         return False
+
+    def dispatch_key_press(self, watched, event) -> None:
+        """Pass a key press event to handle_key_press.
+
+        Inputs:
+            watched: the object the event is sent to.
+            event: the QKeyEvent (KeyPress or ShortcutOverride).
+        Outputs: none.
+        """
+        # LLFR-00157: the focus is only looked up for a tool key, so other
+        # keys stay cheap. The receiver is checked too, since a key event
+        # goes to the focus widget first.
+        key_i = int(event.key())
+        text_field_focused_b = (
+            key_i in self.key_tool_dict
+            and (self.is_text_field(watched)
+                 or self.is_text_field(QApplication.focusWidget())))
+        # LLFR-00148, LLFR-00150, LLFR-00154, LLFR-00156.
+        self.handle_key_press(key_i, modifier_value_i(event),
+                              bool(event.isAutoRepeat()),
+                              text_field_focused_b)
 
     def _end_activation(self) -> None:
         """End a running activation and call the release callback once.
@@ -248,8 +357,9 @@ class TipKeyFilter(QObject):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00149, LLFR-00150: only an activation still on is ended.
-        if not self.activation_b:
+        # LLFR-00149, LLFR-00150, LLFR-00155, LLFR-00156: only an
+        # activation still on is ended.
+        if self.active_key_i == NO_KEY_I:
             return
-        self.activation_b = False
-        self.on_tip_key_release()
+        self.active_key_i = NO_KEY_I
+        self.on_tool_key_release()
