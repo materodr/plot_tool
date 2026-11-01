@@ -434,6 +434,71 @@ class ExportCopyTest(unittest.TestCase):
         self.assert_plots_still_drawn(plot_widget_list)
 
     @covers("LLFR-00129")
+    def test_page_plot_matches_screen_with_tips_and_markers(self) -> None:
+        """The sharp plot on the page looks like the plot on screen, with
+        a dragged pinned tip, its leader line and a vertical marker.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import qGray
+        from view import plot_export
+        self.plot_signal("speed")
+        plot_id_i = self.main_window.plot_panel.plot_id_list(
+            self.main_window.current_tab_id())[0]
+        plot_controller = self.controller.plot_controller
+        plot_controller.on_tip_pin(plot_id_i, "speed", 1.0, 2.0)
+        plot_controller.on_pinned_tip_move(plot_id_i, 0, 60.0, -40.0)
+        plot_controller.on_marker_place(plot_id_i, 1.5)
+        self.application.processEvents()
+        plot_widget = self.main_window.plot_view(plot_id_i)
+        offset_tuple = tuple(plot_widget.pinned_annotation_list[0].xyann)
+        drawn_list = []
+        original_draw = plot_export.draw_page_image
+
+        def recording_draw(*argument_tuple):
+            """Draw the page and record the plot images it drew.
+
+            Inputs:
+                argument_tuple: the arguments of draw_page_image.
+            Outputs: the list returned by draw_page_image.
+            """
+            result_list = original_draw(*argument_tuple)
+            drawn_list.extend(result_list)
+            return result_list
+
+        with mock.patch.object(plot_export, "draw_page_image",
+                               side_effect=recording_draw):
+            self.export_to(os.path.join(self.folder_str, "tips.pdf"))
+        self.application.processEvents()
+        page_image = drawn_list[0][1]
+        screen_image = plot_widget.canvas.grab().toImage()
+        grid_width_i = 60
+        grid_height_i = 30
+        small_page = page_image.scaled(
+            grid_width_i, grid_height_i,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        small_screen = screen_image.scaled(
+            grid_width_i, grid_height_i,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        close_count_i = 0
+        for x_i in range(grid_width_i):
+            for y_i in range(grid_height_i):
+                page_gray_i = qGray(small_page.pixel(x_i, y_i))
+                screen_gray_i = qGray(small_screen.pixel(x_i, y_i))
+                if abs(page_gray_i - screen_gray_i) <= 48:
+                    close_count_i += 1
+        self.assertGreaterEqual(close_count_i / (grid_width_i
+                                                 * grid_height_i), 0.9)
+        # The export does not move the dragged tip on screen.
+        self.assertEqual(
+            tuple(plot_widget.pinned_annotation_list[0].xyann),
+            offset_tuple)
+
+    @covers("LLFR-00129")
     def test_current_tab_restored_after_error(self) -> None:
         """The tab shown before the export is shown again after an error.
 
