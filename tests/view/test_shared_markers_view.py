@@ -537,21 +537,25 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         clean_page_image = plot_export.grab_page_image(page)
         clean_figure_image = plot_export.render_figure_image(
             plot_widget.figure, 100.0)
+        # LLFR-00129: the PDF draws each figure again at a higher dpi.
         self.hover(plot_widget, 2.0)
         self.assert_preview_on_current_tab(2.0)
-        # LLFR-00133: the copied image is a grab of the tab page.
-        self.assertEqual(plot_export.grab_page_image(page),
-                         clean_page_image)
-        # LLFR-00129: the PDF draws each figure again at a higher dpi.
         self.assertEqual(plot_export.render_figure_image(
             plot_widget.figure, 100.0), clean_figure_image)
         # The preview artists are not part of the axes.
         for artist in (plot_widget.preview_line,
                        plot_widget.preview_time_text):
             self.assertNotIn(artist, plot_widget.axes.get_children())
-        # The preview is still shown on screen afterwards.
-        self.assert_preview_on_current_tab(2.0)
-
+        # LLFR-00133, LLFR-00129: the copied image and the PDF pages are
+        # grabs of the tab page; the grab hides the preview first.
+        self.hover(plot_widget, 2.5)
+        self.assert_preview_on_current_tab(2.5)
+        self.assertEqual(plot_export.grab_page_image(page),
+                         clean_page_image)
+        self.assert_no_preview()
+        # The next mouse move over a plot shows it again.
+        self.hover(plot_widget, 3.0)
+        self.assert_preview_on_current_tab(3.0)
 
 if __name__ == "__main__":
     unittest.main()

@@ -1460,6 +1460,11 @@ class PlotWidget(QWidget):
             return
         if self.preview_line is None:
             return
+        if getattr(self.canvas, "_draw_pending", False):
+            # A full draw is coming (zoom, pan, new curves): blitting now
+            # would make Qt run it at once, inside this mouse event, and
+            # on_canvas_drawn blits the preview right after it anyway.
+            return
         if getattr(self.canvas, "renderer", None) is None:
             # The canvas was never drawn: draw it, and on_canvas_drawn
             # blits the preview afterwards.
@@ -3090,9 +3095,9 @@ class PlotWidget(QWidget):
             if not mouse_button_held_b(event, Qt.MouseButton.MiddleButton):
                 self.panning_b = False
                 return
+            # LLFR-00203: the grabbed time stays under the pointer, so the
+            # preview stays where it is; the draw of the pan blits it again.
             self.pan_to(widget_point)
-            # LLFR-00203: the preview stays at the time under the pointer.
-            self.update_marker_preview(widget_point)
             return
         # LLFR-00152: a move with a pinned tip held moves its label. A
         # lost release leaves it at its last shown position.
