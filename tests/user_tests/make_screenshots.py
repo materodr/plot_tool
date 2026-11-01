@@ -55,9 +55,9 @@ MARKER_TIME_TUPLE = (4.5, 8.0)
 # visible; the last Delta Y has its later point near the right edge.
 DELTA_MARKER_LIST = [
     ("delta_x", 0, ("Sine_1Hz", 1.25), ("Cosine_1Hz", 2.0)),
-    ("delta_x", 0, ("Sine_3Hz", 5.0), ("Sine_3Hz", 5.333)),
-    ("delta_y", 0, ("Sine_1Hz", 3.25), ("Cosine_1Hz", 4.0)),
-    ("delta_y", 1, ("Damped_sine", 0.25), ("Damped_sine", 1.25)),
+    ("delta_x", 0, ("Sine_3Hz", 7.0833), ("Sine_3Hz", 7.4167)),
+    ("delta_y", 0, ("Sine_1Hz", 3.25), ("Cosine_1Hz", 3.5)),
+    ("delta_y", 1, ("Damped_sine", 0.25), ("Damped_sine", 0.75)),
     ("delta_x", 1, ("Damped_sine", 6.25), ("Square_0p5Hz", 8.5)),
     ("delta_y", 1, ("Square_0p5Hz", 9.0), ("Damped_sine", 9.75)),
 ]
