@@ -10,8 +10,8 @@ from tests.support import covers
 from tests.controller.test_plot_controller import PlotControllerTestCase
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, PLOT_TOOL_TUPLE, TIP_TOOL_STR,
-    ZOOM_TOOL_STR, is_known_plot_tool)
+    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    PLOT_TOOL_TUPLE, TIP_TOOL_STR, ZOOM_TOOL_STR, is_known_plot_tool)
 
 
 class PlotToolNameTest(unittest.TestCase):
@@ -19,15 +19,16 @@ class PlotToolNameTest(unittest.TestCase):
 
     @covers("LLFR-00079")
     def test_tool_names_are_distinct(self) -> None:
-        """The three tools and "no tool" have different names.
+        """The five tools and "no tool" have different names.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(NO_TOOL_STR, "")
         self.assertEqual(PLOT_TOOL_TUPLE,
-                         (TIP_TOOL_STR, ZOOM_TOOL_STR, MARKER_TOOL_STR))
-        self.assertEqual(len(set(PLOT_TOOL_TUPLE + (NO_TOOL_STR,))), 4)
+                         (TIP_TOOL_STR, ZOOM_TOOL_STR, MARKER_TOOL_STR,
+                          DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR))
+        self.assertEqual(len(set(PLOT_TOOL_TUPLE + (NO_TOOL_STR,))), 6)
         for tool_str in PLOT_TOOL_TUPLE + (NO_TOOL_STR,):
             self.assertTrue(is_known_plot_tool(tool_str))
         for unknown_str in ("Tip", "pan", " ", "zoom "):

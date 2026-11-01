@@ -13,7 +13,8 @@ the window with a search that matches nothing, and of a message box,
 plus close-ups of the icons (issue #74): the top panel at 1x and 2x
 pixel density with a hover tip, every button icon in its normal, active
 and disabled colors at 1x and 2x, and the app icon at its standard
-sizes.
+sizes. A last window shows Delta X and Delta Y markers (issue #76),
+with a close-up of their plot at 2x pixel density.
 
 CI runs it on every pull request and posts the images as PR comments
 (see .github/workflows/tests.yml); fetch_screenshots.py downloads them.
@@ -48,6 +49,22 @@ PINNED_TIP_SIGNAL_STR = "Sine_1Hz"
 PINNED_TIP_TIME_S = 2.25
 # Times (s) of the two vertical markers, on the first plot.
 MARKER_TIME_TUPLE = (4.5, 8.0)
+# Delta markers (issue #76): (tool, plot index, (signal, time s) of the
+# first point, (signal, time s) of the second point). The first Delta X
+# ends on the highest sample of Sine_1Hz, so the room kept above it is
+# visible; the last Delta Y has its later point near the right edge.
+DELTA_MARKER_LIST = [
+    ("delta_x", 0, ("Sine_1Hz", 1.25), ("Cosine_1Hz", 2.0)),
+    ("delta_x", 0, ("Sine_3Hz", 7.0833), ("Sine_3Hz", 7.4167)),
+    ("delta_y", 0, ("Sine_1Hz", 3.25), ("Cosine_1Hz", 3.5)),
+    ("delta_y", 1, ("Damped_sine", 0.124), ("Damped_sine", 0.374)),
+    ("delta_x", 1, ("Damped_sine", 6.25), ("Square_0p5Hz", 8.5)),
+    ("delta_y", 1, ("Square_0p5Hz", 9.0), ("Damped_sine", 9.75)),
+]
+# The pending first point of a measurement, on the second plot.
+DELTA_PENDING_POINT_TUPLE = ("Temperature", 3.0)
+DELTA_PLOT_LIST = [["Sine_1Hz", "Cosine_1Hz", "Sine_3Hz"],
+                   ["Damped_sine", "Square_0p5Hz"], ["Temperature"]]
 
 
 def process_events(application, repeat_count_i: int = 5) -> None:
@@ -145,6 +162,80 @@ def build_window(size_tuple: tuple):
     main_window.top_panel.tip_button.click()
     main_window.signal_list_panel.search_box.setText(SEARCH_TEXT_STR)
     return main_window, controller
+
+
+def build_delta_window(size_tuple: tuple):
+    """Build a window whose plots show Delta X and Delta Y markers.
+
+    Inputs:
+        size_tuple: (width, height) of the window in pixels.
+    Outputs: a tuple (main_window, controller).
+    """
+    from unittest import mock
+
+    import numpy as np
+    from PyQt6.QtWidgets import QFileDialog
+
+    from controller.main_controller import MainController
+    from view.main_window import MainWindow
+
+    main_window = MainWindow()
+    main_window.resize(*size_tuple)
+    controller = MainController(main_window)
+    controller.start()
+    with mock.patch.object(QFileDialog, "getOpenFileName",
+                           return_value=(SAMPLE_FILE_PATH_STR, "")):
+        controller.file_controller.open_file_requested()
+    plot_controller = controller.plot_controller
+    signal_file = plot_controller.signal_file
+    plot_id_list = add_plots(controller, main_window, DELTA_PLOT_LIST)
+
+    def sample_tuple(signal_name_str: str, time_s: float) -> tuple:
+        """Return the file sample nearest to a time, as a click picks it.
+
+        Inputs:
+            signal_name_str: the signal.
+            time_s: the wanted time, in seconds.
+        Outputs: (signal_name_str, time_s, value_f) of the sample.
+        """
+        index_i = int(np.argmin(np.abs(signal_file.time_array - time_s)))
+        return (signal_name_str, float(signal_file.time_array[index_i]),
+                float(signal_file.signal_array(signal_name_str)[index_i]))
+
+    button_dict = {"delta_x": main_window.top_panel.delta_x_button,
+                   "delta_y": main_window.top_panel.delta_y_button}
+    for tool_str, plot_index_i, first_tuple, second_tuple in (
+            DELTA_MARKER_LIST):
+        button = button_dict[tool_str]
+        if not button.is_active():
+            button.click()
+        for signal_name_str, time_s in (first_tuple, second_tuple):
+            plot_controller.on_delta_point_pick(
+                plot_id_list[plot_index_i],
+                *sample_tuple(signal_name_str, time_s))
+    plot_controller.on_delta_point_pick(
+        plot_id_list[2], *sample_tuple(*DELTA_PENDING_POINT_TUPLE))
+    return main_window, controller
+
+
+def save_delta_plot(main_window, application, path_str: str) -> None:
+    """Save the first plot of the delta window at 2x pixel density.
+
+    Inputs:
+        main_window: the MainWindow built by build_delta_window.
+        application: the QApplication.
+        path_str: the PNG file to write.
+    Outputs: none.
+    """
+    draw_all_plots(main_window, application)
+    plot_widget = main_window.plot_view(main_window.plot_panel.plot_id_list(
+        main_window.current_tab_id())[0])
+    # A 2x figure, so that the dashes and curls can be judged closely.
+    screen_dpi_f = float(plot_widget.figure.dpi)
+    plot_widget.figure.savefig(path_str, dpi=2.0 * screen_dpi_f)
+    plot_widget.figure.set_dpi(screen_dpi_f)
+    plot_widget.canvas.draw()
+    print(f"saved {path_str}")
 
 
 def save_window(main_window, application, path_str: str) -> None:
@@ -347,6 +438,14 @@ def main() -> int:
         main_window.deleteLater()
         process_events(application)
     save_icon_sheet(application, output_path("icon_sheet"))
+    main_window, controller = build_delta_window(SMALL_SIZE_TUPLE)
+    save_window(main_window, application,
+                output_path("delta_markers_1000x700"))
+    save_delta_plot(main_window, application,
+                    output_path("delta_markers_plot_2x"))
+    main_window.close()
+    main_window.deleteLater()
+    process_events(application)
     return 0
 
 

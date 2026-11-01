@@ -1,23 +1,30 @@
 """Plot widget: one plot area where signal curves are drawn.
 
 The widget is pure view (COR-00003, COR-00009). It draws the curves,
-legend, tips and vertical markers it is given and emits a Qt signal for
-every request the user makes (delete a curve, change a width, delete
-the plot, pin a tip, delete a pinned tip, drop a signal, change the time
-range, place, move, rename or delete a vertical marker). The plot
-controller decides what to do with each request.
+legend, tips, vertical markers and delta markers it is given and emits
+a Qt signal for every request the user makes (delete a curve, change a
+width, delete the plot, pin a tip, delete a pinned tip, drop a signal,
+change the time range, place, move, rename or delete a vertical marker,
+pick a delta marker point, delete a delta marker). The plot controller
+decides what to do with each request.
 
 A right-click picks the topmost item under the mouse, in drawing order:
-a pinned tip, then a vertical marker, then a curve, else the empty plot
-area (LLFR-00046, LLFR-00110, LLFR-00038, LLFR-00048).
+a pinned tip, then a vertical marker, then a delta marker, then a
+curve, else the empty plot area (LLFR-00046, LLFR-00110, LLFR-00177,
+LLFR-00038, LLFR-00048).
 
 A left press is handled in the same order: on a pinned tip it starts
 moving the tip's label, with any plot tool or none (LLFR-00152,
 LLFR-00153); with the Vertical marker tool, on a marker it starts
 dragging the marker (LLFR-00086); otherwise it is a click of the active
-tool (LLFR-00045, LLFR-00078, LLFR-00081). The wheel button pans
-(LLFR-00117) and the right button opens the menus; a right press first
-cancels any pan or drag in progress.
+tool (LLFR-00045, LLFR-00078, LLFR-00081). With the Delta X or Delta Y
+tool, a click on a curve reports its nearest sample (LLFR-00163,
+LLFR-00164), also when a vertical marker or a delta marker lies over
+the curve there; a click off every curve does nothing (LLFR-00165).
+The controller keeps the picked first point and tells the widget where
+to draw its dot. The wheel button pans (LLFR-00117) and the right
+button opens the menus; a right press first cancels any pan or drag in
+progress.
 
 A drag whose button release never arrived (for example because it
 happened outside the application) is ended at the next mouse move that
@@ -39,6 +46,14 @@ constrained layout has given the axes their final size, so it follows
 every resize, zoom, pan and drag. Only the drawn position is moved: the
 stored offset is kept, so the label goes back towards it when the plot
 grows again.
+
+A delta marker's bracket and leader lines are computed again in display
+pixels at every draw (screen, image and PDF export), from the current
+position of its two points (DeltaBracketPatch), so they stay attached
+to them when the range or the size changes (LLFR-00173). While a Delta
+X marker is in the shown range, the top of the y-axis range is raised,
+if needed, so that its bracket and value fit above its higher point;
+every curve stays fully visible (LLFR-00076).
 """
 
 import functools
@@ -53,9 +68,12 @@ from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
+    is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR
-from view import theme
+from model.workspace import DELTA_X_KIND_STR
+from view import delta_geometry, theme, value_text
+from view.delta_geometry import DeltaBracketPatch
 
 # LLFR-00068: every plot uses the look of view.theme (spines, ticks,
 # grid, fonts); curve and marker colors are always given explicitly.
@@ -111,6 +129,50 @@ NO_TIP_INDEX_I = -1
 # to its point; it ends exactly at the point (no shrinking at that end).
 TIP_LEADER_LINE_WIDTH_F = 1.0
 TIP_LEADER_LINE_STYLE_STR = "--"
+# LLFR-00168, LLFR-00170, LLFR-00172: look of a delta marker, in the
+# reserved marker color. The bracket is dashed; the thin leader lines
+# from the points to the bracket's ends are dotted.
+DELTA_LINE_WIDTH_F = 1.3
+DELTA_LINE_STYLE_TUPLE = (0, (3.0, 1.6))
+DELTA_LEADER_LINE_WIDTH_F = 0.9
+DELTA_LEADER_LINE_STYLE_TUPLE = (0, (1.0, 2.0))
+# LLFR-00168, LLFR-00170: gap (points) from the higher (Delta X) or the
+# later (Delta Y) point to the bracket's ends, and the bracket's depth
+# from its ends to its middle tip.
+DELTA_GAP_POINTS_F = delta_geometry.DELTA_GAP_POINTS_F
+DELTA_DEPTH_POINTS_F = delta_geometry.DELTA_DEPTH_POINTS_F
+# LLFR-00169, LLFR-00171: gap (points) between the tip and the box of
+# the value.
+DELTA_LABEL_GAP_POINTS_F = 2.0
+DELTA_FONT_SIZE_F = 9.0
+# LLFR-00169, LLFR-00171: the value sits in the box of a pinned tip,
+# with a border in the marker color, so curves never show through it.
+DELTA_LABEL_BOX_DICT = dict(theme.PINNED_TIP_BOX_DICT,
+                            edgecolor=MARKER_COLOR_STR)
+# The box padding of theme.PINNED_TIP_BOX_DICT ("pad=0.45", in font
+# sizes), in points: the text is set this much further from the tip.
+DELTA_LABEL_BOX_PAD_POINTS_F = 0.45 * DELTA_FONT_SIZE_F
+# Offset (points) from a point to the value text, beyond the bracket.
+DELTA_LABEL_OFFSET_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
+                               + DELTA_LABEL_GAP_POINTS_F
+                               + DELTA_LABEL_BOX_PAD_POINTS_F)
+# LLFR-00163, LLFR-00168, LLFR-00170: the dots on the points.
+DELTA_DOT_SIZE_F = 6.0
+DELTA_FIRST_DOT_SIZE_F = 7.5
+DELTA_DOT_EDGE_COLOR_STR = theme.PLOT_BACKGROUND_COLOR_STR
+DELTA_DOT_EDGE_WIDTH_F = 1.0
+# Above the vertical markers, below the tips (LLFR-00153: a pinned tip
+# stays on top of everything).
+DELTA_ZORDER_F = 8.5
+# LLFR-00168: room (points) kept above a Delta X marker's higher point
+# for its bracket and its value, at most this part of the plot height.
+DELTA_HEADROOM_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
+                           + DELTA_LABEL_GAP_POINTS_F
+                           + 1.6 * DELTA_FONT_SIZE_F
+                           + 2.0 * DELTA_LABEL_BOX_PAD_POINTS_F)
+DELTA_HEADROOM_MAXIMUM_RATIO_F = 0.45
+# LLFR-00175: no delta marker is under the mouse.
+NO_DELTA_MARKER_ID_I = -1
 
 
 def mouse_button_held_b(event, qt_button) -> bool:
@@ -144,7 +206,8 @@ def format_tip_text(signal_name_str: str, time_s: float,
     """
     # LLFR-00043: the x value is shown in seconds.
     # LLFR-00044: the y value is shown as stored, without a unit.
-    return f"{format_time_text(time_s)}\n{signal_name_str} = {value_f:.6g}"
+    # LLFR-00169, LLFR-00171: the same formats as the delta markers.
+    return value_text.format_tip_text(signal_name_str, time_s, value_f)
 
 
 def format_time_text(time_s: float) -> str:
@@ -155,7 +218,7 @@ def format_time_text(time_s: float) -> str:
     Outputs: the text ``t = <time> s`` with 6 significant digits.
     """
     # LLFR-00043, LLFR-00092: times are shown in seconds.
-    return f"t = {time_s:.6g} s"
+    return value_text.format_time_text(time_s)
 
 
 def is_shift_horizontal_wheel(wheel_event) -> bool:
@@ -367,6 +430,11 @@ class PlotWidget(QWidget):
             released (marker id, time in s).
         marker_rename_requested(int): "Rename" chosen on a marker.
         marker_delete_requested(int): "Delete" chosen on a marker.
+        delta_point_picked(str, float, float): a left click on a curve
+            with the Delta X or Delta Y tool (signal name, time in s
+            and value of the nearest sample).
+        delta_marker_delete_requested(int): "Delete" chosen on a delta
+            marker (its id).
     Attributes:
         plot_id_i: the identifier given at creation.
         figure: the matplotlib Figure.
@@ -388,6 +456,8 @@ class PlotWidget(QWidget):
     marker_move_requested = pyqtSignal(int, float)
     marker_rename_requested = pyqtSignal(int)
     marker_delete_requested = pyqtSignal(int)
+    delta_point_picked = pyqtSignal(str, float, float)
+    delta_marker_delete_requested = pyqtSignal(int)
 
     def __init__(self, plot_id_i: int, parent=None) -> None:
         """Create an empty plot.
@@ -412,6 +482,16 @@ class PlotWidget(QWidget):
         # tuples (line, label annotation, time annotation).
         self.marker_data_list = []
         self.marker_artist_dict = {}
+        # LLFR-00168, LLFR-00170: delta markers to draw, as tuples
+        # (delta_marker_id_i, kind_str, first_point_tuple,
+        # second_point_tuple, delta_f), and their artists by id as tuples
+        # (bracket, leader lines, dots, value label).
+        self.delta_marker_data_list = []
+        self.delta_artist_dict = {}
+        # LLFR-00163: the picked first point (signal_name_str, time_s,
+        # value_f) and its dot, or () and None.
+        self.delta_first_point_tuple = ()
+        self.delta_first_point_artist = None
         # LLFR-00086, LLFR-00093: the marker being dragged, if any.
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_time_s = 0.0
@@ -558,6 +638,10 @@ class PlotWidget(QWidget):
         # tool; leaving it drops the drag (the marker stays where it was).
         if self.plot_tool_str != MARKER_TOOL_STR:
             self.cancel_marker_drag()
+        # LLFR-00167: leaving the delta tools removes the dot of a first
+        # point (the controller also says so).
+        if not is_delta_tool(self.plot_tool_str):
+            self.set_delta_first_point(())
 
     def set_markers(self, marker_data_list: list) -> None:
         """Replace the vertical markers drawn in the plot.
@@ -576,6 +660,53 @@ class PlotWidget(QWidget):
                 marker_tuple[0] for marker_tuple in self.marker_data_list}:
             self.cancel_marker_drag()
         self.draw_markers()
+        self.canvas.draw_idle()
+
+    def set_delta_markers(self, delta_marker_data_list: list) -> None:
+        """Replace the delta markers drawn in the plot.
+
+        Inputs:
+            delta_marker_data_list: list of tuples (delta_marker_id_i,
+                kind_str, first_point_tuple, second_point_tuple, delta_f)
+                in placing order; each point is (signal_name_str, time_s,
+                value_f) and delta_f is the value shown (second minus
+                first).
+        Outputs: none.
+        """
+        # LLFR-00164, LLFR-00174, LLFR-00176: draw exactly these.
+        self.delta_marker_data_list = [
+            (int(marker_tuple[0]), str(marker_tuple[1]),
+             (str(marker_tuple[2][0]), float(marker_tuple[2][1]),
+              float(marker_tuple[2][2])),
+             (str(marker_tuple[3][0]), float(marker_tuple[3][1]),
+              float(marker_tuple[3][2])),
+             float(marker_tuple[4]))
+            for marker_tuple in delta_marker_data_list]
+        self.draw_delta_markers()
+        # LLFR-00168: the y range keeps room above the Delta X markers.
+        self.apply_time_range()
+        self.canvas.draw_idle()
+
+    def set_delta_first_point(self, point_tuple: tuple) -> None:
+        """Show or remove the dot of a delta marker's first point.
+
+        Inputs:
+            point_tuple: (signal_name_str, time_s, value_f) of the first
+                point, or () to remove the dot.
+        Outputs: none.
+        """
+        # LLFR-00163, LLFR-00164, LLFR-00167: the controller says where
+        # the first point is, and when it is gone.
+        point_tuple = tuple(point_tuple)
+        if len(point_tuple) == 3:
+            point_tuple = (str(point_tuple[0]), float(point_tuple[1]),
+                           float(point_tuple[2]))
+        else:
+            point_tuple = ()
+        if point_tuple == self.delta_first_point_tuple:
+            return
+        self.delta_first_point_tuple = point_tuple
+        self.draw_delta_first_point()
         self.canvas.draw_idle()
 
     def set_time_range(self, start_s: float, end_s: float) -> None:
@@ -708,6 +839,12 @@ class PlotWidget(QWidget):
         # old artists went away with axes.clear().
         self.marker_artist_dict = {}
         self.draw_markers()
+        # LLFR-00168, LLFR-00170, LLFR-00163: the delta markers and the
+        # dot of a first point survive the redraw too.
+        self.delta_artist_dict = {}
+        self.delta_first_point_artist = None
+        self.draw_delta_markers()
+        self.draw_delta_first_point()
         self.apply_time_range()
         self.canvas.draw_idle()
 
@@ -885,6 +1022,244 @@ class PlotWidget(QWidget):
             self.marker_artist_dict[marker_id_i] = (line, label, time_text)
         self.place_markers()
 
+    def draw_delta_markers(self) -> None:
+        """Draw the stored delta markers, replacing the previous ones.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00176: remove the old artists first.
+        for artist_tuple in self.delta_artist_dict.values():
+            for artist in artist_tuple:
+                artist.remove()
+        self.delta_artist_dict = {}
+        for (delta_marker_id_i, kind_str, first_point_tuple,
+             second_point_tuple, delta_f) in self.delta_marker_data_list:
+            self.delta_artist_dict[delta_marker_id_i] = (
+                self.new_delta_artist_tuple(kind_str, first_point_tuple,
+                                            second_point_tuple, delta_f))
+
+    def new_delta_artist_tuple(self, kind_str: str, first_point_tuple: tuple,
+                               second_point_tuple: tuple,
+                               delta_f: float) -> tuple:
+        """Create the artists of one delta marker in the axes.
+
+        Inputs:
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
+            delta_f: the value shown, second minus first.
+        Outputs: a tuple (bracket, leader lines, dots, value label).
+        """
+        # LLFR-00172: everything in the reserved marker color.
+        # LLFR-00168, LLFR-00170: a dashed curly bracket; dotted leader
+        # lines join it to the points.
+        bracket = DeltaBracketPatch(
+            kind_str, first_point_tuple, second_point_tuple, False,
+            edgecolor=MARKER_COLOR_STR, linewidth=DELTA_LINE_WIDTH_F,
+            linestyle=DELTA_LINE_STYLE_TUPLE, capstyle="round",
+            joinstyle="round", zorder=DELTA_ZORDER_F)
+        leader = DeltaBracketPatch(
+            kind_str, first_point_tuple, second_point_tuple, True,
+            edgecolor=MARKER_COLOR_STR, linewidth=DELTA_LEADER_LINE_WIDTH_F,
+            linestyle=DELTA_LEADER_LINE_STYLE_TUPLE, capstyle="round",
+            zorder=DELTA_ZORDER_F)
+        for patch in (leader, bracket):
+            # LLFR-00174: clipped to the axes (add_artist clips to the
+            # axes patch), so only the visible part is drawn.
+            self.axes.add_artist(patch)
+            patch.set_in_layout(False)
+        # LLFR-00168, LLFR-00170: a dot on each point.
+        (dots,) = self.axes.plot(
+            [first_point_tuple[1], second_point_tuple[1]],
+            [first_point_tuple[2], second_point_tuple[2]],
+            linestyle="none", marker="o", markersize=DELTA_DOT_SIZE_F,
+            markerfacecolor=MARKER_COLOR_STR,
+            markeredgecolor=DELTA_DOT_EDGE_COLOR_STR,
+            markeredgewidth=DELTA_DOT_EDGE_WIDTH_F,
+            zorder=DELTA_ZORDER_F + 0.1)
+        dots.set_in_layout(False)
+        if kind_str == DELTA_X_KIND_STR:
+            # LLFR-00169: "Δt = <value> s".
+            text_str = value_text.format_delta_x_text(delta_f)
+        else:
+            # LLFR-00171: "Δy = <value>".
+            text_str = value_text.format_delta_y_text(delta_f)
+        label = self.axes.annotate(
+            text_str, xy=(first_point_tuple[1], first_point_tuple[2]),
+            xytext=(0.0, 0.0), textcoords="offset points",
+            parse_math=False, color=MARKER_COLOR_STR,
+            fontsize=DELTA_FONT_SIZE_F, bbox=dict(DELTA_LABEL_BOX_DICT),
+            zorder=DELTA_ZORDER_F + 0.2)
+        label.set_in_layout(False)
+        if kind_str != DELTA_X_KIND_STR:
+            # LLFR-00170: the bracket, the leader lines and the value
+            # always take the same side, chosen again at every draw.
+            side_function = functools.partial(
+                self.delta_y_side_str, first_point_tuple,
+                second_point_tuple, label)
+            bracket.side_function = side_function
+            leader.side_function = side_function
+        self.place_delta_label(label, kind_str, first_point_tuple,
+                               second_point_tuple)
+        # LLFR-00173: every draw places the value next to the tip again
+        # and keeps it inside the plot, as for pinned tips.
+        label.draw = functools.partial(
+            self.draw_delta_label, label, kind_str, first_point_tuple,
+            second_point_tuple, label.draw)
+        return (bracket, leader, dots, label)
+
+    def delta_y_side_str(self, first_point_tuple: tuple,
+                         second_point_tuple: tuple, label,
+                         renderer=None) -> str:
+        """Return the side a Delta Y bracket and its value are drawn on.
+
+        Inputs:
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
+            label: the matplotlib Annotation of the value.
+            renderer: the renderer of the draw, or None for the canvas's.
+        Outputs: delta_geometry.RIGHT_SIDE_STR or LEFT_SIDE_STR.
+        """
+        # LLFR-00170: right of the later point when the gap, the bracket
+        # and the value fit inside the plot's drawing area, else mirrored
+        # left of the earlier point; with neither, the side with more
+        # room. Measured with the current axes and resolution, so the
+        # screen and the PDF export (LLFR-00129) agree.
+        if renderer is None:
+            renderer = self.canvas.get_renderer()
+        pixels_per_point_f = float(self.figure.dpi) / POINTS_PER_INCH_F
+        label_width_px = float(self.tip_box_extent(label, renderer).width)
+        needed_px = ((DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
+                      + DELTA_LABEL_GAP_POINTS_F) * pixels_per_point_f
+                     + label_width_px)
+        first_x_px = float(self.axes.transData.transform(
+            (first_point_tuple[1], first_point_tuple[2]))[0])
+        second_x_px = float(self.axes.transData.transform(
+            (second_point_tuple[1], second_point_tuple[2]))[0])
+        axes_box = self.axes.bbox
+        return delta_geometry.choose_delta_y_side(
+            first_x_px, second_x_px, needed_px, float(axes_box.x0),
+            float(axes_box.x1))
+
+    def place_delta_label(self, label, kind_str: str,
+                          first_point_tuple: tuple, second_point_tuple: tuple,
+                          renderer=None) -> None:
+        """Put a delta marker's value next to the middle tip of its bracket.
+
+        Inputs:
+            label: the matplotlib Annotation of the value.
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
+            renderer: the renderer of the draw, or None for the canvas's.
+        Outputs: none.
+        """
+        if kind_str == DELTA_X_KIND_STR:
+            # LLFR-00169: above the middle tip, which is above the
+            # higher point.
+            label.xy = ((first_point_tuple[1] + second_point_tuple[1]) / 2.0,
+                        max(first_point_tuple[2], second_point_tuple[2]))
+            label.set_position((0.0, DELTA_LABEL_OFFSET_POINTS_F))
+            label.set_horizontalalignment("center")
+            label.set_verticalalignment("bottom")
+            return
+        # LLFR-00171: beside the middle tip, on the side of LLFR-00170.
+        middle_value_f = (first_point_tuple[2] + second_point_tuple[2]) / 2.0
+        label.set_verticalalignment("center")
+        if self.delta_y_side_str(first_point_tuple, second_point_tuple,
+                                 label, renderer) == (
+                delta_geometry.RIGHT_SIDE_STR):
+            label.xy = (max(first_point_tuple[1], second_point_tuple[1]),
+                        middle_value_f)
+            label.set_position((DELTA_LABEL_OFFSET_POINTS_F, 0.0))
+            label.set_horizontalalignment("left")
+        else:
+            label.xy = (min(first_point_tuple[1], second_point_tuple[1]),
+                        middle_value_f)
+            label.set_position((-DELTA_LABEL_OFFSET_POINTS_F, 0.0))
+            label.set_horizontalalignment("right")
+
+    def draw_delta_label(self, label, kind_str: str, first_point_tuple: tuple,
+                         second_point_tuple: tuple, original_draw,
+                         renderer) -> None:
+        """Draw a delta marker's value beside its tip, inside the axes.
+
+        Inputs:
+            label: the matplotlib Annotation of the value.
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
+            original_draw: the Annotation's own draw method.
+            renderer: the matplotlib renderer of this draw.
+        Outputs: none.
+        """
+        # LLFR-00169, LLFR-00171, LLFR-00173: next to the middle tip, on
+        # the side of this draw, moved only as far as needed to stay
+        # readable in the plot.
+        self.place_delta_label(label, kind_str, first_point_tuple,
+                               second_point_tuple, renderer)
+        self.keep_tip_inside_axes(label, renderer)
+        original_draw(renderer)
+
+    def draw_delta_first_point(self) -> None:
+        """Draw the dot of the picked first point, or remove it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00164, LLFR-00167: an old dot is removed.
+        if self.delta_first_point_artist is not None:
+            self.delta_first_point_artist.remove()
+            self.delta_first_point_artist = None
+        if not self.delta_first_point_tuple:
+            return
+        # LLFR-00163, LLFR-00172: a dot in the marker color.
+        _, time_s, value_f = self.delta_first_point_tuple
+        (dot,) = self.axes.plot(
+            [time_s], [value_f], linestyle="none", marker="o",
+            markersize=DELTA_FIRST_DOT_SIZE_F,
+            markerfacecolor=MARKER_COLOR_STR,
+            markeredgecolor=DELTA_DOT_EDGE_COLOR_STR,
+            markeredgewidth=DELTA_DOT_EDGE_WIDTH_F,
+            zorder=DELTA_ZORDER_F + 0.1)
+        dot.set_in_layout(False)
+        self.delta_first_point_artist = dot
+
+    def delta_headroom_range_tuple(self, low_f: float, high_f: float,
+                                   start_s: float, end_s: float) -> tuple:
+        """Raise the top of a y range to fit the Delta X brackets.
+
+        Inputs:
+            low_f: bottom of the y range that fits the curves.
+            high_f: top of that range.
+            start_s: start of the shown time range, in seconds.
+            end_s: end of the shown time range.
+        Outputs: a tuple (low_f, high_f); high_f is only ever raised,
+            so every curve stays fully visible (LLFR-00076).
+        """
+        # LLFR-00168: the bracket sits just above the higher point and
+        # its value above it; both must fit in the plot.
+        axes_height_points_f = (float(self.axes.bbox.height)
+                                / self.pixels_per_point_f())
+        if axes_height_points_f <= 0.0:
+            return (low_f, high_f)
+        ratio_f = min(DELTA_HEADROOM_POINTS_F / axes_height_points_f,
+                      DELTA_HEADROOM_MAXIMUM_RATIO_F)
+        for (_, kind_str, first_point_tuple, second_point_tuple,
+             _) in self.delta_marker_data_list:
+            if kind_str != DELTA_X_KIND_STR:
+                continue
+            first_s, second_s = sorted((first_point_tuple[1],
+                                        second_point_tuple[1]))
+            # LLFR-00174: only the markers with a visible part.
+            if second_s < start_s or first_s > end_s:
+                continue
+            high_f = delta_geometry.headroom_high_f(
+                low_f, high_f, max(first_point_tuple[2],
+                                   second_point_tuple[2]), ratio_f)
+        return (low_f, high_f)
+
     def place_markers(self) -> None:
         """Show the markers inside the time range, beside their line.
 
@@ -971,10 +1346,13 @@ class PlotWidget(QWidget):
             low_f = min(range_tuple[0] for range_tuple in range_list)
             high_f = max(range_tuple[1] for range_tuple in range_list)
             margin_f = (high_f - low_f) * VALUE_MARGIN_RATIO_F
-            self.axes.set_ylim(*padded_range_tuple(
+            fitted_tuple = padded_range_tuple(
                 low_f - margin_f, high_f + margin_f,
                 max(CONSTANT_VALUE_HALF_RANGE_F,
-                    abs(low_f) * VALUE_MARGIN_RATIO_F)))
+                    abs(low_f) * VALUE_MARGIN_RATIO_F))
+            # LLFR-00168: room for the Delta X brackets above their points.
+            self.axes.set_ylim(*self.delta_headroom_range_tuple(
+                fitted_tuple[0], fitted_tuple[1], start_s, end_s))
         self.place_tips()
         # LLFR-00082, LLFR-00084: markers follow the new range.
         self.place_markers()
@@ -1088,6 +1466,10 @@ class PlotWidget(QWidget):
         """
         # LLFR-00035: the legend stays whole above the axes after resize.
         self.update_legend()
+        # LLFR-00168, LLFR-00173: the room kept above the Delta X markers
+        # is in points, so it is computed again for the new height.
+        if self.delta_marker_data_list:
+            self.apply_time_range()
         self.canvas.draw_idle()
 
     # ----------------------------------------------------------------
@@ -1225,6 +1607,52 @@ class PlotWidget(QWidget):
         """
         # LLFR-00082, LLFR-00084, LLFR-00092: for position checks.
         return self.marker_artist_dict.get(marker_id_i, ())
+
+    def delta_marker_id_list(self) -> list:
+        """Return the ids of the drawn delta markers, in placing order.
+
+        Inputs: none.
+        Outputs: a list of int.
+        """
+        # LLFR-00164, LLFR-00174: the markers given to set_delta_markers.
+        return [marker_tuple[0]
+                for marker_tuple in self.delta_marker_data_list]
+
+    def delta_artist_tuple(self, delta_marker_id_i: int) -> tuple:
+        """Return the artists of a delta marker.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: a tuple (bracket, leader lines, dots, value label), or
+            () for an unknown id.
+        """
+        # LLFR-00168, LLFR-00170, LLFR-00172: for checks of the drawing.
+        return self.delta_artist_dict.get(delta_marker_id_i, ())
+
+    def delta_label_text(self, delta_marker_id_i: int) -> str:
+        """Return the value text of a delta marker.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: the text, or "" for an unknown id.
+        """
+        # LLFR-00169, LLFR-00171: "Δt = ... s" or "Δy = ...".
+        artist_tuple = self.delta_artist_dict.get(delta_marker_id_i)
+        return artist_tuple[3].get_text() if artist_tuple else ""
+
+    def delta_bracket_path(self, delta_marker_id_i: int):
+        """Return a delta marker's bracket as it would be drawn now.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: a matplotlib Path in display pixels, or None for an
+            unknown id.
+        """
+        # LLFR-00168, LLFR-00170, LLFR-00173: for position checks.
+        artist_tuple = self.delta_artist_dict.get(delta_marker_id_i)
+        if not artist_tuple:
+            return None
+        return artist_tuple[0].display_path()
 
     # ----------------------------------------------------------------
     # Coordinates
@@ -1451,6 +1879,45 @@ class PlotWidget(QWidget):
                     return marker_id_i
         return NO_MARKER_ID_I
 
+    def delta_marker_at(self, widget_point) -> int:
+        """Return the id of the delta marker under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the delta marker id, or -1 when none is there. A delta
+            marker is hit within PICK_TOLERANCE_PIXELS_I of its bracket,
+            its leader lines or its dots inside the axes, or on its
+            value label.
+        """
+        # LLFR-00175, LLFR-00177: hit test in display pixels; the last
+        # placed marker is on top.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return NO_DELTA_MARKER_ID_I
+        tolerance_px = PICK_TOLERANCE_PIXELS_I * self.pixel_ratio_f()
+        renderer = self.canvas.get_renderer()
+        for delta_marker_id_i in reversed(self.delta_marker_id_list()):
+            artist_tuple = self.delta_artist_dict.get(delta_marker_id_i)
+            if not artist_tuple:
+                continue
+            bracket, leader, dots, label = artist_tuple
+            for patch in (bracket, leader):
+                if delta_geometry.path_distance_px(
+                        patch.display_path(), display_x_px,
+                        display_y_px) <= tolerance_px:
+                    return delta_marker_id_i
+            dot_px_array = self.axes.transData.transform(np.column_stack(
+                (dots.get_xdata(), dots.get_ydata())))
+            if np.any(np.hypot(dot_px_array[:, 0] - display_x_px,
+                               dot_px_array[:, 1] - display_y_px)
+                      <= tolerance_px):
+                return delta_marker_id_i
+            if self.tip_box_extent(label, renderer).contains(
+                    display_x_px, display_y_px):
+                return delta_marker_id_i
+        return NO_DELTA_MARKER_ID_I
+
     # ----------------------------------------------------------------
     # User actions
     # ----------------------------------------------------------------
@@ -1505,6 +1972,15 @@ class PlotWidget(QWidget):
                 lambda chosen_id_i=marker_id_i:
                 self.marker_delete_requested.emit(chosen_id_i))
             return menu, request_list
+        # LLFR-00175, LLFR-00177: a delta marker has priority over a
+        # curve under it, whatever plot tool is active.
+        delta_marker_id_i = self.delta_marker_at(widget_point)
+        if delta_marker_id_i != NO_DELTA_MARKER_ID_I:
+            add_request_action(
+                menu, "Delete",
+                lambda chosen_id_i=delta_marker_id_i:
+                self.delta_marker_delete_requested.emit(chosen_id_i))
+            return menu, request_list
         signal_name_str = self.curve_at(widget_point)
         if signal_name_str:
             # LLFR-00038: delete the curve.
@@ -1525,8 +2001,8 @@ class PlotWidget(QWidget):
                 width_action.setCheckable(True)
                 width_action.setChecked(width_i == current_width_i)
             return menu, request_list
-        # LLFR-00048: empty area of the plot (no curve, pinned tip or
-        # vertical marker under the mouse).
+        # LLFR-00048: empty area of the plot (no curve, pinned tip,
+        # vertical marker or delta marker under the mouse).
         add_request_action(menu, "Delete plot",
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
@@ -1538,8 +2014,9 @@ class PlotWidget(QWidget):
             widget_point: QPoint in this widget's coordinates.
         Outputs: a QMenu (not shown) whose actions emit their request
             when triggered. On a pinned tip it has "Delete"; on a marker
-            "Rename" and "Delete"; on a curve "Delete signal" and a
-            "Width" submenu with 1..5; elsewhere "Delete plot".
+            "Rename" and "Delete"; on a delta marker "Delete"; on a
+            curve "Delete signal" and a "Width" submenu with 1..5;
+            elsewhere "Delete plot".
         """
         # LLFR-00038, LLFR-00040, LLFR-00046, LLFR-00048.
         menu, request_list = self.context_menu_and_requests(widget_point)
@@ -1661,9 +2138,15 @@ class PlotWidget(QWidget):
         Outputs: none. With the Tip tool, emits tip_pin_requested when a
             hover tip is shown; with the Zoom tool, zooms in (see
             zoom_click_at); with the Vertical marker tool, emits
-            marker_place_requested unless the click is on a marker.
+            marker_place_requested unless the click is on a marker;
+            with the Delta X or Delta Y tool, emits delta_point_picked
+            when the click is on a curve.
         """
         # LLFR-00109: using a tool never changes the active tool.
+        if is_delta_tool(self.plot_tool_str):
+            # LLFR-00163, LLFR-00164: pick a point of a delta marker.
+            self.delta_click_at(widget_point)
+            return
         if self.plot_tool_str == ZOOM_TOOL_STR:
             # LLFR-00078: click to zoom.
             self.zoom_click_at(widget_point)
@@ -1677,6 +2160,23 @@ class PlotWidget(QWidget):
             return
         signal_name_str, time_s, value_f = self.hover_point_tuple
         self.tip_pin_requested.emit(signal_name_str, time_s, value_f)
+
+    def delta_click_at(self, widget_point) -> None:
+        """Report the curve sample nearest to a click with a delta tool.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits delta_point_picked, as the last step, when
+            the click is on a curve; a click off every curve does
+            nothing and shows nothing (LLFR-00165).
+        """
+        # LLFR-00163, LLFR-00164: the sample of the curve under the
+        # mouse that is nearest to it, within the pick tolerance.
+        nearest_tuple = self.nearest_curve_tuple(widget_point)
+        if not nearest_tuple:
+            return
+        # The receiver redraws this widget, so this is the last step.
+        self.delta_point_picked.emit(*nearest_tuple)
 
     def marker_click_at(self, widget_point) -> None:
         """Ask for a new marker at the time of a clicked point.
