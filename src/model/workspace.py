@@ -5,6 +5,7 @@ workspace holds, and the controller changes the workspace when the user
 acts.
 """
 
+import copy
 import math
 import random
 from dataclasses import dataclass
@@ -433,6 +434,62 @@ class Tab:
         return None
 
 
+def plot_state_tuple(plot) -> tuple:
+    """Return everything an undo restores of a plot, as plain values.
+
+    Inputs:
+        plot: the Plot.
+    Outputs: a tuple (plot_id_i, drawn_count_i, next_marker_number_i,
+        curve tuples (signal_name_str, color_str, width_i), pinned tip
+        tuples (signal_name_str, time_s, value_f, label_offset_tuple),
+        marker tuples (marker_id_i, name_str, time_s)).
+    """
+    # LLFR-00140: curves with color and width, pinned tips with their
+    # label offsets, markers with their names and times, and the
+    # counters that pick the next color and the next "Marker N".
+    curve_tuple = tuple((curve.signal_name_str, curve.color_str,
+                         curve.width_i) for curve in plot.curve_list)
+    pinned_tip_tuple = tuple(
+        (pinned_tip.signal_name_str, pinned_tip.time_s, pinned_tip.value_f,
+         tuple(pinned_tip.label_offset_tuple))
+        for pinned_tip in plot.pinned_tip_list)
+    marker_tuple = tuple((marker.marker_id_i, marker.name_str,
+                          marker.time_s) for marker in plot.marker_list)
+    return (plot.plot_id_i, plot.drawn_count_i, plot.next_marker_number_i,
+            curve_tuple, pinned_tip_tuple, marker_tuple)
+
+
+class WorkspaceSnapshot:
+    """A saved copy of the tabs, plots, curves, tips and markers.
+
+    The copy shares nothing that an action can change with the live
+    workspace, so later actions do not change it (LLFR-00138).
+
+    Inputs:
+        tab_list: deep copy of the workspace's tabs, in order.
+        state_tuple: the plain-value dump of those tabs (see
+            Workspace.state_tuple), used to tell whether an action
+            changed anything.
+        current_tab_id_i: id of the tab that was selected, -1 when
+            unknown.
+    """
+
+    def __init__(self, tab_list: list, state_tuple: tuple,
+                 current_tab_id_i: int = -1) -> None:
+        """Store the saved state.
+
+        Inputs:
+            tab_list: deep copy of the tabs.
+            state_tuple: plain-value dump of the tabs.
+            current_tab_id_i: id of the selected tab, -1 when unknown.
+        Outputs: none.
+        """
+        # LLFR-00138: the state to return to.
+        self.tab_list = tab_list
+        self.state_tuple = state_tuple
+        self.current_tab_id_i = current_tab_id_i
+
+
 class Workspace:
     """All tabs of the plot panel and the plots inside them.
 
@@ -633,3 +690,79 @@ class Workspace:
         if plot.is_empty():
             self.delete_plot(plot_id_i)
         return True
+
+    def state_tuple(self) -> tuple:
+        """Return the tabs, plots, curves, tips and markers as plain values.
+
+        Inputs: none.
+        Outputs: a tuple with one entry (tab_id_i, name_str, plot state
+            tuples) per tab, in tab order; two workspaces with equal
+            tuples show the same thing (LLFR-00140).
+        """
+        # LLFR-00138, LLFR-00140: what an undo restores; the id counters
+        # are not part of it, since they only grow.
+        return tuple((tab.tab_id_i, tab.name_str,
+                      tuple(plot_state_tuple(plot) for plot in tab.plot_list))
+                     for tab in self.tab_list)
+
+    def copy_tab_list(self, tab_list: list) -> list:
+        """Deep-copy tabs, keeping the shared generator and id counter.
+
+        The copied plots still use this workspace's random generator and
+        marker id counter.
+
+        Inputs:
+            tab_list: the tabs to copy.
+        Outputs: the copied list of Tab objects.
+        """
+        # LLFR-00138: the copy shares no tab, plot, curve, tip or marker
+        # with the original. LLFR-00034, LLFR-00111: the color generator
+        # and the marker id counter stay shared, so marker ids keep
+        # counting up and are never handed out twice.
+        shared_object_dict = {
+            id(self.random_generator): self.random_generator,
+            id(self.marker_id_counter): self.marker_id_counter}
+        return copy.deepcopy(tab_list, shared_object_dict)
+
+    def snapshot(self, current_tab_id_i: int = -1) -> WorkspaceSnapshot:
+        """Save the current tabs, plots, curves, tips and markers.
+
+        Inputs:
+            current_tab_id_i: id of the tab selected in the view, kept
+                so that undo can select it again; -1 when unknown.
+        Outputs: the WorkspaceSnapshot.
+        """
+        # LLFR-00140: saved before every undoable action.
+        return WorkspaceSnapshot(self.copy_tab_list(self.tab_list),
+                                 self.state_tuple(), int(current_tab_id_i))
+
+    def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
+        """Tell whether the workspace still holds a saved state.
+
+        Inputs:
+            snapshot: a WorkspaceSnapshot of this workspace.
+        Outputs: True when nothing changed since the snapshot was taken.
+        """
+        # LLFR-00140: an action that changed nothing (a refused rename,
+        # a duplicate drop, a full tab) is not recorded for undo.
+        return self.state_tuple() == snapshot.state_tuple
+
+    def restore(self, snapshot: WorkspaceSnapshot) -> None:
+        """Return the tabs, plots, curves, tips and markers to a saved state.
+
+        Inputs:
+            snapshot: a WorkspaceSnapshot of this workspace.
+        Outputs: none. The snapshot itself is not changed. The tab, plot
+            and marker id counters are not rolled back, so an id handed
+            out after the snapshot is never reused.
+        """
+        # LLFR-00138: the state from before the undone action.
+        self.tab_list = self.copy_tab_list(snapshot.tab_list)
+        # LLFR-00024, LLFR-00081: ids only grow, also after an undo.
+        highest_tab_id_i = max((tab.tab_id_i for tab in self.tab_list),
+                               default=0)
+        self.next_tab_id_i = max(self.next_tab_id_i, highest_tab_id_i + 1)
+        highest_plot_id_i = max((plot.plot_id_i for tab in self.tab_list
+                                 for plot in tab.plot_list), default=0)
+        self.next_plot_id_i = max(self.next_plot_id_i,
+                                  highest_plot_id_i + 1)

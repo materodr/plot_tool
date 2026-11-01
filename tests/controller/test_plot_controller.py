@@ -70,6 +70,7 @@ class FakePlotView:
         marker_name_question_list: the current names given to
             ask_marker_name.
         grid_shown_b: last value given to set_grid_shown.
+        undo_enabled_b: last value given to set_undo_enabled.
     """
 
     def __init__(self) -> None:
@@ -92,6 +93,7 @@ class FakePlotView:
         self.marker_name_answer_list = []
         self.marker_name_question_list = []
         self.grid_shown_b = None
+        self.undo_enabled_b = None
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -151,6 +153,27 @@ class FakePlotView:
         Outputs: none.
         """
         self.handler_dict["grid"] = handler
+
+    def set_undo_handler(self, handler) -> None:
+        """Record the Undo button and shortcut handler.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        self.handler_dict["undo"] = handler
+
+    def set_undo_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Undo button is enabled.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            enabled_b: True when an action can be undone.
+        Outputs: none.
+        """
+        self.undo_enabled_b = enabled_b
 
     def set_grid_shown(self, shown_b: bool) -> None:
         """Record whether the grid is shown.

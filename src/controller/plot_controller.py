@@ -1,8 +1,8 @@
 """Plot controller: tabs, plots, curves, tips and vertical markers.
 
 It covers HLFR-00012 to HLFR-00025, the vertical markers of
-HLFR-00028 to HLFR-00031, the zoom reset (HLFR-00035) and the grid
-(HLFR-00037).
+HLFR-00028 to HLFR-00031, the zoom reset (HLFR-00035), the grid
+(HLFR-00037) and undo (HLFR-00040).
 
 It keeps the Workspace model and tells the view what to show. It talks
 to the view only through plain method calls with plain values (ids,
@@ -16,10 +16,21 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``;
 - boxes: ``show_full_tab_notification``, ``ask_marker_name``;
 - grid: ``set_grid_shown``;
+- undo: ``set_undo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
   ``set_plot_tool_handler``, ``set_tab_handlers``,
-  ``set_plot_handlers``, ``set_reset_zoom_handler`` and
-  ``set_grid_handler``.
+  ``set_plot_handlers``, ``set_reset_zoom_handler``,
+  ``set_grid_handler`` and ``set_undo_handler``.
+
+Undo (HLFR-00040): every undoable action of LLFR-00140 saves a snapshot
+of the workspace before it changes the model, but only when it really
+changes something. Undo restores the snapshot and rebuilds every tab
+and plot view from the model. The tab, plot and marker id counters are
+never rolled back, so ids stay unique. View-only state is not part of a
+snapshot (LLFR-00140 Note): after an undo, the plots of a tab that
+already had a plot keep that plot's time range, the plots of other
+tabs show the whole time range, and the grid and the plot tool stay as
+they are.
 
 Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
@@ -31,6 +42,7 @@ import numpy as np
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, is_known_plot_tool)
+from model.undo_history import UndoHistory
 from model.workspace import Workspace
 
 
@@ -49,6 +61,7 @@ class PlotController:
         plot_tool_str: the active plot tool (a name of
             controller.plot_tools), NO_TOOL_STR when none is active.
         grid_shown_b: True while the grid is shown on the plots.
+        undo_history: the UndoHistory of the saved workspace states.
     """
 
     def __init__(self, view, file_controller, workspace=None) -> None:
@@ -69,6 +82,8 @@ class PlotController:
         self.plot_tool_str = NO_TOOL_STR
         # LLFR-00147: the grid is hidden at start.
         self.grid_shown_b = False
+        # LLFR-00139: the 5 most recent undoable actions.
+        self.undo_history = UndoHistory()
         # LLFR-00015, LLFR-00016: reset the tabs for every opened file.
         file_controller.add_file_opened_listener(self.on_file_opened)
         # LLFR-00019: signal list requests.
@@ -100,8 +115,12 @@ class PlotController:
         # LLFR-00122, LLFR-00123: the Grid button of the top panel.
         view.set_grid_handler(self.on_grid_toggled)
         view.set_grid_shown(self.grid_shown_b)
+        # LLFR-00136, LLFR-00137: the Undo button and its shortcut.
+        view.set_undo_handler(self.on_undo)
         # LLFR-00024: show the tabs of the model (one empty tab).
         self.rebuild_tab_views()
+        # LLFR-00141: nothing to undo at start.
+        self.update_undo_enabled()
 
     # ----------------------------------------------------------------
     # Helpers
@@ -129,6 +148,39 @@ class PlotController:
         """
         # LLFR-00066: the last tab cannot be deleted.
         self.view.set_tab_delete_enabled(self.workspace.can_delete_tab())
+
+    def update_undo_enabled(self) -> None:
+        """Enable the Undo button only while an action can be undone.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00141: disabled, and paler, when nothing is left to undo.
+        self.view.set_undo_enabled(self.undo_history.can_undo())
+
+    def take_snapshot(self):
+        """Save the workspace state from before an action.
+
+        Inputs: none.
+        Outputs: a WorkspaceSnapshot, with the selected tab.
+        """
+        # LLFR-00140: taken before an undoable action changes the model.
+        return self.workspace.snapshot(self.view.current_tab_id())
+
+    def record_undo(self, snapshot) -> None:
+        """Keep a snapshot for undo when the action changed the model.
+
+        Inputs:
+            snapshot: the WorkspaceSnapshot taken before the action.
+        Outputs: none. Nothing is recorded when the workspace is the
+            same as in the snapshot.
+        """
+        # LLFR-00140: only an action that changed something is undoable.
+        if self.workspace.is_unchanged_since(snapshot):
+            return
+        # LLFR-00139: the history keeps the 5 most recent actions.
+        self.undo_history.record(snapshot)
+        self.update_undo_enabled()
 
     def has_signal(self, signal_name_str: str) -> bool:
         """Tell whether the open file has a signal of that name.
@@ -159,6 +211,20 @@ class PlotController:
                  self.signal_file.signal_array(curve.signal_name_str),
                  curve.color_str, curve.width_i)
                 for curve in plot.curve_list]
+
+    def pinned_tip_data_list(self, plot) -> list:
+        """Return the drawing data of every pinned tip of a plot.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: a list of tuples (signal_name_str, time_s, value_f,
+            label_offset_tuple) in the order the tips were pinned.
+        """
+        # LLFR-00045: the pinned tips; LLFR-00152: each tip with the
+        # offset of its label.
+        return [(pinned_tip.signal_name_str, pinned_tip.time_s,
+                 pinned_tip.value_f, pinned_tip.label_offset_tuple)
+                for pinned_tip in plot.pinned_tip_list]
 
     def marker_data_list(self, plot) -> list:
         """Return the drawing data of every vertical marker of a plot.
@@ -206,15 +272,11 @@ class PlotController:
                 range_tuple = self.view.plot_time_range(
                     other_plot_list[0].plot_id_i)
         # LLFR-00068: time on the x-axis; LLFR-00045: pinned tips.
-        # LLFR-00152: each tip with the offset of its label.
-        pinned_tip_list = [(pinned_tip.signal_name_str, pinned_tip.time_s,
-                            pinned_tip.value_f,
-                            pinned_tip.label_offset_tuple)
-                           for pinned_tip in plot.pinned_tip_list]
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112: the markers
         # are drawn on the same path as the curves.
         self.view.draw_plot(plot.plot_id_i, self.curve_data_list(plot),
-                            pinned_tip_list, self.marker_data_list(plot))
+                            self.pinned_tip_data_list(plot),
+                            self.marker_data_list(plot))
         if range_tuple:
             start_s, end_s = range_tuple
             self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
@@ -236,6 +298,9 @@ class PlotController:
         # LLFR-00015, LLFR-00016: close all tabs and plots and leave one
         # tab with no plots (also harmless for the first file).
         self.workspace.reset()
+        # LLFR-00142: the actions on the previous file cannot be undone.
+        self.undo_history.clear()
+        self.update_undo_enabled()
         self.rebuild_tab_views()
 
     # ----------------------------------------------------------------
@@ -255,6 +320,8 @@ class PlotController:
         tab = self.workspace.find_tab(self.view.current_tab_id())
         if tab is None:
             return
+        # LLFR-00140: creating a plot is undoable.
+        snapshot = self.take_snapshot()
         # LLFR-00031: a full tab gets no new plot.
         plot = self.workspace.add_plot(tab.tab_id_i)
         if plot is None:
@@ -265,6 +332,8 @@ class PlotController:
         self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i)
         # LLFR-00020, LLFR-00052: draw the signal with width 1.
         plot.add_curve(signal_name_str)
+        # LLFR-00140: the plot and its curve are one undoable action.
+        self.record_undo(snapshot)
         self.redraw_plot(plot, new_plot_b=True)
 
     def on_signal_dropped(self, plot_id_i: int,
@@ -281,10 +350,13 @@ class PlotController:
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not self.has_signal(signal_name_str):
             return
+        # LLFR-00140: adding a curve is undoable.
+        snapshot = self.take_snapshot()
         # LLFR-00056, LLFR-00057: a signal already shown is not drawn
         # again, and no message is shown.
         if plot.add_curve(signal_name_str) is None:
             return
+        self.record_undo(snapshot)
         # LLFR-00021: draw the signal in that plot.
         self.redraw_plot(plot)
 
@@ -300,9 +372,13 @@ class PlotController:
             signal_name_str: name of the signal to remove.
         Outputs: none.
         """
+        # LLFR-00140: removing a curve is undoable, together with the
+        # plot it may delete (LLFR-00051).
+        snapshot = self.take_snapshot()
         # LLFR-00039: remove the curve from the plot.
         if not self.workspace.remove_curve(plot_id_i, signal_name_str):
             return
+        self.record_undo(snapshot)
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None:
             # LLFR-00051, LLFR-00049, LLFR-00050: the plot had no curves
@@ -325,11 +401,15 @@ class PlotController:
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None:
             return
+        # LLFR-00140: changing a width is undoable; choosing the width
+        # the curve already has changes nothing and is not recorded.
+        snapshot = self.take_snapshot()
         try:
             plot.set_curve_width(signal_name_str, width_i)
         except ValueError:
             # LLFR-00041: not a preset width or not a curve of the plot.
             return
+        self.record_undo(snapshot)
         self.redraw_plot(plot)
 
     def on_plot_delete(self, plot_id_i: int) -> None:
@@ -339,9 +419,12 @@ class PlotController:
             plot_id_i: id of the plot.
         Outputs: none.
         """
+        # LLFR-00140: deleting a plot is undoable.
+        snapshot = self.take_snapshot()
         # LLFR-00049: remove the plot from the model and the view.
         if not self.workspace.delete_plot(plot_id_i):
             return
+        self.record_undo(snapshot)
         # LLFR-00050: the tab page resizes the remaining plots.
         self.view.remove_plot_view(plot_id_i)
 
@@ -449,12 +532,15 @@ class PlotController:
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None:
             return
+        # LLFR-00140: pinning a tip is undoable.
+        snapshot = self.take_snapshot()
         try:
             plot.add_pinned_tip(signal_name_str, float(time_s),
                                 float(value_f))
         except ValueError:
             # LLFR-00045: the signal is no longer in the plot.
             return
+        self.record_undo(snapshot)
         self.redraw_plot(plot)
 
     def on_pinned_tip_delete(self, plot_id_i: int, tip_index_i: int) -> None:
@@ -471,7 +557,10 @@ class PlotController:
             return
         if not 0 <= tip_index_i < len(plot.pinned_tip_list):
             return
+        # LLFR-00140: deleting a pinned tip is undoable.
+        snapshot = self.take_snapshot()
         plot.remove_pinned_tip(plot.pinned_tip_list[tip_index_i])
+        self.record_undo(snapshot)
         self.redraw_plot(plot)
 
     def on_pinned_tip_move(self, plot_id_i: int, tip_index_i: int,
@@ -494,12 +583,16 @@ class PlotController:
             return
         if not 0 <= tip_index_i < len(plot.pinned_tip_list):
             return
+        # LLFR-00140: moving a pinned tip is undoable; a drag that ends
+        # where it started changes nothing and is not recorded.
+        snapshot = self.take_snapshot()
         try:
             plot.move_pinned_tip(plot.pinned_tip_list[tip_index_i],
                                  (offset_x_f, offset_y_f))
         except (TypeError, ValueError):
             # LLFR-00152: an offset that cannot be drawn changes nothing.
             return
+        self.record_undo(snapshot)
         self.redraw_plot(plot)
 
     # ----------------------------------------------------------------
@@ -512,8 +605,11 @@ class PlotController:
         Inputs: none.
         Outputs: none.
         """
+        # LLFR-00140: adding a tab is undoable.
+        snapshot = self.take_snapshot()
         # LLFR-00026: the "+" button adds a new tab.
         tab = self.workspace.add_tab()
+        self.record_undo(snapshot)
         self.view.add_tab_view(tab.tab_id_i, tab.name_str)
         self.view.set_current_tab(tab.tab_id_i)
         # LLFR-00066: with two tabs or more, "Delete" is enabled.
@@ -526,9 +622,12 @@ class PlotController:
             tab_id_i: id of the tab.
         Outputs: none.
         """
+        # LLFR-00140: deleting a tab is undoable.
+        snapshot = self.take_snapshot()
         # LLFR-00066: the model refuses to delete the last tab.
         if not self.workspace.delete_tab(tab_id_i):
             return
+        self.record_undo(snapshot)
         # LLFR-00028: remove the tab and its plots from the view.
         self.view.remove_tab_view(tab_id_i)
         self.update_tab_delete_enabled()
@@ -541,10 +640,14 @@ class PlotController:
             new_name_str: the typed name.
         Outputs: none.
         """
+        # LLFR-00140: renaming a tab is undoable; the same name again
+        # changes nothing and is not recorded.
+        snapshot = self.take_snapshot()
         # LLFR-00067: an empty or blank name keeps the old name, with no
         # message.
         if not self.workspace.rename_tab(tab_id_i, str(new_name_str)):
             return
+        self.record_undo(snapshot)
         # LLFR-00030: show the new name (without surrounding spaces).
         tab = self.workspace.find_tab(tab_id_i)
         self.view.rename_tab_view(tab_id_i, tab.name_str)
@@ -568,9 +671,12 @@ class PlotController:
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not math.isfinite(float(time_s)):
             return
+        # LLFR-00140: placing a marker is undoable.
+        snapshot = self.take_snapshot()
         # LLFR-00085, LLFR-00111: the model names it "Marker N" and
         # never reuses N. LLFR-00109: the tool stays active.
         plot.add_marker(float(time_s))
+        self.record_undo(snapshot)
         self.redraw_plot(plot)
 
     def on_marker_move(self, plot_id_i: int, marker_id_i: int,
@@ -590,8 +696,12 @@ class PlotController:
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not math.isfinite(float(time_s)):
             return
+        # LLFR-00140: moving a marker is undoable; a drag that ends where
+        # it started changes nothing and is not recorded.
+        snapshot = self.take_snapshot()
         if not plot.move_marker(marker_id_i, float(time_s)):
             return
+        self.record_undo(snapshot)
         # LLFR-00092: the label shows the new time after the redraw.
         self.redraw_plot(plot)
 
@@ -619,9 +729,13 @@ class PlotController:
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None:
             return
+        # LLFR-00140: renaming a marker is undoable; the snapshot is
+        # taken after the dialog, so it holds the state just before.
+        snapshot = self.take_snapshot()
         # LLFR-00089: a blank name keeps the old one, with no message.
         if not plot.rename_marker(marker_id_i, str(new_name_str)):
             return
+        self.record_undo(snapshot)
         # LLFR-00112: the label shows the new name.
         self.redraw_plot(plot)
 
@@ -633,8 +747,98 @@ class PlotController:
             marker_id_i: id of the marker whose "Delete" was chosen.
         Outputs: none.
         """
+        # LLFR-00140: deleting a marker is undoable.
+        snapshot = self.take_snapshot()
         # LLFR-00091: remove the marker, then redraw without it.
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not plot.remove_marker(marker_id_i):
             return
+        self.record_undo(snapshot)
         self.redraw_plot(plot)
+
+    # ----------------------------------------------------------------
+    # Undo
+    # ----------------------------------------------------------------
+
+    def on_undo(self) -> None:
+        """Reverse the most recent undoable action not undone yet.
+
+        Inputs: none.
+        Outputs: none. Does nothing when no action is left to undo.
+        """
+        # LLFR-00141: with nothing to undo, the button and the shortcut
+        # do nothing.
+        if not self.undo_history.can_undo():
+            self.update_undo_enabled()
+            return
+        # LLFR-00070, LLFR-00140 Note: the time ranges are view state;
+        # remember them so that the rebuilt plots keep them.
+        tab_range_dict = self.shown_tab_range_dict()
+        shown_tab_id_i = self.view.current_tab_id()
+        # LLFR-00138: return the model to the state before the action.
+        snapshot = self.undo_history.pop()
+        self.workspace.restore(snapshot)
+        self.update_undo_enabled()
+        # LLFR-00138: select the tab that was selected before the action,
+        # or else the tab selected now, or else the first tab.
+        current_tab_id_i = snapshot.current_tab_id_i
+        if self.workspace.find_tab(current_tab_id_i) is None:
+            current_tab_id_i = shown_tab_id_i
+        self.rebuild_all_views(current_tab_id_i, tab_range_dict)
+
+    def shown_tab_range_dict(self) -> dict:
+        """Return the time range shown in each tab that holds a plot.
+
+        Inputs: none.
+        Outputs: a dict tab id -> (start_s, end_s) of the tab's first
+            plot; tabs without plots, or whose range is unknown, are
+            left out.
+        """
+        # LLFR-00070: all plots of a tab share one time range.
+        tab_range_dict = {}
+        for tab in self.workspace.tab_list:
+            if not tab.plot_list:
+                continue
+            range_tuple = self.view.plot_time_range(
+                tab.plot_list[0].plot_id_i)
+            if range_tuple:
+                tab_range_dict[tab.tab_id_i] = tuple(range_tuple)
+        return tab_range_dict
+
+    def rebuild_all_views(self, current_tab_id_i: int,
+                          tab_range_dict: dict) -> None:
+        """Show every tab, plot, curve, tip and marker of the workspace.
+
+        Inputs:
+            current_tab_id_i: id of the tab to select; the first tab is
+                selected when no tab has that id.
+            tab_range_dict: tab id -> (start_s, end_s) to show in the
+                plots of that tab; plots of other tabs show the whole
+                time range.
+        Outputs: none.
+        """
+        # LLFR-00138: the view shows the restored model, from scratch.
+        self.view.clear_tab_views()
+        for tab in self.workspace.tab_list:
+            self.view.add_tab_view(tab.tab_id_i, tab.name_str)
+        for tab in self.workspace.tab_list:
+            range_tuple = tab_range_dict.get(tab.tab_id_i, ())
+            for plot in tab.plot_list:
+                # LLFR-00069: the plots in their order, top to bottom.
+                self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i)
+                # LLFR-00068: time on the x-axis, the full range first.
+                self.view.draw_plot(
+                    plot.plot_id_i, self.curve_data_list(plot),
+                    self.pinned_tip_data_list(plot),
+                    self.marker_data_list(plot))
+                if range_tuple:
+                    # LLFR-00070: the range the tab showed before.
+                    start_s, end_s = range_tuple
+                    self.view.set_plot_time_range(plot.plot_id_i, start_s,
+                                                  end_s)
+        # LLFR-00138: select the tab of the state before the action.
+        if self.workspace.find_tab(current_tab_id_i) is None:
+            current_tab_id_i = self.workspace.tab_list[0].tab_id_i
+        self.view.set_current_tab(current_tab_id_i)
+        # LLFR-00066: "Delete" only when more than one tab is left.
+        self.update_tab_delete_enabled()

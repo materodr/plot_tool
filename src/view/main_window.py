@@ -1,8 +1,10 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QApplication, QFileDialog, QInputDialog, QLineEdit, QMainWindow,
-    QVBoxLayout, QWidget)
+    QAbstractSpinBox, QApplication, QFileDialog, QInputDialog, QLineEdit,
+    QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout, QWidget)
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
 from view import message_boxes
@@ -21,6 +23,10 @@ OPEN_FILE_FILTER_STR = "Time series files (*.csv *.xlsx *.mat);;All files (*)"
 # LLFR-00088: title and label of the marker rename dialog.
 RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
 RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
+# LLFR-00137: widgets whose own Ctrl+Z (Cmd+Z) undoes the typed text, so
+# the workspace undo must not run while one of them has the focus.
+TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
+                           QAbstractSpinBox)
 
 
 class MainWindow(QMainWindow):
@@ -115,6 +121,15 @@ class MainWindow(QMainWindow):
         application = QApplication.instance()
         if application is not None:
             application.installEventFilter(self.tip_key_filter)
+        # LLFR-00136, LLFR-00138: the Undo button goes to the plot
+        # controller. LLFR-00137: so does Ctrl+Z (Cmd+Z on macOS, which
+        # QKeySequence.StandardKey.Undo maps to), in this window.
+        self.undo_handler = None
+        self.top_panel.undo_button.triggered.connect(
+            self._on_undo_triggered)
+        self.undo_shortcut = QShortcut(QKeySequence.StandardKey.Undo, self)
+        self.undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.undo_shortcut.activated.connect(self._on_undo_shortcut)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -344,6 +359,48 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00124, LLFR-00125: the state new plots take.
         return self.grid_shown_b
+
+    def set_undo_handler(self, handler) -> None:
+        """Set the function called by the Undo button and its shortcut.
+
+        Inputs:
+            handler: a function without arguments that undoes the most
+                recent undoable action.
+        Outputs: none.
+        """
+        # LLFR-00138: the controller restores the previous state.
+        self.undo_handler = handler
+
+    def set_undo_enabled(self, enabled_b: bool) -> None:
+        """Enable the Undo button, or disable it and show it paler.
+
+        Inputs:
+            enabled_b: True while an action can be undone.
+        Outputs: none.
+        """
+        # LLFR-00141: disabled and paler when nothing is left to undo.
+        self.top_panel.undo_button.setEnabled(bool(enabled_b))
+
+    def is_undo_enabled(self) -> bool:
+        """Tell whether the Undo button is enabled.
+
+        Inputs: none.
+        Outputs: True while an action can be undone.
+        """
+        # LLFR-00141: the state the shortcut follows too.
+        return self.top_panel.undo_button.isEnabled()
+
+    def run_undo(self) -> None:
+        """Run the undo handler when an action can be undone.
+
+        Inputs: none.
+        Outputs: none. Does nothing while the Undo button is disabled.
+        """
+        # LLFR-00141: with nothing to undo, nothing happens.
+        if not self.is_undo_enabled() or self.undo_handler is None:
+            return
+        # LLFR-00138: reverse the most recent undoable action.
+        self.undo_handler()
 
     # ----------------------------------------------------------------
     # Plot panel facade, used by the plot controller (plain types only)
@@ -616,6 +673,35 @@ class MainWindow(QMainWindow):
                 self.reset_zoom_handler()
         finally:
             self.finish_reset_zoom_button()
+
+    def _on_undo_triggered(self) -> None:
+        """Run the undo after a click, then let the Undo button finish.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00138: undo the most recent action. LLFR-00001,
+        # LLFR-00003: the button shows its active color briefly and is
+        # never left active, even when the undo failed.
+        try:
+            self.run_undo()
+        finally:
+            self.top_panel.undo_button.finish()
+
+    def _on_undo_shortcut(self) -> None:
+        """Run the undo when Ctrl+Z (Cmd+Z on macOS) is pressed.
+
+        Inputs: none.
+        Outputs: none. Ignored while a text field has the focus, so that
+            Ctrl+Z there undoes the typing instead.
+        """
+        # LLFR-00137: the shortcut runs the Undo button's action, except
+        # in a text field (search box, dialog line edit), whose own
+        # Ctrl+Z undoes the typed text.
+        if isinstance(QApplication.focusWidget(), TEXT_INPUT_WIDGET_TUPLE):
+            return
+        # LLFR-00141: the shortcut does nothing while Undo is disabled.
+        self.run_undo()
 
     def _on_grid_clicked(self, shown_b: bool) -> None:
         """Pass a click on the Grid button to its handler.
