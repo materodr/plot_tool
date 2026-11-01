@@ -92,6 +92,58 @@ class XyzKeyFilterTest(unittest.TestCase):
         send_key(receiver or self.widget, "KeyRelease", key_name_str,
                  "NoModifier", auto_repeat_b)
 
+    @covers("LLFR-00197", "LLFR-00200", "LLFR-00207", "LLFR-00148",
+            "LLFR-00154")
+    def test_lost_letter_release_with_ctrl_blocks_nothing(self) -> None:
+        """Ctrl, then Y, X or Z with Ctrl (Redo, Ctrl+X, Undo), then Ctrl
+        released without the letter's release (macOS can drop it): X, Y,
+        Z, Ctrl and Shift alone all work afterwards.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for letter_key_name_str in ("Key_Y", "Key_X", "Key_Z"):
+            for first_key_name_str, modifier_name_str in (
+                    ("Key_Control", "ControlModifier"),
+                    ("Key_Shift", "ShiftModifier")):
+                self.call_list.clear()
+                self.press(first_key_name_str, modifier_name_str)
+                self.press(letter_key_name_str, modifier_name_str)
+                self.release(first_key_name_str)
+                self.assertEqual(self.tool_key_filter.held_key_set, set(),
+                                 (letter_key_name_str, first_key_name_str))
+                self.assertFalse(self.tool_key_filter.is_activation_on())
+                self.call_list.clear()
+                for key_name_str, key_modifier_str, expected_str in (
+                        ("Key_X", "NoModifier", DELTA_X_TOOL_STR),
+                        ("Key_Y", "NoModifier", DELTA_Y_TOOL_STR),
+                        ("Key_Z", "NoModifier", "reset"),
+                        ("Key_Control", "ControlModifier", TIP_TOOL_STR),
+                        ("Key_Shift", "ShiftModifier", MARKER_TOOL_STR)):
+                    self.press(key_name_str, key_modifier_str)
+                    self.assertEqual(self.call_list[-1], expected_str,
+                                     (letter_key_name_str, key_name_str))
+                    self.release(key_name_str)
+                self.assertEqual(self.tool_key_filter.held_key_set, set())
+
+    @covers("LLFR-00197", "LLFR-00200")
+    def test_releasing_x_or_y_forgets_a_lost_letter(self) -> None:
+        """A letter whose release was lost while X or Y was held is
+        forgotten when X or Y is released, so the next key alone works.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for key_name_str in ("Key_X", "Key_Y"):
+            self.press(key_name_str)
+            self.press("Key_A")
+            self.release(key_name_str)
+            self.assertEqual(self.tool_key_filter.held_key_set, set())
+            self.call_list.clear()
+            self.press("Key_Z")
+            self.release("Key_Z")
+            self.assertEqual(self.call_list, ["reset"])
+
     @covers("LLFR-00197", "LLFR-00198", "LLFR-00200", "LLFR-00201")
     def test_x_and_y_alone_activate_and_release_ends(self) -> None:
         """X alone holds Delta X, Y alone holds Delta Y; each release

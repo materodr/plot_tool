@@ -446,10 +446,6 @@ class PlotWidget(QWidget):
             the mouse (LLFR-00208); counted by is_mouse_drag_in_progress.
     """
 
-    # LLFR-00207, LLFR-00208: set to True by the time span selection
-    # while its drag is in progress, so that the Z key does nothing then.
-    time_span_drag_b = False
-
     curve_delete_requested = pyqtSignal(str)
     curve_width_requested = pyqtSignal(str, int)
     plot_delete_requested = pyqtSignal()
@@ -526,6 +522,10 @@ class PlotWidget(QWidget):
         # time that was under the pointer when it was pressed.
         self.panning_b = False
         self.pan_anchor_s = 0.0
+        # LLFR-00207, LLFR-00208: True while a time span is selected with
+        # the mouse; the time span selection sets it on this instance, so
+        # that the Z key does nothing during its drag.
+        self.time_span_drag_b = False
         # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
         # grid is drawn; hidden until the Grid button is clicked.
         self.grid_shown_b = False
@@ -2527,7 +2527,7 @@ class PlotWidget(QWidget):
         return (self.panning_b
                 or self.drag_marker_id_i != NO_MARKER_ID_I
                 or self.drag_tip_index_i != NO_TIP_INDEX_I
-                or bool(self.time_span_drag_b))
+                or self.time_span_drag_b)
 
     def retire(self) -> None:
         """Stop all interaction before the widget is removed.
@@ -2549,6 +2549,9 @@ class PlotWidget(QWidget):
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_moved_b = False
         self.reset_tip_drag()
+        # LLFR-00207, LLFR-00208: a time span selection stops too, so a
+        # removed plot never blocks the Z key.
+        self.time_span_drag_b = False
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
         self.retired_b = True
         self.blockSignals(True)

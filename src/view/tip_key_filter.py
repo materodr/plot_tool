@@ -45,8 +45,10 @@ Rules:
     - Auto-repeat key events are ignored, so a held key never restarts
       an activation or runs an action again.
     - Releasing a tool key also forgets every other held key except the
-      other tool key, because macOS can drop the release of a key pressed
-      together with Cmd.
+      modifier tool keys (Tip key, Shift), because macOS can drop the
+      release of a key pressed together with Cmd. The letter tool keys
+      (X, Y) are forgotten too, since Cmd+X and Cmd+Y (Redo) can lose
+      their release like any other letter.
     - When the app or its window loses the keyboard (application state
       change to not active, ``WindowDeactivate``, or ``FocusOut`` with
       ``ActiveWindowFocusReason``) the activation ends as on a release,
@@ -299,11 +301,13 @@ class ToolKeyFilter(QObject):
         self.held_key_set.discard(key_i)
         if key_i not in self.key_tool_dict:
             return
-        # LLFR-00148: macOS may never send the release of a key pressed
-        # together with Cmd (e.g. the Z of Cmd+Z), so the held keys other
-        # than the tool keys are forgotten here; otherwise such a key
-        # would stay "held" and block the next tool key press alone.
-        self.held_key_set.intersection_update(self.key_tool_dict)
+        # LLFR-00148, LLFR-00197, LLFR-00200, LLFR-00207: macOS may never
+        # send the release of a key pressed together with Cmd (e.g. the Z
+        # of Cmd+Z or the Y of Cmd+Y), so every held key except the
+        # modifier tool keys is forgotten here; otherwise such a key
+        # would stay "held" and block the next tool or action key press
+        # alone. Letter tool keys (X, Y) are no exception.
+        self.held_key_set.intersection_update(OWN_MODIFIER_DICT)
         # LLFR-00149, LLFR-00155: releasing the tool key ends its
         # activation.
         if key_i == self.active_key_i:
