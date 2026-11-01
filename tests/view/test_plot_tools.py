@@ -276,6 +276,25 @@ class PlotWidgetToolTestCase(unittest.TestCase):
         self.plot_widget.canvas.callbacks.process("button_press_event",
                                                   press_event)
 
+    def release(self, time_s: float, value_f: float,
+                button_i: int = 1) -> None:
+        """Send a matplotlib button release to the canvas at a data point.
+
+        Inputs:
+            time_s: x value in seconds.
+            value_f: y value.
+            button_i: matplotlib button number (1 is the left button).
+        Outputs: none.
+        """
+        from matplotlib.backend_bases import MouseEvent
+        display_x_px, display_y_px = (
+            self.plot_widget.axes.transData.transform((time_s, value_f)))
+        release_event = MouseEvent(
+            "button_release_event", self.plot_widget.canvas, display_x_px,
+            display_y_px, button=button_i)
+        self.plot_widget.canvas.callbacks.process("button_release_event",
+                                                  release_event)
+
     def scroll(self, time_s: float, step_i: int) -> None:
         """Send a matplotlib scroll event to the canvas at a time.
 
@@ -369,14 +388,20 @@ class ClickZoomTest(PlotWidgetToolTestCase):
 
     @covers("LLFR-00078")
     def test_canvas_press_zooms_and_double_click_zooms_once(self) -> None:
-        """A real left press zooms; a double-click zooms only once.
+        """A real left click (press and release at the same point) zooms
+        at the release; a double-click zooms only once.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_plot_tool(ZOOM_TOOL_STR)
         self.press(5.0, 0.0)
+        # LLFR-00078: only the release tells a click from a span.
+        self.assertEqual(self.range_list, [])
+        self.release(5.0, 0.0)
+        self.assertEqual(len(self.range_list), 1)
         self.press(5.0, 0.0, double_click_b=True)
+        self.release(5.0, 0.0)
         self.assertEqual(len(self.range_list), 1)
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(end_s - start_s, 9.5)
