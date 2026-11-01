@@ -323,18 +323,18 @@ class PlotWidgetToolTestCase(unittest.TestCase):
 
 
 class ClickZoomTest(PlotWidgetToolTestCase):
-    """Zoom tool: a left click zooms in by 2 around the clicked time."""
+    """Zoom tool: a left click narrows the range to 95% of its width."""
 
     @covers("LLFR-00078", "LLFR-00109", "LLFR-00076")
-    def test_click_halves_range_around_click(self) -> None:
-        """Each click halves the width and centres it on the click.
+    def test_click_narrows_range_to_95_percent_around_click(self) -> None:
+        """Each click keeps 95% of the width, centred on the click.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_plot_tool(ZOOM_TOOL_STR)
-        for expected_width_s in (5.0, 2.5, 1.25):
-            point = self.point_at(4.0)
+        for expected_width_s in (9.5, 9.025, 8.57375):
+            point = self.point_at(5.0)
             clicked_s = self.plot_widget.time_at(point)
             self.plot_widget.click_at(point)
             start_s, end_s = self.plot_widget.time_range_tuple()
@@ -350,7 +350,7 @@ class ClickZoomTest(PlotWidgetToolTestCase):
 
     @covers("LLFR-00078", "LLFR-00074")
     def test_click_near_edge_stays_inside_data(self) -> None:
-        """A click near the start keeps half the width, inside the data.
+        """A click near an end keeps 95% of the width, inside the data.
 
         Inputs: none.
         Outputs: none.
@@ -359,12 +359,12 @@ class ClickZoomTest(PlotWidgetToolTestCase):
         self.plot_widget.click_at(self.point_at(0.5))
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(start_s, 0.0)
-        self.assertAlmostEqual(end_s, 5.0)
+        self.assertAlmostEqual(end_s, 9.5)
         self.plot_widget.set_time_range(0.0, 10.0)
         self.draw()
         self.plot_widget.click_at(self.point_at(9.8))
         start_s, end_s = self.plot_widget.time_range_tuple()
-        self.assertAlmostEqual(start_s, 5.0)
+        self.assertAlmostEqual(start_s, 0.5)
         self.assertAlmostEqual(end_s, 10.0)
 
     @covers("LLFR-00078")
@@ -379,7 +379,7 @@ class ClickZoomTest(PlotWidgetToolTestCase):
         self.press(5.0, 0.0, double_click_b=True)
         self.assertEqual(len(self.range_list), 1)
         start_s, end_s = self.plot_widget.time_range_tuple()
-        self.assertAlmostEqual(end_s - start_s, 5.0)
+        self.assertAlmostEqual(end_s - start_s, 9.5)
         self.assertAlmostEqual((start_s + end_s) / 2.0, 5.0, delta=0.05)
         # A right press never zooms.
         self.plot_widget.execute_menu = lambda menu, point: None
@@ -420,7 +420,7 @@ class ClickZoomTest(PlotWidgetToolTestCase):
 class WheelZoomTest(PlotWidgetToolTestCase):
     """The mouse wheel zooms the x-axis with any tool or none."""
 
-    @covers("LLFR-00074", "LLFR-00108")
+    @covers("LLFR-00074", "LLFR-00108", "LLFR-00113")
     def test_wheel_zooms_with_every_tool_and_none(self) -> None:
         """Forward narrows and backward widens around the mouse time.
 
@@ -438,8 +438,9 @@ class WheelZoomTest(PlotWidgetToolTestCase):
                 mouse_s = self.plot_widget.time_at(point)
                 self.plot_widget.wheel_at(point, 1.0)
                 start_s, end_s = self.plot_widget.time_range_tuple()
-                self.assertAlmostEqual(end_s - start_s,
-                                       10.0 * ZOOM_IN_FACTOR_F)
+                # LLFR-00113: one notch keeps 95% of the width.
+                self.assertEqual(ZOOM_IN_FACTOR_F, 0.95)
+                self.assertAlmostEqual(end_s - start_s, 9.5)
                 # The time under the mouse stays where it was.
                 self.assertAlmostEqual(
                     (mouse_s - start_s) / (end_s - start_s),
@@ -803,7 +804,7 @@ class PlotToolEndToEndTest(unittest.TestCase):
         first_widget.click_at(point)
         self.application.processEvents()
         start_s, end_s = first_widget.time_range_tuple()
-        self.assertAlmostEqual(end_s - start_s, 2.0)
+        self.assertAlmostEqual(end_s - start_s, 3.8)
         self.assertAlmostEqual((start_s + end_s) / 2.0, clicked_s)
         second_start_s, second_end_s = second_widget.time_range_tuple()
         self.assertAlmostEqual(second_start_s, start_s)

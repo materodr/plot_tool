@@ -98,6 +98,19 @@ class MainWindow(QMainWindow):
         self.search_text_handler = None
         self.signal_list_panel.search_text_changed.connect(
             self._on_search_text_changed)
+        # LLFR-00115: the Reset zoom button goes to the plot controller.
+        self.reset_zoom_handler = None
+        self.top_panel.reset_zoom_button.triggered.connect(
+            self._on_reset_zoom_triggered)
+        # LLFR-00122, LLFR-00123: the Grid button goes to the plot
+        # controller. LLFR-00147: the grid is hidden at start; the
+        # choice applies to every plot, now and later (LLFR-00125).
+        self.grid_handler = None
+        self.grid_shown_b = False
+        self.top_panel.grid_button.activated.connect(
+            lambda: self._on_grid_clicked(True))
+        self.top_panel.grid_button.deactivated.connect(
+            lambda: self._on_grid_clicked(False))
         # LLFR-00127, LLFR-00133: the export controller saves the PDF
         # and copies the image.
         self.pdf_export_handler = None
@@ -247,6 +260,62 @@ class MainWindow(QMainWindow):
         # LLFR-00079, LLFR-00109: the tool stays until it is changed.
         return self.plot_tool_str
 
+    def set_reset_zoom_handler(self, handler) -> None:
+        """Set the function called when Reset zoom is clicked.
+
+        Inputs:
+            handler: a function without arguments that resets the zoom
+                of the current tab.
+        Outputs: none.
+        """
+        # LLFR-00115: the controller resets the plots of the current tab.
+        self.reset_zoom_handler = handler
+
+    def finish_reset_zoom_button(self) -> None:
+        """Tell the Reset zoom button that the reset has finished.
+
+        Inputs: none.
+        Outputs: none. The button turns normal once it has been active
+            for at least 0.3 s.
+        """
+        # LLFR-00003, LLFR-00116: normal after the reset and 0.3 s.
+        self.top_panel.reset_zoom_button.finish()
+
+    def set_grid_handler(self, handler) -> None:
+        """Set the function called when the Grid button is clicked.
+
+        Inputs:
+            handler: a function taking True (show the grid) or False
+                (hide it).
+        Outputs: none.
+        """
+        # LLFR-00122, LLFR-00123: the controller keeps the grid state.
+        self.grid_handler = handler
+
+    def set_grid_shown(self, shown_b: bool) -> None:
+        """Show or hide the grid on every plot, now and on later plots.
+
+        Inputs:
+            shown_b: True to show the grid, False to hide it.
+        Outputs: none. The Grid button is shown to match.
+        """
+        # LLFR-00124: the Grid button is active while the grid is shown;
+        # setChecked emits no click, so nothing is reported back.
+        self.grid_shown_b = bool(shown_b)
+        self.top_panel.grid_button.setChecked(self.grid_shown_b)
+        # LLFR-00122, LLFR-00123: every plot in every tab.
+        for plot_widget in self.plot_panel.plot_widget_dict.values():
+            plot_widget.set_grid_shown(self.grid_shown_b)
+
+    def is_grid_shown(self) -> bool:
+        """Return whether the grid is applied to the plots.
+
+        Inputs: none.
+        Outputs: True while the grid is shown.
+        """
+        # LLFR-00124, LLFR-00125: the state new plots take.
+        return self.grid_shown_b
+
     # ----------------------------------------------------------------
     # Plot panel facade, used by the plot controller (plain types only)
     # ----------------------------------------------------------------
@@ -371,6 +440,8 @@ class MainWindow(QMainWindow):
         plot_widget = self.plot_panel.plot_view(plot_id_i)
         if plot_widget is not None:
             plot_widget.set_plot_tool(self.plot_tool_str)
+            # LLFR-00125: a new plot shows the grid while it is shown.
+            plot_widget.set_grid_shown(self.grid_shown_b)
 
     def remove_plot_view(self, plot_id_i: int) -> None:
         """Remove a plot from its tab.
@@ -695,6 +766,35 @@ class MainWindow(QMainWindow):
             self.set_plot_tool(tool_str)
             return
         self.plot_tool_handler(tool_str)
+
+    def _on_reset_zoom_triggered(self) -> None:
+        """Run the reset zoom handler, then let the button finish.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00115: reset the zoom of the current tab. LLFR-00116: the
+        # button finishes when the reset is done, even if it failed, so
+        # it is never left active.
+        try:
+            if self.reset_zoom_handler is not None:
+                self.reset_zoom_handler()
+        finally:
+            self.finish_reset_zoom_button()
+
+    def _on_grid_clicked(self, shown_b: bool) -> None:
+        """Pass a click on the Grid button to its handler.
+
+        Inputs:
+            shown_b: True when the click asks to show the grid.
+        Outputs: none.
+        """
+        # LLFR-00122, LLFR-00123: the controller applies the grid; with
+        # no controller the window applies it itself.
+        if self.grid_handler is None:
+            self.set_grid_shown(shown_b)
+            return
+        self.grid_handler(shown_b)
 
     def _on_search_text_changed(self, text_str: str) -> None:
         """Pass the new search box text to its handler.
