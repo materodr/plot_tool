@@ -442,6 +442,8 @@ class PlotWidget(QWidget):
         axes: the matplotlib Axes where the curves are drawn.
         redraw_pending_b: True when a time range was set while the
             widget was hidden and the canvas still shows the old one.
+        time_span_drag_b: True while a time span is being selected with
+            the mouse (LLFR-00208); counted by is_mouse_drag_in_progress.
     """
 
     curve_delete_requested = pyqtSignal(str)
@@ -520,6 +522,10 @@ class PlotWidget(QWidget):
         # time that was under the pointer when it was pressed.
         self.panning_b = False
         self.pan_anchor_s = 0.0
+        # LLFR-00207, LLFR-00208: True while a time span is selected with
+        # the mouse; the time span selection sets it on this instance, so
+        # that the Z key does nothing during its drag.
+        self.time_span_drag_b = False
         # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
         # grid is drawn; hidden until the Grid button is clicked.
         self.grid_shown_b = False
@@ -2507,6 +2513,22 @@ class PlotWidget(QWidget):
         self.cancel_marker_drag()
         self.cancel_tip_drag()
 
+    def is_mouse_drag_in_progress(self) -> bool:
+        """Tell whether the user is dragging the mouse on this plot.
+
+        Inputs: none.
+        Outputs: True during a pan (LLFR-00117), a marker drag
+            (LLFR-00086), a pinned tip drag (LLFR-00152) or a time span
+            selection (LLFR-00208, flag time_span_drag_b), from the
+            press to the release.
+        """
+        # LLFR-00207: the Z key does nothing while one of these drags is
+        # in progress. A new kind of drag only has to be added here.
+        return (self.panning_b
+                or self.drag_marker_id_i != NO_MARKER_ID_I
+                or self.drag_tip_index_i != NO_TIP_INDEX_I
+                or self.time_span_drag_b)
+
     def retire(self) -> None:
         """Stop all interaction before the widget is removed.
 
@@ -2527,6 +2549,9 @@ class PlotWidget(QWidget):
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_moved_b = False
         self.reset_tip_drag()
+        # LLFR-00207, LLFR-00208: a time span selection stops too, so a
+        # removed plot never blocks the Z key.
+        self.time_span_drag_b = False
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
         self.retired_b = True
         self.blockSignals(True)

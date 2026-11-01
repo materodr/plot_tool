@@ -8,12 +8,15 @@ from PyQt6.QtWidgets import (
     QWidget)
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR)
+    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    TIP_TOOL_STR)
 from view import icons, message_boxes, plot_export, theme
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
-from view.tip_key_filter import MARKER_KEY_I, TIP_KEY_I, ToolKeyFilter
+from view.tip_key_filter import (
+    DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I, RESET_ZOOM_KEY_I, TIP_KEY_I,
+    ToolKeyFilter)
 from view.top_panel import TopPanel
 
 
@@ -150,14 +153,19 @@ class MainWindow(QMainWindow):
         self.top_panel.copy_requested.connect(self._on_copy_requested)
         # LLFR-00148 to LLFR-00150: holding the Tip key keeps the Tip
         # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
-        # Vertical marker tool active; LLFR-00157: not in text fields.
+        # Vertical marker tool active; LLFR-00197 to LLFR-00202: holding
+        # X or Y keeps the Delta X or Delta Y tool active; LLFR-00207: Z
+        # alone resets the zoom; LLFR-00157: none of them in text fields.
         # The filter sees the keys of every widget and dialog of the
         # application, and consumes none.
         self.tip_key_changing_tool_b = False
         self.tool_key_filter = ToolKeyFilter(
-            {TIP_KEY_I: TIP_TOOL_STR, MARKER_KEY_I: MARKER_TOOL_STR},
+            {TIP_KEY_I: TIP_TOOL_STR, MARKER_KEY_I: MARKER_TOOL_STR,
+             DELTA_X_KEY_I: DELTA_X_TOOL_STR,
+             DELTA_Y_KEY_I: DELTA_Y_TOOL_STR},
             self.on_tool_key_activate, self.on_tool_key_release,
-            TEXT_INPUT_WIDGET_TUPLE, self)
+            TEXT_INPUT_WIDGET_TUPLE, self,
+            {RESET_ZOOM_KEY_I: self.on_reset_zoom_key})
         # LLFR-00148: the name used before the Shift key was added.
         self.tip_key_filter = self.tool_key_filter
         application = QApplication.instance()
@@ -331,12 +339,14 @@ class MainWindow(QMainWindow):
 
         Inputs:
             tool_str: TIP_TOOL_STR for the Tip key, MARKER_TOOL_STR for
-                the Shift key.
+                the Shift key, DELTA_X_TOOL_STR for X, DELTA_Y_TOOL_STR
+                for Y.
         Outputs: none. The tool change goes the same way as a click on
             the tool's button, so the controller is told of it.
         """
-        # LLFR-00148, LLFR-00154: the tool's button becomes active and the
-        # other tool buttons are deactivated as in LLFR-00079.
+        # LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200: the tool's
+        # button becomes active and the other tool buttons are
+        # deactivated as in LLFR-00079.
         self.tip_key_changing_tool_b = True
         try:
             self.top_panel.plot_tool_button_dict[tool_str].setChecked(True)
@@ -351,15 +361,47 @@ class MainWindow(QMainWindow):
         Outputs: none. The tool change goes the same way as a second
             click on the active tool button.
         """
-        # LLFR-00149, LLFR-00150, LLFR-00155, LLFR-00156, LLFR-00157: no
-        # plot tool is active afterwards, whatever tool was active before
-        # the tool key was pressed.
+        # LLFR-00149, LLFR-00150, LLFR-00155, LLFR-00156, LLFR-00157,
+        # LLFR-00198, LLFR-00199, LLFR-00201, LLFR-00202: no plot tool is
+        # active afterwards, whatever tool was active before the tool key
+        # was pressed. LLFR-00167: leaving a delta tool discards its
+        # first point, as for a click on its button.
         self.tip_key_changing_tool_b = True
         try:
             self.top_panel.show_plot_tool(NO_TOOL_STR)
             self.top_panel.deactivate_plot_tools()
         finally:
             self.tip_key_changing_tool_b = False
+
+    def is_mouse_drag_in_progress(self) -> bool:
+        """Tell whether the user is dragging the mouse on a plot.
+
+        Inputs: none.
+        Outputs: True during a pan, a marker or tip drag or a time span
+            selection on any plot.
+        """
+        # LLFR-00207: the Z key does nothing during a mouse drag.
+        return self.plot_panel.is_mouse_drag_in_progress()
+
+    def on_reset_zoom_key(self) -> None:
+        """Reset the zoom because the Z key was pressed alone.
+
+        Inputs: none.
+        Outputs: none. Nothing happens during a mouse drag, or while a
+            modal dialog or a menu of the application is open.
+        """
+        # LLFR-00207: during a pan, a marker or tip drag or a time span
+        # selection, Z does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
+        # LLFR-00207: the zoom is reset in the main window, not behind a
+        # message box, a name dialog or an open menu.
+        if (QApplication.activeModalWidget() is not None
+                or QApplication.activePopupWidget() is not None):
+            return
+        # LLFR-00207, LLFR-00115, LLFR-00116: exactly as a click on the
+        # Reset zoom button, with its active color for at least 0.3 s.
+        self.top_panel.reset_zoom_button.click()
 
     def set_reset_zoom_handler(self, handler) -> None:
         """Set the function called when Reset zoom is clicked.
