@@ -65,6 +65,50 @@ When the app opens a file or replaces the current file (LLFR-00013), it must cle
 
 *Parent: HLFR-00040, HLFR-00010*
 
+### LLFR-00182 Where the app icon is shown
+The app must show its icon (HLFR-00045), instead of the default PyInstaller or Python icon, as the icon of the standalone executable (COR-00007), in the list of open apps (the Dock and the app switcher on macOS, the taskbar on Windows), and in the main window's title bar where the operating system shows an icon there.
+
+*Parent: HLFR-00045*
+
+### LLFR-00183 App icon picture
+The app icon must show a small line chart with a blue curve and a red curve (LLFR-00144) over a pair of axes, on a light rounded square, and must stay recognizable at 16 by 16 pixels.
+
+*Parent: HLFR-00045*
+
+### LLFR-00184 Splash screen at launch
+When the user launches the app, the app must show the splash screen (HLFR-00046) within 2 seconds, before the main window is ready.
+
+*Parent: HLFR-00046*
+
+### LLFR-00185 Splash screen content
+The splash screen must show the app icon (LLFR-00183), the app name "plot_tool" and the text "Loading...".
+
+*Parent: HLFR-00046, HLFR-00045*
+
+### LLFR-00186 Splash screen closes
+When the main window is shown, the app must close the splash screen.
+
+*Parent: HLFR-00046*
+
+### LLFR-00187 Splash screen on a startup error
+If an error stops the app from starting, the app must close the splash screen before it shows the error box (HLFR-00002).
+
+*Parent: HLFR-00046, HLFR-00002*
+
+### LLFR-00188 Opening time limit
+The standalone executable (COR-00007) must show the main window, ready to respond to the user, at most 5 seconds after the user launches it.
+
+Note: The time is measured from the second launch onward, on the computer the app is tested on, so that work done only once on the first launch does not count.
+
+*Parent: HLFR-00047*
+
+### LLFR-00189 No repeated startup work
+The app must not repeat on every launch work whose result does not change between launches.
+
+Note: For example, the cache of fonts used to draw text in the plots is built on every launch today; it must be built once and reused.
+
+*Parent: HLFR-00047*
+
 
 ## Top panel
 

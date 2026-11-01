@@ -29,6 +29,15 @@ The user must be able to change the widths of the plot panel and the signal list
 ### HLFR-00040 Undo
 The user must be able to undo their most recent actions on the tabs, plots, curves, tips and markers.
 
+### HLFR-00045 App icon
+The app must have its own custom icon, shown wherever the operating system shows the app.
+
+### HLFR-00046 Splash screen
+While the app is starting, it must show the user a splash screen.
+
+### HLFR-00047 Opening time
+The app must open quickly, so that the user waits as little as possible before it is ready to use.
+
 
 ## Top panel
 
