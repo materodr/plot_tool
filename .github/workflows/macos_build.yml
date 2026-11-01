@@ -73,6 +73,8 @@ jobs:
           exit $failed
 
       - name: Measure the startup time
+        env:
+          PYTHONFAULTHANDLER: "1"
         run: |
           python tests/user_tests/measure_startup.py --runs 6 \
             --limit-s 10 --probe-good-files -- \
@@ -81,7 +83,8 @@ jobs:
       - name: Show crash reports
         if: always()
         run: |
-          for report in ~/Library/Logs/DiagnosticReports/plot_tool*; do
+          ls -la ~/Library/Logs/DiagnosticReports/ || true
+          for report in ~/Library/Logs/DiagnosticReports/*; do
             [ -f "$report" ] || continue
             echo "== $report"; head -c 20000 "$report"; echo
           done
@@ -94,6 +97,8 @@ jobs:
       - name: Measure the startup time from source
         if: always()
         continue-on-error: true
+        env:
+          PYTHONFAULTHANDLER: "1"
         run: |
           python tests/user_tests/measure_startup.py --runs 2 \
             --limit-s 1000 -- python src/main.py
