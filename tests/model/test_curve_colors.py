@@ -7,9 +7,9 @@ import unittest
 from tests.support import covers
 
 from model.curve_colors import (
-    MAXIMUM_LUMINANCE_F, MINIMUM_COLOR_DISTANCE_F, PALETTE_COLOR_TUPLE,
-    color_distance, color_luminance, hex_to_rgb, next_curve_color,
-    rgb_to_hex)
+    MARKER_COLOR_STR, MAXIMUM_LUMINANCE_F, MINIMUM_COLOR_DISTANCE_F,
+    PALETTE_COLOR_TUPLE, color_distance, color_luminance, hex_to_rgb,
+    is_far_from_marker_color, next_curve_color, rgb_to_hex)
 
 HEX_COLOR_PATTERN_STR = r"^#[0-9a-f]{6}$"
 
@@ -164,6 +164,50 @@ class ColorHelperTest(unittest.TestCase):
                                (3 * 255 ** 2) ** 0.5)
         self.assertAlmostEqual(color_luminance("#ffffff"), 1.0)
         self.assertAlmostEqual(color_luminance("#000000"), 0.0)
+
+
+class MarkerColorTest(unittest.TestCase):
+    """Check the reserved vertical marker color (LLFR-00083)."""
+
+    @covers("LLFR-00083", "LLFR-00033")
+    def test_marker_color_is_not_a_palette_color(self) -> None:
+        """The marker color is valid, visible and far from the palette.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertRegex(MARKER_COLOR_STR, HEX_COLOR_PATTERN_STR)
+        self.assertNotIn(MARKER_COLOR_STR, PALETTE_COLOR_TUPLE)
+        self.assertLessEqual(color_luminance(MARKER_COLOR_STR),
+                             MAXIMUM_LUMINANCE_F)
+        for palette_color_str in PALETTE_COLOR_TUPLE:
+            self.assertGreaterEqual(
+                color_distance(palette_color_str, MARKER_COLOR_STR),
+                MINIMUM_COLOR_DISTANCE_F, palette_color_str)
+            self.assertTrue(is_far_from_marker_color(palette_color_str))
+        self.assertFalse(is_far_from_marker_color(MARKER_COLOR_STR))
+
+    @covers("LLFR-00083", "LLFR-00034")
+    def test_random_colors_avoid_marker_color(self) -> None:
+        """Random curve colors keep the full distance from the marker.
+
+        Even with many used colors, which makes the distance to the used
+        colors relax, the distance to the marker color is never relaxed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for seed_i in range(5):
+            random_generator = random.Random(seed_i)
+            used_color_list = list(PALETTE_COLOR_TUPLE)
+            for drawn_count_i in range(8, 80):
+                color_str = next_curve_color(drawn_count_i, used_color_list,
+                                             random_generator)
+                self.assertNotEqual(color_str, MARKER_COLOR_STR)
+                self.assertGreaterEqual(
+                    color_distance(color_str, MARKER_COLOR_STR),
+                    MINIMUM_COLOR_DISTANCE_F)
+                used_color_list.append(color_str)
 
 
 if __name__ == "__main__":

@@ -64,7 +64,8 @@ SHARED_TAB_SHAPE_STR = (
 TAB_BAR_EVENT_TUPLE = (QEvent.Type.Resize, QEvent.Type.Move,
                        QEvent.Type.LayoutRequest, QEvent.Type.Show)
 # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
-# LLFR-00049, LLFR-00070: plot widget signal -> name of its handler.
+# LLFR-00049, LLFR-00070, LLFR-00081, LLFR-00086, LLFR-00088,
+# LLFR-00091: plot widget signal -> name of its handler.
 PLOT_SIGNAL_HANDLER_DICT = {
     "curve_delete_requested": "curve_delete_handler",
     "curve_width_requested": "curve_width_handler",
@@ -73,6 +74,10 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "tip_pin_requested": "tip_pin_handler",
     "pinned_tip_delete_requested": "pinned_tip_delete_handler",
     "time_range_changed": "time_range_handler",
+    "marker_place_requested": "marker_place_handler",
+    "marker_move_requested": "marker_move_handler",
+    "marker_rename_requested": "marker_rename_handler",
+    "marker_delete_requested": "marker_delete_handler",
 }
 
 
@@ -320,7 +325,6 @@ class PlotPanel(QWidget):
         plot_widget_dict: plot id -> PlotWidget.
         tab_delete_enabled_b: whether "Delete" is enabled in the tab
             menu (LLFR-00066).
-        tip_mode_b: tip mode given to every plot widget (LLFR-00042).
     """
 
     def __init__(self) -> None:
@@ -342,7 +346,6 @@ class PlotPanel(QWidget):
         self.page_dict = {}
         self.plot_widget_dict = {}
         self.tab_delete_enabled_b = False
-        self.tip_mode_b = False
         self.add_tab_handler = None
         self.delete_tab_handler = None
         self.rename_tab_handler = None
@@ -625,8 +628,8 @@ class PlotPanel(QWidget):
             return
         plot_widget = PlotWidget(plot_id_i)
         plot_widget.setObjectName(f"plot_widget_{plot_id_i}")
-        # LLFR-00042: a new plot starts in the current tip mode.
-        plot_widget.set_tip_mode(self.tip_mode_b)
+        # LLFR-00042, LLFR-00078, LLFR-00081: the new plot starts with no
+        # tool; MainWindow.add_plot_view applies the active plot tool.
         # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
         # LLFR-00049, LLFR-00070: every request carries the plot id.
         for signal_name_str, handler_name_str in (
@@ -678,15 +681,3 @@ class PlotPanel(QWidget):
             return []
         return [plot_widget.plot_id_i
                 for plot_widget in page.plot_widget_list]
-
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Turn hover tips on or off in every plot, now and later.
-
-        Inputs:
-            enabled_b: True while the Tip button is active.
-        Outputs: none.
-        """
-        # LLFR-00042: tips only while the Tip button is active.
-        self.tip_mode_b = bool(enabled_b)
-        for plot_widget in self.plot_widget_dict.values():
-            plot_widget.set_tip_mode(self.tip_mode_b)

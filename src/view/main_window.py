@@ -1,7 +1,7 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
 from PyQt6.QtWidgets import (
-    QFileDialog, QMainWindow, QVBoxLayout, QWidget)
+    QFileDialog, QInputDialog, QLineEdit, QMainWindow, QVBoxLayout, QWidget)
 
 from controller.plot_tools import NO_TOOL_STR
 from view import message_boxes
@@ -16,6 +16,9 @@ from view.top_panel import TopPanel
 # LLFR-00011.
 OPEN_FILE_DIALOG_TITLE_STR = "Open file"
 OPEN_FILE_FILTER_STR = "Time series files (*.csv *.xlsx *.mat);;All files (*)"
+# LLFR-00088: title and label of the marker rename dialog.
+RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
+RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
 
 
 class MainWindow(QMainWindow):
@@ -376,14 +379,15 @@ class MainWindow(QMainWindow):
         return self.plot_panel.plot_view(plot_id_i)
 
     def draw_plot(self, plot_id_i: int, curve_data_list: list,
-                  pinned_tip_list: list) -> None:
-        """Draw the curves and pinned tips of a plot.
+                  pinned_tip_list: list, marker_data_list=()) -> None:
+        """Draw the curves, pinned tips and vertical markers of a plot.
 
         Inputs:
             plot_id_i: id of the plot.
             curve_data_list: tuples (signal_name_str, time_array,
                 value_array, color_str, width_i).
             pinned_tip_list: tuples (signal_name_str, time_s, value_f).
+            marker_data_list: tuples (marker_id_i, name_str, time_s).
         Outputs: none. The plot shows the full time range afterwards.
         """
         # LLFR-00020, LLFR-00021, LLFR-00068: draw against time.
@@ -393,6 +397,8 @@ class MainWindow(QMainWindow):
             return
         plot_widget.set_curves(curve_data_list)
         plot_widget.set_pinned_tips(pinned_tip_list)
+        # LLFR-00081, LLFR-00091, LLFR-00112: draw the markers.
+        plot_widget.set_markers(marker_data_list)
 
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:
@@ -421,6 +427,25 @@ class MainWindow(QMainWindow):
         if plot_widget is None:
             return ()
         return plot_widget.time_range_tuple()
+
+    def ask_marker_name(self, current_name_str: str):
+        """Let the user type a new name for a vertical marker.
+
+        Inputs:
+            current_name_str: the marker's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when the user
+            cancelled the dialog.
+        """
+        # LLFR-00088: the dialog starts from the current name.
+        # LLFR-00089: a blank answer is returned as typed; the
+        # controller keeps the old name without a message.
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, RENAME_MARKER_DIALOG_TITLE_STR,
+            RENAME_MARKER_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
+            current_name_str)
+        if not accepted_b:
+            return None
+        return str(new_name_str)
 
     def show_full_tab_notification(self) -> None:
         """Show the Full Tab Notification box.

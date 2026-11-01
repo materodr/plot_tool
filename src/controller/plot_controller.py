@@ -1,4 +1,7 @@
-"""Plot controller: tabs, plots, curves and tips (HLFR-00012 to 00025).
+"""Plot controller: tabs, plots, curves, tips and vertical markers.
+
+It covers HLFR-00012 to HLFR-00025 and the vertical markers of
+HLFR-00028 to HLFR-00031.
 
 It keeps the Workspace model and tells the view what to show. It talks
 to the view only through plain method calls with plain values (ids,
@@ -10,7 +13,7 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``set_tab_delete_enabled``;
 - plots: ``add_plot_view``, ``remove_plot_view``, ``draw_plot``,
   ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``;
-- boxes: ``show_full_tab_notification``;
+- boxes: ``show_full_tab_notification``, ``ask_marker_name``;
 - handler setters: ``set_signal_double_click_handler``,
   ``set_plot_tool_handler``, ``set_tab_handlers`` and
   ``set_plot_handlers``.
@@ -19,7 +22,10 @@ Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
 """
 
-from controller.plot_tools import NO_TOOL_STR, is_known_plot_tool
+import math
+
+from controller.plot_tools import (
+    MARKER_TOOL_STR, NO_TOOL_STR, is_known_plot_tool)
 from model.workspace import Workspace
 
 
@@ -66,6 +72,8 @@ class PlotController:
                               self.on_rename_tab)
         # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
         # LLFR-00049, LLFR-00070: requests made on a plot.
+        # LLFR-00081, LLFR-00086, LLFR-00088, LLFR-00091: requests made
+        # on the vertical markers of a plot.
         view.set_plot_handlers(
             curve_delete_handler=self.on_curve_delete,
             curve_width_handler=self.on_curve_width,
@@ -73,7 +81,11 @@ class PlotController:
             signal_drop_handler=self.on_signal_dropped,
             tip_pin_handler=self.on_tip_pin,
             pinned_tip_delete_handler=self.on_pinned_tip_delete,
-            time_range_handler=self.on_time_range_changed)
+            time_range_handler=self.on_time_range_changed,
+            marker_place_handler=self.on_marker_place,
+            marker_move_handler=self.on_marker_move,
+            marker_rename_handler=self.on_marker_rename,
+            marker_delete_handler=self.on_marker_delete)
         # LLFR-00024: show the tabs of the model (one empty tab).
         self.rebuild_tab_views()
 
@@ -134,6 +146,18 @@ class PlotController:
                  curve.color_str, curve.width_i)
                 for curve in plot.curve_list]
 
+    def marker_data_list(self, plot) -> list:
+        """Return the drawing data of every vertical marker of a plot.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: a list of tuples (marker_id_i, name_str, time_s) in the
+            order the markers were placed.
+        """
+        # LLFR-00084, LLFR-00092: the label shows the name and the time.
+        return [(marker.marker_id_i, marker.name_str, marker.time_s)
+                for marker in plot.marker_list]
+
     def other_plot_list(self, plot) -> list:
         """Return the other plots in the tab of a plot.
 
@@ -149,7 +173,7 @@ class PlotController:
                 if other_plot is not plot]
 
     def redraw_plot(self, plot, new_plot_b: bool = False) -> None:
-        """Draw a plot's curves and pinned tips again.
+        """Draw a plot's curves, pinned tips and vertical markers again.
 
         Inputs:
             plot: the model Plot.
@@ -171,8 +195,10 @@ class PlotController:
         pinned_tip_list = [(pinned_tip.signal_name_str, pinned_tip.time_s,
                             pinned_tip.value_f)
                            for pinned_tip in plot.pinned_tip_list]
+        # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112: the markers
+        # are drawn on the same path as the curves.
         self.view.draw_plot(plot.plot_id_i, self.curve_data_list(plot),
-                            pinned_tip_list)
+                            pinned_tip_list, self.marker_data_list(plot))
         if range_tuple:
             start_s, end_s = range_tuple
             self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
@@ -431,3 +457,93 @@ class PlotController:
         # LLFR-00030: show the new name (without surrounding spaces).
         tab = self.workspace.find_tab(tab_id_i)
         self.view.rename_tab_view(tab_id_i, tab.name_str)
+
+    # ----------------------------------------------------------------
+    # Vertical markers
+    # ----------------------------------------------------------------
+
+    def on_marker_place(self, plot_id_i: int, time_s: float) -> None:
+        """Place a new vertical marker at a clicked time.
+
+        Inputs:
+            plot_id_i: id of the clicked plot.
+            time_s: time of the clicked point, in seconds.
+        Outputs: none. Ignored when the Vertical marker tool is not
+            active, the plot is unknown or the time is not finite.
+        """
+        # LLFR-00081: only while the Vertical marker button is active.
+        if self.plot_tool_str != MARKER_TOOL_STR:
+            return
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not math.isfinite(float(time_s)):
+            return
+        # LLFR-00085, LLFR-00111: the model names it "Marker N" and
+        # never reuses N. LLFR-00109: the tool stays active.
+        plot.add_marker(float(time_s))
+        self.redraw_plot(plot)
+
+    def on_marker_move(self, plot_id_i: int, marker_id_i: int,
+                       time_s: float) -> None:
+        """Leave a dragged vertical marker at the time of the release.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            marker_id_i: id of the dragged marker.
+            time_s: time where the mouse button was released, in s.
+        Outputs: none. Ignored when the Vertical marker tool is not
+            active, an id is unknown or the time is not finite.
+        """
+        # LLFR-00086: dragging works while the button is active.
+        if self.plot_tool_str != MARKER_TOOL_STR:
+            return
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not math.isfinite(float(time_s)):
+            return
+        if not plot.move_marker(marker_id_i, float(time_s)):
+            return
+        # LLFR-00092: the label shows the new time after the redraw.
+        self.redraw_plot(plot)
+
+    def on_marker_rename(self, plot_id_i: int, marker_id_i: int) -> None:
+        """Ask the user for a new marker name and show it.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            marker_id_i: id of the marker whose "Rename" was chosen.
+        Outputs: none. A cancelled dialog or an empty name changes
+            nothing and shows no message.
+        """
+        # LLFR-00088: let the user type the name, starting from the
+        # current one.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        marker = plot.find_marker(marker_id_i)
+        if marker is None:
+            return
+        new_name_str = self.view.ask_marker_name(marker.name_str)
+        if new_name_str is None:
+            return
+        # The plot may have changed while the dialog was open.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00089: a blank name keeps the old one, with no message.
+        if not plot.rename_marker(marker_id_i, str(new_name_str)):
+            return
+        # LLFR-00112: the label shows the new name.
+        self.redraw_plot(plot)
+
+    def on_marker_delete(self, plot_id_i: int, marker_id_i: int) -> None:
+        """Remove a vertical marker and its label from a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            marker_id_i: id of the marker whose "Delete" was chosen.
+        Outputs: none.
+        """
+        # LLFR-00091: remove the marker, then redraw without it.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.remove_marker(marker_id_i):
+            return
+        self.redraw_plot(plot)
