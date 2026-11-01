@@ -164,6 +164,54 @@ class DeltaWidgetTestCase(MarkerWidgetTestCase):
         self.assertGreater(float(vertex_array[tip_index_i, 1]),
                            end_y_px + 4.0)
 
+    def delta_y_side(self, marker_id_i: int) -> str:
+        """Return the side the widget chose for a Delta Y marker now.
+
+        Inputs:
+            marker_id_i: id of the delta marker.
+        Outputs: "right" or "left".
+        """
+        bracket = self.plot_widget.delta_artist_tuple(marker_id_i)[0]
+        return bracket.side_function(None)
+
+    def assert_delta_y_attached(self, marker_id_i: int, first_tuple: tuple,
+                                second_tuple: tuple) -> str:
+        """Check a Delta Y bracket: ends at the values, beside a point.
+
+        Inputs:
+            marker_id_i: id of the delta marker.
+            first_tuple: the first point.
+            second_tuple: the second point.
+        Outputs: the side the bracket is on, "right" or "left".
+        """
+        vertex_array = self.bracket_vertex_array(marker_id_i)
+        first_px = self.display_tuple(*first_tuple[1:])
+        second_px = self.display_tuple(*second_tuple[1:])
+        # LLFR-00170: the two ends are at the values of the points.
+        self.assertEqual(sorted(np.round(vertex_array[[0, -1], 1], 3)),
+                         sorted(np.round([first_px[1], second_px[1]], 3)))
+        end_x_px = float(vertex_array[0, 0])
+        side_str = self.delta_y_side(marker_id_i)
+        if side_str == "right":
+            # Just right of the later point, tip pointing right.
+            later_x_px = max(first_px[0], second_px[0])
+            self.assertGreater(end_x_px, later_x_px)
+            self.assertLess(end_x_px - later_x_px, 20.0)
+            self.assertGreater(float(np.max(vertex_array[:, 0])),
+                               end_x_px + 4.0)
+            self.assertGreaterEqual(float(np.min(vertex_array[:, 0])),
+                                    end_x_px - 1e-6)
+        else:
+            # Mirrored: just left of the earlier point, tip left.
+            earlier_x_px = min(first_px[0], second_px[0])
+            self.assertLess(end_x_px, earlier_x_px)
+            self.assertLess(earlier_x_px - end_x_px, 20.0)
+            self.assertLess(float(np.min(vertex_array[:, 0])),
+                            end_x_px - 4.0)
+            self.assertLessEqual(float(np.max(vertex_array[:, 0])),
+                                 end_x_px + 1e-6)
+        return side_str
+
 
 class DeltaPickTest(DeltaWidgetTestCase):
     """Clicks with the delta tools report curve samples."""
@@ -416,19 +464,80 @@ class DeltaDrawingTest(DeltaWidgetTestCase):
                     self.plot_widget.resize(450, 300)
                 self.draw()
                 self.assert_delta_x_attached(1, x_first, x_second)
-                vertex_array = self.bracket_vertex_array(2)
-                later_px = self.display_tuple(*y_second[1:])
-                self.assertGreater(float(vertex_array[0, 0]), later_px[0])
-                self.assertLess(float(vertex_array[0, 0]) - later_px[0],
-                                20.0)
-                self.assertEqual(
-                    sorted(np.round(vertex_array[[0, -1], 1], 3)),
-                    sorted(np.round([self.display_tuple(*y_first[1:])[1],
-                                     later_px[1]], 3)))
+                self.assert_delta_y_attached(2, y_first, y_second)
                 # LLFR-00173: the values never change.
                 self.assertEqual((self.plot_widget.delta_label_text(1),
                                   self.plot_widget.delta_label_text(2)),
                                  text_tuple)
+
+    @covers("LLFR-00170", "LLFR-00171", "LLFR-00173")
+    def test_delta_y_near_the_right_edge_is_mirrored_left(self) -> None:
+        """No room right of the later point: bracket and value go left.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_tuple = self.sine_point(8.0)
+        second_tuple = self.ramp_point(9.9)
+        self.set_delta_markers([(4, DELTA_Y_KIND_STR, first_tuple,
+                                 second_tuple)])
+        self.assertEqual(self.assert_delta_y_attached(4, first_tuple,
+                                                      second_tuple), "left")
+        bracket, leader, _, label = self.plot_widget.delta_artist_tuple(4)
+        axes_box = self.plot_widget.axes.bbox
+        vertex_array = self.bracket_vertex_array(4)
+        # The whole bracket and its leader lines are inside the plot.
+        for point_array in (vertex_array,
+                            np.asarray(leader.display_path().vertices)):
+            self.assertGreaterEqual(float(np.min(point_array[:, 0])),
+                                    axes_box.x0)
+            self.assertLessEqual(float(np.max(point_array[:, 0])),
+                                 axes_box.x1)
+        # LLFR-00171: the value is next to the tip, on its left, inside
+        # the plot and not over the bracket.
+        tip_px = vertex_array[int(np.argmin(vertex_array[:, 0]))]
+        box = self.plot_widget.tip_box_extent(label, self.renderer())
+        self.assertGreaterEqual(box.x0, axes_box.x0 - 0.5)
+        self.assertLessEqual(box.x1, float(tip_px[0]) + 0.5)
+        self.assertLess(float(tip_px[0]) - box.x1, 10.0)
+        self.assertLessEqual(box.y0, float(tip_px[1]))
+        self.assertGreaterEqual(box.y1, float(tip_px[1]))
+        # LLFR-00173: a zoom out that gives room on the right puts both
+        # back on the right of the later point.
+        self.plot_widget.set_time_range(0.0, 14.0)
+        self.draw()
+        self.assertEqual(self.assert_delta_y_attached(4, first_tuple,
+                                                      second_tuple), "right")
+        vertex_array = self.bracket_vertex_array(4)
+        tip_px = vertex_array[int(np.argmax(vertex_array[:, 0]))]
+        box = self.plot_widget.tip_box_extent(label, self.renderer())
+        self.assertGreaterEqual(box.x0, float(tip_px[0]) - 0.5)
+        self.assertLessEqual(box.x1, axes_box.x1 + 0.5)
+        # Its value never changes.
+        self.assertEqual(self.plot_widget.delta_label_text(4),
+                         f"Δy = {second_tuple[2] - first_tuple[2]:.6g}")
+
+    @covers("LLFR-00169", "LLFR-00171", "LLFR-00172")
+    def test_values_sit_in_a_bordered_tip_box(self) -> None:
+        """Both values use an opaque box bordered in the marker color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_delta_markers([
+            (1, DELTA_X_KIND_STR, self.sine_point(2.0),
+             self.ramp_point(6.0)),
+            (2, DELTA_Y_KIND_STR, self.sine_point(3.0),
+             self.ramp_point(5.0))])
+        for marker_id_i in (1, 2):
+            with self.subTest(marker=marker_id_i):
+                box_patch = self.plot_widget.delta_artist_tuple(
+                    marker_id_i)[3].get_bbox_patch()
+                self.assertIsNotNone(box_patch)
+                self.assertEqual(to_hex_str(box_patch.get_edgecolor()),
+                                 MARKER_COLOR_STR)
+                self.assertGreater(box_patch.get_linewidth(), 0.0)
+                self.assertGreaterEqual(box_patch.get_alpha(), 0.95)
 
     @covers("LLFR-00168", "LLFR-00076")
     def test_bracket_and_value_fit_above_the_highest_point(self) -> None:

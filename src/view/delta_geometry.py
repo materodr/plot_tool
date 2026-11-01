@@ -7,7 +7,10 @@ A delta marker (HLFR-00043, HLFR-00044) is drawn from its two points:
   point, with its middle tip pointing up;
 - a Delta Y marker (LLFR-00170) has a vertical curly bracket whose ends
   are at the values of the two points, a small gap to the right of the
-  later point, with its middle tip pointing right.
+  later point, with its middle tip pointing right; when the bracket and
+  its value do not fit there inside the plot, they are mirrored just to
+  the left of the earlier point, with the middle tip pointing left
+  (choose_delta_y_side).
 
 Thin leader lines join each point to its end of the bracket, so that
 the bracket is visibly attached to both points.
@@ -17,7 +20,7 @@ positions every time it is drawn, so it stays attached to its points
 at any zoom, pan or plot size (LLFR-00173), while its depth and gap stay
 the same size on screen. In this module "along" is the measured axis (x
 for Delta X, y for Delta Y) and "across" the other one, growing away
-from the points (up for Delta X, right for Delta Y).
+from the points (up for Delta X, right or left for Delta Y).
 """
 
 import numpy as np
@@ -26,7 +29,7 @@ from matplotlib.path import Path
 from matplotlib.transforms import IdentityTransform
 
 # LLFR-00168, LLFR-00170: the two kinds of delta markers.
-from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR  # noqa: F401
+from model.workspace import DELTA_X_KIND_STR
 
 # LLFR-00168, LLFR-00170: gap (points) from the higher (Delta X) or the
 # later (Delta Y) point to the bracket's ends, and the bracket's depth
@@ -35,6 +38,9 @@ from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR  # noqa: F401
 DELTA_GAP_POINTS_F = 5.0
 DELTA_DEPTH_POINTS_F = 9.0
 POINTS_PER_INCH_F = 72.0
+# LLFR-00170: the two sides a Delta Y bracket may be drawn on.
+RIGHT_SIDE_STR = "right"
+LEFT_SIDE_STR = "left"
 
 
 def brace_point_list(start_along_px: float, end_along_px: float,
@@ -78,9 +84,38 @@ def brace_point_list(start_along_px: float, end_along_px: float,
     return vertex_list, code_list
 
 
+def choose_delta_y_side(first_x_px: float, second_x_px: float,
+                        needed_px: float, area_left_px: float,
+                        area_right_px: float) -> str:
+    """Choose the side of a Delta Y bracket and its value.
+
+    Inputs:
+        first_x_px: display x of the first point.
+        second_x_px: display x of the second point.
+        needed_px: width, from a point, of the gap, the bracket and the
+            value label together.
+        area_left_px: left edge of the plot's drawing area.
+        area_right_px: right edge of the plot's drawing area.
+    Outputs: RIGHT_SIDE_STR when everything fits right of the later
+        point; else LEFT_SIDE_STR when it fits left of the earlier
+        point; else the side with more room.
+    """
+    # LLFR-00170: right of the later point first, mirrored left of the
+    # earlier point when only that fits; Note of LLFR-00170: with no
+    # side wide enough, the side with more room.
+    right_room_px = float(area_right_px) - max(first_x_px, second_x_px)
+    left_room_px = min(first_x_px, second_x_px) - float(area_left_px)
+    if right_room_px >= needed_px:
+        return RIGHT_SIDE_STR
+    if left_room_px >= needed_px:
+        return LEFT_SIDE_STR
+    return RIGHT_SIDE_STR if right_room_px >= left_room_px else LEFT_SIDE_STR
+
+
 def delta_geometry_tuple(kind_str: str, first_px_tuple: tuple,
                          second_px_tuple: tuple, gap_px: float,
-                         depth_px: float) -> tuple:
+                         depth_px: float,
+                         side_str: str = RIGHT_SIDE_STR) -> tuple:
     """Return the bracket, the leader lines and the tip of a marker.
 
     Inputs:
@@ -91,6 +126,9 @@ def delta_geometry_tuple(kind_str: str, first_px_tuple: tuple,
         gap_px: distance from the higher (Delta X) or later (Delta Y)
             point to the ends of the bracket.
         depth_px: height of the bracket's middle tip above its ends.
+        side_str: for a Delta Y marker, RIGHT_SIDE_STR (right of the
+            later point, tip right) or LEFT_SIDE_STR (left of the
+            earlier point, tip left); ignored for Delta X.
     Outputs: a tuple (bracket Path, leader Path, tip (x, y)), all in
         display pixels.
     """
@@ -107,7 +145,15 @@ def delta_geometry_tuple(kind_str: str, first_px_tuple: tuple,
         # (time grows to the right, so the later point is the rightmost).
         along_tuple = (first_y_px, second_y_px)
         point_across_tuple = (first_x_px, second_x_px)
-    base_px = max(point_across_tuple) + float(gap_px)
+    # LLFR-00168, LLFR-00170: away from the points; only a Delta Y
+    # marker may be mirrored to the left of its earlier point.
+    sign_f = 1.0
+    if kind_str != DELTA_X_KIND_STR and side_str == LEFT_SIDE_STR:
+        sign_f = -1.0
+    if sign_f > 0.0:
+        base_px = max(point_across_tuple) + float(gap_px)
+    else:
+        base_px = min(point_across_tuple) - float(gap_px)
     vertex_list, code_list = brace_point_list(along_tuple[0],
                                               along_tuple[1], depth_px)
     # LLFR-00173: the leader lines join each point to its end of the
@@ -115,7 +161,7 @@ def delta_geometry_tuple(kind_str: str, first_px_tuple: tuple,
     leader_vertex_list = []
     leader_code_list = []
     for along_px, across_px in zip(along_tuple, point_across_tuple):
-        leader_vertex_list += [(along_px, across_px - base_px),
+        leader_vertex_list += [(along_px, (across_px - base_px) * sign_f),
                                (along_px, 0.0)]
         leader_code_list += [Path.MOVETO, Path.LINETO]
     middle_px = (along_tuple[0] + along_tuple[1]) / 2.0
@@ -128,13 +174,13 @@ def delta_geometry_tuple(kind_str: str, first_px_tuple: tuple,
             point_list: points relative to the bracket's ends.
         Outputs: numpy array of shape (N, 2) in display pixels.
         """
-        # LLFR-00168, LLFR-00170: across grows up (Delta X) or right
-        # (Delta Y), away from the points.
+        # LLFR-00168, LLFR-00170: across grows up (Delta X), or right
+        # or left (Delta Y), away from the points.
         local_array = np.asarray(point_list, dtype=float).reshape(-1, 2)
         if kind_str == DELTA_X_KIND_STR:
             return np.column_stack((local_array[:, 0],
                                     local_array[:, 1] + base_px))
-        return np.column_stack((local_array[:, 1] + base_px,
+        return np.column_stack((base_px + sign_f * local_array[:, 1],
                                 local_array[:, 0]))
 
     bracket_path = Path(to_display_array(vertex_list), code_list)
@@ -214,6 +260,12 @@ class DeltaBracketPatch(PathPatch):
         second_point_tuple: the same for the second point.
         leader_b: True for the leader lines, False for the bracket.
         patch_keyword_dict: the PathPatch style (color, width, dashes).
+    Attributes:
+        side_function: function taking a renderer (or None) and
+            returning the side of a Delta Y bracket (RIGHT_SIDE_STR or
+            LEFT_SIDE_STR) for the current draw; the plot widget sets it
+            so that the bracket, the leader lines and the value label
+            always take the same side (LLFR-00170).
     """
 
     def __init__(self, kind_str: str, first_point_tuple: tuple,
@@ -237,11 +289,14 @@ class DeltaBracketPatch(PathPatch):
         self.first_point_tuple = tuple(first_point_tuple)
         self.second_point_tuple = tuple(second_point_tuple)
         self.leader_b = bool(leader_b)
+        # LLFR-00170: right of the later point unless told otherwise.
+        self.side_function = None
 
-    def display_path(self):
+    def display_path(self, renderer=None):
         """Return the path for the current axes position and resolution.
 
-        Inputs: none.
+        Inputs:
+            renderer: the matplotlib renderer of the draw, or None.
         Outputs: a matplotlib Path in display pixels.
         """
         # LLFR-00173: from the points' display positions; the gap and
@@ -253,10 +308,14 @@ class DeltaBracketPatch(PathPatch):
             (self.first_point_tuple[1], self.first_point_tuple[2]))
         second_px_array = axes.transData.transform(
             (self.second_point_tuple[1], self.second_point_tuple[2]))
+        # LLFR-00170: the side is chosen again at every draw.
+        side_str = RIGHT_SIDE_STR
+        if self.side_function is not None:
+            side_str = self.side_function(renderer)
         bracket_path, leader_path, _ = delta_geometry_tuple(
             self.kind_str, tuple(first_px_array), tuple(second_px_array),
             DELTA_GAP_POINTS_F * pixels_per_point_f,
-            DELTA_DEPTH_POINTS_F * pixels_per_point_f)
+            DELTA_DEPTH_POINTS_F * pixels_per_point_f, side_str)
         return leader_path if self.leader_b else bracket_path
 
     def draw(self, renderer) -> None:
@@ -269,5 +328,5 @@ class DeltaBracketPatch(PathPatch):
         # LLFR-00173: every draw places the bracket at its points.
         if self.axes is None:
             return
-        self._path = self.display_path()
+        self._path = self.display_path(renderer)
         super().draw(renderer)

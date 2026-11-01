@@ -141,9 +141,21 @@ DELTA_LEADER_LINE_STYLE_TUPLE = (0, (1.0, 2.0))
 # from its ends to its middle tip.
 DELTA_GAP_POINTS_F = delta_geometry.DELTA_GAP_POINTS_F
 DELTA_DEPTH_POINTS_F = delta_geometry.DELTA_DEPTH_POINTS_F
-# LLFR-00169, LLFR-00171: gap (points) between the tip and the value.
+# LLFR-00169, LLFR-00171: gap (points) between the tip and the box of
+# the value.
 DELTA_LABEL_GAP_POINTS_F = 2.0
 DELTA_FONT_SIZE_F = 9.0
+# LLFR-00169, LLFR-00171: the value sits in the box of a pinned tip,
+# with a border in the marker color, so curves never show through it.
+DELTA_LABEL_BOX_DICT = dict(theme.PINNED_TIP_BOX_DICT,
+                            edgecolor=MARKER_COLOR_STR)
+# The box padding of theme.PINNED_TIP_BOX_DICT ("pad=0.45", in font
+# sizes), in points: the text is set this much further from the tip.
+DELTA_LABEL_BOX_PAD_POINTS_F = 0.45 * DELTA_FONT_SIZE_F
+# Offset (points) from a point to the value text, beyond the bracket.
+DELTA_LABEL_OFFSET_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
+                               + DELTA_LABEL_GAP_POINTS_F
+                               + DELTA_LABEL_BOX_PAD_POINTS_F)
 # LLFR-00163, LLFR-00168, LLFR-00170: the dots on the points.
 DELTA_DOT_SIZE_F = 6.0
 DELTA_FIRST_DOT_SIZE_F = 7.5
@@ -156,7 +168,8 @@ DELTA_ZORDER_F = 8.5
 # for its bracket and its value, at most this part of the plot height.
 DELTA_HEADROOM_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
                            + DELTA_LABEL_GAP_POINTS_F
-                           + 2.0 * DELTA_FONT_SIZE_F)
+                           + 1.6 * DELTA_FONT_SIZE_F
+                           + 2.0 * DELTA_LABEL_BOX_PAD_POINTS_F)
 DELTA_HEADROOM_MAXIMUM_RATIO_F = 0.45
 # LLFR-00175: no delta marker is under the mouse.
 NO_DELTA_MARKER_ID_I = -1
@@ -1066,52 +1079,126 @@ class PlotWidget(QWidget):
             markeredgewidth=DELTA_DOT_EDGE_WIDTH_F,
             zorder=DELTA_ZORDER_F + 0.1)
         dots.set_in_layout(False)
-        label_offset_points_f = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
-                                 + DELTA_LABEL_GAP_POINTS_F)
         if kind_str == DELTA_X_KIND_STR:
-            # LLFR-00169: "Δt = <value> s" above the middle tip.
+            # LLFR-00169: "Δt = <value> s".
             text_str = value_text.format_delta_x_text(delta_f)
-            anchor_tuple = ((first_point_tuple[1]
-                             + second_point_tuple[1]) / 2.0,
-                            max(first_point_tuple[2], second_point_tuple[2]))
-            offset_tuple = (0.0, label_offset_points_f)
-            alignment_tuple = ("center", "bottom")
         else:
-            # LLFR-00171: "Δy = <value>" to the right of the middle tip.
+            # LLFR-00171: "Δy = <value>".
             text_str = value_text.format_delta_y_text(delta_f)
-            anchor_tuple = (max(first_point_tuple[1], second_point_tuple[1]),
-                            (first_point_tuple[2]
-                             + second_point_tuple[2]) / 2.0)
-            offset_tuple = (label_offset_points_f, 0.0)
-            alignment_tuple = ("left", "center")
         label = self.axes.annotate(
-            text_str, xy=anchor_tuple, xytext=offset_tuple,
-            textcoords="offset points", parse_math=False,
-            color=MARKER_COLOR_STR, fontsize=DELTA_FONT_SIZE_F,
-            horizontalalignment=alignment_tuple[0],
-            verticalalignment=alignment_tuple[1],
-            bbox=dict(MARKER_TEXT_BOX_DICT), zorder=DELTA_ZORDER_F + 0.2)
+            text_str, xy=(first_point_tuple[1], first_point_tuple[2]),
+            xytext=(0.0, 0.0), textcoords="offset points",
+            parse_math=False, color=MARKER_COLOR_STR,
+            fontsize=DELTA_FONT_SIZE_F, bbox=dict(DELTA_LABEL_BOX_DICT),
+            zorder=DELTA_ZORDER_F + 0.2)
         label.set_in_layout(False)
-        # LLFR-00173: every draw starts from the position beside the tip
-        # and keeps the value inside the plot, as for pinned tips.
-        label.draw = functools.partial(self.draw_delta_label, label,
-                                       offset_tuple, label.draw)
+        if kind_str != DELTA_X_KIND_STR:
+            # LLFR-00170: the bracket, the leader lines and the value
+            # always take the same side, chosen again at every draw.
+            side_function = functools.partial(
+                self.delta_y_side_str, first_point_tuple,
+                second_point_tuple, label)
+            bracket.side_function = side_function
+            leader.side_function = side_function
+        self.place_delta_label(label, kind_str, first_point_tuple,
+                               second_point_tuple)
+        # LLFR-00173: every draw places the value next to the tip again
+        # and keeps it inside the plot, as for pinned tips.
+        label.draw = functools.partial(
+            self.draw_delta_label, label, kind_str, first_point_tuple,
+            second_point_tuple, label.draw)
         return (bracket, leader, dots, label)
 
-    def draw_delta_label(self, label, offset_tuple: tuple, original_draw,
+    def delta_y_side_str(self, first_point_tuple: tuple,
+                         second_point_tuple: tuple, label,
+                         renderer=None) -> str:
+        """Return the side a Delta Y bracket and its value are drawn on.
+
+        Inputs:
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
+            label: the matplotlib Annotation of the value.
+            renderer: the renderer of the draw, or None for the canvas's.
+        Outputs: delta_geometry.RIGHT_SIDE_STR or LEFT_SIDE_STR.
+        """
+        # LLFR-00170: right of the later point when the gap, the bracket
+        # and the value fit inside the plot's drawing area, else mirrored
+        # left of the earlier point; with neither, the side with more
+        # room. Measured with the current axes and resolution, so the
+        # screen and the PDF export (LLFR-00129) agree.
+        if renderer is None:
+            renderer = self.canvas.get_renderer()
+        pixels_per_point_f = float(self.figure.dpi) / POINTS_PER_INCH_F
+        label_width_px = float(self.tip_box_extent(label, renderer).width)
+        needed_px = ((DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
+                      + DELTA_LABEL_GAP_POINTS_F) * pixels_per_point_f
+                     + label_width_px)
+        first_x_px = float(self.axes.transData.transform(
+            (first_point_tuple[1], first_point_tuple[2]))[0])
+        second_x_px = float(self.axes.transData.transform(
+            (second_point_tuple[1], second_point_tuple[2]))[0])
+        axes_box = self.axes.bbox
+        return delta_geometry.choose_delta_y_side(
+            first_x_px, second_x_px, needed_px, float(axes_box.x0),
+            float(axes_box.x1))
+
+    def place_delta_label(self, label, kind_str: str,
+                          first_point_tuple: tuple, second_point_tuple: tuple,
+                          renderer=None) -> None:
+        """Put a delta marker's value next to the middle tip of its bracket.
+
+        Inputs:
+            label: the matplotlib Annotation of the value.
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
+            renderer: the renderer of the draw, or None for the canvas's.
+        Outputs: none.
+        """
+        if kind_str == DELTA_X_KIND_STR:
+            # LLFR-00169: above the middle tip, which is above the
+            # higher point.
+            label.xy = ((first_point_tuple[1] + second_point_tuple[1]) / 2.0,
+                        max(first_point_tuple[2], second_point_tuple[2]))
+            label.set_position((0.0, DELTA_LABEL_OFFSET_POINTS_F))
+            label.set_horizontalalignment("center")
+            label.set_verticalalignment("bottom")
+            return
+        # LLFR-00171: beside the middle tip, on the side of LLFR-00170.
+        middle_value_f = (first_point_tuple[2] + second_point_tuple[2]) / 2.0
+        label.set_verticalalignment("center")
+        if self.delta_y_side_str(first_point_tuple, second_point_tuple,
+                                 label, renderer) == (
+                delta_geometry.RIGHT_SIDE_STR):
+            label.xy = (max(first_point_tuple[1], second_point_tuple[1]),
+                        middle_value_f)
+            label.set_position((DELTA_LABEL_OFFSET_POINTS_F, 0.0))
+            label.set_horizontalalignment("left")
+        else:
+            label.xy = (min(first_point_tuple[1], second_point_tuple[1]),
+                        middle_value_f)
+            label.set_position((-DELTA_LABEL_OFFSET_POINTS_F, 0.0))
+            label.set_horizontalalignment("right")
+
+    def draw_delta_label(self, label, kind_str: str, first_point_tuple: tuple,
+                         second_point_tuple: tuple, original_draw,
                          renderer) -> None:
         """Draw a delta marker's value beside its tip, inside the axes.
 
         Inputs:
             label: the matplotlib Annotation of the value.
-            offset_tuple: its offset (points) from its anchor.
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
             original_draw: the Annotation's own draw method.
             renderer: the matplotlib renderer of this draw.
         Outputs: none.
         """
-        # LLFR-00169, LLFR-00171, LLFR-00173: next to the middle tip,
-        # moved only as far as needed to stay readable in the plot.
-        label.set_position(offset_tuple)
+        # LLFR-00169, LLFR-00171, LLFR-00173: next to the middle tip, on
+        # the side of this draw, moved only as far as needed to stay
+        # readable in the plot.
+        self.place_delta_label(label, kind_str, first_point_tuple,
+                               second_point_tuple, renderer)
         self.keep_tip_inside_axes(label, renderer)
         original_draw(renderer)
 

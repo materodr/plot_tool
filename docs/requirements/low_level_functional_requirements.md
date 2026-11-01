@@ -956,7 +956,9 @@ A Delta X marker must show the text "Δt = <value> s" next to the middle tip of 
 *Parent: HLFR-00043, HLFR-00007*
 
 ### LLFR-00170 Delta Y marker
-A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle tip pointing right, away from the points.
+A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle tip pointing right, away from the points. When the bracket and its value (LLFR-00171) do not fit to the right of the later point inside the plot's drawing area, the app must draw them mirrored, just to the left of the earlier of the two points, with the middle tip pointing left.
+
+Note: If neither side has room for the bracket and its value, the app uses the side with more room. The bracket is cut at the edge of the plot only when one of its points is itself outside the shown x-axis range, or when the two points leave less room than the bracket needs on both sides.
 
 *Parent: HLFR-00044*
 

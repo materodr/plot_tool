@@ -11,7 +11,7 @@ import numpy as np
 from tests.support import covers
 
 from view import delta_geometry, value_text
-from view.delta_geometry import DELTA_X_KIND_STR, DELTA_Y_KIND_STR
+from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR
 
 GAP_PX_F = 5.0
 DEPTH_PX_F = 10.0
@@ -66,6 +66,51 @@ class BracketShapeTest(unittest.TestCase):
         self.assertEqual([tuple(point) for point in leader_path.vertices],
                          [(300.0, 50.0), (305.0, 50.0),
                           (100.0, 80.0), (305.0, 80.0)])
+
+    @covers("LLFR-00170")
+    def test_delta_y_mirrored_left_of_the_earlier_point(self) -> None:
+        """On the left side: left of the earlier point, tip left.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        bracket_path, leader_path, tip_tuple = (
+            delta_geometry.delta_geometry_tuple(
+                DELTA_Y_KIND_STR, (300.0, 50.0), (100.0, 80.0), GAP_PX_F,
+                DEPTH_PX_F, delta_geometry.LEFT_SIDE_STR))
+        vertex_array = bracket_path.vertices
+        self.assertEqual(tuple(vertex_array[0]), (95.0, 50.0))
+        self.assertEqual(tuple(vertex_array[-1]), (95.0, 80.0))
+        self.assertLessEqual(float(np.max(vertex_array[:, 0])), 95.0)
+        self.assertEqual(tip_tuple, (85.0, 65.0))
+        self.assertEqual(float(np.min(vertex_array[:, 0])), 85.0)
+        self.assertEqual([tuple(point) for point in leader_path.vertices],
+                         [(300.0, 50.0), (95.0, 50.0),
+                          (100.0, 80.0), (95.0, 80.0)])
+        # A Delta X marker ignores the side.
+        x_path, _, _ = delta_geometry.delta_geometry_tuple(
+            DELTA_X_KIND_STR, (100.0, 50.0), (300.0, 80.0), GAP_PX_F,
+            DEPTH_PX_F, delta_geometry.LEFT_SIDE_STR)
+        self.assertEqual(tuple(x_path.vertices[0]), (100.0, 85.0))
+
+    @covers("LLFR-00170")
+    def test_side_choice(self) -> None:
+        """Right when it fits, else left when it fits, else more room.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        choose = delta_geometry.choose_delta_y_side
+        right_str = delta_geometry.RIGHT_SIDE_STR
+        left_str = delta_geometry.LEFT_SIDE_STR
+        # Area 0..500; points at 200 and 300; 150 px needed.
+        self.assertEqual(choose(200.0, 300.0, 150.0, 0.0, 500.0), right_str)
+        self.assertEqual(choose(300.0, 200.0, 150.0, 0.0, 500.0), right_str)
+        # Later point at 450: no room right, room left of 200.
+        self.assertEqual(choose(200.0, 450.0, 150.0, 0.0, 500.0), left_str)
+        # Neither fits: the side with more room.
+        self.assertEqual(choose(100.0, 450.0, 150.0, 0.0, 500.0), left_str)
+        self.assertEqual(choose(20.0, 400.0, 150.0, 0.0, 500.0), right_str)
 
     @covers("LLFR-00168", "LLFR-00170")
     def test_bracket_is_symmetric_and_reversed_points_match(self) -> None:
