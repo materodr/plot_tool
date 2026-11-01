@@ -536,20 +536,50 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         plot_widget = self.current_widget_list[0]
         # LLFR-00133, LLFR-00129: the copied image and the PDF pages are
         # grabs of the tab page, which paint each plot from its canvas
-        # image. The grab hides the preview first, so each canvas image
-        # it painted is the same as a new full draw, which never draws
-        # the preview. (Grabs of the whole page are not compared: other
-        # widgets of the page may differ between grabs.)
+        # image. When the page is grabbed, no plot shows the preview, and
+        # no preview artist is drawn on any canvas during the export.
+        # (Pixels of separate draws are not compared: the plots fit
+        # their legend and tips at each draw, so two draws may differ.)
         self.hover(plot_widget, 2.5)
         self.assert_preview_on_current_tab(2.5)
-        page_image = plot_export.grab_page_image(page)
-        self.assertFalse(page_image.isNull())
+        shown_at_grab_list = []
+        original_grab = page.grab
+
+        def recording_grab(*argument_tuple):
+            """Record which plots show the preview, then grab.
+
+            Inputs:
+                argument_tuple: the arguments of QWidget.grab.
+            Outputs: the QPixmap of the grab.
+            """
+            shown_at_grab_list.append(
+                [page_widget.marker_preview_shown()
+                 for page_widget in page.plot_widget_list])
+            return original_grab(*argument_tuple)
+
+        page.grab = recording_grab
+        preview_artist_list = []
+        patcher_list = [mock.patch.object(
+            page_widget.axes, "draw_artist",
+            wraps=page_widget.axes.draw_artist)
+            for page_widget in page.plot_widget_list]
+        draw_artist_mock_list = [patcher.start() for patcher in patcher_list]
+        try:
+            page_image = plot_export.grab_page_image(page)
+            self.application.processEvents()
+        finally:
+            for patcher in patcher_list:
+                patcher.stop()
+            del page.grab
         for page_widget in page.plot_widget_list:
-            grabbed_array = np.array(page_widget.canvas.buffer_rgba(),
-                                     copy=True)
-            page_widget.canvas.draw()
-            self.assertTrue(np.array_equal(
-                grabbed_array, np.asarray(page_widget.canvas.buffer_rgba())))
+            preview_artist_list.extend((page_widget.preview_line,
+                                        page_widget.preview_time_text))
+        self.assertFalse(page_image.isNull())
+        self.assertEqual(shown_at_grab_list,
+                         [[False] * CURRENT_TAB_PLOT_COUNT_I])
+        for draw_artist_mock in draw_artist_mock_list:
+            for call in draw_artist_mock.call_args_list:
+                self.assertNotIn(call.args[0], preview_artist_list)
         self.assert_no_preview()
         # The next mouse move over a plot shows it again.
         self.hover(plot_widget, 3.0)
