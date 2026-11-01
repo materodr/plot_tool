@@ -10,8 +10,6 @@ the plots. No modal dialog or menu is ever left open.
 
 import unittest
 
-import numpy as np
-
 from tests.support import covers, get_qt_application, requires_qt
 from tests.view.test_shift_key import ShiftKeyWindowTestCase
 from tests.view.test_tip_key import make_key_event, send_key
@@ -412,6 +410,41 @@ class XyKeyMainWindowTest(XyzKeyWindowTestCase):
                 self.release_key(other_key_name_str)
                 self.release_key(key_name_str)
                 self.assert_tool_everywhere(NO_TOOL_STR)
+
+    @covers("LLFR-00200", "LLFR-00197", "LLFR-00150", "LLFR-00148")
+    def test_ctrl_y_and_ctrl_x_never_activate_a_delta_tool(self) -> None:
+        """Ctrl+Y (Redo) and Ctrl+X, with Ctrl pressed first or only as
+        a modifier, and Alt or Meta with Y, never activate Delta X or
+        Delta Y; pressing Y while Ctrl is held ends the Tip hold.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for key_name_str in ("Key_Y", "Key_X"):
+            # The Tip key first, then the letter: the Tip hold ends.
+            self.press_key("Key_Control",
+                           modifier_name_str="ControlModifier")
+            self.assert_tool_everywhere(TIP_TOOL_STR)
+            self.press_key(key_name_str,
+                           modifier_name_str="ControlModifier")
+            self.assert_tool_everywhere(NO_TOOL_STR)
+            self.release_key(key_name_str)
+            self.assert_tool_everywhere(NO_TOOL_STR)
+            self.release_key("Key_Control")
+            self.assert_tool_everywhere(NO_TOOL_STR)
+            # Only the modifier flag, as a lost Ctrl press would leave it.
+            for modifier_name_str in ("ControlModifier", "MetaModifier",
+                                      "AltModifier", "ShiftModifier"):
+                self.press_key(key_name_str,
+                               modifier_name_str=modifier_name_str)
+                self.assert_tool_everywhere(NO_TOOL_STR)
+                self.release_key(key_name_str)
+                self.assert_tool_everywhere(NO_TOOL_STR)
+        # Y alone still works afterwards.
+        self.press_key("Key_Y")
+        self.assert_tool_everywhere(DELTA_Y_TOOL_STR)
+        self.release_key("Key_Y")
+        self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00197", "LLFR-00200")
     def test_auto_repeat_keeps_the_hold(self) -> None:
