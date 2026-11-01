@@ -9,6 +9,10 @@
 - Unexpected Error box: error box shown when an unexpected error
   reaches the event loop, instead of letting the app abort
   (HLFR-00002, PCR-00025).
+- Nothing to Export and Nothing to Copy boxes: information boxes shown
+  when there is no plot to save or copy (LLFR-00145, LLFR-00146).
+- Export Error and Copy Error boxes: error boxes shown when the PDF file
+  could not be saved (LLFR-00131) or the image could not be copied.
 
 Each box is made by a ``build_*`` function, so tests can inspect it
 without opening a modal dialog. The ``show_*`` and ``ask_*`` functions
@@ -32,6 +36,16 @@ UNEXPECTED_ERROR_TITLE_STR = "Error"
 UNEXPECTED_ERROR_INTRO_STR = (
     "An unexpected error occurred. The app keeps running, but the last "
     "action may not have finished.")
+# LLFR-00145, LLFR-00146: the information boxes of the export.
+EXPORT_TITLE_STR = "Export"
+NOTHING_TO_EXPORT_MESSAGE_STR = "There are no plots to export."
+COPY_TITLE_STR = "Copy"
+NOTHING_TO_COPY_MESSAGE_STR = "There are no plots to copy."
+# LLFR-00131: the error boxes of the export and of the copy.
+EXPORT_ERROR_TITLE_STR = "Export Error"
+EXPORT_ERROR_INTRO_STR = "The file could not be saved."
+COPY_ERROR_TITLE_STR = "Copy Error"
+COPY_ERROR_INTRO_STR = "The plots could not be copied to the clipboard."
 
 
 def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
@@ -170,3 +184,100 @@ def show_unexpected_error(parent, message_str: str) -> None:
     """
     # LLFR-00071: notify the error instead of aborting (HLFR-00002).
     build_unexpected_error_box(parent, message_str).exec()
+
+
+def build_message_box(parent, icon, title_str: str,
+                      message_str: str) -> QMessageBox:
+    """Build a box with one OK button.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        icon: the QMessageBox.Icon of the box.
+        title_str: the window title.
+        message_str: the text of the box.
+    Outputs: the QMessageBox, not shown.
+    """
+    # LLFR-00131, LLFR-00145, LLFR-00146: the boxes of the export.
+    box = QMessageBox(parent)
+    box.setIcon(icon)
+    box.setWindowTitle(title_str)
+    box.setText(message_str)
+    box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    box.setDefaultButton(QMessageBox.StandardButton.Ok)
+    return box
+
+
+def join_reason(intro_str: str, reason_str: str) -> str:
+    """Return an error text followed by its reason, when there is one.
+
+    Inputs:
+        intro_str: the first sentence of the error text.
+        reason_str: why the action failed, or "".
+    Outputs: the text shown in the error box.
+    """
+    # LLFR-00131: the box says that the file could not be saved and why.
+    if reason_str:
+        return f"{intro_str}\n\n{reason_str}"
+    return intro_str
+
+
+def build_nothing_to_export_box(parent) -> QMessageBox:
+    """Build the information box shown when no tab holds a plot.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+    Outputs: a QMessageBox with the information icon, the title
+        EXPORT_TITLE_STR and the text NOTHING_TO_EXPORT_MESSAGE_STR.
+    """
+    # LLFR-00145: an information box, not an error box.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             EXPORT_TITLE_STR,
+                             NOTHING_TO_EXPORT_MESSAGE_STR)
+
+
+def build_nothing_to_copy_box(parent) -> QMessageBox:
+    """Build the information box shown when the current tab has no plot.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+    Outputs: a QMessageBox with the information icon, the title
+        COPY_TITLE_STR and the text NOTHING_TO_COPY_MESSAGE_STR.
+    """
+    # LLFR-00146: an information box, not an error box.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             COPY_TITLE_STR, NOTHING_TO_COPY_MESSAGE_STR)
+
+
+def build_export_error_box(parent, reason_str: str) -> QMessageBox:
+    """Build the error box shown when the PDF file could not be saved.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        reason_str: why the file could not be written, or "".
+    Outputs: a QMessageBox with the critical icon, the title
+        EXPORT_ERROR_TITLE_STR and a text that starts with
+        EXPORT_ERROR_INTRO_STR and ends with the reason.
+    """
+    # LLFR-00131: an error box saying the file could not be saved
+    # (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             EXPORT_ERROR_TITLE_STR,
+                             join_reason(EXPORT_ERROR_INTRO_STR,
+                                         reason_str))
+
+
+def build_copy_error_box(parent, reason_str: str) -> QMessageBox:
+    """Build the error box shown when the image could not be copied.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        reason_str: why the copy failed, or "".
+    Outputs: a QMessageBox with the critical icon, the title
+        COPY_ERROR_TITLE_STR and a text that starts with
+        COPY_ERROR_INTRO_STR.
+    """
+    # LLFR-00133: a failed copy is notified with an error box
+    # (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             COPY_ERROR_TITLE_STR,
+                             join_reason(COPY_ERROR_INTRO_STR, reason_str))
