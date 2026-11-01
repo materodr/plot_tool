@@ -89,6 +89,7 @@ class PlotController:
             signal_drop_handler=self.on_signal_dropped,
             tip_pin_handler=self.on_tip_pin,
             pinned_tip_delete_handler=self.on_pinned_tip_delete,
+            pinned_tip_move_handler=self.on_pinned_tip_move,
             time_range_handler=self.on_time_range_changed,
             marker_place_handler=self.on_marker_place,
             marker_move_handler=self.on_marker_move,
@@ -205,8 +206,10 @@ class PlotController:
                 range_tuple = self.view.plot_time_range(
                     other_plot_list[0].plot_id_i)
         # LLFR-00068: time on the x-axis; LLFR-00045: pinned tips.
+        # LLFR-00152: each tip with the offset of its label.
         pinned_tip_list = [(pinned_tip.signal_name_str, pinned_tip.time_s,
-                            pinned_tip.value_f)
+                            pinned_tip.value_f,
+                            pinned_tip.label_offset_tuple)
                            for pinned_tip in plot.pinned_tip_list]
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112: the markers
         # are drawn on the same path as the curves.
@@ -469,6 +472,34 @@ class PlotController:
         if not 0 <= tip_index_i < len(plot.pinned_tip_list):
             return
         plot.remove_pinned_tip(plot.pinned_tip_list[tip_index_i])
+        self.redraw_plot(plot)
+
+    def on_pinned_tip_move(self, plot_id_i: int, tip_index_i: int,
+                           offset_x_f: float, offset_y_f: float) -> None:
+        """Keep a pinned tip's label where the user dragged it.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            tip_index_i: index of the tip in the list last drawn.
+            offset_x_f: new offset, in points, from the tip's point to
+                the center of its label, to the right.
+            offset_y_f: the same offset, upwards.
+        Outputs: none. An unknown plot or tip, or an offset that is not
+            finite, is ignored.
+        """
+        # LLFR-00152: the label stays where the button was released; the
+        # tip keeps showing the values of the same point (HLFR-00041).
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        if not 0 <= tip_index_i < len(plot.pinned_tip_list):
+            return
+        try:
+            plot.move_pinned_tip(plot.pinned_tip_list[tip_index_i],
+                                 (offset_x_f, offset_y_f))
+        except (TypeError, ValueError):
+            # LLFR-00152: an offset that cannot be drawn changes nothing.
+            return
         self.redraw_plot(plot)
 
     # ----------------------------------------------------------------

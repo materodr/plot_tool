@@ -5,6 +5,7 @@ workspace holds, and the controller changes the workspace when the user
 acts.
 """
 
+import math
 import random
 from dataclasses import dataclass
 
@@ -20,6 +21,9 @@ DEFAULT_WIDTH_I = 1
 TAB_NAME_PREFIX_STR = "Tab "
 # LLFR-00085: default name of a new vertical marker ("Marker 1", ...).
 DEFAULT_MARKER_NAME_FORMAT_STR = "Marker {}"
+# LLFR-00152: label offset of a pinned tip that was never moved; the
+# view then places the label beside its point by itself.
+AUTOMATIC_LABEL_OFFSET_TUPLE = ()
 
 
 @dataclass
@@ -45,11 +49,19 @@ class PinnedTip:
         signal_name_str: name of the signal whose curve holds the point.
         time_s: x-axis value of the point, in seconds.
         value_f: y-axis value of the point, as stored in the file.
+        label_offset_tuple: where the tip's label is drawn, as the
+            offset (x, y) in typographic points from the point to the
+            center of the label, x to the right and y upwards; the
+            empty tuple AUTOMATIC_LABEL_OFFSET_TUPLE until the user
+            moves the tip (LLFR-00152). An offset in points keeps the
+            label at the same place on screen relative to its point
+            when the plot is zoomed or panned.
     """
 
     signal_name_str: str
     time_s: float
     value_f: float
+    label_offset_tuple: tuple = AUTOMATIC_LABEL_OFFSET_TUPLE
 
 
 @dataclass
@@ -249,6 +261,34 @@ class Plot:
         for index_i, held_tip in enumerate(self.pinned_tip_list):
             if held_tip is pinned_tip:
                 del self.pinned_tip_list[index_i]
+                return True
+        return False
+
+    def move_pinned_tip(self, pinned_tip: PinnedTip,
+                        label_offset_tuple: tuple) -> bool:
+        """Move the label of a pinned tip; its point stays the same.
+
+        Inputs:
+            pinned_tip: the PinnedTip object to move.
+            label_offset_tuple: the new offset (x, y), in points, from
+                the tip's point to the center of its label.
+        Outputs: True when the tip was moved, False when it is not in
+            this plot. Raises ValueError when the offset is not two
+            finite numbers.
+        """
+        # LLFR-00152, HLFR-00041: only the label moves; the signal, time
+        # and value shown stay those of the same point.
+        offset_tuple = tuple(label_offset_tuple)
+        if len(offset_tuple) != 2:
+            raise ValueError("A label offset needs an x and a y value.")
+        offset_x_f, offset_y_f = (float(offset_tuple[0]),
+                                  float(offset_tuple[1]))
+        if not (math.isfinite(offset_x_f) and math.isfinite(offset_y_f)):
+            raise ValueError("A label offset must be finite.")
+        # LLFR-00152: compare by identity, as remove_pinned_tip does.
+        for held_tip in self.pinned_tip_list:
+            if held_tip is pinned_tip:
+                held_tip.label_offset_tuple = (offset_x_f, offset_y_f)
                 return True
         return False
 
