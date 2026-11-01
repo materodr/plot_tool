@@ -1184,6 +1184,35 @@ class TabActionTest(PlotControllerTestCase):
                          self.workspace.tab_list[1].tab_id_i)
         self.assertTrue(self.view.delete_enabled_b)
 
+    @covers("LLFR-00210", "LLFR-00026", "LLFR-00028", "LLFR-00138",
+            "LLFR-00016", "HLFR-00015")
+    def test_tab_numbers_not_reused_until_a_file_opens(self) -> None:
+        """Deleted and undone tab numbers stay used; a file restarts them.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.handler_dict["add_tab"]()
+        second_tab_id_i = self.view.current_tab_id()
+        self.view.handler_dict["add_tab"]()
+        self.view.handler_dict["delete_tab"](second_tab_id_i)
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 4"])
+        # LLFR-00210: undoing the add of Tab 4 does not free its number.
+        self.view.handler_dict["undo"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3"])
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 5"])
+        # LLFR-00210, LLFR-00016: a replaced file restarts at Tab 1.
+        self.file_controller.open(make_signal_file(2), True)
+        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+
     @covers("LLFR-00028", "LLFR-00066", "HLFR-00016")
     def test_delete_tab_removes_it_but_never_the_last(self) -> None:
         """Delete removes a tab; the last tab is kept, Delete disabled.

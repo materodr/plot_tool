@@ -674,6 +674,9 @@ class Workspace:
         # LLFR-00024: ids count up and are never reused.
         self.next_tab_id_i = 1
         self.next_plot_id_i = 1
+        # LLFR-00210: number of the next default tab name; it only
+        # grows, and only reset() (a file opened) restarts it.
+        self.next_tab_number_i = 1
         # LLFR-00081: marker ids are unique across all plots and keep
         # counting up after reset().
         self.marker_id_counter = MarkerIdCounter()
@@ -689,6 +692,8 @@ class Workspace:
         """
         # LLFR-00015: close all tabs and plots of the previous file.
         self.tab_list = []
+        # LLFR-00210, LLFR-00016: tab numbering restarts with "Tab 1".
+        self.next_tab_number_i = 1
         # LLFR-00016: one tab with no plots; ids keep counting up.
         self.add_tab()
 
@@ -696,15 +701,12 @@ class Workspace:
         """Return the default name of a new tab.
 
         Inputs: none.
-        Outputs: "Tab <n>", where n is the smallest number from 1 up
-            that no current tab name uses.
+        Outputs: "Tab <n>", where n is the next number of the tab
+            counter. The counter is not advanced; add_tab does that.
         """
-        # LLFR-00026: default names "Tab 1", "Tab 2", ...
-        used_name_set = {tab.name_str for tab in self.tab_list}
-        number_i = 1
-        while f"{TAB_NAME_PREFIX_STR}{number_i}" in used_name_set:
-            number_i += 1
-        return f"{TAB_NAME_PREFIX_STR}{number_i}"
+        # LLFR-00026, LLFR-00210: default names "Tab 1", "Tab 2", ...
+        # numbered by a counter, so a deleted tab's number is not reused.
+        return f"{TAB_NAME_PREFIX_STR}{self.next_tab_number_i}"
 
     def add_tab(self) -> Tab:
         """Add a new empty tab after the last one.
@@ -715,6 +717,9 @@ class Workspace:
         # LLFR-00026: the "+" button adds a new tab.
         tab = Tab(self.next_tab_id_i, self.next_tab_name())
         self.next_tab_id_i += 1
+        # LLFR-00210: the number is used up, even if the tab is deleted
+        # or its creation undone (restore() never rolls it back).
+        self.next_tab_number_i += 1
         self.tab_list.append(tab)
         return tab
 

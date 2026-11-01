@@ -170,10 +170,11 @@ class FakeFileView(FakeSignalListView):
         self.path_str = ""
         self.replace_answer_b = True
 
-    def ask_open_file_path(self) -> str:
+    def ask_open_file_path(self, start_folder_str: str) -> str:
         """Return the prepared path.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: the folder the dialog would show (unused).
         Outputs: the path.
         """
         return self.path_str
