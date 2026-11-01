@@ -23,6 +23,7 @@ from view.matplotlib_cache import (  # noqa: E402
 # built app keeps matplotlib's font list between launches (issue #67).
 use_persistent_matplotlib_folder()
 
+from PyQt6 import sip  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from controller.main_controller import MainController  # noqa: E402
@@ -49,7 +50,15 @@ def main() -> int:
     # window is shown and quit (build check, issue #67).
     install_startup_probe(application, main_window, MAIN_START_S,
                           load_signal_file)
-    return application.exec()
+    exit_code_i = application.exec()
+    # LLFR-00058: close down in a fixed order: the window with its
+    # panels and plots first, while the application still exists, and
+    # the application last (when main returns). Left to the interpreter
+    # exit, Qt objects were destroyed in any order, which sometimes
+    # crashed the app on macOS when it quit (issue #67).
+    sys.excepthook = sys.__excepthook__
+    sip.delete(main_window)
+    return exit_code_i
 
 
 if __name__ == "__main__":
