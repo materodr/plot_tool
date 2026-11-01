@@ -617,7 +617,7 @@ The layout file must hold:
 7. for each pinned data tip, its plot, the signal and time of its point, and its position relative to the point;
 8. for each delta marker, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
 9. the widths of the plot panel and the signal list panel;
-10. for each synthetic signal, in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency and the filter order (Low-pass and High-pass filters), the window size (Moving average), the constant (Comparison operations and Arithmetic operations with a constant) or the time range (FFT).
+10. for each synthetic signal, in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average), the constant (Comparison operations and Arithmetic operations with a constant) or the time range (FFT).
 
 *Parent: HLFR-00049, HLFR-00056*
 
@@ -855,14 +855,14 @@ The Derivative of a signal must have, at each time sample, the rate of change of
 *Parent: HLFR-00053*
 
 ### LLFR-00245 Filter dialog
-When the user chooses "Low-pass filter" or "High-pass filter" (LLFR-00239), the app must show a dialog that asks for the cutoff frequency in Hz and for the filter order, and states both allowed ranges: for the cutoff frequency, greater than 0 and less than half the sampling rate (LLFR-00247); for the order, a whole number from 1 to 8. The dialog must show 2 as the starting value of the order. The app must create the filtered signal only when the user confirms two values in their allowed ranges. If a value is outside its range or not a number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+When the user chooses "Low-pass filter" or "High-pass filter" (LLFR-00239), the app must show a dialog that asks for the cutoff frequency in Hz and for the filter order, and states both allowed ranges: for the cutoff frequency, greater than 0 and less than half the sampling rate (LLFR-00247); for the order, a whole number from 1 to 8. The dialog must show 2 as the starting value of the order. The dialog must also let the user choose how the filter starts (LLFR-00246), with two choices, "From the first value" and "From zero", and "From the first value" chosen when the dialog opens. The app must create the filtered signal only when the user confirms a cutoff frequency and an order in their allowed ranges. If a value is outside its range or not a number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00246 Filter type
-The Low-pass filter and the High-pass filter must be Butterworth filters of the order of LLFR-00245, with its cutoff frequency, applied once over the signal, forward in time, as a real-time filter would be, so that the filtered curve is delayed like the output of a real filter. The filter must start as if the signal had kept the value of its first sample before the first sample (steady-state initial conditions), so that the filtered curve does not jump at the start.
+The Low-pass filter and the High-pass filter must be Butterworth filters of the order of LLFR-00245, with its cutoff frequency, applied once over the signal, forward in time, as a real-time filter would be, so that the filtered curve is delayed like the output of a real filter. The filter must start as the user chose in the dialog of LLFR-00245: with "From the first value", as if the signal had kept the value of its first sample before the first sample (steady-state initial conditions), so that the filtered curve starts in sync with the first value and does not jump at the start; with "From zero", at rest (zero initial state), like a real filter switched on at the first sample, so that the filtered curve starts from 0 and then settles.
 
-Note: A constant signal therefore stays unchanged through a Low-pass filter and gives 0 through a High-pass filter, from the first sample on.
+Note: With "From the first value", a constant signal stays unchanged through a Low-pass filter and gives 0 through a High-pass filter, from the first sample on. With "From zero", a constant signal gives a Low-pass output that starts near 0 and rises towards the constant, and a High-pass output that starts near the constant and decays towards 0.
 
 *Parent: HLFR-00053*
 

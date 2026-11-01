@@ -32,8 +32,9 @@ object with these keys:
   (list of strings; two names for ``product``, the right-clicked signal
   first, one name otherwise);
 - ``"parameter"``: for ``lowpass`` and ``highpass``, an object
-  ``{"cutoff": <Hz>, "order": <whole number>}`` with the cutoff
-  frequency in Hz and the filter order (LLFR-00245); the window size
+  ``{"cutoff": <Hz>, "order": <whole number>, "start": "first_value"
+  | "zero"}`` with the cutoff frequency in Hz, the filter order and how
+  the filter starts (LLFR-00245, LLFR-00246); the window size
   in samples (whole number) for ``movingaverage``; the constant
   (number) for the Comparison and Arithmetic operations with a
   constant; an object
@@ -51,7 +52,8 @@ Example::
         ],
         "parameter": {
           "cutoff": 2.5,
-          "order": 2
+          "order": 2,
+          "start": "first_value"
         }
       },
       {
@@ -92,6 +94,7 @@ START_KEY_STR = "start"
 END_KEY_STR = "end"
 CUTOFF_KEY_STR = "cutoff"
 ORDER_KEY_STR = "order"
+FILTER_START_KEY_STR = "start"
 # LLFR-00225: key of the list of entries in the layout file.
 LAYOUT_KEY_STR = "synthetic_signals"
 # LLFR-00227: the layout file is indented by 2 spaces.
@@ -143,7 +146,8 @@ class SyntheticSignal:
         operation_str: the operation id, e.g. "lowpass".
         source_name_list: the current names of the signals it was
             computed from (two for "product").
-        parameter: (cutoff in Hz, order) (tuple), window size (int),
+        parameter: (cutoff in Hz, order, start) (tuple), window size
+            (int),
             constant (float), time range (start_s, end_s) (tuple) or
             None,
             according to the operation (see model.synthetic_operations).
@@ -200,17 +204,18 @@ def entry_parameter(signal: SyntheticSignal):
 
     Inputs:
         signal: the synthetic signal.
-    Outputs: a float, an int, a dict {"cutoff": Hz, "order": n}, a
-        dict {"start": s, "end": s} or None.
+    Outputs: a float, an int, a dict {"cutoff": Hz, "order": n,
+        "start": start}, a dict {"start": s, "end": s} or None.
     """
     # LLFR-00225 item 10: cutoff and order, window size, constant or
     # time range.
     kind_str = signal.operation.parameter_kind_str
     if kind_str == operations.FILTER_PARAMETER_STR:
-        # LLFR-00227: the cutoff in Hz and the order of the filter.
-        cutoff_hz, order_i = signal.parameter
+        # LLFR-00227: the cutoff in Hz, the order and the start.
+        cutoff_hz, order_i, start_str = signal.parameter
         return {CUTOFF_KEY_STR: float(cutoff_hz),
-                ORDER_KEY_STR: int(order_i)}
+                ORDER_KEY_STR: int(order_i),
+                FILTER_START_KEY_STR: str(start_str)}
     if kind_str == operations.TIME_RANGE_PARAMETER_STR:
         # LLFR-00227: times as floats, written with repr precision.
         start_s, end_s = signal.parameter
@@ -232,20 +237,23 @@ def parameter_from_entry(operation_str: str, parameter_value):
         takes; the values themselves are checked there.
     Raises: SyntheticEntryError when an FFT time range is not an object
         with "start" and "end", or a filter parameter is not an object
-        with "cutoff" and "order".
+        with "cutoff", "order" and "start".
     """
     # LLFR-00262: the FFT time range is saved as {"start", "end"}.
     kind_str = operations.find_operation(operation_str).parameter_kind_str
     if kind_str == operations.FILTER_PARAMETER_STR:
-        # LLFR-00225 item 10: a filter is saved as {"cutoff", "order"}.
+        # LLFR-00225 item 10: a filter is saved as {"cutoff", "order",
+        # "start"}.
         if (not isinstance(parameter_value, dict)
                 or CUTOFF_KEY_STR not in parameter_value
-                or ORDER_KEY_STR not in parameter_value):
+                or ORDER_KEY_STR not in parameter_value
+                or FILTER_START_KEY_STR not in parameter_value):
             raise SyntheticEntryError(
                 'The parameter of a filter must be an object with a '
-                '"cutoff" frequency, in Hz, and an "order".')
+                '"cutoff" frequency, in Hz, an "order" and a "start".')
         return (parameter_value[CUTOFF_KEY_STR],
-                parameter_value[ORDER_KEY_STR])
+                parameter_value[ORDER_KEY_STR],
+                parameter_value[FILTER_START_KEY_STR])
     if kind_str != operations.TIME_RANGE_PARAMETER_STR:
         return parameter_value
     if (not isinstance(parameter_value, dict)
@@ -414,7 +422,7 @@ class SyntheticSignalStore:
                 computed from: the right-clicked signal, and for
                 "product" the second signal after it (LLFR-00275).
             parameter: the parameter of the operation's kind: (cutoff
-                in Hz, order) for the filters, window size, constant,
+                in Hz, order, start) for the filters, window size, constant,
                 (start_s, end_s) for "fft" (the time range shown in the
                 time plots, LLFR-00248), or None.
             signal_lookup: function name -> samples (array-like) of any

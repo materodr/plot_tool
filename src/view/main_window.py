@@ -402,26 +402,30 @@ class MainWindow(QMainWindow):
         return synthetic_dialogs.run_dialog(dialog)
 
     def ask_synthetic_parameter(self, title_str: str, prompt_str: str,
-                                field_list: list, check_function):
+                                field_list: list, check_function,
+                                choice_tuple: tuple = ()):
         """Ask for the numbers an operation needs.
 
         Inputs:
             title_str: the window title (the operation's label).
             prompt_str: the question, with the allowed ranges.
             field_list: (label_str, starting text) per field.
-            check_function: list of texts -> reason ("" when allowed);
+            check_function: value list -> reason ("" when allowed);
                 the dialog stays open and shows the reason while there
                 is one.
-        Outputs: the accepted texts, one per field, or None when the
-            user cancelled.
+            choice_tuple: () or (label, [(id, label)], id at first),
+                for example how a filter starts (LLFR-00245).
+        Outputs: the accepted texts, one per field, then the chosen id
+            when there is a choice; None when the user cancelled.
         """
         # LLFR-00245, LLFR-00269, LLFR-00272: the parameter dialog.
         dialog = synthetic_dialogs.build_parameter_dialog(
-            self, title_str, prompt_str, field_list, check_function)
+            self, title_str, prompt_str, field_list, check_function,
+            choice_tuple)
         try:
             if not self.run_modal_dialog(dialog):
                 return None
-            return dialog.value_text_list()
+            return dialog.value_list()
         finally:
             dialog.deleteLater()
 

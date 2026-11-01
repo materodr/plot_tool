@@ -299,7 +299,8 @@ class SamplingRateTest(unittest.TestCase):
         """
         time_array = np.array([0.0, 1.0, 3.0, 4.0])
         with self.assertRaises(UnevenTimeStepError):
-            operations.check_parameter("lowpass", (0.1, 2), time_array, 4)
+            operations.check_parameter("lowpass", (0.1, 2, "zero"),
+                                       time_array, 4)
 
 
 class FilterTest(unittest.TestCase):
@@ -318,9 +319,9 @@ class FilterTest(unittest.TestCase):
         self.time_array = even_time_array(1000.0, 10.0)
 
     @covers("LLFR-00246")
-    def test_output_is_scipy_forward_filter_with_steady_start(
+    def test_output_is_scipy_forward_filter_for_both_starts(
             self) -> None:
-        """The output is scipy's sosfilt with sosfilt_zi * first sample.
+        """The output is scipy's sosfilt, steady or at rest at the start.
 
         Inputs: none.
         Outputs: none.
@@ -338,8 +339,15 @@ class FilterTest(unittest.TestCase):
                     zi=scipy_signal.sosfilt_zi(section_array)
                     * input_array[0])
                 result_array = function(self.time_array, input_array,
-                                        10.0, order_i)
+                                        10.0, order_i, "first_value")
                 np.testing.assert_allclose(result_array, expected_array,
+                                           rtol=1e-12, atol=1e-12)
+                # LLFR-00246: "From zero" is scipy's filter at rest.
+                at_rest_array = scipy_signal.sosfilt(section_array,
+                                                     input_array)
+                result_array = function(self.time_array, input_array,
+                                        10.0, order_i, "zero")
+                np.testing.assert_allclose(result_array, at_rest_array,
                                            rtol=1e-12, atol=1e-12)
 
     @covers("LLFR-00246")
@@ -370,6 +378,52 @@ class FilterTest(unittest.TestCase):
             result_array = operations.highpass(self.time_array,
                                                constant_array, 1.0, order_i)
             np.testing.assert_allclose(result_array, 0.0, atol=1e-9)
+
+    @covers("LLFR-00246")
+    def test_zero_start_settles_towards_the_constant(self) -> None:
+        """From zero, a low-pass rises from 0 and a high-pass decays.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        constant_array = np.full(self.time_array.size, 5.0)
+        for order_i in (1, 2, 4, 8):
+            lowpass_array = operations.lowpass(
+                self.time_array, constant_array, 5.0, order_i, "zero")
+            self.assertLess(abs(lowpass_array[0]), 0.1)
+            self.assertLess(lowpass_array[10], lowpass_array[100])
+            self.assertAlmostEqual(float(lowpass_array[-1]), 5.0,
+                                   delta=1e-6)
+            highpass_array = operations.highpass(
+                self.time_array, constant_array, 5.0, order_i, "zero")
+            self.assertGreater(highpass_array[0], 4.5)
+            self.assertLessEqual(highpass_array[0], 5.0)
+            self.assertAlmostEqual(float(highpass_array[-1]), 0.0,
+                                   delta=1e-6)
+        # LLFR-00246: the default start is from the first value.
+        np.testing.assert_allclose(operations.lowpass(
+            self.time_array, constant_array, 5.0, 2), 5.0, atol=1e-9)
+
+    @covers("LLFR-00245", "LLFR-00246")
+    def test_filter_start_choices(self) -> None:
+        """The start is "first_value" (the default) or "zero".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(operations.FILTER_START_TUPLE,
+                         ("first_value", "zero"))
+        self.assertEqual(operations.DEFAULT_FILTER_START_STR, "first_value")
+        for start_str in ("first_value", "zero"):
+            self.assertEqual(operations.check_filter_start(start_str),
+                             start_str)
+        for start in ("", "Zero", "first", None, 0, True):
+            with self.assertRaises(SyntheticParameterError):
+                operations.check_filter_start(start)
+        with self.assertRaises(SyntheticParameterError):
+            operations.lowpass(self.time_array,
+                               np.zeros(self.time_array.size), 1.0, 2,
+                               "late")
 
     @covers("LLFR-00246")
     def test_lowpass_removes_a_high_frequency(self) -> None:
@@ -841,9 +895,10 @@ class CheckParameterTest(unittest.TestCase):
         """
         time_array = even_time_array(10.0, 1.0)
         self.assertEqual(operations.check_parameter(
-            "lowpass", (2, 3.0), time_array, 11), (2.0, 3))
+            "lowpass", (2, 3.0, "zero"), time_array, 11), (2.0, 3, "zero"))
         self.assertEqual(operations.check_parameter(
-            "highpass", [1.5, 8], time_array, 11), (1.5, 8))
+            "highpass", [1.5, 8, "first_value"], time_array, 11),
+            (1.5, 8, "first_value"))
         self.assertEqual(operations.check_parameter(
             "movingaverage", 3.0, time_array, 11), 3)
         self.assertEqual(operations.check_parameter(
@@ -857,9 +912,11 @@ class CheckParameterTest(unittest.TestCase):
         for operation_str, parameter in (
                 ("integral", 3.0), ("fft", (0.0,)), ("fft", "0 to 1"),
                 ("fft", (0.0, math.nan)), ("highpass", 5.0),
-                ("highpass", (5.0, 2)), ("lowpass", 2.0),
-                ("lowpass", (2.0, 9)), ("lowpass", (2.0, 0)),
-                ("lowpass", (2.0, 2.5)), ("lowpass", (2.0, "2")),
+                ("highpass", (5.0, 2, "zero")), ("lowpass", 2.0),
+                ("lowpass", (2.0, 9, "zero")), ("lowpass", (2.0, 0, "zero")),
+                ("lowpass", (2.0, 2.5, "zero")),
+                ("lowpass", (2.0, "2", "zero")), ("lowpass", (2.0, 2)),
+                ("lowpass", (2.0, 2, "Zero")), ("lowpass", (2.0, 2, None)),
                 ("lowpass", (2.0,)), ("lowpass", {"cutoff": 2.0}),
                 ("movingaverage", 12), ("divide", 0)):
             with self.assertRaises(SyntheticParameterError):

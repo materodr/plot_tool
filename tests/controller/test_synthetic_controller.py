@@ -90,6 +90,7 @@ class FakeSyntheticWindow(FakePlotView):
         self.signal_menu_handler_dict = {}
         self.parameter_question_list = []
         self.parameter_reason_list = []
+        self.parameter_choice_list = []
         self.parameter_answer_list = []
         self.second_signal_question_list = []
         self.second_signal_answer_list = []
@@ -253,26 +254,35 @@ class FakeSyntheticWindow(FakePlotView):
             "copy_equation": copy_equation_handler}
 
     def ask_synthetic_parameter(self, title_str: str, prompt_str: str,
-                                field_list: list, check_function):
+                                field_list: list, check_function,
+                                choice_tuple: tuple = ()):
         """Simulate the parameter dialog with the next answer.
+
+        An attempt without a choice id gets the choice chosen at first,
+        as when the user leaves the radio buttons unchanged.
 
         Inputs:
             title_str: the window title.
             prompt_str: the question.
             field_list: (label, starting text) per field.
-            check_function: list of texts -> reason.
+            check_function: value list -> reason.
+            choice_tuple: () or (label, [(id, label)], id at first).
         Outputs: the first allowed attempt, or None.
         """
         self.parameter_question_list.append(
             (title_str, prompt_str, list(field_list)))
+        self.parameter_choice_list.append(tuple(choice_tuple))
         attempt_list = (self.parameter_answer_list.pop(0)
                         if self.parameter_answer_list else None)
         if attempt_list is None:
             return None
         for text_list in attempt_list:
-            reason_str = check_function(list(text_list))
+            text_list = list(text_list)
+            if choice_tuple and len(text_list) == len(field_list):
+                text_list.append(choice_tuple[2])
+            reason_str = check_function(text_list)
             if not reason_str:
-                return list(text_list)
+                return text_list
             self.parameter_reason_list.append(reason_str)
         return None
 
@@ -567,7 +577,11 @@ class CreateTest(SyntheticControllerTestCase):
                           reason_str)
         self.assertEqual(self.store_names(), ["lowpass_Speed"])
         self.assertEqual(self.controller.store.get(
-            "lowpass_Speed").parameter, (1.5, 4))
+            "lowpass_Speed").parameter, (1.5, 4, "first_value"))
+        # LLFR-00245: the start choice, "From the first value" at first.
+        self.assertEqual(self.view.parameter_choice_list[0], (
+            "Filter start:", [("first_value", "From the first value"),
+                              ("zero", "From zero")], "first_value"))
         # LLFR-00241: the same filter again gets "_2".
         self.view.parameter_answer_list = [[["2", "2"]]]
         self.create("Speed", "lowpass")
@@ -581,12 +595,22 @@ class CreateTest(SyntheticControllerTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.view.parameter_answer_list = [None, [["9", "2"]], [["1", "1"]]]
+        self.view.parameter_answer_list = [None, [["9", "2"]],
+                                           [["1", "1", "zero"]]]
         self.create("Speed", "lowpass")
         self.create("Speed", "highpass")
         self.assertEqual(self.store_names(), [])
         self.create("Speed", "highpass")
         self.assertEqual(self.store_names(), ["highpass_Speed"])
+        # LLFR-00246: the start chosen in the dialog is used.
+        signal = self.controller.store.get("highpass_Speed")
+        self.assertEqual(signal.parameter, (1.0, 1, "zero"))
+        from model import synthetic_operations
+        np.testing.assert_allclose(signal.value_array,
+                                   synthetic_operations.highpass(
+                                       make_signal_file().time_array,
+                                       make_signal_file().signal_array(
+                                           "Speed"), 1.0, 1, "zero"))
         self.assertEqual(self.view.parameter_question_list[1][0],
                          "High-pass filter")
         self.assertEqual(self.view.information_list, [])
@@ -630,6 +654,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(title_str, "Moving average")
         self.assertIn("from 2 to 100 samples", prompt_str)
         self.assertEqual(len(field_list), 1)
+        self.assertEqual(self.view.parameter_choice_list[1], ())
         self.assertEqual(len(self.view.parameter_reason_list), 5)
         for reason_str in self.view.parameter_reason_list:
             self.assertIn("whole number of samples from 2 to 100",
@@ -930,7 +955,8 @@ class CopyTest(SyntheticControllerTestCase):
         self.assertEqual(json.loads(text_str), [
             {"name": "lowpass_Speed", "operation": "lowpass",
              "signals": ["Speed"],
-             "parameter": {"cutoff": 2.0, "order": 3}},
+             "parameter": {"cutoff": 2.0, "order": 3,
+                           "start": "first_value"}},
             {"name": "derivative_lowpass_Speed", "operation": "derivative",
              "signals": ["lowpass_Speed"], "parameter": None}])
         self.assertTrue(text_str.startswith("[\n  {\n"))

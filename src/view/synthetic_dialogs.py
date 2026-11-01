@@ -18,8 +18,8 @@ and press its buttons without running it modally.
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QListWidget,
-    QVBoxLayout)
+    QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
+    QLabel, QLineEdit, QListWidget, QRadioButton, QVBoxLayout)
 
 from view import theme
 
@@ -36,20 +36,25 @@ class ParameterDialog(QDialog):
         prompt_str: the question, with the allowed ranges.
         field_list: one (label_str, starting text) per value, in order;
             for example the cutoff frequency and the order of a filter.
-        check_function: function taking the list of typed texts and
-            returning the reason they are not allowed, or "" when they
-            are allowed.
+        check_function: function taking value_list() and returning the
+            reason the values are not allowed, or "" when they are.
+        choice_tuple: () for no choice, or (label_str, list of
+            (choice id, choice label), id chosen at first): one radio
+            button per choice, for example how a filter starts.
     Attributes:
         prompt_label: the label with the question.
         field_label_list: the label of each field.
         value_edit_list: the QLineEdit of each field, in order.
+        choice_button_dict: choice id -> QRadioButton (empty without a
+            choice).
         error_label: the label with the reason, hidden while there is
             none.
         button_box: the OK and Cancel buttons.
     """
 
     def __init__(self, parent, title_str: str, prompt_str: str,
-                 field_list: list, check_function) -> None:
+                 field_list: list, check_function,
+                 choice_tuple: tuple = ()) -> None:
         """Create the dialog, not shown.
 
         Inputs:
@@ -57,7 +62,8 @@ class ParameterDialog(QDialog):
             title_str: the window title.
             prompt_str: the question, with the allowed ranges.
             field_list: (label_str, starting text) per field.
-            check_function: list of texts -> reason ("" when allowed).
+            check_function: value_list() -> reason ("" when allowed).
+            choice_tuple: () or (label, [(id, label)], id at first).
         Outputs: none.
         """
         super().__init__(parent)
@@ -83,6 +89,22 @@ class ParameterDialog(QDialog):
             field_layout.addRow(field_label, value_edit)
             self.field_label_list.append(field_label)
             self.value_edit_list.append(value_edit)
+        # LLFR-00245, LLFR-00246: how a filter starts, one radio button
+        # per choice, the default one chosen when the dialog opens.
+        self.choice_button_dict = {}
+        self.choice_group = QButtonGroup(self)
+        if choice_tuple:
+            choice_label_str, choice_list, chosen_id_str = choice_tuple
+            choice_row_layout = QHBoxLayout()
+            for choice_id_str, choice_text_str in choice_list:
+                choice_button = QRadioButton(str(choice_text_str))
+                self.choice_group.addButton(choice_button)
+                choice_row_layout.addWidget(choice_button)
+                self.choice_button_dict[str(choice_id_str)] = choice_button
+            choice_row_layout.addStretch(1)
+            self.choice_label = QLabel(str(choice_label_str))
+            field_layout.addRow(self.choice_label, choice_row_layout)
+            self.set_choice(str(chosen_id_str))
         dialog_layout.addLayout(field_layout)
         # LLFR-00245, LLFR-00269, LLFR-00272: the reason a value is not
         # allowed, shown in the dialog, which stays open.
@@ -121,6 +143,54 @@ class ParameterDialog(QDialog):
         # LLFR-00245, LLFR-00269, LLFR-00272: the controller reads them.
         return [value_edit.text() for value_edit in self.value_edit_list]
 
+    def choice_text_dict(self) -> dict:
+        """Return the label of each choice.
+
+        Inputs: none.
+        Outputs: a dict choice id -> radio button text.
+        """
+        # LLFR-00245: "From the first value" and "From zero".
+        return {choice_id_str: choice_button.text()
+                for choice_id_str, choice_button
+                in self.choice_button_dict.items()}
+
+    def chosen_choice(self) -> str:
+        """Return the id of the chosen radio button.
+
+        Inputs: none.
+        Outputs: the choice id, or "" without a choice.
+        """
+        # LLFR-00245, LLFR-00246: the filter start the user chose.
+        for choice_id_str, choice_button in self.choice_button_dict.items():
+            if choice_button.isChecked():
+                return choice_id_str
+        return ""
+
+    def set_choice(self, choice_id_str: str) -> bool:
+        """Choose a radio button.
+
+        Inputs:
+            choice_id_str: the id of the choice.
+        Outputs: True when the dialog has that choice.
+        """
+        # LLFR-00245: the user picks how the filter starts.
+        choice_button = self.choice_button_dict.get(choice_id_str)
+        if choice_button is None:
+            return False
+        choice_button.setChecked(True)
+        return True
+
+    def value_list(self) -> list:
+        """Return the typed texts, then the chosen id when there is one.
+
+        Inputs: none.
+        Outputs: a list of str.
+        """
+        # LLFR-00245, LLFR-00246: what the controller checks and reads.
+        if not self.choice_button_dict:
+            return self.value_text_list()
+        return self.value_text_list() + [self.chosen_choice()]
+
     def set_value_texts(self, text_list: list) -> None:
         """Type texts in the fields.
 
@@ -152,7 +222,7 @@ class ParameterDialog(QDialog):
         """
         # LLFR-00245, LLFR-00269, LLFR-00272: the dialog stays open and
         # says why while a value is outside its range or not a number.
-        reason_str = str(self.check_function(self.value_text_list()) or "")
+        reason_str = str(self.check_function(self.value_list()) or "")
         if reason_str:
             self.error_label.setText(reason_str)
             self.error_label.show()
@@ -269,8 +339,8 @@ class SecondSignalDialog(QDialog):
 
 
 def build_parameter_dialog(parent, title_str: str, prompt_str: str,
-                           field_list: list,
-                           check_function) -> ParameterDialog:
+                           field_list: list, check_function,
+                           choice_tuple: tuple = ()) -> ParameterDialog:
     """Build the dialog that asks for the values of a parameter.
 
     Inputs:
@@ -278,12 +348,13 @@ def build_parameter_dialog(parent, title_str: str, prompt_str: str,
         title_str: the window title (the operation's menu label).
         prompt_str: the question, with the allowed ranges.
         field_list: (label_str, starting text) per field.
-        check_function: list of texts -> reason ("" when allowed).
+        check_function: value list -> reason ("" when allowed).
+        choice_tuple: () or (label, [(id, label)], id at first).
     Outputs: the ParameterDialog, not shown.
     """
     # LLFR-00245, LLFR-00269, LLFR-00272: one dialog for every number.
     return ParameterDialog(parent, title_str, prompt_str, field_list,
-                           check_function)
+                           check_function, choice_tuple)
 
 
 def build_second_signal_dialog(parent, title_str: str, prompt_str: str,

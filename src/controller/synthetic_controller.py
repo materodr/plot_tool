@@ -16,10 +16,14 @@ must offer:
 - ``set_signal_menu_handlers(operation_handler, copy_name_handler,
   rename_handler, delete_handler, copy_equation_handler)``;
 - ``ask_synthetic_parameter(title_str, prompt_str, field_list,
-  check_function)``: a dialog with one text field per (label, starting
-  text) of field_list, that keeps itself open while
-  ``check_function(text_list)`` returns a reason ("" when the texts
-  are allowed); returns the accepted texts, or None when cancelled;
+  check_function, choice_tuple)``: a dialog with one text field per
+  (label, starting text) of field_list and, when choice_tuple is not
+  empty, one choice (label, list of (choice id, choice label), the id
+  chosen at first); it keeps itself open while
+  ``check_function(value_list)`` returns a reason ("" when the values
+  are allowed), where value_list holds the texts of the fields and
+  then the chosen id; returns that value_list when accepted, or None
+  when cancelled;
 - ``ask_second_signal(title_str, prompt_str, name_list,
   selected_name_str)``: the chosen name, or None when cancelled;
 - ``ask_delete_synthetic_signal(name_str, dependent_name_list)``: True
@@ -48,6 +52,11 @@ FILTER_PROMPT_STR = (
     "Filter order: a whole number from {smallest} to {largest}.")
 CUTOFF_FIELD_LABEL_STR = "Cutoff frequency (Hz):"
 ORDER_FIELD_LABEL_STR = "Filter order:"
+# LLFR-00245, LLFR-00246: the choice of how the filter starts.
+FILTER_START_LABEL_STR = "Filter start:"
+FILTER_START_CHOICE_LIST = [
+    (operations.FILTER_START_FIRST_VALUE_STR, "From the first value"),
+    (operations.FILTER_START_ZERO_STR, "From zero")]
 # LLFR-00269: prompt of the window size dialog.
 WINDOW_PROMPT_STR = (
     "Window size, as a whole number of samples.\n"
@@ -312,9 +321,10 @@ class SyntheticController:
         Inputs:
             operation: the SyntheticOperation.
             sample_count_i: number of samples of the signal.
-        Outputs: a tuple (prompt_str, field_list): the prompt, with the
-            allowed ranges, and a list of (label_str, starting text)
-            with one field per value.
+        Outputs: a tuple (prompt_str, field_list, choice_tuple): the
+            prompt, with the allowed ranges, a list of (label_str,
+            starting text) with one field per value, and the choice of
+            the filter start (LLFR-00245), () for the other operations.
         Raises: SyntheticSignalError when no value is allowed.
         """
         kind_str = operation.parameter_kind_str
@@ -331,7 +341,10 @@ class SyntheticController:
                 smallest=smallest_i, largest=largest_i),
                 [(CUTOFF_FIELD_LABEL_STR, ""),
                  (ORDER_FIELD_LABEL_STR,
-                  str(operations.DEFAULT_FILTER_ORDER_I))])
+                  str(operations.DEFAULT_FILTER_ORDER_I))],
+                # LLFR-00245: "From the first value" chosen at first.
+                (FILTER_START_LABEL_STR, list(FILTER_START_CHOICE_LIST),
+                 operations.DEFAULT_FILTER_START_STR))
         if kind_str == operations.WINDOW_PARAMETER_STR:
             # LLFR-00269: from 2 up to the number of samples.
             smallest_i, largest_i = operations.allowed_window_range(
@@ -341,12 +354,12 @@ class SyntheticController:
                 operations.check_window(smallest_i, sample_count_i)
             return (WINDOW_PROMPT_STR.format(smallest=smallest_i,
                                              largest=largest_i),
-                    [(WINDOW_FIELD_LABEL_STR, "")])
+                    [(WINDOW_FIELD_LABEL_STR, "")], ())
         # LLFR-00272: a constant, not 0 for "Divide by constant".
         if operation.operation_str == operations.DIVIDE_STR:
             return (DIVIDE_CONSTANT_PROMPT_STR,
-                    [(CONSTANT_FIELD_LABEL_STR, "")])
-        return (CONSTANT_PROMPT_STR, [(CONSTANT_FIELD_LABEL_STR, "")])
+                    [(CONSTANT_FIELD_LABEL_STR, "")], ())
+        return (CONSTANT_PROMPT_STR, [(CONSTANT_FIELD_LABEL_STR, "")], ())
 
     def ask_number(self, operation, source_name_str: str):
         """Ask for the filter values, the window size or the constant.
@@ -361,26 +374,31 @@ class SyntheticController:
         # says why while a value is not allowed.
         time_array = self.signal_file.time_array
         sample_count_i = int(self.signal_lookup(source_name_str).size)
-        prompt_str, field_list = self.number_dialog(operation,
-                                                    sample_count_i)
+        prompt_str, field_list, choice_tuple = self.number_dialog(
+            operation, sample_count_i)
 
         def parameter_of(text_list) -> object:
             """Return the parameter typed in the dialog, checked.
 
             Inputs:
-                text_list: the texts of the fields, in field order.
+                text_list: the texts of the fields, in field order,
+                    then the chosen filter start for a filter.
             Outputs: the parameter in the form the store takes.
             Raises: SyntheticSignalError when a value is not allowed.
             """
-            # LLFR-00245: (cutoff, order); LLFR-00269, LLFR-00272: one
-            # number. The model's rules give the reason.
+            # LLFR-00245: (cutoff, order, start); LLFR-00269,
+            # LLFR-00272: one number. The model's rules give the reason.
             value_list = [parse_number_text(text_str)
-                          for text_str in text_list]
+                          for text_str in text_list[:len(field_list)]]
             if operation.parameter_kind_str == (
                     operations.FILTER_PARAMETER_STR):
+                # LLFR-00246: the start chosen in the dialog.
+                start_list = list(text_list[len(field_list):])[:1] or [
+                    operations.DEFAULT_FILTER_START_STR]
                 return operations.check_parameter(
-                    operation.operation_str, tuple(value_list),
-                    time_array, sample_count_i)
+                    operation.operation_str,
+                    tuple(value_list + start_list), time_array,
+                    sample_count_i)
             return operations.check_parameter(
                 operation.operation_str,
                 value_list[0] if value_list else "", time_array,
@@ -401,7 +419,8 @@ class SyntheticController:
             return ""
 
         text_list = self.view.ask_synthetic_parameter(
-            operation.label_str, prompt_str, field_list, check_text_list)
+            operation.label_str, prompt_str, field_list, check_text_list,
+            choice_tuple)
         if text_list is None:
             return None
         # LLFR-00245, LLFR-00269, LLFR-00272: the accepted values.

@@ -279,7 +279,14 @@ class SyntheticDialogTest(unittest.TestCase):
         dialog = build_parameter_dialog(
             None, "Low-pass filter", "Cutoff 0 to 5 Hz, order 1 to 8.",
             [("Cutoff frequency (Hz):", ""), ("Filter order:", "2")],
-            check)
+            check, ("Filter start:", [("first_value", "From the first value"),
+                                      ("zero", "From zero")],
+                    "first_value"))
+        # LLFR-00245: two radio buttons, the first value chosen at first.
+        self.assertEqual(dialog.choice_text_dict(), {
+            "first_value": "From the first value", "zero": "From zero"})
+        self.assertEqual(dialog.chosen_choice(), "first_value")
+        self.assertFalse(dialog.set_choice("later"))
         self.assertEqual(dialog.windowTitle(), "Low-pass filter")
         self.assertIn("0 to 5 Hz", dialog.prompt_label.text())
         self.assertEqual(dialog.field_label_text_list(),
@@ -291,10 +298,13 @@ class SyntheticDialogTest(unittest.TestCase):
         self.assertNotEqual(dialog.result(),
                             QDialog.DialogCode.Accepted.value)
         dialog.set_value_texts(["1.5", "4"])
+        self.assertTrue(dialog.set_choice("zero"))
         dialog.try_accept()
         self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted.value)
         self.assertEqual(dialog.error_text(), "")
-        self.assertEqual(checked_list, [["1.5", "9"], ["1.5", "4"]])
+        self.assertEqual(checked_list, [["1.5", "9", "first_value"],
+                                        ["1.5", "4", "zero"]])
+        self.assertEqual(dialog.value_list(), ["1.5", "4", "zero"])
         dialog.deleteLater()
 
     @covers("LLFR-00269", "LLFR-00272")
@@ -310,6 +320,8 @@ class SyntheticDialogTest(unittest.TestCase):
             None, "Moving average", "From 2 to 10 samples.",
             [("Window size (samples):", "")], lambda text_list: "")
         self.assertEqual(len(dialog.value_edit_list), 1)
+        self.assertEqual(dialog.choice_text_dict(), {})
+        self.assertEqual(dialog.value_list(), [""])
         dialog.button_box.button(
             QDialogButtonBox.StandardButton.Cancel).click()
         self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected.value)
@@ -413,6 +425,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.addCleanup(self.box_patch.stop)
         self.dialog_attempts_list = []
         self.prompt_text_list = []
+        self.choice_text_list = []
         self.reason_text_list = []
         self.main_window.run_modal_dialog = self.fake_run_dialog
         self.panel = self.main_window.signal_list_panel
@@ -467,6 +480,9 @@ class SyntheticEndToEndTest(unittest.TestCase):
         for text_list in self.dialog_attempts_list.pop(0):
             if hasattr(dialog, "set_value_texts"):
                 dialog.set_value_texts(text_list)
+                if len(text_list) > len(dialog.value_edit_list):
+                    dialog.set_choice(text_list[-1])
+                self.choice_text_list.append(dialog.choice_text_dict())
                 self.prompt_text_list.append(dialog.prompt_label.text())
             else:
                 dialog.select_name(text_list[0])
@@ -518,12 +534,16 @@ class SyntheticEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         self.choose("Speed", "Integral")
-        self.dialog_attempts_list = [[["9", "2"], ["2", "3"]]]
+        self.dialog_attempts_list = [[["9", "2"], ["2", "3", "zero"]]]
         self.choose("integral_Speed", "Low-pass filter")
         self.assertIn("less than 5 Hz", self.prompt_text_list[0])
         self.assertIn("from 1 to 8", self.prompt_text_list[0])
         self.assertEqual(len(self.reason_text_list), 1)
         self.assertIn("less than 5 Hz", self.reason_text_list[0])
+        self.assertEqual(self.choice_text_list[0], {
+            "first_value": "From the first value", "zero": "From zero"})
+        self.assertEqual(self.controller.synthetic_controller.store.get(
+            "lowpass_integral_Speed").parameter, (2.0, 3, "zero"))
         self.assertEqual(self.panel.signal_name_list(), [
             "Time", "Speed", "Torque", "integral_Speed",
             "lowpass_integral_Speed"])
