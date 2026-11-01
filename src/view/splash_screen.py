@@ -160,6 +160,22 @@ def show_splash(application: QApplication,
     ratio_f = screen.devicePixelRatio() if screen is not None else 1.0
     splash = SplashScreen(ratio_f)
     phase_list.append(("splash_built", time.perf_counter()))
+    import os
+    if os.environ.get("PLOT_TOOL_DIAG_FONTS") != "0":
+        from PyQt6.QtGui import QFontDatabase
+        QFontDatabase.families()
+        phase_list.append(("diag_font_families", time.perf_counter()))
+    splash.ensurePolished()
+    splash.card.ensurePolished()
+    for label in (splash.icon_label, splash.name_label,
+                  splash.message_label):
+        label.ensurePolished()
+        label.sizeHint()
+    phase_list.append(("diag_polish", time.perf_counter()))
+    splash.card.layout().activate()
+    phase_list.append(("diag_layout", time.perf_counter()))
+    splash.winId()
+    phase_list.append(("diag_native_window", time.perf_counter()))
     if screen is not None:
         available_rect = screen.availableGeometry()
         splash.move(available_rect.center() - splash.rect().center())
