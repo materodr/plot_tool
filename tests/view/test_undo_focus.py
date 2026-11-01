@@ -161,6 +161,91 @@ class UndoFocusTest(UndoWindowTestCase):
         self.assertEqual(len(self.main_window.tab_name_list()), 1)
         self.assert_focus_not_in_text_field()
 
+    def press_on_tab(self, tab_index_i: int) -> None:
+        """Right-press a tab with the mouse; the tab menu is not run.
+
+        Inputs:
+            tab_index_i: index of the tab.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtWidgets import QMenu
+        tab_bar = self.plot_panel.tab_widget.tabBar()
+        with mock.patch.object(QMenu, "exec", return_value=None):
+            QTest.mouseClick(tab_bar, Qt.MouseButton.RightButton,
+                             Qt.KeyboardModifier.NoModifier,
+                             tab_bar.tabRect(tab_index_i).center())
+            self.application.processEvents()
+
+    @covers("LLFR-00137", "LLFR-00138")
+    def test_tab_rename_from_the_tab_menu_then_ctrl_z(self) -> None:
+        """Type, right-click a tab, rename it: Ctrl+Z undoes the rename.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QInputDialog
+        old_name_list = self.main_window.tab_name_list()
+        self.type_in_search_box("sp")
+        self.press_on_tab(0)
+        self.assert_focus_not_in_text_field()
+        tab_id_i = self.plot_panel.tab_id_at_index(0)
+        with mock.patch.object(QInputDialog, "getText",
+                               return_value=("Renamed", True)):
+            self.plot_panel.request_rename_tab(tab_id_i)
+        self.application.processEvents()
+        self.assertEqual(self.main_window.tab_name_list(), ["Renamed"])
+        self.assert_focus_not_in_text_field()
+        self.press_ctrl_z_on_focus()
+        self.assertEqual(self.main_window.tab_name_list(), old_name_list)
+        search_box = self.main_window.signal_list_panel.search_box
+        self.assertEqual(search_box.text(), "sp")
+
+    @covers("LLFR-00137", "LLFR-00138")
+    def test_tab_delete_from_the_tab_menu_then_ctrl_z(self) -> None:
+        """Type, right-click a tab, delete it: Ctrl+Z brings it back.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.plot_controller.on_add_tab()
+        self.application.processEvents()
+        name_list = self.main_window.tab_name_list()
+        self.assertEqual(len(name_list), 2)
+        self.type_in_search_box("sp")
+        self.press_on_tab(1)
+        self.assert_focus_not_in_text_field()
+        self.plot_panel.request_delete_tab(
+            self.plot_panel.tab_id_at_index(1))
+        self.application.processEvents()
+        self.assertEqual(len(self.main_window.tab_name_list()), 1)
+        self.assert_focus_not_in_text_field()
+        self.press_ctrl_z_on_focus()
+        self.assertEqual(self.main_window.tab_name_list(), name_list)
+        search_box = self.main_window.signal_list_panel.search_box
+        self.assertEqual(search_box.text(), "sp")
+
+    @covers("LLFR-00137", "LLFR-00138", "LLFR-00026")
+    def test_add_tab_button_then_ctrl_z_removes_the_tab(self) -> None:
+        """Type, click "+", then Ctrl+Z removes the new tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        self.type_in_search_box("sp")
+        QTest.mouseClick(self.plot_panel.add_tab_button,
+                         Qt.MouseButton.LeftButton)
+        self.application.processEvents()
+        self.assertEqual(len(self.main_window.tab_name_list()), 2)
+        self.assert_focus_not_in_text_field()
+        self.press_ctrl_z_on_focus()
+        self.assertEqual(len(self.main_window.tab_name_list()), 1)
+        search_box = self.main_window.signal_list_panel.search_box
+        self.assertEqual(search_box.text(), "sp")
+
 
 @requires_qt
 class UndoDuringDragTest(UndoWindowTestCase):
@@ -311,6 +396,22 @@ class UndoDuringDragTest(UndoWindowTestCase):
         self.application.processEvents()
         range_recorder.assert_not_called()
         self.assertEqual(self.history_length(), 1)
+
+    @covers("LLFR-00138", "LLFR-00048")
+    def test_retired_widget_shows_no_deferred_menu(self) -> None:
+        """A context menu asked for before retire() is not shown.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        plot_widget = self.old_widget()
+        point = plot_widget.data_to_widget_point(1.0, 2.0)
+        with mock.patch.object(plot_widget,
+                               "show_context_menu") as menu_recorder:
+            plot_widget.request_context_menu(point)
+            plot_widget.retire()
+            self.application.processEvents()
+            menu_recorder.assert_not_called()
 
 
 if __name__ == "__main__":

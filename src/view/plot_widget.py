@@ -374,6 +374,9 @@ class PlotWidget(QWidget):
         self.plot_tool_str = NO_TOOL_STR
         self.hover_point_tuple = ()
         self.pending_menu_point = QPoint()
+        # LLFR-00138: True once the widget is being removed (retire), so
+        # that a deferred context menu is not shown any more.
+        self.retired_b = False
         # LLFR-00117: whether the wheel button is held for a pan, and the
         # time that was under the pointer when it was pressed.
         self.panning_b = False
@@ -1385,8 +1388,9 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none. Does nothing if the widget was deleted meanwhile.
         """
-        # LLFR-00038, LLFR-00046, LLFR-00048.
-        if sip.isdeleted(self):
+        # LLFR-00038, LLFR-00046, LLFR-00048. LLFR-00138: nor once the
+        # widget was removed by an undo or a file replace.
+        if sip.isdeleted(self) or self.retired_b:
             return
         self.show_context_menu(self.pending_menu_point)
 
@@ -1823,9 +1827,10 @@ class PlotWidget(QWidget):
 
         Inputs: none.
         Outputs: none. Any pan, marker drag or pinned tip drag in
-            progress is dropped without a redraw, and the widget emits
-            no request from now on, so that a late mouse release on it
-            is not applied to the plot that replaced it.
+            progress is dropped without a redraw, a deferred context
+            menu is not shown, and the widget emits no request from now
+            on, so that a late mouse release on it is not applied to the
+            plot that replaced it.
         """
         # LLFR-00138, LLFR-00086, LLFR-00152: after an undo (or a file
         # replace), the plots are drawn again on new widgets with the
@@ -1837,6 +1842,8 @@ class PlotWidget(QWidget):
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_moved_b = False
         self.reset_tip_drag()
+        # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
+        self.retired_b = True
         self.blockSignals(True)
 
     def time_at(self, widget_point) -> float:

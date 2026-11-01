@@ -358,6 +358,29 @@ class PlotPanel(QWidget):
         tab_bar = self.tab_widget.tabBar()
         tab_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tab_bar.customContextMenuRequested.connect(self.show_tab_menu)
+        # LLFR-00137: a press on the tab row or the "+" button takes the
+        # keyboard focus from the text fields (see eventFilter).
+        tab_bar.installEventFilter(self)
+        self.add_tab_button.installEventFilter(self)
+
+    def eventFilter(self, watched, event) -> bool:
+        """Move the focus to this panel on a press on the tab row.
+
+        Inputs:
+            watched: the object that received the event.
+            event: the QEvent.
+        Outputs: False, so the event is handled normally.
+        """
+        # LLFR-00137: the tab bar and the "+" button do not take the
+        # focus on click, so without this the focus would stay in the
+        # search box (also after the tab menu's dialogs close) and
+        # Ctrl+Z (Cmd+Z) would undo the typed text instead of the tab
+        # action. The panel shows no focus frame.
+        if (event.type() == QEvent.Type.MouseButtonPress
+                and watched in (self.tab_widget.tabBar(),
+                                self.add_tab_button)):
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+        return super().eventFilter(watched, event)
 
     # ----------------------------------------------------------------
     # Handlers
