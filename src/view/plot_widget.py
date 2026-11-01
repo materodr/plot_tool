@@ -42,10 +42,17 @@ WIDTH_PIXELS_DICT = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.5, 5: 6.0}
 PICK_TOLERANCE_PIXELS_I = 6
 
 TIME_AXIS_LABEL_STR = "Time (s)"
-# LLFR-00074: range width kept per forward wheel step.
-ZOOM_IN_FACTOR_F = 0.8
-# LLFR-00078: a click with the Zoom tool halves the range width.
-CLICK_ZOOM_FACTOR_F = 0.5
+# LLFR-00074, LLFR-00113: range width kept per forward wheel notch
+# (narrow to 95%; a backward notch widens to 1/0.95).
+ZOOM_IN_FACTOR_F = 0.95
+# LLFR-00113: one wheel notch is 15 degrees, which Qt reports as 120
+# eighths of a degree in QWheelEvent.angleDelta().
+WHEEL_NOTCH_EIGHTHS_I = 120
+# LLFR-00078: a click with the Zoom tool narrows the range to 95%.
+CLICK_ZOOM_FACTOR_F = 0.95
+# LLFR-00118: relative tolerance used to tell that a plot shows the
+# whole time range of the file.
+FULL_RANGE_TOLERANCE_F = 1e-9
 SINGLE_SAMPLE_HALF_RANGE_S = 0.5
 VALUE_MARGIN_RATIO_F = 0.05
 CONSTANT_VALUE_HALF_RANGE_F = 0.5
@@ -96,6 +103,28 @@ def format_time_text(time_s: float) -> str:
     """
     # LLFR-00043, LLFR-00092: times are shown in seconds.
     return f"t = {time_s:.6g} s"
+
+
+def wheel_step_f(event) -> float:
+    """Return how many wheel notches a matplotlib scroll event stands for.
+
+    Inputs:
+        event: the matplotlib MouseEvent of a scroll; its ``guiEvent``
+            is the QWheelEvent when the event came from Qt.
+    Outputs: the number of notches, positive forward, possibly
+        fractional (touchpads and high-resolution wheels).
+    """
+    # LLFR-00113: Qt gives the rotation in eighths of a degree for mice
+    # and touchpads alike, and one notch is 120 of them. matplotlib's
+    # own ``step`` uses raw pixels instead on some platforms (touchpads
+    # on macOS), so the Qt value is preferred whenever it is there.
+    gui_event = getattr(event, "guiEvent", None)
+    angle_delta = None
+    if gui_event is not None and hasattr(gui_event, "angleDelta"):
+        angle_delta = gui_event.angleDelta()
+    if angle_delta is not None:
+        return float(angle_delta.y()) / WHEEL_NOTCH_EIGHTHS_I
+    return float(event.step)
 
 
 def padded_range_tuple(low_f: float, high_f: float,
@@ -224,7 +253,7 @@ class PlotWidget(QWidget):
         pinned_tip_delete_requested(int): "Delete" chosen on a pinned
             tip; the index refers to the list given to set_pinned_tips.
         time_range_changed(float, float): the user changed the time
-            range (start in s, end in s).
+            range (start in s, end in s), by a zoom or a pan.
         marker_place_requested(float): a left click with the Vertical
             marker tool, not on a marker (time in s).
         marker_move_requested(int, float): a marker was dragged and
@@ -285,6 +314,13 @@ class PlotWidget(QWidget):
         self.plot_tool_str = NO_TOOL_STR
         self.hover_point_tuple = ()
         self.pending_menu_point = QPoint()
+        # LLFR-00117: whether the wheel button is held for a pan, and the
+        # time that was under the pointer when it was pressed.
+        self.panning_b = False
+        self.pan_anchor_s = 0.0
+        # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
+        # grid is drawn; hidden until the Grid button is clicked.
+        self.grid_shown_b = False
 
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
@@ -421,6 +457,31 @@ class PlotWidget(QWidget):
         start_s, end_s = self.axes.get_xlim()
         return (float(start_s), float(end_s))
 
+    def set_grid_shown(self, shown_b: bool) -> None:
+        """Show or hide the grid of the plot.
+
+        Inputs:
+            shown_b: True to show the grid, False to hide it.
+        Outputs: none. The choice is kept when the curves are redrawn.
+        """
+        # LLFR-00122, LLFR-00123: show or hide the grid lines.
+        self.grid_shown_b = bool(shown_b)
+        self.axes.grid(self.grid_shown_b)
+        self.canvas.draw_idle()
+
+    def grid_shown(self) -> bool:
+        """Tell whether the axes draw their grid lines.
+
+        Inputs: none.
+        Outputs: True when the x and y grid lines are visible.
+        """
+        # LLFR-00122, LLFR-00123: read from the axes, not from the flag,
+        # so that the drawn state is what is reported.
+        line_list = (list(self.axes.get_xgridlines())
+                     + list(self.axes.get_ygridlines()))
+        return bool(line_list) and all(
+            line.get_visible() for line in line_list)
+
     def rebuild_axes(self) -> None:
         """Clear the axes and draw curves, legend and tips again.
 
@@ -434,6 +495,9 @@ class PlotWidget(QWidget):
         # axes (there is no navigation toolbar either); the y range is
         # only set by apply_time_range (LLFR-00076).
         self.axes.set_navigate(False)
+        # LLFR-00122, LLFR-00125: axes.clear() removes the grid, so it is
+        # drawn again as chosen.
+        self.axes.grid(self.grid_shown_b)
         self.curve_line_dict = {}
         self.curve_width_dict = {}
         for (signal_name_str, time_array, value_array, color_str,
@@ -1414,7 +1478,7 @@ class PlotWidget(QWidget):
             (display_x_px, display_y_px))[0])
 
     def zoom_click_at(self, widget_point) -> None:
-        """Zoom the time axis in by 2, centred on the clicked time.
+        """Narrow the time axis to 95%, centred on the clicked time.
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
@@ -1428,7 +1492,7 @@ class PlotWidget(QWidget):
             return
         center_s = self.time_at(widget_point)
         start_s, end_s = self.time_range_tuple()
-        # LLFR-00078: half the width, centred on the click.
+        # LLFR-00078: 95% of the width, centred on the click.
         half_width_s = (end_s - start_s) * CLICK_ZOOM_FACTOR_F / 2.0
         self.zoom_to_range(center_s - half_width_s, center_s + half_width_s)
 
@@ -1437,11 +1501,12 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-            step_f: wheel steps; positive (forward) zooms in, negative
-                (backward) zooms out.
+            step_f: wheel notches; positive (forward) zooms in, negative
+                (backward) zooms out; a fraction zooms in proportion.
         Outputs: none. Emits time_range_changed with the new range.
         """
         # LLFR-00074: zoom around the time under the mouse.
+        # LLFR-00113: each notch keeps 95% of the width (0.95 ** steps).
         # LLFR-00108: whatever plot tool is active, or none.
         if step_f == 0:
             return
@@ -1483,6 +1548,71 @@ class PlotWidget(QWidget):
         # LLFR-00070: the plot panel shares the range with the tab.
         self.time_range_changed.emit(new_start_s, new_end_s)
 
+    def pan_press_at(self, widget_point) -> None:
+        """Start a pan with the wheel button pressed at a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Nothing starts while a marker is being dragged.
+        """
+        # LLFR-00117: the time under the pointer is held under it while
+        # the mouse moves; any plot tool, or none, may be active.
+        if self.drag_marker_id_i != NO_MARKER_ID_I:
+            return
+        self.panning_b = True
+        self.pan_anchor_s = self.time_at(widget_point)
+        # LLFR-00042: a pan is not a hover over a curve.
+        self.hide_hover_tip()
+
+    def pan_to(self, widget_point) -> None:
+        """Shift the time range so the grabbed time is under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits time_range_changed when the range moved,
+            so that the whole tab follows (LLFR-00070). Does nothing
+            when no pan is in progress.
+        """
+        # LLFR-00117: the curves follow the pointer horizontally.
+        if not self.panning_b:
+            return
+        start_s, end_s = self.time_range_tuple()
+        width_s = end_s - start_s
+        full_start_s, full_end_s = self.full_time_range_tuple()
+        full_width_s = full_end_s - full_start_s
+        # LLFR-00118: at the whole time range there is nothing to pan.
+        if width_s >= full_width_s * (1.0 - FULL_RANGE_TOLERANCE_F):
+            return
+        new_start_s = start_s + self.pan_anchor_s - self.time_at(
+            widget_point)
+        # LLFR-00119: never before the first or after the last sample;
+        # the width is kept.
+        new_start_s = min(max(new_start_s, full_start_s),
+                          full_end_s - width_s)
+        if new_start_s == start_s:
+            return
+        new_end_s = new_start_s + width_s
+        # LLFR-00120: apply_time_range fits y to the new range.
+        self.time_range_s_tuple = (new_start_s, new_end_s)
+        self.apply_time_range()
+        # draw_idle merges the redraws of fast mouse moves into one.
+        self.canvas.draw_idle()
+        # LLFR-00070: the plot panel shares the range with the tab.
+        self.time_range_changed.emit(new_start_s, new_end_s)
+
+    def pan_release_at(self, widget_point) -> None:
+        """End a pan at the point where the wheel button was released.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none.
+        """
+        # LLFR-00117: the last move is applied, then the pan ends.
+        if not self.panning_b:
+            return
+        self.pan_to(widget_point)
+        self.panning_b = False
+
     # ----------------------------------------------------------------
     # matplotlib event handlers
     # ----------------------------------------------------------------
@@ -1496,6 +1626,10 @@ class PlotWidget(QWidget):
         """
         # LLFR-00086, LLFR-00093: a move with a marker held drags it.
         widget_point = self.display_to_widget_point(event.x, event.y)
+        # LLFR-00117: a move with the wheel button held pans.
+        if self.panning_b:
+            self.pan_to(widget_point)
+            return
         if self.drag_marker_id_i != NO_MARKER_ID_I:
             self.drag_to(widget_point)
             return
@@ -1509,11 +1643,19 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
+        widget_point = self.display_to_widget_point(event.x, event.y)
+        # LLFR-00117: the wheel button starts a pan, with any tool, and
+        # never zooms, pins, places or grabs a marker, or opens a menu.
+        if event.button == MouseButton.MIDDLE:
+            self.pan_press_at(widget_point)
+            return
+        # LLFR-00117: other buttons do nothing while panning.
+        if self.panning_b:
+            return
         # LLFR-00045, LLFR-00078: the second press of a double-click must
         # not pin the same tip again nor zoom a second time.
         if event.dblclick:
             return
-        widget_point = self.display_to_widget_point(event.x, event.y)
         if event.button == MouseButton.LEFT:
             # LLFR-00045: a left click pins the shown tip; LLFR-00078:
             # with the Zoom tool it zooms in; LLFR-00081, LLFR-00086:
@@ -1531,10 +1673,15 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
+        widget_point = self.display_to_widget_point(event.x, event.y)
+        # LLFR-00117: releasing the wheel button ends a pan.
+        if event.button == MouseButton.MIDDLE:
+            self.pan_release_at(widget_point)
+            return
         # LLFR-00086: releasing the left button leaves a dragged marker.
         if event.button != MouseButton.LEFT:
             return
-        self.release_at(self.display_to_widget_point(event.x, event.y))
+        self.release_at(widget_point)
 
     def on_mouse_scroll(self, event) -> None:
         """Handle a matplotlib scroll on the canvas.
@@ -1544,9 +1691,9 @@ class PlotWidget(QWidget):
         Outputs: none.
         """
         # LLFR-00074, LLFR-00108: the wheel runs the zoom code with any
-        # tool.
+        # tool. LLFR-00113: the notches come from Qt's rotation angle.
         self.wheel_at(self.display_to_widget_point(event.x, event.y),
-                      float(event.step))
+                      wheel_step_f(event))
 
     def on_mouse_leave(self, event) -> None:
         """Hide the hover tip when the mouse leaves the canvas.
