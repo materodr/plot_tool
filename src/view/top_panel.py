@@ -32,6 +32,8 @@ EXPORT_TEXT_STR = "Export"
 SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
 COPY_TEXT_STR = "Copy"
 UNDO_TEXT_STR = "Undo"
+# LLFR-00190: the Redo button, right of the Undo button.
+REDO_TEXT_STR = "Redo"
 # LLFR-00159: the icon of each button, by button name.
 BUTTON_ICON_DICT = {
     OPEN_FILE_TEXT_STR: icon_shapes.OPEN_FILE_ICON_STR,
@@ -45,6 +47,7 @@ BUTTON_ICON_DICT = {
     EXPORT_TEXT_STR: icon_shapes.EXPORT_ICON_STR,
     COPY_TEXT_STR: icon_shapes.COPY_ICON_STR,
     UNDO_TEXT_STR: icon_shapes.UNDO_ICON_STR,
+    REDO_TEXT_STR: icon_shapes.REDO_ICON_STR,
 }
 
 
@@ -89,6 +92,9 @@ class TopPanel(QWidget):
         copy_button: the "Copy" ToggleButton (LLFR-00132).
         undo_button: the "Undo" UndoButton (LLFR-00136); not a plot
             tool, disabled while nothing can be undone (LLFR-00141).
+        redo_button: the "Redo" UndoButton (LLFR-00190), directly right
+            of the Undo button; disabled while nothing can be redone
+            (LLFR-00194).
     """
 
     plot_tool_changed = pyqtSignal(str)
@@ -185,6 +191,13 @@ class TopPanel(QWidget):
         self.undo_button.setEnabled(False)
         self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         self.button_layout.addWidget(self.undo_button)
+        # LLFR-00190: the Redo button, directly right of Undo in the same
+        # group; LLFR-00194: disabled until an action is undone.
+        self.redo_button = new_icon_button(
+            UndoButton, REDO_TEXT_STR, "redo_button")
+        self.redo_button.setEnabled(False)
+        self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
+        self.button_layout.addWidget(self.redo_button)
         # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
         # left.
         self.button_layout.addStretch(1)
