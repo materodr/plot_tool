@@ -61,6 +61,14 @@ class MainController:
         self.synthetic_controller = SyntheticController(
             main_window, self.file_controller, self.plot_controller,
             self.signal_list_controller)
+        # LLFR-00225 item 10, LLFR-00262: layout files save and create
+        # again the synthetic signals.
+        self.layout_controller.synthetic_signal_list_function = (
+            self.synthetic_controller.layout_entries)
+        self.layout_controller.synthetic_signal_builder = (
+            self.synthetic_controller.load_layout_signals)
+        self.layout_controller.synthetic_signal_snapshot_function = (
+            self.synthetic_controller.layout_snapshot)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
         self.export_controller = ExportController(main_window)

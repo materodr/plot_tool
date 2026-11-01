@@ -44,11 +44,21 @@ An example of a layout file::
 A ``label_position`` of ``null`` means that the data tip was never
 moved, so the app places its label beside the point by itself.
 
-The list ``synthetic_signals`` is the place of the synthetic signals of
-LLFR-00225 item 10 and LLFR-00262. This version writes it empty and its
-loader hands its entries, unchanged, to an optional builder function
-(``synthetic_signal_builder`` of ``rebuild_layout``) that does nothing
-by default.
+The list ``synthetic_signals`` holds the synthetic signals of
+LLFR-00225 item 10, in creation order, as the entries described in
+model.synthetic_signals (the same entries "Copy equation" puts on the
+clipboard, LLFR-00279). On load, the entries are handed, unchanged, to
+a builder function (``synthetic_signal_builder`` of ``rebuild_layout``)
+that removes the current synthetic signals, creates those of the file
+and fills the report (LLFR-00262); the plots are then rebuilt with the
+signals of the data file and the synthetic signals that were created.
+
+TODO(#109): frequency plots. When the frequency plots of issue #109 are
+merged, save the kind of each plot (time or frequency) and each
+frequency plot's own x-axis range, and load them, limiting that range
+to the frequency range of its curves. Until then, an FFT signal is
+never drawn in a plot, and an FFT curve found in a hand-edited file is
+reported as not rebuilt.
 
 Loading rebuilds the layout in a Workspace with the signals of the open
 data file (LLFR-00229 to LLFR-00235) and collects in a LayoutReport what
@@ -142,6 +152,7 @@ MISSING_HEADING_STR = "Signals not in the data file:"
 NOT_REBUILT_HEADING_STR = "Not rebuilt:"
 TIME_RANGE_HEADING_STR = "Time range:"
 REPLACED_HEADING_STR = "Values replaced:"
+REMOVED_HEADING_STR = "Removed from the current tabs:"
 REPORT_ITEM_PREFIX_STR = "  - "
 
 
@@ -160,6 +171,9 @@ class LayoutReport:
     Attributes:
         synthetic_line_list: synthetic signals not created, with the
             reason (LLFR-00262; filled by the synthetic signal builder).
+        removed_line_list: curves of kept tabs (LLFR-00229) removed
+            because their synthetic signal was removed by the load
+            (LLFR-00262).
         missing_signal_list: the signals not in the data file, each named
             once, in the order they were met (LLFR-00231).
         not_rebuilt_line_list: data tips, vertical markers, delta
@@ -178,6 +192,7 @@ class LayoutReport:
         """
         # LLFR-00237: one list per kind of entry of the report.
         self.synthetic_line_list = []
+        self.removed_line_list = []
         self.missing_signal_list = []
         self.not_rebuilt_line_list = []
         self.time_range_line_list = []
@@ -201,8 +216,19 @@ class LayoutReport:
             line_str: the text of the entry.
         Outputs: none.
         """
-        # LLFR-00262, LLFR-00237: filled by the builder of issue #110.
+        # LLFR-00262, LLFR-00237: filled by the synthetic builder.
         self.synthetic_line_list.append(str(line_str))
+
+    def add_removed(self, line_str: str) -> None:
+        """Note a curve of a kept tab removed with its synthetic signal.
+
+        Inputs:
+            line_str: the text of the entry.
+        Outputs: none.
+        """
+        # LLFR-00262, LLFR-00229: the current synthetic signals are
+        # removed, so their curves in the kept tabs go too.
+        self.removed_line_list.append(str(line_str))
 
     def add_not_rebuilt(self, line_str: str) -> None:
         """Note a part of the layout that was not rebuilt.
@@ -241,7 +267,8 @@ class LayoutReport:
         Outputs: True when there is nothing to report.
         """
         # LLFR-00237: then no message is shown.
-        return not (self.synthetic_line_list or self.missing_signal_list
+        return not (self.synthetic_line_list or self.removed_line_list
+                    or self.missing_signal_list
                     or self.not_rebuilt_line_list
                     or self.time_range_line_list or self.replaced_line_list)
 
@@ -253,9 +280,11 @@ class LayoutReport:
             of LLFR-00237.
         """
         # LLFR-00237: synthetic signals, missing signals, items not
-        # rebuilt, the time range and the replaced values.
+        # rebuilt, the time range and the replaced values; LLFR-00262:
+        # the curves of kept tabs removed with their synthetic signal.
         section_list = [
             (SYNTHETIC_HEADING_STR, self.synthetic_line_list),
+            (REMOVED_HEADING_STR, self.removed_line_list),
             (MISSING_HEADING_STR, self.missing_signal_list),
             (NOT_REBUILT_HEADING_STR, self.not_rebuilt_line_list),
             (TIME_RANGE_HEADING_STR, self.time_range_line_list),
@@ -487,8 +516,8 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
         panel_width_tuple: (plot panel width, signal list panel width)
             in pixels, or () when unknown.
         synthetic_signal_list: the entries of the synthetic signals
-            (LLFR-00225 item 10), already as JSON values; empty until
-            issue #110 fills it.
+            (LLFR-00225 item 10), already as JSON values, in creation
+            order (SyntheticSignalStore.layout_entries).
     Outputs: a dict whose first entries are "format" and "version"
         (LLFR-00228), ready for layout_text.
     """
@@ -521,7 +550,7 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     layout_dict[VERTICAL_MARKERS_KEY_STR] = [
         {NAME_KEY_STR: marker.name_str, TIME_KEY_STR: float(marker.time_s)}
         for marker in workspace.marker_list]
-    # LLFR-00225 item 10, LLFR-00262: the synthetic signals (issue #110).
+    # LLFR-00225 item 10, LLFR-00262: the synthetic signals.
     layout_dict[SYNTHETIC_SIGNALS_KEY_STR] = list(synthetic_signal_list)
     # LLFR-00225 items 1 and 2: the tabs in order, each with its plots
     # from top to bottom.
@@ -641,7 +670,7 @@ def synthetic_signal_entry_list(layout_dict: dict) -> list:
     Outputs: the list of "synthetic_signals", or [] when it is missing
         or not a list.
     """
-    # LLFR-00262: the place of the synthetic signals (issue #110).
+    # LLFR-00262: the synthetic signals of the file, in creation order.
     return list_entry(layout_dict, SYNTHETIC_SIGNALS_KEY_STR)
 
 
@@ -654,11 +683,14 @@ class LayoutBuilder:
 
     Inputs:
         workspace: the Workspace to add the layout to.
-        signal_dict: signal name -> numpy array of the open data file
-            (and, from issue #110, of the synthetic signals).
+        signal_dict: signal name -> numpy array of the open data file;
+            the builder copies it and adds the synthetic signals created
+            from the file (LLFR-00230, LLFR-00262).
         time_array: the values of the time signal, in seconds.
     Attributes:
         report: the LayoutReport being filled.
+        frequency_name_set: names of the created FFT signals, which are
+            not drawn in time plots (LLFR-00251).
     """
 
     def __init__(self, workspace, signal_dict: dict, time_array) -> None:
@@ -670,7 +702,10 @@ class LayoutBuilder:
         # LLFR-00230: the layout is rebuilt with the signals of the open
         # data file.
         self.workspace = workspace
-        self.signal_dict = signal_dict
+        # LLFR-00230: a copy, so that the synthetic signals of the file
+        # are added without changing the data file's dict.
+        self.signal_dict = dict(signal_dict)
+        self.frequency_name_set = set()
         self.time_array = np.asarray(time_array, dtype=float)
         self.file_range_tuple = file_time_range(self.time_array)
         self.report = LayoutReport()
@@ -716,6 +751,10 @@ class LayoutBuilder:
             return ((), time_s, "a point of it has no valid signal name")
         if time_s is None:
             return ((), None, "the time of a point is not a number")
+        if signal_value in self.frequency_name_set:
+            # LLFR-00251: an FFT signal is not drawn in a time plot.
+            return ((), time_s,
+                    f"the signal {signal_value} is not drawn in its plot")
         if signal_value not in self.signal_dict:
             # LLFR-00231, LLFR-00237: named in the missing signals too.
             self.report.add_missing_signal(signal_value)
@@ -764,6 +803,13 @@ class LayoutBuilder:
             signal_name_str = self.signal_name(curve_entry, owner_str,
                                                "A curve")
             if signal_name_str is None:
+                continue
+            # LLFR-00251: an FFT signal is not drawn in a time plot.
+            # TODO(#109): rebuild it in its frequency plot.
+            if signal_name_str in self.frequency_name_set:
+                self.report.add_not_rebuilt(
+                    f"Curve of {signal_name_str} in {owner_str}: an FFT "
+                    f"signal is not drawn in a time plot.")
                 continue
             # LLFR-00231: a signal not in the data file is not drawn.
             if signal_name_str not in self.signal_dict:
@@ -1276,6 +1322,28 @@ class LayoutBuilder:
             f"widths.")
         return ()
 
+    def add_synthetic_signals(self, built_value) -> None:
+        """Add the synthetic signals created by the builder.
+
+        Inputs:
+            built_value: the value the synthetic signal builder
+                returned: (time_signal_dict, frequency_name_set), or
+                None when it created nothing.
+        Outputs: none.
+        """
+        # LLFR-00230, LLFR-00262: the plots are rebuilt with the signals
+        # of the data file and the synthetic signals of the file.
+        if not (isinstance(built_value, tuple) and len(built_value) == 2):
+            return
+        time_signal_dict, frequency_name_set = built_value
+        for name_str, value_array in dict(time_signal_dict).items():
+            # LLFR-00262: a data file signal is never replaced.
+            if name_str not in self.signal_dict:
+                self.signal_dict[name_str] = value_array
+        self.frequency_name_set = {
+            name_str for name_str in frequency_name_set
+            if name_str not in self.signal_dict}
+
     def rebuild(self, layout_dict: dict,
                 synthetic_signal_builder=None) -> LayoutResult:
         """Rebuild the whole layout of a file in the workspace.
@@ -1283,15 +1351,20 @@ class LayoutBuilder:
         Inputs:
             layout_dict: the content of the file (parse_layout_text).
             synthetic_signal_builder: optional function taking (entry
-                list, report) that creates the synthetic signals before
-                the plots are rebuilt and adds their names to
-                signal_dict (LLFR-00262, issue #110); None does nothing.
+                list, report) that removes the current synthetic
+                signals, creates those of the file before the plots are
+                rebuilt, reports those not created, and returns a tuple
+                (time_signal_dict, frequency_name_set): name -> samples
+                of the created signals drawn against time, and the names
+                of the created FFT signals (LLFR-00262); None creates
+                none.
         Outputs: the LayoutResult to apply to the view.
         """
-        # LLFR-00262: the synthetic signals come first (issue #110).
+        # LLFR-00262: the synthetic signals come first, so that the
+        # plots are rebuilt with them.
         if synthetic_signal_builder is not None:
-            synthetic_signal_builder(synthetic_signal_entry_list(layout_dict),
-                                     self.report)
+            self.add_synthetic_signals(synthetic_signal_builder(
+                synthetic_signal_entry_list(layout_dict), self.report))
         tab_entry_list = layout_dict.get(TABS_KEY_STR)
         if not isinstance(tab_entry_list, list):
             # LLFR-00235: no list of tabs; nothing to add.
@@ -1336,7 +1409,7 @@ def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
         signal_dict: signal name -> numpy array of the open data file.
         time_array: the values of the time signal, in seconds.
         synthetic_signal_builder: optional function of LayoutBuilder.
-            rebuild for the synthetic signals (issue #110).
+            rebuild for the synthetic signals (LLFR-00262).
     Outputs: the LayoutResult.
     """
     # LLFR-00229 to LLFR-00235: see LayoutBuilder.
