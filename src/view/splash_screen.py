@@ -9,17 +9,23 @@ pandas or the plot views at import time (LLFR-00184).
 
 Contents:
 - ``SplashScreen``: a white card with the app icon, the app name and
-  "Loading..." (LLFR-00185), that a mouse click does not close
-  (LLFR-00186);
+  "Loading..." (LLFR-00185), closed by ``finish`` once the main window
+  is on screen (LLFR-00186);
 - ``show_splash``: create it, centre it on the primary screen, show it
   and make sure it is painted before the slow imports start.
+
+The splash screen is a frameless QWidget, not a QSplashScreen: on
+macOS, QSplashScreen.show() waited a full second for the window to be
+exposed (its wait asks Qt to process events for the whole remaining
+time), which used half of the 2 s of LLFR-00184. A mouse click does
+not close it either, unlike a QSplashScreen.
 """
 
 import time
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QApplication, QFrame, QLabel, QSplashScreen, QVBoxLayout)
+    QApplication, QFrame, QLabel, QVBoxLayout, QWidget)
 
 from view import icons, theme
 
@@ -29,13 +35,13 @@ CARD_OBJECT_NAME_STR = "splash_card"
 ICON_OBJECT_NAME_STR = "splash_icon"
 NAME_OBJECT_NAME_STR = "splash_name"
 MESSAGE_OBJECT_NAME_STR = "splash_message"
-# LLFR-00184: how long show_splash waits at most for the window system
-# to put the splash on screen.
+# LLFR-00184, LLFR-00186: how long show_splash and finish wait at most
+# for the window system to put a window on screen.
 EXPOSE_TIMEOUT_S = 1.0
 EXPOSE_POLL_INTERVAL_S = 0.005
 
 
-class SplashScreen(QSplashScreen):
+class SplashScreen(QWidget):
     """The splash screen: app icon, app name and "Loading...".
 
     Inputs:
@@ -56,7 +62,8 @@ class SplashScreen(QSplashScreen):
             device_pixel_ratio_f: the screen's device pixel ratio.
         Outputs: none.
         """
-        super().__init__()
+        super().__init__(None, Qt.WindowType.SplashScreen
+                         | Qt.WindowType.FramelessWindowHint)
         # LLFR-00185: a frameless card with rounded corners; the corners
         # outside the card are transparent.
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -94,16 +101,18 @@ class SplashScreen(QSplashScreen):
         layout.addWidget(self.message_label)
         layout.addStretch(1)
 
-    def mousePressEvent(self, event) -> None:
-        """Ignore mouse clicks, which would close a QSplashScreen.
+    def finish(self, main_window) -> None:
+        """Close the splash screen once the main window is on screen.
 
         Inputs:
-            event: the QMouseEvent.
-        Outputs: none.
+            main_window: the shown main window.
+        Outputs: none. Waits at most EXPOSE_TIMEOUT_S for the window to
+            be exposed, then closes the splash screen.
         """
-        # LLFR-00186: the splash closes when the main window is shown,
-        # not when the user clicks it.
-        event.accept()
+        # LLFR-00186: the splash stays until the window replaces it.
+        wait_until_exposed(QApplication.instance(), main_window,
+                           EXPOSE_TIMEOUT_S)
+        self.close()
 
 
 def splash_icon_pixmap(device_pixel_ratio_f: float):
@@ -123,18 +132,40 @@ def splash_icon_pixmap(device_pixel_ratio_f: float):
     return pixmap
 
 
-def splash_exposed(splash) -> bool:
-    """Tell whether the splash screen is on screen.
+def splash_exposed(widget) -> bool:
+    """Tell whether a window is on screen.
 
     Inputs:
-        splash: the SplashScreen.
+        widget: a top-level widget (the SplashScreen or the main
+            window).
     Outputs: True when it is visible and its native window is exposed.
     """
-    # LLFR-00184: the window system has put the splash on screen.
-    if not splash.isVisible():
+    # LLFR-00184, LLFR-00186: the window system has put it on screen.
+    if not widget.isVisible():
         return False
-    window_handle = splash.windowHandle()
+    window_handle = widget.windowHandle()
     return window_handle is not None and window_handle.isExposed()
+
+
+def wait_until_exposed(application, widget, timeout_s: float) -> bool:
+    """Handle events until a window is on screen, or for at most a time.
+
+    Inputs:
+        application: the QApplication.
+        widget: the shown top-level widget.
+        timeout_s: the longest wait.
+    Outputs: True when the widget is exposed.
+    """
+    # LLFR-00184, LLFR-00186: there may be no running event loop, so
+    # the events that put the window on screen are handled here; each
+    # call handles only the pending events and returns at once.
+    deadline_s = time.perf_counter() + timeout_s
+    application.processEvents()
+    while (not splash_exposed(widget)
+           and time.perf_counter() < deadline_s):
+        time.sleep(EXPOSE_POLL_INTERVAL_S)
+        application.processEvents()
+    return splash_exposed(widget)
 
 
 def show_splash(application: QApplication,
@@ -160,35 +191,6 @@ def show_splash(application: QApplication,
     ratio_f = screen.devicePixelRatio() if screen is not None else 1.0
     splash = SplashScreen(ratio_f)
     phase_list.append(("splash_built", time.perf_counter()))
-    import os
-    if os.environ.get("PLOT_TOOL_DIAG_FONTS") != "0":
-        from PyQt6.QtGui import QFontDatabase
-        QFontDatabase.families()
-        phase_list.append(("diag_font_families", time.perf_counter()))
-    splash.ensurePolished()
-    splash.card.ensurePolished()
-    for label in (splash.icon_label, splash.name_label,
-                  splash.message_label):
-        label.ensurePolished()
-        label.sizeHint()
-    phase_list.append(("diag_polish", time.perf_counter()))
-    splash.card.layout().activate()
-    phase_list.append(("diag_layout", time.perf_counter()))
-    splash.winId()
-    phase_list.append(("diag_native_window", time.perf_counter()))
-    from PyQt6.QtWidgets import QWidget
-    dummy = QWidget()
-    dummy.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-    dummy.setGeometry(0, 0, 4, 4)
-    dummy.show()
-    phase_list.append(("diag_dummy_show", time.perf_counter()))
-    dummy_two = QWidget()
-    dummy_two.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-    dummy_two.setGeometry(0, 0, 4, 4)
-    dummy_two.show()
-    phase_list.append(("diag_dummy_two_show", time.perf_counter()))
-    dummy.close()
-    dummy_two.close()
     if screen is not None:
         available_rect = screen.availableGeometry()
         splash.move(available_rect.center() - splash.rect().center())
@@ -197,12 +199,7 @@ def show_splash(application: QApplication,
     # LLFR-00184: there is no event loop yet, and the slow imports that
     # follow block it, so the events that put the splash on screen are
     # handled here until it is exposed, and then it is painted.
-    deadline_s = time.perf_counter() + timeout_s
-    application.processEvents()
-    while (not splash_exposed(splash)
-           and time.perf_counter() < deadline_s):
-        time.sleep(EXPOSE_POLL_INTERVAL_S)
-        application.processEvents()
+    wait_until_exposed(application, splash, timeout_s)
     phase_list.append(("splash_exposed", time.perf_counter()))
     splash.repaint()
     application.processEvents()
