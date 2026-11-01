@@ -217,8 +217,8 @@ def reset_zoom_shape() -> list:
     # to the left and to the right.
     return magnifier_layer_list() + [
         ink_layer(segment(6.75, 10.5, 14.25, 10.5)),
-        ink_layer(arrow_head(6.75, 10.5, "left", 2.0)),
-        ink_layer(arrow_head(14.25, 10.5, "right", 2.0))]
+        ink_layer(arrow_head(6.75, 10.5, "left", 1.75)),
+        ink_layer(arrow_head(14.25, 10.5, "right", 1.75))]
 
 
 def marker_shape() -> list:
@@ -279,8 +279,8 @@ def grid_shape() -> list:
     Outputs: the list of layers.
     """
     # LLFR-00159: the frame and two lines in each direction.
-    start_f = 3.5
-    side_f = 17.0
+    start_f = 3.0
+    side_f = 18.0
     layer_list = [ink_layer([("R", start_f, start_f, side_f, side_f, 2.5)])]
     for index_i in (1, 2):
         line_f = start_f + side_f * index_i / 3.0
@@ -359,8 +359,8 @@ def icon_layer_list(icon_name_str: str) -> list:
 # App icon (LLFR-00183), on a 100 by 100 grid
 # ----------------------------------------------------------------------
 APP_ICON_GRID_F = 100.0
-# LLFR-00183: below this size in pixels the simpler drawing is used:
-# thicker lines, no tick marks, a fuller square.
+# LLFR-00183: below this size in pixels the simpler drawing is used: a
+# fuller square, curves kept apart and no tick marks.
 APP_ICON_SMALL_SIZE_I = 32
 BACKGROUND_ROLE_STR = "background"
 BORDER_ROLE_STR = "border"
@@ -376,29 +376,32 @@ def app_icon_layer_list(size_i: int) -> list:
         size_i: the side of the drawn icon, in pixels.
     Outputs: the list of layers, on the 100 by 100 grid: the light
         rounded square, the pair of axes, the blue curve and the red
-        curve (LLFR-00183). Below APP_ICON_SMALL_SIZE_I the strokes are
-        thicker and the tick marks are left out, so the chart stays
+        curve (LLFR-00183). The lines never get thinner than about
+        1.25 px, and below APP_ICON_SMALL_SIZE_I the curves are kept
+        apart and the tick marks are left out, so the chart stays
         recognizable at 16 by 16 pixels.
     """
     # LLFR-00183: a light rounded square with a small line chart.
     small_b = size_i < APP_ICON_SMALL_SIZE_I
+    # LLFR-00183: the lines keep a visible width in pixels at small
+    # sizes and grow with the icon at large sizes.
+    unit_per_pixel_f = APP_ICON_GRID_F / max(1, size_i)
+    axis_width_f = max(1.25 * unit_per_pixel_f, 4.0)
+    curve_width_f = max(1.6 * unit_per_pixel_f, 5.0)
+    border_width_f = max(1.0 * unit_per_pixel_f, 1.25)
     if small_b:
+        # LLFR-00183: a fuller square and two curves kept apart, so they
+        # don't blur into each other at 16 by 16 pixels.
         square_tuple = (1.5, 1.5, 97.0, 97.0, 20.0)
-        border_width_f = 100.0 / size_i
-        axis_width_f = 9.0
-        curve_width_f = 10.0
         axis_list = polyline([(20.0, 18.0), (20.0, 80.0), (84.0, 80.0)])
-        blue_list = [("M", 30.0, 66.0),
-                     ("C", 44.0, 66.0, 46.0, 28.0, 60.0, 28.0),
-                     ("C", 70.0, 28.0, 72.0, 38.0, 82.0, 36.0)]
-        red_list = [("M", 30.0, 44.0),
-                    ("C", 44.0, 44.0, 52.0, 66.0, 64.0, 62.0),
-                    ("C", 72.0, 59.0, 76.0, 54.0, 82.0, 54.0)]
+        blue_list = [("M", 30.0, 54.0),
+                     ("C", 42.0, 54.0, 46.0, 24.0, 60.0, 24.0),
+                     ("C", 70.0, 24.0, 74.0, 30.0, 84.0, 28.0)]
+        red_list = [("M", 30.0, 70.0),
+                    ("C", 44.0, 70.0, 52.0, 56.0, 64.0, 58.0),
+                    ("C", 74.0, 60.0, 78.0, 66.0, 84.0, 64.0)]
     else:
         square_tuple = (4.0, 4.0, 92.0, 92.0, 21.0)
-        border_width_f = max(1.25, 100.0 / size_i)
-        axis_width_f = 4.0
-        curve_width_f = 5.0
         axis_list = polyline([(22.0, 20.0), (22.0, 78.0), (82.0, 78.0)])
         blue_list = [("M", 29.0, 62.0),
                      ("C", 40.0, 62.0, 43.0, 30.0, 55.0, 30.0),

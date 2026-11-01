@@ -192,8 +192,8 @@ def save_top_panel(main_window, application, path_str: str) -> None:
     Outputs: none.
     """
     from PyQt6.QtCore import QPoint
-    from PyQt6.QtGui import QColor, QImage, QPainter
-    from PyQt6.QtWidgets import QToolTip
+    from PyQt6.QtGui import QColor, QImage, QPainter, QRegion
+    from PyQt6.QtWidgets import QToolTip, QWidget
     from view import theme
     top_panel = main_window.top_panel
     # The panel width up to its last button.
@@ -224,7 +224,8 @@ def save_top_panel(main_window, application, path_str: str) -> None:
         panel_image.setDevicePixelRatio(scale_i)
         panel_image.fill(QColor(theme.WINDOW_COLOR_STR))
         panel_painter = QPainter(panel_image)
-        top_panel.render(panel_painter)
+        top_panel.render(panel_painter, QPoint(), QRegion(),
+                         QWidget.RenderFlag.DrawChildren)
         panel_painter.end()
         panel_image.setDevicePixelRatio(1)
         painter.drawImage(left_i, margin_i, panel_image)

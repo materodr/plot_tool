@@ -31,7 +31,7 @@ APP_ICON_BASE_NAME_STR = "plot_tool"
 # LLFR-00182: ICNS entry type -> side of its PNG image in pixels. The
 # @2x types (ic10 to ic14) hold the high density version of a size.
 ICNS_TYPE_SIZE_TUPLE = (
-    (b"icp4", 16), (b"icp5", 32), (b"icp6", 64), (b"ic07", 128),
+    (b"icp4", 16), (b"icp5", 32), (b"ic07", 128),
     (b"ic08", 256), (b"ic09", 512), (b"ic10", 1024), (b"ic11", 32),
     (b"ic12", 64), (b"ic13", 256), (b"ic14", 512),
 )
