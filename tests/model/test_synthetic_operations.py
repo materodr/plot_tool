@@ -103,7 +103,7 @@ class OperationTableTest(unittest.TestCase):
         for operation_str in ("integral", "derivative", "max", "min"):
             self.assertEqual(kind_dict[operation_str], "none")
         for operation_str in ("lowpass", "highpass"):
-            self.assertEqual(kind_dict[operation_str], "cutoff_hz")
+            self.assertEqual(kind_dict[operation_str], "filter")
         self.assertEqual(kind_dict["movingaverage"], "window_i")
         for operation_str in ("greater", "less", "greaterorequal",
                               "lessorequal", "add", "subtract",
@@ -299,11 +299,16 @@ class SamplingRateTest(unittest.TestCase):
         """
         time_array = np.array([0.0, 1.0, 3.0, 4.0])
         with self.assertRaises(UnevenTimeStepError):
-            operations.check_parameter("lowpass", 0.1, time_array, 4)
+            operations.check_parameter("lowpass", (0.1, 2, "zero"),
+                                       time_array, 4)
 
 
 class FilterTest(unittest.TestCase):
-    """Check the Butterworth Low-pass and High-pass filters."""
+    """Check the Butterworth Low-pass and High-pass filters.
+
+    The filters run once, forward in time, like a real-time filter, and
+    start in the steady state of the first sample (LLFR-00246).
+    """
 
     def setUp(self) -> None:
         """Create 10 s of samples at 1 kHz.
@@ -314,15 +319,111 @@ class FilterTest(unittest.TestCase):
         self.time_array = even_time_array(1000.0, 10.0)
 
     @covers("LLFR-00246")
-    def test_lowpass_keeps_a_constant(self) -> None:
-        """The low-pass gain at 0 Hz is 1.
+    def test_output_is_scipy_forward_filter_for_both_starts(
+            self) -> None:
+        """The output is scipy's sosfilt, steady or at rest at the start.
 
         Inputs: none.
         Outputs: none.
         """
-        result_array = operations.lowpass(
-            self.time_array, np.full(self.time_array.size, 4.0), 5.0)
-        np.testing.assert_allclose(result_array, 4.0)
+        from scipy import signal as scipy_signal
+        input_array = (sine_array(self.time_array, 3.0)
+                       + 0.3 * sine_array(self.time_array, 40.0) + 2.0)
+        for order_i in range(1, 9):
+            for type_str, function in (("lowpass", operations.lowpass),
+                                       ("highpass", operations.highpass)):
+                section_array = scipy_signal.butter(
+                    order_i, 10.0 / 500.0, btype=type_str, output="sos")
+                expected_array, _ = scipy_signal.sosfilt(
+                    section_array, input_array,
+                    zi=scipy_signal.sosfilt_zi(section_array)
+                    * input_array[0])
+                result_array = function(self.time_array, input_array,
+                                        10.0, order_i, "first_value")
+                np.testing.assert_allclose(result_array, expected_array,
+                                           rtol=1e-12, atol=1e-12)
+                # LLFR-00246: "From zero" is scipy's filter at rest.
+                at_rest_array = scipy_signal.sosfilt(section_array,
+                                                     input_array)
+                result_array = function(self.time_array, input_array,
+                                        10.0, order_i, "zero")
+                np.testing.assert_allclose(result_array, at_rest_array,
+                                           rtol=1e-12, atol=1e-12)
+
+    @covers("LLFR-00246")
+    def test_lowpass_keeps_a_constant_without_start_jump(self) -> None:
+        """A constant goes through every low-pass order unchanged.
+
+        The steady-state start means the curve does not jump at the
+        first samples.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        constant_array = np.full(self.time_array.size, 4.0)
+        for order_i in range(1, 9):
+            result_array = operations.lowpass(self.time_array,
+                                              constant_array, 5.0, order_i)
+            np.testing.assert_allclose(result_array, 4.0, atol=1e-9)
+
+    @covers("LLFR-00246")
+    def test_highpass_of_a_constant_is_zero(self) -> None:
+        """A constant gives 0 through every high-pass order, from the start.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        constant_array = np.full(self.time_array.size, 5.0)
+        for order_i in range(1, 9):
+            result_array = operations.highpass(self.time_array,
+                                               constant_array, 1.0, order_i)
+            np.testing.assert_allclose(result_array, 0.0, atol=1e-9)
+
+    @covers("LLFR-00246")
+    def test_zero_start_settles_towards_the_constant(self) -> None:
+        """From zero, a low-pass rises from 0 and a high-pass decays.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        constant_array = np.full(self.time_array.size, 5.0)
+        for order_i in (1, 2, 4, 8):
+            lowpass_array = operations.lowpass(
+                self.time_array, constant_array, 5.0, order_i, "zero")
+            self.assertLess(abs(lowpass_array[0]), 0.1)
+            self.assertLess(lowpass_array[10], lowpass_array[100])
+            self.assertAlmostEqual(float(lowpass_array[-1]), 5.0,
+                                   delta=1e-6)
+            highpass_array = operations.highpass(
+                self.time_array, constant_array, 5.0, order_i, "zero")
+            self.assertGreater(highpass_array[0], 4.5)
+            self.assertLessEqual(highpass_array[0], 5.0)
+            self.assertAlmostEqual(float(highpass_array[-1]), 0.0,
+                                   delta=1e-6)
+        # LLFR-00246: the default start is from the first value.
+        np.testing.assert_allclose(operations.lowpass(
+            self.time_array, constant_array, 5.0, 2), 5.0, atol=1e-9)
+
+    @covers("LLFR-00245", "LLFR-00246")
+    def test_filter_start_choices(self) -> None:
+        """The start is "first_value" (the default) or "zero".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(operations.FILTER_START_TUPLE,
+                         ("first_value", "zero"))
+        self.assertEqual(operations.DEFAULT_FILTER_START_STR, "first_value")
+        for start_str in ("first_value", "zero"):
+            self.assertEqual(operations.check_filter_start(start_str),
+                             start_str)
+        for start in ("", "Zero", "first", None, 0, True):
+            with self.assertRaises(SyntheticParameterError):
+                operations.check_filter_start(start)
+        with self.assertRaises(SyntheticParameterError):
+            operations.lowpass(self.time_array,
+                               np.zeros(self.time_array.size), 1.0, 2,
+                               "late")
 
     @covers("LLFR-00246")
     def test_lowpass_removes_a_high_frequency(self) -> None:
@@ -332,46 +433,70 @@ class FilterTest(unittest.TestCase):
         Outputs: none.
         """
         result_array = operations.lowpass(
-            self.time_array, sine_array(self.time_array, 200.0), 2.0)
-        middle_array = result_array[1000:-1000]
-        self.assertLess(np.max(np.abs(middle_array)), 1e-3)
+            self.time_array, sine_array(self.time_array, 200.0), 2.0, 2)
+        self.assertLess(np.max(np.abs(result_array[1000:])), 1e-3)
 
-    @covers("LLFR-00246")
-    def test_lowpass_gain_at_the_cutoff_and_no_delay(self) -> None:
-        """At the cutoff the forward-backward gain is 1/2, with no delay.
+    @covers("LLFR-00246", "LLFR-00245")
+    def test_gain_at_the_cutoff_is_one_over_square_root_of_two(
+            self) -> None:
+        """Every Butterworth order passes 1/sqrt(2) at the cutoff.
 
-        A second-order Butterworth filter has a gain of 1/sqrt(2) at the
-        cutoff; applied twice, the gain is 1/2. Forward-backward
-        filtering has zero phase, so the filtered sine is exactly half
-        the input sine: no time shift.
+        The filter runs only once, so the gain is that of one filter.
 
         Inputs: none.
         Outputs: none.
         """
         input_array = sine_array(self.time_array, 10.0)
-        result_array = operations.lowpass(self.time_array, input_array,
-                                          10.0)
-        np.testing.assert_allclose(result_array[2000:-2000],
-                                   0.5 * input_array[2000:-2000],
-                                   atol=2e-3)
+        for order_i in (1, 2, 4, 8):
+            for function in (operations.lowpass, operations.highpass):
+                result_array = function(self.time_array, input_array,
+                                        10.0, order_i)
+                amplitude_f = float(np.max(np.abs(result_array[5000:])))
+                self.assertAlmostEqual(amplitude_f, 1.0 / math.sqrt(2.0),
+                                       delta=5e-3)
 
     @covers("LLFR-00246")
-    def test_lowpass_passes_a_low_frequency_without_delay(self) -> None:
-        """A 1 Hz sine passes a 50 Hz low-pass unchanged and in phase.
+    def test_lowpass_output_lags_a_step(self) -> None:
+        """The filtered step starts late and later for a higher order.
 
         Inputs: none.
         Outputs: none.
         """
-        input_array = sine_array(self.time_array, 1.0, 2.0)
-        result_array = operations.lowpass(self.time_array, input_array,
-                                          50.0)
-        np.testing.assert_allclose(result_array[500:-500],
-                                   input_array[500:-500], atol=1e-3)
-        self.assertEqual(int(np.argmax(result_array[:1000])),
-                         int(np.argmax(input_array[:1000])))
+        step_array = np.where(self.time_array >= 5.0, 1.0, 0.0)
+        half_time_list = []
+        for order_i in (1, 2, 4):
+            result_array = operations.lowpass(self.time_array, step_array,
+                                              5.0, order_i)
+            # LLFR-00246: no output before the step (causal filter).
+            np.testing.assert_allclose(result_array[:5000], 0.0,
+                                       atol=1e-12)
+            half_index_i = int(np.argmax(result_array >= 0.5))
+            half_time_list.append(float(self.time_array[half_index_i]))
+        self.assertGreater(half_time_list[0], 5.0)
+        self.assertLess(half_time_list[0], half_time_list[1])
+        self.assertLess(half_time_list[1], half_time_list[2])
 
     @covers("LLFR-00246")
-    def test_highpass_removes_the_mean(self) -> None:
+    def test_lowpass_delays_a_sine_by_its_phase(self) -> None:
+        """A sine at the cutoff of a 2nd order low-pass lags by 1/4 period.
+
+        A second-order Butterworth low-pass shifts a sine at its cutoff
+        by -90 degrees: the peaks come a quarter period later.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        input_array = sine_array(self.time_array, 2.0)
+        result_array = operations.lowpass(self.time_array, input_array,
+                                          2.0, 2)
+        input_peak_i = 5000 + int(np.argmax(input_array[5000:5500]))
+        output_peak_i = 5000 + int(np.argmax(result_array[5000:5500]))
+        lag_s = float(self.time_array[output_peak_i]
+                      - self.time_array[input_peak_i])
+        self.assertAlmostEqual(lag_s, 0.125, delta=0.003)
+
+    @covers("LLFR-00246")
+    def test_highpass_removes_an_offset(self) -> None:
         """A high-pass removes a constant offset and keeps a fast sine.
 
         Inputs: none.
@@ -379,32 +504,17 @@ class FilterTest(unittest.TestCase):
         """
         sine_values_array = sine_array(self.time_array, 100.0)
         result_array = operations.highpass(
-            self.time_array, sine_values_array + 5.0, 1.0)
-        # Away from the ends, where the filter's start-up has died out.
-        np.testing.assert_allclose(result_array[3000:-3000],
-                                   sine_values_array[3000:-3000],
-                                   atol=2e-3)
-        constant_array = operations.highpass(
-            self.time_array, np.full(self.time_array.size, 5.0), 1.0)
-        np.testing.assert_allclose(constant_array, 0.0, atol=1e-9)
-
-    @covers("LLFR-00246")
-    def test_highpass_gain_at_the_cutoff_is_one_half(self) -> None:
-        """At the cutoff the forward-backward high-pass gain is 1/2.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        input_array = sine_array(self.time_array, 20.0)
-        result_array = operations.highpass(self.time_array, input_array,
-                                           20.0)
-        np.testing.assert_allclose(result_array[2000:-2000],
-                                   0.5 * input_array[2000:-2000],
-                                   atol=2e-3)
+            self.time_array, sine_values_array + 5.0, 1.0, 2)
+        self.assertAlmostEqual(float(np.mean(result_array[5000:])), 0.0,
+                               delta=1e-3)
+        # The amplitude, from the mean square of whole periods.
+        amplitude_f = math.sqrt(2.0 * float(np.mean(
+            result_array[5000:] ** 2)))
+        self.assertAlmostEqual(amplitude_f, 1.0, delta=5e-3)
 
     @covers("LLFR-00246", "LLFR-00245")
     def test_short_signals_are_filtered(self) -> None:
-        """Signals of 1 to 7 samples are filtered without an error.
+        """Signals of 2 to 7 samples are filtered without an error.
 
         Inputs: none.
         Outputs: none.
@@ -412,28 +522,48 @@ class FilterTest(unittest.TestCase):
         for sample_count_i in range(2, 8):
             time_array = np.arange(sample_count_i) * 0.1
             result_array = operations.lowpass(
-                time_array, np.full(sample_count_i, 3.0), 1.0)
+                time_array, np.full(sample_count_i, 3.0), 1.0, 2)
             self.assertEqual(result_array.size, sample_count_i)
             np.testing.assert_allclose(result_array, 3.0)
 
+    @covers("LLFR-00245")
+    def test_filter_order_range(self) -> None:
+        """The order is a whole number from 1 to 8, 2 at first.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(operations.allowed_filter_order_range(), (1, 8))
+        self.assertEqual(operations.DEFAULT_FILTER_ORDER_I, 2)
+        for order_i in range(1, 9):
+            self.assertEqual(operations.check_filter_order(order_i),
+                             order_i)
+        self.assertEqual(operations.check_filter_order(3.0), 3)
+        for order in (0, 9, -1, 2.5, math.nan, math.inf, "2", True, None):
+            with self.assertRaises(SyntheticParameterError) as context:
+                operations.check_filter_order(order)
+            self.assertIn("from 1 to 8", str(context.exception))
+
     @covers("LLFR-00245", "LLFR-00247")
-    def test_filters_reject_bad_cutoffs_and_uneven_times(self) -> None:
-        """Out-of-range cutoffs and uneven steps raise.
+    def test_filters_reject_bad_values_and_uneven_times(self) -> None:
+        """Out-of-range cutoffs or orders and uneven steps raise.
 
         Inputs: none.
         Outputs: none.
         """
         value_array = np.zeros(self.time_array.size)
         with self.assertRaises(SyntheticParameterError):
-            operations.lowpass(self.time_array, value_array, 500.0)
+            operations.lowpass(self.time_array, value_array, 500.0, 2)
         with self.assertRaises(SyntheticParameterError):
-            operations.highpass(self.time_array, value_array, 0.0)
+            operations.highpass(self.time_array, value_array, 0.0, 2)
+        with self.assertRaises(SyntheticParameterError):
+            operations.highpass(self.time_array, value_array, 1.0, 9)
         uneven_time_array = self.time_array.copy()
         uneven_time_array[5:] += 0.0005
         with self.assertRaises(UnevenTimeStepError):
-            operations.lowpass(uneven_time_array, value_array, 1.0)
+            operations.lowpass(uneven_time_array, value_array, 1.0, 2)
         with self.assertRaises(SyntheticOperationError):
-            operations.highpass(np.array([0.0]), np.array([1.0]), 1.0)
+            operations.highpass(np.array([0.0]), np.array([1.0]), 1.0, 2)
 
 
 class MovingAverageTest(unittest.TestCase):
@@ -765,7 +895,10 @@ class CheckParameterTest(unittest.TestCase):
         """
         time_array = even_time_array(10.0, 1.0)
         self.assertEqual(operations.check_parameter(
-            "lowpass", 2, time_array, 11), 2.0)
+            "lowpass", (2, 3.0, "zero"), time_array, 11), (2.0, 3, "zero"))
+        self.assertEqual(operations.check_parameter(
+            "highpass", [1.5, 8, "first_value"], time_array, 11),
+            (1.5, 8, "first_value"))
         self.assertEqual(operations.check_parameter(
             "movingaverage", 3.0, time_array, 11), 3)
         self.assertEqual(operations.check_parameter(
@@ -779,6 +912,12 @@ class CheckParameterTest(unittest.TestCase):
         for operation_str, parameter in (
                 ("integral", 3.0), ("fft", (0.0,)), ("fft", "0 to 1"),
                 ("fft", (0.0, math.nan)), ("highpass", 5.0),
+                ("highpass", (5.0, 2, "zero")), ("lowpass", 2.0),
+                ("lowpass", (2.0, 9, "zero")), ("lowpass", (2.0, 0, "zero")),
+                ("lowpass", (2.0, 2.5, "zero")),
+                ("lowpass", (2.0, "2", "zero")), ("lowpass", (2.0, 2)),
+                ("lowpass", (2.0, 2, "Zero")), ("lowpass", (2.0, 2, None)),
+                ("lowpass", (2.0,)), ("lowpass", {"cutoff": 2.0}),
                 ("movingaverage", 12), ("divide", 0)):
             with self.assertRaises(SyntheticParameterError):
                 operations.check_parameter(operation_str, parameter,

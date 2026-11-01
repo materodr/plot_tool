@@ -202,7 +202,8 @@ class StoreCreateTest(unittest.TestCase):
                      values_array in self.data_file.signal_dict.items()}
         for operation_str, parameter in (
                 ("integral", None), ("derivative", None),
-                ("lowpass", 5.0), ("highpass", 5.0),
+                ("lowpass", (5.0, 2, "first_value")),
+                ("highpass", (5.0, 3, "zero")),
                 ("movingaverage", 4), ("max", None), ("min", None),
                 ("greater", 1.0), ("add", 2.0), ("divide", 2.0),
                 ("fft", (0.0, 10.0))):
@@ -221,10 +222,11 @@ class StoreCreateTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.data_file.create("lowpass", ["Speed"], 1.0)
-        second = self.data_file.create("lowpass", ["Speed"], 2.0)
+        self.data_file.create("lowpass", ["Speed"], (1.0, 2, "zero"))
+        second = self.data_file.create("lowpass", ["Speed"],
+                                       (2.0, 2, "first_value"))
         self.assertEqual(second.name_str, "lowpass_Speed_2")
-        self.assertEqual(second.parameter, 2.0)
+        self.assertEqual(second.parameter, (2.0, 2, "first_value"))
 
     @covers("LLFR-00241")
     def test_name_is_unique_against_data_file_names(self) -> None:
@@ -318,8 +320,12 @@ class StoreCreateTest(unittest.TestCase):
         Outputs: none.
         """
         case_list = [
-            ("lowpass", 50.0, SyntheticParameterError),
-            ("highpass", 0.0, SyntheticParameterError),
+            ("lowpass", (50.0, 2, "zero"), SyntheticParameterError),
+            ("highpass", (0.0, 2, "zero"), SyntheticParameterError),
+            ("highpass", (1.0, 2, "late"), SyntheticParameterError),
+            ("highpass", (1.0, 2), SyntheticParameterError),
+            ("highpass", (1.0, 9, "zero"), SyntheticParameterError),
+            ("lowpass", 1.0, SyntheticParameterError),
             ("movingaverage", 1, SyntheticParameterError),
             ("movingaverage", 1002, SyntheticParameterError),
             ("divide", 0.0, SyntheticParameterError),
@@ -334,8 +340,9 @@ class StoreCreateTest(unittest.TestCase):
         uneven_time_array = self.data_file.time_array.copy()
         uneven_time_array[500:] += 0.005
         uneven_file = DataFile(uneven_time_array)
-        for operation_str, parameter in (("lowpass", 1.0),
-                                         ("highpass", 1.0),
+        for operation_str, parameter in (("lowpass", (1.0, 2, "zero")),
+                                         ("highpass",
+                                          (1.0, 2, "first_value")),
                                          ("fft", (0.0, 10.0))):
             with self.assertRaises(UnevenTimeStepError):
                 uneven_file.create(operation_str, ["Speed"], parameter)
@@ -541,7 +548,7 @@ class LayoutEntryTest(unittest.TestCase):
         Outputs: none.
         """
         self.data_file = DataFile()
-        self.data_file.create("lowpass", ["Speed"], 2.5)
+        self.data_file.create("lowpass", ["Speed"], (2.5, 4, "zero"))
         self.data_file.create("movingaverage", ["Torque"], 4)
         self.data_file.create("greaterorequal", ["lowpass_Speed"], 0.1)
         self.data_file.create("product", ["lowpass_Speed",
@@ -562,7 +569,9 @@ class LayoutEntryTest(unittest.TestCase):
         entry_list = self.data_file.store.layout_entries()
         self.assertEqual(entry_list[0], {
             "name": "Smooth", "operation": "lowpass",
-            "signals": ["Speed"], "parameter": 2.5})
+            "signals": ["Speed"],
+            "parameter": {"cutoff": 2.5, "order": 4,
+                          "start": "zero"}})
         self.assertEqual(entry_list[1]["parameter"], 4)
         self.assertIsInstance(entry_list[1]["parameter"], int)
         self.assertEqual(entry_list[2]["signals"], ["Smooth"])
@@ -575,6 +584,8 @@ class LayoutEntryTest(unittest.TestCase):
             "parameter": {"start": 0.1 + 0.2, "end": 3.0}})
         self.assertIsNone(entry_list[5]["parameter"])
         self.assertEqual(LAYOUT_KEY_STR, "synthetic_signals")
+        # LLFR-00225 item 10: the filter order is a whole number.
+        self.assertIsInstance(entry_list[0]["parameter"]["order"], int)
 
     @covers("LLFR-00227")
     def test_entries_text_is_indented_json_with_exact_times(self) -> None:
@@ -682,8 +693,29 @@ class LayoutEntryTest(unittest.TestCase):
         case_list = [
             (dict(valid_dict, signals=["Pressure"]), SyntheticSourceError),
             (dict(valid_dict, name="Speed"), SyntheticNameInUseError),
-            (dict(valid_dict, operation="lowpass", parameter=60.0),
+            (dict(valid_dict, operation="lowpass",
+                  parameter={"cutoff": 60.0, "order": 2,
+                             "start": "zero"}),
              SyntheticParameterError),
+            (dict(valid_dict, operation="lowpass",
+                  parameter={"cutoff": 1.0, "order": 0,
+                             "start": "zero"}),
+             SyntheticParameterError),
+            (dict(valid_dict, operation="lowpass",
+                  parameter={"cutoff": 1.0, "order": 2.5,
+                             "start": "zero"}),
+             SyntheticParameterError),
+            (dict(valid_dict, operation="lowpass",
+                  parameter={"cutoff": 1.0, "order": 2,
+                             "start": "now"}),
+             SyntheticParameterError),
+            (dict(valid_dict, operation="lowpass",
+                  parameter={"cutoff": 1.0, "order": 2}),
+             SyntheticEntryError),
+            (dict(valid_dict, operation="lowpass", parameter=1.0),
+             SyntheticEntryError),
+            (dict(valid_dict, operation="highpass",
+                  parameter={"cutoff": 1.0}), SyntheticEntryError),
             (dict(valid_dict, operation="movingaverage", parameter=1.5),
              SyntheticParameterError),
             (dict(valid_dict, operation="divide", parameter=0),
@@ -716,7 +748,8 @@ class LayoutEntryTest(unittest.TestCase):
         uneven_file = DataFile(uneven_time_array)
         with self.assertRaises(UnevenTimeStepError):
             uneven_file.create_from_entry(dict(
-                valid_dict, operation="highpass", parameter=1.0))
+                valid_dict, operation="highpass",
+                parameter={"cutoff": 1.0, "order": 2, "start": "zero"}))
 
     @covers("LLFR-00262")
     def test_duplicate_saved_name_and_fft_source(self) -> None:
@@ -740,6 +773,56 @@ class LayoutEntryTest(unittest.TestCase):
             "signals": ["Speed"], "parameter": 3.0})
         self.assertEqual(signal.parameter, 3)
         self.assertEqual(new_file.store.names(), ["a", "c"])
+
+    @covers("LLFR-00225", "LLFR-00227", "LLFR-00246", "LLFR-00262")
+    def test_filter_entries_round_trip_with_both_starts(self) -> None:
+        """Cutoff, order and start are saved and rebuilt exactly.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        source_file = DataFile()
+        source_file.create("lowpass", ["Speed"], (2.5, 3, "zero"))
+        source_file.create("highpass", ["Speed"], (0.5, 1, "first_value"))
+        entry_list = json.loads(entries_text(
+            source_file.store.layout_entries()))
+        self.assertEqual([entry["parameter"] for entry in entry_list], [
+            {"cutoff": 2.5, "order": 3, "start": "zero"},
+            {"cutoff": 0.5, "order": 1, "start": "first_value"}])
+        new_file = DataFile()
+        for entry_dict in entry_list:
+            new_file.create_from_entry(entry_dict)
+        for name_str in ("lowpass_Speed", "highpass_Speed"):
+            np.testing.assert_array_equal(
+                new_file.store.get(name_str).value_array,
+                source_file.store.get(name_str).value_array)
+        self.assertEqual(new_file.store.get("lowpass_Speed").parameter,
+                         (2.5, 3, "zero"))
+
+    @covers("LLFR-00262", "LLFR-00267")
+    def test_saved_name_is_kept_without_outer_spaces(self) -> None:
+        """A saved name with outer spaces is stored trimmed, as rename.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        new_file = DataFile()
+        signal = new_file.create_from_entry({
+            "name": "  Smooth speed ", "operation": "lowpass",
+            "signals": ["Speed"],
+            "parameter": {"cutoff": 2.0, "order": 3.0,
+                          "start": "first_value"}})
+        self.assertEqual(signal.name_str, "Smooth speed")
+        self.assertEqual(signal.parameter, (2.0, 3, "first_value"))
+        self.assertEqual(new_file.store.names(), ["Smooth speed"])
+        with self.assertRaises(SyntheticNameInUseError):
+            new_file.create_from_entry({"name": " Speed ",
+                                        "operation": "max",
+                                        "signals": ["Speed"]})
+        with self.assertRaises(SyntheticNameInUseError):
+            new_file.create_from_entry({"name": "Smooth speed  ",
+                                        "operation": "max",
+                                        "signals": ["Speed"]})
 
 
 if __name__ == "__main__":

@@ -15,6 +15,12 @@
   when there is no plot to save or copy (LLFR-00145, LLFR-00146).
 - Export Error and Copy Error boxes: error boxes shown when the PDF file
   could not be saved (LLFR-00131) or the image could not be copied.
+- Delete Synthetic Signal box: question asked before a synthetic signal
+  and the synthetic signals computed from it are deleted (LLFR-00255).
+- Signal information box: information box of the synthetic signals,
+  for example when the time samples are not evenly spaced (LLFR-00247),
+  the FFT time range holds too few samples (LLFR-00250) or a new name
+  is already used (LLFR-00267).
 - Save Layout Error and Load Layout Error boxes: error boxes shown when
   a layout file could not be saved (LLFR-00224) or read (LLFR-00236).
 - Layout Report box: information box that lists what a loaded layout
@@ -76,6 +82,20 @@ LAYOUT_REPORT_ICON_SIZE_I = 32
 REPLACE_EXISTING_TITLE_STR = "Replace File"
 REPLACE_EXISTING_MESSAGE_STR = (
     "The file '{path}' already exists. Do you want to replace it?")
+
+# LLFR-00255: the question asked before a synthetic signal is deleted.
+DELETE_SYNTHETIC_TITLE_STR = "Delete signal"
+DELETE_SYNTHETIC_MESSAGE_STR = (
+    "Do you want to delete the synthetic signal '{name}'?")
+DELETE_DEPENDENTS_MESSAGE_STR = (
+    "These synthetic signals are computed from it, directly or through "
+    "other synthetic signals, and will be deleted too:")
+DELETE_CONSEQUENCE_MESSAGE_STR = (
+    "Their curves are removed from every plot, and the undo and redo "
+    "history is cleared. This cannot be undone.")
+DELETE_ONE_CONSEQUENCE_MESSAGE_STR = (
+    "Its curves are removed from every plot, and the undo and redo "
+    "history is cleared. This cannot be undone.")
 
 
 def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
@@ -384,6 +404,89 @@ def ask_replace_existing_file(parent, path_str: str) -> bool:
     else:
         result_value_i = int(result)
     return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def delete_synthetic_signal_text(name_str: str,
+                                 dependent_name_list: list) -> str:
+    """Return the question asked before a synthetic signal is deleted.
+
+    Inputs:
+        name_str: the name of the synthetic signal.
+        dependent_name_list: the synthetic signals computed from it,
+            directly or indirectly, in creation order.
+    Outputs: the text of the box, which names every dependent.
+    """
+    # LLFR-00255: the question names the signals deleted with it.
+    text_str = DELETE_SYNTHETIC_MESSAGE_STR.format(name=name_str)
+    if not dependent_name_list:
+        return f"{text_str}\n\n{DELETE_ONE_CONSEQUENCE_MESSAGE_STR}"
+    dependent_text_str = "\n".join(
+        f"  - {dependent_name_str}"
+        for dependent_name_str in dependent_name_list)
+    return (f"{text_str}\n\n{DELETE_DEPENDENTS_MESSAGE_STR}\n"
+            f"{dependent_text_str}\n\n{DELETE_CONSEQUENCE_MESSAGE_STR}")
+
+
+def build_delete_synthetic_signal_box(parent, name_str: str,
+                                      dependent_name_list: list
+                                      ) -> QMessageBox:
+    """Build the question asked before a synthetic signal is deleted.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        name_str: the name of the synthetic signal.
+        dependent_name_list: the synthetic signals computed from it.
+    Outputs: a QMessageBox with the question icon, the title
+        DELETE_SYNTHETIC_TITLE_STR, a text naming the signal and its
+        dependents, and the buttons Yes and No, where No is the default
+        and escape button.
+    """
+    # LLFR-00255: the user decides whether to proceed.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(DELETE_SYNTHETIC_TITLE_STR)
+    box.setText(delete_synthetic_signal_text(name_str, dependent_name_list))
+    box.setStandardButtons(QMessageBox.StandardButton.Yes
+                           | QMessageBox.StandardButton.No)
+    box.setDefaultButton(QMessageBox.StandardButton.No)
+    box.setEscapeButton(QMessageBox.StandardButton.No)
+    return box
+
+
+def ask_delete_synthetic_signal(parent, name_str: str,
+                                dependent_name_list: list) -> bool:
+    """Ask whether to delete a synthetic signal and its dependents.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        name_str: the name of the synthetic signal.
+        dependent_name_list: the synthetic signals computed from it.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00255: only Yes deletes.
+    result = build_delete_synthetic_signal_box(
+        parent, name_str, dependent_name_list).exec()
+    if isinstance(result, QMessageBox.StandardButton):
+        result_value_i = int(result.value)
+    else:
+        result_value_i = int(result)
+    return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def build_signal_information_box(parent, title_str: str,
+                                 message_str: str) -> QMessageBox:
+    """Build an information box of the synthetic signals.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        title_str: the window title.
+        message_str: the sentence that says why.
+    Outputs: a QMessageBox with the information icon (not an error box)
+        and an OK button.
+    """
+    # LLFR-00247, LLFR-00250, LLFR-00267: information, not errors.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             title_str, message_str)
 
 
 def build_layout_save_error_box(parent, reason_str: str) -> QMessageBox:

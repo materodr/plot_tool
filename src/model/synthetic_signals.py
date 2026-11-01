@@ -31,10 +31,13 @@ object with these keys:
 - ``"signals"``: the current names of the signals it is computed from
   (list of strings; two names for ``product``, the right-clicked signal
   first, one name otherwise);
-- ``"parameter"``: the cutoff frequency in Hz (number) for ``lowpass``
-  and ``highpass``; the window size in samples (whole number) for
-  ``movingaverage``; the constant (number) for the Comparison and
-  Arithmetic operations with a constant; an object
+- ``"parameter"``: for ``lowpass`` and ``highpass``, an object
+  ``{"cutoff": <Hz>, "order": <whole number>, "start": "first_value"
+  | "zero"}`` with the cutoff frequency in Hz, the filter order and how
+  the filter starts (LLFR-00245, LLFR-00246); the window size
+  in samples (whole number) for ``movingaverage``; the constant
+  (number) for the Comparison and Arithmetic operations with a
+  constant; an object
   ``{"start": <s>, "end": <s>}`` with the time range in seconds for
   ``fft``; ``null`` for the others.
 
@@ -47,7 +50,11 @@ Example::
         "signals": [
           "Speed"
         ],
-        "parameter": 2.5
+        "parameter": {
+          "cutoff": 2.5,
+          "order": 2,
+          "start": "first_value"
+        }
       },
       {
         "name": "fft_lowpass_Speed_1.5s_to_3s",
@@ -85,6 +92,9 @@ SIGNALS_KEY_STR = "signals"
 PARAMETER_KEY_STR = "parameter"
 START_KEY_STR = "start"
 END_KEY_STR = "end"
+CUTOFF_KEY_STR = "cutoff"
+ORDER_KEY_STR = "order"
+FILTER_START_KEY_STR = "start"
 # LLFR-00225: key of the list of entries in the layout file.
 LAYOUT_KEY_STR = "synthetic_signals"
 # LLFR-00227: the layout file is indented by 2 spaces.
@@ -136,8 +146,10 @@ class SyntheticSignal:
         operation_str: the operation id, e.g. "lowpass".
         source_name_list: the current names of the signals it was
             computed from (two for "product").
-        parameter: cutoff in Hz (float), window size (int), constant
-            (float), time range (start_s, end_s) (tuple) or None,
+        parameter: (cutoff in Hz, order, start) (tuple), window size
+            (int),
+            constant (float), time range (start_s, end_s) (tuple) or
+            None,
             according to the operation (see model.synthetic_operations).
         value_array: its samples: one per time sample of the data file,
             or one per frequency for an FFT signal.
@@ -192,18 +204,25 @@ def entry_parameter(signal: SyntheticSignal):
 
     Inputs:
         signal: the synthetic signal.
-    Outputs: a float, an int, a dict {"start": s, "end": s} or None.
+    Outputs: a float, an int, a dict {"cutoff": Hz, "order": n,
+        "start": start}, a dict {"start": s, "end": s} or None.
     """
-    # LLFR-00225 item 10: cutoff, window size, constant or time range.
+    # LLFR-00225 item 10: cutoff and order, window size, constant or
+    # time range.
     kind_str = signal.operation.parameter_kind_str
+    if kind_str == operations.FILTER_PARAMETER_STR:
+        # LLFR-00227: the cutoff in Hz, the order and the start.
+        cutoff_hz, order_i, start_str = signal.parameter
+        return {CUTOFF_KEY_STR: float(cutoff_hz),
+                ORDER_KEY_STR: int(order_i),
+                FILTER_START_KEY_STR: str(start_str)}
     if kind_str == operations.TIME_RANGE_PARAMETER_STR:
         # LLFR-00227: times as floats, written with repr precision.
         start_s, end_s = signal.parameter
         return {START_KEY_STR: float(start_s), END_KEY_STR: float(end_s)}
     if kind_str == operations.WINDOW_PARAMETER_STR:
         return int(signal.parameter)
-    if kind_str in (operations.CUTOFF_PARAMETER_STR,
-                    operations.CONSTANT_PARAMETER_STR):
+    if kind_str == operations.CONSTANT_PARAMETER_STR:
         return float(signal.parameter)
     return None
 
@@ -217,10 +236,24 @@ def parameter_from_entry(operation_str: str, parameter_value):
     Outputs: the parameter in the form SyntheticSignalStore.create
         takes; the values themselves are checked there.
     Raises: SyntheticEntryError when an FFT time range is not an object
-        with "start" and "end".
+        with "start" and "end", or a filter parameter is not an object
+        with "cutoff", "order" and "start".
     """
     # LLFR-00262: the FFT time range is saved as {"start", "end"}.
     kind_str = operations.find_operation(operation_str).parameter_kind_str
+    if kind_str == operations.FILTER_PARAMETER_STR:
+        # LLFR-00225 item 10: a filter is saved as {"cutoff", "order",
+        # "start"}.
+        if (not isinstance(parameter_value, dict)
+                or CUTOFF_KEY_STR not in parameter_value
+                or ORDER_KEY_STR not in parameter_value
+                or FILTER_START_KEY_STR not in parameter_value):
+            raise SyntheticEntryError(
+                'The parameter of a filter must be an object with a '
+                '"cutoff" frequency, in Hz, an "order" and a "start".')
+        return (parameter_value[CUTOFF_KEY_STR],
+                parameter_value[ORDER_KEY_STR],
+                parameter_value[FILTER_START_KEY_STR])
     if kind_str != operations.TIME_RANGE_PARAMETER_STR:
         return parameter_value
     if (not isinstance(parameter_value, dict)
@@ -388,10 +421,10 @@ class SyntheticSignalStore:
             source_name_list: the current names of the signals it is
                 computed from: the right-clicked signal, and for
                 "product" the second signal after it (LLFR-00275).
-            parameter: the parameter of the operation's kind: cutoff in
-                Hz, window size, constant, (start_s, end_s) for "fft"
-                (the time range shown in the time plots, LLFR-00248), or
-                None.
+            parameter: the parameter of the operation's kind: (cutoff
+                in Hz, order, start) for the filters, window size, constant,
+                (start_s, end_s) for "fft" (the time range shown in the
+                time plots, LLFR-00248), or None.
             signal_lookup: function name -> samples (array-like) of any
                 signal in the signal list, data file or synthetic.
             time_array: the time signal of the data file, in seconds.
@@ -572,6 +605,8 @@ class SyntheticSignalStore:
         # and parameter.
         name_str, operation_str, source_name_list, parameter = (
             self.read_entry(entry_dict))
+        # LLFR-00267: names are kept without outer spaces, as rename().
+        name_str = name_str.strip()
         # LLFR-00262: the saved name must not be a data file signal's.
         if name_str in data_name_set or self.contains(name_str):
             raise SyntheticNameInUseError(

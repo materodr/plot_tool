@@ -583,6 +583,75 @@ def plot_state_tuple(plot) -> tuple:
             pinned_tip_tuple, delta_marker_tuple)
 
 
+def tabs_state_tuple(tab_list: list, marker_list: list) -> tuple:
+    """Return tabs and vertical markers as plain values.
+
+    Inputs:
+        tab_list: the Tab objects, in tab order.
+        marker_list: the VerticalMarker objects, in placing order.
+    Outputs: a tuple (tab tuple, marker tuple): one entry (tab_id_i,
+        name_str, plot state tuples) per tab and one entry (marker_id_i,
+        name_str, time_s) per marker; two states with equal tuples show
+        the same thing (LLFR-00140).
+    """
+    # LLFR-00138, LLFR-00140: what an undo restores.
+    tab_tuple = tuple(
+        (tab.tab_id_i, tab.name_str,
+         tuple(plot_state_tuple(plot) for plot in tab.plot_list))
+        for tab in tab_list)
+    marker_tuple = tuple((marker.marker_id_i, marker.name_str, marker.time_s)
+                         for marker in marker_list)
+    return (tab_tuple, marker_tuple)
+
+
+def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
+                        new_name_str: str) -> tuple:
+    """Return a delta marker point with a signal name replaced.
+
+    Inputs:
+        point_tuple: (signal_name_str, time_s, value_f).
+        old_name_str: the signal name to replace.
+        new_name_str: the name that replaces it.
+    Outputs: the same point, on new_name_str when it was on old_name_str.
+    """
+    # LLFR-00266: a renamed synthetic signal keeps its delta markers.
+    if point_tuple[0] != old_name_str:
+        return point_tuple
+    return (new_name_str,) + tuple(point_tuple[1:])
+
+
+def rename_signal_in_tabs(tab_list: list, old_name_str: str,
+                          new_name_str: str) -> bool:
+    """Rename a signal in every curve, pinned tip and delta marker.
+
+    Inputs:
+        tab_list: the Tab objects to update in place.
+        old_name_str: the current name of the signal.
+        new_name_str: its new name, not used by another curve.
+    Outputs: True when at least one curve was renamed.
+    """
+    # LLFR-00266: every plot that draws the signal shows the new name in
+    # its legend; its color, width, tips and delta markers are kept.
+    renamed_b = False
+    for tab in tab_list:
+        for plot in tab.plot_list:
+            for curve in plot.curve_list:
+                if curve.signal_name_str == old_name_str:
+                    curve.signal_name_str = new_name_str
+                    renamed_b = True
+            for pinned_tip in plot.pinned_tip_list:
+                if pinned_tip.signal_name_str == old_name_str:
+                    pinned_tip.signal_name_str = new_name_str
+            for delta_marker in plot.delta_marker_list:
+                delta_marker.first_point_tuple = renamed_point_tuple(
+                    delta_marker.first_point_tuple, old_name_str,
+                    new_name_str)
+                delta_marker.second_point_tuple = renamed_point_tuple(
+                    delta_marker.second_point_tuple, old_name_str,
+                    new_name_str)
+    return renamed_b
+
+
 class WorkspaceSnapshot:
     """A saved copy of the tabs, plots, curves, tips and markers.
 
@@ -617,6 +686,22 @@ class WorkspaceSnapshot:
         self.state_tuple = state_tuple
         self.current_tab_id_i = current_tab_id_i
         self.marker_list = list(marker_list)
+
+    def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
+        """Rename a signal in the saved state.
+
+        Inputs:
+            old_name_str: the current name of the signal.
+            new_name_str: its new name.
+        Outputs: none. The saved state is changed in place, so that an
+            undo or a redo after the rename draws the curves of the
+            signal under its new name.
+        """
+        # LLFR-00266: renaming a synthetic signal keeps the undo and
+        # redo history, whose states must then use the new name.
+        rename_signal_in_tabs(self.tab_list, old_name_str, new_name_str)
+        self.state_tuple = tabs_state_tuple(self.tab_list,
+                                            self.marker_list)
 
 
 class Workspace:
@@ -1070,11 +1155,7 @@ class Workspace:
         # LLFR-00138, LLFR-00140: what an undo restores; the id counters
         # and the marker numbering are not part of it, since they only
         # grow (LLFR-00111).
-        tab_tuple = tuple(
-            (tab.tab_id_i, tab.name_str,
-             tuple(plot_state_tuple(plot) for plot in tab.plot_list))
-            for tab in self.tab_list)
-        return (tab_tuple, self.marker_state_tuple())
+        return tabs_state_tuple(self.tab_list, self.marker_list)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -1143,3 +1224,42 @@ class Workspace:
                                  for plot in tab.plot_list), default=0)
         self.next_plot_id_i = max(self.next_plot_id_i,
                                   highest_plot_id_i + 1)
+
+    def rename_signal(self, old_name_str: str, new_name_str: str) -> bool:
+        """Rename a signal in every plot of every tab.
+
+        Inputs:
+            old_name_str: the current name of the signal.
+            new_name_str: its new name.
+        Outputs: True when at least one plot draws the signal.
+        """
+        # LLFR-00266: the legends show the new name; not undoable.
+        return rename_signal_in_tabs(self.tab_list, old_name_str,
+                                     new_name_str)
+
+    def remove_signal_curves(self, signal_name_set: set) -> list:
+        """Remove the curves of some signals from every plot.
+
+        Inputs:
+            signal_name_set: names of the signals whose curves go away.
+        Outputs: the ids of the plots that were left with no curve and
+            were deleted (LLFR-00051). When no plot is left in any tab,
+            every vertical marker is deleted too (LLFR-00205).
+        """
+        # LLFR-00255: the curves of a deleted synthetic signal and of its
+        # dependents leave every plot, with their tips and delta markers.
+        deleted_plot_id_list = []
+        for tab in self.tab_list:
+            for plot in list(tab.plot_list):
+                removed_b = False
+                for curve in list(plot.curve_list):
+                    if curve.signal_name_str in signal_name_set:
+                        removed_b = (plot.remove_curve(
+                            curve.signal_name_str) or removed_b)
+                # LLFR-00051: a plot left with no curve is deleted.
+                if removed_b and plot.is_empty():
+                    tab.plot_list.remove(plot)
+                    deleted_plot_id_list.append(plot.plot_id_i)
+        # LLFR-00205: with no plot left, no vertical marker is left.
+        self.clear_markers_without_plots()
+        return deleted_plot_id_list

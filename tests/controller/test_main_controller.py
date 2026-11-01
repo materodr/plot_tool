@@ -53,6 +53,25 @@ class FakeMainWindow(FakePlotView):
         """
         self.search_text_handler = handler
 
+    def set_synthetic_operation_groups(self, group_list: list) -> None:
+        """Record the operation groups of the signal list menu.
+
+        Inputs:
+            group_list: (group label, [(operation id, label)]) tuples.
+        Outputs: none.
+        """
+        self.operation_group_list = list(group_list)
+
+    def set_signal_menu_handlers(self, *handler_tuple) -> None:
+        """Record the handlers of the signal list menu.
+
+        Inputs:
+            handler_tuple: the create, copy name, rename, delete and
+                copy equation handlers.
+        Outputs: none.
+        """
+        self.signal_menu_handler_tuple = handler_tuple
+
     def set_layout_handlers(self, save_handler, load_handler) -> None:
         """Record the handlers of the Save and Load layout buttons.
 
@@ -144,8 +163,9 @@ class MainControllerStartTest(unittest.TestCase):
         self.assertIn(signal_list_controller.on_file_opened, listener_list)
         # LLFR-00017: the search listener runs after the plot listener,
         # so it gives the final signal list of a new file.
-        self.assertEqual(listener_list[-1],
-                         signal_list_controller.on_file_opened)
+        self.assertGreater(
+            listener_list.index(signal_list_controller.on_file_opened),
+            listener_list.index(controller.plot_controller.on_file_opened))
 
     @covers("LLFR-00128", "LLFR-00133")
     def test_export_controller_is_wired(self) -> None:

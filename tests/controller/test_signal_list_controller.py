@@ -77,6 +77,8 @@ class FakeSignalListView:
         no_match_tuple: last (visible_b, message_str) given to
             show_no_match_message, or () before any call.
         call_list: the names of the facade calls, in order.
+        synthetic_name_set: the names last given as synthetic signals.
+        fft_name_set: the names last given as FFT signals.
     """
 
     def __init__(self) -> None:
@@ -90,6 +92,8 @@ class FakeSignalListView:
         self.shown_name_list = []
         self.no_match_tuple = ()
         self.call_list = []
+        self.synthetic_name_set = set()
+        self.fft_name_set = set()
 
     def set_search_text_handler(self, handler) -> None:
         """Record the search box handler.
@@ -121,6 +125,21 @@ class FakeSignalListView:
         """
         self.call_list.append("show_signal_names")
         self.shown_name_list = list(signal_name_list)
+
+    def set_signal_kinds(self, synthetic_name_set: set,
+                         fft_name_set: set) -> None:
+        """Record which names are synthetic and which are FFT signals.
+
+        Not added to call_list, so that the call order tests of the
+        search are not affected.
+
+        Inputs:
+            synthetic_name_set: the synthetic signal names (italics).
+            fft_name_set: the FFT signal names among them.
+        Outputs: none.
+        """
+        self.synthetic_name_set = set(synthetic_name_set)
+        self.fft_name_set = set(fft_name_set)
 
     def show_no_match_message(self, visible_b: bool,
                               message_str: str) -> None:

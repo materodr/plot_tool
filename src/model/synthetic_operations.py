@@ -19,9 +19,13 @@ Public API (used by model.synthetic_signals and the user interface):
   ``greater``, ``less``, ``greater_or_equal``, ``less_or_equal``,
   ``add``, ``subtract``, ``multiply``, ``divide``, ``product``, ``fft``.
 - The parameter rules for the dialogs: ``sampling_rate_hz``,
-  ``allowed_cutoff_range_hz``, ``allowed_window_range``,
-  ``check_parameter`` (raises SyntheticParameterError with a sentence
-  that the dialog can show as it is).
+  ``allowed_cutoff_range_hz``, ``allowed_filter_order_range`` (and
+  ``DEFAULT_FILTER_ORDER_I``, the order the filter dialog starts with),
+  ``FILTER_START_TUPLE`` (how a filter starts, ``DEFAULT_FILTER_START_STR``
+  selected at first),
+  ``allowed_window_range``, ``check_parameter`` (raises
+  SyntheticParameterError with a sentence that the dialog can show as
+  it is).
 - ``compute(operation_str, time_array, source_array_list, parameter)``:
   run any operation by its id.
 
@@ -31,7 +35,9 @@ The parameter of each kind of operation is:
 parameter kind     parameter
 =================  ===========================================
 ``none``           None
-``cutoff_hz``      cutoff frequency in Hz (float)
+``filter``         tuple (cutoff_hz, order_i, start_str): the
+                   cutoff frequency in Hz, the filter order and
+                   how the filter starts (FILTER_START_TUPLE)
 ``window_i``       window size in samples (int)
 ``constant_f``     the constant (float)
 ``second_signal``  None (the second signal is the 2nd source)
@@ -47,6 +53,7 @@ import numpy as np
 from model.errors import (
     SyntheticOperationError, SyntheticParameterError, TooFewSamplesError,
     UnevenTimeStepError)
+from model.number_format import format_signal_value
 
 # LLFR-00240: operation ids, which are also the synthetic name prefixes.
 INTEGRAL_STR = "integral"
@@ -70,14 +77,25 @@ FFT_STR = "fft"
 # LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00275, LLFR-00248: the kinds
 # of parameter an operation asks for.
 NO_PARAMETER_STR = "none"
-CUTOFF_PARAMETER_STR = "cutoff_hz"
+FILTER_PARAMETER_STR = "filter"
 WINDOW_PARAMETER_STR = "window_i"
 CONSTANT_PARAMETER_STR = "constant_f"
 SECOND_SIGNAL_PARAMETER_STR = "second_signal"
 TIME_RANGE_PARAMETER_STR = "time_range"
 
-# LLFR-00246: second-order Butterworth filters.
-FILTER_ORDER_I = 2
+# LLFR-00245: the filter orders the user may choose, and the order the
+# filter dialog starts with.
+MINIMUM_FILTER_ORDER_I = 1
+MAXIMUM_FILTER_ORDER_I = 8
+DEFAULT_FILTER_ORDER_I = 2
+# LLFR-00245, LLFR-00246: how a filter starts: as if the signal had kept
+# its first value before the first sample (steady state, the default),
+# or at rest (zero initial state), like a filter switched on at the
+# first sample.
+FILTER_START_FIRST_VALUE_STR = "first_value"
+FILTER_START_ZERO_STR = "zero"
+FILTER_START_TUPLE = (FILTER_START_FIRST_VALUE_STR, FILTER_START_ZERO_STR)
+DEFAULT_FILTER_START_STR = FILTER_START_FIRST_VALUE_STR
 # LLFR-00247: largest allowed difference of a time step from the mean
 # step, as a fraction of the mean step.
 TIME_STEP_TOLERANCE_F = 0.01
@@ -120,8 +138,8 @@ OPERATION_TABLE_TUPLE = (
         (INTEGRAL_STR, "Integral", NO_PARAMETER_STR),
         (DERIVATIVE_STR, "Derivative", NO_PARAMETER_STR))),
     ("Filters", (
-        (LOWPASS_STR, "Low-pass filter", CUTOFF_PARAMETER_STR),
-        (HIGHPASS_STR, "High-pass filter", CUTOFF_PARAMETER_STR),
+        (LOWPASS_STR, "Low-pass filter", FILTER_PARAMETER_STR),
+        (HIGHPASS_STR, "High-pass filter", FILTER_PARAMETER_STR),
         (MOVING_AVERAGE_STR, "Moving average", WINDOW_PARAMETER_STR))),
     ("Statistics", (
         (MAXIMUM_STR, "Max", NO_PARAMETER_STR),
@@ -291,68 +309,109 @@ def allowed_window_range(sample_count_i: int) -> tuple:
     return (MINIMUM_WINDOW_I, int(sample_count_i))
 
 
+def allowed_filter_order_range() -> tuple:
+    """Return the filter orders the user may choose.
+
+    Inputs: none.
+    Outputs: a tuple (smallest, largest) of whole numbers; both limits
+        are included.
+    """
+    # LLFR-00245: a whole number from 1 to 8.
+    return (MINIMUM_FILTER_ORDER_I, MAXIMUM_FILTER_ORDER_I)
+
+
 def butterworth_filter(time_array, value_array, cutoff_hz: float,
+                       order_i: int, start_str: str,
                        filter_type_str: str) -> np.ndarray:
-    """Filter a signal forward and backward with a Butterworth filter.
+    """Filter a signal forward in time with a Butterworth filter.
 
     Inputs:
         time_array: the time samples, in seconds, evenly spaced.
         value_array: the signal samples.
         cutoff_hz: the cutoff frequency, inside allowed_cutoff_range_hz.
+        order_i: the filter order, inside allowed_filter_order_range.
+        start_str: FILTER_START_FIRST_VALUE_STR or FILTER_START_ZERO_STR.
         filter_type_str: "lowpass" or "highpass" (scipy's btype).
-    Outputs: the filtered samples, not delayed in time.
+    Outputs: the filtered samples, delayed in time like the output of a
+        real-time filter.
     Raises: the errors of sampling_rate_hz; SyntheticParameterError when
-        the cutoff is out of range.
+        the cutoff, the order or the start is not allowed.
 
-    The filter is scipy.signal.sosfiltfilt with odd padding. scipy pads
-    by 6 samples for a second-order filter and needs more samples than
-    the padding, so short signals are padded by the number of samples
-    minus 1 instead (no padding for a single sample).
+    The filter is scipy.signal.sosfilt, run once over the samples in
+    time order. With the "first_value" start, its state starts at the
+    steady state for a signal that had kept the value of its first
+    sample before it (scipy.signal.sosfilt_zi times the first sample),
+    so the curve does not jump at the start: a constant signal stays
+    constant through a low-pass filter and gives 0 through a high-pass
+    filter. With the "zero" start, the state starts at 0, as if the
+    signal had been 0 before the first sample, like a filter switched
+    on at the first sample, so the curve settles after the start: for
+    a constant signal, a low-pass output starts below the constant and
+    rises towards it, and a high-pass output starts at a part of the
+    constant and decays towards 0.
     """
-    # LLFR-00246: second-order Butterworth, forward and then backward.
-    # scipy.signal is imported here so that the app starts fast
-    # (LLFR-00189): it is only needed when a filter is created.
+    # LLFR-00246: Butterworth filter of the chosen order, applied once,
+    # forward in time, as a real-time filter. scipy.signal is imported
+    # here so that the app starts fast (LLFR-00189): it is only needed
+    # when a filter is created.
     from scipy import signal as scipy_signal
     values_array = as_float_array(value_array)
     sampling_hz = sampling_rate_hz(time_array)
-    cutoff_hz = check_cutoff_hz(cutoff_hz, time_array)
+    cutoff_hz, order_i, start_str = check_filter(
+        (cutoff_hz, order_i, start_str), time_array)
     section_array = scipy_signal.butter(
-        FILTER_ORDER_I, cutoff_hz / (sampling_hz / 2.0),
-        btype=filter_type_str, output="sos")
-    default_padding_i = 3 * 2 * section_array.shape[0]
-    padding_i = min(default_padding_i, max(values_array.size - 1, 0))
-    return scipy_signal.sosfiltfilt(section_array, values_array,
-                                    padlen=padding_i)
+        order_i, cutoff_hz / (sampling_hz / 2.0), btype=filter_type_str,
+        output="sos")
+    if values_array.size == 0:
+        return values_array
+    # LLFR-00246: the start the user chose: the steady state of the
+    # first sample, or at rest.
+    if start_str == FILTER_START_ZERO_STR:
+        initial_state_array = np.zeros((section_array.shape[0], 2))
+    else:
+        initial_state_array = (scipy_signal.sosfilt_zi(section_array)
+                               * values_array[0])
+    filtered_array, _ = scipy_signal.sosfilt(section_array, values_array,
+                                             zi=initial_state_array)
+    return filtered_array
 
 
-def lowpass(time_array, value_array, cutoff_hz: float) -> np.ndarray:
+def lowpass(time_array, value_array, cutoff_hz: float,
+            order_i: int = DEFAULT_FILTER_ORDER_I,
+            start_str: str = DEFAULT_FILTER_START_STR) -> np.ndarray:
     """Return the signal filtered by a low-pass Butterworth filter.
 
     Inputs:
         time_array: the time samples, in seconds, evenly spaced.
         value_array: the signal samples.
         cutoff_hz: the cutoff frequency, in Hz.
+        order_i: the filter order, 1 to 8.
+        start_str: how the filter starts (FILTER_START_TUPLE).
     Outputs: the filtered samples (see butterworth_filter).
     Raises: see butterworth_filter.
     """
     # LLFR-00246: low-pass filter.
     return butterworth_filter(time_array, value_array, cutoff_hz,
-                              "lowpass")
+                              order_i, start_str, "lowpass")
 
 
-def highpass(time_array, value_array, cutoff_hz: float) -> np.ndarray:
+def highpass(time_array, value_array, cutoff_hz: float,
+             order_i: int = DEFAULT_FILTER_ORDER_I,
+             start_str: str = DEFAULT_FILTER_START_STR) -> np.ndarray:
     """Return the signal filtered by a high-pass Butterworth filter.
 
     Inputs:
         time_array: the time samples, in seconds, evenly spaced.
         value_array: the signal samples.
         cutoff_hz: the cutoff frequency, in Hz.
+        order_i: the filter order, 1 to 8.
+        start_str: how the filter starts (FILTER_START_TUPLE).
     Outputs: the filtered samples (see butterworth_filter).
     Raises: see butterworth_filter.
     """
     # LLFR-00246: high-pass filter.
     return butterworth_filter(time_array, value_array, cutoff_hz,
-                              "highpass")
+                              order_i, start_str, "highpass")
 
 
 def moving_average(value_array, window_i: int) -> np.ndarray:
@@ -623,14 +682,76 @@ def check_cutoff_hz(cutoff_hz, time_array) -> float:
     """
     # LLFR-00245: greater than 0 and less than half the sampling rate.
     lowest_hz, highest_hz = allowed_cutoff_range_hz(time_array)
+    # LLFR-00245: the limits in the number format of the data tips.
     range_text_str = (f"The cutoff frequency must be a number greater "
-                      f"than {lowest_hz:g} Hz and less than "
-                      f"{highest_hz:g} Hz.")
+                      f"than {format_signal_value(lowest_hz)} Hz and "
+                      f"less than {format_signal_value(highest_hz)} Hz.")
     if not is_real_number(cutoff_hz):
         raise SyntheticParameterError(range_text_str)
     if not lowest_hz < float(cutoff_hz) < highest_hz:
         raise SyntheticParameterError(range_text_str)
     return float(cutoff_hz)
+
+
+def check_filter_order(order_i) -> int:
+    """Check a filter order against the allowed range.
+
+    Inputs:
+        order_i: the order; an int, or a float with a whole value (as a
+            hand-edited layout file may hold).
+    Outputs: the order as an int.
+    Raises: SyntheticParameterError when the order is not a whole number
+        or not in the allowed range.
+    """
+    # LLFR-00245: a whole number from 1 to 8.
+    smallest_i, largest_i = allowed_filter_order_range()
+    range_text_str = (f"The filter order must be a whole number from "
+                      f"{smallest_i} to {largest_i}.")
+    if not is_real_number(order_i) or not float(order_i).is_integer():
+        raise SyntheticParameterError(range_text_str)
+    if not smallest_i <= int(order_i) <= largest_i:
+        raise SyntheticParameterError(range_text_str)
+    return int(order_i)
+
+
+def check_filter_start(start_str) -> str:
+    """Check how a filter starts.
+
+    Inputs:
+        start_str: one of FILTER_START_TUPLE.
+    Outputs: the same text.
+    Raises: SyntheticParameterError for any other value.
+    """
+    # LLFR-00245, LLFR-00246: from the first value or from zero.
+    if not isinstance(start_str, str) or start_str not in (
+            FILTER_START_TUPLE):
+        raise SyntheticParameterError(
+            f'The filter start must be "{FILTER_START_FIRST_VALUE_STR}" '
+            f'(from the first value) or "{FILTER_START_ZERO_STR}" (from '
+            f'zero).')
+    return start_str
+
+
+def check_filter(filter_tuple, time_array) -> tuple:
+    """Check the cutoff frequency, the order and the start of a filter.
+
+    Inputs:
+        filter_tuple: a tuple or list (cutoff_hz, order_i, start_str).
+        time_array: the time samples, in seconds.
+    Outputs: the tuple (cutoff as a float, order as an int, start).
+    Raises: the errors of sampling_rate_hz; SyntheticParameterError when
+        it is not three values, or a value is not allowed (the cutoff
+        is checked first, then the order, then the start).
+    """
+    # LLFR-00245: every value must be allowed.
+    if (not isinstance(filter_tuple, (tuple, list))
+            or len(filter_tuple) != 3):
+        raise SyntheticParameterError(
+            "A filter needs a cutoff frequency, in Hz, an order and a "
+            "start.")
+    cutoff_hz = check_cutoff_hz(filter_tuple[0], time_array)
+    return (cutoff_hz, check_filter_order(filter_tuple[1]),
+            check_filter_start(filter_tuple[2]))
 
 
 def check_window(window_i, sample_count_i: int) -> int:
@@ -705,16 +826,17 @@ def check_parameter(operation_str: str, parameter, time_array,
         parameter: the parameter of its kind (see the module docstring).
         time_array: the time samples, in seconds.
         sample_count_i: number of samples of the signal.
-    Outputs: the parameter as a float, an int, a tuple of two floats or
-        None, according to the kind.
+    Outputs: the parameter as a float, an int, a tuple (cutoff float,
+        order int, start str), a tuple of two floats or None, according to the
+        kind.
     Raises: SyntheticOperationError for an unknown operation or uneven
         time samples (filters); SyntheticParameterError when the
         parameter is not allowed.
     """
     # LLFR-00245, LLFR-00269, LLFR-00272: allowed parameter values.
     kind_str = find_operation(operation_str).parameter_kind_str
-    if kind_str == CUTOFF_PARAMETER_STR:
-        return check_cutoff_hz(parameter, time_array)
+    if kind_str == FILTER_PARAMETER_STR:
+        return check_filter(parameter, time_array)
     if kind_str == WINDOW_PARAMETER_STR:
         return check_window(parameter, sample_count_i)
     if kind_str == CONSTANT_PARAMETER_STR:
@@ -750,9 +872,10 @@ def compute(operation_str: str, time_array, source_array_list: list,
         DERIVATIVE_STR: lambda: derivative(time_array, first_array),
         MAXIMUM_STR: lambda: maximum(first_array),
         MINIMUM_STR: lambda: minimum(first_array),
-        LOWPASS_STR: lambda: lowpass(time_array, first_array, parameter),
+        LOWPASS_STR: lambda: lowpass(time_array, first_array,
+                                     *parameter),
         HIGHPASS_STR: lambda: highpass(time_array, first_array,
-                                       parameter),
+                                       *parameter),
         MOVING_AVERAGE_STR: lambda: moving_average(first_array,
                                                    parameter),
         GREATER_STR: lambda: greater(first_array, parameter),

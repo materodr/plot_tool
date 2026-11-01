@@ -10,7 +10,9 @@ from PyQt6.QtWidgets import (
 from controller.plot_tools import (
     DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
     TIP_TOOL_STR)
-from view import file_writing, icons, message_boxes, plot_export, theme
+from view import (
+    file_writing, icons, message_boxes, plot_export, synthetic_dialogs,
+    theme)
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -30,6 +32,9 @@ OPEN_FILE_FILTER_STR = ("Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)"
 # LLFR-00088: title and label of the marker rename dialog.
 RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
 RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
+# LLFR-00266: title and label of the synthetic signal rename dialog.
+RENAME_SIGNAL_DIALOG_TITLE_STR = "Rename signal"
+RENAME_SIGNAL_DIALOG_LABEL_STR = "New signal name:"
 # LLFR-00128: title and filter of the PDF save file dialog.
 SAVE_PDF_DIALOG_TITLE_STR = "Save all tabs as PDF"
 SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
@@ -141,6 +146,24 @@ class MainWindow(QMainWindow):
         self.search_text_handler = None
         self.signal_list_panel.search_text_changed.connect(
             self._on_search_text_changed)
+        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278:
+        # the options of the signal menu go to the synthetic controller.
+        self.signal_menu_handler_dict = {}
+        self.signal_list_panel.synthetic_operation_requested.connect(
+            lambda name_str, operation_str: self._run_signal_menu_handler(
+                "create", name_str, operation_str))
+        self.signal_list_panel.copy_name_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "copy_name", name_str))
+        self.signal_list_panel.rename_signal_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "rename", name_str))
+        self.signal_list_panel.delete_signal_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "delete", name_str))
+        self.signal_list_panel.copy_equation_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "copy_equation", name_str))
         # LLFR-00115: the Reset zoom button goes to the plot controller.
         self.reset_zoom_handler = None
         self.top_panel.reset_zoom_button.triggered.connect(
@@ -304,6 +327,180 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00104: the search is cleared when the file is replaced.
         self.signal_list_panel.clear_search()
+
+    # ----------------------------------------------------------------
+    # Signal menu facade, used by the synthetic controller
+    # ----------------------------------------------------------------
+
+    def set_synthetic_operation_groups(self, group_list: list) -> None:
+        """Set the operations listed by "Create synthetic signal".
+
+        Inputs:
+            group_list: list of (group label, list of (operation id,
+                operation label)), in menu order.
+        Outputs: none.
+        """
+        # LLFR-00268: the groups and operations of the menu.
+        self.signal_list_panel.set_operation_groups(group_list)
+
+    def set_signal_kinds(self, synthetic_name_set: set,
+                         fft_name_set: set) -> None:
+        """Tell the signal list which names are synthetic or FFT signals.
+
+        Inputs:
+            synthetic_name_set: the synthetic signal names.
+            fft_name_set: the FFT signal names among them.
+        Outputs: none.
+        """
+        # LLFR-00242: italics; LLFR-00251, LLFR-00254, LLFR-00265,
+        # LLFR-00278: the options of their menu.
+        self.signal_list_panel.set_signal_kinds(synthetic_name_set,
+                                                fft_name_set)
+
+    def set_signal_menu_handlers(self, create_handler, copy_name_handler,
+                                 rename_handler, delete_handler,
+                                 copy_equation_handler) -> None:
+        """Set the functions called by the options of the signal menu.
+
+        Inputs:
+            create_handler: function taking (signal name, operation id).
+            copy_name_handler: function taking a signal name.
+            rename_handler: function taking a signal name.
+            delete_handler: function taking a signal name.
+            copy_equation_handler: function taking a signal name.
+        Outputs: none.
+        """
+        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278.
+        self.signal_menu_handler_dict = {
+            "create": create_handler, "copy_name": copy_name_handler,
+            "rename": rename_handler, "delete": delete_handler,
+            "copy_equation": copy_equation_handler}
+
+    def _run_signal_menu_handler(self, key_str: str, *argument_tuple):
+        """Pass a signal menu request to its handler.
+
+        Inputs:
+            key_str: which option was chosen.
+            argument_tuple: the signal name, and the operation id for a
+                creation.
+        Outputs: none. Ignored when no handler is set.
+        """
+        # LLFR-00239: the controller runs the chosen option.
+        handler = self.signal_menu_handler_dict.get(key_str)
+        if handler is not None:
+            handler(*argument_tuple)
+
+    def run_modal_dialog(self, dialog) -> bool:
+        """Run a synthetic signal dialog modally.
+
+        Inputs:
+            dialog: a dialog of view.synthetic_dialogs.
+        Outputs: True when it was closed with OK. Tests replace this
+            method to fill in the dialog without a modal loop.
+        """
+        # LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00275: the dialog.
+        return synthetic_dialogs.run_dialog(dialog)
+
+    def ask_synthetic_parameter(self, title_str: str, prompt_str: str,
+                                field_list: list, check_function,
+                                choice_tuple: tuple = ()):
+        """Ask for the numbers an operation needs.
+
+        Inputs:
+            title_str: the window title (the operation's label).
+            prompt_str: the question, with the allowed ranges.
+            field_list: (label_str, starting text) per field.
+            check_function: value list -> reason ("" when allowed);
+                the dialog stays open and shows the reason while there
+                is one.
+            choice_tuple: () or (label, [(id, label)], id at first),
+                for example how a filter starts (LLFR-00245).
+        Outputs: the accepted texts, one per field, then the chosen id
+            when there is a choice; None when the user cancelled.
+        """
+        # LLFR-00245, LLFR-00269, LLFR-00272: the parameter dialog.
+        dialog = synthetic_dialogs.build_parameter_dialog(
+            self, title_str, prompt_str, field_list, check_function,
+            choice_tuple)
+        try:
+            if not self.run_modal_dialog(dialog):
+                return None
+            return dialog.value_list()
+        finally:
+            dialog.deleteLater()
+
+    def ask_second_signal(self, title_str: str, prompt_str: str,
+                          name_list: list, selected_name_str: str):
+        """Ask for the second signal of a product.
+
+        Inputs:
+            title_str: the window title.
+            prompt_str: the question.
+            name_list: the names to choose from.
+            selected_name_str: the name selected at first.
+        Outputs: the chosen name, or None when the user cancelled.
+        """
+        # LLFR-00275: the second signal dialog.
+        dialog = synthetic_dialogs.build_second_signal_dialog(
+            self, title_str, prompt_str, name_list, selected_name_str)
+        try:
+            if not self.run_modal_dialog(dialog):
+                return None
+            return dialog.chosen_name()
+        finally:
+            dialog.deleteLater()
+
+    def ask_delete_synthetic_signal(self, name_str: str,
+                                    dependent_name_list: list) -> bool:
+        """Ask whether to delete a synthetic signal and its dependents.
+
+        Inputs:
+            name_str: the synthetic signal name.
+            dependent_name_list: the synthetic signals computed from it.
+        Outputs: True when the user proceeds.
+        """
+        # LLFR-00255: the question names the dependents.
+        return message_boxes.ask_delete_synthetic_signal(
+            self, name_str, dependent_name_list)
+
+    def ask_synthetic_signal_name(self, current_name_str: str):
+        """Let the user type a new name for a synthetic signal.
+
+        Inputs:
+            current_name_str: the signal's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when cancelled.
+        """
+        # LLFR-00266: the dialog starts from the current name.
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, RENAME_SIGNAL_DIALOG_TITLE_STR,
+            RENAME_SIGNAL_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
+            current_name_str)
+        if not accepted_b:
+            return None
+        return str(new_name_str)
+
+    def show_signal_information(self, title_str: str,
+                                message_str: str) -> None:
+        """Show an information box of the synthetic signals.
+
+        Inputs:
+            title_str: the window title.
+            message_str: the sentence that says why.
+        Outputs: none.
+        """
+        # LLFR-00247, LLFR-00250, LLFR-00267: an information box.
+        message_boxes.build_signal_information_box(
+            self, title_str, message_str).exec()
+
+    def copy_text_to_clipboard(self, text_str: str) -> None:
+        """Put a text on the system clipboard.
+
+        Inputs:
+            text_str: the text.
+        Outputs: none.
+        """
+        # LLFR-00277, LLFR-00279: the name or the equation, as text.
+        QApplication.clipboard().setText(str(text_str))
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Set the function called when a signal name is double-clicked.

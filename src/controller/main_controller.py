@@ -5,6 +5,7 @@ from controller.file_controller import FileController
 from controller.layout_controller import LayoutController
 from controller.plot_controller import PlotController
 from controller.signal_list_controller import SignalListController
+from controller.synthetic_controller import SyntheticController
 
 
 class MainController:
@@ -21,6 +22,8 @@ class MainController:
         file_controller: the FileController of the open-file flow.
         plot_controller: the PlotController of the tabs and plots.
         signal_list_controller: the SignalListController of the search.
+        synthetic_controller: the SyntheticController of the signal list
+            menu and the synthetic signals.
         export_controller: the ExportController of the Export menu and
             the Copy button.
         layout_controller: the LayoutController of the Save layout and
@@ -53,6 +56,11 @@ class MainController:
         # the FileController has shown all names of a new file.
         self.signal_list_controller = SignalListController(
             main_window, self.file_controller)
+        # LLFR-00239, LLFR-00252: the signal list menu and the synthetic
+        # signals, removed when a data file is opened.
+        self.synthetic_controller = SyntheticController(
+            main_window, self.file_controller, self.plot_controller,
+            self.signal_list_controller)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
         self.export_controller = ExportController(main_window)
