@@ -43,6 +43,29 @@ The user must be able to drag the border between the plot panel and the signal l
 
 *Parent: HLFR-00026*
 
+### LLFR-00138 Undo action
+When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, plots, curves, tips and markers to the state they were in before that action.
+
+*Parent: HLFR-00040*
+
+### LLFR-00139 Undo depth
+The app must keep only the 5 most recent undoable actions for undo, so that the user can undo at most 5 actions in a row.
+
+*Parent: HLFR-00040*
+
+### LLFR-00140 Undoable actions
+The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a tip, moving a pinned tip, deleting a pinned tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker and deleting a vertical marker.
+
+Note: Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable.
+
+*Parent: HLFR-00040*
+
+### LLFR-00142 Undo history on file open
+When the app opens a file or replaces the current file (LLFR-00013), it must clear the undo history.
+
+*Parent: HLFR-00040, HLFR-00010*
+
+
 ## Top panel
 
 ### LLFR-00004 Open file button
@@ -183,6 +206,120 @@ A plot tool button must stay active after its tool is used, until the user click
 Note: For a plot tool, the function of LLFR-00003 finishes only when the tool is deactivated, not after each zoom, pin or placed marker.
 
 *Parent: HLFR-00032, HLFR-00003*
+
+### LLFR-00114 Reset zoom button
+The top panel must contain a button called "Reset zoom".
+
+*Parent: HLFR-00035*
+
+### LLFR-00116 Reset zoom button feedback
+When the user clicks the Reset zoom button, the button must show its active color (LLFR-00001) until the zoom reset (LLFR-00115) has finished, and for at least 0.3 seconds, and must then return to its normal color (LLFR-00003).
+
+*Parent: HLFR-00035, HLFR-00003*
+
+### LLFR-00121 Grid button
+The top panel must contain a button called "Grid".
+
+*Parent: HLFR-00037*
+
+### LLFR-00124 Grid button state
+While the grid is shown, the Grid button must show its active color (LLFR-00001).
+
+*Parent: HLFR-00037, HLFR-00003*
+
+### LLFR-00126 Export button
+The top panel must contain a button called "Export".
+
+*Parent: HLFR-00038*
+
+### LLFR-00127 Export menu PDF option
+When the user clicks the Export button, the app must show a menu with a "Save all tabs as PDF" option.
+
+*Parent: HLFR-00038*
+
+### LLFR-00128 PDF save dialog
+When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a save file dialog for a `.pdf` file.
+
+*Parent: HLFR-00038*
+
+### LLFR-00129 PDF content
+The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page and the tab's plots below it as they are shown on screen, including their time range, curves, legends, grid, vertical markers and pinned tips.
+
+*Parent: HLFR-00038*
+
+### LLFR-00130 Export cancelled
+If the user cancels the save file dialog (LLFR-00128), the app must not save any file.
+
+*Parent: HLFR-00038*
+
+### LLFR-00131 Export failure
+If the PDF file cannot be written, the app must show an error box saying that the file could not be saved.
+
+*Parent: HLFR-00038, HLFR-00002*
+
+### LLFR-00132 Copy button
+The top panel must contain a button called "Copy".
+
+*Parent: HLFR-00039*
+
+### LLFR-00133 Copy action
+When the user clicks the Copy button, the app must put on the system clipboard an image of all plots of the current tab as they are shown on screen.
+
+*Parent: HLFR-00039*
+
+### LLFR-00134 HDF5 file signals
+In HDF5 files, the app must read each dataset that holds a one-dimensional numeric array as one signal, in any group, named after the dataset's path in the file without the leading `/` (for example `engine/speed`).
+
+Note: The time signal (HLFR-00006) is therefore a dataset named `Time` at the top level of the file. Reading HDF5 needs a new library (COR-00011).
+
+*Parent: HLFR-00005*
+
+### LLFR-00135 Other HDF5 datasets
+In HDF5 files, the app must ignore datasets that do not hold a one-dimensional numeric array, and must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read.
+
+*Parent: HLFR-00005, HLFR-00008, HLFR-00009*
+
+### LLFR-00136 Undo button
+The top panel must contain a button called "Undo".
+
+*Parent: HLFR-00040*
+
+### LLFR-00137 Undo shortcut
+The app must run the Undo button's action (LLFR-00138) when the user presses Ctrl+Z (Cmd+Z on macOS).
+
+*Parent: HLFR-00040*
+
+### LLFR-00141 Undo unavailable
+When no action is left to undo (LLFR-00139), the app must show the Undo button as disabled, in a paler color, and neither the button nor its shortcut must do anything.
+
+*Parent: HLFR-00040, HLFR-00003*
+
+### LLFR-00145 Nothing to export
+If no tab holds a plot when the user chooses "Save all tabs as PDF", the app must show an information box saying that there are no plots to export, and must not show the save file dialog.
+
+*Parent: HLFR-00038*
+
+### LLFR-00146 Nothing to copy
+If the current tab holds no plot when the user clicks the Copy button, the app must show an information box saying that there are no plots to copy, and must not change the clipboard.
+
+*Parent: HLFR-00039*
+
+### LLFR-00148 Hold the Tip key
+While the user holds down the Tip key alone, with no other keyboard key, the app must keep the Tip button (LLFR-00018) active, deactivating any other plot tool as in LLFR-00079.
+
+Note: The **Tip key** is the Command key on macOS and the Ctrl key on Windows.
+
+*Parent: HLFR-00024, HLFR-00032*
+
+### LLFR-00149 Release the Tip key
+When the user releases the Tip key after LLFR-00148, the app must deactivate the Tip button, so that no plot tool is active, whatever plot tool was active before the Tip key was pressed.
+
+*Parent: HLFR-00024, HLFR-00032*
+
+### LLFR-00150 Tip key with another key
+If the user presses another keyboard key while holding the Tip key (for example Cmd+Z or Ctrl+Z), the app must end the Tip activation of LLFR-00148 as in LLFR-00149.
+
+*Parent: HLFR-00024, HLFR-00032*
 
 ## Signal list panel
 
@@ -494,7 +631,7 @@ After every zoom, the app must set the y-axis range of each plot so that every c
 *Parent: HLFR-00027*
 
 ### LLFR-00078 Click to zoom
-While the Zoom button (LLFR-00077) is active and the user left-clicks a plot, the app must zoom in the plot's x-axis by a factor of 2, centered on the time of the clicked point.
+While the Zoom button (LLFR-00077) is active and the user left-clicks a plot, the app must narrow the plot's x-axis range to 95% of its width, centered on the time of the clicked point.
 
 *Parent: HLFR-00027*
 
@@ -594,3 +731,78 @@ The app must not reuse the number of a deleted vertical marker (LLFR-00085) for 
 After the user types a new marker name (LLFR-00088), the app must show the new name in the marker's label (LLFR-00084).
 
 *Parent: HLFR-00030*
+
+### LLFR-00113 Wheel zoom step
+Each notch of the mouse wheel (15 degrees of rotation) must change the x-axis range of the plot by 5%: turning forward must narrow the range to 95% of its width, and turning backward must widen it to 1/0.95 of its width. Smaller wheel movements, such as from a touchpad, must zoom in proportion.
+
+*Parent: HLFR-00027*
+
+### LLFR-00115 Reset zoom action
+When the user clicks the Reset zoom button (LLFR-00114), the app must set the x-axis range of every plot in the current tab to the whole time range of the file, and must set their y-axis ranges as in LLFR-00076.
+
+*Parent: HLFR-00035*
+
+### LLFR-00117 Pan by wheel drag
+When the user holds the mouse wheel pressed over a plot and moves the mouse left or right, the app must shift the plot's x-axis range so that the curves follow the mouse pointer horizontally, whether or not a plot tool is active.
+
+*Parent: HLFR-00036*
+
+### LLFR-00118 No pan without zoom
+While a plot shows the whole time range of the file, holding the mouse wheel pressed and moving the mouse must not change the plot's x-axis range.
+
+*Parent: HLFR-00036*
+
+### LLFR-00119 Pan limits
+The app must not pan a plot's x-axis range before the first time sample or after the last time sample of the file.
+
+*Parent: HLFR-00036*
+
+### LLFR-00120 Curves visible after pan
+After every pan, the app must set the y-axis range of each plot as in LLFR-00076.
+
+*Parent: HLFR-00036*
+
+### LLFR-00122 Show the grid
+When the user clicks the Grid button (LLFR-00121) while the grid is hidden, the app must show a grid on every plot in every tab.
+
+*Parent: HLFR-00037*
+
+### LLFR-00123 Hide the grid
+When the user clicks the Grid button (LLFR-00121) while the grid is shown, the app must hide the grid on every plot in every tab.
+
+*Parent: HLFR-00037*
+
+### LLFR-00125 Grid on new plots
+While the grid is shown, every new plot must also show the grid.
+
+*Parent: HLFR-00037*
+
+### LLFR-00143 Dashed marker line
+The app must draw the line of a vertical marker as a dashed line.
+
+*Parent: HLFR-00028*
+
+### LLFR-00144 First three curve colors
+The first three colors of the palette of LLFR-00033 must be blue, black and red, in that order, so that the first curve drawn in a plot is blue, the second black and the third red.
+
+*Parent: HLFR-00020*
+
+### LLFR-00147 Grid hidden at start
+When the app starts, the grid must be hidden.
+
+*Parent: HLFR-00037*
+
+### LLFR-00151 Tip leader line
+The app must connect each pinned tip (LLFR-00045) to the point whose values it shows with a dashed line.
+
+*Parent: HLFR-00025*
+
+### LLFR-00152 Drag a pinned tip
+When the user presses the left mouse button on a pinned tip and drags it, the app must move the tip with the mouse pointer and leave it where the button is released, while the tip keeps showing the values of the same point.
+
+*Parent: HLFR-00041*
+
+### LLFR-00153 Press on a pinned tip
+A left mouse button press on a pinned tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new tip, zoom or place a vertical marker.
+
+*Parent: HLFR-00041, HLFR-00032*

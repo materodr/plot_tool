@@ -26,13 +26,17 @@ Note: This applies to every button, including the button that opens a file.
 ### HLFR-00026 Resize the panels
 The user must be able to change the widths of the plot panel and the signal list panel.
 
+### HLFR-00040 Undo
+The user must be able to undo their most recent actions on the tabs, plots, curves, tips and markers.
+
+
 ## Top panel
 
 ### HLFR-00004 Open a file
 The user must be able to open a time series file from the top panel.
 
 ### HLFR-00005 Supported file formats
-The app must open files in these formats: CSV (`.csv`), Excel (`.xlsx`) and MATLAB (`.mat`).
+The app must open files in these formats: CSV (`.csv`), Excel (`.xlsx`), MATLAB (`.mat`) and HDF5 (`.h5`, `.hdf5`).
 
 Note: More formats may be added in later versions.
 
@@ -137,3 +141,21 @@ The user must be able to rename a vertical marker.
 
 ### HLFR-00031 Delete a vertical marker
 The user must be able to delete a vertical marker from a plot.
+
+### HLFR-00035 Reset the zoom
+The user must be able to return the plots to the whole time range of the file in one action.
+
+### HLFR-00036 Pan a plot
+The user must be able to move the time range shown in a zoomed plot along the x-axis.
+
+### HLFR-00037 Plot grid
+The user must be able to show and hide a grid on the plots.
+
+### HLFR-00038 Export the plots to PDF
+The user must be able to save the plots of all tabs to a PDF file.
+
+### HLFR-00039 Copy the plots as an image
+The user must be able to copy the plots of the current tab to the clipboard as an image that can be pasted in other applications.
+
+### HLFR-00041 Move a pinned tip
+The user must be able to move a pinned tip to another place in the plot, while it keeps showing the values of the same point.
