@@ -52,8 +52,15 @@ ROW_HOVER_COLOR_STR = "#f0f3f6"
 ROW_SELECTED_COLOR_STR = "#e1e7ed"
 # Keyboard focus of the search box and the signal list.
 FOCUS_COLOR_STR = "#4b7aa8"
-# The handle between the plot and signal list panels while hovered.
-SPLITTER_HOVER_COLOR_STR = "#c9d1d9"
+# LLFR-00280: the blue line drawn on the border between the plot and
+# signal list panels while the pointer is over it or it is dragged. It
+# is the accent blue of the chrome (the keyboard focus color), not the
+# blue curve color of LLFR-00144, so that it is never taken for a curve.
+RESIZE_BORDER_COLOR_STR = FOCUS_COLOR_STR
+RESIZE_BORDER_WIDTH_I = 2
+# LLFR-00213, LLFR-00214: the paler color of the lines below the name
+# in a button tip; still readable on the tip background.
+TOOLTIP_DETAIL_COLOR_STR = MUTED_TEXT_COLOR_STR
 
 # ----------------------------------------------------------------------
 # Buttons of the top panel (HLFR-00003)
@@ -448,10 +455,9 @@ def application_style_sheet() -> str:
         f"padding: 5px 8px; selection-background-color: "
         f"{ROW_SELECTED_COLOR_STR}; selection-color: {TEXT_COLOR_STR}; }}",
         f"QLineEdit:focus {{ border-color: {FOCUS_COLOR_STR}; }}",
-        # Splitter between the plot and signal list panels (LLFR-00073).
+        # Splitter between the plot and signal list panels (LLFR-00073);
+        # its handle draws its own blue line (LLFR-00280).
         "QSplitter::handle { background: transparent; }",
-        f"QSplitter::handle:hover {{ background: "
-        f"{SPLITTER_HOVER_COLOR_STR}; border-radius: 2px; }}",
         # Menus: tab, curve, plot, marker, tip and Export menus.
         f"QMenu {{ background: {SURFACE_COLOR_STR}; color: "
         f"{TEXT_COLOR_STR}; border: 1px solid {HAIRLINE_COLOR_STR}; "
@@ -462,7 +468,8 @@ def application_style_sheet() -> str:
         f"QMenu::item:disabled {{ color: {DISABLED_TEXT_COLOR_STR}; }}",
         f"QMenu::separator {{ height: 1px; background: "
         f"{HAIRLINE_COLOR_STR}; margin: 4px 6px; }}",
-        # LLFR-00181: the name of a top panel button shown on hover.
+        # LLFR-00181: the name of a top panel button shown on hover;
+        # LLFR-00213, LLFR-00214: its paler lines are in the tip text.
         f"QToolTip {{ background: {SURFACE_COLOR_STR}; color: "
         f"{TEXT_COLOR_STR}; border: 1px solid {CONTROL_BORDER_COLOR_STR}; "
         f"border-radius: {TOOLTIP_RADIUS_I}px; padding: 3px 7px; }}",

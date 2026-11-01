@@ -7,7 +7,8 @@ undo GUI tests). Dialogs are patched, so no modal window is left open.
 import unittest
 from unittest import mock
 
-from tests.support import button_name, covers, requires_qt
+from tests.support import (
+    button_name, button_tip_line_list, covers, requires_qt)
 from tests.view.test_undo import UndoWindowTestCase
 
 
@@ -79,7 +80,7 @@ class RedoButtonTest(RedoWindowTestCase):
         self.assertIsInstance(self.redo_button, QPushButton)
         self.assertIsInstance(self.redo_button, UndoButton)
         self.assertEqual(button_name(self.redo_button), "Redo")
-        self.assertEqual(self.redo_button.toolTip(), "Redo")
+        self.assertEqual(button_tip_line_list(self.redo_button)[0], "Redo")
         self.assertEqual(self.redo_button.accessibleName(), "Redo")
         self.assertEqual(self.redo_button.text(), "")
         self.assertFalse(self.redo_button.icon().isNull())

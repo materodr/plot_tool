@@ -49,7 +49,7 @@ class TopPanelTest(unittest.TestCase):
 
     @covers("LLFR-00018", "LLFR-00001")
     def test_tip_button_is_a_toggle_button(self) -> None:
-        """The panel has a visible, inactive "Tip" ToggleButton.
+        """The panel has a visible, inactive "Data tip" ToggleButton.
 
         Inputs: none.
         Outputs: none.
@@ -57,7 +57,7 @@ class TopPanelTest(unittest.TestCase):
         from view.toggle_button import ToggleButton
         button = self.top_panel.tip_button
         self.assertIsInstance(button, ToggleButton)
-        self.assertEqual(button_name(button), "Tip")
+        self.assertEqual(button_name(button), "Data tip")
         self.assertTrue(button.isVisible())
         self.assertFalse(button.is_active())
         self.assertIs(button.parentWidget(), self.top_panel)
