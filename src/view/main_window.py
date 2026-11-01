@@ -10,7 +10,9 @@ from PyQt6.QtWidgets import (
 from controller.plot_tools import (
     DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
     TIP_TOOL_STR)
-from view import icons, message_boxes, plot_export, synthetic_dialogs, theme
+from view import (
+    file_writing, icons, message_boxes, plot_export, synthetic_dialogs,
+    theme)
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -39,6 +41,13 @@ SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
 # LLFR-00128: added by the dialog to a name typed without an extension,
 # so that its overwrite question names the file really written.
 SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
+# LLFR-00219, LLFR-00221: titles and filter of the layout dialogs.
+SAVE_LAYOUT_DIALOG_TITLE_STR = "Save layout"
+LOAD_LAYOUT_DIALOG_TITLE_STR = "Load layout"
+LAYOUT_FILTER_STR = "Layout files (*.json)"
+# LLFR-00219: added by the dialog to a name typed without an extension,
+# so that its overwrite question (LLFR-00223) names the file written.
+LAYOUT_DEFAULT_SUFFIX_STR = "json"
 # LLFR-00196, LLFR-00195: widgets whose own Ctrl+Z (Cmd+Z) and Ctrl+Y
 # (Cmd+Y) act on the typed text, so the workspace undo and redo must not
 # run while one of them has the focus.
@@ -212,6 +221,14 @@ class MainWindow(QMainWindow):
         self.redo_shortcut = QShortcut(QKeySequence(REDO_SHORTCUT_STR), self)
         self.redo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.redo_shortcut.activated.connect(self._on_redo_shortcut)
+        # LLFR-00216, LLFR-00217: the layout buttons go to the layout
+        # controller.
+        self.save_layout_handler = None
+        self.load_layout_handler = None
+        self.top_panel.save_layout_requested.connect(
+            self._on_save_layout_requested)
+        self.top_panel.load_layout_requested.connect(
+            self._on_load_layout_requested)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -1180,6 +1197,229 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00003: the copy has finished.
         self.top_panel.copy_button.finish()
+
+    # ----------------------------------------------------------------
+    # Layout facade, used by the layout controller (plain types only)
+    # ----------------------------------------------------------------
+
+    def set_layout_handlers(self, save_handler, load_handler) -> None:
+        """Set the functions called by the Save and Load layout buttons.
+
+        Inputs:
+            save_handler: function without arguments, Save layout.
+            load_handler: function without arguments, Load layout.
+        Outputs: none.
+        """
+        # LLFR-00219, LLFR-00221: the controller runs the flows.
+        self.save_layout_handler = save_handler
+        self.load_layout_handler = load_handler
+
+    def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
+        """Enable the two layout buttons, or disable them and show them
+        paler.
+
+        Inputs:
+            enabled_b: True once a data file is open.
+        Outputs: none.
+        """
+        # LLFR-00218: disabled, paler and doing nothing without a file.
+        self.top_panel.save_layout_button.setEnabled(bool(enabled_b))
+        self.top_panel.load_layout_button.setEnabled(bool(enabled_b))
+
+    def build_layout_save_dialog(self, start_folder_str: str) -> QFileDialog:
+        """Build the save file dialog of a layout file, not shown.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: a QFileDialog in save mode for .json files that adds
+            ".json" to a name typed without an extension and asks before
+            replacing the resulting file (LLFR-00223).
+        """
+        # LLFR-00219, LLFR-00220: the user chooses the folder and types
+        # the name; Qt asks before overwriting the file it returns.
+        dialog = QFileDialog(self, SAVE_LAYOUT_DIALOG_TITLE_STR,
+                             start_folder_str, LAYOUT_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setDefaultSuffix(LAYOUT_DEFAULT_SUFFIX_STR)
+        return dialog
+
+    def build_layout_load_dialog(self, start_folder_str: str) -> QFileDialog:
+        """Build the file selection dialog of a layout file, not shown.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: a QFileDialog in open mode that lists the .json files.
+        """
+        # LLFR-00221, LLFR-00220: the user chooses an existing .json file.
+        dialog = QFileDialog(self, LOAD_LAYOUT_DIALOG_TITLE_STR,
+                             start_folder_str, LAYOUT_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        return dialog
+
+    def run_layout_dialog(self, dialog) -> str:
+        """Run a layout file dialog modally and return the chosen path.
+
+        Inputs:
+            dialog: a QFileDialog built by build_layout_save_dialog or
+                build_layout_load_dialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00222: a cancelled dialog returns "".
+        if dialog.exec() != QDialog.DialogCode.Accepted.value:
+            return ""
+        selected_file_list = dialog.selectedFiles()
+        if not selected_file_list:
+            return ""
+        return str(selected_file_list[0])
+
+    def ask_layout_save_path(self, start_folder_str: str = "") -> str:
+        """Show the save file dialog of a layout file.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-00219, LLFR-00222, LLFR-00223.
+        dialog = self.build_layout_save_dialog(start_folder_str)
+        try:
+            return self.run_layout_dialog(dialog) or ""
+        finally:
+            dialog.deleteLater()
+
+    def ask_layout_load_path(self, start_folder_str: str = "") -> str:
+        """Show the file selection dialog of a layout file.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-00221, LLFR-00222.
+        dialog = self.build_layout_load_dialog(start_folder_str)
+        try:
+            return self.run_layout_dialog(dialog) or ""
+        finally:
+            dialog.deleteLater()
+
+    def save_layout_bytes(self, path_str: str,
+                          content_bytes: bytes) -> tuple:
+        """Write a layout file without risking a file already there.
+
+        Inputs:
+            path_str: the path of the layout file.
+            content_bytes: its UTF-8 content.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-00224: written to a temporary file that then replaces the
+        # target, so a failed save never damages an existing file.
+        return file_writing.write_file_safely(path_str, content_bytes)
+
+    def panel_width_tuple(self) -> tuple:
+        """Return the widths of the plot and signal list panels.
+
+        Inputs: none.
+        Outputs: (plot panel width, signal list panel width) in pixels.
+        """
+        # LLFR-00225 item 9: the widths the user dragged to (LLFR-00073).
+        size_list = list(self.lower_splitter.sizes())
+        if len(size_list) < 2:
+            return ()
+        return (int(size_list[0]), int(size_list[1]))
+
+    def set_panel_widths(self, plot_width_i: int, list_width_i: int) -> None:
+        """Give the plot and signal list panels new widths.
+
+        Inputs:
+            plot_width_i: width of the plot panel, in pixels.
+            list_width_i: width of the signal list panel, in pixels.
+        Outputs: none. Qt scales the two widths to the room there is and
+            keeps each panel at least at its minimum width.
+        """
+        # LLFR-00230: the panel widths of a loaded layout; the start
+        # widths of LLFR-00072 must not be applied over them later.
+        self.lower_splitter.initial_sizes_set_b = True
+        self.lower_splitter.setSizes([int(plot_width_i), int(list_width_i)])
+
+    def show_layout_save_error(self, reason_str: str) -> None:
+        """Show the error box saying that the layout file was not saved.
+
+        Inputs:
+            reason_str: why the file could not be written.
+        Outputs: none.
+        """
+        # LLFR-00224: an error box (HLFR-00002).
+        message_boxes.build_layout_save_error_box(self, reason_str).exec()
+
+    def show_layout_load_error(self, message_str: str) -> None:
+        """Show the error box saying that the file is not a layout file.
+
+        Inputs:
+            message_str: the text of the box.
+        Outputs: none.
+        """
+        # LLFR-00236: an error box (HLFR-00002).
+        message_boxes.build_layout_load_error_box(self, message_str).exec()
+
+    def show_layout_report(self, report_text_str: str) -> None:
+        """Show the information box of the layout load report.
+
+        Inputs:
+            report_text_str: what was not rebuilt or was changed.
+        Outputs: none.
+        """
+        # LLFR-00237: one information box, scrollable when long.
+        dialog = message_boxes.build_layout_report_box(self,
+                                                       report_text_str)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+
+    def finish_save_layout_button(self) -> None:
+        """Return the Save layout button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the save has finished.
+        self.top_panel.save_layout_button.finish()
+
+    def finish_load_layout_button(self) -> None:
+        """Return the Load layout button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the load has finished.
+        self.top_panel.load_layout_button.finish()
+
+    def _on_save_layout_requested(self) -> None:
+        """Run the save layout handler after the button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00219: the controller shows the save dialog.
+        if self.save_layout_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_save_layout_button()
+            return
+        self.save_layout_handler()
+
+    def _on_load_layout_requested(self) -> None:
+        """Run the load layout handler after the button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00221: the controller shows the file selection dialog.
+        if self.load_layout_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_load_layout_button()
+            return
+        self.load_layout_handler()
 
     def _on_pdf_export_requested(self) -> None:
         """Run the PDF export handler after the menu choice.

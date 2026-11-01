@@ -28,6 +28,9 @@ from view.toggle_button import ToggleButton
 from view.undo_button import UndoButton
 
 OPEN_FILE_TEXT_STR = "Open file"
+# LLFR-00216, LLFR-00217: the layout buttons, right of Open file.
+SAVE_LAYOUT_TEXT_STR = "Save layout"
+LOAD_LAYOUT_TEXT_STR = "Load layout"
 # LLFR-00018: the button of the data tip tool (HLFR-00024).
 TIP_TEXT_STR = "Data tip"
 ZOOM_TEXT_STR = "Zoom"
@@ -47,6 +50,8 @@ REDO_TEXT_STR = "Redo"
 # LLFR-00159: the icon of each button, by button name.
 BUTTON_ICON_DICT = {
     OPEN_FILE_TEXT_STR: icon_shapes.OPEN_FILE_ICON_STR,
+    SAVE_LAYOUT_TEXT_STR: icon_shapes.SAVE_LAYOUT_ICON_STR,
+    LOAD_LAYOUT_TEXT_STR: icon_shapes.LOAD_LAYOUT_ICON_STR,
     TIP_TEXT_STR: icon_shapes.TIP_ICON_STR,
     ZOOM_TEXT_STR: icon_shapes.ZOOM_ICON_STR,
     MARKER_TEXT_STR: icon_shapes.MARKER_ICON_STR,
@@ -238,6 +243,12 @@ class TopPanel(QWidget):
     Attributes:
         button_layout: horizontal layout that holds the panel's buttons.
         open_file_button: the "Open file" ToggleButton (LLFR-00004).
+        save_layout_button: the "Save layout" UndoButton (LLFR-00216),
+            directly right of Open file; disabled while no data file is
+            open (LLFR-00218).
+        load_layout_button: the "Load layout" UndoButton (LLFR-00217),
+            directly right of Save layout; disabled while no data file
+            is open (LLFR-00218).
         tip_button: the "Data tip" ToggleButton (LLFR-00018).
         zoom_button: the "Zoom" ToggleButton (LLFR-00077).
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
@@ -260,6 +271,8 @@ class TopPanel(QWidget):
     plot_tool_changed = pyqtSignal(str)
     pdf_export_requested = pyqtSignal()
     copy_requested = pyqtSignal()
+    save_layout_requested = pyqtSignal()
+    load_layout_requested = pyqtSignal()
 
     def __init__(self) -> None:
         """Create the panel with its buttons, aligned to the left.
@@ -301,6 +314,24 @@ class TopPanel(QWidget):
             DELTA_X_TOOL_STR: self.delta_x_button,
             DELTA_Y_TOOL_STR: self.delta_y_button}
         self.button_layout.addWidget(self.open_file_button)
+        # LLFR-00216, LLFR-00217: Save layout and Load layout, in the
+        # group of Open file. LLFR-00218: disabled, and paler, until a
+        # data file is open.
+        self.save_layout_button = new_icon_button(
+            UndoButton, SAVE_LAYOUT_TEXT_STR, "save_layout_button")
+        self.load_layout_button = new_icon_button(
+            UndoButton, LOAD_LAYOUT_TEXT_STR, "load_layout_button")
+        for layout_button in (self.save_layout_button,
+                              self.load_layout_button):
+            layout_button.setEnabled(False)
+            self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
+            self.button_layout.addWidget(layout_button)
+        # LLFR-00219, LLFR-00221: the dialogs open once control is back
+        # in Qt, so the active color is painted first (LLFR-00001).
+        self.save_layout_button.triggered.connect(
+            lambda: QTimer.singleShot(0, self.emit_pending_save_layout))
+        self.load_layout_button.triggered.connect(
+            lambda: QTimer.singleShot(0, self.emit_pending_load_layout))
         self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         # LLFR-00079: only one plot tool is active at a time, so the
         # five tool buttons are drawn joined, as one group.
@@ -497,3 +528,27 @@ class TopPanel(QWidget):
         if sip.isdeleted(self):
             return
         self.copy_requested.emit()
+
+    def emit_pending_save_layout(self) -> None:
+        """Report the click on the Save layout button.
+
+        Inputs: none.
+        Outputs: none. Emits save_layout_requested unless the panel was
+            deleted meanwhile.
+        """
+        # LLFR-00219: the save dialog opens after the active color shows.
+        if sip.isdeleted(self):
+            return
+        self.save_layout_requested.emit()
+
+    def emit_pending_load_layout(self) -> None:
+        """Report the click on the Load layout button.
+
+        Inputs: none.
+        Outputs: none. Emits load_layout_requested unless the panel was
+            deleted meanwhile.
+        """
+        # LLFR-00221: the file dialog opens after the active color shows.
+        if sip.isdeleted(self):
+            return
+        self.load_layout_requested.emit()

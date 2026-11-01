@@ -2,6 +2,7 @@
 
 from controller.export_controller import ExportController
 from controller.file_controller import FileController
+from controller.layout_controller import LayoutController
 from controller.plot_controller import PlotController
 from controller.signal_list_controller import SignalListController
 from controller.synthetic_controller import SyntheticController
@@ -25,6 +26,8 @@ class MainController:
             menu and the synthetic signals.
         export_controller: the ExportController of the Export menu and
             the Copy button.
+        layout_controller: the LayoutController of the Save layout and
+            Load layout buttons.
     """
 
     def __init__(self, main_window: object) -> None:
@@ -44,6 +47,10 @@ class MainController:
         # controller listens to opened files and to the plot panel.
         self.plot_controller = PlotController(main_window,
                                               self.file_controller)
+        # LLFR-00216 to LLFR-00218: the Save layout and Load layout
+        # buttons, enabled once a data file is open.
+        self.layout_controller = LayoutController(
+            main_window, self.file_controller, self.plot_controller)
         # LLFR-00095, LLFR-00104: the search box filters the signal
         # list; registered after the plot controller, so it runs after
         # the FileController has shown all names of a new file.

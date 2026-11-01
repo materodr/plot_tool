@@ -21,13 +21,19 @@
   for example when the time samples are not evenly spaced (LLFR-00247),
   the FFT time range holds too few samples (LLFR-00250) or a new name
   is already used (LLFR-00267).
+- Save Layout Error and Load Layout Error boxes: error boxes shown when
+  a layout file could not be saved (LLFR-00224) or read (LLFR-00236).
+- Layout Report box: information box that lists what a loaded layout
+  could not rebuild as saved, in a scrollable text (LLFR-00237).
 
 Each box is made by a ``build_*`` function, so tests can inspect it
 without opening a modal dialog. The ``show_*`` and ``ask_*`` functions
 build the box and run it.
 """
 
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import (
+    QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
+    QPlainTextEdit, QStyle, QVBoxLayout)
 
 FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
 FULL_TAB_TITLE_STR = "Full Tab"
@@ -59,6 +65,19 @@ EXPORT_ERROR_TITLE_STR = "Export Error"
 EXPORT_ERROR_INTRO_STR = "The file could not be saved."
 COPY_ERROR_TITLE_STR = "Copy Error"
 COPY_ERROR_INTRO_STR = "The plots could not be copied to the clipboard."
+# LLFR-00224, LLFR-00236: the error boxes of the layout files.
+SAVE_LAYOUT_ERROR_TITLE_STR = "Save Layout Error"
+SAVE_LAYOUT_ERROR_INTRO_STR = "The layout file could not be saved."
+LOAD_LAYOUT_ERROR_TITLE_STR = "Load Layout Error"
+# LLFR-00237: the information box of the load report.
+LAYOUT_REPORT_TITLE_STR = "Layout Loaded"
+LAYOUT_REPORT_INTRO_STR = (
+    "The layout was loaded, but some parts of it could not be rebuilt "
+    "as saved:")
+LAYOUT_REPORT_TEXT_OBJECT_NAME_STR = "layout_report_text"
+LAYOUT_REPORT_MINIMUM_WIDTH_I = 560
+LAYOUT_REPORT_MINIMUM_HEIGHT_I = 260
+LAYOUT_REPORT_ICON_SIZE_I = 32
 # LLFR-00128: question asked before an existing .pdf file is replaced.
 REPLACE_EXISTING_TITLE_STR = "Replace File"
 REPLACE_EXISTING_MESSAGE_STR = (
@@ -468,3 +487,78 @@ def build_signal_information_box(parent, title_str: str,
     # LLFR-00247, LLFR-00250, LLFR-00267: information, not errors.
     return build_message_box(parent, QMessageBox.Icon.Information,
                              title_str, message_str)
+
+
+def build_layout_save_error_box(parent, reason_str: str) -> QMessageBox:
+    """Build the error box shown when a layout file could not be saved.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        reason_str: why the file could not be written, or "".
+    Outputs: a QMessageBox with the critical icon, the title
+        SAVE_LAYOUT_ERROR_TITLE_STR and a text that starts with
+        SAVE_LAYOUT_ERROR_INTRO_STR and ends with the reason.
+    """
+    # LLFR-00224: an error box saying that the layout file could not be
+    # saved (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             SAVE_LAYOUT_ERROR_TITLE_STR,
+                             join_reason(SAVE_LAYOUT_ERROR_INTRO_STR,
+                                         reason_str))
+
+
+def build_layout_load_error_box(parent, message_str: str) -> QMessageBox:
+    """Build the error box shown when a file is not a readable layout.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the text from the layout controller, which says that
+            the file could not be read as a layout file and why.
+    Outputs: a QMessageBox with the critical icon and the title
+        LOAD_LAYOUT_ERROR_TITLE_STR.
+    """
+    # LLFR-00236: an error box saying that the file could not be read as
+    # a layout file (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             LOAD_LAYOUT_ERROR_TITLE_STR, message_str)
+
+
+def build_layout_report_box(parent, report_text_str: str) -> QDialog:
+    """Build the information box of the layout load report.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        report_text_str: the list of what was not rebuilt or changed, one
+            entry per line.
+    Outputs: a QDialog titled LAYOUT_REPORT_TITLE_STR with the
+        information icon, the text LAYOUT_REPORT_INTRO_STR, the report in
+        a read-only, scrollable text field (objectName
+        LAYOUT_REPORT_TEXT_OBJECT_NAME_STR) and an OK button.
+    """
+    # LLFR-00237: an information box, not an error box, like the Full
+    # Tab Notification box; a long list can be scrolled.
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(LAYOUT_REPORT_TITLE_STR)
+    dialog.setMinimumSize(LAYOUT_REPORT_MINIMUM_WIDTH_I,
+                          LAYOUT_REPORT_MINIMUM_HEIGHT_I)
+    dialog_layout = QVBoxLayout(dialog)
+    intro_layout = QHBoxLayout()
+    icon_label = QLabel(dialog)
+    icon_label.setPixmap(dialog.style().standardIcon(
+        QStyle.StandardPixmap.SP_MessageBoxInformation).pixmap(
+            LAYOUT_REPORT_ICON_SIZE_I, LAYOUT_REPORT_ICON_SIZE_I))
+    intro_label = QLabel(LAYOUT_REPORT_INTRO_STR, dialog)
+    intro_label.setWordWrap(True)
+    intro_layout.addWidget(icon_label)
+    intro_layout.addWidget(intro_label, 1)
+    dialog_layout.addLayout(intro_layout)
+    report_field = QPlainTextEdit(dialog)
+    report_field.setObjectName(LAYOUT_REPORT_TEXT_OBJECT_NAME_STR)
+    report_field.setReadOnly(True)
+    report_field.setPlainText(report_text_str)
+    dialog_layout.addWidget(report_field, 1)
+    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok,
+                                  dialog)
+    button_box.accepted.connect(dialog.accept)
+    dialog_layout.addWidget(button_box)
+    return dialog

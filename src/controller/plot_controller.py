@@ -68,6 +68,13 @@ discarded, and its dot removed, when the tool changes, when its plot
 or its curve goes away, when a file is opened and on every undo. It is
 not part of the undo snapshots: only placed markers are.
 
+Layout files (HLFR-00049, HLFR-00050): ``layout_dict`` returns the
+content of a layout file for the current layout, and ``load_layout``
+rebuilds the layout of a file in the workspace (model.layout_file),
+applies its time range and grid, clears the undo and redo history
+(LLFR-00238) and shows every tab and plot again. The layout controller
+runs the dialogs and the boxes.
+
 Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
 """
@@ -79,6 +86,7 @@ import numpy as np
 from controller.plot_tools import (
     DELTA_X_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, is_delta_tool,
     is_known_plot_tool)
+from model.layout_file import build_layout_dict, rebuild_layout
 from model.undo_history import UndoHistory
 from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR, Workspace
 
@@ -1247,3 +1255,86 @@ class PlotController:
         for plot in changed_plot_list:
             if plot.plot_id_i not in deleted_plot_id_list:
                 self.redraw_plot(plot)
+
+    # ----------------------------------------------------------------
+    # Layout files
+    # ----------------------------------------------------------------
+
+    def layout_time_range_tuple(self) -> tuple:
+        """Return the time range shared by the plots, in seconds.
+
+        Inputs: none.
+        Outputs: (start_s, end_s): the shared range, or the whole time
+            range of the file when no plot is zoomed; () when no file is
+            open.
+        """
+        # LLFR-00225 item 4, LLFR-00070: the range every plot shows.
+        if self.shared_time_range_tuple:
+            return tuple(self.shared_time_range_tuple)
+        return self.file_time_range_tuple()
+
+    def layout_dict(self, panel_width_tuple: tuple = (),
+                    synthetic_signal_list: list = ()) -> dict:
+        """Return the content of a layout file for the current layout.
+
+        Inputs:
+            panel_width_tuple: (plot panel width, signal list panel
+                width) in pixels, or () when unknown.
+            synthetic_signal_list: the entries of the synthetic signals
+                (LLFR-00225 item 10, issue #110).
+        Outputs: the dict of model.layout_file.build_layout_dict.
+        """
+        # LLFR-00225: tabs, shown tab, plots, curves, range, grid,
+        # markers, data tips, delta markers and panel widths.
+        # LLFR-00226: no file name, history, plot tool or search text.
+        return build_layout_dict(
+            self.workspace, self.view.current_tab_id(),
+            self.layout_time_range_tuple(), self.grid_shown_b,
+            panel_width_tuple, synthetic_signal_list)
+
+    def load_layout(self, layout_dict: dict,
+                    synthetic_signal_builder=None):
+        """Rebuild the layout of a layout file and show it.
+
+        Inputs:
+            layout_dict: the content of the file
+                (model.layout_file.parse_layout_text).
+            synthetic_signal_builder: optional function that creates the
+                synthetic signals of the file (LLFR-00262, issue #110).
+        Outputs: the LayoutResult, whose report says what was not
+            rebuilt; None when no data file is open (LLFR-00218).
+        """
+        # LLFR-00218: a layout needs the signals of a data file.
+        if self.signal_file is None:
+            return None
+        # LLFR-00167: the views are rebuilt, so a first point is
+        # discarded.
+        self.discard_pending_delta()
+        # PCR-00025: an unexpected failure leaves the layout as it was.
+        snapshot = self.take_snapshot()
+        try:
+            # LLFR-00229 to LLFR-00235: rebuild the file's layout.
+            result = rebuild_layout(
+                self.workspace, layout_dict, self.signal_file.signal_dict,
+                self.signal_file.time_array, synthetic_signal_builder)
+        except Exception:
+            self.workspace.restore(snapshot)
+            self.rebuild_all_views(snapshot.current_tab_id_i)
+            raise
+        # LLFR-00230, LLFR-00234: the file's time range, limited to the
+        # data file, in every plot; LLFR-00180: () is the whole range.
+        self.shared_time_range_tuple = tuple(result.time_range_tuple)
+        self.forget_range_without_plots()
+        # LLFR-00230, LLFR-00122, LLFR-00123: the file's grid setting.
+        if result.grid_shown_b is not None:
+            self.on_grid_toggled(result.grid_shown_b)
+        # LLFR-00238: loading clears the undo and redo history and is not
+        # itself undoable.
+        self.undo_history.clear()
+        self.update_undo_enabled()
+        # LLFR-00229: show every tab, and the first tab of the file.
+        shown_tab_id_i = result.first_tab_id_i
+        if shown_tab_id_i < 0:
+            shown_tab_id_i = snapshot.current_tab_id_i
+        self.rebuild_all_views(shown_tab_id_i)
+        return result

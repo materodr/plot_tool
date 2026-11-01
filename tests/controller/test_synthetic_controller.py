@@ -206,6 +206,23 @@ class FakeSyntheticWindow(FakePlotView):
         Outputs: none.
         """
 
+    def set_layout_handlers(self, save_handler, load_handler) -> None:
+        """Ignore the layout button handlers.
+
+        Inputs:
+            save_handler: ignored.
+            load_handler: ignored.
+        Outputs: none.
+        """
+
+    def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
+        """Ignore the layout button state.
+
+        Inputs:
+            enabled_b: ignored.
+        Outputs: none.
+        """
+
     # Synthetic signal facade.
 
     def set_synthetic_operation_groups(self, group_list: list) -> None:
