@@ -16,6 +16,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - plots: ``add_plot_view``, ``remove_plot_view``, ``draw_plot``,
   ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``,
   ``set_delta_first_point``;
+- vertical markers: ``set_markers`` (the shared markers, drawn on every
+  plot of every tab);
 - boxes: ``show_full_tab_notification``, ``ask_marker_name``;
 - grid: ``set_grid_shown``;
 - undo: ``set_undo_enabled``;
@@ -41,6 +43,14 @@ show it too. The empty tuple stands for the whole time range of the
 file: it is used at start, after a zoom reset (LLFR-00115), when a file
 is opened and when the last plot of the workspace disappears, so that
 the next plot starts at the whole range (LLFR-00180).
+
+Vertical markers (LLFR-00205): the markers belong to the workspace, not
+to a plot, so every plot of every tab shows the same ones, plots created
+later included. A placement, move, rename or deletion made on any plot
+is one undoable action and is shown on every plot through
+``set_markers``, which only redraws the markers. When the last plot of
+the workspace goes away, the model deletes the markers in that same
+action, so that its undo brings them back.
 
 Delta markers (LLFR-00163 to LLFR-00167): with the Delta X or Delta Y
 tool active, the view reports every left click on a curve with the
@@ -259,17 +269,28 @@ class PlotController:
                  pinned_tip.value_f, pinned_tip.label_offset_tuple)
                 for pinned_tip in plot.pinned_tip_list]
 
-    def marker_data_list(self, plot) -> list:
-        """Return the drawing data of every vertical marker of a plot.
+    def marker_data_list(self) -> list:
+        """Return the drawing data of every vertical marker.
 
-        Inputs:
-            plot: the model Plot.
+        Inputs: none.
         Outputs: a list of tuples (marker_id_i, name_str, time_s) in the
-            order the markers were placed.
+            order the markers were placed; the same for every plot.
         """
         # LLFR-00084, LLFR-00092: the label shows the name and the time.
+        # LLFR-00205: the markers are shared by every plot.
         return [(marker.marker_id_i, marker.name_str, marker.time_s)
-                for marker in plot.marker_list]
+                for marker in self.workspace.marker_list]
+
+    def show_markers(self) -> None:
+        """Draw the shared vertical markers again on every plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112, LLFR-00205: a
+        # change made on one plot is shown on every plot of every tab;
+        # only the markers are redrawn, not the curves.
+        self.view.set_markers(self.marker_data_list())
 
     def delta_marker_data_list(self, plot) -> list:
         """Return the drawing data of every delta marker of a plot.
@@ -333,12 +354,12 @@ class PlotController:
         Outputs: none. The plot shows the shared time range afterwards.
         """
         # LLFR-00068: time on the x-axis; LLFR-00045: pinned tips.
-        # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112: the markers
-        # are drawn on the same path as the curves.
+        # LLFR-00205: the shared markers, also on a plot created after
+        # them, are drawn on the same path as the curves.
         # LLFR-00168, LLFR-00170: and the delta markers.
         self.view.draw_plot(plot.plot_id_i, self.curve_data_list(plot),
                             self.pinned_tip_data_list(plot),
-                            self.marker_data_list(plot),
+                            self.marker_data_list(),
                             self.delta_marker_data_list(plot))
         # LLFR-00070, LLFR-00180: draw_plot shows the whole range; a new
         # or redrawn plot takes the range shared by all plots.
@@ -362,6 +383,8 @@ class PlotController:
         self.discard_pending_delta()
         # LLFR-00015, LLFR-00016: close all tabs and plots and leave one
         # tab with no plots (also harmless for the first file).
+        # LLFR-00205, LLFR-00085: every vertical marker is deleted and
+        # the numbering restarts at "Marker 1"; this is not undoable.
         self.workspace.reset()
         # LLFR-00180: the new file's plots start at its whole range.
         self.shared_time_range_tuple = ()
@@ -457,6 +480,8 @@ class PlotController:
             # left and was deleted; the others fill the space.
             self.view.remove_plot_view(plot_id_i)
             # LLFR-00180: it may have been the last plot of all.
+            # LLFR-00205: then the model also deleted every vertical
+            # marker, in this same undoable action.
             self.forget_range_without_plots()
             return
         self.redraw_plot(plot)
@@ -496,6 +521,8 @@ class PlotController:
         # LLFR-00140: deleting a plot is undoable.
         snapshot = self.take_snapshot()
         # LLFR-00049: remove the plot from the model and the view.
+        # LLFR-00205: when it is the last plot of all, the model deletes
+        # every vertical marker too, in this same undoable action.
         if not self.workspace.delete_plot(plot_id_i):
             return
         self.record_undo(snapshot)
@@ -716,6 +743,8 @@ class PlotController:
         # LLFR-00140: deleting a tab is undoable.
         snapshot = self.take_snapshot()
         # LLFR-00066: the model refuses to delete the last tab.
+        # LLFR-00205: when its plots were the last ones, the model
+        # deletes every vertical marker too, in this same action.
         if not self.workspace.delete_tab(tab_id_i):
             return
         self.record_undo(snapshot)
@@ -752,7 +781,7 @@ class PlotController:
     # ----------------------------------------------------------------
 
     def on_marker_place(self, plot_id_i: int, time_s: float) -> None:
-        """Place a new vertical marker at a clicked time.
+        """Place a new vertical marker at a clicked time, on every plot.
 
         Inputs:
             plot_id_i: id of the clicked plot.
@@ -770,16 +799,17 @@ class PlotController:
         snapshot = self.take_snapshot()
         # LLFR-00085, LLFR-00111: the model names it "Marker N" and
         # never reuses N. LLFR-00109: the tool stays active.
-        plot.add_marker(float(time_s))
+        # LLFR-00205: one marker, shown on every plot of every tab.
+        self.workspace.add_marker(float(time_s))
         self.record_undo(snapshot)
-        self.redraw_plot(plot)
+        self.show_markers()
 
     def on_marker_move(self, plot_id_i: int, marker_id_i: int,
                        time_s: float) -> None:
         """Leave a dragged vertical marker at the time of the release.
 
         Inputs:
-            plot_id_i: id of the plot.
+            plot_id_i: id of the plot the marker was dragged on.
             marker_id_i: id of the dragged marker.
             time_s: time where the mouse button was released, in s.
         Outputs: none. Ignored when the Vertical marker tool is not
@@ -794,62 +824,61 @@ class PlotController:
         # LLFR-00140: moving a marker is undoable; a drag that ends where
         # it started changes nothing and is not recorded.
         snapshot = self.take_snapshot()
-        if not plot.move_marker(marker_id_i, float(time_s)):
+        if not self.workspace.move_marker(marker_id_i, float(time_s)):
             return
         self.record_undo(snapshot)
-        # LLFR-00092: the label shows the new time after the redraw.
-        self.redraw_plot(plot)
+        # LLFR-00092, LLFR-00205: every plot, the other tabs included,
+        # shows the marker and its time at the new place.
+        self.show_markers()
 
     def on_marker_rename(self, plot_id_i: int, marker_id_i: int) -> None:
-        """Ask the user for a new marker name and show it.
+        """Ask the user for a new marker name and show it on every plot.
 
         Inputs:
-            plot_id_i: id of the plot.
+            plot_id_i: id of the plot where "Rename" was chosen.
             marker_id_i: id of the marker whose "Rename" was chosen.
         Outputs: none. A cancelled dialog or an empty name changes
             nothing and shows no message.
         """
         # LLFR-00088: let the user type the name, starting from the
         # current one.
-        plot = self.workspace.find_plot(plot_id_i)
-        if plot is None:
+        if self.workspace.find_plot(plot_id_i) is None:
             return
-        marker = plot.find_marker(marker_id_i)
+        marker = self.workspace.find_marker(marker_id_i)
         if marker is None:
             return
         new_name_str = self.view.ask_marker_name(marker.name_str)
         if new_name_str is None:
             return
-        # The plot may have changed while the dialog was open.
-        plot = self.workspace.find_plot(plot_id_i)
-        if plot is None:
-            return
         # LLFR-00140: renaming a marker is undoable; the snapshot is
         # taken after the dialog, so it holds the state just before.
         snapshot = self.take_snapshot()
-        # LLFR-00089: a blank name keeps the old one, with no message.
-        if not plot.rename_marker(marker_id_i, str(new_name_str)):
+        # LLFR-00089: a blank name keeps the old one, with no message;
+        # a marker deleted meanwhile is not renamed.
+        if not self.workspace.rename_marker(marker_id_i,
+                                            str(new_name_str)):
             return
         self.record_undo(snapshot)
-        # LLFR-00112: the label shows the new name.
-        self.redraw_plot(plot)
+        # LLFR-00112, LLFR-00205: every label shows the new name.
+        self.show_markers()
 
     def on_marker_delete(self, plot_id_i: int, marker_id_i: int) -> None:
-        """Remove a vertical marker and its label from a plot.
+        """Remove a vertical marker and its label from every plot.
 
         Inputs:
-            plot_id_i: id of the plot.
+            plot_id_i: id of the plot where "Delete" was chosen.
             marker_id_i: id of the marker whose "Delete" was chosen.
         Outputs: none.
         """
         # LLFR-00140: deleting a marker is undoable.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
         snapshot = self.take_snapshot()
-        # LLFR-00091: remove the marker, then redraw without it.
-        plot = self.workspace.find_plot(plot_id_i)
-        if plot is None or not plot.remove_marker(marker_id_i):
+        # LLFR-00091, LLFR-00205: remove the marker from every plot.
+        if not self.workspace.remove_marker(marker_id_i):
             return
         self.record_undo(snapshot)
-        self.redraw_plot(plot)
+        self.show_markers()
 
     # ----------------------------------------------------------------
     # Delta markers

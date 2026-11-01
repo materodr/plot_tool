@@ -75,14 +75,13 @@ class UndoControllerTestCase(PlotControllerTestCase):
         return self.controller.undo_history.depth()
 
     def marker_id(self, index_i: int) -> int:
-        """Return the id of a marker of the main plot.
+        """Return the id of a marker (markers are shared by all plots).
 
         Inputs:
             index_i: index of the marker in placing order.
         Outputs: the marker id.
         """
-        plot = self.workspace.find_plot(self.plot_id_i)
-        return plot.marker_list[index_i].marker_id_i
+        return self.workspace.marker_list[index_i].marker_id_i
 
     def model_dump(self) -> tuple:
         """Return what the model holds, in the format of view_dump.
@@ -105,7 +104,7 @@ class UndoControllerTestCase(PlotControllerTestCase):
                     for tip in plot.pinned_tip_list)
                 marker_tuple = tuple(
                     (marker.marker_id_i, marker.name_str, marker.time_s)
-                    for marker in plot.marker_list)
+                    for marker in self.workspace.marker_list)
                 plot_list.append((plot.plot_id_i, tab.tab_id_i, curve_tuple,
                                   tip_tuple, marker_tuple))
         return tab_tuple, tuple(plot_list)
@@ -347,12 +346,11 @@ class UndoEachActionTest(UndoControllerTestCase):
             lambda: self.handler("marker_place_handler")(self.plot_id_i,
                                                          4.0))
         self.handler("marker_place_handler")(self.plot_id_i, 4.0)
-        plot = self.workspace.find_plot(self.plot_id_i)
-        # LLFR-00085: the number counts from the state before the undone
-        # action, so the new marker is "Marker 3" again.
-        self.assertEqual(plot.marker_list[-1].name_str, "Marker 3")
+        # LLFR-00111: the undone placement does not free its number
+        # ("Marker 3"), so the new marker is "Marker 4".
+        self.assertEqual(self.workspace.marker_list[-1].name_str, "Marker 4")
         self.assertEqual(len({marker.marker_id_i
-                              for marker in plot.marker_list}), 3)
+                              for marker in self.workspace.marker_list}), 3)
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00086")
     def test_move_marker(self) -> None:
@@ -365,8 +363,7 @@ class UndoEachActionTest(UndoControllerTestCase):
         self.assert_undoable(
             lambda: self.handler("marker_move_handler")(self.plot_id_i,
                                                         marker_id_i, 7.5))
-        plot = self.workspace.find_plot(self.plot_id_i)
-        self.assertEqual(plot.find_marker(marker_id_i).time_s, 1.0)
+        self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 1.0)
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00088", "LLFR-00112")
     def test_rename_marker(self) -> None:
@@ -380,8 +377,8 @@ class UndoEachActionTest(UndoControllerTestCase):
         self.assert_undoable(
             lambda: self.handler("marker_rename_handler")(self.plot_id_i,
                                                           marker_id_i))
-        plot = self.workspace.find_plot(self.plot_id_i)
-        self.assertEqual(plot.find_marker(marker_id_i).name_str, "Marker 2")
+        self.assertEqual(self.workspace.find_marker(marker_id_i).name_str,
+                         "Marker 2")
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00091")
     def test_delete_marker(self) -> None:
@@ -394,8 +391,8 @@ class UndoEachActionTest(UndoControllerTestCase):
         self.assert_undoable(
             lambda: self.handler("marker_delete_handler")(self.plot_id_i,
                                                           marker_id_i))
-        plot = self.workspace.find_plot(self.plot_id_i)
-        self.assertEqual(plot.marker_list[0].marker_id_i, marker_id_i)
+        self.assertEqual(self.workspace.marker_list[0].marker_id_i,
+                         marker_id_i)
 
 
 class UndoNotRecordedTest(UndoControllerTestCase):

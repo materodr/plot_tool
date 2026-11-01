@@ -641,6 +641,14 @@ class PlotPanel(QWidget):
                 PLOT_SIGNAL_HANDLER_DICT.items()):
             getattr(plot_widget, signal_name_str).connect(partial(
                 self.forward_plot_request, handler_name_str, plot_id_i))
+        # LLFR-00205: a marker dragged on this plot follows the pointer
+        # on the other plots of its tab. LLFR-00203: so does the marker
+        # preview. These stay in the view: only the release and the
+        # click go to the controller.
+        plot_widget.marker_drag_moved.connect(partial(
+            self.relay_marker_drag, plot_id_i))
+        plot_widget.marker_preview_changed.connect(partial(
+            self.relay_marker_preview, plot_id_i))
         self.plot_widget_dict[plot_id_i] = plot_widget
         page.add_plot_widget(plot_widget)
 
@@ -683,6 +691,66 @@ class PlotPanel(QWidget):
         if (focus_widget is removed_widget
                 or removed_widget.isAncestorOf(focus_widget)):
             self.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def sibling_plot_widget_list(self, plot_id_i: int) -> list:
+        """Return the other plot widgets of a plot's tab.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: a list of PlotWidget, top to bottom, without the plot
+            itself (empty for an unknown plot).
+        """
+        # LLFR-00203, LLFR-00205: the plots of the same tab.
+        plot_widget = self.plot_widget_dict.get(plot_id_i)
+        if plot_widget is None:
+            return []
+        for page in self.page_dict.values():
+            if plot_widget in page.plot_widget_list:
+                return [other_widget for other_widget in page.plot_widget_list
+                        if other_widget is not plot_widget]
+        return []
+
+    def set_markers(self, marker_data_list: list) -> None:
+        """Draw the shared vertical markers on every plot of every tab.
+
+        Inputs:
+            marker_data_list: tuples (marker_id_i, name_str, time_s), in
+                placing order.
+        Outputs: none.
+        """
+        # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112, LLFR-00205: the
+        # same markers on every plot; hidden plots draw them when shown.
+        for plot_widget in self.plot_widget_dict.values():
+            plot_widget.set_markers(marker_data_list)
+
+    def relay_marker_drag(self, plot_id_i: int, marker_id_i: int,
+                          time_s: float) -> None:
+        """Show a marker dragged on one plot at its time on the others.
+
+        Inputs:
+            plot_id_i: id of the plot where the marker is dragged.
+            marker_id_i: id of the dragged marker.
+            time_s: the time it is shown at, in seconds.
+        Outputs: none.
+        """
+        # LLFR-00205: while dragged, the marker follows the pointer on
+        # every plot of the current tab; the plots of the other tabs get
+        # the new time when the button is released (controller).
+        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+            plot_widget.follow_marker_drag(marker_id_i, time_s)
+
+    def relay_marker_preview(self, plot_id_i: int, time_s: float) -> None:
+        """Show the marker preview of the hovered plot on the others.
+
+        Inputs:
+            plot_id_i: id of the hovered plot.
+            time_s: time of the preview in seconds, NaN when it is hidden.
+        Outputs: none.
+        """
+        # LLFR-00203: the preview is shown on every plot of the current
+        # tab (the hovered plot is in it); the other tabs need none.
+        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+            plot_widget.show_marker_preview(time_s)
 
     def plot_view(self, plot_id_i: int):
         """Return the plot widget of a plot.

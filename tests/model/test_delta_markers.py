@@ -145,7 +145,7 @@ class DeltaMarkerTest(DeltaMarkerModelTestCase):
         other_plot.add_curve("a")
         first = self.plot.add_delta_marker(
             DELTA_X_KIND_STR, ("a", 0.0, 0.0), ("b", 1.0, 1.0))
-        vertical_marker = self.plot.add_marker(2.0)
+        vertical_marker = self.workspace.add_marker(2.0)
         self.plot.remove_delta_marker(first.delta_marker_id_i)
         second = other_plot.add_delta_marker(
             DELTA_X_KIND_STR, ("a", 0.0, 0.0), ("a", 1.0, 1.0))
