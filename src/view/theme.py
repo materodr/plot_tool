@@ -111,6 +111,26 @@ APP_ICON_BORDER_COLOR_STR = CONTROL_BORDER_COLOR_STR
 APP_ICON_AXIS_COLOR_STR = ACTIVE_COLOR_STR
 
 # ----------------------------------------------------------------------
+# Splash screen (LLFR-00185)
+# ----------------------------------------------------------------------
+# LLFR-00185: a white card with a hairline border and rounded corners
+# that holds the app icon, the app name and "Loading...". The tokens are
+# read before matplotlib is imported (LLFR-00184), which is safe because
+# this module only imports matplotlib inside apply_matplotlib_style.
+SPLASH_WIDTH_I = 360
+SPLASH_HEIGHT_I = 264
+SPLASH_ICON_SIZE_I = 112
+SPLASH_RADIUS_I = 14
+SPLASH_PADDING_I = 28
+SPLASH_SPACING_I = 6
+SPLASH_BACKGROUND_COLOR_STR = SURFACE_COLOR_STR
+SPLASH_BORDER_COLOR_STR = HAIRLINE_COLOR_STR
+SPLASH_NAME_COLOR_STR = TEXT_COLOR_STR
+SPLASH_MESSAGE_COLOR_STR = MUTED_TEXT_COLOR_STR
+SPLASH_NAME_FONT_SIZE_I = 24
+SPLASH_MESSAGE_FONT_SIZE_I = 13
+
+# ----------------------------------------------------------------------
 # Spacing (an 8 px grid, with 4 px half steps)
 # ----------------------------------------------------------------------
 WINDOW_MARGIN_I = 12
@@ -359,6 +379,32 @@ def tab_style_sheet(tab_widget_name_str: str, tab_bar_name_str: str,
         f"{button_str}:pressed {{ background: {TAB_SELECTED_COLOR_STR}; }}",
     ]
     return "\n".join(rule_list)
+
+
+def splash_style_sheet(card_name_str: str, name_label_name_str: str,
+                       message_label_name_str: str) -> str:
+    """Return the style sheet of the splash screen.
+
+    Inputs:
+        card_name_str: objectName of the QFrame that is the card.
+        name_label_name_str: objectName of the QLabel with the app name.
+        message_label_name_str: objectName of the "Loading..." QLabel.
+    Outputs: a Qt style sheet for the white rounded card, the dark,
+        semibold app name and the muted loading text.
+    """
+    # LLFR-00185: the splash screen uses the colors of the window chrome.
+    return "\n".join([
+        f"QFrame#{card_name_str} {{ background: "
+        f"{SPLASH_BACKGROUND_COLOR_STR}; border: 1px solid "
+        f"{SPLASH_BORDER_COLOR_STR}; border-radius: {SPLASH_RADIUS_I}px; }}",
+        f"QLabel#{name_label_name_str} {{ color: {SPLASH_NAME_COLOR_STR}; "
+        f"font-size: {SPLASH_NAME_FONT_SIZE_I}px; font-weight: 600; "
+        "background: transparent; border: none; }",
+        f"QLabel#{message_label_name_str} {{ color: "
+        f"{SPLASH_MESSAGE_COLOR_STR}; font-size: "
+        f"{SPLASH_MESSAGE_FONT_SIZE_I}px; background: transparent; "
+        "border: none; }",
+    ])
 
 
 def application_style_sheet() -> str:
