@@ -43,7 +43,7 @@ NO_MATCH_SEARCH_TEXT_STR = "voltage"
 PINNED_TIP_SIGNAL_STR = "Sine_1Hz"
 PINNED_TIP_TIME_S = 2.25
 # Times (s) of the two vertical markers, on the first plot.
-MARKER_TIME_TUPLE = (3.0, 7.5)
+MARKER_TIME_TUPLE = (4.5, 8.0)
 
 
 def process_events(application, repeat_count_i: int = 5) -> None:

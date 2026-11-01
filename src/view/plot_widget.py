@@ -1940,8 +1940,11 @@ class PlotWidget(QWidget):
         # LLFR-00118: at the whole time range there is nothing to pan.
         if width_s >= full_width_s * (1.0 - FULL_RANGE_TOLERANCE_F):
             return
-        new_start_s = start_s + self.pan_anchor_s - self.time_at(
-            widget_point)
+        # The shift is computed first, so a pointer back at the press
+        # point gives exactly no shift (start + a - a can differ from
+        # start in floating point and would report a false pan).
+        new_start_s = start_s + (self.pan_anchor_s - self.time_at(
+            widget_point))
         # LLFR-00119: never before the first or after the last sample;
         # the width is kept.
         new_start_s = min(max(new_start_s, full_start_s),

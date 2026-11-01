@@ -71,7 +71,7 @@ DISABLED_COLOR_STR = "#fbfcfd"
 DISABLED_TEXT_COLOR_STR = "#b1bac3"
 DISABLED_BORDER_COLOR_STR = "#dfe4e9"
 BUTTON_RADIUS_I = 6
-BUTTON_VERTICAL_PADDING_I = 5
+BUTTON_VERTICAL_PADDING_I = 6
 BUTTON_HORIZONTAL_PADDING_I = 12
 # Position of a button in a segmented group (the plot tools, which are
 # exclusive, HLFR-00032, are drawn joined): single, first, middle, last.
@@ -342,7 +342,7 @@ def application_style_sheet() -> str:
         f"QLabel {{ color: {TEXT_COLOR_STR}; }}",
         # Signal list panel.
         f"QLabel#signal_list_title {{ color: {TEXT_COLOR_STR}; "
-        "font-weight: 600; padding: 0px 2px; }",
+        "font-weight: 600; padding: 6px 2px 0px 2px; }",
         f"QListWidget#signal_list_widget {{ background: "
         f"{SURFACE_COLOR_STR}; color: {TEXT_COLOR_STR}; "
         f"border: 1px solid {HAIRLINE_COLOR_STR}; border-radius: "
