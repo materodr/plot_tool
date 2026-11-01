@@ -70,12 +70,34 @@ def button_name(button) -> str:
     """Return the name a top panel button is called by.
 
     The top panel buttons show only an icon (LLFR-00158); the name the
-    requirements call a button by ("Open file", "Tip", ...) is its hover
-    tip (LLFR-00181), also set as its accessible name. Tests find and
-    check buttons by this name, never by ``text()``.
+    requirements call a button by ("Open file", "Data tip", ...) is the
+    first line of its button tip (LLFR-00181), also set as its
+    accessible name. Tests find and check buttons by this name, never by
+    ``text()``.
 
     Inputs:
         button: a QPushButton of the top panel.
     Outputs: the button's accessible name.
     """
     return button.accessibleName()
+
+
+def button_tip_line_list(button) -> list:
+    """Return the lines of a top panel button's tip, as plain text.
+
+    The tip is the button's name alone, as plain text, or rich text with
+    the name on the first line and the shortcut or mouse use below it
+    (LLFR-00181, LLFR-00213, LLFR-00214).
+
+    Inputs:
+        button: a QPushButton of the top panel.
+    Outputs: a list of str, one per line of the tip, the name first.
+    """
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QTextDocument
+    tip_str = button.toolTip()
+    if not Qt.mightBeRichText(tip_str):
+        return tip_str.split("\n")
+    document = QTextDocument()
+    document.setHtml(tip_str)
+    return document.toPlainText().split("\n")

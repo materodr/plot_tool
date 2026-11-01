@@ -98,7 +98,7 @@ class TopPanelToolTest(unittest.TestCase):
         Outputs: none.
         """
         from view.toggle_button import ToggleButton
-        expected_dict = {TIP_TOOL_STR: "Tip", ZOOM_TOOL_STR: "Zoom",
+        expected_dict = {TIP_TOOL_STR: "Data tip", ZOOM_TOOL_STR: "Zoom",
                          MARKER_TOOL_STR: "Vertical marker"}
         self.assertEqual(self.top_panel.tip_button,
                          self.button(TIP_TOOL_STR))

@@ -11,7 +11,8 @@ import time
 import unittest
 
 from tests.support import (
-    button_name, covers, get_qt_application, requires_qt)
+    button_name, button_tip_line_list, covers, get_qt_application,
+    requires_qt)
 
 from model.curve_colors import PALETTE_COLOR_TUPLE
 from view import icon_shapes, theme
@@ -19,7 +20,7 @@ from view import icon_shapes, theme
 # LLFR-00158, LLFR-00181: top panel attribute -> the button's name.
 BUTTON_NAME_DICT = {
     "open_file_button": "Open file",
-    "tip_button": "Tip",
+    "tip_button": "Data tip",
     "zoom_button": "Zoom",
     "marker_button": "Vertical marker",
     "delta_x_button": "Delta X",
@@ -405,7 +406,7 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00181")
     def test_tooltip_is_the_button_name(self) -> None:
-        """Each button's tooltip is its name, e.g. "Vertical marker".
+        """Each button tip starts with the name, e.g. "Vertical marker".
 
         Inputs: none.
         Outputs: none.
@@ -413,7 +414,7 @@ class ButtonIconTest(unittest.TestCase):
         for attribute_str, name_str in BUTTON_NAME_DICT.items():
             button = getattr(self.top_panel, attribute_str)
             with self.subTest(button=name_str):
-                self.assertEqual(button.toolTip(), name_str)
+                self.assertEqual(button_tip_line_list(button)[0], name_str)
                 self.assertEqual(button.accessibleName(), name_str)
 
     @covers("LLFR-00181")
@@ -437,7 +438,8 @@ class ButtonIconTest(unittest.TestCase):
                 QApplication.sendEvent(button, QHelpEvent(
                     QEvent.Type.ToolTip, local_point, global_point))
                 self.assertTrue(self.wait_until(QToolTip.isVisible))
-                self.assertEqual(QToolTip.text(), name_str)
+                self.assertEqual(QToolTip.text(), button.toolTip())
+                self.assertEqual(button_tip_line_list(button)[0], name_str)
                 QApplication.sendEvent(button, QEvent(QEvent.Type.Leave))
                 self.assertTrue(self.wait_until(
                     lambda: not QToolTip.isVisible()))
