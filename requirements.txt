@@ -5,4 +5,5 @@ numpy>=1.24       # signal sample arrays
 pandas>=2.0       # CSV and Excel reading
 openpyxl>=3.1     # Excel (.xlsx) engine used by pandas
 scipy>=1.10       # MATLAB (.mat) reading
+h5py>=3.8         # HDF5 (.h5, .hdf5) reading (LLFR-00134)
 matplotlib>=3.7   # curve drawing inside the PyQt plot panel

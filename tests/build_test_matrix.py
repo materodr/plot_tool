@@ -2,6 +2,7 @@
 
 Usage:
     python tests/build_test_matrix.py [--output PATH] [--require-qt]
+                                      [--require-h5py]
 
 The matrix has one row per HLFR with four columns:
 1. the HLFR (PCR-00020);
@@ -15,8 +16,10 @@ with the HLFR itself or with one of its child LLFRs. Column 4 shows
 "no tests" when no test is linked, and "not run" when linked tests were
 skipped (for example without PyQt6) and none failed.
 
-The script exits with code 1 when a test fails, or when --require-qt is
-given and PyQt6 is not installed.
+The script exits with code 1 when a test fails, when --require-qt is
+given and PyQt6 is not installed, or when --require-h5py is given and
+h5py (needed by the HDF5 tests) is not installed. CI passes both, so
+those tests can't be skipped there without failing the run.
 """
 
 import argparse
@@ -30,7 +33,8 @@ REPOSITORY_ROOT_STR = os.path.dirname(TESTS_FOLDER_STR)
 if REPOSITORY_ROOT_STR not in sys.path:
     sys.path.insert(0, REPOSITORY_ROOT_STR)
 
-from tests.support import COVERED_ATTRIBUTE_STR, QT_AVAILABLE_B  # noqa
+from tests.support import (  # noqa
+    COVERED_ATTRIBUTE_STR, H5PY_AVAILABLE_B, QT_AVAILABLE_B)
 
 REQUIREMENTS_FOLDER_STR = os.path.join(REPOSITORY_ROOT_STR, "docs",
                                        "requirements")
@@ -287,9 +291,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--output", default=DEFAULT_OUTPUT_PATH_STR)
     parser.add_argument("--require-qt", action="store_true")
+    parser.add_argument("--require-h5py", action="store_true")
     argument_namespace = parser.parse_args()
     if argument_namespace.require_qt and not QT_AVAILABLE_B:
         print("PyQt6 is required but not installed.", file=sys.stderr)
+        return 1
+    if argument_namespace.require_h5py and not H5PY_AVAILABLE_B:
+        print("h5py is required but not installed.", file=sys.stderr)
         return 1
     test_result = run_all_tests()
     test_status_list = test_result.status_list

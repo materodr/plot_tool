@@ -1,10 +1,10 @@
 """Open a time-series file and check its content.
 
-``load_signal_file`` reads CSV, Excel (.xlsx) and MATLAB (.mat) files
-(HLFR-00005) into a SignalFile. When the file can't be opened it raises
-one of the FileOpenError subclasses of ``model.errors``, whose message is
-the text of the File Open Error box (HLFR-00002). No Qt code is used here
-(COR-00009).
+``load_signal_file`` reads CSV, Excel (.xlsx), MATLAB (.mat) and HDF5
+(.h5, .hdf5) files (HLFR-00005) into a SignalFile. When the file can't
+be opened it raises one of the FileOpenError subclasses of
+``model.errors``, whose message is the text of the File Open Error box
+(HLFR-00002). No Qt code is used here (COR-00009).
 """
 
 import io
@@ -16,6 +16,13 @@ import numpy as np
 import pandas as pd
 import scipy.io
 
+try:
+    # LLFR-00134: HDF5 files need h5py (COR-00011). Without it the app
+    # still opens the other formats, and an HDF5 file gets a read error.
+    import h5py
+except ImportError:
+    h5py = None
+
 from model.errors import (
     OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
     ContentCheckError, FileAccessError, FileReadError,
@@ -23,7 +30,7 @@ from model.errors import (
 from model.signal_file import TIME_SIGNAL_NAME_STR, SignalFile
 
 # HLFR-00005: the file formats the app opens, by extension.
-SUPPORTED_EXTENSION_TUPLE = (".csv", ".xlsx", ".mat")
+SUPPORTED_EXTENSION_TUPLE = (".csv", ".xlsx", ".mat", ".h5", ".hdf5")
 
 # LLFR-00065: a sample written as text must be a plain finite number,
 # such as "-2", "3.5", ".5" or "1e-3" (no "nan", "inf" or "1_000").
@@ -57,9 +64,11 @@ def load_signal_file(path_str: str) -> SignalFile:
             f"Supported formats: {', '.join(SUPPORTED_EXTENSION_TUPLE)}.")
     # LLFR-00009: the file must exist, be a file and be readable.
     check_file_access(path_str)
-    # LLFR-00059, LLFR-00062: read the signals in the file's format.
+    # LLFR-00059, LLFR-00062, LLFR-00134: read the signals in the
+    # file's format.
     reader_dict = {".csv": read_csv_signals, ".xlsx": read_excel_signals,
-                   ".mat": read_mat_signals}
+                   ".mat": read_mat_signals, ".h5": read_hdf5_signals,
+                   ".hdf5": read_hdf5_signals}
     try:
         signal_dict = reader_dict[extension_str](path_str)
     except OSError as error:
@@ -392,15 +401,32 @@ def read_mat_signals(path_str: str) -> dict:
         if name_str.startswith("__") or not is_mat_signal(value):
             continue
         # LLFR-00062: a 1xN or Nx1 numeric array is one signal.
-        signal_array = np.asarray(value, dtype=np.float64).reshape(-1)
-        if not np.all(np.isfinite(signal_array)):
-            bad_index_i = int(np.flatnonzero(~np.isfinite(signal_array))[0])
-            raise read_error(
-                file_name_str,
-                f"the value of signal '{name_str}' sample "
-                f"{bad_index_i + 1} is missing or not a finite number")
-        signal_dict[name_str] = signal_array
+        signal_dict[name_str] = finite_signal_array(file_name_str,
+                                                    name_str, value)
     return signal_dict
+
+
+def finite_signal_array(file_name_str: str, name_str: str,
+                        value: object) -> np.ndarray:
+    """Flatten a numeric MAT or HDF5 array into a finite float64 signal.
+
+    Inputs:
+        file_name_str: name of the file, for error messages.
+        name_str: name of the signal, for error messages.
+        value: a numeric array of shape (N,), (1, N) or (N, 1).
+    Outputs: the samples as a one-dimensional float64 array. Raises
+        FileReadError when a sample is NaN or infinite.
+    """
+    # LLFR-00062, LLFR-00134: the samples as float64 in a 1-D array.
+    signal_array = np.asarray(value, dtype=np.float64).reshape(-1)
+    # LLFR-00065: missing (NaN) or infinite samples can't be plotted.
+    if not np.all(np.isfinite(signal_array)):
+        bad_index_i = int(np.flatnonzero(~np.isfinite(signal_array))[0])
+        raise read_error(
+            file_name_str,
+            f"the value of signal '{name_str}' sample "
+            f"{bad_index_i + 1} is missing or not a finite number")
+    return signal_array
 
 
 def is_mat_signal(value: object) -> bool:
@@ -418,6 +444,94 @@ def is_mat_signal(value: object) -> bool:
     if value.size < 1:
         return False
     return value.ndim == 1 or (value.ndim == 2 and min(value.shape) == 1)
+
+
+def is_vector_shape(shape_tuple: tuple) -> bool:
+    """Tell whether an array shape is (N,), (1, N) or (N, 1) with N >= 1.
+
+    Inputs:
+        shape_tuple: the shape of an array; None for an HDF5 dataset
+            without a dataspace.
+    Outputs: True for a non-empty one-dimensional row or column shape.
+    """
+    # LLFR-00134, LLFR-00135: only 1-D arrays are signals; scalars (shape
+    # ()), matrices, empty and null datasets are not.
+    if shape_tuple is None or len(shape_tuple) not in (1, 2):
+        return False
+    if min(shape_tuple) < 1:
+        return False
+    return len(shape_tuple) == 1 or min(shape_tuple) == 1
+
+
+def read_hdf5_signals(path_str: str) -> dict:
+    """Read the signals of an HDF5 file.
+
+    The datasets are visited in the order of h5py's ``visititems``: by
+    name (byte order, so "Time" comes before lowercase names), each
+    group's members right after the group itself.
+
+    Inputs:
+        path_str: path of the .h5 or .hdf5 file.
+    Outputs: a dict dataset path (without the leading "/") -> float64
+        array, with only the one-dimensional numeric datasets of every
+        group. Raises FileReadError when h5py is not installed, when the
+        file is corrupt or not HDF5, and for NaN or infinite values.
+    """
+    file_name_str = os.path.basename(path_str)
+    # LLFR-00134: HDF5 needs h5py (COR-00011).
+    if h5py is None:
+        raise read_error(file_name_str,
+                         "HDF5 support is not installed (the h5py "
+                         "library is missing)")
+    try:
+        with h5py.File(path_str, "r") as hdf5_file:
+            # LLFR-00134: collect the datasets of every group.
+            dataset_list = []
+
+            def collect_dataset(name_str: str, item: object) -> None:
+                """Keep the HDF5 objects that are datasets.
+
+                Inputs:
+                    name_str: path of the object, without leading "/".
+                    item: the h5py Group or Dataset at that path.
+                Outputs: none. Appends (path, dataset) to dataset_list.
+                """
+                # LLFR-00134: groups only hold the datasets.
+                if isinstance(item, h5py.Dataset):
+                    dataset_list.append((name_str, item))
+
+            hdf5_file.visititems(collect_dataset)
+            signal_dict = {}
+            for name_str, dataset in dataset_list:
+                # LLFR-00135: skip datasets that are not 1-D numeric.
+                if not is_hdf5_signal(dataset):
+                    continue
+                # LLFR-00134: the samples are converted to float64.
+                signal_dict[name_str] = finite_signal_array(
+                    file_name_str, name_str, dataset[()])
+    except (FileReadError, *ACCESS_ERROR_TUPLE):
+        raise
+    except Exception as error:
+        # LLFR-00008: corrupt or not an HDF5 file (h5py raises a plain
+        # OSError, which must not become an access error).
+        raise read_error(file_name_str,
+                         "the file is empty or corrupt") from error
+    return signal_dict
+
+
+def is_hdf5_signal(dataset: object) -> bool:
+    """Tell whether an HDF5 dataset is a one-dimensional numeric array.
+
+    Inputs:
+        dataset: an h5py Dataset.
+    Outputs: True for a non-empty int, uint or float dataset of shape
+        (N,), (1, N) or (N, 1); False for anything else (scalars,
+        matrices, text, compound, boolean, complex or empty datasets).
+    """
+    # LLFR-00134, LLFR-00135: only 1-D numeric datasets are signals.
+    if dataset.dtype.kind not in "iuf":
+        return False
+    return is_vector_shape(dataset.shape)
 
 
 def check_signal_content(file_name_str: str, signal_dict: dict) -> None:
