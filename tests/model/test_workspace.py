@@ -53,18 +53,84 @@ class TabTest(unittest.TestCase):
         id_list = [tab.tab_id_i for tab in workspace.tab_list]
         self.assertEqual(len(set(id_list)), 3)
 
-    @covers("LLFR-00026")
-    def test_add_tab_skips_used_names(self) -> None:
-        """A default name already in use is skipped.
+    @covers("LLFR-00210", "LLFR-00026", "HLFR-00015")
+    def test_deleted_tab_numbers_are_not_reused(self) -> None:
+        """Deleting Tab 2 and adding a tab gives Tab 4, not Tab 2.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        second_tab = workspace.add_tab()
+        workspace.add_tab()
+        workspace.delete_tab(second_tab.tab_id_i)
+        self.assertEqual(workspace.add_tab().name_str, "Tab 4")
+        for tab in list(workspace.tab_list[:-1]):
+            workspace.delete_tab(tab.tab_id_i)
+        self.assertEqual([tab.name_str for tab in workspace.tab_list],
+                         ["Tab 4"])
+        self.assertEqual(workspace.add_tab().name_str, "Tab 5")
+
+    @covers("LLFR-00210", "LLFR-00026")
+    def test_rename_does_not_change_the_numbering(self) -> None:
+        """Renamed tabs neither free nor take a number.
 
         Inputs: none.
         Outputs: none.
         """
         workspace = new_workspace()
         first_tab = workspace.tab_list[0]
-        workspace.rename_tab(first_tab.tab_id_i, "Tab 2")
-        self.assertEqual(workspace.add_tab().name_str, "Tab 1")
+        workspace.rename_tab(first_tab.tab_id_i, "Engine")
+        self.assertEqual(workspace.add_tab().name_str, "Tab 2")
+        workspace.rename_tab(first_tab.tab_id_i, "Tab 7")
         self.assertEqual(workspace.add_tab().name_str, "Tab 3")
+
+    @covers("LLFR-00210", "LLFR-00138")
+    def test_undone_tab_number_is_not_reused(self) -> None:
+        """Restoring a snapshot from before an add keeps the number used.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        snapshot = workspace.snapshot()
+        self.assertEqual(workspace.add_tab().name_str, "Tab 2")
+        workspace.restore(snapshot)
+        self.assertEqual([tab.name_str for tab in workspace.tab_list],
+                         ["Tab 1"])
+        self.assertEqual(workspace.next_tab_name(), "Tab 3")
+        self.assertEqual(workspace.add_tab().name_str, "Tab 3")
+        later_snapshot = workspace.snapshot()
+        workspace.add_tab()
+        workspace.add_tab()
+        workspace.restore(later_snapshot)
+        self.assertEqual(workspace.add_tab().name_str, "Tab 6")
+
+    @covers("LLFR-00210", "LLFR-00016")
+    def test_reset_restarts_the_numbering(self) -> None:
+        """After reset (a file opened) the tabs count from Tab 1 again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        for _ in range(4):
+            workspace.add_tab()
+        workspace.reset()
+        self.assertEqual([tab.name_str for tab in workspace.tab_list],
+                         ["Tab 1"])
+        self.assertEqual(workspace.add_tab().name_str, "Tab 2")
+
+    @covers("LLFR-00210")
+    def test_next_tab_name_does_not_use_a_number(self) -> None:
+        """Asking for the next name twice gives the same name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = new_workspace()
+        self.assertEqual(workspace.next_tab_name(), "Tab 2")
+        self.assertEqual(workspace.next_tab_name(), "Tab 2")
 
     @covers("LLFR-00028", "HLFR-00016")
     def test_delete_tab_removes_it_with_its_plots(self) -> None:
