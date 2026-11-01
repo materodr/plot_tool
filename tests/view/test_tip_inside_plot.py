@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+import numpy as np
+
 from tests.support import covers, get_qt_application, requires_qt
 from tests.view.test_plot_tools import WIDGET_HEIGHT_I, WIDGET_WIDTH_I
 from tests.view.test_tip_drag import (
@@ -25,10 +27,11 @@ from tests.view.test_tip_drag import (
 EDGE_TOLERANCE_PX = 0.5
 # A plot height that leaves the axes too low for the tips of the tests.
 SHORT_HEIGHT_I = 150
-# Offset (points) that fits above the low ramp tip only in a tall plot.
+# Offset (points) that fits above the low sine tip only in a tall plot.
 HIGH_OFFSET_TUPLE = (0.0, 80.0)
-# A ramp tip in the lower left quarter of the axes, away from the sides.
-LOW_RAMP_TIP_TUPLE = ("Ramp", 2.5, 3.25)
+# A tip at the sine's lowest sample, near the bottom of the axes (the
+# y range covers the sine, -1 to 1, and the ramp, 3 to 4).
+LOW_SINE_TIP_TUPLE = ("Sine", 4.7, float(np.sin(4.7)))
 # Number of plots in the tab after issue #70's step 4.
 FULL_TAB_PLOT_COUNT_I = 5
 # Rounds of Qt event processing allowed for a resize to reach the canvas.
@@ -155,13 +158,13 @@ class TipInsideWidgetTest(TipInsideAssertions, TipDragTestCase):
                 f"{self.plot_widget.height()}")
 
     def pin_high_ramp_tip(self) -> None:
-        """Pin a low ramp tip with an offset far above its point.
+        """Pin a low sine tip with an offset far above its point.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_pinned_tips([
-            LOW_RAMP_TIP_TUPLE + (HIGH_OFFSET_TUPLE,), SINE_TIP_TUPLE])
+            LOW_SINE_TIP_TUPLE + (HIGH_OFFSET_TUPLE,), SINE_TIP_TUPLE])
         self.draw()
 
     @covers("LLFR-00179", "LLFR-00151", "HLFR-00025")
