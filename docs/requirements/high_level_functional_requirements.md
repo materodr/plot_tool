@@ -60,7 +60,10 @@ If the selected file can be opened and another file is already open, the app mus
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
 
-Note: The **plot tools** are the Tip, Zoom and Vertical marker functions. Each one is started from its own button in the top panel.
+Note: The **plot tools** are the Tip, Zoom, Vertical marker, Delta X and Delta Y functions. Each one is started from its own button in the top panel.
+
+### HLFR-00042 Button icons
+Each button in the top panel must show an icon that illustrates its function.
 
 ## Signal list panel
 
@@ -159,3 +162,13 @@ The user must be able to copy the plots of the current tab to the clipboard as a
 
 ### HLFR-00041 Move a pinned tip
 The user must be able to move a pinned tip to another place in the plot, while it keeps showing the values of the same point.
+
+### HLFR-00043 Measure a time difference
+The user must be able to measure the time difference between two points on the curves of a plot.
+
+Note: The measurement is shown in the plot by a **Delta X marker**.
+
+### HLFR-00044 Measure a value difference
+The user must be able to measure the y-axis value difference between two points on the curves of a plot.
+
+Note: The measurement is shown in the plot by a **Delta Y marker**. Delta X and Delta Y markers are both called **delta markers**.

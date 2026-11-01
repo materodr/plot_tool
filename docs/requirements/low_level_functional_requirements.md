@@ -49,14 +49,14 @@ When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-
 *Parent: HLFR-00040*
 
 ### LLFR-00139 Undo depth
-The app must keep only the 5 most recent undoable actions for undo, so that the user can undo at most 5 actions in a row.
+The app must keep only the 20 most recent undoable actions for undo, so that the user can undo at most 20 actions in a row.
 
 *Parent: HLFR-00040*
 
 ### LLFR-00140 Undoable actions
-The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a tip, moving a pinned tip, deleting a pinned tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker and deleting a vertical marker.
+The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a tip, moving a pinned tip, deleting a pinned tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker, deleting a vertical marker, placing a delta marker and deleting a delta marker.
 
-Note: Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable.
+Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable.
 
 *Parent: HLFR-00040*
 
@@ -243,7 +243,7 @@ When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a s
 *Parent: HLFR-00038*
 
 ### LLFR-00129 PDF content
-The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page and the tab's plots below it as they are shown on screen, including their time range, curves, legends, grid, vertical markers and pinned tips.
+The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page and the tab's plots below it as they are shown on screen, including their time range, curves, legends, grid, vertical markers, delta markers and pinned tips.
 
 *Parent: HLFR-00038*
 
@@ -320,6 +320,73 @@ When the user releases the Tip key after LLFR-00148, the app must deactivate the
 If the user presses another keyboard key while holding the Tip key (for example Cmd+Z or Ctrl+Z), the app must end the Tip activation of LLFR-00148 as in LLFR-00149.
 
 *Parent: HLFR-00024, HLFR-00032*
+
+### LLFR-00154 Hold the Shift key
+While the user holds down the Shift key alone, with no other keyboard key, the app must keep the Vertical marker button (LLFR-00080) active, deactivating any other plot tool as in LLFR-00079.
+
+*Parent: HLFR-00028, HLFR-00032*
+
+### LLFR-00155 Release the Shift key
+When the user releases the Shift key after LLFR-00154, the app must deactivate the Vertical marker button, so that no plot tool is active, whatever plot tool was active before the Shift key was pressed.
+
+*Parent: HLFR-00028, HLFR-00032*
+
+### LLFR-00156 Shift key with another key
+If the user presses another keyboard key while holding the Shift key (for example Shift+A), the app must end the Vertical marker activation of LLFR-00154 as in LLFR-00155.
+
+*Parent: HLFR-00028, HLFR-00032*
+
+### LLFR-00157 Plot tool keys while typing
+While the keyboard focus is in a text field (the search box, or a field where the user types a tab or marker name), the app must not apply LLFR-00148 or LLFR-00154.
+
+Note: This lets the user type capital letters and use keyboard shortcuts in text fields without activating a plot tool.
+
+*Parent: HLFR-00024, HLFR-00028, HLFR-00032*
+
+### LLFR-00158 Icon instead of the name
+Each button in the top panel must show only its icon, without its name written on the button.
+
+Note: The name a button is "called" in the other requirements (for example "Open file" in LLFR-00004) is the name shown in its hover tip (LLFR-00181).
+
+*Parent: HLFR-00042*
+
+### LLFR-00159 Icon pictures
+The app must show these icons, the same on every operating system:
+1. Open file: an open folder;
+2. Undo: an arrow curving to the left;
+3. Tip: a callout box pointing at a dot on a curve;
+4. Zoom: a magnifying glass with a plus sign;
+5. Reset zoom: a magnifying glass with two arrows pointing away from each other, to the left and to the right;
+6. Vertical marker: a dashed vertical line with a small flag at its top;
+7. Delta X: a horizontal double-headed arrow between two vertical lines;
+8. Delta Y: a vertical double-headed arrow between two horizontal lines;
+9. Grid: a square divided into 3 by 3 cells;
+10. Export: a sheet of paper with an arrow pointing out of it;
+11. Copy: two overlapping sheets of paper.
+
+*Parent: HLFR-00042*
+
+### LLFR-00160 Icon visibility
+Each icon must be clearly visible against its button's background in the normal, active (LLFR-00001) and disabled (LLFR-00141) states, and must be shown paler while the button is disabled.
+
+*Parent: HLFR-00042, HLFR-00003*
+
+### LLFR-00161 Delta X button
+The top panel must contain a button called "Delta X".
+
+*Parent: HLFR-00043, HLFR-00032*
+
+### LLFR-00162 Delta Y button
+The top panel must contain a button called "Delta Y".
+
+*Parent: HLFR-00044, HLFR-00032*
+
+### LLFR-00181 Button name on hover
+When the user holds the mouse pointer over a button in the top panel, the app must show a small tip with the button's name next to the pointer, and must hide it when the pointer leaves the button.
+
+Note: This helps a user who is starting to use the app to learn what each icon does.
+
+*Parent: HLFR-00042*
 
 ## Signal list panel
 
@@ -564,7 +631,7 @@ When the user chooses "Delete" in the pinned tip menu (LLFR-00046), the app must
 *Parent: HLFR-00025*
 
 ### LLFR-00048 Plot menu delete option
-When the user right-clicks an empty area of a plot (not on a curve, a pinned tip or a vertical marker), the app must show a menu with a "Delete plot" option.
+When the user right-clicks an empty area of a plot (not on a curve, a pinned tip, a vertical marker or a delta marker), the app must show a menu with a "Delete plot" option.
 
 *Parent: HLFR-00019*
 
@@ -609,9 +676,9 @@ The plots in a tab must be stacked vertically, one below the other.
 *Parent: HLFR-00014, HLFR-00018*
 
 ### LLFR-00070 Shared time axis
-The plots in a tab must share the same x-axis range, so that a change to the time range of one plot applies to all plots in that tab.
+All plots in all tabs must share the same x-axis range, so that a change to the time range of one plot applies to every plot in every tab.
 
-*Parent: HLFR-00014*
+*Parent: HLFR-00014, HLFR-00027, HLFR-00036*
 
 ### LLFR-00074 Mouse wheel zoom
 When the user turns the mouse wheel over a plot, the app must zoom in the plot's x-axis when the wheel turns forward and zoom out when it turns backward, centered on the time under the mouse pointer.
@@ -738,7 +805,7 @@ Each notch of the mouse wheel (15 degrees of rotation) must change the x-axis ra
 *Parent: HLFR-00027*
 
 ### LLFR-00115 Reset zoom action
-When the user clicks the Reset zoom button (LLFR-00114), the app must set the x-axis range of every plot in the current tab to the whole time range of the file, and must set their y-axis ranges as in LLFR-00076.
+When the user clicks the Reset zoom button (LLFR-00114), the app must set the x-axis range of every plot in every tab to the whole time range of the file, and must set their y-axis ranges as in LLFR-00076.
 
 *Parent: HLFR-00035*
 
@@ -803,6 +870,100 @@ When the user presses the left mouse button on a pinned tip and drags it, the ap
 *Parent: HLFR-00041*
 
 ### LLFR-00153 Press on a pinned tip
-A left mouse button press on a pinned tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new tip, zoom or place a vertical marker.
+A left mouse button press on a pinned tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new tip, zoom, place a vertical marker or pick a delta marker point.
 
 *Parent: HLFR-00041, HLFR-00032*
+
+### LLFR-00163 Pick the first point
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active and the user left-clicks a curve, the app must take the curve sample nearest to the mouse pointer as the first point of a measurement and mark it in the plot with a dot.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00164 Pick the second point
+When the user then left-clicks a curve in the same plot, the app must take the curve sample nearest to the mouse pointer as the second point, remove the dot of LLFR-00163 and draw a Delta X marker (LLFR-00168) or a Delta Y marker (LLFR-00170) between the two points, according to the active button. The two points may be on the same curve or on different curves.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00165 Click outside a curve
+While a first point is picked (LLFR-00163), a left-click that is not on a curve must keep the first point and must not show any message.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00166 First point in another plot
+While a first point is picked (LLFR-00163), a left-click on a curve in another plot must discard the first point and its dot and take the clicked sample as the new first point (LLFR-00163).
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00167 First point discarded
+When the Delta X or Delta Y button is deactivated while a first point is picked (LLFR-00163), the app must discard the first point and remove its dot.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00168 Delta X marker
+A Delta X marker must mark its two points with dots and draw a dashed horizontal curly bracket whose two ends are at the times of the two points, placed just above the higher of the two points, with its middle tip pointing up, away from the points.
+
+Note: The curly bracket gives delta markers a visual identity of their own, different from the straight dashed line of a vertical marker (LLFR-00143), although both use the same color (LLFR-00172).
+
+*Parent: HLFR-00043*
+
+### LLFR-00169 Delta X value
+A Delta X marker must show the text "Δt = <value> s" next to the middle tip of its curly bracket, where the value is the time of the second point minus the time of the first point, in seconds, in the same number format as the tip's x value (LLFR-00043).
+
+*Parent: HLFR-00043, HLFR-00007*
+
+### LLFR-00170 Delta Y marker
+A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle tip pointing right, away from the points.
+
+*Parent: HLFR-00044*
+
+### LLFR-00171 Delta Y value
+A Delta Y marker must show the text "Δy = <value>" next to the middle tip of its curly bracket, where the value is the y-axis value of the second point minus the y-axis value of the first point, without a unit, in the same number format as the tip's y value (LLFR-00044).
+
+*Parent: HLFR-00044*
+
+### LLFR-00172 Delta marker color
+The app must draw delta markers and the dot of LLFR-00163 in the reserved marker color of vertical markers (LLFR-00083), which it never uses for curves (LLFR-00033, LLFR-00034).
+
+*Parent: HLFR-00043, HLFR-00044, HLFR-00020*
+
+### LLFR-00173 Delta marker follows its points
+A delta marker must stay attached to its two points, and its value must stay unchanged, when the plot's x-axis or y-axis range or the plot's size changes.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00174 Several delta markers
+A plot must be able to hold any number of Delta X and Delta Y markers at the same time.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00175 Delta marker menu
+When the user right-clicks a delta marker, the app must show a menu with a "Delete" option.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00176 Delete delta marker action
+When the user chooses "Delete" in the delta marker menu (LLFR-00175), the app must remove that delta marker from the plot.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00177 Delta marker menu over a curve
+When the user right-clicks a point where a delta marker overlaps a curve, the app must show the delta marker menu (LLFR-00175) and not the curve menu (LLFR-00038, LLFR-00040).
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00178 Delta markers of a removed curve
+When a curve is removed from a plot (LLFR-00039), the app must also remove every delta marker that has a point on that curve.
+
+*Parent: HLFR-00043, HLFR-00044, HLFR-00022*
+
+### LLFR-00179 Pinned tip kept inside the plot
+Whenever a plot changes size or x-axis or y-axis range (for example when plots are added to or deleted from its tab, when the window or the panels are resized, or after a zoom or a pan), and when a tip drag ends (LLFR-00152), the app must draw each pinned tip whose point is within the shown range at the position the user gave it (LLFR-00045, LLFR-00152), moved by the shortest distance needed to keep the whole tip inside the plot's drawing area, still connected to its point by its leader line (LLFR-00151).
+
+Note: When the plot grows again, the tip returns towards the position the user gave it.
+
+*Parent: HLFR-00025, HLFR-00041*
+
+### LLFR-00180 Time range of a new plot
+A new plot must show the x-axis range shared by the existing plots (LLFR-00070), or the whole time range of the file when no other plot exists.
+
+*Parent: HLFR-00012, HLFR-00014*
