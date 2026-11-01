@@ -1,14 +1,22 @@
 """Application-wide filter that turns keys into hold-to-use plot tool keys.
 
-Two keys work this way:
+Four keys work this way:
     - the Tip key keeps the Tip tool active while it is held alone
       (LLFR-00148); releasing it leaves no plot tool active (LLFR-00149);
       pressing any other key while it is held ends the activation at
       once (LLFR-00150);
     - the Shift key does the same for the Vertical marker tool
-      (LLFR-00154, LLFR-00155, LLFR-00156).
-Neither key activates a tool while the keyboard focus is in a text field
-(LLFR-00157), so that capital letters and shortcuts can be typed there.
+      (LLFR-00154, LLFR-00155, LLFR-00156);
+    - the X key does the same for the Delta X tool (LLFR-00197,
+      LLFR-00198, LLFR-00199);
+    - the Y key does the same for the Delta Y tool (LLFR-00200,
+      LLFR-00201, LLFR-00202).
+Besides these tool keys, the filter knows action keys: a key that runs
+a function once when it is pressed alone. The Z key is one: it resets
+the zoom (LLFR-00207).
+No key activates a tool or runs an action while the keyboard focus is
+in a text field (LLFR-00157), so that letters, capital letters and
+shortcuts can be typed there.
 
 The Tip key:
     The Tip key is ``Qt.Key.Key_Control``. On Windows and Linux this is the
@@ -23,14 +31,24 @@ Rules:
       held and no modifier other than the key's own one is down. A key
       pressed while a tool key is held ends the activation; it is not
       renewed until the tool key is released and pressed again.
-    - The two tool keys count as "another key" for each other: with one
-      held, pressing the other ends the first activation, and the second
+    - The tool keys count as "another key" for each other: with one
+      held, pressing another ends the first activation, and the second
       key is not alone, so it activates nothing. No plot tool is then
       active.
-    - Auto-repeat key events are ignored.
+    - An action key runs its function only when it is pressed alone:
+      no other key held and no modifier but the keypad flag (so Ctrl+Z
+      and Cmd+Z stay Undo, LLFR-00137). Pressed while a tool key is
+      held, it ends that activation like any other key (LLFR-00150,
+      LLFR-00156, LLFR-00199, LLFR-00202) and, not being alone, runs
+      nothing. Whether the action may run at that moment (for example
+      not during a mouse drag) is decided by the function itself.
+    - Auto-repeat key events are ignored, so a held key never restarts
+      an activation or runs an action again.
     - Releasing a tool key also forgets every other held key except the
-      other tool key, because macOS can drop the release of a key pressed
-      together with Cmd.
+      modifier tool keys (Tip key, Shift), because macOS can drop the
+      release of a key pressed together with Cmd. The letter tool keys
+      (X, Y) are forgotten too, since Cmd+X and Cmd+Y (Redo) can lose
+      their release like any other letter.
     - When the app or its window loses the keyboard (application state
       change to not active, ``WindowDeactivate``, or ``FocusOut`` with
       ``ActiveWindowFocusReason``) the activation ends as on a release,
@@ -38,9 +56,10 @@ Rules:
       will never arrive. A ``FocusOut`` with another reason only moves
       the focus inside the window (for example a click on a plot) and
       is ignored, so it does not interrupt the tool.
-    - A tool key pressed while a text field has the keyboard focus (the
-      receiver of the key or ``QApplication.focusWidget()`` is one of the
-      text field classes given to the filter) activates nothing. When a
+    - A tool or action key pressed while a text field has the keyboard
+      focus (the
+      receiver of the key or ``QApplication.focusWidget()`` is one of
+      the text field classes given to the filter) does nothing. When a
       text field gets the focus (``FocusIn``) while an activation is on,
       the activation ends as on a release.
     - ``cancel_activation`` ends the temporary state WITHOUT calling the
@@ -70,8 +89,15 @@ from controller.plot_tools import NO_TOOL_STR
 TIP_KEY_I = int(Qt.Key.Key_Control.value)
 # LLFR-00154: the key that holds the Vertical marker tool.
 MARKER_KEY_I = int(Qt.Key.Key_Shift.value)
+# LLFR-00197: the key that holds the Delta X tool.
+DELTA_X_KEY_I = int(Qt.Key.Key_X.value)
+# LLFR-00200: the key that holds the Delta Y tool.
+DELTA_Y_KEY_I = int(Qt.Key.Key_Y.value)
+# LLFR-00207: the key that resets the zoom.
+RESET_ZOOM_KEY_I = int(Qt.Key.Key_Z.value)
 # LLFR-00148, LLFR-00154: the modifier each tool key sets by itself; with
 # the keypad flag, the only modifiers allowed while the key is "alone".
+# LLFR-00197, LLFR-00200, LLFR-00207: a letter key sets none.
 OWN_MODIFIER_DICT = {
     TIP_KEY_I: int(Qt.KeyboardModifier.ControlModifier.value),
     MARKER_KEY_I: int(Qt.KeyboardModifier.ShiftModifier.value)}
@@ -113,10 +139,12 @@ class ToolKeyFilter(QObject):
     Install it on ``QApplication.instance()`` so it sees every key event.
 
     Inputs:
-        key_tool_dict: dict from a tool key code (TIP_KEY_I, MARKER_KEY_I)
-            to the name of the plot tool it holds (controller.plot_tools).
+        key_tool_dict: dict from a tool key code (TIP_KEY_I, MARKER_KEY_I,
+            DELTA_X_KEY_I, DELTA_Y_KEY_I) to the name of the plot tool it
+            holds (controller.plot_tools).
         on_tool_key_activate: function taking a tool name, called when a
-            tool key is pressed alone (LLFR-00148, LLFR-00154).
+            tool key is pressed alone (LLFR-00148, LLFR-00154,
+            LLFR-00197, LLFR-00200).
         on_tool_key_release: function without arguments, called when an
             activation ends: release of the key (LLFR-00149, LLFR-00155),
             another key pressed (LLFR-00150, LLFR-00156), a text field
@@ -124,6 +152,9 @@ class ToolKeyFilter(QObject):
         text_field_widget_tuple: tuple of the widget classes that are
             text fields (LLFR-00157).
         parent: optional parent QObject (its lifetime bounds the filter).
+        key_action_dict: optional dict from an action key code (e.g.
+            RESET_ZOOM_KEY_I) to a function without arguments, called
+            once when that key is pressed alone (LLFR-00207).
     Attributes:
         held_key_set: the keys (int codes) currently down, tool keys
             included.
@@ -133,7 +164,7 @@ class ToolKeyFilter(QObject):
 
     def __init__(self, key_tool_dict: dict, on_tool_key_activate,
                  on_tool_key_release, text_field_widget_tuple: tuple,
-                 parent=None) -> None:
+                 parent=None, key_action_dict: dict = None) -> None:
         """Create the filter with its keys, callbacks and text fields.
 
         Inputs:
@@ -142,6 +173,7 @@ class ToolKeyFilter(QObject):
             on_tool_key_release: see the class docstring.
             text_field_widget_tuple: see the class docstring.
             parent: optional parent QObject.
+            key_action_dict: see the class docstring.
         Outputs: none.
         """
         super().__init__(parent)
@@ -150,6 +182,8 @@ class ToolKeyFilter(QObject):
         self.key_tool_dict = dict(key_tool_dict)
         self.on_tool_key_activate = on_tool_key_activate
         self.on_tool_key_release = on_tool_key_release
+        # LLFR-00207: the keys that run a function when pressed alone.
+        self.key_action_dict = dict(key_action_dict or {})
         # LLFR-00157: the widgets in which the tool keys do nothing.
         self.text_field_widget_tuple = tuple(text_field_widget_tuple)
         self.held_key_set = set()
@@ -224,10 +258,19 @@ class ToolKeyFilter(QObject):
             return
         other_key_held_b = bool(self.held_key_set)
         self.held_key_set.add(key_i)
-        # LLFR-00150, LLFR-00156: a new key, also an unknown one or the
-        # other tool key, ends a running activation; the event itself is
-        # never consumed.
+        # LLFR-00150, LLFR-00156, LLFR-00199, LLFR-00202: a new key, also
+        # an unknown one, an action key or another tool key, ends a
+        # running activation; the event itself is never consumed.
         self._end_activation()
+        if key_i in self.key_action_dict:
+            # LLFR-00207: an action key runs only when pressed alone,
+            # without any modifier (Ctrl+Z stays Undo), and LLFR-00157:
+            # not while the user types in a text field.
+            other_modifier_b = bool(modifier_mask_i & ~KEYPAD_MODIFIER_I)
+            if not (other_key_held_b or other_modifier_b
+                    or text_field_focused_b):
+                self.key_action_dict[key_i]()
+            return
         tool_str = self.key_tool_dict.get(key_i, NO_TOOL_STR)
         if tool_str == NO_TOOL_STR:
             return
@@ -258,11 +301,13 @@ class ToolKeyFilter(QObject):
         self.held_key_set.discard(key_i)
         if key_i not in self.key_tool_dict:
             return
-        # LLFR-00148: macOS may never send the release of a key pressed
-        # together with Cmd (e.g. the Z of Cmd+Z), so the held keys other
-        # than the tool keys are forgotten here; otherwise such a key
-        # would stay "held" and block the next tool key press alone.
-        self.held_key_set.intersection_update(self.key_tool_dict)
+        # LLFR-00148, LLFR-00197, LLFR-00200, LLFR-00207: macOS may never
+        # send the release of a key pressed together with Cmd (e.g. the Z
+        # of Cmd+Z or the Y of Cmd+Y), so every held key except the
+        # modifier tool keys is forgotten here; otherwise such a key
+        # would stay "held" and block the next tool or action key press
+        # alone. Letter tool keys (X, Y) are no exception.
+        self.held_key_set.intersection_update(OWN_MODIFIER_DICT)
         # LLFR-00149, LLFR-00155: releasing the tool key ends its
         # activation.
         if key_i == self.active_key_i:
@@ -338,15 +383,16 @@ class ToolKeyFilter(QObject):
             event: the QKeyEvent (KeyPress or ShortcutOverride).
         Outputs: none.
         """
-        # LLFR-00157: the focus is only looked up for a tool key, so other
-        # keys stay cheap. The receiver is checked too, since a key event
-        # goes to the focus widget first.
+        # LLFR-00157: the focus is only looked up for a tool or action
+        # key, so other keys stay cheap. The receiver is checked too,
+        # since a key event goes to the focus widget first.
         key_i = int(event.key())
         text_field_focused_b = (
-            key_i in self.key_tool_dict
+            (key_i in self.key_tool_dict or key_i in self.key_action_dict)
             and (self.is_text_field(watched)
                  or self.is_text_field(QApplication.focusWidget())))
-        # LLFR-00148, LLFR-00150, LLFR-00154, LLFR-00156.
+        # LLFR-00148, LLFR-00150, LLFR-00154, LLFR-00156, LLFR-00197 to
+        # LLFR-00202, LLFR-00207.
         self.handle_key_press(key_i, modifier_value_i(event),
                               bool(event.isAutoRepeat()),
                               text_field_focused_b)

@@ -762,6 +762,17 @@ class PlotPanel(QWidget):
         # LLFR-00020, LLFR-00021: the widget the controller draws in.
         return self.plot_widget_dict.get(plot_id_i)
 
+    def is_mouse_drag_in_progress(self) -> bool:
+        """Tell whether the user is dragging the mouse on any plot.
+
+        Inputs: none.
+        Outputs: True while a pan, a marker or tip drag or a time span
+            selection is in progress on a plot of any tab.
+        """
+        # LLFR-00207: the Z key does nothing during a mouse drag.
+        return any(plot_widget.is_mouse_drag_in_progress()
+                   for plot_widget in self.plot_widget_dict.values())
+
     def plot_id_list(self, tab_id_i: int) -> list:
         """Return the plot ids of a tab, from top to bottom.
 
