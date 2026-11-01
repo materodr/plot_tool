@@ -1,8 +1,11 @@
 """Plot panel: the tabs that hold the plots (HLFR-00014).
 
 The panel shows a QTabWidget whose pages are TabPage widgets, each with
-its PlotWidgets. A "+" button sits directly beside the last tab
-(LLFR-00025), and a right-click on a tab opens a menu with "Delete" and
+its PlotWidgets. The tabs are aligned to the left (LLFR-00106). A "+"
+button sits directly beside the last tab (LLFR-00025), or at the right
+end of the tab row when the tabs overflow and the tab bar scrolls, and
+it is styled like an unselected tab, only narrower (LLFR-00107). A
+right-click on a tab opens a menu with "Delete" and
 "Rename" (LLFR-00027, LLFR-00029).
 
 It offers a plain-Python facade (ids of the model, names, bools; no Qt
@@ -14,9 +17,10 @@ from functools import partial
 
 from PyQt6.QtCore import QEvent, QTimer, Qt
 from PyQt6.QtWidgets import (
-    QInputDialog, QLineEdit, QMenu, QTabWidget, QToolButton, QVBoxLayout,
-    QWidget)
+    QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
+    QToolButton, QVBoxLayout, QWidget)
 
+from view import theme
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
 
@@ -27,12 +31,36 @@ RENAME_TAB_TEXT_STR = "Rename"
 RENAME_DIALOG_TITLE_STR = "Rename tab"
 RENAME_DIALOG_LABEL_STR = "New tab name:"
 # LLFR-00025: pixels between the last tab and the "+" button.
-ADD_BUTTON_GAP_I = 2
+ADD_BUTTON_GAP_I = theme.TAB_SPACING_I
+# LLFR-00106, LLFR-00107: object names used by the style sheet.
+TAB_WIDGET_OBJECT_NAME_STR = "plot_tab_widget"
+TAB_BAR_OBJECT_NAME_STR = "plot_tab_bar"
+ADD_BUTTON_OBJECT_NAME_STR = "add_tab_button"
+# LLFR-00107: the look shared by the unselected tabs and the "+" button,
+# so that the two always match (background, border, corner shape). The
+# values are design tokens of view.theme.
+TAB_BACKGROUND_COLOR_STR = theme.TAB_BACKGROUND_COLOR_STR
+TAB_HOVER_COLOR_STR = theme.TAB_HOVER_COLOR_STR
+TAB_SELECTED_COLOR_STR = theme.TAB_SELECTED_COLOR_STR
+TAB_TEXT_COLOR_STR = theme.TAB_TEXT_COLOR_STR
+TAB_BORDER_COLOR_STR = theme.TAB_BORDER_COLOR_STR
+TAB_BORDER_WIDTH_I = theme.TAB_BORDER_WIDTH_I
+TAB_CORNER_RADIUS_I = theme.TAB_CORNER_RADIUS_I
+# LLFR-00107: the tabs are wider than the "+" button.
+TAB_MINIMUM_TEXT_WIDTH_I = theme.TAB_MINIMUM_TEXT_WIDTH_I
+TAB_HORIZONTAL_PADDING_I = theme.TAB_HORIZONTAL_PADDING_I
+TAB_VERTICAL_PADDING_I = theme.TAB_VERTICAL_PADDING_I
+TAB_SPACING_I = theme.TAB_SPACING_I
+ADD_BUTTON_WIDTH_I = theme.ADD_BUTTON_WIDTH_I
+# LLFR-00107: one declaration block for background, border and corners,
+# used by both the unselected tab rule and the "+" button rule.
+SHARED_TAB_SHAPE_STR = theme.SHARED_TAB_SHAPE_STR
 # LLFR-00025: events of the tab bar after which the button is moved.
 TAB_BAR_EVENT_TUPLE = (QEvent.Type.Resize, QEvent.Type.Move,
                        QEvent.Type.LayoutRequest, QEvent.Type.Show)
 # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
-# LLFR-00049, LLFR-00070: plot widget signal -> name of its handler.
+# LLFR-00049, LLFR-00070, LLFR-00081, LLFR-00086, LLFR-00088,
+# LLFR-00091: plot widget signal -> name of its handler.
 PLOT_SIGNAL_HANDLER_DICT = {
     "curve_delete_requested": "curve_delete_handler",
     "curve_width_requested": "curve_width_handler",
@@ -40,8 +68,32 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "signal_dropped": "signal_drop_handler",
     "tip_pin_requested": "tip_pin_handler",
     "pinned_tip_delete_requested": "pinned_tip_delete_handler",
+    # LLFR-00152: a pinned tip was dragged and released.
+    "pinned_tip_move_requested": "pinned_tip_move_handler",
     "time_range_changed": "time_range_handler",
+    "marker_place_requested": "marker_place_handler",
+    "marker_move_requested": "marker_move_handler",
+    "marker_rename_requested": "marker_rename_handler",
+    "marker_delete_requested": "marker_delete_handler",
+    # LLFR-00163, LLFR-00164: a curve point picked with a delta tool.
+    "delta_point_picked": "delta_point_pick_handler",
+    # LLFR-00176: "Delete" chosen on a delta marker.
+    "delta_marker_delete_requested": "delta_marker_delete_handler",
 }
+
+
+def build_tab_style_sheet() -> str:
+    """Return the style sheet of the plot tab widget.
+
+    Inputs: none.
+    Outputs: a Qt style sheet that aligns the tab bar to the left
+        (LLFR-00106) and gives the unselected tabs and the "+" button the
+        same shape block SHARED_TAB_SHAPE_STR (LLFR-00107).
+    """
+    # LLFR-00106, LLFR-00107: the rules are built by view.theme.
+    return theme.tab_style_sheet(TAB_WIDGET_OBJECT_NAME_STR,
+                                 TAB_BAR_OBJECT_NAME_STR,
+                                 ADD_BUTTON_OBJECT_NAME_STR)
 
 
 def escape_tab_text(name_str: str) -> str:
@@ -62,8 +114,6 @@ class PlotTabWidget(QTabWidget):
         parent: optional parent widget.
     Attributes:
         add_tab_button: the "+" QToolButton (LLFR-00025).
-        corner_spacer: empty corner widget that keeps room for the
-            button when the tabs fill the whole width.
     """
 
     def __init__(self, parent=None) -> None:
@@ -74,18 +124,30 @@ class PlotTabWidget(QTabWidget):
         Outputs: none.
         """
         super().__init__(parent)
+        self.setObjectName(TAB_WIDGET_OBJECT_NAME_STR)
+        # LLFR-00106: left-aligned tabs; when they do not fit, the tab
+        # bar scrolls instead of squeezing or centring them.
+        tab_bar = QTabBar(self)
+        tab_bar.setObjectName(TAB_BAR_OBJECT_NAME_STR)
+        tab_bar.setExpanding(False)
+        tab_bar.setUsesScrollButtons(True)
+        tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
+        tab_bar.setDrawBase(False)
+        self.setTabBar(tab_bar)
+        # setTabBar resets "expanding", so it is set again afterwards.
+        tab_bar.setExpanding(False)
         # LLFR-00025: the "+" button is a child of the tab widget and is
         # moved next to the last tab whenever the tabs change.
         self.add_tab_button = QToolButton(self)
-        self.add_tab_button.setObjectName("add_tab_button")
+        self.add_tab_button.setObjectName(ADD_BUTTON_OBJECT_NAME_STR)
         self.add_tab_button.setText(ADD_TAB_TEXT_STR)
         self.add_tab_button.setToolTip(ADD_TAB_TOOL_TIP_STR)
-        self.add_tab_button.setAutoRaise(True)
-        self.corner_spacer = QWidget(self)
-        self.corner_spacer.setFixedSize(
-            self.add_tab_button.sizeHint().width() + 2 * ADD_BUTTON_GAP_I,
-            1)
-        self.setCornerWidget(self.corner_spacer, Qt.Corner.TopRightCorner)
+        # LLFR-00107: narrower than a tab, styled like an unselected tab.
+        self.add_tab_button.setFixedWidth(ADD_BUTTON_WIDTH_I)
+        self.setStyleSheet(build_tab_style_sheet())
+        # LLFR-00025: the tab bar never takes the room at the right end of
+        # the tab row where the button goes when the tabs overflow.
+        self.limit_tab_bar_width()
         # LLFR-00025: a child timer, so a pending move never runs after
         # the widget was deleted.
         self.reposition_timer = QTimer(self)
@@ -113,19 +175,49 @@ class PlotTabWidget(QTabWidget):
             last_rect = tab_bar.tabRect(tab_count_i - 1)
             right_edge_i = min(last_rect.x() + last_rect.width(),
                                tab_bar.width())
+            if self.tabs_overflow():
+                # LLFR-00025: with scroll buttons, the button goes to the
+                # right end of the tab row, after the scroll buttons, so
+                # it never covers them or a tab.
+                right_edge_i = tab_bar.width()
             top_i = last_rect.y()
+            # LLFR-00107: same height as a tab.
             height_i = last_rect.height()
         else:
             right_edge_i = 0
             top_i = 0
             height_i = max(bar_geometry.height(),
                            self.add_tab_button.sizeHint().height())
-        button_width_i = self.add_tab_button.sizeHint().width()
+        button_width_i = ADD_BUTTON_WIDTH_I
         left_i = bar_geometry.x() + right_edge_i + ADD_BUTTON_GAP_I
         left_i = max(0, min(left_i, self.width() - button_width_i))
         self.add_tab_button.setGeometry(left_i, bar_geometry.y() + top_i,
                                         button_width_i, height_i)
         self.add_tab_button.raise_()
+
+    def limit_tab_bar_width(self) -> None:
+        """Keep the tab bar narrow enough to leave room for the button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00025: a corner widget would not do this, because the
+        # style sheet position of the tab bar (LLFR-00106) ignores
+        # corner widgets; QWidget.setGeometry respects the maximum width.
+        reserved_width_i = ADD_BUTTON_WIDTH_I + 2 * ADD_BUTTON_GAP_I
+        self.tabBar().setMaximumWidth(max(0, self.width()
+                                          - reserved_width_i))
+
+    def tabs_overflow(self) -> bool:
+        """Return whether the tabs are wider than the tab bar.
+
+        Inputs: none.
+        Outputs: True when the tab bar shows its scroll buttons.
+        """
+        # LLFR-00025: the scroll buttons are tool buttons of the tab bar.
+        tab_bar = self.tabBar()
+        return any(not scroll_button.isHidden()
+                   for scroll_button in tab_bar.findChildren(QToolButton))
 
     def schedule_reposition(self) -> None:
         """Move the "+" button now and again once Qt has laid out.
@@ -135,7 +227,8 @@ class PlotTabWidget(QTabWidget):
         """
         # LLFR-00025: the tab bar may finish its layout later.
         self.reposition_add_button()
-        self.reposition_timer.start()
+        if getattr(self, "reposition_timer", None) is not None:
+            self.reposition_timer.start()
 
     def tabInserted(self, index_i: int) -> None:
         """Move the "+" button after a tab was added.
@@ -166,9 +259,11 @@ class PlotTabWidget(QTabWidget):
             event: the QResizeEvent.
         Outputs: none.
         """
-        # LLFR-00025: keep the button beside the last tab.
+        # LLFR-00025: keep the button beside the last tab, also when the
+        # new width makes the tabs overflow (or fit again).
+        self.limit_tab_bar_width()
         super().resizeEvent(event)
-        self.reposition_add_button()
+        self.schedule_reposition()
 
     def showEvent(self, event) -> None:
         """Move the "+" button when the widget is shown.
@@ -189,9 +284,11 @@ class PlotTabWidget(QTabWidget):
             event: the QEvent.
         Outputs: False, so the event is handled normally.
         """
-        # LLFR-00025: the tab bar is resized when a tab is renamed.
+        # LLFR-00025: the tab bar is resized when a tab is renamed. The
+        # filter runs before the tab bar lays out its tabs and scroll
+        # buttons, so the button is moved again once that is done.
         if watched is self.tabBar() and event.type() in TAB_BAR_EVENT_TUPLE:
-            self.reposition_add_button()
+            self.schedule_reposition()
         return super().eventFilter(watched, event)
 
 
@@ -207,7 +304,6 @@ class PlotPanel(QWidget):
         plot_widget_dict: plot id -> PlotWidget.
         tab_delete_enabled_b: whether "Delete" is enabled in the tab
             menu (LLFR-00066).
-        tip_mode_b: tip mode given to every plot widget (LLFR-00042).
     """
 
     def __init__(self) -> None:
@@ -229,7 +325,6 @@ class PlotPanel(QWidget):
         self.page_dict = {}
         self.plot_widget_dict = {}
         self.tab_delete_enabled_b = False
-        self.tip_mode_b = False
         self.add_tab_handler = None
         self.delete_tab_handler = None
         self.rename_tab_handler = None
@@ -240,6 +335,29 @@ class PlotPanel(QWidget):
         tab_bar = self.tab_widget.tabBar()
         tab_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tab_bar.customContextMenuRequested.connect(self.show_tab_menu)
+        # LLFR-00137: a press on the tab row or the "+" button takes the
+        # keyboard focus from the text fields (see eventFilter).
+        tab_bar.installEventFilter(self)
+        self.add_tab_button.installEventFilter(self)
+
+    def eventFilter(self, watched, event) -> bool:
+        """Move the focus to this panel on a press on the tab row.
+
+        Inputs:
+            watched: the object that received the event.
+            event: the QEvent.
+        Outputs: False, so the event is handled normally.
+        """
+        # LLFR-00137: the tab bar and the "+" button do not take the
+        # focus on click, so without this the focus would stay in the
+        # search box (also after the tab menu's dialogs close) and
+        # Ctrl+Z (Cmd+Z) would undo the typed text instead of the tab
+        # action. The panel shows no focus frame.
+        if (event.type() == QEvent.Type.MouseButtonPress
+                and watched in (self.tab_widget.tabBar(),
+                                self.add_tab_button)):
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+        return super().eventFilter(watched, event)
 
     # ----------------------------------------------------------------
     # Handlers
@@ -417,8 +535,11 @@ class PlotPanel(QWidget):
         page = self.page_dict.pop(tab_id_i, None)
         if page is None:
             return
+        self.move_focus_out_of(page)
         for plot_widget in list(page.plot_widget_list):
             self.plot_widget_dict.pop(plot_widget.plot_id_i, None)
+            # LLFR-00138: no late request from the removed plot.
+            plot_widget.retire()
         self.tab_widget.removeTab(self.tab_widget.indexOf(page))
         page.deleteLater()
 
@@ -512,14 +633,22 @@ class PlotPanel(QWidget):
             return
         plot_widget = PlotWidget(plot_id_i)
         plot_widget.setObjectName(f"plot_widget_{plot_id_i}")
-        # LLFR-00042: a new plot starts in the current tip mode.
-        plot_widget.set_tip_mode(self.tip_mode_b)
+        # LLFR-00042, LLFR-00078, LLFR-00081: the new plot starts with no
+        # tool; MainWindow.add_plot_view applies the active plot tool.
         # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
         # LLFR-00049, LLFR-00070: every request carries the plot id.
         for signal_name_str, handler_name_str in (
                 PLOT_SIGNAL_HANDLER_DICT.items()):
             getattr(plot_widget, signal_name_str).connect(partial(
                 self.forward_plot_request, handler_name_str, plot_id_i))
+        # LLFR-00205: a marker dragged on this plot follows the pointer
+        # on the other plots of its tab. LLFR-00203: so does the marker
+        # preview. These stay in the view: only the release and the
+        # click go to the controller.
+        plot_widget.marker_drag_moved.connect(partial(
+            self.relay_marker_drag, plot_id_i))
+        plot_widget.marker_preview_changed.connect(partial(
+            self.relay_marker_preview, plot_id_i))
         self.plot_widget_dict[plot_id_i] = plot_widget
         page.add_plot_widget(plot_widget)
 
@@ -534,6 +663,9 @@ class PlotPanel(QWidget):
         plot_widget = self.plot_widget_dict.pop(plot_id_i, None)
         if plot_widget is None:
             return
+        # LLFR-00138: no late request from the removed plot.
+        self.move_focus_out_of(plot_widget)
+        plot_widget.retire()
         # LLFR-00050: the page gives the free space to the other plots.
         for page in self.page_dict.values():
             if page.remove_plot_widget(plot_widget):
@@ -541,6 +673,84 @@ class PlotPanel(QWidget):
         # The widget may be running the menu that asked for this, so it
         # is deleted later by the event loop, not now.
         plot_widget.deleteLater()
+
+    def move_focus_out_of(self, removed_widget) -> None:
+        """Keep the keyboard focus off text fields when a widget goes.
+
+        Inputs:
+            removed_widget: the tab page or plot widget being removed.
+        Outputs: none. When the focus is in that widget, it moves to
+            this panel instead of to the next widget of the focus chain,
+            which could be the search box.
+        """
+        # LLFR-00137: after an undo removes the clicked plot, the next
+        # Ctrl+Z (Cmd+Z) must still run the workspace undo.
+        focus_widget = QApplication.focusWidget()
+        if focus_widget is None:
+            return
+        if (focus_widget is removed_widget
+                or removed_widget.isAncestorOf(focus_widget)):
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def sibling_plot_widget_list(self, plot_id_i: int) -> list:
+        """Return the other plot widgets of a plot's tab.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: a list of PlotWidget, top to bottom, without the plot
+            itself (empty for an unknown plot).
+        """
+        # LLFR-00203, LLFR-00205: the plots of the same tab.
+        plot_widget = self.plot_widget_dict.get(plot_id_i)
+        if plot_widget is None:
+            return []
+        for page in self.page_dict.values():
+            if plot_widget in page.plot_widget_list:
+                return [other_widget for other_widget in page.plot_widget_list
+                        if other_widget is not plot_widget]
+        return []
+
+    def set_markers(self, marker_data_list: list) -> None:
+        """Draw the shared vertical markers on every plot of every tab.
+
+        Inputs:
+            marker_data_list: tuples (marker_id_i, name_str, time_s), in
+                placing order.
+        Outputs: none.
+        """
+        # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112, LLFR-00205: the
+        # same markers on every plot; hidden plots draw them when shown.
+        for plot_widget in self.plot_widget_dict.values():
+            plot_widget.set_markers(marker_data_list)
+
+    def relay_marker_drag(self, plot_id_i: int, marker_id_i: int,
+                          time_s: float) -> None:
+        """Show a marker dragged on one plot at its time on the others.
+
+        Inputs:
+            plot_id_i: id of the plot where the marker is dragged.
+            marker_id_i: id of the dragged marker.
+            time_s: the time it is shown at, in seconds.
+        Outputs: none.
+        """
+        # LLFR-00205: while dragged, the marker follows the pointer on
+        # every plot of the current tab; the plots of the other tabs get
+        # the new time when the button is released (controller).
+        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+            plot_widget.follow_marker_drag(marker_id_i, time_s)
+
+    def relay_marker_preview(self, plot_id_i: int, time_s: float) -> None:
+        """Show the marker preview of the hovered plot on the others.
+
+        Inputs:
+            plot_id_i: id of the hovered plot.
+            time_s: time of the preview in seconds, NaN when it is hidden.
+        Outputs: none.
+        """
+        # LLFR-00203: the preview is shown on every plot of the current
+        # tab (the hovered plot is in it); the other tabs need none.
+        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+            plot_widget.show_marker_preview(time_s)
 
     def plot_view(self, plot_id_i: int):
         """Return the plot widget of a plot.
@@ -551,6 +761,17 @@ class PlotPanel(QWidget):
         """
         # LLFR-00020, LLFR-00021: the widget the controller draws in.
         return self.plot_widget_dict.get(plot_id_i)
+
+    def is_mouse_drag_in_progress(self) -> bool:
+        """Tell whether the user is dragging the mouse on any plot.
+
+        Inputs: none.
+        Outputs: True while a pan, a marker or tip drag or a time span
+            selection is in progress on a plot of any tab.
+        """
+        # LLFR-00207: the Z key does nothing during a mouse drag.
+        return any(plot_widget.is_mouse_drag_in_progress()
+                   for plot_widget in self.plot_widget_dict.values())
 
     def plot_id_list(self, tab_id_i: int) -> list:
         """Return the plot ids of a tab, from top to bottom.
@@ -565,15 +786,3 @@ class PlotPanel(QWidget):
             return []
         return [plot_widget.plot_id_i
                 for plot_widget in page.plot_widget_list]
-
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Turn hover tips on or off in every plot, now and later.
-
-        Inputs:
-            enabled_b: True while the Tip button is active.
-        Outputs: none.
-        """
-        # LLFR-00042: tips only while the Tip button is active.
-        self.tip_mode_b = bool(enabled_b)
-        for plot_widget in self.plot_widget_dict.values():
-            plot_widget.set_tip_mode(self.tip_mode_b)

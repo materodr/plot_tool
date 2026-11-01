@@ -9,7 +9,8 @@ The requirements below are loaded into every session. Follow them in all work.
 @docs/requirements/README.md
 @docs/requirements/code_and_organization.md
 @docs/requirements/process_of_collaboration.md
-@docs/requirements/functional_requirements.md
+@docs/requirements/high_level_functional_requirements.md
+@docs/requirements/low_level_functional_requirements.md
 
 ## How to work in this repository
 

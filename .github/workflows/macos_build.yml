@@ -1,0 +1,177 @@
+name: macOS build
+
+# Builds the standalone macOS app with build_executable.py and checks
+# that it is a one-folder app bundle that starts quickly (issue #67):
+# no one-file launcher, the window shown by the launched process itself,
+# every sample file of tests/user_tests/good opened by the bundled
+# loaders, and the warm launch under 10 s. It also checks that the
+# bundle carries the app icon (LLFR-00182): Contents/Resources holds
+# plot_tool.icns, Info.plist names it in CFBundleIconFile, and iconutil
+# can read every image of it. The main test workflow
+# (tests.yml) is not changed.
+#
+# Startup checks of the built app (issue #75), from a cold first launch
+# with an empty matplotlib cache and then warm launches:
+# - LLFR-00184: on every launch, the cold one included, the splash
+#   screen is on screen within 2 s, before matplotlib, numpy, pandas or
+#   the plot views are imported;
+# - LLFR-00186: the splash screen is closed when the window is shown;
+# - LLFR-00188: every warm launch shows the window within 5 s (and the
+#   last launch within the older 10 s guard);
+# - LLFR-00189: the font list that matplotlib writes on the first
+#   launch is not written again by the later launches.
+on:
+  pull_request:
+    paths:
+      - build_executable.py
+      - requirements.txt
+      - requirements-build.txt
+      - src/main.py
+      - src/view/splash_screen.py
+      - src/view/theme.py
+      - src/view/startup_probe.py
+      - src/view/matplotlib_cache.py
+      - src/model/file_loader.py
+      - src/view/icons.py
+      - src/view/icon_shapes.py
+      - src/view/app_icon_files.py
+      - tests/user_tests/measure_startup.py
+      - .github/workflows/macos_build.yml
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-build.txt
+
+      - name: Build the app
+        run: python build_executable.py
+
+      - name: Check the app bundle
+        run: |
+          app=bin/plot_tool.app
+          launcher="$app/Contents/MacOS/plot_tool"
+          failed=0
+          fail() { echo "::error title=Bundle::$1"; failed=1; }
+          ls -la bin "$app/Contents" "$app/Contents/MacOS" || true
+          [ -x "$launcher" ] || fail "no launcher $launcher"
+          [ -d "$app/Contents/Frameworks" ] || fail "no Contents/Frameworks"
+          [ ! -e bin/plot_tool ] || fail "bin/plot_tool was not removed"
+          # A one-file build is a single launcher that holds the whole
+          # app; in a one-folder bundle the launcher (bootloader plus
+          # the archive of pure Python modules) is a small part of it,
+          # next to hundreds of library files.
+          file_count=$(find "$app" -type f | wc -l | tr -d ' ')
+          launcher_bytes=$(stat -f %z "$launcher" || echo 0)
+          echo "files: $file_count, launcher bytes: $launcher_bytes"
+          [ "$file_count" -gt 100 ] || fail "only $file_count files"
+          bundle_bytes=$(( $(du -sk "$app" | cut -f1) * 1024 ))
+          [ $(( launcher_bytes * 4 )) -lt "$bundle_bytes" ] || fail "launcher is $launcher_bytes of $bundle_bytes bytes (one-file build?)"
+          tk_list=$(find "$app" -iname '*tkinter*')
+          [ -z "$tk_list" ] || fail "tkinter was bundled: $tk_list"
+          codesign --verify --deep --strict "$app" || fail "codesign verify failed"
+          bundle_size=$(du -sh "$app" | cut -f1)
+          echo "Largest parts of the bundle:"
+          du -sh "$app"/Contents/Frameworks/* "$app"/Contents/Resources/* 2>/dev/null | sort -h | tail -15
+          echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
+          exit $failed
+
+      # LLFR-00182: the bundle icon replaces PyInstaller's default one.
+      - name: Check the app icon
+        run: |
+          app=bin/plot_tool.app
+          icon="$app/Contents/Resources/plot_tool.icns"
+          failed=0
+          fail() { echo "::error title=App icon::$1"; failed=1; }
+          ls -la "$app/Contents/Resources"/*.icns || true
+          [ -f "$icon" ] || fail "no $icon"
+          icon_name=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$app/Contents/Info.plist" || echo "")
+          echo "CFBundleIconFile: $icon_name"
+          [ "$icon_name" = "plot_tool.icns" ] || [ "$icon_name" = "plot_tool" ] || fail "Info.plist names '$icon_name', not plot_tool.icns"
+          rm -rf app_icon.iconset
+          iconutil -c iconset -o app_icon.iconset "$icon" || fail "iconutil cannot read $icon"
+          ls -la app_icon.iconset || true
+          for name in icon_16x16 icon_32x32 icon_128x128 icon_256x256 icon_512x512 icon_512x512@2x; do
+            [ -f "app_icon.iconset/$name.png" ] || fail "no $name in the icon"
+          done
+          sips -g pixelWidth app_icon.iconset/icon_512x512@2x.png || true
+          exit $failed
+
+      - name: Upload the app icon images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-icon
+          path: app_icon.iconset/*.png
+          if-no-files-found: ignore
+
+      # PYTHONFAULTHANDLER prints where Python was if a launch crashes.
+      # The matplotlib cache is emptied first, so run 1 is the real
+      # first launch that builds the font list (LLFR-00184, LLFR-00188,
+      # LLFR-00189).
+      - name: Measure the startup time
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          python tests/user_tests/measure_startup.py --runs 6 \
+            --limit-s 10 --warm-limit-s 5 --splash-limit-s 2 \
+            --font-cache-folder "$HOME/Library/Caches/plot_tool/matplotlib" \
+            --clear-font-cache --probe-good-files -- \
+            bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      - name: Show the kept matplotlib cache
+        if: always()
+        run: ls -la ~/Library/Caches/plot_tool/matplotlib || true
+
+      # For comparison only: the same launches from source.
+      - name: Measure the startup time from source
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          python tests/user_tests/measure_startup.py --runs 2 \
+            --limit-s 1000 --splash-limit-s 1000 -- python src/main.py
+
+      # Opening the bundle with `open` is what Finder does. Reported for
+      # information; the timed check is the step above.
+      - name: Launch the bundle as Finder does
+        if: always()
+        continue-on-error: true
+        run: |
+          rm -f open_output.txt
+          start_s=$(python -c 'import time; print(time.time())')
+          open -W -n --env PLOT_TOOL_STARTUP_PROBE=1 \
+            --stdout "$PWD/open_output.txt" --stderr "$PWD/open_output.txt" \
+            bin/plot_tool.app
+          cat open_output.txt
+          python - "$start_s" <<'PYTHON'
+          import sys
+          sys.path.insert(0, "tests/user_tests")
+          from measure_startup import parse_splash_line, parse_startup_line
+          with open("open_output.txt", encoding="utf-8") as output_file:
+              output_str = output_file.read()
+          startup_dict = parse_startup_line(output_str)
+          splash_dict = parse_splash_line(output_str)
+          if not startup_dict or not splash_dict:
+              print("::warning title=Open from Finder::no startup or splash line")
+              sys.exit(1)
+          splash_s = splash_dict["splash_shown_epoch_s"] - float(sys.argv[1])
+          elapsed_s = startup_dict["window_shown_epoch_s"] - float(sys.argv[1])
+          print(f"::notice title=Open from Finder::splash shown {splash_s:.2f} s, window shown {elapsed_s:.2f} s after open")
+          PYTHON

@@ -1,23 +1,31 @@
 """Colors of the signal curves in a plot (HLFR-00020).
 
-The first 8 curves drawn in a plot use a fixed palette (LLFR-00033).
+The first 8 curves drawn in a plot use a fixed palette (LLFR-00033)
+that starts with blue, black and red (LLFR-00144).
 From the 9th curve on, each new curve gets a random color that is
 clearly different from the colors already used in the plot
-(LLFR-00034).
+(LLFR-00034). Vertical markers use a reserved color that is never
+given to a curve (LLFR-00083).
 """
 
 # LLFR-00033: 8 colors that are easy to tell apart on a white
-# background (the Tableau 10 set without its gray and olive).
+# background (taken from the Tableau 10 set, plus black).
+# LLFR-00144: the first three are blue, black and red, in that order.
 PALETTE_COLOR_TUPLE = (
     "#1f77b4",  # blue
-    "#ff7f0e",  # orange
-    "#2ca02c",  # green
+    "#000000",  # black
     "#d62728",  # red
+    "#2ca02c",  # green
+    "#ff7f0e",  # orange
     "#9467bd",  # purple
     "#8c564b",  # brown
-    "#e377c2",  # pink
     "#17becf",  # cyan
 )
+
+# LLFR-00083: reserved color of the vertical markers. It is not in the
+# palette, every palette color is far from it, and random curve colors
+# always keep at least MINIMUM_COLOR_DISTANCE_F from it.
+MARKER_COLOR_STR = "#ff00ff"  # magenta
 
 # LLFR-00034: minimum Euclidean RGB distance between a random color and
 # every color already used in the plot.
@@ -102,6 +110,19 @@ def random_color(random_generator) -> str:
             return color_str
 
 
+def is_far_from_marker_color(color_str: str) -> bool:
+    """Tell whether a color is clearly different from the marker color.
+
+    Inputs:
+        color_str: color written as "#rrggbb".
+    Outputs: True when the color is at least MINIMUM_COLOR_DISTANCE_F
+        away from MARKER_COLOR_STR.
+    """
+    # LLFR-00083: curves never look like a vertical marker.
+    return (color_distance(color_str, MARKER_COLOR_STR)
+            >= MINIMUM_COLOR_DISTANCE_F)
+
+
 def next_curve_color(drawn_count_i: int, used_color_list: list,
                      random_generator) -> str:
     """Choose the color of the next curve drawn in a plot.
@@ -125,6 +146,10 @@ def next_curve_color(drawn_count_i: int, used_color_list: list,
         for _ in range(TRIES_PER_DISTANCE_I):
             color_str = random_color(random_generator)
             if color_str in used_lower_set:
+                continue
+            # LLFR-00083: the marker color counts as always used, and its
+            # distance is never relaxed.
+            if not is_far_from_marker_color(color_str):
                 continue
             if all(color_distance(color_str, used_str) >= minimum_distance_f
                    for used_str in used_lower_set):

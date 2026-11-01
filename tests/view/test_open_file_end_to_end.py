@@ -240,6 +240,38 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual([record[0] for record in self.box_record_list],
                          [FILE_OPEN_ERROR_TITLE_STR])
 
+    @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010")
+    def test_dialog_folder_follows_opened_files(self) -> None:
+        """The first dialog shows the app folder, then the last file's.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.file_controller import first_start_folder_str
+        other_folder_str = os.path.join(self.temporary_folder.name, "more")
+        os.makedirs(other_folder_str)
+        moved_path_str = os.path.join(other_folder_str, "moved.csv")
+        with open(moved_path_str, "w", encoding="utf-8") as file:
+            file.write("Time,speed\n0,1\n1,2\n")
+        broken_folder_str = os.path.join(self.temporary_folder.name,
+                                         "broken")
+        os.makedirs(broken_folder_str)
+        broken_path_str = os.path.join(broken_folder_str, "broken.csv")
+        with open(broken_path_str, "w", encoding="utf-8") as file:
+            file.write("Time,speed\n0,1\n1,abc\n")
+        folder_list = []
+        for path_str in ("", self.first_path_str, broken_path_str,
+                         moved_path_str, ""):
+            self.replace_answer_list.append(True)
+            dialog_mock = self.click_open_file(path_str)
+            folder_list.append(dialog_mock.call_args.args[2])
+        temporary_folder_str = os.path.dirname(
+            os.path.abspath(self.first_path_str))
+        self.assertEqual(folder_list, [
+            first_start_folder_str(), first_start_folder_str(),
+            temporary_folder_str, temporary_folder_str,
+            os.path.abspath(other_folder_str)])
+
 
 @requires_qt
 class MainWindowFacadeTest(unittest.TestCase):
@@ -269,17 +301,17 @@ class MainWindowFacadeTest(unittest.TestCase):
 
     @covers("LLFR-00018", "LLFR-00001", "LLFR-00002")
     def test_tip_handler_receives_state(self) -> None:
-        """The tip handler gets True on activation, False on deactivation.
+        """The plot tool handler gets "tip", then "" on deactivation.
 
         Inputs: none.
         Outputs: none.
         """
         state_list = []
-        self.main_window.set_tip_mode_handler(state_list.append)
+        self.main_window.set_plot_tool_handler(state_list.append)
         tip_button = self.main_window.top_panel.tip_button
         tip_button.click()
         tip_button.click()
-        self.assertEqual(state_list, [True, False])
+        self.assertEqual(state_list, ["tip", ""])
 
     @covers("LLFR-00019")
     def test_double_click_handler_receives_name(self) -> None:
@@ -317,6 +349,21 @@ class MainWindowFacadeTest(unittest.TestCase):
         with mock.patch.object(QFileDialog, "getOpenFileName",
                                return_value=("", "")):
             self.assertEqual(self.main_window.ask_open_file_path(), "")
+
+    @covers("LLFR-00204", "LLFR-00005")
+    def test_dialog_receives_the_start_folder(self) -> None:
+        """ask_open_file_path passes the folder to QFileDialog.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QFileDialog
+        with mock.patch.object(QFileDialog, "getOpenFileName",
+                               return_value=("/x/y.csv", "")) as dialog_mock:
+            self.assertEqual(
+                self.main_window.ask_open_file_path("/some/folder"),
+                "/x/y.csv")
+        self.assertEqual(dialog_mock.call_args.args[2], "/some/folder")
 
 
 if __name__ == "__main__":

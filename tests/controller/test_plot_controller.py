@@ -62,7 +62,22 @@ class FakePlotView:
         range_dict: plot id -> (start_s, end_s) shown.
         delete_enabled_b: last value given to set_tab_delete_enabled.
         full_tab_count_i: how many Full Tab boxes were shown.
-        tip_mode_b: last value given to set_tip_mode.
+        tab_name_taken_list: names given to
+            show_tab_name_taken_notification, in order.
+        plot_tool_str: last value given to set_plot_tool.
+        marker_drawn_dict: plot id -> marker_data_list of the last
+            draw_plot or set_markers call.
+        marker_name_answer_list: answers returned, in order, by
+            ask_marker_name (None stands for a cancelled dialog).
+        marker_name_question_list: the current names given to
+            ask_marker_name.
+        grid_shown_b: last value given to set_grid_shown.
+        undo_enabled_b: last value given to set_undo_enabled.
+        redo_enabled_b: last value given to set_redo_enabled.
+        delta_drawn_dict: plot id -> delta_marker_data_list of the last
+            draw_plot call.
+        delta_first_point_dict: plot id -> point tuple last given to
+            set_delta_first_point (() when the dot was removed).
     """
 
     def __init__(self) -> None:
@@ -79,8 +94,17 @@ class FakePlotView:
         self.range_dict = {}
         self.delete_enabled_b = True
         self.full_tab_count_i = 0
-        self.tip_mode_b = False
+        self.tab_name_taken_list = []
+        self.plot_tool_str = ""
         self.handler_dict = {}
+        self.marker_drawn_dict = {}
+        self.marker_name_answer_list = []
+        self.marker_name_question_list = []
+        self.grid_shown_b = None
+        self.undo_enabled_b = None
+        self.redo_enabled_b = None
+        self.delta_drawn_dict = {}
+        self.delta_first_point_dict = {}
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -91,14 +115,14 @@ class FakePlotView:
         """
         self.handler_dict["double_click"] = handler
 
-    def set_tip_mode_handler(self, handler) -> None:
-        """Record the Tip button handler.
+    def set_plot_tool_handler(self, handler) -> None:
+        """Record the plot tool handler.
 
         Inputs:
-            handler: function taking a bool.
+            handler: function taking a plot tool name.
         Outputs: none.
         """
-        self.handler_dict["tip_mode"] = handler
+        self.handler_dict["plot_tool"] = handler
 
     def set_tab_handlers(self, add_tab_handler, delete_tab_handler,
                          rename_tab_handler) -> None:
@@ -122,6 +146,75 @@ class FakePlotView:
         Outputs: none.
         """
         self.handler_dict.update(handler_dict)
+
+    def set_reset_zoom_handler(self, handler) -> None:
+        """Record the Reset zoom handler.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        self.handler_dict["reset_zoom"] = handler
+
+    def set_grid_handler(self, handler) -> None:
+        """Record the Grid button handler.
+
+        Inputs:
+            handler: function taking True or False.
+        Outputs: none.
+        """
+        self.handler_dict["grid"] = handler
+
+    def set_undo_handler(self, handler) -> None:
+        """Record the Undo button and shortcut handler.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        self.handler_dict["undo"] = handler
+
+    def set_undo_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Undo button is enabled.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            enabled_b: True when an action can be undone.
+        Outputs: none.
+        """
+        self.undo_enabled_b = enabled_b
+
+    def set_redo_handler(self, handler) -> None:
+        """Record the Redo button and shortcut handler.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        self.handler_dict["redo"] = handler
+
+    def set_redo_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Redo button is enabled.
+
+        Not added to call_list, like set_undo_enabled.
+
+        Inputs:
+            enabled_b: True when an undone action can be redone.
+        Outputs: none.
+        """
+        self.redo_enabled_b = enabled_b
+
+    def set_grid_shown(self, shown_b: bool) -> None:
+        """Record whether the grid is shown.
+
+        Inputs:
+            shown_b: True when the grid is shown.
+        Outputs: none.
+        """
+        self.call_list.append(("set_grid_shown", shown_b))
+        self.grid_shown_b = shown_b
 
     def clear_tab_views(self) -> None:
         """Remove every tab and plot.
@@ -223,21 +316,41 @@ class FakePlotView:
         del self.plot_tab_dict[plot_id_i]
 
     def draw_plot(self, plot_id_i: int, curve_data_list: list,
-                  pinned_tip_list: list) -> None:
+                  pinned_tip_list: list, marker_data_list=(),
+                  delta_marker_data_list=()) -> None:
         """Record what a plot draws; resets its range like PlotWidget.
 
         Inputs:
             plot_id_i: id of the plot.
             curve_data_list: the curve tuples.
             pinned_tip_list: the pinned tip tuples.
+            marker_data_list: the vertical marker tuples (marker_id_i,
+                name_str, time_s).
+            delta_marker_data_list: the delta marker tuples
+                (delta_marker_id_i, kind_str, first_point_tuple,
+                second_point_tuple, delta_f).
         Outputs: none.
         """
         self.call_list.append(("draw_plot", plot_id_i))
+        self.delta_drawn_dict[plot_id_i] = list(delta_marker_data_list)
         self.drawn_dict[plot_id_i] = (curve_data_list, pinned_tip_list)
+        self.marker_drawn_dict[plot_id_i] = list(marker_data_list)
         if curve_data_list:
             time_array = curve_data_list[0][1]
             self.range_dict[plot_id_i] = (float(time_array[0]),
                                           float(time_array[-1]))
+
+    def set_markers(self, marker_data_list: list) -> None:
+        """Record the shared markers drawn on every shown plot.
+
+        Inputs:
+            marker_data_list: the vertical marker tuples (marker_id_i,
+                name_str, time_s).
+        Outputs: none.
+        """
+        self.call_list.append(("set_markers", len(marker_data_list)))
+        for plot_id_i in self.plot_tab_dict:
+            self.marker_drawn_dict[plot_id_i] = list(marker_data_list)
 
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:
@@ -262,15 +375,29 @@ class FakePlotView:
         """
         return self.range_dict[plot_id_i]
 
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Record the tip mode.
+    def set_plot_tool(self, tool_str: str) -> None:
+        """Record the plot tool.
 
         Inputs:
-            enabled_b: the new tip mode.
+            tool_str: the new plot tool name.
         Outputs: none.
         """
-        self.call_list.append(("set_tip_mode", enabled_b))
-        self.tip_mode_b = enabled_b
+        self.call_list.append(("set_plot_tool", tool_str))
+        self.plot_tool_str = tool_str
+
+    def set_delta_first_point(self, plot_id_i: int,
+                              point_tuple: tuple) -> None:
+        """Record the dot of a delta marker's first point.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            point_tuple: (signal_name_str, time_s, value_f), or () to
+                remove the dot.
+        Outputs: none.
+        """
+        self.call_list.append(("set_delta_first_point", plot_id_i,
+                               tuple(point_tuple)))
+        self.delta_first_point_dict[plot_id_i] = tuple(point_tuple)
 
     def show_full_tab_notification(self) -> None:
         """Count a Full Tab box.
@@ -280,6 +407,31 @@ class FakePlotView:
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+
+    def show_tab_name_taken_notification(self, name_str: str) -> None:
+        """Record a Tab Name Taken box.
+
+        Inputs:
+            name_str: the name the box says is taken.
+        Outputs: none.
+        """
+        self.call_list.append(("show_tab_name_taken_notification",
+                               name_str))
+        self.tab_name_taken_list.append(name_str)
+
+    def ask_marker_name(self, current_name_str: str):
+        """Answer a marker name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of marker_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.call_list.append(("ask_marker_name", current_name_str))
+        self.marker_name_question_list.append(current_name_str)
+        if not self.marker_name_answer_list:
+            return None
+        return self.marker_name_answer_list.pop(0)
 
     def plot_id_list(self, tab_id_i: int) -> list:
         """Return the shown plots of a tab, in creation order.
@@ -557,8 +709,8 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(self.view.full_tab_count_i, 0)
         self.assertEqual(len(self.current_plot_ids()), 5)
 
-    @covers("LLFR-00070", "LLFR-00019")
-    def test_new_plot_takes_the_tab_time_range(self) -> None:
+    @covers("LLFR-00070", "LLFR-00180", "LLFR-00019")
+    def test_new_plot_takes_the_shared_time_range(self) -> None:
         """A new plot in a tab with plots gets their time range.
 
         Inputs: none.
@@ -566,17 +718,35 @@ class DoubleClickTest(PlotControllerTestCase):
         """
         self.double_click("s1")
         first_plot_id_i = self.current_plot_ids()[0]
+        self.view.set_plot_time_range(first_plot_id_i, 2.0, 4.0)
         self.view.handler_dict["time_range_handler"](first_plot_id_i,
                                                      2.0, 4.0)
-        self.view.range_dict[first_plot_id_i] = (2.0, 4.0)
         self.double_click("s2")
         second_plot_id_i = self.current_plot_ids()[1]
         self.assertEqual(self.view.range_dict[second_plot_id_i],
                          (2.0, 4.0))
 
-    @covers("LLFR-00070")
+    @covers("LLFR-00070", "LLFR-00180", "HLFR-00014")
+    def test_new_plot_in_another_tab_takes_the_shared_range(self) -> None:
+        """A plot created in a new tab shows the range zoomed elsewhere.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        first_plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](first_plot_id_i,
+                                                     1.5, 3.0)
+        self.view.handler_dict["add_tab"]()
+        self.double_click("s2")
+        new_plot_id_i = self.current_plot_ids()[0]
+        self.assertEqual(self.view.range_dict[new_plot_id_i], (1.5, 3.0))
+        self.assertEqual(self.controller.shared_time_range_tuple,
+                         (1.5, 3.0))
+
+    @covers("LLFR-00070", "LLFR-00180")
     def test_first_plot_keeps_full_range(self) -> None:
-        """The first plot of a tab shows its full range.
+        """The first plot of the workspace shows the whole time range.
 
         Inputs: none.
         Outputs: none.
@@ -585,6 +755,73 @@ class DoubleClickTest(PlotControllerTestCase):
         plot_id_i = self.current_plot_ids()[0]
         self.assertNotIn("set_plot_time_range", self.view.method_names())
         self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
+
+    @covers("LLFR-00180", "LLFR-00049")
+    def test_plot_after_deleting_every_plot_shows_whole_range(
+            self) -> None:
+        """Once every plot is gone, the next plot starts unzoomed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        self.double_click("s2")
+        first_plot_id_i, second_plot_id_i = self.current_plot_ids()
+        self.view.handler_dict["time_range_handler"](first_plot_id_i,
+                                                     2.0, 3.0)
+        self.view.handler_dict["plot_delete_handler"](first_plot_id_i)
+        # One plot is still there: the shared range is kept.
+        self.assertEqual(self.controller.shared_time_range_tuple,
+                         (2.0, 3.0))
+        self.view.handler_dict["plot_delete_handler"](second_plot_id_i)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.view.call_list.clear()
+        self.double_click("s3")
+        new_plot_id_i = self.current_plot_ids()[0]
+        self.assertNotIn("set_plot_time_range", self.view.method_names())
+        self.assertEqual(self.view.range_dict[new_plot_id_i], (0.0, 10.0))
+
+    @covers("LLFR-00180", "LLFR-00051", "LLFR-00028")
+    def test_last_plot_removed_by_curve_or_tab_resets_range(self) -> None:
+        """Removing the last curve, or the last tab with plots, also resets.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 3.0)
+        self.view.handler_dict["curve_delete_handler"](plot_id_i, "s1")
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        # A tab that holds the only plot is deleted.
+        self.view.handler_dict["add_tab"]()
+        second_tab_id_i = self.view.current_tab_id()
+        self.double_click("s2")
+        plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](plot_id_i, 4.0, 5.0)
+        self.view.handler_dict["delete_tab"](second_tab_id_i)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.double_click("s3")
+        self.assertEqual(
+            self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
+
+    @covers("LLFR-00180", "LLFR-00015")
+    def test_file_replace_resets_the_shared_range(self) -> None:
+        """A newly opened file starts with the whole time range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 3.0)
+        self.file_controller.open(make_signal_file(3), True)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
+        self.view.call_list.clear()
+        self.double_click("s1")
+        self.assertNotIn("set_plot_time_range", self.view.method_names())
+        self.assertEqual(
+            self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
 
 
 class DropTest(PlotControllerTestCase):
@@ -687,14 +924,15 @@ class DropTest(PlotControllerTestCase):
 
     @covers("LLFR-00021", "LLFR-00070")
     def test_drop_keeps_the_plot_time_range(self) -> None:
-        """Redrawing after a drop keeps the range the plot shows.
+        """Redrawing after a drop keeps the shared range of the plot.
 
         Inputs: none.
         Outputs: none.
         """
         self.double_click("s1")
         plot_id_i = self.current_plot_ids()[0]
-        self.view.range_dict[plot_id_i] = (3.0, 5.0)
+        self.view.set_plot_time_range(plot_id_i, 3.0, 5.0)
+        self.view.handler_dict["time_range_handler"](plot_id_i, 3.0, 5.0)
         self.drop(plot_id_i, "s2")
         self.assertEqual(self.view.range_dict[plot_id_i], (3.0, 5.0))
 
@@ -804,8 +1042,8 @@ class CurveAndPlotActionTest(PlotControllerTestCase):
         self.assertEqual(len(self.view.call_list), call_count_i)
 
     @covers("LLFR-00070", "HLFR-00014")
-    def test_time_range_applies_to_the_tab(self) -> None:
-        """A range change in one plot goes to the others of its tab only.
+    def test_time_range_applies_to_every_tab(self) -> None:
+        """A range change in one plot goes to every plot of every tab.
 
         Inputs: none.
         Outputs: none.
@@ -816,17 +1054,59 @@ class CurveAndPlotActionTest(PlotControllerTestCase):
         plot_id_list = self.current_plot_ids()
         self.view.handler_dict["add_tab"]()
         self.double_click("s4")
-        other_tab_plot_i = self.current_plot_ids()[0]
+        self.double_click("s5")
+        other_tab_plot_list = self.current_plot_ids()
+        # The first tab is shown again; the second one is hidden.
+        self.view.set_current_tab(self.first_tab_id())
         call_count_i = len(self.view.call_list)
         self.view.handler_dict["time_range_handler"](plot_id_list[1],
                                                      1.5, 6.0)
         set_call_list = self.view.call_list[call_count_i:]
         self.assertEqual(
             sorted(set_call_list),
-            sorted([("set_plot_time_range", plot_id_list[0], 1.5, 6.0),
-                    ("set_plot_time_range", plot_id_list[2], 1.5, 6.0)]))
-        self.assertEqual(self.view.range_dict[other_tab_plot_i],
-                         (0.0, 10.0))
+            sorted([("set_plot_time_range", plot_id_i, 1.5, 6.0)
+                    for plot_id_i in (plot_id_list[0], plot_id_list[2],
+                                      *other_tab_plot_list)]))
+        for plot_id_i in other_tab_plot_list:
+            self.assertEqual(self.view.range_dict[plot_id_i], (1.5, 6.0))
+
+    @covers("LLFR-00070")
+    def test_time_range_from_a_hidden_tab_applies_everywhere(self) -> None:
+        """A change reported by a plot of another tab reaches all plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        first_plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["add_tab"]()
+        self.double_click("s2")
+        second_plot_id_i = self.current_plot_ids()[0]
+        self.view.handler_dict["time_range_handler"](second_plot_id_i,
+                                                     7.0, 9.0)
+        self.assertEqual(self.view.range_dict[first_plot_id_i], (7.0, 9.0))
+        self.view.handler_dict["time_range_handler"](first_plot_id_i,
+                                                     1.0, 2.0)
+        self.assertEqual(self.view.range_dict[second_plot_id_i],
+                         (1.0, 2.0))
+
+    @covers("LLFR-00070")
+    def test_time_range_that_is_not_finite_is_ignored(self) -> None:
+        """A NaN or infinite range is neither stored nor applied.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        self.double_click("s2")
+        first_plot_id_i = self.current_plot_ids()[0]
+        call_count_i = len(self.view.call_list)
+        self.view.handler_dict["time_range_handler"](
+            first_plot_id_i, float("nan"), 2.0)
+        self.view.handler_dict["time_range_handler"](
+            first_plot_id_i, 1.0, float("inf"))
+        self.assertEqual(len(self.view.call_list), call_count_i)
+        self.assertEqual(self.controller.shared_time_range_tuple, ())
 
     @covers("LLFR-00070")
     def test_time_range_of_unknown_plot_is_ignored(self) -> None:
@@ -844,20 +1124,20 @@ class TipTest(PlotControllerTestCase):
     """Tip button, pinned tips (HLFR-00024, HLFR-00025)."""
 
     @covers("LLFR-00042", "HLFR-00024")
-    def test_tip_button_sets_tip_mode(self) -> None:
-        """Tip on and off is passed to the view.
+    def test_tip_button_sets_tip_tool(self) -> None:
+        """Tip on and off is passed to the view as the plot tool.
 
         Inputs: none.
         Outputs: none.
         """
-        self.view.handler_dict["tip_mode"](True)
-        self.assertTrue(self.view.tip_mode_b)
-        self.assertTrue(self.controller.tip_mode_b)
-        self.view.handler_dict["tip_mode"](False)
-        self.assertFalse(self.view.tip_mode_b)
+        self.view.handler_dict["plot_tool"]("tip")
+        self.assertEqual(self.view.plot_tool_str, "tip")
+        self.assertEqual(self.controller.plot_tool_str, "tip")
+        self.view.handler_dict["plot_tool"]("")
+        self.assertEqual(self.view.plot_tool_str, "")
         self.assertEqual([call_tuple for call_tuple in self.view.call_list
-                          if call_tuple[0] == "set_tip_mode"],
-                         [("set_tip_mode", True), ("set_tip_mode", False)])
+                          if call_tuple[0] == "set_plot_tool"],
+                         [("set_plot_tool", "tip"), ("set_plot_tool", "")])
 
     @covers("LLFR-00045", "HLFR-00025")
     def test_pin_stores_and_draws_tip(self) -> None:
@@ -873,8 +1153,8 @@ class TipTest(PlotControllerTestCase):
         self.view.handler_dict["tip_pin_handler"](plot_id_i, "s1", 4.0,
                                                   4.0)
         curve_data_list, pinned_tip_list = self.view.drawn_dict[plot_id_i]
-        self.assertEqual(pinned_tip_list, [("s1", 2.0, 2.0),
-                                           ("s1", 4.0, 4.0)])
+        self.assertEqual(pinned_tip_list, [("s1", 2.0, 2.0, ()),
+                                           ("s1", 4.0, 4.0, ())])
         self.assertEqual(len(curve_data_list), 1)
         self.assertEqual(len(self.workspace.find_plot(plot_id_i)
                              .pinned_tip_list), 2)
@@ -908,7 +1188,7 @@ class TipTest(PlotControllerTestCase):
                                                       time_s, time_s)
         self.view.handler_dict["pinned_tip_delete_handler"](plot_id_i, 1)
         self.assertEqual(self.view.drawn_dict[plot_id_i][1],
-                         [("s1", 1.0, 1.0), ("s1", 3.0, 3.0)])
+                         [("s1", 1.0, 1.0, ()), ("s1", 3.0, 3.0, ())])
         call_count_i = len(self.view.call_list)
         for tip_index_i in (-1, 2, 7):
             self.view.handler_dict["pinned_tip_delete_handler"](
@@ -932,7 +1212,7 @@ class TipTest(PlotControllerTestCase):
                                                   2.0)
         self.view.handler_dict["curve_delete_handler"](plot_id_i, "s1")
         self.assertEqual(self.view.drawn_dict[plot_id_i][1],
-                         [("s2", 1.0, 2.0)])
+                         [("s2", 1.0, 2.0, ())])
 
 
 class TabActionTest(PlotControllerTestCase):
@@ -951,6 +1231,35 @@ class TabActionTest(PlotControllerTestCase):
         self.assertEqual(self.view.current_tab_id(),
                          self.workspace.tab_list[1].tab_id_i)
         self.assertTrue(self.view.delete_enabled_b)
+
+    @covers("LLFR-00210", "LLFR-00026", "LLFR-00028", "LLFR-00138",
+            "LLFR-00016", "HLFR-00015")
+    def test_tab_numbers_not_reused_until_a_file_opens(self) -> None:
+        """Deleted and undone tab numbers stay used; a file restarts them.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.handler_dict["add_tab"]()
+        second_tab_id_i = self.view.current_tab_id()
+        self.view.handler_dict["add_tab"]()
+        self.view.handler_dict["delete_tab"](second_tab_id_i)
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 4"])
+        # LLFR-00210: undoing the add of Tab 4 does not free its number.
+        self.view.handler_dict["undo"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3"])
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 5"])
+        # LLFR-00210, LLFR-00016: a replaced file restarts at Tab 1.
+        self.file_controller.open(make_signal_file(2), True)
+        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
 
     @covers("LLFR-00028", "LLFR-00066", "HLFR-00016")
     def test_delete_tab_removes_it_but_never_the_last(self) -> None:
@@ -1000,6 +1309,141 @@ class TabActionTest(PlotControllerTestCase):
         self.view.handler_dict["rename_tab"](999, "x")
         self.assertEqual(len(self.view.call_list), call_count_i)
         self.assertEqual(self.view.tab_dict[tab_id_i], "Tab 1")
+
+
+class UniqueTabNameTest(PlotControllerTestCase):
+    """Tabs never share a name (LLFR-00211, LLFR-00212)."""
+
+    def setUp(self) -> None:
+        """Open a file and add a second tab, "Tab 2".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().setUp()
+        self.view.handler_dict["add_tab"]()
+        self.second_tab_id_i = self.view.current_tab_id()
+
+    def rename(self, tab_id_i: int, name_str: str) -> None:
+        """Run the rename handler.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            name_str: the typed name.
+        Outputs: none.
+        """
+        self.view.handler_dict["rename_tab"](tab_id_i, name_str)
+
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    def test_rename_to_another_tab_name_is_refused(self) -> None:
+        """The previous name is kept and the box names the taken name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        call_count_i = len(self.view.call_list)
+        self.rename(self.second_tab_id_i, "Tab 1")
+        self.assertEqual(self.view.call_list[call_count_i:],
+                         [("show_tab_name_taken_notification", "Tab 1")])
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+        self.assertEqual(
+            self.workspace.find_tab(self.second_tab_id_i).name_str, "Tab 2")
+        self.assertEqual(self.view.full_tab_count_i, 0)
+
+    @covers("LLFR-00211", "HLFR-00017")
+    def test_surrounding_spaces_do_not_avoid_the_conflict(self) -> None:
+        """"  Tab 1 " is the name of Tab 1; the box shows it trimmed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.first_tab_id(), "Engine")
+        self.rename(self.second_tab_id_i, "  Engine \t")
+        self.assertEqual(self.view.tab_name_taken_list, ["Engine"])
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Engine", "Tab 2"])
+
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    def test_own_name_and_other_case_are_accepted(self) -> None:
+        """A tab's own name and a name differing only in case are free.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.second_tab_id_i, " Tab 2 ")
+        self.rename(self.second_tab_id_i, "tab 1")
+        self.assertEqual(self.view.tab_name_taken_list, [])
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "tab 1"])
+        self.rename(self.second_tab_id_i, "TAB 1")
+        self.assertEqual(self.view.tab_dict[self.second_tab_id_i], "TAB 1")
+        self.assertEqual(self.view.tab_name_taken_list, [])
+
+    @covers("LLFR-00211", "LLFR-00067")
+    def test_blank_name_shows_no_box(self) -> None:
+        """A blank name is still refused silently, not as a conflict.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.first_tab_id(), "   ")
+        self.assertEqual(self.view.tab_name_taken_list, [])
+        self.assertEqual(self.view.tab_dict[self.first_tab_id()], "Tab 1")
+
+    @covers("LLFR-00211", "LLFR-00140")
+    def test_refused_rename_records_no_undo_step(self) -> None:
+        """A refused rename leaves the undo history as it was.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.undo_history.clear()
+        self.view.set_undo_enabled(False)
+        self.rename(self.second_tab_id_i, "Tab 1")
+        self.assertFalse(self.controller.undo_history.can_undo())
+        # LLFR-00140: an accepted rename is still recorded.
+        self.rename(self.second_tab_id_i, "Brakes")
+        self.assertTrue(self.controller.undo_history.can_undo())
+        self.view.handler_dict["undo"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+        self.assertFalse(self.controller.undo_history.can_undo())
+
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00026", "HLFR-00015")
+    def test_new_tab_skips_a_renamed_tab_name(self) -> None:
+        """A tab renamed "Tab 3" makes the next new tab "Tab 4".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.rename(self.second_tab_id_i, "Tab 3")
+        self.view.handler_dict["add_tab"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 4"])
+        self.assertEqual(len(set(self.view.tab_dict.values())), 3)
+
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00138")
+    def test_undo_keeps_tab_names_unique(self) -> None:
+        """An undone rename and later adds never give two equal names.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # Tab 2 renamed "Tab 5"; undo brings back "Tab 2" after Tab 3
+        # was added, and new tabs then skip nothing but used numbers.
+        self.rename(self.second_tab_id_i, "Tab 5")
+        self.view.handler_dict["add_tab"]()
+        self.view.handler_dict["undo"]()
+        self.view.handler_dict["undo"]()
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 2"])
+        for _ in range(3):
+            self.view.handler_dict["add_tab"]()
+        name_list = list(self.view.tab_dict.values())
+        self.assertEqual(name_list,
+                         ["Tab 1", "Tab 2", "Tab 4", "Tab 5", "Tab 6"])
+        self.assertEqual(len(set(name_list)), len(name_list))
 
 
 if __name__ == "__main__":

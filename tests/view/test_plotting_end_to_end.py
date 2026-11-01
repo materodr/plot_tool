@@ -253,8 +253,8 @@ class PlottingEndToEndTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
 
     @covers("LLFR-00042", "HLFR-00024")
-    def test_tip_button_sets_tip_mode(self) -> None:
-        """The Tip button turns tip mode on and off in every plot.
+    def test_tip_button_sets_tip_tool(self) -> None:
+        """The Tip button turns the Tip tool on and off in every plot.
 
         Inputs: none.
         Outputs: none.
@@ -263,13 +263,13 @@ class PlottingEndToEndTest(unittest.TestCase):
         self.double_click_signal("force")
         tip_button = self.main_window.top_panel.tip_button
         tip_button.click()
-        self.assertTrue(all(plot_widget.tip_mode_b
+        self.assertTrue(all(plot_widget.plot_tool_str == "tip"
                             for plot_widget in self.current_plot_widgets()))
         self.double_click_signal("angle")
-        self.assertTrue(self.current_plot_widgets()[2].tip_mode_b)
+        self.assertEqual(self.current_plot_widgets()[2].plot_tool_str, "tip")
         tip_button.click()
-        self.assertFalse(any(plot_widget.tip_mode_b
-                             for plot_widget in self.current_plot_widgets()))
+        self.assertTrue(all(plot_widget.plot_tool_str == ""
+                            for plot_widget in self.current_plot_widgets()))
 
     @covers("LLFR-00045", "LLFR-00047", "HLFR-00025")
     def test_pin_and_delete_tip(self) -> None:

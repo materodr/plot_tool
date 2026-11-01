@@ -719,13 +719,13 @@ class FormatAndAccessTest(TemporaryFolderTest):
 
     @covers("HLFR-00005")
     def test_supported_extensions(self) -> None:
-        """The supported extensions are exactly CSV, XLSX and MAT.
+        """The supported extensions are exactly CSV, XLSX, MAT and HDF5.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(SUPPORTED_EXTENSION_TUPLE,
-                         (".csv", ".xlsx", ".mat"))
+                         (".csv", ".xlsx", ".mat", ".h5", ".hdf5"))
 
     @covers("LLFR-00009", "HLFR-00002")
     def test_missing_file(self) -> None:

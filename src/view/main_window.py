@@ -1,12 +1,22 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QFileDialog, QMainWindow, QSplitter, QVBoxLayout, QWidget)
+    QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
+    QLineEdit, QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout,
+    QWidget)
 
-from view import message_boxes
+from controller.plot_tools import (
+    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    TIP_TOOL_STR)
+from view import icons, message_boxes, plot_export, theme
+from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
+from view.tip_key_filter import (
+    DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I, RESET_ZOOM_KEY_I, TIP_KEY_I,
+    ToolKeyFilter)
 from view.top_panel import TopPanel
 
 
@@ -14,7 +24,26 @@ from view.top_panel import TopPanel
 # lets the user pick an unsupported file, which then gets the error of
 # LLFR-00011.
 OPEN_FILE_DIALOG_TITLE_STR = "Open file"
-OPEN_FILE_FILTER_STR = "Time series files (*.csv *.xlsx *.mat);;All files (*)"
+OPEN_FILE_FILTER_STR = ("Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)"
+                        ";;All files (*)")
+# LLFR-00088: title and label of the marker rename dialog.
+RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
+RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
+# LLFR-00128: title and filter of the PDF save file dialog.
+SAVE_PDF_DIALOG_TITLE_STR = "Save all tabs as PDF"
+SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
+# LLFR-00128: added by the dialog to a name typed without an extension,
+# so that its overwrite question names the file really written.
+SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
+# LLFR-00196, LLFR-00195: widgets whose own Ctrl+Z (Cmd+Z) and Ctrl+Y
+# (Cmd+Y) act on the typed text, so the workspace undo and redo must not
+# run while one of them has the focus.
+TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
+                           QAbstractSpinBox)
+# LLFR-00191: the Redo shortcut. "Ctrl" is the Command key on macOS in a
+# portable key sequence, so this is Ctrl+Y on Windows and Cmd+Y on
+# macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS).
+REDO_SHORTCUT_STR = "Ctrl+Y"
 
 
 class MainWindow(QMainWindow):
@@ -35,8 +64,11 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE_STR = "plot_tool"
     INITIAL_WIDTH_I = 1200
     INITIAL_HEIGHT_I = 800
-    PLOT_PANEL_STRETCH_I = 4
+    # LLFR-00072: the signal list panel starts at 25% of the width and
+    # keeps that share (3:1) when the window grows or shrinks.
+    PLOT_PANEL_STRETCH_I = 3
     SIGNAL_LIST_STRETCH_I = 1
+    SIGNAL_LIST_WIDTH_FRACTION_F = 0.25
 
     def __init__(self) -> None:
         """Create the panels and arrange them in the window.
@@ -45,24 +77,40 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         super().__init__()
+        # LLFR-00058: one style sheet and one plot style for the whole
+        # application, from view.theme.
+        theme.apply_application_theme(QApplication.instance())
         # LLFR-00058: the window holds the three panels of HLFR-00001.
         self.setWindowTitle(self.WINDOW_TITLE_STR)
+        # LLFR-00182: the app icon in the title bar and, set on the
+        # application, in the Dock and app switcher (macOS) and the
+        # taskbar (Windows) when the app is run from source.
+        self.setWindowIcon(icons.app_icon())
+        if QApplication.instance() is not None:
+            QApplication.instance().setWindowIcon(self.windowIcon())
         self.resize(self.INITIAL_WIDTH_I, self.INITIAL_HEIGHT_I)
         self.top_panel = TopPanel()
         self.plot_panel = PlotPanel()
         self.signal_list_panel = SignalListPanel()
 
         # LLFR-00058: the signal list panel is to the right of the plot
-        # panel, and the user can drag the divider between them.
-        self.lower_splitter = QSplitter(Qt.Orientation.Horizontal)
+        # panel. LLFR-00073: the user can drag the border between them.
+        self.lower_splitter = PanelSplitter(
+            self.SIGNAL_LIST_WIDTH_FRACTION_F)
         self.lower_splitter.addWidget(self.plot_panel)
         self.lower_splitter.addWidget(self.signal_list_panel)
         self.lower_splitter.setStretchFactor(0, self.PLOT_PANEL_STRETCH_I)
         self.lower_splitter.setStretchFactor(1, self.SIGNAL_LIST_STRETCH_I)
+        # LLFR-00073: a comfortable handle to grab between the panels.
+        self.lower_splitter.setHandleWidth(theme.SPLITTER_HANDLE_WIDTH_I)
 
         # LLFR-00058: the top panel is above the other two panels.
         central_widget = QWidget()
         central_layout = QVBoxLayout(central_widget)
+        central_layout.setContentsMargins(
+            theme.WINDOW_MARGIN_I, theme.WINDOW_TOP_MARGIN_I,
+            theme.WINDOW_MARGIN_I, theme.WINDOW_MARGIN_I)
+        central_layout.setSpacing(theme.PANEL_SPACING_I)
         central_layout.addWidget(self.top_panel)
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)
@@ -70,15 +118,76 @@ class MainWindow(QMainWindow):
         # LLFR-00005: handlers set by the controllers.
         self.open_file_handler = None
         self.signal_double_click_handler = None
-        self.tip_mode_handler = None
+        self.plot_tool_handler = None
+        # LLFR-00079: the tool applied to every plot, now and later.
+        self.plot_tool_str = NO_TOOL_STR
         self.top_panel.open_file_button.activated.connect(
             self._on_open_file_activated)
-        self.top_panel.tip_button.activated.connect(
-            self._on_tip_activated)
-        self.top_panel.tip_button.deactivated.connect(
-            self._on_tip_deactivated)
+        # LLFR-00079, LLFR-00002: the top panel reports the active tool.
+        self.top_panel.plot_tool_changed.connect(self._on_plot_tool_changed)
         self.signal_list_panel.signal_double_clicked.connect(
             self._on_signal_double_clicked)
+        # LLFR-00095: the search text goes to the signal list controller.
+        self.search_text_handler = None
+        self.signal_list_panel.search_text_changed.connect(
+            self._on_search_text_changed)
+        # LLFR-00115: the Reset zoom button goes to the plot controller.
+        self.reset_zoom_handler = None
+        self.top_panel.reset_zoom_button.triggered.connect(
+            self._on_reset_zoom_triggered)
+        # LLFR-00122, LLFR-00123: the Grid button goes to the plot
+        # controller. LLFR-00147: the grid is hidden at start; the
+        # choice applies to every plot, now and later (LLFR-00125).
+        self.grid_handler = None
+        self.grid_shown_b = False
+        self.top_panel.grid_button.activated.connect(
+            lambda: self._on_grid_clicked(True))
+        self.top_panel.grid_button.deactivated.connect(
+            lambda: self._on_grid_clicked(False))
+        # LLFR-00127, LLFR-00133: the export controller saves the PDF
+        # and copies the image.
+        self.pdf_export_handler = None
+        self.copy_handler = None
+        self.top_panel.pdf_export_requested.connect(
+            self._on_pdf_export_requested)
+        self.top_panel.copy_requested.connect(self._on_copy_requested)
+        # LLFR-00148 to LLFR-00150: holding the Tip key keeps the Tip
+        # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
+        # Vertical marker tool active; LLFR-00197 to LLFR-00202: holding
+        # X or Y keeps the Delta X or Delta Y tool active; LLFR-00207: Z
+        # alone resets the zoom; LLFR-00157: none of them in text fields.
+        # The filter sees the keys of every widget and dialog of the
+        # application, and consumes none.
+        self.tip_key_changing_tool_b = False
+        self.tool_key_filter = ToolKeyFilter(
+            {TIP_KEY_I: TIP_TOOL_STR, MARKER_KEY_I: MARKER_TOOL_STR,
+             DELTA_X_KEY_I: DELTA_X_TOOL_STR,
+             DELTA_Y_KEY_I: DELTA_Y_TOOL_STR},
+            self.on_tool_key_activate, self.on_tool_key_release,
+            TEXT_INPUT_WIDGET_TUPLE, self,
+            {RESET_ZOOM_KEY_I: self.on_reset_zoom_key})
+        # LLFR-00148: the name used before the Shift key was added.
+        self.tip_key_filter = self.tool_key_filter
+        application = QApplication.instance()
+        if application is not None:
+            application.installEventFilter(self.tool_key_filter)
+        # LLFR-00136, LLFR-00138: the Undo button goes to the plot
+        # controller. LLFR-00137: so does Ctrl+Z (Cmd+Z on macOS, which
+        # QKeySequence.StandardKey.Undo maps to), in this window.
+        self.undo_handler = None
+        self.top_panel.undo_button.triggered.connect(
+            self._on_undo_triggered)
+        self.undo_shortcut = QShortcut(QKeySequence.StandardKey.Undo, self)
+        self.undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.undo_shortcut.activated.connect(self._on_undo_shortcut)
+        # LLFR-00190, LLFR-00192: the Redo button goes to the plot
+        # controller; LLFR-00191: so does Ctrl+Y (Cmd+Y on macOS).
+        self.redo_handler = None
+        self.top_panel.redo_button.triggered.connect(
+            self._on_redo_triggered)
+        self.redo_shortcut = QShortcut(QKeySequence(REDO_SHORTCUT_STR), self)
+        self.redo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.redo_shortcut.activated.connect(self._on_redo_shortcut)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -91,17 +200,21 @@ class MainWindow(QMainWindow):
         # LLFR-00005: the controller shows the dialog through ``handler``.
         self.open_file_handler = handler
 
-    def ask_open_file_path(self) -> str:
+    def ask_open_file_path(self, start_folder_str: str = "") -> str:
         """Show the file selection dialog and return the chosen path.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: folder the dialog shows when it opens; ""
+                lets Qt choose.
         Outputs: the path of the selected file, or "" when the user
             cancelled the dialog.
         """
         # LLFR-00005: show the file selection dialog.
         # LLFR-00007: an empty path means the dialog was cancelled.
+        # LLFR-00204: the folder is chosen by the file controller.
         path_str, _ = QFileDialog.getOpenFileName(
-            self, OPEN_FILE_DIALOG_TITLE_STR, "", OPEN_FILE_FILTER_STR)
+            self, OPEN_FILE_DIALOG_TITLE_STR, start_folder_str,
+            OPEN_FILE_FILTER_STR)
         return path_str or ""
 
     def finish_open_file_button(self) -> None:
@@ -143,6 +256,37 @@ class MainWindow(QMainWindow):
         # LLFR-00017, LLFR-00054: replace the shown names.
         self.signal_list_panel.show_signal_names(signal_name_list)
 
+    def set_search_text_handler(self, handler) -> None:
+        """Set the function called when the search box text changes.
+
+        Inputs:
+            handler: a function taking the new text (str).
+        Outputs: none.
+        """
+        # LLFR-00095: the signal list controller filters the list.
+        self.search_text_handler = handler
+
+    def show_no_match_message(self, visible_b: bool,
+                              message_str: str) -> None:
+        """Show or hide the no-match text in the signal list.
+
+        Inputs:
+            visible_b: True when no signal matches the search.
+            message_str: the text to show ("No matching signals").
+        Outputs: none.
+        """
+        # LLFR-00097: tell the user that no signal matches.
+        self.signal_list_panel.show_no_match_message(visible_b, message_str)
+
+    def clear_search(self) -> None:
+        """Empty the search box of the signal list panel.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00104: the search is cleared when the file is replaced.
+        self.signal_list_panel.clear_search()
+
     def set_signal_double_click_handler(self, handler) -> None:
         """Set the function called when a signal name is double-clicked.
 
@@ -153,16 +297,251 @@ class MainWindow(QMainWindow):
         # LLFR-00019: the plot controller creates a plot through it.
         self.signal_double_click_handler = handler
 
-    def set_tip_mode_handler(self, handler) -> None:
-        """Set the function called when the Tip button changes state.
+    def set_plot_tool_handler(self, handler) -> None:
+        """Set the function called when the active plot tool changes.
 
         Inputs:
-            handler: a function taking True when the Tip button becomes
-                active and False when it is deactivated.
+            handler: a function taking the new tool name (a str of
+                controller.plot_tools), NO_TOOL_STR when no tool is
+                active any more.
         Outputs: none.
         """
-        # LLFR-00042: the hover tip is shown while Tip is active.
-        self.tip_mode_handler = handler
+        # LLFR-00079, LLFR-00002, LLFR-00109: the controller is told of
+        # every change of the plot tool.
+        self.plot_tool_handler = handler
+
+    def set_plot_tool(self, tool_str: str) -> None:
+        """Apply a plot tool to every plot, now and to plots made later.
+
+        Inputs:
+            tool_str: the tool name, NO_TOOL_STR for none.
+        Outputs: none. The tool buttons are shown to match.
+        """
+        # LLFR-00079: the buttons always show the tool in use.
+        self.plot_tool_str = tool_str
+        self.top_panel.show_plot_tool(tool_str)
+        # LLFR-00042, LLFR-00045, LLFR-00078: every plot reacts to the
+        # mouse according to the tool.
+        for plot_widget in self.plot_panel.plot_widget_dict.values():
+            plot_widget.set_plot_tool(tool_str)
+
+    def current_plot_tool(self) -> str:
+        """Return the plot tool applied to the plots.
+
+        Inputs: none.
+        Outputs: the tool name, NO_TOOL_STR when none is active.
+        """
+        # LLFR-00079, LLFR-00109: the tool stays until it is changed.
+        return self.plot_tool_str
+
+    def on_tool_key_activate(self, tool_str: str) -> None:
+        """Make a tool active because its tool key is held alone.
+
+        Inputs:
+            tool_str: TIP_TOOL_STR for the Tip key, MARKER_TOOL_STR for
+                the Shift key, DELTA_X_TOOL_STR for X, DELTA_Y_TOOL_STR
+                for Y.
+        Outputs: none. The tool change goes the same way as a click on
+            the tool's button, so the controller is told of it.
+        """
+        # LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200: the tool's
+        # button becomes active and the other tool buttons are
+        # deactivated as in LLFR-00079.
+        self.tip_key_changing_tool_b = True
+        try:
+            self.top_panel.plot_tool_button_dict[tool_str].setChecked(True)
+            self.top_panel.activate_plot_tool(tool_str)
+        finally:
+            self.tip_key_changing_tool_b = False
+
+    def on_tool_key_release(self) -> None:
+        """Leave no plot tool active because a tool key hold ended.
+
+        Inputs: none.
+        Outputs: none. The tool change goes the same way as a second
+            click on the active tool button.
+        """
+        # LLFR-00149, LLFR-00150, LLFR-00155, LLFR-00156, LLFR-00157,
+        # LLFR-00198, LLFR-00199, LLFR-00201, LLFR-00202: no plot tool is
+        # active afterwards, whatever tool was active before the tool key
+        # was pressed. LLFR-00167: leaving a delta tool discards its
+        # first point, as for a click on its button.
+        self.tip_key_changing_tool_b = True
+        try:
+            self.top_panel.show_plot_tool(NO_TOOL_STR)
+            self.top_panel.deactivate_plot_tools()
+        finally:
+            self.tip_key_changing_tool_b = False
+
+    def is_mouse_drag_in_progress(self) -> bool:
+        """Tell whether the user is dragging the mouse on a plot.
+
+        Inputs: none.
+        Outputs: True during a pan, a marker or tip drag or a time span
+            selection on any plot.
+        """
+        # LLFR-00207: the Z key does nothing during a mouse drag.
+        return self.plot_panel.is_mouse_drag_in_progress()
+
+    def on_reset_zoom_key(self) -> None:
+        """Reset the zoom because the Z key was pressed alone.
+
+        Inputs: none.
+        Outputs: none. Nothing happens during a mouse drag, or while a
+            modal dialog or a menu of the application is open.
+        """
+        # LLFR-00207: during a pan, a marker or tip drag or a time span
+        # selection, Z does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
+        # LLFR-00207: the zoom is reset in the main window, not behind a
+        # message box, a name dialog or an open menu.
+        if (QApplication.activeModalWidget() is not None
+                or QApplication.activePopupWidget() is not None):
+            return
+        # LLFR-00207, LLFR-00115, LLFR-00116: exactly as a click on the
+        # Reset zoom button, with its active color for at least 0.3 s.
+        self.top_panel.reset_zoom_button.click()
+
+    def set_reset_zoom_handler(self, handler) -> None:
+        """Set the function called when Reset zoom is clicked.
+
+        Inputs:
+            handler: a function without arguments that resets the zoom
+                of the current tab.
+        Outputs: none.
+        """
+        # LLFR-00115: the controller resets the plots of the current tab.
+        self.reset_zoom_handler = handler
+
+    def finish_reset_zoom_button(self) -> None:
+        """Tell the Reset zoom button that the reset has finished.
+
+        Inputs: none.
+        Outputs: none. The button turns normal once it has been active
+            for at least 0.3 s.
+        """
+        # LLFR-00003, LLFR-00116: normal after the reset and 0.3 s.
+        self.top_panel.reset_zoom_button.finish()
+
+    def set_grid_handler(self, handler) -> None:
+        """Set the function called when the Grid button is clicked.
+
+        Inputs:
+            handler: a function taking True (show the grid) or False
+                (hide it).
+        Outputs: none.
+        """
+        # LLFR-00122, LLFR-00123: the controller keeps the grid state.
+        self.grid_handler = handler
+
+    def set_grid_shown(self, shown_b: bool) -> None:
+        """Show or hide the grid on every plot, now and on later plots.
+
+        Inputs:
+            shown_b: True to show the grid, False to hide it.
+        Outputs: none. The Grid button is shown to match.
+        """
+        # LLFR-00124: the Grid button is active while the grid is shown;
+        # setChecked emits no click, so nothing is reported back.
+        self.grid_shown_b = bool(shown_b)
+        self.top_panel.grid_button.setChecked(self.grid_shown_b)
+        # LLFR-00122, LLFR-00123: every plot in every tab.
+        for plot_widget in self.plot_panel.plot_widget_dict.values():
+            plot_widget.set_grid_shown(self.grid_shown_b)
+
+    def is_grid_shown(self) -> bool:
+        """Return whether the grid is applied to the plots.
+
+        Inputs: none.
+        Outputs: True while the grid is shown.
+        """
+        # LLFR-00124, LLFR-00125: the state new plots take.
+        return self.grid_shown_b
+
+    def set_undo_handler(self, handler) -> None:
+        """Set the function called by the Undo button and its shortcut.
+
+        Inputs:
+            handler: a function without arguments that undoes the most
+                recent undoable action.
+        Outputs: none.
+        """
+        # LLFR-00138: the controller restores the previous state.
+        self.undo_handler = handler
+
+    def set_undo_enabled(self, enabled_b: bool) -> None:
+        """Enable the Undo button, or disable it and show it paler.
+
+        Inputs:
+            enabled_b: True while an action can be undone.
+        Outputs: none.
+        """
+        # LLFR-00141: disabled and paler when nothing is left to undo.
+        self.top_panel.undo_button.setEnabled(bool(enabled_b))
+
+    def is_undo_enabled(self) -> bool:
+        """Tell whether the Undo button is enabled.
+
+        Inputs: none.
+        Outputs: True while an action can be undone.
+        """
+        # LLFR-00141: the state the shortcut follows too.
+        return self.top_panel.undo_button.isEnabled()
+
+    def run_undo(self) -> None:
+        """Run the undo handler when an action can be undone.
+
+        Inputs: none.
+        Outputs: none. Does nothing while the Undo button is disabled.
+        """
+        # LLFR-00141: with nothing to undo, nothing happens.
+        if not self.is_undo_enabled() or self.undo_handler is None:
+            return
+        # LLFR-00138: reverse the most recent undoable action.
+        self.undo_handler()
+
+    def set_redo_handler(self, handler) -> None:
+        """Set the function called by the Redo button and its shortcut.
+
+        Inputs:
+            handler: a function without arguments that reapplies the
+                most recently undone action.
+        Outputs: none.
+        """
+        # LLFR-00192: the controller restores the state after the action.
+        self.redo_handler = handler
+
+    def set_redo_enabled(self, enabled_b: bool) -> None:
+        """Enable the Redo button, or disable it and show it paler.
+
+        Inputs:
+            enabled_b: True while an undone action can be redone.
+        Outputs: none.
+        """
+        # LLFR-00194: disabled and paler when nothing is left to redo.
+        self.top_panel.redo_button.setEnabled(bool(enabled_b))
+
+    def is_redo_enabled(self) -> bool:
+        """Tell whether the Redo button is enabled.
+
+        Inputs: none.
+        Outputs: True while an undone action can be redone.
+        """
+        # LLFR-00194: the state the shortcut follows too.
+        return self.top_panel.redo_button.isEnabled()
+
+    def run_redo(self) -> None:
+        """Run the redo handler when an undone action can be redone.
+
+        Inputs: none.
+        Outputs: none. Does nothing while the Redo button is disabled.
+        """
+        # LLFR-00194: with nothing to redo, nothing happens.
+        if not self.is_redo_enabled() or self.redo_handler is None:
+            return
+        # LLFR-00192: reapply the most recently undone action.
+        self.redo_handler()
 
     # ----------------------------------------------------------------
     # Plot panel facade, used by the plot controller (plain types only)
@@ -284,6 +663,12 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00019, LLFR-00069: the new plot goes below the others.
         self.plot_panel.add_plot_view(tab_id_i, plot_id_i)
+        # LLFR-00042, LLFR-00078: a new plot starts with the active tool.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_plot_tool(self.plot_tool_str)
+            # LLFR-00125: a new plot shows the grid while it is shown.
+            plot_widget.set_grid_shown(self.grid_shown_b)
 
     def remove_plot_view(self, plot_id_i: int) -> None:
         """Remove a plot from its tab.
@@ -306,14 +691,21 @@ class MainWindow(QMainWindow):
         return self.plot_panel.plot_view(plot_id_i)
 
     def draw_plot(self, plot_id_i: int, curve_data_list: list,
-                  pinned_tip_list: list) -> None:
-        """Draw the curves and pinned tips of a plot.
+                  pinned_tip_list: list, marker_data_list=(),
+                  delta_marker_data_list=()) -> None:
+        """Draw the curves, tips, vertical and delta markers of a plot.
 
         Inputs:
             plot_id_i: id of the plot.
             curve_data_list: tuples (signal_name_str, time_array,
                 value_array, color_str, width_i).
-            pinned_tip_list: tuples (signal_name_str, time_s, value_f).
+            pinned_tip_list: tuples (signal_name_str, time_s, value_f,
+                label_offset_tuple); see PlotWidget.set_pinned_tips.
+            marker_data_list: tuples (marker_id_i, name_str, time_s), the
+                vertical markers shared by every plot (LLFR-00205).
+            delta_marker_data_list: tuples (delta_marker_id_i, kind_str,
+                first_point_tuple, second_point_tuple, delta_f); see
+                PlotWidget.set_delta_markers.
         Outputs: none. The plot shows the full time range afterwards.
         """
         # LLFR-00020, LLFR-00021, LLFR-00068: draw against time.
@@ -323,6 +715,38 @@ class MainWindow(QMainWindow):
             return
         plot_widget.set_curves(curve_data_list)
         plot_widget.set_pinned_tips(pinned_tip_list)
+        # LLFR-00081, LLFR-00091, LLFR-00112: draw the markers.
+        plot_widget.set_markers(marker_data_list)
+        # LLFR-00168, LLFR-00170, LLFR-00176: draw the delta markers.
+        plot_widget.set_delta_markers(delta_marker_data_list)
+
+    def set_markers(self, marker_data_list: list) -> None:
+        """Draw the shared vertical markers on every plot of every tab.
+
+        Inputs:
+            marker_data_list: tuples (marker_id_i, name_str, time_s), in
+                placing order.
+        Outputs: none. Only the markers are drawn again.
+        """
+        # LLFR-00205: every marker on every plot, after it was placed,
+        # moved, renamed or deleted on any of them.
+        self.plot_panel.set_markers(marker_data_list)
+
+    def set_delta_first_point(self, plot_id_i: int,
+                              point_tuple: tuple) -> None:
+        """Show or remove the dot of a delta marker's first point.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            point_tuple: (signal_name_str, time_s, value_f), or () to
+                remove the dot.
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00163, LLFR-00164, LLFR-00167: the controller keeps the
+        # first point; the plot only draws its dot.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_delta_first_point(point_tuple)
 
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:
@@ -352,15 +776,24 @@ class MainWindow(QMainWindow):
             return ()
         return plot_widget.time_range_tuple()
 
-    def set_tip_mode(self, enabled_b: bool) -> None:
-        """Turn hover tips on or off in every plot, now and later.
+    def ask_marker_name(self, current_name_str: str):
+        """Let the user type a new name for a vertical marker.
 
         Inputs:
-            enabled_b: True while the Tip button is active.
-        Outputs: none.
+            current_name_str: the marker's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when the user
+            cancelled the dialog.
         """
-        # LLFR-00042: tips only while the Tip button is active.
-        self.plot_panel.set_tip_mode(enabled_b)
+        # LLFR-00088: the dialog starts from the current name.
+        # LLFR-00089: a blank answer is returned as typed; the
+        # controller keeps the old name without a message.
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, RENAME_MARKER_DIALOG_TITLE_STR,
+            RENAME_MARKER_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
+            current_name_str)
+        if not accepted_b:
+            return None
+        return str(new_name_str)
 
     def show_full_tab_notification(self) -> None:
         """Show the Full Tab Notification box.
@@ -370,6 +803,215 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00032: the tab is full; add a tab or delete a plot.
         message_boxes.show_full_tab_notification(self)
+
+    def show_tab_name_taken_notification(self, name_str: str) -> None:
+        """Show the Tab Name Taken box.
+
+        Inputs:
+            name_str: the name the user typed, without surrounding spaces.
+        Outputs: none.
+        """
+        # LLFR-00211: another tab already has the typed name.
+        message_boxes.show_tab_name_taken_notification(self, name_str)
+
+    # ----------------------------------------------------------------
+    # Export facade, used by the export controller (plain types only)
+    # ----------------------------------------------------------------
+
+    def set_export_handlers(self, pdf_export_handler,
+                            copy_handler) -> None:
+        """Set the functions called by the Export menu and Copy button.
+
+        Inputs:
+            pdf_export_handler: function without arguments, called when
+                "Save all tabs as PDF" is chosen.
+            copy_handler: function without arguments, called when the
+                Copy button is clicked.
+        Outputs: none.
+        """
+        # LLFR-00128, LLFR-00133: the controller runs the flows.
+        self.pdf_export_handler = pdf_export_handler
+        self.copy_handler = copy_handler
+
+    def exportable_tab_count(self) -> int:
+        """Return the number of tabs that hold at least one plot.
+
+        Inputs: none.
+        Outputs: an int.
+        """
+        # LLFR-00129, LLFR-00145: the tabs that get a PDF page.
+        return len(plot_export.exportable_page_list(
+            self.plot_panel.tab_widget))
+
+    def current_tab_plot_count(self) -> int:
+        """Return the number of plots in the current tab.
+
+        Inputs: none.
+        Outputs: an int, 0 when there is no tab.
+        """
+        # LLFR-00146: a tab without plots has nothing to copy.
+        return len(self.plot_panel.plot_id_list(self.current_tab_id()))
+
+    def ask_pdf_save_path(self) -> str:
+        """Show the save file dialog for a .pdf file.
+
+        Inputs: none.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-00128: a save file dialog for a .pdf file.
+        # LLFR-00130: an empty path means the dialog was cancelled.
+        dialog = self.build_pdf_save_dialog()
+        try:
+            return self.run_pdf_save_dialog(dialog) or ""
+        finally:
+            dialog.deleteLater()
+
+    def build_pdf_save_dialog(self) -> QFileDialog:
+        """Build the save file dialog of the PDF export, not shown.
+
+        Inputs: none.
+        Outputs: a QFileDialog in save mode, filtered to .pdf files,
+            that adds ".pdf" to a name typed without an extension and
+            asks before overwriting the resulting file.
+        """
+        # LLFR-00128: the dialog is for a .pdf file; the overwrite
+        # question is asked by Qt for the name with the suffix.
+        dialog = QFileDialog(self, SAVE_PDF_DIALOG_TITLE_STR, "",
+                             SAVE_PDF_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setDefaultSuffix(SAVE_PDF_DEFAULT_SUFFIX_STR)
+        return dialog
+
+    def run_pdf_save_dialog(self, dialog) -> str:
+        """Run the PDF save dialog modally and return the chosen path.
+
+        Inputs:
+            dialog: the QFileDialog built by build_pdf_save_dialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00128, LLFR-00130: the modal dialog.
+        if dialog.exec() != QDialog.DialogCode.Accepted.value:
+            return ""
+        selected_file_list = dialog.selectedFiles()
+        if not selected_file_list:
+            return ""
+        return str(selected_file_list[0])
+
+    def ask_replace_existing_file(self, path_str: str) -> bool:
+        """Ask whether to replace an existing file.
+
+        Inputs:
+            path_str: the path of the existing file.
+        Outputs: True when the user chose to replace it.
+        """
+        # LLFR-00128: asked when ".pdf" was added after the dialog and
+        # the resulting file already exists.
+        return message_boxes.ask_replace_existing_file(self, path_str)
+
+    def save_tabs_pdf(self, path_str: str) -> tuple:
+        """Save the plots of every tab that holds a plot to a PDF file.
+
+        Inputs:
+            path_str: the path of the .pdf file.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-00129, LLFR-00131: one page per tab with a plot.
+        return plot_export.save_tabs_pdf(self.plot_panel.tab_widget,
+                                         path_str)
+
+    def copy_current_tab_image(self) -> tuple:
+        """Put an image of the current tab's plots on the clipboard.
+
+        Inputs: none.
+        Outputs: a tuple (copied_b, reason_str).
+        """
+        # LLFR-00133: the plots of the current tab, as on screen.
+        return plot_export.copy_current_tab_image(
+            self.plot_panel.tab_widget)
+
+    def show_nothing_to_export(self) -> None:
+        """Show the box saying that there are no plots to export.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00145: an information box.
+        message_boxes.build_nothing_to_export_box(self).exec()
+
+    def show_nothing_to_copy(self) -> None:
+        """Show the box saying that there are no plots to copy.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00146: an information box.
+        message_boxes.build_nothing_to_copy_box(self).exec()
+
+    def show_export_error(self, reason_str: str) -> None:
+        """Show the error box saying that the PDF could not be saved.
+
+        Inputs:
+            reason_str: why the file could not be written.
+        Outputs: none.
+        """
+        # LLFR-00131: an error box (HLFR-00002).
+        message_boxes.build_export_error_box(self, reason_str).exec()
+
+    def show_copy_error(self, reason_str: str) -> None:
+        """Show the error box saying that the image could not be copied.
+
+        Inputs:
+            reason_str: why the copy failed.
+        Outputs: none.
+        """
+        # LLFR-00133: an error box (HLFR-00002).
+        message_boxes.build_copy_error_box(self, reason_str).exec()
+
+    def finish_export_button(self) -> None:
+        """Return the Export button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the export has finished.
+        self.top_panel.export_button.finish()
+
+    def finish_copy_button(self) -> None:
+        """Return the Copy button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the copy has finished.
+        self.top_panel.copy_button.finish()
+
+    def _on_pdf_export_requested(self) -> None:
+        """Run the PDF export handler after the menu choice.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00128: the controller shows the save file dialog.
+        if self.pdf_export_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_export_button()
+            return
+        self.pdf_export_handler()
+
+    def _on_copy_requested(self) -> None:
+        """Run the copy handler after the Copy button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00133: the controller copies the image.
+        if self.copy_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_copy_button()
+            return
+        self.copy_handler()
 
     def _on_open_file_activated(self) -> None:
         """Run the open-file handler after the Open file button is clicked.
@@ -384,25 +1026,134 @@ class MainWindow(QMainWindow):
             return
         self.open_file_handler()
 
-    def _on_tip_activated(self) -> None:
-        """Tell the tip handler that the Tip button became active.
+    def _on_plot_tool_changed(self, tool_str: str) -> None:
+        """Pass the plot tool chosen in the top panel to its handler.
+
+        Inputs:
+            tool_str: the new tool name, NO_TOOL_STR for none.
+        Outputs: none.
+        """
+        # LLFR-00079, LLFR-00149, LLFR-00155: a tool chosen with the
+        # mouse while a tool key is held is kept; the later release
+        # changes nothing.
+        if not self.tip_key_changing_tool_b:
+            self.tool_key_filter.cancel_activation()
+        # LLFR-00079, LLFR-00002: the controller applies the tool; with
+        # no controller the window applies it itself.
+        if self.plot_tool_handler is None:
+            self.set_plot_tool(tool_str)
+            return
+        self.plot_tool_handler(tool_str)
+
+    def _on_reset_zoom_triggered(self) -> None:
+        """Run the reset zoom handler, then let the button finish.
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00042: tip mode on.
-        if self.tip_mode_handler is not None:
-            self.tip_mode_handler(True)
+        # LLFR-00115: reset the zoom of the current tab. LLFR-00116: the
+        # button finishes when the reset is done, even if it failed, so
+        # it is never left active.
+        try:
+            if self.reset_zoom_handler is not None:
+                self.reset_zoom_handler()
+        finally:
+            self.finish_reset_zoom_button()
 
-    def _on_tip_deactivated(self) -> None:
-        """Tell the tip handler that the Tip button was deactivated.
+    def _on_undo_triggered(self) -> None:
+        """Run the undo after a click, then let the Undo button finish.
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00002, LLFR-00042: tip mode off.
-        if self.tip_mode_handler is not None:
-            self.tip_mode_handler(False)
+        # LLFR-00138: undo the most recent action. LLFR-00001,
+        # LLFR-00003: the button shows its active color briefly and is
+        # never left active, even when the undo failed.
+        try:
+            self.run_undo()
+        finally:
+            self.top_panel.undo_button.finish()
+
+    def _on_undo_shortcut(self) -> None:
+        """Run the undo when Ctrl+Z (Cmd+Z on macOS) is pressed.
+
+        Inputs: none.
+        Outputs: none. Ignored while a text field has the focus, so that
+            Ctrl+Z there undoes the typing instead.
+        """
+        # LLFR-00137: the shortcut runs the Undo button's action, except
+        # in a text field (search box, dialog line edit), whose own
+        # Ctrl+Z undoes the typed text (LLFR-00196).
+        if self.text_field_has_focus():
+            return
+        # LLFR-00141: the shortcut does nothing while Undo is disabled.
+        self.run_undo()
+
+    def _on_redo_triggered(self) -> None:
+        """Run the redo after a click, then let the Redo button finish.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00192: redo the most recently undone action. LLFR-00001,
+        # LLFR-00003: the button shows its active color briefly and is
+        # never left active, even when the redo failed.
+        try:
+            self.run_redo()
+        finally:
+            self.top_panel.redo_button.finish()
+
+    def _on_redo_shortcut(self) -> None:
+        """Run the redo when Ctrl+Y (Cmd+Y on macOS) is pressed.
+
+        Inputs: none.
+        Outputs: none. Ignored while a text field has the focus, so that
+            Ctrl+Y there acts on the typing instead.
+        """
+        # LLFR-00191, LLFR-00195: the shortcut runs the Redo button's
+        # action, except in a text field.
+        if self.text_field_has_focus():
+            return
+        # LLFR-00194: the shortcut does nothing while Redo is disabled.
+        self.run_redo()
+
+    @staticmethod
+    def text_field_has_focus() -> bool:
+        """Tell whether the keyboard focus is in a text field.
+
+        Inputs: none.
+        Outputs: True when the focused widget is one of
+            TEXT_INPUT_WIDGET_TUPLE (search box, name editors).
+        """
+        # LLFR-00157, LLFR-00195, LLFR-00196: the text fields keep their
+        # own undo and redo of the typed text.
+        return isinstance(QApplication.focusWidget(),
+                          TEXT_INPUT_WIDGET_TUPLE)
+
+    def _on_grid_clicked(self, shown_b: bool) -> None:
+        """Pass a click on the Grid button to its handler.
+
+        Inputs:
+            shown_b: True when the click asks to show the grid.
+        Outputs: none.
+        """
+        # LLFR-00122, LLFR-00123: the controller applies the grid; with
+        # no controller the window applies it itself.
+        if self.grid_handler is None:
+            self.set_grid_shown(shown_b)
+            return
+        self.grid_handler(shown_b)
+
+    def _on_search_text_changed(self, text_str: str) -> None:
+        """Pass the new search box text to its handler.
+
+        Inputs:
+            text_str: the text now in the search box.
+        Outputs: none.
+        """
+        # LLFR-00095: every change re-filters the signal list.
+        if self.search_text_handler is not None:
+            self.search_text_handler(text_str)
 
     def _on_signal_double_clicked(self, signal_name_str: str) -> None:
         """Pass a double-clicked signal name to its handler.

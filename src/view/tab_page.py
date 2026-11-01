@@ -1,6 +1,9 @@
 """Tab page: the plots of one tab, stacked from top to bottom."""
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
+
+from view import theme
 
 # LLFR-00050, LLFR-00069: every plot gets the same share of the height.
 PLOT_STRETCH_I = 1
@@ -40,9 +43,14 @@ class TabPage(QWidget):
         self.name_str = name_str
         self.page_layout = QVBoxLayout(self)
         self.page_layout.setContentsMargins(0, 0, 0, 0)
+        # LLFR-00069: a small gap of the plot well between stacked plots.
+        self.page_layout.setSpacing(theme.PLOT_SPACING_I)
         self.plot_widget_list = []
         # LLFR-00022, LLFR-00023: drops outside a plot are not accepted.
         self.setAcceptDrops(False)
+        # LLFR-00137: a click on an empty part of the page takes the
+        # keyboard focus from the text fields, as a click on a plot does.
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
     def add_plot_widget(self, plot_widget) -> None:
         """Place a plot widget below the existing ones.

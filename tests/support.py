@@ -6,6 +6,7 @@
   matrix (tests/build_test_matrix.py) is built from these tags.
 - ``requires_qt`` skips a test when PyQt6 is not installed, and
   ``get_qt_application`` returns the single offscreen QApplication.
+- ``requires_h5py`` skips a test when h5py (HDF5 files) is not installed.
 """
 
 import importlib.util
@@ -20,6 +21,7 @@ if SOURCE_FOLDER_STR not in sys.path:
     sys.path.insert(0, SOURCE_FOLDER_STR)
 
 QT_AVAILABLE_B = importlib.util.find_spec("PyQt6") is not None
+H5PY_AVAILABLE_B = importlib.util.find_spec("h5py") is not None
 COVERED_ATTRIBUTE_STR = "covered_requirement_list"
 
 
@@ -45,6 +47,8 @@ def covers(*requirement_id_tuple: str):
 
 
 requires_qt = unittest.skipUnless(QT_AVAILABLE_B, "PyQt6 is not installed")
+requires_h5py = unittest.skipUnless(H5PY_AVAILABLE_B,
+                                    "h5py is not installed")
 
 
 def get_qt_application():
@@ -60,3 +64,18 @@ def get_qt_application():
     if application is None:
         application = QApplication([])
     return application
+
+
+def button_name(button) -> str:
+    """Return the name a top panel button is called by.
+
+    The top panel buttons show only an icon (LLFR-00158); the name the
+    requirements call a button by ("Open file", "Tip", ...) is its hover
+    tip (LLFR-00181), also set as its accessible name. Tests find and
+    check buttons by this name, never by ``text()``.
+
+    Inputs:
+        button: a QPushButton of the top panel.
+    Outputs: the button's accessible name.
+    """
+    return button.accessibleName()
