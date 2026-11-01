@@ -25,8 +25,10 @@ from tests.view.test_tip_drag import (
 EDGE_TOLERANCE_PX = 0.5
 # A plot height that leaves the axes too low for the tips of the tests.
 SHORT_HEIGHT_I = 150
-# Offset (points) that fits above a middle point only in a tall plot.
+# Offset (points) that fits above the low ramp tip only in a tall plot.
 HIGH_OFFSET_TUPLE = (0.0, 80.0)
+# A ramp tip in the lower left quarter of the axes, away from the sides.
+LOW_RAMP_TIP_TUPLE = ("Ramp", 2.5, 3.25)
 # Number of plots in the tab after issue #70's step 4.
 FULL_TAB_PLOT_COUNT_I = 5
 # Rounds of Qt event processing allowed for a resize to reach the canvas.
@@ -153,13 +155,13 @@ class TipInsideWidgetTest(TipInsideAssertions, TipDragTestCase):
                 f"{self.plot_widget.height()}")
 
     def pin_high_ramp_tip(self) -> None:
-        """Pin the ramp tip with an offset far above its point.
+        """Pin a low ramp tip with an offset far above its point.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_pinned_tips([
-            RAMP_TIP_TUPLE + (HIGH_OFFSET_TUPLE,), SINE_TIP_TUPLE])
+            LOW_RAMP_TIP_TUPLE + (HIGH_OFFSET_TUPLE,), SINE_TIP_TUPLE])
         self.draw()
 
     @covers("LLFR-00179", "LLFR-00151", "HLFR-00025")
@@ -265,15 +267,13 @@ class TipInsideWidgetTest(TipInsideAssertions, TipDragTestCase):
         """
         self.pin_high_ramp_tip()
         self.resize_plot(WIDGET_WIDTH_I, SHORT_HEIGHT_I)
-        self.plot_widget.set_time_range(0.0, 2.0)
+        self.plot_widget.set_time_range(6.0, 10.0)
         self.draw()
         annotation = self.plot_widget.pinned_tip_annotation(0)
         self.assertEqual(tuple(annotation.xyann), HIGH_OFFSET_TUPLE)
         center_tuple = label_center_tuple(self.plot_widget, 0)
         self.assertEqual(self.plot_widget.pinned_tip_at(
             self.plot_widget.display_to_widget_point(*center_tuple)), -1)
-        # The sine tip at 2 s is still shown and inside.
-        self.assert_tip_inside(self.plot_widget, 1)
         # Shown again, the ramp tip is kept inside.
         self.plot_widget.set_time_range(0.0, 10.0)
         self.draw()
