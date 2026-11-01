@@ -332,6 +332,9 @@ class ShiftKeyWindowTestCase(unittest.TestCase):
             "Time": time_array, "speed": time_array * 2.0,
             "force": np.sin(time_array)})
         self.controller.plot_controller.on_file_opened(signal_file, False)
+        # LLFR-00011: the signal list shows the names, for the drags.
+        self.controller.signal_list_controller.on_file_opened(
+            signal_file, False)
         self.top_panel = self.main_window.top_panel
         self.search_box = self.main_window.signal_list_panel.search_box
         self.main_window.show()
