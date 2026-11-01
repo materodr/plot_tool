@@ -116,7 +116,7 @@ def probe_file_line_list(path_list: list, load_file) -> tuple:
             line_list.append(f"{PROBE_FILE_LINE_PREFIX_STR} FAILED "
                              f"{file_name_str}: {error}")
             continue
-        signal_count_i = len(signal_file.signal_name_list())
+        signal_count_i = len(signal_file.signal_name_list)
         line_list.append(f"{PROBE_FILE_LINE_PREFIX_STR} OK "
                          f"{file_name_str} signals={signal_count_i}")
     return line_list, all_opened_b

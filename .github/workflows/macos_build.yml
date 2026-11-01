@@ -46,23 +46,27 @@ jobs:
         run: |
           app=bin/plot_tool.app
           launcher="$app/Contents/MacOS/plot_tool"
-          test -x "$launcher"
-          test -d "$app/Contents/Frameworks"
-          test ! -e bin/plot_tool
+          failed=0
+          fail() { echo "::error title=Bundle::$1"; failed=1; }
+          ls -la bin "$app/Contents" "$app/Contents/MacOS" || true
+          [ -x "$launcher" ] || fail "no launcher $launcher"
+          [ -d "$app/Contents/Frameworks" ] || fail "no Contents/Frameworks"
+          [ ! -e bin/plot_tool ] || fail "bin/plot_tool was not removed"
           # A one-file build is a single launcher that holds the whole
           # app; a one-folder bundle has a small launcher and many files.
           file_count=$(find "$app" -type f | wc -l | tr -d ' ')
-          launcher_bytes=$(stat -f %z "$launcher")
-          test "$file_count" -gt 100
-          test "$launcher_bytes" -lt 10000000
-          if find "$app" -iname '*tkinter*' | grep -q .; then
-            echo "::error title=Bundle::tkinter was bundled"; exit 1
-          fi
-          codesign --verify --deep --strict "$app"
+          launcher_bytes=$(stat -f %z "$launcher" || echo 0)
+          echo "files: $file_count, launcher bytes: $launcher_bytes"
+          [ "$file_count" -gt 100 ] || fail "only $file_count files"
+          [ "$launcher_bytes" -lt 10000000 ] || fail "launcher is $launcher_bytes bytes (one-file build?)"
+          tk_list=$(find "$app" -iname '*tkinter*')
+          [ -z "$tk_list" ] || fail "tkinter was bundled: $tk_list"
+          codesign --verify --deep --strict "$app" || fail "codesign verify failed"
           bundle_size=$(du -sh "$app" | cut -f1)
           echo "Largest parts of the bundle:"
-          du -sh "$app"/Contents/Frameworks/* | sort -h | tail -15
+          du -sh "$app"/Contents/Frameworks/* "$app"/Contents/Resources/* 2>/dev/null | sort -h | tail -15
           echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
+          exit $failed
 
       - name: Measure the startup time
         run: |
