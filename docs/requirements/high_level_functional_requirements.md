@@ -29,6 +29,9 @@ The user must be able to change the widths of the plot panel and the signal list
 ### HLFR-00040 Undo
 The user must be able to undo their most recent actions on the tabs, plots, curves, tips and markers.
 
+### HLFR-00048 Redo
+The user must be able to redo the actions they have undone (HLFR-00040).
+
 ### HLFR-00045 App icon
 The app must have its own custom icon, shown wherever the operating system shows the app.
 
@@ -141,7 +144,7 @@ The user must be able to keep the values of a chosen point on a curve displayed 
 The user must be able to zoom in and zoom out of a plot along the x-axis.
 
 ### HLFR-00028 Place a vertical marker
-The user must be able to place a vertical marker on a plot, at a chosen point of the x-axis.
+The user must be able to place a vertical marker at a chosen point of the x-axis, shown on every plot.
 
 Note: A **vertical marker** is a vertical line drawn across the plot at one time value, with a name label at its top.
 
