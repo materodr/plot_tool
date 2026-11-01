@@ -17,8 +17,8 @@ from functools import partial
 
 from PyQt6.QtCore import QEvent, QTimer, Qt
 from PyQt6.QtWidgets import (
-    QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget, QToolButton,
-    QVBoxLayout, QWidget)
+    QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
+    QToolButton, QVBoxLayout, QWidget)
 
 from view import theme
 from view.plot_widget import PlotWidget
@@ -331,6 +331,29 @@ class PlotPanel(QWidget):
         tab_bar = self.tab_widget.tabBar()
         tab_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tab_bar.customContextMenuRequested.connect(self.show_tab_menu)
+        # LLFR-00137: a press on the tab row or the "+" button takes the
+        # keyboard focus from the text fields (see eventFilter).
+        tab_bar.installEventFilter(self)
+        self.add_tab_button.installEventFilter(self)
+
+    def eventFilter(self, watched, event) -> bool:
+        """Move the focus to this panel on a press on the tab row.
+
+        Inputs:
+            watched: the object that received the event.
+            event: the QEvent.
+        Outputs: False, so the event is handled normally.
+        """
+        # LLFR-00137: the tab bar and the "+" button do not take the
+        # focus on click, so without this the focus would stay in the
+        # search box (also after the tab menu's dialogs close) and
+        # Ctrl+Z (Cmd+Z) would undo the typed text instead of the tab
+        # action. The panel shows no focus frame.
+        if (event.type() == QEvent.Type.MouseButtonPress
+                and watched in (self.tab_widget.tabBar(),
+                                self.add_tab_button)):
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+        return super().eventFilter(watched, event)
 
     # ----------------------------------------------------------------
     # Handlers
@@ -508,8 +531,11 @@ class PlotPanel(QWidget):
         page = self.page_dict.pop(tab_id_i, None)
         if page is None:
             return
+        self.move_focus_out_of(page)
         for plot_widget in list(page.plot_widget_list):
             self.plot_widget_dict.pop(plot_widget.plot_id_i, None)
+            # LLFR-00138: no late request from the removed plot.
+            plot_widget.retire()
         self.tab_widget.removeTab(self.tab_widget.indexOf(page))
         page.deleteLater()
 
@@ -625,6 +651,9 @@ class PlotPanel(QWidget):
         plot_widget = self.plot_widget_dict.pop(plot_id_i, None)
         if plot_widget is None:
             return
+        # LLFR-00138: no late request from the removed plot.
+        self.move_focus_out_of(plot_widget)
+        plot_widget.retire()
         # LLFR-00050: the page gives the free space to the other plots.
         for page in self.page_dict.values():
             if page.remove_plot_widget(plot_widget):
@@ -632,6 +661,24 @@ class PlotPanel(QWidget):
         # The widget may be running the menu that asked for this, so it
         # is deleted later by the event loop, not now.
         plot_widget.deleteLater()
+
+    def move_focus_out_of(self, removed_widget) -> None:
+        """Keep the keyboard focus off text fields when a widget goes.
+
+        Inputs:
+            removed_widget: the tab page or plot widget being removed.
+        Outputs: none. When the focus is in that widget, it moves to
+            this panel instead of to the next widget of the focus chain,
+            which could be the search box.
+        """
+        # LLFR-00137: after an undo removes the clicked plot, the next
+        # Ctrl+Z (Cmd+Z) must still run the workspace undo.
+        focus_widget = QApplication.focusWidget()
+        if focus_widget is None:
+            return
+        if (focus_widget is removed_widget
+                or removed_widget.isAncestorOf(focus_widget)):
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def plot_view(self, plot_id_i: int):
         """Return the plot widget of a plot.
