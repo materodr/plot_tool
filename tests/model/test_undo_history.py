@@ -12,7 +12,7 @@ from model.workspace import Workspace
 class UndoHistoryTest(unittest.TestCase):
     """The bounded stack of saved states."""
 
-    @covers("LLFR-00139", "LLFR-00141")
+    @covers("LLFR-00139", "LLFR-00141", "LLFR-00194")
     def test_starts_empty(self) -> None:
         """A new history has nothing to undo and refuses to pop.
 
@@ -20,12 +20,18 @@ class UndoHistoryTest(unittest.TestCase):
         Outputs: none.
         """
         history = UndoHistory()
-        self.assertEqual(MAXIMUM_UNDO_DEPTH_I, 20)
-        self.assertEqual(history.maximum_depth_i, 20)
+        self.assertEqual(MAXIMUM_UNDO_DEPTH_I, 30)
+        self.assertEqual(history.maximum_depth_i, 30)
         self.assertFalse(history.can_undo())
+        self.assertFalse(history.can_redo())
         self.assertEqual(history.depth(), 0)
         with self.assertRaises(IndexError):
             history.pop()
+        with self.assertRaises(IndexError):
+            history.undo("now")
+        with self.assertRaises(IndexError):
+            history.redo("now")
+        self.assertEqual(history.redo_depth(), 0)
 
     @covers("LLFR-00138", "LLFR-00139")
     def test_pop_returns_most_recent_first(self) -> None:
@@ -42,21 +48,21 @@ class UndoHistoryTest(unittest.TestCase):
         self.assertFalse(history.can_undo())
 
     @covers("LLFR-00139")
-    def test_keeps_only_the_twenty_most_recent(self) -> None:
-        """After 22 records only the last 20 can be undone, oldest dropped.
+    def test_keeps_only_the_thirty_most_recent(self) -> None:
+        """After 32 records only the last 30 can be undone, oldest dropped.
 
         Inputs: none.
         Outputs: none.
         """
         history = UndoHistory()
-        for index_i in range(22):
+        for index_i in range(32):
             history.record(index_i)
-            self.assertLessEqual(history.depth(), 20)
-        self.assertEqual(history.depth(), 20)
+            self.assertLessEqual(history.depth(), 30)
+        self.assertEqual(history.depth(), 30)
         popped_list = []
         while history.can_undo():
             popped_list.append(history.pop())
-        self.assertEqual(popped_list, list(range(21, 1, -1)))
+        self.assertEqual(popped_list, list(range(31, 1, -1)))
 
     @covers("LLFR-00139")
     def test_recording_after_undo_continues(self) -> None:
@@ -74,9 +80,9 @@ class UndoHistoryTest(unittest.TestCase):
         self.assertEqual(history.depth(), 3)
         self.assertEqual([history.pop() for _ in range(3)], ["e", "d", "b"])
 
-    @covers("LLFR-00142", "LLFR-00141")
+    @covers("LLFR-00142", "LLFR-00141", "LLFR-00194")
     def test_clear_forgets_everything(self) -> None:
-        """clear() leaves nothing to undo.
+        """clear() leaves nothing to undo and nothing to redo.
 
         Inputs: none.
         Outputs: none.
@@ -84,9 +90,111 @@ class UndoHistoryTest(unittest.TestCase):
         history = UndoHistory()
         history.record("a")
         history.record("b")
+        history.record("c")
+        self.assertEqual(history.undo("after c"), "c")
+        self.assertTrue(history.can_redo())
         history.clear()
         self.assertFalse(history.can_undo())
+        self.assertFalse(history.can_redo())
         self.assertEqual(history.depth(), 0)
+        self.assertEqual(history.redo_depth(), 0)
+
+
+class RedoHistoryTest(unittest.TestCase):
+    """The redo stack of the history (HLFR-00048)."""
+
+    @covers("LLFR-00192", "LLFR-00138")
+    def test_undo_then_redo_restores(self) -> None:
+        """Undo trades the current state; redo trades it back.
+
+        The states are named after the action they follow: "s0" before
+        any action, "s1" after the first, and so on.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        history = UndoHistory()
+        history.record("s0")
+        history.record("s1")
+        # Now showing s2.
+        self.assertEqual(history.undo("s2"), "s1")
+        self.assertEqual(history.undo("s1"), "s0")
+        self.assertFalse(history.can_undo())
+        self.assertTrue(history.can_redo())
+        self.assertEqual(history.redo_depth(), 2)
+        # LLFR-00192: the most recently undone action first.
+        self.assertEqual(history.redo("s0"), "s1")
+        self.assertTrue(history.can_undo())
+        self.assertEqual(history.redo("s1"), "s2")
+        self.assertFalse(history.can_redo())
+        # LLFR-00192: the redone actions can be undone again.
+        self.assertEqual(history.depth(), 2)
+        self.assertEqual(history.undo("s2"), "s1")
+        self.assertEqual(history.redo("s1"), "s2")
+
+    @covers("LLFR-00193")
+    def test_new_action_clears_redo(self) -> None:
+        """A record after an undo discards every undone action.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        history = UndoHistory()
+        for state_str in ("s0", "s1", "s2"):
+            history.record(state_str)
+        history.undo("s3")
+        history.undo("s2")
+        self.assertEqual(history.redo_depth(), 2)
+        history.record("s1 changed")
+        self.assertFalse(history.can_redo())
+        self.assertEqual(history.redo_depth(), 0)
+        with self.assertRaises(IndexError):
+            history.redo("now")
+        self.assertEqual(history.depth(), 2)
+        self.assertEqual(history.pop(), "s1 changed")
+
+    @covers("LLFR-00139", "LLFR-00192")
+    def test_depth_limit_holds_through_undo_and_redo(self) -> None:
+        """31 actions give 30 undos and 30 redos; the stacks stay at 30.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        history = UndoHistory()
+        for index_i in range(31):
+            history.record(index_i)
+        self.assertEqual(history.depth(), 30)
+        undone_list = []
+        current_i = 31
+        while history.can_undo():
+            previous_i = history.undo(current_i)
+            undone_list.append(previous_i)
+            current_i = previous_i
+        self.assertEqual(undone_list, list(range(30, 0, -1)))
+        self.assertEqual(history.redo_depth(), 30)
+        redone_list = []
+        while history.can_redo():
+            current_i = history.redo(current_i)
+            redone_list.append(current_i)
+        self.assertEqual(redone_list, list(range(2, 32)))
+        self.assertEqual(history.depth(), 30)
+        self.assertLessEqual(history.redo_depth(), 30)
+
+    @covers("LLFR-00139", "LLFR-00192")
+    def test_redo_keeps_the_undo_depth_limit(self) -> None:
+        """A redo onto a full undo stack drops the oldest state.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        history = UndoHistory(maximum_depth_i=2)
+        history.record("a")
+        history.record("b")
+        self.assertEqual(history.undo("c"), "b")
+        history.snapshot_list.append("x")
+        # The undo stack is full again (a, x); a redo pushes b.
+        self.assertEqual(history.redo("b"), "c")
+        self.assertEqual(history.snapshot_list, ["x", "b"])
 
     @covers("LLFR-00139")
     def test_depth_must_be_positive(self) -> None:

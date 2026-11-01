@@ -2,8 +2,8 @@
 
 It covers HLFR-00012 to HLFR-00025, the vertical markers of
 HLFR-00028 to HLFR-00031, the zoom reset (HLFR-00035), the grid
-(HLFR-00037), undo (HLFR-00040) and the delta markers of HLFR-00043
-and HLFR-00044.
+(HLFR-00037), undo (HLFR-00040), redo (HLFR-00048) and the delta
+markers of HLFR-00043 and HLFR-00044.
 
 It keeps the Workspace model and tells the view what to show. It talks
 to the view only through plain method calls with plain values (ids,
@@ -19,11 +19,11 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - boxes: ``show_full_tab_notification``,
   ``show_tab_name_taken_notification``, ``ask_marker_name``;
 - grid: ``set_grid_shown``;
-- undo: ``set_undo_enabled``;
+- undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
   ``set_plot_tool_handler``, ``set_tab_handlers``,
   ``set_plot_handlers``, ``set_reset_zoom_handler``,
-  ``set_grid_handler`` and ``set_undo_handler``.
+  ``set_grid_handler``, ``set_undo_handler`` and ``set_redo_handler``.
 
 Undo (HLFR-00040): every undoable action of LLFR-00140 saves a snapshot
 of the workspace before it changes the model, but only when it really
@@ -33,6 +33,11 @@ never rolled back, so ids stay unique. View-only state is not part of a
 snapshot (LLFR-00140 Note): after an undo, every plot shows the time
 range shared by all plots, and the grid and the plot tool stay as they
 are.
+
+Redo (HLFR-00048): an undo keeps the state it leaves on a redo stack,
+and redo returns to it through the same rebuild as undo (LLFR-00192).
+A new undoable action empties the redo stack (LLFR-00193), and opening
+a file empties both (LLFR-00142).
 
 Shared time axis (LLFR-00070, LLFR-00180): all plots in all tabs show
 one x-axis range, kept here in ``shared_time_range_tuple``. A range
@@ -111,7 +116,8 @@ class PlotController:
         self.grid_shown_b = False
         # LLFR-00070, LLFR-00180: no plot yet, so the whole range.
         self.shared_time_range_tuple = ()
-        # LLFR-00139: the 20 most recent undoable actions.
+        # LLFR-00139: the 30 most recent undoable actions;
+        # LLFR-00192: and the undone ones, for redo.
         self.undo_history = UndoHistory()
         # LLFR-00163: no delta marker point is picked yet.
         self.pending_delta_tuple = ()
@@ -151,9 +157,11 @@ class PlotController:
         view.set_grid_shown(self.grid_shown_b)
         # LLFR-00136, LLFR-00137: the Undo button and its shortcut.
         view.set_undo_handler(self.on_undo)
+        # LLFR-00190, LLFR-00191: the Redo button and its shortcut.
+        view.set_redo_handler(self.on_redo)
         # LLFR-00024: show the tabs of the model (one empty tab).
         self.rebuild_tab_views()
-        # LLFR-00141: nothing to undo at start.
+        # LLFR-00141, LLFR-00194: nothing to undo or redo at start.
         self.update_undo_enabled()
 
     # ----------------------------------------------------------------
@@ -184,13 +192,15 @@ class PlotController:
         self.view.set_tab_delete_enabled(self.workspace.can_delete_tab())
 
     def update_undo_enabled(self) -> None:
-        """Enable the Undo button only while an action can be undone.
+        """Enable the Undo and Redo buttons only while they can act.
 
         Inputs: none.
         Outputs: none.
         """
         # LLFR-00141: disabled, and paler, when nothing is left to undo.
         self.view.set_undo_enabled(self.undo_history.can_undo())
+        # LLFR-00194: disabled, and paler, when nothing is left to redo.
+        self.view.set_redo_enabled(self.undo_history.can_redo())
 
     def take_snapshot(self):
         """Save the workspace state from before an action.
@@ -212,7 +222,8 @@ class PlotController:
         # LLFR-00140: only an action that changed something is undoable.
         if self.workspace.is_unchanged_since(snapshot):
             return
-        # LLFR-00139: the history keeps the 20 most recent actions.
+        # LLFR-00139: the history keeps the 30 most recent actions;
+        # LLFR-00193: and forgets the undone ones.
         self.undo_history.record(snapshot)
         self.update_undo_enabled()
 
@@ -366,7 +377,8 @@ class PlotController:
         self.workspace.reset()
         # LLFR-00180: the new file's plots start at its whole range.
         self.shared_time_range_tuple = ()
-        # LLFR-00142: the actions on the previous file cannot be undone.
+        # LLFR-00142: the actions on the previous file cannot be undone
+        # or redone.
         self.undo_history.clear()
         self.update_undo_enabled()
         self.rebuild_tab_views()
@@ -976,7 +988,7 @@ class PlotController:
         self.redraw_plot(plot)
 
     # ----------------------------------------------------------------
-    # Undo
+    # Undo and redo
     # ----------------------------------------------------------------
 
     def on_undo(self) -> None:
@@ -990,16 +1002,45 @@ class PlotController:
         if not self.undo_history.can_undo():
             self.update_undo_enabled()
             return
+        # LLFR-00138: return the model to the state before the action;
+        # LLFR-00192: the state after it is kept for redo.
+        snapshot = self.undo_history.undo(self.take_snapshot())
+        self.show_restored_snapshot(snapshot)
+
+    def on_redo(self) -> None:
+        """Reapply the most recently undone action not redone yet.
+
+        Inputs: none.
+        Outputs: none. Does nothing when no undone action is left.
+        """
+        # LLFR-00194: with nothing to redo, the button and the shortcut
+        # do nothing.
+        if not self.undo_history.can_redo():
+            self.update_undo_enabled()
+            return
+        # LLFR-00192: return the model to the state after the undone
+        # action, and make the action available to undo again.
+        snapshot = self.undo_history.redo(self.take_snapshot())
+        self.show_restored_snapshot(snapshot)
+
+    def show_restored_snapshot(self, snapshot) -> None:
+        """Restore a saved state and rebuild every view from it.
+
+        Inputs:
+            snapshot: the WorkspaceSnapshot taken out of the history by
+                an undo or a redo.
+        Outputs: none.
+        """
         shown_tab_id_i = self.view.current_tab_id()
         # LLFR-00167: the views are rebuilt, so a first point is
         # discarded (it is not part of any snapshot).
         self.discard_pending_delta()
-        # LLFR-00138: return the model to the state before the action.
-        snapshot = self.undo_history.pop()
+        # LLFR-00138, LLFR-00192: the model takes the saved state.
         self.workspace.restore(snapshot)
+        # LLFR-00141, LLFR-00194: the buttons follow the history.
         self.update_undo_enabled()
-        # LLFR-00138: select the tab that was selected before the action,
-        # or else the tab selected now, or else the first tab.
+        # LLFR-00138, LLFR-00192: select the tab that was selected in the
+        # saved state, or else the tab selected now, or else the first.
         current_tab_id_i = snapshot.current_tab_id_i
         if self.workspace.find_tab(current_tab_id_i) is None:
             current_tab_id_i = shown_tab_id_i
