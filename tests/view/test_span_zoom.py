@@ -629,9 +629,10 @@ class SpanInteractionTest(SpanWidgetTestCase):
                   MIDDLE_BUTTON_I)
         self.assertTrue(self.plot_widget.panning_b)
         self.assertFalse(self.plot_widget.time_span_drag_b)
-        self.move_to(self.point_at(4.5, 0.0))
-        self.send("button_release_event", self.point_at(4.5, 0.0),
-                  MIDDLE_BUTTON_I)
+        # The point is taken once: after the pan, 4.5 s is elsewhere.
+        target_point = self.point_at(4.5, 0.0)
+        self.move_to(target_point)
+        self.send("button_release_event", target_point, MIDDLE_BUTTON_I)
         self.assertFalse(self.plot_widget.time_span_line_shown())
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(end_s - start_s, 4.0)
