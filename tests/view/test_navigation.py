@@ -527,18 +527,22 @@ class PanWidgetTest(NavigationWidgetTestCase):
         self.plot_widget.set_time_range(2.0, 4.0)
         self.draw()
 
-        def send(event_type, time_s: float, button, buttons) -> None:
-            """Send one QMouseEvent to the canvas at a time.
+        # The points are taken before the pan moves the x range.
+        grab_point = QPointF(canvas.mapFrom(self.plot_widget,
+                                            self.point_at(3.0)))
+        target_point = QPointF(canvas.mapFrom(self.plot_widget,
+                                              self.point_at(3.5)))
+
+        def send(event_type, local_point, button, buttons) -> None:
+            """Send one QMouseEvent to the canvas at a point.
 
             Inputs:
                 event_type: the QEvent.Type.
-                time_s: x value in seconds under the mouse.
+                local_point: QPointF in canvas coordinates.
                 button: the Qt.MouseButton that changed.
                 buttons: the Qt.MouseButton buttons held.
             Outputs: none.
             """
-            local_point = QPointF(canvas.mapFrom(
-                self.plot_widget, self.point_at(time_s)))
             mouse_event = QMouseEvent(
                 event_type, local_point,
                 QPointF(canvas.mapToGlobal(local_point)), button, buttons,
@@ -546,12 +550,12 @@ class PanWidgetTest(NavigationWidgetTestCase):
             self.application.sendEvent(canvas, mouse_event)
 
         middle_button = Qt.MouseButton.MiddleButton
-        send(QEvent.Type.MouseButtonPress, 3.0, middle_button,
+        send(QEvent.Type.MouseButtonPress, grab_point, middle_button,
              middle_button)
         self.assertTrue(self.plot_widget.panning_b)
-        send(QEvent.Type.MouseMove, 3.5, Qt.MouseButton.NoButton,
+        send(QEvent.Type.MouseMove, target_point, Qt.MouseButton.NoButton,
              middle_button)
-        send(QEvent.Type.MouseButtonRelease, 3.5, middle_button,
+        send(QEvent.Type.MouseButtonRelease, target_point, middle_button,
              Qt.MouseButton.NoButton)
         self.assertFalse(self.plot_widget.panning_b)
         start_s, end_s = self.plot_widget.time_range_tuple()
@@ -1144,26 +1148,29 @@ class NavigationEndToEndTest(unittest.TestCase):
         width_s = end_s - start_s
         canvas = first_widget.canvas
 
-        def send(name_str: str, time_s: float, button=None) -> None:
-            """Send a matplotlib event at a time to the first plot.
+        # The points are taken before the pan moves the x range.
+        grab_s = start_s + width_s / 2.0
+        grab_tuple = tuple(first_widget.axes.transData.transform(
+            (grab_s, 0.0)))
+        target_tuple = tuple(first_widget.axes.transData.transform(
+            (grab_s - width_s / 4.0, 0.0)))
+
+        def send(name_str: str, display_tuple: tuple, button=None) -> None:
+            """Send a matplotlib event at a display point to the plot.
 
             Inputs:
                 name_str: the event name.
-                time_s: x value in seconds.
+                display_tuple: (x, y) display coordinates.
                 button: the MouseButton, or None for a move.
             Outputs: none.
             """
-            display_x_px, display_y_px = first_widget.axes.transData.\
-                transform((time_s, 0.0))
-            event = MouseEvent(name_str, canvas, display_x_px,
-                               display_y_px, button=button)
+            event = MouseEvent(name_str, canvas, display_tuple[0],
+                               display_tuple[1], button=button)
             canvas.callbacks.process(name_str, event)
 
-        grab_s = start_s + width_s / 2.0
-        send("button_press_event", grab_s, MouseButton.MIDDLE)
-        send("motion_notify_event", grab_s - width_s / 4.0)
-        send("button_release_event", grab_s - width_s / 4.0,
-             MouseButton.MIDDLE)
+        send("button_press_event", grab_tuple, MouseButton.MIDDLE)
+        send("motion_notify_event", target_tuple)
+        send("button_release_event", target_tuple, MouseButton.MIDDLE)
         self.process_events()
         new_start_s, new_end_s = first_widget.time_range_tuple()
         self.assertAlmostEqual(new_start_s, start_s + width_s / 4.0,
