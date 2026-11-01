@@ -56,10 +56,14 @@ class LayoutController:
         data_file_open_b: True once a data file is open.
         synthetic_signal_list_function: function without arguments that
             returns the entries of the synthetic signals to save
-            (LLFR-00225 item 10); empty until issue #110.
+            (LLFR-00225 item 10); set by the MainController.
         synthetic_signal_builder: function given to the plot controller
             to create the synthetic signals of a loaded file
-            (LLFR-00262); None until issue #110.
+            (LLFR-00262), or None to create none.
+        synthetic_signal_snapshot_function: function without arguments
+            called before a load; it returns a function that puts back
+            the synthetic signals of before the load if it fails, or it
+            is None.
     """
 
     def __init__(self, view, file_controller, plot_controller) -> None:
@@ -77,9 +81,11 @@ class LayoutController:
         self.plot_controller = plot_controller
         self.layout_folder_str = ""
         self.data_file_open_b = False
-        # LLFR-00225 item 10, LLFR-00262: the hooks of issue #110.
+        # LLFR-00225 item 10, LLFR-00262: the synthetic signal hooks,
+        # connected by the MainController.
         self.synthetic_signal_list_function = list
         self.synthetic_signal_builder = None
+        self.synthetic_signal_snapshot_function = None
         view.set_layout_handlers(self.on_save_layout_requested,
                                  self.on_load_layout_requested)
         # LLFR-00218: disabled while no data file is open.
@@ -209,13 +215,19 @@ class LayoutController:
             self.view.show_layout_load_error(
                 UNEXPECTED_LOAD_ERROR_STR.format(path=path_str, error=error))
             return
-        # LLFR-00229 to LLFR-00235, LLFR-00238: rebuild the layout.
+        # PCR-00025: the synthetic signals can be put back.
+        restore_function = None
+        if self.synthetic_signal_snapshot_function is not None:
+            restore_function = self.synthetic_signal_snapshot_function()
+        # LLFR-00229 to LLFR-00235, LLFR-00238, LLFR-00262: rebuild the
+        # layout, with the synthetic signals of the file.
         try:
             result = self.plot_controller.load_layout(
-                layout_dict, self.synthetic_signal_builder)
+                layout_dict, self.synthetic_signal_builder,
+                restore_function)
         except Exception as error:
-            # PCR-00025, LLFR-00236: the plot controller put the layout
-            # back as it was.
+            # PCR-00025, LLFR-00236: the plot controller put the
+            # synthetic signals and then the layout back as they were.
             self.view.show_layout_load_error(
                 UNEXPECTED_LOAD_ERROR_STR.format(path=path_str, error=error))
             return

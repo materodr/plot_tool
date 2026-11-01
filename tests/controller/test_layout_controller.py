@@ -592,9 +592,9 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(self.view.report_list, [])
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229")
-    def test_add_mode_with_default_tab_names_shows_no_report(self) -> None:
+    def test_add_mode_with_default_tab_names_reports_renames(self) -> None:
         """Loading a layout of the same file after its own tabs renames
-        the clashing default names silently and shows no box.
+        the clashing default names and lists them in the box.
 
         Inputs: none.
         Outputs: none.
@@ -615,7 +615,10 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(len(self.workspace.tab_list[2].plot_list), 1)
         self.assertEqual(self.view.current_tab_id(),
                          self.workspace.tab_list[2].tab_id_i)
-        self.assertEqual(self.view.report_list, [])
+        # LLFR-00237: one box with the two renames, nothing else.
+        self.assertEqual(self.view.report_list, [
+            'Renamed:\n  - Tab "Tab 1" \u2192 "Tab 3"\n'
+            '  - Tab "Tab 2" \u2192 "Tab 4"'])
         self.assertEqual(self.view.load_error_list, [])
 
     @covers("LLFR-00231", "LLFR-00232", "LLFR-00237")

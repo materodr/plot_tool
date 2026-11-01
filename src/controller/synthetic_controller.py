@@ -39,7 +39,9 @@ from model import synthetic_operations as operations
 from model.errors import (
     EmptySyntheticNameError, SyntheticNameInUseError, SyntheticSignalError)
 from model.number_format import format_signal_value
-from model.synthetic_signals import SyntheticSignalStore
+from model.layout_file import RENAMED_SIGNAL_LINE_STR
+from model.synthetic_signals import (
+    LayoutSignalLoader, SyntheticSignalStore)
 
 # LLFR-00247, LLFR-00250: title of the information boxes of a creation.
 CREATE_TITLE_STR = "Create synthetic signal"
@@ -66,6 +68,8 @@ WINDOW_FIELD_LABEL_STR = "Window size (samples):"
 CONSTANT_PROMPT_STR = "The constant number."
 DIVIDE_CONSTANT_PROMPT_STR = "The constant number, not 0."
 CONSTANT_FIELD_LABEL_STR = "Constant:"
+# LLFR-00237, LLFR-00262: the lines of the layout load report.
+NOT_CREATED_LINE_STR = "{label}: {reason}"
 # LLFR-00275: prompt of the second signal dialog.
 SECOND_SIGNAL_PROMPT_STR = "Multiply '{name}' by the signal:"
 
@@ -467,11 +471,14 @@ class SyntheticController:
 
         Inputs:
             signal_name_str: the right-clicked synthetic signal name.
-        Outputs: none. Ignored for a data file signal (LLFR-00278).
+        Outputs: none. Ignored for a data file signal or an FFT signal
+            (LLFR-00278).
         """
         # LLFR-00279: the JSON list of the layout file entries of the
-        # signal and of every synthetic signal it is computed from.
-        if not self.store.contains(signal_name_str):
+        # signal and of every synthetic signal it is computed from;
+        # LLFR-00278: FFT signals have no equation (LLFR-00283).
+        if (not self.store.contains(signal_name_str)
+                or self.store.is_fft(signal_name_str)):
             return
         self.view.copy_text_to_clipboard(
             self.store.equation_text(signal_name_str))
@@ -534,3 +541,77 @@ class SyntheticController:
         removed_name_list = self.store.delete(signal_name_str)
         self.plot_controller.remove_signals(removed_name_list)
         self.show_synthetic_signals()
+
+    # ----------------------------------------------------------------
+    # Layout files
+    # ----------------------------------------------------------------
+
+    def layout_entries(self) -> list:
+        """Return the layout file entries of the synthetic signals.
+
+        Inputs: none.
+        Outputs: the entries of every synthetic signal, in creation
+            order, for the "synthetic_signals" list (LLFR-00225).
+        """
+        # LLFR-00225 item 10: current names, operation, sources and
+        # parameter, in creation order.
+        return self.store.layout_entries()
+
+    def load_layout_signals(self, entry_list, report) -> dict:
+        """Add the synthetic signals of a layout file.
+
+        Called by the layout builder before the plots are rebuilt. The
+        current synthetic signals and their curves are kept (LLFR-00229).
+
+        Inputs:
+            entry_list: the "synthetic_signals" list of the file.
+            report: the LayoutReport of the load; the signals not
+                created and the renamed ones are added to it
+                (LLFR-00237).
+        Outputs: a dict signal name of the file -> (name of the signal
+            drawn for it, its samples), or None when the file's signal
+            was not created; it also holds every synthetic signal of
+            the signal list that is not an FFT signal under its own name.
+        """
+        # LLFR-00262, LLFR-00282: create, reuse or rename, in order.
+        if self.signal_file is None:
+            return {}
+        loader = LayoutSignalLoader(
+            self.store, self.signal_lookup, self.signal_file.time_array,
+            self.data_name_set())
+        loader.load(entry_list)
+        for label_str, reason_str in loader.not_created_list:
+            # LLFR-00237: each signal not created, with the reason.
+            report.add_synthetic_signal(NOT_CREATED_LINE_STR.format(
+                label=label_str, reason=reason_str))
+        for saved_name_str, new_name_str in loader.renamed_list:
+            # LLFR-00282, LLFR-00237: each rename, old and new name.
+            report.add_renamed(RENAMED_SIGNAL_LINE_STR.format(
+                saved=saved_name_str, new=new_name_str))
+        # LLFR-00242: the signal list shows the new synthetic signals.
+        self.show_synthetic_signals()
+        # LLFR-00230, LLFR-00282: what the file's names draw.
+        return loader.drawn_name_dict()
+
+    def layout_snapshot(self):
+        """Remember the synthetic signals before a layout load.
+
+        Inputs: none.
+        Outputs: a function without arguments that puts them back and
+            shows them in the signal list, for a load that fails.
+        """
+        # PCR-00025, LLFR-00236: a failed load keeps the layout, and the
+        # synthetic signals, unchanged.
+        saved_signal_list = list(self.store.signal_list)
+
+        def restore() -> None:
+            """Put back the remembered synthetic signals.
+
+            Inputs: none.
+            Outputs: none.
+            """
+            # LLFR-00236: the synthetic signals of before the load.
+            self.store.signal_list = list(saved_signal_list)
+            self.show_synthetic_signals()
+
+        return restore

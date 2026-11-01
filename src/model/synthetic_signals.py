@@ -16,18 +16,24 @@ Public API:
   synthetic signals, and turn them into layout file entries and back.
 - ``entries_text(entry_list)``: the JSON text of a list of entries, as
   "Copy equation" puts it on the clipboard (LLFR-00279).
+- ``LayoutSignalLoader``: create the synthetic signals of a layout file,
+  reusing identical ones and renaming those whose name is in use, and
+  say which were not created and why (LLFR-00262, LLFR-00282,
+  LLFR-00237); ``create_layout_signals`` runs it.
 
 Layout file entries (LLFR-00225 item 10, LLFR-00227)
 ----------------------------------------------------
 The layout file holds the synthetic signals as a JSON list, under the
-key ``"synthetic_signals"``, in creation order. Each entry is a JSON
+key ``"synthetic_signals"``, in creation order, except the FFT signals,
+which are neither saved nor loaded (LLFR-00283). Each entry is a JSON
 object with these keys:
 
 - ``"name"``: the current name of the synthetic signal (string);
 - ``"operation"``: the operation id (string), one of ``integral``,
   ``derivative``, ``lowpass``, ``highpass``, ``movingaverage``, ``max``,
   ``min``, ``greater``, ``less``, ``greaterorequal``, ``lessorequal``,
-  ``add``, ``subtract``, ``multiply``, ``divide``, ``product``, ``fft``;
+  ``add``, ``subtract``, ``multiply``, ``divide``, ``product`` (an
+  ``fft`` entry is reported and not created, LLFR-00283);
 - ``"signals"``: the current names of the signals it is computed from
   (list of strings; two names for ``product``, the right-clicked signal
   first, one name otherwise);
@@ -37,9 +43,7 @@ object with these keys:
   the filter starts (LLFR-00245, LLFR-00246); the window size
   in samples (whole number) for ``movingaverage``; the constant
   (number) for the Comparison and Arithmetic operations with a
-  constant; an object
-  ``{"start": <s>, "end": <s>}`` with the time range in seconds for
-  ``fft``; ``null`` for the others.
+  constant; ``null`` for the others.
 
 Example::
 
@@ -57,15 +61,13 @@ Example::
         }
       },
       {
-        "name": "fft_lowpass_Speed_1.5s_to_3s",
-        "operation": "fft",
+        "name": "product_lowpass_Speed_Torque",
+        "operation": "product",
         "signals": [
-          "lowpass_Speed"
+          "lowpass_Speed",
+          "Torque"
         ],
-        "parameter": {
-          "start": 1.5,
-          "end": 3.0
-        }
+        "parameter": null
       }
     ]
 
@@ -74,7 +76,6 @@ repr precision, so they are read back as the same value (LLFR-00227).
 """
 
 import json
-import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -82,7 +83,7 @@ import numpy as np
 from model import synthetic_operations as operations
 from model.errors import (
     EmptySyntheticNameError, SyntheticEntryError, SyntheticNameInUseError,
-    SyntheticSourceError)
+    SyntheticSignalError, SyntheticSourceError)
 from model.number_format import format_time_value
 
 # LLFR-00227: keys of a layout file entry of a synthetic signal.
@@ -99,6 +100,8 @@ FILTER_START_KEY_STR = "start"
 LAYOUT_KEY_STR = "synthetic_signals"
 # LLFR-00227: the layout file is indented by 2 spaces.
 JSON_INDENT_I = 2
+# LLFR-00283: the reason an FFT entry of a layout file is not created.
+FFT_NOT_LOADED_STR = "FFT signals are not loaded from layout files."
 # LLFR-00241: first number added to a name that is already used.
 FIRST_SUFFIX_NUMBER_I = 2
 
@@ -129,12 +132,7 @@ def synthetic_name(operation_str: str, source_name_list: list,
         base_name_str += (f"_{format_time_value(start_s)}s_to_"
                           f"{format_time_value(end_s)}s")
     # LLFR-00241: smallest number from 2 up that makes the name unique.
-    name_str = base_name_str
-    number_i = FIRST_SUFFIX_NUMBER_I
-    while name_str in used_name_set:
-        name_str = f"{base_name_str}_{number_i}"
-        number_i += 1
-    return name_str
+    return unique_name(base_name_str, used_name_set)
 
 
 @dataclass
@@ -358,12 +356,16 @@ class SyntheticSignalStore:
         expected_count_i = operations.find_operation(
             operation_str).source_count_i
         if (not isinstance(source_name_list, (list, tuple))
-                or len(source_name_list) != expected_count_i
-                or not all(isinstance(name_str, str)
-                           for name_str in source_name_list)):
+                or len(source_name_list) != expected_count_i):
             raise SyntheticEntryError(
                 f'The operation "{operation_str}" is computed from '
                 f'{expected_count_i} signal name(s).')
+        # LLFR-00262: a hand-edited entry may hold other values.
+        if not all(isinstance(name_str, str)
+                   for name_str in source_name_list):
+            raise SyntheticEntryError(
+                'The names of the signals it is computed from must be '
+                'texts.')
         for name_str in source_name_list:
             # LLFR-00262: a missing source stops the creation.
             if name_str not in data_name_set and not self.contains(
@@ -542,10 +544,14 @@ class SyntheticSignalStore:
 
         Inputs: none.
         Outputs: a list of entries (layout_entry), in creation order,
-            for the "synthetic_signals" key of the layout file.
+            for the "synthetic_signals" key of the layout file, without
+            the FFT signals (LLFR-00283).
         """
-        # LLFR-00225 item 10: every synthetic signal, in creation order.
-        return [self.layout_entry(signal) for signal in self.signal_list]
+        # LLFR-00225 item 10: every synthetic signal, in creation order;
+        # LLFR-00283: except the FFT signals. No other signal is
+        # computed from an FFT signal (LLFR-00251), so none is lost.
+        return [self.layout_entry(signal) for signal in self.signal_list
+                if not signal.is_fft_b]
 
     def equation_entries(self, name_str: str) -> list:
         """Return the equation of a synthetic signal.
@@ -580,7 +586,10 @@ class SyntheticSignalStore:
 
     def create_from_entry(self, entry_dict, signal_lookup, time_array,
                           data_name_set: set) -> SyntheticSignal:
-        """Create a synthetic signal from a layout file entry.
+        """Create a synthetic signal from a layout file entry, strictly.
+
+        A saved name that is in use is refused here; a layout load uses
+        LayoutSignalLoader, which renames it instead (LLFR-00282).
 
         Inputs:
             entry_dict: one entry of the "synthetic_signals" list (see
@@ -590,8 +599,7 @@ class SyntheticSignalStore:
             time_array: the time signal of the data file, in seconds.
             data_name_set: the names of the data file signals.
         Outputs: the new SyntheticSignal, with the saved name, appended
-            to the store. An FFT time range is first limited to the time
-            range of the data file.
+            to the store. An FFT entry is never created (LLFR-00283).
         Raises: a SyntheticSignalError subclass whose ``str()`` is the
             reason for the load report (LLFR-00237): SyntheticEntryError
             (malformed entry), SyntheticSourceError (missing or FFT
@@ -607,14 +615,16 @@ class SyntheticSignalStore:
             self.read_entry(entry_dict))
         # LLFR-00267: names are kept without outer spaces, as rename().
         name_str = name_str.strip()
-        # LLFR-00262: the saved name must not be a data file signal's.
-        if name_str in data_name_set or self.contains(name_str):
+        # LLFR-00267: no two signals share a name. A layout load uses
+        # LayoutSignalLoader instead, which gives such a signal a unique
+        # name (LLFR-00282).
+        if name_str in data_name_set:
             raise SyntheticNameInUseError(
-                f'"{name_str}" is already the name of a signal.')
-        if operation_str == operations.FFT_STR:
-            # LLFR-00262: the FFT range is limited to the file's range.
-            parameter = limited_time_range(
-                operations.check_time_range(parameter), time_array)
+                f'"{name_str}" is the name of a signal of the data file.')
+        if self.contains(name_str):
+            raise SyntheticNameInUseError(
+                f'"{name_str}" is already the name of an earlier '
+                f'synthetic signal.')
         return self.compute_signal(operation_str, source_name_list,
                                    parameter, signal_lookup, time_array,
                                    data_name_set, name_str)
@@ -627,8 +637,8 @@ class SyntheticSignalStore:
         Outputs: a tuple (name, operation id, source names, parameter in
             the form create() takes).
         Raises: SyntheticEntryError when a key is missing or has the
-            wrong type; SyntheticOperationError for an unknown
-            operation.
+            wrong type, or for an FFT signal (LLFR-00283);
+            SyntheticOperationError for an unknown operation.
         """
         # LLFR-00262: hand-edited files may hold anything.
         if not isinstance(entry_dict, dict):
@@ -645,6 +655,9 @@ class SyntheticSignalStore:
                 "not empty.")
         operation_str = entry_dict[OPERATION_KEY_STR]
         operations.find_operation(operation_str)
+        if operation_str == operations.FFT_STR:
+            # LLFR-00283: FFT signals are not loaded from layout files.
+            raise SyntheticEntryError(FFT_NOT_LOADED_STR)
         source_name_list = entry_dict[SIGNALS_KEY_STR]
         if not isinstance(source_name_list, list):
             raise SyntheticEntryError(
@@ -655,21 +668,281 @@ class SyntheticSignalStore:
         return name_str, operation_str, list(source_name_list), parameter
 
 
-def limited_time_range(time_range_tuple: tuple, time_array) -> tuple:
-    """Limit an FFT time range to the time range of the data file.
+def entry_label(entry_dict, entry_number_i: int) -> str:
+    """Return how the load report names a synthetic signal entry.
 
     Inputs:
-        time_range_tuple: (start_s, end_s), in seconds.
-        time_array: the time signal of the data file, in seconds.
-    Outputs: (max(start_s, first time), min(end_s, last time)); the
-        range is returned unchanged when the time signal is empty.
+        entry_dict: one entry of the "synthetic_signals" list.
+        entry_number_i: its position in the list, from 1.
+    Outputs: its saved name, or "Entry <n> of the synthetic signals"
+        when it has no usable name.
     """
-    # LLFR-00262: the saved range limited to the data file's range.
-    times_array = np.asarray(time_array, dtype=np.float64)
-    start_s, end_s = time_range_tuple
-    if times_array.size == 0:
-        return (start_s, end_s)
-    first_s = float(np.nanmin(times_array))
-    last_s = float(np.nanmax(times_array))
-    return (max(start_s, first_s) if math.isfinite(first_s) else start_s,
-            min(end_s, last_s) if math.isfinite(last_s) else end_s)
+    # LLFR-00237: each synthetic signal not created is named.
+    name_value = (entry_dict.get(NAME_KEY_STR)
+                  if isinstance(entry_dict, dict) else None)
+    if isinstance(name_value, str) and name_value.strip():
+        return name_value.strip()
+    return f"Entry {entry_number_i} of the synthetic signals"
+
+
+def unique_name(base_name_str: str, used_name_set: set) -> str:
+    """Return a name made unique as in LLFR-00241.
+
+    Inputs:
+        base_name_str: the wanted name.
+        used_name_set: the names already in the signal list.
+    Outputs: base_name_str when it is free, else base_name_str followed
+        by ``_2``, ``_3``... (the smallest free number from 2 up).
+    """
+    # LLFR-00241, LLFR-00282: the smallest number from 2 up.
+    name_str = base_name_str
+    number_i = FIRST_SUFFIX_NUMBER_I
+    while name_str in used_name_set:
+        name_str = f"{base_name_str}_{number_i}"
+        number_i += 1
+    return name_str
+
+
+def name_sequence(base_name_str: str, last_name_str: str) -> list:
+    """Return the names LLFR-00241 tries, up to the one it chose.
+
+    Inputs:
+        base_name_str: the wanted name.
+        last_name_str: the name unique_name returned for it.
+    Outputs: [base, base_2, base_3, ...] up to, but without,
+        last_name_str; [] when last_name_str is base_name_str.
+    """
+    # LLFR-00282: the names an earlier load may have given to a signal
+    # of the same saved name.
+    name_list = []
+    candidate_name_str = base_name_str
+    number_i = FIRST_SUFFIX_NUMBER_I
+    while candidate_name_str != last_name_str:
+        name_list.append(candidate_name_str)
+        candidate_name_str = f"{base_name_str}_{number_i}"
+        number_i += 1
+    return name_list
+
+
+def recipe(store: SyntheticSignalStore, signal: SyntheticSignal) -> dict:
+    """Return the recipe of a synthetic signal: its entry without name.
+
+    Inputs:
+        store: the store that holds the signal.
+        signal: the synthetic signal.
+    Outputs: its layout file entry without "name": operation, current
+        source names and parameter (LLFR-00282).
+    """
+    # LLFR-00282: two signals of the same name are the same signal when
+    # their operation, sources and parameter are the same.
+    entry_dict = store.layout_entry(signal)
+    del entry_dict[NAME_KEY_STR]
+    return entry_dict
+
+
+class LayoutSignalLoader:
+    """Creates the synthetic signals of a layout file (LLFR-00262).
+
+    Inputs:
+        store: the store of the open data file; its current signals are
+            kept (LLFR-00229).
+        signal_lookup: function name -> samples of any signal of the
+            signal list, data file or synthetic.
+        time_array: the time signal of the data file, in seconds.
+        data_name_set: the names of the data file signals.
+    Attributes:
+        name_dict: file name of each synthetic entry -> the name of the
+            signal the layout uses for it (the saved name, or the name
+            made unique by LLFR-00282), or None when it was not created.
+        not_created_list: (label_str, reason_str) of each entry that was
+            not created (LLFR-00237).
+        renamed_list: (saved name, new name) of each entry created under
+            a new name because its name was in use (LLFR-00282).
+    """
+
+    def __init__(self, store: SyntheticSignalStore, signal_lookup,
+                 time_array, data_name_set: set) -> None:
+        """Store the parts.
+
+        Inputs: see the class docstring.
+        Outputs: none.
+        """
+        # LLFR-00262: the signals of the data file and the store.
+        self.store = store
+        self.signal_lookup = signal_lookup
+        self.time_array = time_array
+        self.data_name_set = set(data_name_set)
+        self.name_dict = {}
+        self.not_created_list = []
+        self.renamed_list = []
+
+    def source_name(self, file_name_str):
+        """Return the signal a source name of the file stands for.
+
+        Inputs:
+            file_name_str: a source name as saved in the file.
+        Outputs: the name of the signal of the signal list it uses (it
+            follows the renames of LLFR-00282), or the saved value when
+            the file did not create it.
+        """
+        # LLFR-00282: a renamed signal is used under its new name.
+        if isinstance(file_name_str, str) and file_name_str in (
+                self.name_dict):
+            return self.name_dict[file_name_str] or file_name_str
+        return file_name_str
+
+    def source_reason(self, source_value, later_name_set: set) -> str:
+        """Explain a source of an entry that is not in the signal list.
+
+        Inputs:
+            source_value: the "signals" value of the entry.
+            later_name_set: the names of the entries after this one.
+        Outputs: the reason for the load report, or "" when every source
+            is listed, or is missing for a reason that the store gives
+            itself.
+        """
+        # LLFR-00262: a source must exist when the signal is created; a
+        # hand-edited list may name a signal that was not created, or one
+        # that comes later in the list (a forward reference or a cycle).
+        if not isinstance(source_value, list):
+            return ""
+        for source_name_str in source_value:
+            if not isinstance(source_name_str, str):
+                continue
+            if (source_name_str in self.name_dict
+                    and self.name_dict[source_name_str] is None):
+                return (f'The signal "{source_name_str}" it is computed '
+                        f'from was not created.')
+            if (source_name_str in self.name_dict
+                    or source_name_str in self.data_name_set):
+                continue
+            # LLFR-00262: the file means its own later signal, even when
+            # a current synthetic signal has that name.
+            if source_name_str in later_name_set:
+                return (f'The signal "{source_name_str}" it is computed '
+                        f'from comes later in the list of synthetic '
+                        f'signals; a synthetic signal must come after the '
+                        f'signals it is computed from.')
+        return ""
+
+    def create_entry(self, entry_dict, later_name_set: set) -> str:
+        """Create, or find, the synthetic signal of one entry.
+
+        Inputs:
+            entry_dict: one entry of the "synthetic_signals" list.
+            later_name_set: the names of the entries after this one.
+        Outputs: the name of the signal the layout uses for the entry.
+        Raises: SyntheticSignalError (with the reason for the report)
+            when it cannot be created.
+        """
+        # LLFR-00262, LLFR-00283: type-checked, FFT entries refused.
+        name_str, operation_str, source_name_list, parameter = (
+            self.store.read_entry(entry_dict))
+        name_str = name_str.strip()
+        reason_str = self.source_reason(source_name_list, later_name_set)
+        if reason_str:
+            raise SyntheticSourceError(reason_str)
+        # LLFR-00282: the sources follow the renames of this load.
+        source_name_list = [self.source_name(source_value)
+                            for source_value in source_name_list]
+        used_name_set = self.data_name_set | set(self.store.names())
+        # LLFR-00282: a free saved name is kept; a name in use is made
+        # unique as in LLFR-00241.
+        signal = self.store.compute_signal(
+            operation_str, source_name_list, parameter, self.signal_lookup,
+            self.time_array, self.data_name_set,
+            unique_name(name_str, used_name_set))
+        signal_recipe_dict = recipe(self.store, signal)
+        for candidate_name_str in name_sequence(name_str,
+                                                signal.name_str):
+            if (self.store.contains(candidate_name_str)
+                    and recipe(self.store,
+                               self.store.get(candidate_name_str))
+                    == signal_recipe_dict):
+                # LLFR-00282: the same signal already exists under the
+                # saved name, or under a name an earlier load made unique
+                # from it: it is used, and nothing is created.
+                self.store.signal_list.remove(signal)
+                return candidate_name_str
+        if signal.name_str != name_str:
+            # LLFR-00282, LLFR-00237: the rename is reported.
+            self.renamed_list.append((name_str, signal.name_str))
+        return signal.name_str
+
+    def load(self, entry_list) -> None:
+        """Create the synthetic signals of the file, in its order.
+
+        Inputs:
+            entry_list: the "synthetic_signals" list of the layout file,
+                as read by json.load; any value is accepted.
+        Outputs: none; fills name_dict and not_created_list. Never
+            raises: an entry that cannot be created is skipped.
+        """
+        # LLFR-00262: in the file's order.
+        if not isinstance(entry_list, list):
+            entry_list = []
+        label_list = [entry_label(entry_dict, index_i + 1)
+                      for index_i, entry_dict in enumerate(entry_list)]
+        for index_i, entry_dict in enumerate(entry_list):
+            label_str = label_list[index_i]
+            try:
+                used_name_str = self.create_entry(
+                    entry_dict, set(label_list[index_i + 1:]))
+            except SyntheticSignalError as error:
+                # LLFR-00262, LLFR-00237: not created, with the reason.
+                reason_str = str(error)
+            except Exception as error:
+                # PCR-00025: an unexpected failure only skips this entry.
+                reason_str = (f"It could not be created because of an "
+                              f"unexpected error: {error}")
+            else:
+                self.name_dict[label_str] = used_name_str
+                continue
+            self.not_created_list.append((label_str, reason_str))
+            if label_str != entry_label(None, index_i + 1):
+                # LLFR-00262: its curves and dependents are missing.
+                self.name_dict[label_str] = None
+
+    def drawn_name_dict(self) -> dict:
+        """Return what the layout builder draws for each signal name.
+
+        Inputs: none.
+        Outputs: a dict signal name -> (name of the signal drawn, its
+            samples), or None for a synthetic signal of the file that
+            was not created. It holds every synthetic signal of the
+            store that is not an FFT signal under its own name, then the
+            names of the file's entries, which win (LLFR-00282).
+        """
+        # LLFR-00230: the file's curves may name any synthetic signal
+        # drawn against time; LLFR-00283: FFT signals are not.
+        name_dict = {signal.name_str: (signal.name_str, signal.value_array)
+                     for signal in self.store.signal_list
+                     if not signal.is_fft_b}
+        for file_name_str, used_name_str in self.name_dict.items():
+            # LLFR-00282: the file's name stands for the signal used;
+            # LLFR-00262: a signal not created is missing.
+            name_dict[file_name_str] = (
+                None if used_name_str is None
+                else name_dict.get(used_name_str))
+        return name_dict
+
+
+def create_layout_signals(store: SyntheticSignalStore, entry_list,
+                          signal_lookup, time_array,
+                          data_name_set: set) -> list:
+    """Create the synthetic signals of a layout file, in its order.
+
+    Inputs:
+        store: the store to add the signals to; its signals are kept.
+        entry_list: the "synthetic_signals" list of the layout file.
+        signal_lookup: function name -> samples of any signal.
+        time_array: the time signal of the data file, in seconds.
+        data_name_set: the names of the data file signals.
+    Outputs: a list of (label_str, reason_str) for each entry that was
+        not created (LLFR-00237), FFT entries included (LLFR-00283).
+    """
+    # LLFR-00262, LLFR-00282: see LayoutSignalLoader.
+    loader = LayoutSignalLoader(store, signal_lookup, time_array,
+                                data_name_set)
+    loader.load(entry_list)
+    return loader.not_created_list

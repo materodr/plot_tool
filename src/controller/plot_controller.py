@@ -1471,14 +1471,19 @@ class PlotController:
             panel_width_tuple, synthetic_signal_list)
 
     def load_layout(self, layout_dict: dict,
-                    synthetic_signal_builder=None):
+                    synthetic_signal_builder=None,
+                    synthetic_signal_restore_function=None):
         """Rebuild the layout of a layout file and show it.
 
         Inputs:
             layout_dict: the content of the file
                 (model.layout_file.parse_layout_text).
             synthetic_signal_builder: optional function that creates the
-                synthetic signals of the file (LLFR-00262, issue #110).
+                synthetic signals of the file (LLFR-00262).
+            synthetic_signal_restore_function: optional function without
+                arguments that puts back the synthetic signals of before
+                the load; called first when the rebuild fails, so that
+                the views are redrawn with them (LLFR-00236).
         Outputs: the LayoutResult, whose report says what was not
             rebuilt; None when no data file is open (LLFR-00218).
         """
@@ -1496,6 +1501,10 @@ class PlotController:
                 self.workspace, layout_dict, self.signal_file.signal_dict,
                 self.signal_file.time_array, synthetic_signal_builder)
         except Exception:
+            # LLFR-00236: the synthetic signals come back before the
+            # views are redrawn, so the old curves find their samples.
+            if synthetic_signal_restore_function is not None:
+                synthetic_signal_restore_function()
             self.workspace.restore(snapshot)
             self.rebuild_all_views(snapshot.current_tab_id_i)
             raise

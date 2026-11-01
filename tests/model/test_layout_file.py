@@ -457,7 +457,8 @@ class LayoutRebuildTestCase(unittest.TestCase):
 class LayoutRoundTripTest(LayoutRebuildTestCase):
     """A saved layout is rebuilt as saved (LLFR-00230)."""
 
-    @covers("LLFR-00230", "LLFR-00225", "LLFR-00229", "LLFR-00237")
+    @covers("LLFR-00230", "LLFR-00225", "LLFR-00229", "LLFR-00237",
+            "LLFR-00231")
     def test_round_trip_rebuilds_everything(self) -> None:
         """Tabs, plots, curves, tips, delta and vertical markers, range,
         grid and widths come back as saved, with nothing to report.
@@ -471,6 +472,10 @@ class LayoutRoundTripTest(LayoutRebuildTestCase):
         result = self.rebuild(parse_layout_text(text_str))
         self.assertTrue(result.report.is_empty(), result.report.text())
         self.assertEqual(result.report.text(), "")
+        # LLFR-00231: the saved tab "Empty" holds no plot, so it is not
+        # created, and this is not reported.
+        saved_tab = saved_workspace.tab_list[1]
+        saved_workspace.delete_tab(saved_tab.tab_id_i)
         self.assertEqual(workspace_content(self.workspace),
                          workspace_content(saved_workspace))
         self.assertEqual(result.time_range_tuple, (0.5, 7.25))
@@ -509,10 +514,12 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         self.workspace.add_tab()
         result = self.rebuild(minimal_layout(
             [one_plot_tab([curve("Speed")], "Tab 1"),
-             {"name": "Second", "plots": []}]))
+             {"name": "Second", "plots": []},
+             one_plot_tab([curve("Torque")], "Third")]))
         self.assertTrue(result.tabs_replaced_b)
+        # LLFR-00231: "Second" holds no plot and is not created.
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
-                         ["Tab 1", "Second"])
+                         ["Tab 1", "Third"])
         self.assertEqual(result.first_tab_id_i,
                          self.workspace.tab_list[0].tab_id_i)
         self.assertTrue(result.report.is_empty())
@@ -540,13 +547,16 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         self.assertEqual(result.first_tab_id_i,
                          self.workspace.tab_list[1].tab_id_i)
         # LLFR-00235, LLFR-00237: the name "Tab 1" of the kept tab was
-        # replaced without a report.
-        self.assertTrue(result.report.is_empty(), result.report.text())
+        # replaced, and the rename is the only line of the report.
+        self.assertEqual(result.report.renamed_line_list,
+                         ['Tab "Tab 1" \u2192 "Tab 2"'])
+        self.assertEqual(result.report.text(),
+                         'Renamed:\n  - Tab "Tab 1" \u2192 "Tab 2"')
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00212")
-    def test_clash_with_kept_tab_cascades_silently(self) -> None:
+    def test_clash_with_kept_tab_cascades_and_is_reported(self) -> None:
         """File tabs "Tab 1" and "Tab 2" after a kept "Tab 1" become
-        "Tab 2" and "Tab 3", with nothing to report.
+        "Tab 2" and "Tab 3", and both renames are reported.
 
         Inputs: none.
         Outputs: none.
@@ -558,8 +568,10 @@ class LayoutTabsTest(LayoutRebuildTestCase):
              one_plot_tab([curve("Torque")], "Tab 2")]))
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
                          ["Tab 1", "Tab 2", "Tab 3"])
-        self.assertTrue(result.report.is_empty(), result.report.text())
-        self.assertEqual(result.report.text(), "")
+        self.assertEqual(result.report.renamed_line_list,
+                         ['Tab "Tab 1" \u2192 "Tab 2"',
+                          'Tab "Tab 2" \u2192 "Tab 3"'])
+        self.assertEqual(result.report.replaced_line_list, [])
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00210",
             "LLFR-00212")
@@ -571,26 +583,31 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         Inputs: none.
         Outputs: none.
         """
+        plot_list = [{"curves": [curve("Speed")]}]
         result = self.rebuild(minimal_layout([
-            {"name": "  ", "plots": []}, {"name": "Tab 2", "plots": []},
-            {"name": "Tab 2", "plots": []}, {"name": 5, "plots": []},
-            {"plots": []}, "not a tab"]))
+            {"name": "  ", "plots": plot_list},
+            {"name": "Tab 2", "plots": plot_list},
+            {"name": "Skipped", "plots": []},
+            {"name": "Tab 2", "plots": plot_list},
+            {"name": 5, "plots": plot_list},
+            {"plots": plot_list}, "not a tab", {"name": [], "plots": []}]))
         name_list = [tab.name_str for tab in self.workspace.tab_list]
-        self.assertEqual(len(name_list), 6)
-        self.assertEqual(len(set(name_list)), 6)
+        self.assertEqual(len(name_list), 5)
+        self.assertEqual(len(set(name_list)), 5)
         # LLFR-00210: "Tab 1" of the replaced tab is used up; the empty
         # name became "Tab 2", so the file's first "Tab 2" is silently
-        # "Tab 3" and its repeat is "Tab 4".
+        # "Tab 3" and its repeat is "Tab 4". LLFR-00231: the tabs left
+        # with no plot are not created and use up no number.
         self.assertEqual(name_list, ["Tab 2", "Tab 3", "Tab 4", "Tab 5",
-                                     "Tab 6", "Tab 7"])
+                                     "Tab 6"])
         replaced_list = result.report.replaced_line_list
-        self.assertEqual(len(replaced_list), 5)
+        self.assertEqual(len(replaced_list), 4)
         self.assertIn("is empty", replaced_list[0])
         self.assertIn("earlier tab of the file", replaced_list[1])
         self.assertIn('"Tab 4"', replaced_list[1])
         self.assertIn("not a text", replaced_list[2])
         self.assertIn("not a text", replaced_list[3])
-        self.assertIn("not a text", replaced_list[4])
+        self.assertNotIn("Skipped", result.report.text())
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229")
     def test_repeat_in_file_found_after_a_silent_rename(self) -> None:
@@ -602,9 +619,11 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         """
         first_tab = self.workspace.tab_list[0]
         self.workspace.add_plot(first_tab.tab_id_i).add_curve("Power")
+        plot_list = [{"curves": [curve("Speed")]}]
         result = self.rebuild(minimal_layout([
-            {"name": "Tab 1", "plots": []}, {"name": " Tab 1 ", "plots": []},
-            {"name": "Own", "plots": []}]))
+            {"name": "Tab 1", "plots": plot_list},
+            {"name": " Tab 1 ", "plots": plot_list},
+            {"name": "Own", "plots": plot_list}]))
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
                          ["Tab 1", "Tab 2", "Tab 3", "Own"])
         self.assertEqual(len(result.report.replaced_line_list), 1)
@@ -631,8 +650,8 @@ class LayoutMissingSignalTest(LayoutRebuildTestCase):
 
     @covers("LLFR-00231", "LLFR-00237")
     def test_missing_signals_no_curve_no_empty_plot_every_tab(self) -> None:
-        """Missing signals draw nothing, empty plots are not created,
-        every tab is created and each missing name is listed once.
+        """Missing signals draw nothing, empty plots and tabs left with
+        no plot are not created, and each missing name is listed once.
 
         Inputs: none.
         Outputs: none.
@@ -646,10 +665,10 @@ class LayoutMissingSignalTest(LayoutRebuildTestCase):
             {"name": "Nothing left", "plots": [
                 {"curves": [curve("Lost")]}]}])
         result = self.rebuild(layout_dict)
+        # LLFR-00231: "Nothing left" has no plot left: not created.
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
-                         ["Mixed", "Nothing left"])
+                         ["Mixed"])
         self.assertEqual(len(self.workspace.tab_list[0].plot_list), 1)
-        self.assertEqual(self.workspace.tab_list[1].plot_list, [])
         plot = self.workspace.tab_list[0].plot_list[0]
         self.assertEqual([item.signal_name_str for item in plot.curve_list],
                          ["Speed"])
@@ -660,6 +679,11 @@ class LayoutMissingSignalTest(LayoutRebuildTestCase):
         self.assertEqual(report_text_str.count("  - Lost\n"), 1)
         self.assertIn("Data tip at 1 s", report_text_str)
         self.assertIn("not created", report_text_str)
+        # LLFR-00237: the plots of the tab not created are reported, but
+        # not the tab itself.
+        self.assertIn("Plot 1 of tab \"Nothing left\": not created",
+                      report_text_str)
+        self.assertNotIn("Tab \"Nothing left\"", report_text_str)
 
     @covers("LLFR-00231", "LLFR-00056")
     def test_bad_curve_entries_are_skipped(self) -> None:

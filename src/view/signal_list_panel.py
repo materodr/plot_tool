@@ -394,10 +394,12 @@ class SignalListPanel(QWidget):
         add_request_action(menu, COPY_NAME_TEXT_STR,
                            lambda: self.copy_name_requested.emit(name_str))
         if name_str in self.synthetic_name_set:
-            # LLFR-00278: the equation of a synthetic signal.
-            add_request_action(
-                menu, COPY_EQUATION_TEXT_STR,
-                lambda: self.copy_equation_requested.emit(name_str))
+            if name_str not in self.fft_name_set:
+                # LLFR-00278: the equation of a synthetic signal that is
+                # not an FFT signal (LLFR-00283).
+                add_request_action(
+                    menu, COPY_EQUATION_TEXT_STR,
+                    lambda: self.copy_equation_requested.emit(name_str))
             menu.addSeparator()
             # LLFR-00265, LLFR-00254: only synthetic signals.
             add_request_action(
