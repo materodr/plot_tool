@@ -452,7 +452,7 @@ class TipKeyMainWindowTest(unittest.TestCase):
 
     @covers("LLFR-00150", "LLFR-00149")
     def test_other_key_ends_tip_and_still_reaches_its_handler(self) -> None:
-        """Ctrl+Z ends the Tip activation and Ctrl+Z still reaches a widget.
+        """Ctrl+K ends the Tip activation and Ctrl+K still reaches a widget.
 
         Inputs: none.
         Outputs: none.
@@ -478,11 +478,13 @@ class TipKeyMainWindowTest(unittest.TestCase):
         self.top_panel.zoom_button.click()
         self.press_tip_key(key_recorder)
         self.assert_tool_everywhere(TIP_TOOL_STR)
-        send_key(key_recorder, "KeyPress", "Key_Z", "ControlModifier")
+        # Ctrl+K: a combination with no shortcut, so the widget gets it.
+        # Ctrl+Z is the Undo shortcut (test_ctrl_z_ends_tip_and_runs_undo).
+        send_key(key_recorder, "KeyPress", "Key_K", "ControlModifier")
         self.assert_tool_everywhere(NO_TOOL_STR)
-        self.assertIn((int(Qt.Key.Key_Z.value),
+        self.assertIn((int(Qt.Key.Key_K.value),
                        Qt.KeyboardModifier.ControlModifier), received_list)
-        send_key(key_recorder, "KeyRelease", "Key_Z", "ControlModifier")
+        send_key(key_recorder, "KeyRelease", "Key_K", "ControlModifier")
         self.release_tip_key(key_recorder)
         self.assert_tool_everywhere(NO_TOOL_STR)
         key_recorder.deleteLater()
