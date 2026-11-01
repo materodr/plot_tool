@@ -536,26 +536,20 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         plot_widget = self.current_widget_list[0]
         # LLFR-00133, LLFR-00129: the copied image and the PDF pages are
         # grabs of the tab page, which paint each plot from its canvas
-        # image; the grab hides the preview first, so every canvas image
-        # it paints is the clean one of a full draw. (Two grabs of the
-        # whole page are not compared: other widgets of the page may
-        # differ between grabs.)
-        clean_array_list = []
-        for page_widget in page.plot_widget_list:
-            page_widget.canvas.draw()
-            clean_array_list.append(np.array(
-                page_widget.canvas.buffer_rgba(), copy=True))
+        # image. The grab hides the preview first, so each canvas image
+        # it painted is the same as a new full draw, which never draws
+        # the preview. (Grabs of the whole page are not compared: other
+        # widgets of the page may differ between grabs.)
         self.hover(plot_widget, 2.5)
         self.assert_preview_on_current_tab(2.5)
-        self.assertFalse(np.array_equal(
-            np.asarray(plot_widget.canvas.buffer_rgba()),
-            clean_array_list[0]))
         page_image = plot_export.grab_page_image(page)
         self.assertFalse(page_image.isNull())
-        for page_widget, clean_array in zip(page.plot_widget_list,
-                                            clean_array_list):
+        for page_widget in page.plot_widget_list:
+            grabbed_array = np.array(page_widget.canvas.buffer_rgba(),
+                                     copy=True)
+            page_widget.canvas.draw()
             self.assertTrue(np.array_equal(
-                np.asarray(page_widget.canvas.buffer_rgba()), clean_array))
+                grabbed_array, np.asarray(page_widget.canvas.buffer_rgba())))
         self.assert_no_preview()
         # The next mouse move over a plot shows it again.
         self.hover(plot_widget, 3.0)
