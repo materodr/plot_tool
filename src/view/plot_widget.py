@@ -442,7 +442,13 @@ class PlotWidget(QWidget):
         axes: the matplotlib Axes where the curves are drawn.
         redraw_pending_b: True when a time range was set while the
             widget was hidden and the canvas still shows the old one.
+        time_span_drag_b: True while a time span is being selected with
+            the mouse (LLFR-00208); counted by is_mouse_drag_in_progress.
     """
+
+    # LLFR-00207, LLFR-00208: set to True by the time span selection
+    # while its drag is in progress, so that the Z key does nothing then.
+    time_span_drag_b = False
 
     curve_delete_requested = pyqtSignal(str)
     curve_width_requested = pyqtSignal(str, int)
@@ -2506,6 +2512,22 @@ class PlotWidget(QWidget):
         self.panning_b = False
         self.cancel_marker_drag()
         self.cancel_tip_drag()
+
+    def is_mouse_drag_in_progress(self) -> bool:
+        """Tell whether the user is dragging the mouse on this plot.
+
+        Inputs: none.
+        Outputs: True during a pan (LLFR-00117), a marker drag
+            (LLFR-00086), a pinned tip drag (LLFR-00152) or a time span
+            selection (LLFR-00208, flag time_span_drag_b), from the
+            press to the release.
+        """
+        # LLFR-00207: the Z key does nothing while one of these drags is
+        # in progress. A new kind of drag only has to be added here.
+        return (self.panning_b
+                or self.drag_marker_id_i != NO_MARKER_ID_I
+                or self.drag_tip_index_i != NO_TIP_INDEX_I
+                or bool(self.time_span_drag_b))
 
     def retire(self) -> None:
         """Stop all interaction before the widget is removed.
