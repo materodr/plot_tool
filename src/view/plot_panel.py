@@ -73,6 +73,8 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "signal_dropped": "signal_drop_handler",
     "tip_pin_requested": "tip_pin_handler",
     "pinned_tip_delete_requested": "pinned_tip_delete_handler",
+    # LLFR-00152: a pinned tip was dragged and released.
+    "pinned_tip_move_requested": "pinned_tip_move_handler",
     "time_range_changed": "time_range_handler",
     "marker_place_requested": "marker_place_handler",
     "marker_move_requested": "marker_move_handler",

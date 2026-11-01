@@ -1,6 +1,7 @@
 """Colors of the signal curves in a plot (HLFR-00020).
 
-The first 8 curves drawn in a plot use a fixed palette (LLFR-00033).
+The first 8 curves drawn in a plot use a fixed palette (LLFR-00033)
+that starts with blue, black and red (LLFR-00144).
 From the 9th curve on, each new curve gets a random color that is
 clearly different from the colors already used in the plot
 (LLFR-00034). Vertical markers use a reserved color that is never
@@ -8,15 +9,16 @@ given to a curve (LLFR-00083).
 """
 
 # LLFR-00033: 8 colors that are easy to tell apart on a white
-# background (the Tableau 10 set without its gray and olive).
+# background (taken from the Tableau 10 set, plus black).
+# LLFR-00144: the first three are blue, black and red, in that order.
 PALETTE_COLOR_TUPLE = (
     "#1f77b4",  # blue
-    "#ff7f0e",  # orange
-    "#2ca02c",  # green
+    "#000000",  # black
     "#d62728",  # red
+    "#2ca02c",  # green
+    "#ff7f0e",  # orange
     "#9467bd",  # purple
     "#8c564b",  # brown
-    "#e377c2",  # pink
     "#17becf",  # cyan
 )
 

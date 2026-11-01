@@ -44,6 +44,31 @@ class PaletteTest(unittest.TestCase):
                     color_distance(first_str, second_str),
                     MINIMUM_COLOR_DISTANCE_F)
 
+    @covers("LLFR-00144", "LLFR-00033", "HLFR-00020")
+    def test_first_three_colors_are_blue_black_red(self) -> None:
+        """The palette starts with blue, black and red, in that order.
+
+        Each of the three is checked by its dominant RGB channel, so the
+        test does not depend on the exact shade.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(PALETTE_COLOR_TUPLE[:3],
+                         ("#1f77b4", "#000000", "#d62728"))
+        red_i, green_i, blue_i = hex_to_rgb(PALETTE_COLOR_TUPLE[0])
+        self.assertGreater(blue_i, max(red_i, green_i))
+        self.assertEqual(hex_to_rgb(PALETTE_COLOR_TUPLE[1]), (0, 0, 0))
+        red_i, green_i, blue_i = hex_to_rgb(PALETTE_COLOR_TUPLE[2])
+        self.assertGreater(red_i, 2 * max(green_i, blue_i))
+        # The first, second and third curve of a plot get them.
+        random_generator = random.Random(4)
+        color_list = []
+        for drawn_count_i in range(3):
+            color_list.append(next_curve_color(drawn_count_i, color_list,
+                                               random_generator))
+        self.assertEqual(color_list, ["#1f77b4", "#000000", "#d62728"])
+
     @covers("LLFR-00033")
     def test_first_8_curves_use_palette_in_order(self) -> None:
         """drawn_count_i 0 to 7 return the palette colors in order.
