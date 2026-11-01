@@ -72,6 +72,7 @@ jobs:
           echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
           exit $failed
 
+      # PYTHONFAULTHANDLER prints where Python was if a launch crashes.
       - name: Measure the startup time
         env:
           PYTHONFAULTHANDLER: "1"
@@ -79,15 +80,6 @@ jobs:
           python tests/user_tests/measure_startup.py --runs 6 \
             --limit-s 10 --probe-good-files -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
-
-      - name: Show crash reports
-        if: always()
-        run: |
-          ls -la ~/Library/Logs/DiagnosticReports/ || true
-          for report in ~/Library/Logs/DiagnosticReports/*; do
-            [ -f "$report" ] || continue
-            echo "== $report"; head -c 20000 "$report"; echo
-          done
 
       - name: Show the kept matplotlib cache
         if: always()
