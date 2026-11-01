@@ -1,7 +1,8 @@
 """Plot controller: tabs, plots, curves, tips and vertical markers.
 
-It covers HLFR-00012 to HLFR-00025 and the vertical markers of
-HLFR-00028 to HLFR-00031.
+It covers HLFR-00012 to HLFR-00025, the vertical markers of
+HLFR-00028 to HLFR-00031, the zoom reset (HLFR-00035) and the grid
+(HLFR-00037).
 
 It keeps the Workspace model and tells the view what to show. It talks
 to the view only through plain method calls with plain values (ids,
@@ -14,15 +15,19 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - plots: ``add_plot_view``, ``remove_plot_view``, ``draw_plot``,
   ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``;
 - boxes: ``show_full_tab_notification``, ``ask_marker_name``;
+- grid: ``set_grid_shown``;
 - handler setters: ``set_signal_double_click_handler``,
-  ``set_plot_tool_handler``, ``set_tab_handlers`` and
-  ``set_plot_handlers``.
+  ``set_plot_tool_handler``, ``set_tab_handlers``,
+  ``set_plot_handlers``, ``set_reset_zoom_handler`` and
+  ``set_grid_handler``.
 
 Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
 """
 
 import math
+
+import numpy as np
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, is_known_plot_tool)
@@ -43,6 +48,7 @@ class PlotController:
         signal_file: the open SignalFile, or None before the first file.
         plot_tool_str: the active plot tool (a name of
             controller.plot_tools), NO_TOOL_STR when none is active.
+        grid_shown_b: True while the grid is shown on the plots.
     """
 
     def __init__(self, view, file_controller, workspace=None) -> None:
@@ -61,6 +67,8 @@ class PlotController:
         self.workspace = workspace
         self.signal_file = None
         self.plot_tool_str = NO_TOOL_STR
+        # LLFR-00147: the grid is hidden at start.
+        self.grid_shown_b = False
         # LLFR-00015, LLFR-00016: reset the tabs for every opened file.
         file_controller.add_file_opened_listener(self.on_file_opened)
         # LLFR-00019: signal list requests.
@@ -86,6 +94,11 @@ class PlotController:
             marker_move_handler=self.on_marker_move,
             marker_rename_handler=self.on_marker_rename,
             marker_delete_handler=self.on_marker_delete)
+        # LLFR-00115: the Reset zoom button of the top panel.
+        view.set_reset_zoom_handler(self.on_reset_zoom)
+        # LLFR-00122, LLFR-00123: the Grid button of the top panel.
+        view.set_grid_handler(self.on_grid_toggled)
+        view.set_grid_shown(self.grid_shown_b)
         # LLFR-00024: show the tabs of the model (one empty tab).
         self.rebuild_tab_views()
 
@@ -348,6 +361,53 @@ class PlotController:
         for other_plot in self.other_plot_list(plot):
             self.view.set_plot_time_range(other_plot.plot_id_i, start_s,
                                           end_s)
+
+    def file_time_range_tuple(self) -> tuple:
+        """Return the whole time range of the open file.
+
+        Inputs: none.
+        Outputs: a tuple (start_s, end_s) from the first to the last time
+            sample, or () when no file is open or it has no finite time.
+        """
+        # LLFR-00115: the range of the time signal (HLFR-00006).
+        if self.signal_file is None:
+            return ()
+        time_array = np.asarray(self.signal_file.time_array, dtype=float)
+        time_array = time_array[np.isfinite(time_array)]
+        if time_array.size == 0:
+            return ()
+        return (float(np.min(time_array)), float(np.max(time_array)))
+
+    def on_reset_zoom(self) -> None:
+        """Show the whole time range in every plot of the current tab.
+
+        Inputs: none.
+        Outputs: none. Plots of other tabs keep their range.
+        """
+        # LLFR-00115: only the current tab; the view fits each y-axis to
+        # the new range (LLFR-00076), and all plots get the same range
+        # (LLFR-00070).
+        tab = self.workspace.find_tab(self.view.current_tab_id())
+        range_tuple = self.file_time_range_tuple()
+        if tab is None or not range_tuple:
+            return
+        start_s, end_s = range_tuple
+        for plot in tab.plot_list:
+            self.view.set_plot_time_range(plot.plot_id_i, start_s, end_s)
+
+    def on_grid_toggled(self, shown_b: bool) -> None:
+        """Show or hide the grid on every plot of every tab.
+
+        Inputs:
+            shown_b: True when the Grid button asks to show the grid.
+        Outputs: none.
+        """
+        # LLFR-00122, LLFR-00123: all plots, all tabs; LLFR-00125: the
+        # view applies the state to new plots too. LLFR-00124: the view
+        # shows the Grid button to match. The state is kept when a file
+        # replaces another one.
+        self.grid_shown_b = bool(shown_b)
+        self.view.set_grid_shown(self.grid_shown_b)
 
     # ----------------------------------------------------------------
     # Plot tools and tips

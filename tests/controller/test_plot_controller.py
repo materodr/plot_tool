@@ -69,6 +69,7 @@ class FakePlotView:
             ask_marker_name (None stands for a cancelled dialog).
         marker_name_question_list: the current names given to
             ask_marker_name.
+        grid_shown_b: last value given to set_grid_shown.
     """
 
     def __init__(self) -> None:
@@ -90,6 +91,7 @@ class FakePlotView:
         self.marker_drawn_dict = {}
         self.marker_name_answer_list = []
         self.marker_name_question_list = []
+        self.grid_shown_b = None
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -131,6 +133,34 @@ class FakePlotView:
         Outputs: none.
         """
         self.handler_dict.update(handler_dict)
+
+    def set_reset_zoom_handler(self, handler) -> None:
+        """Record the Reset zoom handler.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        self.handler_dict["reset_zoom"] = handler
+
+    def set_grid_handler(self, handler) -> None:
+        """Record the Grid button handler.
+
+        Inputs:
+            handler: function taking True or False.
+        Outputs: none.
+        """
+        self.handler_dict["grid"] = handler
+
+    def set_grid_shown(self, shown_b: bool) -> None:
+        """Record whether the grid is shown.
+
+        Inputs:
+            shown_b: True when the grid is shown.
+        Outputs: none.
+        """
+        self.call_list.append(("set_grid_shown", shown_b))
+        self.grid_shown_b = shown_b
 
     def clear_tab_views(self) -> None:
         """Remove every tab and plot.

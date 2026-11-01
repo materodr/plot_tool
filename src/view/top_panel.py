@@ -5,12 +5,15 @@ from PyQt6.QtWidgets import QHBoxLayout, QWidget
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+from view.action_button import ActionButton
 from view.toggle_button import ToggleButton
 
 OPEN_FILE_TEXT_STR = "Open file"
 TIP_TEXT_STR = "Tip"
 ZOOM_TEXT_STR = "Zoom"
 MARKER_TEXT_STR = "Vertical marker"
+RESET_ZOOM_TEXT_STR = "Reset zoom"
+GRID_TEXT_STR = "Grid"
 
 
 class TopPanel(QWidget):
@@ -28,6 +31,10 @@ class TopPanel(QWidget):
         zoom_button: the "Zoom" ToggleButton (LLFR-00077).
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
         plot_tool_button_dict: plot tool name -> its ToggleButton.
+        reset_zoom_button: the "Reset zoom" ActionButton (LLFR-00114);
+            not a plot tool.
+        grid_button: the "Grid" ToggleButton (LLFR-00121); not a plot
+            tool, it shows whether the grid is shown (LLFR-00124).
     """
 
     plot_tool_changed = pyqtSignal(str)
@@ -66,6 +73,15 @@ class TopPanel(QWidget):
                 lambda tool_str=tool_str: self.activate_plot_tool(tool_str))
             # LLFR-00002: a second click leaves no tool active.
             button.deactivated.connect(self.deactivate_plot_tools)
+        # LLFR-00114, LLFR-00121: Reset zoom and Grid come after the plot
+        # tools. They are not in plot_tool_button_dict, so the plot tools
+        # never deactivate them and they never deactivate a plot tool.
+        self.reset_zoom_button = ActionButton(RESET_ZOOM_TEXT_STR)
+        self.reset_zoom_button.setObjectName("reset_zoom_button")
+        self.grid_button = ToggleButton(GRID_TEXT_STR)
+        self.grid_button.setObjectName("grid_button")
+        self.button_layout.addWidget(self.reset_zoom_button)
+        self.button_layout.addWidget(self.grid_button)
         # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
         # left.
         self.button_layout.addStretch(1)
