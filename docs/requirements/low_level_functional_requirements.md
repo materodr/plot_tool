@@ -43,6 +43,18 @@ The user must be able to drag the border between the plot panel and the signal l
 
 *Parent: HLFR-00026*
 
+### LLFR-00280 Resize border highlight
+While the mouse pointer is over the part of the border between the plot panel and the signal list panel where a drag changes their widths (LLFR-00073), and while the user drags that border, the app must draw a blue vertical line, 2 pixels wide, along the border over the full height of the two panels. The app must hide the line as soon as the pointer is no longer over that part of the border and no drag is in progress.
+
+Note: The line is hidden the rest of the time, so the border is visible only when the user can use it.
+
+*Parent: HLFR-00026*
+
+### LLFR-00281 Resize pointer
+While the mouse pointer is over the part of the border of LLFR-00280, and while the user drags it, the app must show the mouse pointer as a horizontal resize pointer.
+
+*Parent: HLFR-00026*
+
 ### LLFR-00138 Undo action
 When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, plots, curves, data tips and markers to the state they were in before that action.
 
