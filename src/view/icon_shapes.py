@@ -34,7 +34,7 @@ INK_ROLE_STR = "ink"
 MARKER_DASH_START_TUPLE = (11.25, 15.0, 18.75)
 MARKER_DASH_LENGTH_F = 2.25
 
-# LLFR-00159: the names of the 11 icons. Delta X and Delta Y are drawn
+# LLFR-00159: the names of the 12 icons. Delta X and Delta Y are drawn
 # here for their buttons (LLFR-00161, LLFR-00162).
 OPEN_FILE_ICON_STR = "open_file"
 UNDO_ICON_STR = "undo"
@@ -47,6 +47,8 @@ DELTA_Y_ICON_STR = "delta_y"
 GRID_ICON_STR = "grid"
 EXPORT_ICON_STR = "export"
 COPY_ICON_STR = "copy"
+# LLFR-00159 item 12, LLFR-00190: the Redo icon.
+REDO_ICON_STR = "redo"
 
 
 def ink_layer(command_list: list) -> tuple:
@@ -116,7 +118,7 @@ def arrow_head(tip_x_f: float, tip_y_f: float, direction_str: str,
         size_f: the length of each side, along both axes.
     Outputs: the commands of the two sides of the head.
     """
-    # LLFR-00159: the arrows of Undo, Reset zoom, Delta X, Delta Y and
+    # LLFR-00159: the arrows of Undo, Redo, Reset zoom, Delta X, Delta Y and
     # Export share one head shape.
     if direction_str == "left":
         offset_tuple = (size_f, size_f, size_f, -size_f)
@@ -173,6 +175,20 @@ def undo_shape() -> list:
                   ("L", 4.5, 9.5)]
     return [ink_layer(shaft_list),
             ink_layer(arrow_head(4.5, 9.5, "left", 4.0))]
+
+
+def redo_shape() -> list:
+    """Return the Redo icon: an arrow curving to the right (item 12).
+
+    Inputs: none.
+    Outputs: the list of layers, the Undo icon mirrored left to right.
+    """
+    # LLFR-00159: the shaft bends from the lower left up and to the
+    # right, and ends in an arrow head pointing right.
+    shaft_list = [("M", 4.5, 19.0), ("C", 4.5, 13.0, 7.5, 9.5, 12.5, 9.5),
+                  ("L", 19.5, 9.5)]
+    return [ink_layer(shaft_list),
+            ink_layer(arrow_head(19.5, 9.5, "right", 4.0))]
 
 
 def tip_shape() -> list:
@@ -339,6 +355,7 @@ ICON_SHAPE_FUNCTION_DICT = {
     GRID_ICON_STR: grid_shape,
     EXPORT_ICON_STR: export_shape,
     COPY_ICON_STR: copy_shape,
+    REDO_ICON_STR: redo_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 

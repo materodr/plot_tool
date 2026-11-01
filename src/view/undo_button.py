@@ -1,8 +1,9 @@
 """Undo button: an action button that looks paler while it is disabled.
 
-The Undo button runs a one-off action like any ActionButton (LLFR-00001,
-LLFR-00003). When no action is left to undo it is disabled and drawn in
-paler colors, so the user sees that a click does nothing (LLFR-00141).
+The Undo and Redo buttons run a one-off action like any ActionButton
+(LLFR-00001, LLFR-00003). When no action is left to undo (or redo) the
+button is disabled and drawn in paler colors, so the user sees that a
+click does nothing (LLFR-00141, LLFR-00194).
 """
 
 from PyQt6.QtCore import QEvent
@@ -18,10 +19,11 @@ DISABLED_BORDER_COLOR_STR = theme.DISABLED_BORDER_COLOR_STR
 
 
 class UndoButton(ActionButton):
-    """Action button with a paler look while disabled (LLFR-00141).
+    """Action button with a paler look while disabled (LLFR-00141,
+    LLFR-00194); used for the Undo and the Redo buttons.
 
     Inputs:
-        text_str: the button's name, e.g. "Undo".
+        text_str: the button's name, "Undo" or "Redo".
         parent: optional parent widget.
         icon_name_str: the icon shown instead of the name, or ""
             (LLFR-00158); Qt draws it paler while the button is disabled
@@ -38,7 +40,7 @@ class UndoButton(ActionButton):
             icon_name_str: the icon shown instead of the name, or "".
         Outputs: none.
         """
-        # LLFR-00136: the button of the top panel.
+        # LLFR-00136, LLFR-00190: a button of the top panel.
         super().__init__(text_str, parent=parent,
                          icon_name_str=icon_name_str)
 
