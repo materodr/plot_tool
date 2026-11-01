@@ -426,6 +426,10 @@ def apply_matplotlib_style() -> None:
     """
     # LLFR-00068: the time axis and its labels get the theme's look.
     import matplotlib
+    # LLFR-00068: the plots are always drawn by the QtAgg backend, so
+    # matplotlib never looks for other backends, and the standalone
+    # build (build_executable.py) bundles only that one (issue #67).
+    matplotlib.use("QtAgg")
     matplotlib.rcParams.update(MATPLOTLIB_STYLE_DICT)
 
 
