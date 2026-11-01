@@ -8,9 +8,10 @@ acts.
 import copy
 import math
 import random
+import re
 from dataclasses import dataclass
 
-from model.curve_colors import next_curve_color
+from model.curve_colors import PALETTE_COLOR_TUPLE, next_curve_color
 
 # LLFR-00031: maximum number of plots in one tab (HLFR-00018).
 MAXIMUM_PLOTS_PER_TAB_I = 5
@@ -22,6 +23,9 @@ DEFAULT_WIDTH_I = 1
 TAB_NAME_PREFIX_STR = "Tab "
 # LLFR-00085: default name of a new vertical marker ("Marker 1", ...).
 DEFAULT_MARKER_NAME_FORMAT_STR = "Marker {}"
+# LLFR-00111, LLFR-00233: a default marker name, to read its number back
+# when a marker of a layout file keeps its saved name.
+DEFAULT_MARKER_NAME_PATTERN_STR = r"Marker (\d+)"
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -257,15 +261,61 @@ class Plot:
         Outputs: the new Curve, or None when the plot already shows the
             signal (LLFR-00056).
         """
-        # LLFR-00056: a signal already in the plot is not drawn again.
+        # LLFR-00056: a signal already in the plot is not drawn again;
+        # checked before the color is picked, so a refused drop draws no
+        # random color (LLFR-00034).
         if self.has_signal(signal_name_str):
             return None
         # LLFR-00033, LLFR-00034: pick a color not used in this plot.
-        used_color_list = [curve.color_str for curve in self.curve_list]
-        color_str = next_curve_color(self.drawn_count_i, used_color_list,
-                                     self.random_generator)
         # LLFR-00052: a new curve uses preset width 1.
-        curve = Curve(signal_name_str, color_str, DEFAULT_WIDTH_I)
+        return self.add_styled_curve(signal_name_str, self.next_color(),
+                                     DEFAULT_WIDTH_I)
+
+    def next_color(self) -> str:
+        """Return the color the next new curve of this plot gets.
+
+        Inputs: none.
+        Outputs: the palette color of the next curve (LLFR-00033), or a
+            random color from the 9th curve on (LLFR-00034); never a
+            color that a curve of this plot already uses.
+        """
+        # LLFR-00033: the palette color in drawing order. LLFR-00235: a
+        # plot rebuilt from a layout file may already use that palette
+        # color for another curve, so palette colors in use are skipped.
+        used_color_list = [curve.color_str for curve in self.curve_list]
+        used_lower_set = {color_str.lower() for color_str in used_color_list}
+        for palette_index_i in range(self.drawn_count_i,
+                                     len(PALETTE_COLOR_TUPLE)):
+            color_str = PALETTE_COLOR_TUPLE[palette_index_i]
+            if color_str.lower() not in used_lower_set:
+                return color_str
+        # LLFR-00034: a random color different from every used color.
+        return next_curve_color(len(PALETTE_COLOR_TUPLE), used_color_list,
+                                self.random_generator)
+
+    def add_styled_curve(self, signal_name_str: str, color_str: str,
+                         width_i: int):
+        """Draw a signal in the plot with a given color and width.
+
+        Inputs:
+            signal_name_str: name of the signal to draw.
+            color_str: color of the curve, "#rrggbb", not used by another
+                curve of the plot.
+            width_i: preset width of the curve, one of PRESET_WIDTH_TUPLE.
+        Outputs: the new Curve, or None when the plot already shows the
+            signal (LLFR-00056). Raises ValueError for a width that is not
+            a preset width.
+        """
+        # LLFR-00056: a signal already in the plot is not drawn again.
+        if self.has_signal(signal_name_str):
+            return None
+        # LLFR-00041, LLFR-00235: only the preset widths 1 to 5.
+        if isinstance(width_i, bool) or width_i not in PRESET_WIDTH_TUPLE:
+            raise ValueError(f"Width {width_i!r} is not a preset width "
+                             f"{PRESET_WIDTH_TUPLE}.")
+        # LLFR-00230: a curve of a layout file keeps its saved color and
+        # width; LLFR-00033: it counts as a drawn curve for the colors.
+        curve = Curve(signal_name_str, str(color_str), int(width_i))
         self.curve_list.append(curve)
         self.drawn_count_i += 1
         return curve
@@ -690,6 +740,37 @@ class Workspace:
         self.tab_list.append(tab)
         return tab
 
+    def add_named_tab(self, name_str: str) -> Tab:
+        """Add a new empty tab with a given name after the last one.
+
+        Inputs:
+            name_str: the name of the tab; leading and trailing spaces
+                are removed. The caller makes sure it is not empty and
+                not the name of another tab (LLFR-00235).
+        Outputs: the new Tab. The counter of the default tab names is
+            not changed: a later default name skips this name anyway
+            (LLFR-00212).
+        """
+        # LLFR-00230: a tab of a layout file keeps its saved name.
+        tab = Tab(self.next_tab_id_i, str(name_str).strip())
+        self.next_tab_id_i += 1
+        self.tab_list.append(tab)
+        return tab
+
+    def remove_all_tabs(self) -> None:
+        """Remove every tab, leaving the workspace without tabs.
+
+        Inputs: none.
+        Outputs: none. The caller must add at least one tab afterwards.
+            The id counters and the numbering of the default tab and
+            marker names are kept (LLFR-00210, LLFR-00111).
+        """
+        # LLFR-00229: when no current tab holds a plot, the tabs of the
+        # layout file replace the current ones.
+        self.tab_list = []
+        # LLFR-00205: with no plot left, no marker is left either.
+        self.clear_markers_without_plots()
+
     def find_tab(self, tab_id_i: int):
         """Return a tab by its id.
 
@@ -870,6 +951,32 @@ class Workspace:
         marker = VerticalMarker(self.marker_id_counter.take_next_id(),
                                 name_str, float(time_s))
         self.marker_list.append(marker)
+        return marker
+
+    def add_named_marker(self, name_str: str,
+                         time_s: float) -> VerticalMarker:
+        """Place a new vertical marker with a given name.
+
+        Inputs:
+            name_str: the name shown in the marker's label; leading and
+                trailing spaces are removed. The caller makes sure it is
+                not empty (LLFR-00089).
+            time_s: time of the marker, in seconds.
+        Outputs: the new VerticalMarker.
+        """
+        # LLFR-00230, LLFR-00205: a marker of a layout file keeps its
+        # saved name and is shown on every plot.
+        stripped_name_str = str(name_str).strip()
+        marker = VerticalMarker(self.marker_id_counter.take_next_id(),
+                                stripped_name_str, float(time_s))
+        self.marker_list.append(marker)
+        # LLFR-00085, LLFR-00111: a saved name "Marker N" uses up N, so
+        # that a marker placed later never gets the same default name.
+        number_match = re.fullmatch(DEFAULT_MARKER_NAME_PATTERN_STR,
+                                    stripped_name_str)
+        if number_match is not None:
+            self.next_marker_number_i = max(
+                self.next_marker_number_i, int(number_match.group(1)) + 1)
         return marker
 
     def find_marker(self, marker_id_i: int):

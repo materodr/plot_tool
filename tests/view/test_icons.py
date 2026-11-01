@@ -30,11 +30,14 @@ BUTTON_NAME_DICT = {
     "copy_button": "Copy",
     "undo_button": "Undo",
     "redo_button": "Redo",
+    "save_layout_button": "Save layout",
+    "load_layout_button": "Load layout",
 }
-# LLFR-00159: the 12 icons of the requirement, in its order.
+# LLFR-00159: the 14 icons of the requirement, in its order.
 REQUIRED_ICON_TUPLE = (
     "open_file", "undo", "tip", "zoom", "reset_zoom", "vertical_marker",
-    "delta_x", "delta_y", "grid", "export", "copy", "redo")
+    "delta_x", "delta_y", "grid", "export", "copy", "redo", "save_layout",
+    "load_layout")
 
 
 def hex_to_rgb_tuple(color_str: str) -> tuple:
@@ -95,7 +98,7 @@ class IconShapeDataTest(unittest.TestCase):
     """Checks of the icon shapes that need no Qt (view.icon_shapes)."""
 
     @covers("LLFR-00159")
-    def test_all_twelve_icons_are_defined(self) -> None:
+    def test_all_fourteen_icons_are_defined(self) -> None:
         """Every icon of LLFR-00159 has a shape, including Delta X and Y
         and Redo.
 
@@ -225,6 +228,28 @@ class IconShapeDataTest(unittest.TestCase):
         # Copy: two sheets, the front one a whole rounded rectangle.
         self.assertEqual(letters("copy").count("R"), 1)
         self.assertEqual(len(icon_shapes.icon_layer_list("copy")), 2)
+        # Save layout and Load layout (items 13, 14): the same sheet with
+        # two stacked plots; a vertical arrow pointing down into it, or
+        # up out of it.
+        save_layer_list = icon_shapes.icon_layer_list("save_layout")
+        load_layer_list = icon_shapes.icon_layer_list("load_layout")
+        sheet_layer_list = icon_shapes.layout_sheet_layer_list()
+        self.assertEqual(save_layer_list[:len(sheet_layer_list)],
+                         sheet_layer_list)
+        self.assertEqual(load_layer_list[:len(sheet_layer_list)],
+                         sheet_layer_list)
+        self.assertGreaterEqual(len(sheet_layer_list), 3)
+        save_head_list = save_layer_list[-1][0]
+        load_head_list = load_layer_list[-1][0]
+        # The tip of the head is its middle point: lower than the two
+        # ends for Save (pointing down), higher for Load (pointing up).
+        self.assertGreater(save_head_list[1][2], save_head_list[0][2])
+        self.assertLess(load_head_list[1][2], load_head_list[0][2])
+        sheet_top_f = min(command_tuple[2] for command_tuple in
+                          sheet_layer_list[0][0] if len(command_tuple) == 3)
+        self.assertGreater(save_head_list[1][2], sheet_top_f)
+        self.assertLess(load_head_list[1][2], sheet_top_f)
+        self.assertNotEqual(commands("save_layout"), commands("export"))
 
     @covers("LLFR-00160")
     def test_icon_colors_have_contrast_in_every_state(self) -> None:
@@ -329,9 +354,9 @@ class ButtonIconTest(unittest.TestCase):
     @covers("LLFR-00158", "LLFR-00004", "LLFR-00018", "LLFR-00077",
             "LLFR-00080", "LLFR-00114", "LLFR-00121", "LLFR-00126",
             "LLFR-00132", "LLFR-00136", "LLFR-00161", "LLFR-00162",
-            "LLFR-00190")
+            "LLFR-00190", "LLFR-00216", "LLFR-00217")
     def test_every_button_shows_only_its_icon(self) -> None:
-        """All 12 buttons have an icon, no text and a square icon size.
+        """All 14 buttons have an icon, no text and a square icon size.
 
         Inputs: none.
         Outputs: none.
@@ -419,7 +444,7 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00159")
     def test_each_icon_renders_a_distinct_picture(self) -> None:
-        """All 12 icons draw something, and no two draw the same picture.
+        """All 14 icons draw something, and no two draw the same picture.
 
         Inputs: none.
         Outputs: none.
