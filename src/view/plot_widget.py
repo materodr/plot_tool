@@ -11,6 +11,20 @@ A right-click picks the topmost item under the mouse, in drawing order:
 a pinned tip, then a vertical marker, then a curve, else the empty plot
 area (LLFR-00046, LLFR-00110, LLFR-00038, LLFR-00048).
 
+A left press is handled in the same order: on a pinned tip it starts
+moving the tip's label, with any plot tool or none (LLFR-00152,
+LLFR-00153); with the Vertical marker tool, on a marker it starts
+dragging the marker (LLFR-00086); otherwise it is a click of the active
+tool (LLFR-00045, LLFR-00078, LLFR-00081). The wheel button pans
+(LLFR-00117) and the right button opens the menus; a right press first
+cancels any pan or drag in progress.
+
+A drag whose button release never arrived (for example because it
+happened outside the application) is ended at the next mouse move that
+shows the button is no longer held: a pan just stops, and a marker or a
+pinned tip is left at its last shown position, as if the button had
+been released there.
+
 Two coordinate systems are used:
 - widget coordinates: Qt pixels of this widget, y grows downwards;
 - display coordinates: matplotlib pixels of the canvas, y grows upwards
@@ -25,7 +39,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.colors import to_hex
 from matplotlib.figure import Figure
 from PyQt6 import sip
-from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
+from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
@@ -65,6 +79,8 @@ DEFAULT_TIP_COLOR_STR = "#000000"
 # LLFR-00082, LLFR-00083, LLFR-00084, LLFR-00092: look of a vertical
 # marker. The marker is drawn above the curves and below the tips.
 MARKER_LINE_WIDTH_F = 1.5
+# LLFR-00143: the marker line is dashed (6 points on, 4 points off).
+MARKER_LINE_STYLE_TUPLE = (0, (6, 4))
 MARKER_ZORDER_F = 8.0
 MARKER_FONT_SIZE_F = 9.0
 # LLFR-00084: gap (points) between the line top and its label.
@@ -76,6 +92,30 @@ MARKER_TEXT_BOX_DICT = {"boxstyle": "square,pad=0.15",
                         "alpha": 0.8}
 # LLFR-00086: no marker is being dragged.
 NO_MARKER_ID_I = -1
+# LLFR-00152: no pinned tip is being moved.
+NO_TIP_INDEX_I = -1
+# LLFR-00151: look of the dashed leader line from a pinned tip's label
+# to its point; it ends exactly at the point (no shrinking at that end).
+TIP_LEADER_LINE_WIDTH_F = 1.0
+TIP_LEADER_LINE_STYLE_STR = "--"
+
+
+def mouse_button_held_b(event, qt_button) -> bool:
+    """Tell whether a mouse button is still held during a mouse move.
+
+    Inputs:
+        event: the matplotlib MouseEvent; its ``guiEvent`` is the Qt
+            mouse event when the event came from Qt.
+        qt_button: the Qt.MouseButton to check.
+    Outputs: True when the button is held, or when the event does not
+        say which buttons are held (an event made by matplotlib itself).
+    """
+    # LLFR-00086, LLFR-00117, LLFR-00152: a lost release ends a drag at
+    # the next move that shows the button is up.
+    gui_event = getattr(event, "guiEvent", None)
+    if gui_event is None or not hasattr(gui_event, "buttons"):
+        return True
+    return bool(gui_event.buttons() & qt_button)
 
 
 def format_tip_text(signal_name_str: str, time_s: float,
@@ -123,7 +163,13 @@ def wheel_step_f(event) -> float:
     if gui_event is not None and hasattr(gui_event, "angleDelta"):
         angle_delta = gui_event.angleDelta()
     if angle_delta is not None:
-        return float(angle_delta.y()) / WHEEL_NOTCH_EIGHTHS_I
+        angle_eighths_i = int(angle_delta.y())
+        # LLFR-00113: some touchpads report only pixels; 120 pixels are
+        # then taken as one notch, so that they still zoom in proportion.
+        if angle_eighths_i == 0 and hasattr(gui_event, "pixelDelta"):
+            return (float(gui_event.pixelDelta().y())
+                    / WHEEL_NOTCH_EIGHTHS_I)
+        return float(angle_eighths_i) / WHEEL_NOTCH_EIGHTHS_I
     return float(event.step)
 
 
@@ -252,6 +298,10 @@ class PlotWidget(QWidget):
             (signal name, time in s, value) should be pinned.
         pinned_tip_delete_requested(int): "Delete" chosen on a pinned
             tip; the index refers to the list given to set_pinned_tips.
+        pinned_tip_move_requested(int, float, float): a pinned tip's
+            label was dragged and released (tip index, then the offset
+            x and y, in points, from the tip's point to the label's
+            center, y upwards).
         time_range_changed(float, float): the user changed the time
             range (start in s, end in s), by a zoom or a pan.
         marker_place_requested(float): a left click with the Vertical
@@ -273,6 +323,7 @@ class PlotWidget(QWidget):
     signal_dropped = pyqtSignal(str)
     tip_pin_requested = pyqtSignal(str, float, float)
     pinned_tip_delete_requested = pyqtSignal(int)
+    pinned_tip_move_requested = pyqtSignal(int, float, float)
     time_range_changed = pyqtSignal(float, float)
     marker_place_requested = pyqtSignal(float)
     marker_move_requested = pyqtSignal(int, float)
@@ -310,6 +361,15 @@ class PlotWidget(QWidget):
         # to the line, so the grabbed line does not jump to the mouse.
         self.drag_press_x_i = 0
         self.drag_offset_s = 0.0
+        # LLFR-00152: the pinned tip being moved, if any; where it was
+        # pressed; the display pixels from the pointer to the label's
+        # center, so the grabbed label does not jump; and the label
+        # offset (points) shown while it is dragged.
+        self.drag_tip_index_i = NO_TIP_INDEX_I
+        self.tip_press_point = QPoint()
+        self.tip_grab_offset_tuple = (0.0, 0.0)
+        self.tip_drag_offset_tuple = ()
+        self.tip_drag_moved_b = False
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
         self.plot_tool_str = NO_TOOL_STR
         self.hover_point_tuple = ()
@@ -385,13 +445,25 @@ class PlotWidget(QWidget):
 
         Inputs:
             pinned_tip_list: list of tuples (signal_name_str, time_s,
-                value_f).
+                value_f) or (signal_name_str, time_s, value_f,
+                label_offset_tuple); label_offset_tuple is the offset
+                (x, y) in points from the point to the label's center,
+                or () to place the label automatically.
         Outputs: none.
         """
         # LLFR-00045: pinned tips are drawn as persistent annotations.
-        self.pinned_tip_list = [
-            (str(signal_name_str), float(time_s), float(value_f))
-            for (signal_name_str, time_s, value_f) in pinned_tip_list]
+        # LLFR-00152: a moved tip keeps the offset of its label.
+        tip_tuple_list = []
+        for tip_tuple in pinned_tip_list:
+            offset_tuple = tuple(tip_tuple[3]) if len(tip_tuple) > 3 else ()
+            if len(offset_tuple) == 2:
+                offset_tuple = (float(offset_tuple[0]),
+                                float(offset_tuple[1]))
+            else:
+                offset_tuple = ()
+            tip_tuple_list.append((str(tip_tuple[0]), float(tip_tuple[1]),
+                                   float(tip_tuple[2]), offset_tuple))
+        self.pinned_tip_list = tip_tuple_list
         self.draw_pinned_tips()
         self.canvas.draw_idle()
 
@@ -608,7 +680,10 @@ class PlotWidget(QWidget):
             artist.remove()
         self.pinned_annotation_list = []
         self.pinned_marker_list = []
-        for signal_name_str, time_s, value_f in self.pinned_tip_list:
+        # LLFR-00152: the tips are replaced, so a tip drag in progress
+        # refers to a tip that is gone; it ends without a request.
+        self.reset_tip_drag()
+        for signal_name_str, time_s, value_f, _ in self.pinned_tip_list:
             line = self.curve_line_dict.get(signal_name_str)
             color_str = (line.get_color() if line is not None
                          else DEFAULT_TIP_COLOR_STR)
@@ -623,6 +698,12 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 bbox={"boxstyle": "round", "facecolor": "#ffffff",
                       "edgecolor": color_str, "alpha": 0.9},
+                # LLFR-00151: a dashed leader line from the label's box
+                # to the point, in the curve's color.
+                arrowprops={"arrowstyle": "-", "color": color_str,
+                            "linestyle": TIP_LEADER_LINE_STYLE_STR,
+                            "linewidth": TIP_LEADER_LINE_WIDTH_F,
+                            "shrinkA": 0.0, "shrinkB": 0.0},
                 zorder=9)
             annotation.set_in_layout(False)
             self.pinned_marker_list.append(marker)
@@ -644,9 +725,11 @@ class PlotWidget(QWidget):
             # LLFR-00082: axvline spans the axes in axes coordinates
             # (0 to 1) in y, so it covers the whole y range at any zoom.
             # LLFR-00083: in the reserved marker color.
+            # LLFR-00143: the line is dashed.
             line = self.axes.axvline(
                 time_s, color=MARKER_COLOR_STR,
-                linewidth=MARKER_LINE_WIDTH_F, zorder=MARKER_ZORDER_F)
+                linewidth=MARKER_LINE_WIDTH_F,
+                linestyle=MARKER_LINE_STYLE_TUPLE, zorder=MARKER_ZORDER_F)
             line.set_in_layout(False)
             # LLFR-00084: the name at the top of the line, inside the
             # axes, shown literally (never as mathtext).
@@ -775,7 +858,17 @@ class PlotWidget(QWidget):
         """
         # LLFR-00042, LLFR-00045: a tip near the right or top edge is
         # drawn on the other side of its point so it stays readable.
-        annotation_list = list(self.pinned_annotation_list)
+        annotation_list = []
+        for index_i, annotation in enumerate(self.pinned_annotation_list):
+            # LLFR-00152: a moved tip's label keeps its offset from the
+            # point, centred there, at any zoom or pan.
+            offset_tuple = self.tip_label_offset_tuple(index_i)
+            if offset_tuple:
+                annotation.set_position(offset_tuple)
+                annotation.set_horizontalalignment("center")
+                annotation.set_verticalalignment("center")
+            else:
+                annotation_list.append(annotation)
         if self.hover_point_tuple:
             annotation_list.append(self.hover_annotation)
         start_s, end_s = self.axes.get_xlim()
@@ -853,6 +946,30 @@ class PlotWidget(QWidget):
         """
         # LLFR-00045: one annotation per pinned tip.
         return len(self.pinned_annotation_list)
+
+    def pinned_tip_annotation(self, tip_index_i: int):
+        """Return the annotation that draws a pinned tip.
+
+        Inputs:
+            tip_index_i: index in the list given to set_pinned_tips.
+        Outputs: the matplotlib Annotation (its arrow_patch is the
+            leader line), or None for an unknown index.
+        """
+        # LLFR-00151, LLFR-00152: for checks of the label and its line.
+        if not 0 <= tip_index_i < len(self.pinned_annotation_list):
+            return None
+        return self.pinned_annotation_list[tip_index_i]
+
+    def pinned_tip_text(self, tip_index_i: int) -> str:
+        """Return the text shown by a pinned tip.
+
+        Inputs:
+            tip_index_i: index in the list given to set_pinned_tips.
+        Outputs: the tip text, or "" for an unknown index.
+        """
+        # LLFR-00152: a moved tip keeps showing the same values.
+        annotation = self.pinned_tip_annotation(tip_index_i)
+        return annotation.get_text() if annotation is not None else ""
 
     def marker_count(self) -> int:
         """Return how many vertical markers are drawn.
@@ -1084,10 +1201,30 @@ class PlotWidget(QWidget):
             if np.hypot(point_x_px - display_x_px,
                         point_y_px - display_y_px) <= tolerance_px:
                 return index_i
-            if annotation.get_window_extent(renderer).contains(
+            # LLFR-00151: only the label's box counts, not the leader
+            # line (the annotation's own extent includes the line).
+            if self.tip_box_extent(annotation, renderer).contains(
                     display_x_px, display_y_px):
                 return index_i
-        return -1
+        return NO_TIP_INDEX_I
+
+    def tip_box_extent(self, annotation, renderer=None):
+        """Return the display box of a tip's label, as drawn now.
+
+        Inputs:
+            annotation: the matplotlib Annotation of a tip.
+            renderer: the canvas renderer, or None to get it.
+        Outputs: a matplotlib Bbox in display pixels.
+        """
+        # LLFR-00046, LLFR-00152: the box follows the label's latest
+        # position, even before the canvas is drawn again.
+        if renderer is None:
+            renderer = self.canvas.get_renderer()
+        bbox_patch = annotation.get_bbox_patch()
+        if bbox_patch is None:
+            return annotation.get_window_extent(renderer)
+        annotation.update_bbox_position_size(renderer)
+        return bbox_patch.get_window_extent(renderer)
 
     def marker_at(self, widget_point) -> int:
         """Return the id of the vertical marker under a point.
@@ -1370,9 +1507,21 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: none. With the Vertical marker tool, a press on a marker
-            starts dragging it; any other press is a click (click_at).
+        Outputs: none. A press on a pinned tip starts moving it, with any
+            tool or none; with the Vertical marker tool, a press on a
+            marker starts dragging it; any other press is a click
+            (click_at).
         """
+        # LLFR-00086, LLFR-00152: a drag whose release was lost (no move
+        # came after it) is dropped; the item stays where it was.
+        self.cancel_tip_drag()
+        self.cancel_marker_drag()
+        # LLFR-00153: a pinned tip is on top of everything else, so a
+        # press on it moves it and never pins, zooms or places a marker.
+        tip_index_i = self.pinned_tip_at(widget_point)
+        if tip_index_i != NO_TIP_INDEX_I:
+            self.tip_press_at(widget_point, tip_index_i)
+            return
         # LLFR-00086: a press on a marker starts a drag and does nothing
         # else (no new marker, no zoom, no pin).
         if self.plot_tool_str == MARKER_TOOL_STR:
@@ -1436,6 +1585,19 @@ class PlotWidget(QWidget):
         if self.drag_marker_id_i == NO_MARKER_ID_I:
             return
         self.drag_to(widget_point)
+        self.finish_marker_drag()
+
+    def finish_marker_drag(self) -> None:
+        """End a marker drag at the marker's last shown position.
+
+        Inputs: none.
+        Outputs: none. Emits marker_move_requested once, as the last
+            step, when the marker was moved.
+        """
+        # LLFR-00086: also used when the release was lost, so that the
+        # marker stays where the user last saw it.
+        if self.drag_marker_id_i == NO_MARKER_ID_I:
+            return
         marker_id_i = self.drag_marker_id_i
         time_s = self.drag_time_s
         moved_b = self.drag_moved_b
@@ -1463,6 +1625,194 @@ class PlotWidget(QWidget):
         if moved_b:
             self.draw_markers()
             self.canvas.draw_idle()
+
+    def tip_label_offset_tuple(self, tip_index_i: int) -> tuple:
+        """Return the label offset a pinned tip is drawn with now.
+
+        Inputs:
+            tip_index_i: index in the list given to set_pinned_tips.
+        Outputs: the offset (x, y) in points from the point to the
+            label's center, or () when the label is placed
+            automatically.
+        """
+        # LLFR-00152: during a drag, the dragged position is shown.
+        if (tip_index_i == self.drag_tip_index_i and self.tip_drag_moved_b
+                and self.tip_drag_offset_tuple):
+            return self.tip_drag_offset_tuple
+        if 0 <= tip_index_i < len(self.pinned_tip_list):
+            return self.pinned_tip_list[tip_index_i][3]
+        return ()
+
+    def tip_label_center_tuple(self, tip_index_i: int) -> tuple:
+        """Return the center of a pinned tip's label box.
+
+        Inputs:
+            tip_index_i: index in the list given to set_pinned_tips.
+        Outputs: a tuple (x, y) in display pixels, or () for an unknown
+            index.
+        """
+        # LLFR-00152: the label is grabbed and moved by its center.
+        annotation = self.pinned_tip_annotation(tip_index_i)
+        if annotation is None:
+            return ()
+        extent = self.tip_box_extent(annotation)
+        return ((float(extent.x0) + float(extent.x1)) / 2.0,
+                (float(extent.y0) + float(extent.y1)) / 2.0)
+
+    def pixels_per_point_f(self) -> float:
+        """Return how many display pixels one typographic point takes.
+
+        Inputs: none.
+        Outputs: the figure's dots per inch divided by 72.
+        """
+        # LLFR-00152: label offsets are kept in points, as matplotlib's
+        # "offset points", so they do not depend on the zoom.
+        return float(self.figure.dpi) / POINTS_PER_INCH_F
+
+    def tip_press_at(self, widget_point, tip_index_i: int) -> None:
+        """Start moving a pinned tip's label from a pressed point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+            tip_index_i: index of the pressed tip.
+        Outputs: none. Nothing moves until the mouse moves.
+        """
+        # LLFR-00152, LLFR-00153: grab the label where it is, whatever
+        # plot tool is active.
+        center_tuple = self.tip_label_center_tuple(tip_index_i)
+        if not center_tuple:
+            return
+        pointer_x_px, pointer_y_px = self.widget_to_display_tuple(
+            widget_point)
+        self.hide_hover_tip()
+        self.drag_tip_index_i = tip_index_i
+        self.tip_press_point = QPoint(widget_point)
+        self.tip_grab_offset_tuple = (center_tuple[0] - pointer_x_px,
+                                      center_tuple[1] - pointer_y_px)
+        self.tip_drag_offset_tuple = ()
+        self.tip_drag_moved_b = False
+
+    def tip_drag_to(self, widget_point) -> None:
+        """Move the dragged pinned tip's label with the mouse pointer.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. The label's center stays inside the axes; the
+            point, values and leader line end stay the same. Does
+            nothing when no tip is dragged.
+        """
+        # LLFR-00152: until the mouse leaves the pressed pixel, nothing
+        # moves (a press and release is not a drag).
+        if self.drag_tip_index_i == NO_TIP_INDEX_I:
+            return
+        if not self.tip_drag_moved_b and widget_point == self.tip_press_point:
+            return
+        annotation = self.pinned_tip_annotation(self.drag_tip_index_i)
+        if annotation is None:
+            self.reset_tip_drag()
+            return
+        pointer_x_px, pointer_y_px = self.widget_to_display_tuple(
+            widget_point)
+        axes_box = self.axes.bbox
+        # HLFR-00041: the label is moved to another place in the plot,
+        # so its center never leaves the axes.
+        center_x_px = min(max(pointer_x_px + self.tip_grab_offset_tuple[0],
+                              float(axes_box.x0)), float(axes_box.x1))
+        center_y_px = min(max(pointer_y_px + self.tip_grab_offset_tuple[1],
+                              float(axes_box.y0)), float(axes_box.y1))
+        point_x_px, point_y_px = self.axes.transData.transform(
+            annotation.xy)
+        pixels_per_point_f = self.pixels_per_point_f()
+        offset_tuple = ((center_x_px - float(point_x_px))
+                        / pixels_per_point_f,
+                        (center_y_px - float(point_y_px))
+                        / pixels_per_point_f)
+        if self.tip_drag_moved_b and offset_tuple == (
+                self.tip_drag_offset_tuple):
+            return
+        self.tip_drag_offset_tuple = offset_tuple
+        self.tip_drag_moved_b = True
+        # LLFR-00151: the leader line follows the label when drawn.
+        self.place_tips()
+        self.canvas.draw_idle()
+
+    def tip_release_at(self, widget_point) -> None:
+        """End a pinned tip drag at the point where the button was released.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits pinned_tip_move_requested once, as the last
+            step, when the label was moved.
+        """
+        # LLFR-00152: the tip is left where the button is released.
+        if self.drag_tip_index_i == NO_TIP_INDEX_I:
+            return
+        self.tip_drag_to(widget_point)
+        self.finish_tip_drag()
+
+    def finish_tip_drag(self) -> None:
+        """End a pinned tip drag at the label's last shown position.
+
+        Inputs: none.
+        Outputs: none. Emits pinned_tip_move_requested once, as the last
+            step, when the label was moved; a press and release without
+            movement emits nothing.
+        """
+        # LLFR-00152: also used when the release was lost.
+        if self.drag_tip_index_i == NO_TIP_INDEX_I:
+            return
+        tip_index_i = self.drag_tip_index_i
+        offset_tuple = self.tip_drag_offset_tuple
+        moved_b = self.tip_drag_moved_b and bool(offset_tuple)
+        if moved_b and 0 <= tip_index_i < len(self.pinned_tip_list):
+            # The drawn label stays where it was released until the
+            # controller draws the tips again from the model.
+            name_str, time_s, value_f, _ = self.pinned_tip_list[tip_index_i]
+            self.pinned_tip_list[tip_index_i] = (name_str, time_s, value_f,
+                                                 offset_tuple)
+        self.reset_tip_drag()
+        if moved_b:
+            # The receiver may redraw (or delete) this widget, so this is
+            # the very last step.
+            self.pinned_tip_move_requested.emit(
+                tip_index_i, offset_tuple[0], offset_tuple[1])
+
+    def cancel_tip_drag(self) -> None:
+        """Forget the pinned tip drag in progress, if any.
+
+        Inputs: none.
+        Outputs: none. A moved label goes back to where it was.
+        """
+        # LLFR-00152: without a release, the tip is not moved.
+        moved_b = (self.drag_tip_index_i != NO_TIP_INDEX_I
+                   and self.tip_drag_moved_b)
+        self.reset_tip_drag()
+        if moved_b:
+            self.place_tips()
+            self.canvas.draw_idle()
+
+    def reset_tip_drag(self) -> None:
+        """Clear the state of a pinned tip drag without redrawing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00152: no pinned tip is being moved.
+        self.drag_tip_index_i = NO_TIP_INDEX_I
+        self.tip_drag_offset_tuple = ()
+        self.tip_drag_moved_b = False
+
+    def cancel_drags(self) -> None:
+        """Stop any pan, marker drag or pinned tip drag in progress.
+
+        Inputs: none.
+        Outputs: none. Nothing is emitted; dragged items go back.
+        """
+        # LLFR-00117, LLFR-00086, LLFR-00152: a right press during a drag
+        # cancels it before the menu is handled.
+        self.panning_b = False
+        self.cancel_marker_drag()
+        self.cancel_tip_drag()
 
     def time_at(self, widget_point) -> float:
         """Return the time on the x-axis under a point.
@@ -1557,7 +1907,9 @@ class PlotWidget(QWidget):
         """
         # LLFR-00117: the time under the pointer is held under it while
         # the mouse moves; any plot tool, or none, may be active.
-        if self.drag_marker_id_i != NO_MARKER_ID_I:
+        # LLFR-00086, LLFR-00152: not while a marker or tip is dragged.
+        if (self.drag_marker_id_i != NO_MARKER_ID_I
+                or self.drag_tip_index_i != NO_TIP_INDEX_I):
             return
         self.panning_b = True
         self.pan_anchor_s = self.time_at(widget_point)
@@ -1626,11 +1978,28 @@ class PlotWidget(QWidget):
         """
         # LLFR-00086, LLFR-00093: a move with a marker held drags it.
         widget_point = self.display_to_widget_point(event.x, event.y)
-        # LLFR-00117: a move with the wheel button held pans.
+        # LLFR-00117: a move with the wheel button held pans. A pan whose
+        # release was lost just stops.
         if self.panning_b:
+            if not mouse_button_held_b(event, Qt.MouseButton.MiddleButton):
+                self.panning_b = False
+                return
             self.pan_to(widget_point)
             return
+        # LLFR-00152: a move with a pinned tip held moves its label. A
+        # lost release leaves it at its last shown position.
+        if self.drag_tip_index_i != NO_TIP_INDEX_I:
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_tip_drag()
+                return
+            self.tip_drag_to(widget_point)
+            return
         if self.drag_marker_id_i != NO_MARKER_ID_I:
+            # LLFR-00086: a lost release leaves the marker at its last
+            # shown position.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_marker_drag()
+                return
             self.drag_to(widget_point)
             return
         # LLFR-00042: any other move runs the hover code.
@@ -1649,7 +2018,17 @@ class PlotWidget(QWidget):
         if event.button == MouseButton.MIDDLE:
             self.pan_press_at(widget_point)
             return
-        # LLFR-00117: other buttons do nothing while panning.
+        if event.button == MouseButton.RIGHT:
+            # LLFR-00117, LLFR-00086, LLFR-00152: a right press cancels a
+            # pan or drag in progress before the menu logic runs.
+            self.cancel_drags()
+            # LLFR-00038, LLFR-00046, LLFR-00048: show the menu once this
+            # press has been handled (not for the second press of a
+            # double-click).
+            if not event.dblclick:
+                self.request_context_menu(widget_point)
+            return
+        # LLFR-00117: the left button does nothing while panning.
         if self.panning_b:
             return
         # LLFR-00045, LLFR-00078: the second press of a double-click must
@@ -1657,14 +2036,11 @@ class PlotWidget(QWidget):
         if event.dblclick:
             return
         if event.button == MouseButton.LEFT:
-            # LLFR-00045: a left click pins the shown tip; LLFR-00078:
-            # with the Zoom tool it zooms in; LLFR-00081, LLFR-00086:
-            # with the Vertical marker tool it places or grabs a marker.
+            # LLFR-00153: a press on a pinned tip moves it; LLFR-00045: a
+            # left click pins the shown tip; LLFR-00078: with the Zoom
+            # tool it zooms in; LLFR-00081, LLFR-00086: with the Vertical
+            # marker tool it places or grabs a marker.
             self.press_at(widget_point)
-        elif event.button == MouseButton.RIGHT:
-            # LLFR-00038, LLFR-00046, LLFR-00048: show the menu once this
-            # press has been handled.
-            self.request_context_menu(widget_point)
 
     def on_mouse_release(self, event) -> None:
         """Handle a matplotlib mouse release on the canvas.
@@ -1680,6 +2056,10 @@ class PlotWidget(QWidget):
             return
         # LLFR-00086: releasing the left button leaves a dragged marker.
         if event.button != MouseButton.LEFT:
+            return
+        # LLFR-00152: or a dragged pinned tip.
+        if self.drag_tip_index_i != NO_TIP_INDEX_I:
+            self.tip_release_at(widget_point)
             return
         self.release_at(widget_point)
 
