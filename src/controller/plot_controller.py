@@ -1,8 +1,9 @@
-"""Plot controller: tabs, plots, curves, tips and vertical markers.
+"""Plot controller: tabs, plots, curves, tips and markers.
 
 It covers HLFR-00012 to HLFR-00025, the vertical markers of
 HLFR-00028 to HLFR-00031, the zoom reset (HLFR-00035), the grid
-(HLFR-00037) and undo (HLFR-00040).
+(HLFR-00037), undo (HLFR-00040) and the delta markers of HLFR-00043
+and HLFR-00044.
 
 It keeps the Workspace model and tells the view what to show. It talks
 to the view only through plain method calls with plain values (ids,
@@ -13,7 +14,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``clear_tab_views``, ``set_current_tab``, ``current_tab_id``,
   ``set_tab_delete_enabled``;
 - plots: ``add_plot_view``, ``remove_plot_view``, ``draw_plot``,
-  ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``;
+  ``set_plot_time_range``, ``plot_time_range``, ``set_plot_tool``,
+  ``set_delta_first_point``;
 - boxes: ``show_full_tab_notification``, ``ask_marker_name``;
 - grid: ``set_grid_shown``;
 - undo: ``set_undo_enabled``;
@@ -40,6 +42,16 @@ file: it is used at start, after a zoom reset (LLFR-00115), when a file
 is opened and when the last plot of the workspace disappears, so that
 the next plot starts at the whole range (LLFR-00180).
 
+Delta markers (LLFR-00163 to LLFR-00167): with the Delta X or Delta Y
+tool active, the view reports every left click on a curve with the
+nearest sample. The first click keeps that point as pending, in
+``pending_delta_tuple``, and the view marks it with a dot; a second
+click in the same plot places the marker, as one undoable action. A
+click in another plot starts again there. The pending point is
+discarded, and its dot removed, when the tool changes, when its plot
+or its curve goes away, when a file is opened and on every undo. It is
+not part of the undo snapshots: only placed markers are.
+
 Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
 """
@@ -49,9 +61,10 @@ import math
 import numpy as np
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, is_known_plot_tool)
+    DELTA_X_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, is_delta_tool,
+    is_known_plot_tool)
 from model.undo_history import UndoHistory
-from model.workspace import Workspace
+from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR, Workspace
 
 
 class PlotController:
@@ -72,6 +85,9 @@ class PlotController:
         shared_time_range_tuple: the (start_s, end_s) range shown by
             every plot, or () for the whole time range of the file.
         undo_history: the UndoHistory of the saved workspace states.
+        pending_delta_tuple: the first point of a delta marker being
+            placed, as (plot_id_i, (signal_name_str, time_s, value_f)),
+            or () when no first point is picked (LLFR-00163).
     """
 
     def __init__(self, view, file_controller, workspace=None) -> None:
@@ -96,6 +112,8 @@ class PlotController:
         self.shared_time_range_tuple = ()
         # LLFR-00139: the 20 most recent undoable actions.
         self.undo_history = UndoHistory()
+        # LLFR-00163: no delta marker point is picked yet.
+        self.pending_delta_tuple = ()
         # LLFR-00015, LLFR-00016: reset the tabs for every opened file.
         file_controller.add_file_opened_listener(self.on_file_opened)
         # LLFR-00019: signal list requests.
@@ -121,7 +139,10 @@ class PlotController:
             marker_place_handler=self.on_marker_place,
             marker_move_handler=self.on_marker_move,
             marker_rename_handler=self.on_marker_rename,
-            marker_delete_handler=self.on_marker_delete)
+            marker_delete_handler=self.on_marker_delete,
+            # LLFR-00163, LLFR-00164, LLFR-00176: the delta markers.
+            delta_point_pick_handler=self.on_delta_point_pick,
+            delta_marker_delete_handler=self.on_delta_marker_delete)
         # LLFR-00115: the Reset zoom button of the top panel.
         view.set_reset_zoom_handler(self.on_reset_zoom)
         # LLFR-00122, LLFR-00123: the Grid button of the top panel.
@@ -250,6 +271,25 @@ class PlotController:
         return [(marker.marker_id_i, marker.name_str, marker.time_s)
                 for marker in plot.marker_list]
 
+    def delta_marker_data_list(self, plot) -> list:
+        """Return the drawing data of every delta marker of a plot.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: a list of tuples (delta_marker_id_i, kind_str,
+            first_point_tuple, second_point_tuple, delta_f) in the order
+            the markers were placed; each point is (signal_name_str,
+            time_s, value_f) and delta_f is the second point minus the
+            first (LLFR-00169, LLFR-00171).
+        """
+        # LLFR-00168, LLFR-00170, LLFR-00174: every delta marker, with
+        # the value it shows computed by the model.
+        return [(delta_marker.delta_marker_id_i, delta_marker.kind_str,
+                 tuple(delta_marker.first_point_tuple),
+                 tuple(delta_marker.second_point_tuple),
+                 delta_marker.delta_f())
+                for delta_marker in plot.delta_marker_list]
+
     def all_plot_list(self) -> list:
         """Return every plot of every tab.
 
@@ -295,9 +335,11 @@ class PlotController:
         # LLFR-00068: time on the x-axis; LLFR-00045: pinned tips.
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112: the markers
         # are drawn on the same path as the curves.
+        # LLFR-00168, LLFR-00170: and the delta markers.
         self.view.draw_plot(plot.plot_id_i, self.curve_data_list(plot),
                             self.pinned_tip_data_list(plot),
-                            self.marker_data_list(plot))
+                            self.marker_data_list(plot),
+                            self.delta_marker_data_list(plot))
         # LLFR-00070, LLFR-00180: draw_plot shows the whole range; a new
         # or redrawn plot takes the range shared by all plots.
         self.apply_shared_range(plot)
@@ -316,6 +358,8 @@ class PlotController:
         """
         # LLFR-00013: the new file is the one plotted from now on.
         self.signal_file = signal_file
+        # LLFR-00167: a first point of the previous file is discarded.
+        self.discard_pending_delta()
         # LLFR-00015, LLFR-00016: close all tabs and plots and leave one
         # tab with no plots (also harmless for the first file).
         self.workspace.reset()
@@ -400,9 +444,13 @@ class PlotController:
         # plot it may delete (LLFR-00051).
         snapshot = self.take_snapshot()
         # LLFR-00039: remove the curve from the plot.
+        # LLFR-00178: the model also removes the delta markers with a
+        # point on that curve, in the same undoable action.
         if not self.workspace.remove_curve(plot_id_i, signal_name_str):
             return
         self.record_undo(snapshot)
+        # LLFR-00167: a first point on the removed curve is discarded.
+        self.discard_pending_delta_if_gone()
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None:
             # LLFR-00051, LLFR-00049, LLFR-00050: the plot had no curves
@@ -451,6 +499,8 @@ class PlotController:
         if not self.workspace.delete_plot(plot_id_i):
             return
         self.record_undo(snapshot)
+        # LLFR-00167: a first point in the deleted plot is discarded.
+        self.discard_pending_delta_if_gone()
         # LLFR-00050: the tab page resizes the remaining plots.
         self.view.remove_plot_view(plot_id_i)
         # LLFR-00180: it may have been the last plot of all.
@@ -547,6 +597,11 @@ class PlotController:
         # consistent and reports the tool that is now active.
         if not is_known_plot_tool(tool_str):
             return
+        # LLFR-00167: deactivating the Delta X or Delta Y tool, in any
+        # way (its button, another tool, the Tip or Shift key),
+        # discards the first point and its dot.
+        if tool_str != self.plot_tool_str:
+            self.discard_pending_delta()
         # LLFR-00002, LLFR-00109: NO_TOOL_STR when the active button was
         # clicked again. LLFR-00042, LLFR-00045, LLFR-00078: the plots
         # react to clicks and hovers according to the tool.
@@ -664,6 +719,8 @@ class PlotController:
         if not self.workspace.delete_tab(tab_id_i):
             return
         self.record_undo(snapshot)
+        # LLFR-00167: a first point in a deleted plot is discarded.
+        self.discard_pending_delta_if_gone()
         # LLFR-00028: remove the tab and its plots from the view.
         self.view.remove_tab_view(tab_id_i)
         # LLFR-00180: its plots may have been the last ones.
@@ -795,6 +852,122 @@ class PlotController:
         self.redraw_plot(plot)
 
     # ----------------------------------------------------------------
+    # Delta markers
+    # ----------------------------------------------------------------
+
+    def discard_pending_delta(self) -> None:
+        """Forget the first point of a delta marker and remove its dot.
+
+        Inputs: none.
+        Outputs: none. Does nothing when no first point is picked.
+        """
+        # LLFR-00167: the first point and its dot go away.
+        if not self.pending_delta_tuple:
+            return
+        plot_id_i = self.pending_delta_tuple[0]
+        self.pending_delta_tuple = ()
+        self.view.set_delta_first_point(plot_id_i, ())
+
+    def discard_pending_delta_if_gone(self) -> None:
+        """Discard the first point when its plot or its curve is gone.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00167, LLFR-00178: a first point can only be kept while
+        # its curve is still in its plot.
+        if not self.pending_delta_tuple:
+            return
+        plot_id_i, point_tuple = self.pending_delta_tuple
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.has_signal(point_tuple[0]):
+            self.discard_pending_delta()
+
+    def on_delta_point_pick(self, plot_id_i: int, signal_name_str: str,
+                            time_s: float, value_f: float) -> None:
+        """Take a clicked curve sample as a point of a delta marker.
+
+        Inputs:
+            plot_id_i: id of the clicked plot.
+            signal_name_str: name of the signal of the clicked curve.
+            time_s: time of the curve sample nearest to the mouse, in s.
+            value_f: value of that sample.
+        Outputs: none. Ignored when no delta tool is active, the plot or
+            the signal is unknown or the values are not finite.
+        """
+        # LLFR-00163: only while the Delta X or Delta Y button is active.
+        if not is_delta_tool(self.plot_tool_str):
+            return
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.has_signal(str(signal_name_str)):
+            return
+        time_s = float(time_s)
+        value_f = float(value_f)
+        if not (math.isfinite(time_s) and math.isfinite(value_f)):
+            return
+        point_tuple = (str(signal_name_str), time_s, value_f)
+        if (self.pending_delta_tuple
+                and self.pending_delta_tuple[0] == plot_id_i):
+            self.place_delta_marker(plot, self.pending_delta_tuple[1],
+                                    point_tuple)
+            return
+        # LLFR-00166: a first point in another plot is discarded.
+        self.discard_pending_delta()
+        # LLFR-00163: the clicked sample is the first point, marked with
+        # a dot (LLFR-00172: in the marker color, drawn by the view).
+        self.pending_delta_tuple = (plot_id_i, point_tuple)
+        self.view.set_delta_first_point(plot_id_i, point_tuple)
+
+    def place_delta_marker(self, plot, first_point_tuple: tuple,
+                           second_point_tuple: tuple) -> None:
+        """Draw a delta marker between the first and the second point.
+
+        Inputs:
+            plot: the model Plot of both points.
+            first_point_tuple: (signal_name_str, time_s, value_f).
+            second_point_tuple: the same for the second point.
+        Outputs: none.
+        """
+        # LLFR-00164: the kind follows the active button.
+        kind_str = (DELTA_X_KIND_STR if self.plot_tool_str == DELTA_X_TOOL_STR
+                    else DELTA_Y_KIND_STR)
+        # LLFR-00164: the dot of the first point goes away.
+        self.discard_pending_delta()
+        # LLFR-00140: placing a delta marker is ONE undoable action.
+        snapshot = self.take_snapshot()
+        try:
+            plot.add_delta_marker(kind_str, first_point_tuple,
+                                  second_point_tuple)
+        except ValueError:
+            # LLFR-00164: a point whose curve is gone places nothing.
+            return
+        self.record_undo(snapshot)
+        # LLFR-00109: the tool stays active for the next measurement.
+        # LLFR-00168, LLFR-00170: draw the marker.
+        self.redraw_plot(plot)
+
+    def on_delta_marker_delete(self, plot_id_i: int,
+                               delta_marker_id_i: int) -> None:
+        """Remove a delta marker from a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            delta_marker_id_i: id of the delta marker whose "Delete" was
+                chosen.
+        Outputs: none. Unknown ids are ignored.
+        """
+        # LLFR-00140: deleting a delta marker is undoable.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        snapshot = self.take_snapshot()
+        # LLFR-00176: remove it, then draw the plot without it.
+        if not plot.remove_delta_marker(int(delta_marker_id_i)):
+            return
+        self.record_undo(snapshot)
+        self.redraw_plot(plot)
+
+    # ----------------------------------------------------------------
     # Undo
     # ----------------------------------------------------------------
 
@@ -810,6 +983,9 @@ class PlotController:
             self.update_undo_enabled()
             return
         shown_tab_id_i = self.view.current_tab_id()
+        # LLFR-00167: the views are rebuilt, so a first point is
+        # discarded (it is not part of any snapshot).
+        self.discard_pending_delta()
         # LLFR-00138: return the model to the state before the action.
         snapshot = self.undo_history.pop()
         self.workspace.restore(snapshot)

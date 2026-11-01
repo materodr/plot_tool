@@ -22,6 +22,8 @@ BUTTON_NAME_DICT = {
     "tip_button": "Tip",
     "zoom_button": "Zoom",
     "marker_button": "Vertical marker",
+    "delta_x_button": "Delta X",
+    "delta_y_button": "Delta Y",
     "reset_zoom_button": "Reset zoom",
     "grid_button": "Grid",
     "export_button": "Export",
@@ -300,9 +302,9 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00158", "LLFR-00004", "LLFR-00018", "LLFR-00077",
             "LLFR-00080", "LLFR-00114", "LLFR-00121", "LLFR-00126",
-            "LLFR-00132", "LLFR-00136")
+            "LLFR-00132", "LLFR-00136", "LLFR-00161", "LLFR-00162")
     def test_every_button_shows_only_its_icon(self) -> None:
-        """All 9 buttons have an icon, no text and a square icon size.
+        """All 11 buttons have an icon, no text and a square icon size.
 
         Inputs: none.
         Outputs: none.

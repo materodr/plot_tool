@@ -11,7 +11,8 @@ from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QMenu, QWidget
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    TIP_TOOL_STR, ZOOM_TOOL_STR)
 from view import icon_shapes, theme
 from view.action_button import ActionButton
 from view.toggle_button import ToggleButton
@@ -21,6 +22,9 @@ OPEN_FILE_TEXT_STR = "Open file"
 TIP_TEXT_STR = "Tip"
 ZOOM_TEXT_STR = "Zoom"
 MARKER_TEXT_STR = "Vertical marker"
+# LLFR-00161, LLFR-00162: the delta marker tool buttons.
+DELTA_X_TEXT_STR = "Delta X"
+DELTA_Y_TEXT_STR = "Delta Y"
 RESET_ZOOM_TEXT_STR = "Reset zoom"
 GRID_TEXT_STR = "Grid"
 # LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
@@ -34,6 +38,8 @@ BUTTON_ICON_DICT = {
     TIP_TEXT_STR: icon_shapes.TIP_ICON_STR,
     ZOOM_TEXT_STR: icon_shapes.ZOOM_ICON_STR,
     MARKER_TEXT_STR: icon_shapes.MARKER_ICON_STR,
+    DELTA_X_TEXT_STR: icon_shapes.DELTA_X_ICON_STR,
+    DELTA_Y_TEXT_STR: icon_shapes.DELTA_Y_ICON_STR,
     RESET_ZOOM_TEXT_STR: icon_shapes.RESET_ZOOM_ICON_STR,
     GRID_TEXT_STR: icon_shapes.GRID_ICON_STR,
     EXPORT_TEXT_STR: icon_shapes.EXPORT_ICON_STR,
@@ -72,6 +78,8 @@ class TopPanel(QWidget):
         tip_button: the "Tip" ToggleButton (LLFR-00018).
         zoom_button: the "Zoom" ToggleButton (LLFR-00077).
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
+        delta_x_button: the "Delta X" ToggleButton (LLFR-00161).
+        delta_y_button: the "Delta Y" ToggleButton (LLFR-00162).
         plot_tool_button_dict: plot tool name -> its ToggleButton.
         reset_zoom_button: the "Reset zoom" ActionButton (LLFR-00114);
             not a plot tool.
@@ -114,16 +122,26 @@ class TopPanel(QWidget):
             ToggleButton, ZOOM_TEXT_STR, "zoom_button")
         self.marker_button = new_icon_button(
             ToggleButton, MARKER_TEXT_STR, "marker_button")
+        # LLFR-00161, LLFR-00162: the Delta X and Delta Y tools, after
+        # Vertical marker in the same group.
+        self.delta_x_button = new_icon_button(
+            ToggleButton, DELTA_X_TEXT_STR, "delta_x_button")
+        self.delta_y_button = new_icon_button(
+            ToggleButton, DELTA_Y_TEXT_STR, "delta_y_button")
         self.plot_tool_button_dict = {
             TIP_TOOL_STR: self.tip_button,
             ZOOM_TOOL_STR: self.zoom_button,
-            MARKER_TOOL_STR: self.marker_button}
+            MARKER_TOOL_STR: self.marker_button,
+            DELTA_X_TOOL_STR: self.delta_x_button,
+            DELTA_Y_TOOL_STR: self.delta_y_button}
         self.button_layout.addWidget(self.open_file_button)
         self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
         # LLFR-00079: only one plot tool is active at a time, so the
-        # three tool buttons are drawn joined, as one group.
-        segment_list = [theme.SEGMENT_FIRST_STR, theme.SEGMENT_MIDDLE_STR,
-                        theme.SEGMENT_LAST_STR]
+        # five tool buttons are drawn joined, as one group.
+        segment_list = ([theme.SEGMENT_FIRST_STR]
+                        + [theme.SEGMENT_MIDDLE_STR]
+                        * (len(self.plot_tool_button_dict) - 2)
+                        + [theme.SEGMENT_LAST_STR])
         for segment_str, (tool_str, button) in zip(
                 segment_list, self.plot_tool_button_dict.items()):
             button.set_segment_position(segment_str)

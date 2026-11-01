@@ -1,4 +1,4 @@
-"""Model of the plot panel: tabs, plots, curves and pinned tips.
+"""Model of the plot panel: tabs, plots, curves, tips and markers.
 
 The workspace holds no Qt code (COR-00009). The view draws what the
 workspace holds, and the controller changes the workspace when the user
@@ -25,6 +25,11 @@ DEFAULT_MARKER_NAME_FORMAT_STR = "Marker {}"
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
+# LLFR-00168, LLFR-00170: the two kinds of delta markers, a Delta X
+# marker (time difference) and a Delta Y marker (value difference).
+DELTA_X_KIND_STR = "x"
+DELTA_Y_KIND_STR = "y"
+DELTA_KIND_TUPLE = (DELTA_X_KIND_STR, DELTA_Y_KIND_STR)
 
 
 @dataclass
@@ -81,11 +86,81 @@ class VerticalMarker:
     time_s: float
 
 
+@dataclass
+class DeltaMarker:
+    """A measurement between two curve points (HLFR-00043, HLFR-00044).
+
+    Inputs:
+        delta_marker_id_i: id of the delta marker, unique within the
+            workspace and never reused.
+        kind_str: DELTA_X_KIND_STR for a Delta X marker (LLFR-00168) or
+            DELTA_Y_KIND_STR for a Delta Y marker (LLFR-00170).
+        first_point_tuple: the first picked point (LLFR-00163), as
+            (signal_name_str, time_s, value_f): the exact values of the
+            curve sample.
+        second_point_tuple: the second picked point (LLFR-00164), in the
+            same form.
+    """
+
+    delta_marker_id_i: int
+    kind_str: str
+    first_point_tuple: tuple
+    second_point_tuple: tuple
+
+    def delta_f(self) -> float:
+        """Return the measured difference, second point minus first.
+
+        Inputs: none.
+        Outputs: for a Delta X marker the time difference in seconds
+            (LLFR-00169); for a Delta Y marker the value difference
+            (LLFR-00171). It is signed.
+        """
+        # LLFR-00169, LLFR-00171: second minus first, never the absolute
+        # value, so the sign tells the order of the two points.
+        index_i = 1 if self.kind_str == DELTA_X_KIND_STR else 2
+        return (float(self.second_point_tuple[index_i])
+                - float(self.first_point_tuple[index_i]))
+
+    def has_point_on(self, signal_name_str: str) -> bool:
+        """Tell whether one of the two points is on a signal's curve.
+
+        Inputs:
+            signal_name_str: name of the signal.
+        Outputs: True when the first or the second point is on it.
+        """
+        # LLFR-00178: such a marker goes away with the curve.
+        return signal_name_str in (self.first_point_tuple[0],
+                                   self.second_point_tuple[0])
+
+
+def delta_point_tuple(point_tuple) -> tuple:
+    """Check a delta marker point and return it as plain values.
+
+    Inputs:
+        point_tuple: (signal_name_str, time_s, value_f).
+    Outputs: the tuple (str, float, float). Raises ValueError when it
+        does not have three items or the numbers are not finite.
+    """
+    # LLFR-00163, LLFR-00164: a point is a curve sample with finite
+    # values, so it can be drawn and measured.
+    point_tuple = tuple(point_tuple)
+    if len(point_tuple) != 3:
+        raise ValueError("A delta marker point needs a signal name, a "
+                         "time and a value.")
+    time_s = float(point_tuple[1])
+    value_f = float(point_tuple[2])
+    if not (math.isfinite(time_s) and math.isfinite(value_f)):
+        raise ValueError("A delta marker point must be finite.")
+    return (str(point_tuple[0]), time_s, value_f)
+
+
 class MarkerIdCounter:
-    """Hands out vertical marker ids that are never reused.
+    """Hands out marker ids that are never reused.
 
     One counter is shared by all plots of a workspace, so that marker
-    ids are unique across the whole workspace.
+    ids are unique across the whole workspace. Vertical markers and
+    delta markers take their ids from the same counter, so an id never
+    names two markers of any kind.
 
     Inputs: none.
     """
@@ -148,6 +223,9 @@ class Plot:
         # LLFR-00085, LLFR-00111: number of the next "Marker N"; it only
         # grows, so a deleted marker's number is never reused.
         self.next_marker_number_i = 1
+        # LLFR-00164, LLFR-00174: any number of delta markers, in the
+        # order they were placed.
+        self.delta_marker_list = []
 
     def has_signal(self, signal_name_str: str) -> bool:
         """Tell whether the plot shows a signal.
@@ -194,7 +272,7 @@ class Plot:
         return curve
 
     def remove_curve(self, signal_name_str: str) -> bool:
-        """Remove a signal's curve and its pinned tips from the plot.
+        """Remove a signal's curve, its pinned tips and delta markers.
 
         Inputs:
             signal_name_str: name of the signal to remove.
@@ -210,6 +288,9 @@ class Plot:
         self.pinned_tip_list = [
             pinned_tip for pinned_tip in self.pinned_tip_list
             if pinned_tip.signal_name_str != signal_name_str]
+        # LLFR-00178: every delta marker with a point on that curve goes
+        # too, in the same action (LLFR-00140 Note).
+        self.remove_delta_markers_of_signal(signal_name_str)
         return True
 
     def set_curve_width(self, signal_name_str: str, width_i: int) -> None:
@@ -388,6 +469,79 @@ class Plot:
         self.marker_list.remove(marker)
         return True
 
+    def add_delta_marker(self, kind_str: str, first_point_tuple,
+                         second_point_tuple) -> DeltaMarker:
+        """Place a new delta marker between two curve points.
+
+        Inputs:
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+            first_point_tuple: (signal_name_str, time_s, value_f) of the
+                first picked point.
+            second_point_tuple: the same for the second picked point; it
+                may be on the same curve or on another one.
+        Outputs: the new DeltaMarker. Raises ValueError for an unknown
+            kind, a point that is not finite, or a point on a signal
+            that is not in the plot.
+        """
+        # LLFR-00168, LLFR-00170: a Delta X or a Delta Y marker.
+        if kind_str not in DELTA_KIND_TUPLE:
+            raise ValueError(f"Unknown delta marker kind {kind_str!r}.")
+        first_point_tuple = delta_point_tuple(first_point_tuple)
+        second_point_tuple = delta_point_tuple(second_point_tuple)
+        # LLFR-00164: both points are on curves of this plot.
+        for point_tuple in (first_point_tuple, second_point_tuple):
+            if not self.has_signal(point_tuple[0]):
+                raise ValueError(f"Signal {point_tuple[0]!r} is not in "
+                                 f"the plot.")
+        # LLFR-00174: markers are added, never replaced.
+        delta_marker = DeltaMarker(self.marker_id_counter.take_next_id(),
+                                   kind_str, first_point_tuple,
+                                   second_point_tuple)
+        self.delta_marker_list.append(delta_marker)
+        return delta_marker
+
+    def find_delta_marker(self, delta_marker_id_i: int):
+        """Return a delta marker of this plot by its id.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: the DeltaMarker, or None when it is not in this plot.
+        """
+        # LLFR-00176: delta markers are found by id to delete them.
+        for delta_marker in self.delta_marker_list:
+            if delta_marker.delta_marker_id_i == delta_marker_id_i:
+                return delta_marker
+        return None
+
+    def remove_delta_marker(self, delta_marker_id_i: int) -> bool:
+        """Remove a delta marker from the plot.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: True when it was removed, False when it is not in this
+            plot.
+        """
+        # LLFR-00176: "Delete" in the delta marker menu.
+        delta_marker = self.find_delta_marker(delta_marker_id_i)
+        if delta_marker is None:
+            return False
+        self.delta_marker_list.remove(delta_marker)
+        return True
+
+    def remove_delta_markers_of_signal(self, signal_name_str: str) -> int:
+        """Remove every delta marker with a point on a signal's curve.
+
+        Inputs:
+            signal_name_str: name of the signal.
+        Outputs: the number of delta markers removed.
+        """
+        # LLFR-00178: the markers that measure on a removed curve.
+        kept_list = [delta_marker for delta_marker in self.delta_marker_list
+                     if not delta_marker.has_point_on(signal_name_str)]
+        removed_count_i = len(self.delta_marker_list) - len(kept_list)
+        self.delta_marker_list = kept_list
+        return removed_count_i
+
 
 class Tab:
     """A tab of the plot panel, holding plots stacked top to bottom.
@@ -442,7 +596,9 @@ def plot_state_tuple(plot) -> tuple:
     Outputs: a tuple (plot_id_i, drawn_count_i, next_marker_number_i,
         curve tuples (signal_name_str, color_str, width_i), pinned tip
         tuples (signal_name_str, time_s, value_f, label_offset_tuple),
-        marker tuples (marker_id_i, name_str, time_s)).
+        marker tuples (marker_id_i, name_str, time_s), delta marker
+        tuples (delta_marker_id_i, kind_str, first_point_tuple,
+        second_point_tuple)).
     """
     # LLFR-00140: curves with color and width, pinned tips with their
     # label offsets, markers with their names and times, and the
@@ -455,8 +611,14 @@ def plot_state_tuple(plot) -> tuple:
         for pinned_tip in plot.pinned_tip_list)
     marker_tuple = tuple((marker.marker_id_i, marker.name_str,
                           marker.time_s) for marker in plot.marker_list)
+    # LLFR-00140: placing and deleting a delta marker are undoable.
+    delta_marker_tuple = tuple(
+        (delta_marker.delta_marker_id_i, delta_marker.kind_str,
+         tuple(delta_marker.first_point_tuple),
+         tuple(delta_marker.second_point_tuple))
+        for delta_marker in plot.delta_marker_list)
     return (plot.plot_id_i, plot.drawn_count_i, plot.next_marker_number_i,
-            curve_tuple, pinned_tip_tuple, marker_tuple)
+            curve_tuple, pinned_tip_tuple, marker_tuple, delta_marker_tuple)
 
 
 class WorkspaceSnapshot:

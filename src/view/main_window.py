@@ -590,8 +590,9 @@ class MainWindow(QMainWindow):
         return self.plot_panel.plot_view(plot_id_i)
 
     def draw_plot(self, plot_id_i: int, curve_data_list: list,
-                  pinned_tip_list: list, marker_data_list=()) -> None:
-        """Draw the curves, pinned tips and vertical markers of a plot.
+                  pinned_tip_list: list, marker_data_list=(),
+                  delta_marker_data_list=()) -> None:
+        """Draw the curves, tips, vertical and delta markers of a plot.
 
         Inputs:
             plot_id_i: id of the plot.
@@ -600,6 +601,9 @@ class MainWindow(QMainWindow):
             pinned_tip_list: tuples (signal_name_str, time_s, value_f,
                 label_offset_tuple); see PlotWidget.set_pinned_tips.
             marker_data_list: tuples (marker_id_i, name_str, time_s).
+            delta_marker_data_list: tuples (delta_marker_id_i, kind_str,
+                first_point_tuple, second_point_tuple, delta_f); see
+                PlotWidget.set_delta_markers.
         Outputs: none. The plot shows the full time range afterwards.
         """
         # LLFR-00020, LLFR-00021, LLFR-00068: draw against time.
@@ -611,6 +615,24 @@ class MainWindow(QMainWindow):
         plot_widget.set_pinned_tips(pinned_tip_list)
         # LLFR-00081, LLFR-00091, LLFR-00112: draw the markers.
         plot_widget.set_markers(marker_data_list)
+        # LLFR-00168, LLFR-00170, LLFR-00176: draw the delta markers.
+        plot_widget.set_delta_markers(delta_marker_data_list)
+
+    def set_delta_first_point(self, plot_id_i: int,
+                              point_tuple: tuple) -> None:
+        """Show or remove the dot of a delta marker's first point.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            point_tuple: (signal_name_str, time_s, value_f), or () to
+                remove the dot.
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00163, LLFR-00164, LLFR-00167: the controller keeps the
+        # first point; the plot only draws its dot.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_delta_first_point(point_tuple)
 
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:

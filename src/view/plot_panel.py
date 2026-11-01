@@ -75,6 +75,10 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "marker_move_requested": "marker_move_handler",
     "marker_rename_requested": "marker_rename_handler",
     "marker_delete_requested": "marker_delete_handler",
+    # LLFR-00163, LLFR-00164: a curve point picked with a delta tool.
+    "delta_point_picked": "delta_point_pick_handler",
+    # LLFR-00176: "Delete" chosen on a delta marker.
+    "delta_marker_delete_requested": "delta_marker_delete_handler",
 }
 
 

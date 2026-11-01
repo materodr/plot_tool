@@ -71,6 +71,10 @@ class FakePlotView:
             ask_marker_name.
         grid_shown_b: last value given to set_grid_shown.
         undo_enabled_b: last value given to set_undo_enabled.
+        delta_drawn_dict: plot id -> delta_marker_data_list of the last
+            draw_plot call.
+        delta_first_point_dict: plot id -> point tuple last given to
+            set_delta_first_point (() when the dot was removed).
     """
 
     def __init__(self) -> None:
@@ -94,6 +98,8 @@ class FakePlotView:
         self.marker_name_question_list = []
         self.grid_shown_b = None
         self.undo_enabled_b = None
+        self.delta_drawn_dict = {}
+        self.delta_first_point_dict = {}
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -285,7 +291,8 @@ class FakePlotView:
         del self.plot_tab_dict[plot_id_i]
 
     def draw_plot(self, plot_id_i: int, curve_data_list: list,
-                  pinned_tip_list: list, marker_data_list=()) -> None:
+                  pinned_tip_list: list, marker_data_list=(),
+                  delta_marker_data_list=()) -> None:
         """Record what a plot draws; resets its range like PlotWidget.
 
         Inputs:
@@ -294,9 +301,13 @@ class FakePlotView:
             pinned_tip_list: the pinned tip tuples.
             marker_data_list: the vertical marker tuples (marker_id_i,
                 name_str, time_s).
+            delta_marker_data_list: the delta marker tuples
+                (delta_marker_id_i, kind_str, first_point_tuple,
+                second_point_tuple, delta_f).
         Outputs: none.
         """
         self.call_list.append(("draw_plot", plot_id_i))
+        self.delta_drawn_dict[plot_id_i] = list(delta_marker_data_list)
         self.drawn_dict[plot_id_i] = (curve_data_list, pinned_tip_list)
         self.marker_drawn_dict[plot_id_i] = list(marker_data_list)
         if curve_data_list:
@@ -336,6 +347,20 @@ class FakePlotView:
         """
         self.call_list.append(("set_plot_tool", tool_str))
         self.plot_tool_str = tool_str
+
+    def set_delta_first_point(self, plot_id_i: int,
+                              point_tuple: tuple) -> None:
+        """Record the dot of a delta marker's first point.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            point_tuple: (signal_name_str, time_s, value_f), or () to
+                remove the dot.
+        Outputs: none.
+        """
+        self.call_list.append(("set_delta_first_point", plot_id_i,
+                               tuple(point_tuple)))
+        self.delta_first_point_dict[plot_id_i] = tuple(point_tuple)
 
     def show_full_tab_notification(self) -> None:
         """Count a Full Tab box.

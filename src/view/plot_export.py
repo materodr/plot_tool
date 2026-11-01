@@ -129,8 +129,10 @@ def render_figure_image(figure, dpi_f: float):
         and so the same layout as on screen. The figure is drawn again
         on its canvas afterwards, at its screen resolution.
     """
-    # LLFR-00129: time range, curves, legend, grid, markers and pinned
-    # tips are drawn as on screen, only with more pixels.
+    # LLFR-00129: time range, curves, legend, grid, vertical markers,
+    # delta markers and pinned tips are drawn as on screen, only with
+    # more pixels (the delta brackets are computed again at this
+    # resolution when they are drawn).
     image_buffer = io.BytesIO()
     screen_dpi_f = float(figure.dpi)
     try:
