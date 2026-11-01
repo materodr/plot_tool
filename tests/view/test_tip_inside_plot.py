@@ -29,6 +29,8 @@ SHORT_HEIGHT_I = 150
 HIGH_OFFSET_TUPLE = (0.0, 80.0)
 # Number of plots in the tab after issue #70's step 4.
 FULL_TAB_PLOT_COUNT_I = 5
+# Rounds of Qt event processing allowed for a resize to reach the canvas.
+RESIZE_EVENT_ROUNDS_I = 50
 
 
 def tip_box_and_axes_box(plot_widget, tip_index_i: int) -> tuple:
@@ -136,9 +138,19 @@ class TipInsideWidgetTest(TipInsideAssertions, TipDragTestCase):
         Outputs: none.
         """
         self.plot_widget.resize(width_i, height_i)
-        for _ in range(3):
+        canvas = self.plot_widget.canvas
+        for _ in range(RESIZE_EVENT_ROUNDS_I):
             self.application.processEvents()
-        self.plot_widget.canvas.draw()
+            if (canvas.width(), canvas.height()) == (width_i, height_i):
+                break
+        canvas.draw()
+        ratio_f = self.plot_widget.pixel_ratio_f()
+        self.assertAlmostEqual(
+            float(self.plot_widget.figure.bbox.height),
+            canvas.height() * ratio_f, delta=1.0,
+            msg=f"canvas {canvas.width()}x{canvas.height()}, "
+                f"widget {self.plot_widget.width()}x"
+                f"{self.plot_widget.height()}")
 
     def pin_high_ramp_tip(self) -> None:
         """Pin the ramp tip with an offset far above its point.
@@ -217,6 +229,12 @@ class TipInsideWidgetTest(TipInsideAssertions, TipDragTestCase):
             self.plot_widget.set_time_range(start_s, end_s)
             self.draw()
             for tip_index_i in range(2):
+                point_x_px, point_y_px = self.point_display(tip_index_i)
+                if not self.plot_widget.inside_axes_b(point_x_px,
+                                                      point_y_px):
+                    # Not shown: the sine tip at 2 s for (4.9, 10).
+                    self.assertGreater(start_s, 2.0)
+                    continue
                 self.assert_tip_inside(self.plot_widget, tip_index_i)
                 self.assert_leader_connected(tip_index_i)
         # Zoom with the wheel around the ramp tip's point.
