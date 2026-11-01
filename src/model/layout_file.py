@@ -44,21 +44,20 @@ An example of a layout file::
 A ``label_position`` of ``null`` means that the data tip was never
 moved, so the app places its label beside the point by itself.
 
-The list ``synthetic_signals`` holds the synthetic signals of
-LLFR-00225 item 10, in creation order, as the entries described in
-model.synthetic_signals (the same entries "Copy equation" puts on the
-clipboard, LLFR-00279). On load, the entries are handed, unchanged, to
-a builder function (``synthetic_signal_builder`` of ``rebuild_layout``)
-that removes the current synthetic signals, creates those of the file
-and fills the report (LLFR-00262); the plots are then rebuilt with the
-signals of the data file and the synthetic signals that were created.
+The list ``synthetic_signals`` holds the synthetic signals of LLFR-00225
+item 10 that are not FFT signals (LLFR-00283), in creation order, as the
+entries described in model.synthetic_signals (the same entries "Copy
+equation" puts on the clipboard, LLFR-00279). On load, the entries are
+handed, unchanged, to a builder function (``synthetic_signal_builder``
+of ``rebuild_layout``) that removes the current synthetic signals,
+creates those of the file and fills the report (LLFR-00262); the plots
+are then rebuilt with the signals of the data file and the synthetic
+signals that were created.
 
-TODO(#109): frequency plots. When the frequency plots of issue #109 are
-merged, save the kind of each plot (time or frequency) and each
-frequency plot's own x-axis range, and load them, limiting that range
-to the frequency range of its curves. Until then, an FFT signal is
-never drawn in a plot, and an FFT curve found in a hand-edited file is
-reported as not rebuilt.
+Frequency plots, with their curves, data tips and delta markers, are
+not saved (LLFR-00283): a tab keeps only its time plots. On load, only
+the tabs of the file that are left with at least one plot are created
+(LLFR-00231, LLFR-00229).
 
 Loading rebuilds the layout in a Workspace with the signals of the open
 data file (LLFR-00229 to LLFR-00235) and collects in a LayoutReport what
@@ -552,11 +551,13 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
         for marker in workspace.marker_list]
     # LLFR-00225 item 10, LLFR-00262: the synthetic signals.
     layout_dict[SYNTHETIC_SIGNALS_KEY_STR] = list(synthetic_signal_list)
-    # LLFR-00225 items 1 and 2: the tabs in order, each with its plots
-    # from top to bottom.
+    # LLFR-00225 items 1 and 2: the tabs in order, each with its time
+    # plots from top to bottom; LLFR-00283: no frequency plot, but a tab
+    # of only frequency plots is still saved.
     layout_dict[TABS_KEY_STR] = [
         {NAME_KEY_STR: tab.name_str,
-         PLOTS_KEY_STR: [plot_entry(plot) for plot in tab.plot_list]}
+         PLOTS_KEY_STR: [plot_entry(plot) for plot in tab.plot_list
+                         if not plot.is_frequency_plot()]}
         for tab in workspace.tab_list]
     return layout_dict
 
@@ -689,8 +690,6 @@ class LayoutBuilder:
         time_array: the values of the time signal, in seconds.
     Attributes:
         report: the LayoutReport being filled.
-        frequency_name_set: names of the created FFT signals, which are
-            not drawn in time plots (LLFR-00251).
     """
 
     def __init__(self, workspace, signal_dict: dict, time_array) -> None:
@@ -705,7 +704,6 @@ class LayoutBuilder:
         # LLFR-00230: a copy, so that the synthetic signals of the file
         # are added without changing the data file's dict.
         self.signal_dict = dict(signal_dict)
-        self.frequency_name_set = set()
         self.time_array = np.asarray(time_array, dtype=float)
         self.file_range_tuple = file_time_range(self.time_array)
         self.report = LayoutReport()
@@ -751,10 +749,6 @@ class LayoutBuilder:
             return ((), time_s, "a point of it has no valid signal name")
         if time_s is None:
             return ((), None, "the time of a point is not a number")
-        if signal_value in self.frequency_name_set:
-            # LLFR-00251: an FFT signal is not drawn in a time plot.
-            return ((), time_s,
-                    f"the signal {signal_value} is not drawn in its plot")
         if signal_value not in self.signal_dict:
             # LLFR-00231, LLFR-00237: named in the missing signals too.
             self.report.add_missing_signal(signal_value)
@@ -803,13 +797,6 @@ class LayoutBuilder:
             signal_name_str = self.signal_name(curve_entry, owner_str,
                                                "A curve")
             if signal_name_str is None:
-                continue
-            # LLFR-00251: an FFT signal is not drawn in a time plot.
-            # TODO(#109): rebuild it in its frequency plot.
-            if signal_name_str in self.frequency_name_set:
-                self.report.add_not_rebuilt(
-                    f"Curve of {signal_name_str} in {owner_str}: an FFT "
-                    f"signal is not drawn in a time plot.")
                 continue
             # LLFR-00231: a signal not in the data file is not drawn.
             if signal_name_str not in self.signal_dict:
@@ -1045,7 +1032,8 @@ class LayoutBuilder:
         """Create one saved plot in a tab, with its curves and items.
 
         Inputs:
-            tab: the model Tab.
+            tab: the model Tab, or None for a tab that is not created
+                (then no curve of the plot can be drawn, LLFR-00231).
             plot_entry_value: the plot entry of the file.
             owner_str: the plot, for the report.
         Outputs: True when the plot was created.
@@ -1137,6 +1125,49 @@ class LayoutBuilder:
             f"\"{self.workspace.next_tab_name()}\".")
         return ""
 
+    def tab_will_hold_plot(self, tab_entry) -> bool:
+        """Tell whether a saved tab will hold a plot once it is rebuilt.
+
+        Inputs:
+            tab_entry: the tab entry of the file.
+        Outputs: True when one of its plots has a curve whose signal can
+            be drawn, which is exactly when rebuild_plot creates that
+            plot (the first plot of a new tab is never over the limit).
+        """
+        # LLFR-00231: only tabs left with a plot are created.
+        for plot_entry_value in list_entry(tab_entry, PLOTS_KEY_STR):
+            for curve_entry in list_entry(plot_entry_value, CURVES_KEY_STR):
+                name_value = (curve_entry.get(SIGNAL_KEY_STR)
+                              if isinstance(curve_entry, dict) else None)
+                if isinstance(name_value, str) and (
+                        name_value in self.signal_dict):
+                    return True
+        return False
+
+    def report_skipped_tab(self, tab_entry, tab_number_i: int) -> None:
+        """Report what the plots of a tab that is not created lose.
+
+        Inputs:
+            tab_entry: the tab entry of the file.
+            tab_number_i: its position in the file, from 1.
+        Outputs: none. The missing signals, the plots and their data
+            tips and delta markers are reported as for any plot that is
+            not created; the tab itself is not listed (LLFR-00237).
+        """
+        # LLFR-00231, LLFR-00237: the missing signals explain the tab.
+        name_value = (tab_entry.get(NAME_KEY_STR)
+                      if isinstance(tab_entry, dict) else None)
+        if isinstance(name_value, str) and name_value.strip():
+            tab_label_str = f"tab \"{name_value.strip()}\""
+        else:
+            tab_label_str = f"tab {tab_number_i} of the file"
+        for plot_index_i, plot_entry_value in enumerate(
+                list_entry(tab_entry, PLOTS_KEY_STR)):
+            # LLFR-00231: rebuild_plot reports and creates no plot, since
+            # none of its curves can be drawn.
+            self.rebuild_plot(None, plot_entry_value,
+                              f"plot {plot_index_i + 1} of {tab_label_str}")
+
     def rebuild_tabs(self, tab_entry_list: list) -> int:
         """Create the saved tabs, with their plots, after the current ones.
 
@@ -1144,13 +1175,18 @@ class LayoutBuilder:
             tab_entry_list: the "tabs" list of the file.
         Outputs: the id of the first created tab, -1 when none.
         """
-        # LLFR-00235: the valid names met so far in the file.
+        # LLFR-00235: the valid names of the tabs created so far.
         file_name_set = set()
         first_tab_id_i = -1
         for tab_index_i, tab_entry in enumerate(tab_entry_list):
-            # LLFR-00231: every tab of the file is created, even one left
-            # with no plot. LLFR-00235, LLFR-00210: a name that cannot be
-            # used is replaced by the next default name.
+            if not self.tab_will_hold_plot(tab_entry):
+                # LLFR-00231: a tab left with no plot is not created; what
+                # its plots lose is still reported, but not the tab itself
+                # (LLFR-00237).
+                self.report_skipped_tab(tab_entry, tab_index_i + 1)
+                continue
+            # LLFR-00235, LLFR-00210: a name that cannot be used is
+            # replaced by the next default name.
             name_str = self.tab_name(tab_entry, tab_index_i + 1,
                                      file_name_set)
             if name_str:
@@ -1327,22 +1363,18 @@ class LayoutBuilder:
 
         Inputs:
             built_value: the value the synthetic signal builder
-                returned: (time_signal_dict, frequency_name_set), or
-                None when it created nothing.
+                returned: a dict name -> samples of the created signals,
+                or None when it created nothing.
         Outputs: none.
         """
         # LLFR-00230, LLFR-00262: the plots are rebuilt with the signals
         # of the data file and the synthetic signals of the file.
-        if not (isinstance(built_value, tuple) and len(built_value) == 2):
+        if not isinstance(built_value, dict):
             return
-        time_signal_dict, frequency_name_set = built_value
-        for name_str, value_array in dict(time_signal_dict).items():
+        for name_str, value_array in built_value.items():
             # LLFR-00262: a data file signal is never replaced.
             if name_str not in self.signal_dict:
                 self.signal_dict[name_str] = value_array
-        self.frequency_name_set = {
-            name_str for name_str in frequency_name_set
-            if name_str not in self.signal_dict}
 
     def rebuild(self, layout_dict: dict,
                 synthetic_signal_builder=None) -> LayoutResult:
@@ -1353,10 +1385,9 @@ class LayoutBuilder:
             synthetic_signal_builder: optional function taking (entry
                 list, report) that removes the current synthetic
                 signals, creates those of the file before the plots are
-                rebuilt, reports those not created, and returns a tuple
-                (time_signal_dict, frequency_name_set): name -> samples
-                of the created signals drawn against time, and the names
-                of the created FFT signals (LLFR-00262); None creates
+                rebuilt, reports those not created, and returns a dict
+                name -> samples of the created signals (LLFR-00262,
+                LLFR-00283: no FFT signal is created); None creates
                 none.
         Outputs: the LayoutResult to apply to the view.
         """
@@ -1382,8 +1413,12 @@ class LayoutBuilder:
             tab_entry_list = []
         # LLFR-00229: with no plot in any current tab, the tabs of the
         # file replace the current ones; else they are added after them.
-        tabs_replaced_b = (bool(tab_entry_list)
-                           and not self.workspace.has_plots())
+        # LLFR-00229, LLFR-00231: only when the file adds a tab with a
+        # plot; otherwise the current tabs are kept.
+        tabs_replaced_b = (
+            not self.workspace.has_plots()
+            and any(self.tab_will_hold_plot(tab_entry)
+                    for tab_entry in tab_entry_list))
         if tabs_replaced_b:
             self.workspace.remove_all_tabs()
         first_tab_id_i = self.rebuild_tabs(tab_entry_list)

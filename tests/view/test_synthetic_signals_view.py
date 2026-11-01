@@ -109,7 +109,7 @@ class SignalMenuTest(unittest.TestCase):
         return text_list
 
     @covers("LLFR-00239", "LLFR-00277", "LLFR-00254", "LLFR-00265",
-            "LLFR-00278")
+            "LLFR-00278", "LLFR-00283")
     def test_options_of_data_and_synthetic_signals(self) -> None:
         """Data signals get Create and Copy name; synthetic ones more.
 
@@ -122,9 +122,10 @@ class SignalMenuTest(unittest.TestCase):
         self.assertEqual(self.option_text_list("integral_Speed"), [
             "Create synthetic signal", "Copy name", "Copy equation",
             "Rename", "Delete signal"])
+        # LLFR-00278, LLFR-00283: an FFT signal has no equation.
         self.assertEqual(self.option_text_list("fft_Speed_0s_to_1s"), [
-            "Create synthetic signal", "Copy name", "Copy equation",
-            "Rename", "Delete signal"])
+            "Create synthetic signal", "Copy name", "Rename",
+            "Delete signal"])
 
     @covers("LLFR-00268", "LLFR-00239")
     def test_create_submenu_lists_the_groups_in_order(self) -> None:

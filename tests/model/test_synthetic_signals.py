@@ -550,13 +550,14 @@ class LayoutEntryTest(unittest.TestCase):
         self.data_file = DataFile()
         self.data_file.create("lowpass", ["Speed"], (2.5, 4, "zero"))
         self.data_file.create("movingaverage", ["Torque"], 4)
-        self.data_file.create("greaterorequal", ["lowpass_Speed"], 0.1)
+        self.data_file.create("greaterorequal", ["lowpass_Speed"],
+                              0.1 + 0.2)
         self.data_file.create("product", ["lowpass_Speed",
                                           "movingaverage_Torque"])
         self.data_file.create("fft", ["lowpass_Speed"], (0.1 + 0.2, 3.0))
         self.data_file.create("integral", ["Torque"])
 
-    @covers("LLFR-00225", "LLFR-00227", "HLFR-00056")
+    @covers("LLFR-00225", "LLFR-00227", "LLFR-00283", "HLFR-00056")
     def test_layout_entries_hold_name_operation_signals_parameter(
             self) -> None:
         """Each entry holds the current name, operation, signals, param.
@@ -578,11 +579,12 @@ class LayoutEntryTest(unittest.TestCase):
         self.assertEqual(entry_list[3]["signals"],
                          ["Smooth", "movingaverage_Torque"])
         self.assertIsNone(entry_list[3]["parameter"])
-        self.assertEqual(entry_list[4], {
-            "name": "fft_lowpass_Speed_0.3s_to_3s", "operation": "fft",
-            "signals": ["Smooth"],
-            "parameter": {"start": 0.1 + 0.2, "end": 3.0}})
-        self.assertIsNone(entry_list[5]["parameter"])
+        # LLFR-00283: the FFT signal is not in the layout file.
+        self.assertEqual(len(entry_list), 5)
+        self.assertNotIn("fft", [entry["operation"]
+                                 for entry in entry_list])
+        self.assertEqual(entry_list[4]["name"], "integral_Torque")
+        self.assertIsNone(entry_list[4]["parameter"])
         self.assertEqual(LAYOUT_KEY_STR, "synthetic_signals")
         # LLFR-00225 item 10: the filter order is a whole number.
         self.assertIsInstance(entry_list[0]["parameter"]["order"], int)
@@ -596,9 +598,9 @@ class LayoutEntryTest(unittest.TestCase):
         """
         text_str = entries_text(self.data_file.store.layout_entries())
         self.assertTrue(text_str.startswith('[\n  {\n    "name": '))
-        self.assertIn('"start": 0.30000000000000004', text_str)
+        self.assertIn('"parameter": 0.30000000000000004', text_str)
         read_list = json.loads(text_str)
-        self.assertEqual(read_list[4]["parameter"]["start"], 0.1 + 0.2)
+        self.assertEqual(read_list[2]["parameter"], 0.1 + 0.2)
         self.assertEqual(read_list, self.data_file.store.layout_entries())
 
     @covers("LLFR-00279", "HLFR-00062")
@@ -633,7 +635,9 @@ class LayoutEntryTest(unittest.TestCase):
         Outputs: none.
         """
         old_store = self.data_file.store
-        for name_str in old_store.names():
+        # LLFR-00278: FFT signals have no equation (LLFR-00283).
+        for name_str in [name_str for name_str in old_store.names()
+                         if not old_store.is_fft(name_str)]:
             entry_list = json.loads(old_store.equation_text(name_str))
             new_file = DataFile()
             for entry_dict in entry_list:
@@ -643,9 +647,6 @@ class LayoutEntryTest(unittest.TestCase):
             np.testing.assert_allclose(rebuilt.value_array,
                                        original.value_array)
             self.assertEqual(rebuilt.parameter, original.parameter)
-            if original.is_fft_b:
-                np.testing.assert_allclose(rebuilt.frequency_array,
-                                           original.frequency_array)
 
     @covers("LLFR-00262", "LLFR-00225")
     def test_layout_round_trip_keeps_renamed_names(self) -> None:
@@ -661,24 +662,30 @@ class LayoutEntryTest(unittest.TestCase):
         new_file = DataFile()
         for entry_dict in json.loads(text_str):
             new_file.create_from_entry(entry_dict)
-        self.assertEqual(new_file.store.names(), store.names())
+        # LLFR-00283: every signal but the FFT signal.
+        self.assertEqual(new_file.store.names(),
+                         [name_str for name_str in store.names()
+                          if not store.is_fft(name_str)])
         self.assertEqual(new_file.store.layout_entries(),
                          store.layout_entries())
 
-    @covers("LLFR-00262")
-    def test_fft_range_is_limited_to_the_file(self) -> None:
-        """A saved FFT range beyond the file is limited to it.
+    @covers("LLFR-00262", "LLFR-00283")
+    def test_fft_entries_are_not_created(self) -> None:
+        """An FFT entry is never created from a layout file.
 
         Inputs: none.
         Outputs: none.
         """
-        signal = self.data_file.create_from_entry({
-            "name": "my_fft", "operation": "fft", "signals": ["Speed"],
-            "parameter": {"start": -5.0, "end": 50.0}})
-        self.assertEqual(signal.name_str, "my_fft")
-        self.assertEqual(signal.parameter, (0.0, 10.0))
-        direct = self.data_file.create("fft", ["Speed"], (0.0, 10.0))
-        np.testing.assert_allclose(signal.value_array, direct.value_array)
+        names_before_list = self.data_file.store.names()
+        for parameter in ({"start": 0.0, "end": 5.0}, None, [0, 1]):
+            with self.assertRaises(SyntheticEntryError) as context:
+                self.data_file.create_from_entry({
+                    "name": "my_fft", "operation": "fft",
+                    "signals": ["Speed"], "parameter": parameter})
+            self.assertEqual(str(context.exception),
+                             "FFT signals are not loaded from layout "
+                             "files.")
+        self.assertEqual(self.data_file.store.names(), names_before_list)
 
     @covers("LLFR-00262", "LLFR-00237")
     def test_entries_that_cannot_be_rebuilt(self) -> None:
@@ -723,8 +730,8 @@ class LayoutEntryTest(unittest.TestCase):
             (dict(valid_dict, operation="greater", parameter="1"),
              SyntheticParameterError),
             (dict(valid_dict, operation="fft",
-                  parameter={"start": 9.97, "end": 20.0}),
-             TooFewSamplesError),
+                  parameter={"start": 0.0, "end": 5.0}),
+             SyntheticEntryError),
             (dict(valid_dict, operation="fft", parameter=[0.0, 1.0]),
              SyntheticEntryError),
             (dict(valid_dict, operation="fft", parameter={"start": 0.0}),
@@ -759,20 +766,21 @@ class LayoutEntryTest(unittest.TestCase):
         Outputs: none.
         """
         new_file = DataFile()
-        new_file.create_from_entry({"name": "a", "operation": "fft",
-                                    "signals": ["Speed"],
-                                    "parameter": {"start": 0, "end": 1}})
+        fft_name_str = new_file.create("fft", ["Speed"],
+                                       (0.0, 1.0)).name_str
+        new_file.create_from_entry({"name": "a", "operation": "max",
+                                    "signals": ["Speed"]})
         with self.assertRaises(SyntheticNameInUseError):
-            new_file.create_from_entry({"name": "a", "operation": "max",
+            new_file.create_from_entry({"name": "a", "operation": "min",
                                         "signals": ["Speed"]})
         with self.assertRaises(SyntheticSourceError):
             new_file.create_from_entry({"name": "b", "operation": "max",
-                                        "signals": ["a"]})
+                                        "signals": [fft_name_str]})
         signal = new_file.create_from_entry({
             "name": "c", "operation": "movingaverage",
             "signals": ["Speed"], "parameter": 3.0})
         self.assertEqual(signal.parameter, 3)
-        self.assertEqual(new_file.store.names(), ["a", "c"])
+        self.assertEqual(new_file.store.names(), [fft_name_str, "a", "c"])
 
     @covers("LLFR-00225", "LLFR-00227", "LLFR-00246", "LLFR-00262")
     def test_filter_entries_round_trip_with_both_starts(self) -> None:

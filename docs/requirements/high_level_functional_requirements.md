@@ -94,7 +94,7 @@ The layout file must be a text file that the user can read and edit by hand in a
 After loading a layout file, the app must tell the user which parts of the layout it could not rebuild and why.
 
 ### HLFR-00056 Synthetic signals in the layout
-The layout file must hold what the app needs to create again the synthetic signals (HLFR-00053) when the layout file is loaded.
+The layout file must hold what the app needs to create again the synthetic signals (HLFR-00053) when the layout file is loaded, except the FFT signals, which are not saved in the layout file.
 
 ## Signal list panel
 

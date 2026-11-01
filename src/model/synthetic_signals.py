@@ -25,14 +25,16 @@ Public API:
 Layout file entries (LLFR-00225 item 10, LLFR-00227)
 ----------------------------------------------------
 The layout file holds the synthetic signals as a JSON list, under the
-key ``"synthetic_signals"``, in creation order. Each entry is a JSON
+key ``"synthetic_signals"``, in creation order, except the FFT signals,
+which are neither saved nor loaded (LLFR-00283). Each entry is a JSON
 object with these keys:
 
 - ``"name"``: the current name of the synthetic signal (string);
 - ``"operation"``: the operation id (string), one of ``integral``,
   ``derivative``, ``lowpass``, ``highpass``, ``movingaverage``, ``max``,
   ``min``, ``greater``, ``less``, ``greaterorequal``, ``lessorequal``,
-  ``add``, ``subtract``, ``multiply``, ``divide``, ``product``, ``fft``;
+  ``add``, ``subtract``, ``multiply``, ``divide``, ``product`` (an
+  ``fft`` entry is reported and not created, LLFR-00283);
 - ``"signals"``: the current names of the signals it is computed from
   (list of strings; two names for ``product``, the right-clicked signal
   first, one name otherwise);
@@ -42,9 +44,7 @@ object with these keys:
   the filter starts (LLFR-00245, LLFR-00246); the window size
   in samples (whole number) for ``movingaverage``; the constant
   (number) for the Comparison and Arithmetic operations with a
-  constant; an object
-  ``{"start": <s>, "end": <s>}`` with the time range in seconds for
-  ``fft``; ``null`` for the others.
+  constant; ``null`` for the others.
 
 Example::
 
@@ -62,15 +62,13 @@ Example::
         }
       },
       {
-        "name": "fft_lowpass_Speed_1.5s_to_3s",
-        "operation": "fft",
+        "name": "product_lowpass_Speed_Torque",
+        "operation": "product",
         "signals": [
-          "lowpass_Speed"
+          "lowpass_Speed",
+          "Torque"
         ],
-        "parameter": {
-          "start": 1.5,
-          "end": 3.0
-        }
+        "parameter": null
       }
     ]
 
@@ -79,7 +77,6 @@ repr precision, so they are read back as the same value (LLFR-00227).
 """
 
 import json
-import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -104,6 +101,8 @@ FILTER_START_KEY_STR = "start"
 LAYOUT_KEY_STR = "synthetic_signals"
 # LLFR-00227: the layout file is indented by 2 spaces.
 JSON_INDENT_I = 2
+# LLFR-00283: the reason an FFT entry of a layout file is not created.
+FFT_NOT_LOADED_STR = "FFT signals are not loaded from layout files."
 # LLFR-00241: first number added to a name that is already used.
 FIRST_SUFFIX_NUMBER_I = 2
 
@@ -551,10 +550,14 @@ class SyntheticSignalStore:
 
         Inputs: none.
         Outputs: a list of entries (layout_entry), in creation order,
-            for the "synthetic_signals" key of the layout file.
+            for the "synthetic_signals" key of the layout file, without
+            the FFT signals (LLFR-00283).
         """
-        # LLFR-00225 item 10: every synthetic signal, in creation order.
-        return [self.layout_entry(signal) for signal in self.signal_list]
+        # LLFR-00225 item 10: every synthetic signal, in creation order;
+        # LLFR-00283: except the FFT signals. No other signal is
+        # computed from an FFT signal (LLFR-00251), so none is lost.
+        return [self.layout_entry(signal) for signal in self.signal_list
+                if not signal.is_fft_b]
 
     def equation_entries(self, name_str: str) -> list:
         """Return the equation of a synthetic signal.
@@ -599,8 +602,7 @@ class SyntheticSignalStore:
             time_array: the time signal of the data file, in seconds.
             data_name_set: the names of the data file signals.
         Outputs: the new SyntheticSignal, with the saved name, appended
-            to the store. An FFT time range is first limited to the time
-            range of the data file.
+            to the store. An FFT entry is never created (LLFR-00283).
         Raises: a SyntheticSignalError subclass whose ``str()`` is the
             reason for the load report (LLFR-00237): SyntheticEntryError
             (malformed entry), SyntheticSourceError (missing or FFT
@@ -625,10 +627,6 @@ class SyntheticSignalStore:
             raise SyntheticNameInUseError(
                 f'"{name_str}" is already the name of an earlier '
                 f'synthetic signal.')
-        if operation_str == operations.FFT_STR:
-            # LLFR-00262: the FFT range is limited to the file's range.
-            parameter = limited_time_range(
-                operations.check_time_range(parameter), time_array)
         return self.compute_signal(operation_str, source_name_list,
                                    parameter, signal_lookup, time_array,
                                    data_name_set, name_str)
@@ -641,8 +639,8 @@ class SyntheticSignalStore:
         Outputs: a tuple (name, operation id, source names, parameter in
             the form create() takes).
         Raises: SyntheticEntryError when a key is missing or has the
-            wrong type; SyntheticOperationError for an unknown
-            operation.
+            wrong type, or for an FFT signal (LLFR-00283);
+            SyntheticOperationError for an unknown operation.
         """
         # LLFR-00262: hand-edited files may hold anything.
         if not isinstance(entry_dict, dict):
@@ -659,6 +657,9 @@ class SyntheticSignalStore:
                 "not empty.")
         operation_str = entry_dict[OPERATION_KEY_STR]
         operations.find_operation(operation_str)
+        if operation_str == operations.FFT_STR:
+            # LLFR-00283: FFT signals are not loaded from layout files.
+            raise SyntheticEntryError(FFT_NOT_LOADED_STR)
         source_name_list = entry_dict[SIGNALS_KEY_STR]
         if not isinstance(source_name_list, list):
             raise SyntheticEntryError(
@@ -667,26 +668,6 @@ class SyntheticSignalStore:
         parameter = parameter_from_entry(
             operation_str, entry_dict.get(PARAMETER_KEY_STR))
         return name_str, operation_str, list(source_name_list), parameter
-
-
-def limited_time_range(time_range_tuple: tuple, time_array) -> tuple:
-    """Limit an FFT time range to the time range of the data file.
-
-    Inputs:
-        time_range_tuple: (start_s, end_s), in seconds.
-        time_array: the time signal of the data file, in seconds.
-    Outputs: (max(start_s, first time), min(end_s, last time)); the
-        range is returned unchanged when the time signal is empty.
-    """
-    # LLFR-00262: the saved range limited to the data file's range.
-    times_array = np.asarray(time_array, dtype=np.float64)
-    start_s, end_s = time_range_tuple
-    if times_array.size == 0:
-        return (start_s, end_s)
-    first_s = float(np.nanmin(times_array))
-    last_s = float(np.nanmax(times_array))
-    return (max(start_s, first_s) if math.isfinite(first_s) else start_s,
-            min(end_s, last_s) if math.isfinite(last_s) else end_s)
 
 
 def entry_label(entry_dict, entry_number_i: int) -> str:
@@ -759,11 +740,8 @@ def create_layout_signals(store: SyntheticSignalStore, entry_list: list,
             signal list, data file or synthetic.
         time_array: the time signal of the data file, in seconds.
         data_name_set: the names of the data file signals.
-    Outputs: a tuple (not_created_list, limited_list):
-        not_created_list holds (label_str, reason_str) for each entry
-        that was not created (LLFR-00237); limited_list holds
-        (name_str, saved range tuple, used range tuple) for each FFT
-        whose saved time range was limited to the data file.
+    Outputs: a list of (label_str, reason_str) for each entry that was
+        not created (LLFR-00237), FFT entries included (LLFR-00283).
     Never raises: an entry that cannot be created is skipped.
     """
     # LLFR-00262: in the file's order, with their saved names.
@@ -772,7 +750,6 @@ def create_layout_signals(store: SyntheticSignalStore, entry_list: list,
     name_list = [entry_label(entry_dict, index_i + 1)
                  for index_i, entry_dict in enumerate(entry_list)]
     not_created_list = []
-    limited_list = []
     failed_name_set = set()
     for index_i, entry_dict in enumerate(entry_list):
         label_str = name_list[index_i]
@@ -784,8 +761,8 @@ def create_layout_signals(store: SyntheticSignalStore, entry_list: list,
                 set(name_list[index_i + 1:]), failed_name_set)
             if reason_str:
                 raise SyntheticSourceError(reason_str)
-            signal = store.create_from_entry(entry_dict, signal_lookup,
-                                             time_array, data_name_set)
+            store.create_from_entry(entry_dict, signal_lookup,
+                                    time_array, data_name_set)
         except SyntheticSignalError as error:
             # LLFR-00262, LLFR-00237: not created, with the reason.
             reason_str = str(error)
@@ -794,21 +771,11 @@ def create_layout_signals(store: SyntheticSignalStore, entry_list: list,
             reason_str = (f"It could not be created because of an "
                           f"unexpected error: {error}")
         else:
-            if signal.is_fft_b:
-                # LLFR-00262: the saved range limited to the data file.
-                saved_tuple = parameter_from_entry(
-                    signal.operation_str,
-                    entry_dict.get(PARAMETER_KEY_STR))
-                saved_tuple = (float(saved_tuple[0]),
-                               float(saved_tuple[1]))
-                if saved_tuple != tuple(signal.parameter):
-                    limited_list.append((signal.name_str, saved_tuple,
-                                         tuple(signal.parameter)))
             continue
         not_created_list.append((label_str, reason_str))
         if not (label_str in data_name_set or store.contains(label_str)):
             failed_name_set.add(label_str)
-    return not_created_list, limited_list
+    return not_created_list
 
 
 def same_signal(old_signal: SyntheticSignal, store: SyntheticSignalStore,

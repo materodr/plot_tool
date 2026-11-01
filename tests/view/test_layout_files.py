@@ -451,11 +451,11 @@ class LayoutEndToEndTest(unittest.TestCase):
         self.click_with_dialog_answer(top_panel.load_layout_button,
                                       layout_path_str + ".json")
         workspace = self.controller.plot_controller.workspace
-        # LLFR-00231: both tabs; the plot with only "force" is gone.
-        self.assertEqual(self.main_window.tab_name_list(),
-                         ["Drive", "Tab 2"])
+        # LLFR-00231: the plot with only "force" is gone, and so is its
+        # tab, left with no plot.
+        self.assertEqual(self.main_window.tab_name_list(), ["Drive"])
+        self.assertEqual(len(workspace.tab_list), 1)
         self.assertEqual(len(workspace.tab_list[0].plot_list), 2)
-        self.assertEqual(workspace.tab_list[1].plot_list, [])
         first_plot = workspace.tab_list[0].plot_list[0]
         self.assertEqual([curve.signal_name_str
                           for curve in first_plot.curve_list], ["speed"])

@@ -99,14 +99,16 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         self.synthetic_controller.show_synthetic_signals()
         return signal.name_str
 
-    def build_synthetic_layout(self) -> list:
+    def build_synthetic_layout(self, with_fft_b: bool = False) -> list:
         """Create chained synthetic signals and plot some of them.
 
         Plot 1: lowpass (with a data tip) and Speed; plot 2: the
         moving average of the high-pass and the product (with a Delta
-        X marker on the product).
+        X marker on the product); with an FFT, plot 3: a frequency plot
+        of the FFT of Speed.
 
-        Inputs: none.
+        Inputs:
+            with_fft_b: True to also create and plot an FFT signal.
         Outputs: the names of the synthetic signals, in creation order.
         """
         name_list = [
@@ -117,7 +119,6 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         name_list.append(self.create("greaterorequal", ["Torque"], 3.0))
         name_list.append(self.create("product",
                                      [name_list[0], "Torque"]))
-        name_list.append(self.create("fft", ["Speed"], (1.0, 8.0)))
         handler_dict = self.view.handler_dict
         handler_dict["double_click"](name_list[0])
         first_plot = self.workspace.tab_list[0].plot_list[0]
@@ -139,6 +140,11 @@ class LayoutSyntheticTestCase(unittest.TestCase):
             second_plot.plot_id_i, name_list[4], 5.0,
             float(product_array[50]))
         handler_dict["plot_tool"]("")
+        if with_fft_b:
+            name_list.append(self.create("fft", ["Speed"], (1.0, 8.0)))
+            handler_dict["double_click"](name_list[5])
+            self.assertTrue(self.workspace.tab_list[0].plot_list[2]
+                            .is_frequency_plot())
         return name_list
 
     def save(self, name_str: str) -> str:
@@ -212,8 +218,17 @@ class SaveTest(LayoutSyntheticTestCase):
         self.assertEqual(entry_list, self.store.layout_entries())
         self.assertEqual(entry_list[1]["parameter"],
                          {"cutoff": 2.0, "order": 3, "start": "zero"})
-        self.assertEqual(entry_list[5]["parameter"],
-                         {"start": 1.0, "end": 8.0})
+
+    @covers("LLFR-00283", "LLFR-00225")
+    def test_fft_signals_and_frequency_plots_are_not_saved(self) -> None:
+        """The FFT signal and its frequency plot are left out."""
+        name_list = self.build_synthetic_layout(with_fft_b=True)
+        path_str = self.save("layout.json")
+        layout_dict = read_layout_file(path_str)
+        self.assertEqual([entry["name"] for entry in
+                          layout_dict[LAYOUT_KEY_STR]], name_list[:5])
+        self.assertEqual(len(layout_dict["tabs"][0]["plots"]), 2)
+        self.assertNotIn(name_list[5], self.read_text(path_str))
 
 
 class LoadTest(LayoutSyntheticTestCase):
@@ -248,7 +263,7 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertEqual(self.view.shown_name_list[-len(name_list):],
                          name_list)
         self.assertEqual(self.view.synthetic_name_set, set(name_list))
-        self.assertEqual(self.view.fft_name_set, {name_list[5]})
+        self.assertEqual(self.view.fft_name_set, set())
         # Saving again writes the same file.
         self.assertEqual(
             self.read_text(self.save("again.json")),
@@ -286,8 +301,9 @@ class LoadTest(LayoutSyntheticTestCase):
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
         # Only the FFT of Speed is created: the others need lowpass.
-        self.assertEqual(self.store.names(), [name_list[5]])
-        self.assertEqual(self.view.synthetic_name_set, {name_list[5]})
+        # The signals that need lowpass are not created, nor Torque.
+        self.assertEqual(self.store.names(), [])
+        self.assertEqual(self.view.synthetic_name_set, set())
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
         self.assertIn(SYNTHETIC_HEADING_STR, report_str)
@@ -304,21 +320,46 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertIn("Data tip at 2 s", report_str)
         self.assertIn("Delta X marker between 1 s and 5 s", report_str)
 
-    @covers("LLFR-00262", "LLFR-00237")
-    def test_fft_range_limited_is_reported(self) -> None:
-        """An FFT range beyond the file is limited and reported."""
+    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229")
+    def test_round_trip_with_an_fft_after_reopening(self) -> None:
+        """The FFT signal and its frequency plot do not come back, and
+        nothing is reported, since the file does not hold them."""
+        name_list = self.build_synthetic_layout(with_fft_b=True)
+        path_str = self.save("layout.json")
+        self.open_file()
+        self.load(path_str)
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual(self.store.names(), name_list[:5])
+        self.assertEqual(len(self.workspace.tab_list[0].plot_list), 2)
+
+    @covers("LLFR-00283", "LLFR-00262", "LLFR-00237", "LLFR-00231")
+    def test_fft_entry_in_a_file_is_reported(self) -> None:
+        """A hand-added FFT entry is not created; its curve is missing."""
         self.build_synthetic_layout()
         layout_dict = read_layout_file(self.save("layout.json"))
-        layout_dict[LAYOUT_KEY_STR][5]["parameter"] = {"start": -3.0,
-                                                       "end": 50.0}
+        layout_dict[LAYOUT_KEY_STR].append({
+            "name": "fft_Speed_1s_to_8s", "operation": "fft",
+            "signals": ["Speed"], "parameter": {"start": 1.0, "end": 8.0}})
+        layout_dict["tabs"][0]["plots"][0]["curves"].append(
+            {"signal": "fft_Speed_1s_to_8s", "color": "#00aa00",
+             "width": 1})
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
-        fft_signal = self.store.get("fft_Speed_1s_to_8s")
-        self.assertEqual(fft_signal.parameter, (0.0, 9.9))
-        self.assertIn("Values replaced:", self.view.report_list[0])
-        self.assertIn("Time range of the FFT signal fft_Speed_1s_to_8s, "
-                      "-3 s to 50 s: limited to the time range of the "
-                      "data file, 0 s to 9.9 s.", self.view.report_list[0])
+        self.assertNotIn("fft_Speed_1s_to_8s", self.store.names())
+        report_str = self.view.report_list[0]
+        self.assertIn("  - fft_Speed_1s_to_8s: FFT signals are not "
+                      "loaded from layout files.", report_str)
+        self.assertIn("Signals not in the data file:\n"
+                      "  - fft_Speed_1s_to_8s", report_str)
+
+    @covers("LLFR-00278", "LLFR-00279", "LLFR-00283")
+    def test_no_equation_for_an_fft_signal(self) -> None:
+        """Copy equation does nothing for an FFT signal."""
+        name_list = self.build_synthetic_layout(with_fft_b=True)
+        self.view.signal_menu_handler_dict["copy_equation"](name_list[5])
+        self.assertEqual(self.view.clipboard_text_list, [])
+        self.view.signal_menu_handler_dict["copy_equation"](name_list[0])
+        self.assertEqual(len(self.view.clipboard_text_list), 1)
 
     @covers("LLFR-00262", "LLFR-00238")
     def test_undo_history_cleared(self) -> None:
@@ -362,7 +403,7 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         self.load(self.write_layout("edited.json", layout_dict))
         self.assertEqual(self.store.names(),
                          [name_list[index_i]
-                          for index_i in (0, 1, 3, 4, 5)])
+                          for index_i in (0, 1, 3, 4)])
         # Plot 1 keeps Speed; plot 2 (moving average and product) is
         # deleted, being left with no curve.
         self.assertEqual(self.curve_names(), [("Tab 1", [["Speed"]])])
@@ -381,6 +422,23 @@ class KeptTabsTest(LayoutSyntheticTestCase):
             [plot.plot_id_i
              for plot in self.workspace.tab_list[0].plot_list])
 
+    @covers("LLFR-00282", "LLFR-00283", "LLFR-00237")
+    def test_kept_frequency_plot_loses_its_fft(self) -> None:
+        """The FFT signal is removed and not created again, so its
+        frequency plot in a kept tab is deleted and reported."""
+        name_list = self.build_synthetic_layout(with_fft_b=True)
+        self.load(self.save("layout.json"))
+        self.assertEqual(self.store.names(), name_list[:5])
+        kept_plot_list = self.workspace.tab_list[0].plot_list
+        self.assertEqual(len(kept_plot_list), 2)
+        self.assertFalse(any(plot.is_frequency_plot()
+                             for plot in kept_plot_list))
+        self.assertEqual(len(self.view.report_list), 1)
+        self.assertIn(REMOVED_HEADING_STR, self.view.report_list[0])
+        self.assertIn(f"Curve of {name_list[5]} in plot 3 of tab "
+                      f"\"Tab 1\": removed", self.view.report_list[0])
+        self.assertNotIn(SYNTHETIC_HEADING_STR, self.view.report_list[0])
+
     @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
     def test_all_kept_plots_removed_replaces_the_tabs(self) -> None:
         """With no plot left, the file's tabs replace the current ones."""
@@ -395,6 +453,47 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         self.load(self.write_layout("edited.json", layout_dict))
         self.assertEqual(self.store.names(), [])
         self.assertEqual(self.curve_names(), [("Other", [["Torque"]])])
+
+
+class EmptyTabsTest(LayoutSyntheticTestCase):
+    """Tabs of the file left with no plot are not created (LLFR-00231)."""
+
+    def file_with_tabs(self, tab_list: list) -> str:
+        """Write a layout file with the given tabs.
+
+        Inputs:
+            tab_list: the "tabs" entry.
+        Outputs: the path.
+        """
+        layout_dict = read_layout_file(self.save("base.json"))
+        layout_dict["tabs"] = tab_list
+        return self.write_layout("tabs.json", layout_dict)
+
+    @covers("LLFR-00231", "LLFR-00229", "LLFR-00237")
+    def test_shown_tab_is_the_first_created(self) -> None:
+        """Empty tabs are skipped; the first created tab is shown."""
+        path_str = self.file_with_tabs([
+            {"name": "Empty", "plots": []},
+            {"name": "Speed tab", "plots": [{"curves": [
+                {"signal": "Speed", "color": "#0000ff", "width": 1}]}]}])
+        self.load(path_str)
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
+                         ["Speed tab"])
+        self.assertEqual(self.view.current_tab_id(),
+                         self.workspace.tab_list[0].tab_id_i)
+
+    @covers("LLFR-00231", "LLFR-00229", "LLFR-00066")
+    def test_no_tab_with_a_plot_keeps_the_current_tabs(self) -> None:
+        """When no tab of the file holds a plot, nothing changes."""
+        self.view.handler_dict["add_tab"]()
+        tab_id_list = [tab.tab_id_i for tab in self.workspace.tab_list]
+        shown_tab_id_i = self.view.current_tab_id()
+        self.load(self.file_with_tabs([{"name": "Empty", "plots": []}]))
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual([tab.tab_id_i for tab in self.workspace.tab_list],
+                         tab_id_list)
+        self.assertEqual(self.view.current_tab_id(), shown_tab_id_i)
 
 
 class FailedLoadTest(LayoutSyntheticTestCase):

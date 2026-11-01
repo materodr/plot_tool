@@ -609,15 +609,15 @@ If the layout file cannot be written, the app must show an error box saying that
 ### LLFR-00225 Layout file content
 The layout file must hold:
 1. the names of the tabs, in tab order, and which tab is shown;
-2. for each tab, its plots, from top to bottom;
-3. for each plot, its curves, in the order they were drawn, each with its signal name, color and width;
+2. for each tab, its time plots, from top to bottom (LLFR-00283);
+3. for each time plot, its curves, in the order they were drawn, each with its signal name, color and width;
 4. the x-axis range shared by the plots (LLFR-00070), in seconds;
 5. whether the grid is shown (HLFR-00037);
 6. for each vertical marker, its name and time;
-7. for each pinned data tip, its plot, the signal and time of its point, and its position relative to the point;
-8. for each delta marker, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
+7. for each pinned data tip of a time plot, its plot, the signal and time of its point, and its position relative to the point;
+8. for each delta marker of a time plot, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
 9. the widths of the plot panel and the signal list panel;
-10. for each synthetic signal, in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average), the constant (Comparison operations and Arithmetic operations with a constant) or the time range (FFT).
+10. for each synthetic signal that is not an FFT signal (LLFR-00283), in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average) or the constant (Comparison operations and Arithmetic operations with a constant).
 
 *Parent: HLFR-00049, HLFR-00056*
 
@@ -639,19 +639,21 @@ The layout file must start with an entry `format` with the value `plot_tool layo
 *Parent: HLFR-00051, HLFR-00050*
 
 ### LLFR-00229 Layout added in new tabs
-When the user loads a layout file (LLFR-00221) and the current tabs hold at least one plot, the app must keep the current tabs, with their plots, curves, pinned data tips and delta markers, unchanged except for the curves of synthetic signals removed as in LLFR-00282, and must add the tabs of the layout file after the last current tab. When no current tab holds a plot, after LLFR-00282 is applied, the app must replace the current tabs with the tabs of the layout file. In both cases, the app must show the first tab of the layout file.
+When the user loads a layout file (LLFR-00221), the app must add only the tabs of the layout file that hold at least one plot once it is loaded (LLFR-00231). When the current tabs hold at least one plot, the app must keep the current tabs, with their plots, curves, pinned data tips and delta markers, unchanged except for the curves of synthetic signals removed as in LLFR-00282, and must add those tabs of the layout file after the last current tab. When no current tab holds a plot, after LLFR-00282 is applied, the app must replace the current tabs with those tabs of the layout file. If no tab of the layout file holds a plot, the app must keep the current tabs, so that at least one tab always exists (LLFR-00066). The app must show the first tab it added from the layout file.
 
 Note: Loading a layout never asks for confirmation. Apart from LLFR-00282, it removes no plot.
 
 *Parent: HLFR-00050*
 
 ### LLFR-00230 Rebuild the layout
-When the app loads a layout file, it must build the tabs, plots, curves, delta markers and pinned data tips of the file in the file's order, in the tabs of LLFR-00229, add the vertical markers of the file to the current ones (LLFR-00205), and apply the file's time range to every plot (LLFR-00070), the file's grid setting to every plot (LLFR-00122, LLFR-00123) and the file's panel widths, using the signals of the opened data file and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235.
+When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00231), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, add the vertical markers of the file to the current ones (LLFR-00205), and apply the file's time range to every plot (LLFR-00070), the file's grid setting to every plot (LLFR-00122, LLFR-00123) and the file's panel widths, using the signals of the opened data file and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235.
 
 *Parent: HLFR-00050*
 
 ### LLFR-00231 Missing signals in a layout
-When loading a layout, the app must not draw a curve whose signal is not in the opened data file, must not create a plot that is left with no curve, and must still create every tab of the file, even one left with no plot.
+When loading a layout, the app must not draw a curve whose signal is not in the opened data file, must not create a plot that is left with no curve, and must not create a tab of the file that is left with no plot, whether the tab was saved with no plot or all its plots were left out (for example because their signals are missing, or because they were frequency plots, LLFR-00283).
+
+Note: A tab that is not created is not listed on its own in the load report (LLFR-00237): the missing signals of its plots already explain it.
 
 *Parent: HLFR-00050, HLFR-00052*
 
@@ -671,7 +673,7 @@ When loading a layout, the app must limit the saved x-axis range to the time ran
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00235 Unusable values in a layout
-When loading a layout, the app must replace a value it cannot use with the value it would use for a new item: a curve width that is not one of the preset widths 1 to 5 with width 1 (LLFR-00052), a color that is not valid or is already used in the plot with the next color of LLFR-00033 and LLFR-00034, and a tab name that is empty, is not a text or is the name of an earlier tab of the same layout file with a name as in LLFR-00210. It must not create the plots of a tab beyond the maximum of HLFR-00018. A tab name of the file that is valid but is already the name of another tab, for example a kept tab (LLFR-00229), must also be replaced with a name as in LLFR-00210, but this replacement must not be listed in the load report and must not on its own cause the report to be shown (LLFR-00237).
+When loading a layout, the app must replace a value it cannot use with the value it would use for a new item: a curve width that is not one of the preset widths 1 to 5 with width 1 (LLFR-00052), a color that is not valid or is already used in the plot with the next color of LLFR-00033 and LLFR-00034, and the name of a tab it creates (LLFR-00231) that is empty, is not a text or is the name of an earlier tab it created from the same layout file with a name as in LLFR-00210. It must not create the plots of a tab beyond the maximum of HLFR-00018. A tab name of the file that is valid but is already the name of another tab, for example a kept tab (LLFR-00229), must also be replaced with a name as in LLFR-00210, but this replacement must not be listed in the load report and must not on its own cause the report to be shown (LLFR-00237).
 
 Note: Such values appear only when the file was edited by hand.
 
@@ -683,7 +685,7 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 *Parent: HLFR-00050, HLFR-00002*
 
 ### LLFR-00237 Layout load report
-After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262, LLFR-00282), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each curve of a current tab that was removed with its synthetic signal (LLFR-00282), with its plot and tab, under the heading "Removed from the current tabs:"; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. If everything was rebuilt as saved, the app must not show any message.
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262, LLFR-00282), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each curve of a current tab that was removed with its synthetic signal (LLFR-00282), with its plot and tab, under the heading "Removed from the current tabs:"; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. A tab of the file that is not created (LLFR-00231) must not be listed on its own. If everything was rebuilt as saved, the app must not show any message.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long list must be scrollable.
 
@@ -695,16 +697,21 @@ When the app loads a layout, it must clear the undo and redo history (LLFR-00142
 *Parent: HLFR-00050, HLFR-00040, HLFR-00048*
 
 ### LLFR-00262 Synthetic signals on layout load
-When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must remove the current synthetic signals and create the synthetic signals of the file, in the file's order and with their saved names, using the saved operation, signals and parameter (LLFR-00225), and, for an FFT, the saved time range limited to the time range of the opened data file. A synthetic signal must not be created when a signal it is computed from is missing, when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272), when the operation cannot be done (LLFR-00247, LLFR-00250), or when its saved name is the name of a signal of the data file. Its curves must then be treated as curves of a missing signal (LLFR-00231), and the load report (LLFR-00237) must name it with the reason.
+When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must remove the current synthetic signals and create the synthetic signals of the file, in the file's order and with their saved names, using the saved operation, signals and parameter (LLFR-00225). A synthetic signal must not be created when it is an FFT signal (LLFR-00283), when a signal it is computed from is missing, when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272), when the operation cannot be done (LLFR-00247, LLFR-00250), or when its saved name is the name of a signal of the data file. Its curves must then be treated as curves of a missing signal (LLFR-00231), and the load report (LLFR-00237) must name it with the reason.
 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
 ### LLFR-00282 Synthetic curves in kept tabs
-When the app removes the current synthetic signals on a layout load (LLFR-00262), a curve of one of them in a current tab (LLFR-00229) must stay when the layout file creates a synthetic signal with the same name, operation, signals, parameter and samples. Otherwise, the app must remove the curve with its pinned data tips and delta markers, and must delete each plot left with no curve (LLFR-00051). When no plot is left in any current tab, the tabs of the layout file must replace the current tabs (LLFR-00229), and the vertical markers must be removed (LLFR-00205).
+When the app removes the current synthetic signals on a layout load (LLFR-00262), a curve of one of them in a current tab (LLFR-00229) must stay when the layout file creates a synthetic signal with the same name, operation, signals, parameter and samples. Otherwise, the app must remove the curve with its pinned data tips and delta markers, and must delete each plot left with no curve (LLFR-00051). When no plot is left in any current tab, the vertical markers must be removed (LLFR-00205), and the tabs of the layout file that hold a plot must replace the current tabs (LLFR-00229).
 
 Note: Loading the same layout again therefore changes nothing in the current tabs.
 
 *Parent: HLFR-00050, HLFR-00056*
+
+### LLFR-00283 FFT signals not in the layout file
+The layout file must not hold the FFT signals, the frequency plots (HLFR-00058), or the curves, pinned data tips and delta markers of frequency plots. A tab is still saved when all its plots are frequency plots; such a tab is not created when the layout is loaded (LLFR-00231). When a layout file being loaded holds the entry of an FFT signal in its list of synthetic signals (for example after a hand edit, or in an older file), the app must not create it and must list it in the load report (LLFR-00237) with the reason that FFT signals are not loaded from layout files; its curves must be treated as curves of a missing signal (LLFR-00231).
+
+*Parent: HLFR-00049, HLFR-00056*
 
 ## Signal list panel
 
@@ -908,7 +915,7 @@ When the app opens a data file or replaces the current one (LLFR-00013), it must
 ### LLFR-00253 Data file unchanged
 The app must never write synthetic signals, or anything else, to the data file. Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255), the data file is replaced (LLFR-00252) or the app is closed.
 
-Note: A layout file can create them again (LLFR-00262).
+Note: A layout file can create them again (LLFR-00262), except the FFT signals (LLFR-00283).
 
 *Parent: HLFR-00055*
 
@@ -1003,12 +1010,14 @@ When the user right-clicks a signal name in the signal list panel, the app must 
 *Parent: HLFR-00061*
 
 ### LLFR-00278 Copy equation option
-When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Copy equation" option in the menu of LLFR-00239. The menu of a signal of the data file must not have this option.
+When the user right-clicks a synthetic signal that is not an FFT signal in the signal list panel, the app must show a "Copy equation" option in the menu of LLFR-00239. The menu of a signal of the data file or of an FFT signal must not have this option.
+
+Note: FFT signals are not saved in layout files (LLFR-00283), so they have no equation.
 
 *Parent: HLFR-00062*
 
 ### LLFR-00279 Copy equation action
-When the user chooses "Copy equation" (LLFR-00278), the app must put on the system clipboard, as text, the entries that the layout file uses for synthetic signals (LLFR-00225, LLFR-00227) for that synthetic signal and for every synthetic signal it is computed from, directly or through other synthetic signals, in the order they were created, written as a JSON list that can be pasted into the list of synthetic signals of a layout file.
+When the user chooses "Copy equation" (LLFR-00278), the app must put on the system clipboard, as text, the entries that the layout file uses for synthetic signals (LLFR-00225, LLFR-00227) for that synthetic signal, which is not an FFT signal, and for every synthetic signal it is computed from, directly or through other synthetic signals, in the order they were created, written as a JSON list that can be pasted into the list of synthetic signals of a layout file.
 
 *Parent: HLFR-00062, HLFR-00056*
 

@@ -39,7 +39,6 @@ from model import synthetic_operations as operations
 from model.errors import (
     EmptySyntheticNameError, SyntheticNameInUseError, SyntheticSignalError)
 from model.number_format import format_signal_value
-from model.number_format import format_time_value
 from model.synthetic_signals import (
     SyntheticSignalStore, create_layout_signals, same_signal)
 
@@ -70,10 +69,6 @@ DIVIDE_CONSTANT_PROMPT_STR = "The constant number, not 0."
 CONSTANT_FIELD_LABEL_STR = "Constant:"
 # LLFR-00237, LLFR-00262: the lines of the layout load report.
 NOT_CREATED_LINE_STR = "{label}: {reason}"
-LIMITED_RANGE_LINE_STR = (
-    "Time range of the FFT signal {name}, {saved_start} s to "
-    "{saved_end} s: limited to the time range of the data file, "
-    "{start} s to {end} s.")
 REMOVED_CURVE_LINE_STR = (
     "Curve of {name} in plot {plot} of tab \"{tab}\": removed, because "
     "the layout file replaced the synthetic signals.")
@@ -478,11 +473,14 @@ class SyntheticController:
 
         Inputs:
             signal_name_str: the right-clicked synthetic signal name.
-        Outputs: none. Ignored for a data file signal (LLFR-00278).
+        Outputs: none. Ignored for a data file signal or an FFT signal
+            (LLFR-00278).
         """
         # LLFR-00279: the JSON list of the layout file entries of the
-        # signal and of every synthetic signal it is computed from.
-        if not self.store.contains(signal_name_str):
+        # signal and of every synthetic signal it is computed from;
+        # LLFR-00278: FFT signals have no equation (LLFR-00283).
+        if (not self.store.contains(signal_name_str)
+                or self.store.is_fft(signal_name_str)):
             return
         self.view.copy_text_to_clipboard(
             self.store.equation_text(signal_name_str))
@@ -561,7 +559,7 @@ class SyntheticController:
         # parameter, in creation order.
         return self.store.layout_entries()
 
-    def load_layout_signals(self, entry_list, report) -> tuple:
+    def load_layout_signals(self, entry_list, report) -> dict:
         """Replace the synthetic signals with those of a layout file.
 
         Called by the layout builder before the plots are rebuilt.
@@ -569,41 +567,29 @@ class SyntheticController:
         Inputs:
             entry_list: the "synthetic_signals" list of the file.
             report: the LayoutReport of the load; the signals not
-                created, the limited FFT ranges and the removed curves
-                of kept tabs are added to it (LLFR-00237).
-        Outputs: a tuple (time_signal_dict, frequency_name_set): name
-            -> samples of the created signals drawn against time, and
-            the names of the created FFT signals.
+                created and the removed curves of kept tabs are added to
+                it (LLFR-00237).
+        Outputs: a dict name -> samples of the created signals; no FFT
+            signal is created (LLFR-00283).
         """
         # LLFR-00262: remove the current synthetic signals.
         old_signal_list = list(self.store.signal_list)
         self.store.clear()
-        not_created_list, limited_list = [], []
+        not_created_list = []
         if self.signal_file is not None:
             # LLFR-00262: create those of the file, in its order.
-            not_created_list, limited_list = create_layout_signals(
+            not_created_list = create_layout_signals(
                 self.store, entry_list, self.signal_lookup,
                 self.signal_file.time_array, self.data_name_set())
         for label_str, reason_str in not_created_list:
             # LLFR-00237: each signal not created, with the reason.
             report.add_synthetic_signal(NOT_CREATED_LINE_STR.format(
                 label=label_str, reason=reason_str))
-        for name_str, saved_tuple, used_tuple in limited_list:
-            # LLFR-00237: the limited FFT time range is a changed value.
-            report.add_replaced(LIMITED_RANGE_LINE_STR.format(
-                name=name_str,
-                saved_start=format_time_value(saved_tuple[0]),
-                saved_end=format_time_value(saved_tuple[1]),
-                start=format_time_value(used_tuple[0]),
-                end=format_time_value(used_tuple[1])))
         self.remove_replaced_curves(old_signal_list, report)
         # LLFR-00242: the signal list shows the new synthetic signals.
         self.show_synthetic_signals()
-        return ({signal.name_str: signal.value_array
-                 for signal in self.store.signal_list
-                 if not signal.is_fft_b},
-                {signal.name_str for signal in self.store.signal_list
-                 if signal.is_fft_b})
+        return {signal.name_str: signal.value_array
+                for signal in self.store.signal_list}
 
     def remove_replaced_curves(self, old_signal_list: list,
                                report) -> None:

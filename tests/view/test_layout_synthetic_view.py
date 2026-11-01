@@ -230,6 +230,42 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
                       self.report_list[0])
         self.assertIn("  - integral_Speed\n", self.report_list[0] + "\n")
 
+    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229")
+    def test_fft_and_frequency_plots_are_not_saved(self) -> None:
+        """An FFT signal and its frequency plot stay out of the file; a
+        tab of only frequency plots does not come back."""
+        top_panel = self.main_window.top_panel
+        plot_controller = self.controller.plot_controller
+        self.choose("Speed", "Integral")
+        self.choose("Speed", "FFT")
+        store = self.controller.synthetic_controller.store
+        fft_name_str = [name_str for name_str in store.names()
+                        if store.is_fft(name_str)][0]
+        self.panel.signal_double_clicked.emit("integral_Speed")
+        plot_controller.on_add_tab()
+        self.panel.signal_double_clicked.emit(fft_name_str)
+        self.application.processEvents()
+        workspace = plot_controller.workspace
+        self.assertTrue(workspace.tab_list[1].plot_list[0]
+                        .is_frequency_plot())
+        layout_path_str = os.path.join(self.folder_str, "fft.json")
+        self.click_with_dialog_answer(top_panel.save_layout_button,
+                                      layout_path_str)
+        with open(layout_path_str, encoding="utf-8") as layout_file:
+            text_str = layout_file.read()
+        self.assertNotIn(fft_name_str, text_str)
+        self.assertEqual(
+            [entry["name"] for entry in
+             json.loads(text_str)["synthetic_signals"]], ["integral_Speed"])
+        self.open_data_file()
+        self.click_with_dialog_answer(top_panel.load_layout_button,
+                                      layout_path_str)
+        self.assertEqual(self.report_list, [])
+        self.assertEqual(self.panel.signal_name_list(),
+                         ["Time", "Speed", "Torque", "integral_Speed"])
+        self.assertEqual(self.main_window.tab_name_list(), ["Tab 1"])
+        self.assertEqual(self.legend_names_of_tab(), [["integral_Speed"]])
+
 
 if __name__ == "__main__":
     unittest.main()
