@@ -1,7 +1,8 @@
 """Top panel: holds the controls for opening a file and the plot tools."""
 
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QHBoxLayout, QWidget
+from PyQt6 import sip
+from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
+from PyQt6.QtWidgets import QHBoxLayout, QMenu, QWidget
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
@@ -14,6 +15,10 @@ ZOOM_TEXT_STR = "Zoom"
 MARKER_TEXT_STR = "Vertical marker"
 RESET_ZOOM_TEXT_STR = "Reset zoom"
 GRID_TEXT_STR = "Grid"
+# LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
+EXPORT_TEXT_STR = "Export"
+SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
+COPY_TEXT_STR = "Copy"
 
 
 class TopPanel(QWidget):
@@ -35,9 +40,13 @@ class TopPanel(QWidget):
             not a plot tool.
         grid_button: the "Grid" ToggleButton (LLFR-00121); not a plot
             tool, it shows whether the grid is shown (LLFR-00124).
+        export_button: the "Export" ToggleButton (LLFR-00126).
+        copy_button: the "Copy" ToggleButton (LLFR-00132).
     """
 
     plot_tool_changed = pyqtSignal(str)
+    pdf_export_requested = pyqtSignal()
+    copy_requested = pyqtSignal()
 
     def __init__(self) -> None:
         """Create the panel with its buttons, aligned to the left.
@@ -82,6 +91,20 @@ class TopPanel(QWidget):
         self.grid_button.setObjectName("grid_button")
         self.button_layout.addWidget(self.reset_zoom_button)
         self.button_layout.addWidget(self.grid_button)
+        # LLFR-00126, LLFR-00132: the Export and Copy buttons; they are
+        # active while their function runs (LLFR-00001, LLFR-00003).
+        self.export_button = ToggleButton(EXPORT_TEXT_STR)
+        self.export_button.setObjectName("export_button")
+        self.copy_button = ToggleButton(COPY_TEXT_STR)
+        self.copy_button.setObjectName("copy_button")
+        self.button_layout.addWidget(self.export_button)
+        self.button_layout.addWidget(self.copy_button)
+        # LLFR-00127, LLFR-00133: the menu and the copy run once control
+        # is back in Qt, so the active color is painted first.
+        self.export_button.activated.connect(
+            lambda: QTimer.singleShot(0, self.show_pending_export_menu))
+        self.copy_button.activated.connect(
+            lambda: QTimer.singleShot(0, self.emit_pending_copy))
         # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
         # left.
         self.button_layout.addStretch(1)
@@ -138,3 +161,75 @@ class TopPanel(QWidget):
             if button.is_active():
                 return tool_str
         return NO_TOOL_STR
+
+    def build_export_menu(self) -> QMenu:
+        """Build the menu shown by the Export button.
+
+        Inputs: none.
+        Outputs: a QMenu (not shown) with the "Save all tabs as PDF"
+            action.
+        """
+        # LLFR-00127: the Export menu has the PDF option.
+        menu = QMenu(self)
+        menu.addAction(SAVE_PDF_TEXT_STR)
+        return menu
+
+    def execute_export_menu(self, menu):
+        """Run the Export menu modally below the Export button.
+
+        Inputs:
+            menu: the QMenu built by build_export_menu.
+        Outputs: the chosen QAction, or None when the menu was closed
+            without a choice. Tests replace this method to choose an
+            action without a real modal menu.
+        """
+        # LLFR-00127: the menu opens below the button.
+        below_button_point = self.export_button.mapToGlobal(
+            QPoint(0, self.export_button.height()))
+        return menu.exec(below_button_point)
+
+    def show_export_menu(self) -> None:
+        """Show the Export menu and report the chosen option.
+
+        Inputs: none.
+        Outputs: none. Emits pdf_export_requested when "Save all tabs as
+            PDF" was chosen; otherwise the Export button returns to its
+            normal color.
+        """
+        # LLFR-00127: show the menu and read the choice.
+        menu = self.build_export_menu()
+        chosen_action = self.execute_export_menu(menu)
+        chosen_text_str = (chosen_action.text() if chosen_action is not None
+                           else "")
+        sip.delete(menu)
+        if chosen_text_str == SAVE_PDF_TEXT_STR:
+            # LLFR-00128: the controller asks for the file and saves it,
+            # then returns the button to normal.
+            self.pdf_export_requested.emit()
+            return
+        # LLFR-00003: the menu was closed without a choice, so the
+        # function of the button has finished.
+        self.export_button.finish()
+
+    def show_pending_export_menu(self) -> None:
+        """Show the Export menu asked for by a click on the button.
+
+        Inputs: none.
+        Outputs: none. Does nothing if the panel was deleted meanwhile.
+        """
+        # LLFR-00127: deferred, so the click handling has finished.
+        if sip.isdeleted(self):
+            return
+        self.show_export_menu()
+
+    def emit_pending_copy(self) -> None:
+        """Report the click on the Copy button.
+
+        Inputs: none.
+        Outputs: none. Emits copy_requested unless the panel was deleted
+            meanwhile.
+        """
+        # LLFR-00133: the copy runs after the active color is shown.
+        if sip.isdeleted(self):
+            return
+        self.copy_requested.emit()
