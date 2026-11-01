@@ -129,14 +129,30 @@ def loaded_heavy_module_list(module_dict: dict) -> list:
             if name_str in module_dict]
 
 
+def phases_str(main_start_s: float, phase_list: list) -> str:
+    """Write the startup phases for a probe line.
+
+    Inputs:
+        main_start_s: time.perf_counter() when src/main.py started.
+        phase_list: (phase name, time.perf_counter()) tuples.
+    Outputs: "name:seconds,..." with the seconds since main_start_s, or
+        "none" when the list is empty.
+    """
+    # LLFR-00184: where the time before the splash screen goes.
+    return ",".join(f"{name_str}:{phase_s - main_start_s:.3f}"
+                    for name_str, phase_s in phase_list) or "none"
+
+
 def splash_line_str(main_start_s: float, exposed_b: bool,
-                    module_dict: dict) -> str:
+                    module_dict: dict, phase_list: list = None) -> str:
     """Build the line that reports when the splash screen was shown.
 
     Inputs:
         main_start_s: time.perf_counter() when src/main.py started.
         exposed_b: whether the splash was exposed on screen.
         module_dict: the imported modules (sys.modules).
+        phase_list: (phase name, time.perf_counter()) tuples of the
+            startup so far; None for none.
     Outputs: the report line, without a line break.
     """
     # LLFR-00184: when the splash was shown, and which slow modules were
@@ -148,12 +164,14 @@ def splash_line_str(main_start_s: float, exposed_b: bool,
             f"splash_shown_epoch_s={time.time():.3f} "
             f"since_main_s={since_main_s:.3f} "
             f"exposed={yes_no_str(exposed_b)} "
-            f"heavy_modules={heavy_modules_str} pid={os.getpid()}")
+            f"heavy_modules={heavy_modules_str} "
+            f"phases={phases_str(main_start_s, phase_list or [])} "
+            f"pid={os.getpid()}")
 
 
 def report_splash_shown(splash, main_start_s: float,
                         environment_dict: dict = None,
-                        output_stream=None) -> bool:
+                        output_stream=None, phase_list: list = None) -> bool:
     """Print the splash line when the startup probe is on.
 
     Inputs:
@@ -162,6 +180,8 @@ def report_splash_shown(splash, main_start_s: float,
         environment_dict: the environment variables; os.environ when
             None.
         output_stream: where to print; standard output when None.
+        phase_list: (phase name, time.perf_counter()) tuples of the
+            startup so far, printed with the line.
     Outputs: True when the line was printed; False (nothing printed)
         when PLOT_TOOL_STARTUP_PROBE is not "1".
     """
@@ -173,7 +193,7 @@ def report_splash_shown(splash, main_start_s: float,
     from view.splash_screen import splash_exposed
     stream = output_stream if output_stream is not None else sys.stdout
     print(splash_line_str(main_start_s, splash_exposed(splash),
-                          sys.modules), file=stream)
+                          sys.modules, phase_list), file=stream)
     stream.flush()
     return True
 

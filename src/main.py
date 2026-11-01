@@ -44,6 +44,9 @@ from view.error_hook import format_error_message  # noqa: E402
 
 # LLFR-00187: exit code of a launch that could not start.
 STARTUP_ERROR_EXIT_CODE_I = 1
+# LLFR-00184: (phase name, time.perf_counter()) of the startup steps
+# before the splash screen, reported by the startup probe.
+STARTUP_PHASE_LIST = [("imports", time.perf_counter())]
 
 
 def build_main_window(application: QApplication) -> tuple:
@@ -110,12 +113,16 @@ def main() -> int:
     # LLFR-00184: the application, its icon and its style first, then
     # the splash screen, before anything slow is imported.
     application = QApplication(sys.argv)
+    STARTUP_PHASE_LIST.append(("application", time.perf_counter()))
     application.setWindowIcon(icons.app_icon())
     theme.apply_application_theme(application)
-    splash = splash_screen.show_splash(application)
+    STARTUP_PHASE_LIST.append(("icon_and_style", time.perf_counter()))
+    splash = splash_screen.show_splash(
+        application, phase_list=STARTUP_PHASE_LIST)
     # LLFR-00184: only with PLOT_TOOL_STARTUP_PROBE=1, report when the
     # splash screen was shown (build check).
-    startup_probe.report_splash_shown(splash, MAIN_START_S)
+    startup_probe.report_splash_shown(splash, MAIN_START_S,
+                                      phase_list=STARTUP_PHASE_LIST)
     window_tuple = start_main_window(application, splash, build_main_window,
                                      message_boxes.show_unexpected_error)
     if window_tuple is None:

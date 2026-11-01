@@ -431,11 +431,20 @@ class SplashScreenTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
+        # The pixmap given to the label: 224 device pixels shown in 112
+        # logical pixels. (QLabel.pixmap() returns it at the label's own
+        # pixel ratio, which is 1 on the offscreen test screen.)
+        for ratio_f, side_i in ((1.0, 112), (2.0, 224), (1.5, 168)):
+            with self.subTest(ratio_f=ratio_f):
+                pixmap = self.splash_screen.splash_icon_pixmap(ratio_f)
+                self.assertEqual((pixmap.width(), pixmap.height()),
+                                 (side_i, side_i))
+                self.assertAlmostEqual(pixmap.devicePixelRatio(), ratio_f)
+                self.assertAlmostEqual(
+                    pixmap.deviceIndependentSize().width(), 112.0)
         splash = self.splash_screen.SplashScreen(2.0)
         self.splash_list.append(splash)
-        pixmap = splash.icon_label.pixmap()
-        self.assertEqual(pixmap.width(), 224)
-        self.assertAlmostEqual(pixmap.devicePixelRatio(), 2.0)
+        self.assertFalse(splash.icon_label.pixmap().isNull())
 
     @covers("LLFR-00184")
     def test_show_splash_puts_it_on_screen_centred(self) -> None:

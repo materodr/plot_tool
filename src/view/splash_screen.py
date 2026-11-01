@@ -138,25 +138,33 @@ def splash_exposed(splash) -> bool:
 
 
 def show_splash(application: QApplication,
-                timeout_s: float = EXPOSE_TIMEOUT_S) -> SplashScreen:
+                timeout_s: float = EXPOSE_TIMEOUT_S,
+                phase_list: list = None) -> SplashScreen:
     """Show the splash screen and make sure it is painted.
 
     Inputs:
         application: the QApplication.
         timeout_s: how long to wait at most for the splash to be
             exposed on screen.
+        phase_list: when given, (phase name, time.perf_counter()) tuples
+            are appended to it as the splash is built, shown, exposed
+            and painted, for the startup probe.
     Outputs: the shown SplashScreen. The caller closes it with
         ``finish(main_window)`` (LLFR-00186) or ``close()`` (LLFR-00187).
     """
     # LLFR-00184: the splash is centred on the primary screen and drawn
     # for its pixel density.
+    if phase_list is None:
+        phase_list = []
     screen = application.primaryScreen()
     ratio_f = screen.devicePixelRatio() if screen is not None else 1.0
     splash = SplashScreen(ratio_f)
+    phase_list.append(("splash_built", time.perf_counter()))
     if screen is not None:
         available_rect = screen.availableGeometry()
         splash.move(available_rect.center() - splash.rect().center())
     splash.show()
+    phase_list.append(("splash_show", time.perf_counter()))
     # LLFR-00184: there is no event loop yet, and the slow imports that
     # follow block it, so the events that put the splash on screen are
     # handled here until it is exposed, and then it is painted.
@@ -166,6 +174,8 @@ def show_splash(application: QApplication,
            and time.perf_counter() < deadline_s):
         time.sleep(EXPOSE_POLL_INTERVAL_S)
         application.processEvents()
+    phase_list.append(("splash_exposed", time.perf_counter()))
     splash.repaint()
     application.processEvents()
+    phase_list.append(("splash_painted", time.perf_counter()))
     return splash
