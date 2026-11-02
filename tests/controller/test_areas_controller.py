@@ -149,17 +149,21 @@ class CreateAreaControllerTest(AreaControllerTestCase):
         self.assertEqual(self.area_tuple_list(),
                          [("Area 1", 0.0, 2.0), ("Area 2", 2.0, 10.0)])
 
-    @covers("LLFR-00318", "LLFR-00303", "LLFR-00311")
+    @covers("LLFR-00318", "LLFR-00303", "LLFR-00311", "LLFR-00384")
     def test_other_tools_and_frequency_plots_create_nothing(self) -> None:
-        """Without the Area tool, or on a frequency plot or an unknown
-        plot, no area is created or changed.
+        """With another tool than Area, or on a frequency plot or an
+        unknown plot, no area is created or changed; with no tool, no
+        area is created (LLFR-00382 only moves and resizes).
 
         Inputs: none.
         Outputs: none.
         """
         self.create(1.0, 2.0)
         area_id_i = self.workspace.area_list[0].area_id_i
-        for tool_str in (NO_TOOL_STR,) + tuple(
+        self.choose_tool(NO_TOOL_STR)
+        self.create(4.0, 5.0)
+        self.assertEqual(self.area_tuple_list(), [("Area 1", 1.0, 2.0)])
+        for tool_str in tuple(
                 tool_str for tool_str in PLOT_TOOL_TUPLE
                 if tool_str != AREA_TOOL_STR):
             with self.subTest(tool=tool_str):
@@ -176,6 +180,32 @@ class CreateAreaControllerTest(AreaControllerTestCase):
         self.view.handler_dict["area_change_handler"](
             frequency_plot.plot_id_i, area_id_i, 6.0, 7.0)
         self.assertEqual(self.area_tuple_list(), [("Area 1", 1.0, 2.0)])
+
+    @covers("LLFR-00382", "LLFR-00312", "LLFR-00313", "LLFR-00140",
+            "LLFR-00138")
+    def test_no_tool_moves_and_resizes_undoably(self) -> None:
+        """With no plot tool active, a move and a resize are applied as
+        one undoable action each, and not on a frequency plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.create(1.0, 2.0)
+        area_id_i = self.workspace.area_list[0].area_id_i
+        self.choose_tool(NO_TOOL_STR)
+        depth_i = self.controller.undo_history.depth()
+        self.change(area_id_i, 3.0, 4.0)
+        self.assertEqual(self.area_tuple_list(), [("Area 1", 3.0, 4.0)])
+        self.change(area_id_i, 3.0, 6.0)
+        self.assertEqual(self.area_tuple_list(), [("Area 1", 3.0, 6.0)])
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 2)
+        frequency_plot = self.workspace.add_plot(
+            self.first_tab_id(), FREQUENCY_PLOT_KIND_STR)
+        self.view.handler_dict["area_change_handler"](
+            frequency_plot.plot_id_i, area_id_i, 7.0, 8.0)
+        self.assertEqual(self.area_tuple_list(), [("Area 1", 3.0, 6.0)])
+        self.view.handler_dict["undo"]()
+        self.assertEqual(self.area_tuple_list(), [("Area 1", 3.0, 4.0)])
 
     @covers("LLFR-00311")
     def test_frequency_plot_draws_no_area(self) -> None:

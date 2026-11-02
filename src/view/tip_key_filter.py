@@ -16,7 +16,11 @@ Six keys work this way:
       (LLFR-00321, LLFR-00322, LLFR-00323).
 Besides these tool keys, the filter knows action keys: a key that runs
 a function once when it is pressed alone. The Z key is one: it resets
-the zoom (LLFR-00207).
+the zoom (LLFR-00207), and the Esc key is another: it switches off the
+active plot tool (LLFR-00370). An Esc pressed while a tool key is held
+ends that hold like any other key (LLFR-00150, LLFR-00156, LLFR-00199,
+LLFR-00202, LLFR-00289, LLFR-00323), so no plot tool is active
+afterwards either; not being pressed alone, it runs nothing more.
 No key activates a tool or runs an action while the keyboard focus is
 in a text field (LLFR-00157), so that letters, capital letters and
 shortcuts can be typed there. The Tip key and Shift activate nothing
@@ -104,6 +108,8 @@ AREA_KEY_I = int(Qt.Key.Key_A.value)
 TEXT_KEY_I = int(Qt.Key.Key_T.value)
 # LLFR-00207: the key that resets the zoom.
 RESET_ZOOM_KEY_I = int(Qt.Key.Key_Z.value)
+# LLFR-00370: the key that switches off the active plot tool.
+ESCAPE_KEY_I = int(Qt.Key.Key_Escape.value)
 # LLFR-00148, LLFR-00154: the modifier each tool key sets by itself; with
 # the keypad flag, the only modifiers allowed while the key is "alone".
 # LLFR-00197, LLFR-00200, LLFR-00207: a letter key sets none.

@@ -596,14 +596,15 @@ class MarkerDragTest(MarkerWidgetTestCase):
         self.mouse("button_release_event", 14.0, 2.0)
         self.assertEqual(self.move_list, [(9, end_s)])
 
-    @covers("LLFR-00086", "LLFR-00078")
+    @covers("LLFR-00086", "LLFR-00078", "LLFR-00384")
     def test_drag_needs_the_marker_tool(self) -> None:
-        """With another tool a press on the marker does not grab it.
+        """With another tool a press on the marker does not grab it
+        (LLFR-00384; with no tool it does, LLFR-00382).
 
         Inputs: none.
         Outputs: none.
         """
-        for tool_str in (TIP_TOOL_STR, NO_TOOL_STR, ZOOM_TOOL_STR):
+        for tool_str in (TIP_TOOL_STR, ZOOM_TOOL_STR):
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
                 self.mouse("button_press_event", 4.0, 2.0)

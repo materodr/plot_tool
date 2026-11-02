@@ -21,8 +21,8 @@ from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
 from view.tip_key_filter import (
-    AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I, RESET_ZOOM_KEY_I,
-    TEXT_KEY_I, TIP_KEY_I, ToolKeyFilter)
+    AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, ESCAPE_KEY_I, MARKER_KEY_I,
+    RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ToolKeyFilter)
 from view import top_panel
 from view.top_panel import TopPanel
 
@@ -234,7 +234,8 @@ class MainWindow(QMainWindow):
         # Vertical marker tool active; LLFR-00197 to LLFR-00202: holding
         # X or Y keeps the Delta X or Delta Y tool active; LLFR-00287,
         # LLFR-00321: holding A or T keeps the Area or Text tool active;
-        # LLFR-00207: Z alone resets the zoom; LLFR-00157: none of them
+        # LLFR-00207: Z alone resets the zoom; LLFR-00370: Esc alone
+        # switches off the active plot tool; LLFR-00157: none of them
         # in text fields (any QLineEdit, QTextEdit, QPlainTextEdit or
         # spin box, so also the search boxes of dialogs and windows and
         # the fields of names and text notes).
@@ -248,7 +249,8 @@ class MainWindow(QMainWindow):
              AREA_KEY_I: AREA_TOOL_STR, TEXT_KEY_I: TEXT_TOOL_STR},
             self.on_tool_key_activate, self.on_tool_key_release,
             TEXT_INPUT_WIDGET_TUPLE, self,
-            {RESET_ZOOM_KEY_I: self.on_reset_zoom_key})
+            {RESET_ZOOM_KEY_I: self.on_reset_zoom_key,
+             ESCAPE_KEY_I: self.on_escape_key})
         # LLFR-00148: the name used before the Shift key was added.
         self.tip_key_filter = self.tool_key_filter
         # LLFR-00302: over the signal list, Cmd/Ctrl and Shift select.
@@ -829,6 +831,36 @@ class MainWindow(QMainWindow):
         # LLFR-00207, LLFR-00115, LLFR-00116: exactly as a click on the
         # Reset zoom button, with its active color for at least 0.3 s.
         self.top_panel.reset_zoom_button.click()
+
+    def on_escape_key(self) -> None:
+        """Switch off the active plot tool because Esc was pressed alone.
+
+        Inputs: none.
+        Outputs: none. Nothing happens while no plot tool is active,
+            during a mouse drag, while a modal dialog or a menu of the
+            application is open, or while another window of the
+            application is the active one.
+        """
+        # LLFR-00370: with no tool active, Esc does nothing and shows
+        # nothing.
+        if self.current_plot_tool() == NO_TOOL_STR:
+            return
+        # LLFR-00370, LLFR-00207: during a mouse drag, Esc does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
+        # LLFR-00370: in a menu or a dialog Esc keeps its own meaning
+        # (it closes them) and leaves the plot tool alone. A text field
+        # (LLFR-00157) is already left out by the key filter.
+        if (QApplication.activeModalWidget() is not None
+                or QApplication.activePopupWidget() is not None):
+            return
+        active_window = QApplication.activeWindow()
+        if active_window is not None and active_window is not self:
+            return
+        # LLFR-00370, LLFR-00002: as a second click on the active tool
+        # button: every tool button normal, no plot tool active.
+        self.top_panel.show_plot_tool(NO_TOOL_STR)
+        self.top_panel.deactivate_plot_tools()
 
     def set_reset_zoom_handler(self, handler) -> None:
         """Set the function called when Reset zoom is clicked.

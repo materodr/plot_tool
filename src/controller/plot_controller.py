@@ -1496,11 +1496,12 @@ class PlotController:
             plot_id_i: id of the plot the marker was dragged on.
             marker_id_i: id of the dragged marker.
             time_s: time where the mouse button was released, in s.
-        Outputs: none. Ignored when the Vertical marker tool is not
-            active, an id is unknown or the time is not finite.
+        Outputs: none. Ignored when a plot tool other than the Flag
+            tool is active, an id is unknown or the time is not finite.
         """
-        # LLFR-00086: dragging works while the button is active.
-        if self.plot_tool_str != MARKER_TOOL_STR:
+        # LLFR-00086, LLFR-00382: dragging works while the Flag button is
+        # active or no plot tool is; LLFR-00384: never with another tool.
+        if self.plot_tool_str not in (MARKER_TOOL_STR, NO_TOOL_STR):
             return
         plot = self.workspace.find_plot(plot_id_i)
         if plot is None or not math.isfinite(float(time_s)):
@@ -1652,17 +1653,24 @@ class PlotController:
         # LLFR-00313: a resized edge is cut to the file's time range.
         return self.file_limited_span_tuple(start_s, end_s)
 
-    def area_time_plot(self, plot_id_i: int):
+    def area_time_plot(self, plot_id_i: int, editing_b: bool = False):
         """Return a time plot on which an area may be created or dragged.
 
         Inputs:
             plot_id_i: id of the plot.
-        Outputs: the model Plot, or None when the Area tool is not active,
-            the plot is unknown or it is a frequency plot.
+            editing_b: True to move or resize an existing area, which is
+                also allowed with no plot tool active; False to create
+                one, which needs the Area tool.
+        Outputs: the model Plot, or None when the active plot tool does
+            not allow it, the plot is unknown or it is a frequency plot.
         """
-        # LLFR-00303, LLFR-00312, LLFR-00313: only with the Area tool.
-        # LLFR-00318: the other tools never create, move or resize one.
-        if self.plot_tool_str != AREA_TOOL_STR:
+        # LLFR-00303: an area is created only with the Area tool.
+        # LLFR-00312, LLFR-00313, LLFR-00382: it is moved or resized with
+        # the Area tool or with no tool. LLFR-00318, LLFR-00384: the
+        # other tools never create, move or resize one.
+        allowed_tool_tuple = ((AREA_TOOL_STR, NO_TOOL_STR) if editing_b
+                              else (AREA_TOOL_STR,))
+        if self.plot_tool_str not in allowed_tool_tuple:
             return None
         plot = self.workspace.find_plot(plot_id_i)
         # LLFR-00311: a drag on a frequency plot creates no area.
@@ -1710,8 +1718,9 @@ class PlotController:
         Outputs: none. A change that cannot be applied leaves the area
             where it was, and every plot shows it there again.
         """
-        # LLFR-00312, LLFR-00313: only with the Area tool, on a time plot.
-        if self.area_time_plot(plot_id_i) is None:
+        # LLFR-00312, LLFR-00313, LLFR-00382: with the Area tool or no
+        # tool, on a time plot.
+        if self.area_time_plot(plot_id_i, editing_b=True) is None:
             return
         area = self.workspace.find_area(int(area_id_i))
         if area is None:

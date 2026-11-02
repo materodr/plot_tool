@@ -10,7 +10,8 @@ import unittest
 from tests.support import covers
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+    MARKER_TOOL_STR, NO_TOOL_STR, PLOT_TOOL_TUPLE, TIP_TOOL_STR,
+    ZOOM_TOOL_STR)
 from tests.controller.test_plot_controller import PlotControllerTestCase
 
 
@@ -249,7 +250,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 6.5)
         self.assertEqual(self.controller.plot_tool_str, MARKER_TOOL_STR)
 
-    @covers("LLFR-00086")
+    @covers("LLFR-00086", "LLFR-00384")
     def test_move_needs_the_marker_tool(self) -> None:
         """With another tool active, a move request is ignored.
 
@@ -258,9 +259,37 @@ class MoveMarkerTest(MarkerControllerTestCase):
         """
         self.place(2.0)
         marker_id_i = self.marker_id("Flag 1")
-        self.view.handler_dict["plot_tool"](ZOOM_TOOL_STR)
+        for tool_str in PLOT_TOOL_TUPLE:
+            if tool_str == MARKER_TOOL_STR:
+                continue
+            with self.subTest(tool=tool_str):
+                self.view.handler_dict["plot_tool"](tool_str)
+                self.view.handler_dict["marker_move_handler"](
+                    self.plot_id_i, marker_id_i, 6.5)
+                self.assertEqual(
+                    self.workspace.find_marker(marker_id_i).time_s, 2.0)
+
+    @covers("LLFR-00382", "LLFR-00086", "LLFR-00140", "LLFR-00205")
+    def test_move_with_no_tool_is_undoable(self) -> None:
+        """With no plot tool active, a move request moves the flag on
+        every plot as one undoable action; a new flag is not placed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.place(2.0)
+        marker_id_i = self.marker_id("Flag 1")
+        self.view.handler_dict["plot_tool"](NO_TOOL_STR)
+        depth_i = self.controller.undo_history.depth()
         self.view.handler_dict["marker_move_handler"](self.plot_id_i,
                                                       marker_id_i, 6.5)
+        self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 6.5)
+        self.assertEqual(self.drawn_markers(),
+                         [(marker_id_i, "Flag 1", 6.5)])
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 1)
+        self.place(3.0)
+        self.assertEqual(len(self.workspace.marker_list), 1)
+        self.view.handler_dict["undo"]()
         self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 2.0)
 
     @covers("LLFR-00086")
