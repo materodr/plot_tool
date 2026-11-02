@@ -74,7 +74,7 @@ If the selected file can be opened and another file is already open, the app mus
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
 
-Note: The **plot tools** are the Data tip, Zoom, Vertical marker, Delta X, Delta Y, Area and Text functions. Each one is started from its own button in the top panel.
+Note: The **plot tools** are the Data tip, Zoom, Pan, Vertical marker, Delta X, Delta Y, Area and Text functions. Each one is started from its own button in the top panel.
 
 ### HLFR-00042 Button icons
 Each button in the top panel must show an icon that illustrates its function.
@@ -110,6 +110,14 @@ The user must not be able to change the time signal after the file is open.
 The buttons of the top panel must be organized in groups of related buttons. The buttons of a group must look like one joined block, with no space between them, and there must be a space between one group and the next.
 
 Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export and Copy; Undo and Redo.
+
+### HLFR-00078 Report a bug
+The user must be able to open, from the top panel, the page that creates a new issue in the project's GitHub repository, in their web browser.
+
+Note: The page is opened with the **Report a bug** button.
+
+### HLFR-00080 Author credit
+The top panel must show the text "designed by materodr" in its upper-right corner.
 
 ## Signal list panel
 
@@ -171,6 +179,9 @@ The user must be able to add all the selected signals to an existing plot at onc
 
 ### HLFR-00071 Time signal shown in green
 The signal list panel must show the name of the time signal in green, whether the app found it by its name or the user chose it.
+
+### HLFR-00079 Name of the opened file
+The signal list panel must show, in its first line, the name of the data file that is open.
 
 ## Plot panel
 
