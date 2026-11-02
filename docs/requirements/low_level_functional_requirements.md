@@ -506,9 +506,11 @@ The app must show these icons, the same on every operating system:
 13. Save layout: a sheet of paper with two small stacked plots and an arrow pointing down into it;
 14. Load layout: a sheet of paper with two small stacked plots and an arrow pointing up out of it;
 15. Area: two vertical lines with the space between them shaded;
-16. Text: a capital letter T inside a small box.
+16. Text: a capital letter T inside a small box;
+17. Pan: an open hand;
+18. Report a bug: a small bug.
 
-*Parent: HLFR-00042, HLFR-00048, HLFR-00049, HLFR-00050, HLFR-00066, HLFR-00073*
+*Parent: HLFR-00042, HLFR-00048, HLFR-00049, HLFR-00050, HLFR-00066, HLFR-00073, HLFR-00036, HLFR-00078*
 
 ### LLFR-00160 Icon visibility
 Each icon must be clearly visible against its button's background in the normal, active (LLFR-00001) and disabled (LLFR-00141) states, and must be shown paler while the button is disabled.
@@ -557,11 +559,11 @@ The line below the name in the button tip of each button with a shortcut (LLFR-0
 | Area | Hold A | Hold A |
 | Text | Hold T | Hold T |
 
-The button tip of the Zoom button (LLFR-00214) must show two lines below its name, on macOS and on Windows: "Click or drag to zoom in" and "Wheel or two-finger swipe to zoom in or out".
+The button tip of the Zoom button (LLFR-00214) must show two lines below its name, on macOS and on Windows: "Click or drag to zoom in" and "Wheel or two-finger swipe to zoom in or out". The button tip of the Pan button (LLFR-00214) must show one line below its name, on macOS and on Windows: "Drag on a plot to pan".
 
-The button tips of the Open file, Save layout, Load layout, Grid, Export and Copy buttons must show only the button's name.
+The button tips of the Open file, Save layout, Load layout, Grid, Export, Copy and Report a bug buttons must show only the button's name.
 
-Note: The texts follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00078, LLFR-00208, LLFR-00074 and LLFR-00206. When a shortcut or a mouse use changes, its button tip text must change with it.
+Note: The texts follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00078, LLFR-00208, LLFR-00074, LLFR-00206 and LLFR-00356. When a shortcut or a mouse use changes, its button tip text must change with it.
 
 *Parent: HLFR-00042*
 
@@ -813,10 +815,11 @@ Note: Reopening a file that has a signal matching the time signal name does not 
 ### LLFR-00347 Order of the button groups
 The top panel must show its buttons in this order, from left to right, in these groups:
 1. Open file, Save layout, Load layout;
-2. Data tip, Zoom, Vertical marker, Delta X, Delta Y, Area, Text;
+2. Data tip, Zoom, Pan, Vertical marker, Delta X, Delta Y, Area, Text;
 3. Reset zoom, Grid;
 4. Export, Copy;
-5. Undo, Redo.
+5. Undo, Redo;
+6. Report a bug.
 
 *Parent: HLFR-00077*
 
@@ -834,6 +837,41 @@ The top panel must leave a space of 16 pixels between one button group (LLFR-003
 Each button of a group (LLFR-00347) must keep showing its own state, normal, active (LLFR-00001) or disabled (LLFR-00141, LLFR-00194, LLFR-00218), whatever the state of the other buttons of the group.
 
 *Parent: HLFR-00077, HLFR-00003*
+
+### LLFR-00355 Pan button
+The top panel must contain a button called "Pan".
+
+*Parent: HLFR-00036, HLFR-00032*
+
+### LLFR-00358 Report a bug button
+The top panel must contain a button called "Report a bug", enabled whether or not a data file is open.
+
+*Parent: HLFR-00078*
+
+### LLFR-00359 Report a bug action
+When the user clicks the Report a bug button, the app must open the page `https://github.com/materodr/plot_tool/issues/new/choose` in the system's default web browser, the same page as the "New issue" button of the repository on GitHub, and must leave the open file, the plots and the undo and redo history unchanged.
+
+*Parent: HLFR-00078*
+
+### LLFR-00360 Report a bug button feedback
+When the user clicks the Report a bug button, the button must show its active color (LLFR-00001) until the app has asked the browser to open the page, and for at least 0.3 seconds, and must then return to its normal color (LLFR-00003).
+
+*Parent: HLFR-00078, HLFR-00003*
+
+### LLFR-00361 Browser cannot be opened
+If the app cannot open the web browser, it must show an error box saying that the page could not be opened, with the page's address.
+
+*Parent: HLFR-00078, HLFR-00002*
+
+### LLFR-00364 Credit text
+The top panel must show the text "designed by materodr" at its right end, in a paler color than the panel's normal text. The text must not be a button and must not react to the mouse. When the window is too narrow for the buttons and the text, the app must hide the text and must not cover or move any button.
+
+*Parent: HLFR-00080*
+
+### LLFR-00365 Curve palette against the marker color
+Every color of the palette of LLFR-00033 must be at a distance of at least 70 from the marker color (LLFR-00083), measured as the Euclidean distance between their red, green and blue values from 0 to 255, so that the palette must not contain an orange and its red must be darker than the marker color.
+
+*Parent: HLFR-00020, HLFR-00028*
 
 ## Signal list panel
 
@@ -1241,6 +1279,16 @@ The signal list panel must show the name of the time signal (LLFR-00053, LLFR-00
 
 *Parent: HLFR-00071*
 
+### LLFR-00362 File name line
+The signal list panel must show, in a line above the signal list, the name of the opened data file with its extension and without its folder. The line must not be a signal: it must not be selected, dragged, plotted or filtered by the search (LLFR-00095), and it must have no menu. When the name does not fit in the panel's width, the app must shorten it with "..." in the middle and show the whole name in a tip while the mouse pointer is over the line.
+
+*Parent: HLFR-00079*
+
+### LLFR-00363 File name line follows the opened file
+The file name line (LLFR-00362) must be empty while no data file is open, and must show the new name when a file is opened or replaced (LLFR-00013). It must not change when opening a file fails, is cancelled or is declined (LLFR-00007, LLFR-00010, LLFR-00014, LLFR-00327).
+
+*Parent: HLFR-00079, HLFR-00010*
+
 ## Plot panel
 
 ### LLFR-00024 Initial tab
@@ -1469,7 +1517,7 @@ A vertical marker must cover the whole y-axis range shown in its plot, and must 
 *Parent: HLFR-00028*
 
 ### LLFR-00083 Marker color
-The app must draw vertical markers in a reserved marker color that it never uses for curves (LLFR-00033, LLFR-00034).
+The app must draw vertical markers in a reserved marker color, the orange `#ff4400`, that it never uses for curves (LLFR-00033, LLFR-00034).
 
 *Parent: HLFR-00028, HLFR-00020*
 
@@ -1639,7 +1687,7 @@ The app must draw the line of a vertical marker as a dashed line.
 *Parent: HLFR-00028*
 
 ### LLFR-00144 First three curve colors
-The first three colors of the palette of LLFR-00033 must be blue, black and red, in that order, so that the first curve drawn in a plot is blue, the second black and the third red.
+The first three colors of the palette of LLFR-00033 must be blue, black and a dark red that stays clearly different from the marker color (LLFR-00365), in that order, so that the first curve drawn in a plot is blue, the second black and the third red.
 
 *Parent: HLFR-00020*
 
@@ -1659,7 +1707,7 @@ When the user presses the left mouse button on a pinned data tip and drags it, t
 *Parent: HLFR-00041*
 
 ### LLFR-00153 Press on a pinned data tip
-A left mouse button press on a pinned data tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new data tip, zoom, place a vertical marker, create, move or resize an area, start a text note or pick a delta marker point.
+A left mouse button press on a pinned data tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new data tip, zoom, pan, place a vertical marker, create, move or resize an area, start a text note or pick a delta marker point.
 
 *Parent: HLFR-00041, HLFR-00032*
 
@@ -1770,7 +1818,7 @@ If the user drops an FFT signal on a time plot, or any other signal on a frequen
 *Parent: HLFR-00058, HLFR-00013*
 
 ### LLFR-00258 Frequency plot x-axis range
-Each frequency plot must have its own x-axis range, which must not follow the time plots (LLFR-00070) or the other frequency plots. A new frequency plot must show the frequencies from 0 Hz up to the highest frequency of its curves. Mouse wheel zoom (LLFR-00074), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345) must change only the frequency plot they are used on, limited to that frequency range, and Reset zoom (LLFR-00115) must return every frequency plot to that frequency range.
+Each frequency plot must have its own x-axis range, which must not follow the time plots (LLFR-00070) or the other frequency plots. A new frequency plot must show the frequencies from 0 Hz up to the highest frequency of its curves. Mouse wheel zoom (LLFR-00074), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345, LLFR-00356) must change only the frequency plot they are used on, limited to that frequency range, and Reset zoom (LLFR-00115) must return every frequency plot to that frequency range.
 
 *Parent: HLFR-00058, HLFR-00027, HLFR-00035, HLFR-00036*
 
@@ -1800,7 +1848,7 @@ When the user releases the left mouse button after LLFR-00303, the app must remo
 *Parent: HLFR-00066*
 
 ### LLFR-00305 Area appearance
-The app must draw an area as a see-through band in the area's color (LLFR-00351), which is a paler version of the reserved marker color (LLFR-00083) unless the user chose another one, between its start and end times, covering the whole y-axis range shown in the plot, and must keep it covering that range when the range changes.
+The app must draw an area as a see-through band in the area's color (LLFR-00351), which is the orange of the reserved marker color (LLFR-00083), shown paler than the markers because it is see-through, unless the user chose another color, between its start and end times, covering the whole y-axis range shown in the plot, and must keep it covering that range when the range changes.
 
 *Parent: HLFR-00066*
 
@@ -1871,17 +1919,19 @@ When the user right-clicks a point inside an area where a curve, a pinned data t
 *Parent: HLFR-00068, HLFR-00069*
 
 ### LLFR-00318 Other plot tools over an area
-An area must not change what the other plot tools do with a press inside it: while the Data tip, Zoom, Vertical marker, Delta X, Delta Y or Text button is active, or no plot tool is active, a press inside an area must act as it does outside one, and must not move or resize the area.
+An area must not change what the other plot tools do with a press inside it: while the Data tip, Zoom, Pan, Vertical marker, Delta X, Delta Y or Text button is active, or no plot tool is active, a press inside an area must act as it does outside one, and must not move or resize the area.
 
 *Parent: HLFR-00066, HLFR-00032*
 
 ### LLFR-00319 Areas in a layout
 When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the opened data file, and it does not overlap a current area or an area already rebuilt from the same file. The load report (LLFR-00237) must give the reason for each area that is not rebuilt. A rebuilt area whose saved color is missing must get the default color of LLFR-00351; one whose saved color is not one of the colors of LLFR-00351 must get the default color, and the load report must list it as a replaced value (LLFR-00235).
 
+Note: This includes the color "Magenta" in a layout file saved before the marker color became orange.
+
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00351 Area colors
-The "Color" option of the area menu (LLFR-00314) must list five colors: "Magenta", the default color that every new area gets, which is the paler version of the reserved marker color of LLFR-00305, and "Blue", "Green", "Yellow" and "Orange", with the area's current color shown as chosen. All five colors must be pale and drawn see-through with the same opacity, so that the curves, the grid and the other items stay visible (LLFR-00306); they must be easy to tell apart from each other and must never be a color of the curve palette (LLFR-00033). When the user chooses a color, the app must draw that area in it on every time plot of every tab (LLFR-00310).
+The "Color" option of the area menu (LLFR-00314) must list four colors: "Orange", the default color that every new area gets, which is the see-through marker color of LLFR-00305, and "Blue", "Green" and "Yellow", with the area's current color shown as chosen. All four colors must be pale and drawn see-through with the same opacity, so that the curves, the grid and the other items stay visible (LLFR-00306); they must be easy to tell apart from each other and must never be a color of the curve palette (LLFR-00033). When the user chooses a color, the app must draw that area in it on every time plot of every tab (LLFR-00310).
 
 *Parent: HLFR-00066*
 
@@ -1916,7 +1966,7 @@ While a text note is shown, the app must move it by the shortest distance needed
 *Parent: HLFR-00073, HLFR-00074*
 
 ### LLFR-00339 Drag a text note
-When the user presses the left mouse button on a text note and drags it, the app must move the text note with the mouse pointer and leave it where the button is released, attached to the x-axis and y-axis values of that place. The press must start the move whether or not a plot tool is active, and must not pin a data tip, zoom, place a vertical marker, create, move or resize an area, pick a delta marker point or start another text note.
+When the user presses the left mouse button on a text note and drags it, the app must move the text note with the mouse pointer and leave it where the button is released, attached to the x-axis and y-axis values of that place. The press must start the move whether or not a plot tool is active, and must not pin a data tip, zoom, pan, place a vertical marker, create, move or resize an area, pick a delta marker point or start another text note.
 
 *Parent: HLFR-00074, HLFR-00032*
 
@@ -1952,3 +2002,28 @@ When the user swipes two fingers left or right on a trackpad or touchpad with th
 A two-finger swipe that moves more horizontally than vertically must only pan (LLFR-00345), and any other two-finger swipe must only zoom (LLFR-00074, LLFR-00206), so that a swipe never does both.
 
 *Parent: HLFR-00036, HLFR-00027*
+
+### LLFR-00352 Preview of a delta marker point
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, including while the X or Y key is held (LLFR-00197, LLFR-00200), and the mouse pointer is over a curve where a click would take a first point (LLFR-00163, LLFR-00166), the app must show a dot on the curve sample nearest to the pointer, in a paler version of the marker color (LLFR-00083), and must move it as the pointer moves.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00353 Preview of a delta marker
+While a first point is picked (LLFR-00163) and the mouse pointer is over a curve in the same plot, the app must show a preview of the marker that a click would draw (LLFR-00164): a Delta X or Delta Y marker, according to the active button, between the first point and the curve sample nearest to the pointer, in a paler version of the marker color, with its value (LLFR-00169, LLFR-00171, LLFR-00261), and must update it as the pointer moves.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00354 Delta marker preview hidden
+The app must hide the previews of LLFR-00352 and LLFR-00353 when the pointer is no longer over a curve or when the button is deactivated, while keeping the dot of a first point (LLFR-00165). The previews must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133), must not be saved in a layout file (LLFR-00225) and must not be undoable actions (LLFR-00140).
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-00356 Pan by left drag
+While the Pan button (LLFR-00355) is active and the user presses the left mouse button on a plot's drawing area and moves the pointer, the app must shift the plot's x-axis range so that the curves follow the pointer horizontally. The limits and y-axis ranges of LLFR-00118 to LLFR-00120 must apply, and the pan must apply to every time plot (LLFR-00070), or only to the plot it is used on when it is a frequency plot (LLFR-00258).
+
+*Parent: HLFR-00036*
+
+### LLFR-00357 Press with the Pan button active
+While the Pan button (LLFR-00355) is active, a press on a pinned data tip or a text note must move it (LLFR-00153, LLFR-00339) and must not pan. A press on a vertical marker, a delta marker or an area must pan and must not change that item. A left-click that does not move the pointer must do nothing and must not show any message.
+
+*Parent: HLFR-00036, HLFR-00032*
