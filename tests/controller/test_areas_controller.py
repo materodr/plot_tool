@@ -300,6 +300,20 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.change(self.first_id_i, 2.0, 9.0)
         self.assertEqual(self.area_tuple_list()[0], ("Area 1", 2.0, 9.0))
 
+    @covers("LLFR-00312", "LLFR-00119")
+    def test_move_beyond_the_file_is_shifted_keeping_the_width(
+            self) -> None:
+        """A moved span (as wide as the area) that leaves the file is
+        shifted back into it, not cut.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.change(self.second_id_i, 9.5, 10.5)
+        self.assertEqual(self.area_tuple_list()[1], ("Area 2", 9.0, 10.0))
+        self.change(self.first_id_i, -0.75, 0.25)
+        self.assertEqual(self.area_tuple_list()[0], ("Area 1", 0.0, 1.0))
+
     @covers("LLFR-00315", "LLFR-00307", "LLFR-00140")
     def test_rename_with_any_tool_and_blank_keeps_the_name(self) -> None:
         """Rename asks with the current name; a blank answer or a

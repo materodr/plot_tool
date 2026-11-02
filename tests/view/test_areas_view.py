@@ -287,6 +287,24 @@ class AreaLookTest(AreaWidgetTestCase):
                         self.plot_widget.axes.xaxis.get_zorder())
         self.assertLess(label.get_zorder(),
                         self.plot_widget.axes.xaxis.get_zorder())
+        # LLFR-00306: also behind the vertical markers, delta markers and
+        # pinned data tips drawn over the area. (Text notes come with
+        # issue #130 and are checked there.)
+        self.plot_widget.set_markers([(5, "Marker 1", 4.0)])
+        self.plot_widget.set_pinned_tips([("Ramp", 4.5, 3.45, ())])
+        self.plot_widget.set_delta_markers([
+            (6, "y", ("Ramp", 3.5, 3.35), ("Sine", 3.5, float(np.sin(3.5))),
+             0.0)])
+        self.draw()
+        item_list = list(self.plot_widget.marker_artist_tuple(5))
+        item_list += [artist for artist
+                      in self.plot_widget.delta_artist_tuple(6)]
+        item_list.append(self.plot_widget.pinned_tip_annotation(0))
+        self.assertEqual(len(item_list), 8)
+        for artist in item_list:
+            self.assertLess(band.get_zorder(), artist.get_zorder())
+            self.assertLess(label.get_zorder(), artist.get_zorder())
+            self.assertLess(times_text.get_zorder(), artist.get_zorder())
         self.assertEqual(self.plot_widget.area_label_text(4), "Warm-up")
         self.assertEqual(label.xy, (3.0, 1.0))
         self.assertEqual(self.plot_widget.area_times_text(4),

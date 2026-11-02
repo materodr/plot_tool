@@ -200,6 +200,20 @@ class ChangeAreaTest(AreaModelTestCase):
         self.assertFalse(self.workspace.rename_area(999, "X"))
         self.assertEqual(self.first_area.name_str, "Run")
 
+    @covers("LLFR-00309", "LLFR-00315")
+    def test_rename_to_area_n_uses_up_n(self) -> None:
+        """Renaming an area "Area 7" makes the next new area "Area 8".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.workspace.rename_area(self.first_area.area_id_i, "Area 7")
+        self.assertEqual(self.workspace.add_area(6.0, 7.0).name_str,
+                         "Area 8")
+        self.workspace.rename_area(self.second_area.area_id_i, "Area 3")
+        self.assertEqual(self.workspace.add_area(8.0, 9.0).name_str,
+                         "Area 9")
+
     @covers("LLFR-00316")
     def test_remove_area(self) -> None:
         """Removing an area leaves the others.

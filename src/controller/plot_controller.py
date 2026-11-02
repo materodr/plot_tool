@@ -1341,6 +1341,37 @@ class PlotController:
             return ()
         return (start_s, end_s)
 
+    def moved_span_tuple(self, area, start_s: float, end_s: float) -> tuple:
+        """Return the span a moved or resized area takes in the file.
+
+        Inputs:
+            area: the model Area before the change.
+            start_s: new start sent by the view, in seconds.
+            end_s: new end sent by the view, in seconds.
+        Outputs: (start_s, end_s) within the file's time range, or ()
+            when it cannot be used. A span as wide as the area (a move)
+            is shifted into the range, keeping its width; a resized span
+            is cut to it.
+        """
+        # LLFR-00312: a moved area keeps its width and stays within the
+        # time range of the file (LLFR-00119).
+        start_s = float(start_s)
+        end_s = float(end_s)
+        range_tuple = self.file_time_range_tuple()
+        if not (math.isfinite(start_s) and math.isfinite(end_s)
+                and range_tuple):
+            return ()
+        start_s, end_s = sorted((start_s, end_s))
+        width_s = end_s - start_s
+        area_width_s = area.end_s - area.start_s
+        if (math.isclose(width_s, area_width_s, rel_tol=1e-9, abs_tol=0.0)
+                and width_s <= range_tuple[1] - range_tuple[0]):
+            start_s = min(max(start_s, range_tuple[0]),
+                          range_tuple[1] - width_s)
+            return (start_s, start_s + width_s)
+        # LLFR-00313: a resized edge is cut to the file's time range.
+        return self.file_limited_span_tuple(start_s, end_s)
+
     def area_time_plot(self, plot_id_i: int):
         """Return a time plot on which an area may be created or dragged.
 
@@ -1402,9 +1433,10 @@ class PlotController:
         # LLFR-00312, LLFR-00313: only with the Area tool, on a time plot.
         if self.area_time_plot(plot_id_i) is None:
             return
-        if self.workspace.find_area(int(area_id_i)) is None:
+        area = self.workspace.find_area(int(area_id_i))
+        if area is None:
             return
-        span_tuple = self.file_limited_span_tuple(start_s, end_s)
+        span_tuple = self.moved_span_tuple(area, start_s, end_s)
         # LLFR-00140: moving or resizing an area is undoable; a drag that
         # ends where it started changes nothing and is not recorded.
         snapshot = self.take_snapshot()

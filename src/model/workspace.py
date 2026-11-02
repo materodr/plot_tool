@@ -1575,6 +1575,8 @@ class Workspace:
             return False
         # LLFR-00315, LLFR-00310: every label shows the new name.
         area.name_str = stripped_name_str
+        # LLFR-00309: a typed "Area N" uses up N, like LLFR-00212.
+        self.take_area_number(stripped_name_str)
         return True
 
     def set_area_color(self, area_id_i: int, color_name_str: str) -> bool:
