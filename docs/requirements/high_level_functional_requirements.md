@@ -27,7 +27,7 @@ Note: This applies to every button, including the button that opens a file.
 The user must be able to change the widths of the plot panel and the signal list panel.
 
 ### HLFR-00040 Undo
-The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, markers, areas and text notes.
+The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, flags, delta markers, areas, text notes and arrows.
 
 ### HLFR-00048 Redo
 The user must be able to redo the actions they have undone (HLFR-00040).
@@ -40,6 +40,9 @@ While the app is starting, it must show the user a splash screen.
 
 ### HLFR-00047 Opening time
 The app must open quickly, so that the user waits as little as possible before it is ready to use.
+
+### HLFR-00091 Dialog opening time
+The windows in which the user chooses a file to open or to save must appear quickly after the user asks for them.
 
 
 ## Top panel
@@ -74,7 +77,7 @@ If the selected file can be opened and another file is already open, the app mus
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
 
-Note: The **plot tools** are the Data tip, Zoom, Pan, Vertical marker, Delta X, Delta Y, Area and Text functions. Each one is started from its own button in the top panel.
+Note: The **plot tools** are the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Area, Text and Arrow functions. Each one is started from its own button in the top panel.
 
 ### HLFR-00042 Button icons
 Each button in the top panel must show an icon that illustrates its function.
@@ -84,7 +87,7 @@ Note: The small box with a button's name that appears while the mouse pointer is
 ### HLFR-00049 Save a layout
 The user must be able to save the current layout of the plots to a layout file from the top panel.
 
-Note: The **layout** is what the plot panel shows and how: the tabs, their plots, the curves in each plot, the time range, the grid, the vertical markers, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. The file with the time series that the user opens with the Open file button is called the **data file**. The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
+Note: The **layout** is what the plot panel shows and how: the tabs, their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. The file with the time series that the user opens with the Open file button is called the **data file**. The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
 
 ### HLFR-00050 Load a layout
 The user must be able to load a layout file from the top panel and rebuild its layout with the signals of the opened data file.
@@ -109,7 +112,7 @@ The user must not be able to change the time signal after the file is open.
 ### HLFR-00077 Button groups
 The buttons of the top panel must be organized in groups of related buttons. The buttons of a group must look like one joined block, with no space between them, and there must be a space between one group and the next.
 
-Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export and Copy; Undo and Redo; Report a bug (HLFR-00078).
+Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export, Copy and Save signals; Undo and Redo; Report a bug (HLFR-00078).
 
 ### HLFR-00078 Report a bug
 The user must be able to open, from the top panel, the page that creates a new issue in the project's GitHub repository, in their web browser.
@@ -118,6 +121,11 @@ Note: The page is opened with the **Report a bug** button.
 
 ### HLFR-00080 Author credit
 The top panel must show the text "designed by materodr" in its upper-right corner.
+
+### HLFR-00090 Save the signals to a data file
+The user must be able to save, from the top panel, the signals of the signal list, including the synthetic signals, to a new file in one of the formats of HLFR-00005, which the app can open again as a data file.
+
+Note: FFT signals are not saved, because their samples are frequencies, not times (HLFR-00009). The file is written with the **Save signals** button.
 
 ## Signal list panel
 
@@ -181,7 +189,7 @@ The user must be able to add all the selected signals to an existing plot at onc
 The signal list panel must show the name of the time signal in green, whether the app found it by its name or the user chose it.
 
 ### HLFR-00079 Name of the opened file
-The signal list panel must show, in its first line, the name of the data file that is open.
+The signal list panel must show the name of the data file that is open as the first row of the signal list.
 
 ## Plot panel
 
@@ -230,19 +238,19 @@ The user must be able to keep the values of a chosen point on a curve displayed 
 ### HLFR-00027 Zoom a plot
 The user must be able to zoom in and zoom out of a plot along the x-axis.
 
-### HLFR-00028 Place a vertical marker
-The user must be able to place a vertical marker at a chosen point of the x-axis, shown on every plot.
+### HLFR-00028 Place a flag
+The user must be able to place a flag at a chosen point of the x-axis, shown on every plot.
 
-Note: A **vertical marker** is a vertical line drawn across the plot at one time value, with a name label at its top.
+Note: A **flag** is a vertical line drawn across the plot at one time value, with a name label at its top.
 
-### HLFR-00029 Move a vertical marker
-The user must be able to move a vertical marker along the x-axis of its plot.
+### HLFR-00029 Move a flag
+The user must be able to move a flag along the x-axis of its plot.
 
-### HLFR-00030 Rename a vertical marker
-The user must be able to rename a vertical marker.
+### HLFR-00030 Rename a flag
+The user must be able to rename a flag.
 
-### HLFR-00031 Delete a vertical marker
-The user must be able to delete a vertical marker from a plot.
+### HLFR-00031 Delete a flag
+The user must be able to delete a flag from a plot.
 
 ### HLFR-00035 Reset the zoom
 The user must be able to return the plots to the whole time range of the file in one action.
@@ -304,3 +312,34 @@ The user must be able to change the text of a text note.
 
 ### HLFR-00076 Delete a text note
 The user must be able to delete a text note.
+
+### HLFR-00081 Draw an arrow on a plot
+The user must be able to draw an arrow at any place in a plot, pointing in any direction.
+
+Note: An **arrow** is a straight line with an arrowhead at one of its ends. It is started from the **Arrow** button in the top panel.
+
+### HLFR-00082 Move an arrow
+The user must be able to move an arrow to another place in the plot, keeping its length and direction.
+
+### HLFR-00083 Rotate and stretch an arrow
+The user must be able to turn an arrow around one of its ends and to make it longer or shorter.
+
+### HLFR-00084 Delete an arrow
+The user must be able to delete an arrow.
+
+### HLFR-00085 Edit the objects with no tool active
+When no plot tool is active, the user must be able to move flags, areas, pinned data tips, text notes and arrows, to resize areas and to rotate and stretch arrows, by dragging them with the mouse.
+
+Note: Delta markers cannot be moved.
+
+### HLFR-00086 Text note size
+The user must be able to change the size of the text of a text note.
+
+### HLFR-00087 Text note colors
+The user must be able to change the border color and the text color of a text note.
+
+### HLFR-00088 Pick any color
+The user must be able to give any color to an arrow, a flag, the border and the text of a text note, and an area, choosing it in one color picker that is the same for all of them.
+
+### HLFR-00089 Flag color
+The user must be able to change the color of a flag.
