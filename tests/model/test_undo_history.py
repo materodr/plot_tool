@@ -271,7 +271,7 @@ class WorkspaceSnapshotTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        tab_tuple, marker_tuple = self.workspace.state_tuple()
+        tab_tuple, marker_tuple = self.workspace.state_tuple()[:2]
         tab_state = tab_tuple[0]
         self.assertEqual(tab_state[1], "Engine")
         plot_state = tab_state[2][0]

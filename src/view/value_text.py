@@ -106,3 +106,15 @@ def format_delta_y_text(delta_f: float) -> str:
     """
     # LLFR-00171: signed, without a unit, in the tip's y format.
     return f"{DELTA_SIGN_STR}y = {format_signal_value(delta_f)}"
+
+
+def format_area_times_text(start_s: float, end_s: float) -> str:
+    """Return the start and end times shown below an area's label.
+
+    Inputs:
+        start_s: start time of the area, in seconds.
+        end_s: end time of the area, in seconds.
+    Outputs: the text ``<start> s to <end> s``.
+    """
+    # LLFR-00308: both times, in seconds, in the tip's x format.
+    return f"{format_time_value(start_s)} s to {format_time_value(end_s)} s"
