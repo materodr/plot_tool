@@ -86,6 +86,8 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "area_create_requested": "area_create_handler",
     "area_change_requested": "area_change_handler",
     "area_rename_requested": "area_rename_handler",
+    # LLFR-00351: a color chosen in an area's menu.
+    "area_color_requested": "area_color_handler",
     "area_delete_requested": "area_delete_handler",
 }
 

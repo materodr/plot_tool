@@ -18,7 +18,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``plot_time_range``, ``set_plot_tool``, ``set_delta_first_point``;
 - vertical markers: ``set_markers`` (the shared markers, drawn on every
   plot of every tab);
-- areas: ``set_areas`` (the shared areas, drawn on every time plot of
+- areas: ``set_areas`` (the shared areas, with the name of their color
+  (LLFR-00351), drawn on every time plot of
   every tab) and ``set_plot_areas(plot_id_i, area_data_list)`` (the
   areas of one plot, after it was drawn);
 - boxes: ``show_full_tab_notification``,
@@ -228,6 +229,7 @@ class PlotController:
             area_create_handler=self.on_area_create,
             area_change_handler=self.on_area_change,
             area_rename_handler=self.on_area_rename,
+            area_color_handler=self.on_area_color,
             area_delete_handler=self.on_area_delete)
         # LLFR-00115: the Reset zoom button of the top panel.
         view.set_reset_zoom_handler(self.on_reset_zoom)
@@ -498,8 +500,9 @@ class PlotController:
         """Return the drawing data of every area.
 
         Inputs: none.
-        Outputs: a list of tuples (area_id_i, name_str, start_s, end_s)
-            in creation order; the same for every time plot.
+        Outputs: a list of tuples (area_id_i, name_str, start_s, end_s,
+            color_name_str) in creation order; the same for every time
+            plot.
         """
         # LLFR-00307, LLFR-00308: the label shows the name and the times.
         # LLFR-00310: the areas are shared by every time plot.
@@ -1440,6 +1443,29 @@ class PlotController:
             return
         self.record_undo(snapshot)
         # LLFR-00307, LLFR-00310: every label shows the new name.
+        self.show_areas()
+
+    def on_area_color(self, plot_id_i: int, area_id_i: int,
+                      color_name_str: str) -> None:
+        """Give an area the color chosen in its menu, on every plot.
+
+        Inputs:
+            plot_id_i: id of the plot where the color was chosen.
+            area_id_i: id of the area.
+            color_name_str: the name of the chosen color.
+        Outputs: none. An unknown plot, area or color, or the area's
+            current color, changes nothing and records nothing.
+        """
+        # LLFR-00351: with any plot tool, like the other menu options.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        # LLFR-00140: changing an area's color is undoable.
+        snapshot = self.take_snapshot()
+        if not self.workspace.set_area_color(int(area_id_i),
+                                             str(color_name_str)):
+            return
+        self.record_undo(snapshot)
+        # LLFR-00310, LLFR-00351: every time plot of every tab.
         self.show_areas()
 
     def on_area_delete(self, plot_id_i: int, area_id_i: int) -> None:

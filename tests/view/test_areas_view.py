@@ -297,6 +297,67 @@ class AreaLookTest(AreaWidgetTestCase):
         self.assertLess(times_box.y1, label_box.y1)
         self.assertLessEqual(times_box.y1, label_box.y0 + 1.0)
 
+    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306")
+    def test_each_color_drawn_with_the_same_opacity(self) -> None:
+        """Every area is drawn in its own color, with the same see-through
+        opacity; an unknown color name gives the default.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.colors import to_rgb
+        from view import theme
+        from view.plot_widget import AREA_ALPHA_F
+        area_list = [(index_i + 1, name_str, float(index_i),
+                      index_i + 0.5, name_str)
+                     for index_i, name_str
+                     in enumerate(theme.AREA_COLOR_DICT)]
+        area_list.append((9, "Odd", 8.0, 9.0, "Purple"))
+        self.set_areas(area_list)
+        for area_id_i, _, _, _, name_str in area_list:
+            band = self.plot_widget.area_artist_tuple(area_id_i)[0]
+            expected_str = theme.AREA_COLOR_DICT.get(
+                name_str, theme.AREA_COLOR_DICT["Magenta"])
+            self.assertEqual(to_rgb(band.get_facecolor()),
+                             to_rgb(expected_str))
+            self.assertEqual(band.get_alpha(), AREA_ALPHA_F)
+
+    @covers("LLFR-00307", "LLFR-00308")
+    def test_label_in_the_upper_left_corner_of_the_band(self) -> None:
+        """Measured in the drawn plot, the label's box starts just right
+        of the band's left edge and just below the drawing area's top;
+        the times are directly below it; with the start out of view, the
+        label is at the left edge of the drawing area.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_areas([(4, "Warm-up", 3.0, 6.0)])
+        renderer = self.plot_widget.canvas.get_renderer()
+        _, label, times_text = self.plot_widget.area_artist_tuple(4)
+        corner_limit_px = 12.0 * self.plot_widget.pixel_ratio_f()
+        for view_tuple, left_s in (((0.0, 10.0), 3.0), ((4.0, 8.0), 4.0)):
+            with self.subTest(view=view_tuple):
+                self.plot_widget.set_time_range(*view_tuple)
+                self.draw()
+                left_px = self.plot_widget.time_x_px(left_s)
+                top_px = float(self.plot_widget.axes.bbox.y1)
+                label_box = label.get_bbox_patch().get_window_extent(
+                    renderer)
+                times_box = times_text.get_bbox_patch().get_window_extent(
+                    renderer)
+                self.assertGreaterEqual(label_box.x0, left_px - 1.0)
+                self.assertLess(label_box.x0 - left_px, corner_limit_px)
+                self.assertLessEqual(label_box.y1, top_px + 1.0)
+                self.assertLess(top_px - label_box.y1, corner_limit_px)
+                self.assertAlmostEqual(times_box.x0, label_box.x0,
+                                       delta=1.0)
+                self.assertLessEqual(times_box.y1, label_box.y0 + 1.0)
+                self.assertLess(label_box.y0 - times_box.y1,
+                                corner_limit_px)
+                self.assertTrue(self.plot_widget.axes.bbox.contains(
+                    label_box.x0 + 1.0, label_box.y1 - 1.0))
+
     @covers("LLFR-00305", "LLFR-00307")
     def test_area_follows_the_range_and_hides_outside_it(self) -> None:
         """The label stays at the top left of the visible part; an area
@@ -558,6 +619,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         Outputs: the texts of the menu's top-level actions.
         """
         shown_list = []
+        self.submenu_dict = {}
 
         def fake_execute_menu(menu, global_point):
             """Record the menu and choose an action by its text.
@@ -568,8 +630,17 @@ class AreaMenuTest(AreaWidgetTestCase):
             Outputs: the chosen QAction or None.
             """
             shown_list.extend(action.text() for action in menu.actions())
-            for action in menu.actions():
-                if action.text() == choose_str:
+            action_list = list(menu.actions())
+            for action in list(action_list):
+                if action.menu() is not None:
+                    # The "Color" submenu: record its entries too.
+                    self.submenu_dict[action.text()] = [
+                        (sub_action.text(), sub_action.isCheckable(),
+                         sub_action.isChecked())
+                        for sub_action in action.menu().actions()]
+                    action_list.extend(action.menu().actions())
+            for action in action_list:
+                if action.text() == choose_str and action.menu() is None:
                     return action
             return None
 
@@ -580,8 +651,8 @@ class AreaMenuTest(AreaWidgetTestCase):
     @covers("LLFR-00314", "LLFR-00315", "LLFR-00316", "LLFR-00317")
     def test_area_menu_and_its_requests(self) -> None:
         """Inside the area, away from every other item, the menu has
-        Rename, Delete and Delete plot, each emitting its request, with
-        any tool.
+        Rename, Color, Delete and Delete plot, each emitting its request,
+        with any tool.
 
         Inputs: none.
         Outputs: none.
@@ -592,13 +663,35 @@ class AreaMenuTest(AreaWidgetTestCase):
         for tool_str in (AREA_TOOL_STR, NO_TOOL_STR, ZOOM_TOOL_STR):
             self.plot_widget.set_plot_tool(tool_str)
             self.assertEqual(self.menu_texts(self.at(4.0)),
-                             ["Rename", "Delete", "Delete plot"])
+                             ["Rename", "Color", "Delete", "Delete plot"])
         self.menu_texts(self.at(4.0), "Rename")
         self.menu_texts(self.at(4.0), "Delete")
         self.menu_texts(self.at(4.0), "Delete plot")
         self.assertEqual(rename_list, [(1,)])
         self.assertEqual(delete_list, [(1,)])
         self.assertEqual(plot_delete_list, [()])
+
+    @covers("LLFR-00351", "LLFR-00314")
+    def test_color_submenu_lists_five_colors_and_emits_the_choice(
+            self) -> None:
+        """"Color" lists the five colors, the area's own one checked;
+        choosing one emits area_color_requested with its name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        color_list = recorder(self.plot_widget.area_color_requested)
+        self.menu_texts(self.at(4.0))
+        self.assertEqual(self.submenu_dict["Color"], [
+            ("Magenta", True, True), ("Blue", True, False),
+            ("Green", True, False), ("Yellow", True, False),
+            ("Pink", True, False)])
+        self.menu_texts(self.at(4.0), "Green")
+        self.assertEqual(color_list, [(1, "Green")])
+        self.set_areas([(1, "Area 1", 2.0, 6.0, "Yellow")])
+        self.menu_texts(self.at(4.0))
+        self.assertEqual([entry[0] for entry in self.submenu_dict["Color"]
+                          if entry[2]], ["Yellow"])
 
     @covers("LLFR-00317", "LLFR-00110", "LLFR-00038", "LLFR-00046",
             "LLFR-00175")
@@ -800,6 +893,64 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         """
         from tests.view.test_xyz_keys import ZOOMED_RANGE_TUPLE
         return ZOOMED_RANGE_TUPLE
+
+    @covers("LLFR-00351", "LLFR-00310", "LLFR-00138", "LLFR-00192")
+    def test_color_from_the_menu_on_every_plot_of_every_tab(self) -> None:
+        """Choosing "Blue" in the area menu of one plot draws the area in
+        blue on every time plot, the other tab included; undo and redo
+        follow.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.colors import to_rgb
+        from view import theme
+        self.top_panel.plot_tool_button_dict[AREA_TOOL_STR].click()
+        self.application.processEvents()
+        first_widget = self.plot_widgets()[0]
+        self.drag_area(first_widget, 1.0, 2.0)
+        area_id_i = (self.controller.plot_controller.workspace
+                     .area_list[0].area_id_i)
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        self.main_window.signal_double_click_handler("speed")
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.application.processEvents()
+        self.assertEqual(len(self.all_plot_widgets()), 3)
+        first_widget = self.plot_widgets()[0]
+        first_widget.canvas.draw()
+        point = first_widget.data_to_widget_point(
+            1.5, first_widget.axes.get_ylim()[0] + 0.8 * (
+                first_widget.axes.get_ylim()[1]
+                - first_widget.axes.get_ylim()[0]))
+        menu, request_list = first_widget.context_menu_and_requests(point)
+        color_action = next(
+            sub_action for action in menu.actions()
+            if action.menu() is not None
+            for sub_action in action.menu().actions()
+            if sub_action.text() == "Blue")
+        request_list[color_action.data()]()
+        self.application.processEvents()
+
+        def assert_color(name_str: str) -> None:
+            """Check the band color of the area on every plot.
+
+            Inputs:
+                name_str: the expected color name.
+            Outputs: none.
+            """
+            for plot_widget in self.all_plot_widgets():
+                band = plot_widget.area_artist_tuple(area_id_i)[0]
+                self.assertEqual(to_rgb(band.get_facecolor()),
+                                 to_rgb(theme.AREA_COLOR_DICT[name_str]))
+
+        assert_color("Blue")
+        self.controller.plot_controller.on_undo()
+        self.application.processEvents()
+        assert_color("Magenta")
+        self.controller.plot_controller.on_redo()
+        self.application.processEvents()
+        assert_color("Blue")
 
     @covers("LLFR-00129", "LLFR-00305")
     def test_export_draws_the_areas(self) -> None:

@@ -40,11 +40,13 @@ class LayoutAreaWriteTest(unittest.TestCase):
         plot = workspace.add_plot(workspace.tab_list[0].tab_id_i)
         plot.add_curve("Speed")
         workspace.add_area(0.1, 1.0 / 3.0)
-        workspace.add_area(5.0, 7.25, "Run")
+        area = workspace.add_area(5.0, 7.25, "Run")
+        workspace.set_area_color(area.area_id_i, "Green")
         layout_dict = build_layout_dict(workspace, -1, (), False)
         self.assertEqual(layout_dict["areas"], [
-            {"name": "Area 1", "start": 0.1, "end": 1.0 / 3.0},
-            {"name": "Run", "start": 5.0, "end": 7.25}])
+            {"name": "Area 1", "start": 0.1, "end": 1.0 / 3.0,
+             "color": "Magenta"},
+            {"name": "Run", "start": 5.0, "end": 7.25, "color": "Green"}])
         read_dict = json.loads(layout_text(layout_dict))
         self.assertEqual(read_dict["areas"][0]["end"], 1.0 / 3.0)
         workspace_without_area = Workspace()
@@ -76,7 +78,8 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         source = Workspace(random.Random(4))
         source.add_plot(source.tab_list[0].tab_id_i).add_curve("Speed")
         source.add_area(1.0, 2.5)
-        source.add_area(2.5, 4.0, "Climb")
+        climb = source.add_area(2.5, 4.0, "Climb")
+        source.set_area_color(climb.area_id_i, "Pink")
         layout_dict = json.loads(layout_text(
             build_layout_dict(source, -1, (), False)))
         result = self.rebuild(layout_dict)
@@ -161,6 +164,31 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         self.assertEqual(len(result.report.replaced_line_list), 2)
         self.assertIn('replaced by "Area 5"',
                       result.report.replaced_line_list[0])
+
+    @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237")
+    def test_missing_or_unknown_color_gives_the_default(self) -> None:
+        """An area without "color" (an older file) gets the default color
+        silently; an unknown color gets it too and is reported as a
+        replaced value; a known color is kept.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        result = self.rebuild(self.layout_with_areas([
+            {"name": "Old", "start": 1.0, "end": 2.0},
+            {"name": "Odd", "start": 3.0, "end": 4.0, "color": "Purple"},
+            {"name": "Num", "start": 5.0, "end": 6.0, "color": 3},
+            {"name": "Ok", "start": 7.0, "end": 8.0, "color": "Yellow"}]))
+        self.assertEqual([area.color_name_str
+                          for area in self.workspace.area_list],
+                         ["Magenta", "Magenta", "Magenta", "Yellow"])
+        replaced_list = result.report.replaced_line_list
+        self.assertEqual(len(replaced_list), 2)
+        self.assertIn('Color "Purple" of the area "Odd"', replaced_list[0])
+        self.assertIn('replaced by "Magenta"', replaced_list[0])
+        self.assertIn('Color 3 of the area "Num"', replaced_list[1])
+        self.assertIn("Values replaced:", result.report.text())
+        self.assertEqual(result.report.not_rebuilt_line_list, [])
 
     @covers("LLFR-00319", "LLFR-00230")
     def test_file_without_areas_entry_adds_none(self) -> None:

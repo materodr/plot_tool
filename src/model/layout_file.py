@@ -24,7 +24,8 @@ An example of a layout file::
       "grid": true,
       "panel_widths": {"plot_panel": 900, "signal_list_panel": 300},
       "vertical_markers": [{"name": "Marker 1", "time": 1.0}],
-      "areas": [{"name": "Area 1", "start": 0.75, "end": 1.25}],
+      "areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
+                 "color": "Magenta"}],
       "synthetic_signals": [],
       "tabs": [
         {"name": "Tab 1",
@@ -78,7 +79,8 @@ import numpy as np
 
 from model.curve_colors import is_far_from_marker_color
 from model.workspace import (
-    AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
+    AREA_COLOR_NAME_TUPLE, AUTOMATIC_LABEL_OFFSET_TUPLE,
+    DEFAULT_AREA_COLOR_NAME_STR, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
     DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
     spans_overlap_b)
 
@@ -106,8 +108,9 @@ PANEL_WIDTHS_KEY_STR = "panel_widths"
 PLOT_PANEL_KEY_STR = "plot_panel"
 SIGNAL_LIST_PANEL_KEY_STR = "signal_list_panel"
 VERTICAL_MARKERS_KEY_STR = "vertical_markers"
-# LLFR-00225 item 11: the list of areas, each with "name", "start" and
-# "end" (START_KEY_STR, END_KEY_STR). A file without it has no area.
+# LLFR-00225 item 11: the list of areas, each with "name", "start",
+# "end" (START_KEY_STR, END_KEY_STR) and "color" (COLOR_KEY_STR, the name
+# of an area color, LLFR-00351). A file without it has no area.
 AREAS_KEY_STR = "areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
 TABS_KEY_STR = "tabs"
@@ -561,7 +564,8 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     # LLFR-00225 item 11: each area, with its name, start and end time.
     layout_dict[AREAS_KEY_STR] = [
         {NAME_KEY_STR: area.name_str, START_KEY_STR: float(area.start_s),
-         END_KEY_STR: float(area.end_s)}
+         END_KEY_STR: float(area.end_s),
+         COLOR_KEY_STR: area.color_name_str}
         for area in workspace.area_list]
     # LLFR-00225 item 10, LLFR-00262: the synthetic signals.
     layout_dict[SYNTHETIC_SIGNALS_KEY_STR] = list(synthetic_signal_list)
@@ -1354,18 +1358,35 @@ class LayoutBuilder:
                     f"{label_str}: it overlaps {owner_str}, "
                     f"\"{overlapped.name_str}\".")
                 continue
+            # LLFR-00319, LLFR-00351: the saved color; a missing one is
+            # the default color, an unknown one is replaced and reported.
+            color_value = entry_dict.get(COLOR_KEY_STR,
+                                         DEFAULT_AREA_COLOR_NAME_STR)
+            color_name_str = DEFAULT_AREA_COLOR_NAME_STR
+            if color_value in AREA_COLOR_NAME_TUPLE:
+                color_name_str = color_value
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another area
                 # has the same name.
-                self.workspace.add_area(start_s, end_s, name_value)
-                continue
-            # LLFR-00235, LLFR-00309: a name that cannot be used is
-            # replaced by the name of a new area.
-            area = self.workspace.add_area(start_s, end_s)
-            self.report.add_replaced(
-                f"Name {describe_value(name_value)} of the area from "
-                f"{format_time(start_s)} to {format_time(end_s)} is empty "
-                f"or not a text; replaced by \"{area.name_str}\".")
+                area = self.workspace.add_area(start_s, end_s, name_value,
+                                               color_name_str)
+            else:
+                # LLFR-00235, LLFR-00309: a name that cannot be used is
+                # replaced by the name of a new area.
+                area = self.workspace.add_area(start_s, end_s, "",
+                                               color_name_str)
+                self.report.add_replaced(
+                    f"Name {describe_value(name_value)} of the area from "
+                    f"{format_time(start_s)} to {format_time(end_s)} is "
+                    f"empty or not a text; replaced by "
+                    f"\"{area.name_str}\".")
+            if color_value != color_name_str:
+                # LLFR-00235, LLFR-00237: an unknown color is replaced.
+                self.report.add_replaced(
+                    f"Color {describe_value(color_value)} of the area "
+                    f"\"{area.name_str}\" is not one of "
+                    f"{', '.join(AREA_COLOR_NAME_TUPLE)}; replaced by "
+                    f"\"{DEFAULT_AREA_COLOR_NAME_STR}\".")
 
     def file_range_text(self) -> str:
         """Return the time range of the data file, for the report.

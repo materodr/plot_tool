@@ -31,6 +31,11 @@ DEFAULT_AREA_NAME_FORMAT_STR = "Area {}"
 # LLFR-00309, LLFR-00319: a default area name, to read its number back
 # when an area of a layout file keeps its saved name.
 DEFAULT_AREA_NAME_PATTERN_STR = r"Area (\d+)"
+# LLFR-00351: the names of the five area colors, in menu order; the
+# first one, the paler marker color (LLFR-00305), is the default. The
+# view gives each name its color (view.theme.AREA_COLOR_DICT).
+AREA_COLOR_NAME_TUPLE = ("Magenta", "Blue", "Green", "Yellow", "Pink")
+DEFAULT_AREA_COLOR_NAME_STR = AREA_COLOR_NAME_TUPLE[0]
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -114,12 +119,15 @@ class Area:
         name_str: name shown in the area's label (LLFR-00307).
         start_s: time of the left edge of the band, in seconds.
         end_s: time of the right edge, in seconds, after start_s.
+        color_name_str: the name of its color, one of
+            AREA_COLOR_NAME_TUPLE (LLFR-00351).
     """
 
     area_id_i: int
     name_str: str
     start_s: float
     end_s: float
+    color_name_str: str = DEFAULT_AREA_COLOR_NAME_STR
 
 
 def area_span_tuple(start_s: float, end_s: float) -> tuple:
@@ -716,8 +724,8 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
     Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
         (tab_id_i, name_str, plot state tuples) per tab, one entry
         (marker_id_i, name_str, time_s) per marker and one entry
-        (area_id_i, name_str, start_s, end_s) per area; two states with
-        equal tuples show the same thing (LLFR-00140).
+        (area_id_i, name_str, start_s, end_s, color_name_str) per area;
+        two states with equal tuples show the same thing (LLFR-00140).
     """
     # LLFR-00138, LLFR-00140: what an undo restores.
     tab_tuple = tuple(
@@ -728,8 +736,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
                          for marker in marker_list)
     # LLFR-00140: creating, moving, resizing, renaming and deleting an
     # area are undoable.
+    # LLFR-00351: and changing its color.
     area_tuple = tuple((area.area_id_i, area.name_str, area.start_s,
-                        area.end_s) for area in area_list)
+                        area.end_s, area.color_name_str)
+                       for area in area_list)
     return (tab_tuple, marker_tuple, area_tuple)
 
 
@@ -1477,7 +1487,8 @@ class Workspace:
             self.next_area_number_i = max(
                 self.next_area_number_i, int(number_match.group(1)) + 1)
 
-    def add_area(self, start_s: float, end_s: float, name_str: str = ""):
+    def add_area(self, start_s: float, end_s: float, name_str: str = "",
+                 color_name_str: str = DEFAULT_AREA_COLOR_NAME_STR):
         """Create a new area, shown on every time plot.
 
         Inputs:
@@ -1486,6 +1497,8 @@ class Workspace:
             name_str: the name of the area; leading and trailing spaces
                 are removed. Empty (the default) gives the next default
                 name "Area N" (LLFR-00309).
+            color_name_str: the name of its color (LLFR-00351); the
+                default color for a name not in AREA_COLOR_NAME_TUPLE.
         Outputs: the new Area, or None when the span is empty, not
             finite or overlaps another area (LLFR-00304). Nothing is
             changed then, and no number is used up.
@@ -1508,8 +1521,11 @@ class Workspace:
             self.take_area_number(stripped_name_str)
         # LLFR-00310: one area for every time plot of every tab; its id
         # comes from the counter of the markers, so it is never reused.
+        # LLFR-00351: a new area gets the default color.
+        if color_name_str not in AREA_COLOR_NAME_TUPLE:
+            color_name_str = DEFAULT_AREA_COLOR_NAME_STR
         area = Area(self.marker_id_counter.take_next_id(), stripped_name_str,
-                    start_s, end_s)
+                    start_s, end_s, color_name_str)
         self.area_list.append(area)
         return area
 
@@ -1561,6 +1577,26 @@ class Workspace:
         area.name_str = stripped_name_str
         return True
 
+    def set_area_color(self, area_id_i: int, color_name_str: str) -> bool:
+        """Give an area another color, on every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+            color_name_str: one of AREA_COLOR_NAME_TUPLE.
+        Outputs: True when the color changed; False when no area has
+            that id, the name is not an area color or it is the area's
+            current color.
+        """
+        # LLFR-00351: one of the five area colors.
+        area = self.find_area(area_id_i)
+        if area is None or color_name_str not in AREA_COLOR_NAME_TUPLE:
+            return False
+        if area.color_name_str == color_name_str:
+            return False
+        # LLFR-00310: every time plot draws it in the new color.
+        area.color_name_str = color_name_str
+        return True
+
     def remove_area(self, area_id_i: int) -> bool:
         """Remove an area from every time plot.
 
@@ -1581,9 +1617,11 @@ class Workspace:
         """Return the areas as plain values.
 
         Inputs: none.
-        Outputs: a tuple of (area_id_i, name_str, start_s, end_s), in
-            creation order.
+        Outputs: a tuple of (area_id_i, name_str, start_s, end_s,
+            color_name_str), in creation order.
         """
-        # LLFR-00140, LLFR-00310: the drawing data of every area.
+        # LLFR-00140, LLFR-00310, LLFR-00351: the drawing data of every
+        # area.
         return tuple((area.area_id_i, area.name_str, area.start_s,
-                      area.end_s) for area in self.area_list)
+                      area.end_s, area.color_name_str)
+                     for area in self.area_list)

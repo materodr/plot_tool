@@ -78,21 +78,22 @@ span (LLFR-00209), limited to the file's time range.
 Areas (HLFR-00066) are shared by every time plot, like the vertical
 markers: the controller gives every time plot the same list, and a
 frequency plot draws none (LLFR-00311). An area is a see-through band in
-a paler marker color, drawn behind everything else (LLFR-00305,
-LLFR-00306), with its name and its start and end times at its top
-(LLFR-00307, LLFR-00308). With the Area tool, a left press on a time
-plot's drawing area, outside any area and more than 5 pixels from the
-edges of the drawing area, starts a new area: once the pointer is 5
-pixels or more from the press, a preview band is blitted like the time
-span selection (so it is never part of a full draw, the PDF export or
-the copied image), stopping at the nearest area and at the file's time
-range; the release asks for the area (LLFR-00303, LLFR-00304). A press
-within 5 pixels of an area's edge drags that edge (LLFR-00313); a press
-inside it, further from both edges, drags the whole area (LLFR-00312).
-The dragged area follows the pointer on every plot of the tab
-(area_drag_moved, relayed by the plot panel), and the release asks
-once for its new span. With any other tool, or none, an area changes
-nothing a press does (LLFR-00318).
+its color (a paler marker color by default, or one of the other area
+colors chosen in its menu, LLFR-00351), drawn behind everything else
+(LLFR-00305, LLFR-00306), with its name in the upper-left corner and its
+start and end times below it (LLFR-00307, LLFR-00308). With the Area
+tool, a left press on a time plot's drawing area, outside any area and
+more than 5 pixels from the edges of the drawing area, starts a new
+area: once the pointer is 5 pixels or more from the press, a preview
+band is blitted like the time span selection (so it is never part of a
+full draw, the PDF export or the copied image), stopping at the nearest
+area and at the file's time range; the release asks for the area
+(LLFR-00303, LLFR-00304). A press within 5 pixels of an area's edge
+drags that edge (LLFR-00313); a press inside it, further from both
+edges, drags the whole area (LLFR-00312). The dragged area follows the
+pointer on every plot of the tab (area_drag_moved, relayed by the plot
+panel), and the release asks once for its new span. With any other tool,
+or none, an area changes nothing a press does (LLFR-00318).
 
 On macOS, a wheel event whose delta the system inverted ("natural
 scrolling") is turned back to the physical direction, so that fingers
@@ -170,7 +171,8 @@ from controller.plot_tools import (
     ZOOM_TOOL_STR, is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import (
-    DELTA_X_KIND_STR, FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
+    AREA_COLOR_NAME_TUPLE, DEFAULT_AREA_COLOR_NAME_STR, DELTA_X_KIND_STR,
+    FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
 from view import delta_geometry, theme, value_text
 from view.delta_geometry import DeltaBracketPatch
 
@@ -318,9 +320,10 @@ AREA_PREVIEW_ALPHA_F = 0.4
 AREA_ZORDER_F = 0.1
 AREA_LABEL_ZORDER_F = 0.2
 # LLFR-00307: gap (points) between the band's top left corner and its
-# label; LLFR-00308: gap between the label and the times below it.
+# label; LLFR-00308: gap between the label and the times below it,
+# larger than the padding of both boxes so that they never overlap.
 AREA_LABEL_OFFSET_POINTS_F = 3.0
-AREA_TIME_GAP_POINTS_F = 2.0
+AREA_TIME_GAP_POINTS_F = 4.0
 # LLFR-00303, LLFR-00304, LLFR-00312, LLFR-00313: the 5 pixel rules of
 # the areas, in screen pixels (Qt logical pixels).
 AREA_THRESHOLD_PIXELS_F = 5.0
@@ -686,9 +689,12 @@ def pale_color_str(color_str: str, background_str: str,
 MARKER_PREVIEW_COLOR_STR = pale_color_str(
     MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR,
     MARKER_PREVIEW_PALE_RATIO_F)
-# LLFR-00305: the color of an area and of its preview.
+# LLFR-00305: the default color of an area and of its preview.
 AREA_COLOR_STR = pale_color_str(
     MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR, AREA_PALE_RATIO_F)
+# LLFR-00351: the five area colors, by name, in menu order.
+AREA_COLOR_DICT = {name_str: theme.AREA_COLOR_DICT[name_str]
+                   for name_str in AREA_COLOR_NAME_TUPLE}
 
 
 class PlotWidget(QWidget):
@@ -737,6 +743,8 @@ class PlotWidget(QWidget):
         area_change_requested(int, float, float): an area was moved or
             resized and released (area id, new start and end in s).
         area_rename_requested(int): "Rename" chosen on an area.
+        area_color_requested(int, str): a color chosen in the "Color"
+            option of an area's menu (area id, color name).
         area_delete_requested(int): "Delete" chosen on an area.
         area_drag_moved(int, float, float): a dragged area is now shown
             between these times (area id, start and end in s), so that
@@ -772,6 +780,7 @@ class PlotWidget(QWidget):
     area_create_requested = pyqtSignal(float, float)
     area_change_requested = pyqtSignal(int, float, float)
     area_rename_requested = pyqtSignal(int)
+    area_color_requested = pyqtSignal(int, str)
     area_delete_requested = pyqtSignal(int)
     area_drag_moved = pyqtSignal(int, float, float)
 
@@ -2807,6 +2816,20 @@ class PlotWidget(QWidget):
                 menu, "Rename",
                 lambda chosen_id_i=area_id_i:
                 self.area_rename_requested.emit(chosen_id_i))
+            # LLFR-00351: the five colors, the area's own one checked.
+            color_menu = menu.addMenu("Color")
+            current_color_str = next(
+                area_tuple[4] for area_tuple in self.area_data_list
+                if area_tuple[0] == area_id_i)
+            for color_name_str in AREA_COLOR_NAME_TUPLE:
+                color_action = add_request_action(
+                    color_menu, color_name_str,
+                    lambda chosen_id_i=area_id_i,
+                    chosen_color_str=color_name_str:
+                    self.area_color_requested.emit(chosen_id_i,
+                                                   chosen_color_str))
+                color_action.setCheckable(True)
+                color_action.setChecked(color_name_str == current_color_str)
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=area_id_i:
@@ -3785,15 +3808,26 @@ class PlotWidget(QWidget):
 
         Inputs:
             area_data_list: list of tuples (area_id_i, name_str, start_s,
-                end_s), in creation order.
+                end_s, color_name_str), in creation order; without
+                color_name_str, or with an unknown one, the default color
+                is used.
         Outputs: none. Only the areas are redrawn.
         """
         # LLFR-00304, LLFR-00315, LLFR-00316: draw exactly these areas.
         # LLFR-00311: a frequency plot never shows areas.
-        self.area_data_list = [
-            (int(area_id_i), str(name_str), float(start_s), float(end_s))
-            for (area_id_i, name_str, start_s, end_s) in area_data_list
-            if not self.frequency_plot_b]
+        # LLFR-00351: each in its color.
+        self.area_data_list = []
+        for area_tuple in area_data_list:
+            if self.frequency_plot_b:
+                break
+            color_name_str = (str(area_tuple[4]) if len(area_tuple) > 4
+                              else DEFAULT_AREA_COLOR_NAME_STR)
+            if color_name_str not in AREA_COLOR_DICT:
+                color_name_str = DEFAULT_AREA_COLOR_NAME_STR
+            self.area_data_list.append(
+                (int(area_tuple[0]), str(area_tuple[1]),
+                 float(area_tuple[2]), float(area_tuple[3]),
+                 color_name_str))
         # LLFR-00312, LLFR-00313: a drag of an area that is gone ends.
         if (self.area_drag_mode_str not in (AREA_DRAG_NONE_STR,
                                             AREA_DRAG_CREATE_STR)
@@ -3817,18 +3851,23 @@ class PlotWidget(QWidget):
                 artist.remove()
         self.area_artist_dict = {}
         x_axis_transform = self.axes.get_xaxis_transform()
-        for area_id_i, name_str, start_s, end_s in self.area_data_list:
-            # LLFR-00305: a see-through band in a paler marker color, x in
+        for (area_id_i, name_str, start_s, end_s,
+             color_name_str) in self.area_data_list:
+            # LLFR-00305: a see-through band in the area's color, x in
             # data and y in axes coordinates (0 to 1), so it covers the
             # whole y range at any zoom. LLFR-00306: behind everything.
+            # LLFR-00351: every color has the same opacity.
             band = Rectangle(
                 (start_s, 0.0), end_s - start_s, 1.0,
-                transform=x_axis_transform, facecolor=AREA_COLOR_STR,
+                transform=x_axis_transform,
+                facecolor=AREA_COLOR_DICT[color_name_str],
                 edgecolor="none", alpha=AREA_ALPHA_F, zorder=AREA_ZORDER_F)
             self.axes.add_artist(band)
             band.set_in_layout(False)
-            # LLFR-00307: the name at the top of the band, shown
-            # literally (never as mathtext).
+            # LLFR-00307: the name in the upper-left corner of the band,
+            # inside the drawing area, shown literally (never as
+            # mathtext); place_areas keeps it at the left of the part of
+            # the band that is shown.
             label = self.axes.annotate(
                 name_str, xy=(start_s, 1.0), xycoords=x_axis_transform,
                 xytext=(AREA_LABEL_OFFSET_POINTS_F,
@@ -3945,7 +3984,8 @@ class PlotWidget(QWidget):
             widget_point)
         if not self.inside_axes_b(display_x_px, display_y_px):
             return NO_AREA_ID_I
-        for area_id_i, _, start_s, end_s in reversed(self.area_data_list):
+        for area_id_i, _, start_s, end_s, _ in reversed(
+                self.area_data_list):
             artist_tuple = self.area_artist_dict.get(area_id_i)
             if artist_tuple is not None:
                 start_s = float(artist_tuple[0].get_x())
@@ -3974,7 +4014,7 @@ class PlotWidget(QWidget):
         threshold_px = self.area_threshold_px()
         best_tuple = (NO_AREA_ID_I, AREA_DRAG_NONE_STR)
         best_distance_px = math.inf
-        for area_id_i, _, start_s, end_s in self.area_data_list:
+        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
             for edge_s, mode_str in ((start_s, AREA_DRAG_START_STR),
                                      (end_s, AREA_DRAG_END_STR)):
                 distance_px = abs(self.time_x_px(edge_s) - display_x_px)
@@ -3984,7 +4024,7 @@ class PlotWidget(QWidget):
                     best_tuple = (area_id_i, mode_str)
         if best_tuple[0] != NO_AREA_ID_I:
             return best_tuple
-        for area_id_i, _, start_s, end_s in self.area_data_list:
+        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
             if self.time_x_px(start_s) < display_x_px < self.time_x_px(
                     end_s):
                 return (area_id_i, AREA_DRAG_MOVE_STR)
@@ -4006,7 +4046,7 @@ class PlotWidget(QWidget):
         # at the edge of the next area; LLFR-00119: and at the file's
         # time range (the range covering all curves of a time plot).
         lowest_s, highest_s = self.full_time_range_tuple()
-        for area_id_i, _, start_s, end_s in self.area_data_list:
+        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
             if area_id_i == except_area_id_i:
                 continue
             if end_s <= low_s:
@@ -4273,7 +4313,7 @@ class PlotWidget(QWidget):
         self.draw_areas()
         self.canvas.draw_idle()
         # LLFR-00310: the other plots of the tab show it back too.
-        for stored_id_i, _, start_s, end_s in self.area_data_list:
+        for stored_id_i, _, start_s, end_s, _ in self.area_data_list:
             if stored_id_i == area_id_i:
                 self.area_drag_moved.emit(area_id_i, start_s, end_s)
 

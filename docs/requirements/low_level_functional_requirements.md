@@ -66,7 +66,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 *Parent: HLFR-00040*
 
 ### LLFR-00140 Undoable actions
-The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker, deleting a vertical marker, placing a delta marker, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, deleting an area, creating a text note, moving a text note, editing a text note and deleting a text note.
+The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker, deleting a vertical marker, placing a delta marker, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note and deleting a text note.
 
 Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either.
 
@@ -622,7 +622,7 @@ The layout file must hold:
 8. for each delta marker of a time plot, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
 9. the widths of the plot panel and the signal list panel;
 10. for each synthetic signal that is not an FFT signal (LLFR-00283), in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average) or the constant (Comparison operations and Arithmetic operations with a constant); Integral, Derivative, Max, Min and Absolute value have no parameter, and the second signal of Product with signal is one of the signals it was computed from;
-11. for each area, its name, start time and end time, in seconds.
+11. for each area, its name, start time and end time, in seconds, and its color (LLFR-00351).
 
 *Parent: HLFR-00049, HLFR-00056*
 
@@ -1800,7 +1800,7 @@ When the user releases the left mouse button after LLFR-00303, the app must remo
 *Parent: HLFR-00066*
 
 ### LLFR-00305 Area appearance
-The app must draw an area as a see-through band in a paler version of the reserved marker color (LLFR-00083), between its start and end times, covering the whole y-axis range shown in the plot, and must keep it covering that range when the range changes.
+The app must draw an area as a see-through band in the area's color (LLFR-00351), which is a paler version of the reserved marker color (LLFR-00083) unless the user chose another one, between its start and end times, covering the whole y-axis range shown in the plot, and must keep it covering that range when the range changes.
 
 *Parent: HLFR-00066*
 
@@ -1810,7 +1810,9 @@ The app must draw an area behind the curves, grid, vertical markers, delta marke
 *Parent: HLFR-00066*
 
 ### LLFR-00307 Area label
-The app must show the name of an area in a label at the top of the band.
+The app must show the name of an area in a label in the upper-left corner of the band, inside the plot's drawing area.
+
+Note: When the start of the area is left of the shown time range, the label is in the upper-left corner of the part of the band that is shown.
 
 *Parent: HLFR-00066*
 
@@ -1825,7 +1827,7 @@ The app must name each new area "Area N", where N is 1 for the first area create
 *Parent: HLFR-00066*
 
 ### LLFR-00310 Areas on every time plot
-Every area must be shown on every time plot in every tab, including time plots created after the area. Moving, resizing (LLFR-00312, LLFR-00313), renaming (LLFR-00315) or deleting (LLFR-00316) an area on any time plot must apply to it on every time plot; while an area is dragged, it must follow the pointer on every time plot of the current tab, and on the time plots of the other tabs it must be at its new position at the latest when the button is released. When no plot is left in any tab, the app must delete every area in the same way as vertical markers (LLFR-00205), so that undoing the deletion of a plot or a tab brings the areas back.
+Every area must be shown on every time plot in every tab, including time plots created after the area. Moving, resizing (LLFR-00312, LLFR-00313), renaming (LLFR-00315), changing the color of (LLFR-00351) or deleting (LLFR-00316) an area on any time plot must apply to it on every time plot; while an area is dragged, it must follow the pointer on every time plot of the current tab, and on the time plots of the other tabs it must be at its new position at the latest when the button is released. When no plot is left in any tab, the app must delete every area in the same way as vertical markers (LLFR-00205), so that undoing the deletion of a plot or a tab brings the areas back.
 
 Note: Each of these remains one undoable action (LLFR-00140).
 
@@ -1847,7 +1849,7 @@ While the Area button (LLFR-00286) is active and the user presses the left mouse
 *Parent: HLFR-00067*
 
 ### LLFR-00314 Area menu
-When the user right-clicks an area, the app must show a menu with the options "Rename", "Delete" and "Delete plot".
+When the user right-clicks an area, the app must show a menu with the options "Rename", "Color", "Delete" and "Delete plot".
 
 Note: "Delete plot" acts as in LLFR-00049, so a plot whose whole shown range is covered by an area can still be deleted.
 
@@ -1874,9 +1876,14 @@ An area must not change what the other plot tools do with a press inside it: whi
 *Parent: HLFR-00066, HLFR-00032*
 
 ### LLFR-00319 Areas in a layout
-When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the opened data file, and it does not overlap a current area or an area already rebuilt from the same file. The load report (LLFR-00237) must give the reason for each area that is not rebuilt.
+When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the opened data file, and it does not overlap a current area or an area already rebuilt from the same file. The load report (LLFR-00237) must give the reason for each area that is not rebuilt. A rebuilt area whose saved color is missing must get the default color of LLFR-00351; one whose saved color is not one of the colors of LLFR-00351 must get the default color, and the load report must list it as a replaced value (LLFR-00235).
 
 *Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-00351 Area colors
+The "Color" option of the area menu (LLFR-00314) must list five colors: "Magenta", the default color that every new area gets, which is the paler version of the reserved marker color of LLFR-00305, and "Blue", "Green", "Yellow" and "Pink", with the area's current color shown as chosen. All five colors must be pale and drawn see-through with the same opacity, so that the curves, the grid and the other items stay visible (LLFR-00306); they must be easy to tell apart from each other and must never be a color of the curve palette (LLFR-00033). When the user chooses a color, the app must draw that area in it on every time plot of every tab (LLFR-00310).
+
+*Parent: HLFR-00066*
 
 ### LLFR-00333 Start writing a text note
 While the Text button (LLFR-00320) is active and the user left-clicks a plot's drawing area, on a time plot or a frequency plot, anywhere other than on an existing text note or pinned data tip, the app must show a one-line text field at the clicked point, with the keyboard focus in it. The field must stay open if the button is deactivated while the user types.

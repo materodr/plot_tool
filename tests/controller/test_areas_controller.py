@@ -83,7 +83,7 @@ class AreaControllerTestCase(PlotControllerTestCase):
         Outputs: a list of (name, start, end).
         """
         plot_id_i = self.plot_id_i if plot_id_i is None else plot_id_i
-        return [(name_str, start_s, end_s) for _, name_str, start_s, end_s
+        return [tuple(area_tuple[1:4]) for area_tuple
                 in self.view.area_drawn_dict.get(plot_id_i, [])]
 
     def undo(self) -> None:
@@ -328,6 +328,44 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.undo()
         self.assertEqual(self.area_tuple_list()[0][0], "Area 1")
 
+    @covers("LLFR-00351", "LLFR-00310", "LLFR-00140", "LLFR-00138",
+            "LLFR-00192")
+    def test_color_change_is_undoable_and_shown_on_every_plot(
+            self) -> None:
+        """A color chosen in the menu, with any tool, is shown on every
+        time plot of every tab; it is one undoable action, redone by
+        redo; an unknown or the same color records nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.handler_dict["add_tab"]()
+        self.double_click("s2")
+        other_plot_id_i = self.current_plot_ids()[0]
+        self.choose_tool(NO_TOOL_STR)
+        color_handler = self.view.handler_dict["area_color_handler"]
+        depth_i = self.controller.undo_history.depth()
+        color_handler(self.plot_id_i, self.first_id_i, "Purple")
+        color_handler(self.plot_id_i, self.first_id_i, "Magenta")
+        color_handler(999, self.first_id_i, "Blue")
+        color_handler(self.plot_id_i, 999, "Blue")
+        self.assertEqual(self.controller.undo_history.depth(), depth_i)
+        color_handler(other_plot_id_i, self.first_id_i, "Green")
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 1)
+        for plot_id_i in (self.plot_id_i, other_plot_id_i):
+            self.assertEqual(
+                [area_tuple[4] for area_tuple
+                 in self.view.area_drawn_dict[plot_id_i]],
+                ["Green", "Magenta"])
+        self.undo()
+        self.assertEqual(self.workspace.area_list[0].color_name_str,
+                         "Magenta")
+        self.assertEqual(self.view.area_drawn_dict[other_plot_id_i][0][4],
+                         "Magenta")
+        self.redo()
+        self.assertEqual(self.workspace.area_list[0].color_name_str,
+                         "Green")
+
     @covers("LLFR-00316", "LLFR-00310", "LLFR-00140", "LLFR-00309")
     def test_delete_with_any_tool_and_undo(self) -> None:
         """Delete removes the area from every plot; undo brings it back;
@@ -413,7 +451,8 @@ class LayoutAreaControllerTest(AreaControllerTestCase):
         """
         self.create(1.0, 2.0)
         self.assertEqual(self.controller.layout_dict()["areas"], [
-            {"name": "Area 1", "start": 1.0, "end": 2.0}])
+            {"name": "Area 1", "start": 1.0, "end": 2.0,
+             "color": "Magenta"}])
         result = self.controller.load_layout(minimal_layout(
             [one_plot_tab([curve("s2")])], areas=[
                 {"name": "Saved", "start": 3.0, "end": 4.0},
