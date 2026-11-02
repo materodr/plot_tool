@@ -4,6 +4,7 @@ The real search function (model.signal_search.search_signals) is used,
 so the shown lists are the ones the app shows.
 """
 
+import os
 import unittest
 
 import numpy as np
@@ -11,7 +12,8 @@ import numpy as np
 from tests.support import covers
 
 from controller.file_controller import FileController
-from controller.signal_list_controller import SignalListController
+from controller.signal_list_controller import (
+    SignalListController, file_name_from_path)
 from model.signal_file import SignalFile
 from model.signal_search import NO_MATCH_TEXT_STR
 
@@ -79,6 +81,8 @@ class FakeSignalListView:
         call_list: the names of the facade calls, in order.
         synthetic_name_set: the names last given as synthetic signals.
         fft_name_set: the names last given as FFT signals.
+        file_name_str: the name last shown in the file name line.
+        file_name_call_count_i: how many times the line was set.
     """
 
     def __init__(self) -> None:
@@ -95,6 +99,21 @@ class FakeSignalListView:
         self.synthetic_name_set = set()
         self.fft_name_set = set()
         self.selection_clear_count_i = 0
+        self.file_name_str = ""
+        self.file_name_call_count_i = 0
+
+    def show_file_name(self, file_name_str: str) -> None:
+        """Record the name shown in the file name line (LLFR-00362).
+
+        Not added to call_list, so that the call order tests of the
+        search are not affected.
+
+        Inputs:
+            file_name_str: the file name, without its folder.
+        Outputs: none.
+        """
+        self.file_name_str = file_name_str
+        self.file_name_call_count_i += 1
 
     def set_search_text_handler(self, handler) -> None:
         """Record the search box handler.
@@ -213,6 +232,23 @@ class FakeFileView(FakeSignalListView):
         super().__init__()
         self.path_str = ""
         self.replace_answer_b = True
+        self.time_signal_answer_str = None
+
+    def ask_time_signal_name(self, prompt_str: str, name_list: list,
+                             search_function, no_match_text_str: str,
+                             check_function):
+        """Return the prepared answer of the time signal window.
+
+        Inputs:
+            prompt_str: the text of the window (unused).
+            name_list: the signals of the file (unused).
+            search_function: the search of the window (unused).
+            no_match_text_str: the no-match text (unused).
+            check_function: the check of a chosen name (unused).
+        Outputs: the prepared name, or None to cancel (LLFR-00327).
+        """
+        self.call_list.append("ask_time_signal_name")
+        return self.time_signal_answer_str
 
     def ask_open_file_path(self, start_folder_str: str) -> str:
         """Return the prepared path.
@@ -639,6 +675,194 @@ class WithFileControllerTest(unittest.TestCase):
         self.assertIn("show_file_open_error", self.view.call_list)
         self.assertEqual(self.view.search_text_str, "speed")
         self.assertEqual(self.view.shown_name_list, ["Engine_Speed"])
+
+
+def make_named_file(path_str: str, name_list: list) -> SignalFile:
+    """Build a SignalFile read from path_str with the given signals.
+
+    Inputs:
+        path_str: the path the file was read from.
+        name_list: the signal names, in file order.
+    Outputs: the SignalFile; every signal has 3 increasing samples.
+    """
+    signal_dict = {name_str: np.arange(3, dtype=float)
+                   for name_str in name_list}
+    return SignalFile(path_str, signal_dict)
+
+
+class FileNameLineTest(unittest.TestCase):
+    """The file name line follows the opened file (LLFR-00362/00363)."""
+
+    def setUp(self) -> None:
+        """Create a real FileController with a fake loader and view.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.first_path_str = os.path.join(
+            os.sep, "data", "runs", "first_run.csv")
+        self.second_path_str = os.path.join(
+            os.sep, "other", "second run.v2.xlsx")
+        self.no_time_path_str = os.path.join(
+            os.sep, "data", "no_time.mat")
+        self.file_dict = {
+            self.first_path_str: make_named_file(
+                self.first_path_str, FIRST_NAME_LIST),
+            self.second_path_str: make_named_file(
+                self.second_path_str, SECOND_NAME_LIST),
+        }
+        self.view = FakeFileView()
+        self.file_controller = FileController(self.view, self.load_file)
+        self.controller = SignalListController(self.view,
+                                               self.file_controller)
+
+    def load_file(self, path_str: str) -> SignalFile:
+        """Return the prepared file of a path, as the loader does.
+
+        Inputs:
+            path_str: the selected path.
+        Outputs: the SignalFile; a new one for the file without a time
+            signal, so that each open asks for the time signal again.
+            Raises KeyError for an unknown path (a failed open).
+        """
+        if path_str == self.no_time_path_str:
+            return make_named_file(path_str, ["speed", "torque"])
+        return self.file_dict[path_str]
+
+    def open_path(self, path_str: str) -> None:
+        """Run the open-file flow with the dialog returning path_str.
+
+        Inputs:
+            path_str: the path the fake dialog returns ("" cancels).
+        Outputs: none.
+        """
+        self.view.path_str = path_str
+        self.file_controller.open_file_requested()
+
+    @covers("LLFR-00363", "HLFR-00079")
+    def test_empty_before_any_file(self) -> None:
+        """The line is empty while no data file is open.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.view.file_name_str, "")
+        self.assertEqual(self.view.file_name_call_count_i, 0)
+        self.open_path("")
+        self.open_path(os.path.join(os.sep, "missing.csv"))
+        self.assertIn("show_file_open_error", self.view.call_list)
+        self.assertEqual(self.view.file_name_str, "")
+        self.assertEqual(self.view.file_name_call_count_i, 0)
+
+    @covers("LLFR-00362", "LLFR-00363", "HLFR-00079")
+    def test_name_after_open_and_replace(self) -> None:
+        """The line shows the name with its extension, not the folder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_path(self.first_path_str)
+        self.assertEqual(self.view.file_name_str, "first_run.csv")
+        self.open_path(self.second_path_str)
+        self.assertEqual(self.view.file_name_str, "second run.v2.xlsx")
+        self.assertEqual(self.view.file_name_call_count_i, 2)
+        self.assertNotIn(os.sep, self.view.file_name_str)
+
+    @covers("LLFR-00363", "LLFR-00007")
+    def test_unchanged_after_cancelled_dialog(self) -> None:
+        """Cancelling the file selection dialog keeps the line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_path(self.first_path_str)
+        self.open_path("")
+        self.assertEqual(self.view.file_name_str, "first_run.csv")
+        self.assertEqual(self.view.file_name_call_count_i, 1)
+
+    @covers("LLFR-00363", "LLFR-00010")
+    def test_unchanged_after_failed_open(self) -> None:
+        """A file that cannot be opened keeps the line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_path(self.first_path_str)
+        self.open_path(os.path.join(os.sep, "data", "broken.csv"))
+        self.assertIn("show_file_open_error", self.view.call_list)
+        self.assertEqual(self.view.file_name_str, "first_run.csv")
+        self.assertEqual(self.view.file_name_call_count_i, 1)
+
+    @covers("LLFR-00363", "LLFR-00014")
+    def test_unchanged_after_declined_replace(self) -> None:
+        """Declining the replace confirmation keeps the line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_path(self.first_path_str)
+        self.view.replace_answer_b = False
+        self.open_path(self.second_path_str)
+        self.assertEqual(self.view.file_name_str, "first_run.csv")
+        self.assertEqual(self.view.file_name_call_count_i, 1)
+        # Proceeding afterwards shows the new name.
+        self.view.replace_answer_b = True
+        self.open_path(self.second_path_str)
+        self.assertEqual(self.view.file_name_str, "second run.v2.xlsx")
+
+    @covers("LLFR-00363", "LLFR-00327")
+    def test_unchanged_after_cancelled_time_window(self) -> None:
+        """Cancelling the time signal window keeps the line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_path(self.first_path_str)
+        self.view.time_signal_answer_str = None
+        self.open_path(self.no_time_path_str)
+        self.assertIn("ask_time_signal_name", self.view.call_list)
+        self.assertEqual(self.view.file_name_str, "first_run.csv")
+        self.assertEqual(self.view.file_name_call_count_i, 1)
+        # Choosing a time signal opens the file and shows its name.
+        self.view.time_signal_answer_str = "speed"
+        self.open_path(self.no_time_path_str)
+        self.assertEqual(self.view.file_name_str, "no_time.mat")
+
+    @covers("LLFR-00362", "LLFR-00095")
+    def test_name_is_not_a_signal(self) -> None:
+        """The file name is not shown in, or searched with, the list.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_path(self.first_path_str)
+        self.assertNotIn("first_run.csv", self.view.shown_name_list)
+        self.assertEqual(self.view.shown_name_list, FIRST_NAME_LIST)
+        self.view.type_text("first_run")
+        self.assertEqual(self.view.shown_name_list, [])
+        self.assertTrue(self.view.no_match_shown())
+        self.assertEqual(self.controller.signal_name_list(),
+                         FIRST_NAME_LIST)
+        self.assertEqual(self.view.file_name_str, "first_run.csv")
+
+    @covers("LLFR-00362")
+    def test_file_name_from_path(self) -> None:
+        """Only the last part of a path is kept, with its extension.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        expected_dict = {
+            os.path.join("a", "b", "signals.csv"): "signals.csv",
+            "signals.h5": "signals.h5",
+            os.path.join(os.sep, "x", "archive.tar.hdf5"):
+                "archive.tar.hdf5",
+            os.path.join("folder", "no_extension"): "no_extension",
+        }
+        for path_str, expected_str in expected_dict.items():
+            with self.subTest(path_str=path_str):
+                self.assertEqual(file_name_from_path(path_str),
+                                 expected_str)
 
 
 if __name__ == "__main__":
