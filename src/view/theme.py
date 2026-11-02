@@ -250,13 +250,16 @@ PINNED_TIP_BOX_DICT = {"boxstyle": "round,pad=0.45,rounding_size=0.35",
 # LLFR-00351: the fill colors of the areas, by the color names of
 # model.workspace.AREA_COLOR_NAME_TUPLE. "Magenta" is the paler marker
 # color (LLFR-00305): the marker color #ff00ff mixed with 45% of the
-# plot background. The others are as pale; all are drawn with the same
-# see-through opacity (view.plot_widget.AREA_ALPHA_F), so that the
-# curves and every other item stay visible, and none is a color of the
-# curve palette (model.curve_colors.PALETTE_COLOR_TUPLE).
-AREA_COLOR_DICT = {"Magenta": "#ff73ff", "Blue": "#5aa0ff",
-                   "Green": "#5cd65c", "Yellow": "#ffd21f",
-                   "Pink": "#ff6f8f"}
+# plot background. All five are drawn with the same see-through opacity
+# (view.plot_widget.AREA_ALPHA_F), so that they show pale and the curves
+# and every other item stay visible; the fills are chosen so that, as
+# drawn, every two of them are at least 40 RGB units apart (the closest
+# pair, Yellow and Orange, about 43; tests/view/test_area_colors.py),
+# and none is a color of the curve palette
+# (model.curve_colors.PALETTE_COLOR_TUPLE).
+AREA_COLOR_DICT = {"Magenta": "#ff73ff", "Blue": "#2f7dff",
+                   "Green": "#2ed12e", "Yellow": "#fff000",
+                   "Orange": "#ff4400"}
 # LLFR-00084, LLFR-00092: the marker name and time sit on a soft white
 # rounded patch so they stay readable over the curves.
 MARKER_TEXT_BOX_DICT = {"boxstyle": "round,pad=0.2,rounding_size=0.25",

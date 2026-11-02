@@ -79,7 +79,7 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         source.add_plot(source.tab_list[0].tab_id_i).add_curve("Speed")
         source.add_area(1.0, 2.5)
         climb = source.add_area(2.5, 4.0, "Climb")
-        source.set_area_color(climb.area_id_i, "Pink")
+        source.set_area_color(climb.area_id_i, "Orange")
         layout_dict = json.loads(layout_text(
             build_layout_dict(source, -1, (), False)))
         result = self.rebuild(layout_dict)

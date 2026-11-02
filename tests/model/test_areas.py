@@ -263,7 +263,7 @@ class AreaColorTest(AreaModelTestCase):
         Outputs: none.
         """
         self.assertEqual(AREA_COLOR_NAME_TUPLE,
-                         ("Magenta", "Blue", "Green", "Yellow", "Pink"))
+                         ("Magenta", "Blue", "Green", "Yellow", "Orange"))
         self.assertEqual(DEFAULT_AREA_COLOR_NAME_STR, "Magenta")
         self.assertEqual(self.workspace.add_area(1.0, 2.0).color_name_str,
                          "Magenta")

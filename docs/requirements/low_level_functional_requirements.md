@@ -1881,7 +1881,7 @@ When loading a layout, the app must rebuild an area only if its start time is be
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00351 Area colors
-The "Color" option of the area menu (LLFR-00314) must list five colors: "Magenta", the default color that every new area gets, which is the paler version of the reserved marker color of LLFR-00305, and "Blue", "Green", "Yellow" and "Pink", with the area's current color shown as chosen. All five colors must be pale and drawn see-through with the same opacity, so that the curves, the grid and the other items stay visible (LLFR-00306); they must be easy to tell apart from each other and must never be a color of the curve palette (LLFR-00033). When the user chooses a color, the app must draw that area in it on every time plot of every tab (LLFR-00310).
+The "Color" option of the area menu (LLFR-00314) must list five colors: "Magenta", the default color that every new area gets, which is the paler version of the reserved marker color of LLFR-00305, and "Blue", "Green", "Yellow" and "Orange", with the area's current color shown as chosen. All five colors must be pale and drawn see-through with the same opacity, so that the curves, the grid and the other items stay visible (LLFR-00306); they must be easy to tell apart from each other and must never be a color of the curve palette (LLFR-00033). When the user chooses a color, the app must draw that area in it on every time plot of every tab (LLFR-00310).
 
 *Parent: HLFR-00066*
 

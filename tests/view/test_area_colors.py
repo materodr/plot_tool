@@ -15,9 +15,12 @@ from view import theme
 
 # The opacity of view.plot_widget.AREA_ALPHA_F, which needs Qt to import.
 AREA_ALPHA_F = 0.25
-# Smallest RGB distance (0 to 255 per channel) between two area colors
-# as drawn see-through on the plot background.
-MINIMUM_DRAWN_DISTANCE_F = 25.0
+# Smallest RGB distance (Euclidean, 0 to 255 per channel) between two
+# area colors as drawn see-through on the plot background. Drawn at an
+# opacity of 0.25 over white, every channel lies between about 191 and
+# 255, so 40 units is a clear difference in that narrow band (two shades
+# closer than about 25 units are hard to tell apart side by side).
+MINIMUM_DRAWN_DISTANCE_F = 40.0
 # Every channel of a drawn area color is at least this light.
 MINIMUM_DRAWN_CHANNEL_F = 190.0
 

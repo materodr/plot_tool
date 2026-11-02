@@ -754,7 +754,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(self.submenu_dict["Color"], [
             ("Magenta", True, True), ("Blue", True, False),
             ("Green", True, False), ("Yellow", True, False),
-            ("Pink", True, False)])
+            ("Orange", True, False)])
         self.menu_texts(self.at(4.0), "Green")
         self.assertEqual(color_list, [(1, "Green")])
         self.set_areas([(1, "Area 1", 2.0, 6.0, "Yellow")])
