@@ -697,7 +697,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         time_s, value_f = self.tip_data_tuple()
         self.set_markers([(9, "Flag 1", time_s)])
         self.assertEqual(self.menu_texts_at(time_s, value_f),
-                         ["Rename", "Delete"])
+                         ["Rename", "Color", "Delete"])
         self.set_markers([])
         self.plot_widget.set_pinned_tips([self.second_tuple])
         self.draw()

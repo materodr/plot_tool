@@ -82,12 +82,12 @@ import re
 
 import numpy as np
 
-from model.curve_colors import (
-    MARKER_COLOR_STR, hex_color_or_none, is_far_from_marker_color)
+from model.curve_colors import hex_color_or_none, is_far_from_marker_color
 from model.workspace import (
-    AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
+    AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_AREA_COLOR_STR,
+    DEFAULT_FLAG_COLOR_STR, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
     DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
-    VerticalMarker, Area, spans_overlap_b)
+    spans_overlap_b)
 
 # LLFR-00228: the identification of a layout file; the version is 2.
 LAYOUT_FORMAT_STR = "plot_tool layout"
@@ -466,48 +466,13 @@ def file_time_range(time_array) -> tuple:
             float(np.max(finite_time_array)))
 
 
-# LLFR-00351: until each area carries its own "#rrggbb" color
-# (Area.color_str), an area holds the name of one of four colors; these
-# are their "#rrggbb" values, the same as view.theme.AREA_COLOR_DICT.
-NAMED_AREA_COLOR_DICT = {"Orange": MARKER_COLOR_STR, "Blue": "#2f7dff",
-                         "Green": "#2ed12e", "Yellow": "#fff000"}
-
-
-def item_color(item) -> str:
-    """Return the color of a flag or an area as lowercase "#rrggbb".
-
-    Inputs:
-        item: a model VerticalMarker (flag) or Area.
-    Outputs: its color, or the reserved marker color when it has none.
-    """
-    # LLFR-00225 items 6 and 11: the color is written as "#rrggbb" in
-    # lowercase; LLFR-00083, LLFR-00351: the default is the marker color.
-    color_str = hex_color_or_none(getattr(item, "color_str", None))
-    if color_str is None:
-        color_str = hex_color_or_none(NAMED_AREA_COLOR_DICT.get(
-            getattr(item, "color_name_str", None)))
-    return color_str if color_str is not None else MARKER_COLOR_STR
-
-
-def has_field(model_class, field_name_str: str) -> bool:
-    """Tell whether a model dataclass has a field.
-
-    Inputs:
-        model_class: a dataclass of model.workspace.
-        field_name_str: the name of the field.
-    Outputs: True when the class has the field.
-    """
-    # LLFR-00393, LLFR-00319: flags and areas carry their own color once
-    # the model holds it (Area.color_str, VerticalMarker.color_str).
-    return field_name_str in getattr(model_class, "__dataclass_fields__",
-                                     {})
-
-
-def saved_color(entry_dict: dict) -> tuple:
+def saved_color(entry_dict: dict, default_color_str: str) -> tuple:
     """Read the saved color of a flag or an area.
 
     Inputs:
         entry_dict: the entry of the flag or area in the file.
+        default_color_str: the color of a new item of that kind
+            (DEFAULT_FLAG_COLOR_STR or DEFAULT_AREA_COLOR_STR).
     Outputs: a tuple (color_str, replaced_b): the lowercase "#rrggbb"
         color to use, and True when a saved value that is not written as
         "#rrggbb" was replaced by the default color.
@@ -516,10 +481,10 @@ def saved_color(entry_dict: dict) -> tuple:
     # "#rrggbb" color, in uppercase or lowercase, is used as it is;
     # anything else is replaced by the default color and reported.
     if COLOR_KEY_STR not in entry_dict:
-        return MARKER_COLOR_STR, False
+        return default_color_str, False
     color_str = hex_color_or_none(entry_dict.get(COLOR_KEY_STR))
     if color_str is None:
-        return MARKER_COLOR_STR, True
+        return default_color_str, True
     return color_str, False
 
 
@@ -627,13 +592,13 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     # and color ("#rrggbb" in lowercase).
     layout_dict[FLAGS_KEY_STR] = [
         {NAME_KEY_STR: marker.name_str, TIME_KEY_STR: float(marker.time_s),
-         COLOR_KEY_STR: item_color(marker)}
+         COLOR_KEY_STR: marker.color_str}
         for marker in workspace.marker_list]
     # LLFR-00225 item 11: each area, with its name, start and end time
     # and color ("#rrggbb" in lowercase).
     layout_dict[AREAS_KEY_STR] = [
         {NAME_KEY_STR: area.name_str, START_KEY_STR: float(area.start_s),
-         END_KEY_STR: float(area.end_s), COLOR_KEY_STR: item_color(area)}
+         END_KEY_STR: float(area.end_s), COLOR_KEY_STR: area.color_str}
         for area in workspace.area_list]
     # LLFR-00225 item 10, LLFR-00262: the synthetic signals.
     layout_dict[SYNTHETIC_SIGNALS_KEY_STR] = list(synthetic_signal_list)
@@ -702,15 +667,17 @@ def parse_layout_text(text_str: str, path_str: str = "") -> dict:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NOT_LAYOUT_REASON_STR))
     version_value = layout_dict.get(VERSION_KEY_STR)
-    # LLFR-00228: a whole number, also when hand-edited as 1.0.
-    version_i = 0
+    # LLFR-00228: a whole number, also when hand-edited as 1.0; any lower
+    # version, 0 included, is read with the current rules.
+    version_i = None
     if isinstance(version_value, int) and not isinstance(version_value,
                                                          bool):
         version_i = int(version_value)
     elif (isinstance(version_value, float) and math.isfinite(version_value)
           and version_value.is_integer()):
         version_i = int(version_value)
-    if layout_dict.get(FORMAT_KEY_STR) != LAYOUT_FORMAT_STR or version_i < 1:
+    if (layout_dict.get(FORMAT_KEY_STR) != LAYOUT_FORMAT_STR
+            or version_i is None):
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NOT_LAYOUT_REASON_STR))
     # LLFR-00228: a later format may hold entries this app cannot read.
@@ -1332,18 +1299,13 @@ class LayoutBuilder:
             color_str: its color, lowercase "#rrggbb" (LLFR-00393).
         Outputs: the new VerticalMarker.
         """
-        # LLFR-00393: the flag gets its saved color, once the model holds
-        # a color for each flag (VerticalMarker.color_str).
-        color_held_b = has_field(VerticalMarker, "color_str")
-        if name_str and color_held_b:
+        # LLFR-00393: the flag gets its saved color.
+        if name_str:
             return self.workspace.add_named_marker(name_str, time_s,
                                                    color_str=color_str)
-        if name_str:
-            return self.workspace.add_named_marker(name_str, time_s)
         # LLFR-00235, LLFR-00085: the name of a new flag.
         marker = self.workspace.add_marker(time_s)
-        if color_held_b:
-            self.workspace.set_marker_color(marker.marker_id_i, color_str)
+        self.workspace.set_marker_color(marker.marker_id_i, color_str)
         return marker
 
     def rebuild_flags(self, marker_entry_list: list) -> None:
@@ -1380,7 +1342,8 @@ class LayoutBuilder:
                     f"{label_str}: no plot was rebuilt to show it on.")
                 continue
             # LLFR-00393: the saved color, the default when it is missing.
-            color_str, color_replaced_b = saved_color(marker_entry)
+            color_str, color_replaced_b = saved_color(
+                marker_entry, DEFAULT_FLAG_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another flag
                 # has the same name (flag names need not be unique,
@@ -1401,7 +1364,7 @@ class LayoutBuilder:
                     f"Color {describe_value(marker_entry[COLOR_KEY_STR])} "
                     f"of the flag \"{marker.name_str}\" at "
                     f"{format_time(time_s)} is not written as #rrggbb; "
-                    f"replaced by \"{MARKER_COLOR_STR}\".")
+                    f"replaced by \"{DEFAULT_FLAG_COLOR_STR}\".")
 
     def rebuild_areas(self, area_entry_list: list) -> None:
         """Add the saved areas to the current ones.
@@ -1462,18 +1425,18 @@ class LayoutBuilder:
             # LLFR-00319, LLFR-00351: the saved color; a missing one is
             # the default color, one not written as "#rrggbb" is replaced
             # and reported.
-            color_str, color_replaced_b = saved_color(entry_dict)
-            model_color_str = self.area_model_color(color_str)
+            color_str, color_replaced_b = saved_color(
+                entry_dict, DEFAULT_AREA_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another area
                 # has the same name.
                 area = self.workspace.add_area(start_s, end_s, name_value,
-                                               model_color_str)
+                                               color_str)
             else:
                 # LLFR-00235, LLFR-00309: a name that cannot be used is
                 # replaced by the name of a new area.
                 area = self.workspace.add_area(start_s, end_s, "",
-                                               model_color_str)
+                                               color_str)
                 self.report.add_replaced(
                     f"Name {describe_value(name_value)} of the area from "
                     f"{format_time(start_s)} to {format_time(end_s)} is "
@@ -1485,26 +1448,7 @@ class LayoutBuilder:
                 self.report.add_replaced(
                     f"Color {describe_value(entry_dict[COLOR_KEY_STR])} of "
                     f"the area \"{area.name_str}\" is not written as "
-                    f"#rrggbb; replaced by \"{MARKER_COLOR_STR}\".")
-
-    @staticmethod
-    def area_model_color(color_str: str) -> str:
-        """Return the color of an area as the model holds it.
-
-        Inputs:
-            color_str: the color of the area, lowercase "#rrggbb".
-        Outputs: color_str once each area carries its own "#rrggbb" color
-            (Area.color_str); until then, the name of the area color of
-            NAMED_AREA_COLOR_DICT with that value, else the name of the
-            default color.
-        """
-        # LLFR-00319: the saved color is used as it is.
-        if has_field(Area, "color_str"):
-            return color_str
-        for color_name_str, named_color_str in NAMED_AREA_COLOR_DICT.items():
-            if named_color_str == color_str:
-                return color_name_str
-        return next(iter(NAMED_AREA_COLOR_DICT))
+                    f"#rrggbb; replaced by \"{DEFAULT_AREA_COLOR_STR}\".")
 
     def file_range_text(self) -> str:
         """Return the time range of the data file, for the report.

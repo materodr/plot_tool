@@ -89,6 +89,9 @@ class FakePlotView:
         set_areas_count_i: how many times set_areas was called.
         text_note_drawn_dict: plot id -> text_note_data_list of the last
             set_text_notes call.
+        color_answer_list: answers returned, in order, by ask_color, the
+            shared color picker (None stands for a cancelled picker).
+        color_question_list: the current colors given to ask_color.
     """
 
     def __init__(self) -> None:
@@ -123,6 +126,8 @@ class FakePlotView:
         self.area_name_question_list = []
         self.set_areas_count_i = 0
         self.text_note_drawn_dict = {}
+        self.color_answer_list = []
+        self.color_question_list = []
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -426,6 +431,20 @@ class FakePlotView:
         Outputs: none.
         """
         self.area_drawn_dict[plot_id_i] = list(area_data_list)
+
+    def ask_color(self, current_color_str: str):
+        """Answer the color picker with the next prepared answer.
+
+        Inputs:
+            current_color_str: the color the picker would start at.
+        Outputs: the next answer of color_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.call_list.append(("ask_color", current_color_str))
+        self.color_question_list.append(current_color_str)
+        if not self.color_answer_list:
+            return None
+        return self.color_answer_list.pop(0)
 
     def ask_area_name(self, current_name_str: str):
         """Answer an area name question with the next prepared answer.

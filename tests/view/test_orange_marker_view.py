@@ -97,8 +97,6 @@ class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
         """
         from view import plot_widget as plot_widget_module
         self.assertEqual(plot_widget_module.AREA_COLOR_STR, ORANGE_STR)
-        self.assertEqual(tuple(plot_widget_module.AREA_COLOR_DICT),
-                         ("Orange", "Blue", "Green", "Yellow"))
         self.plot_widget.set_areas([(4, "Warm-up", 3.0, 5.0)])
         self.draw()
         band = self.plot_widget.area_artist_tuple(4)[0]

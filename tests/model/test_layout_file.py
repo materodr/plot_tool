@@ -20,9 +20,8 @@ from model.curve_colors import MARKER_COLOR_STR, PALETTE_COLOR_TUPLE
 from model.layout_file import (
     LayoutFileError, build_layout_dict, ensure_layout_suffix, layout_bytes,
     layout_text, parse_layout_text, read_layout_file, rebuild_layout)
-from model.layout_file import has_field
 from model.workspace import (
-    DELTA_X_KIND_STR, DELTA_Y_KIND_STR, VerticalMarker, Workspace)
+    DELTA_X_KIND_STR, DELTA_Y_KIND_STR, Workspace)
 
 
 def make_signal_dict(signal_name_list=("Speed", "Torque", "Power"),
@@ -366,7 +365,6 @@ class LayoutReadTest(unittest.TestCase):
                          '{"format": "plot_tool layout"}',
                          '{"format": "plot_tool layout", "version": "1"}',
                          '{"format": "plot_tool layout", "version": true}',
-                         '{"format": "plot_tool layout", "version": 0}',
                          '{"format": "plot_tool layout", "version": 3}'):
             with self.subTest(text=text_str):
                 with self.assertRaises(LayoutFileError):
@@ -376,6 +374,9 @@ class LayoutReadTest(unittest.TestCase):
             '{"format": "plot_tool layout", "version": 2}')["version"], 2)
         self.assertEqual(parse_layout_text(
             '{"format": "plot_tool layout", "version": 1}')["version"], 1)
+        # LLFR-00228: any lower version is read, 0 included.
+        self.assertEqual(parse_layout_text(
+            '{"format": "plot_tool layout", "version": 0}')["version"], 0)
         # LLFR-00228: a hand-edited 2.0 is version 2; 3.0 is too new.
         parse_layout_text('{"format": "plot_tool layout", "version": 2.0}')
         parse_layout_text('{"format": "plot_tool layout", "version": 1.0}')
@@ -892,10 +893,8 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         self.workspace.add_plot(tab.tab_id_i).add_curve("Speed")
         first_marker = self.workspace.add_marker(1.0)
         self.workspace.add_marker(2.5)
-        if has_field(VerticalMarker, "color_str"):
-            # LLFR-00392: a flag the user gave another color.
-            self.workspace.set_marker_color(first_marker.marker_id_i,
-                                            "#1F77B4")
+        # LLFR-00392: a flag the user gave another color.
+        self.workspace.set_marker_color(first_marker.marker_id_i, "#1F77B4")
         layout_dict = json.loads(layout_text(build_layout_dict(
             self.workspace, -1, (), False)))
         self.assertNotIn("vertical_markers", layout_dict)
@@ -909,8 +908,7 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
             self.assertRegex(flag_dict["color"], r"^#[0-9a-f]{6}$")
         # LLFR-00083: a new flag has the reserved marker color.
         self.assertEqual(flag_list[1]["color"], "#ff8000")
-        if has_field(VerticalMarker, "color_str"):
-            self.assertEqual(flag_list[0]["color"], "#1f77b4")
+        self.assertEqual(flag_list[0]["color"], "#1f77b4")
 
     @covers("LLFR-00393", "LLFR-00235", "LLFR-00237", "LLFR-00083")
     def test_flag_colors_read_back(self) -> None:
@@ -932,11 +930,9 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         self.assertEqual([marker.name_str for marker in marker_list],
                          ["Upper", "Lower", "Missing", "Named", "Short",
                           "Number"])
-        color_list = [layout_file.item_color(marker)
-                      for marker in marker_list]
+        color_list = [marker.color_str for marker in marker_list]
         self.assertEqual(color_list[2:], ["#ff8000"] * 4)
-        if has_field(VerticalMarker, "color_str"):
-            self.assertEqual(color_list[:2], ["#00aa11", "#2f7dff"])
+        self.assertEqual(color_list[:2], ["#00aa11", "#2f7dff"])
         # LLFR-00237: only the three colors not written as "#rrggbb" are
         # listed as replaced values; nothing is listed as not rebuilt.
         replaced_list = result.report.replaced_line_list
@@ -984,7 +980,9 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         tab = self.workspace.tab_list[0]
         self.workspace.add_plot(tab.tab_id_i).add_curve("Speed")
         self.workspace.add_marker(1.25)
-        self.workspace.add_named_marker("Peak", 7.5)
+        peak = self.workspace.add_named_marker("Peak", 7.5)
+        # LLFR-00392: a color the user gave in the picker.
+        self.workspace.set_marker_color(peak.marker_id_i, "#2CA02C")
         saved_dict = json.loads(layout_text(build_layout_dict(
             self.workspace, -1, (), False)))
         other_workspace = Workspace(random.Random(2))
@@ -992,10 +990,9 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
                                 self.signal_dict, self.signal_dict["Time"])
         self.assertTrue(result.report.is_empty(), result.report.text())
         self.assertEqual(
-            [(marker.name_str, marker.time_s,
-              layout_file.item_color(marker))
+            [(marker.name_str, marker.time_s, marker.color_str)
              for marker in other_workspace.marker_list],
-            [("Flag 1", 1.25, "#ff8000"), ("Peak", 7.5, "#ff8000")])
+            [("Flag 1", 1.25, "#ff8000"), ("Peak", 7.5, "#2ca02c")])
 
 
 class LayoutRangeTest(LayoutRebuildTestCase):

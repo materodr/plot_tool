@@ -749,7 +749,7 @@ class RightPressDuringDragTest(TipDragTestCase):
         self.left_release(tuple(transform.transform((6.0, 0.0))))
         self.assertEqual(self.marker_move_list, [])
         self.assertEqual(self.plot_widget.marker_time_s(1), 4.0)
-        self.assertEqual(shown_list, [["Rename", "Delete"]])
+        self.assertEqual(shown_list, [["Rename", "Color", "Delete"]])
 
     @covers("LLFR-00117", "LLFR-00048")
     def test_right_press_stops_a_pan(self) -> None:
