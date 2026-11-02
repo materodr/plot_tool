@@ -15,7 +15,7 @@ from tests.support import covers
 
 from controller.plot_tools import (
     AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, PLOT_TOOL_TUPLE)
-from model.workspace import FREQUENCY_PLOT_KIND_STR
+from model.workspace import DEFAULT_AREA_COLOR_STR, FREQUENCY_PLOT_KIND_STR
 
 
 class AreaControllerTestCase(PlotControllerTestCase):
@@ -343,12 +343,13 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.assertEqual(self.area_tuple_list()[0][0], "Area 1")
 
     @covers("LLFR-00351", "LLFR-00310", "LLFR-00140", "LLFR-00138",
-            "LLFR-00192")
+            "LLFR-00192", "LLFR-00388", "LLFR-00389", "LLFR-00390")
     def test_color_change_is_undoable_and_shown_on_every_plot(
             self) -> None:
-        """A color chosen in the menu, with any tool, is shown on every
-        time plot of every tab; it is one undoable action, redone by
-        redo; an unknown or the same color records nothing.
+        """"Color" opens the picker at the area's color; the confirmed
+        color, chosen with any tool, is shown on every time plot of every
+        tab; it is one undoable action, redone by redo; a cancelled
+        picker, the same color or unknown ids record nothing.
 
         Inputs: none.
         Outputs: none.
@@ -359,27 +360,33 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.choose_tool(NO_TOOL_STR)
         color_handler = self.view.handler_dict["area_color_handler"]
         depth_i = self.controller.undo_history.depth()
-        color_handler(self.plot_id_i, self.first_id_i, "Purple")
-        color_handler(self.plot_id_i, self.first_id_i, "Magenta")
-        color_handler(self.plot_id_i, self.first_id_i, "Orange")
-        color_handler(999, self.first_id_i, "Blue")
-        color_handler(self.plot_id_i, 999, "Blue")
+        # Cancelled, then the same color (any case), then unknown ids.
+        self.view.color_answer_list = [None, DEFAULT_AREA_COLOR_STR.upper()]
+        color_handler(self.plot_id_i, self.first_id_i)
+        color_handler(self.plot_id_i, self.first_id_i)
+        color_handler(999, self.first_id_i)
+        color_handler(self.plot_id_i, 999)
+        self.assertEqual(self.view.color_question_list,
+                         [DEFAULT_AREA_COLOR_STR] * 2)
         self.assertEqual(self.controller.undo_history.depth(), depth_i)
-        color_handler(other_plot_id_i, self.first_id_i, "Green")
+        self.view.color_answer_list = ["#12AB34"]
+        color_handler(other_plot_id_i, self.first_id_i)
         self.assertEqual(self.controller.undo_history.depth(), depth_i + 1)
         for plot_id_i in (self.plot_id_i, other_plot_id_i):
             self.assertEqual(
                 [area_tuple[4] for area_tuple
                  in self.view.area_drawn_dict[plot_id_i]],
-                ["Green", "Orange"])
+                ["#12ab34", DEFAULT_AREA_COLOR_STR])
+        # The picker starts at the new color the next time.
+        color_handler(self.plot_id_i, self.first_id_i)
+        self.assertEqual(self.view.color_question_list[-1], "#12ab34")
         self.undo()
-        self.assertEqual(self.workspace.area_list[0].color_name_str,
-                         "Orange")
+        self.assertEqual(self.workspace.area_list[0].color_str,
+                         DEFAULT_AREA_COLOR_STR)
         self.assertEqual(self.view.area_drawn_dict[other_plot_id_i][0][4],
-                         "Orange")
+                         DEFAULT_AREA_COLOR_STR)
         self.redo()
-        self.assertEqual(self.workspace.area_list[0].color_name_str,
-                         "Green")
+        self.assertEqual(self.workspace.area_list[0].color_str, "#12ab34")
 
     @covers("LLFR-00316", "LLFR-00310", "LLFR-00140", "LLFR-00309")
     def test_delete_with_any_tool_and_undo(self) -> None:
@@ -467,7 +474,7 @@ class LayoutAreaControllerTest(AreaControllerTestCase):
         self.create(1.0, 2.0)
         self.assertEqual(self.controller.layout_dict()["areas"], [
             {"name": "Area 1", "start": 1.0, "end": 2.0,
-             "color": "#ff8000"}])
+             "color": DEFAULT_AREA_COLOR_STR}])
         result = self.controller.load_layout(minimal_layout(
             [one_plot_tab([curve("s2")])], areas=[
                 {"name": "Saved", "start": 3.0, "end": 4.0},

@@ -76,6 +76,8 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "marker_place_requested": "marker_place_handler",
     "marker_move_requested": "marker_move_handler",
     "marker_rename_requested": "marker_rename_handler",
+    # LLFR-00392: "Color" chosen in a flag's menu.
+    "marker_color_requested": "marker_color_handler",
     "marker_delete_requested": "marker_delete_handler",
     # LLFR-00163, LLFR-00164: a curve point picked with a delta tool.
     "delta_point_picked": "delta_point_pick_handler",
@@ -86,7 +88,7 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "area_create_requested": "area_create_handler",
     "area_change_requested": "area_change_handler",
     "area_rename_requested": "area_rename_handler",
-    # LLFR-00351: a color chosen in an area's menu.
+    # LLFR-00351: "Color" chosen in an area's menu.
     "area_color_requested": "area_color_handler",
     "area_delete_requested": "area_delete_handler",
     # LLFR-00334, LLFR-00339, LLFR-00342, LLFR-00343: the text notes.
@@ -94,6 +96,10 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "text_note_move_requested": "text_note_move_handler",
     "text_note_edit_requested": "text_note_edit_handler",
     "text_note_delete_requested": "text_note_delete_handler",
+    # LLFR-00385, LLFR-00387: the size and the colors of a text note.
+    "text_note_size_requested": "text_note_size_handler",
+    "text_note_border_color_requested": "text_note_border_color_handler",
+    "text_note_text_color_requested": "text_note_text_color_handler",
 }
 
 
@@ -736,8 +742,8 @@ class PlotPanel(QWidget):
         """Draw the shared vertical markers on every plot of every tab.
 
         Inputs:
-            marker_data_list: tuples (marker_id_i, name_str, time_s), in
-                placing order.
+            marker_data_list: tuples (marker_id_i, name_str, time_s,
+                color_str), in placing order.
         Outputs: none.
         """
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112, LLFR-00205: the
@@ -749,8 +755,8 @@ class PlotPanel(QWidget):
         """Draw the shared areas on every time plot of every tab.
 
         Inputs:
-            area_data_list: tuples (area_id_i, name_str, start_s, end_s),
-                in creation order.
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s,
+                color_str), in creation order.
         Outputs: none.
         """
         # LLFR-00304, LLFR-00312, LLFR-00315, LLFR-00316, LLFR-00310: the
