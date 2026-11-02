@@ -621,7 +621,7 @@ The layout file must hold:
 3. for each time plot, its curves, in the order they were drawn, each with its signal name, color and width;
 4. the x-axis range shared by the plots (LLFR-00070), in seconds;
 5. whether the grid is shown (HLFR-00037);
-6. for each flag, its name, its time and its color (LLFR-00392), written as `#rrggbb` in lowercase (LLFR-00394);
+6. under the key `flags`, for each flag, its name, its time and its color (LLFR-00392), written as `#rrggbb` in lowercase;
 7. for each pinned data tip of a time plot, its plot, the signal and time of its point, and its position relative to the point;
 8. for each delta marker of a time plot, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
 9. the widths of the plot panel and the signal list panel;
@@ -1955,9 +1955,7 @@ An area must not change what the other plot tools do with a press inside it: whi
 *Parent: HLFR-00066, HLFR-00032, HLFR-00085*
 
 ### LLFR-00319 Areas in a layout
-When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the opened data file, and it does not overlap a current area or an area already rebuilt from the same file. The load report (LLFR-00237) must give the reason for each area that is not rebuilt. A rebuilt area whose saved color is missing must get the default color of LLFR-00351. A saved color written as `#rrggbb`, with six hexadecimal digits in uppercase or lowercase, must be used as it is, and the color names "Orange", "Blue", "Green" and "Yellow" saved by earlier versions must be read as `#ff4400`, `#2f7dff`, `#2ed12e` and `#fff000`, respectively. An area whose saved color is anything else must get the default color, and the load report must list it as a replaced value (LLFR-00235).
-
-Note: This includes the color "Magenta" in a layout file saved before the marker color became orange.
+When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the opened data file, and it does not overlap a current area or an area already rebuilt from the same file. The load report (LLFR-00237) must give the reason for each area that is not rebuilt. A rebuilt area whose saved color is missing must get the default color of LLFR-00351. A saved color written as `#rrggbb`, with six hexadecimal digits in uppercase or lowercase, must be used as it is. An area whose saved color is not written as `#rrggbb` must get the default color, and the load report must list it as a replaced value (LLFR-00235).
 
 *Parent: HLFR-00050, HLFR-00052, HLFR-00088*
 
@@ -2181,13 +2179,4 @@ When the user chooses "Color" in the flag menu (LLFR-00391), the app must open t
 ### LLFR-00393 Flag colors in a layout
 When loading a layout, the app must give each rebuilt flag (LLFR-00233) its saved color (LLFR-00225). A saved color written as `#rrggbb`, with six hexadecimal digits in uppercase or lowercase, must be used as it is. A flag whose saved color is missing must get the default color of LLFR-00083; one whose saved color is not written as `#rrggbb` must get the default color, and the load report (LLFR-00237) must list it as a replaced value (LLFR-00235).
 
-Note: Layout files saved before flags had colors hold no flag color, so their flags get the default color.
-
 *Parent: HLFR-00050, HLFR-00052, HLFR-00089*
-
-### LLFR-00394 Flags in earlier layout files
-The app must write the flags of a layout file (LLFR-00225 item 6) under the key `flags`. When loading a layout file, the app must also read the flags of a file saved by an earlier version, which holds them under the key `vertical_markers`, in the same way (LLFR-00230, LLFR-00233, LLFR-00393).
-
-Note: Flags were called "vertical markers" in earlier versions.
-
-*Parent: HLFR-00050, HLFR-00051, HLFR-00028*
