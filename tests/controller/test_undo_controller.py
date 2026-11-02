@@ -103,7 +103,8 @@ class UndoControllerTestCase(PlotControllerTestCase):
                      tuple(tip.label_offset_tuple))
                     for tip in plot.pinned_tip_list)
                 marker_tuple = tuple(
-                    (marker.marker_id_i, marker.name_str, marker.time_s)
+                    (marker.marker_id_i, marker.name_str, marker.time_s,
+                     marker.color_str)
                     for marker in self.workspace.marker_list)
                 plot_list.append((plot.plot_id_i, tab.tab_id_i, curve_tuple,
                                   tip_tuple, marker_tuple))

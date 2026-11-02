@@ -12,8 +12,8 @@ from controller.plot_tools import (
     NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
-    file_writing, icons, message_boxes, plot_export, synthetic_dialogs,
-    theme)
+    color_picker, file_writing, icons, message_boxes, plot_export,
+    synthetic_dialogs, theme)
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -1042,8 +1042,9 @@ class MainWindow(QMainWindow):
                 value_array, color_str, width_i).
             pinned_tip_list: tuples (signal_name_str, time_s, value_f,
                 label_offset_tuple); see PlotWidget.set_pinned_tips.
-            marker_data_list: tuples (marker_id_i, name_str, time_s), the
-                vertical markers shared by every plot (LLFR-00205).
+            marker_data_list: tuples (marker_id_i, name_str, time_s,
+                color_str), the vertical markers shared by every plot
+                (LLFR-00205).
             delta_marker_data_list: tuples (delta_marker_id_i, kind_str,
                 first_point_tuple, second_point_tuple, delta_f); see
                 PlotWidget.set_delta_markers.
@@ -1067,7 +1068,8 @@ class MainWindow(QMainWindow):
 
         Inputs:
             plot_id_i: id of the plot.
-            text_note_data_list: tuples (text_str, time_s, value_f); see
+            text_note_data_list: tuples (text_str, time_s, value_f,
+                size_i, border_color_str, text_color_str); see
                 PlotWidget.set_text_notes.
         Outputs: none. An unknown plot id is ignored.
         """
@@ -1080,8 +1082,8 @@ class MainWindow(QMainWindow):
         """Draw the shared vertical markers on every plot of every tab.
 
         Inputs:
-            marker_data_list: tuples (marker_id_i, name_str, time_s), in
-                placing order.
+            marker_data_list: tuples (marker_id_i, name_str, time_s,
+                color_str), in placing order.
         Outputs: none. Only the markers are drawn again.
         """
         # LLFR-00205: every marker on every plot, after it was placed,
@@ -1092,8 +1094,8 @@ class MainWindow(QMainWindow):
         """Draw the shared areas on every time plot of every tab.
 
         Inputs:
-            area_data_list: tuples (area_id_i, name_str, start_s, end_s),
-                in creation order.
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s,
+                color_str), in creation order.
         Outputs: none. Only the areas are drawn again.
         """
         # LLFR-00310: every area on every time plot, after it was
@@ -1105,8 +1107,8 @@ class MainWindow(QMainWindow):
 
         Inputs:
             plot_id_i: id of the plot.
-            area_data_list: tuples (area_id_i, name_str, start_s, end_s);
-                empty for a frequency plot (LLFR-00311).
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s,
+                color_str); empty for a frequency plot (LLFR-00311).
         Outputs: none. An unknown plot id is ignored.
         """
         # LLFR-00310: a time plot created after the areas shows them too.
@@ -1176,6 +1178,19 @@ class MainWindow(QMainWindow):
         if plot_widget is None:
             return ()
         return plot_widget.time_range_tuple()
+
+    def ask_color(self, current_color_str: str):
+        """Let the user choose a color in the shared color picker.
+
+        Inputs:
+            current_color_str: the item's current color, "#rrggbb", shown
+                as chosen when the picker opens (LLFR-00389).
+        Outputs: the confirmed color as "#rrggbb" in lowercase, or None
+            when the user cancelled the picker (LLFR-00390).
+        """
+        # LLFR-00388: the flags, areas, text notes (and arrows) all use
+        # this one picker window.
+        return color_picker.pick_color(self, current_color_str)
 
     def ask_marker_name(self, current_name_str: str):
         """Let the user type a new name for a vertical marker.

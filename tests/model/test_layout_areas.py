@@ -11,7 +11,7 @@ from tests.model.test_layout_file import (
 from tests.support import covers
 
 from model.layout_file import build_layout_dict, layout_text
-from model.workspace import Workspace
+from model.workspace import DEFAULT_AREA_COLOR_STR, Workspace
 
 
 def area_tuple_list(workspace) -> list:
@@ -41,12 +41,12 @@ class LayoutAreaWriteTest(unittest.TestCase):
         plot.add_curve("Speed")
         workspace.add_area(0.1, 1.0 / 3.0)
         area = workspace.add_area(5.0, 7.25, "Run")
-        workspace.set_area_color(area.area_id_i, "Green")
+        workspace.set_area_color(area.area_id_i, "#2CA02C")
         layout_dict = build_layout_dict(workspace, -1, (), False)
         self.assertEqual(layout_dict["areas"], [
             {"name": "Area 1", "start": 0.1, "end": 1.0 / 3.0,
-             "color": "Orange"},
-            {"name": "Run", "start": 5.0, "end": 7.25, "color": "Green"}])
+             "color": DEFAULT_AREA_COLOR_STR},
+            {"name": "Run", "start": 5.0, "end": 7.25, "color": "#2ca02c"}])
         read_dict = json.loads(layout_text(layout_dict))
         self.assertEqual(read_dict["areas"][0]["end"], 1.0 / 3.0)
         workspace_without_area = Workspace()
@@ -67,7 +67,8 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         return minimal_layout([one_plot_tab([curve("Speed")])],
                               areas=area_entry_list)
 
-    @covers("LLFR-00319", "LLFR-00230", "LLFR-00310", "LLFR-00237")
+    @covers("LLFR-00319", "LLFR-00230", "LLFR-00310", "LLFR-00237",
+            "LLFR-00351")
     def test_round_trip_rebuilds_the_areas_as_saved(self) -> None:
         """Saving and loading in an empty workspace gives the same areas
         and an empty report.
@@ -79,13 +80,16 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         source.add_plot(source.tab_list[0].tab_id_i).add_curve("Speed")
         source.add_area(1.0, 2.5)
         climb = source.add_area(2.5, 4.0, "Climb")
-        source.set_area_color(climb.area_id_i, "Yellow")
+        source.set_area_color(climb.area_id_i, "#fff000")
         layout_dict = json.loads(layout_text(
             build_layout_dict(source, -1, (), False)))
         result = self.rebuild(layout_dict)
         self.assertTrue(result.report.is_empty(), result.report.text())
         self.assertEqual(area_tuple_list(self.workspace),
                          area_tuple_list(source))
+        # LLFR-00351: with their colors.
+        self.assertEqual([area.color_str for area in self.workspace.area_list],
+                         [DEFAULT_AREA_COLOR_STR, "#fff000"])
         self.assertEqual(self.workspace.add_area(6.0, 7.0).name_str,
                          "Area 2")
 
@@ -166,10 +170,11 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
                       result.report.replaced_line_list[0])
 
     @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237")
-    def test_missing_or_unknown_color_gives_the_default(self) -> None:
+    def test_missing_or_unusable_color_gives_the_default(self) -> None:
         """An area without "color" (an older file) gets the default color
-        silently; an unknown color gets it too and is reported as a
-        replaced value; a known color is kept.
+        silently; a color written as "#rrggbb", in any case, is kept; a
+        color not written as "#rrggbb" (also a former color name) gets
+        the default and is reported as a replaced value.
 
         Inputs: none.
         Outputs: none.
@@ -178,47 +183,21 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
             {"name": "Old", "start": 1.0, "end": 2.0},
             {"name": "Odd", "start": 3.0, "end": 4.0, "color": "Purple"},
             {"name": "Num", "start": 5.0, "end": 6.0, "color": 3},
-            {"name": "Ok", "start": 7.0, "end": 8.0, "color": "Yellow"}]))
-        self.assertEqual([area.color_name_str
+            {"name": "Short", "start": 6.0, "end": 6.5, "color": "#abc"},
+            {"name": "Ok", "start": 7.0, "end": 8.0, "color": "#12AB34"},
+            {"name": "Low", "start": 8.0, "end": 9.0, "color": "#2f7dff"}]))
+        self.assertEqual([area.color_str
                           for area in self.workspace.area_list],
-                         ["Orange", "Orange", "Orange", "Yellow"])
+                         [DEFAULT_AREA_COLOR_STR] * 4
+                         + ["#12ab34", "#2f7dff"])
         replaced_list = result.report.replaced_line_list
-        self.assertEqual(len(replaced_list), 2)
+        self.assertEqual(len(replaced_list), 3)
         self.assertIn('Color "Purple" of the area "Odd"', replaced_list[0])
-        self.assertIn('replaced by "Orange"', replaced_list[0])
+        self.assertIn(f"replaced by {DEFAULT_AREA_COLOR_STR}",
+                      replaced_list[0])
         self.assertIn('Color 3 of the area "Num"', replaced_list[1])
+        self.assertIn('Color "#abc" of the area "Short"', replaced_list[2])
         self.assertIn("Values replaced:", result.report.text())
-        self.assertEqual(result.report.not_rebuilt_line_list, [])
-
-    @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237")
-    def test_former_magenta_and_pink_colors_are_replaced(self) -> None:
-        """A layout file saved before the marker color became orange may
-        hold "Magenta" (or "Pink"): such an area gets the default
-        "Orange" and the load report lists each one as a replaced value;
-        "Orange", "Blue" and "Green" are kept silently.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        result = self.rebuild(self.layout_with_areas([
-            {"name": "Old", "start": 1.0, "end": 2.0, "color": "Magenta"},
-            {"name": "Rose", "start": 3.0, "end": 4.0, "color": "Pink"},
-            {"name": "Hot", "start": 5.0, "end": 6.0, "color": "Orange"},
-            {"name": "Sea", "start": 6.5, "end": 7.0, "color": "Blue"},
-            {"name": "Leaf", "start": 7.5, "end": 8.0, "color": "Green"}]))
-        self.assertEqual([area.color_name_str
-                          for area in self.workspace.area_list],
-                         ["Orange", "Orange", "Orange", "Blue", "Green"])
-        replaced_list = result.report.replaced_line_list
-        self.assertEqual(len(replaced_list), 2)
-        self.assertIn('Color "Magenta" of the area "Old"', replaced_list[0])
-        self.assertIn('Color "Pink" of the area "Rose"', replaced_list[1])
-        for line_str in replaced_list:
-            self.assertIn("Orange, Blue, Green, Yellow", line_str)
-            self.assertIn('replaced by "Orange"', line_str)
-        report_text_str = result.report.text()
-        self.assertIn("Values replaced:", report_text_str)
-        self.assertIn("Magenta", report_text_str)
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
     @covers("LLFR-00319", "LLFR-00230")

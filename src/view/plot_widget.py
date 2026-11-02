@@ -194,10 +194,12 @@ from controller.plot_tools import (
     AREA_TOOL_STR, DELTA_X_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
     PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
     is_delta_tool)
-from model.curve_colors import MARKER_COLOR_STR
+from model.curve_colors import MARKER_COLOR_STR, hex_color_or_none
 from model.workspace import (
-    AREA_COLOR_NAME_TUPLE, DEFAULT_AREA_COLOR_NAME_STR, DELTA_X_KIND_STR,
-    DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
+    DEFAULT_AREA_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
+    DEFAULT_TEXT_NOTE_COLOR_STR, DEFAULT_TEXT_NOTE_SIZE_I,
+    DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
+    TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR)
 from view import delta_geometry, theme, value_text
 from view.delta_geometry import DeltaBracketPatch
 from view.text_note_editor import TextNoteEditor
@@ -370,6 +372,13 @@ NO_TEXT_NOTE_INDEX_I = -1
 TEXT_NOTE_ZORDER_F = 9.5
 # LLFR-00333: width of the one-line text field, in widget pixels.
 TEXT_NOTE_EDITOR_WIDTH_I = 200
+# LLFR-00386: a text note, with its box, is never drawn taller than this
+# share of the height of the plot's drawing area.
+TEXT_NOTE_MAXIMUM_HEIGHT_RATIO_F = 0.25
+# LLFR-00386: the smallest size, in points, a text note is drawn at, and
+# the number of halvings used to find the largest size that fits.
+TEXT_NOTE_MINIMUM_SIZE_F = 1.0
+TEXT_NOTE_FIT_STEPS_I = 12
 
 
 def mouse_button_held_b(event, qt_button) -> bool:
@@ -725,12 +734,36 @@ MARKER_PREVIEW_COLOR_STR = pale_color_str(
 # LLFR-00352, LLFR-00353: the delta marker previews use the same paler
 # version of the marker color as the marker preview.
 DELTA_PREVIEW_COLOR_STR = MARKER_PREVIEW_COLOR_STR
-# LLFR-00305: the default color of an area and of its preview, the
-# marker color, made pale by the see-through drawing (AREA_ALPHA_F).
-AREA_COLOR_STR = theme.AREA_COLOR_DICT[DEFAULT_AREA_COLOR_NAME_STR]
-# LLFR-00351: the four area colors, by name, in menu order.
-AREA_COLOR_DICT = {name_str: theme.AREA_COLOR_DICT[name_str]
-                   for name_str in AREA_COLOR_NAME_TUPLE}
+# LLFR-00305, LLFR-00351: the default color of an area and of its
+# preview, the marker color, made pale by the see-through drawing
+# (AREA_ALPHA_F); the user may give each area any color.
+AREA_COLOR_STR = DEFAULT_AREA_COLOR_STR
+
+
+def text_note_data_tuple(note_tuple) -> tuple:
+    """Return the drawing data of a text note, with its style.
+
+    Inputs:
+        note_tuple: (text_str, time_s, value_f) or (text_str, time_s,
+            value_f, size_i, border_color_str, text_color_str).
+    Outputs: the 6-tuple; a missing or unusable size or color is the
+        one of a new text note (LLFR-00336, LLFR-00385).
+    """
+    # LLFR-00336, LLFR-00385, LLFR-00387: each note has its own size,
+    # border color and text color.
+    note_tuple = tuple(note_tuple)
+    size_i = DEFAULT_TEXT_NOTE_SIZE_I
+    border_color_str = DEFAULT_TEXT_NOTE_COLOR_STR
+    text_color_str = DEFAULT_TEXT_NOTE_COLOR_STR
+    if len(note_tuple) >= 6:
+        if note_tuple[3] in TEXT_NOTE_SIZE_TUPLE:
+            size_i = int(note_tuple[3])
+        border_color_str = (hex_color_or_none(note_tuple[4])
+                            or DEFAULT_TEXT_NOTE_COLOR_STR)
+        text_color_str = (hex_color_or_none(note_tuple[5])
+                          or DEFAULT_TEXT_NOTE_COLOR_STR)
+    return (str(note_tuple[0]), float(note_tuple[1]), float(note_tuple[2]),
+            size_i, border_color_str, text_color_str)
 
 
 class PlotWidget(QWidget):
@@ -762,6 +795,7 @@ class PlotWidget(QWidget):
         marker_move_requested(int, float): a marker was dragged and
             released (marker id, time in s).
         marker_rename_requested(int): "Rename" chosen on a marker.
+        marker_color_requested(int): "Color" chosen on a flag (its id).
         marker_delete_requested(int): "Delete" chosen on a marker.
         delta_point_picked(str, float, float): a left click on a curve
             with the Delta X or Delta Y tool (signal name, time in s
@@ -779,8 +813,8 @@ class PlotWidget(QWidget):
         area_change_requested(int, float, float): an area was moved or
             resized and released (area id, new start and end in s).
         area_rename_requested(int): "Rename" chosen on an area.
-        area_color_requested(int, str): a color chosen in the "Color"
-            option of an area's menu (area id, color name).
+        area_color_requested(int): "Color" chosen in an area's menu
+            (area id); the controller opens the color picker.
         area_delete_requested(int): "Delete" chosen on an area.
         area_drag_moved(int, float, float): a dragged area is now shown
             between these times (area id, start and end in s), so that
@@ -794,6 +828,12 @@ class PlotWidget(QWidget):
         text_note_edit_requested(int, str): a new text was confirmed for
             a text note after "Edit" (note index, text).
         text_note_delete_requested(int): "Delete" chosen on a text note.
+        text_note_size_requested(int, int): a size chosen in the "Size"
+            option of a text note (note index, size in points).
+        text_note_border_color_requested(int): "Border color" chosen on
+            a text note (note index).
+        text_note_text_color_requested(int): "Text color" chosen on a
+            text note (note index).
     Attributes:
         plot_id_i: the identifier given at creation.
         frequency_plot_b: True for a frequency plot (HLFR-00058).
@@ -817,6 +857,7 @@ class PlotWidget(QWidget):
     marker_place_requested = pyqtSignal(float)
     marker_move_requested = pyqtSignal(int, float)
     marker_rename_requested = pyqtSignal(int)
+    marker_color_requested = pyqtSignal(int)
     marker_delete_requested = pyqtSignal(int)
     delta_point_picked = pyqtSignal(str, float, float)
     delta_marker_delete_requested = pyqtSignal(int)
@@ -825,13 +866,16 @@ class PlotWidget(QWidget):
     area_create_requested = pyqtSignal(float, float)
     area_change_requested = pyqtSignal(int, float, float)
     area_rename_requested = pyqtSignal(int)
-    area_color_requested = pyqtSignal(int, str)
+    area_color_requested = pyqtSignal(int)
     area_delete_requested = pyqtSignal(int)
     area_drag_moved = pyqtSignal(int, float, float)
     text_note_create_requested = pyqtSignal(str, float, float)
     text_note_move_requested = pyqtSignal(int, float, float)
     text_note_edit_requested = pyqtSignal(int, str)
     text_note_delete_requested = pyqtSignal(int)
+    text_note_size_requested = pyqtSignal(int, int)
+    text_note_border_color_requested = pyqtSignal(int)
+    text_note_text_color_requested = pyqtSignal(int)
 
     def __init__(self, plot_id_i: int, parent=None,
                  kind_str: str = TIME_PLOT_KIND_STR) -> None:
@@ -856,8 +900,8 @@ class PlotWidget(QWidget):
         self.pinned_marker_list = []
         self.curve_sorted_list = []
         # LLFR-00081, LLFR-00084, LLFR-00092: markers to draw, as tuples
-        # (marker_id_i, name_str, time_s), and their artists by id as
-        # tuples (line, label annotation, time annotation).
+        # (marker_id_i, name_str, time_s, color_str), and their artists
+        # by id as tuples (line, label annotation, time annotation).
         self.marker_data_list = []
         self.marker_artist_dict = {}
         # LLFR-00168, LLFR-00170: delta markers to draw, as tuples
@@ -942,7 +986,8 @@ class PlotWidget(QWidget):
         # grid is drawn; hidden until the Grid button is clicked.
         self.grid_shown_b = False
         # LLFR-00305, LLFR-00307, LLFR-00308: areas to draw, as tuples
-        # (area_id_i, name_str, start_s, end_s), and their artists by id
+        # (area_id_i, name_str, start_s, end_s, color_str), and their
+        # artists by id
         # as tuples (band, label annotation, times annotation).
         self.area_data_list = []
         self.area_artist_dict = {}
@@ -963,7 +1008,8 @@ class PlotWidget(QWidget):
         # like the time span selection line.
         self.area_preview_band = None
         # LLFR-00336, LLFR-00337: text notes to draw, as tuples
-        # (text_str, time_s, value_f), and their annotations.
+        # (text_str, time_s, value_f, size_i, border_color_str,
+        # text_color_str), and their annotations.
         self.text_note_list = []
         self.text_note_annotation_list = []
         # LLFR-00339: the text note being dragged, if any; where it was
@@ -1149,14 +1195,20 @@ class PlotWidget(QWidget):
 
         Inputs:
             marker_data_list: list of tuples (marker_id_i, name_str,
-                time_s), in placing order.
+                time_s) or (marker_id_i, name_str, time_s, color_str), in
+                placing order; without a usable color_str the default
+                flag color is used.
         Outputs: none. Only the markers are redrawn.
         """
         # LLFR-00081, LLFR-00091, LLFR-00112: draw exactly these markers.
         # LLFR-00259: a frequency plot never shows vertical markers.
+        # LLFR-00392: each in its own color.
         self.marker_data_list = [
-            (int(marker_id_i), str(name_str), float(time_s))
-            for (marker_id_i, name_str, time_s) in marker_data_list
+            (int(marker_tuple[0]), str(marker_tuple[1]),
+             float(marker_tuple[2]),
+             (hex_color_or_none(marker_tuple[3]) if len(marker_tuple) > 3
+              else None) or DEFAULT_FLAG_COLOR_STR)
+            for marker_tuple in marker_data_list
             if not self.frequency_plot_b]
         # LLFR-00086: a drag of a marker that is gone ends here.
         if self.drag_marker_id_i not in {
@@ -1237,14 +1289,16 @@ class PlotWidget(QWidget):
 
         Inputs:
             text_note_data_list: list of tuples (text_str, time_s,
-                value_f), in the order the notes were written; time_s is
-                in Hz on a frequency plot.
+                value_f, size_i, border_color_str, text_color_str), in
+                the order the notes were written; time_s is in Hz on a
+                frequency plot. The last three may be left out, for the
+                style of a new note (text_note_data_tuple).
         Outputs: none. Only the notes are drawn again.
         """
         # LLFR-00337, LLFR-00340: draw exactly the notes of this plot.
-        new_note_list = [
-            (str(text_str), float(time_s), float(value_f))
-            for (text_str, time_s, value_f) in text_note_data_list]
+        # LLFR-00385, LLFR-00387: each with its size and colors.
+        new_note_list = [text_note_data_tuple(note_tuple)
+                         for note_tuple in text_note_data_list]
         # LLFR-00342: the field of "Edit" names its note by its place in
         # the list; when the list changes (an undo, a redo or another
         # rebuild), it might name another note, so it is closed and
@@ -1560,13 +1614,15 @@ class PlotWidget(QWidget):
             for artist in artist_tuple:
                 artist.remove()
         self.marker_artist_dict = {}
-        for marker_id_i, name_str, time_s in self.marker_data_list:
+        for marker_id_i, name_str, time_s, color_str in (
+                self.marker_data_list):
             # LLFR-00082: axvline spans the axes in axes coordinates
             # (0 to 1) in y, so it covers the whole y range at any zoom.
-            # LLFR-00083: in the reserved marker color.
+            # LLFR-00083, LLFR-00392: in the flag's color, the reserved
+            # marker color for a new flag.
             # LLFR-00143: the line is dashed.
             line = self.axes.axvline(
-                time_s, color=MARKER_COLOR_STR,
+                time_s, color=color_str,
                 linewidth=MARKER_LINE_WIDTH_F,
                 linestyle=MARKER_LINE_STYLE_TUPLE, zorder=MARKER_ZORDER_F)
             line.set_in_layout(False)
@@ -1578,7 +1634,7 @@ class PlotWidget(QWidget):
                 xytext=(MARKER_LABEL_OFFSET_POINTS_F,
                         -MARKER_LABEL_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
-                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
+                color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
                 bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
             label.set_in_layout(False)
@@ -1588,7 +1644,7 @@ class PlotWidget(QWidget):
                 format_time_text(time_s), xy=(0.0, 0.0), xycoords=label,
                 xytext=(0.0, -MARKER_TIME_GAP_POINTS_F),
                 textcoords="offset points", parse_math=False,
-                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
+                color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
                 bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
             time_text.set_in_layout(False)
@@ -2436,18 +2492,25 @@ class PlotWidget(QWidget):
         # LLFR-00339: the notes are replaced, so a note drag in progress
         # refers to a note that is gone; it ends without a request.
         self.reset_note_drag()
-        for text_str, time_s, value_f in self.text_note_list:
-            # LLFR-00336: dark text on a light box; LLFR-00337: attached
-            # to its x and y values, in data coordinates.
+        for (text_str, time_s, value_f, size_i, border_color_str,
+             text_color_str) in self.text_note_list:
+            # LLFR-00336: the text on a white rounded box with a border,
+            # like a pinned data tip, in the note's text and border
+            # colors (LLFR-00387), at its chosen size (LLFR-00385);
+            # LLFR-00337: attached to its x and y values, in data
+            # coordinates.
             annotation = self.axes.annotate(
                 text_str, xy=(time_s, value_f), xytext=(0.0, 0.0),
                 textcoords="offset points", parse_math=False,
                 horizontalalignment="left", verticalalignment="center",
-                color=theme.TEXT_NOTE_TEXT_COLOR_STR,
-                fontsize=theme.TEXT_NOTE_FONT_SIZE_F,
-                bbox=dict(theme.TEXT_NOTE_BOX_DICT),
+                color=text_color_str, fontsize=float(size_i),
+                bbox=dict(theme.TEXT_NOTE_BOX_DICT,
+                          edgecolor=border_color_str),
                 annotation_clip=False, zorder=TEXT_NOTE_ZORDER_F)
             annotation.set_in_layout(False)
+            # LLFR-00386: the chosen size, from which every draw fits the
+            # note into 25% of the drawing area's height.
+            annotation.chosen_size_i = int(size_i)
             # LLFR-00337, LLFR-00338: every draw (screen, image and PDF
             # export) first hides or places the note for that draw.
             annotation.draw = functools.partial(
@@ -2518,6 +2581,9 @@ class PlotWidget(QWidget):
         # inside the drawing area.
         if renderer is None:
             renderer = self.canvas.get_renderer()
+        # LLFR-00386: first the size, so that the box is measured as it
+        # will be drawn.
+        self.fit_text_note_size(annotation, renderer)
         annotation.set_position((0.0, 0.0))
         annotation.update_positions(renderer)
         box = self.tip_box_extent(annotation, renderer)
@@ -2534,6 +2600,67 @@ class PlotWidget(QWidget):
         annotation.set_position((shift_x_px / pixels_per_point_f,
                                  shift_y_px / pixels_per_point_f))
         annotation.update_positions(renderer)
+
+    def text_note_height_px(self, annotation, size_f: float,
+                            renderer) -> float:
+        """Return the height of a text note's box at a text size.
+
+        Inputs:
+            annotation: the matplotlib Annotation of the note.
+            size_f: the text size to measure, in points.
+            renderer: the matplotlib renderer.
+        Outputs: the height of the box, in display pixels. The note is
+            left at size_f.
+        """
+        # LLFR-00386: the box grows with the size of its text.
+        annotation.set_fontsize(size_f)
+        return float(self.tip_box_extent(annotation, renderer).height)
+
+    def fit_text_note_size(self, annotation, renderer) -> None:
+        """Draw a text note at its chosen size, or the largest that fits.
+
+        Inputs:
+            annotation: the matplotlib Annotation of the note.
+            renderer: the matplotlib renderer of this draw.
+        Outputs: none. The drawn size changes; the chosen size kept in
+            the model and on the annotation does not.
+        """
+        # LLFR-00386: never taller than 25% of the drawing area's height;
+        # every draw starts again from the chosen size, so the note grows
+        # back when the plot grows.
+        chosen_size_f = float(getattr(annotation, "chosen_size_i",
+                                      DEFAULT_TEXT_NOTE_SIZE_I))
+        limit_px = (TEXT_NOTE_MAXIMUM_HEIGHT_RATIO_F
+                    * float(self.axes.bbox.height))
+        if self.text_note_height_px(annotation, chosen_size_f,
+                                    renderer) <= limit_px:
+            return
+        # LLFR-00386: the largest size that fits, found by halving the
+        # interval between a size that fits and one that does not.
+        low_size_f = TEXT_NOTE_MINIMUM_SIZE_F
+        high_size_f = chosen_size_f
+        for _ in range(TEXT_NOTE_FIT_STEPS_I):
+            middle_size_f = (low_size_f + high_size_f) / 2.0
+            if self.text_note_height_px(annotation, middle_size_f,
+                                        renderer) <= limit_px:
+                low_size_f = middle_size_f
+            else:
+                high_size_f = middle_size_f
+        annotation.set_fontsize(low_size_f)
+
+    def text_note_drawn_size_f(self, note_index_i: int) -> float:
+        """Return the size a text note's text is drawn at now.
+
+        Inputs:
+            note_index_i: index in the list given to set_text_notes.
+        Outputs: the size in points, or 0.0 for an unknown index.
+        """
+        # LLFR-00385, LLFR-00386: the chosen size, or a smaller one that
+        # fits the height limit.
+        annotation = self.text_note_annotation(note_index_i)
+        if annotation is None:
+            return 0.0
+        return float(annotation.get_fontsize())
 
     def text_note_at(self, widget_point) -> int:
         """Return the index of the text note under a point.
@@ -2894,8 +3021,9 @@ class PlotWidget(QWidget):
         if moved_b and 0 <= note_index_i < len(self.text_note_list):
             # The drawn note stays where it was released until the
             # controller draws the notes again from the model.
+            note_tuple = self.text_note_list[note_index_i]
             self.text_note_list[note_index_i] = (
-                self.text_note_list[note_index_i][0],) + place_tuple
+                (note_tuple[0],) + tuple(place_tuple) + note_tuple[3:])
         self.reset_note_drag()
         if moved_b:
             # The receiver may redraw this widget, so this is the very
@@ -2919,7 +3047,7 @@ class PlotWidget(QWidget):
         annotation = self.text_note_annotation(note_index_i)
         if annotation is not None and note_index_i < len(
                 self.text_note_list):
-            annotation.xy = tuple(self.text_note_list[note_index_i][1:])
+            annotation.xy = tuple(self.text_note_list[note_index_i][1:3])
             self.place_text_notes()
         self.canvas.draw_idle()
 
@@ -3434,10 +3562,32 @@ class PlotWidget(QWidget):
         # menu has priority over every item under it.
         note_index_i = self.text_note_at(widget_point)
         if note_index_i != NO_TEXT_NOTE_INDEX_I:
+            # LLFR-00341: Edit, Size, Border color, Text color, Delete.
             add_request_action(
                 menu, "Edit",
                 lambda index_i=note_index_i:
                 self.edit_text_note_at(index_i))
+            # LLFR-00385: the preset sizes, the chosen one checked
+            # (LLFR-00386: also while it is drawn smaller).
+            size_menu = menu.addMenu("Size")
+            chosen_size_i = self.text_note_list[note_index_i][3]
+            for size_i in TEXT_NOTE_SIZE_TUPLE:
+                size_action = add_request_action(
+                    size_menu, str(size_i),
+                    lambda index_i=note_index_i, picked_size_i=size_i:
+                    self.text_note_size_requested.emit(index_i,
+                                                       picked_size_i))
+                size_action.setCheckable(True)
+                size_action.setChecked(size_i == chosen_size_i)
+            # LLFR-00387: the color picker for the border and the text.
+            add_request_action(
+                menu, "Border color",
+                lambda index_i=note_index_i:
+                self.text_note_border_color_requested.emit(index_i))
+            add_request_action(
+                menu, "Text color",
+                lambda index_i=note_index_i:
+                self.text_note_text_color_requested.emit(index_i))
             add_request_action(
                 menu, "Delete",
                 lambda index_i=note_index_i:
@@ -3460,6 +3610,11 @@ class PlotWidget(QWidget):
                 menu, "Rename",
                 lambda chosen_id_i=marker_id_i:
                 self.marker_rename_requested.emit(chosen_id_i))
+            # LLFR-00391: "Color" between "Rename" and "Delete".
+            add_request_action(
+                menu, "Color",
+                lambda chosen_id_i=marker_id_i:
+                self.marker_color_requested.emit(chosen_id_i))
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=marker_id_i:
@@ -3502,20 +3657,11 @@ class PlotWidget(QWidget):
                 menu, "Rename",
                 lambda chosen_id_i=area_id_i:
                 self.area_rename_requested.emit(chosen_id_i))
-            # LLFR-00351: the five colors, the area's own one checked.
-            color_menu = menu.addMenu("Color")
-            current_color_str = next(
-                area_tuple[4] for area_tuple in self.area_data_list
-                if area_tuple[0] == area_id_i)
-            for color_name_str in AREA_COLOR_NAME_TUPLE:
-                color_action = add_request_action(
-                    color_menu, color_name_str,
-                    lambda chosen_id_i=area_id_i,
-                    chosen_color_str=color_name_str:
-                    self.area_color_requested.emit(chosen_id_i,
-                                                   chosen_color_str))
-                color_action.setCheckable(True)
-                color_action.setChecked(color_name_str == current_color_str)
+            # LLFR-00351: "Color" opens the shared color picker.
+            add_request_action(
+                menu, "Color",
+                lambda chosen_id_i=area_id_i:
+                self.area_color_requested.emit(chosen_id_i))
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=area_id_i:
@@ -3537,9 +3683,11 @@ class PlotWidget(QWidget):
         Inputs:
             widget_point: QPoint in this widget's coordinates.
         Outputs: a QMenu (not shown) whose actions emit their request
-            when triggered. On a text note it has "Edit" and "Delete";
-            on a pinned tip "Delete"; on a marker
-            "Rename" and "Delete"; on a delta marker "Delete"; on a
+            when triggered. On a text note it has "Edit", "Size", "Border
+            color", "Text color" and "Delete"; on a pinned tip "Delete";
+            on a marker "Rename", "Color" and "Delete"; on a delta
+            marker "Delete"; on an area "Rename", "Color", "Delete" and
+            "Delete plot"; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
             elsewhere "Delete plot".
         """
@@ -3890,7 +4038,8 @@ class PlotWidget(QWidget):
             self.canvas.draw_idle()
             # LLFR-00205: the other plots of the tab show it back at its
             # stored time.
-            for stored_id_i, _, stored_time_s in self.marker_data_list:
+            for marker_tuple in self.marker_data_list:
+                stored_id_i, stored_time_s = marker_tuple[0], marker_tuple[2]
                 if stored_id_i == marker_id_i:
                     self.marker_drag_moved.emit(marker_id_i, stored_time_s)
 
@@ -4576,8 +4725,8 @@ class PlotWidget(QWidget):
 
         Inputs:
             area_data_list: list of tuples (area_id_i, name_str, start_s,
-                end_s, color_name_str), in creation order; without
-                color_name_str, or with an unknown one, the default color
+                end_s, color_str), in creation order; without color_str,
+                or with one not written as "#rrggbb", the default color
                 is used.
         Outputs: none. Only the areas are redrawn.
         """
@@ -4588,14 +4737,13 @@ class PlotWidget(QWidget):
         for area_tuple in area_data_list:
             if self.frequency_plot_b:
                 break
-            color_name_str = (str(area_tuple[4]) if len(area_tuple) > 4
-                              else DEFAULT_AREA_COLOR_NAME_STR)
-            if color_name_str not in AREA_COLOR_DICT:
-                color_name_str = DEFAULT_AREA_COLOR_NAME_STR
+            color_str = ((hex_color_or_none(area_tuple[4])
+                          if len(area_tuple) > 4 else None)
+                         or DEFAULT_AREA_COLOR_STR)
             self.area_data_list.append(
                 (int(area_tuple[0]), str(area_tuple[1]),
                  float(area_tuple[2]), float(area_tuple[3]),
-                 color_name_str))
+                 color_str))
         # LLFR-00312, LLFR-00313: a drag of an area that is gone ends.
         if (self.area_drag_mode_str not in (AREA_DRAG_NONE_STR,
                                             AREA_DRAG_CREATE_STR)
@@ -4620,7 +4768,7 @@ class PlotWidget(QWidget):
         self.area_artist_dict = {}
         x_axis_transform = self.axes.get_xaxis_transform()
         for (area_id_i, name_str, start_s, end_s,
-             color_name_str) in self.area_data_list:
+             color_str) in self.area_data_list:
             # LLFR-00305: a see-through band in the area's color, x in
             # data and y in axes coordinates (0 to 1), so it covers the
             # whole y range at any zoom. LLFR-00306: behind everything.
@@ -4628,7 +4776,7 @@ class PlotWidget(QWidget):
             band = Rectangle(
                 (start_s, 0.0), end_s - start_s, 1.0,
                 transform=x_axis_transform,
-                facecolor=AREA_COLOR_DICT[color_name_str],
+                facecolor=color_str,
                 edgecolor="none", alpha=AREA_ALPHA_F, zorder=AREA_ZORDER_F)
             self.axes.add_artist(band)
             band.set_in_layout(False)

@@ -47,7 +47,18 @@ class MarkerControllerTestCase(PlotControllerTestCase):
         Inputs: none.
         Outputs: a list of tuples (marker_id_i, name_str, time_s).
         """
-        return self.view.marker_drawn_dict[self.plot_id_i]
+        return self.markers_of(self.plot_id_i)
+
+    def markers_of(self, plot_id_i: int) -> list:
+        """Return the markers last drawn in a plot, without their color.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: a list of tuples (marker_id_i, name_str, time_s); the
+            colors are checked in tests/controller/test_flag_colors.py.
+        """
+        return [tuple(marker_tuple[:3])
+                for marker_tuple in self.view.marker_drawn_dict[plot_id_i]]
 
     def drawn_names(self) -> list:
         """Return the names of the markers last drawn in the plot.
@@ -64,7 +75,7 @@ class MarkerControllerTestCase(PlotControllerTestCase):
             name_str: the marker's name.
         Outputs: the marker id.
         """
-        for marker_id_i, drawn_name_str, _ in self.drawn_markers():
+        for marker_id_i, drawn_name_str, *_ in self.drawn_markers():
             if drawn_name_str == name_str:
                 return marker_id_i
         raise AssertionError(f"no marker named {name_str!r}")
@@ -286,7 +297,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 5.0)
         for plot_id_i in (self.plot_id_i, second_plot_id_i,
                           other_tab_plot_id_i):
-            self.assertEqual(self.view.marker_drawn_dict[plot_id_i],
+            self.assertEqual(self.markers_of(plot_id_i),
                              [(marker_id_i, "Marker 1", 5.0)])
 
 
@@ -484,7 +495,7 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         self.place(1.0, old_plot_id_i)
         self.double_click("s1")
         new_plot_id_i = self.current_plot_ids()[0]
-        self.assertEqual(self.view.marker_drawn_dict[new_plot_id_i], [])
+        self.assertEqual(self.markers_of(new_plot_id_i), [])
 
 
 class SharedMarkersTest(MarkerControllerTestCase):
@@ -520,9 +531,9 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.place(4.0)
         self.assertEqual(len(self.workspace.marker_list), 1)
         expected_list = self.marker_tuple_list()
-        self.assertEqual(self.view.marker_drawn_dict[self.plot_id_i],
+        self.assertEqual(self.markers_of(self.plot_id_i),
                          expected_list)
-        self.assertEqual(self.view.marker_drawn_dict[other_plot_id_i],
+        self.assertEqual(self.markers_of(other_plot_id_i),
                          expected_list)
         # Placing from the other tab's plot shows it on the first one.
         self.place(6.0, other_plot_id_i)
@@ -540,11 +551,11 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.place(2.0)
         expected_list = self.marker_tuple_list()
         new_tab_plot_id_i = self.add_plot_in_new_tab("s1")
-        self.assertEqual(self.view.marker_drawn_dict[new_tab_plot_id_i],
+        self.assertEqual(self.markers_of(new_tab_plot_id_i),
                          expected_list)
         self.double_click("s2")
         second_plot_id_i = self.current_plot_ids()[1]
-        self.assertEqual(self.view.marker_drawn_dict[second_plot_id_i],
+        self.assertEqual(self.markers_of(second_plot_id_i),
                          expected_list)
 
     @covers("LLFR-00088", "LLFR-00112", "LLFR-00205")
@@ -611,7 +622,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
             self.assertEqual(self.marker_tuple_list(), expected_list)
             # The rebuilt views show the restored markers on every plot.
             for plot_id_i in (self.plot_id_i, other_plot_id_i):
-                self.assertEqual(self.view.marker_drawn_dict[plot_id_i],
+                self.assertEqual(self.markers_of(plot_id_i),
                                  expected_list)
         self.assertEqual(self.controller.undo_history.depth(), depth_i)
 
@@ -652,7 +663,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.undo()
         self.assertIsNotNone(self.workspace.find_plot(self.plot_id_i))
         self.assertEqual(self.marker_tuple_list(), saved_list)
-        self.assertEqual(self.view.marker_drawn_dict[self.plot_id_i],
+        self.assertEqual(self.markers_of(self.plot_id_i),
                          saved_list)
         # LLFR-00111: the numbers are still not reused.
         self.place(3.0)
@@ -672,7 +683,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.assertEqual(self.workspace.marker_list, [])
         self.undo()
         self.assertEqual(self.marker_tuple_list(), saved_list)
-        self.assertEqual(self.view.marker_drawn_dict[self.plot_id_i],
+        self.assertEqual(self.markers_of(self.plot_id_i),
                          saved_list)
 
     @covers("LLFR-00205", "LLFR-00028", "LLFR-00140")
@@ -697,7 +708,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.assertEqual(self.workspace.marker_list, [])
         self.undo()
         self.assertEqual(self.marker_tuple_list(), saved_list)
-        self.assertEqual(self.view.marker_drawn_dict[self.plot_id_i],
+        self.assertEqual(self.markers_of(self.plot_id_i),
                          saved_list)
 
     @covers("LLFR-00205", "LLFR-00085", "LLFR-00111", "LLFR-00015")
@@ -716,7 +727,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.view.handler_dict["plot_tool"](MARKER_TOOL_STR)
         self.double_click("s1")
         new_plot_id_i = self.current_plot_ids()[0]
-        self.assertEqual(self.view.marker_drawn_dict[new_plot_id_i], [])
+        self.assertEqual(self.markers_of(new_plot_id_i), [])
         self.place(1.5, new_plot_id_i)
         self.assertEqual(self.marker_names_of(new_plot_id_i), ["Marker 1"])
 

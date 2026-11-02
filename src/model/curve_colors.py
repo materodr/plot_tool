@@ -9,6 +9,8 @@ given to a curve (LLFR-00083): every palette color and every random
 color keeps a distance of at least 70 from it (LLFR-00365).
 """
 
+import re
+
 # LLFR-00033: 8 colors that are easy to tell apart on a white
 # background (mostly from the Tableau 10 set, plus black): every two of
 # them are at least MINIMUM_COLOR_DISTANCE_F apart (the closest pair,
@@ -166,3 +168,28 @@ def next_curve_color(drawn_count_i: int, used_color_list: list,
                    for used_str in used_lower_set):
                 return color_str
         minimum_distance_f *= DISTANCE_RELAX_FACTOR_F
+
+
+# LLFR-00319, LLFR-00388, LLFR-00393: a color written as "#rrggbb", with
+# six hexadecimal digits in uppercase or lowercase.
+HEX_COLOR_PATTERN_STR = r"#[0-9a-fA-F]{6}"
+
+
+def hex_color_or_none(color_value):
+    """Return a color as lowercase "#rrggbb", or None when it is not one.
+
+    Inputs:
+        color_value: any value, for example a color read from a layout
+            file or confirmed in the color picker.
+    Outputs: the color as "#rrggbb" in lowercase when color_value is a
+        str written as "#rrggbb" (six hexadecimal digits, any case);
+        None otherwise.
+    """
+    # LLFR-00388: any opaque color, red, green and blue from 0 to 255.
+    # LLFR-00319, LLFR-00393: a saved color written as "#rrggbb" is used
+    # as it is; LLFR-00225: colors are kept, and saved, in lowercase.
+    if not isinstance(color_value, str):
+        return None
+    if re.fullmatch(HEX_COLOR_PATTERN_STR, color_value) is None:
+        return None
+    return color_value.lower()

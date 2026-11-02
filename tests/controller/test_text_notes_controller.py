@@ -51,11 +51,13 @@ class TextNoteControllerTestCase(PlotControllerTestCase):
 
         Inputs:
             plot_id_i: the plot (default: the plot of the setup).
-        Outputs: the list of (text_str, time_s, value_f).
+        Outputs: the list of (text_str, time_s, value_f), without the
+            size and colors (tests/controller/test_text_note_style.py).
         """
         if plot_id_i is None:
             plot_id_i = self.plot_id_i
-        return self.view.text_note_drawn_dict.get(plot_id_i, [])
+        return [tuple(note_tuple[:3]) for note_tuple in
+                self.view.text_note_drawn_dict.get(plot_id_i, [])]
 
     def undo_depth(self) -> int:
         """Return how many states the undo history keeps.
@@ -393,7 +395,8 @@ class TextNoteLayoutTest(LayoutControllerTestCase):
         kept_plot = self.workspace.find_plot(plot_id_i)
         self.assertEqual([note.text_str for note in kept_plot.text_note_list],
                          ["kept note"])
-        self.assertEqual(self.view.text_note_drawn_dict[plot_id_i],
+        self.assertEqual([tuple(note_tuple[:3]) for note_tuple in
+                          self.view.text_note_drawn_dict[plot_id_i]],
                          [("kept note", 2.0, 1.0)])
         added_plot_list = [plot for tab in self.workspace.tab_list[1:]
                            for plot in tab.plot_list]
