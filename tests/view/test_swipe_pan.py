@@ -253,6 +253,16 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         """
         return geometry_of(self.plot_widget)
 
+    def one_pixel_s(self) -> float:
+        """Return the time that one screen pixel shows at the moment.
+
+        Inputs: none.
+        Outputs: the shown width divided by the drawing area's width in
+            screen pixels, in seconds.
+        """
+        start_s, end_s, axes_width_px = self.geometry_tuple()
+        return (end_s - start_s) / axes_width_px
+
     def assert_curves_moved(self, before_tuple: tuple,
                             expected_shift_px: float) -> None:
         """Check that the curves moved right by a number of pixels.
@@ -485,10 +495,13 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
                     start_s, end_s = self.plot_widget.time_range_tuple()
                     self.assertAlmostEqual(end_s - start_s,
                                            expected_width_s)
-                    # Zoomed around the pointer: not panned.
+                    # Zoomed around the pointer: not panned (a pan of
+                    # 20 pixels would move the range by about 20 pixels'
+                    # worth; the event point is rounded to a pixel).
                     factor_f = expected_width_s / 4.0
                     self.assertAlmostEqual(
-                        start_s, center_s + (3.0 - center_s) * factor_f)
+                        start_s, center_s + (3.0 - center_s) * factor_f,
+                        delta=self.one_pixel_s())
 
     @covers("LLFR-00346", "LLFR-00345")
     def test_sideways_gesture_never_zooms(self) -> None:
@@ -547,8 +560,11 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         factor_f = 0.95 ** (90.0 / 120.0)
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(end_s - start_s, 4.0 * factor_f)
+        # Around the pointer, within a pixel: the y fit of each zoom may
+        # change the drawing area's width a little.
         self.assertAlmostEqual(start_s,
-                               center_s + (3.0 - center_s) * factor_f)
+                               center_s + (3.0 - center_s) * factor_f,
+                               delta=self.one_pixel_s())
         # A new gesture that starts sideways pans.
         before_tuple = self.geometry_tuple()
         self.swipe(-40, phase_name_str="ScrollBegin")
