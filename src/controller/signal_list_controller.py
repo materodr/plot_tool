@@ -3,7 +3,8 @@
 It talks to the view only through plain method calls (no Qt code), so
 it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``set_search_text_handler``, ``show_signal_names``,
-``show_no_match_message``, ``clear_search`` and ``set_signal_kinds``.
+``show_no_match_message``, ``clear_search``, ``set_signal_kinds``,
+``clear_signal_selection`` and ``rename_shown_signal``.
 
 The list shows the data file signals, then the synthetic signals in
 creation order (LLFR-00242); the SyntheticController gives the names of
@@ -79,6 +80,18 @@ class SignalListController:
         self.fft_name_set = set(fft_name_set)
         self.show_filtered_names()
 
+    def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
+        """Rename a shown signal before the list is shown again.
+
+        Inputs:
+            old_name_str: the previous name of a synthetic signal.
+            new_name_str: its new name.
+        Outputs: none. Call set_synthetic_signals afterwards.
+        """
+        # LLFR-00266, LLFR-00292: the renamed signal is still shown, so
+        # it keeps its selection.
+        self.view.rename_shown_signal(old_name_str, new_name_str)
+
     def signal_name_list(self) -> list:
         """Return every name of the signal list, in list order.
 
@@ -105,6 +118,10 @@ class SignalListController:
         # are gone.
         self.synthetic_name_list = []
         self.fft_name_set = set()
+        # LLFR-00292: the signals of the previous file are no longer
+        # shown, so none stays selected, also when the new file has a
+        # signal with the same name.
+        self.view.clear_signal_selection()
         if replaced_b:
             # LLFR-00104: the search box is cleared on file replace. The
             # stored text is reset first, so the change the view reports

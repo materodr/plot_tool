@@ -94,6 +94,7 @@ class FakeSignalListView:
         self.call_list = []
         self.synthetic_name_set = set()
         self.fft_name_set = set()
+        self.selection_clear_count_i = 0
 
     def set_search_text_handler(self, handler) -> None:
         """Record the search box handler.
@@ -169,6 +170,30 @@ class FakeSignalListView:
         """
         self.call_list.append("clear_search")
         self.type_text("")
+
+    def clear_signal_selection(self) -> None:
+        """Record that the selection of the list was cleared.
+
+        Not added to call_list, so that the call order tests of the
+        search are not affected.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.selection_clear_count_i += 1
+
+    def rename_shown_signal(self, old_name_str: str,
+                            new_name_str: str) -> None:
+        """Rename a shown name in place, as the real list does.
+
+        Inputs:
+            old_name_str: the previous name.
+            new_name_str: the new name.
+        Outputs: none.
+        """
+        self.shown_name_list = [
+            new_name_str if name_str == old_name_str else name_str
+            for name_str in self.shown_name_list]
 
 
 class FakeFileView(FakeSignalListView):
