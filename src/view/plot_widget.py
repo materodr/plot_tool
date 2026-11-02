@@ -180,8 +180,8 @@ from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
-    AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR,
-    TIP_TOOL_STR, ZOOM_TOOL_STR, is_delta_tool)
+    AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, PAN_TOOL_STR,
+    TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR, is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import (
     AREA_COLOR_NAME_TUPLE, DEFAULT_AREA_COLOR_NAME_STR, DELTA_X_KIND_STR,
@@ -890,6 +890,9 @@ class PlotWidget(QWidget):
         # time that was under the pointer when it was pressed.
         self.panning_b = False
         self.pan_anchor_s = 0.0
+        # LLFR-00117, LLFR-00356: the mouse button that drives the pan in
+        # progress: the wheel button, or the left button of the Pan tool.
+        self.pan_mouse_button = Qt.MouseButton.MiddleButton
         # LLFR-00346: the choice of the trackpad gesture in progress:
         # SWIPE_PAN_STR, SWIPE_ZOOM_STR, or NO_SWIPE_CHOICE_STR until its
         # first event that moves.
@@ -1103,6 +1106,10 @@ class PlotWidget(QWidget):
         # drag (the area stays where it was, no area is created).
         if self.plot_tool_str != AREA_TOOL_STR:
             self.cancel_area_drag()
+        # LLFR-00356: a left drag pans only with the Pan tool; leaving it
+        # (for example with a hold key) ends the pan where it is.
+        if self.plot_tool_str != PAN_TOOL_STR:
+            self.stop_tool_pan()
 
     def set_markers(self, marker_data_list: list) -> None:
         """Replace the vertical markers drawn in the plot.
@@ -3671,7 +3678,9 @@ class PlotWidget(QWidget):
         Inputs:
             widget_point: QPoint in this widget's coordinates.
         Outputs: none. A press on a text note or a pinned tip starts
-            moving it, with any tool or none; with the Vertical marker
+            moving it, with any tool or none; with the Pan tool, any
+            other press on the drawing area starts a pan
+            (tool_pan_press_at); with the Vertical marker
             tool, a press on a marker starts dragging it; with the Zoom
             tool, a press starts a click zoom or a time span selection,
             decided by the mouse moves and the release (span_press_at);
@@ -3696,6 +3705,12 @@ class PlotWidget(QWidget):
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i != NO_TIP_INDEX_I:
             self.tip_press_at(widget_point, tip_index_i)
+            return
+        # LLFR-00356, LLFR-00357: with the Pan tool, any other press on
+        # the drawing area starts a pan, also on a vertical marker, a
+        # delta marker or an area, which it leaves unchanged.
+        if self.plot_tool_str == PAN_TOOL_STR:
+            self.tool_pan_press_at(widget_point)
             return
         # LLFR-00303, LLFR-00312, LLFR-00313: with the Area tool, a press
         # creates, moves or resizes an area. LLFR-00318: with any other
@@ -4330,11 +4345,15 @@ class PlotWidget(QWidget):
         # LLFR-00070: the plot panel shares the range with the tab.
         self.time_range_changed.emit(new_start_s, new_end_s)
 
-    def pan_press_at(self, widget_point) -> None:
+    def pan_press_at(self, widget_point,
+                     mouse_button=Qt.MouseButton.MiddleButton) -> None:
         """Start a pan with the wheel button pressed at a point.
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
+            mouse_button: the Qt.MouseButton that drives the pan: the
+                wheel button (LLFR-00117), or the left button of the Pan
+                tool (LLFR-00356).
         Outputs: none. Nothing starts while a marker is being dragged.
         """
         # LLFR-00117: the time under the pointer is held under it while
@@ -4348,6 +4367,7 @@ class PlotWidget(QWidget):
                 or self.area_drag_mode_str != AREA_DRAG_NONE_STR):
             return
         self.panning_b = True
+        self.pan_mouse_button = mouse_button
         self.pan_anchor_s = self.time_at(widget_point)
         # LLFR-00042: a pan is not a hover over a curve.
         self.hide_hover_tip()
@@ -4433,6 +4453,44 @@ class PlotWidget(QWidget):
         self.canvas.draw_idle()
         # LLFR-00070: the plot panel shares the range with the tab.
         self.time_range_changed.emit(new_start_s, new_end_s)
+
+    def tool_pan_press_at(self, widget_point) -> None:
+        """Start a pan with the left button of the Pan tool.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. A press outside the drawing area does nothing.
+        """
+        # LLFR-00356: only a press on the plot's drawing area pans.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return
+        # LLFR-00356, LLFR-00118 to LLFR-00120: the wheel button pan code,
+        # driven by the left button. LLFR-00357: a press and release
+        # without a move shifts nothing and shows nothing. LLFR-00207:
+        # panning_b makes the Z key do nothing until the release.
+        self.pan_press_at(widget_point, Qt.MouseButton.LeftButton)
+
+    def is_tool_pan_b(self) -> bool:
+        """Tell whether a pan of the Pan tool (left button) is running.
+
+        Inputs: none.
+        Outputs: True from the left press of the Pan tool to the release.
+        """
+        # LLFR-00356: the left button drives this pan.
+        return (self.panning_b
+                and self.pan_mouse_button == Qt.MouseButton.LeftButton)
+
+    def stop_tool_pan(self) -> None:
+        """End a pan of the Pan tool where it is.
+
+        Inputs: none.
+        Outputs: none. A wheel button pan is left running.
+        """
+        # LLFR-00356: a pan only changed the view, so it simply stops.
+        if self.is_tool_pan_b():
+            self.panning_b = False
 
     def pan_release_at(self, widget_point) -> None:
         """End a pan at the point where the wheel button was released.
@@ -5086,8 +5144,9 @@ class PlotWidget(QWidget):
         widget_point = self.display_to_widget_point(event.x, event.y)
         # LLFR-00117: a move with the wheel button held pans. A pan whose
         # release was lost just stops.
+        # LLFR-00356: or with the left button of the Pan tool.
         if self.panning_b:
-            if not mouse_button_held_b(event, Qt.MouseButton.MiddleButton):
+            if not mouse_button_held_b(event, self.pan_mouse_button):
                 self.panning_b = False
                 return
             # LLFR-00203: the grabbed time stays under the pointer, so the
@@ -5161,8 +5220,14 @@ class PlotWidget(QWidget):
         # LLFR-00117: the wheel button starts a pan, with any tool, and
         # never zooms, pins, places or grabs a marker, or opens a menu.
         if event.button == MouseButton.MIDDLE:
-            self.pan_press_at(widget_point)
+            # LLFR-00356: not during a pan of the Pan tool.
+            if not self.is_tool_pan_b():
+                self.pan_press_at(widget_point)
             return
+        # LLFR-00356: a left press during a left pan means its release
+        # was lost; that pan ends and the press is handled as new.
+        if event.button == MouseButton.LEFT:
+            self.stop_tool_pan()
         if event.button == MouseButton.RIGHT:
             # LLFR-00117, LLFR-00086, LLFR-00152: a right press cancels a
             # pan or drag in progress before the menu logic runs.
@@ -5201,10 +5266,15 @@ class PlotWidget(QWidget):
         widget_point = self.display_to_widget_point(event.x, event.y)
         # LLFR-00117: releasing the wheel button ends a pan.
         if event.button == MouseButton.MIDDLE:
-            self.pan_release_at(widget_point)
+            if not self.is_tool_pan_b():
+                self.pan_release_at(widget_point)
             return
         # LLFR-00086: releasing the left button leaves a dragged marker.
         if event.button != MouseButton.LEFT:
+            return
+        # LLFR-00356: releasing the left button ends a Pan tool pan.
+        if self.is_tool_pan_b():
+            self.pan_release_at(widget_point)
             return
         # LLFR-00152: or a dragged pinned tip.
         if self.drag_tip_index_i != NO_TIP_INDEX_I:

@@ -11,29 +11,30 @@ from tests.controller.test_plot_controller import PlotControllerTestCase
 
 from controller.plot_tools import (
     AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
-    NO_TOOL_STR, PLOT_TOOL_TUPLE, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
-    is_delta_tool, is_known_plot_tool)
+    NO_TOOL_STR, PAN_TOOL_STR, PLOT_TOOL_TUPLE, TEXT_TOOL_STR, TIP_TOOL_STR,
+    ZOOM_TOOL_STR, is_delta_tool, is_known_plot_tool)
 
 
 class PlotToolNameTest(unittest.TestCase):
     """The tool names shared by the controller and the view."""
 
-    @covers("LLFR-00079", "LLFR-00286", "LLFR-00320", "LLFR-00347")
+    @covers("LLFR-00079", "LLFR-00286", "LLFR-00320", "LLFR-00347",
+            "LLFR-00355")
     def test_tool_names_are_distinct(self) -> None:
-        """The seven tools and "no tool" have different names.
+        """The eight tools and "no tool" have different names.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(NO_TOOL_STR, "")
         self.assertEqual(PLOT_TOOL_TUPLE,
-                         (TIP_TOOL_STR, ZOOM_TOOL_STR, MARKER_TOOL_STR,
-                          DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, AREA_TOOL_STR,
-                          TEXT_TOOL_STR))
-        self.assertEqual(len(set(PLOT_TOOL_TUPLE + (NO_TOOL_STR,))), 8)
+                         (TIP_TOOL_STR, ZOOM_TOOL_STR, PAN_TOOL_STR,
+                          MARKER_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
+                          AREA_TOOL_STR, TEXT_TOOL_STR))
+        self.assertEqual(len(set(PLOT_TOOL_TUPLE + (NO_TOOL_STR,))), 9)
         for tool_str in PLOT_TOOL_TUPLE + (NO_TOOL_STR,):
             self.assertTrue(is_known_plot_tool(tool_str))
-        for unknown_str in ("Tip", "pan", " ", "zoom "):
+        for unknown_str in ("Tip", "Pan", " ", "zoom "):
             self.assertFalse(is_known_plot_tool(unknown_str))
 
 
@@ -114,7 +115,7 @@ class PlotToolControllerTest(PlotControllerTestCase):
         Outputs: none.
         """
         self.view.handler_dict["plot_tool"](TIP_TOOL_STR)
-        self.view.handler_dict["plot_tool"]("pan")
+        self.view.handler_dict["plot_tool"]("hand")
         self.assertEqual(self.controller.plot_tool_str, TIP_TOOL_STR)
         self.assertEqual(self.tool_call_list(), [TIP_TOOL_STR])
 

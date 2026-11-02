@@ -7,19 +7,23 @@ requirements is the button whose name is X. Below the name, the button
 tip shows the button's keyboard shortcut (LLFR-00213) or how its tool
 is used with the mouse (LLFR-00214), in a paler color, with the texts
 of LLFR-00215, built from BUTTON_TIP_SHORTCUT_DICT.
+
+At its right end the panel shows the credit text "designed by
+materodr" (LLFR-00364), which is not a button: it lets every mouse
+event through and is hidden when it does not fit beside the buttons.
 """
 
 import html
 import sys
 
 from PyQt6 import sip
-from PyQt6.QtCore import QPoint, QTimer, pyqtSignal
+from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QKeySequence
-from PyQt6.QtWidgets import QHBoxLayout, QMenu, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QMenu, QWidget
 
 from controller.plot_tools import (
     AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
-    NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+    NO_TOOL_STR, PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 from view import icon_shapes, theme
 from view.action_button import ActionButton
 from view.tip_key_filter import (
@@ -36,6 +40,8 @@ LOAD_LAYOUT_TEXT_STR = "Load layout"
 # LLFR-00018: the button of the data tip tool (HLFR-00024).
 TIP_TEXT_STR = "Data tip"
 ZOOM_TEXT_STR = "Zoom"
+# LLFR-00355: the button of the Pan tool, right of Zoom (LLFR-00347).
+PAN_TEXT_STR = "Pan"
 MARKER_TEXT_STR = "Vertical marker"
 # LLFR-00161, LLFR-00162: the delta marker tool buttons.
 DELTA_X_TEXT_STR = "Delta X"
@@ -52,6 +58,13 @@ COPY_TEXT_STR = "Copy"
 UNDO_TEXT_STR = "Undo"
 # LLFR-00190: the Redo button, right of the Undo button.
 REDO_TEXT_STR = "Redo"
+# LLFR-00358: the Report a bug button, alone in the last group.
+REPORT_BUG_TEXT_STR = "Report a bug"
+# LLFR-00359: the page of the repository's "New issue" button.
+REPORT_BUG_URL_STR = "https://github.com/materodr/plot_tool/issues/new/choose"
+# LLFR-00364: the credit text and the objectName of its label.
+CREDIT_TEXT_STR = "designed by materodr"
+CREDIT_LABEL_NAME_STR = "credit_label"
 # LLFR-00159: the icon of each button, by button name.
 BUTTON_ICON_DICT = {
     OPEN_FILE_TEXT_STR: icon_shapes.OPEN_FILE_ICON_STR,
@@ -59,6 +72,7 @@ BUTTON_ICON_DICT = {
     LOAD_LAYOUT_TEXT_STR: icon_shapes.LOAD_LAYOUT_ICON_STR,
     TIP_TEXT_STR: icon_shapes.TIP_ICON_STR,
     ZOOM_TEXT_STR: icon_shapes.ZOOM_ICON_STR,
+    PAN_TEXT_STR: icon_shapes.PAN_ICON_STR,
     MARKER_TEXT_STR: icon_shapes.MARKER_ICON_STR,
     DELTA_X_TEXT_STR: icon_shapes.DELTA_X_ICON_STR,
     DELTA_Y_TEXT_STR: icon_shapes.DELTA_Y_ICON_STR,
@@ -70,6 +84,7 @@ BUTTON_ICON_DICT = {
     COPY_TEXT_STR: icon_shapes.COPY_ICON_STR,
     UNDO_TEXT_STR: icon_shapes.UNDO_ICON_STR,
     REDO_TEXT_STR: icon_shapes.REDO_ICON_STR,
+    REPORT_BUG_TEXT_STR: icon_shapes.REPORT_BUG_ICON_STR,
 }
 
 # ----------------------------------------------------------------------
@@ -101,11 +116,14 @@ SHIFT_NAME_STR = "Shift"
 # used with the mouse or the trackpad (LLFR-00214, LLFR-00215).
 ZOOM_MOUSE_LINE_TUPLE = ("Click or drag to zoom in",
                          "Wheel or two-finger swipe to zoom in or out")
+# LLFR-00356: how the Pan tool is used with the mouse (LLFR-00214,
+# LLFR-00215). The Pan tool has no hold key.
+PAN_MOUSE_LINE_TUPLE = ("Drag on a plot to pan",)
 # LLFR-00213 to LLFR-00215: the shortcut or mouse use of each button,
 # next to the keys the app really uses (view.tip_key_filter and the
 # shortcuts above), as (kind, value). A button that is not listed (Open
-# file, Grid, Export, Copy, Save layout, Load layout) shows only its
-# name.
+# file, Grid, Export, Copy, Save layout, Load layout, Report a bug)
+# shows only its name.
 BUTTON_TIP_SHORTCUT_DICT = {
     UNDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, UNDO_STANDARD_KEY),
     REDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, REDO_SHORTCUT_STR),
@@ -118,6 +136,7 @@ BUTTON_TIP_SHORTCUT_DICT = {
     TEXT_TEXT_STR: (SHORTCUT_HOLD_STR, TEXT_KEY_I),
     RESET_ZOOM_TEXT_STR: (SHORTCUT_PRESS_STR, RESET_ZOOM_KEY_I),
     ZOOM_TEXT_STR: (MOUSE_USE_STR, ZOOM_MOUSE_LINE_TUPLE),
+    PAN_TEXT_STR: (MOUSE_USE_STR, PAN_MOUSE_LINE_TUPLE),
 }
 
 
@@ -179,7 +198,8 @@ def button_tip_detail_list(name_str: str, macos_b: bool) -> list:
         macos_b: True for the macOS texts, False for the Windows texts.
     Outputs: a list of str: one shortcut line (LLFR-00213), the mouse
         use lines of the Zoom button (LLFR-00214), or an empty list for
-        a button that shows only its name (LLFR-00215).
+        a button that shows only its name (LLFR-00215), and the mouse
+        use line of the Pan button.
     """
     # LLFR-00215: every text comes from BUTTON_TIP_SHORTCUT_DICT.
     if name_str not in BUTTON_TIP_SHORTCUT_DICT:
@@ -191,7 +211,7 @@ def button_tip_detail_list(name_str: str, macos_b: bool) -> list:
         return [HOLD_PREFIX_STR + key_name_str(value, macos_b)]
     if kind_str == SHORTCUT_PRESS_STR:
         return [key_name_str(value, macos_b)]
-    # LLFR-00214: the Zoom tool is used with the mouse.
+    # LLFR-00214: the Zoom and Pan tools are used with the mouse.
     return list(value)
 
 
@@ -269,6 +289,8 @@ class TopPanel(QWidget):
         plot_tool_changed(str): the active plot tool changed; the value
             is a name of controller.plot_tools, NO_TOOL_STR when no plot
             tool is active any more (LLFR-00079, LLFR-00002).
+        report_bug_requested: the Report a bug button was clicked, once
+            its active color is painted (LLFR-00359, LLFR-00360).
     Attributes:
         button_layout: horizontal layout that holds the panel's buttons.
         open_file_button: the "Open file" ToggleButton (LLFR-00004).
@@ -280,6 +302,7 @@ class TopPanel(QWidget):
             is open (LLFR-00218).
         tip_button: the "Data tip" ToggleButton (LLFR-00018).
         zoom_button: the "Zoom" ToggleButton (LLFR-00077).
+        pan_button: the "Pan" ToggleButton (LLFR-00355), right of Zoom.
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
         delta_x_button: the "Delta X" ToggleButton (LLFR-00161).
         delta_y_button: the "Delta Y" ToggleButton (LLFR-00162).
@@ -298,8 +321,13 @@ class TopPanel(QWidget):
         redo_button: the "Redo" UndoButton (LLFR-00190), directly right
             of the Undo button; disabled while nothing can be redone
             (LLFR-00194).
+        report_bug_button: the "Report a bug" ActionButton
+            (LLFR-00358), alone in the last group; always enabled.
         button_group_list: the button groups of LLFR-00347, from left
             to right, each a list of its buttons from left to right.
+        credit_label: the QLabel with CREDIT_TEXT_STR (LLFR-00364),
+            not in the button layout: place_credit_label puts it at the
+            right end of the panel, or hides it when it does not fit.
     """
 
     plot_tool_changed = pyqtSignal(str)
@@ -307,6 +335,7 @@ class TopPanel(QWidget):
     copy_requested = pyqtSignal()
     save_layout_requested = pyqtSignal()
     load_layout_requested = pyqtSignal()
+    report_bug_requested = pyqtSignal()
 
     def __init__(self) -> None:
         """Create the panel with its buttons, aligned to the left.
@@ -342,6 +371,9 @@ class TopPanel(QWidget):
             ToggleButton, TIP_TEXT_STR, "tip_button")
         self.zoom_button = new_icon_button(
             ToggleButton, ZOOM_TEXT_STR, "zoom_button")
+        # LLFR-00355: the Pan tool button, exclusive like the others.
+        self.pan_button = new_icon_button(
+            ToggleButton, PAN_TEXT_STR, "pan_button")
         self.marker_button = new_icon_button(
             ToggleButton, MARKER_TEXT_STR, "marker_button")
         self.delta_x_button = new_icon_button(
@@ -357,6 +389,7 @@ class TopPanel(QWidget):
         self.plot_tool_button_dict = {
             TIP_TOOL_STR: self.tip_button,
             ZOOM_TOOL_STR: self.zoom_button,
+            PAN_TOOL_STR: self.pan_button,
             MARKER_TOOL_STR: self.marker_button,
             DELTA_X_TOOL_STR: self.delta_x_button,
             DELTA_Y_TOOL_STR: self.delta_y_button,
@@ -394,6 +427,11 @@ class TopPanel(QWidget):
         self.redo_button = new_icon_button(
             UndoButton, REDO_TEXT_STR, "redo_button")
         self.redo_button.setEnabled(False)
+        # LLFR-00358: the Report a bug button, enabled whether or not a
+        # data file is open. LLFR-00360: an ActionButton, so it is active
+        # until the page is asked for and at least 0.3 s.
+        self.report_bug_button = new_icon_button(
+            ActionButton, REPORT_BUG_TEXT_STR, "report_bug_button")
         # LLFR-00347: the groups, from left to right.
         self.button_group_list = [
             [self.open_file_button, self.save_layout_button,
@@ -401,7 +439,8 @@ class TopPanel(QWidget):
             list(self.plot_tool_button_dict.values()),
             [self.reset_zoom_button, self.grid_button],
             [self.export_button, self.copy_button],
-            [self.undo_button, self.redo_button]]
+            [self.undo_button, self.redo_button],
+            [self.report_bug_button]]
         for group_index_i, button_group in enumerate(
                 self.button_group_list):
             # LLFR-00349: 16 px between one group and the next.
@@ -416,6 +455,26 @@ class TopPanel(QWidget):
         # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
         # left.
         self.button_layout.addStretch(1)
+        # LLFR-00364: the credit text is a child of the panel but not in
+        # the layout, so it can never push, squeeze or cover a button;
+        # place_credit_label puts it at the right end or hides it. It
+        # lets every mouse event through, takes no focus, has no tip and
+        # its style sheet has no hover rule, so it never reacts to the
+        # mouse.
+        self.credit_label = QLabel(CREDIT_TEXT_STR, self)
+        self.credit_label.setObjectName(CREDIT_LABEL_NAME_STR)
+        self.credit_label.setStyleSheet(
+            theme.credit_label_style_sheet(CREDIT_LABEL_NAME_STR))
+        self.credit_label.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.credit_label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.credit_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.NoTextInteraction)
+        self.credit_label.adjustSize()
+        # LLFR-00359, LLFR-00360: the page is asked for once control is
+        # back in Qt, so the active color is painted first.
+        self.report_bug_button.triggered.connect(
+            lambda: QTimer.singleShot(0, self.emit_pending_report_bug))
         # LLFR-00219, LLFR-00221: the dialogs open once control is back
         # in Qt, so the active color is painted first (LLFR-00001).
         self.save_layout_button.triggered.connect(
@@ -439,6 +498,72 @@ class TopPanel(QWidget):
         return [self.button_layout.itemAt(index_i).widget()
                 for index_i in range(self.button_layout.count())
                 if self.button_layout.itemAt(index_i).widget() is not None]
+
+    def credit_fits_b(self) -> bool:
+        """Tell whether the credit text fits beside the buttons.
+
+        Inputs: none.
+        Outputs: True when the panel is wide enough for every button,
+            the gap theme.CREDIT_MINIMUM_GAP_I and the credit text.
+        """
+        # LLFR-00364: the width the buttons need, without the stretch,
+        # does not depend on the panel's current width.
+        buttons_width_i = self.button_layout.sizeHint().width()
+        needed_width_i = (buttons_width_i + theme.CREDIT_MINIMUM_GAP_I
+                          + self.credit_label.sizeHint().width())
+        return self.width() >= needed_width_i
+
+    def place_credit_label(self) -> None:
+        """Put the credit text at the right end, or hide it.
+
+        Inputs: none.
+        Outputs: none. The label is shown, right-aligned and vertically
+            centered on the buttons, when it fits (credit_fits_b), and
+            hidden otherwise; the buttons never move.
+        """
+        # LLFR-00364: at the right end of the panel, in its upper-right
+        # corner (HLFR-00080), hidden when the window is too narrow.
+        label_size = self.credit_label.sizeHint()
+        self.credit_label.resize(label_size)
+        self.credit_label.move(
+            self.width() - label_size.width(),
+            max(0, (self.height() - label_size.height()) // 2))
+        self.credit_label.setVisible(self.credit_fits_b())
+
+    def resizeEvent(self, event) -> None:
+        """Place the credit text again when the panel is resized.
+
+        Inputs:
+            event: the QResizeEvent.
+        Outputs: none.
+        """
+        # LLFR-00364: it follows the right end, or hides when narrow.
+        super().resizeEvent(event)
+        self.place_credit_label()
+
+    def showEvent(self, event) -> None:
+        """Place the credit text when the panel is first shown.
+
+        Inputs:
+            event: the QShowEvent.
+        Outputs: none.
+        """
+        # LLFR-00364: placed before the first paint.
+        super().showEvent(event)
+        self.place_credit_label()
+
+    def emit_pending_report_bug(self) -> None:
+        """Report the click on the Report a bug button.
+
+        Inputs: none.
+        Outputs: none. Emits report_bug_requested unless the panel was
+            deleted meanwhile.
+        """
+        # LLFR-00359, LLFR-00360: the page is asked for after the active
+        # color shows.
+        if sip.isdeleted(self):
+            return
+        self.report_bug_requested.emit()
 
     def activate_plot_tool(self, tool_str: str) -> None:
         """Make one plot tool the only active one and report it.

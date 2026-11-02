@@ -252,10 +252,10 @@ class ThemeWidgetTestCase(unittest.TestCase):
         self.application.processEvents()
         segment_list = [button.segment_position_str for button in
                         top_panel.plot_tool_button_dict.values()]
-        # LLFR-00079, LLFR-00347: Tip, Zoom, Vertical marker, Delta X,
-        # Delta Y, Area and Text.
+        # LLFR-00079, LLFR-00347: Tip, Zoom, Pan, Vertical marker,
+        # Delta X, Delta Y, Area and Text.
         self.assertEqual(segment_list, [theme.SEGMENT_FIRST_STR]
-                         + [theme.SEGMENT_MIDDLE_STR] * 5
+                         + [theme.SEGMENT_MIDDLE_STR] * 6
                          + [theme.SEGMENT_LAST_STR])
         for button in top_panel.plot_tool_button_dict.values():
             with self.subTest(button=button_name(button)):

@@ -1,7 +1,7 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
     QLineEdit, QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout,
@@ -245,6 +245,11 @@ class MainWindow(QMainWindow):
             self._on_save_layout_requested)
         self.top_panel.load_layout_requested.connect(
             self._on_load_layout_requested)
+        # LLFR-00359: the Report a bug button opens the page of a new
+        # issue; it needs no controller, since it changes nothing in the
+        # model (no file, plot or undo history is touched).
+        self.top_panel.report_bug_requested.connect(
+            self._on_report_bug_requested)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -1641,6 +1646,44 @@ class MainWindow(QMainWindow):
             self.finish_copy_button()
             return
         self.copy_handler()
+
+    def open_web_page(self, url_str: str) -> bool:
+        """Ask the system's default web browser to open a page.
+
+        Inputs:
+            url_str: the address of the page.
+        Outputs: True when the request was made, False when the browser
+            could not be opened.
+        """
+        # LLFR-00359: the default browser of the system, through Qt.
+        return bool(QDesktopServices.openUrl(QUrl(url_str)))
+
+    def show_report_bug_error(self, url_str: str) -> None:
+        """Show the error box saying that the page could not be opened.
+
+        Inputs:
+            url_str: the address of the page.
+        Outputs: none.
+        """
+        # LLFR-00361: an error box with the page's address (HLFR-00002).
+        message_boxes.build_report_bug_error_box(self, url_str).exec()
+
+    def _on_report_bug_requested(self) -> None:
+        """Open the page of a new issue after Report a bug is clicked.
+
+        Inputs: none.
+        Outputs: none. Shows the Report a Bug Error box when the browser
+            could not be opened.
+        """
+        # LLFR-00359: the "New issue" page of the repository; nothing
+        # else changes.
+        opened_b = self.open_web_page(top_panel.REPORT_BUG_URL_STR)
+        # LLFR-00360, LLFR-00003: the request is made, so the button
+        # turns normal once it has been active for at least 0.3 s.
+        self.top_panel.report_bug_button.finish()
+        if not opened_b:
+            # LLFR-00361: say so, with the address.
+            self.show_report_bug_error(top_panel.REPORT_BUG_URL_STR)
 
     def _on_open_file_activated(self) -> None:
         """Run the open-file handler after the Open file button is clicked.
