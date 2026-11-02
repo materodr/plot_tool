@@ -4,7 +4,12 @@ It talks to the view only through plain method calls (no Qt code), so
 it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``ask_open_file_path(start_folder_str)``, ``show_file_open_error``,
 ``ask_time_signal_name``, ``ask_replace_file``, ``set_time_signal_name``,
-``show_signal_names`` and ``finish_open_file_button``.
+``show_signal_names``, ``finish_open_file_button``,
+``show_loading_indication(text_str)`` and ``hide_loading_indication()``.
+
+``show_loading_indication`` shows the busy pointer and the text in the
+status line of the signal list panel, and ``hide_loading_indication``
+restores the normal pointer and empties the status line (LLFR-00418).
 
 ``ask_time_signal_name(prompt_str, name_list, search_function,
 no_match_text_str, check_function)`` shows the time signal window
@@ -23,6 +28,8 @@ from model.file_loader import load_signal_file
 from model.signal_file import increasing_check_reason
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
 
+# LLFR-00418: the text of the status line while a file is read.
+LOADING_TEXT_STR = "Loading..."
 # LLFR-00325: the text of the time signal window.
 TIME_SIGNAL_PROMPT_STR = "Choose the signal that goes on the x-axis"
 
@@ -140,9 +147,10 @@ class FileController:
     def open_file_requested(self) -> None:
         """Run the open-file flow started by the Open file button.
 
-        Asks for a path, opens the file, asks for confirmation when
-        another file is open, and shows the new signal names. The
-        button always returns to normal at the end.
+        Asks for a path, asks for confirmation when another file is
+        open, reads the file while the loading indication is shown, and
+        shows the new signal names (LLFR-00328). The button always
+        returns to normal at the end.
 
         Inputs: none.
         Outputs: none.
@@ -166,36 +174,31 @@ class FileController:
         if not path_str:
             # LLFR-00007: cancelled, keep the file and the list.
             return
-        # LLFR-00006: try to open the selected file.
-        try:
-            signal_file = self.load_function(path_str)
-        except FileOpenError as error:
+        # LLFR-00328 step 1, HLFR-00010: when another file is open, ask
+        # right away, before the selected file is read.
+        replaced_b = self.current_file is not None
+        if replaced_b and not self.view.ask_replace_file():
+            # LLFR-00014: declined, keep the current file open, do not
+            # read the selected file and show no other message.
+            return
+        # LLFR-00006, LLFR-00328 step 2: read and check the file.
+        signal_file, error_message_str = self._read_file(path_str)
+        if signal_file is None:
             # LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012: show the
-            # File Open Error box. LLFR-00010: keep the previous file.
-            self.view.show_file_open_error(str(error))
+            # File Open Error box, after the loading indication is gone
+            # (LLFR-00418). LLFR-00010: keep the previous file, its
+            # plots, signal list, synthetic signals and undo history.
+            self.view.show_file_open_error(error_message_str)
             return
-        except Exception as error:
-            # LLFR-00008, LLFR-00010: an unexpected failure is reported
-            # as an unreadable file instead of crashing (PCR-00025).
-            self.view.show_file_open_error(
-                UNEXPECTED_ERROR_MESSAGE_STR.format(path=path_str,
-                                                    error=error))
-            return
-        # LLFR-00328: after the reading and the content checks, and
-        # before the replace confirmation, the user chooses the time
-        # signal when no signal is named "Time".
+        # LLFR-00328 step 3: the user chooses the time signal when no
+        # signal is named "Time".
         if (signal_file.needs_time_signal_choice_b
                 and not self._choose_time_signal(signal_file)):
             # LLFR-00327: cancelled, nothing is opened and no message is
-            # shown; the current file and its list are kept.
+            # shown; the current file and its list are kept (LLFR-00010).
             return
-        # HLFR-00010: ask only when the new file can be opened and
-        # another file is open.
-        replaced_b = self.current_file is not None
-        if replaced_b and not self.view.ask_replace_file():
-            # LLFR-00014: declined, keep the current file open.
-            return
-        # LLFR-00013: close the current file and open the selected one.
+        # LLFR-00328 step 4, LLFR-00013: only now close the current
+        # file and open the selected one.
         self.current_file = signal_file
         # LLFR-00204: only a successful open moves the dialog folder;
         # a cancel, a failed open or a declined replace keeps it.
@@ -208,6 +211,35 @@ class FileController:
         # LLFR-00015, LLFR-00016: tell the listeners about the new file.
         for listener in list(self.file_opened_listener_list):
             listener(signal_file, replaced_b)
+
+    def _read_file(self, path_str: str) -> tuple:
+        """Read and check a file while the loading indication is shown.
+
+        Inputs:
+            path_str: the path of the selected file.
+        Outputs: (signal_file, "") when the file can be opened, or
+            (None, message_str) with the text of the File Open Error box
+            when it can't.
+        """
+        # LLFR-00418: the busy pointer and "Loading..." while the file
+        # is read and checked, for the first file as for a replacement.
+        self.view.show_loading_indication(LOADING_TEXT_STR)
+        try:
+            # LLFR-00006: try to open the selected file.
+            return self.load_function(path_str), ""
+        except FileOpenError as error:
+            # LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012: the reason
+            # given by the loader.
+            return None, str(error)
+        except Exception as error:
+            # LLFR-00008, LLFR-00010: an unexpected failure is reported
+            # as an unreadable file instead of crashing (PCR-00025).
+            return None, UNEXPECTED_ERROR_MESSAGE_STR.format(
+                path=path_str, error=error)
+        finally:
+            # LLFR-00418: reading ended, whatever the result; remove the
+            # indication before any box or window is shown.
+            self.view.hide_loading_indication()
 
     def _choose_time_signal(self, signal_file) -> bool:
         """Ask the user for the time signal of a file.
