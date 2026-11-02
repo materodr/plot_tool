@@ -68,7 +68,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 ### LLFR-00140 Undoable actions
 The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
 
-Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) and saving the signals (LLFR-00405) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming the color an item already has, is not an undoable action (LLFR-00390).
+Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) and saving the signals (LLFR-00405) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00390).
 
 *Parent: HLFR-00040*
 
@@ -2074,7 +2074,7 @@ When loading a layout, the app must rebuild an area only if its start time is be
 *Parent: HLFR-00050, HLFR-00052, HLFR-00088*
 
 ### LLFR-00351 Area colors
-When the user chooses "Color" in the area menu (LLFR-00314), the app must open the color picker (LLFR-00388) and draw that area in the confirmed color (LLFR-00390) on every time plot of every tab (LLFR-00310). Every new area must get the default color, the reserved marker color `#ff8000` (LLFR-00083). Whatever its color, an area must be drawn see-through with the same opacity (LLFR-00305), so that the curves, the grid and the other items stay visible (LLFR-00306).
+When the user chooses "Color" in the area menu (LLFR-00314), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw that area in the chosen color (LLFR-00390) on every time plot of every tab (LLFR-00310). Every new area must get the default color, the reserved marker color `#ff8000` (LLFR-00083). Whatever its color, an area must be drawn see-through with the same opacity (LLFR-00305), so that the curves, the grid and the other items stay visible (LLFR-00306).
 
 *Parent: HLFR-00066, HLFR-00088*
 
@@ -2214,7 +2214,7 @@ When the user right-clicks an arrow, the app must show a menu with the options "
 *Parent: HLFR-00084, HLFR-00088*
 
 ### LLFR-00379 Arrow color action
-When the user chooses "Color" in the arrow menu (LLFR-00378), the app must open the color picker (LLFR-00388) and draw the arrow's line and arrowhead in the confirmed color (LLFR-00390).
+When the user chooses "Color" in the arrow menu (LLFR-00378), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the arrow's line and arrowhead in the chosen color (LLFR-00390).
 
 *Parent: HLFR-00088*
 
@@ -2261,12 +2261,12 @@ The app must never draw a text note, with its box, taller than 25% of the height
 *Parent: HLFR-00086*
 
 ### LLFR-00387 Text note color options
-When the user chooses "Border color" or "Text color" in the text note menu (LLFR-00341), the app must open the color picker (LLFR-00388) and draw the text note's border or its text, respectively, in the confirmed color (LLFR-00390).
+When the user chooses "Border color" or "Text color" in the text note menu (LLFR-00341), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the text note's border or its text, respectively, in the chosen color (LLFR-00390).
 
 *Parent: HLFR-00087, HLFR-00088*
 
 ### LLFR-00388 Shared color picker
-The "Color" options of the arrow menu (LLFR-00379), the flag menu (LLFR-00391), the area menu (LLFR-00351) and the delta marker menu (LLFR-00409), and the "Border color" and "Text color" options of the text note menu (LLFR-00387), must all open the same color picker window, in which the user can choose any opaque color, with any red, green and blue values from 0 to 255.
+The "Color" options of the arrow menu (LLFR-00379), the flag menu (LLFR-00391), the area menu (LLFR-00351) and the delta marker menu (LLFR-00409), and the "Border color" and "Text color" options of the text note menu (LLFR-00387), must each open a submenu with the recent colors (LLFR-00419) followed by an "Other color..." option. Choosing "Other color..." must open the color picker window, the same for all these options, in which the user can choose any opaque color, with any red, green and blue values from 0 to 255.
 
 *Parent: HLFR-00088*
 
@@ -2276,7 +2276,7 @@ When the color picker (LLFR-00388) opens, it must show as chosen the current col
 *Parent: HLFR-00088*
 
 ### LLFR-00390 Color picker confirm and cancel
-When the user confirms a color in the color picker (LLFR-00388), the app must apply it to the item as one undoable action (LLFR-00140). When the user cancels the color picker, or confirms the color the item already has, the app must change nothing and must not add an undoable action.
+When the user confirms a color in the color picker (LLFR-00388) or chooses a recent color (LLFR-00419), the app must apply it to the item as one undoable action (LLFR-00140). When the user cancels the color picker, closes the submenu of LLFR-00388 without choosing an option, or confirms or chooses the color the item already has, the app must change nothing and must not add an undoable action.
 
 *Parent: HLFR-00088, HLFR-00040*
 
@@ -2286,7 +2286,7 @@ When the user right-clicks a flag, the app must show a "Color" option in the fla
 *Parent: HLFR-00089, HLFR-00088*
 
 ### LLFR-00392 Flag color action
-When the user chooses "Color" in the flag menu (LLFR-00391), the app must open the color picker (LLFR-00388) and draw the flag's line, the text of its name label (LLFR-00084) and its time value (LLFR-00092) in the confirmed color (LLFR-00390), on every time plot of every tab (LLFR-00205).
+When the user chooses "Color" in the flag menu (LLFR-00391), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the flag's line, the text of its name label (LLFR-00084) and its time value (LLFR-00092) in the chosen color (LLFR-00390), on every time plot of every tab (LLFR-00205).
 
 *Parent: HLFR-00089, HLFR-00088*
 
@@ -2296,7 +2296,7 @@ When loading a layout, the app must give each rebuilt flag (LLFR-00233) its save
 *Parent: HLFR-00050, HLFR-00052, HLFR-00089*
 
 ### LLFR-00409 Delta marker color action
-When the user chooses "Color" in the delta marker menu (LLFR-00175), the app must open the color picker (LLFR-00388) and draw the delta marker's curly bracket, both of its dots and its value text (LLFR-00169, LLFR-00171, LLFR-00261) in the confirmed color (LLFR-00390). Changing the color must not change the delta marker's points or value, nor the color of any other delta marker.
+When the user chooses "Color" in the delta marker menu (LLFR-00175), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the delta marker's curly bracket, both of its dots and its value text (LLFR-00169, LLFR-00171, LLFR-00261) in the chosen color (LLFR-00390). Changing the color must not change the delta marker's points or value, nor the color of any other delta marker.
 
 *Parent: HLFR-00092, HLFR-00088*
 
@@ -2341,3 +2341,10 @@ When the user chooses "Delete all flags" in the flag menu (LLFR-00090), the app 
 When the user chooses "Delete all areas" in the area menu (LLFR-00314), the app must remove every area, with its label and time values, from every time plot in every tab (LLFR-00310), as one undoable action (LLFR-00140), without asking for confirmation and without showing any message.
 
 *Parent: HLFR-00093, HLFR-00069*
+
+### LLFR-00419 Recent colors
+The submenu of LLFR-00388 must list, before "Other color...", the last 8 different colors that the user confirmed in the color picker or chose from this list, for any item, most recent first and with no color listed twice. Each entry must show a small square swatch filled with its color, with the color's `#rrggbb` code next to it. Choosing an entry must apply its color to the item as in LLFR-00390. Each time the user confirms or chooses a color, including the color the item already has, the app must put that color first in the list, remove it from any later place, and keep only the first 8 colors. The list must be shared by all the color options of LLFR-00388, and must be kept between launches in the app's settings. While the list is empty, for example at the first launch or when the settings cannot be read, the submenu must show only "Other color...".
+
+Note: Default colors given by the app (LLFR-00083, LLFR-00172, LLFR-00336, LLFR-00351, LLFR-00373) and colors read from a layout file are not added to the list. This list replaces saving custom colors in the system's color window, which does not work in the app on macOS.
+
+*Parent: HLFR-00088*
