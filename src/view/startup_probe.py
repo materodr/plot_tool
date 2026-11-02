@@ -28,8 +28,8 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
    line ``plot_tool probe file: OK|FAILED <name> ...`` is printed, to
    show that the bundle holds every library the loaders need;
 4. if ``PLOT_TOOL_DIALOG_PROBE`` is ``"1"``, each file dialog of the
-   app (LLFR-00406) is asked for twice, as a click would, and closed as
-   soon as it is shown; for each one a line is printed::
+   app (LLFR-00406) is shown twice, as a click would (measure_dialog),
+   and closed as soon as it is shown; for each one a line is printed::
 
        plot_tool dialog: name=<dialog> click=<1|2> shown_s=<seconds
        from the request to the dialog being shown> visible=<yes|no>
@@ -68,16 +68,11 @@ DIALOG_PROBE_VARIABLE_STR = "PLOT_TOOL_DIALOG_PROBE"
 DIALOG_LINE_PREFIX_STR = "plot_tool dialog:"
 DIALOG_PREPARE_TIMEOUT_S = 10.0
 # LLFR-00406: (name in the probe line, key of the dialog in the main
-# window's FileDialogPool, MainWindow method that shows it).
+# window's FileDialogPool).
 PROBE_DIALOG_TUPLE = (
-    ("open_file", "open_file", "ask_open_file_path"),
-    ("save_layout", "save_layout", "ask_layout_save_path"),
-    ("load_layout", "load_layout", "ask_layout_load_path"),
-    ("save_pdf", "save_pdf", "ask_pdf_save_path"))
+    ("open_file", "open_file"), ("save_layout", "save_layout"),
+    ("load_layout", "load_layout"), ("save_pdf", "save_pdf"))
 PROBE_CLICK_COUNT_I = 2
-# LLFR-00406: how often the probe looks for the shown dialog; the error
-# of a measured time is at most this interval.
-DIALOG_POLL_INTERVAL_MS_I = 5
 # LLFR-00058: how often the probe checks the window, and how long it
 # waits for it to be exposed before reporting anyway.
 POLL_INTERVAL_MS_I = 10
@@ -296,46 +291,32 @@ def dialog_line_str(name_str: str, click_i: int, shown_s: float,
             f"prepare_s={prepare_s:.3f}")
 
 
-def measure_dialog(main_window, key_str: str, method_name_str: str) -> tuple:
-    """Ask for one file dialog and close it as soon as it is shown.
+def measure_dialog(main_window, application, key_str: str) -> tuple:
+    """Show one file dialog as a click would, then close it.
+
+    The dialog is shown with ``open`` (window-modal), not ``exec``: a
+    native macOS panel run with ``exec`` blocks in the system's own
+    modal loop, which the probe cannot close. Both build and show the
+    same panel, so the time is the time the user waits.
 
     Inputs:
         main_window: the app's MainWindow.
+        application: the QApplication, to let the dialog be drawn.
         key_str: the key of the dialog in main_window.file_dialog_pool.
-        method_name_str: the MainWindow method that shows the dialog.
     Outputs: a tuple (seconds from the request to the dialog being
-        shown, True when it was visible then).
+        shown and drawn, True when it was visible then).
     """
-    # LLFR-00406: a short repeating timer ticks inside the dialog's
-    # modal loop (also the modal loop of a native macOS panel, which
-    # runs timers but not zero-time ones), so its first tick comes once
-    # the dialog is shown; it then cancels the dialog.
-    dialog = main_window.file_dialog_pool.dialog(key_str)
-    record_dict = {}
-    poll_timer = QTimer()
-    poll_timer.setInterval(DIALOG_POLL_INTERVAL_MS_I)
-
-    def close_shown_dialog() -> None:
-        """Note when the dialog is shown, then cancel it.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        # LLFR-00406: the dialog is on screen.
-        if "shown_s" not in record_dict:
-            record_dict["shown_s"] = time.perf_counter()
-            record_dict["visible_b"] = dialog.isVisible()
-        dialog.reject()
-
-    poll_timer.timeout.connect(close_shown_dialog)
+    # LLFR-00406: the same steps as the MainWindow ask_... methods,
+    # up to the dialog being on screen.
     start_s = time.perf_counter()
-    poll_timer.start()
-    try:
-        getattr(main_window, method_name_str)()
-    finally:
-        poll_timer.stop()
-    shown_s = record_dict.get("shown_s", time.perf_counter()) - start_s
-    return shown_s, record_dict.get("visible_b", False)
+    dialog = main_window.file_dialog_pool.prepared_dialog(key_str)
+    dialog.open()
+    application.processEvents()
+    shown_s = time.perf_counter() - start_s
+    visible_b = bool(dialog.isVisible())
+    dialog.reject()
+    application.processEvents()
+    return shown_s, visible_b
 
 
 def dialog_line_list(main_window, application, output_stream=None) -> list:
@@ -356,11 +337,11 @@ def dialog_line_list(main_window, application, output_stream=None) -> list:
         application.processEvents()
         time.sleep(POLL_INTERVAL_MS_I / 1000.0)
     line_list = []
-    for name_str, key_str, method_name_str in PROBE_DIALOG_TUPLE:
+    for name_str, key_str in PROBE_DIALOG_TUPLE:
         for click_i in range(1, PROBE_CLICK_COUNT_I + 1):
             prepared_b = pool.prepared_b
-            shown_s, visible_b = measure_dialog(main_window, key_str,
-                                                method_name_str)
+            shown_s, visible_b = measure_dialog(main_window, application,
+                                                key_str)
             line_str = dialog_line_str(
                 name_str, click_i, shown_s, visible_b, prepared_b,
                 pool.prepare_duration_s)

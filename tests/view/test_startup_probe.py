@@ -200,115 +200,69 @@ class StartupProbeTest(unittest.TestCase):
         self.assertEqual(line_str, "plot_tool dialog: name=save_pdf "
                          "click=2 shown_s=0.046 visible=yes prepared=no "
                          "prepare_s=0.250")
-        self.assertEqual([entry[2] for entry in probe.PROBE_DIALOG_TUPLE],
-                         ["ask_open_file_path", "ask_layout_save_path",
-                          "ask_layout_load_path", "ask_pdf_save_path"])
+        self.assertEqual([entry[1] for entry in probe.PROBE_DIALOG_TUPLE],
+                         ["open_file", "save_layout", "load_layout",
+                          "save_pdf"])
 
     @covers("LLFR-00406")
     def test_report_measures_each_dialog_twice(self) -> None:
-        """With the dialog probe on, each dialog is asked for twice.
+        """With the dialog probe on, each dialog is shown twice.
 
         Inputs: none.
         Outputs: none.
         """
-        application = self.application
-
-        class FakeDialog:
-            """A dialog that is visible until it is rejected."""
-
-            def __init__(self) -> None:
-                """Start hidden.
-
-                Inputs: none.
-                Outputs: none.
-                """
-                self.visible_b = False
-                self.reject_count_i = 0
-
-            def isVisible(self) -> bool:
-                """Tell whether the dialog is shown.
-
-                Inputs: none.
-                Outputs: the flag.
-                """
-                return self.visible_b
-
-            def reject(self) -> None:
-                """Close the dialog.
-
-                Inputs: none.
-                Outputs: none.
-                """
-                self.visible_b = False
-                self.reject_count_i += 1
-
-        dialog_dict = {entry[1]: FakeDialog()
-                       for entry in self.startup_probe.PROBE_DIALOG_TUPLE}
+        from controller.main_controller import MainController
+        from view.main_window import MainWindow
+        main_window = MainWindow()
+        controller = MainController(main_window)
+        controller.start()
+        main_window.schedule_file_dialog_preparation()
+        pool = main_window.file_dialog_pool
         call_list = []
-        main_window = mock.Mock()
-        main_window.file_dialog_pool.prepared_b = True
-        main_window.file_dialog_pool.prepare_duration_s = 0.125
-        main_window.file_dialog_pool.dialog = dialog_dict.get
-
-        def make_ask(key_str: str):
-            """Build a fake ask method that shows the dialog of a key.
-
-            Inputs:
-                key_str: the key of the dialog.
-            Outputs: a function that shows the dialog and runs the
-                event loop until it is rejected.
-            """
-            def ask(*argument_tuple) -> str:
-                """Show the dialog and wait until it is closed.
-
-                Inputs:
-                    argument_tuple: ignored.
-                Outputs: "".
-                """
-                call_list.append(key_str)
-                dialog_dict[key_str].visible_b = True
-                while dialog_dict[key_str].visible_b:
-                    application.processEvents()
-                return ""
-            return ask
-
-        for _, key_str, method_name_str in (
-                self.startup_probe.PROBE_DIALOG_TUPLE):
-            setattr(main_window, method_name_str, make_ask(key_str))
+        for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
+            dialog = pool.dialog(key_str)
+            dialog.open = (lambda key_str=key_str, dialog=dialog:
+                           (call_list.append(key_str), dialog.show()))
         output_stream = io.StringIO()
         fake_application = FakeApplication()
-        fake_application.processEvents = application.processEvents
-        self.startup_probe.report_startup(
-            fake_application, 0.0, True, mock.Mock(),
-            {"PLOT_TOOL_DIALOG_PROBE": "1"}, output_stream,
-            main_window=main_window)
-        dialog_line_list = [
-            line_str for line_str in output_stream.getvalue().splitlines()
-            if line_str.startswith("plot_tool dialog:")]
-        self.assertEqual(len(dialog_line_list), 8)
-        self.assertEqual(call_list, ["open_file", "open_file",
-                                     "save_layout", "save_layout",
-                                     "load_layout", "load_layout",
-                                     "save_pdf", "save_pdf"])
-        for line_str in dialog_line_list:
-            self.assertIn("visible=yes prepared=yes prepare_s=0.125",
-                          line_str)
-        for dialog in dialog_dict.values():
-            self.assertEqual(dialog.reject_count_i, 2)
-        self.assertEqual(fake_application.exit_code_list, [0])
-        # Without the variable, no dialog is asked for.
-        call_list.clear()
-        self.startup_probe.report_startup(
-            FakeApplication(), 0.0, True, mock.Mock(), {}, io.StringIO(),
-            main_window=main_window)
-        self.assertEqual(call_list, [])
+        fake_application.processEvents = self.application.processEvents
+        try:
+            self.startup_probe.report_startup(
+                fake_application, 0.0, True, mock.Mock(),
+                {"PLOT_TOOL_DIALOG_PROBE": "1"}, output_stream,
+                main_window=main_window)
+            dialog_line_list = [
+                line_str
+                for line_str in output_stream.getvalue().splitlines()
+                if line_str.startswith("plot_tool dialog:")]
+            self.assertEqual(len(dialog_line_list), 8)
+            self.assertEqual(call_list, ["open_file", "open_file",
+                                         "save_layout", "save_layout",
+                                         "load_layout", "load_layout",
+                                         "save_pdf", "save_pdf"])
+            for line_str in dialog_line_list:
+                self.assertIn("visible=yes prepared=yes", line_str)
+            # Every dialog is closed again.
+            for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
+                self.assertFalse(pool.dialog(key_str).isVisible())
+            self.assertEqual(fake_application.exit_code_list, [0])
+            # Without the variable, no dialog is shown.
+            call_list.clear()
+            self.startup_probe.report_startup(
+                FakeApplication(), 0.0, True, mock.Mock(), {},
+                io.StringIO(), main_window=main_window)
+            self.assertEqual(call_list, [])
+        finally:
+            main_window.close()
+            main_window.deleteLater()
+            self.application.processEvents()
 
     @covers("LLFR-00406", "HLFR-00091")
     def test_main_shows_every_dialog_quickly(self) -> None:
         """src/main.py: every file dialog appears within 0.3 s.
 
-        The app is started as the user starts it; the probe asks for
-        each dialog twice, the first time right after the dialogs were
+        The app is started as the user starts it; the probe shows each
+        dialog twice, the first time right after the dialogs were
         prepared, as the first click after the start would.
 
         Inputs: none.
