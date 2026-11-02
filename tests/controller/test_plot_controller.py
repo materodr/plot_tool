@@ -89,6 +89,8 @@ class FakePlotView:
         set_areas_count_i: how many times set_areas was called.
         text_note_drawn_dict: plot id -> text_note_data_list of the last
             set_text_notes call.
+        arrow_drawn_dict: plot id -> arrow_data_list of the last
+            set_arrows call.
         color_answer_list: answers returned, in order, by ask_color, the
             shared color picker (None stands for a cancelled picker).
         color_question_list: the current colors given to ask_color.
@@ -126,6 +128,7 @@ class FakePlotView:
         self.area_name_question_list = []
         self.set_areas_count_i = 0
         self.text_note_drawn_dict = {}
+        self.arrow_drawn_dict = {}
         self.color_answer_list = []
         self.color_question_list = []
 
@@ -390,6 +393,19 @@ class FakePlotView:
         Outputs: none.
         """
         self.text_note_drawn_dict[plot_id_i] = list(text_note_data_list)
+
+    def set_arrows(self, plot_id_i: int, arrow_data_list: list) -> None:
+        """Record the arrows drawn in a plot.
+
+        Not added to call_list, like set_text_notes.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_data_list: the arrow tuples (start_time_s,
+                start_value_f, end_time_s, end_value_f, color_str).
+        Outputs: none.
+        """
+        self.arrow_drawn_dict[plot_id_i] = list(arrow_data_list)
 
     def set_markers(self, marker_data_list: list) -> None:
         """Record the shared markers drawn on every shown plot.

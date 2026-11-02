@@ -22,7 +22,7 @@ from view import icon_shapes, theme
 EXPECTED_GROUP_LIST = [
     ["Open file", "Save layout", "Load layout"],
     ["Data tip", "Zoom", "Pan", "Flag", "Delta X", "Delta Y",
-     "Area", "Text"],
+     "Area", "Text", "Arrow"],
     ["Reset zoom", "Grid"],
     ["Export", "Copy", "Save signals"],
     ["Undo", "Redo"],

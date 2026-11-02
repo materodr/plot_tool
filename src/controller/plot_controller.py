@@ -18,6 +18,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``plot_time_range``, ``set_plot_tool``, ``set_delta_first_point``;
 - vertical markers: ``set_markers`` (the shared markers, with their
   color (LLFR-00392), drawn on every plot of every tab);
+- text notes and arrows: ``set_text_notes(plot_id_i, data_list)`` and
+  ``set_arrows(plot_id_i, arrow_data_list)``, drawn only on their plot;
 - areas: ``set_areas`` (the shared areas, with their color
   (LLFR-00351), drawn on every time plot of
   every tab) and ``set_plot_areas(plot_id_i, area_data_list)`` (the
@@ -110,6 +112,15 @@ click in another plot starts again there. The pending point is
 discarded, and its dot removed, when the tool changes, when its plot
 or its curve goes away, when a file is opened and on every undo. It is
 not part of the undo snapshots: only placed markers are.
+
+Arrows (HLFR-00081 to HLFR-00084): like the text notes, the arrows
+belong to the plot they were drawn on (``Plot.arrow_list``) and go away
+with it (LLFR-00375). The view reports a drawn arrow, or a moved,
+rotated or stretched one, once, when the mouse button is released, with
+the x and y values of both ends; the arrowhead is always at the second
+end. Each drawing, change of the ends, change of color and deletion is
+one undoable action (LLFR-00140). Arrows are never saved in a layout
+file (LLFR-00226).
 
 Layout files (HLFR-00049, HLFR-00050): ``layout_dict`` returns the
 content of a layout file for the current layout, and ``load_layout``
@@ -237,6 +248,13 @@ class PlotController:
             text_note_text_color_handler=self.on_text_note_text_color,
             # LLFR-00392: "Color" in the flag menu.
             marker_color_handler=self.on_marker_color)
+        # LLFR-00372, LLFR-00376, LLFR-00377, LLFR-00379, LLFR-00380: the
+        # requests made on the arrows of a plot.
+        view.set_plot_handlers(
+            arrow_create_handler=self.on_arrow_create,
+            arrow_change_handler=self.on_arrow_change,
+            arrow_color_handler=self.on_arrow_color,
+            arrow_delete_handler=self.on_arrow_delete)
         # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: the
         # requests made on the areas of a plot.
         view.set_plot_handlers(
@@ -586,6 +604,22 @@ class PlotController:
                  text_note.text_color_str)
                 for text_note in plot.text_note_list]
 
+    def arrow_data_list(self, plot) -> list:
+        """Return the drawing data of every arrow of a plot.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: a list of tuples (start_time_s, start_value_f,
+            end_time_s, end_value_f, color_str) in the order the arrows
+            were drawn; the arrowhead is at the end; the x values are in
+            Hz on a frequency plot.
+        """
+        # LLFR-00373, LLFR-00374, LLFR-00375: the arrows of this plot
+        # only, each with its two ends and its color.
+        return [(arrow.start_time_s, arrow.start_value_f, arrow.end_time_s,
+                 arrow.end_value_f, arrow.color_str)
+                for arrow in plot.arrow_list]
+
     def all_plot_list(self) -> list:
         """Return every plot of every tab.
 
@@ -689,6 +723,8 @@ class PlotController:
         # LLFR-00337, LLFR-00340: and the text notes of the plot.
         self.view.set_text_notes(plot.plot_id_i,
                                  self.text_note_data_list(plot))
+        # LLFR-00374, LLFR-00375: and the arrows of the plot.
+        self.view.set_arrows(plot.plot_id_i, self.arrow_data_list(plot))
         # LLFR-00070, LLFR-00180: draw_plot shows the whole range; a new
         # or redrawn time plot takes the range shared by all time plots.
         # LLFR-00258: a frequency plot its own range.
@@ -1386,6 +1422,126 @@ class PlotController:
         # tips, markers and the shown range are not drawn again.
         self.view.set_text_notes(plot.plot_id_i,
                                  self.text_note_data_list(plot))
+
+    # ----------------------------------------------------------------
+    # Arrows
+    # ----------------------------------------------------------------
+
+    def on_arrow_create(self, plot_id_i: int, start_time_s: float,
+                        start_value_f: float, end_time_s: float,
+                        end_value_f: float) -> None:
+        """Keep an arrow drawn on a plot with the Arrow tool.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            start_time_s: x value of the press point (s, or Hz on a
+                frequency plot).
+            start_value_f: y value of the press point.
+            end_time_s: x value of the release point, the arrowhead.
+            end_value_f: y value of the release point.
+        Outputs: none. An unknown plot, a value that is not finite or
+            two equal ends create nothing and show no message.
+        """
+        # LLFR-00372: the arrow from the press to the release.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: drawing an arrow is undoable.
+        snapshot = self.take_snapshot()
+        try:
+            plot.add_arrow(start_time_s, start_value_f, end_time_s,
+                           end_value_f)
+        except (TypeError, ValueError):
+            return
+        self.record_undo(snapshot)
+        self.show_arrows(plot)
+
+    def on_arrow_change(self, plot_id_i: int, arrow_index_i: int,
+                        start_time_s: float, start_value_f: float,
+                        end_time_s: float, end_value_f: float) -> None:
+        """Give an arrow the ends it was dragged to.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_index_i: index of the arrow in the list last drawn.
+            start_time_s: new x value of the end without the arrowhead.
+            start_value_f: new y value of that end.
+            end_time_s: new x value of the arrowhead's end.
+            end_value_f: new y value of the arrowhead's end.
+        Outputs: none. An unknown plot or arrow, or ends that are not
+            finite or equal, change nothing.
+        """
+        # LLFR-00376: a move; LLFR-00377: a rotation or a stretch. Both
+        # with the Arrow tool or with no tool (LLFR-00382).
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: moving, rotating or stretching an arrow is
+        # undoable; the same ends again change nothing.
+        snapshot = self.take_snapshot()
+        try:
+            changed_b = plot.set_arrow_ends(arrow_index_i, start_time_s,
+                                            start_value_f, end_time_s,
+                                            end_value_f)
+        except (TypeError, ValueError):
+            changed_b = False
+        if changed_b:
+            self.record_undo(snapshot)
+        # LLFR-00376, LLFR-00377: the view shows the arrow where the
+        # model keeps it.
+        self.show_arrows(plot)
+
+    def on_arrow_color(self, plot_id_i: int, arrow_index_i: int) -> None:
+        """Let the user pick the color of an arrow.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_index_i: index of the arrow in the list last drawn.
+        Outputs: none. A cancelled picker, an unknown plot or arrow, or
+            the arrow's current color changes nothing.
+        """
+        # LLFR-00379: "Color" in the arrow menu opens the shared picker
+        # (LLFR-00388) at the arrow's color (LLFR-00389).
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.has_arrow_index(arrow_index_i):
+            return
+        arrow = plot.arrow_list[arrow_index_i]
+        # LLFR-00390: one undoable action on confirm, nothing on cancel.
+        if self.apply_picked_color(
+                arrow.color_str,
+                lambda color_str: plot.set_arrow_color(arrow_index_i,
+                                                       color_str)):
+            self.show_arrows(plot)
+
+    def on_arrow_delete(self, plot_id_i: int, arrow_index_i: int) -> None:
+        """Remove an arrow from a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_index_i: index of the arrow in the list last drawn.
+        Outputs: none.
+        """
+        # LLFR-00380: "Delete" in the arrow menu.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: deleting an arrow is undoable.
+        snapshot = self.take_snapshot()
+        if not plot.remove_arrow(arrow_index_i):
+            return
+        self.record_undo(snapshot)
+        self.show_arrows(plot)
+
+    def show_arrows(self, plot) -> None:
+        """Draw the arrows of a plot again, and nothing else.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: none.
+        """
+        # LLFR-00374, LLFR-00375: only the arrows change, so the curves,
+        # tips, markers and the shown range are not drawn again.
+        self.view.set_arrows(plot.plot_id_i, self.arrow_data_list(plot))
 
     # ----------------------------------------------------------------
     # Tabs

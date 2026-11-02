@@ -9,9 +9,23 @@ pick a delta marker point, delete a delta marker). The plot controller
 decides what to do with each request.
 
 A right-click picks the topmost item under the mouse, in drawing order:
-a text note, then a pinned tip, then a vertical marker, then a delta
-marker, then a curve, else the empty plot area (LLFR-00341, LLFR-00046,
-LLFR-00110, LLFR-00177, LLFR-00038, LLFR-00048).
+a text note, then a pinned tip, then an arrow, then a vertical marker,
+then a delta marker, then a curve, else the empty plot area (LLFR-00341,
+LLFR-00046, LLFR-00381, LLFR-00110, LLFR-00177, LLFR-00038, LLFR-00048).
+
+Arrows (HLFR-00081 to HLFR-00084) belong to the plot they were drawn on
+and are attached to the x and y values of their two ends (LLFR-00374);
+their shape is computed in display pixels at every draw by
+view.arrow_geometry.ArrowPatch. A left press on an arrow, with the Arrow
+tool or with no tool (LLFR-00382), comes after the text notes and the
+pinned tips and before every other object (LLFR-00383): more than 5
+pixels from both ends it moves the arrow (LLFR-00376), within 5 pixels
+of an end it moves the nearer end (LLFR-00377). With the Arrow tool, a
+press anywhere else on the drawing area draws a new arrow (LLFR-00371,
+LLFR-00372). In each case a pale preview is blitted like the time span
+selection, so it is never part of a full draw, the PDF export or the
+copied image (LLFR-00373), and the request is emitted once, at the
+release, unless the release is less than 5 pixels from the press.
 
 A left press is handled in the same order: on a text note it starts
 moving the note (LLFR-00339), and on a pinned tip it starts moving the
@@ -191,16 +205,17 @@ from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
-    AREA_TOOL_STR, DELTA_X_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
-    PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
+    ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, MARKER_TOOL_STR,
+    NO_TOOL_STR, PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
     is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR, hex_color_or_none
 from model.workspace import (
-    DEFAULT_AREA_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
+    DEFAULT_AREA_COLOR_STR, DEFAULT_ARROW_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
     DEFAULT_TEXT_NOTE_COLOR_STR, DEFAULT_TEXT_NOTE_SIZE_I,
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
     TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR)
-from view import delta_geometry, theme, value_text
+from view import arrow_geometry, delta_geometry, theme, value_text
+from view.arrow_geometry import ArrowPatch
 from view.delta_geometry import DeltaBracketPatch
 from view.text_note_editor import TextNoteEditor
 
@@ -379,6 +394,26 @@ TEXT_NOTE_MAXIMUM_HEIGHT_RATIO_F = 0.25
 # the number of halvings used to find the largest size that fits.
 TEXT_NOTE_MINIMUM_SIZE_F = 1.0
 TEXT_NOTE_FIT_STEPS_I = 12
+# LLFR-00373: arrows are drawn above the curves, the grid, the areas,
+# the flags (8) and the delta markers (8.5 to 8.7), and below the
+# pinned tips (9) and the text notes.
+ARROW_ZORDER_F = 8.8
+# LLFR-00373: the previews use the arrow's color mixed with this much of
+# the plot background.
+ARROW_PREVIEW_PALE_RATIO_F = 0.55
+# LLFR-00371 to LLFR-00373, LLFR-00376, LLFR-00377: the 5 pixel rules of
+# the arrows, in screen pixels (Qt logical pixels).
+ARROW_THRESHOLD_PIXELS_F = 5.0
+# LLFR-00376, LLFR-00378: no arrow is pressed, dragged or hit.
+NO_ARROW_INDEX_I = -1
+# LLFR-00371, LLFR-00376, LLFR-00377: what a left press on the arrows
+# does: nothing, draw a new arrow, move one, or move its start or its
+# end (the end that holds the arrowhead).
+ARROW_DRAG_NONE_STR = ""
+ARROW_DRAG_CREATE_STR = "create"
+ARROW_DRAG_MOVE_STR = "move"
+ARROW_DRAG_START_STR = "start"
+ARROW_DRAG_END_STR = "end"
 
 
 def mouse_button_held_b(event, qt_button) -> bool:
@@ -740,6 +775,24 @@ DELTA_PREVIEW_COLOR_STR = MARKER_PREVIEW_COLOR_STR
 AREA_COLOR_STR = DEFAULT_AREA_COLOR_STR
 
 
+def arrow_data_tuple(arrow_tuple) -> tuple:
+    """Return the drawing data of an arrow, with its color.
+
+    Inputs:
+        arrow_tuple: (start_time_s, start_value_f, end_time_s,
+            end_value_f) or the same with color_str at the end.
+    Outputs: (start_time_s, start_value_f, end_time_s, end_value_f,
+        color_str) with floats and a "#rrggbb" color; the default arrow
+        color when the color is missing or not usable.
+    """
+    # LLFR-00373: a new arrow has the app's text color.
+    end_tuple = tuple(float(value_f) for value_f in arrow_tuple[:4])
+    color_str = None
+    if len(arrow_tuple) > 4:
+        color_str = hex_color_or_none(arrow_tuple[4])
+    return end_tuple + (color_str or DEFAULT_ARROW_COLOR_STR,)
+
+
 def text_note_data_tuple(note_tuple) -> tuple:
     """Return the drawing data of a text note, with its style.
 
@@ -834,6 +887,14 @@ class PlotWidget(QWidget):
             a text note (note index).
         text_note_text_color_requested(int): "Text color" chosen on a
             text note (note index).
+        arrow_create_requested(float, float, float, float): an arrow was
+            drawn with the Arrow tool (x and y of the press, then x and
+            y of the release, where the arrowhead is; x in s or Hz).
+        arrow_change_requested(int, float, float, float, float): an arrow
+            was moved, rotated or stretched and released (arrow index in
+            the list given to set_arrows, then its new start and end).
+        arrow_color_requested(int): "Color" chosen on an arrow.
+        arrow_delete_requested(int): "Delete" chosen on an arrow.
     Attributes:
         plot_id_i: the identifier given at creation.
         frequency_plot_b: True for a frequency plot (HLFR-00058).
@@ -876,6 +937,10 @@ class PlotWidget(QWidget):
     text_note_size_requested = pyqtSignal(int, int)
     text_note_border_color_requested = pyqtSignal(int)
     text_note_text_color_requested = pyqtSignal(int)
+    arrow_create_requested = pyqtSignal(float, float, float, float)
+    arrow_change_requested = pyqtSignal(int, float, float, float, float)
+    arrow_color_requested = pyqtSignal(int)
+    arrow_delete_requested = pyqtSignal(int)
 
     def __init__(self, plot_id_i: int, parent=None,
                  kind_str: str = TIME_PLOT_KIND_STR) -> None:
@@ -1031,6 +1096,26 @@ class PlotWidget(QWidget):
         # just confirmed the text field, so that this press does nothing
         # else; cleared once control is back in the event loop.
         self.press_closed_editor_b = False
+        # LLFR-00373, LLFR-00374, LLFR-00375: arrows to draw, as tuples
+        # (start_time_s, start_value_f, end_time_s, end_value_f,
+        # color_str), and their ArrowPatch artists.
+        self.arrow_list = []
+        self.arrow_artist_list = []
+        # LLFR-00371, LLFR-00376, LLFR-00377: the left press on the
+        # arrows: what it drags (ARROW_DRAG_*), the arrow it drags, where
+        # it was pressed (widget point and display pixels), whether the
+        # pointer got 5 pixels away, the last pointer point, and the
+        # preview (start and end in display pixels, () while hidden),
+        # with its color and its artist (made by rebuild_axes).
+        self.arrow_drag_mode_str = ARROW_DRAG_NONE_STR
+        self.arrow_drag_index_i = NO_ARROW_INDEX_I
+        self.arrow_press_point = QPoint()
+        self.arrow_press_display_tuple = (0.0, 0.0)
+        self.arrow_drag_moved_b = False
+        self.arrow_last_point = QPoint()
+        self.arrow_preview_tuple = ()
+        self.arrow_preview_color_str = DEFAULT_ARROW_COLOR_STR
+        self.arrow_preview_patch = None
 
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
@@ -1189,6 +1274,15 @@ class PlotWidget(QWidget):
         # (for example with a hold key) ends the pan where it is.
         if self.plot_tool_str != PAN_TOOL_STR:
             self.stop_tool_pan()
+        # LLFR-00371: an arrow is only drawn with the Arrow tool;
+        # LLFR-00376, LLFR-00377, LLFR-00382: one is moved, rotated or
+        # stretched with the Arrow tool or with none. Any other change
+        # drops the drag; the arrow stays where it was.
+        if self.arrow_drag_mode_str == ARROW_DRAG_CREATE_STR:
+            if self.plot_tool_str != ARROW_TOOL_STR:
+                self.cancel_arrow_drag()
+        elif self.plot_tool_str not in (ARROW_TOOL_STR, NO_TOOL_STR):
+            self.cancel_arrow_drag()
 
     def set_markers(self, marker_data_list: list) -> None:
         """Replace the vertical markers drawn in the plot.
@@ -1309,6 +1403,23 @@ class PlotWidget(QWidget):
             self.close_text_note_editor()
         self.text_note_list = new_note_list
         self.draw_text_notes()
+        self.draw_when_visible()
+
+    def set_arrows(self, arrow_data_list: list) -> None:
+        """Replace the arrows drawn in the plot.
+
+        Inputs:
+            arrow_data_list: list of tuples (start_time_s, start_value_f,
+                end_time_s, end_value_f, color_str), in the order the
+                arrows were drawn, the arrowhead at the end; the x values
+                are in Hz on a frequency plot. color_str may be left out
+                for the color of a new arrow (arrow_data_tuple).
+        Outputs: none. Only the arrows are drawn again.
+        """
+        # LLFR-00374, LLFR-00375: draw exactly the arrows of this plot.
+        self.arrow_list = [arrow_data_tuple(arrow_tuple)
+                           for arrow_tuple in arrow_data_list]
+        self.draw_arrows()
         self.draw_when_visible()
 
     def set_time_range(self, start_s: float, end_s: float) -> None:
@@ -1459,6 +1570,11 @@ class PlotWidget(QWidget):
         # LLFR-00337: the text notes survive the redraw too.
         self.text_note_annotation_list = []
         self.draw_text_notes()
+        # LLFR-00374: and so do the arrows; LLFR-00373: their preview
+        # artist is made again.
+        self.arrow_artist_list = []
+        self.draw_arrows()
+        self.create_arrow_preview_artist()
         # LLFR-00203: the preview artists went away with axes.clear().
         self.create_preview_artists()
         # LLFR-00208: so did those of the time span selection line.
@@ -2046,8 +2162,11 @@ class PlotWidget(QWidget):
         # LLFR-00203, LLFR-00208: both use the same fast drawing.
         # LLFR-00303: so does the preview of a new area.
         # LLFR-00352, LLFR-00353: and so do the delta marker previews.
+        # LLFR-00371, LLFR-00376, LLFR-00377: and so are the arrow
+        # previews.
         return (self.preview_time_s is not None or self.time_span_shown_b
-                or self.area_preview_shown() or self.delta_preview_shown())
+                or self.area_preview_shown() or self.delta_preview_shown()
+                or self.arrow_preview_shown())
 
     def blit_marker_preview(self) -> None:
         """Draw the marker preview over the last full draw of the canvas.
@@ -2110,6 +2229,11 @@ class PlotWidget(QWidget):
         if self.delta_preview_shown():
             # LLFR-00352, LLFR-00353: the delta previews, updated live.
             self.draw_delta_preview()
+        if self.arrow_preview_shown() and self.arrow_preview_patch is not None:
+            # LLFR-00371, LLFR-00376, LLFR-00377: the arrow preview,
+            # updated live.
+            self.place_arrow_preview()
+            self.axes.draw_artist(self.arrow_preview_patch)
         self.canvas.blit(self.figure.bbox)
 
     def show_marker_preview(self, time_s: float) -> None:
@@ -3602,6 +3726,20 @@ class PlotWidget(QWidget):
                 lambda index_i=tip_index_i:
                 self.pinned_tip_delete_requested.emit(index_i))
             return menu, request_list
+        # LLFR-00381: an arrow is drawn above the curves, flags, delta
+        # markers and areas, so its menu has priority over theirs.
+        arrow_index_i = self.arrow_at(widget_point)
+        if arrow_index_i != NO_ARROW_INDEX_I:
+            # LLFR-00378: "Color" and "Delete".
+            add_request_action(
+                menu, "Color",
+                lambda index_i=arrow_index_i:
+                self.arrow_color_requested.emit(index_i))
+            add_request_action(
+                menu, "Delete",
+                lambda index_i=arrow_index_i:
+                self.arrow_delete_requested.emit(index_i))
+            return menu, request_list
         # LLFR-00110: a marker has priority over a curve under it.
         # LLFR-00087, LLFR-00090: whatever plot tool is active.
         marker_id_i = self.marker_at(widget_point)
@@ -3897,6 +4035,7 @@ class PlotWidget(QWidget):
         self.cancel_marker_drag()
         self.cancel_area_drag()
         self.cancel_note_drag()
+        self.cancel_arrow_drag()
         # LLFR-00339: a text note is on top of everything else, so a
         # press on it moves it, with any tool or none, and never pins,
         # zooms, places a marker, picks a delta point or starts a note.
@@ -3909,6 +4048,12 @@ class PlotWidget(QWidget):
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i != NO_TIP_INDEX_I:
             self.tip_press_at(widget_point, tip_index_i)
+            return
+        # LLFR-00383: an arrow comes right after the text notes and the
+        # pinned tips; LLFR-00376, LLFR-00377, LLFR-00382, LLFR-00384: it
+        # is edited with the Arrow tool or with no tool, and LLFR-00371:
+        # the Arrow tool draws a new one anywhere else.
+        if self.arrow_press_at(widget_point):
             return
         # LLFR-00356, LLFR-00357: with the Pan tool, any other press on
         # the drawing area starts a pan, also on a vertical marker, a
@@ -4239,6 +4384,8 @@ class PlotWidget(QWidget):
         self.cancel_time_span()
         # LLFR-00303, LLFR-00312, LLFR-00313: an area drag too.
         self.cancel_area_drag()
+        # LLFR-00371, LLFR-00376, LLFR-00377: and an arrow drag.
+        self.cancel_arrow_drag()
 
     def is_mouse_drag_in_progress(self) -> bool:
         """Tell whether the user is dragging the mouse on this plot.
@@ -4259,7 +4406,9 @@ class PlotWidget(QWidget):
                 or self.drag_tip_index_i != NO_TIP_INDEX_I
                 or self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I
                 or self.time_span_drag_b
-                or self.area_drag_mode_str != AREA_DRAG_NONE_STR)
+                or self.area_drag_mode_str != AREA_DRAG_NONE_STR
+                # LLFR-00207: and the drawing or the drag of an arrow.
+                or self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR)
 
     def retire(self) -> None:
         """Stop all interaction before the widget is removed.
@@ -4298,6 +4447,8 @@ class PlotWidget(QWidget):
         self.time_span_shown_b = False
         # LLFR-00303, LLFR-00312: an area drag stops without a request.
         self.reset_area_drag()
+        # LLFR-00371, LLFR-00376: so does an arrow drag.
+        self.reset_arrow_drag()
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
         self.retired_b = True
         self.blockSignals(True)
@@ -5340,6 +5491,493 @@ class PlotWidget(QWidget):
         return tuple(self.area_drag_span_tuple)
 
     # ----------------------------------------------------------------
+    # Arrows
+    # ----------------------------------------------------------------
+
+    def draw_arrows(self) -> None:
+        """Draw the stored arrows, replacing the previous ones.
+
+        Inputs: none.
+        Outputs: none. An edit drag in progress ends without a request,
+            since the arrow it named may be gone.
+        """
+        # LLFR-00380: remove the old artists before drawing new ones.
+        for patch in self.arrow_artist_list:
+            patch.remove()
+        self.arrow_artist_list = []
+        # LLFR-00376, LLFR-00377: the arrows are named by their index,
+        # so a drag of one of them cannot go on with a new list.
+        if self.arrow_drag_mode_str not in (ARROW_DRAG_NONE_STR,
+                                            ARROW_DRAG_CREATE_STR):
+            self.cancel_arrow_drag()
+        for (start_time_s, start_value_f, end_time_s, end_value_f,
+             color_str) in self.arrow_list:
+            # LLFR-00373: a solid line and a filled head in its color;
+            # LLFR-00374: attached to the values of its ends and clipped
+            # to the drawing area (add_artist clips to the axes patch).
+            patch = ArrowPatch((start_time_s, start_value_f),
+                               (end_time_s, end_value_f), color_str,
+                               zorder=ARROW_ZORDER_F)
+            self.axes.add_artist(patch)
+            patch.set_in_layout(False)
+            self.arrow_artist_list.append(patch)
+
+    def create_arrow_preview_artist(self) -> None:
+        """Create the hidden artist of the arrow previews.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00373, LLFR-00129, LLFR-00133: like the other previews,
+        # the artist is not added to the axes, so no full draw, export or
+        # copy ever draws it; only blit_overlay does. Its ends are given
+        # in display pixels.
+        self.arrow_preview_patch = ArrowPatch(
+            (0.0, 0.0), (1.0, 1.0), DEFAULT_ARROW_COLOR_STR, data_b=False,
+            zorder=ARROW_ZORDER_F)
+        self.arrow_preview_patch.set_figure(self.figure)
+        self.arrow_preview_patch.axes = self.axes
+        # LLFR-00374: cut at the edges of the drawing area.
+        self.arrow_preview_patch.set_clip_box(self.axes.bbox)
+        self.overlay_background = None
+
+    def arrow_preview_shown(self) -> bool:
+        """Tell whether an arrow preview is shown.
+
+        Inputs: none.
+        Outputs: True while the preview of a new, moved, rotated or
+            stretched arrow is shown.
+        """
+        # LLFR-00371, LLFR-00376, LLFR-00377: shown once the pointer got
+        # 5 pixels away from the press, until the release.
+        return (self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR
+                and len(self.arrow_preview_tuple) == 2)
+
+    def place_arrow_preview(self) -> None:
+        """Give the preview artist its ends and its pale color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00373: a paler version of the arrow's color.
+        start_tuple, end_tuple = self.arrow_preview_tuple
+        patch = self.arrow_preview_patch
+        patch.start_tuple = tuple(start_tuple)
+        patch.end_tuple = tuple(end_tuple)
+        pale_str = pale_color_str(self.arrow_preview_color_str,
+                                  theme.PLOT_BACKGROUND_COLOR_STR,
+                                  ARROW_PREVIEW_PALE_RATIO_F)
+        patch.set_facecolor(pale_str)
+        patch.set_edgecolor(pale_str)
+
+    def arrow_threshold_px(self) -> float:
+        """Return the 5 pixel distance of the arrow rules, in display px.
+
+        Inputs: none.
+        Outputs: ARROW_THRESHOLD_PIXELS_F screen pixels, in display
+            pixels.
+        """
+        # LLFR-00373, LLFR-00376, LLFR-00377: screen pixels, whatever the
+        # device pixel ratio.
+        return ARROW_THRESHOLD_PIXELS_F * self.pixel_ratio_f()
+
+    def arrow_display_tuple(self, arrow_index_i: int) -> tuple:
+        """Return the two ends of a drawn arrow, in display pixels.
+
+        Inputs:
+            arrow_index_i: index in the list given to set_arrows.
+        Outputs: ((start_x_px, start_y_px), (end_x_px, end_y_px)), or ()
+            for an unknown index.
+        """
+        # LLFR-00374: where the values of its ends are shown now.
+        if not 0 <= arrow_index_i < len(self.arrow_list):
+            return ()
+        arrow_tuple = self.arrow_list[arrow_index_i]
+        transform = self.axes.transData
+        start_array = transform.transform(arrow_tuple[0:2])
+        end_array = transform.transform(arrow_tuple[2:4])
+        return ((float(start_array[0]), float(start_array[1])),
+                (float(end_array[0]), float(end_array[1])))
+
+    def arrow_at(self, widget_point) -> int:
+        """Return the arrow under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the index in the list given to set_arrows of the arrow
+            drawn last among those under the point, or NO_ARROW_INDEX_I.
+        """
+        # LLFR-00373: on an arrow means within 5 pixels of its line or on
+        # its arrowhead; only the part inside the drawing area is drawn
+        # (LLFR-00374), so a point outside it is on no arrow.
+        point_tuple = self.widget_to_display_tuple(widget_point)
+        if not self.inside_axes_b(*point_tuple):
+            return NO_ARROW_INDEX_I
+        threshold_px = self.arrow_threshold_px()
+        pixels_per_point_f = self.pixels_per_point_f()
+        # LLFR-00383: among arrows, the one drawn last.
+        for index_i in reversed(range(len(self.arrow_list))):
+            start_tuple, end_tuple = self.arrow_display_tuple(index_i)
+            if arrow_geometry.segment_distance_f(
+                    point_tuple, start_tuple, end_tuple) <= threshold_px:
+                return index_i
+            if self.inside_axes_b(*end_tuple) and (
+                    arrow_geometry.point_in_triangle_b(
+                        point_tuple, arrow_geometry.head_vertex_array(
+                            start_tuple, end_tuple, pixels_per_point_f))):
+                return index_i
+        return NO_ARROW_INDEX_I
+
+    def arrow_press_part_str(self, widget_point, arrow_index_i: int) -> str:
+        """Tell what a press on an arrow drags.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, on the
+                arrow.
+            arrow_index_i: index of the pressed arrow.
+        Outputs: ARROW_DRAG_START_STR or ARROW_DRAG_END_STR when the
+            press is within 5 pixels of that end (the nearer one when it
+            is within 5 pixels of both), else ARROW_DRAG_MOVE_STR.
+        """
+        # LLFR-00376, LLFR-00377: the 5 pixel rule of the ends.
+        point_tuple = self.widget_to_display_tuple(widget_point)
+        start_tuple, end_tuple = self.arrow_display_tuple(arrow_index_i)
+        start_distance_px = math.hypot(point_tuple[0] - start_tuple[0],
+                                       point_tuple[1] - start_tuple[1])
+        end_distance_px = math.hypot(point_tuple[0] - end_tuple[0],
+                                     point_tuple[1] - end_tuple[1])
+        threshold_px = self.arrow_threshold_px()
+        if min(start_distance_px, end_distance_px) > threshold_px:
+            return ARROW_DRAG_MOVE_STR
+        if start_distance_px < end_distance_px:
+            return ARROW_DRAG_START_STR
+        return ARROW_DRAG_END_STR
+
+    def arrow_press_at(self, widget_point) -> bool:
+        """Handle a left press on the arrows, if it is one.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True when the press is for the arrows: on an arrow with
+            the Arrow tool or with no tool (an edit starts), or anywhere
+            else with the Arrow tool (a new arrow may start); False when
+            the press must be handled by the other objects and tools.
+        """
+        # LLFR-00382, LLFR-00384: an arrow is edited only with its own
+        # tool or with no tool; with any other tool a press on it acts as
+        # the tool does where nothing is drawn.
+        if self.plot_tool_str not in (ARROW_TOOL_STR, NO_TOOL_STR):
+            return False
+        arrow_index_i = self.arrow_at(widget_point)
+        if arrow_index_i != NO_ARROW_INDEX_I:
+            self.arrow_edit_press_at(widget_point, arrow_index_i)
+            return True
+        if self.plot_tool_str != ARROW_TOOL_STR:
+            return False
+        self.arrow_create_press_at(widget_point)
+        return True
+
+    def start_arrow_press(self, widget_point, mode_str: str,
+                          arrow_index_i: int, color_str: str) -> None:
+        """Remember a left press that may draw or change an arrow.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+            mode_str: one of the ARROW_DRAG_* values but NONE.
+            arrow_index_i: the pressed arrow, NO_ARROW_INDEX_I for a new
+                one.
+            color_str: the color the preview is a paler version of.
+        Outputs: none. Nothing is shown until the pointer is 5 pixels
+            from the press.
+        """
+        # LLFR-00207: from the press to the release, the Z key does
+        # nothing (is_mouse_drag_in_progress).
+        self.arrow_drag_mode_str = mode_str
+        self.arrow_drag_index_i = arrow_index_i
+        self.arrow_press_point = QPoint(widget_point)
+        self.arrow_press_display_tuple = self.widget_to_display_tuple(
+            widget_point)
+        self.arrow_last_point = QPoint(widget_point)
+        self.arrow_drag_moved_b = False
+        self.arrow_preview_tuple = ()
+        self.arrow_preview_color_str = color_str
+        # The press draws or moves an arrow, so no hover tip and no other
+        # preview while it is held.
+        self.hide_hover_tip()
+        self.leave_marker_preview()
+        self.hide_delta_preview()
+
+    def arrow_edit_press_at(self, widget_point, arrow_index_i: int) -> None:
+        """Start moving, rotating or stretching an arrow.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, on it.
+            arrow_index_i: index of the pressed arrow.
+        Outputs: none.
+        """
+        # LLFR-00376: by its middle; LLFR-00377: by one of its ends.
+        mode_str = self.arrow_press_part_str(widget_point, arrow_index_i)
+        self.start_arrow_press(widget_point, mode_str, arrow_index_i,
+                               self.arrow_list[arrow_index_i][4])
+
+    def arrow_create_press_at(self, widget_point) -> None:
+        """Start drawing a new arrow at a press point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. A press outside the drawing area does nothing.
+        """
+        # LLFR-00371: only a press on the drawing area, of a time plot or
+        # of a frequency plot, starts an arrow.
+        if not self.inside_axes_b(*self.widget_to_display_tuple(
+                widget_point)):
+            return
+        self.start_arrow_press(widget_point, ARROW_DRAG_CREATE_STR,
+                               NO_ARROW_INDEX_I, DEFAULT_ARROW_COLOR_STR)
+
+    def arrow_reached_b(self, widget_point) -> bool:
+        """Tell whether a point is 5 pixels or more from the arrow press.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True from 5 screen pixels on (straight-line distance).
+        """
+        # LLFR-00371, LLFR-00372, LLFR-00376, LLFR-00377: widget points
+        # are screen pixels whatever the device pixel ratio.
+        return math.hypot(
+            widget_point.x() - self.arrow_press_point.x(),
+            widget_point.y() - self.arrow_press_point.y()
+        ) >= ARROW_THRESHOLD_PIXELS_F
+
+    def clamped_display_tuple(self, widget_point) -> tuple:
+        """Return a point in display pixels, moved into the drawing area.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: (x, y) of the nearest point of the drawing area.
+        """
+        # LLFR-00372, LLFR-00376, LLFR-00377: a release outside the
+        # drawing area counts at its nearest point.
+        x_px, y_px = self.widget_to_display_tuple(widget_point)
+        box = self.axes.bbox
+        left_px, right_px = sorted((float(box.x0), float(box.x1)))
+        bottom_px, top_px = sorted((float(box.y0), float(box.y1)))
+        return (min(max(x_px, left_px), right_px),
+                min(max(y_px, bottom_px), top_px))
+
+    def dragged_arrow_display_tuple(self, widget_point) -> tuple:
+        """Return the arrow the drag in progress shows for a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: ((start_x_px, start_y_px), (end_x_px, end_y_px)) in
+            display pixels, the arrowhead at the end; () when the arrow
+            dragged is gone.
+        """
+        pointer_tuple = self.clamped_display_tuple(widget_point)
+        mode_str = self.arrow_drag_mode_str
+        if mode_str == ARROW_DRAG_CREATE_STR:
+            # LLFR-00371: from the press to the pointer, head at the
+            # pointer.
+            return (tuple(self.arrow_press_display_tuple), pointer_tuple)
+        end_pair_tuple = self.arrow_display_tuple(self.arrow_drag_index_i)
+        if not end_pair_tuple:
+            return ()
+        start_tuple, end_tuple = end_pair_tuple
+        if mode_str == ARROW_DRAG_MOVE_STR:
+            # LLFR-00376: moved with the pointer, keeping its length and
+            # direction.
+            shift_x_px = pointer_tuple[0] - self.arrow_press_display_tuple[0]
+            shift_y_px = pointer_tuple[1] - self.arrow_press_display_tuple[1]
+            return ((start_tuple[0] + shift_x_px,
+                     start_tuple[1] + shift_y_px),
+                    (end_tuple[0] + shift_x_px, end_tuple[1] + shift_y_px))
+        # LLFR-00377: the pressed end follows the pointer and the other
+        # stays; the arrowhead stays at the same end.
+        if mode_str == ARROW_DRAG_START_STR:
+            fixed_tuple, moved_tuple = end_tuple, start_tuple
+        else:
+            fixed_tuple, moved_tuple = start_tuple, end_tuple
+        new_tuple = self.arrow_end_kept_apart(fixed_tuple, pointer_tuple,
+                                              moved_tuple)
+        if mode_str == ARROW_DRAG_START_STR:
+            return (new_tuple, fixed_tuple)
+        return (fixed_tuple, new_tuple)
+
+    def arrow_end_kept_apart(self, fixed_tuple: tuple, pointer_tuple: tuple,
+                             moved_tuple: tuple) -> tuple:
+        """Return the place of a moved arrow end, 5 pixels or more away.
+
+        Inputs:
+            fixed_tuple: (x, y) of the end that stays, display pixels.
+            pointer_tuple: (x, y) where the moved end would go.
+            moved_tuple: (x, y) where the moved end was before the drag,
+                for the direction when the pointer is on the fixed end.
+        Outputs: (x, y) of the moved end: the pointer, or the point 5
+            pixels from the fixed end towards the pointer when it is
+            closer than that.
+        """
+        # LLFR-00377: the moved end stays at least 5 pixels from the
+        # other end.
+        minimum_px = self.arrow_threshold_px()
+        offset_x_px = pointer_tuple[0] - fixed_tuple[0]
+        offset_y_px = pointer_tuple[1] - fixed_tuple[1]
+        distance_px = math.hypot(offset_x_px, offset_y_px)
+        if distance_px >= minimum_px:
+            return tuple(pointer_tuple)
+        if distance_px <= 0.0:
+            offset_x_px = moved_tuple[0] - fixed_tuple[0]
+            offset_y_px = moved_tuple[1] - fixed_tuple[1]
+            distance_px = math.hypot(offset_x_px, offset_y_px) or 1.0
+            if offset_x_px == 0.0 and offset_y_px == 0.0:
+                offset_x_px = 1.0
+        scale_f = minimum_px / distance_px
+        return (fixed_tuple[0] + offset_x_px * scale_f,
+                fixed_tuple[1] + offset_y_px * scale_f)
+
+    def arrow_drag_to(self, widget_point) -> None:
+        """Follow the pointer while the left button is held on the arrows.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. The preview is shown once the pointer is 5 pixels
+            or more from the press, and then follows it.
+        """
+        # LLFR-00371, LLFR-00376, LLFR-00377: below 5 pixels nothing is
+        # shown yet.
+        if self.arrow_drag_mode_str == ARROW_DRAG_NONE_STR:
+            return
+        self.arrow_last_point = QPoint(widget_point)
+        if not self.arrow_drag_moved_b:
+            if not self.arrow_reached_b(widget_point):
+                return
+            self.arrow_drag_moved_b = True
+        preview_tuple = self.dragged_arrow_display_tuple(widget_point)
+        if not preview_tuple:
+            self.cancel_arrow_drag()
+            return
+        if preview_tuple == self.arrow_preview_tuple:
+            return
+        self.arrow_preview_tuple = preview_tuple
+        # LLFR-00371: updated live, by redrawing only the preview.
+        self.blit_overlay()
+
+    def arrow_release_at(self, widget_point) -> None:
+        """End a press on the arrows where the button was released.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits arrow_create_requested or
+            arrow_change_requested once, as the last step, unless the
+            release is less than 5 pixels from the press.
+        """
+        # LLFR-00372, LLFR-00376, LLFR-00377: only the release point
+        # decides.
+        if self.arrow_drag_mode_str == ARROW_DRAG_NONE_STR:
+            return
+        self.arrow_last_point = QPoint(widget_point)
+        self.finish_arrow_drag()
+
+    def finish_arrow_drag(self) -> None:
+        """End a press on the arrows at the last pointer point.
+
+        Inputs: none.
+        Outputs: none. Emits the request of the drag, as the last step,
+            when the point is 5 pixels or more from the press. Also used
+            when the release was lost.
+        """
+        # LLFR-00372, LLFR-00376, LLFR-00377: a release less than 5
+        # pixels from the press creates or changes nothing, silently.
+        if self.arrow_drag_mode_str == ARROW_DRAG_NONE_STR:
+            return
+        release_point = QPoint(self.arrow_last_point)
+        final_tuple = ()
+        if self.arrow_reached_b(release_point):
+            final_tuple = self.dragged_arrow_display_tuple(release_point)
+        mode_str = self.arrow_drag_mode_str
+        arrow_index_i = self.arrow_drag_index_i
+        # LLFR-00372: the preview goes away.
+        self.cancel_arrow_drag()
+        if not final_tuple:
+            return
+        inverse_transform = self.axes.transData.inverted()
+        start_array = inverse_transform.transform(final_tuple[0])
+        end_array = inverse_transform.transform(final_tuple[1])
+        value_tuple = (float(start_array[0]), float(start_array[1]),
+                       float(end_array[0]), float(end_array[1]))
+        if not all(math.isfinite(value_f) for value_f in value_tuple):
+            return
+        # The receiver redraws this widget, so this is the very last step.
+        if mode_str == ARROW_DRAG_CREATE_STR:
+            # LLFR-00372: from the press to the release.
+            self.arrow_create_requested.emit(*value_tuple)
+            return
+        # LLFR-00376, LLFR-00377: the arrow takes the preview's shape.
+        if 0 <= arrow_index_i < len(self.arrow_list):
+            self.arrow_list[arrow_index_i] = (
+                value_tuple + (self.arrow_list[arrow_index_i][4],))
+        self.arrow_change_requested.emit(arrow_index_i, *value_tuple)
+
+    def cancel_arrow_drag(self) -> None:
+        """Forget the press on the arrows in progress, if any.
+
+        Inputs: none.
+        Outputs: none. The preview, if shown, is removed; nothing is
+            created or changed.
+        """
+        # LLFR-00372, LLFR-00376, LLFR-00377: without a release nothing
+        # changes.
+        shown_b = self.arrow_preview_shown()
+        self.reset_arrow_drag()
+        if shown_b:
+            self.blit_overlay()
+
+    def reset_arrow_drag(self) -> None:
+        """Clear the state of a press on the arrows without redrawing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00207: no arrow is being drawn or dragged.
+        self.arrow_drag_mode_str = ARROW_DRAG_NONE_STR
+        self.arrow_drag_index_i = NO_ARROW_INDEX_I
+        self.arrow_drag_moved_b = False
+        self.arrow_preview_tuple = ()
+
+    def arrow_count(self) -> int:
+        """Return the number of arrows drawn in the plot.
+
+        Inputs: none.
+        Outputs: the number of arrows given to set_arrows.
+        """
+        # LLFR-00375: for the tests.
+        return len(self.arrow_artist_list)
+
+    def arrow_patch(self, arrow_index_i: int):
+        """Return the artist of an arrow.
+
+        Inputs:
+            arrow_index_i: index in the list given to set_arrows.
+        Outputs: the ArrowPatch, or None for an unknown index.
+        """
+        # LLFR-00373, LLFR-00374: for the tests.
+        if 0 <= arrow_index_i < len(self.arrow_artist_list):
+            return self.arrow_artist_list[arrow_index_i]
+        return None
+
+    def arrow_preview_display_tuple(self) -> tuple:
+        """Return the ends of the arrow preview shown.
+
+        Inputs: none.
+        Outputs: ((start_x_px, start_y_px), (end_x_px, end_y_px)) in
+            display pixels, or () while no preview is shown.
+        """
+        # LLFR-00371, LLFR-00376, LLFR-00377: for the tests.
+        if not self.arrow_preview_shown():
+            return ()
+        return tuple(self.arrow_preview_tuple)
+
+    # ----------------------------------------------------------------
     # matplotlib event handlers
     # ----------------------------------------------------------------
 
@@ -5404,6 +6042,15 @@ class PlotWidget(QWidget):
                 self.finish_area_drag()
                 return
             self.area_drag_to(widget_point)
+            return
+        if self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR:
+            # LLFR-00371, LLFR-00376, LLFR-00377: a move with the left
+            # button held after a press on the arrows updates the
+            # preview. A lost release ends the drag at the last point.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_arrow_drag()
+                return
+            self.arrow_drag_to(widget_point)
             return
         # LLFR-00042: any other move runs the hover code.
         self.hover_at(widget_point)
@@ -5504,6 +6151,10 @@ class PlotWidget(QWidget):
         # LLFR-00304, LLFR-00312, LLFR-00313: or ends an Area press.
         if self.area_drag_mode_str != AREA_DRAG_NONE_STR:
             self.area_release_at(widget_point)
+            return
+        # LLFR-00372, LLFR-00376, LLFR-00377: or ends an arrow drag.
+        if self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR:
+            self.arrow_release_at(widget_point)
             return
         self.release_at(widget_point)
 

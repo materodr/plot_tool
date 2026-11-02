@@ -537,8 +537,8 @@ def plot_entry(plot) -> dict:
          FIRST_POINT_KEY_STR: point_entry(delta_marker.first_point_tuple),
          SECOND_POINT_KEY_STR: point_entry(delta_marker.second_point_tuple)}
         for delta_marker in plot.delta_marker_list]
-    # LLFR-00226: the text notes of the plot (Plot.text_note_list) are
-    # never written to the layout file.
+    # LLFR-00226: the text notes of the plot (Plot.text_note_list) and
+    # its arrows (Plot.arrow_list) are never written to the layout file.
     return {CURVES_KEY_STR: curve_list, DATA_TIPS_KEY_STR: data_tip_list,
             DELTA_MARKERS_KEY_STR: delta_marker_list}
 

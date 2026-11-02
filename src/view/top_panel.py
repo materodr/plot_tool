@@ -22,12 +22,13 @@ from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QMenu, QWidget
 
 from controller.plot_tools import (
-    AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
-    NO_TOOL_STR, PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
+    ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
+    MARKER_TOOL_STR, NO_TOOL_STR, PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
+    ZOOM_TOOL_STR)
 from view import icon_shapes, theme
 from view.action_button import ActionButton
 from view.tip_key_filter import (
-    AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I,
+    ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I,
     RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I)
 from view.text_note_editor import KEEPS_TEXT_NOTE_OPEN_PROPERTY_STR
 from view.toggle_button import ToggleButton
@@ -51,6 +52,8 @@ DELTA_Y_TEXT_STR = "Delta Y"
 # LLFR-00286, LLFR-00320: the Area and Text tool buttons.
 AREA_TEXT_STR = "Area"
 TEXT_TEXT_STR = "Text"
+# LLFR-00366: the Arrow tool button.
+ARROW_TEXT_STR = "Arrow"
 RESET_ZOOM_TEXT_STR = "Reset zoom"
 GRID_TEXT_STR = "Grid"
 # LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
@@ -82,6 +85,7 @@ BUTTON_ICON_DICT = {
     DELTA_Y_TEXT_STR: icon_shapes.DELTA_Y_ICON_STR,
     AREA_TEXT_STR: icon_shapes.AREA_ICON_STR,
     TEXT_TEXT_STR: icon_shapes.TEXT_ICON_STR,
+    ARROW_TEXT_STR: icon_shapes.ARROW_ICON_STR,
     RESET_ZOOM_TEXT_STR: icon_shapes.RESET_ZOOM_ICON_STR,
     GRID_TEXT_STR: icon_shapes.GRID_ICON_STR,
     EXPORT_TEXT_STR: icon_shapes.EXPORT_ICON_STR,
@@ -109,7 +113,7 @@ SHORTCUT_HOLD_STR = "hold"
 SHORTCUT_PRESS_STR = "press"
 MOUSE_USE_STR = "mouse"
 # LLFR-00215: the word "Hold" before a held key (LLFR-00148, LLFR-00154,
-# LLFR-00197, LLFR-00200, LLFR-00287, LLFR-00321).
+# LLFR-00197, LLFR-00200, LLFR-00287, LLFR-00321, LLFR-00367).
 HOLD_PREFIX_STR = "Hold "
 # LLFR-00148: Qt reports the Command key of macOS as Key_Control, so the
 # Data tip key is written "Cmd" on macOS and "Ctrl" elsewhere.
@@ -140,6 +144,8 @@ BUTTON_TIP_SHORTCUT_DICT = {
     # LLFR-00287, LLFR-00321: "Hold A" and "Hold T".
     AREA_TEXT_STR: (SHORTCUT_HOLD_STR, AREA_KEY_I),
     TEXT_TEXT_STR: (SHORTCUT_HOLD_STR, TEXT_KEY_I),
+    # LLFR-00367: "Hold R".
+    ARROW_TEXT_STR: (SHORTCUT_HOLD_STR, ARROW_KEY_I),
     RESET_ZOOM_TEXT_STR: (SHORTCUT_PRESS_STR, RESET_ZOOM_KEY_I),
     ZOOM_TEXT_STR: (MOUSE_USE_STR, ZOOM_MOUSE_LINE_TUPLE),
     PAN_TEXT_STR: (MOUSE_USE_STR, PAN_MOUSE_LINE_TUPLE),
@@ -314,6 +320,8 @@ class TopPanel(QWidget):
         delta_y_button: the "Delta Y" ToggleButton (LLFR-00162).
         area_button: the "Area" ToggleButton (LLFR-00286).
         text_button: the "Text" ToggleButton (LLFR-00320).
+        arrow_button: the "Arrow" ToggleButton (LLFR-00366), right of
+            Text.
         plot_tool_button_dict: plot tool name -> its ToggleButton, in
             the order of the buttons (LLFR-00347).
         reset_zoom_button: the "Reset zoom" ActionButton (LLFR-00114);
@@ -394,6 +402,9 @@ class TopPanel(QWidget):
             ToggleButton, AREA_TEXT_STR, "area_button")
         self.text_button = new_icon_button(
             ToggleButton, TEXT_TEXT_STR, "text_button")
+        # LLFR-00366: the Arrow tool button, the last plot tool.
+        self.arrow_button = new_icon_button(
+            ToggleButton, ARROW_TEXT_STR, "arrow_button")
         # LLFR-00079, LLFR-00347: the plot tools, in the order of their
         # buttons.
         self.plot_tool_button_dict = {
@@ -404,7 +415,8 @@ class TopPanel(QWidget):
             DELTA_X_TOOL_STR: self.delta_x_button,
             DELTA_Y_TOOL_STR: self.delta_y_button,
             AREA_TOOL_STR: self.area_button,
-            TEXT_TOOL_STR: self.text_button}
+            TEXT_TOOL_STR: self.text_button,
+            ARROW_TOOL_STR: self.arrow_button}
         for tool_str, button in self.plot_tool_button_dict.items():
             # LLFR-00333: turning a plot tool on or off with its button
             # keeps a text note field open (TextNoteEditor).
