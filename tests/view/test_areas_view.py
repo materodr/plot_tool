@@ -13,6 +13,9 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.view.menu_texts import (
+    AREA_MENU_TEXT_LIST, DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST,
+    TIP_MENU_TEXT_LIST)
 from tests.view.test_plot_tools import recorder
 from tests.view.test_span_zoom import (
     PIXEL_TOLERANCE_S, SpanWidgetTestCase)
@@ -743,7 +746,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         for tool_str in (AREA_TOOL_STR, NO_TOOL_STR, ZOOM_TOOL_STR):
             self.plot_widget.set_plot_tool(tool_str)
             self.assertEqual(self.menu_texts(self.at(4.0)),
-                             ["Rename", "Color", "Delete", "Delete plot"])
+                             AREA_MENU_TEXT_LIST)
         self.menu_texts(self.at(4.0), "Rename")
         self.menu_texts(self.at(4.0), "Delete")
         self.menu_texts(self.at(4.0), "Delete plot")
@@ -762,7 +765,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         """
         color_list = recorder(self.plot_widget.area_color_requested)
         self.assertEqual(self.menu_texts(self.at(4.0)),
-                         ["Rename", "Color", "Delete", "Delete plot"])
+                         AREA_MENU_TEXT_LIST)
         self.assertNotIn("Color", self.submenu_dict)
         self.menu_texts(self.at(4.0), "Color")
         self.assertEqual(color_list, [(1,)])
@@ -782,11 +785,11 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.plot_widget.set_markers([(5, "Flag 1", 3.0)])
         self.draw()
         self.assertEqual(self.menu_texts(self.at(3.0)),
-                         ["Rename", "Color", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
         self.plot_widget.set_pinned_tips([("Ramp", 5.0, 3.5, ())])
         self.draw()
         self.assertEqual(self.menu_texts(self.point_at(5.0, 3.5)),
-                         ["Delete"])
+                         TIP_MENU_TEXT_LIST)
         self.plot_widget.set_pinned_tips([])
         self.plot_widget.set_delta_markers([
             (6, "y", ("Ramp", 4.5, 3.45), ("Sine", 4.5, float(np.sin(4.5))),
@@ -797,7 +800,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         dots = delta_box_list[2]
         dot_point = self.plot_widget.data_to_widget_point(
             float(dots.get_xdata()[0]), float(dots.get_ydata()[0]))
-        self.assertEqual(self.menu_texts(dot_point), ["Delete"])
+        self.assertEqual(self.menu_texts(dot_point), DELTA_MENU_TEXT_LIST)
         self.assertEqual(self.plot_widget.delta_marker_at(dot_point), 6)
 
     @covers("LLFR-00048", "LLFR-00314")

@@ -14,6 +14,8 @@ from unittest import mock
 import numpy as np
 
 from tests.support import button_name, covers, get_qt_application
+from tests.view.menu_texts import (
+    DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.support import button_tip_line_list, requires_qt
 
@@ -649,7 +651,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
                     ("dot", self.second_tuple[1:])):
                 with self.subTest(tool=tool_str, place=name_str):
                     self.assertEqual(self.menu_texts_at(*data_tuple),
-                                     ["Delete"])
+                                     DELTA_MENU_TEXT_LIST)
         # LLFR-00048: an empty area still offers "Delete plot".
         self.assertEqual(self.menu_texts_at(9.0, -0.5), ["Delete plot"])
 
@@ -662,7 +664,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         """
         shown_list = self.choose_action_text("Delete")
         self.right_click(*self.tip_data_tuple())
-        self.assertEqual(shown_list, [["Delete"]])
+        self.assertEqual(shown_list, [DELTA_MENU_TEXT_LIST])
         self.assertEqual(self.delta_delete_list, [(5,)])
         # A closed menu emits nothing.
         self.choose_action_text("")
@@ -681,7 +683,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
             self.plot_widget.data_to_widget_point(*self.first_tuple[1:])),
             "Sine")
         text_list = self.menu_texts_at(*self.first_tuple[1:])
-        self.assertEqual(text_list, ["Delete"])
+        self.assertEqual(text_list, DELTA_MENU_TEXT_LIST)
         self.assertNotIn("Delete signal", text_list)
         self.assertNotIn("Width", text_list)
         # Away from the marker the curve menu is back.
@@ -698,17 +700,17 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         time_s, value_f = self.tip_data_tuple()
         self.set_markers([(9, "Flag 1", time_s)])
         self.assertEqual(self.menu_texts_at(time_s, value_f),
-                         ["Rename", "Color", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
         self.set_markers([])
         self.plot_widget.set_pinned_tips([self.second_tuple])
         self.draw()
         self.assertEqual(self.menu_texts_at(*self.second_tuple[1:]),
-                         ["Delete"])
+                         TIP_MENU_TEXT_LIST)
         shown_list = self.choose_action_text("Delete")
         tip_delete_list = recorder(
             self.plot_widget.pinned_tip_delete_requested)
         self.right_click(*self.second_tuple[1:])
-        self.assertEqual(shown_list, [["Delete"]])
+        self.assertEqual(shown_list, [TIP_MENU_TEXT_LIST])
         self.assertEqual(tip_delete_list, [(0,)])
         self.assertEqual(self.delta_delete_list, [])
 
@@ -987,7 +989,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         # on the force curve, removes it.
         shown_list = self.right_click_choose(plot_widget, 1.0, -1.0,
                                              "Delete")
-        self.assertEqual(shown_list, ["Delete"])
+        self.assertEqual(shown_list, DELTA_MENU_TEXT_LIST)
         self.assertEqual(self.current_plot_widget().delta_marker_id_list(),
                          [])
 

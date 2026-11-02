@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.view.menu_texts import TIP_MENU_TEXT_LIST
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
 
@@ -604,7 +605,7 @@ class ContextMenuTest(PlotWidgetTestCase):
         self.assertEqual(self.plot_widget.pinned_tip_at(
             self.sample_point("Sine", 20)), 0)
         menu = self.plot_widget.build_context_menu(tip_point)
-        self.assertEqual(menu_action_text_list(menu), ["Delete"])
+        self.assertEqual(menu_action_text_list(menu), TIP_MENU_TEXT_LIST)
         find_action(menu, "Delete").trigger()
         self.assertEqual(record_list, [(1,)])
         # Elsewhere on the curve the curve menu is shown.

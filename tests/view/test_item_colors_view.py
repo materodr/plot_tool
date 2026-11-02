@@ -13,6 +13,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.view.menu_texts import FLAG_MENU_TEXT_LIST
 from tests.view.test_plot_tools import PlotWidgetToolTestCase, recorder
 
 from controller.plot_tools import MARKER_TOOL_STR
@@ -245,7 +246,7 @@ class FlagColorViewTest(PlotWidgetToolTestCase):
         self.draw()
         menu = self.plot_widget.build_context_menu(self.point_at(5.0, 2.0))
         self.assertEqual([action.text() for action in menu.actions()],
-                         ["Rename", "Color", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
         menu_action_dict(menu)["Color"].trigger()
         self.assertEqual(color_list, [(7,)])
         menu.deleteLater()
