@@ -25,6 +25,8 @@ EXPECTED_TIP_DICT = {
     "marker_button": ("Vertical marker", ["Hold Shift"], ["Hold Shift"]),
     "delta_x_button": ("Delta X", ["Hold X"], ["Hold X"]),
     "delta_y_button": ("Delta Y", ["Hold Y"], ["Hold Y"]),
+    "area_button": ("Area", ["Hold A"], ["Hold A"]),
+    "text_button": ("Text", ["Hold T"], ["Hold T"]),
     "reset_zoom_button": ("Reset zoom", ["Z"], ["Z"]),
     "zoom_button": ("Zoom",
                     ["Click or drag to zoom in",
@@ -284,7 +286,7 @@ class ButtonTipTest(unittest.TestCase):
             self.application.processEvents()
 
     @covers("LLFR-00215", "LLFR-00148", "LLFR-00154", "LLFR-00197",
-            "LLFR-00200", "LLFR-00207")
+            "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321")
     def test_key_names_follow_the_tool_keys(self) -> None:
         """The held and pressed keys are named from the filter's keys.
 
@@ -298,6 +300,8 @@ class ButtonTipTest(unittest.TestCase):
                 (tip_key_filter.MARKER_KEY_I, "Shift", "Shift"),
                 (tip_key_filter.DELTA_X_KEY_I, "X", "X"),
                 (tip_key_filter.DELTA_Y_KEY_I, "Y", "Y"),
+                (tip_key_filter.AREA_KEY_I, "A", "A"),
+                (tip_key_filter.TEXT_KEY_I, "T", "T"),
                 (tip_key_filter.RESET_ZOOM_KEY_I, "Z", "Z")):
             with self.subTest(key_i=key_i):
                 self.assertEqual(key_name_str(key_i, True), macos_str)

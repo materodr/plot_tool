@@ -25,6 +25,8 @@ BUTTON_NAME_DICT = {
     "marker_button": "Vertical marker",
     "delta_x_button": "Delta X",
     "delta_y_button": "Delta Y",
+    "area_button": "Area",
+    "text_button": "Text",
     "reset_zoom_button": "Reset zoom",
     "grid_button": "Grid",
     "export_button": "Export",
@@ -34,11 +36,11 @@ BUTTON_NAME_DICT = {
     "save_layout_button": "Save layout",
     "load_layout_button": "Load layout",
 }
-# LLFR-00159: the 14 icons of the requirement, in its order.
+# LLFR-00159: the 16 icons of the requirement, in its order.
 REQUIRED_ICON_TUPLE = (
     "open_file", "undo", "tip", "zoom", "reset_zoom", "vertical_marker",
     "delta_x", "delta_y", "grid", "export", "copy", "redo", "save_layout",
-    "load_layout")
+    "load_layout", "area", "text")
 
 
 def hex_to_rgb_tuple(color_str: str) -> tuple:
@@ -355,9 +357,10 @@ class ButtonIconTest(unittest.TestCase):
     @covers("LLFR-00158", "LLFR-00004", "LLFR-00018", "LLFR-00077",
             "LLFR-00080", "LLFR-00114", "LLFR-00121", "LLFR-00126",
             "LLFR-00132", "LLFR-00136", "LLFR-00161", "LLFR-00162",
-            "LLFR-00190", "LLFR-00216", "LLFR-00217")
+            "LLFR-00190", "LLFR-00216", "LLFR-00217", "LLFR-00286",
+            "LLFR-00320")
     def test_every_button_shows_only_its_icon(self) -> None:
-        """All 14 buttons have an icon, no text and a square icon size.
+        """All 16 buttons have an icon, no text and a square icon size.
 
         Inputs: none.
         Outputs: none.
@@ -446,7 +449,7 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00159")
     def test_each_icon_renders_a_distinct_picture(self) -> None:
-        """All 14 icons draw something, and no two draw the same picture.
+        """All 16 icons draw something, and no two draw the same picture.
 
         Inputs: none.
         Outputs: none.
