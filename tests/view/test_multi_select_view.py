@@ -241,6 +241,11 @@ class SelectionPanelTest(unittest.TestCase):
         self.widget.itemDoubleClicked.emit(self.widget.item(1))
         self.assertEqual(self.double_clicked_list, ["speed"])
         self.select(["Time", "temperature"])
+        # A press on the item first, as a real double-click starts with
+        # one; the item view only reports a double-click on the item
+        # that was pressed. That click leaves only "force" selected.
+        self.click(2)
+        self.select(["Time", "force", "temperature"])
         QTest.mouseDClick(self.widget.viewport(), Qt.MouseButton.LeftButton,
                           Qt.KeyboardModifier.NoModifier, self.row_point(2))
         self.application.processEvents()
