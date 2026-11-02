@@ -963,7 +963,7 @@ class LayoutValueTest(LayoutRebuildTestCase):
         """
         signal_list = [f"s{index_i}" for index_i in range(12)]
         signal_dict = make_signal_dict(signal_list)
-        color_list = ["#000000", "#1F77B4", "#2ca02c", "#d62728",
+        color_list = ["#000000", "#1F77B4", "#2ca02c", "#b2182b",
                       "#000000", "red", 12, MARKER_COLOR_STR, "#1f77b4",
                       None, "#abcdeg", "#123456"]
         curve_list = [{"signal": signal_str, "color": color_value,
@@ -976,7 +976,7 @@ class LayoutValueTest(LayoutRebuildTestCase):
         used_color_list = [item.color_str for item in plot.curve_list]
         self.assertEqual(len(set(used_color_list)), 12)
         self.assertEqual(used_color_list[:4], [
-            "#000000", "#1f77b4", "#2ca02c", "#d62728"])
+            "#000000", "#1f77b4", "#2ca02c", "#b2182b"])
         self.assertEqual(used_color_list[11], "#123456")
         # LLFR-00033: the first replaced color is the next palette color
         # not yet used in the plot.
@@ -986,6 +986,33 @@ class LayoutValueTest(LayoutRebuildTestCase):
         plot.add_curve("Time")
         self.assertEqual(len({item.color_str for item in plot.curve_list}),
                          13)
+
+    @covers("LLFR-00235", "LLFR-00365", "LLFR-00083", "LLFR-00237")
+    def test_colors_close_to_the_orange_marker_are_replaced(self) -> None:
+        """The marker color and colors closer than 70 to it, such as the
+        red and the orange of the previous palette, are replaced by the
+        next palette color and reported; the new dark red is kept.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_list = ["s0", "s1", "s2", "s3"]
+        color_list = ["#b2182b", "#ff4400", "#d62728", "#ff7f0e"]
+        curve_list = [{"signal": signal_str, "color": color_str,
+                       "width": 1}
+                      for signal_str, color_str in zip(signal_list,
+                                                       color_list)]
+        result = self.rebuild(minimal_layout([one_plot_tab(curve_list)]),
+                              make_signal_dict(signal_list))
+        used_color_list = [item.color_str
+                           for item in self.only_plot().curve_list]
+        self.assertEqual(used_color_list, [
+            "#b2182b", PALETTE_COLOR_TUPLE[1], PALETTE_COLOR_TUPLE[3],
+            PALETTE_COLOR_TUPLE[4]])
+        for line_str in result.report.replaced_line_list:
+            self.assertIn("too close to the marker color", line_str)
+        self.assertNotIn(MARKER_COLOR_STR, used_color_list)
+        self.assertEqual(len(result.report.replaced_line_list), 3)
 
     @covers("LLFR-00235", "HLFR-00018", "LLFR-00237")
     def test_plots_beyond_five_are_not_created(self) -> None:
