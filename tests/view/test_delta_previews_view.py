@@ -32,6 +32,8 @@ from model.workspace import (
 # Display pixels allowed between two shapes that must be the same.
 SHAPE_TOLERANCE_PX_F = 0.01
 BLUE_STR = "#0000ff"
+# Display pixels around the first point left out of the color check.
+EXCLUDED_RADIUS_PX_F = 12.0
 
 
 def keep_pointer_away(test_case):
@@ -155,15 +157,28 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.assertNotEqual(preview_rgb_tuple, marker_rgb_tuple)
         self.assertGreater(sum(preview_rgb_tuple), sum(marker_rgb_tuple))
 
-    def changed_pixel_array(self, clean_array, shown_array):
+    def changed_pixel_array(self, clean_array, shown_array,
+                            excluded_point_tuple: tuple = ()):
         """Return the RGB values of the pixels a blit changed.
 
         Inputs:
             clean_array: RGBA buffer of the canvas before the blit.
             shown_array: RGBA buffer after it.
+            excluded_point_tuple: a data point (time_s, value_f) whose
+                surroundings are left out, or () to keep every pixel.
         Outputs: numpy array of shape (N, 3) of integers 0 to 255.
         """
         changed_array = np.any(clean_array != shown_array, axis=2)
+        if excluded_point_tuple:
+            # The preview's leader line starts on the first point, whose
+            # real dot keeps the full marker color (LLFR-00165); the
+            # pixels where the two blend are left out.
+            x_px, y_px = self.display_tuple(*excluded_point_tuple)
+            row_array, column_array = np.indices(changed_array.shape)
+            row_px = changed_array.shape[0] - y_px
+            changed_array &= (np.hypot(column_array - x_px,
+                                       row_array - row_px)
+                              > EXCLUDED_RADIUS_PX_F)
         return shown_array[changed_array][:, :3].astype(int)
 
     def assert_drawn_in_pale_marker_color(self, pixel_array) -> None:
@@ -231,7 +246,8 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
             self.assertTrue(self.plot_widget.delta_preview_marker_shown())
             marker_pixel_array = self.changed_pixel_array(
                 clean_array,
-                np.array(self.plot_widget.canvas.buffer_rgba(), copy=True))
+                np.array(self.plot_widget.canvas.buffer_rgba(), copy=True),
+                self.sine_point(2.0)[1:])
             self.assert_drawn_in_pale_marker_color(marker_pixel_array)
             # The bracket, the leader lines and the value draw much more
             # than the dot alone.
