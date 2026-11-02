@@ -31,10 +31,10 @@ DEFAULT_AREA_NAME_FORMAT_STR = "Area {}"
 # LLFR-00309, LLFR-00319: a default area name, to read its number back
 # when an area of a layout file keeps its saved name.
 DEFAULT_AREA_NAME_PATTERN_STR = r"Area (\d+)"
-# LLFR-00351: the names of the five area colors, in menu order; the
-# first one, the paler marker color (LLFR-00305), is the default. The
-# view gives each name its color (view.theme.AREA_COLOR_DICT).
-AREA_COLOR_NAME_TUPLE = ("Magenta", "Blue", "Green", "Yellow", "Orange")
+# LLFR-00351: the names of the four area colors, in menu order; the
+# first one, the see-through marker color (LLFR-00305), is the default.
+# The view gives each name its color (view.theme.AREA_COLOR_DICT).
+AREA_COLOR_NAME_TUPLE = ("Orange", "Blue", "Green", "Yellow")
 DEFAULT_AREA_COLOR_NAME_STR = AREA_COLOR_NAME_TUPLE[0]
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.

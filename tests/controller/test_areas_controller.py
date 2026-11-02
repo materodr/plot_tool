@@ -361,6 +361,7 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         depth_i = self.controller.undo_history.depth()
         color_handler(self.plot_id_i, self.first_id_i, "Purple")
         color_handler(self.plot_id_i, self.first_id_i, "Magenta")
+        color_handler(self.plot_id_i, self.first_id_i, "Orange")
         color_handler(999, self.first_id_i, "Blue")
         color_handler(self.plot_id_i, 999, "Blue")
         self.assertEqual(self.controller.undo_history.depth(), depth_i)
@@ -370,12 +371,12 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
             self.assertEqual(
                 [area_tuple[4] for area_tuple
                  in self.view.area_drawn_dict[plot_id_i]],
-                ["Green", "Magenta"])
+                ["Green", "Orange"])
         self.undo()
         self.assertEqual(self.workspace.area_list[0].color_name_str,
-                         "Magenta")
+                         "Orange")
         self.assertEqual(self.view.area_drawn_dict[other_plot_id_i][0][4],
-                         "Magenta")
+                         "Orange")
         self.redo()
         self.assertEqual(self.workspace.area_list[0].color_name_str,
                          "Green")
@@ -466,7 +467,7 @@ class LayoutAreaControllerTest(AreaControllerTestCase):
         self.create(1.0, 2.0)
         self.assertEqual(self.controller.layout_dict()["areas"], [
             {"name": "Area 1", "start": 1.0, "end": 2.0,
-             "color": "Magenta"}])
+             "color": "Orange"}])
         result = self.controller.load_layout(minimal_layout(
             [one_plot_tab([curve("s2")])], areas=[
                 {"name": "Saved", "start": 3.0, "end": 4.0},

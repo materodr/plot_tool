@@ -255,8 +255,9 @@ class AreaLookTest(AreaWidgetTestCase):
 
     @covers("LLFR-00305", "LLFR-00306", "LLFR-00307", "LLFR-00308")
     def test_band_label_and_times(self) -> None:
-        """A see-through band in a paler marker color over the whole y
-        range, behind the grid and curves, with its name and times.
+        """A see-through band in the orange marker color, shown paler
+        because it is see-through, over the whole y range, behind the
+        grid and curves, with its name and times.
 
         Inputs: none.
         Outputs: none.
@@ -273,10 +274,16 @@ class AreaLookTest(AreaWidgetTestCase):
         face_tuple = to_rgb(band.get_facecolor())
         marker_tuple = to_rgb(MARKER_COLOR_STR)
         self.assertEqual(face_tuple, to_rgb(AREA_COLOR_STR))
-        self.assertNotEqual(face_tuple, marker_tuple)
-        # Paler: every channel is closer to white than the marker color.
-        for face_f, marker_f in zip(face_tuple, marker_tuple):
-            self.assertGreaterEqual(face_f, marker_f)
+        # LLFR-00305: the orange of the marker color, made paler by the
+        # see-through drawing over the white plot background.
+        self.assertEqual(face_tuple, marker_tuple)
+        self.assertEqual(to_rgb(MARKER_COLOR_STR), to_rgb("#ff4400"))
+        alpha_f = band.get_alpha()
+        for face_f in face_tuple:
+            drawn_f = alpha_f * face_f + (1.0 - alpha_f) * 1.0
+            self.assertGreaterEqual(drawn_f, face_f)
+        self.assertGreater(alpha_f * face_tuple[1] + (1.0 - alpha_f),
+                           face_tuple[1] + 0.4)
         # The whole y range, whatever it is: y from 0 to 1 in axes units.
         self.assertEqual((band.get_y(), band.get_height()), (0.0, 1.0))
         self.assertEqual((band.get_x(), band.get_width()), (3.0, 2.0))
@@ -333,11 +340,12 @@ class AreaLookTest(AreaWidgetTestCase):
                      for index_i, name_str
                      in enumerate(theme.AREA_COLOR_DICT)]
         area_list.append((9, "Odd", 8.0, 9.0, "Purple"))
+        area_list.append((10, "Old", 9.5, 9.8, "Magenta"))
         self.set_areas(area_list)
         for area_id_i, _, _, _, name_str in area_list:
             band = self.plot_widget.area_artist_tuple(area_id_i)[0]
             expected_str = theme.AREA_COLOR_DICT.get(
-                name_str, theme.AREA_COLOR_DICT["Magenta"])
+                name_str, theme.AREA_COLOR_DICT["Orange"])
             self.assertEqual(to_rgb(band.get_facecolor()),
                              to_rgb(expected_str))
             self.assertEqual(band.get_alpha(), AREA_ALPHA_F)
@@ -741,9 +749,10 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(plot_delete_list, [()])
 
     @covers("LLFR-00351", "LLFR-00314")
-    def test_color_submenu_lists_five_colors_and_emits_the_choice(
+    def test_color_submenu_lists_four_colors_and_emits_the_choice(
             self) -> None:
-        """"Color" lists the five colors, the area's own one checked;
+        """"Color" lists the four colors, Orange first and checked for a
+        new area, the area's own one checked;
         choosing one emits area_color_requested with its name.
 
         Inputs: none.
@@ -752,9 +761,8 @@ class AreaMenuTest(AreaWidgetTestCase):
         color_list = recorder(self.plot_widget.area_color_requested)
         self.menu_texts(self.at(4.0))
         self.assertEqual(self.submenu_dict["Color"], [
-            ("Magenta", True, True), ("Blue", True, False),
-            ("Green", True, False), ("Yellow", True, False),
-            ("Orange", True, False)])
+            ("Orange", True, True), ("Blue", True, False),
+            ("Green", True, False), ("Yellow", True, False)])
         self.menu_texts(self.at(4.0), "Green")
         self.assertEqual(color_list, [(1, "Green")])
         self.set_areas([(1, "Area 1", 2.0, 6.0, "Yellow")])
@@ -1016,7 +1024,7 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         assert_color("Blue")
         self.controller.plot_controller.on_undo()
         self.application.processEvents()
-        assert_color("Magenta")
+        assert_color("Orange")
         self.controller.plot_controller.on_redo()
         self.application.processEvents()
         assert_color("Blue")
