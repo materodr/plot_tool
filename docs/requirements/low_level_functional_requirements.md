@@ -951,13 +951,13 @@ The saved file must hold every signal of the signal list, in the order of the li
 *Parent: HLFR-00090*
 
 ### LLFR-00402 Saved file opens as a data file
-The app must write the saved file following the reading rules of its format, so that opening it (LLFR-00006) shows the same signals, with the names of LLFR-00403, and the same values:
+The app must write the saved file following the reading rules of its format, so that opening it (LLFR-00006) shows the same signals, with the names of LLFR-00403 and LLFR-00407, and the same values:
 1. CSV: one column per signal with the signal names in the first row (LLFR-00059), with `,` as the separator and `.` as the decimal mark (LLFR-00061);
 2. Excel: the same columns in the first and only sheet (LLFR-00059, LLFR-00060);
 3. MAT: one top-level variable holding a one-dimensional numeric array per signal (LLFR-00062), in a MAT format that is not v7.3 (LLFR-00064);
 4. HDF5: one dataset holding a one-dimensional numeric array per signal, at the path given by the signal's name, so that a `/` in the name puts the dataset in groups (LLFR-00134).
 
-The time signal must keep its name, except as in LLFR-00403, which changes it like any other name and lists it (LLFR-00404). Each value must be written with enough digits, or as a 64-bit floating-point number, to be read back as the same value.
+Each value must be written with enough digits, or as a 64-bit floating-point number, to be read back as the same value.
 
 *Parent: HLFR-00090, HLFR-00005*
 
@@ -966,12 +966,12 @@ The app must change each signal name that the chosen format cannot store into a 
 1. MAT: every character that is not an English letter, a digit or `_` must be replaced by `_`; a name that does not start with a letter must get `x` added at its start; a name longer than 63 characters must be cut to 63 characters;
 2. HDF5: empty parts between `/` characters, parts that are `.` or `..`, and a `/` at the start or end of the name, must be removed (an empty result must become `signal`); a name that is also the group of another saved name (for example `engine` with `engine/speed`) must get an underscore and the smallest number from 2 up that makes it neither a group nor the name of another saved signal.
 
-When a changed name is the name of another saved signal, the app must add an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241, and must still keep a MAT name within 63 characters. CSV and Excel names must not be changed.
+When a changed name is the name of another saved signal, the app must add an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241, and must still keep a MAT name within 63 characters. CSV and Excel names must not be changed, except as in LLFR-00407.
 
 *Parent: HLFR-00090*
 
 ### LLFR-00404 Changed names after saving
-After saving the file, if any name was changed (LLFR-00403), the app must show one information box that lists each changed name as `<old name> → <new name>`. If no name was changed, the app must not show any message.
+After saving the file, if any name was changed (LLFR-00403, LLFR-00407), including the name of the time signal, the app must show one information box that lists each changed name as `<old name> → <new name>`. If no name was changed, the app must not show any message.
 
 Note: The box is an information box, not an error box (HLFR-00002). A long list must be scrollable, like the layout load report (LLFR-00237).
 
@@ -981,6 +981,13 @@ Note: The box is an information box, not an error box (HLFR-00002). A long list 
 Saving the signals must not change the signal list, the names of the signals in the app, the plots, the opened data file or the undo and redo history, and must not be an undoable action (LLFR-00140).
 
 *Parent: HLFR-00090, HLFR-00040*
+
+### LLFR-00407 Time signal name in a saved file
+The app must write the time signal (HLFR-00006, LLFR-00326) under the name `Time`, in every format, so that opening the saved file finds its time signal by its name (LLFR-00053) and does not show the time signal window (LLFR-00325). Every other saved signal whose name, after LLFR-00403, would also match the time signal name in the chosen format (LLFR-00053, LLFR-00330), for example `TIME` or `time`, must get an underscore and the smallest number from 2 up that makes its name unique, as in LLFR-00241, for example `TIME_2`, so that the saved file has only one signal that matches the time signal name. When the time signal's name is not exactly `Time`, its change to `Time` must be listed in the box of LLFR-00404 like the other changed names.
+
+Note: Such other names exist, for example, when the data file holds both `Time` and `TIME` (LLFR-00324), or when a synthetic signal was renamed `time` (LLFR-00266). A time signal chosen in the window (LLFR-00326) has no other signal of the data file matching the time signal name.
+
+*Parent: HLFR-00090, HLFR-00006*
 
 ## Signal list panel
 
