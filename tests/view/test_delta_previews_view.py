@@ -300,9 +300,14 @@ class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):
         first_tuple = self.sine_point(2.0)
         self.plot_widget.set_plot_tool(DELTA_X_TOOL_STR)
         self.plot_widget.set_delta_first_point(first_tuple)
+        # The dot of the first point is drawn, so the preview is blitted
+        # at once (a blit waits for a pending full draw).
+        self.draw()
         self.hover(*self.ramp_point(5.0)[1:])
         self.assertTrue(self.plot_widget.delta_preview_text().startswith(
             "Δt = "))
+        self.assertEqual(self.plot_widget.delta_preview_artists()[2].kind_str,
+                         DELTA_X_KIND_STR)
         self.plot_widget.set_plot_tool(DELTA_Y_TOOL_STR)
         self.assertTrue(self.plot_widget.delta_preview_marker_shown())
         self.assertTrue(self.plot_widget.delta_preview_text().startswith(
