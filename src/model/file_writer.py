@@ -55,6 +55,13 @@ MAT_MAXIMUM_NAME_LENGTH_I = 63
 HDF5_EMPTY_NAME_STR = "signal"
 HDF5_SEPARATOR_STR = "/"
 HDF5_DROPPED_PART_TUPLE = ("", ".", "..")
+# LLFR-00403 item 3: the name of a CSV or Excel column left empty.
+TABLE_EMPTY_NAME_STR = "signal"
+# LLFR-00408: the reason given for signals with values that are not
+# finite numbers.
+NON_FINITE_REASON_STR = (
+    "These signals have values that are not finite numbers (infinite or "
+    "NaN), which a data file cannot hold: {names}.")
 # LLFR-00241, LLFR-00403: the first number added to a name in use.
 FIRST_SUFFIX_NUMBER_I = 2
 # LLFR-00399: the reason given when h5py is not installed.
@@ -183,20 +190,34 @@ def hdf5_name(name_str: str) -> str:
     return HDF5_SEPARATOR_STR.join(part_list)
 
 
+def table_name(name_str: str) -> str:
+    """Return a name a CSV or Excel file reads back unchanged.
+
+    Inputs:
+        name_str: a signal name.
+    Outputs: the name without blank characters at its start and end,
+        which the loader removes (LLFR-00059); "signal" when nothing is
+        left.
+    """
+    # LLFR-00403 item 3: " a " is read back as "a", so it is saved so.
+    stripped_str = name_str.strip()
+    return stripped_str or TABLE_EMPTY_NAME_STR
+
+
 def format_name(name_str: str, format_str: str) -> str:
     """Return the name the format can store, before names are unique.
 
     Inputs:
         name_str: a signal name.
         format_str: one of FORMAT_ORDER_TUPLE.
-    Outputs: the stored name; CSV and Excel names are not changed.
+    Outputs: the stored name (LLFR-00403 items 1 to 3).
     """
-    # LLFR-00403: only MAT and HDF5 names are changed.
+    # LLFR-00403: the rule of each format.
     if format_str == MAT_FORMAT_STR:
         return mat_name(name_str)
     if format_str == HDF5_FORMAT_STR:
         return hdf5_name(name_str)
-    return name_str
+    return table_name(name_str)
 
 
 def numbered_name(base_name_str: str, number_i: int,
@@ -351,6 +372,32 @@ def hdf5_names_without_groups(name_list: list, time_index_i: int) -> list:
     return result_list
 
 
+def non_finite_name_list(name_list: list, array_list: list) -> list:
+    """Return the signals that have a value that is not a finite number.
+
+    Inputs:
+        name_list: the names of the signals to save.
+        array_list: their samples, one array per name.
+    Outputs: the names of the signals with an infinite or NaN sample,
+        in list order.
+    """
+    # LLFR-00408: no data file the app opens can hold such values.
+    return [name_str for name_str, value_array in zip(name_list, array_list)
+            if not np.all(np.isfinite(float_array(value_array)))]
+
+
+def non_finite_reason(name_list: list) -> str:
+    """Return the reason for the error box of LLFR-00408.
+
+    Inputs:
+        name_list: the names of the signals with non-finite values.
+    Outputs: the sentence that names them.
+    """
+    # LLFR-00408: each signal is named.
+    return NON_FINITE_REASON_STR.format(
+        names=", ".join(f"'{name_str}'" for name_str in name_list))
+
+
 def changed_name_list(name_list: list, new_name_list: list) -> list:
     """Return the names that were changed for the saved file.
 
@@ -493,6 +540,14 @@ def hdf5_bytes(name_list: list, array_list: list) -> bytes:
     with h5py_library.File(content_buffer, "w",
                            track_order=True) as hdf5_file:
         for name_str, value_array in zip(name_list, array_list):
+            # LLFR-00134, LLFR-00401: every group also tracks the order,
+            # so the loader lists its members in the list order.
+            part_list = name_str.split(HDF5_SEPARATOR_STR)
+            for part_count_i in range(1, len(part_list)):
+                group_path_str = HDF5_SEPARATOR_STR.join(
+                    part_list[:part_count_i])
+                if group_path_str not in hdf5_file:
+                    hdf5_file.create_group(group_path_str, track_order=True)
             hdf5_file.create_dataset(name_str,
                                      data=float_array(value_array))
     return content_buffer.getvalue()
@@ -512,6 +567,10 @@ def signal_file_bytes(name_list: list, array_list: list,
     # LLFR-00402: the writer of the chosen format.
     writer_dict = {CSV_FORMAT_STR: csv_bytes, EXCEL_FORMAT_STR: excel_bytes,
                    MAT_FORMAT_STR: mat_bytes, HDF5_FORMAT_STR: hdf5_bytes}
+    # LLFR-00408: infinite or NaN values can't be saved.
+    bad_name_list = non_finite_name_list(name_list, array_list)
+    if bad_name_list:
+        raise SignalWriteError(non_finite_reason(bad_name_list))
     # LLFR-00400: an Excel sheet has a fixed size.
     if format_str == EXCEL_FORMAT_STR and array_list:
         reason_str = excel_limit_reason(len(array_list),

@@ -32,7 +32,8 @@ import os
 from model.file_writer import (
     SignalWriteError, changed_name_list, changed_names_text,
     ensure_format_extension, excel_limit_reason, format_of_path,
-    proposed_file_name, saved_name_list, signal_file_bytes,
+    non_finite_name_list, non_finite_reason, proposed_file_name,
+    saved_name_list, signal_file_bytes,
     CSV_FORMAT_STR, EXCEL_FORMAT_STR)
 
 # LLFR-00397: the text of the error box shown for the opened data file.
@@ -188,6 +189,13 @@ class SaveSignalsController:
                 self.view.show_signals_save_error(
                     f"{failed_str}\n\n{reason_str}")
                 return
+        # LLFR-00408: refused before anything is written, naming the
+        # signals with infinite or NaN values (in the app's names).
+        bad_name_list = non_finite_name_list(name_list, array_list)
+        if bad_name_list:
+            self.view.show_signals_save_error(
+                f"{failed_str}\n\n{non_finite_reason(bad_name_list)}")
+            return
         # LLFR-00403, LLFR-00407: the names the format can store, with
         # the time signal as "Time".
         new_name_list = saved_name_list(

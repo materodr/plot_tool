@@ -18,7 +18,7 @@ from controller.save_signals_controller import SaveSignalsController
 from model import synthetic_operations as operations
 from model.file_loader import load_signal_file
 from model.file_writer import (
-    CSV_FORMAT_STR, EXCEL_FORMAT_STR, MAT_FORMAT_STR)
+    CSV_FORMAT_STR, EXCEL_FORMAT_STR, HDF5_FORMAT_STR, MAT_FORMAT_STR)
 from model.signal_file import SignalFile
 from model.synthetic_signals import SyntheticSignal, SyntheticSignalStore
 from view.file_writing import write_file_safely
@@ -528,6 +528,34 @@ class SaveSignalsFlowTest(unittest.TestCase):
                       self.view.error_list[0])
         self.assertEqual(self.view.written_path_list, [])
         self.assertFalse(os.path.exists(self.target("big.xlsx")))
+
+    @covers("LLFR-00408")
+    def test_non_finite_values_refused(self) -> None:
+        """A synthetic signal with inf or NaN values makes every format
+        refuse: no file, one error box naming the signal.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_data_file()
+        self.synthetic_controller.store.signal_list.append(SyntheticSignal(
+            "mul_1e308_speed", operations.MULTIPLY_STR, ["speed"], 1e308,
+            np.array([np.inf, np.nan, 1.0])))
+        for format_str in (CSV_FORMAT_STR, EXCEL_FORMAT_STR,
+                           MAT_FORMAT_STR, HDF5_FORMAT_STR):
+            with self.subTest(format=format_str):
+                self.view.error_list = []
+                target_str = self.target(f"bad_{format_str}")
+                self.view.dialog_answer_list = [
+                    (target_str, format_str, False)]
+                self.view.handler()
+                self.assertEqual(len(self.view.error_list), 1)
+                self.assertIn("could not be saved", self.view.error_list[0])
+                self.assertIn("'mul_1e308_speed'", self.view.error_list[0])
+                self.assertNotIn("'speed'", self.view.error_list[0])
+        self.assertEqual(self.view.written_path_list, [])
+        self.assertEqual(self.view.changed_names_list, [])
+        self.assertEqual(sorted(os.listdir(self.folder_str)), ["run1.csv"])
 
     @covers("LLFR-00405", "LLFR-00401")
     def test_nothing_changes_in_the_app(self) -> None:

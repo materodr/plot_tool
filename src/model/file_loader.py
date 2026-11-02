@@ -486,12 +486,51 @@ def is_vector_shape(shape_tuple: tuple) -> bool:
     return len(shape_tuple) == 1 or min(shape_tuple) == 1
 
 
+def collect_hdf5_datasets(h5py_library, group, prefix_str: str,
+                          dataset_list: list, visited_set: set) -> None:
+    """Collect the datasets of an HDF5 group and of its subgroups.
+
+    The members of a group are listed in the order they were created
+    when the group tracks its creation order (h5py then iterates in that
+    order), and otherwise by name in byte order, so "Time" comes before
+    lowercase names. Each group's members come right after the group.
+    Only hard links are followed, and each object is visited once, as
+    h5py's ``visititems`` does.
+
+    Inputs:
+        h5py_library: the h5py module.
+        group: the h5py Group (or File) to walk.
+        prefix_str: the path of the group with a trailing "/", or "" for
+            the root.
+        dataset_list: the list that receives (path, dataset) tuples.
+        visited_set: the ids of the objects already visited.
+    Outputs: none. Appends to dataset_list.
+    """
+    # LLFR-00134: creation order when tracked, otherwise by name.
+    for member_name_str in group:
+        link = group.get(member_name_str, getlink=True)
+        if not isinstance(link, h5py_library.HardLink):
+            continue
+        item = group[member_name_str]
+        if item.id in visited_set:
+            continue
+        visited_set.add(item.id)
+        path_str = prefix_str + member_name_str
+        if isinstance(item, h5py_library.Dataset):
+            dataset_list.append((path_str, item))
+        elif isinstance(item, h5py_library.Group):
+            collect_hdf5_datasets(h5py_library, item, path_str + "/",
+                                  dataset_list, visited_set)
+
+
 def read_hdf5_signals(path_str: str) -> dict:
     """Read the signals of an HDF5 file.
 
-    The datasets are visited in the order of h5py's ``visititems``: by
-    name (byte order, so "Time" comes before lowercase names), each
-    group's members right after the group itself.
+    The datasets are listed as collect_hdf5_datasets visits them: in
+    creation order inside a group that tracks it, as the files of the
+    Save signals button do, otherwise by name (byte order, so "Time"
+    comes before lowercase names), each group's members right after the
+    group itself.
 
     Inputs:
         path_str: path of the .h5 or .hdf5 file.
@@ -511,20 +550,8 @@ def read_hdf5_signals(path_str: str) -> dict:
         with h5py_library.File(path_str, "r") as hdf5_file:
             # LLFR-00134: collect the datasets of every group.
             dataset_list = []
-
-            def collect_dataset(name_str: str, item: object) -> None:
-                """Keep the HDF5 objects that are datasets.
-
-                Inputs:
-                    name_str: path of the object, without leading "/".
-                    item: the h5py Group or Dataset at that path.
-                Outputs: none. Appends (path, dataset) to dataset_list.
-                """
-                # LLFR-00134: groups only hold the datasets.
-                if isinstance(item, h5py_library.Dataset):
-                    dataset_list.append((name_str, item))
-
-            hdf5_file.visititems(collect_dataset)
+            collect_hdf5_datasets(h5py_library, hdf5_file, "",
+                                  dataset_list, set())
             signal_dict = {}
             for name_str, dataset in dataset_list:
                 # LLFR-00135: skip datasets that are not 1-D numeric.

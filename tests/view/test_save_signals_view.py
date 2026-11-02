@@ -275,6 +275,31 @@ class SaveSignalsViewTest(unittest.TestCase):
                          self.message_box_class.Icon.Critical)
         self.assertIn("could not be saved", self.box_record_list[0][2])
 
+    @covers("LLFR-00408")
+    def test_non_finite_values_show_a_critical_box(self) -> None:
+        """A synthetic signal with an infinite value: a critical box that
+        names it, and no Excel file afterwards.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import numpy as np
+        from model import synthetic_operations as operations
+        from model.synthetic_signals import SyntheticSignal
+        self.open_data_file()
+        self.controller.synthetic_controller.store.signal_list.append(
+            SyntheticSignal("mul_1e308_speed", operations.MULTIPLY_STR,
+                            ["speed"], 1e308,
+                            np.array([0.0, np.inf, np.inf, np.inf, np.inf])))
+        target_str = os.path.join(self.folder_str, "bad.xlsx")
+        self.click_with_dialog_answer((target_str, "Excel files (*.xlsx)"))
+        self.assertEqual(len(self.box_record_list), 1)
+        self.assertEqual(self.box_record_list[0][1],
+                         self.message_box_class.Icon.Critical)
+        self.assertIn("mul_1e308_speed", self.box_record_list[0][2])
+        self.assertFalse(os.path.exists(target_str))
+        self.assertEqual(self.changed_names_list, [])
+
     @covers("LLFR-00404")
     def test_changed_names_box_is_scrollable_information(self) -> None:
         """The changed names box is an information box with a long list

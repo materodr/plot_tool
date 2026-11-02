@@ -296,6 +296,78 @@ class RoundTripTest(unittest.TestCase):
                                         signal_file.time_array)
 
 
+class WriterRequestTest(unittest.TestCase):
+    """Order, blank names and non-finite values (review of PR #158)."""
+
+    @requires_h5py
+    @covers("LLFR-00134", "LLFR-00401", "LLFR-00402")
+    def test_hdf5_keeps_the_signal_list_order(self) -> None:
+        """An HDF5 file of Save signals reopens in the signal-list order,
+        also inside a group.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = ["Time", "zeta", "beta", "grp/z", "grp/a", "alpha"]
+        array_list = [np.arange(4, dtype=np.float64) * (index_i + 1)
+                      for index_i in range(len(name_list))]
+        with tempfile.TemporaryDirectory() as folder_str:
+            new_name_list, signal_file = save_and_load(
+                folder_str, name_list, array_list, "Time", HDF5_FORMAT_STR)
+        self.assertEqual(new_name_list, name_list)
+        self.assertEqual(signal_file.signal_name_list, name_list)
+
+    @covers("LLFR-00403", "LLFR-00404", "LLFR-00059")
+    def test_csv_and_excel_names_without_outer_blanks(self) -> None:
+        """" a" and "a" (as in an HDF5 data file) and a name of spaces
+        only are saved as "a_2", "a" and "signal" and read back so.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = ["Time", " a", "a", "   ", "b\t", "signal"]
+        array_list = [np.arange(3, dtype=np.float64) * (index_i + 1)
+                      for index_i in range(len(name_list))]
+        expected_list = ["Time", "a_2", "a", "signal_2", "b", "signal"]
+        for format_str in (CSV_FORMAT_STR, EXCEL_FORMAT_STR):
+            with tempfile.TemporaryDirectory() as folder_str:
+                new_name_list, signal_file = save_and_load(
+                    folder_str, name_list, array_list, "Time", format_str)
+            with self.subTest(format=format_str):
+                self.assertEqual(new_name_list, expected_list)
+                self.assertEqual(signal_file.signal_name_list,
+                                 expected_list)
+                np.testing.assert_array_equal(
+                    signal_file.signal_array("a_2"), array_list[1])
+                self.assertEqual(
+                    changed_name_list(name_list, new_name_list),
+                    [(" a", "a_2"), ("   ", "signal_2"), ("b\t", "b")])
+
+    @covers("LLFR-00408")
+    def test_non_finite_values_are_refused_in_every_format(self) -> None:
+        """inf, -inf and NaN samples make every format refuse, naming the
+        signals, so no broken file is made (Excel would be corrupt).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = ["Time", "ok", "big", "gap"]
+        array_list = [np.arange(3, dtype=np.float64), np.ones(3),
+                      np.array([1.0, np.inf, -np.inf]),
+                      np.array([np.nan, 1.0, 2.0])]
+        self.assertEqual(file_writer.non_finite_name_list(name_list,
+                                                          array_list),
+                         ["big", "gap"])
+        for format_str in file_writer.FORMAT_ORDER_TUPLE:
+            with self.subTest(format=format_str):
+                with self.assertRaises(SignalWriteError) as context:
+                    signal_file_bytes(name_list, array_list, format_str)
+                self.assertIn("'big', 'gap'", str(context.exception))
+                self.assertIn("not finite numbers", str(context.exception))
+        self.assertEqual(file_writer.non_finite_name_list(
+            name_list[:2], array_list[:2]), [])
+
+
 class NameRuleTest(unittest.TestCase):
     """The name rules of LLFR-00403 and LLFR-00407, without files."""
 
