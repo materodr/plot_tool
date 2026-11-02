@@ -182,6 +182,19 @@ class FakeSignalListView:
         """
         self.selection_clear_count_i += 1
 
+    def rename_shown_signal(self, old_name_str: str,
+                            new_name_str: str) -> None:
+        """Rename a shown name in place, as the real list does.
+
+        Inputs:
+            old_name_str: the previous name.
+            new_name_str: the new name.
+        Outputs: none.
+        """
+        self.shown_name_list = [
+            new_name_str if name_str == old_name_str else name_str
+            for name_str in self.shown_name_list]
+
 
 class FakeFileView(FakeSignalListView):
     """Fake view that also offers what the real FileController needs.

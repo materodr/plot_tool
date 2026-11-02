@@ -188,9 +188,13 @@ class PlotController:
             curve_delete_handler=self.on_curve_delete,
             curve_width_handler=self.on_curve_width,
             plot_delete_handler=self.on_plot_delete,
-            signal_drop_handler=self.on_signal_dropped,
-            # LLFR-00297: a drop of one or several selected signals.
+            # LLFR-00297: a drop of one or several selected signals; the
+            # plot widgets send every drop here.
             signals_drop_handler=self.on_signals_dropped,
+            # LLFR-00021: the one-name entry, kept for callers that drop
+            # a single name (the fake views of the tests); no plot
+            # widget signal uses it.
+            signal_drop_handler=self.on_signal_dropped,
             tip_pin_handler=self.on_tip_pin,
             pinned_tip_delete_handler=self.on_pinned_tip_delete,
             pinned_tip_move_handler=self.on_pinned_tip_move,

@@ -303,6 +303,64 @@ class SelectionPanelTest(unittest.TestCase):
         self.assertEqual(self.selected(), ["force"])
         self.assertEqual(self.plot_request_list, [])
 
+    @covers("LLFR-00295", "HLFR-00064")
+    def test_held_enter_requests_one_plot(self) -> None:
+        """Auto-repeated Enter presses are ignored.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+        from PyQt6.QtWidgets import QApplication
+        self.select(["speed", "force"])
+        for auto_repeat_b in (False, True, True, True):
+            QApplication.sendEvent(self.widget, QKeyEvent(
+                QEvent.Type.KeyPress, int(Qt.Key.Key_Return.value),
+                Qt.KeyboardModifier.NoModifier, "", auto_repeat_b))
+        self.application.processEvents()
+        self.assertEqual(self.plot_request_list, [["speed", "force"]])
+
+    @covers("LLFR-00290", "LLFR-00292", "HLFR-00063")
+    def test_shift_click_range_starts_at_the_last_click_after_refill(
+            self) -> None:
+        """A refill of the list keeps the start of the Shift range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click(2)
+        # The list is refilled (a search, a synthetic signal created).
+        self.panel.show_signal_names(NAME_LIST + ["int_speed"])
+        self.widget.doItemsLayout()
+        self.application.processEvents()
+        self.assertEqual(self.widget.currentItem().text(), "force")
+        self.assertEqual(self.selected(), ["force"])
+        self.click(4, "ShiftModifier")
+        self.assertEqual(self.selected(),
+                         ["force", "temperature", "pressure"])
+        # The current item moved with its name to another row.
+        self.click(3)
+        self.panel.show_signal_names(["Time", "temperature", "pressure"])
+        self.widget.doItemsLayout()
+        self.application.processEvents()
+        self.click(0, "ShiftModifier")
+        self.assertEqual(self.selected(), ["Time", "temperature"])
+
+    @covers("LLFR-00292", "LLFR-00266", "HLFR-00063")
+    def test_renamed_signal_stays_selected(self) -> None:
+        """A renamed signal keeps its selection after the refill.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.panel.show_signal_names(NAME_LIST + ["int_speed"])
+        self.select(["force", "int_speed"])
+        self.panel.rename_shown_signal("int_speed", "distance")
+        self.panel.rename_shown_signal("missing", "other")
+        self.panel.show_signal_names(NAME_LIST + ["distance"])
+        self.assertEqual(self.selected(), ["force", "distance"])
+
     @covers("LLFR-00297", "LLFR-00021", "HLFR-00065")
     def test_drag_data_holds_every_name_in_list_order(self) -> None:
         """The drag data lists the names in list order, as JSON.
@@ -685,6 +743,78 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         self.panel.search_box.clear()
         self.application.processEvents()
         self.assertEqual(self.panel.selected_signal_names(), ["speed"])
+
+    def click_name(self, name_str: str,
+                   modifier_name_str: str = "NoModifier") -> None:
+        """Left-click a shown signal name, with an optional modifier.
+
+        Inputs:
+            name_str: the shown name.
+            modifier_name_str: name of a Qt.KeyboardModifier.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        self.widget.doItemsLayout()
+        self.application.processEvents()
+        row_i = self.panel.signal_name_list().index(name_str)
+        item_rect = self.widget.visualItemRect(self.widget.item(row_i))
+        self.assertFalse(item_rect.isEmpty())
+        QTest.mouseClick(self.widget.viewport(), Qt.MouseButton.LeftButton,
+                         getattr(Qt.KeyboardModifier, modifier_name_str),
+                         item_rect.center())
+        self.application.processEvents()
+
+    @covers("LLFR-00290", "LLFR-00292", "LLFR-00095", "HLFR-00063")
+    def test_shift_click_after_a_search_starts_at_the_last_click(
+            self) -> None:
+        """Typing a search between the clicks keeps the range start.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click_name("speed")
+        self.panel.search_box.setText("e")
+        self.application.processEvents()
+        self.assertEqual(self.panel.signal_name_list(),
+                         ["Time", "speed", "force", "temperature"])
+        self.click_name("temperature", "ShiftModifier")
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["speed", "force", "temperature"])
+
+    @covers("LLFR-00290", "LLFR-00292", "LLFR-00242", "HLFR-00063")
+    def test_shift_click_after_a_synthetic_signal_is_created(self) -> None:
+        """Creating a synthetic signal between the clicks keeps the start.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click_name("force")
+        self.panel.synthetic_operation_requested.emit("speed", "integral")
+        self.application.processEvents()
+        self.assertEqual(self.panel.signal_name_list()[-1], "int_speed")
+        self.click_name("int_speed", "ShiftModifier")
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["force", "temperature", "int_speed"])
+
+    @covers("LLFR-00292", "LLFR-00266", "HLFR-00063", "HLFR-00060")
+    def test_renamed_synthetic_signal_stays_selected(self) -> None:
+        """Renaming a selected synthetic signal keeps it selected.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QInputDialog
+        self.panel.synthetic_operation_requested.emit("speed", "integral")
+        self.application.processEvents()
+        self.select(["force", "int_speed"])
+        with mock.patch.object(QInputDialog, "getText",
+                               return_value=("distance", True)):
+            self.panel.rename_signal_requested.emit("int_speed")
+            self.application.processEvents()
+        self.assertEqual(self.panel.signal_name_list()[-1], "distance")
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["force", "distance"])
 
     @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00032")
     def test_tool_keys_over_the_list_keep_the_active_tool(self) -> None:

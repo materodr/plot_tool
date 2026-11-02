@@ -86,6 +86,8 @@ class FakeSyntheticWindow(FakePlotView):
         """
         super().__init__()
         self.shown_name_list = []
+        # (old name, new name) given to rename_shown_signal, in order.
+        self.renamed_shown_list = []
         self.synthetic_name_set = set()
         self.fft_name_set = set()
         self.operation_group_list = []
@@ -206,6 +208,17 @@ class FakeSyntheticWindow(FakePlotView):
         Inputs: none.
         Outputs: none.
         """
+
+    def rename_shown_signal(self, old_name_str: str,
+                            new_name_str: str) -> None:
+        """Record a rename of a shown signal.
+
+        Inputs:
+            old_name_str: the previous name.
+            new_name_str: the new name.
+        Outputs: none.
+        """
+        self.renamed_shown_list.append((old_name_str, new_name_str))
 
     def set_export_handlers(self, pdf_export_handler,
                             copy_handler) -> None:

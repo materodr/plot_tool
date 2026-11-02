@@ -384,6 +384,29 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
 
 
+class RenameSelectionTest(FrequencyPlotTestCase):
+    """A renamed synthetic signal keeps its place in the selection."""
+
+    @covers("LLFR-00292", "LLFR-00266", "HLFR-00063")
+    def test_rename_tells_the_view_before_the_list_is_shown(self) -> None:
+        """The view renames the shown name, then shows the new list.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.create("Speed", "integral")
+        self.view.name_answer_list = ["Distance"]
+        self.menu("rename", "int_Speed")
+        self.assertEqual(self.view.renamed_shown_list,
+                         [("int_Speed", "Distance")])
+        self.assertEqual(self.view.shown_name_list[-1], "Distance")
+        # A rejected rename tells the view nothing.
+        self.view.name_answer_list = ["   "]
+        self.menu("rename", "Distance")
+        self.assertEqual(self.view.renamed_shown_list,
+                         [("int_Speed", "Distance")])
+
+
 class SelectionOnFileOpenTest(unittest.TestCase):
     """The selection is cleared when a file is opened (LLFR-00292)."""
 

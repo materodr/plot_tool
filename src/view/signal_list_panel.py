@@ -25,7 +25,9 @@ from a selected signal carries every selected name, in list order
 
 import json
 
-from PyQt6.QtCore import QByteArray, QMimeData, QPoint, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import (
+    QByteArray, QItemSelectionModel, QMimeData, QPoint, Qt, QTimer,
+    pyqtSignal)
 from PyQt6.QtWidgets import (
     QAbstractItemView, QLabel, QLineEdit, QListWidget, QMenu, QVBoxLayout,
     QWidget)
@@ -189,10 +191,12 @@ class SignalListWidget(QListWidget):
         Outputs: none. Other keys are handled by QListWidget.
         """
         # LLFR-00295: Return and Enter, with the focus in the list; the
-        # panel checks that a signal is selected (LLFR-00296).
+        # panel checks that a signal is selected (LLFR-00296). Holding
+        # the key makes one plot: auto-repeated presses are ignored.
         if event.key() in PLOT_SELECTION_KEY_TUPLE:
             event.accept()
-            self.plot_selection_requested.emit()
+            if not event.isAutoRepeat():
+                self.plot_selection_requested.emit()
             return
         super().keyPressEvent(event)
 
@@ -344,6 +348,12 @@ class SignalListPanel(QWidget):
         # LLFR-00292: the signals still shown stay selected; the others
         # are no longer selected, and stay unselected when shown again.
         kept_selection_set = set(self.selected_signal_names())
+        # LLFR-00290: the last clicked signal, where the next Shift +
+        # click range starts, is kept too while it is shown.
+        current_item = self.signal_list_widget.currentItem()
+        current_name_str = ""
+        if current_item is not None:
+            current_name_str = current_item.text()
         # LLFR-00017: only the names of the new file are shown.
         # LLFR-00054: the time signal is shown like any other name.
         self.signal_list_widget.clear()
@@ -353,6 +363,14 @@ class SignalListPanel(QWidget):
             item = self.signal_list_widget.item(row_i)
             if item.text() in kept_selection_set:
                 item.setSelected(True)
+        for row_i in range(self.signal_list_widget.count()):
+            item = self.signal_list_widget.item(row_i)
+            if current_name_str and item.text() == current_name_str:
+                # LLFR-00290: the current item, without changing the
+                # selection, so that Shift + click starts from it.
+                self.signal_list_widget.setCurrentItem(
+                    item, QItemSelectionModel.SelectionFlag.NoUpdate)
+                break
         # LLFR-00242: synthetic signals are shown in italic letters.
         for row_i in range(self.signal_list_widget.count()):
             item = self.signal_list_widget.item(row_i)
@@ -423,6 +441,24 @@ class SignalListPanel(QWidget):
         """
         # LLFR-00290, LLFR-00295: the selection, in list order.
         return self.signal_list_widget.selected_name_list()
+
+    def rename_shown_signal(self, old_name_str: str,
+                            new_name_str: str) -> None:
+        """Give a shown signal its new name, keeping its selection.
+
+        Inputs:
+            old_name_str: the name shown now.
+            new_name_str: the new name.
+        Outputs: none. The next show_signal_names puts the name in its
+            place and keeps it selected (and current) when it was.
+        """
+        # LLFR-00266, LLFR-00292: a renamed synthetic signal is still
+        # shown, so it stays selected.
+        for row_i in range(self.signal_list_widget.count()):
+            item = self.signal_list_widget.item(row_i)
+            if item.text() == old_name_str:
+                item.setText(new_name_str)
+                return
 
     def clear_signal_selection(self) -> None:
         """Deselect every signal.

@@ -543,6 +543,19 @@ class MainWindow(QMainWindow):
         # LLFR-00295: the plot controller creates one plot through it.
         self.selected_signals_plot_handler = handler
 
+    def rename_shown_signal(self, old_name_str: str,
+                            new_name_str: str) -> None:
+        """Give a signal of the signal list its new name.
+
+        Inputs:
+            old_name_str: the name shown now.
+            new_name_str: the new name.
+        Outputs: none.
+        """
+        # LLFR-00266, LLFR-00292: a renamed signal stays selected.
+        self.signal_list_panel.rename_shown_signal(old_name_str,
+                                                   new_name_str)
+
     def clear_signal_selection(self) -> None:
         """Deselect every signal of the signal list.
 
