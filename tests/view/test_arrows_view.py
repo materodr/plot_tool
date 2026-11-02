@@ -762,6 +762,33 @@ class ArrowEditTest(ArrowWidgetTestCase):
         self.drag(self.display_of(5.0, 3.5), self.display_of(5.0, 2.0))
         self.assertEqual(len(self.change_list), 1)
 
+    @covers("LLFR-00383", "LLFR-00384", "LLFR-00382", "LLFR-00086")
+    def test_arrow_before_flags_and_areas(self) -> None:
+        """With no tool, a press on an arrow over a flag and an area
+        moves the arrow, not the flag; with the Arrow tool, a press on a
+        flag or an area draws a new arrow and moves neither.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        marker_move_list = recorder(self.plot_widget.marker_move_requested)
+        area_change_list = recorder(self.plot_widget.area_change_requested)
+        self.plot_widget.set_markers([(1, "Flag 1", 4.0)])
+        self.plot_widget.set_areas([(1, "Area 1", 3.0, 5.0)])
+        self.set_one_arrow()
+        self.plot_widget.set_plot_tool(NO_TOOL_STR)
+        self.drag(self.display_of(4.0, 2.0), self.display_of(4.5, 2.6))
+        self.assertEqual(len(self.change_list), 1)
+        self.assertEqual(marker_move_list, [])
+        self.assertEqual(area_change_list, [])
+        self.plot_widget.set_plot_tool(ARROW_TOOL_STR)
+        for press_xy in ((4.0, 3.0), (3.5, 0.0)):
+            self.drag(self.display_of(*press_xy),
+                      self.display_of(press_xy[0] + 1.0, press_xy[1]))
+        self.assertEqual(len(self.create_list), 2)
+        self.assertEqual(marker_move_list, [])
+        self.assertEqual(area_change_list, [])
+
     @covers("LLFR-00207", "LLFR-00376")
     def test_drag_counts_as_a_mouse_drag(self) -> None:
         """From the press to the release, a drawing or an edit of an
@@ -1242,6 +1269,34 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.press_key("Key_Z")
         self.release_key("Key_Z")
         self.assert_every_range(FULL_RANGE_TUPLE)
+
+    @covers("LLFR-00370", "LLFR-00366")
+    def test_escape_switches_off_the_arrow_tool(self) -> None:
+        """Esc switches the Arrow tool off, but not while an arrow is
+        being drawn.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.activate_window()
+        self.top_panel.plot_tool_button_dict[ARROW_TOOL_STR].click()
+        self.application.processEvents()
+        self.draw_plots()
+        plot_widget = self.plot_widgets()[0]
+        self.send_mouse(plot_widget, "MouseButtonPress", 1.0,
+                        "LeftButton", "LeftButton")
+        self.send_mouse(plot_widget, "MouseMove", 2.0, "NoButton",
+                        "LeftButton")
+        self.press_key("Key_Escape", plot_widget.canvas)
+        self.release_key("Key_Escape", plot_widget.canvas)
+        self.assert_tool_everywhere(ARROW_TOOL_STR)
+        self.send_mouse(plot_widget, "MouseButtonRelease", 2.0,
+                        "LeftButton", "NoButton")
+        self.assertEqual(len(self.model_arrows()), 1)
+        self.press_key("Key_Escape", self.plot_widgets()[0].canvas)
+        self.release_key("Key_Escape", self.plot_widgets()[0].canvas)
+        self.assert_tool_everywhere(NO_TOOL_STR)
+        self.assertEqual(len(self.model_arrows()), 1)
 
     @covers("LLFR-00379", "LLFR-00380", "LLFR-00390")
     def test_color_and_delete_through_the_menu(self) -> None:

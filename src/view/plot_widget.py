@@ -1242,8 +1242,10 @@ class PlotWidget(QWidget):
         # key) cancels a time span selection and removes its line.
         if self.plot_tool_str != ZOOM_TOOL_STR:
             self.cancel_time_span()
-        # LLFR-00086: a marker is only dragged with the Vertical marker
-        # tool; leaving it drops the drag (the marker stays where it was).
+        # LLFR-00086, LLFR-00382: a flag is dragged with the Flag tool or
+        # with no tool, so a tool change (only made between drags, or by
+        # a tool key during one) drops the drag: the flag stays where it
+        # was.
         if self.plot_tool_str != MARKER_TOOL_STR:
             self.cancel_marker_drag()
             # LLFR-00203: the preview goes when the tool is deactivated.
@@ -1265,9 +1267,10 @@ class PlotWidget(QWidget):
             # preview at once; switching between Delta X and Delta Y
             # changes the kind of the marker preview.
             self.update_delta_preview_from_cursor()
-        # LLFR-00303, LLFR-00312, LLFR-00313, LLFR-00318: an area is only
-        # drawn, moved or resized with the Area tool; leaving it drops the
-        # drag (the area stays where it was, no area is created).
+        # LLFR-00303, LLFR-00312, LLFR-00313, LLFR-00318, LLFR-00382: an
+        # area is drawn with the Area tool and moved or resized with it
+        # or with no tool; a change to another tool drops the drag (the
+        # area stays where it was, no area is created).
         if self.plot_tool_str != AREA_TOOL_STR:
             self.cancel_area_drag()
         # LLFR-00356: a left drag pans only with the Pan tool; leaving it
@@ -4019,15 +4022,21 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: none. A press on a text note or a pinned tip starts
-            moving it, with any tool or none; with the Pan tool, any
-            other press on the drawing area starts a pan
-            (tool_pan_press_at); with the Vertical marker
-            tool, a press on a marker starts dragging it; with the Zoom
-            tool, a press starts a click zoom or a time span selection,
-            decided by the mouse moves and the release (span_press_at);
-            any other press is a click (click_at), which opens the text
-            field with the Text tool.
+        Outputs: none. The objects at the point are tried in the order
+            of LLFR-00383: a press on a text note or a pinned tip starts
+            moving it, with any tool or none. With the Arrow tool, a
+            press on an arrow edits it and any other press draws a new
+            one (arrow_tool_press_at). With no tool active, a press on
+            an arrow, a flag or an area starts moving (or resizing) it,
+            and any other press does nothing (edit_press_at). With the
+            Pan tool, any other press on the drawing area starts a pan
+            (tool_pan_press_at); with the Area tool, it creates, moves
+            or resizes an area; with the Flag tool, a press on a flag
+            starts dragging it; with the Zoom tool, a press starts a
+            click zoom or a time span selection, decided by the mouse
+            moves and the release (span_press_at); any other press is a
+            click (click_at), which opens the text field with the Text
+            tool.
         """
         # LLFR-00086, LLFR-00152: a drag whose release was lost (no move
         # came after it) is dropped; the item stays where it was.
@@ -4036,58 +4045,114 @@ class PlotWidget(QWidget):
         self.cancel_area_drag()
         self.cancel_note_drag()
         self.cancel_arrow_drag()
-        # LLFR-00339: a text note is on top of everything else, so a
-        # press on it moves it, with any tool or none, and never pins,
-        # zooms, places a marker, picks a delta point or starts a note.
+        # LLFR-00383: text note first. LLFR-00339: a press on it moves
+        # it, with any tool or none, and never pins, zooms, places a
+        # flag, picks a delta point or starts a note.
         note_index_i = self.text_note_at(widget_point)
         if note_index_i != NO_TEXT_NOTE_INDEX_I:
             self.note_press_at(widget_point, note_index_i)
             return
-        # LLFR-00153: a pinned tip is on top of the other items, so a
-        # press on it moves it and never pins, zooms or places a marker.
+        # LLFR-00383: then the pinned data tip. LLFR-00153: a press on it
+        # moves it, with any tool or none, and never pins, zooms or
+        # places a flag.
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i != NO_TIP_INDEX_I:
             self.tip_press_at(widget_point, tip_index_i)
             return
-        # LLFR-00383: an arrow comes right after the text notes and the
-        # pinned tips; LLFR-00376, LLFR-00377, LLFR-00382, LLFR-00384: it
-        # is edited with the Arrow tool or with no tool, and LLFR-00371:
-        # the Arrow tool draws a new one anywhere else.
-        if self.arrow_press_at(widget_point):
+        # LLFR-00383: then the arrow. LLFR-00376, LLFR-00377, LLFR-00384:
+        # with the Arrow tool, a press on an arrow edits it, and
+        # LLFR-00371: anywhere else, also on a flag or an area, it draws
+        # a new arrow.
+        if self.plot_tool_str == ARROW_TOOL_STR:
+            self.arrow_tool_press_at(widget_point)
             return
-        # LLFR-00356, LLFR-00357: with the Pan tool, any other press on
-        # the drawing area starts a pan, also on a vertical marker, a
-        # delta marker or an area, which it leaves unchanged.
+        # LLFR-00382: with no plot tool active, only the objects react.
+        if self.plot_tool_str == NO_TOOL_STR:
+            self.edit_press_at(widget_point)
+            return
+        # LLFR-00356, LLFR-00357, LLFR-00384: with the Pan tool, any other
+        # press on the drawing area starts a pan, also on a flag, a delta
+        # marker or an area, which it leaves unchanged.
         if self.plot_tool_str == PAN_TOOL_STR:
             self.tool_pan_press_at(widget_point)
             return
         # LLFR-00303, LLFR-00312, LLFR-00313: with the Area tool, a press
-        # creates, moves or resizes an area. LLFR-00318: with any other
-        # tool, an area changes nothing below.
+        # creates, moves or resizes an area. LLFR-00318, LLFR-00384: with
+        # any other tool, an area changes nothing below, and with the
+        # Area tool a flag does not react.
         if self.plot_tool_str == AREA_TOOL_STR:
             self.area_press_at(widget_point)
             return
-        # LLFR-00086: a press on a marker starts a drag and does nothing
-        # else (no new marker, no zoom, no pin).
+        # LLFR-00086, LLFR-00384: with the Flag tool, a press on a flag
+        # starts a drag and does nothing else (no new flag).
         if self.plot_tool_str == MARKER_TOOL_STR:
             marker_id_i = self.marker_at(widget_point)
             if marker_id_i != NO_MARKER_ID_I:
-                # LLFR-00203: no preview while a marker is dragged.
-                self.leave_marker_preview()
-                self.drag_marker_id_i = marker_id_i
-                self.drag_time_s = self.marker_time_s(marker_id_i)
-                self.drag_moved_b = False
-                self.drag_press_x_i = widget_point.x()
-                self.drag_offset_s = (self.drag_time_s
-                                      - self.time_at(widget_point))
+                self.marker_press_at(widget_point, marker_id_i)
                 return
         # LLFR-00078, LLFR-00208: with the Zoom tool, whether the press
-        # is a click or a span selection is known only later. A press on
-        # a vertical marker is treated like any other press there.
+        # is a click or a span selection is known only later.
+        # LLFR-00384: a press on a flag or an area zooms like any other.
         if self.plot_tool_str == ZOOM_TOOL_STR:
             self.span_press_at(widget_point)
             return
         self.click_at(widget_point)
+
+    def edit_press_at(self, widget_point) -> None:
+        """Start moving the object under a press made with no tool active.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed while no plot tool is active and
+                no text note or pinned tip is under it.
+        Outputs: none. A press on an arrow starts moving, rotating or
+            stretching it; else a press on a flag starts dragging it;
+            else a press in an area, or within 5 pixels of its edge,
+            starts moving or resizing it; any other press (on a curve, a
+            delta marker or an empty part of the plot) does nothing and
+            shows nothing.
+        """
+        # LLFR-00383: after the text note and the pinned tip, the arrow
+        # (the one drawn last). LLFR-00382, LLFR-00376, LLFR-00377: a
+        # press on it moves, rotates or stretches it.
+        arrow_index_i = self.arrow_at(widget_point)
+        if arrow_index_i != NO_ARROW_INDEX_I:
+            self.arrow_edit_press_at(widget_point, arrow_index_i)
+            return
+        # LLFR-00383: then the flag.
+        # LLFR-00382, LLFR-00086: a press on a flag moves it.
+        marker_id_i = self.marker_at(widget_point)
+        if marker_id_i != NO_MARKER_ID_I:
+            self.marker_press_at(widget_point, marker_id_i)
+            return
+        # LLFR-00383: then the area. LLFR-00382, LLFR-00318: inside an
+        # area it moves (LLFR-00312), near an edge it resizes
+        # (LLFR-00313); with no tool active, no new area is ever started.
+        area_id_i, _ = self.area_press_part_tuple(widget_point)
+        if area_id_i != NO_AREA_ID_I:
+            self.area_press_at(widget_point)
+        # LLFR-00382: a delta marker never moves, and a press anywhere
+        # else does nothing and shows no message.
+
+    def marker_press_at(self, widget_point, marker_id_i: int) -> None:
+        """Start dragging a flag from a pressed point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+            marker_id_i: id of the pressed flag.
+        Outputs: none. Nothing moves until the mouse moves.
+        """
+        # LLFR-00086: a press on a flag grabs it where it is pressed.
+        # LLFR-00203: no preview while a flag is dragged.
+        self.leave_marker_preview()
+        # LLFR-00042: a drag is not a hover over a curve.
+        self.hide_hover_tip()
+        self.drag_marker_id_i = marker_id_i
+        self.drag_time_s = self.marker_time_s(marker_id_i)
+        self.drag_moved_b = False
+        self.drag_press_x_i = widget_point.x()
+        self.drag_offset_s = (self.drag_time_s
+                              - self.time_at(widget_point))
 
     def drag_time_s_at(self, widget_point) -> float:
         """Return the time a dragged marker takes for a mouse point.
@@ -5081,7 +5146,10 @@ class PlotWidget(QWidget):
         threshold_px = self.area_threshold_px()
         best_tuple = (NO_AREA_ID_I, AREA_DRAG_NONE_STR)
         best_distance_px = math.inf
-        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
+        # LLFR-00383: among areas, the one drawn last wins, so the list
+        # is read from the end and a tie (a shared edge) keeps the later.
+        for area_id_i, _, start_s, end_s, _ in reversed(
+                self.area_data_list):
             for edge_s, mode_str in ((start_s, AREA_DRAG_START_STR),
                                      (end_s, AREA_DRAG_END_STR)):
                 distance_px = abs(self.time_x_px(edge_s) - display_x_px)
@@ -5091,7 +5159,8 @@ class PlotWidget(QWidget):
                     best_tuple = (area_id_i, mode_str)
         if best_tuple[0] != NO_AREA_ID_I:
             return best_tuple
-        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
+        for area_id_i, _, start_s, end_s, _ in reversed(
+                self.area_data_list):
             if self.time_x_px(start_s) < display_x_px < self.time_x_px(
                     end_s):
                 return (area_id_i, AREA_DRAG_MOVE_STR)
@@ -5127,7 +5196,8 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates, where the
-                left button was pressed with the Area tool.
+                left button was pressed with the Area tool, or with no
+                plot tool active on an area (edit_press_at).
         Outputs: none. Nothing is shown until the pointer moves.
         """
         # LLFR-00311: never on a frequency plot.
@@ -5653,29 +5723,23 @@ class PlotWidget(QWidget):
             return ARROW_DRAG_START_STR
         return ARROW_DRAG_END_STR
 
-    def arrow_press_at(self, widget_point) -> bool:
-        """Handle a left press on the arrows, if it is one.
+    def arrow_tool_press_at(self, widget_point) -> None:
+        """Handle a left press made with the Arrow tool.
 
         Inputs:
-            widget_point: QPoint in this widget's coordinates.
-        Outputs: True when the press is for the arrows: on an arrow with
-            the Arrow tool or with no tool (an edit starts), or anywhere
-            else with the Arrow tool (a new arrow may start); False when
-            the press must be handled by the other objects and tools.
+            widget_point: QPoint in this widget's coordinates, where no
+                text note or pinned tip is.
+        Outputs: none. On an arrow (the one drawn last) an edit starts;
+            anywhere else on the drawing area, also on a flag, an area
+            or a delta marker, a new arrow may start.
         """
-        # LLFR-00382, LLFR-00384: an arrow is edited only with its own
-        # tool or with no tool; with any other tool a press on it acts as
-        # the tool does where nothing is drawn.
-        if self.plot_tool_str not in (ARROW_TOOL_STR, NO_TOOL_STR):
-            return False
+        # LLFR-00376, LLFR-00377, LLFR-00384: the Arrow tool edits arrows
+        # and never flags or areas; LLFR-00371: it draws new arrows.
         arrow_index_i = self.arrow_at(widget_point)
         if arrow_index_i != NO_ARROW_INDEX_I:
             self.arrow_edit_press_at(widget_point, arrow_index_i)
-            return True
-        if self.plot_tool_str != ARROW_TOOL_STR:
-            return False
+            return
         self.arrow_create_press_at(widget_point)
-        return True
 
     def start_arrow_press(self, widget_point, mode_str: str,
                           arrow_index_i: int, color_str: str) -> None:

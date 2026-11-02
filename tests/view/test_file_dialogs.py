@@ -157,7 +157,7 @@ class FileDialogTimingTest(unittest.TestCase):
 
     @covers("LLFR-00406", "HLFR-00091")
     def test_dialogs_are_prepared_after_the_window_is_shown(self) -> None:
-        """The four dialogs are built once the event loop has run.
+        """The five dialogs (KEY_LIST) are built once the event loop has run.
 
         Inputs: none.
         Outputs: none.

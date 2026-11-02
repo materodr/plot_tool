@@ -572,18 +572,18 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
 class AreaOtherToolsTest(AreaWidgetTestCase):
     """Areas change nothing for the other tools (LLFR-00318)."""
 
-    @covers("LLFR-00318", "LLFR-00208")
+    @covers("LLFR-00318", "LLFR-00208", "LLFR-00384")
     def test_other_tools_never_move_or_resize_an_area(self) -> None:
-        """With every other tool, and with none, a drag inside an area
-        or on its edge asks for no area change; the Zoom tool still
-        selects a span there and the Text tool still opens its text
-        field there (closed with Esc).
+        """With every other tool (not with none, LLFR-00382), a drag
+        inside an area or on its edge asks for no area change; the Zoom
+        tool still selects a span there and the Text tool still opens its
+        text field there (closed with Esc).
 
         Inputs: none.
         Outputs: none.
         """
         self.set_areas([(1, "Area 1", 3.0, 5.0)])
-        for tool_str in (NO_TOOL_STR,) + tuple(
+        for tool_str in tuple(
                 tool_str for tool_str in PLOT_TOOL_TUPLE
                 if tool_str != AREA_TOOL_STR):
             with self.subTest(tool=tool_str):
