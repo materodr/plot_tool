@@ -31,8 +31,6 @@ Contents:
 - ``contrast_ratio_f``: the WCAG contrast ratio of two colors.
 """
 
-from model import curve_colors
-
 # ----------------------------------------------------------------------
 # Colors of the chrome
 # ----------------------------------------------------------------------
@@ -256,35 +254,22 @@ HOVER_TIP_BOX_DICT = {"boxstyle": "round,pad=0.45,rounding_size=0.35",
 PINNED_TIP_BOX_DICT = {"boxstyle": "round,pad=0.45,rounding_size=0.35",
                        "facecolor": PLOT_BACKGROUND_COLOR_STR,
                        "linewidth": 1.0, "alpha": 0.96}
-# LLFR-00351: the fill colors of the areas, by the color names of
-# model.workspace.AREA_COLOR_NAME_TUPLE. "Orange", the default, is the
-# reserved marker color itself (LLFR-00305), shown paler than the
-# markers only because it is see-through. All four are drawn with the
-# same see-through opacity (view.plot_widget.AREA_ALPHA_F), so that
-# they show pale and the curves and every other item stay visible; the
-# fills are chosen so that, as drawn, every two of them are at least 40
-# RGB units apart (the closest pair, Yellow and Orange, about 43;
-# tests/view/test_area_colors.py), and none is a color of the curve
-# palette (model.curve_colors.PALETTE_COLOR_TUPLE).
-AREA_COLOR_DICT = {"Orange": curve_colors.MARKER_COLOR_STR,
-                   "Blue": "#2f7dff",
-                   "Green": "#2ed12e", "Yellow": "#fff000"}
 # LLFR-00084, LLFR-00092: the marker name and time sit on a soft white
 # rounded patch so they stay readable over the curves.
 MARKER_TEXT_BOX_DICT = {"boxstyle": "round,pad=0.2,rounding_size=0.25",
                         "facecolor": PLOT_BACKGROUND_COLOR_STR,
                         "edgecolor": "none", "alpha": 0.92}
 
-# LLFR-00336: a text note is dark text on a light, slightly warm box with
-# a thin border, opaque enough to be read over the curves and the grid.
+# LLFR-00336: a text note is its text on a white rounded box with a
+# border, like a pinned data tip (PINNED_TIP_BOX_DICT), with no other
+# fill color. The text and border colors of each note are its own
+# (model.workspace.TextNote); new notes use the app's text color.
 TEXT_NOTE_TEXT_COLOR_STR = TEXT_COLOR_STR
-TEXT_NOTE_BACKGROUND_COLOR_STR = "#fffbea"
-TEXT_NOTE_BORDER_COLOR_STR = CONTROL_BORDER_COLOR_STR
-TEXT_NOTE_FONT_SIZE_F = 9.0
-TEXT_NOTE_BOX_DICT = {"boxstyle": "round,pad=0.35,rounding_size=0.25",
-                      "facecolor": TEXT_NOTE_BACKGROUND_COLOR_STR,
-                      "edgecolor": TEXT_NOTE_BORDER_COLOR_STR,
-                      "linewidth": 0.8, "alpha": 0.97}
+TEXT_NOTE_BACKGROUND_COLOR_STR = PLOT_BACKGROUND_COLOR_STR
+TEXT_NOTE_BORDER_COLOR_STR = TEXT_COLOR_STR
+TEXT_NOTE_BOX_DICT = dict(PINNED_TIP_BOX_DICT,
+                          facecolor=TEXT_NOTE_BACKGROUND_COLOR_STR,
+                          edgecolor=TEXT_NOTE_BORDER_COLOR_STR)
 
 
 def segment_corner_rule(segment_str: str) -> str:

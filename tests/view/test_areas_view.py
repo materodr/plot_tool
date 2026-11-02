@@ -277,13 +277,13 @@ class AreaLookTest(AreaWidgetTestCase):
         # LLFR-00305: the orange of the marker color, made paler by the
         # see-through drawing over the white plot background.
         self.assertEqual(face_tuple, marker_tuple)
-        self.assertEqual(to_rgb(MARKER_COLOR_STR), to_rgb("#ff4400"))
+        self.assertEqual(to_rgb(MARKER_COLOR_STR), to_rgb("#ff8000"))
         alpha_f = band.get_alpha()
         for face_f in face_tuple:
             drawn_f = alpha_f * face_f + (1.0 - alpha_f) * 1.0
             self.assertGreaterEqual(drawn_f, face_f)
         self.assertGreater(alpha_f * face_tuple[1] + (1.0 - alpha_f),
-                           face_tuple[1] + 0.4)
+                           face_tuple[1] + 0.3)
         # The whole y range, whatever it is: y from 0 to 1 in axes units.
         self.assertEqual((band.get_y(), band.get_height()), (0.0, 1.0))
         self.assertEqual((band.get_x(), band.get_width()), (3.0, 2.0))
@@ -297,7 +297,7 @@ class AreaLookTest(AreaWidgetTestCase):
                         self.plot_widget.axes.xaxis.get_zorder())
         # LLFR-00306: also behind the vertical markers, delta markers,
         # pinned data tips and text notes drawn over the area.
-        self.plot_widget.set_markers([(5, "Marker 1", 4.0)])
+        self.plot_widget.set_markers([(5, "Flag 1", 4.0)])
         self.plot_widget.set_text_notes([("Note", 4.2, 2.0)])
         self.plot_widget.set_pinned_tips([("Ramp", 4.5, 3.45, ())])
         self.plot_widget.set_delta_markers([
@@ -324,31 +324,33 @@ class AreaLookTest(AreaWidgetTestCase):
         self.assertLess(times_box.y1, label_box.y1)
         self.assertLessEqual(times_box.y1, label_box.y0 + 1.0)
 
-    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306")
+    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306", "LLFR-00388")
     def test_each_color_drawn_with_the_same_opacity(self) -> None:
-        """Every area is drawn in its own color, with the same see-through
-        opacity; an unknown color name gives the default.
+        """Every area is drawn in its own color, any "#rrggbb" color, with
+        the same see-through opacity; a color that is not "#rrggbb" (a
+        former color name) gives the default.
 
         Inputs: none.
         Outputs: none.
         """
         from matplotlib.colors import to_rgb
-        from view import theme
-        from view.plot_widget import AREA_ALPHA_F
-        area_list = [(index_i + 1, name_str, float(index_i),
-                      index_i + 0.5, name_str)
-                     for index_i, name_str
-                     in enumerate(theme.AREA_COLOR_DICT)]
+        from view.plot_widget import AREA_ALPHA_F, AREA_COLOR_STR
+        color_list = ["#2f7dff", "#2ED12E", "#000000", "#ffffff",
+                      AREA_COLOR_STR]
+        area_list = [(index_i + 1, f"A{index_i}", float(index_i),
+                      index_i + 0.5, color_str)
+                     for index_i, color_str in enumerate(color_list)]
         area_list.append((9, "Odd", 8.0, 9.0, "Purple"))
         area_list.append((10, "Old", 9.5, 9.8, "Magenta"))
         self.set_areas(area_list)
-        for area_id_i, _, _, _, name_str in area_list:
+        for area_id_i, _, _, _, color_str in area_list:
             band = self.plot_widget.area_artist_tuple(area_id_i)[0]
-            expected_str = theme.AREA_COLOR_DICT.get(
-                name_str, theme.AREA_COLOR_DICT["Orange"])
+            expected_str = (color_str if color_str.startswith("#")
+                            else AREA_COLOR_STR)
             self.assertEqual(to_rgb(band.get_facecolor()),
                              to_rgb(expected_str))
             self.assertEqual(band.get_alpha(), AREA_ALPHA_F)
+            self.assertLess(band.get_alpha(), 1.0)
 
     @covers("LLFR-00307", "LLFR-00308")
     def test_label_in_the_upper_left_corner_of_the_band(self) -> None:
@@ -648,7 +650,8 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
             (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
         menu, _ = self.plot_widget.context_menu_and_requests(note_point)
         self.assertEqual([action.text() for action in menu.actions()],
-                         ["Edit", "Delete"])
+                         ["Edit", "Size", "Border color", "Text color",
+                          "Delete"])
 
     @covers("LLFR-00153", "LLFR-00318")
     def test_press_on_a_pinned_tip_moves_the_tip(self) -> None:
@@ -748,27 +751,21 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(delete_list, [(1,)])
         self.assertEqual(plot_delete_list, [()])
 
-    @covers("LLFR-00351", "LLFR-00314")
-    def test_color_submenu_lists_four_colors_and_emits_the_choice(
-            self) -> None:
-        """"Color" lists the four colors, Orange first and checked for a
-        new area, the area's own one checked;
-        choosing one emits area_color_requested with its name.
+    @covers("LLFR-00351", "LLFR-00314", "LLFR-00388")
+    def test_color_option_asks_for_the_picker(self) -> None:
+        """"Color" is one option, with no list of fixed colors; choosing
+        it emits area_color_requested with the area's id, so that the
+        controller opens the shared color picker.
 
         Inputs: none.
         Outputs: none.
         """
         color_list = recorder(self.plot_widget.area_color_requested)
-        self.menu_texts(self.at(4.0))
-        self.assertEqual(self.submenu_dict["Color"], [
-            ("Orange", True, True), ("Blue", True, False),
-            ("Green", True, False), ("Yellow", True, False)])
-        self.menu_texts(self.at(4.0), "Green")
-        self.assertEqual(color_list, [(1, "Green")])
-        self.set_areas([(1, "Area 1", 2.0, 6.0, "Yellow")])
-        self.menu_texts(self.at(4.0))
-        self.assertEqual([entry[0] for entry in self.submenu_dict["Color"]
-                          if entry[2]], ["Yellow"])
+        self.assertEqual(self.menu_texts(self.at(4.0)),
+                         ["Rename", "Color", "Delete", "Delete plot"])
+        self.assertNotIn("Color", self.submenu_dict)
+        self.menu_texts(self.at(4.0), "Color")
+        self.assertEqual(color_list, [(1,)])
 
     @covers("LLFR-00317", "LLFR-00110", "LLFR-00038", "LLFR-00046",
             "LLFR-00175")
@@ -782,9 +779,10 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(
             self.menu_texts(self.point_at(4.0, float(np.sin(4.0)))),
             ["Delete signal", "Width"])
-        self.plot_widget.set_markers([(5, "Marker 1", 3.0)])
+        self.plot_widget.set_markers([(5, "Flag 1", 3.0)])
         self.draw()
-        self.assertEqual(self.menu_texts(self.at(3.0)), ["Rename", "Delete"])
+        self.assertEqual(self.menu_texts(self.at(3.0)),
+                         ["Rename", "Color", "Delete"])
         self.plot_widget.set_pinned_tips([("Ramp", 5.0, 3.5, ())])
         self.draw()
         self.assertEqual(self.menu_texts(self.point_at(5.0, 3.5)),
@@ -971,17 +969,31 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         from tests.view.test_xyz_keys import ZOOMED_RANGE_TUPLE
         return ZOOMED_RANGE_TUPLE
 
-    @covers("LLFR-00351", "LLFR-00310", "LLFR-00138", "LLFR-00192")
+    @covers("LLFR-00351", "LLFR-00310", "LLFR-00138", "LLFR-00192",
+            "LLFR-00388", "LLFR-00389", "LLFR-00390")
     def test_color_from_the_menu_on_every_plot_of_every_tab(self) -> None:
-        """Choosing "Blue" in the area menu of one plot draws the area in
-        blue on every time plot, the other tab included; undo and redo
-        follow.
+        """Choosing "Color" in the area menu of one plot opens the picker
+        at the area's color; the confirmed blue is drawn on every time
+        plot, the other tab included; undo and redo follow.
 
         Inputs: none.
         Outputs: none.
         """
         from matplotlib.colors import to_rgb
-        from view import theme
+        from view.plot_widget import AREA_COLOR_STR
+        question_list = []
+
+        def fake_ask_color(current_color_str: str) -> str:
+            """Answer the color picker with a blue.
+
+            Inputs:
+                current_color_str: the color the picker starts at.
+            Outputs: "#2f7dff".
+            """
+            question_list.append(current_color_str)
+            return "#2f7dff"
+
+        self.main_window.ask_color = fake_ask_color
         self.top_panel.plot_tool_button_dict[AREA_TOOL_STR].click()
         self.application.processEvents()
         first_widget = self.plot_widgets()[0]
@@ -1001,33 +1013,31 @@ class AreaWindowTest(XyzKeyWindowTestCase):
                 first_widget.axes.get_ylim()[1]
                 - first_widget.axes.get_ylim()[0]))
         menu, request_list = first_widget.context_menu_and_requests(point)
-        color_action = next(
-            sub_action for action in menu.actions()
-            if action.menu() is not None
-            for sub_action in action.menu().actions()
-            if sub_action.text() == "Blue")
+        color_action = next(action for action in menu.actions()
+                            if action.text() == "Color")
         request_list[color_action.data()]()
         self.application.processEvents()
+        self.assertEqual(question_list, [AREA_COLOR_STR])
 
-        def assert_color(name_str: str) -> None:
+        def assert_color(color_str: str) -> None:
             """Check the band color of the area on every plot.
 
             Inputs:
-                name_str: the expected color name.
+                color_str: the expected color.
             Outputs: none.
             """
             for plot_widget in self.all_plot_widgets():
                 band = plot_widget.area_artist_tuple(area_id_i)[0]
                 self.assertEqual(to_rgb(band.get_facecolor()),
-                                 to_rgb(theme.AREA_COLOR_DICT[name_str]))
+                                 to_rgb(color_str))
 
-        assert_color("Blue")
+        assert_color("#2f7dff")
         self.controller.plot_controller.on_undo()
         self.application.processEvents()
-        assert_color("Orange")
+        assert_color(AREA_COLOR_STR)
         self.controller.plot_controller.on_redo()
         self.application.processEvents()
-        assert_color("Blue")
+        assert_color("#2f7dff")
 
     @covers("LLFR-00129", "LLFR-00305")
     def test_export_draws_the_areas(self) -> None:

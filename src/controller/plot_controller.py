@@ -16,16 +16,18 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - plots: ``add_plot_view(tab_id_i, plot_id_i, kind_str)``,
   ``remove_plot_view``, ``draw_plot``, ``set_plot_time_range``,
   ``plot_time_range``, ``set_plot_tool``, ``set_delta_first_point``;
-- vertical markers: ``set_markers`` (the shared markers, drawn on every
-  plot of every tab);
-- areas: ``set_areas`` (the shared areas, with the name of their color
+- vertical markers: ``set_markers`` (the shared markers, with their
+  color (LLFR-00392), drawn on every plot of every tab);
+- areas: ``set_areas`` (the shared areas, with their color
   (LLFR-00351), drawn on every time plot of
   every tab) and ``set_plot_areas(plot_id_i, area_data_list)`` (the
   areas of one plot, after it was drawn);
 - boxes: ``show_full_tab_notification``,
   ``show_tab_name_taken_notification``,
   ``show_plot_kind_mismatch_notification``, ``ask_marker_name``,
-  ``ask_area_name``;
+  ``ask_area_name``, and ``ask_color(current_color_str)``, the shared
+  color picker (LLFR-00388), which returns the confirmed "#rrggbb" or
+  None when cancelled;
 - grid: ``set_grid_shown``;
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
@@ -228,7 +230,13 @@ class PlotController:
             text_note_create_handler=self.on_text_note_create,
             text_note_move_handler=self.on_text_note_move,
             text_note_edit_handler=self.on_text_note_edit,
-            text_note_delete_handler=self.on_text_note_delete)
+            text_note_delete_handler=self.on_text_note_delete,
+            # LLFR-00385, LLFR-00387: the size and the colors of a note.
+            text_note_size_handler=self.on_text_note_size,
+            text_note_border_color_handler=self.on_text_note_border_color,
+            text_note_text_color_handler=self.on_text_note_text_color,
+            # LLFR-00392: "Color" in the flag menu.
+            marker_color_handler=self.on_marker_color)
         # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: the
         # requests made on the areas of a plot.
         view.set_plot_handlers(
@@ -483,12 +491,15 @@ class PlotController:
         """Return the drawing data of every vertical marker.
 
         Inputs: none.
-        Outputs: a list of tuples (marker_id_i, name_str, time_s) in the
-            order the markers were placed; the same for every plot.
+        Outputs: a list of tuples (marker_id_i, name_str, time_s,
+            color_str) in the order the markers were placed; the same for
+            every plot.
         """
         # LLFR-00084, LLFR-00092: the label shows the name and the time.
         # LLFR-00205: the markers are shared by every plot.
-        return [(marker.marker_id_i, marker.name_str, marker.time_s)
+        # LLFR-00392: each drawn in its own color.
+        return [(marker.marker_id_i, marker.name_str, marker.time_s,
+                 marker.color_str)
                 for marker in self.workspace.marker_list]
 
     def show_markers(self) -> None:
@@ -507,7 +518,7 @@ class PlotController:
 
         Inputs: none.
         Outputs: a list of tuples (area_id_i, name_str, start_s, end_s,
-            color_name_str) in creation order; the same for every time
+            color_str) in creation order; the same for every time
             plot.
         """
         # LLFR-00307, LLFR-00308: the label shows the name and the times.
@@ -563,13 +574,16 @@ class PlotController:
 
         Inputs:
             plot: the model Plot.
-        Outputs: a list of tuples (text_str, time_s, value_f) in the
-            order the notes were written; time_s is in Hz on a frequency
-            plot.
+        Outputs: a list of tuples (text_str, time_s, value_f, size_i,
+            border_color_str, text_color_str) in the order the notes were
+            written; time_s is in Hz on a frequency plot.
         """
         # LLFR-00336, LLFR-00337, LLFR-00340: the notes of this plot only,
         # each with the text and the place it is attached to.
-        return [(text_note.text_str, text_note.time_s, text_note.value_f)
+        # LLFR-00385, LLFR-00387: and its chosen size and colors.
+        return [(text_note.text_str, text_note.time_s, text_note.value_f,
+                 text_note.size_i, text_note.border_color_str,
+                 text_note.text_color_str)
                 for text_note in plot.text_note_list]
 
     def all_plot_list(self) -> list:
@@ -699,7 +713,7 @@ class PlotController:
         # LLFR-00015, LLFR-00016: close all tabs and plots and leave one
         # tab with no plots (also harmless for the first file).
         # LLFR-00205, LLFR-00085: every vertical marker is deleted and
-        # the numbering restarts at "Marker 1"; this is not undoable.
+        # the numbering restarts at "Flag 1"; this is not undoable.
         # LLFR-00310, LLFR-00309: so is every area, and the numbering
         # restarts at "Area 1".
         self.workspace.reset()
@@ -1259,6 +1273,108 @@ class PlotController:
         self.record_undo(snapshot)
         self.show_text_notes(plot)
 
+    def on_text_note_size(self, plot_id_i: int, note_index_i: int,
+                          size_i: int) -> None:
+        """Give a text note the size chosen in its "Size" option.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            note_index_i: index of the note in the list last drawn.
+            size_i: the chosen size in points (LLFR-00385).
+        Outputs: none. An unknown plot or note, a size that is not a
+            preset, or the note's current size changes nothing.
+        """
+        # LLFR-00385: draw the text at the chosen size.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: changing a text note's size is undoable.
+        snapshot = self.take_snapshot()
+        if not plot.set_text_note_size(note_index_i, size_i):
+            return
+        self.record_undo(snapshot)
+        self.show_text_notes(plot)
+
+    def pick_text_note_color(self, plot_id_i: int, note_index_i: int,
+                             part_str: str) -> None:
+        """Open the color picker for the border or the text of a note.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            note_index_i: index of the note in the list last drawn.
+            part_str: "border" or "text".
+        Outputs: none. A cancelled picker, an unknown plot or note, or
+            the color the part already has changes nothing.
+        """
+        # LLFR-00387: "Border color" and "Text color" open the picker.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.has_text_note_index(note_index_i):
+            return
+        text_note = plot.text_note_list[note_index_i]
+        if part_str == "border":
+            current_color_str = text_note.border_color_str
+            apply_color = plot.set_text_note_border_color
+        else:
+            current_color_str = text_note.text_color_str
+            apply_color = plot.set_text_note_text_color
+        # LLFR-00389: the picker starts at the part's current color.
+        # LLFR-00390: one undoable action on confirm, nothing on cancel.
+        if self.apply_picked_color(
+                current_color_str,
+                lambda color_str: apply_color(note_index_i, color_str)):
+            self.show_text_notes(plot)
+
+    def on_text_note_border_color(self, plot_id_i: int,
+                                  note_index_i: int) -> None:
+        """Let the user pick the border color of a text note.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            note_index_i: index of the note in the list last drawn.
+        Outputs: none.
+        """
+        # LLFR-00387: "Border color" in the text note menu.
+        self.pick_text_note_color(plot_id_i, note_index_i, "border")
+
+    def on_text_note_text_color(self, plot_id_i: int,
+                                note_index_i: int) -> None:
+        """Let the user pick the text color of a text note.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            note_index_i: index of the note in the list last drawn.
+        Outputs: none.
+        """
+        # LLFR-00387: "Text color" in the text note menu.
+        self.pick_text_note_color(plot_id_i, note_index_i, "text")
+
+    def apply_picked_color(self, current_color_str: str,
+                           apply_color) -> bool:
+        """Open the shared color picker and apply the confirmed color.
+
+        Inputs:
+            current_color_str: the item's current color, "#rrggbb",
+                shown as chosen when the picker opens (LLFR-00389).
+            apply_color: function(color_str) -> bool that changes the
+                model and tells whether anything changed.
+        Outputs: True when the item got a new color, as one undoable
+            action; False when the picker was cancelled or the confirmed
+            color is the item's current color (nothing is recorded).
+        """
+        # LLFR-00388: the same picker for every item; LLFR-00389: it
+        # starts at the current color.
+        picked_color_str = self.view.ask_color(current_color_str)
+        if picked_color_str is None:
+            return False
+        # LLFR-00390, LLFR-00140: the snapshot is taken after the picker,
+        # so it holds the state just before; the same color changes
+        # nothing and adds no undoable action.
+        snapshot = self.take_snapshot()
+        if not apply_color(str(picked_color_str)):
+            return False
+        self.record_undo(snapshot)
+        return True
+
     def show_text_notes(self, plot) -> None:
         """Draw the text notes of a plot again, and nothing else.
 
@@ -1365,7 +1481,7 @@ class PlotController:
             return
         # LLFR-00140: placing a marker is undoable.
         snapshot = self.take_snapshot()
-        # LLFR-00085, LLFR-00111: the model names it "Marker N" and
+        # LLFR-00085, LLFR-00111: the model names it "Flag N" and
         # never reuses N. LLFR-00109: the tool stays active.
         # LLFR-00205: one marker, shown on every plot of every tab.
         self.workspace.add_marker(float(time_s))
@@ -1432,6 +1548,30 @@ class PlotController:
         self.record_undo(snapshot)
         # LLFR-00112, LLFR-00205: every label shows the new name.
         self.show_markers()
+
+    def on_marker_color(self, plot_id_i: int, marker_id_i: int) -> None:
+        """Let the user pick a flag's color and show it on every plot.
+
+        Inputs:
+            plot_id_i: id of the plot where "Color" was chosen.
+            marker_id_i: id of the flag whose "Color" was chosen.
+        Outputs: none. A cancelled picker or the flag's current color
+            changes nothing and records nothing.
+        """
+        # LLFR-00392: "Color" in the flag menu opens the picker
+        # (LLFR-00388) at the flag's color (LLFR-00389).
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        marker = self.workspace.find_marker(marker_id_i)
+        if marker is None:
+            return
+        if self.apply_picked_color(
+                marker.color_str,
+                lambda color_str: self.workspace.set_marker_color(
+                    marker_id_i, color_str)):
+            # LLFR-00392, LLFR-00205: the line, label and time in the new
+            # color on every time plot of every tab.
+            self.show_markers()
 
     def on_marker_delete(self, plot_id_i: int, marker_id_i: int) -> None:
         """Remove a vertical marker and its label from every plot.
@@ -1617,28 +1757,30 @@ class PlotController:
         # LLFR-00307, LLFR-00310: every label shows the new name.
         self.show_areas()
 
-    def on_area_color(self, plot_id_i: int, area_id_i: int,
-                      color_name_str: str) -> None:
-        """Give an area the color chosen in its menu, on every plot.
+    def on_area_color(self, plot_id_i: int, area_id_i: int) -> None:
+        """Let the user pick an area's color and show it on every plot.
 
         Inputs:
-            plot_id_i: id of the plot where the color was chosen.
+            plot_id_i: id of the plot where "Color" was chosen.
             area_id_i: id of the area.
-            color_name_str: the name of the chosen color.
-        Outputs: none. An unknown plot, area or color, or the area's
-            current color, changes nothing and records nothing.
+        Outputs: none. An unknown plot or area, a cancelled picker or the
+            area's current color changes nothing and records nothing.
         """
-        # LLFR-00351: with any plot tool, like the other menu options.
+        # LLFR-00351: with any plot tool, like the other menu options;
+        # the shared picker (LLFR-00388) starts at the area's color
+        # (LLFR-00389).
         if self.workspace.find_plot(plot_id_i) is None:
             return
-        # LLFR-00140: changing an area's color is undoable.
-        snapshot = self.take_snapshot()
-        if not self.workspace.set_area_color(int(area_id_i),
-                                             str(color_name_str)):
+        area = self.workspace.find_area(int(area_id_i))
+        if area is None:
             return
-        self.record_undo(snapshot)
-        # LLFR-00310, LLFR-00351: every time plot of every tab.
-        self.show_areas()
+        # LLFR-00140, LLFR-00390: changing an area's color is undoable.
+        if self.apply_picked_color(
+                area.color_str,
+                lambda color_str: self.workspace.set_area_color(
+                    int(area_id_i), color_str)):
+            # LLFR-00310, LLFR-00351: every time plot of every tab.
+            self.show_areas()
 
     def on_area_delete(self, plot_id_i: int, area_id_i: int) -> None:
         """Remove an area and its label from every plot.

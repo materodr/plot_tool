@@ -274,7 +274,7 @@ class MarkerDrawingTest(MarkerWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.set_markers([(1, "Marker 1", 4.0)])
+        self.set_markers([(1, "Flag 1", 4.0)])
         self.assertEqual(self.plot_widget.marker_count(), 1)
         self.assert_line_covers_y_range(1)
         full_ylim_tuple = self.plot_widget.axes.get_ylim()
@@ -302,7 +302,7 @@ class MarkerDrawingTest(MarkerWidgetTestCase):
         Outputs: none.
         """
         from matplotlib.colors import to_hex
-        self.set_markers([(1, "Marker 1", 4.0)])
+        self.set_markers([(1, "Flag 1", 4.0)])
         line, label, time_text = self.plot_widget.marker_artist_tuple(1)
         for artist_color in (line.get_color(), label.get_color(),
                              time_text.get_color()):
@@ -319,8 +319,8 @@ class MarkerDrawingTest(MarkerWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.set_markers([(1, "Marker 1", 2.0), (2, "End", 8.0)])
-        self.assertEqual(self.plot_widget.marker_label_text(1), "Marker 1")
+        self.set_markers([(1, "Flag 1", 2.0), (2, "End", 8.0)])
+        self.assertEqual(self.plot_widget.marker_label_text(1), "Flag 1")
         self.assertEqual(self.plot_widget.marker_time_text(1), "t = 2 s")
         self.assertEqual(self.plot_widget.marker_label_text(2), "End")
         self.assertEqual(self.plot_widget.marker_time_text(2), "t = 8 s")
@@ -356,7 +356,7 @@ class MarkerDrawingTest(MarkerWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.set_markers([(1, "Marker 1", 4.0), (2, "Marker 2", 7.0)])
+        self.set_markers([(1, "Flag 1", 4.0), (2, "Flag 2", 7.0)])
         self.plot_widget.set_time_range(3.0, 6.0)
         self.draw()
         line, label, time_text = self.plot_widget.marker_artist_tuple(1)
@@ -366,7 +366,7 @@ class MarkerDrawingTest(MarkerWidgetTestCase):
                                  abs(label_box.x1 - line_x_px)),
                              LABEL_TOP_GAP_PX_F)
         self.assertTrue(label.get_visible())
-        # Marker 2 is outside the shown range: not drawn.
+        # Flag 2 is outside the shown range: not drawn.
         for artist in self.plot_widget.marker_artist_tuple(2):
             self.assertFalse(artist.get_visible())
         self.plot_widget.set_time_range(0.0, 10.0)
@@ -395,7 +395,7 @@ class MarkerDrawingTest(MarkerWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.set_markers([(1, "Marker 1", 2.0), (2, "Marker 2", 3.0)])
+        self.set_markers([(1, "Flag 1", 2.0), (2, "Flag 2", 3.0)])
         self.assertEqual(self.plot_widget.marker_count(), 2)
         self.set_markers([(2, "Renamed", 3.0)])
         self.assertEqual(self.plot_widget.marker_count(), 1)
@@ -472,7 +472,7 @@ class MarkerClickTest(MarkerWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.set_markers([(1, "Marker 1", 5.0)])
+        self.set_markers([(1, "Flag 1", 5.0)])
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
         low_f, high_f = self.plot_widget.axes.get_ylim()
         for value_f in (low_f + 0.1 * (high_f - low_f), 2.0, 3.5):
@@ -521,7 +521,7 @@ class MarkerDragTest(MarkerWidgetTestCase):
         Outputs: none.
         """
         super().setUp()
-        self.set_markers([(9, "Marker 1", 4.0)])
+        self.set_markers([(9, "Flag 1", 4.0)])
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
 
     @covers("LLFR-00086", "LLFR-00093")
@@ -645,7 +645,7 @@ class MarkerDragTest(MarkerWidgetTestCase):
             Outputs: none.
             """
             self.plot_widget.set_curves(self.plot_widget.curve_data_list)
-            self.plot_widget.set_markers([(marker_id_i, "Marker 1",
+            self.plot_widget.set_markers([(marker_id_i, "Flag 1",
                                            time_s)])
 
         self.plot_widget.marker_move_requested.connect(redraw)
@@ -668,7 +668,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         Outputs: none.
         """
         super().setUp()
-        self.set_markers([(3, "Marker 1", 5.0)])
+        self.set_markers([(3, "Flag 1", 5.0)])
 
     @covers("LLFR-00110", "LLFR-00087", "LLFR-00090")
     def test_marker_over_curve_shows_marker_menu(self) -> None:
@@ -680,9 +680,10 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         crossing_point = self.plot_widget.data_to_widget_point(5.0, 3.5)
         self.assertEqual(self.plot_widget.curve_at(crossing_point), "Ramp")
         self.assertEqual(self.plot_widget.marker_at(crossing_point), 3)
-        self.assertEqual(self.menu_texts_at(5.0, 3.5), ["Rename", "Delete"])
+        self.assertEqual(self.menu_texts_at(5.0, 3.5),
+                         ["Rename", "Color", "Delete"])
         self.assertEqual(self.menu_texts_at(5.0, float(np.sin(5.0))),
-                         ["Rename", "Delete"])
+                         ["Rename", "Color", "Delete"])
         # Away from the marker the same curve shows the curve menu.
         self.assertEqual(self.menu_texts_at(8.0, 3.8),
                          ["Delete signal", "Width"])
@@ -699,7 +700,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
                 self.plot_widget.set_plot_tool(tool_str)
                 for value_f in (2.0, 3.5):
                     text_list = self.menu_texts_at(5.0, value_f)
-                    self.assertEqual(text_list, ["Rename", "Delete"])
+                    self.assertEqual(text_list, ["Rename", "Color", "Delete"])
                     self.assertNotIn("Delete plot", text_list)
         # An empty area away from the marker still offers "Delete plot".
         self.assertEqual(self.menu_texts_at(8.0, 2.0), ["Delete plot"])
@@ -718,7 +719,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
             label_box.x1 - 2.0, (label_box.y0 + label_box.y1) / 2.0)
         menu = self.plot_widget.build_context_menu(label_point)
         self.assertEqual([action.text() for action in menu.actions()],
-                         ["Rename", "Delete"])
+                         ["Rename", "Color", "Delete"])
         sip.delete(menu)
 
     @covers("LLFR-00087", "LLFR-00088", "LLFR-00090", "LLFR-00091")
@@ -730,7 +731,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         """
         shown_list = self.choose_action_text("Rename")
         self.right_click(5.0, 3.5)
-        self.assertEqual(shown_list, [["Rename", "Delete"]])
+        self.assertEqual(shown_list, [["Rename", "Color", "Delete"]])
         self.assertEqual(self.rename_list, [(3,)])
         self.assertEqual(self.delete_list, [])
         self.choose_action_text("Delete")
@@ -780,7 +781,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         self.assertEqual(self.menu_texts_at(5.0, 3.5), ["Delete"])
         # Lower on the line, away from the tip, the marker menu is back.
         self.assertEqual(self.menu_texts_at(5.0, float(np.sin(5.0))),
-                         ["Rename", "Delete"])
+                         ["Rename", "Color", "Delete"])
 
 
 @requires_qt
@@ -923,7 +924,7 @@ class MarkerEndToEndTest(unittest.TestCase):
     @covers("LLFR-00080", "LLFR-00081", "LLFR-00085", "LLFR-00091",
             "LLFR-00111", "LLFR-00109", "LLFR-00092")
     def test_place_delete_and_place_again(self) -> None:
-        """Marker 1 and 2, delete Marker 2, then the next is Marker 3.
+        """Flag 1 and 2, delete Flag 2, then the next is Flag 3.
 
         Inputs: none.
         Outputs: none.
@@ -937,7 +938,7 @@ class MarkerEndToEndTest(unittest.TestCase):
         self.assertEqual(self.plot_widget.plot_tool_str, MARKER_TOOL_STR)
         self.left_click(0.5, 2.5)
         self.left_click(1.5, 2.5)
-        self.assertEqual(self.drawn_names(), ["Marker 1", "Marker 2"])
+        self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 2"])
         first_id_i, _, first_time_s = self.drawn_markers()[0]
         second_id_i, _, second_time_s = self.drawn_markers()[1]
         self.assertAlmostEqual(first_time_s, 0.5, delta=0.02)
@@ -948,14 +949,15 @@ class MarkerEndToEndTest(unittest.TestCase):
         self.assertTrue(
             top_panel.plot_tool_button_dict[MARKER_TOOL_STR].is_active())
         shown_list = self.right_click_choose(second_time_s, 2.5, "Delete")
-        self.assertEqual(shown_list, ["Rename", "Delete"])
-        self.assertEqual(self.drawn_names(), ["Marker 1"])
+        self.assertEqual(shown_list, ["Rename", "Color", "Delete"])
+        self.assertEqual(self.drawn_names(), ["Flag 1"])
         self.left_click(1.0, 2.5)
-        self.assertEqual(self.drawn_names(), ["Marker 1", "Marker 3"])
+        self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 3"])
         self.assertTrue(
             top_panel.plot_tool_button_dict[MARKER_TOOL_STR].is_active())
 
-    @covers("LLFR-00087", "LLFR-00088", "LLFR-00089", "LLFR-00112")
+    @covers("LLFR-00087", "LLFR-00088", "LLFR-00089", "LLFR-00112",
+            "LLFR-00085")
     def test_rename_through_the_dialog(self) -> None:
         """Rename shows the typed name; a blank name keeps the old one.
 
@@ -973,8 +975,12 @@ class MarkerEndToEndTest(unittest.TestCase):
                                ) as dialog_mock:
             self.right_click_choose(time_s, 2.5, "Rename")
         self.assertEqual(dialog_mock.call_count, 1)
-        # The dialog starts from the current name.
-        self.assertIn("Marker 1", dialog_mock.call_args[0])
+        # The dialog starts from the current name and speaks of a flag.
+        self.assertIn("Flag 1", dialog_mock.call_args[0])
+        self.assertIn("Rename flag", dialog_mock.call_args[0])
+        self.assertIn("New flag name:", dialog_mock.call_args[0])
+        self.assertNotIn("marker", " ".join(
+            str(argument) for argument in dialog_mock.call_args[0][1:3]))
         self.assertEqual(self.drawn_names(), ["Peak $1$"])
         self.assertEqual(self.plot_widget.marker_label_text(marker_id_i),
                          "Peak $1$")
@@ -1019,7 +1025,7 @@ class MarkerEndToEndTest(unittest.TestCase):
         self.assertEqual(len(workspace.marker_list), 1)
         self.assertAlmostEqual(workspace.marker_list[0].time_s, 1.5,
                                delta=0.02)
-        self.assertEqual(self.drawn_names(), ["Marker 1"])
+        self.assertEqual(self.drawn_names(), ["Flag 1"])
         self.assertEqual(self.plot_widget.marker_time_text(marker_id_i),
                          f"t = {workspace.marker_list[0].time_s:.6g} s")
 

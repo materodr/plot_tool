@@ -500,10 +500,12 @@ class TextNoteDrawingTest(TextNoteWidgetTestCase):
         self.assertAlmostEqual(float(box.x1), float(axes_box.x1), delta=1.0)
         self.assertAlmostEqual(float(box.y1), float(axes_box.y1), delta=1.0)
         # The model place is unchanged.
-        self.assertEqual(self.plot_widget.text_note_list[0][1:],
+        self.assertEqual(self.plot_widget.text_note_list[0][1:3],
                          (9.9, top_f))
-        # Zoomed in on the point, there is room on its right again.
-        self.plot_widget.set_time_range(0.0, 20.0)
+        # Zoomed out, there is room on the point's right again (the note
+        # is 12 points tall by default, LLFR-00385, so it needs about
+        # three quarters of the plot's width).
+        self.plot_widget.set_time_range(0.0, 40.0)
         self.draw()
         box = self.plot_widget.text_note_box_extent(0)
         point_tuple = self.display_of(9.9, top_f)
@@ -576,7 +578,7 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_widget.set_markers([(1, "Marker 1", 5.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         for tool_str in ALL_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_text_notes(
@@ -600,7 +602,7 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
                 self.assertAlmostEqual(value_f, float(expected_array[1]),
                                        delta=0.05)
                 # The note is drawn at the drop place until redrawn.
-                self.assertEqual(self.plot_widget.text_note_list[0][1:],
+                self.assertEqual(self.plot_widget.text_note_list[0][1:3],
                                  (time_s, value_f))
                 self.assertEqual(self.pin_list, [])
                 self.assertEqual(self.range_list, [])
@@ -694,16 +696,17 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
         Outputs: none.
         """
         super().setUp()
-        self.plot_widget.set_markers([(1, "Marker 1", 6.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 6.0)])
         self.plot_widget.set_delta_markers([
             (1, "y", ("Ramp", 6.0, 3.6), ("Ramp", 7.0, 3.7), 0.1)])
         self.plot_widget.set_text_notes([("over items", 5.9, 3.59)])
         self.draw()
 
-    @covers("LLFR-00341", "LLFR-00048")
+    @covers("LLFR-00341", "LLFR-00048", "LLFR-00385", "LLFR-00387")
     def test_menu_over_curve_and_markers(self) -> None:
-        """A right-click on the note shows Edit and Delete only, also
-        over a curve, a vertical marker and a delta marker.
+        """A right-click on the note shows Edit, Size, Border color, Text
+        color and Delete only, in this order, also over a curve, a
+        vertical marker and a delta marker.
 
         Inputs: none.
         Outputs: none.
@@ -713,7 +716,8 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
             *center_tuple)
         self.assertNotEqual(self.plot_widget.text_note_at(widget_point), -1)
         shown_list = self.choose_menu(center_tuple, "")
-        self.assertEqual(shown_list, ["Edit", "Delete"])
+        self.assertEqual(shown_list, ["Edit", "Size", "Border color",
+                                      "Text color", "Delete"])
         # Away from the note, the plot's own menus come back.
         self.assertEqual(self.choose_menu(self.display_of(1.0, 1.5), ""),
                          ["Delete plot"])
@@ -814,34 +818,29 @@ class TextNoteImageTest(TextNoteWidgetTestCase):
     """Notes in the PDF pages and the copied image (LLFR-00129,
     LLFR-00133)."""
 
-    @covers("LLFR-00129", "LLFR-00133", "LLFR-00337")
+    @covers("LLFR-00129", "LLFR-00133", "LLFR-00337", "LLFR-00387")
     def test_rendered_figure_shows_shown_notes_only(self) -> None:
-        """The figure image of the export holds the note's box, and a
-        hidden note is not in it.
+        """The figure image of the export holds the note, in its own
+        border and text colors, and a hidden note is not in it.
 
         Inputs: none.
         Outputs: none.
         """
         from view import plot_export
-        from view import theme
-        from matplotlib.colors import to_rgb
 
         def note_pixel_count(image) -> int:
-            """Count the pixels of the note's background color.
+            """Count the pixels close to the note's magenta.
 
             Inputs:
                 image: a QImage.
             Outputs: the count.
             """
-            red_f, green_f, blue_f = to_rgb(
-                theme.TEXT_NOTE_BACKGROUND_COLOR_STR)
             count_i = 0
             for y_i in range(0, image.height(), 2):
                 for x_i in range(0, image.width(), 2):
                     color = image.pixelColor(x_i, y_i)
-                    if (abs(color.red() - red_f * 255) <= 3
-                            and abs(color.green() - green_f * 255) <= 3
-                            and abs(color.blue() - blue_f * 255) <= 3):
+                    if (color.red() >= 200 and color.green() <= 60
+                            and color.blue() >= 200):
                         count_i += 1
             return count_i
 
@@ -849,7 +848,7 @@ class TextNoteImageTest(TextNoteWidgetTestCase):
         empty_count_i = note_pixel_count(
             plot_export.render_figure_image(figure, figure.dpi))
         self.plot_widget.set_text_notes(
-            [("Exported note text", 2.0, 2.0)])
+            [("Exported note text", 2.0, 2.0, 16, "#ff00ff", "#ff00ff")])
         self.draw()
         shown_count_i = note_pixel_count(
             plot_export.render_figure_image(figure, 2.0 * figure.dpi))

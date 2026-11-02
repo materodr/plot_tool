@@ -264,8 +264,8 @@ class DashedMarkerTest(PlotWidgetToolTestCase):
         from matplotlib.colors import to_hex
         from model.curve_colors import MARKER_COLOR_STR
         from view.plot_widget import MARKER_LINE_STYLE_TUPLE
-        self.plot_widget.set_markers([(1, "Marker 1", 4.0),
-                                      (2, "Marker 2", 7.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 4.0),
+                                      (2, "Flag 2", 7.0)])
         self.draw()
         self.assertGreater(MARKER_LINE_STYLE_TUPLE[1][1], 0)
         for marker_id_i in (1, 2):
@@ -509,7 +509,7 @@ class PressOnTipTest(TipDragTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_widget.set_markers([(1, "Marker 1", 5.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         self.draw()
         for tool_str in ALL_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
@@ -625,7 +625,7 @@ class LostReleaseTest(TipDragTestCase):
         """
         from PyQt6.QtCore import Qt
         self.plot_widget.set_pinned_tips([])
-        self.plot_widget.set_markers([(1, "Marker 1", 4.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 4.0)])
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
         self.draw()
         line_tuple = tuple(self.plot_widget.axes.transData.transform(
@@ -739,7 +739,7 @@ class RightPressDuringDragTest(TipDragTestCase):
         """
         shown_list = self.record_menus()
         self.plot_widget.set_pinned_tips([])
-        self.plot_widget.set_markers([(1, "Marker 1", 4.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 4.0)])
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
         self.draw()
         transform = self.plot_widget.axes.transData
@@ -750,7 +750,7 @@ class RightPressDuringDragTest(TipDragTestCase):
         self.left_release(tuple(transform.transform((6.0, 0.0))))
         self.assertEqual(self.marker_move_list, [])
         self.assertEqual(self.plot_widget.marker_time_s(1), 4.0)
-        self.assertEqual(shown_list, [["Rename", "Delete"]])
+        self.assertEqual(shown_list, [["Rename", "Color", "Delete"]])
 
     @covers("LLFR-00117", "LLFR-00048")
     def test_right_press_stops_a_pan(self) -> None:

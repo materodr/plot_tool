@@ -272,7 +272,7 @@ class DeltaPickTest(DeltaWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.set_markers([(1, "Marker 1", 2.0)])
+        self.set_markers([(1, "Flag 1", 2.0)])
         self.plot_widget.set_plot_tool(DELTA_Y_TOOL_STR)
         self.left_click(2.0, float(np.sin(2.0)))
         self.assertEqual(self.pick_list, [self.sine_point(2.0)])
@@ -696,9 +696,9 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         Outputs: none.
         """
         time_s, value_f = self.tip_data_tuple()
-        self.set_markers([(9, "Marker 1", time_s)])
+        self.set_markers([(9, "Flag 1", time_s)])
         self.assertEqual(self.menu_texts_at(time_s, value_f),
-                         ["Rename", "Delete"])
+                         ["Rename", "Color", "Delete"])
         self.set_markers([])
         self.plot_widget.set_pinned_tips([self.second_tuple])
         self.draw()

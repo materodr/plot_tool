@@ -9,7 +9,8 @@ from tests.support import covers
 from model.curve_colors import (
     MARKER_COLOR_DISTANCE_F, MARKER_COLOR_STR, MAXIMUM_LUMINANCE_F,
     MINIMUM_COLOR_DISTANCE_F,
-    PALETTE_COLOR_TUPLE, color_distance, color_luminance, hex_to_rgb,
+    PALETTE_COLOR_TUPLE, color_distance, color_luminance, hex_color_or_none,
+    hex_to_rgb,
     is_far_from_marker_color, next_curve_color, rgb_to_hex)
 
 HEX_COLOR_PATTERN_STR = r"^#[0-9a-f]{6}$"
@@ -203,13 +204,13 @@ class MarkerColorTest(unittest.TestCase):
     """Check the reserved marker color (LLFR-00083, LLFR-00365)."""
 
     @covers("LLFR-00083")
-    def test_marker_color_is_orange_ff4400(self) -> None:
-        """The marker color is exactly the orange #ff4400.
+    def test_marker_color_is_orange_ff8000(self) -> None:
+        """The marker color is exactly the orange #ff8000.
 
         Inputs: none.
         Outputs: none.
         """
-        self.assertEqual(MARKER_COLOR_STR, "#ff4400")
+        self.assertEqual(MARKER_COLOR_STR, "#ff8000")
         self.assertRegex(MARKER_COLOR_STR, HEX_COLOR_PATTERN_STR)
         self.assertLessEqual(color_luminance(MARKER_COLOR_STR),
                              MAXIMUM_LUMINANCE_F)
@@ -240,14 +241,33 @@ class MarkerColorTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        # (255, 68, 69) is 69 away and (255, 68, 70) exactly 70 away.
-        self.assertFalse(is_far_from_marker_color("#ff4445"))
-        self.assertTrue(is_far_from_marker_color("#ff4446"))
-        self.assertAlmostEqual(color_distance("#ff4446", MARKER_COLOR_STR),
+        # (255, 59, 0) is 69 away and (255, 58, 0) exactly 70 away.
+        self.assertFalse(is_far_from_marker_color("#ff3b00"))
+        self.assertTrue(is_far_from_marker_color("#ff3a00"))
+        self.assertAlmostEqual(color_distance("#ff3a00", MARKER_COLOR_STR),
                                70.0)
-        # The red and orange of the previous palette were too close.
-        self.assertFalse(is_far_from_marker_color("#d62728"))
+        # The orange of the previous palette and the previous marker
+        # orange are too close.
         self.assertFalse(is_far_from_marker_color("#ff7f0e"))
+        self.assertFalse(is_far_from_marker_color("#ff9900"))
+        # LLFR-00365: the palette red is darker than the marker color.
+        self.assertLess(color_luminance(PALETTE_COLOR_TUPLE[2]),
+                        color_luminance(MARKER_COLOR_STR))
+
+    @covers("LLFR-00225", "LLFR-00319", "LLFR-00393")
+    def test_hex_color_or_none(self) -> None:
+        """Only a text "#rrggbb" is a color; it is returned in lowercase.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(hex_color_or_none("#FF8000"), "#ff8000")
+        self.assertEqual(hex_color_or_none("#1f77b4"), "#1f77b4")
+        self.assertEqual(hex_color_or_none("#AbCdEf"), "#abcdef")
+        for value in ("ff8000", "#ff800", "#ff80000", "#gg8000", "Orange",
+                      "", None, 16744448, ["#ff8000"], " #ff8000"):
+            with self.subTest(value=value):
+                self.assertIsNone(hex_color_or_none(value))
 
     @covers("LLFR-00365", "LLFR-00033")
     def test_palette_has_no_orange(self) -> None:

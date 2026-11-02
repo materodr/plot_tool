@@ -281,7 +281,7 @@ class WorkspaceSnapshotTest(unittest.TestCase):
         self.assertEqual(plot_state[3][0][3], (10.0, -5.0))
         # LLFR-00205: the vertical markers are the workspace's.
         self.assertEqual([marker[1] for marker in marker_tuple],
-                         ["Go", "Marker 2"])
+                         ["Go", "Flag 2"])
         self.assertEqual([marker[2] for marker in marker_tuple],
                          [0.5, 1.5])
 
@@ -304,8 +304,8 @@ class WorkspaceSnapshotTest(unittest.TestCase):
         self.assertGreater(new_plot.plot_id_i, added_plot.plot_id_i)
         self.assertGreater(new_marker.marker_id_i, added_marker.marker_id_i)
         # LLFR-00111: an undone placement does not free its number.
-        self.assertEqual(added_marker.name_str, "Marker 3")
-        self.assertEqual(new_marker.name_str, "Marker 4")
+        self.assertEqual(added_marker.name_str, "Flag 3")
+        self.assertEqual(new_marker.name_str, "Flag 4")
 
     @covers("LLFR-00138")
     def test_restored_plots_share_the_generator_and_counter(self) -> None:
