@@ -16,6 +16,7 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.view.menu_texts import FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_plot_tools import (
     ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
@@ -728,7 +729,7 @@ class RightPressDuringDragTest(TipDragTestCase):
         self.assertEqual(self.move_list, [])
         self.assertEqual(self.plot_widget.drag_tip_index_i, -1)
         self.assert_near(self.label_center(), start_tuple)
-        self.assertEqual(shown_list, [["Delete"]])
+        self.assertEqual(shown_list, [TIP_MENU_TEXT_LIST])
 
     @covers("LLFR-00086", "LLFR-00087")
     def test_right_press_cancels_a_marker_drag(self) -> None:
@@ -750,7 +751,7 @@ class RightPressDuringDragTest(TipDragTestCase):
         self.left_release(tuple(transform.transform((6.0, 0.0))))
         self.assertEqual(self.marker_move_list, [])
         self.assertEqual(self.plot_widget.marker_time_s(1), 4.0)
-        self.assertEqual(shown_list, [["Rename", "Color", "Delete"]])
+        self.assertEqual(shown_list, [FLAG_MENU_TEXT_LIST])
 
     @covers("LLFR-00117", "LLFR-00048")
     def test_right_press_stops_a_pan(self) -> None:

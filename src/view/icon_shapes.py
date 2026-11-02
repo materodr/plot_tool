@@ -419,25 +419,33 @@ def load_layout_shape() -> list:
 
 
 def save_signals_shape() -> list:
-    """Return the Save signals icon: a sheet with a small table and an
-    arrow down into it (20).
+    """Return the Save signals icon: a floppy disk with a small curve on
+    its label (20).
 
     Inputs: none.
-    Outputs: the list of layers.
+    Outputs: the list of layers: the disk body with its cut top-right
+        corner, the metal shutter at its top, the label at its bottom and
+        the curve drawn on the label.
     """
-    # LLFR-00159 item 20: the sheet of the layout icons, with a table of
-    # two columns and three rows instead of the two plots; the arrow
-    # comes from above, as in the Save layout icon, and points down
-    # into the sheet through the gap of its top edge.
-    sheet_layer_list = layout_sheet_layer_list()[:2]
-    table_layer_list = [
-        ink_layer([("R", 6.75, 13.0, 10.5, 7.0, 1.0)]),
-        ink_layer(segment(6.75, 15.5, 17.25, 15.5)),
-        ink_layer(segment(6.75, 17.75, 17.25, 17.75)),
-        ink_layer(segment(12.0, 13.0, 12.0, 20.0))]
-    return sheet_layer_list + table_layer_list + [
-        ink_layer(segment(12.0, 1.5, 12.0, 10.75)),
-        ink_layer(arrow_head(12.0, 10.75, "down", 2.75))]
+    # LLFR-00159 item 20: the outline of the disk, a rounded square whose
+    # top-right corner is cut, as on a real floppy disk.
+    body_list = [("M", 5.5, 3.5), ("L", 17.0, 3.5), ("L", 20.5, 7.0),
+                 ("L", 20.5, 18.5), ("Q", 20.5, 20.5, 18.5, 20.5),
+                 ("L", 5.5, 20.5), ("Q", 3.5, 20.5, 3.5, 18.5),
+                 ("L", 3.5, 5.5), ("Q", 3.5, 3.5, 5.5, 3.5), ("Z",)]
+    # LLFR-00159 item 20: the shutter hangs from the top edge, with its
+    # small window.
+    shutter_list = polyline([(7.5, 3.5), (7.5, 8.25), (15.5, 8.25),
+                             (15.5, 3.5)])
+    shutter_window_list = segment(12.75, 5.25, 12.75, 6.5)
+    # LLFR-00159 item 20: the label, and on it a small curve that rises
+    # and falls like a signal, so the disk saves signals.
+    label_list = [("R", 6.5, 11.75, 11.0, 8.75, 1.25)]
+    curve_list = [("M", 8.5, 17.5), ("C", 10.25, 12.5, 12.75, 19.5,
+                                     15.5, 14.0)]
+    return [ink_layer(body_list), ink_layer(shutter_list),
+            ink_layer(shutter_window_list), ink_layer(label_list),
+            ink_layer(curve_list)]
 
 
 def hatch_segment_list(band_tuple: tuple, sum_f: float) -> list:
