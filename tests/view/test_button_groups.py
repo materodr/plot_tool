@@ -21,7 +21,7 @@ from view import icon_shapes, theme
 # LLFR-00347: the names of the buttons of each group, left to right.
 EXPECTED_GROUP_LIST = [
     ["Open file", "Save layout", "Load layout"],
-    ["Data tip", "Zoom", "Pan", "Vertical marker", "Delta X", "Delta Y",
+    ["Data tip", "Zoom", "Pan", "Flag", "Delta X", "Delta Y",
      "Area", "Text"],
     ["Reset zoom", "Grid"],
     ["Export", "Copy", "Save signals"],

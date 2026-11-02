@@ -3,7 +3,7 @@
 LLFR-00352, LLFR-00353, LLFR-00365).
 
 Every item drawn in the reserved marker color must be exactly the
-orange #ff4400, its previews a paler version of that orange, and no
+orange #ff8000, its previews a paler version of that orange, and no
 curve color must come close to it.
 """
 
@@ -20,7 +20,7 @@ from model.curve_colors import (
 from model.workspace import DELTA_Y_KIND_STR
 
 # LLFR-00083: the marker color fixed by the requirement.
-ORANGE_STR = "#ff4400"
+ORANGE_STR = "#ff8000"
 
 
 def hue_degree_f(color_str: str) -> float:
@@ -40,15 +40,15 @@ class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
     """Markers, delta markers, the span line and areas are orange."""
 
     @covers("LLFR-00083", "LLFR-00172", "LLFR-00365")
-    def test_vertical_and_delta_markers_are_ff4400(self) -> None:
+    def test_vertical_and_delta_markers_are_ff8000(self) -> None:
         """A vertical marker and a Delta Y marker, with its dots and
-        value, are drawn in #ff4400; the curves are far from it.
+        value, are drawn in #ff8000; the curves are far from it.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(MARKER_COLOR_STR, ORANGE_STR)
-        self.plot_widget.set_markers([(1, "Marker 1", 5.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         self.set_delta_markers([(2, DELTA_Y_KIND_STR,
                                  self.sine_point(2.0),
                                  self.ramp_point(6.0))])
@@ -68,7 +68,7 @@ class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
 
     @covers("LLFR-00203", "LLFR-00352", "LLFR-00353", "LLFR-00083")
     def test_previews_are_a_paler_orange(self) -> None:
-        """The marker preview color is #ff4400 mixed with the white plot
+        """The marker preview color is #ff8000 mixed with the white plot
         background: still an orange hue, lighter, and not the marker
         color itself.
 
@@ -88,8 +88,8 @@ class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
         self.assertGreater(int(preview_str[5:7], 16), 0x00)
 
     @covers("LLFR-00305", "LLFR-00351", "LLFR-00083")
-    def test_default_area_is_see_through_ff4400(self) -> None:
-        """A new area, and the area preview, use #ff4400 drawn
+    def test_default_area_is_see_through_ff8000(self) -> None:
+        """A new area, and the area preview, use #ff8000 drawn
         see-through.
 
         Inputs: none.
@@ -116,9 +116,9 @@ class OrangeSpanLineTest(SpanWidgetTestCase):
     """The time span selection line is orange (LLFR-00208)."""
 
     @covers("LLFR-00208", "LLFR-00083")
-    def test_span_selection_line_is_ff4400(self) -> None:
+    def test_span_selection_line_is_ff8000(self) -> None:
         """While the Zoom tool drags a span, the line and its end ticks
-        are drawn in #ff4400.
+        are drawn in #ff8000.
 
         Inputs: none.
         Outputs: none.

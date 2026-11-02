@@ -42,7 +42,9 @@ TIP_TEXT_STR = "Data tip"
 ZOOM_TEXT_STR = "Zoom"
 # LLFR-00355: the button of the Pan tool, right of Zoom (LLFR-00347).
 PAN_TEXT_STR = "Pan"
-MARKER_TEXT_STR = "Vertical marker"
+# LLFR-00080: the name of the Flag button (the code calls a flag a
+# "marker").
+MARKER_TEXT_STR = "Flag"
 # LLFR-00161, LLFR-00162: the delta marker tool buttons.
 DELTA_X_TEXT_STR = "Delta X"
 DELTA_Y_TEXT_STR = "Delta Y"

@@ -99,11 +99,11 @@ class LayoutTestCase(unittest.TestCase):
 
 
 class InitialWidthTest(LayoutTestCase):
-    """LLFR-00072: the signal list starts at 25% of the window width."""
+    """LLFR-00072: the signal list starts at 20% of the window width."""
 
     @covers("LLFR-00072", "HLFR-00026", "HLFR-00001")
-    def test_signal_list_takes_a_quarter_at_start(self) -> None:
-        """At several window sizes the list gets 25%, the plots the rest.
+    def test_signal_list_takes_a_fifth_at_start(self) -> None:
+        """At several window sizes the list gets 20%, the plots the 80%.
 
         Inputs: none.
         Outputs: none.
@@ -115,9 +115,9 @@ class InitialWidthTest(LayoutTestCase):
                 splitter = main_window.lower_splitter
                 plot_width_i, list_width_i = self.width_tuple(main_window)
                 self.assertEqual(main_window.width(), width_i)
-                # 25% of the app window's width, not of the splitter's.
+                # 20% of the app window's width, not of the splitter's.
                 self.assertAlmostEqual(list_width_i,
-                                       0.25 * main_window.width(),
+                                       0.20 * main_window.width(),
                                        delta=WIDTH_TOLERANCE_I)
                 # The plot panel takes the rest: the two panels and the
                 # handle fill the whole splitter.
@@ -127,7 +127,7 @@ class InitialWidthTest(LayoutTestCase):
 
     @covers("LLFR-00072")
     def test_start_size_list_for_a_given_width(self) -> None:
-        """The list gets 25% of the window width, the plots the rest.
+        """The list gets 20% of the window width, the plots the rest.
 
         Inputs: none.
         Outputs: none.
@@ -142,7 +142,7 @@ class InitialWidthTest(LayoutTestCase):
                 self.assertEqual(len(size_list), 2)
                 self.assertEqual(sum(size_list) + handle_width_i,
                                  total_width_i)
-                self.assertEqual(size_list[1], round(window_width_i / 4))
+                self.assertEqual(size_list[1], round(window_width_i / 5))
         # A window far wider than the splitter: the list gets at most
         # what the splitter has, and no width is negative.
         size_list = splitter.initial_size_list(100, 10000)
@@ -243,19 +243,19 @@ class DragBorderTest(LayoutTestCase):
         """
         self.show_window(self.main_window)
         plot_width_i, list_width_i = self.width_tuple(self.main_window)
-        self.drag_handle(-150)
+        self.drag_handle(-250)
         new_plot_width_i, new_list_width_i = self.width_tuple(
             self.main_window)
-        self.assertAlmostEqual(new_plot_width_i, plot_width_i - 150,
+        self.assertAlmostEqual(new_plot_width_i, plot_width_i - 250,
                                delta=WIDTH_TOLERANCE_I)
-        self.assertAlmostEqual(new_list_width_i, list_width_i + 150,
+        self.assertAlmostEqual(new_list_width_i, list_width_i + 250,
                                delta=WIDTH_TOLERANCE_I)
-        self.drag_handle(250)
+        self.drag_handle(150)
         newest_plot_width_i, newest_list_width_i = self.width_tuple(
             self.main_window)
-        self.assertAlmostEqual(newest_plot_width_i, new_plot_width_i + 250,
+        self.assertAlmostEqual(newest_plot_width_i, new_plot_width_i + 150,
                                delta=WIDTH_TOLERANCE_I)
-        self.assertAlmostEqual(newest_list_width_i, new_list_width_i - 250,
+        self.assertAlmostEqual(newest_list_width_i, new_list_width_i - 150,
                                delta=WIDTH_TOLERANCE_I)
 
     @covers("LLFR-00073", "HLFR-00026")

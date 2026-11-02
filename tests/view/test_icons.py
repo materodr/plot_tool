@@ -22,7 +22,7 @@ BUTTON_NAME_DICT = {
     "open_file_button": "Open file",
     "tip_button": "Data tip",
     "zoom_button": "Zoom",
-    "marker_button": "Vertical marker",
+    "marker_button": "Flag",
     "delta_x_button": "Delta X",
     "delta_y_button": "Delta Y",
     "area_button": "Area",
@@ -412,7 +412,7 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00181")
     def test_tooltip_is_the_button_name(self) -> None:
-        """Each button tip starts with the name, e.g. "Vertical marker".
+        """Each button tip starts with the name, e.g. "Flag".
 
         Inputs: none.
         Outputs: none.

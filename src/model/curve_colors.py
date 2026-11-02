@@ -4,7 +4,7 @@ The first 8 curves drawn in a plot use a fixed palette (LLFR-00033)
 that starts with blue, black and a dark red (LLFR-00144).
 From the 9th curve on, each new curve gets a random color that is
 clearly different from the colors already used in the plot
-(LLFR-00034). Vertical markers use a reserved orange that is never
+(LLFR-00034). Flags use a reserved orange, #ff8000, that is never
 given to a curve (LLFR-00083): every palette color and every random
 color keeps a distance of at least 70 from it (LLFR-00365).
 """
@@ -14,7 +14,7 @@ color keeps a distance of at least 70 from it (LLFR-00365).
 # them are at least MINIMUM_COLOR_DISTANCE_F apart (the closest pair,
 # blue and cyan, about 76).
 # LLFR-00144: the first three are blue, black and a dark red, in that
-# order. LLFR-00365: no orange, and the red (#b2182b, about 99 from the
+# order. LLFR-00365: no orange, and the red (#b2182b, about 136 from the
 # marker color) is darker than the marker color; every color is at
 # least MARKER_COLOR_DISTANCE_F from it (the closest is the red).
 PALETTE_COLOR_TUPLE = (
@@ -28,11 +28,13 @@ PALETTE_COLOR_TUPLE = (
     "#17becf",  # cyan
 )
 
-# LLFR-00083: reserved color of the vertical markers, delta markers,
-# span selection line and areas. It is not in the palette, and every
-# palette color and every random curve color keeps at least
-# MARKER_COLOR_DISTANCE_F from it (LLFR-00365, LLFR-00034).
-MARKER_COLOR_STR = "#ff4400"  # orange
+# LLFR-00083: reserved color: the color of a new flag and of a new area
+# (LLFR-00351), and always the color of the delta markers, the delta
+# marker previews, the time span selection and the flag preview. It is
+# not in the palette, and every palette color and every random curve
+# color keeps at least MARKER_COLOR_DISTANCE_F from it (LLFR-00365,
+# LLFR-00034).
+MARKER_COLOR_STR = "#ff8000"  # orange
 # LLFR-00365: minimum Euclidean RGB distance (0 to 255 per channel)
 # between a curve color and the marker color. It is never relaxed.
 MARKER_COLOR_DISTANCE_F = 70.0
@@ -63,6 +65,24 @@ def hex_to_rgb(color_str: str) -> tuple:
     hex_digits_str = color_str.lstrip("#")
     return tuple(int(hex_digits_str[index_i:index_i + 2], 16)
                  for index_i in (0, 2, 4))
+
+
+def hex_color_or_none(value):
+    """Return a color read from a file as lowercase "#rrggbb", if it is one.
+
+    Inputs:
+        value: any value, for example read from a layout file.
+    Outputs: the color in lowercase when value is a text "#rrggbb" with
+        six hexadecimal digits in uppercase or lowercase, else None.
+    """
+    # LLFR-00225, LLFR-00319, LLFR-00393: a saved color is used as it
+    # is when it is written as "#rrggbb"; it is stored in lowercase.
+    if not isinstance(value, str) or len(value) != 7 or value[0] != "#":
+        return None
+    if not all(digit_str in "0123456789abcdefABCDEF"
+               for digit_str in value[1:]):
+        return None
+    return value.lower()
 
 
 def rgb_to_hex(rgb_tuple: tuple) -> str:

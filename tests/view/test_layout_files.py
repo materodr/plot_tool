@@ -474,7 +474,7 @@ class LayoutEndToEndTest(unittest.TestCase):
         self.assertEqual(self.main_window.current_tab_id(),
                          workspace.tab_list[0].tab_id_i)
         self.assertEqual([marker.name_str for marker in
-                          workspace.marker_list], ["Marker 1"])
+                          workspace.marker_list], ["Flag 1"])
         # LLFR-00237: one report naming "force" once and the lost tip.
         self.assertEqual(len(self.report_list), 1)
         self.assertEqual(self.report_list[0].count("  - force\n"), 1)

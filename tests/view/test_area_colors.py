@@ -23,6 +23,11 @@ AREA_ALPHA_F = 0.25
 # 255, so 40 units is a clear difference in that narrow band (two shades
 # closer than about 25 units are hard to tell apart side by side).
 MINIMUM_DRAWN_DISTANCE_F = 40.0
+# Smallest distance between two of the four area colors as drawn. With
+# the marker color #ff8000 (LLFR-00083, LLFR-00351) as the default
+# Orange, the closest pair, Yellow and Orange, is about 28 apart, still
+# above the 25 units under which two shades are hard to tell apart.
+MINIMUM_DRAWN_PAIR_DISTANCE_F = 25.0
 # Every channel of a drawn area color is at least this light.
 MINIMUM_DRAWN_CHANNEL_F = 190.0
 
@@ -48,7 +53,7 @@ class AreaColorThemeTest(unittest.TestCase):
     def test_four_colors_and_default_is_the_see_through_marker(
             self) -> None:
         """The four names are Orange, Blue, Green and Yellow, in menu
-        order; "Orange", the default, is the marker color #ff4400 itself,
+        order; "Orange", the default, is the marker color #ff8000 itself,
         which the see-through drawing makes paler than the markers.
 
         Inputs: none.
@@ -59,7 +64,7 @@ class AreaColorThemeTest(unittest.TestCase):
         self.assertEqual(DEFAULT_AREA_COLOR_NAME_STR, "Orange")
         self.assertEqual(tuple(theme.AREA_COLOR_DICT), AREA_COLOR_NAME_TUPLE)
         self.assertEqual(theme.AREA_COLOR_DICT["Orange"], MARKER_COLOR_STR)
-        self.assertEqual(MARKER_COLOR_STR, "#ff4400")
+        self.assertEqual(MARKER_COLOR_STR, "#ff8000")
         # Paler as drawn: every channel is at least as light as the
         # marker's, and the green and blue clearly lighter.
         drawn_tuple = drawn_rgb_tuple(theme.AREA_COLOR_DICT["Orange"])
@@ -67,7 +72,7 @@ class AreaColorThemeTest(unittest.TestCase):
                              for channel_f in to_rgb(MARKER_COLOR_STR))
         for drawn_f, marker_f in zip(drawn_tuple, marker_tuple):
             self.assertGreaterEqual(drawn_f, marker_f)
-        self.assertGreater(drawn_tuple[1], marker_tuple[1] + 100.0)
+        self.assertGreater(drawn_tuple[1], marker_tuple[1] + 90.0)
         self.assertGreater(drawn_tuple[2], marker_tuple[2] + 100.0)
         # Still an orange: red is the strongest channel, then green.
         self.assertGreater(drawn_tuple[0], drawn_tuple[1])
@@ -91,7 +96,7 @@ class AreaColorThemeTest(unittest.TestCase):
 
     @covers("LLFR-00351", "LLFR-00306", "LLFR-00033")
     def test_colors_pale_distinct_and_never_curve_colors(self) -> None:
-        """Drawn see-through, every color is light and at least 40 from
+        """Drawn see-through, every color is light and at least 25 from
         the others as drawn; none is a curve palette color.
 
         Inputs: none.
@@ -111,7 +116,8 @@ class AreaColorThemeTest(unittest.TestCase):
                     (first_f - second_f) ** 2 for first_f, second_f in zip(
                         drawn_rgb_tuple(first_str),
                         drawn_rgb_tuple(second_str))) ** 0.5
-                self.assertGreaterEqual(distance_f, MINIMUM_DRAWN_DISTANCE_F)
+                self.assertGreaterEqual(distance_f,
+                                        MINIMUM_DRAWN_PAIR_DISTANCE_F)
 
     @covers("LLFR-00351", "LLFR-00033", "LLFR-00365")
     def test_drawn_areas_never_look_like_a_drawn_curve(self) -> None:

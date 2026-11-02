@@ -277,13 +277,13 @@ class AreaLookTest(AreaWidgetTestCase):
         # LLFR-00305: the orange of the marker color, made paler by the
         # see-through drawing over the white plot background.
         self.assertEqual(face_tuple, marker_tuple)
-        self.assertEqual(to_rgb(MARKER_COLOR_STR), to_rgb("#ff4400"))
+        self.assertEqual(to_rgb(MARKER_COLOR_STR), to_rgb("#ff8000"))
         alpha_f = band.get_alpha()
         for face_f in face_tuple:
             drawn_f = alpha_f * face_f + (1.0 - alpha_f) * 1.0
             self.assertGreaterEqual(drawn_f, face_f)
         self.assertGreater(alpha_f * face_tuple[1] + (1.0 - alpha_f),
-                           face_tuple[1] + 0.4)
+                           face_tuple[1] + 0.3)
         # The whole y range, whatever it is: y from 0 to 1 in axes units.
         self.assertEqual((band.get_y(), band.get_height()), (0.0, 1.0))
         self.assertEqual((band.get_x(), band.get_width()), (3.0, 2.0))
@@ -297,7 +297,7 @@ class AreaLookTest(AreaWidgetTestCase):
                         self.plot_widget.axes.xaxis.get_zorder())
         # LLFR-00306: also behind the vertical markers, delta markers,
         # pinned data tips and text notes drawn over the area.
-        self.plot_widget.set_markers([(5, "Marker 1", 4.0)])
+        self.plot_widget.set_markers([(5, "Flag 1", 4.0)])
         self.plot_widget.set_text_notes([("Note", 4.2, 2.0)])
         self.plot_widget.set_pinned_tips([("Ramp", 4.5, 3.45, ())])
         self.plot_widget.set_delta_markers([
@@ -782,7 +782,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(
             self.menu_texts(self.point_at(4.0, float(np.sin(4.0)))),
             ["Delete signal", "Width"])
-        self.plot_widget.set_markers([(5, "Marker 1", 3.0)])
+        self.plot_widget.set_markers([(5, "Flag 1", 3.0)])
         self.draw()
         self.assertEqual(self.menu_texts(self.at(3.0)), ["Rename", "Delete"])
         self.plot_widget.set_pinned_tips([("Ramp", 5.0, 3.5, ())])

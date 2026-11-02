@@ -599,7 +599,7 @@ class GridWidgetTest(NavigationWidgetTestCase):
         self.plot_widget.set_curves([
             ("Ramp", self.time_array, self.ramp_array, "#0000ff", 3)])
         self.assertTrue(self.plot_widget.grid_shown())
-        self.plot_widget.set_markers([(1, "Marker 1", 4.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 4.0)])
         self.plot_widget.set_pinned_tips([("Ramp", 2.0, 3.2)])
         self.plot_widget.rebuild_axes()
         self.draw()

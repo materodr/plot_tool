@@ -22,7 +22,7 @@ EXPECTED_TIP_DICT = {
     "undo_button": ("Undo", ["Cmd+Z"], ["Ctrl+Z"]),
     "redo_button": ("Redo", ["Cmd+Y"], ["Ctrl+Y"]),
     "tip_button": ("Data tip", ["Hold Cmd"], ["Hold Ctrl"]),
-    "marker_button": ("Vertical marker", ["Hold Shift"], ["Hold Shift"]),
+    "marker_button": ("Flag", ["Hold Shift"], ["Hold Shift"]),
     "delta_x_button": ("Delta X", ["Hold X"], ["Hold X"]),
     "delta_y_button": ("Delta Y", ["Hold Y"], ["Hold Y"]),
     "area_button": ("Area", ["Hold A"], ["Hold A"]),
