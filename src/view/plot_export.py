@@ -101,6 +101,8 @@ def grab_page_image(page):
         # LLFR-00203: the marker preview is never part of an export or a
         # copy; it comes back at the next mouse move over a plot.
         plot_widget.hide_marker_preview()
+        # LLFR-00354: nor are the delta marker previews.
+        plot_widget.hide_delta_preview()
         plot_widget.canvas.draw()
     return page.grab().toImage()
 

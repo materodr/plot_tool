@@ -147,6 +147,17 @@ X marker is in the shown range, the top of the y-axis range is raised,
 if needed, so that its bracket and value fit above its higher point;
 every curve stays fully visible (LLFR-00076).
 
+With the Delta X or Delta Y tool, the sample a click would pick is
+previewed while the pointer is over a curve: a pale dot on the nearest
+sample (LLFR-00352) or, when the first point is in this plot, a pale
+preview of the whole marker between the first point and that sample,
+with its value (LLFR-00353). The preview is blitted like the marker
+preview, so following the pointer never redraws the curves, and its
+artists are not added to the axes, so a full draw, the PDF export and
+the copied image never contain it (LLFR-00354). It is only view state:
+the controller, the workspace, the layout and the undo history never
+see it.
+
 A plot widget is a time plot or a frequency plot (HLFR-00058), chosen
 when it is created (``kind_str``). A frequency plot draws its curves
 against their frequencies in Hz, labels its x-axis "Frequency (Hz)"
@@ -180,12 +191,12 @@ from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
-    AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR,
-    TIP_TOOL_STR, ZOOM_TOOL_STR, is_delta_tool)
+    AREA_TOOL_STR, DELTA_X_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR, is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import (
     AREA_COLOR_NAME_TUPLE, DEFAULT_AREA_COLOR_NAME_STR, DELTA_X_KIND_STR,
-    FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
+    DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
 from view import delta_geometry, theme, value_text
 from view.delta_geometry import DeltaBracketPatch
 from view.text_note_editor import TextNoteEditor
@@ -711,6 +722,9 @@ def pale_color_str(color_str: str, background_str: str,
 MARKER_PREVIEW_COLOR_STR = pale_color_str(
     MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR,
     MARKER_PREVIEW_PALE_RATIO_F)
+# LLFR-00352, LLFR-00353: the delta marker previews use the same paler
+# version of the marker color as the marker preview.
+DELTA_PREVIEW_COLOR_STR = MARKER_PREVIEW_COLOR_STR
 # LLFR-00305: the default color of an area and of its preview.
 AREA_COLOR_STR = pale_color_str(
     MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR, AREA_PALE_RATIO_F)
@@ -856,6 +870,16 @@ class PlotWidget(QWidget):
         # value_f) and its dot, or () and None.
         self.delta_first_point_tuple = ()
         self.delta_first_point_artist = None
+        # LLFR-00352, LLFR-00353: the curve sample a click would pick
+        # (signal_name_str, time_s, value_f), () while the preview is
+        # hidden; the widget point it was found for, None once the
+        # pointer left the plot; the state last blitted; and the preview
+        # artists (made by rebuild_axes), never added to the axes.
+        self.delta_preview_point_tuple = ()
+        self.delta_preview_widget_point = None
+        self.delta_preview_state_tuple = ()
+        self.delta_preview_dot = None
+        self.delta_preview_artist_tuple = ()
         # LLFR-00086, LLFR-00093: the marker being dragged, if any.
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_time_s = 0.0
@@ -1099,6 +1123,14 @@ class PlotWidget(QWidget):
         # point (the controller also says so).
         if not is_delta_tool(self.plot_tool_str):
             self.set_delta_first_point(())
+            # LLFR-00354: the delta previews go with the tool.
+            self.hide_delta_preview()
+        else:
+            # LLFR-00352, LLFR-00197, LLFR-00200: a delta tool activated
+            # with the pointer already on a curve (X or Y held) shows the
+            # preview at once; switching between Delta X and Delta Y
+            # changes the kind of the marker preview.
+            self.update_delta_preview_from_cursor()
         # LLFR-00303, LLFR-00312, LLFR-00313, LLFR-00318: an area is only
         # drawn, moved or resized with the Area tool; leaving it drops the
         # drag (the area stays where it was, no area is created).
@@ -1189,6 +1221,9 @@ class PlotWidget(QWidget):
         self.delta_first_point_tuple = point_tuple
         self.draw_delta_first_point()
         self.canvas.draw_idle()
+        # LLFR-00352, LLFR-00353: with a first point here, the pointer
+        # now previews the whole marker; without one, only the dot.
+        self.refresh_delta_preview()
 
     def set_text_notes(self, text_note_data_list: list) -> None:
         """Replace the text notes drawn in the plot.
@@ -1372,8 +1407,12 @@ class PlotWidget(QWidget):
         self.area_artist_dict = {}
         self.draw_areas()
         self.create_area_preview_artist()
+        # LLFR-00352, LLFR-00353: and so are the delta previews.
+        self.create_delta_preview_artists()
         self.apply_time_range()
         self.canvas.draw_idle()
+        # LLFR-00352: the curves may have changed under the pointer.
+        self.refresh_delta_preview()
 
     def update_legend(self) -> None:
         """Draw the legend directly above the axes, or remove it.
@@ -1606,17 +1645,9 @@ class PlotWidget(QWidget):
             markeredgewidth=DELTA_DOT_EDGE_WIDTH_F,
             zorder=DELTA_ZORDER_F + 0.1)
         dots.set_in_layout(False)
-        if kind_str == DELTA_X_KIND_STR and self.frequency_plot_b:
-            # LLFR-00261: "Δf = <value> Hz" on a frequency plot.
-            text_str = value_text.format_delta_frequency_text(delta_f)
-        elif kind_str == DELTA_X_KIND_STR:
-            # LLFR-00169: "Δt = <value> s".
-            text_str = value_text.format_delta_x_text(delta_f)
-        else:
-            # LLFR-00171: "Δy = <value>".
-            text_str = value_text.format_delta_y_text(delta_f)
         label = self.axes.annotate(
-            text_str, xy=(first_point_tuple[1], first_point_tuple[2]),
+            self.delta_value_text(kind_str, delta_f),
+            xy=(first_point_tuple[1], first_point_tuple[2]),
             xytext=(0.0, 0.0), textcoords="offset points",
             parse_math=False, color=MARKER_COLOR_STR,
             fontsize=DELTA_FONT_SIZE_F, bbox=dict(DELTA_LABEL_BOX_DICT),
@@ -1638,6 +1669,23 @@ class PlotWidget(QWidget):
             self.draw_delta_label, label, kind_str, first_point_tuple,
             second_point_tuple, label.draw)
         return (bracket, leader, dots, label)
+
+    def delta_value_text(self, kind_str: str, delta_f: float) -> str:
+        """Return the value text of a delta marker or of its preview.
+
+        Inputs:
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+            delta_f: the value shown, second point minus first point.
+        Outputs: the text, for example "Δt = 0.5 s".
+        """
+        if kind_str == DELTA_X_KIND_STR and self.frequency_plot_b:
+            # LLFR-00261: "Δf = <value> Hz" on a frequency plot.
+            return value_text.format_delta_frequency_text(delta_f)
+        if kind_str == DELTA_X_KIND_STR:
+            # LLFR-00169: "Δt = <value> s".
+            return value_text.format_delta_x_text(delta_f)
+        # LLFR-00171: "Δy = <value>".
+        return value_text.format_delta_y_text(delta_f)
 
     def delta_y_side_str(self, first_point_tuple: tuple,
                          second_point_tuple: tuple, label,
@@ -1934,8 +1982,9 @@ class PlotWidget(QWidget):
         """
         # LLFR-00203, LLFR-00208: both use the same fast drawing.
         # LLFR-00303: so does the preview of a new area.
+        # LLFR-00352, LLFR-00353: and so do the delta marker previews.
         return (self.preview_time_s is not None or self.time_span_shown_b
-                or self.area_preview_shown())
+                or self.area_preview_shown() or self.delta_preview_shown())
 
     def blit_marker_preview(self) -> None:
         """Draw the marker preview over the last full draw of the canvas.
@@ -1995,6 +2044,9 @@ class PlotWidget(QWidget):
             # LLFR-00303: the preview band of a new area, updated live.
             self.place_area_preview()
             self.axes.draw_artist(self.area_preview_band)
+        if self.delta_preview_shown():
+            # LLFR-00352, LLFR-00353: the delta previews, updated live.
+            self.draw_delta_preview()
         self.canvas.blit(self.figure.bbox)
 
     def show_marker_preview(self, time_s: float) -> None:
@@ -2753,6 +2805,9 @@ class PlotWidget(QWidget):
         point_x_px, point_y_px = self.axes.transData.transform(
             annotation.xy)
         self.hide_hover_tip()
+        # LLFR-00339, LLFR-00354: the press moves the note, it picks no
+        # point, so no delta preview while the note is dragged.
+        self.hide_delta_preview()
         self.drag_note_index_i = note_index_i
         self.note_press_point = QPoint(widget_point)
         self.note_grab_offset_tuple = (float(point_x_px) - pointer_x_px,
@@ -3883,6 +3938,9 @@ class PlotWidget(QWidget):
         pointer_x_px, pointer_y_px = self.widget_to_display_tuple(
             widget_point)
         self.hide_hover_tip()
+        # LLFR-00153, LLFR-00354: the press moves the tip, it picks no
+        # point, so no delta preview while the tip is dragged.
+        self.hide_delta_preview()
         self.drag_tip_index_i = tip_index_i
         self.tip_press_point = QPoint(widget_point)
         self.tip_grab_offset_tuple = (center_tuple[0] - pointer_x_px,
@@ -4066,6 +4124,9 @@ class PlotWidget(QWidget):
         self.close_text_note_editor()
         # LLFR-00203: a removed plot shows no preview.
         self.preview_time_s = None
+        # LLFR-00354: nor any delta preview.
+        self.delta_preview_point_tuple = ()
+        self.delta_preview_widget_point = None
         # LLFR-00207, LLFR-00208: a time span selection stops too, so a
         # removed plot never blocks the Z key; its line is not drawn
         # again.
@@ -5141,6 +5202,8 @@ class PlotWidget(QWidget):
         self.hover_at(widget_point)
         # LLFR-00203: and moves the marker preview with the pointer.
         self.update_marker_preview(widget_point)
+        # LLFR-00352, LLFR-00353: and the delta previews.
+        self.update_delta_preview(widget_point)
 
     def on_mouse_press(self, event) -> None:
         """Handle a matplotlib mouse press on the canvas.
@@ -5239,6 +5302,8 @@ class PlotWidget(QWidget):
         self.wheel_at(widget_point, wheel_step_f(event))
         # LLFR-00203: after a zoom, another time is under the pointer.
         self.update_marker_preview(widget_point)
+        # LLFR-00352, LLFR-00353: and maybe another curve sample.
+        self.update_delta_preview(widget_point)
 
     def eventFilter(self, watched, event) -> bool:
         """Handle the sideways wheel events of the canvas, which
@@ -5274,6 +5339,8 @@ class PlotWidget(QWidget):
             self.swipe_pan_by(swipe_pixels_f(event))
             # LLFR-00203: after a pan, another time is under the pointer.
             self.update_marker_preview(widget_point)
+            # LLFR-00352, LLFR-00353: and maybe another curve sample.
+            self.update_delta_preview(widget_point)
             event.accept()
             return True
         # LLFR-00346, LLFR-00074: any other wheel event only zooms, in
@@ -5319,6 +5386,289 @@ class PlotWidget(QWidget):
         self.hide_hover_tip()
         # LLFR-00203: the pointer left the plot's drawing area.
         self.leave_marker_preview()
+        # LLFR-00354: no curve is under the pointer any more.
+        self.delta_preview_widget_point = None
+        self.hide_delta_preview()
+
+    # ----------------------------------------------------------------
+    # Delta marker previews
+    # ----------------------------------------------------------------
+
+    def create_delta_preview_artists(self) -> None:
+        """Create the hidden artists of the delta marker previews.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00354, LLFR-00129, LLFR-00133: like the marker preview,
+        # the artists are not added to the axes, so no full draw, export
+        # or copy ever draws them; only blit_overlay draws them.
+        # LLFR-00352: a pale dot on the sample a click would pick, the
+        # size of the dot of a first point (LLFR-00163).
+        self.delta_preview_dot = Line2D(
+            [0.0], [0.0], transform=self.axes.transData, linestyle="none",
+            marker="o", markersize=DELTA_FIRST_DOT_SIZE_F,
+            markerfacecolor=DELTA_PREVIEW_COLOR_STR,
+            markeredgecolor=DELTA_DOT_EDGE_COLOR_STR,
+            markeredgewidth=DELTA_DOT_EDGE_WIDTH_F)
+        # LLFR-00353: the bracket, the leader lines and the value of a
+        # real marker (LLFR-00168 to LLFR-00171), in the paler color.
+        # Their points are set by place_delta_preview_artists.
+        point_tuple = ("", 0.0, 0.0)
+        bracket = DeltaBracketPatch(
+            DELTA_X_KIND_STR, point_tuple, point_tuple, False,
+            edgecolor=DELTA_PREVIEW_COLOR_STR,
+            linewidth=DELTA_LINE_WIDTH_F, linestyle=DELTA_LINE_STYLE_TUPLE,
+            capstyle="round", joinstyle="round")
+        leader = DeltaBracketPatch(
+            DELTA_X_KIND_STR, point_tuple, point_tuple, True,
+            edgecolor=DELTA_PREVIEW_COLOR_STR,
+            linewidth=DELTA_LEADER_LINE_WIDTH_F,
+            linestyle=DELTA_LEADER_LINE_STYLE_TUPLE, capstyle="round")
+        label = Annotation(
+            "", xy=(0.0, 0.0), xycoords="data", xytext=(0.0, 0.0),
+            textcoords="offset points", parse_math=False,
+            color=DELTA_PREVIEW_COLOR_STR, fontsize=DELTA_FONT_SIZE_F,
+            bbox=dict(DELTA_LABEL_BOX_DICT,
+                      edgecolor=DELTA_PREVIEW_COLOR_STR))
+        self.delta_preview_artist_tuple = (leader, bracket, label)
+        for artist in (self.delta_preview_dot,) + (
+                self.delta_preview_artist_tuple):
+            artist.set_figure(self.figure)
+            artist.axes = self.axes
+            # Cut at the edges of the drawing area, like a real marker.
+            artist.set_clip_box(self.axes.bbox)
+        self.overlay_background = None
+
+    def delta_preview_kind_str(self) -> str:
+        """Return the kind of marker a second click would draw.
+
+        Inputs: none.
+        Outputs: DELTA_X_KIND_STR with the Delta X tool, else
+            DELTA_Y_KIND_STR.
+        """
+        # LLFR-00353, LLFR-00164: according to the active button.
+        if self.plot_tool_str == DELTA_X_TOOL_STR:
+            return DELTA_X_KIND_STR
+        return DELTA_Y_KIND_STR
+
+    def delta_preview_target_tuple(self, widget_point) -> tuple:
+        """Return the curve sample a click at a point would pick.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, or None.
+        Outputs: (signal_name_str, time_s, value_f) of the nearest
+            sample, or () when a click there would pick no point.
+        """
+        # LLFR-00352: only with a delta tool, on a plot still in use.
+        if (widget_point is None or not is_delta_tool(self.plot_tool_str)
+                or self.retired_b):
+            return ()
+        # LLFR-00153, LLFR-00339: a press on a text note or a pinned tip
+        # moves it and picks no point.
+        if self.text_note_at(widget_point) != NO_TEXT_NOTE_INDEX_I:
+            return ()
+        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
+            return ()
+        # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
+        return self.nearest_curve_tuple(widget_point)
+
+    def update_delta_preview(self, widget_point) -> None:
+        """Show, move or hide the delta previews for the pointer at a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Only the previews are drawn again, by blitting,
+            and only when they changed.
+        """
+        # LLFR-00352, LLFR-00353: the previews follow the pointer.
+        self.delta_preview_widget_point = QPoint(widget_point)
+        self.delta_preview_point_tuple = self.delta_preview_target_tuple(
+            widget_point)
+        self.blit_delta_preview_if_changed()
+
+    def refresh_delta_preview(self) -> None:
+        """Find the previewed sample again for the last pointer point.
+
+        Inputs: none.
+        Outputs: none. Used when the first point, the curves or the tool
+            changed while the pointer did not move.
+        """
+        # LLFR-00352, LLFR-00353: what a click would do has changed.
+        if self.delta_preview_widget_point is None:
+            self.hide_delta_preview()
+            return
+        self.update_delta_preview(self.delta_preview_widget_point)
+
+    def update_delta_preview_from_cursor(self) -> None:
+        """Show the delta previews when the pointer already is on the plot.
+
+        Inputs: none.
+        Outputs: none. When the plot is hidden or the pointer is not on
+            its canvas, the last pointer point is used (see
+            refresh_delta_preview).
+        """
+        # LLFR-00352, LLFR-00197, LLFR-00200: holding X or Y without
+        # moving the mouse shows the preview too.
+        if self.retired_b or not self.isVisible():
+            self.refresh_delta_preview()
+            return
+        canvas_point = self.canvas.mapFromGlobal(QCursor.pos())
+        if not self.canvas.rect().contains(canvas_point):
+            self.refresh_delta_preview()
+            return
+        self.update_delta_preview(self.canvas.mapTo(self, canvas_point))
+
+    def hide_delta_preview(self) -> None:
+        """Hide the delta previews if they are shown.
+
+        Inputs: none.
+        Outputs: none. The dot of a first point is a real artist and
+            stays (LLFR-00165).
+        """
+        # LLFR-00354: off the curves, or with the tool deactivated.
+        self.delta_preview_point_tuple = ()
+        self.blit_delta_preview_if_changed()
+
+    def blit_delta_preview_if_changed(self) -> None:
+        """Blit the overlays again when the delta previews changed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00352, LLFR-00353: the drawn preview depends on the sample,
+        # the first point and the kind of marker; an unchanged preview
+        # costs nothing.
+        state_tuple = ()
+        if self.delta_preview_point_tuple:
+            state_tuple = (self.delta_preview_point_tuple,
+                           self.delta_first_point_tuple,
+                           self.delta_preview_kind_str())
+        if state_tuple == self.delta_preview_state_tuple:
+            return
+        self.delta_preview_state_tuple = state_tuple
+        self.blit_overlay()
+
+    def delta_preview_shown(self) -> bool:
+        """Tell whether a delta preview is shown.
+
+        Inputs: none.
+        Outputs: True while the dot of LLFR-00352 is shown, alone or as
+            part of the marker preview of LLFR-00353.
+        """
+        # LLFR-00352: the previewed sample exists.
+        return bool(self.delta_preview_point_tuple)
+
+    def delta_preview_marker_shown(self) -> bool:
+        """Tell whether the preview of a whole delta marker is shown.
+
+        Inputs: none.
+        Outputs: True while a first point is in this plot and the
+            pointer is over a curve (LLFR-00353).
+        """
+        # LLFR-00353: the first point is in this plot.
+        return (self.delta_preview_shown()
+                and bool(self.delta_first_point_tuple))
+
+    def delta_preview_point(self) -> tuple:
+        """Return the previewed curve sample.
+
+        Inputs: none.
+        Outputs: (signal_name_str, time_s, value_f), or ().
+        """
+        # LLFR-00352: the sample under the preview dot.
+        return tuple(self.delta_preview_point_tuple)
+
+    def delta_preview_value_f(self) -> float:
+        """Return the value the marker preview shows.
+
+        Inputs: none.
+        Outputs: second point minus first point, the time (or frequency)
+            for Delta X and the value for Delta Y; NaN while no marker
+            preview is shown.
+        """
+        # LLFR-00353, LLFR-00169, LLFR-00171: as DeltaMarker.delta_f.
+        if not self.delta_preview_marker_shown():
+            return float("nan")
+        index_i = 2
+        if self.delta_preview_kind_str() == DELTA_X_KIND_STR:
+            index_i = 1
+        return (float(self.delta_preview_point_tuple[index_i])
+                - float(self.delta_first_point_tuple[index_i]))
+
+    def delta_preview_text(self) -> str:
+        """Return the value text of the marker preview.
+
+        Inputs: none.
+        Outputs: the text, or "" while no marker preview is shown.
+        """
+        # LLFR-00353, LLFR-00169, LLFR-00171, LLFR-00261.
+        if not self.delta_preview_marker_shown():
+            return ""
+        return self.delta_value_text(self.delta_preview_kind_str(),
+                                     self.delta_preview_value_f())
+
+    def delta_preview_artists(self) -> tuple:
+        """Return every artist of the delta previews.
+
+        Inputs: none.
+        Outputs: a tuple (dot, leader lines, bracket, value label).
+        """
+        # LLFR-00354: lets callers check they are never drawn elsewhere.
+        return (self.delta_preview_dot,) + tuple(
+            self.delta_preview_artist_tuple)
+
+    def place_delta_preview_artists(self) -> None:
+        """Put the preview artists at the first and the previewed points.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00352: the dot on the previewed sample.
+        _, time_s, value_f = self.delta_preview_point_tuple
+        self.delta_preview_dot.set_data([time_s], [value_f])
+        if not self.delta_preview_marker_shown():
+            return
+        # LLFR-00353: the marker a click would draw, from the first point
+        # to the previewed sample, with the geometry of a real marker,
+        # Delta Y mirroring included (LLFR-00170).
+        kind_str = self.delta_preview_kind_str()
+        first_point_tuple = self.delta_first_point_tuple
+        second_point_tuple = self.delta_preview_point_tuple
+        leader, bracket, label = self.delta_preview_artist_tuple
+        label.set_text(self.delta_value_text(
+            kind_str, self.delta_preview_value_f()))
+        side_function = None
+        if kind_str != DELTA_X_KIND_STR:
+            side_function = functools.partial(
+                self.delta_y_side_str, first_point_tuple,
+                second_point_tuple, label)
+        for patch in (leader, bracket):
+            patch.kind_str = kind_str
+            patch.first_point_tuple = first_point_tuple
+            patch.second_point_tuple = second_point_tuple
+            patch.side_function = side_function
+        self.place_delta_label(label, kind_str, first_point_tuple,
+                               second_point_tuple)
+        # LLFR-00169, LLFR-00171: readable inside the plot, as a real
+        # marker's value.
+        self.keep_tip_inside_axes(label)
+
+    def draw_delta_preview(self) -> None:
+        """Draw the delta previews over the canvas image (blit_overlay).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00352, LLFR-00353: only called by blit_overlay, so these
+        # artists never reach a full draw.
+        if self.delta_preview_dot is None:
+            return
+        self.place_delta_preview_artists()
+        if self.delta_preview_marker_shown():
+            for artist in self.delta_preview_artist_tuple:
+                self.axes.draw_artist(artist)
+        self.axes.draw_artist(self.delta_preview_dot)
 
     # ----------------------------------------------------------------
     # Drag and drop
