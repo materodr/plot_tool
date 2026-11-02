@@ -253,6 +253,17 @@ MARKER_TEXT_BOX_DICT = {"boxstyle": "round,pad=0.2,rounding_size=0.25",
                         "facecolor": PLOT_BACKGROUND_COLOR_STR,
                         "edgecolor": "none", "alpha": 0.92}
 
+# LLFR-00336: a text note is dark text on a light, slightly warm box with
+# a thin border, opaque enough to be read over the curves and the grid.
+TEXT_NOTE_TEXT_COLOR_STR = TEXT_COLOR_STR
+TEXT_NOTE_BACKGROUND_COLOR_STR = "#fffbea"
+TEXT_NOTE_BORDER_COLOR_STR = CONTROL_BORDER_COLOR_STR
+TEXT_NOTE_FONT_SIZE_F = 9.0
+TEXT_NOTE_BOX_DICT = {"boxstyle": "round,pad=0.35,rounding_size=0.25",
+                      "facecolor": TEXT_NOTE_BACKGROUND_COLOR_STR,
+                      "edgecolor": TEXT_NOTE_BORDER_COLOR_STR,
+                      "linewidth": 0.8, "alpha": 0.97}
+
 
 def segment_corner_rule(segment_str: str) -> str:
     """Return the border and corner declarations of a button segment.
