@@ -345,8 +345,9 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.middle_press(self.display_x_px(4.0))
         self.assertTrue(self.plot_widget.panning_b)
         self.left_press(self.display_x_px(4.0))
-        self.move(self.display_x_px(4.5))
-        self.middle_release(self.display_x_px(4.5))
+        target_x_px = self.display_x_px(4.5)
+        self.move(target_x_px)
+        self.middle_release(target_x_px)
         self.assertFalse(self.plot_widget.panning_b)
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(start_s, 2.5, delta=PIXEL_TOLERANCE_S)
@@ -520,6 +521,7 @@ class PanFrequencyPlotTest(unittest.TestCase):
                                  np.exp(-(frequency_array - 2.0) ** 2),
                                  "#0000ff", 1)])
         plot_widget.set_plot_tool(PAN_TOOL_STR)
+        application.processEvents()
         plot_widget.canvas.draw()
         range_list = recorder(plot_widget.time_range_changed)
         start_point = plot_widget.data_to_widget_point(12.5, 0.5)
@@ -530,8 +532,12 @@ class PanFrequencyPlotTest(unittest.TestCase):
                                           start_point.y()))
         self.assertEqual(range_list, [])
         plot_widget.set_time_range(10.0, 15.0)
+        application.processEvents()
         plot_widget.canvas.draw()
-        start_point = plot_widget.data_to_widget_point(12.5, 0.5)
+        # The y-axis now fits the low tail of the curve: press at its
+        # middle, inside the drawing area.
+        middle_value_f = sum(plot_widget.axes.get_ylim()) / 2.0
+        start_point = plot_widget.data_to_widget_point(12.5, middle_value_f)
         plot_widget.press_at(start_point)
         plot_widget.pan_to(QPoint(start_point.x() + 5000, start_point.y()))
         plot_widget.pan_release_at(QPoint(start_point.x() + 5000,
@@ -702,8 +708,11 @@ class PanEndToEndTest(unittest.TestCase):
         frequency_width_hz = (frequency_range_tuple[1]
                               - frequency_range_tuple[0])
         frequency_widget.canvas.draw()
-        self.left_drag(frequency_widget, (12.0, 0.1),
-                       (12.0 - frequency_width_hz / 4.0, 0.1))
+        # The y-axis fits the curve in the zoomed range: press at its
+        # middle, inside the drawing area.
+        middle_value_f = sum(frequency_widget.axes.get_ylim()) / 2.0
+        self.left_drag(frequency_widget, (12.0, middle_value_f),
+                       (12.0 - frequency_width_hz / 4.0, middle_value_f))
         moved_tuple = frequency_widget.time_range_tuple()
         self.assertAlmostEqual(
             moved_tuple[0], frequency_range_tuple[0]
