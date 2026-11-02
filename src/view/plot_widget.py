@@ -102,6 +102,7 @@ time plot (LLFR-00070), but a frequency plot's range with none.
 """
 
 import functools
+import json
 import math
 import sys
 
@@ -133,6 +134,9 @@ theme.apply_matplotlib_style()
 
 # LLFR-00021: same literal string the signal list uses for its drags.
 SIGNAL_MIME_TYPE_STR = "application/x-plot-tool-signal"
+# LLFR-00297: same literal string the signal list uses for the JSON list
+# of the dragged names.
+SIGNAL_LIST_MIME_TYPE_STR = "application/x-plot-tool-signal-list"
 # LLFR-00041, LLFR-00052: preset width -> matplotlib line width; a
 # higher preset is a wider curve (HLFR-00023).
 WIDTH_PIXELS_DICT = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.5, 5: 6.0}
@@ -538,7 +542,8 @@ class PlotWidget(QWidget):
         curve_delete_requested(str): "Delete signal" chosen for a curve.
         curve_width_requested(str, int): a preset width 1..5 chosen.
         plot_delete_requested(): "Delete plot" chosen.
-        signal_dropped(str): a signal name was dropped on the plot.
+        signals_dropped(list): signal names were dropped on the plot,
+            in the order of the signal list (LLFR-00021, LLFR-00297).
         tip_pin_requested(str, float, float): the shown hover tip
             (signal name, time in s, value) should be pinned.
         pinned_tip_delete_requested(int): "Delete" chosen on a pinned
@@ -581,7 +586,7 @@ class PlotWidget(QWidget):
     curve_delete_requested = pyqtSignal(str)
     curve_width_requested = pyqtSignal(str, int)
     plot_delete_requested = pyqtSignal()
-    signal_dropped = pyqtSignal(str)
+    signals_dropped = pyqtSignal(list)
     tip_pin_requested = pyqtSignal(str, float, float)
     pinned_tip_delete_requested = pyqtSignal(int)
     pinned_tip_move_requested = pyqtSignal(int, float, float)
@@ -3669,6 +3674,32 @@ class PlotWidget(QWidget):
         raw_bytes = mime_data.data(SIGNAL_MIME_TYPE_STR).data()
         return raw_bytes.decode("utf-8", errors="replace")
 
+    def signal_names_from_mime(self, mime_data) -> list:
+        """Return the signal names carried by drag data.
+
+        Inputs:
+            mime_data: the QMimeData of the drag.
+        Outputs: the names in the order of the signal list, or [] when
+            the data is not a signal drag.
+        """
+        # LLFR-00297: several names come as a JSON list.
+        if mime_data is not None and mime_data.hasFormat(
+                SIGNAL_LIST_MIME_TYPE_STR):
+            raw_bytes = mime_data.data(SIGNAL_LIST_MIME_TYPE_STR).data()
+            try:
+                decoded_list = json.loads(raw_bytes.decode("utf-8"))
+            except ValueError:
+                decoded_list = None
+            if (isinstance(decoded_list, list) and decoded_list
+                    and all(isinstance(name_str, str) and name_str
+                            for name_str in decoded_list)):
+                return decoded_list
+        # LLFR-00021: one name in the single-signal type.
+        signal_name_str = self.signal_name_from_mime(mime_data)
+        if signal_name_str:
+            return [signal_name_str]
+        return []
+
     def dragEnterEvent(self, event) -> None:
         """Accept a drag only when it carries a signal name.
 
@@ -3679,7 +3710,7 @@ class PlotWidget(QWidget):
         # LLFR-00021: accept signal drags, ignore anything else. The drop
         # is always a copy, also with Shift or Cmd held (LLFR-00154), so
         # the signal list never removes the dragged name.
-        if self.signal_name_from_mime(event.mimeData()):
+        if self.signal_names_from_mime(event.mimeData()):
             event.setDropAction(Qt.DropAction.CopyAction)
             event.accept()
         else:
@@ -3693,26 +3724,27 @@ class PlotWidget(QWidget):
         Outputs: none.
         """
         # LLFR-00021: same rule as on enter, always as a copy.
-        if self.signal_name_from_mime(event.mimeData()):
+        if self.signal_names_from_mime(event.mimeData()):
             event.setDropAction(Qt.DropAction.CopyAction)
             event.accept()
         else:
             event.ignore()
 
     def dropEvent(self, event) -> None:
-        """Emit signal_dropped with the dropped signal name.
+        """Emit signals_dropped with the dropped signal names.
 
         Inputs:
             event: the QDropEvent.
         Outputs: none.
         """
-        # LLFR-00021: the controller decides what to do with the name
-        # (including duplicates, LLFR-00056 and LLFR-00057).
-        signal_name_str = self.signal_name_from_mime(event.mimeData())
-        if not signal_name_str:
+        # LLFR-00021, LLFR-00297: the controller decides what to do with
+        # the names (including duplicates, LLFR-00056, LLFR-00057 and
+        # LLFR-00299, and signals of the other plot kind, LLFR-00300).
+        signal_name_list = self.signal_names_from_mime(event.mimeData())
+        if not signal_name_list:
             event.ignore()
             return
         # LLFR-00021: a copy, never a move (see dragEnterEvent).
         event.setDropAction(Qt.DropAction.CopyAction)
         event.accept()
-        self.signal_dropped.emit(signal_name_str)
+        self.signals_dropped.emit(signal_name_list)
