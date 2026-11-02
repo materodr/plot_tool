@@ -66,7 +66,8 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "curve_delete_requested": "curve_delete_handler",
     "curve_width_requested": "curve_width_handler",
     "plot_delete_requested": "plot_delete_handler",
-    "signal_dropped": "signal_drop_handler",
+    # LLFR-00297: the dropped names, one or several, as a list.
+    "signals_dropped": "signals_drop_handler",
     "tip_pin_requested": "tip_pin_handler",
     "pinned_tip_delete_requested": "pinned_tip_delete_handler",
     # LLFR-00152: a pinned tip was dragged and released.
