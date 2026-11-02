@@ -10,7 +10,8 @@ A right-click on a signal name opens the signal menu (LLFR-00239):
 in groups (LLFR-00268), disabled for an FFT signal (LLFR-00251); "Copy
 name" (LLFR-00277); and, for a synthetic signal, "Copy equation"
 (LLFR-00278), "Rename" (LLFR-00265) and "Delete signal" (LLFR-00254).
-Synthetic signals are shown in italics (LLFR-00242). The menu is shown
+Synthetic signals are shown in italics (LLFR-00242) and the time signal
+in green, also while it is selected (LLFR-00332). The menu is shown
 once the right-click has been handled, and its request is emitted after
 the menu is closed, so a request may change the list safely.
 
@@ -28,9 +29,10 @@ import json
 from PyQt6.QtCore import (
     QByteArray, QItemSelectionModel, QMimeData, QPoint, Qt, QTimer,
     pyqtSignal)
+from PyQt6.QtGui import QBrush, QColor, QPalette
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QLabel, QLineEdit, QListWidget, QMenu, QVBoxLayout,
-    QWidget)
+    QAbstractItemView, QLabel, QLineEdit, QListWidget, QMenu,
+    QStyledItemDelegate, QVBoxLayout, QWidget)
 
 from view import theme
 
@@ -55,6 +57,38 @@ COPY_NAME_TEXT_STR = "Copy name"
 COPY_EQUATION_TEXT_STR = "Copy equation"
 RENAME_SIGNAL_TEXT_STR = "Rename"
 DELETE_SIGNAL_TEXT_STR = "Delete signal"
+
+
+class SignalItemDelegate(QStyledItemDelegate):
+    """Draws each signal name in its own color, selected or not.
+
+    Qt draws the name of a selected row in the palette's highlighted
+    text color, which would hide the green of the time signal. This
+    delegate gives the highlighted text the color of the row's name.
+
+    Inputs:
+        parent: the list widget.
+    Outputs: the delegate.
+    """
+
+    def initStyleOption(self, option, index) -> None:
+        """Fill the drawing options of one row.
+
+        Inputs:
+            option: the QStyleOptionViewItem to fill.
+            index: the model index of the row.
+        Outputs: none. The highlighted text color becomes the text
+            color of the row.
+        """
+        super().initStyleOption(option, index)
+        # LLFR-00332: a selected row keeps the color of its name.
+        palette = QPalette(option.palette)
+        for group in (QPalette.ColorGroup.Active,
+                      QPalette.ColorGroup.Inactive,
+                      QPalette.ColorGroup.Disabled):
+            palette.setBrush(group, QPalette.ColorRole.HighlightedText,
+                             palette.brush(group, QPalette.ColorRole.Text))
+        option.palette = palette
 
 
 class SignalListWidget(QListWidget):
@@ -99,6 +133,8 @@ class SignalListWidget(QListWidget):
         # LLFR-00021, LLFR-00154: a drag only copies the name, also with
         # Shift or Cmd held, so that Qt never removes the dragged row.
         self.setDefaultDropAction(Qt.DropAction.CopyAction)
+        # LLFR-00332: the names keep their colors while selected.
+        self.setItemDelegate(SignalItemDelegate(self))
         # LLFR-00097: text shown inside the list area when no signal
         # matches the search. It is a label, not an item, so it can
         # never be double-clicked or dragged as a signal.
@@ -330,6 +366,8 @@ class SignalListPanel(QWidget):
         # LLFR-00242, LLFR-00251: the synthetic and FFT signal names.
         self.synthetic_name_set = set()
         self.fft_name_set = set()
+        # LLFR-00332: the time signal of the opened file, in green.
+        self.time_signal_name_str = None
         # LLFR-00239: the signal and screen point of a pending menu.
         self.pending_menu_tuple = ()
         self.signal_list_widget.setContextMenuPolicy(
@@ -378,6 +416,43 @@ class SignalListPanel(QWidget):
                 item_font = item.font()
                 item_font.setItalic(True)
                 item.setFont(item_font)
+            # LLFR-00332: the time signal name in green, also among
+            # search results.
+            if item.text() == self.time_signal_name_str:
+                item.setForeground(QBrush(QColor(
+                    theme.TIME_SIGNAL_TEXT_COLOR_STR)))
+
+    def set_time_signal_name(self, name_str: str) -> None:
+        """Keep which name is the time signal.
+
+        Inputs:
+            name_str: the time signal of the opened file, or None.
+        Outputs: none. Used by the next show_signal_names.
+        """
+        # LLFR-00332: the name shown in green.
+        self.time_signal_name_str = (None if name_str is None
+                                     else str(name_str))
+
+    def name_color_str(self, name_str: str) -> str:
+        """Return the color a shown name is written in.
+
+        Inputs:
+            name_str: a shown signal name.
+        Outputs: the color as "#rrggbb", the list's text color for a
+            name without a color of its own, or "" when the name is not
+            shown.
+        """
+        # LLFR-00332: green for the time signal, other colors otherwise.
+        for row_i in range(self.signal_list_widget.count()):
+            item = self.signal_list_widget.item(row_i)
+            if item.text() != name_str:
+                continue
+            brush = item.foreground()
+            if brush.style() == Qt.BrushStyle.NoBrush:
+                return self.signal_list_widget.palette().color(
+                    QPalette.ColorRole.Text).name()
+            return brush.color().name()
+        return ""
 
     def show_no_match_message(self, visible_b: bool,
                               message_str: str) -> None:

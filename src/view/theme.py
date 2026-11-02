@@ -50,6 +50,11 @@ CONTROL_BORDER_COLOR_STR = "#c3cbd3"
 # Rows of the signal list and items of the menus.
 ROW_HOVER_COLOR_STR = "#f0f3f6"
 ROW_SELECTED_COLOR_STR = "#e1e7ed"
+# LLFR-00332: the time signal name in the signal list. Its contrast is
+# at least 4.5:1 against the list background (SURFACE_COLOR_STR), a
+# hovered row (ROW_HOVER_COLOR_STR) and a selected row
+# (ROW_SELECTED_COLOR_STR).
+TIME_SIGNAL_TEXT_COLOR_STR = "#137333"
 # Keyboard focus of the search box and the signal list.
 FOCUS_COLOR_STR = "#4b7aa8"
 # LLFR-00280: the blue line drawn on the border between the plot and
@@ -474,8 +479,11 @@ def application_style_sheet() -> str:
         "border-radius: 4px; border: none; }",
         f"QListWidget#signal_list_widget::item:hover {{ background: "
         f"{ROW_HOVER_COLOR_STR}; }}",
+        # LLFR-00332: no text color here, so that a selected row keeps
+        # the color of its name (the green of the time signal); the
+        # list's item delegate draws a selected name in its own color.
         f"QListWidget#signal_list_widget::item:selected {{ background: "
-        f"{ROW_SELECTED_COLOR_STR}; color: {TEXT_COLOR_STR}; }}",
+        f"{ROW_SELECTED_COLOR_STR}; }}",
         f"QLabel#no_match_label {{ color: {MUTED_TEXT_COLOR_STR}; "
         "padding-top: 16px; }",
         f"QLineEdit {{ background: {SURFACE_COLOR_STR}; "

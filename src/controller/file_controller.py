@@ -3,8 +3,16 @@
 It talks to the view only through plain method calls (no Qt code), so
 it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``ask_open_file_path(start_folder_str)``, ``show_file_open_error``,
-``ask_replace_file``, ``show_signal_names`` and
-``finish_open_file_button``.
+``ask_time_signal_name``, ``ask_replace_file``, ``set_time_signal_name``,
+``show_signal_names`` and ``finish_open_file_button``.
+
+``ask_time_signal_name(prompt_str, name_list, search_function,
+no_match_text_str, check_function)`` shows the time signal window
+(LLFR-00325) and returns the confirmed name, or None when the user
+cancels. ``search_function(text_str)`` returns the names that match the
+search box text, in the order to show them; ``check_function(name_str)``
+returns the reason a name can't be the time signal ("" when it can), and
+the window stays open while there is one (LLFR-00329).
 """
 
 import os
@@ -12,6 +20,11 @@ import sys
 
 from model.errors import FileOpenError
 from model.file_loader import load_signal_file
+from model.signal_file import increasing_check_reason
+from model.signal_search import NO_MATCH_TEXT_STR, search_signals
+
+# LLFR-00325: the text of the time signal window.
+TIME_SIGNAL_PROMPT_STR = "Choose the signal that goes on the x-axis"
 
 # PCR-00025: start of the message shown when the loader fails in an
 # unexpected way, so the app reports it instead of crashing.
@@ -168,6 +181,14 @@ class FileController:
                 UNEXPECTED_ERROR_MESSAGE_STR.format(path=path_str,
                                                     error=error))
             return
+        # LLFR-00328: after the reading and the content checks, and
+        # before the replace confirmation, the user chooses the time
+        # signal when no signal is named "Time".
+        if (signal_file.needs_time_signal_choice_b
+                and not self._choose_time_signal(signal_file)):
+            # LLFR-00327: cancelled, nothing is opened and no message is
+            # shown; the current file and its list are kept.
+            return
         # HLFR-00010: ask only when the new file can be opened and
         # another file is open.
         replaced_b = self.current_file is not None
@@ -179,8 +200,56 @@ class FileController:
         # LLFR-00204: only a successful open moves the dialog folder;
         # a cancel, a failed open or a declined replace keeps it.
         self.dialog_folder_str = os.path.dirname(os.path.abspath(path_str))
-        # LLFR-00017, LLFR-00054: show the new names, including Time.
+        # LLFR-00332: the time signal name is shown in green.
+        self.view.set_time_signal_name(signal_file.time_signal_name_str)
+        # LLFR-00017, LLFR-00054: show the new names, including the time
+        # signal.
         self.view.show_signal_names(signal_file.signal_name_list)
         # LLFR-00015, LLFR-00016: tell the listeners about the new file.
         for listener in list(self.file_opened_listener_list):
             listener(signal_file, replaced_b)
+
+    def _choose_time_signal(self, signal_file) -> bool:
+        """Ask the user for the time signal of a file.
+
+        Inputs:
+            signal_file: the SignalFile just read, with no signal that
+                matches the time signal name.
+        Outputs: True when the user confirmed a signal, which is now the
+            file's time signal; False when the user cancelled.
+        """
+        # LLFR-00325: every signal of the file, in the file's order.
+        name_list = list(signal_file.signal_name_list)
+
+        def matching_names(text_str: str) -> list:
+            """Return the names that match the search box text.
+
+            Inputs:
+                text_str: the text of the window's search box.
+            Outputs: the matching names, in the order to show them.
+            """
+            # LLFR-00325, LLFR-00285: the rules and the order of the
+            # signal list panel's search.
+            return search_signals(name_list, text_str)
+
+        def check_name(name_str: str) -> str:
+            """Return why a signal can't be the time signal.
+
+            Inputs:
+                name_str: the name selected in the window.
+            Outputs: the reason, or "" when the signal can be used.
+            """
+            # LLFR-00329: the signal on the x-axis must always increase.
+            return increasing_check_reason(
+                name_str, signal_file.signal_array(name_str))
+
+        chosen_name_str = self.view.ask_time_signal_name(
+            TIME_SIGNAL_PROMPT_STR, name_list, matching_names,
+            NO_MATCH_TEXT_STR, check_name)
+        if not chosen_name_str:
+            # LLFR-00327: the window was cancelled.
+            return False
+        # LLFR-00326, LLFR-00329: the chosen signal becomes the time
+        # signal; a signal that does not increase is never used, even
+        # when a window let it through.
+        return signal_file.choose_time_signal(str(chosen_name_str)) == ""

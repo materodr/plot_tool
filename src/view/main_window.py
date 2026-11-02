@@ -470,6 +470,43 @@ class MainWindow(QMainWindow):
         finally:
             dialog.deleteLater()
 
+    def ask_time_signal_name(self, prompt_str: str, name_list: list,
+                             search_function, no_match_text_str: str,
+                             check_function):
+        """Ask the user for the signal that goes on the x-axis.
+
+        Inputs:
+            prompt_str: the text of the window.
+            name_list: every signal of the file, in the file's order.
+            search_function: text -> the names of name_list that match
+                it, in the order to show them.
+            no_match_text_str: the text shown when no name matches.
+            check_function: name -> the reason it can't be the time
+                signal, or "" when it can.
+        Outputs: the confirmed name, or None when the user cancelled.
+        """
+        # LLFR-00325, LLFR-00329: the time signal window.
+        dialog = synthetic_dialogs.build_time_signal_dialog(
+            self, prompt_str, name_list, search_function,
+            no_match_text_str, check_function)
+        try:
+            if not self.run_modal_dialog(dialog):
+                # LLFR-00327: cancelled.
+                return None
+            return dialog.chosen_name()
+        finally:
+            dialog.deleteLater()
+
+    def set_time_signal_name(self, name_str: str) -> None:
+        """Tell the signal list which signal is the time signal.
+
+        Inputs:
+            name_str: the time signal of the opened file.
+        Outputs: none. Used by the next show_signal_names.
+        """
+        # LLFR-00332: the time signal name is shown in green.
+        self.signal_list_panel.set_time_signal_name(name_str)
+
     def ask_delete_synthetic_signal(self, name_str: str,
                                     dependent_name_list: list) -> bool:
         """Ask whether to delete a synthetic signal and its dependents.
