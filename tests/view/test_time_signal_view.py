@@ -56,16 +56,26 @@ def contrast_ratio_f(first_color_str: str, second_color_str: str) -> float:
     return (luminance_list[1] + 0.05) / (luminance_list[0] + 0.05)
 
 
-def is_green_pixel(color) -> bool:
-    """Tell whether a drawn pixel belongs to green text.
+# LLFR-00332: how far (RGB distance) a drawn pixel may be from the
+# green token to count as green text. The text is drawn without
+# antialiasing in the pixel tests, so its pixels have the exact color.
+GREEN_PIXEL_DISTANCE_F = 24.0
+
+
+def is_green_pixel(color, green_str: str) -> bool:
+    """Tell whether a drawn pixel has the green of the time signal.
 
     Inputs:
         color: a QColor read from a grabbed image.
-    Outputs: True when green clearly dominates red and blue, which the
-        list's text, background and selection colors never do.
+        green_str: the green token, "#rrggbb".
+    Outputs: True when the pixel is within GREEN_PIXEL_DISTANCE_F of it.
     """
-    return (color.green() - color.red() >= 30
-            and color.green() - color.blue() >= 15)
+    red_i, green_i, blue_i = (int(green_str[start_i:start_i + 2], 16)
+                              for start_i in (1, 3, 5))
+    distance_f = ((color.red() - red_i) ** 2
+                  + (color.green() - green_i) ** 2
+                  + (color.blue() - blue_i) ** 2) ** 0.5
+    return distance_f <= GREEN_PIXEL_DISTANCE_F
 
 
 class TimeSignalThemeTest(unittest.TestCase):
@@ -380,11 +390,12 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.application.processEvents()
 
     def row_colors(self, name_str: str) -> str:
-        """TEMPORARY diagnostic: the most common colors of a row.
+        """Describe the colors drawn in a row, for failure messages.
 
         Inputs:
             name_str: a shown name.
-        Outputs: a text with the colors.
+        Outputs: a text with the row, the most common colors and the
+            item's text color.
         """
         import collections
         from PyQt6.QtCore import Qt
@@ -410,7 +421,13 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         Outputs: the number of green pixels in its row.
         """
         from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QFont
+        from view import theme
         list_widget = self.panel.signal_list_widget
+        # Plain pixels, without antialiasing color fringes.
+        list_font = QFont(list_widget.font())
+        list_font.setStyleStrategy(QFont.StyleStrategy.NoAntialias)
+        list_widget.setFont(list_font)
         item = list_widget.findItems(name_str, Qt.MatchFlag.MatchExactly)[0]
         list_widget.viewport().update()
         self.application.processEvents()
@@ -421,7 +438,9 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         for y_i in range(row_rect.top(), row_rect.bottom() + 1):
             for x_i in range(row_rect.left(), row_rect.right() + 1):
                 if (0 <= x_i < image.width() and 0 <= y_i < image.height()
-                        and is_green_pixel(image.pixelColor(x_i, y_i))):
+                        and is_green_pixel(
+                            image.pixelColor(x_i, y_i),
+                            theme.TIME_SIGNAL_TEXT_COLOR_STR)):
                     count_i += 1
         return count_i
 
