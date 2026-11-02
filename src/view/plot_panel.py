@@ -100,6 +100,12 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "text_note_size_requested": "text_note_size_handler",
     "text_note_border_color_requested": "text_note_border_color_handler",
     "text_note_text_color_requested": "text_note_text_color_handler",
+    # LLFR-00372, LLFR-00376, LLFR-00377, LLFR-00379, LLFR-00380: an
+    # arrow drawn, moved, rotated or stretched, recolored or deleted.
+    "arrow_create_requested": "arrow_create_handler",
+    "arrow_change_requested": "arrow_change_handler",
+    "arrow_color_requested": "arrow_color_handler",
+    "arrow_delete_requested": "arrow_delete_handler",
 }
 
 

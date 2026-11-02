@@ -1,6 +1,6 @@
 """Application-wide filter that turns keys into hold-to-use plot tool keys.
 
-Six keys work this way:
+Eight keys work this way:
     - the Tip key keeps the Tip tool active while it is held alone
       (LLFR-00148); releasing it leaves no plot tool active (LLFR-00149);
       pressing any other key while it is held ends the activation at
@@ -13,7 +13,9 @@ Six keys work this way:
       LLFR-00201, LLFR-00202);
     - the A key and the T key do the same for the Area tool
       (LLFR-00287, LLFR-00288, LLFR-00289) and the Text tool
-      (LLFR-00321, LLFR-00322, LLFR-00323).
+      (LLFR-00321, LLFR-00322, LLFR-00323);
+    - the R key does the same for the Arrow tool (LLFR-00367,
+      LLFR-00368, LLFR-00369).
 Besides these tool keys, the filter knows action keys: a key that runs
 a function once when it is pressed alone. The Z key is one: it resets
 the zoom (LLFR-00207), and the Esc key is another: it switches off the
@@ -56,7 +58,7 @@ Rules:
     - Releasing a tool key also forgets every other held key except the
       modifier tool keys (Tip key, Shift), because macOS can drop the
       release of a key pressed together with Cmd. The letter tool keys
-      (X, Y, A, T) are forgotten too, since Cmd+X and Cmd+Y (Redo) can
+      (X, Y, A, T, R) are forgotten too, since Cmd+X and Cmd+Y (Redo) can
       lose their release like any other letter.
     - When the app or its window loses the keyboard (application state
       change to not active, ``WindowDeactivate``, or ``FocusOut`` with
@@ -106,6 +108,8 @@ DELTA_Y_KEY_I = int(Qt.Key.Key_Y.value)
 AREA_KEY_I = int(Qt.Key.Key_A.value)
 # LLFR-00321: the key that holds the Text tool.
 TEXT_KEY_I = int(Qt.Key.Key_T.value)
+# LLFR-00367: the key that holds the Arrow tool.
+ARROW_KEY_I = int(Qt.Key.Key_R.value)
 # LLFR-00207: the key that resets the zoom.
 RESET_ZOOM_KEY_I = int(Qt.Key.Key_Z.value)
 # LLFR-00370: the key that switches off the active plot tool.

@@ -27,6 +27,7 @@ EXPECTED_TIP_DICT = {
     "delta_y_button": ("Delta Y", ["Hold Y"], ["Hold Y"]),
     "area_button": ("Area", ["Hold A"], ["Hold A"]),
     "text_button": ("Text", ["Hold T"], ["Hold T"]),
+    "arrow_button": ("Arrow", ["Hold R"], ["Hold R"]),
     "reset_zoom_button": ("Reset zoom", ["Z"], ["Z"]),
     "zoom_button": ("Zoom",
                     ["Click or drag to zoom in",
@@ -310,6 +311,7 @@ class ButtonTipTest(unittest.TestCase):
                 (tip_key_filter.DELTA_Y_KEY_I, "Y", "Y"),
                 (tip_key_filter.AREA_KEY_I, "A", "A"),
                 (tip_key_filter.TEXT_KEY_I, "T", "T"),
+                (tip_key_filter.ARROW_KEY_I, "R", "R"),
                 (tip_key_filter.RESET_ZOOM_KEY_I, "Z", "Z")):
             with self.subTest(key_i=key_i):
                 self.assertEqual(key_name_str(key_i, True), macos_str)

@@ -10,8 +10,8 @@ from PyQt6.QtWidgets import (
     QWidget)
 
 from controller.plot_tools import (
-    AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
-    NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
+    ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
+    MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
 from model import file_writer
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
@@ -21,7 +21,8 @@ from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
 from view.tip_key_filter import (
-    AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, ESCAPE_KEY_I, MARKER_KEY_I,
+    ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, ESCAPE_KEY_I,
+    MARKER_KEY_I,
     RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ToolKeyFilter)
 from view import top_panel
 from view.top_panel import TopPanel
@@ -234,6 +235,7 @@ class MainWindow(QMainWindow):
         # Vertical marker tool active; LLFR-00197 to LLFR-00202: holding
         # X or Y keeps the Delta X or Delta Y tool active; LLFR-00287,
         # LLFR-00321: holding A or T keeps the Area or Text tool active;
+        # LLFR-00367: holding R keeps the Arrow tool active;
         # LLFR-00207: Z alone resets the zoom; LLFR-00370: Esc alone
         # switches off the active plot tool; LLFR-00157: none of them
         # in text fields (any QLineEdit, QTextEdit, QPlainTextEdit or
@@ -246,7 +248,8 @@ class MainWindow(QMainWindow):
             {TIP_KEY_I: TIP_TOOL_STR, MARKER_KEY_I: MARKER_TOOL_STR,
              DELTA_X_KEY_I: DELTA_X_TOOL_STR,
              DELTA_Y_KEY_I: DELTA_Y_TOOL_STR,
-             AREA_KEY_I: AREA_TOOL_STR, TEXT_KEY_I: TEXT_TOOL_STR},
+             AREA_KEY_I: AREA_TOOL_STR, TEXT_KEY_I: TEXT_TOOL_STR,
+             ARROW_KEY_I: ARROW_TOOL_STR},
             self.on_tool_key_activate, self.on_tool_key_release,
             TEXT_INPUT_WIDGET_TUPLE, self,
             {RESET_ZOOM_KEY_I: self.on_reset_zoom_key,
@@ -768,13 +771,14 @@ class MainWindow(QMainWindow):
         Inputs:
             tool_str: TIP_TOOL_STR for the Tip key, MARKER_TOOL_STR for
                 the Shift key, DELTA_X_TOOL_STR for X, DELTA_Y_TOOL_STR
-                for Y, AREA_TOOL_STR for A and TEXT_TOOL_STR for T.
+                for Y, AREA_TOOL_STR for A, TEXT_TOOL_STR for T and
+                ARROW_TOOL_STR for R.
         Outputs: none. The tool change goes the same way as a click on
             the tool's button, so the controller is told of it.
         """
         # LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00287,
-        # LLFR-00321: the tool's button becomes active and the other
-        # tool buttons are deactivated as in LLFR-00079.
+        # LLFR-00321, LLFR-00367: the tool's button becomes active and
+        # the other tool buttons are deactivated as in LLFR-00079.
         self.tip_key_changing_tool_b = True
         try:
             self.top_panel.plot_tool_button_dict[tool_str].setChecked(True)
@@ -1199,6 +1203,21 @@ class MainWindow(QMainWindow):
         plot_widget = self.plot_panel.plot_view(plot_id_i)
         if plot_widget is not None:
             plot_widget.set_text_notes(text_note_data_list)
+
+    def set_arrows(self, plot_id_i: int, arrow_data_list: list) -> None:
+        """Draw the arrows of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_data_list: tuples (start_time_s, start_value_f,
+                end_time_s, end_value_f, color_str); see
+                PlotWidget.set_arrows.
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00375: the arrows are shown only on their plot.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_arrows(arrow_data_list)
 
     def set_markers(self, marker_data_list: list) -> None:
         """Draw the shared vertical markers on every plot of every tab.

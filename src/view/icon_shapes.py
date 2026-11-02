@@ -34,7 +34,7 @@ INK_ROLE_STR = "ink"
 MARKER_DASH_START_TUPLE = (11.25, 15.0, 18.75)
 MARKER_DASH_LENGTH_F = 2.25
 
-# LLFR-00159: the names of the 19 icons. Delta X and Delta Y are drawn
+# LLFR-00159: the names of the 20 icons. Delta X and Delta Y are drawn
 # here for their buttons (LLFR-00161, LLFR-00162).
 OPEN_FILE_ICON_STR = "open_file"
 UNDO_ICON_STR = "undo"
@@ -60,6 +60,8 @@ TEXT_ICON_STR = "text"
 # a bug icons.
 PAN_ICON_STR = "pan"
 REPORT_BUG_ICON_STR = "report_bug"
+# LLFR-00159 item 19, LLFR-00366: the Arrow icon.
+ARROW_ICON_STR = "arrow"
 # LLFR-00159 item 20, LLFR-00394: the Save signals icon.
 SAVE_SIGNALS_ICON_STR = "save_signals"
 # LLFR-00159 item 17: the four fingers of the Pan icon, as (x, top of
@@ -537,6 +539,20 @@ def report_bug_shape() -> list:
     return layer_list
 
 
+def arrow_shape() -> list:
+    """Return the Arrow icon: an arrow pointing up and to the right (19).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 19: a straight diagonal shaft from the lower left
+    # to the upper right, with a filled head at the upper right, like
+    # the arrows the tool draws (LLFR-00373).
+    return [ink_layer(segment(5.0, 19.0, 15.5, 8.5)),
+            ([("M", 19.5, 4.5), ("L", 18.0, 12.5), ("L", 11.5, 6.0),
+              ("Z",)], INK_ROLE_STR, INK_ROLE_STR, ICON_STROKE_WIDTH_F)]
+
+
 # LLFR-00159: icon name -> function that returns its layers.
 ICON_SHAPE_FUNCTION_DICT = {
     OPEN_FILE_ICON_STR: open_file_shape,
@@ -557,6 +573,7 @@ ICON_SHAPE_FUNCTION_DICT = {
     TEXT_ICON_STR: text_shape,
     PAN_ICON_STR: pan_shape,
     REPORT_BUG_ICON_STR: report_bug_shape,
+    ARROW_ICON_STR: arrow_shape,
     SAVE_SIGNALS_ICON_STR: save_signals_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)

@@ -46,6 +46,8 @@ DEFAULT_TEXT_NOTE_SIZE_I = 12
 # LLFR-00336: the text color and the border color of a new text note,
 # the app's text color, a near-black dark grey.
 DEFAULT_TEXT_NOTE_COLOR_STR = "#24303b"
+# LLFR-00373: the color of a new arrow, the same app text color.
+DEFAULT_ARROW_COLOR_STR = DEFAULT_TEXT_NOTE_COLOR_STR
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -126,6 +128,55 @@ class TextNote:
     size_i: int = DEFAULT_TEXT_NOTE_SIZE_I
     border_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
     text_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
+
+
+@dataclass
+class Arrow:
+    """A straight arrow drawn on one plot (HLFR-00081).
+
+    Inputs:
+        start_time_s: x-axis value of the end without the arrowhead, in
+            seconds (in Hz on a frequency plot).
+        start_value_f: y-axis value of that end.
+        end_time_s: x-axis value of the end with the arrowhead (s or
+            Hz, LLFR-00372).
+        end_value_f: y-axis value of the arrowhead's end.
+        color_str: color of the line and the arrowhead, "#rrggbb" in
+            lowercase (LLFR-00373, LLFR-00379).
+    """
+
+    start_time_s: float
+    start_value_f: float
+    end_time_s: float
+    end_value_f: float
+    color_str: str = DEFAULT_ARROW_COLOR_STR
+
+
+def finite_arrow_tuple(start_time_s: float, start_value_f: float,
+                       end_time_s: float, end_value_f: float) -> tuple:
+    """Return the two ends of an arrow as four finite floats.
+
+    Inputs:
+        start_time_s: x value of the start (s, or Hz on a frequency
+            plot).
+        start_value_f: y value of the start.
+        end_time_s: x value of the arrowhead's end.
+        end_value_f: y value of the arrowhead's end.
+    Outputs: (start_time_s, start_value_f, end_time_s, end_value_f) as
+        floats. Raises ValueError when a value is not a finite number or
+        when the two ends are the same point.
+    """
+    # LLFR-00372, LLFR-00374: an arrow is attached to the x and y values
+    # of its two ends, which must be places it can be drawn at.
+    end_tuple = (float(start_time_s), float(start_value_f),
+                 float(end_time_s), float(end_value_f))
+    if not all(math.isfinite(number_f) for number_f in end_tuple):
+        raise ValueError("An arrow needs finite x and y values.")
+    # LLFR-00372, LLFR-00377: the ends are apart (the view keeps them at
+    # least 5 pixels apart), so the arrow has a direction.
+    if end_tuple[:2] == end_tuple[2:]:
+        raise ValueError("The two ends of an arrow must differ.")
+    return end_tuple
 
 
 def text_note_text(text_str) -> str:
@@ -396,6 +447,9 @@ class Plot:
         # LLFR-00340: any number of text notes, in the order they were
         # written; they belong to this plot only.
         self.text_note_list = []
+        # LLFR-00375: any number of arrows, in the order they were
+        # drawn; they belong to this plot only.
+        self.arrow_list = []
 
     def is_frequency_plot(self) -> bool:
         """Tell whether the plot is a frequency plot.
@@ -775,6 +829,103 @@ class Plot:
         text_note.text_color_str = new_color_str
         return True
 
+    def add_arrow(self, start_time_s: float, start_value_f: float,
+                  end_time_s: float, end_value_f: float) -> Arrow:
+        """Draw a new arrow on the plot.
+
+        Inputs:
+            start_time_s: x value of the press point (s, or Hz on a
+                frequency plot).
+            start_value_f: y value of the press point.
+            end_time_s: x value of the release point, where the
+                arrowhead is.
+            end_value_f: y value of the release point.
+        Outputs: the new Arrow, in the default color. Raises ValueError
+            when a value is not finite or the two ends are the same.
+        """
+        # LLFR-00372: from the press to the release, with the arrowhead
+        # at the release. LLFR-00373: in the default color.
+        end_tuple = finite_arrow_tuple(start_time_s, start_value_f,
+                                       end_time_s, end_value_f)
+        # LLFR-00375: any number of arrows per plot.
+        arrow = Arrow(*end_tuple)
+        self.arrow_list.append(arrow)
+        return arrow
+
+    def has_arrow_index(self, arrow_index_i: int) -> bool:
+        """Tell whether an index points at an arrow of the plot.
+
+        Inputs:
+            arrow_index_i: index in arrow_list.
+        Outputs: True for a valid index.
+        """
+        # LLFR-00376, LLFR-00377, LLFR-00379, LLFR-00380: the view names
+        # an arrow by its index in the list it last drew.
+        return (isinstance(arrow_index_i, int)
+                and not isinstance(arrow_index_i, bool)
+                and 0 <= arrow_index_i < len(self.arrow_list))
+
+    def set_arrow_ends(self, arrow_index_i: int, start_time_s: float,
+                       start_value_f: float, end_time_s: float,
+                       end_value_f: float) -> bool:
+        """Give an arrow new ends, after a move, a rotation or a stretch.
+
+        Inputs:
+            arrow_index_i: index of the arrow in arrow_list.
+            start_time_s: new x value of the end without the arrowhead.
+            start_value_f: new y value of that end.
+            end_time_s: new x value of the arrowhead's end.
+            end_value_f: new y value of the arrowhead's end.
+        Outputs: True when the arrow changed; False for an unknown index
+            or the same ends. Raises ValueError when a value is not
+            finite or the two ends are the same.
+        """
+        # LLFR-00376, LLFR-00377: attached to the values of its new ends;
+        # the arrowhead stays at the end it was at.
+        end_tuple = finite_arrow_tuple(start_time_s, start_value_f,
+                                       end_time_s, end_value_f)
+        if not self.has_arrow_index(arrow_index_i):
+            return False
+        arrow = self.arrow_list[arrow_index_i]
+        if arrow_end_tuple(arrow) == end_tuple:
+            return False
+        (arrow.start_time_s, arrow.start_value_f, arrow.end_time_s,
+         arrow.end_value_f) = end_tuple
+        return True
+
+    def set_arrow_color(self, arrow_index_i: int, color_str: str) -> bool:
+        """Give an arrow another color.
+
+        Inputs:
+            arrow_index_i: index of the arrow in arrow_list.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False for an unknown index,
+            a value that is not "#rrggbb" or the current color.
+        """
+        # LLFR-00379, LLFR-00390: the confirmed color, but nothing when
+        # it is the color the arrow already has.
+        new_color_str = hex_color_or_none(color_str)
+        if new_color_str is None or not self.has_arrow_index(arrow_index_i):
+            return False
+        arrow = self.arrow_list[arrow_index_i]
+        if arrow.color_str == new_color_str:
+            return False
+        arrow.color_str = new_color_str
+        return True
+
+    def remove_arrow(self, arrow_index_i: int) -> bool:
+        """Remove an arrow from the plot.
+
+        Inputs:
+            arrow_index_i: index of the arrow in arrow_list.
+        Outputs: True when it was removed, False for an unknown index.
+        """
+        # LLFR-00380: the arrow leaves the plot.
+        if not self.has_arrow_index(arrow_index_i):
+            return False
+        del self.arrow_list[arrow_index_i]
+        return True
+
     def is_empty(self) -> bool:
         """Tell whether the plot has no curves.
 
@@ -904,6 +1055,18 @@ class Tab:
         return None
 
 
+def arrow_end_tuple(arrow) -> tuple:
+    """Return the two ends of an arrow as plain values.
+
+    Inputs:
+        arrow: an Arrow.
+    Outputs: (start_time_s, start_value_f, end_time_s, end_value_f).
+    """
+    # LLFR-00374: the values the arrow is attached to.
+    return (arrow.start_time_s, arrow.start_value_f, arrow.end_time_s,
+            arrow.end_value_f)
+
+
 def plot_state_tuple(plot) -> tuple:
     """Return everything an undo restores of a plot, as plain values.
 
@@ -914,9 +1077,11 @@ def plot_state_tuple(plot) -> tuple:
         (signal_name_str, time_s, value_f, label_offset_tuple), delta
         marker tuples (delta_marker_id_i, kind_str, first_point_tuple,
         second_point_tuple), text note tuples (text_str, time_s,
-        value_f, size_i, border_color_str, text_color_str), plot
-        kind_str). For a frequency plot, the time_s of the tips,
-        delta marker points and text notes is a frequency in Hz.
+        value_f, size_i, border_color_str, text_color_str), arrow tuples
+        (start_time_s, start_value_f, end_time_s, end_value_f,
+        color_str), plot kind_str). For a frequency plot, the time_s of
+        the tips, delta marker points, text notes and arrows is a
+        frequency in Hz.
     """
     # LLFR-00140: curves with color and width, pinned tips with their
     # label offsets, and the counter that picks the next color. The
@@ -945,9 +1110,14 @@ def plot_state_tuple(plot) -> tuple:
          text_note.size_i, text_note.border_color_str,
          text_note.text_color_str)
         for text_note in plot.text_note_list)
+    # LLFR-00140: drawing, moving, rotating or stretching, recoloring and
+    # deleting an arrow are undoable; LLFR-00375: the arrows are part of
+    # their plot's state.
+    arrow_tuple = tuple(arrow_end_tuple(arrow) + (arrow.color_str,)
+                        for arrow in plot.arrow_list)
     return (plot.plot_id_i, plot.drawn_count_i, curve_tuple,
             pinned_tip_tuple, delta_marker_tuple, text_note_tuple,
-            plot.kind_str)
+            arrow_tuple, plot.kind_str)
 
 
 def tabs_state_tuple(tab_list: list, marker_list: list,
