@@ -80,6 +80,13 @@ class FakePlotView:
             set_delta_first_point (() when the dot was removed).
         plot_kind_dict: plot id -> kind_str given to add_plot_view.
         kind_mismatch_count_i: how many boxes of LLFR-00257 were shown.
+        area_drawn_dict: plot id -> area_data_list of the last
+            set_plot_areas or set_areas call.
+        area_name_answer_list: answers returned, in order, by
+            ask_area_name (None stands for a cancelled dialog).
+        area_name_question_list: the current names given to
+            ask_area_name.
+        set_areas_count_i: how many times set_areas was called.
         text_note_drawn_dict: plot id -> text_note_data_list of the last
             set_text_notes call.
     """
@@ -111,6 +118,10 @@ class FakePlotView:
         self.delta_first_point_dict = {}
         self.plot_kind_dict = {}
         self.kind_mismatch_count_i = 0
+        self.area_drawn_dict = {}
+        self.area_name_answer_list = []
+        self.area_name_question_list = []
+        self.set_areas_count_i = 0
         self.text_note_drawn_dict = {}
 
     def set_signal_double_click_handler(self, handler) -> None:
@@ -243,6 +254,7 @@ class FakePlotView:
         self.plot_tab_dict = {}
         self.drawn_dict = {}
         self.range_dict = {}
+        self.area_drawn_dict = {}
 
     def add_tab_view(self, tab_id_i: int, name_str: str) -> None:
         """Add a tab.
@@ -385,6 +397,48 @@ class FakePlotView:
         self.call_list.append(("set_markers", len(marker_data_list)))
         for plot_id_i in self.plot_tab_dict:
             self.marker_drawn_dict[plot_id_i] = list(marker_data_list)
+
+    def set_areas(self, area_data_list: list) -> None:
+        """Record the shared areas drawn on every shown plot.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            area_data_list: the area tuples (area_id_i, name_str,
+                start_s, end_s).
+        Outputs: none. Like the real view, a frequency plot draws none.
+        """
+        self.set_areas_count_i += 1
+        for plot_id_i in self.plot_tab_dict:
+            self.area_drawn_dict[plot_id_i] = (
+                [] if self.plot_kind_dict.get(plot_id_i) == "frequency"
+                else list(area_data_list))
+
+    def set_plot_areas(self, plot_id_i: int, area_data_list: list) -> None:
+        """Record the areas drawn on one plot.
+
+        Not added to call_list, like set_areas.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            area_data_list: the area tuples.
+        Outputs: none.
+        """
+        self.area_drawn_dict[plot_id_i] = list(area_data_list)
+
+    def ask_area_name(self, current_name_str: str):
+        """Answer an area name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of area_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.area_name_question_list.append(current_name_str)
+        if not self.area_name_answer_list:
+            return None
+        return self.area_name_answer_list.pop(0)
 
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:

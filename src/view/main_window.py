@@ -33,6 +33,9 @@ OPEN_FILE_FILTER_STR = ("Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)"
 # LLFR-00088: title and label of the marker rename dialog.
 RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
 RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
+# LLFR-00315: the dialog that renames an area.
+RENAME_AREA_DIALOG_TITLE_STR = "Rename area"
+RENAME_AREA_DIALOG_LABEL_STR = "New area name:"
 # LLFR-00266: title and label of the synthetic signal rename dialog.
 RENAME_SIGNAL_DIALOG_TITLE_STR = "Rename signal"
 RENAME_SIGNAL_DIALOG_LABEL_STR = "New signal name:"
@@ -1068,6 +1071,51 @@ class MainWindow(QMainWindow):
         # LLFR-00205: every marker on every plot, after it was placed,
         # moved, renamed or deleted on any of them.
         self.plot_panel.set_markers(marker_data_list)
+
+    def set_areas(self, area_data_list: list) -> None:
+        """Draw the shared areas on every time plot of every tab.
+
+        Inputs:
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s),
+                in creation order.
+        Outputs: none. Only the areas are drawn again.
+        """
+        # LLFR-00310: every area on every time plot, after it was
+        # created, moved, resized, renamed or deleted on any of them.
+        self.plot_panel.set_areas(area_data_list)
+
+    def set_plot_areas(self, plot_id_i: int, area_data_list: list) -> None:
+        """Draw the areas of one plot, after the plot was drawn.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s);
+                empty for a frequency plot (LLFR-00311).
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00310: a time plot created after the areas shows them too.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_areas(area_data_list)
+
+    def ask_area_name(self, current_name_str: str):
+        """Let the user type a new name for an area.
+
+        Inputs:
+            current_name_str: the area's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when the user
+            cancelled the dialog.
+        """
+        # LLFR-00315: the dialog starts from the current name; a blank
+        # answer is returned as typed, and the controller keeps the old
+        # name without a message.
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, RENAME_AREA_DIALOG_TITLE_STR,
+            RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
+            current_name_str)
+        if not accepted_b:
+            return None
+        return str(new_name_str)
 
     def set_delta_first_point(self, plot_id_i: int,
                               point_tuple: tuple) -> None:

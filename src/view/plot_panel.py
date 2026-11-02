@@ -81,6 +81,14 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "delta_point_picked": "delta_point_pick_handler",
     # LLFR-00176: "Delete" chosen on a delta marker.
     "delta_marker_delete_requested": "delta_marker_delete_handler",
+    # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: an
+    # area created, moved or resized, renamed or deleted.
+    "area_create_requested": "area_create_handler",
+    "area_change_requested": "area_change_handler",
+    "area_rename_requested": "area_rename_handler",
+    # LLFR-00351: a color chosen in an area's menu.
+    "area_color_requested": "area_color_handler",
+    "area_delete_requested": "area_delete_handler",
     # LLFR-00334, LLFR-00339, LLFR-00342, LLFR-00343: the text notes.
     "text_note_create_requested": "text_note_create_handler",
     "text_note_move_requested": "text_note_move_handler",
@@ -660,6 +668,9 @@ class PlotPanel(QWidget):
             self.relay_marker_drag, plot_id_i))
         plot_widget.marker_preview_changed.connect(partial(
             self.relay_marker_preview, plot_id_i))
+        # LLFR-00310: so does an area that is moved or resized.
+        plot_widget.area_drag_moved.connect(partial(
+            self.relay_area_drag, plot_id_i))
         self.plot_widget_dict[plot_id_i] = plot_widget
         page.add_plot_widget(plot_widget)
 
@@ -733,6 +744,37 @@ class PlotPanel(QWidget):
         # same markers on every plot; hidden plots draw them when shown.
         for plot_widget in self.plot_widget_dict.values():
             plot_widget.set_markers(marker_data_list)
+
+    def set_areas(self, area_data_list: list) -> None:
+        """Draw the shared areas on every time plot of every tab.
+
+        Inputs:
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s),
+                in creation order.
+        Outputs: none.
+        """
+        # LLFR-00304, LLFR-00312, LLFR-00315, LLFR-00316, LLFR-00310: the
+        # same areas on every plot; hidden plots draw them when shown;
+        # LLFR-00311: a frequency plot leaves them out by itself.
+        for plot_widget in self.plot_widget_dict.values():
+            plot_widget.set_areas(area_data_list)
+
+    def relay_area_drag(self, plot_id_i: int, area_id_i: int,
+                        start_s: float, end_s: float) -> None:
+        """Show an area dragged on one plot at its span on the others.
+
+        Inputs:
+            plot_id_i: id of the plot where the area is dragged.
+            area_id_i: id of the dragged area.
+            start_s: the start it is shown at, in seconds.
+            end_s: the end it is shown at, in seconds.
+        Outputs: none.
+        """
+        # LLFR-00310: while dragged, the area follows the pointer on every
+        # time plot of the current tab; the plots of the other tabs get
+        # the new span when the button is released (controller).
+        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+            plot_widget.follow_area_drag(area_id_i, start_s, end_s)
 
     def relay_marker_drag(self, plot_id_i: int, marker_id_i: int,
                           time_s: float) -> None:

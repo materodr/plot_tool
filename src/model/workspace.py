@@ -1,4 +1,4 @@
-"""Model of the plot panel: tabs, plots, curves, tips and markers.
+"""Model of the plot panel: tabs, plots, curves, tips, markers, areas.
 
 The workspace holds no Qt code (COR-00009). The view draws what the
 workspace holds, and the controller changes the workspace when the user
@@ -26,6 +26,16 @@ DEFAULT_MARKER_NAME_FORMAT_STR = "Marker {}"
 # LLFR-00111, LLFR-00233: a default marker name, to read its number back
 # when a marker of a layout file keeps its saved name.
 DEFAULT_MARKER_NAME_PATTERN_STR = r"Marker (\d+)"
+# LLFR-00309: default name of a new area ("Area 1", "Area 2", ...).
+DEFAULT_AREA_NAME_FORMAT_STR = "Area {}"
+# LLFR-00309, LLFR-00319: a default area name, to read its number back
+# when an area of a layout file keeps its saved name.
+DEFAULT_AREA_NAME_PATTERN_STR = r"Area (\d+)"
+# LLFR-00351: the names of the five area colors, in menu order; the
+# first one, the paler marker color (LLFR-00305), is the default. The
+# view gives each name its color (view.theme.AREA_COLOR_DICT).
+AREA_COLOR_NAME_TUPLE = ("Magenta", "Blue", "Green", "Yellow", "Orange")
+DEFAULT_AREA_COLOR_NAME_STR = AREA_COLOR_NAME_TUPLE[0]
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -143,6 +153,59 @@ class VerticalMarker:
     marker_id_i: int
     name_str: str
     time_s: float
+
+
+@dataclass
+class Area:
+    """A shaded band across the time plots between two times (HLFR-00066).
+
+    Inputs:
+        area_id_i: id of the area, unique within the workspace and never
+            reused.
+        name_str: name shown in the area's label (LLFR-00307).
+        start_s: time of the left edge of the band, in seconds.
+        end_s: time of the right edge, in seconds, after start_s.
+        color_name_str: the name of its color, one of
+            AREA_COLOR_NAME_TUPLE (LLFR-00351).
+    """
+
+    area_id_i: int
+    name_str: str
+    start_s: float
+    end_s: float
+    color_name_str: str = DEFAULT_AREA_COLOR_NAME_STR
+
+
+def area_span_tuple(start_s: float, end_s: float) -> tuple:
+    """Check the two times of an area and return them in order.
+
+    Inputs:
+        start_s: one edge of the area, in seconds.
+        end_s: the other edge, in seconds.
+    Outputs: (start_s, end_s) as floats with start_s < end_s. Raises
+        ValueError when a time is not finite or both are equal.
+    """
+    # LLFR-00304: an area lies between two different times.
+    start_s, end_s = sorted((float(start_s), float(end_s)))
+    if not (math.isfinite(start_s) and math.isfinite(end_s)):
+        raise ValueError("The times of an area must be finite.")
+    if not end_s > start_s:
+        raise ValueError("An area needs a start time before its end time.")
+    return (start_s, end_s)
+
+
+def spans_overlap_b(first_start_s: float, first_end_s: float,
+                    second_start_s: float, second_end_s: float) -> bool:
+    """Tell whether two time spans overlap by more than a shared edge.
+
+    Inputs:
+        first_start_s, first_end_s: the first span, start before end.
+        second_start_s, second_end_s: the second span, start before end.
+    Outputs: True when the spans have a part in common that is longer
+        than one point; two spans that only share an edge do not overlap.
+    """
+    # LLFR-00304: areas must not overlap, but may share an edge.
+    return first_start_s < second_end_s and second_start_s < first_end_s
 
 
 @dataclass
@@ -796,16 +859,19 @@ def plot_state_tuple(plot) -> tuple:
             plot.kind_str)
 
 
-def tabs_state_tuple(tab_list: list, marker_list: list) -> tuple:
-    """Return tabs and vertical markers as plain values.
+def tabs_state_tuple(tab_list: list, marker_list: list,
+                     area_list=()) -> tuple:
+    """Return tabs, vertical markers and areas as plain values.
 
     Inputs:
         tab_list: the Tab objects, in tab order.
         marker_list: the VerticalMarker objects, in placing order.
-    Outputs: a tuple (tab tuple, marker tuple): one entry (tab_id_i,
-        name_str, plot state tuples) per tab and one entry (marker_id_i,
-        name_str, time_s) per marker; two states with equal tuples show
-        the same thing (LLFR-00140).
+        area_list: the Area objects, in creation order.
+    Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
+        (tab_id_i, name_str, plot state tuples) per tab, one entry
+        (marker_id_i, name_str, time_s) per marker and one entry
+        (area_id_i, name_str, start_s, end_s, color_name_str) per area;
+        two states with equal tuples show the same thing (LLFR-00140).
     """
     # LLFR-00138, LLFR-00140: what an undo restores.
     tab_tuple = tuple(
@@ -814,7 +880,13 @@ def tabs_state_tuple(tab_list: list, marker_list: list) -> tuple:
         for tab in tab_list)
     marker_tuple = tuple((marker.marker_id_i, marker.name_str, marker.time_s)
                          for marker in marker_list)
-    return (tab_tuple, marker_tuple)
+    # LLFR-00140: creating, moving, resizing, renaming and deleting an
+    # area are undoable.
+    # LLFR-00351: and changing its color.
+    area_tuple = tuple((area.area_id_i, area.name_str, area.start_s,
+                        area.end_s, area.color_name_str)
+                       for area in area_list)
+    return (tab_tuple, marker_tuple, area_tuple)
 
 
 def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
@@ -880,10 +952,13 @@ class WorkspaceSnapshot:
             unknown.
         marker_list: copy of the workspace's vertical markers
             (LLFR-00205), in placing order.
+        area_list: copy of the workspace's areas (LLFR-00310), in
+            creation order.
     """
 
     def __init__(self, tab_list: list, state_tuple: tuple,
-                 current_tab_id_i: int = -1, marker_list=()) -> None:
+                 current_tab_id_i: int = -1, marker_list=(),
+                 area_list=()) -> None:
         """Store the saved state.
 
         Inputs:
@@ -891,6 +966,7 @@ class WorkspaceSnapshot:
             state_tuple: plain-value dump of the tabs and markers.
             current_tab_id_i: id of the selected tab, -1 when unknown.
             marker_list: copies of the vertical markers.
+            area_list: copies of the areas.
         Outputs: none.
         """
         # LLFR-00138: the state to return to. LLFR-00205: the shared
@@ -899,6 +975,8 @@ class WorkspaceSnapshot:
         self.state_tuple = state_tuple
         self.current_tab_id_i = current_tab_id_i
         self.marker_list = list(marker_list)
+        # LLFR-00310, LLFR-00138: the shared areas are part of it too.
+        self.area_list = list(area_list)
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
         """Rename a signal in the saved state.
@@ -914,7 +992,8 @@ class WorkspaceSnapshot:
         # redo history, whose states must then use the new name.
         rename_signal_in_tabs(self.tab_list, old_name_str, new_name_str)
         self.state_tuple = tabs_state_tuple(self.tab_list,
-                                            self.marker_list)
+                                            self.marker_list,
+                                            self.area_list)
 
 
 class Workspace:
@@ -952,6 +1031,12 @@ class Workspace:
         # LLFR-00085, LLFR-00111: number of the next "Marker N"; it only
         # grows, also on undo, until a file is opened (reset).
         self.next_marker_number_i = 1
+        # LLFR-00310: the areas, shared by every time plot of every tab,
+        # in the order they were created.
+        self.area_list = []
+        # LLFR-00309: number of the next "Area N"; it only grows, also on
+        # undo, until a file is opened (reset).
+        self.next_area_number_i = 1
         # LLFR-00024: the app starts with one tab.
         self.reset()
 
@@ -967,6 +1052,9 @@ class Workspace:
         # LLFR-00085, LLFR-00111: a new file numbers from "Marker 1".
         self.marker_list = []
         self.next_marker_number_i = 1
+        # LLFR-00310, LLFR-00309: the same for the areas.
+        self.area_list = []
+        self.next_area_number_i = 1
         # LLFR-00210, LLFR-00016: tab numbering restarts with "Tab 1".
         self.next_tab_number_i = 1
         # LLFR-00016: one tab with no plots; ids keep counting up.
@@ -1230,15 +1318,17 @@ class Workspace:
         return any(tab.plot_list for tab in self.tab_list)
 
     def clear_markers_without_plots(self) -> None:
-        """Delete every vertical marker when no plot is left.
+        """Delete every vertical marker and area when no plot is left.
 
         Inputs: none.
-        Outputs: none. The marker numbering is not restarted
-            (LLFR-00111): only opening a file restarts it.
+        Outputs: none. The marker and area numbering is not restarted
+            (LLFR-00111, LLFR-00309): only opening a file restarts it.
         """
         # LLFR-00205: no plot left in any tab, no marker left.
+        # LLFR-00310: and no area, in the same way.
         if not self.has_plots():
             self.marker_list = []
+            self.area_list = []
 
     def add_marker(self, time_s: float) -> VerticalMarker:
         """Place a new vertical marker, shown on every plot.
@@ -1367,15 +1457,17 @@ class Workspace:
         """Return the tabs, plots, curves, tips and markers as plain values.
 
         Inputs: none.
-        Outputs: a tuple (tab tuple, marker tuple): one entry (tab_id_i,
-            name_str, plot state tuples) per tab, in tab order, and the
-            vertical markers (marker_state_tuple); two workspaces with
-            equal tuples show the same thing (LLFR-00140).
+        Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
+            (tab_id_i, name_str, plot state tuples) per tab, in tab
+            order, the vertical markers (marker_state_tuple) and the
+            areas (area_state_tuple); two workspaces with equal tuples
+            show the same thing (LLFR-00140).
         """
         # LLFR-00138, LLFR-00140: what an undo restores; the id counters
-        # and the marker numbering are not part of it, since they only
-        # grow (LLFR-00111).
-        return tabs_state_tuple(self.tab_list, self.marker_list)
+        # and the marker and area numbering are not part of it, since
+        # they only grow (LLFR-00111, LLFR-00309).
+        return tabs_state_tuple(self.tab_list, self.marker_list,
+                                self.area_list)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -1406,9 +1498,11 @@ class Workspace:
         """
         # LLFR-00140: saved before every undoable action. LLFR-00205:
         # with the shared vertical markers.
+        # LLFR-00310: and with the shared areas.
         return WorkspaceSnapshot(self.copy_tab_list(self.tab_list),
                                  self.state_tuple(), int(current_tab_id_i),
-                                 copy.deepcopy(self.marker_list))
+                                 copy.deepcopy(self.marker_list),
+                                 copy.deepcopy(self.area_list))
 
     def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
         """Tell whether the workspace still holds a saved state.
@@ -1436,6 +1530,10 @@ class Workspace:
         # marker numbering is kept (LLFR-00111): an undone placement
         # does not free its number.
         self.marker_list = copy.deepcopy(snapshot.marker_list)
+        # LLFR-00310, LLFR-00309: the areas of that state; the area
+        # numbering is kept, so an undone creation does not free its
+        # number.
+        self.area_list = copy.deepcopy(snapshot.area_list)
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.
         highest_tab_id_i = max((tab.tab_id_i for tab in self.tab_list),
                                default=0)
@@ -1483,3 +1581,195 @@ class Workspace:
         # LLFR-00205: with no plot left, no vertical marker is left.
         self.clear_markers_without_plots()
         return deleted_plot_id_list
+
+    # ----------------------------------------------------------------
+    # Areas (HLFR-00066 to HLFR-00069)
+    # ----------------------------------------------------------------
+
+    def find_area(self, area_id_i: int):
+        """Return an area by its id.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: the Area, or None when no area has that id.
+        """
+        # LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: areas are found
+        # by id.
+        for area in self.area_list:
+            if area.area_id_i == area_id_i:
+                return area
+        return None
+
+    def area_overlaps_b(self, start_s: float, end_s: float,
+                        except_area_id_i: int = -1) -> bool:
+        """Tell whether a time span overlaps an area.
+
+        Inputs:
+            start_s: start of the span, in seconds, before end_s.
+            end_s: end of the span, in seconds.
+            except_area_id_i: id of an area left out of the check (the
+                area being moved or resized), -1 to check all areas.
+        Outputs: True when the span overlaps an area by more than a
+            shared edge.
+        """
+        # LLFR-00304, LLFR-00312, LLFR-00313: areas never overlap, but
+        # may share an edge.
+        return any(spans_overlap_b(start_s, end_s, area.start_s, area.end_s)
+                   for area in self.area_list
+                   if area.area_id_i != except_area_id_i)
+
+    def take_area_number(self, name_str: str) -> None:
+        """Use up the number of a default area name.
+
+        Inputs:
+            name_str: the name of an area that was just added.
+        Outputs: none. When the name is "Area N", the next default name
+            gets a number greater than N.
+        """
+        # LLFR-00309, LLFR-00319: a saved name "Area N" uses up N, so that
+        # an area created later never gets the same default name.
+        number_match = re.fullmatch(DEFAULT_AREA_NAME_PATTERN_STR, name_str)
+        if number_match is not None:
+            self.next_area_number_i = max(
+                self.next_area_number_i, int(number_match.group(1)) + 1)
+
+    def add_area(self, start_s: float, end_s: float, name_str: str = "",
+                 color_name_str: str = DEFAULT_AREA_COLOR_NAME_STR):
+        """Create a new area, shown on every time plot.
+
+        Inputs:
+            start_s: one edge of the area, in seconds.
+            end_s: the other edge, in seconds (the two are sorted).
+            name_str: the name of the area; leading and trailing spaces
+                are removed. Empty (the default) gives the next default
+                name "Area N" (LLFR-00309).
+            color_name_str: the name of its color (LLFR-00351); the
+                default color for a name not in AREA_COLOR_NAME_TUPLE.
+        Outputs: the new Area, or None when the span is empty, not
+            finite or overlaps another area (LLFR-00304). Nothing is
+            changed then, and no number is used up.
+        """
+        # LLFR-00304: between two different times, not overlapping.
+        try:
+            start_s, end_s = area_span_tuple(start_s, end_s)
+        except ValueError:
+            return None
+        if self.area_overlaps_b(start_s, end_s):
+            return None
+        stripped_name_str = str(name_str).strip()
+        if not stripped_name_str:
+            # LLFR-00309: "Area N"; N only grows and is never reused.
+            stripped_name_str = DEFAULT_AREA_NAME_FORMAT_STR.format(
+                self.next_area_number_i)
+            self.next_area_number_i += 1
+        else:
+            # LLFR-00319: a saved name keeps its number used up.
+            self.take_area_number(stripped_name_str)
+        # LLFR-00310: one area for every time plot of every tab; its id
+        # comes from the counter of the markers, so it is never reused.
+        # LLFR-00351: a new area gets the default color.
+        if color_name_str not in AREA_COLOR_NAME_TUPLE:
+            color_name_str = DEFAULT_AREA_COLOR_NAME_STR
+        area = Area(self.marker_id_counter.take_next_id(), stripped_name_str,
+                    start_s, end_s, color_name_str)
+        self.area_list.append(area)
+        return area
+
+    def set_area_span(self, area_id_i: int, start_s: float,
+                      end_s: float) -> bool:
+        """Move or resize an area, on every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+            start_s: new start of the area, in seconds.
+            end_s: new end of the area, in seconds (the two are sorted).
+        Outputs: True when the area was changed; False when no area has
+            that id, the span is empty or not finite, it overlaps another
+            area, or it is the area's current span.
+        """
+        # LLFR-00312, LLFR-00313: the area is left where the mouse
+        # button is released; it never overlaps another area.
+        area = self.find_area(area_id_i)
+        if area is None:
+            return False
+        try:
+            start_s, end_s = area_span_tuple(start_s, end_s)
+        except ValueError:
+            return False
+        if self.area_overlaps_b(start_s, end_s, area_id_i):
+            return False
+        if (start_s, end_s) == (area.start_s, area.end_s):
+            return False
+        area.start_s = start_s
+        area.end_s = end_s
+        return True
+
+    def rename_area(self, area_id_i: int, new_name_str: str) -> bool:
+        """Rename an area, on every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+            new_name_str: the name typed by the user; surrounding spaces
+                are removed.
+        Outputs: True when the area was renamed; False when the name is
+            empty or only spaces (LLFR-00315) or no area has that id.
+        """
+        # LLFR-00315: an empty or blank name keeps the previous name.
+        stripped_name_str = str(new_name_str).strip()
+        area = self.find_area(area_id_i)
+        if area is None or not stripped_name_str:
+            return False
+        # LLFR-00315, LLFR-00310: every label shows the new name.
+        area.name_str = stripped_name_str
+        # LLFR-00309: a typed "Area N" uses up N, like LLFR-00212.
+        self.take_area_number(stripped_name_str)
+        return True
+
+    def set_area_color(self, area_id_i: int, color_name_str: str) -> bool:
+        """Give an area another color, on every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+            color_name_str: one of AREA_COLOR_NAME_TUPLE.
+        Outputs: True when the color changed; False when no area has
+            that id, the name is not an area color or it is the area's
+            current color.
+        """
+        # LLFR-00351: one of the five area colors.
+        area = self.find_area(area_id_i)
+        if area is None or color_name_str not in AREA_COLOR_NAME_TUPLE:
+            return False
+        if area.color_name_str == color_name_str:
+            return False
+        # LLFR-00310: every time plot draws it in the new color.
+        area.color_name_str = color_name_str
+        return True
+
+    def remove_area(self, area_id_i: int) -> bool:
+        """Remove an area from every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: True when the area was removed, False when no area has
+            that id.
+        """
+        # LLFR-00316: the area and its label leave every plot.
+        area = self.find_area(area_id_i)
+        if area is None:
+            return False
+        # LLFR-00309: next_area_number_i is not lowered.
+        self.area_list.remove(area)
+        return True
+
+    def area_state_tuple(self) -> tuple:
+        """Return the areas as plain values.
+
+        Inputs: none.
+        Outputs: a tuple of (area_id_i, name_str, start_s, end_s,
+            color_name_str), in creation order.
+        """
+        # LLFR-00140, LLFR-00310, LLFR-00351: the drawing data of every
+        # area.
+        return tuple((area.area_id_i, area.name_str, area.start_s,
+                      area.end_s, area.color_name_str)
+                     for area in self.area_list)

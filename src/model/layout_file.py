@@ -5,9 +5,9 @@ A layout file is a JSON text file (HLFR-00051, LLFR-00227) that holds
 what the plot panel shows and how (LLFR-00225): the tabs, their plots,
 the curves of each plot with their color and width, the pinned data
 tips and the delta markers of each plot, the vertical markers, the
-shared time range, the grid setting and the panel widths. It holds no
-path or name of the data file, no undo or redo history, no active plot
-tool and no search text (LLFR-00226).
+areas, the shared time range, the grid setting and the panel widths.
+It holds no path or name of the data file, no undo or redo history, no
+active plot tool, no search text and no text notes (LLFR-00226).
 
 Plots, curves, data tips and delta markers are found by their position
 in the file: a plot is an entry of the ``plots`` list of its tab, and
@@ -24,6 +24,8 @@ An example of a layout file::
       "grid": true,
       "panel_widths": {"plot_panel": 900, "signal_list_panel": 300},
       "vertical_markers": [{"name": "Marker 1", "time": 1.0}],
+      "areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
+                 "color": "Magenta"}],
       "synthetic_signals": [],
       "tabs": [
         {"name": "Tab 1",
@@ -77,8 +79,10 @@ import numpy as np
 
 from model.curve_colors import is_far_from_marker_color
 from model.workspace import (
-    AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
-    DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE)
+    AREA_COLOR_NAME_TUPLE, AUTOMATIC_LABEL_OFFSET_TUPLE,
+    DEFAULT_AREA_COLOR_NAME_STR, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
+    DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
+    spans_overlap_b)
 
 # LLFR-00228: the identification of a layout file.
 LAYOUT_FORMAT_STR = "plot_tool layout"
@@ -104,6 +108,10 @@ PANEL_WIDTHS_KEY_STR = "panel_widths"
 PLOT_PANEL_KEY_STR = "plot_panel"
 SIGNAL_LIST_PANEL_KEY_STR = "signal_list_panel"
 VERTICAL_MARKERS_KEY_STR = "vertical_markers"
+# LLFR-00225 item 11: the list of areas, each with "name", "start",
+# "end" (START_KEY_STR, END_KEY_STR) and "color" (COLOR_KEY_STR, the name
+# of an area color, LLFR-00351). A file without it has no area.
+AREAS_KEY_STR = "areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
 TABS_KEY_STR = "tabs"
 NAME_KEY_STR = "name"
@@ -555,6 +563,12 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     layout_dict[VERTICAL_MARKERS_KEY_STR] = [
         {NAME_KEY_STR: marker.name_str, TIME_KEY_STR: float(marker.time_s)}
         for marker in workspace.marker_list]
+    # LLFR-00225 item 11: each area, with its name, start and end time.
+    layout_dict[AREAS_KEY_STR] = [
+        {NAME_KEY_STR: area.name_str, START_KEY_STR: float(area.start_s),
+         END_KEY_STR: float(area.end_s),
+         COLOR_KEY_STR: area.color_name_str}
+        for area in workspace.area_list]
     # LLFR-00225 item 10, LLFR-00262: the synthetic signals.
     layout_dict[SYNTHETIC_SIGNALS_KEY_STR] = list(synthetic_signal_list)
     # LLFR-00225 items 1 and 2: the tabs in order, each with its time
@@ -1290,6 +1304,92 @@ class LayoutBuilder:
                 f"at {format_time(time_s)} is empty or not a text; "
                 f"replaced by \"{marker.name_str}\".")
 
+    def rebuild_areas(self, area_entry_list: list) -> None:
+        """Add the saved areas to the current ones.
+
+        Inputs:
+            area_entry_list: the "areas" list of the file.
+        Outputs: none. Each area that is not rebuilt is reported with
+            its times and the reason (LLFR-00319, LLFR-00237).
+        """
+        # LLFR-00230, LLFR-00310: added to the current areas, shown on
+        # every time plot. LLFR-00319: the current areas, to tell an
+        # overlap with one of them from one with an area of the file.
+        current_id_set = {area.area_id_i for area in self.workspace.area_list}
+        for area_entry in area_entry_list:
+            entry_dict = area_entry if isinstance(area_entry, dict) else {}
+            name_value = entry_dict.get(NAME_KEY_STR)
+            start_s = finite_number(entry_dict.get(START_KEY_STR))
+            end_s = finite_number(entry_dict.get(END_KEY_STR))
+            label_str = (f"Area {describe_value(name_value)} from "
+                         f"{format_time(start_s)} to {format_time(end_s)}")
+            if start_s is None or end_s is None:
+                self.report.add_not_rebuilt(
+                    f"{label_str}: its start or end time is not a number.")
+                continue
+            # LLFR-00319: the start time must be before the end time.
+            if not start_s < end_s:
+                self.report.add_not_rebuilt(
+                    f"{label_str}: its start time is not before its end "
+                    f"time.")
+                continue
+            # LLFR-00319: both times within the time range of the file.
+            if (not self.file_range_tuple
+                    or start_s < self.file_range_tuple[0]
+                    or end_s > self.file_range_tuple[1]):
+                self.report.add_not_rebuilt(
+                    f"{label_str}: it is not within the time range of the "
+                    f"data file{self.file_range_text()}.")
+                continue
+            # LLFR-00310: areas exist only while a plot exists.
+            if not self.workspace.has_plots():
+                self.report.add_not_rebuilt(
+                    f"{label_str}: no plot was rebuilt to show it on.")
+                continue
+            # LLFR-00319: no overlap with a current area or with an area
+            # already rebuilt from this file (a shared edge is allowed).
+            overlapped = next(
+                (area for area in self.workspace.area_list
+                 if spans_overlap_b(start_s, end_s, area.start_s,
+                                    area.end_s)), None)
+            if overlapped is not None:
+                owner_str = ("a current area" if overlapped.area_id_i
+                             in current_id_set
+                             else "an area already rebuilt from this file")
+                self.report.add_not_rebuilt(
+                    f"{label_str}: it overlaps {owner_str}, "
+                    f"\"{overlapped.name_str}\".")
+                continue
+            # LLFR-00319, LLFR-00351: the saved color; a missing one is
+            # the default color, an unknown one is replaced and reported.
+            color_value = entry_dict.get(COLOR_KEY_STR,
+                                         DEFAULT_AREA_COLOR_NAME_STR)
+            color_name_str = DEFAULT_AREA_COLOR_NAME_STR
+            if color_value in AREA_COLOR_NAME_TUPLE:
+                color_name_str = color_value
+            if isinstance(name_value, str) and name_value.strip():
+                # LLFR-00230: the saved name, kept even when another area
+                # has the same name.
+                area = self.workspace.add_area(start_s, end_s, name_value,
+                                               color_name_str)
+            else:
+                # LLFR-00235, LLFR-00309: a name that cannot be used is
+                # replaced by the name of a new area.
+                area = self.workspace.add_area(start_s, end_s, "",
+                                               color_name_str)
+                self.report.add_replaced(
+                    f"Name {describe_value(name_value)} of the area from "
+                    f"{format_time(start_s)} to {format_time(end_s)} is "
+                    f"empty or not a text; replaced by "
+                    f"\"{area.name_str}\".")
+            if color_value != color_name_str:
+                # LLFR-00235, LLFR-00237: an unknown color is replaced.
+                self.report.add_replaced(
+                    f"Color {describe_value(color_value)} of the area "
+                    f"\"{area.name_str}\" is not one of "
+                    f"{', '.join(AREA_COLOR_NAME_TUPLE)}; replaced by "
+                    f"\"{DEFAULT_AREA_COLOR_NAME_STR}\".")
+
     def file_range_text(self) -> str:
         """Return the time range of the data file, for the report.
 
@@ -1467,6 +1567,8 @@ class LayoutBuilder:
         # LLFR-00230, LLFR-00233: the vertical markers of the file.
         self.rebuild_vertical_markers(
             list_entry(layout_dict, VERTICAL_MARKERS_KEY_STR))
+        # LLFR-00230, LLFR-00319: the areas of the file.
+        self.rebuild_areas(list_entry(layout_dict, AREAS_KEY_STR))
         # LLFR-00234: the time range, limited to the data file.
         time_range_tuple = self.time_range(
             layout_dict.get(TIME_RANGE_KEY_STR))

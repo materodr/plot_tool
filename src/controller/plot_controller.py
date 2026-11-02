@@ -18,9 +18,14 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``plot_time_range``, ``set_plot_tool``, ``set_delta_first_point``;
 - vertical markers: ``set_markers`` (the shared markers, drawn on every
   plot of every tab);
+- areas: ``set_areas`` (the shared areas, with the name of their color
+  (LLFR-00351), drawn on every time plot of
+  every tab) and ``set_plot_areas(plot_id_i, area_data_list)`` (the
+  areas of one plot, after it was drawn);
 - boxes: ``show_full_tab_notification``,
   ``show_tab_name_taken_notification``,
-  ``show_plot_kind_mismatch_notification``, ``ask_marker_name``;
+  ``show_plot_kind_mismatch_notification``, ``ask_marker_name``,
+  ``ask_area_name``;
 - grid: ``set_grid_shown``;
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
@@ -82,6 +87,18 @@ is one undoable action and is shown on every plot through
 the workspace goes away, the model deletes the markers in that same
 action, so that its undo brings them back.
 
+Areas (HLFR-00066 to HLFR-00069): like the vertical markers, the areas
+belong to the workspace and every time plot of every tab shows the same
+ones, plots created later included; frequency plots show none
+(LLFR-00311). The view reports a created area, or a moved or resized
+one, once, when the mouse button is released, with both of its times;
+the controller limits them to the time range of the file (LLFR-00119)
+and the model refuses an area that would overlap another one
+(LLFR-00304). Each creation, move or resize, rename and deletion is one
+undoable action (LLFR-00140), shown on every plot through ``set_areas``.
+The areas go away with the last plot, in that same action, like the
+vertical markers (LLFR-00310).
+
 Delta markers (LLFR-00163 to LLFR-00167): with the Delta X or Delta Y
 tool active, the view reports every left click on a curve with the
 nearest sample. The first click keeps that point as pending, in
@@ -108,8 +125,8 @@ import math
 import numpy as np
 
 from controller.plot_tools import (
-    DELTA_X_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, is_delta_tool,
-    is_known_plot_tool)
+    AREA_TOOL_STR, DELTA_X_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    is_delta_tool, is_known_plot_tool)
 from model.layout_file import build_layout_dict, rebuild_layout
 from model.undo_history import UndoHistory
 from model.workspace import (
@@ -212,6 +229,14 @@ class PlotController:
             text_note_move_handler=self.on_text_note_move,
             text_note_edit_handler=self.on_text_note_edit,
             text_note_delete_handler=self.on_text_note_delete)
+        # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: the
+        # requests made on the areas of a plot.
+        view.set_plot_handlers(
+            area_create_handler=self.on_area_create,
+            area_change_handler=self.on_area_change,
+            area_rename_handler=self.on_area_rename,
+            area_color_handler=self.on_area_color,
+            area_delete_handler=self.on_area_delete)
         # LLFR-00115: the Reset zoom button of the top panel.
         view.set_reset_zoom_handler(self.on_reset_zoom)
         # LLFR-00122, LLFR-00123: the Grid button of the top panel.
@@ -477,6 +502,43 @@ class PlotController:
         # only the markers are redrawn, not the curves.
         self.view.set_markers(self.marker_data_list())
 
+    def area_data_list(self) -> list:
+        """Return the drawing data of every area.
+
+        Inputs: none.
+        Outputs: a list of tuples (area_id_i, name_str, start_s, end_s,
+            color_name_str) in creation order; the same for every time
+            plot.
+        """
+        # LLFR-00307, LLFR-00308: the label shows the name and the times.
+        # LLFR-00310: the areas are shared by every time plot.
+        return list(self.workspace.area_state_tuple())
+
+    def plot_area_data_list(self, plot) -> list:
+        """Return the areas a plot shows.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: area_data_list() for a time plot, [] for a frequency
+            plot.
+        """
+        # LLFR-00310: every time plot shows every area; LLFR-00311: a
+        # frequency plot shows none.
+        if plot.is_frequency_plot():
+            return []
+        return self.area_data_list()
+
+    def show_areas(self) -> None:
+        """Draw the shared areas again on every plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00304, LLFR-00312, LLFR-00315, LLFR-00316, LLFR-00310: a
+        # change made on one plot is shown on every time plot of every
+        # tab; only the areas are redrawn, not the curves.
+        self.view.set_areas(self.area_data_list())
+
     def delta_marker_data_list(self, plot) -> list:
         """Return the drawing data of every delta marker of a plot.
 
@@ -606,6 +668,10 @@ class PlotController:
                             self.pinned_tip_data_list(plot),
                             self.plot_marker_data_list(plot),
                             self.delta_marker_data_list(plot))
+        # LLFR-00310: the shared areas, also on a plot created after
+        # them; LLFR-00311: none on a frequency plot.
+        self.view.set_plot_areas(plot.plot_id_i,
+                                 self.plot_area_data_list(plot))
         # LLFR-00337, LLFR-00340: and the text notes of the plot.
         self.view.set_text_notes(plot.plot_id_i,
                                  self.text_note_data_list(plot))
@@ -634,6 +700,8 @@ class PlotController:
         # tab with no plots (also harmless for the first file).
         # LLFR-00205, LLFR-00085: every vertical marker is deleted and
         # the numbering restarts at "Marker 1"; this is not undoable.
+        # LLFR-00310, LLFR-00309: so is every area, and the numbering
+        # restarts at "Area 1".
         self.workspace.reset()
         # LLFR-00180: the new file's plots start at its whole range.
         self.shared_time_range_tuple = ()
@@ -1382,6 +1450,213 @@ class PlotController:
             return
         self.record_undo(snapshot)
         self.show_markers()
+
+    # ----------------------------------------------------------------
+    # Areas
+    # ----------------------------------------------------------------
+
+    def file_limited_span_tuple(self, start_s: float, end_s: float) -> tuple:
+        """Return an area span limited to the time range of the file.
+
+        Inputs:
+            start_s: one edge of the span, in seconds.
+            end_s: the other edge, in seconds.
+        Outputs: (start_s, end_s) sorted and cut to the file's time
+            range, or () when a time is not finite, no file is open or
+            nothing of the span is left.
+        """
+        # LLFR-00119, LLFR-00312, LLFR-00313: an area stays within the
+        # time range of the file.
+        start_s = float(start_s)
+        end_s = float(end_s)
+        if not (math.isfinite(start_s) and math.isfinite(end_s)):
+            return ()
+        range_tuple = self.file_time_range_tuple()
+        if not range_tuple:
+            return ()
+        start_s, end_s = sorted((start_s, end_s))
+        start_s = min(max(start_s, range_tuple[0]), range_tuple[1])
+        end_s = min(max(end_s, range_tuple[0]), range_tuple[1])
+        if not end_s > start_s:
+            return ()
+        return (start_s, end_s)
+
+    def moved_span_tuple(self, area, start_s: float, end_s: float) -> tuple:
+        """Return the span a moved or resized area takes in the file.
+
+        Inputs:
+            area: the model Area before the change.
+            start_s: new start sent by the view, in seconds.
+            end_s: new end sent by the view, in seconds.
+        Outputs: (start_s, end_s) within the file's time range, or ()
+            when it cannot be used. A span as wide as the area (a move)
+            is shifted into the range, keeping its width; a resized span
+            is cut to it.
+        """
+        # LLFR-00312: a moved area keeps its width and stays within the
+        # time range of the file (LLFR-00119).
+        start_s = float(start_s)
+        end_s = float(end_s)
+        range_tuple = self.file_time_range_tuple()
+        if not (math.isfinite(start_s) and math.isfinite(end_s)
+                and range_tuple):
+            return ()
+        start_s, end_s = sorted((start_s, end_s))
+        width_s = end_s - start_s
+        area_width_s = area.end_s - area.start_s
+        if (math.isclose(width_s, area_width_s, rel_tol=1e-9, abs_tol=0.0)
+                and width_s <= range_tuple[1] - range_tuple[0]):
+            start_s = min(max(start_s, range_tuple[0]),
+                          range_tuple[1] - width_s)
+            return (start_s, start_s + width_s)
+        # LLFR-00313: a resized edge is cut to the file's time range.
+        return self.file_limited_span_tuple(start_s, end_s)
+
+    def area_time_plot(self, plot_id_i: int):
+        """Return a time plot on which an area may be created or dragged.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: the model Plot, or None when the Area tool is not active,
+            the plot is unknown or it is a frequency plot.
+        """
+        # LLFR-00303, LLFR-00312, LLFR-00313: only with the Area tool.
+        # LLFR-00318: the other tools never create, move or resize one.
+        if self.plot_tool_str != AREA_TOOL_STR:
+            return None
+        plot = self.workspace.find_plot(plot_id_i)
+        # LLFR-00311: a drag on a frequency plot creates no area.
+        if plot is None or plot.is_frequency_plot():
+            return None
+        return plot
+
+    def on_area_create(self, plot_id_i: int, start_s: float,
+                       end_s: float) -> None:
+        """Create an area between two times, on every time plot.
+
+        Inputs:
+            plot_id_i: id of the plot the area was drawn on.
+            start_s: time of the press, in seconds.
+            end_s: time of the release, in seconds.
+        Outputs: none. Ignored when the Area tool is not active, the plot
+            is unknown or a frequency plot, the span is empty or would
+            overlap another area.
+        """
+        # LLFR-00304: the area between the two times.
+        if self.area_time_plot(plot_id_i) is None:
+            return
+        span_tuple = self.file_limited_span_tuple(start_s, end_s)
+        if not span_tuple:
+            return
+        # LLFR-00140: creating an area is undoable.
+        snapshot = self.take_snapshot()
+        # LLFR-00309: the model names it "Area N" and never reuses N;
+        # LLFR-00304: it refuses an overlap. LLFR-00109: the tool stays.
+        if self.workspace.add_area(*span_tuple) is None:
+            return
+        self.record_undo(snapshot)
+        # LLFR-00310: one area, shown on every time plot of every tab.
+        self.show_areas()
+
+    def on_area_change(self, plot_id_i: int, area_id_i: int,
+                       start_s: float, end_s: float) -> None:
+        """Leave a moved or resized area where the button was released.
+
+        Inputs:
+            plot_id_i: id of the plot the area was dragged on.
+            area_id_i: id of the dragged area.
+            start_s: new start of the area, in seconds.
+            end_s: new end of the area, in seconds.
+        Outputs: none. A change that cannot be applied leaves the area
+            where it was, and every plot shows it there again.
+        """
+        # LLFR-00312, LLFR-00313: only with the Area tool, on a time plot.
+        if self.area_time_plot(plot_id_i) is None:
+            return
+        area = self.workspace.find_area(int(area_id_i))
+        if area is None:
+            return
+        span_tuple = self.moved_span_tuple(area, start_s, end_s)
+        # LLFR-00140: moving or resizing an area is undoable; a drag that
+        # ends where it started changes nothing and is not recorded.
+        snapshot = self.take_snapshot()
+        if span_tuple:
+            # LLFR-00312, LLFR-00313: never over another area.
+            self.workspace.set_area_span(int(area_id_i), *span_tuple)
+        self.record_undo(snapshot)
+        # LLFR-00308, LLFR-00310: every plot, the other tabs included,
+        # shows the area and its times where the model keeps it.
+        self.show_areas()
+
+    def on_area_rename(self, plot_id_i: int, area_id_i: int) -> None:
+        """Ask the user for a new area name and show it on every plot.
+
+        Inputs:
+            plot_id_i: id of the plot where "Rename" was chosen.
+            area_id_i: id of the area whose "Rename" was chosen.
+        Outputs: none. A cancelled dialog or an empty name changes
+            nothing and shows no message.
+        """
+        # LLFR-00315: let the user type the name, starting from the
+        # current one, whatever plot tool is active.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        area = self.workspace.find_area(int(area_id_i))
+        if area is None:
+            return
+        new_name_str = self.view.ask_area_name(area.name_str)
+        if new_name_str is None:
+            return
+        # LLFR-00140: renaming an area is undoable; the snapshot is taken
+        # after the dialog, so it holds the state just before.
+        snapshot = self.take_snapshot()
+        # LLFR-00315: a blank name keeps the old one, with no message.
+        if not self.workspace.rename_area(int(area_id_i), str(new_name_str)):
+            return
+        self.record_undo(snapshot)
+        # LLFR-00307, LLFR-00310: every label shows the new name.
+        self.show_areas()
+
+    def on_area_color(self, plot_id_i: int, area_id_i: int,
+                      color_name_str: str) -> None:
+        """Give an area the color chosen in its menu, on every plot.
+
+        Inputs:
+            plot_id_i: id of the plot where the color was chosen.
+            area_id_i: id of the area.
+            color_name_str: the name of the chosen color.
+        Outputs: none. An unknown plot, area or color, or the area's
+            current color, changes nothing and records nothing.
+        """
+        # LLFR-00351: with any plot tool, like the other menu options.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        # LLFR-00140: changing an area's color is undoable.
+        snapshot = self.take_snapshot()
+        if not self.workspace.set_area_color(int(area_id_i),
+                                             str(color_name_str)):
+            return
+        self.record_undo(snapshot)
+        # LLFR-00310, LLFR-00351: every time plot of every tab.
+        self.show_areas()
+
+    def on_area_delete(self, plot_id_i: int, area_id_i: int) -> None:
+        """Remove an area and its label from every plot.
+
+        Inputs:
+            plot_id_i: id of the plot where "Delete" was chosen.
+            area_id_i: id of the area whose "Delete" was chosen.
+        Outputs: none.
+        """
+        # LLFR-00140: deleting an area is undoable.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        snapshot = self.take_snapshot()
+        # LLFR-00316, LLFR-00310: remove the area from every plot.
+        if not self.workspace.remove_area(int(area_id_i)):
+            return
+        self.record_undo(snapshot)
+        self.show_areas()
 
     # ----------------------------------------------------------------
     # Delta markers

@@ -207,7 +207,10 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
     def test_area_and_text_tools_change_nothing_on_the_plots(self) -> None:
         """With Area or Text active, clicks and drags on a plot raise
         nothing and change neither the time range nor the markers, tips
-        and delta markers; the tool stays active (LLFR-00109).
+        and delta markers; the tool stays active (LLFR-00109). The Area
+        drag here creates an area (tests/view/test_areas_view.py) and the
+        Text click opens a text field (the text note tests); this test
+        only checks the other items and the range.
 
         Inputs: none.
         Outputs: none.

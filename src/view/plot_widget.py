@@ -88,6 +88,26 @@ the pressed time, even after the pointer went further away (the line
 is then removed); any other release zooms every plot to the selected
 span (LLFR-00209), limited to the file's time range.
 
+Areas (HLFR-00066) are shared by every time plot, like the vertical
+markers: the controller gives every time plot the same list, and a
+frequency plot draws none (LLFR-00311). An area is a see-through band in
+its color (a paler marker color by default, or one of the other area
+colors chosen in its menu, LLFR-00351), drawn behind everything else
+(LLFR-00305, LLFR-00306), with its name in the upper-left corner and its
+start and end times below it (LLFR-00307, LLFR-00308). With the Area
+tool, a left press on a time plot's drawing area, outside any area and
+more than 5 pixels from the edges of the drawing area, starts a new
+area: once the pointer is 5 pixels or more from the press, a preview
+band is blitted like the time span selection (so it is never part of a
+full draw, the PDF export or the copied image), stopping at the nearest
+area and at the file's time range; the release asks for the area
+(LLFR-00303, LLFR-00304). A press within 5 pixels of an area's edge
+drags that edge (LLFR-00313); a press inside it, further from both
+edges, drags the whole area (LLFR-00312). The dragged area follows the
+pointer on every plot of the tab (area_drag_moved, relayed by the plot
+panel), and the release asks once for its new span. With any other tool,
+or none, an area changes nothing a press does (LLFR-00318).
+
 On macOS, a wheel event whose delta the system inverted ("natural
 scrolling") is turned back to the physical direction, so that fingers
 moving up on the trackpad zoom in like a mouse wheel turned forward
@@ -151,6 +171,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 from matplotlib.text import Annotation
 from matplotlib.transforms import IdentityTransform
 from PyQt6 import sip
@@ -159,11 +180,12 @@ from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
-    ZOOM_TOOL_STR, is_delta_tool)
+    AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR,
+    TIP_TOOL_STR, ZOOM_TOOL_STR, is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import (
-    DELTA_X_KIND_STR, FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
+    AREA_COLOR_NAME_TUPLE, DEFAULT_AREA_COLOR_NAME_STR, DELTA_X_KIND_STR,
+    FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
 from view import delta_geometry, theme, value_text
 from view.delta_geometry import DeltaBracketPatch
 from view.text_note_editor import TextNoteEditor
@@ -301,6 +323,34 @@ DELTA_HEADROOM_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
 DELTA_HEADROOM_MAXIMUM_RATIO_F = 0.45
 # LLFR-00175: no delta marker is under the mouse.
 NO_DELTA_MARKER_ID_I = -1
+# LLFR-00305: an area is the marker color mixed with this much of the
+# plot background, drawn see-through with this opacity. Its preview
+# (LLFR-00303) is a little more opaque, so it reads as "in progress".
+AREA_PALE_RATIO_F = 0.45
+AREA_ALPHA_F = 0.25
+AREA_PREVIEW_ALPHA_F = 0.4
+# LLFR-00306: behind the grid (the axis is drawn at zorder 1.5), the
+# curves (2), the markers, delta markers, tips and text notes.
+AREA_ZORDER_F = 0.1
+AREA_LABEL_ZORDER_F = 0.2
+# LLFR-00307: gap (points) between the band's top left corner and its
+# label; LLFR-00308: gap between the label and the times below it,
+# larger than the padding of both boxes so that they never overlap.
+AREA_LABEL_OFFSET_POINTS_F = 3.0
+AREA_TIME_GAP_POINTS_F = 4.0
+# LLFR-00303, LLFR-00304, LLFR-00312, LLFR-00313: the 5 pixel rules of
+# the areas, in screen pixels (Qt logical pixels).
+AREA_THRESHOLD_PIXELS_F = 5.0
+# LLFR-00314: no area is under the mouse.
+NO_AREA_ID_I = -1
+# LLFR-00303, LLFR-00312, LLFR-00313: what a left press with the Area
+# tool does: nothing, create an area, move one, or move its start or
+# its end edge.
+AREA_DRAG_NONE_STR = ""
+AREA_DRAG_CREATE_STR = "create"
+AREA_DRAG_MOVE_STR = "move"
+AREA_DRAG_START_STR = "start"
+AREA_DRAG_END_STR = "end"
 # LLFR-00339, LLFR-00341: no text note is pressed, dragged or hit; for
 # the text field, a new note (not the edit of an existing one).
 NO_TEXT_NOTE_INDEX_I = -1
@@ -661,6 +711,12 @@ def pale_color_str(color_str: str, background_str: str,
 MARKER_PREVIEW_COLOR_STR = pale_color_str(
     MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR,
     MARKER_PREVIEW_PALE_RATIO_F)
+# LLFR-00305: the default color of an area and of its preview.
+AREA_COLOR_STR = pale_color_str(
+    MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR, AREA_PALE_RATIO_F)
+# LLFR-00351: the five area colors, by name, in menu order.
+AREA_COLOR_DICT = {name_str: theme.AREA_COLOR_DICT[name_str]
+                   for name_str in AREA_COLOR_NAME_TUPLE}
 
 
 class PlotWidget(QWidget):
@@ -704,6 +760,17 @@ class PlotWidget(QWidget):
         marker_preview_changed(float): the marker preview of the hovered
             plot moved to this time in s, or was hidden (NaN), so that
             the other plots of the tab follow (LLFR-00203).
+        area_create_requested(float, float): an area was drawn with the
+            Area tool (start and end time in s, start before end).
+        area_change_requested(int, float, float): an area was moved or
+            resized and released (area id, new start and end in s).
+        area_rename_requested(int): "Rename" chosen on an area.
+        area_color_requested(int, str): a color chosen in the "Color"
+            option of an area's menu (area id, color name).
+        area_delete_requested(int): "Delete" chosen on an area.
+        area_drag_moved(int, float, float): a dragged area is now shown
+            between these times (area id, start and end in s), so that
+            the other plots of the tab show it there too (LLFR-00310).
         text_note_create_requested(str, float, float): a text was
             confirmed in the text field opened by a click with the Text
             tool (text, x value of the clicked point in s or Hz, y value).
@@ -741,6 +808,12 @@ class PlotWidget(QWidget):
     delta_marker_delete_requested = pyqtSignal(int)
     marker_drag_moved = pyqtSignal(int, float)
     marker_preview_changed = pyqtSignal(float)
+    area_create_requested = pyqtSignal(float, float)
+    area_change_requested = pyqtSignal(int, float, float)
+    area_rename_requested = pyqtSignal(int)
+    area_color_requested = pyqtSignal(int, str)
+    area_delete_requested = pyqtSignal(int)
+    area_drag_moved = pyqtSignal(int, float, float)
     text_note_create_requested = pyqtSignal(str, float, float)
     text_note_move_requested = pyqtSignal(int, float, float)
     text_note_edit_requested = pyqtSignal(int, str)
@@ -841,6 +914,27 @@ class PlotWidget(QWidget):
         # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
         # grid is drawn; hidden until the Grid button is clicked.
         self.grid_shown_b = False
+        # LLFR-00305, LLFR-00307, LLFR-00308: areas to draw, as tuples
+        # (area_id_i, name_str, start_s, end_s), and their artists by id
+        # as tuples (band, label annotation, times annotation).
+        self.area_data_list = []
+        self.area_artist_dict = {}
+        # LLFR-00303, LLFR-00312, LLFR-00313: the left press of the Area
+        # tool: what it drags (AREA_DRAG_*), the area it drags, where it
+        # was pressed (widget point and time), whether the pointer moved
+        # far enough, the span shown now, the limits the dragged edges
+        # must stay within, and the time from the pointer to the start.
+        self.area_drag_mode_str = AREA_DRAG_NONE_STR
+        self.area_drag_id_i = NO_AREA_ID_I
+        self.area_press_point = QPoint()
+        self.area_press_time_s = 0.0
+        self.area_drag_moved_b = False
+        self.area_drag_span_tuple = (0.0, 0.0)
+        self.area_limit_tuple = (0.0, 0.0)
+        self.area_grab_offset_s = 0.0
+        # LLFR-00303: the preview band (made by rebuild_axes), blitted
+        # like the time span selection line.
+        self.area_preview_band = None
         # LLFR-00336, LLFR-00337: text notes to draw, as tuples
         # (text_str, time_s, value_f), and their annotations.
         self.text_note_list = []
@@ -1005,6 +1099,11 @@ class PlotWidget(QWidget):
         # point (the controller also says so).
         if not is_delta_tool(self.plot_tool_str):
             self.set_delta_first_point(())
+        # LLFR-00303, LLFR-00312, LLFR-00313, LLFR-00318: an area is only
+        # drawn, moved or resized with the Area tool; leaving it drops the
+        # drag (the area stays where it was, no area is created).
+        if self.plot_tool_str != AREA_TOOL_STR:
+            self.cancel_area_drag()
 
     def set_markers(self, marker_data_list: list) -> None:
         """Replace the vertical markers drawn in the plot.
@@ -1268,6 +1367,11 @@ class PlotWidget(QWidget):
         self.create_preview_artists()
         # LLFR-00208: so did those of the time span selection line.
         self.create_span_artists()
+        # LLFR-00305: the areas survive a redraw of the curves.
+        # LLFR-00303: and the preview band is made again.
+        self.area_artist_dict = {}
+        self.draw_areas()
+        self.create_area_preview_artist()
         self.apply_time_range()
         self.canvas.draw_idle()
 
@@ -1829,7 +1933,9 @@ class PlotWidget(QWidget):
             span selection line (LLFR-00208) is shown.
         """
         # LLFR-00203, LLFR-00208: both use the same fast drawing.
-        return self.preview_time_s is not None or self.time_span_shown_b
+        # LLFR-00303: so does the preview of a new area.
+        return (self.preview_time_s is not None or self.time_span_shown_b
+                or self.area_preview_shown())
 
     def blit_marker_preview(self) -> None:
         """Draw the marker preview over the last full draw of the canvas.
@@ -1885,6 +1991,10 @@ class PlotWidget(QWidget):
             self.place_span_artists()
             self.axes.draw_artist(self.span_line)
             self.axes.draw_artist(self.span_end_ticks)
+        if self.area_preview_shown() and self.area_preview_band is not None:
+            # LLFR-00303: the preview band of a new area, updated live.
+            self.place_area_preview()
+            self.axes.draw_artist(self.area_preview_band)
         self.canvas.blit(self.figure.bbox)
 
     def show_marker_preview(self, time_s: float) -> None:
@@ -2130,6 +2240,8 @@ class PlotWidget(QWidget):
         self.place_tips()
         # LLFR-00082, LLFR-00084: markers follow the new range.
         self.place_markers()
+        # LLFR-00305, LLFR-00307: and the areas and their labels.
+        self.place_areas()
         # LLFR-00337, LLFR-00338: so do the text notes.
         self.place_text_notes()
 
@@ -3320,8 +3432,39 @@ class PlotWidget(QWidget):
                 width_action.setCheckable(True)
                 width_action.setChecked(width_i == current_width_i)
             return menu, request_list
+        # LLFR-00314, LLFR-00317: inside an area, with nothing else drawn
+        # at the point (the items above came first), the area menu.
+        area_id_i = self.area_at(widget_point)
+        if area_id_i != NO_AREA_ID_I:
+            add_request_action(
+                menu, "Rename",
+                lambda chosen_id_i=area_id_i:
+                self.area_rename_requested.emit(chosen_id_i))
+            # LLFR-00351: the five colors, the area's own one checked.
+            color_menu = menu.addMenu("Color")
+            current_color_str = next(
+                area_tuple[4] for area_tuple in self.area_data_list
+                if area_tuple[0] == area_id_i)
+            for color_name_str in AREA_COLOR_NAME_TUPLE:
+                color_action = add_request_action(
+                    color_menu, color_name_str,
+                    lambda chosen_id_i=area_id_i,
+                    chosen_color_str=color_name_str:
+                    self.area_color_requested.emit(chosen_id_i,
+                                                   chosen_color_str))
+                color_action.setCheckable(True)
+                color_action.setChecked(color_name_str == current_color_str)
+            add_request_action(
+                menu, "Delete",
+                lambda chosen_id_i=area_id_i:
+                self.area_delete_requested.emit(chosen_id_i))
+            # LLFR-00314 Note: a plot covered by an area can be deleted.
+            add_request_action(menu, "Delete plot",
+                               lambda: self.plot_delete_requested.emit())
+            return menu, request_list
         # LLFR-00048: empty area of the plot (no curve, pinned tip,
-        # vertical marker, delta marker or text note under the mouse).
+        # vertical marker, delta marker, area or text note under the
+        # mouse).
         add_request_action(menu, "Delete plot",
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
@@ -3540,6 +3683,7 @@ class PlotWidget(QWidget):
         # came after it) is dropped; the item stays where it was.
         self.cancel_tip_drag()
         self.cancel_marker_drag()
+        self.cancel_area_drag()
         self.cancel_note_drag()
         # LLFR-00339: a text note is on top of everything else, so a
         # press on it moves it, with any tool or none, and never pins,
@@ -3553,6 +3697,12 @@ class PlotWidget(QWidget):
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i != NO_TIP_INDEX_I:
             self.tip_press_at(widget_point, tip_index_i)
+            return
+        # LLFR-00303, LLFR-00312, LLFR-00313: with the Area tool, a press
+        # creates, moves or resizes an area. LLFR-00318: with any other
+        # tool, an area changes nothing below.
+        if self.plot_tool_str == AREA_TOOL_STR:
+            self.area_press_at(widget_point)
             return
         # LLFR-00086: a press on a marker starts a drag and does nothing
         # else (no new marker, no zoom, no pin).
@@ -3865,6 +4015,8 @@ class PlotWidget(QWidget):
         self.cancel_note_drag()
         # LLFR-00208: a time span selection ends without a zoom.
         self.cancel_time_span()
+        # LLFR-00303, LLFR-00312, LLFR-00313: an area drag too.
+        self.cancel_area_drag()
 
     def is_mouse_drag_in_progress(self) -> bool:
         """Tell whether the user is dragging the mouse on this plot.
@@ -3878,11 +4030,14 @@ class PlotWidget(QWidget):
         """
         # LLFR-00207: the Z key does nothing while one of these drags is
         # in progress. A new kind of drag only has to be added here.
+        # LLFR-00207: and an area drag, from the press of the Area tool to
+        # the release.
         return (self.panning_b
                 or self.drag_marker_id_i != NO_MARKER_ID_I
                 or self.drag_tip_index_i != NO_TIP_INDEX_I
                 or self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I
-                or self.time_span_drag_b)
+                or self.time_span_drag_b
+                or self.area_drag_mode_str != AREA_DRAG_NONE_STR)
 
     def retire(self) -> None:
         """Stop all interaction before the widget is removed.
@@ -3916,6 +4071,8 @@ class PlotWidget(QWidget):
         # again.
         self.time_span_drag_b = False
         self.time_span_shown_b = False
+        # LLFR-00303, LLFR-00312: an area drag stops without a request.
+        self.reset_area_drag()
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
         self.retired_b = True
         self.blockSignals(True)
@@ -4188,7 +4345,8 @@ class PlotWidget(QWidget):
         if (self.drag_marker_id_i != NO_MARKER_ID_I
                 or self.drag_tip_index_i != NO_TIP_INDEX_I
                 or self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I
-                or self.time_span_drag_b):
+                or self.time_span_drag_b
+                or self.area_drag_mode_str != AREA_DRAG_NONE_STR):
             return
         self.panning_b = True
         self.pan_anchor_s = self.time_at(widget_point)
@@ -4291,6 +4449,630 @@ class PlotWidget(QWidget):
         self.panning_b = False
 
     # ----------------------------------------------------------------
+    # Areas
+    # ----------------------------------------------------------------
+
+    def set_areas(self, area_data_list: list) -> None:
+        """Replace the areas drawn in the plot.
+
+        Inputs:
+            area_data_list: list of tuples (area_id_i, name_str, start_s,
+                end_s, color_name_str), in creation order; without
+                color_name_str, or with an unknown one, the default color
+                is used.
+        Outputs: none. Only the areas are redrawn.
+        """
+        # LLFR-00304, LLFR-00315, LLFR-00316: draw exactly these areas.
+        # LLFR-00311: a frequency plot never shows areas.
+        # LLFR-00351: each in its color.
+        self.area_data_list = []
+        for area_tuple in area_data_list:
+            if self.frequency_plot_b:
+                break
+            color_name_str = (str(area_tuple[4]) if len(area_tuple) > 4
+                              else DEFAULT_AREA_COLOR_NAME_STR)
+            if color_name_str not in AREA_COLOR_DICT:
+                color_name_str = DEFAULT_AREA_COLOR_NAME_STR
+            self.area_data_list.append(
+                (int(area_tuple[0]), str(area_tuple[1]),
+                 float(area_tuple[2]), float(area_tuple[3]),
+                 color_name_str))
+        # LLFR-00312, LLFR-00313: a drag of an area that is gone ends.
+        if (self.area_drag_mode_str not in (AREA_DRAG_NONE_STR,
+                                            AREA_DRAG_CREATE_STR)
+                and self.area_drag_id_i not in {
+                    area_tuple[0] for area_tuple in self.area_data_list}):
+            self.reset_area_drag()
+        self.draw_areas()
+        # LLFR-00310: the areas change on every time plot of every tab; a
+        # hidden plot draws them only when it is shown (showEvent).
+        self.draw_when_visible()
+
+    def draw_areas(self) -> None:
+        """Draw the stored areas, replacing the previous ones.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00316: remove the old bands and labels first.
+        for artist_tuple in self.area_artist_dict.values():
+            for artist in artist_tuple:
+                artist.remove()
+        self.area_artist_dict = {}
+        x_axis_transform = self.axes.get_xaxis_transform()
+        for (area_id_i, name_str, start_s, end_s,
+             color_name_str) in self.area_data_list:
+            # LLFR-00305: a see-through band in the area's color, x in
+            # data and y in axes coordinates (0 to 1), so it covers the
+            # whole y range at any zoom. LLFR-00306: behind everything.
+            # LLFR-00351: every color has the same opacity.
+            band = Rectangle(
+                (start_s, 0.0), end_s - start_s, 1.0,
+                transform=x_axis_transform,
+                facecolor=AREA_COLOR_DICT[color_name_str],
+                edgecolor="none", alpha=AREA_ALPHA_F, zorder=AREA_ZORDER_F)
+            self.axes.add_artist(band)
+            band.set_in_layout(False)
+            # LLFR-00307: the name in the upper-left corner of the band,
+            # inside the drawing area, shown literally (never as
+            # mathtext); place_areas keeps it at the left of the part of
+            # the band that is shown.
+            label = self.axes.annotate(
+                name_str, xy=(start_s, 1.0), xycoords=x_axis_transform,
+                xytext=(AREA_LABEL_OFFSET_POINTS_F,
+                        -AREA_LABEL_OFFSET_POINTS_F),
+                textcoords="offset points", parse_math=False,
+                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
+                horizontalalignment="left", verticalalignment="top",
+                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
+            label.set_in_layout(False)
+            # LLFR-00308: the start and end times directly below the
+            # label, anchored on the label's box so that they follow it.
+            times_text = self.axes.annotate(
+                value_text.format_area_times_text(start_s, end_s),
+                xy=(0.0, 0.0), xycoords=label,
+                xytext=(0.0, -AREA_TIME_GAP_POINTS_F),
+                textcoords="offset points", parse_math=False,
+                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
+                horizontalalignment="left", verticalalignment="top",
+                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
+            times_text.set_in_layout(False)
+            self.area_artist_dict[area_id_i] = (band, label, times_text)
+        self.place_areas()
+
+    def place_areas(self) -> None:
+        """Show the areas inside the time range, labels at their top.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00307, LLFR-00308: the label and the times stay at the top
+        # left of the visible part of the band when the range changes; an
+        # area outside the shown range is hidden (its band is clipped).
+        view_start_s, view_end_s = sorted(self.axes.get_xlim())
+        for band, label, times_text in self.area_artist_dict.values():
+            start_s = float(band.get_x())
+            end_s = start_s + float(band.get_width())
+            visible_b = bool(end_s > view_start_s and start_s < view_end_s)
+            for artist in (band, label, times_text):
+                artist.set_visible(visible_b)
+            label.xy = (max(start_s, view_start_s), 1.0)
+
+    def create_area_preview_artist(self) -> None:
+        """Create the hidden band of the preview of a new area.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00303, LLFR-00129, LLFR-00133: like the marker preview, the
+        # band is not added to the axes, so no full draw, export or copy
+        # ever draws it; only blit_overlay draws it.
+        self.area_preview_band = Rectangle(
+            (0.0, 0.0), 0.0, 1.0, transform=self.axes.get_xaxis_transform(),
+            facecolor=AREA_COLOR_STR, edgecolor=MARKER_COLOR_STR,
+            linewidth=1.0, alpha=AREA_PREVIEW_ALPHA_F)
+        self.area_preview_band.set_figure(self.figure)
+        self.area_preview_band.axes = self.axes
+        self.area_preview_band.set_clip_box(self.axes.bbox)
+        self.overlay_background = None
+
+    def place_area_preview(self) -> None:
+        """Put the preview band between the pressed and current times.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00303: from the time of the press to the time under the
+        # pointer, stopped at the nearest area.
+        start_s, end_s = self.area_drag_span_tuple
+        self.area_preview_band.set_x(start_s)
+        self.area_preview_band.set_width(end_s - start_s)
+
+    def area_preview_shown(self) -> bool:
+        """Tell whether the preview of a new area is shown.
+
+        Inputs: none.
+        Outputs: True from the moment the pointer got 5 pixels or more
+            from the press of a new area until the release.
+        """
+        # LLFR-00303: the preview appears after a 5 pixel move.
+        return (self.area_drag_mode_str == AREA_DRAG_CREATE_STR
+                and self.area_drag_moved_b)
+
+    def area_threshold_px(self) -> float:
+        """Return the 5 pixel distance of the area rules, in display px.
+
+        Inputs: none.
+        Outputs: 5 screen pixels, scaled by the device pixel ratio.
+        """
+        # LLFR-00303, LLFR-00312, LLFR-00313: screen pixels, whatever the
+        # device pixel ratio.
+        return AREA_THRESHOLD_PIXELS_F * self.pixel_ratio_f()
+
+    def time_x_px(self, time_s: float) -> float:
+        """Return the display x pixel of a time.
+
+        Inputs:
+            time_s: a time, in seconds.
+        Outputs: its x position in display pixels.
+        """
+        # LLFR-00312, LLFR-00313, LLFR-00314: hit tests in display pixels.
+        return float(self.axes.transData.transform((time_s, 0.0))[0])
+
+    def area_at(self, widget_point) -> int:
+        """Return the id of the area under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the area id, or -1 when the point is not inside an area
+            of the drawing area.
+        """
+        # LLFR-00314: a right-click inside the band; the last created
+        # area is checked first.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return NO_AREA_ID_I
+        for area_id_i, _, start_s, end_s, _ in reversed(
+                self.area_data_list):
+            artist_tuple = self.area_artist_dict.get(area_id_i)
+            if artist_tuple is not None:
+                start_s = float(artist_tuple[0].get_x())
+                end_s = start_s + float(artist_tuple[0].get_width())
+            if self.time_x_px(start_s) <= display_x_px <= self.time_x_px(
+                    end_s):
+                return area_id_i
+        return NO_AREA_ID_I
+
+    def area_press_part_tuple(self, widget_point) -> tuple:
+        """Tell which area, and which part of it, a press point is on.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: (area_id_i, AREA_DRAG_START_STR or AREA_DRAG_END_STR)
+            within 5 pixels of an edge (the nearer edge wins), else
+            (area_id_i, AREA_DRAG_MOVE_STR) inside the band, else
+            (NO_AREA_ID_I, AREA_DRAG_NONE_STR).
+        """
+        # LLFR-00313: within 5 pixels of an edge resizes; LLFR-00312:
+        # further inside moves the whole area.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return (NO_AREA_ID_I, AREA_DRAG_NONE_STR)
+        threshold_px = self.area_threshold_px()
+        best_tuple = (NO_AREA_ID_I, AREA_DRAG_NONE_STR)
+        best_distance_px = math.inf
+        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
+            for edge_s, mode_str in ((start_s, AREA_DRAG_START_STR),
+                                     (end_s, AREA_DRAG_END_STR)):
+                distance_px = abs(self.time_x_px(edge_s) - display_x_px)
+                if distance_px <= threshold_px and (
+                        distance_px < best_distance_px):
+                    best_distance_px = distance_px
+                    best_tuple = (area_id_i, mode_str)
+        if best_tuple[0] != NO_AREA_ID_I:
+            return best_tuple
+        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
+            if self.time_x_px(start_s) < display_x_px < self.time_x_px(
+                    end_s):
+                return (area_id_i, AREA_DRAG_MOVE_STR)
+        return (NO_AREA_ID_I, AREA_DRAG_NONE_STR)
+
+    def area_gap_tuple(self, low_s: float, high_s: float,
+                       except_area_id_i: int = NO_AREA_ID_I) -> tuple:
+        """Return the free time range around a span, between areas.
+
+        Inputs:
+            low_s: start of the span, in seconds.
+            high_s: end of the span, in seconds, not before low_s.
+            except_area_id_i: an area left out (the one dragged).
+        Outputs: (lowest_s, highest_s): the end of the nearest area
+            before the span and the start of the nearest area after it,
+            limited to the file's time range (LLFR-00119).
+        """
+        # LLFR-00303, LLFR-00312, LLFR-00313: a new or dragged area stops
+        # at the edge of the next area; LLFR-00119: and at the file's
+        # time range (the range covering all curves of a time plot).
+        lowest_s, highest_s = self.full_time_range_tuple()
+        for area_id_i, _, start_s, end_s, _ in self.area_data_list:
+            if area_id_i == except_area_id_i:
+                continue
+            if end_s <= low_s:
+                lowest_s = max(lowest_s, end_s)
+            elif start_s >= high_s:
+                highest_s = min(highest_s, start_s)
+        return (lowest_s, highest_s)
+
+    def area_press_at(self, widget_point) -> None:
+        """Start creating, moving or resizing an area at a press point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed with the Area tool.
+        Outputs: none. Nothing is shown until the pointer moves.
+        """
+        # LLFR-00311: never on a frequency plot.
+        if self.frequency_plot_b:
+            return
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return
+        area_id_i, mode_str = self.area_press_part_tuple(widget_point)
+        press_time_s = self.time_at(widget_point)
+        if area_id_i != NO_AREA_ID_I:
+            # LLFR-00312, LLFR-00313: grab the area or one of its edges.
+            area_tuple = next(area_tuple for area_tuple in self.area_data_list
+                              if area_tuple[0] == area_id_i)
+            start_s, end_s = area_tuple[2], area_tuple[3]
+            lowest_s, highest_s = self.area_gap_tuple(start_s, end_s,
+                                                      area_id_i)
+            # An area that is already beyond a limit is never pulled in.
+            self.area_limit_tuple = (min(lowest_s, start_s),
+                                     max(highest_s, end_s))
+            self.area_grab_offset_s = press_time_s - start_s
+            self.area_drag_span_tuple = (start_s, end_s)
+        else:
+            # LLFR-00303: a new area starts more than 5 pixels from the
+            # edges of the drawing area, outside any area.
+            threshold_px = self.area_threshold_px()
+            axes_box = self.axes.bbox
+            if not (float(axes_box.x0) + threshold_px < display_x_px
+                    < float(axes_box.x1) - threshold_px
+                    and float(axes_box.y0) + threshold_px < display_y_px
+                    < float(axes_box.y1) - threshold_px):
+                return
+            lowest_s, highest_s = self.area_gap_tuple(press_time_s,
+                                                      press_time_s)
+            if not lowest_s <= press_time_s <= highest_s:
+                return
+            mode_str = AREA_DRAG_CREATE_STR
+            self.area_limit_tuple = (lowest_s, highest_s)
+            self.area_drag_span_tuple = (press_time_s, press_time_s)
+        # LLFR-00207: from the press to the release, the Z key does
+        # nothing (is_mouse_drag_in_progress).
+        self.area_drag_mode_str = mode_str
+        self.area_drag_id_i = area_id_i
+        self.area_press_point = QPoint(widget_point)
+        self.area_press_time_s = press_time_s
+        self.area_drag_moved_b = False
+        # LLFR-00042: a drag is not a hover over a curve.
+        self.hide_hover_tip()
+
+    def area_reached_b(self, widget_point) -> bool:
+        """Tell whether a point is 5 pixels or more from the area press.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True when the straight-line distance in screen pixels
+            from the press point is 5 or more.
+        """
+        # LLFR-00303, LLFR-00304: widget points are screen pixels.
+        return math.hypot(
+            widget_point.x() - self.area_press_point.x(),
+            widget_point.y() - self.area_press_point.y()) >= (
+                AREA_THRESHOLD_PIXELS_F)
+
+    def area_pointer_time_s(self, widget_point) -> float:
+        """Return the time under a pointer, held inside the drawing area.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the time in seconds; for a point left or right of the
+            drawing area, the time at that edge.
+        """
+        # LLFR-00304: a release outside the drawing area ends the area at
+        # the nearer left or right edge.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        left_px, right_px = sorted((float(self.axes.bbox.x0),
+                                    float(self.axes.bbox.x1)))
+        display_x_px = min(max(display_x_px, left_px), right_px)
+        return float(self.axes.transData.inverted().transform(
+            (display_x_px, display_y_px))[0])
+
+    def area_minimum_width_s(self) -> float:
+        """Return the time that 5 screen pixels take at the shown range.
+
+        Inputs: none.
+        Outputs: a duration in seconds, at least 0.
+        """
+        # LLFR-00313: a resized edge stays 5 pixels from the other edge.
+        start_s, end_s = self.time_range_tuple()
+        width_px = abs(float(self.axes.bbox.width))
+        if width_px <= 0.0:
+            return 0.0
+        return abs(end_s - start_s) * self.area_threshold_px() / width_px
+
+    def dragged_area_span_tuple(self, widget_point) -> tuple:
+        """Return the span the dragged area takes for a pointer position.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: (start_s, end_s) of the area being created, moved or
+            resized, within the limits of the press.
+        """
+        lowest_s, highest_s = self.area_limit_tuple
+        pointer_s = self.area_pointer_time_s(widget_point)
+        if self.area_drag_mode_str == AREA_DRAG_CREATE_STR:
+            # LLFR-00303: from the press to the pointer, stopped at the
+            # nearest area and the file's time range.
+            end_s = min(max(pointer_s, lowest_s), highest_s)
+            return tuple(sorted((self.area_press_time_s, end_s)))
+        area_tuple = next(
+            (area_tuple for area_tuple in self.area_data_list
+             if area_tuple[0] == self.area_drag_id_i), None)
+        if area_tuple is None:
+            return self.area_drag_span_tuple
+        start_s, end_s = area_tuple[2], area_tuple[3]
+        if self.area_drag_mode_str == AREA_DRAG_MOVE_STR:
+            # LLFR-00312: the width is kept; the whole area stays within
+            # the file's time range and stops at the next area.
+            width_s = end_s - start_s
+            new_start_s = pointer_s - self.area_grab_offset_s
+            new_start_s = max(min(new_start_s, highest_s - width_s),
+                              lowest_s)
+            return (new_start_s, new_start_s + width_s)
+        minimum_width_s = self.area_minimum_width_s()
+        if self.area_drag_mode_str == AREA_DRAG_START_STR:
+            # LLFR-00313: the start edge moves, the end edge stays; at
+            # least 5 pixels between them.
+            new_start_s = max(min(pointer_s, end_s - minimum_width_s),
+                              lowest_s)
+            if not new_start_s < end_s:
+                new_start_s = start_s
+            return (new_start_s, end_s)
+        # LLFR-00313: the end edge moves, the start edge stays.
+        new_end_s = min(max(pointer_s, start_s + minimum_width_s),
+                        highest_s)
+        if not new_end_s > start_s:
+            new_end_s = end_s
+        return (start_s, new_end_s)
+
+    def area_drag_to(self, widget_point) -> None:
+        """Follow the pointer while an area is created, moved or resized.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits area_drag_moved, as the last step, when a
+            moved or resized area is shown at a new place.
+        """
+        if self.area_drag_mode_str == AREA_DRAG_NONE_STR:
+            return
+        if self.area_drag_mode_str == AREA_DRAG_CREATE_STR:
+            # LLFR-00303: the preview appears once the pointer is 5
+            # pixels or more from the press, and then follows it.
+            if not self.area_drag_moved_b:
+                if not self.area_reached_b(widget_point):
+                    return
+                self.area_drag_moved_b = True
+            self.area_drag_span_tuple = self.dragged_area_span_tuple(
+                widget_point)
+            # LLFR-00303: updated live, by redrawing only the preview.
+            self.blit_overlay()
+            return
+        # LLFR-00312, LLFR-00313: until the mouse leaves the pressed
+        # pixel column, nothing moves (a press and release is no drag).
+        if (not self.area_drag_moved_b
+                and widget_point.x() == self.area_press_point.x()):
+            return
+        span_tuple = self.dragged_area_span_tuple(widget_point)
+        if self.area_drag_moved_b and span_tuple == self.area_drag_span_tuple:
+            return
+        self.area_drag_moved_b = True
+        self.area_drag_span_tuple = span_tuple
+        # LLFR-00308: the band, the label and the times follow live.
+        self.move_area_artists(self.area_drag_id_i, *span_tuple)
+        self.canvas.draw_idle()
+        # LLFR-00310: the other plots of the tab show the area here.
+        self.area_drag_moved.emit(self.area_drag_id_i, span_tuple[0],
+                                  span_tuple[1])
+
+    def area_release_at(self, widget_point) -> None:
+        """End an area drag at the point where the button was released.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits area_create_requested or
+            area_change_requested once, as the last step.
+        """
+        # LLFR-00304: a release less than 5 pixels from the press creates
+        # no area and shows no message.
+        if (self.area_drag_mode_str == AREA_DRAG_CREATE_STR
+                and not self.area_reached_b(widget_point)):
+            self.reset_area_drag()
+            return
+        self.area_drag_to(widget_point)
+        self.finish_area_drag()
+
+    def finish_area_drag(self) -> None:
+        """End an area drag at the span last shown.
+
+        Inputs: none.
+        Outputs: none. Emits area_create_requested for a new area, or
+            area_change_requested for a moved or resized one, as the
+            very last step; nothing when the pointer never moved enough.
+        """
+        # LLFR-00304, LLFR-00312, LLFR-00313: also used when the release
+        # was lost, so that the span the user last saw is applied.
+        mode_str = self.area_drag_mode_str
+        area_id_i = self.area_drag_id_i
+        start_s, end_s = self.area_drag_span_tuple
+        moved_b = self.area_drag_moved_b
+        self.reset_area_drag()
+        if not moved_b or mode_str == AREA_DRAG_NONE_STR:
+            return
+        # The receiver redraws this widget, so this is the last step.
+        if mode_str == AREA_DRAG_CREATE_STR:
+            if end_s > start_s:
+                self.area_create_requested.emit(start_s, end_s)
+            return
+        self.area_change_requested.emit(area_id_i, start_s, end_s)
+
+    def reset_area_drag(self) -> None:
+        """Clear the state of an area drag, removing its preview.
+
+        Inputs: none.
+        Outputs: none. A moved area keeps its drawn place.
+        """
+        # LLFR-00303, LLFR-00304: the preview goes with the drag.
+        preview_shown_b = self.area_preview_shown()
+        self.area_drag_mode_str = AREA_DRAG_NONE_STR
+        self.area_drag_id_i = NO_AREA_ID_I
+        self.area_drag_moved_b = False
+        if preview_shown_b and not self.retired_b:
+            self.blit_overlay()
+
+    def cancel_area_drag(self) -> None:
+        """Forget the area drag in progress, if any.
+
+        Inputs: none.
+        Outputs: none. No area is created; a moved or resized area is
+            drawn again where it was.
+        """
+        # LLFR-00312, LLFR-00313: without a release, nothing changes.
+        moved_b = (self.area_drag_mode_str not in (AREA_DRAG_NONE_STR,
+                                                   AREA_DRAG_CREATE_STR)
+                   and self.area_drag_moved_b)
+        area_id_i = self.area_drag_id_i
+        self.reset_area_drag()
+        if not moved_b:
+            return
+        self.draw_areas()
+        self.canvas.draw_idle()
+        # LLFR-00310: the other plots of the tab show it back too.
+        for stored_id_i, _, start_s, end_s, _ in self.area_data_list:
+            if stored_id_i == area_id_i:
+                self.area_drag_moved.emit(area_id_i, start_s, end_s)
+
+    def move_area_artists(self, area_id_i: int, start_s: float,
+                          end_s: float) -> None:
+        """Move a drawn area's band, label and times to a new span.
+
+        Inputs:
+            area_id_i: id of the area.
+            start_s: the new start, in seconds.
+            end_s: the new end, in seconds.
+        Outputs: none. Only the drawing changes; the stored areas are
+            changed by the controller after the drag.
+        """
+        # LLFR-00312, LLFR-00313: the area follows the mouse.
+        artist_tuple = self.area_artist_dict.get(area_id_i)
+        if artist_tuple is None:
+            return
+        band, _, times_text = artist_tuple
+        band.set_x(start_s)
+        band.set_width(end_s - start_s)
+        # LLFR-00308: the times shown follow the area's position.
+        times_text.set_text(value_text.format_area_times_text(start_s, end_s))
+        self.place_areas()
+
+    def follow_area_drag(self, area_id_i: int, start_s: float,
+                         end_s: float) -> None:
+        """Show an area dragged on another plot at its current span.
+
+        Inputs:
+            area_id_i: id of the dragged area.
+            start_s: the start it is shown at on the dragged plot, in s.
+            end_s: the end it is shown at there, in s.
+        Outputs: none. The stored areas do not change.
+        """
+        # LLFR-00310: while an area is dragged on one plot, it follows
+        # the pointer on every time plot of the current tab; LLFR-00308:
+        # its times too.
+        if int(area_id_i) not in self.area_artist_dict:
+            return
+        self.move_area_artists(int(area_id_i), float(start_s), float(end_s))
+        self.draw_when_visible()
+
+    def area_id_list(self) -> list:
+        """Return the ids of the areas drawn, in creation order.
+
+        Inputs: none.
+        Outputs: a list of int.
+        """
+        # LLFR-00310: for the plot panel and the tests.
+        return [area_tuple[0] for area_tuple in self.area_data_list]
+
+    def area_artist_tuple(self, area_id_i: int) -> tuple:
+        """Return the artists of an area.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: (band, label, times text), or () for an unknown id.
+        """
+        # LLFR-00305, LLFR-00307, LLFR-00308: for the tests.
+        return tuple(self.area_artist_dict.get(area_id_i, ()))
+
+    def area_drawn_span_tuple(self, area_id_i: int) -> tuple:
+        """Return the span an area is drawn at now.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: (start_s, end_s) of its band, or () for an unknown id.
+        """
+        # LLFR-00312, LLFR-00313: during a drag, the dragged place.
+        artist_tuple = self.area_artist_dict.get(area_id_i)
+        if artist_tuple is None:
+            return ()
+        start_s = float(artist_tuple[0].get_x())
+        return (start_s, start_s + float(artist_tuple[0].get_width()))
+
+    def area_label_text(self, area_id_i: int) -> str:
+        """Return the label text of an area.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: the name shown, or "" for an unknown id.
+        """
+        # LLFR-00307: for the tests.
+        artist_tuple = self.area_artist_dict.get(area_id_i)
+        return artist_tuple[1].get_text() if artist_tuple else ""
+
+    def area_times_text(self, area_id_i: int) -> str:
+        """Return the times text shown below an area's label.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: the text, or "" for an unknown id.
+        """
+        # LLFR-00308: for the tests.
+        artist_tuple = self.area_artist_dict.get(area_id_i)
+        return artist_tuple[2].get_text() if artist_tuple else ""
+
+    def area_preview_span_tuple(self) -> tuple:
+        """Return the span of the preview of a new area.
+
+        Inputs: none.
+        Outputs: (start_s, end_s), or () while no preview is shown.
+        """
+        # LLFR-00303: for the tests.
+        if not self.area_preview_shown():
+            return ()
+        return tuple(self.area_drag_span_tuple)
+
+    # ----------------------------------------------------------------
     # matplotlib event handlers
     # ----------------------------------------------------------------
 
@@ -4345,6 +5127,15 @@ class PlotWidget(QWidget):
                 self.finish_time_span()
                 return
             self.span_drag_to(widget_point)
+            return
+        if self.area_drag_mode_str != AREA_DRAG_NONE_STR:
+            # LLFR-00303, LLFR-00312, LLFR-00313: a move with the left
+            # button held after an Area press follows the pointer. A lost
+            # release ends the drag as if the button had been released.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_area_drag()
+                return
+            self.area_drag_to(widget_point)
             return
         # LLFR-00042: any other move runs the hover code.
         self.hover_at(widget_point)
@@ -4428,6 +5219,10 @@ class PlotWidget(QWidget):
         # a zoom to the selected span.
         if self.time_span_drag_b:
             self.span_release_at(widget_point)
+            return
+        # LLFR-00304, LLFR-00312, LLFR-00313: or ends an Area press.
+        if self.area_drag_mode_str != AREA_DRAG_NONE_STR:
+            self.area_release_at(widget_point)
             return
         self.release_at(widget_point)
 
