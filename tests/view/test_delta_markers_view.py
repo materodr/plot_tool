@@ -14,6 +14,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import button_name, covers, get_qt_application
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.support import button_tip_line_list, requires_qt
 
 from controller.plot_tools import (
@@ -740,8 +741,8 @@ class DeltaWindowTestCase(unittest.TestCase):
         self.controller = MainController(self.main_window)
         self.controller.start()
         self.main_window.show()
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             self.controller.file_controller.open_file_requested()
         self.process_events()
         self.top_panel = self.main_window.top_panel

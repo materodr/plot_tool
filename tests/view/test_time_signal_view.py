@@ -18,6 +18,7 @@ import unittest
 from unittest import mock
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 # LLFR-00332: the minimum contrast of the green name.
 MINIMUM_CONTRAST_F = 4.5
@@ -360,8 +361,8 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             QTest.mouseClick(self.main_window.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()

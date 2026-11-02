@@ -15,11 +15,16 @@ in green, also while it is selected (LLFR-00332). The menu is shown
 once the right-click has been handled, and its request is emitted after
 the menu is closed, so a request may change the list safely.
 
-The first line of the panel is the file name line (LLFR-00362): a
-label, not an item of the list, with the name of the opened data file,
-shortened in the middle with "..." when it is too wide, and the whole
-name in a tip while it is shortened. It is empty while no file is open
-(LLFR-00363).
+The first row of the signal list is the file name row (LLFR-00362):
+the name of the opened data file, in bold, shortened in the middle with
+"..." when it is too wide, and the whole name in a tip while it is
+shortened. It is drawn inside the list's frame, above the rows of the
+signals, in a strip kept free for it at the top of the list
+(QAbstractScrollArea's viewport margins), so it is not an item of the
+list: it can't be selected, also not by a Shift + click range, dragged,
+double-clicked, plotted with Enter or right-clicked, and the search
+never hides it; the "No matching signals" text is shown below it. It is
+hidden while no file is open (LLFR-00363).
 
 Several signals can be selected (HLFR-00063): a click selects one, a
 click with the Data tip key (Cmd on macOS, which Qt reports as the
@@ -33,7 +38,7 @@ from a selected signal carries every selected name, in list order
 import json
 
 from PyQt6.QtCore import (
-    QByteArray, QItemSelectionModel, QMimeData, QPoint, Qt, QTimer,
+    QByteArray, QEvent, QItemSelectionModel, QMimeData, QPoint, Qt, QTimer,
     pyqtSignal)
 from PyQt6.QtGui import QBrush, QColor, QPalette
 from PyQt6.QtWidgets import (
@@ -64,15 +69,18 @@ COPY_NAME_TEXT_STR = "Copy name"
 COPY_EQUATION_TEXT_STR = "Copy equation"
 RENAME_SIGNAL_TEXT_STR = "Rename"
 DELETE_SIGNAL_TEXT_STR = "Delete signal"
+# LLFR-00362: left, top, right and bottom margins of the file name row,
+# the padding of a signal row in the theme.
+FILE_NAME_ROW_MARGIN_TUPLE = (8, 4, 8, 4)
 
 
 class FileNameLabel(QLabel):
-    """The file name line above the signal list (LLFR-00362).
+    """The file name row at the top of the signal list (LLFR-00362).
 
-    It shows the whole file name when it fits in the label's width, and
-    otherwise the name shortened in the middle with "...", with the
-    whole name as its tip. It cannot be selected, dragged or plotted,
-    and has no menu.
+    It shows the whole file name, in bold, when it fits in the label's
+    width, and otherwise the name shortened in the middle with "...",
+    with the whole name as its tip. It cannot be selected, dragged or
+    plotted, and has no menu.
 
     Inputs:
         parent: optional parent widget.
@@ -101,9 +109,58 @@ class FileNameLabel(QLabel):
         self.setSizePolicy(QSizePolicy.Policy.Ignored,
                            QSizePolicy.Policy.Preferred)
         self.setMinimumWidth(1)
-        # LLFR-00363: the empty line keeps the height of one line, so
-        # the list does not move when a file is opened.
-        self.setMinimumHeight(self.fontMetrics().height())
+        # LLFR-00362: bold letters, with the padding of a signal row
+        # (theme: "padding: 4px 8px"), so it lines up with the names.
+        bold_font = self.font()
+        bold_font.setBold(True)
+        self.setFont(bold_font)
+        self.setContentsMargins(*FILE_NAME_ROW_MARGIN_TUPLE)
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft
+                          | Qt.AlignmentFlag.AlignVCenter)
+        self.setObjectName("file_name_label")
+
+    def row_height(self) -> int:
+        """Return the height of the row, in pixels.
+
+        Inputs: none.
+        Outputs: one line of bold text with the row's top and bottom
+            margins.
+        """
+        # LLFR-00362: as high as a signal row.
+        margins = self.contentsMargins()
+        return (self.fontMetrics().height() + margins.top()
+                + margins.bottom())
+
+    def mousePressEvent(self, event) -> None:
+        """Take a click on the row, so that it never reaches the list.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none. The row is not a signal: a click (also with the
+            Data tip key or Shift) selects nothing.
+        """
+        # LLFR-00362: not selected, not part of a Shift + click range.
+        event.accept()
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        """Take a double-click on the row, which plots nothing.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00362: a double-click on the row is ignored (LLFR-00019).
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:
+        """Take a drag from the row, which drags nothing.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00362: the row is not dragged.
+        event.accept()
 
     def set_file_name(self, file_name_str: str) -> None:
         """Show a new file name, shortened when it does not fit.
@@ -196,6 +253,9 @@ class SignalListWidget(QListWidget):
     Inputs:
         parent: optional parent widget.
     Attributes:
+        file_name_label: the FileNameLabel of the file name row, at the
+            top of the list, above the viewport (LLFR-00362); hidden
+            while no file is open (LLFR-00363).
         no_match_label: label shown inside the list area when no signal
             matches the search (LLFR-00097); hidden by default.
         pressed_item: the item under the last left press, or None.
@@ -246,6 +306,69 @@ class SignalListWidget(QListWidget):
         no_match_layout.addWidget(self.no_match_label, 0,
                                   Qt.AlignmentFlag.AlignTop)
         self.no_match_label.hide()
+        # LLFR-00362: the file name row is a child of the list itself,
+        # not of its viewport, placed in the strip above the viewport,
+        # so the rows of the signals start below it and it never
+        # scrolls away; LLFR-00363: hidden until a file is opened.
+        self.file_name_label = FileNameLabel(self)
+        self.file_name_label.hide()
+
+    def show_file_name_row(self, file_name_str: str) -> None:
+        """Show the file name row, or hide it for no file.
+
+        Inputs:
+            file_name_str: the name of the opened data file, or "" while
+                no file is open.
+        Outputs: none.
+        """
+        # LLFR-00362, LLFR-00363: the first row follows the opened file.
+        self.file_name_label.set_file_name(file_name_str)
+        shown_b = bool(self.file_name_label.file_name_str)
+        top_margin_i = self.file_name_label.row_height() if shown_b else 0
+        # LLFR-00362: the signal rows (and the "No matching signals"
+        # text, LLFR-00097) start below the row.
+        self.setViewportMargins(0, top_margin_i, 0, 0)
+        self.file_name_label.setVisible(shown_b)
+        self.place_file_name_row()
+
+    def place_file_name_row(self) -> None:
+        """Put the file name row in the strip above the viewport.
+
+        Inputs: none.
+        Outputs: none. The row is as wide as the viewport, so it never
+            covers the scroll bar.
+        """
+        # LLFR-00362: the first row of the list, across its width.
+        viewport_rectangle = self.viewport().geometry()
+        row_height_i = self.file_name_label.row_height()
+        self.file_name_label.setGeometry(
+            viewport_rectangle.x(), viewport_rectangle.y() - row_height_i,
+            viewport_rectangle.width(), row_height_i)
+
+    def resizeEvent(self, event) -> None:
+        """Keep the file name row in place when the list is resized.
+
+        Inputs:
+            event: the QResizeEvent.
+        Outputs: none.
+        """
+        # LLFR-00362: the row follows the width of the panel, and its
+        # name is shortened again (FileNameLabel.resizeEvent).
+        super().resizeEvent(event)
+        self.place_file_name_row()
+
+    def viewportEvent(self, event) -> bool:
+        """Keep the row in place when the viewport changes size.
+
+        Inputs:
+            event: an event of the viewport.
+        Outputs: what QListWidget.viewportEvent returns.
+        """
+        # LLFR-00362: a scroll bar that appears or goes narrows or
+        # widens the viewport, and the row with it.
+        if event.type() == QEvent.Type.Resize:
+            self.place_file_name_row()
+        return super().viewportEvent(event)
 
     def supportedDropActions(self):
         """Return the drop actions a drag from this list may end with.
@@ -390,8 +513,8 @@ class SignalListPanel(QWidget):
     Inputs: none.
     Attributes:
         panel_layout: vertical layout that holds the panel's content.
-        file_name_label: the FileNameLabel in the first line
-            (LLFR-00362).
+        file_name_label: the FileNameLabel of the file name row, the
+            first row of the signal list (LLFR-00362).
         title_label: the "Signals" title.
         signal_list_widget: the SignalListWidget with the signal names.
         search_box: the QLineEdit below the list (LLFR-00094).
@@ -445,11 +568,9 @@ class SignalListPanel(QWidget):
         self.title_label.setObjectName("signal_list_title")
         self.signal_list_widget = SignalListWidget()
         self.signal_list_widget.setObjectName("signal_list_widget")
-        # LLFR-00362: the file name line is the first line of the
-        # panel, above the signal list; it is a label, not a list item.
-        self.file_name_label = FileNameLabel()
-        self.file_name_label.setObjectName("file_name_label")
-        self.panel_layout.addWidget(self.file_name_label)
+        # LLFR-00362: the file name row is the first row of the signal
+        # list; it is a label in the list's frame, not a list item.
+        self.file_name_label = self.signal_list_widget.file_name_label
         self.panel_layout.addWidget(self.title_label)
         self.panel_layout.addWidget(self.signal_list_widget, 1)
         # LLFR-00094: the search box is placed directly below the list.
@@ -529,18 +650,18 @@ class SignalListPanel(QWidget):
                     theme.TIME_SIGNAL_TEXT_COLOR_STR)))
 
     def show_file_name(self, file_name_str: str) -> None:
-        """Show the name of the opened data file in the first line.
+        """Show the name of the opened data file in the first row.
 
         Inputs:
             file_name_str: the file name with its extension, without
-                its folder.
+                its folder; "" hides the row.
         Outputs: none.
         """
-        # LLFR-00362, LLFR-00363: the line follows the opened file.
-        self.file_name_label.set_file_name(file_name_str)
+        # LLFR-00362, LLFR-00363: the row follows the opened file.
+        self.signal_list_widget.show_file_name_row(file_name_str)
 
     def file_name(self) -> str:
-        """Return the whole file name of the first line.
+        """Return the whole file name of the first row.
 
         Inputs: none.
         Outputs: the name, or "" while no data file is open.

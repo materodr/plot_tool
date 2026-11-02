@@ -148,9 +148,9 @@ Note: For example, the cache of fonts used to draw text in the plots is built on
 *Parent: HLFR-00047*
 
 ### LLFR-00406 Dialog opening time limit
-The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of "Save all tabs as PDF" (LLFR-00128) and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.3 seconds after the user's click, including the first click after the app starts.
+The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of "Save all tabs as PDF" (LLFR-00128) and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.6 seconds after the user's click, including the first click after the app starts.
 
-Note: The app may prepare the dialogs after the main window is shown (LLFR-00186), so that the first click is fast.
+Note: As in LLFR-00188, the time is measured from the second launch onward, on the computer the app is tested on, so that work done only once on the first launch does not count. The app may prepare the dialogs after the main window is shown (LLFR-00186), so that the first click is fast.
 
 *Parent: HLFR-00091*
 

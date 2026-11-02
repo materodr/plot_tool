@@ -17,6 +17,7 @@ import unittest
 from unittest import mock
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
@@ -592,8 +593,8 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(self.path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=self.path_str):
             QTest.mouseClick(self.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()

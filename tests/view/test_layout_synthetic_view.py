@@ -15,6 +15,7 @@ import unittest
 from unittest import mock
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_synthetic_signals_view import find_action
 
 
@@ -103,8 +104,8 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(self.data_path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=self.data_path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
 

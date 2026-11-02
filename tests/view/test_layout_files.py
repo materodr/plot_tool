@@ -12,6 +12,7 @@ import unittest
 from unittest import mock
 
 from tests.support import button_name, covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 FIRST_FILE_TEXT_STR = (
     "Time,speed,force,power\n"
@@ -121,8 +122,8 @@ class LayoutButtonTest(unittest.TestCase):
             path_str = os.path.join(folder_str, "data.csv")
             with open(path_str, "w", encoding="utf-8") as data_file:
                 data_file.write(FIRST_FILE_TEXT_STR)
-            with mock.patch.object(QFileDialog, "getOpenFileName",
-                                   return_value=(path_str, "")):
+            with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                            return_value=path_str):
                 self.controller.file_controller.open_file_requested()
         self.assertTrue(self.top_panel.save_layout_button.isEnabled())
         self.assertTrue(self.top_panel.load_layout_button.isEnabled())
@@ -363,8 +364,8 @@ class LayoutEndToEndTest(unittest.TestCase):
             path_str: the path of the CSV file.
         Outputs: none.
         """
-        with mock.patch.object(self.file_dialog_class, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
 

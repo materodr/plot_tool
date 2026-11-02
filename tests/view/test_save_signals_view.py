@@ -12,6 +12,7 @@ from unittest import mock
 from tests.support import (
     button_name, button_tip_line_list, covers, get_qt_application,
     requires_qt)
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 DATA_FILE_TEXT_STR = (
     "time,speed,force\n"
@@ -80,9 +81,8 @@ class SaveSignalsViewTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(self.data_path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=self.data_path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
 
@@ -210,7 +210,7 @@ class SaveSignalsViewTest(unittest.TestCase):
                 self.folder_str, "run1_signals.csv", "csv")[0], "")
 
     @covers("LLFR-00396", "LLFR-00401", "LLFR-00402", "LLFR-00404",
-            "LLFR-00407")
+            "LLFR-00407", "LLFR-00406")
     def test_click_saves_the_file(self) -> None:
         """A click opens the dialog with run1_signals.csv and the CSV
         filter; the file is written and the renamed time signal listed.
@@ -220,27 +220,21 @@ class SaveSignalsViewTest(unittest.TestCase):
         """
         from model.file_loader import load_signal_file
         self.open_data_file()
-        recorded_list = []
-        original_build = self.main_window.build_signals_save_dialog
-
-        def record_build(folder_str, name_str, format_str):
-            """Record the arguments of the dialog factory.
-
-            Inputs:
-                folder_str, name_str, format_str: its arguments.
-            Outputs: the real dialog.
-            """
-            recorded_list.append((folder_str, name_str, format_str))
-            return original_build(folder_str, name_str, format_str)
-
         target_str = os.path.join(self.folder_str, "copy")
-        with mock.patch.object(self.main_window,
-                               "build_signals_save_dialog",
-                               side_effect=record_build):
-            self.click_with_dialog_answer((target_str,
-                                           "Excel files (*.xlsx)"))
-        self.assertEqual(recorded_list, [
-            (os.path.abspath(self.folder_str), "run1_signals.csv", "csv")])
+        dialog_mock = self.click_with_dialog_answer(
+            (target_str, "Excel files (*.xlsx)"))
+        # LLFR-00396, LLFR-00406: the reused dialog was shown in the
+        # folder of the data file, with its name and the CSV format.
+        dialog = dialog_mock.call_args.args[0]
+        self.assertIs(dialog,
+                      self.main_window.file_dialog_pool.dialog(
+                          "save_signals"))
+        self.assertEqual(
+            os.path.realpath(dialog.directory().absolutePath()),
+            os.path.realpath(self.folder_str))
+        self.assertEqual(dialog.selectedNameFilter(), "CSV files (*.csv)")
+        self.assertEqual(os.path.basename(dialog.selectedFiles()[0]),
+                         "run1_signals.csv")
         saved_file = load_signal_file(target_str + ".xlsx")
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "force"])

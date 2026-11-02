@@ -27,11 +27,22 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
    ``os.pathsep``), each one is opened with the app's file loader and a
    line ``plot_tool probe file: OK|FAILED <name> ...`` is printed, to
    show that the bundle holds every library the loaders need;
-4. the app quits, with exit code 0, or 1 when a probe file failed.
+4. if ``PLOT_TOOL_DIALOG_PROBE`` is ``"1"``, each file dialog of the
+   app (LLFR-00406) is shown twice, as a click would (measure_dialog),
+   and closed as soon as it is shown; for each one a line is printed::
 
-Code traced to LLFR-00058, LLFR-00184, LLFR-00186 and LLFR-00188: the
-probe only watches the splash screen and the main window with its three
-panels being shown; it is a build check, not a function.
+       plot_tool dialog: name=<dialog> click=<1|2> shown_s=<seconds
+       from the request to the dialog being shown> visible=<yes|no>
+       prepared=<yes|no> prepare_s=<seconds the preparation took>
+
+   (all on one line). The first request comes once the dialogs have
+   been prepared, or after DIALOG_PREPARE_TIMEOUT_S;
+5. the app quits, with exit code 0, or 1 when a probe file failed.
+
+Code traced to LLFR-00058, LLFR-00184, LLFR-00186, LLFR-00188 and
+LLFR-00406: the probe only watches the splash screen, the main window
+with its three panels and the file dialogs being shown; it is a build
+check, not a function.
 """
 
 import os
@@ -52,6 +63,17 @@ HEAVY_MODULE_TUPLE = ("matplotlib", "numpy", "pandas", "scipy",
                       "view.plot_widget", "controller.main_controller",
                       "model.file_loader")
 PROBE_FILE_LINE_PREFIX_STR = "plot_tool probe file:"
+# LLFR-00406: the dialog part of the probe.
+DIALOG_PROBE_VARIABLE_STR = "PLOT_TOOL_DIALOG_PROBE"
+DIALOG_LINE_PREFIX_STR = "plot_tool dialog:"
+DIALOG_PREPARE_TIMEOUT_S = 10.0
+# LLFR-00406: (name in the probe line, key of the dialog in the main
+# window's FileDialogPool).
+PROBE_DIALOG_TUPLE = (
+    ("open_file", "open_file"), ("save_layout", "save_layout"),
+    ("load_layout", "load_layout"), ("save_pdf", "save_pdf"),
+    ("save_signals", "save_signals"))
+PROBE_CLICK_COUNT_I = 2
 # LLFR-00058: how often the probe checks the window, and how long it
 # waits for it to be exposed before reporting anyway.
 POLL_INTERVAL_MS_I = 10
@@ -238,10 +260,107 @@ def probe_file_line_list(path_list: list, load_file) -> tuple:
     return line_list, all_opened_b
 
 
+def dialog_probe_enabled(environment_dict: dict) -> bool:
+    """Tell whether the dialog part of the probe is switched on.
+
+    Inputs:
+        environment_dict: the environment variables (os.environ).
+    Outputs: True only when PLOT_TOOL_DIALOG_PROBE is "1".
+    """
+    # LLFR-00406: off by default.
+    return environment_dict.get(DIALOG_PROBE_VARIABLE_STR, "") == "1"
+
+
+def dialog_line_str(name_str: str, click_i: int, shown_s: float,
+                    visible_b: bool, prepared_b: bool,
+                    prepare_s: float) -> str:
+    """Build the line that reports how fast one dialog was shown.
+
+    Inputs:
+        name_str: the name of the dialog.
+        click_i: 1 for the first request, 2 for the next one.
+        shown_s: seconds from the request to the dialog being shown.
+        visible_b: whether the dialog was visible then.
+        prepared_b: whether the dialogs had been prepared before.
+        prepare_s: how long their preparation took.
+    Outputs: the report line, without a line break.
+    """
+    # LLFR-00406: one line per dialog and request.
+    return (f"{DIALOG_LINE_PREFIX_STR} name={name_str} click={click_i} "
+            f"shown_s={shown_s:.3f} visible={yes_no_str(visible_b)} "
+            f"prepared={yes_no_str(prepared_b)} "
+            f"prepare_s={prepare_s:.3f}")
+
+
+def measure_dialog(main_window, application, key_str: str) -> tuple:
+    """Show one file dialog as a click would, then close it.
+
+    The dialog is shown with ``open`` (window-modal), not ``exec``, so
+    that the probe never waits in a modal loop it cannot close (a
+    system panel run with ``exec`` on macOS runs the system's own modal
+    loop). Both show the same dialog, so the time is the time the user
+    waits.
+
+    Inputs:
+        main_window: the app's MainWindow.
+        application: the QApplication, to let the dialog be drawn.
+        key_str: the key of the dialog in main_window.file_dialog_pool.
+    Outputs: a tuple (seconds from the request to the dialog being
+        shown and drawn, True when it was visible then).
+    """
+    # LLFR-00406: the same steps as the MainWindow ask_... methods,
+    # up to the dialog being on screen.
+    start_s = time.perf_counter()
+    dialog = main_window.file_dialog_pool.prepared_dialog(key_str)
+    dialog.open()
+    application.processEvents()
+    shown_s = time.perf_counter() - start_s
+    visible_b = bool(dialog.isVisible())
+    dialog.reject()
+    application.processEvents()
+    return shown_s, visible_b
+
+
+def dialog_line_list(main_window, application, output_stream=None) -> list:
+    """Measure every file dialog twice and describe the results.
+
+    Inputs:
+        main_window: the app's MainWindow, shown.
+        application: the QApplication, to let pending work run.
+        output_stream: where to print each line as soon as it is
+            measured, or None to print nothing.
+    Outputs: a list of report lines (dialog_line_str).
+    """
+    # LLFR-00406: wait for the preparation that the app schedules once
+    # the window is shown, as a user would before clicking.
+    pool = main_window.file_dialog_pool
+    deadline_s = time.perf_counter() + DIALOG_PREPARE_TIMEOUT_S
+    while not pool.prepared_b and time.perf_counter() < deadline_s:
+        application.processEvents()
+        time.sleep(POLL_INTERVAL_MS_I / 1000.0)
+    line_list = []
+    for name_str, key_str in PROBE_DIALOG_TUPLE:
+        for click_i in range(1, PROBE_CLICK_COUNT_I + 1):
+            prepared_b = pool.prepared_b
+            shown_s, visible_b = measure_dialog(main_window, application,
+                                                key_str)
+            line_str = dialog_line_str(
+                name_str, click_i, shown_s, visible_b, prepared_b,
+                pool.prepare_duration_s)
+            line_list.append(line_str)
+            if output_stream is not None:
+                # LLFR-00406: printed at once, so a dialog that never
+                # closes still leaves the earlier lines.
+                print(line_str, file=output_stream)
+                output_stream.flush()
+    return line_list
+
+
 def report_startup(application, main_start_s: float, exposed_b: bool,
                    load_file, environment_dict: dict,
                    output_stream=None,
-                   splash_visible_b: bool = False) -> None:
+                   splash_visible_b: bool = False,
+                   main_window=None) -> None:
     """Print the startup report and quit the app.
 
     Inputs:
@@ -252,6 +371,8 @@ def report_startup(application, main_start_s: float, exposed_b: bool,
         environment_dict: the environment variables (os.environ).
         output_stream: where to print; standard output when None.
         splash_visible_b: whether the splash screen was still shown.
+        main_window: the app's MainWindow, for the dialog part of the
+            probe (LLFR-00406); None skips it.
     Outputs: none. Ends the event loop with exit code 0, or 1 when a
         probe file could not be opened.
     """
@@ -265,6 +386,9 @@ def report_startup(application, main_start_s: float, exposed_b: bool,
     for line_str in line_list:
         print(line_str, file=stream)
     stream.flush()
+    # LLFR-00406: how fast each file dialog appears.
+    if main_window is not None and dialog_probe_enabled(environment_dict):
+        dialog_line_list(main_window, application, stream)
     application.exit(0 if all_opened_b else 1)
 
 
@@ -310,7 +434,8 @@ def install_startup_probe(application, main_window, main_start_s: float,
                                 and splash.isVisible())
             report_startup(application, main_start_s, exposed_b,
                            load_file, environment_dict,
-                           splash_visible_b=splash_visible_b)
+                           splash_visible_b=splash_visible_b,
+                           main_window=main_window)
         except Exception:
             # LLFR-00058: a probe failure must end the run with an
             # error, not open an error box that waits for a user.

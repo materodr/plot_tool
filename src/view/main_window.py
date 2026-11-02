@@ -2,7 +2,7 @@
 
 import sys
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QTimer, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
@@ -15,8 +15,8 @@ from controller.plot_tools import (
 from model import file_writer
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
-    color_picker, file_writing, icons, message_boxes, plot_export,
-    synthetic_dialogs, theme)
+    color_picker, file_dialogs, file_writing, icons, message_boxes,
+    plot_export, synthetic_dialogs, theme)
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
@@ -75,6 +75,12 @@ TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
 # with the button tip texts in view.top_panel, so that the shortcut and
 # its button tip change together (LLFR-00215).
 REDO_SHORTCUT_STR = top_panel.REDO_SHORTCUT_STR
+# LLFR-00406: the names of the file dialogs kept by the dialog pool.
+OPEN_FILE_DIALOG_KEY_STR = "open_file"
+SAVE_LAYOUT_DIALOG_KEY_STR = "save_layout"
+LOAD_LAYOUT_DIALOG_KEY_STR = "load_layout"
+SAVE_PDF_DIALOG_KEY_STR = "save_pdf"
+SAVE_SIGNALS_DIALOG_KEY_STR = "save_signals"
 
 
 class MainWindow(QMainWindow):
@@ -146,6 +152,24 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.top_panel)
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)
+
+        # LLFR-00406: every file dialog is built once, prepared after
+        # the window is shown (prepare_file_dialogs), and reused.
+        self.file_dialog_pool = file_dialogs.FileDialogPool()
+        self.file_dialog_pool.register(
+            OPEN_FILE_DIALOG_KEY_STR, lambda: self.build_open_file_dialog(""))
+        self.file_dialog_pool.register(
+            SAVE_LAYOUT_DIALOG_KEY_STR,
+            lambda: self.build_layout_save_dialog(""))
+        self.file_dialog_pool.register(
+            LOAD_LAYOUT_DIALOG_KEY_STR,
+            lambda: self.build_layout_load_dialog(""))
+        self.file_dialog_pool.register(SAVE_PDF_DIALOG_KEY_STR,
+                                       self.build_pdf_save_dialog)
+        self.file_dialog_pool.register(
+            SAVE_SIGNALS_DIALOG_KEY_STR,
+            lambda: self.build_signals_save_dialog(
+                "", "", file_writer.CSV_FORMAT_STR))
 
         # LLFR-00005: handlers set by the controllers.
         self.open_file_handler = None
@@ -292,10 +316,58 @@ class MainWindow(QMainWindow):
         # LLFR-00005: show the file selection dialog.
         # LLFR-00007: an empty path means the dialog was cancelled.
         # LLFR-00204: the folder is chosen by the file controller.
-        path_str, _ = QFileDialog.getOpenFileName(
-            self, OPEN_FILE_DIALOG_TITLE_STR, start_folder_str,
-            OPEN_FILE_FILTER_STR)
-        return path_str or ""
+        # LLFR-00406: the dialog built once, shown again.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            OPEN_FILE_DIALOG_KEY_STR, start_folder_str)
+        return self.run_open_file_dialog(dialog) or ""
+
+    def build_open_file_dialog(self, start_folder_str: str) -> QFileDialog:
+        """Build the file selection dialog of the Open file button.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows; "" lets Qt
+                choose.
+        Outputs: a QFileDialog, not shown, that selects one existing
+            file, with the time series filter first and "All files".
+        """
+        # LLFR-00005, LLFR-00011: the same dialog as QFileDialog's
+        # getOpenFileName, with its filters.
+        dialog = QFileDialog(self, OPEN_FILE_DIALOG_TITLE_STR,
+                             start_folder_str, OPEN_FILE_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        return dialog
+
+    def run_open_file_dialog(self, dialog) -> str:
+        """Run the Open file dialog modally and return the chosen path.
+
+        Inputs:
+            dialog: the QFileDialog of build_open_file_dialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00005, LLFR-00007: the modal dialog.
+        return file_dialogs.run_file_dialog(dialog)
+
+    def prepare_file_dialogs(self) -> None:
+        """Build every file dialog, so the first click is fast.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00406: called once the main window is shown.
+        self.file_dialog_pool.prepare_all()
+
+    def schedule_file_dialog_preparation(self) -> None:
+        """Prepare the file dialogs once the event loop runs.
+
+        Inputs: none.
+        Outputs: none. prepare_file_dialogs runs after the window has
+            been shown (LLFR-00186).
+        """
+        # LLFR-00406: the dialogs are built after the window is shown,
+        # so that preparing them does not delay the window.
+        QTimer.singleShot(0, self.prepare_file_dialogs)
 
     def finish_open_file_button(self) -> None:
         """Return the Open file button to its normal color.
@@ -1304,11 +1376,10 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00128: a save file dialog for a .pdf file.
         # LLFR-00130: an empty path means the dialog was cancelled.
-        dialog = self.build_pdf_save_dialog()
-        try:
-            return self.run_pdf_save_dialog(dialog) or ""
-        finally:
-            dialog.deleteLater()
+        # LLFR-00406: the dialog built once, shown again.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            SAVE_PDF_DIALOG_KEY_STR)
+        return self.run_pdf_save_dialog(dialog) or ""
 
     def build_pdf_save_dialog(self) -> QFileDialog:
         """Build the save file dialog of the PDF export, not shown.
@@ -1336,12 +1407,7 @@ class MainWindow(QMainWindow):
             replace this method to answer without a modal dialog.
         """
         # LLFR-00128, LLFR-00130: the modal dialog.
-        if dialog.exec() != QDialog.DialogCode.Accepted.value:
-            return ""
-        selected_file_list = dialog.selectedFiles()
-        if not selected_file_list:
-            return ""
-        return str(selected_file_list[0])
+        return file_dialogs.run_file_dialog(dialog)
 
     def ask_replace_existing_file(self, path_str: str) -> bool:
         """Ask whether to replace an existing file.
@@ -1501,12 +1567,7 @@ class MainWindow(QMainWindow):
             replace this method to answer without a modal dialog.
         """
         # LLFR-00222: a cancelled dialog returns "".
-        if dialog.exec() != QDialog.DialogCode.Accepted.value:
-            return ""
-        selected_file_list = dialog.selectedFiles()
-        if not selected_file_list:
-            return ""
-        return str(selected_file_list[0])
+        return file_dialogs.run_file_dialog(dialog)
 
     def ask_layout_save_path(self, start_folder_str: str = "") -> str:
         """Show the save file dialog of a layout file.
@@ -1515,12 +1576,11 @@ class MainWindow(QMainWindow):
             start_folder_str: the folder the dialog shows.
         Outputs: the chosen path, or "" when the user cancelled.
         """
-        # LLFR-00219, LLFR-00222, LLFR-00223.
-        dialog = self.build_layout_save_dialog(start_folder_str)
-        try:
-            return self.run_layout_dialog(dialog) or ""
-        finally:
-            dialog.deleteLater()
+        # LLFR-00219, LLFR-00222, LLFR-00223. LLFR-00406: the dialog
+        # built once, shown again in the folder of LLFR-00220.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            SAVE_LAYOUT_DIALOG_KEY_STR, start_folder_str)
+        return self.run_layout_dialog(dialog) or ""
 
     def ask_layout_load_path(self, start_folder_str: str = "") -> str:
         """Show the file selection dialog of a layout file.
@@ -1529,12 +1589,11 @@ class MainWindow(QMainWindow):
             start_folder_str: the folder the dialog shows.
         Outputs: the chosen path, or "" when the user cancelled.
         """
-        # LLFR-00221, LLFR-00222.
-        dialog = self.build_layout_load_dialog(start_folder_str)
-        try:
-            return self.run_layout_dialog(dialog) or ""
-        finally:
-            dialog.deleteLater()
+        # LLFR-00221, LLFR-00222. LLFR-00406: the dialog built once,
+        # shown again in the folder of LLFR-00220.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            LOAD_LAYOUT_DIALOG_KEY_STR, start_folder_str)
+        return self.run_layout_dialog(dialog) or ""
 
     def save_layout_bytes(self, path_str: str,
                           content_bytes: bytes) -> tuple:
@@ -1704,10 +1763,25 @@ class MainWindow(QMainWindow):
         # LLFR-00397: the app asks about an existing file itself, and
         # never about the opened data file.
         dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
+        self.propose_signals_file(dialog, file_name_str, format_str)
+        return dialog
+
+    def propose_signals_file(self, dialog, file_name_str: str,
+                             format_str: str) -> None:
+        """Choose the proposed format and name in the Save signals dialog.
+
+        Inputs:
+            dialog: a QFileDialog built by build_signals_save_dialog.
+            file_name_str: the name proposed in the dialog; "" for none.
+            format_str: the format chosen when the dialog opens.
+        Outputs: none.
+        """
+        # LLFR-00396: the format and the name of the opened data file,
+        # set again on every use of the reused dialog (LLFR-00406).
         dialog.selectNameFilter(SIGNALS_FILTER_DICT.get(
             format_str, SIGNALS_FILTER_DICT[file_writer.CSV_FORMAT_STR]))
-        dialog.selectFile(file_name_str)
-        return dialog
+        if file_name_str:
+            dialog.selectFile(file_name_str)
 
     def run_signals_save_dialog(self, dialog) -> tuple:
         """Run the Save signals dialog modally.
@@ -1752,14 +1826,13 @@ class MainWindow(QMainWindow):
             path ("" when cancelled), the chosen format, and True when
             the dialog itself asked before replacing an existing file.
         """
-        # LLFR-00396, LLFR-00397, LLFR-00398.
-        dialog = self.build_signals_save_dialog(start_folder_str,
-                                                file_name_str, format_str)
-        try:
-            path_str, filter_str = self.run_signals_save_dialog(dialog)
-            confirmed_b = self.signals_dialog_confirms_overwrite(dialog)
-        finally:
-            dialog.deleteLater()
+        # LLFR-00396, LLFR-00397, LLFR-00398. LLFR-00406: the dialog
+        # built once, shown again in the folder of the data file.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            SAVE_SIGNALS_DIALOG_KEY_STR, start_folder_str)
+        self.propose_signals_file(dialog, file_name_str, format_str)
+        path_str, filter_str = self.run_signals_save_dialog(dialog)
+        confirmed_b = self.signals_dialog_confirms_overwrite(dialog)
         chosen_format_str = format_str
         for candidate_str, candidate_filter_str in (
                 SIGNALS_FILTER_DICT.items()):

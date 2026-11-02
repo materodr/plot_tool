@@ -70,6 +70,9 @@ def build_main_window(application: QApplication) -> tuple:
     controller = MainController(main_window)
     # LLFR-00058: show the window.
     controller.start()
+    # LLFR-00406: once the window is shown, build the file dialogs so
+    # that even the first click shows its dialog quickly.
+    main_window.schedule_file_dialog_preparation()
     return main_window, controller
 
 

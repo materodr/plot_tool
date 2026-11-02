@@ -17,6 +17,7 @@ from unittest import mock
 from tests.support import (
     button_name, button_tip_line_list, covers, get_qt_application,
     requires_qt)
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 from view import icon_shapes, theme
 
@@ -327,8 +328,8 @@ class ReportBugWindowTest(unittest.TestCase):
             data_file.write("Time,Speed\n")
             for index_i in range(20):
                 data_file.write(f"{index_i * 0.1:.1f},{index_i % 7}\n")
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
 
