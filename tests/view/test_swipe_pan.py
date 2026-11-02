@@ -58,7 +58,7 @@ def assert_moved(test_case, plot_widget, before_tuple: tuple,
 
 def make_swipe_event(canvas, local_point, pixel_x_i: int, pixel_y_i: int,
                      angle_x_i: int, angle_y_i: int, inverted_b: bool,
-                     phase_name_str: str = "ScrollUpdate",
+                     phase_name_str: str = "ScrollBegin",
                      shift_b: bool = False):
     """Build a real QWheelEvent for a canvas, as a trackpad or a mouse
     sends it.
@@ -73,7 +73,8 @@ def make_swipe_event(canvas, local_point, pixel_x_i: int, pixel_y_i: int,
         inverted_b: the value of QWheelEvent.inverted() (natural
             scrolling).
         phase_name_str: name of the Qt.ScrollPhase ("NoScrollPhase" for
-            a mouse wheel).
+            a mouse wheel; the default "ScrollBegin" starts a new
+            trackpad gesture, so that each event chooses again).
         shift_b: True to hold the Shift modifier.
     Outputs: the QWheelEvent.
     """
@@ -92,7 +93,7 @@ def make_swipe_event(canvas, local_point, pixel_x_i: int, pixel_y_i: int,
 def send_swipe(application, plot_widget, widget_point, pixel_x_i: int,
                pixel_y_i: int = 0, angle_x_i: int = 0, angle_y_i: int = 0,
                inverted_b: bool = False,
-               phase_name_str: str = "ScrollUpdate",
+               phase_name_str: str = "ScrollBegin",
                shift_b: bool = False) -> None:
     """Send a QWheelEvent to a plot widget's canvas at a widget point.
 
@@ -121,7 +122,7 @@ class SwipeClassifyTest(PlotWidgetToolTestCase):
 
     def event(self, pixel_x_i: int, pixel_y_i: int, angle_x_i: int,
               angle_y_i: int, inverted_b: bool = False,
-              phase_name_str: str = "ScrollUpdate", shift_b: bool = False):
+              phase_name_str: str = "ScrollBegin", shift_b: bool = False):
         """Build a QWheelEvent at the middle of the plot.
 
         Inputs: as make_swipe_event.
@@ -184,24 +185,35 @@ class SwipeClassifyTest(PlotWidgetToolTestCase):
 
     @covers("LLFR-00345", "LLFR-00154")
     def test_trackpad_is_told_from_a_mouse(self) -> None:
-        """A trackpad reports a pixel delta or a scroll phase; only a
-        sideways Shift+wheel of a mouse is the Shift zoom.
+        """Only a scroll phase marks a trackpad: macOS also fills the
+        pixel delta of a mouse wheel (about 20 pixels per notch), so a
+        sideways Shift+wheel of a mouse is the Shift zoom with or
+        without a pixel delta.
 
         Inputs: none.
         Outputs: none.
         """
         from view.plot_widget import (
             is_shift_horizontal_wheel, is_trackpad_wheel)
-        self.assertTrue(is_trackpad_wheel(self.event(10, 0, 0, 0)))
-        self.assertTrue(is_trackpad_wheel(self.event(0, 0, 120, 0)))
+        for phase_name_str in ("ScrollBegin", "ScrollUpdate", "ScrollEnd",
+                               "ScrollMomentum"):
+            self.assertTrue(is_trackpad_wheel(self.event(
+                10, 0, 0, 0, phase_name_str=phase_name_str)))
         self.assertFalse(is_trackpad_wheel(self.event(
             0, 0, 120, 0, phase_name_str="NoScrollPhase")))
+        self.assertFalse(is_trackpad_wheel(self.event(
+            20, 0, 120, 0, phase_name_str="NoScrollPhase")))
         self.assertTrue(is_shift_horizontal_wheel(self.event(
             0, 0, 120, 0, phase_name_str="NoScrollPhase", shift_b=True)))
+        self.assertTrue(is_shift_horizontal_wheel(self.event(
+            20, 0, 120, 0, phase_name_str="NoScrollPhase", shift_b=True)))
+        self.assertTrue(is_shift_horizontal_wheel(self.event(
+            -20, 0, -120, 0, phase_name_str="NoScrollPhase",
+            shift_b=True)))
         self.assertFalse(is_shift_horizontal_wheel(self.event(
             0, 0, 120, 0, shift_b=True)))
         self.assertFalse(is_shift_horizontal_wheel(self.event(
-            12, 0, 120, 0, phase_name_str="NoScrollPhase", shift_b=True)))
+            20, 0, 120, 0, phase_name_str="NoScrollPhase")))
 
 
 @requires_qt
@@ -305,7 +317,7 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         Inputs: none.
         Outputs: none.
         """
-        for phase_name_str in ("ScrollUpdate", "NoScrollPhase"):
+        for phase_name_str in ("ScrollBegin", "NoScrollPhase"):
             with self.subTest(phase=phase_name_str):
                 self.zoom_to(3.0, 7.0)
                 before_tuple = self.geometry_tuple()
@@ -445,6 +457,102 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
                    shift_b=True)
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(end_s - start_s, 4.0 * 0.95)
+
+    @covers("LLFR-00154", "LLFR-00074", "LLFR-00113", "LLFR-00206",
+            "LLFR-00346")
+    def test_macos_mouse_shift_wheel_zooms(self) -> None:
+        """A real macOS mouse Shift+wheel (sideways angle of one notch,
+        pixel delta of 20, no scroll phase) zooms a zoomed plot by 95%
+        or 1/0.95 and does not pan, with or without natural scrolling.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import plot_widget as plot_widget_module
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        with mock.patch.object(plot_widget_module, "RUNNING_ON_MACOS_B",
+                               True):
+            for pixel_x_i, inverted_b, expected_width_s in (
+                    (20, False, 4.0 * 0.95), (-20, False, 4.0 / 0.95),
+                    (-20, True, 4.0 * 0.95), (20, True, 4.0 / 0.95)):
+                with self.subTest(pixel=pixel_x_i, inverted=inverted_b):
+                    self.zoom_to(3.0, 7.0)
+                    center_s = self.plot_widget.time_at(self.point_at(5.0))
+                    self.swipe(pixel_x_i, angle_x_i=pixel_x_i * 6,
+                               inverted_b=inverted_b,
+                               phase_name_str="NoScrollPhase",
+                               shift_b=True)
+                    start_s, end_s = self.plot_widget.time_range_tuple()
+                    self.assertAlmostEqual(end_s - start_s,
+                                           expected_width_s)
+                    # Zoomed around the pointer: not panned.
+                    factor_f = expected_width_s / 4.0
+                    self.assertAlmostEqual(
+                        start_s, center_s + (3.0 - center_s) * factor_f)
+
+    @covers("LLFR-00346", "LLFR-00345")
+    def test_sideways_gesture_never_zooms(self) -> None:
+        """A trackpad gesture that starts sideways keeps panning to its
+        end, momentum included, even for events that move more
+        vertically (only their sideways part pans).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.zoom_to(3.0, 7.0)
+        before_tuple = self.geometry_tuple()
+        # The begin event of macOS often does not move: it decides
+        # nothing.
+        self.swipe(0, phase_name_str="ScrollBegin")
+        self.assertEqual(self.plot_widget.time_range_tuple(), (3.0, 7.0))
+        self.swipe(-30, pixel_y_i=4, angle_x_i=-30, angle_y_i=4,
+                   phase_name_str="ScrollUpdate")
+        self.swipe(-2, pixel_y_i=25, angle_x_i=-2, angle_y_i=25,
+                   phase_name_str="ScrollUpdate")
+        self.swipe(0, pixel_y_i=10, angle_y_i=10,
+                   phase_name_str="ScrollUpdate")
+        self.swipe(-8, pixel_y_i=1, angle_x_i=-8, angle_y_i=1,
+                   phase_name_str="ScrollEnd")
+        self.swipe(-10, pixel_y_i=-12, angle_x_i=-10, angle_y_i=-12,
+                   phase_name_str="ScrollMomentum")
+        # 30 + 2 + 0 + 8 + 10 pixels to the right, the width kept, at
+        # the width of the drawing area before the gesture (the y fit
+        # of each step may change it a little).
+        start_s, end_s = self.plot_widget.time_range_tuple()
+        self.assertAlmostEqual(end_s - start_s, 4.0)
+        start_before_s, end_before_s, axes_width_px = before_tuple
+        self.assertAlmostEqual(start_s, start_before_s - 50.0 * 4.0
+                               / axes_width_px, delta=4.0 * 50.0 * 0.05
+                               / axes_width_px)
+        self.assertLess(start_s, 3.0)
+
+    @covers("LLFR-00346", "LLFR-00074")
+    def test_vertical_gesture_never_pans(self) -> None:
+        """A trackpad gesture that starts vertically keeps zooming to its
+        end, even for events that move more sideways (their vertical
+        part zooms, their sideways part is ignored); the next gesture
+        chooses again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.zoom_to(3.0, 7.0)
+        center_s = self.plot_widget.time_at(self.point_at(5.0))
+        self.swipe(2, pixel_y_i=60, angle_x_i=2, angle_y_i=60,
+                   phase_name_str="ScrollBegin")
+        self.swipe(40, pixel_y_i=0, angle_x_i=40, angle_y_i=0,
+                   phase_name_str="ScrollUpdate")
+        self.swipe(40, pixel_y_i=30, angle_x_i=40, angle_y_i=30,
+                   phase_name_str="ScrollMomentum")
+        factor_f = 0.95 ** (90.0 / 120.0)
+        start_s, end_s = self.plot_widget.time_range_tuple()
+        self.assertAlmostEqual(end_s - start_s, 4.0 * factor_f)
+        self.assertAlmostEqual(start_s,
+                               center_s + (3.0 - center_s) * factor_f)
+        # A new gesture that starts sideways pans.
+        before_tuple = self.geometry_tuple()
+        self.swipe(-40, phase_name_str="ScrollBegin")
+        self.assert_curves_moved(before_tuple, 40.0)
 
     @covers("LLFR-00345", "LLFR-00117")
     def test_swipe_waits_during_a_wheel_button_pan(self) -> None:
