@@ -75,6 +75,9 @@ PROBE_DIALOG_TUPLE = (
     ("load_layout", "load_layout", "ask_layout_load_path"),
     ("save_pdf", "save_pdf", "ask_pdf_save_path"))
 PROBE_CLICK_COUNT_I = 2
+# LLFR-00406: how often the probe looks for the shown dialog; the error
+# of a measured time is at most this interval.
+DIALOG_POLL_INTERVAL_MS_I = 5
 # LLFR-00058: how often the probe checks the window, and how long it
 # waits for it to be exposed before reporting anyway.
 POLL_INTERVAL_MS_I = 10
@@ -303,10 +306,14 @@ def measure_dialog(main_window, key_str: str, method_name_str: str) -> tuple:
     Outputs: a tuple (seconds from the request to the dialog being
         shown, True when it was visible then).
     """
-    # LLFR-00406: the timer runs inside the dialog's modal loop, so it
-    # fires once the dialog is shown, and cancels it.
+    # LLFR-00406: a short repeating timer ticks inside the dialog's
+    # modal loop (also the modal loop of a native macOS panel, which
+    # runs timers but not zero-time ones), so its first tick comes once
+    # the dialog is shown; it then cancels the dialog.
     dialog = main_window.file_dialog_pool.dialog(key_str)
     record_dict = {}
+    poll_timer = QTimer()
+    poll_timer.setInterval(DIALOG_POLL_INTERVAL_MS_I)
 
     def close_shown_dialog() -> None:
         """Note when the dialog is shown, then cancel it.
@@ -315,23 +322,30 @@ def measure_dialog(main_window, key_str: str, method_name_str: str) -> tuple:
         Outputs: none.
         """
         # LLFR-00406: the dialog is on screen.
-        record_dict["shown_s"] = time.perf_counter()
-        record_dict["visible_b"] = dialog.isVisible()
+        if "shown_s" not in record_dict:
+            record_dict["shown_s"] = time.perf_counter()
+            record_dict["visible_b"] = dialog.isVisible()
         dialog.reject()
 
-    QTimer.singleShot(0, close_shown_dialog)
+    poll_timer.timeout.connect(close_shown_dialog)
     start_s = time.perf_counter()
-    getattr(main_window, method_name_str)()
+    poll_timer.start()
+    try:
+        getattr(main_window, method_name_str)()
+    finally:
+        poll_timer.stop()
     shown_s = record_dict.get("shown_s", time.perf_counter()) - start_s
     return shown_s, record_dict.get("visible_b", False)
 
 
-def dialog_line_list(main_window, application) -> list:
+def dialog_line_list(main_window, application, output_stream=None) -> list:
     """Measure every file dialog twice and describe the results.
 
     Inputs:
         main_window: the app's MainWindow, shown.
         application: the QApplication, to let pending work run.
+        output_stream: where to print each line as soon as it is
+            measured, or None to print nothing.
     Outputs: a list of report lines (dialog_line_str).
     """
     # LLFR-00406: wait for the preparation that the app schedules once
@@ -347,9 +361,15 @@ def dialog_line_list(main_window, application) -> list:
             prepared_b = pool.prepared_b
             shown_s, visible_b = measure_dialog(main_window, key_str,
                                                 method_name_str)
-            line_list.append(dialog_line_str(
+            line_str = dialog_line_str(
                 name_str, click_i, shown_s, visible_b, prepared_b,
-                pool.prepare_duration_s))
+                pool.prepare_duration_s)
+            line_list.append(line_str)
+            if output_stream is not None:
+                # LLFR-00406: printed at once, so a dialog that never
+                # closes still leaves the earlier lines.
+                print(line_str, file=output_stream)
+                output_stream.flush()
     return line_list
 
 
@@ -385,9 +405,7 @@ def report_startup(application, main_start_s: float, exposed_b: bool,
     stream.flush()
     # LLFR-00406: how fast each file dialog appears.
     if main_window is not None and dialog_probe_enabled(environment_dict):
-        for line_str in dialog_line_list(main_window, application):
-            print(line_str, file=stream)
-        stream.flush()
+        dialog_line_list(main_window, application, stream)
     application.exit(0 if all_opened_b else 1)
 
 
