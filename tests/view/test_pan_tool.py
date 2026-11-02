@@ -19,6 +19,7 @@ import numpy as np
 from tests.support import (
     button_name, button_tip_line_list, covers, get_qt_application,
     requires_qt)
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_frequency_plots_view import (
     SAMPLE_COUNT_I, SAMPLE_RATE_HZ, SINE_AMPLITUDE_F, SINE_FREQUENCY_HZ,
     find_action)
@@ -585,8 +586,8 @@ class PanEndToEndTest(unittest.TestCase):
         self.addCleanup(box_patch.stop)
         self.top_panel = self.main_window.top_panel
         self.panel = self.main_window.signal_list_panel
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
 

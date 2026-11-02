@@ -182,6 +182,173 @@ class StartupProbeTest(unittest.TestCase):
                 self.assertEqual(application.exit_code_list, [exit_code_i])
         self.assertIn("plot_tool probe file: FAILED bad.txt", output_str)
 
+    @covers("LLFR-00406")
+    def test_dialog_probe_switch_and_line(self) -> None:
+        """The dialog probe is off by default; its line is parsable.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        probe = self.startup_probe
+        self.assertFalse(probe.dialog_probe_enabled({}))
+        self.assertFalse(probe.dialog_probe_enabled(
+            {"PLOT_TOOL_DIALOG_PROBE": "0"}))
+        self.assertTrue(probe.dialog_probe_enabled(
+            {"PLOT_TOOL_DIALOG_PROBE": "1"}))
+        line_str = probe.dialog_line_str("save_pdf", 2, 0.0456, True,
+                                         False, 0.25)
+        self.assertEqual(line_str, "plot_tool dialog: name=save_pdf "
+                         "click=2 shown_s=0.046 visible=yes prepared=no "
+                         "prepare_s=0.250")
+        self.assertEqual([entry[2] for entry in probe.PROBE_DIALOG_TUPLE],
+                         ["ask_open_file_path", "ask_layout_save_path",
+                          "ask_layout_load_path", "ask_pdf_save_path"])
+
+    @covers("LLFR-00406")
+    def test_report_measures_each_dialog_twice(self) -> None:
+        """With the dialog probe on, each dialog is asked for twice.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        application = self.application
+
+        class FakeDialog:
+            """A dialog that is visible until it is rejected."""
+
+            def __init__(self) -> None:
+                """Start hidden.
+
+                Inputs: none.
+                Outputs: none.
+                """
+                self.visible_b = False
+                self.reject_count_i = 0
+
+            def isVisible(self) -> bool:
+                """Tell whether the dialog is shown.
+
+                Inputs: none.
+                Outputs: the flag.
+                """
+                return self.visible_b
+
+            def reject(self) -> None:
+                """Close the dialog.
+
+                Inputs: none.
+                Outputs: none.
+                """
+                self.visible_b = False
+                self.reject_count_i += 1
+
+        dialog_dict = {entry[1]: FakeDialog()
+                       for entry in self.startup_probe.PROBE_DIALOG_TUPLE}
+        call_list = []
+        main_window = mock.Mock()
+        main_window.file_dialog_pool.prepared_b = True
+        main_window.file_dialog_pool.prepare_duration_s = 0.125
+        main_window.file_dialog_pool.dialog = dialog_dict.get
+
+        def make_ask(key_str: str):
+            """Build a fake ask method that shows the dialog of a key.
+
+            Inputs:
+                key_str: the key of the dialog.
+            Outputs: a function that shows the dialog and runs the
+                event loop until it is rejected.
+            """
+            def ask(*argument_tuple) -> str:
+                """Show the dialog and wait until it is closed.
+
+                Inputs:
+                    argument_tuple: ignored.
+                Outputs: "".
+                """
+                call_list.append(key_str)
+                dialog_dict[key_str].visible_b = True
+                while dialog_dict[key_str].visible_b:
+                    application.processEvents()
+                return ""
+            return ask
+
+        for _, key_str, method_name_str in (
+                self.startup_probe.PROBE_DIALOG_TUPLE):
+            setattr(main_window, method_name_str, make_ask(key_str))
+        output_stream = io.StringIO()
+        fake_application = FakeApplication()
+        fake_application.processEvents = application.processEvents
+        self.startup_probe.report_startup(
+            fake_application, 0.0, True, mock.Mock(),
+            {"PLOT_TOOL_DIALOG_PROBE": "1"}, output_stream,
+            main_window=main_window)
+        dialog_line_list = [
+            line_str for line_str in output_stream.getvalue().splitlines()
+            if line_str.startswith("plot_tool dialog:")]
+        self.assertEqual(len(dialog_line_list), 8)
+        self.assertEqual(call_list, ["open_file", "open_file",
+                                     "save_layout", "save_layout",
+                                     "load_layout", "load_layout",
+                                     "save_pdf", "save_pdf"])
+        for line_str in dialog_line_list:
+            self.assertIn("visible=yes prepared=yes prepare_s=0.125",
+                          line_str)
+        for dialog in dialog_dict.values():
+            self.assertEqual(dialog.reject_count_i, 2)
+        self.assertEqual(fake_application.exit_code_list, [0])
+        # Without the variable, no dialog is asked for.
+        call_list.clear()
+        self.startup_probe.report_startup(
+            FakeApplication(), 0.0, True, mock.Mock(), {}, io.StringIO(),
+            main_window=main_window)
+        self.assertEqual(call_list, [])
+
+    @covers("LLFR-00406", "HLFR-00091")
+    def test_main_shows_every_dialog_quickly(self) -> None:
+        """src/main.py: every file dialog appears within 0.3 s.
+
+        The app is started as the user starts it; the probe asks for
+        each dialog twice, the first time right after the dialogs were
+        prepared, as the first click after the start would.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        environment_dict = dict(os.environ)
+        environment_dict["PLOT_TOOL_STARTUP_PROBE"] = "1"
+        environment_dict["PLOT_TOOL_DIALOG_PROBE"] = "1"
+        environment_dict.setdefault("QT_QPA_PLATFORM", "offscreen")
+        environment_dict.pop("PLOT_TOOL_PROBE_FILES", None)
+        process = subprocess.Popen(
+            [sys.executable, os.path.join(SOURCE_FOLDER_STR, "main.py")],
+            env=environment_dict, cwd=REPOSITORY_ROOT_STR,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            output_str, error_str = process.communicate(timeout=120)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+            self.fail("the app did not quit with the dialog probe")
+        self.assertEqual(process.returncode, 0, error_str)
+        dialog_line_list = [
+            line_str for line_str in output_str.splitlines()
+            if line_str.startswith("plot_tool dialog:")]
+        self.assertEqual(len(dialog_line_list), 8, output_str + error_str)
+        name_list = []
+        for line_str in dialog_line_list:
+            field_dict = dict(part.split("=", 1)
+                              for part in line_str.split()[2:])
+            name_list.append((field_dict["name"], field_dict["click"]))
+            with self.subTest(line_str=line_str):
+                self.assertEqual(field_dict["visible"], "yes")
+                self.assertEqual(field_dict["prepared"], "yes")
+                self.assertLessEqual(float(field_dict["shown_s"]), 0.3)
+        self.assertEqual(name_list, [
+            (name_str, click_str)
+            for name_str in ("open_file", "save_layout", "load_layout",
+                             "save_pdf")
+            for click_str in ("1", "2")])
+
     @covers("LLFR-00058")
     def test_main_reports_the_shown_window_and_quits(self) -> None:
         """src/main.py with the probe shows the window, reports, quits.

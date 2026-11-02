@@ -14,6 +14,7 @@ import unittest
 from unittest import mock
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 DATA_NAME_LIST = ["Time", "Speed", "Torque"]
 
@@ -552,8 +553,8 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.main_window.run_modal_dialog = self.fake_run_dialog
         self.panel = self.main_window.signal_list_panel
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(self.path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=self.path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
 
@@ -747,8 +748,8 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.choose("Speed", "Divide by constant (div)")
         self.assertEqual(self.panel.signal_name_list()[-1], "div_4_Speed")
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(self.path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=self.path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list(),

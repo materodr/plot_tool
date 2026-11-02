@@ -33,6 +33,10 @@ SAMPLE_FILE_PATH_STR = os.path.join(USER_TESTS_FOLDER_STR, "good",
                                     "signals_comma.csv")
 LARGE_SIZE_TUPLE = (1400, 900)
 SMALL_SIZE_TUPLE = (1000, 700)
+# The Open file dialog is answered with the sample file, without a
+# modal dialog.
+OPEN_FILE_DIALOG_TARGET_STR = (
+    "view.main_window.MainWindow.run_open_file_dialog")
 # Signals of each plot of the first tab, from top to bottom.
 FIRST_TAB_PLOT_LIST = [
     ["Sine_1Hz", "Cosine_1Hz", "Sine_3Hz"],
@@ -134,8 +138,8 @@ def build_window(size_tuple: tuple):
     main_window.resize(*size_tuple)
     controller = MainController(main_window)
     controller.start()
-    with mock.patch.object(QFileDialog, "getOpenFileName",
-                           return_value=(SAMPLE_FILE_PATH_STR, "")):
+    with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                    return_value=SAMPLE_FILE_PATH_STR):
         controller.file_controller.open_file_requested()
     plot_controller = controller.plot_controller
     first_tab_id_i = main_window.current_tab_id()
@@ -183,8 +187,8 @@ def build_delta_window(size_tuple: tuple):
     main_window.resize(*size_tuple)
     controller = MainController(main_window)
     controller.start()
-    with mock.patch.object(QFileDialog, "getOpenFileName",
-                           return_value=(SAMPLE_FILE_PATH_STR, "")):
+    with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                    return_value=SAMPLE_FILE_PATH_STR):
         controller.file_controller.open_file_requested()
     plot_controller = controller.plot_controller
     signal_file = plot_controller.signal_file

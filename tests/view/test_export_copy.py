@@ -12,6 +12,7 @@ import unittest
 from unittest import mock
 
 from tests.support import button_name, covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 FILE_TEXT_STR = (
     "Time,speed,force\n"
@@ -64,8 +65,8 @@ class ExportCopyTest(unittest.TestCase):
             QMessageBox, "exec", new=lambda box: self.fake_exec(box))
         box_patch.start()
         self.addCleanup(box_patch.stop)
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(data_path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=data_path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
         self.top_panel = self.main_window.top_panel

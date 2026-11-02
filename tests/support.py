@@ -21,6 +21,12 @@ if SOURCE_FOLDER_STR not in sys.path:
     sys.path.insert(0, SOURCE_FOLDER_STR)
 
 QT_AVAILABLE_B = importlib.util.find_spec("PyQt6") is not None
+# LLFR-00005: what a test patches to answer the Open file dialog without
+# a modal dialog: ``mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+# return_value=path_str)`` ("" cancels). The mock is called with the
+# QFileDialog that would be shown.
+OPEN_FILE_DIALOG_TARGET_STR = (
+    "view.main_window.MainWindow.run_open_file_dialog")
 H5PY_AVAILABLE_B = importlib.util.find_spec("h5py") is not None
 COVERED_ATTRIBUTE_STR = "covered_requirement_list"
 
@@ -63,7 +69,37 @@ def get_qt_application():
     application = QApplication.instance()
     if application is None:
         application = QApplication([])
+        install_file_dialog_guard()
     return application
+
+
+def install_file_dialog_guard() -> None:
+    """Make a file dialog that a test forgot to answer return at once.
+
+    A real modal QFileDialog would wait forever for a user in CI. A test
+    must answer it (patch the window's run_..._dialog method, the
+    dialog's ``exec``, or OPEN_FILE_DIALOG_TARGET_STR); when it does
+    not, the guard prints a warning and the dialog is cancelled, so the
+    test fails on its checks instead of hanging.
+
+    Inputs: none.
+    Outputs: none. QFileDialog.exec is replaced for the test run.
+    """
+    from PyQt6.QtWidgets import QDialog, QFileDialog
+
+    def cancel_unanswered_dialog(dialog) -> int:
+        """Report and cancel a file dialog that no test answered.
+
+        Inputs:
+            dialog: the QFileDialog a test tried to show.
+        Outputs: the int value of QDialog.DialogCode.Rejected.
+        """
+        print(f"warning: a test showed the file dialog "
+              f"'{dialog.windowTitle()}' without answering it; it was "
+              f"cancelled", file=sys.stderr)
+        return QDialog.DialogCode.Rejected.value
+
+    QFileDialog.exec = cancel_unanswered_dialog
 
 
 def button_name(button) -> str:

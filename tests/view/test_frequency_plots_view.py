@@ -15,6 +15,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
@@ -353,8 +354,8 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         self.addCleanup(self.box_patch.stop)
         self.panel = self.main_window.signal_list_panel
         self.plot_controller = self.controller.plot_controller
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
 

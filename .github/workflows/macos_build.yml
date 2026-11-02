@@ -24,6 +24,9 @@ name: macOS build
 #   last launch within the older 10 s guard);
 # - LLFR-00189: the font list that matplotlib writes on the first
 #   launch is not written again by the later launches.
+# - LLFR-00406: every file dialog (Open file, Save layout, Load layout,
+#   Save all tabs as PDF) appears within 0.3 s of the request, the first
+#   request after the start included (PLOT_TOOL_DIALOG_PROBE=1).
 on:
   pull_request:
     paths:
@@ -155,6 +158,47 @@ jobs:
             --font-cache-folder "$HOME/Library/Caches/plot_tool/matplotlib" \
             --clear-font-cache --probe-good-files -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      # LLFR-00406: the probe asks for each file dialog twice, as a
+      # click would, and closes it once it is shown. Launch 1 is
+      # reported only; launches 2 and 3 must show every dialog within
+      # 0.3 s (as LLFR-00188, the work done once on the first launch
+      # does not count).
+      - name: Measure the file dialog opening time
+        timeout-minutes: 10
+        env:
+          PYTHONFAULTHANDLER: "1"
+          PLOT_TOOL_STARTUP_PROBE: "1"
+          PLOT_TOOL_DIALOG_PROBE: "1"
+        run: |
+          for run in 1 2 3; do
+            bin/plot_tool.app/Contents/MacOS/plot_tool > "dialog_output_$run.txt" 2>&1 || echo "launch $run exit code $?"
+            cat "dialog_output_$run.txt"
+          done
+          python - <<'PYTHON'
+          import sys
+          LIMIT_S = 0.3
+          failed = False
+          for run in (1, 2, 3):
+              with open(f"dialog_output_{run}.txt", encoding="utf-8") as output_file:
+                  line_list = [line for line in output_file.read().splitlines()
+                               if line.startswith("plot_tool dialog:")]
+              if len(line_list) < 8:
+                  print(f"::error title=Dialogs::launch {run}: {len(line_list)} of 8 dialog lines")
+                  failed = True
+              for line in line_list:
+                  field_dict = dict(part.split("=", 1) for part in line.split()[2:])
+                  shown_s = float(field_dict["shown_s"])
+                  over_b = shown_s > LIMIT_S
+                  if run > 1 and over_b:
+                      print(f"::error title=Dialogs::launch {run}: {line}")
+                      failed = True
+                  elif over_b:
+                      print(f"::warning title=Dialogs::launch {run}: {line}")
+              slowest_s = max([float(dict(part.split("=", 1) for part in line.split()[2:])["shown_s"]) for line in line_list] or [0.0])
+              print(f"::notice title=Dialogs::launch {run}: slowest dialog {slowest_s:.3f} s")
+          sys.exit(1 if failed else 0)
+          PYTHON
 
       - name: Show the kept matplotlib cache
         if: always()

@@ -16,6 +16,7 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_plot_tools import (
     ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 
@@ -868,8 +869,8 @@ class TipMoveEndToEndTest(unittest.TestCase):
         self.controller = MainController(self.window)
         self.controller.start()
         self.window.show()
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             self.window.top_panel.open_file_button.click()
             self.process_events()
         self.window.signal_double_click_handler("speed")

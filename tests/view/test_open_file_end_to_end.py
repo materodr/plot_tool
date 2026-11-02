@@ -10,6 +10,7 @@ import unittest
 from unittest import mock
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 
 @requires_qt
@@ -88,19 +89,34 @@ class OpenFileEndToEndTest(unittest.TestCase):
 
         Inputs:
             path_str: the path the patched dialog returns ("" cancels).
-        Outputs: the mock that replaced QFileDialog.getOpenFileName.
+        Outputs: the mock that replaced MainWindow.run_open_file_dialog.
+            Its ``shown_list`` holds, for each call, the folder (real
+            path) and the name filters of the dialog when it was shown.
         """
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
-        from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(
-                QFileDialog, "getOpenFileName",
-                return_value=(path_str, "")) as dialog_mock, \
+        shown_list = []
+
+        def answer(dialog) -> str:
+            """Record what the dialog shows and answer path_str.
+
+            Inputs:
+                dialog: the QFileDialog that would be shown.
+            Outputs: path_str.
+            """
+            shown_list.append((
+                os.path.realpath(dialog.directory().absolutePath()),
+                dialog.nameFilters()))
+            return path_str
+
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        side_effect=answer) as dialog_mock, \
                 mock.patch.object(self.message_box_class, "exec",
                                   new=lambda box: self.fake_exec(box)):
             QTest.mouseClick(self.main_window.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()
+        dialog_mock.shown_list = shown_list
         return dialog_mock
 
     def shown_name_list(self) -> list:
@@ -133,8 +149,9 @@ class OpenFileEndToEndTest(unittest.TestCase):
         """
         dialog_mock = self.click_open_file(self.first_path_str)
         self.assertEqual(dialog_mock.call_count, 1)
-        filter_str = dialog_mock.call_args.args[3]
-        for pattern_str in ("*.csv", "*.xlsx", "*.mat", "*)"):
+        filter_str = ";;".join(dialog_mock.shown_list[0][1])
+        for pattern_str in ("*.csv", "*.xlsx", "*.mat", "*.h5", "*.hdf5",
+                            "*)"):
             self.assertIn(pattern_str, filter_str)
         self.assertEqual(self.shown_name_list(),
                          ["Time", "speed", "force"])
@@ -264,13 +281,14 @@ class OpenFileEndToEndTest(unittest.TestCase):
                          moved_path_str, ""):
             self.replace_answer_list.append(True)
             dialog_mock = self.click_open_file(path_str)
-            folder_list.append(dialog_mock.call_args.args[2])
+            folder_list.append(dialog_mock.shown_list[0][0])
         temporary_folder_str = os.path.dirname(
             os.path.abspath(self.first_path_str))
         self.assertEqual(folder_list, [
-            first_start_folder_str(), first_start_folder_str(),
-            temporary_folder_str, temporary_folder_str,
-            os.path.abspath(other_folder_str)])
+            os.path.realpath(folder_str) for folder_str in (
+                first_start_folder_str(), first_start_folder_str(),
+                temporary_folder_str, temporary_folder_str,
+                os.path.abspath(other_folder_str))])
 
 
 @requires_qt
@@ -345,9 +363,12 @@ class MainWindowFacadeTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=("", "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=""):
+            self.assertEqual(self.main_window.ask_open_file_path(), "")
+        # The real dialog, cancelled, gives "" too.
+        dialog = self.main_window.file_dialog_pool.dialog("open_file")
+        with mock.patch.object(dialog, "exec", return_value=0):
             self.assertEqual(self.main_window.ask_open_file_path(), "")
 
     @covers("LLFR-00204", "LLFR-00005")
@@ -358,12 +379,21 @@ class MainWindowFacadeTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=("/x/y.csv", "")) as dialog_mock:
+        folder_str = self.temporary_folder.name
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value="/x/y.csv") as dialog_mock:
             self.assertEqual(
-                self.main_window.ask_open_file_path("/some/folder"),
+                self.main_window.ask_open_file_path(folder_str),
                 "/x/y.csv")
-        self.assertEqual(dialog_mock.call_args.args[2], "/some/folder")
+        dialog = dialog_mock.call_args.args[0]
+        self.assertIsInstance(dialog, QFileDialog)
+        self.assertEqual(
+            os.path.realpath(dialog.directory().absolutePath()),
+            os.path.realpath(folder_str))
+        self.assertEqual(dialog.acceptMode(),
+                         QFileDialog.AcceptMode.AcceptOpen)
+        self.assertEqual(dialog.fileMode(),
+                         QFileDialog.FileMode.ExistingFile)
 
 
 if __name__ == "__main__":
