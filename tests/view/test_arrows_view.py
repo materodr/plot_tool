@@ -840,8 +840,8 @@ class ArrowMenuTest(ArrowWidgetTestCase):
                 self.plot_widget.set_plot_tool(tool_str)
                 self.assertEqual(self.choose_menu(on_curve_tuple, ""),
                                  ["Color", "Delete"])
-        self.choose_menu(on_curve_tuple, "Color")
-        self.assertEqual(self.color_list, [(1,)])
+        self.choose_menu(on_curve_tuple, "Other color...")
+        self.assertEqual(self.color_list, [(1, "")])
         self.choose_menu(self.display_of(4.0, 2.0), "Delete")
         self.assertEqual(self.delete_list, [(0,)])
         self.assertEqual(self.choose_menu(self.display_of(8.0, 2.0), ""),
@@ -1330,13 +1330,17 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
                     global_point: unused.
                 Outputs: the QAction or None.
                 """
-                for action in menu.actions():
+                action_list = list(menu.actions())
+                for action in list(action_list):
+                    if action.menu() is not None:
+                        action_list.extend(action.menu().actions())
+                for action in action_list:
                     if action.text() == text_str:
                         return action
                 return None
             return fake_execute_menu
 
-        plot_widget.execute_menu = choose("Color")
+        plot_widget.execute_menu = choose("Other color...")
         with mock.patch.object(self.main_window, "ask_color",
                                return_value="#00aa00") as ask_mock:
             plot_widget.show_context_menu(menu_point)

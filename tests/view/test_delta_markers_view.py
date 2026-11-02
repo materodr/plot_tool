@@ -631,7 +631,8 @@ class DeltaMenuTest(DeltaWidgetTestCase):
 
     @covers("LLFR-00175", "LLFR-00048")
     def test_menu_on_bracket_dot_and_label(self) -> None:
-        """Bracket, dot and value all show "Delete", never Delete plot.
+        """Bracket, dot and value all show "Color" and "Delete", never
+        Delete plot.
 
         Inputs: none.
         Outputs: none.
@@ -649,7 +650,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
                     ("dot", self.second_tuple[1:])):
                 with self.subTest(tool=tool_str, place=name_str):
                     self.assertEqual(self.menu_texts_at(*data_tuple),
-                                     ["Delete"])
+                                     ["Color", "Delete"])
         # LLFR-00048: an empty area still offers "Delete plot".
         self.assertEqual(self.menu_texts_at(9.0, -0.5), ["Delete plot"])
 
@@ -662,7 +663,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         """
         shown_list = self.choose_action_text("Delete")
         self.right_click(*self.tip_data_tuple())
-        self.assertEqual(shown_list, [["Delete"]])
+        self.assertEqual(shown_list, [["Color", "Delete"]])
         self.assertEqual(self.delta_delete_list, [(5,)])
         # A closed menu emits nothing.
         self.choose_action_text("")
@@ -681,7 +682,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
             self.plot_widget.data_to_widget_point(*self.first_tuple[1:])),
             "Sine")
         text_list = self.menu_texts_at(*self.first_tuple[1:])
-        self.assertEqual(text_list, ["Delete"])
+        self.assertEqual(text_list, ["Color", "Delete"])
         self.assertNotIn("Delete signal", text_list)
         self.assertNotIn("Width", text_list)
         # Away from the marker the curve menu is back.
@@ -987,7 +988,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         # on the force curve, removes it.
         shown_list = self.right_click_choose(plot_widget, 1.0, -1.0,
                                              "Delete")
-        self.assertEqual(shown_list, ["Delete"])
+        self.assertEqual(shown_list, ["Color", "Delete"])
         self.assertEqual(self.current_plot_widget().delta_marker_id_list(),
                          [])
 

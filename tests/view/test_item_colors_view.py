@@ -124,6 +124,8 @@ class ColorPickerTest(unittest.TestCase):
         from PyQt6.QtGui import QColor
         from PyQt6.QtWidgets import QColorDialog, QDialog
         from view import color_picker
+        from tests.view.test_recent_colors_view import isolate_recent_colors
+        isolate_recent_colors(self)
         start_list = []
 
         def accept(dialog) -> int:
@@ -246,8 +248,8 @@ class FlagColorViewTest(PlotWidgetToolTestCase):
         menu = self.plot_widget.build_context_menu(self.point_at(5.0, 2.0))
         self.assertEqual([action.text() for action in menu.actions()],
                          ["Rename", "Color", "Delete"])
-        menu_action_dict(menu)["Color"].trigger()
-        self.assertEqual(color_list, [(7,)])
+        menu_action_dict(menu)["Color/Other color..."].trigger()
+        self.assertEqual(color_list, [(7, "")])
         menu.deleteLater()
 
 
@@ -371,11 +373,11 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         self.assertEqual([action.text() for action in size_action_list
                           if action.isChecked()], ["20"])
         action_dict["Size/32"].trigger()
-        action_dict["Border color"].trigger()
-        action_dict["Text color"].trigger()
+        action_dict["Border color/Other color..."].trigger()
+        action_dict["Text color/Other color..."].trigger()
         self.assertEqual(size_list, [(0, 32)])
-        self.assertEqual(border_list, [(0,)])
-        self.assertEqual(text_list, [(0,)])
+        self.assertEqual(border_list, [(0, "")])
+        self.assertEqual(text_list, [(0, "")])
         menu.deleteLater()
 
     @covers("LLFR-00386", "LLFR-00385")
@@ -548,11 +550,11 @@ class ItemColorEndToEndTest(unittest.TestCase):
                                .get_color()) for widget in self.widgets()]
 
         depth_i = self.plot_controller.undo_history.depth()
-        self.choose(point, "Color")
+        self.choose(point, "Color/Other color...")
         self.assertEqual(self.question_list, [MARKER_COLOR_STR])
         self.assertEqual(self.plot_controller.undo_history.depth(), depth_i)
         self.answer_list = ["#1F77B4"]
-        self.choose(point, "Color")
+        self.choose(point, "Color/Other color...")
         self.assertEqual(line_colors(), ["#1f77b4", "#1f77b4"])
         self.main_window.run_undo()
         self.process_events()
@@ -602,8 +604,8 @@ class ItemColorEndToEndTest(unittest.TestCase):
 
         self.choose(note_point(), "Size/16")
         self.answer_list = ["#ff0000", "#0000ff"]
-        self.choose(note_point(), "Border color")
-        self.choose(note_point(), "Text color")
+        self.choose(note_point(), "Border color/Other color...")
+        self.choose(note_point(), "Text color/Other color...")
         self.assertEqual(self.question_list, ["#24303b", "#24303b"])
         self.assertEqual(drawn_style(), (16.0, "#ff0000", "#0000ff"))
         for expected_tuple in ((16.0, "#ff0000", "#24303b"),
