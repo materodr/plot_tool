@@ -311,8 +311,11 @@ def measure_dialog(main_window, application, key_str: str) -> tuple:
     start_s = time.perf_counter()
     dialog = main_window.file_dialog_pool.prepared_dialog(key_str)
     dialog.open()
+    open_s = time.perf_counter() - start_s
     application.processEvents()
     shown_s = time.perf_counter() - start_s
+    print(f"EXPERIMENT {key_str} open_only_s={open_s:.3f} "
+          f"with_events_s={shown_s:.3f}", flush=True)
     visible_b = bool(dialog.isVisible())
     dialog.reject()
     application.processEvents()
@@ -351,6 +354,40 @@ def dialog_line_list(main_window, application, output_stream=None) -> list:
                 # closes still leaves the earlier lines.
                 print(line_str, file=output_stream)
                 output_stream.flush()
+    # EXPERIMENT: Qt's own (not native) dialog, built once, reused.
+    from PyQt6.QtWidgets import QFileDialog
+    for mode_str in ("open", "save"):
+        build_start_s = time.perf_counter()
+        qt_dialog = QFileDialog(main_window, "Qt dialog", "",
+                                "Layout files (*.json)")
+        qt_dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        if mode_str == "save":
+            qt_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        qt_dialog.ensurePolished()
+        build_s = time.perf_counter() - build_start_s
+        for click_i in (1, 2, 3):
+            start_s = time.perf_counter()
+            qt_dialog.open()
+            application.processEvents()
+            shown_s = time.perf_counter() - start_s
+            print(f"EXPERIMENT qt_{mode_str} click={click_i} "
+                  f"shown_s={shown_s:.3f} build_s={build_s:.3f}",
+                  flush=True)
+            qt_dialog.reject()
+            application.processEvents()
+    # EXPERIMENT: a native dialog built fresh each time (as before).
+    for click_i in (1, 2):
+        start_s = time.perf_counter()
+        fresh_dialog = QFileDialog(main_window, "Fresh", "",
+                                   "Layout files (*.json)")
+        fresh_dialog.open()
+        application.processEvents()
+        shown_s = time.perf_counter() - start_s
+        print(f"EXPERIMENT fresh_native click={click_i} "
+              f"shown_s={shown_s:.3f}", flush=True)
+        fresh_dialog.reject()
+        application.processEvents()
+        fresh_dialog.deleteLater()
     return line_list
 
 
