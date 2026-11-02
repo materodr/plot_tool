@@ -340,40 +340,31 @@ class FileDialogTimingTest(unittest.TestCase):
         self.assertEqual(new_dialog.nameFilters(), PDF_FILTER_LIST)
 
     @covers("LLFR-00406")
-    def test_macos_panels_loaded_once_and_hidden(self) -> None:
-        """On macOS the preparation shows each kind of panel and hides it.
+    def test_pooled_dialogs_are_qt_dialogs(self) -> None:
+        """Every pooled dialog is Qt's own dialog, which shows fast.
 
         Inputs: none.
         Outputs: none.
         """
         from view import file_dialogs
-        pool = file_dialogs.FileDialogPool("darwin")
-        shown_list = []
-        for key_str in ("open", "save_a", "save_b"):
-            dialog = self.main_window.build_open_file_dialog("")
-            if key_str != "open":
-                dialog.setAcceptMode(
-                    self.file_dialog_class.AcceptMode.AcceptSave)
-            dialog.setVisible = (
-                lambda visible_b, key_str=key_str:
-                shown_list.append((key_str, visible_b)))
-            pool.register(key_str, lambda dialog=dialog: dialog)
+        native_option = self.file_dialog_class.Option.DontUseNativeDialog
+        self.process_events()
+        for key_str in self.pool.key_list():
+            with self.subTest(key_str=key_str):
+                self.assertTrue(self.pool.dialog(key_str).testOption(
+                    native_option))
+        self.assertGreaterEqual(self.pool.prepare_duration_s, 0.0)
+        # Any factory registered later gets the same dialog kind, so
+        # another dialog (for example Save signals) is fast too.
+        pool = file_dialogs.FileDialogPool()
+        pool.register("other", lambda: self.file_dialog_class(
+            self.main_window, "Other", "", "Data files (*.csv)"))
+        self.assertFalse(pool.is_built("other"))
         pool.prepare_all()
-        pool.prepare_all()
-        self.assertTrue(pool.system_panels_loaded_b)
-        # One open panel and one save panel, each shown then hidden.
-        self.assertEqual(shown_list, [("open", True), ("open", False),
-                                      ("save_a", True), ("save_a", False)])
-        self.assertGreaterEqual(pool.prepare_duration_s, 0.0)
-        # Elsewhere no panel is shown by the preparation.
-        other_pool = file_dialogs.FileDialogPool("linux")
-        other_list = []
-        dialog = self.main_window.build_open_file_dialog("")
-        dialog.setVisible = other_list.append
-        other_pool.register("open", lambda: dialog)
-        other_pool.prepare_all()
-        self.assertEqual(other_list, [])
-        self.assertFalse(other_pool.system_panels_loaded_b)
+        self.assertTrue(pool.prepared_b)
+        self.assertTrue(pool.dialog("other").testOption(native_option))
+        self.assertEqual(pool.dialog("other").nameFilters(),
+                         ["Data files (*.csv)"])
 
 
 if __name__ == "__main__":

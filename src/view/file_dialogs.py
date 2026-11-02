@@ -1,17 +1,25 @@
 """File dialogs that are built once and shown quickly (HLFR-00091).
 
-The first QFileDialog an app creates is slow to appear, most of all on
-macOS, where the system's open and save panels are loaded on first use.
-So the app builds each of its file dialogs once, right after the main
-window is shown (LLFR-00406, note: "The app may prepare the dialogs
-after the main window is shown"), and shows the same dialog again on
-every later click. A FileDialogPool keeps these dialogs:
+LLFR-00406 asks every file dialog to appear within 0.3 s of the click,
+the first click after the start included. Measured on the macOS build
+check (issue #154), the system's open and save panels take 0.3 to 0.5 s
+to appear on every click, because Qt creates a new system panel each
+time it shows one, so reusing the QFileDialog does not help them. Qt's
+own file dialog, built once and shown again, appears in about 0.1 s.
+So the app uses Qt's own file dialog (QFileDialog.Option.
+DontUseNativeDialog) on every operating system, builds each one once,
+right after the main window is shown (LLFR-00406, note: "The app may
+prepare the dialogs after the main window is shown"), and shows the
+same dialog again on every later click.
+
+A FileDialogPool keeps these dialogs:
 
 - ``register(key_str, build_function)`` names a dialog and the factory
   function that builds it (a function of no arguments returning a
-  QFileDialog, for example ``MainWindow.build_layout_save_dialog``);
-- ``prepare_all()`` builds every registered dialog that is not built
-  yet, and, on macOS, makes the system load its file panels once;
+  QFileDialog, for example ``MainWindow.build_layout_save_dialog``); the
+  pool switches the dialog to Qt's own dialog when it builds it;
+- ``prepare_all()`` builds and styles every registered dialog that is
+  not built yet;
 - ``prepared_dialog(key_str, start_folder_str)`` returns the dialog of a
   key, built on first use when it was not prepared, reset for a new
   use: it shows the given folder (LLFR-00204, LLFR-00220), its first
@@ -24,19 +32,14 @@ the same way: register its factory function with a new key and ask for
 it with prepared_dialog.
 """
 
-import sys
 import time
 
 from PyQt6 import sip
-from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QDialog, QFileDialog, QLineEdit
 
 # LLFR-00406: the name of the field where a file name is typed in Qt's
-# own (not native) file dialog.
+# own file dialog.
 FILE_NAME_FIELD_NAME_STR = "fileNameEdit"
-# LLFR-00406: the platform whose system file panels are slow on first
-# use.
-MACOS_PLATFORM_STR = "darwin"
 
 
 def run_file_dialog(dialog) -> str:
@@ -54,6 +57,18 @@ def run_file_dialog(dialog) -> str:
     if not selected_file_list:
         return ""
     return str(selected_file_list[0])
+
+
+def use_fast_dialog(dialog) -> None:
+    """Make a file dialog Qt's own dialog, which can be shown again fast.
+
+    Inputs:
+        dialog: a QFileDialog, not shown yet.
+    Outputs: none.
+    """
+    # LLFR-00406: a system panel is built again on every show and takes
+    # more than 0.3 s on macOS; Qt's own dialog is built once.
+    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
 
 
 def reset_for_new_use(dialog, start_folder_str: str) -> None:
@@ -84,32 +99,25 @@ def reset_for_new_use(dialog, start_folder_str: str) -> None:
 class FileDialogPool:
     """The app's file dialogs, each built once and reused (LLFR-00406).
 
-    Inputs:
-        platform_str: the platform name (sys.platform by default); on
-            macOS prepare_all also loads the system's file panels.
+    Inputs: none.
     Attributes:
         build_function_dict: key -> factory function of the dialog.
         dialog_dict: key -> the QFileDialog built for it.
         prepared_b: True once prepare_all has run.
         prepare_duration_s: how long prepare_all took, in seconds.
-        system_panels_loaded_b: True once the macOS file panels were
-            loaded by prepare_all.
     """
 
-    def __init__(self, platform_str: str = sys.platform) -> None:
+    def __init__(self) -> None:
         """Create an empty pool.
 
-        Inputs:
-            platform_str: the platform name, as sys.platform.
+        Inputs: none.
         Outputs: none.
         """
         # LLFR-00406: no dialog is built before prepare_all or first use.
-        self.platform_str = str(platform_str)
         self.build_function_dict = {}
         self.dialog_dict = {}
         self.prepared_b = False
         self.prepare_duration_s = 0.0
-        self.system_panels_loaded_b = False
 
     def register(self, key_str: str, build_function) -> None:
         """Name a dialog and the function that builds it.
@@ -148,11 +156,14 @@ class FileDialogPool:
 
         Inputs:
             key_str: a registered name.
-        Outputs: the QFileDialog; the same object on every call.
+        Outputs: the QFileDialog, Qt's own dialog; the same object on
+            every call.
         """
         # LLFR-00406: built once, then shown again on every click.
         if not self.is_built(key_str):
-            self.dialog_dict[key_str] = self.build_function_dict[key_str]()
+            dialog = self.build_function_dict[key_str]()
+            use_fast_dialog(dialog)
+            self.dialog_dict[key_str] = dialog
         return self.dialog_dict[key_str]
 
     def prepared_dialog(self, key_str: str, start_folder_str: str = ""):
@@ -171,47 +182,15 @@ class FileDialogPool:
         return dialog
 
     def prepare_all(self) -> None:
-        """Build every registered dialog that is not built yet.
+        """Build and style every registered dialog not built yet.
 
         Inputs: none.
-        Outputs: none. On macOS the system's file panels are also loaded
-            once (load_system_panels).
+        Outputs: none.
         """
         # LLFR-00406: after the main window is shown, so that the first
         # click shows a dialog that is already built and styled.
         start_s = time.perf_counter()
         for key_str in self.key_list():
             self.dialog(key_str).ensurePolished()
-        if self.platform_str == MACOS_PLATFORM_STR:
-            self.load_system_panels()
         self.prepared_b = True
         self.prepare_duration_s = time.perf_counter() - start_s
-
-    def load_system_panels(self) -> None:
-        """Make macOS load its open and save panels once.
-
-        Inputs: none.
-        Outputs: none. Each kind of native dialog (open and save) is
-            shown and closed in the same step of the event loop, before
-            the screen is drawn again, so the user does not see it, and
-            the system keeps the panel loaded for the next click.
-        """
-        # LLFR-00406: the first native panel of a process is slow to
-        # appear; showing one here moves that wait to the start, while
-        # the user looks at the new window.
-        if self.system_panels_loaded_b:
-            return
-        self.system_panels_loaded_b = True
-        shown_mode_set = set()
-        for key_str in self.key_list():
-            dialog = self.dialog(key_str)
-            accept_mode = dialog.acceptMode()
-            if accept_mode in shown_mode_set:
-                continue
-            shown_mode_set.add(accept_mode)
-            parent = dialog.parentWidget()
-            dialog.setVisible(True)
-            dialog.setVisible(False)
-            if parent is not None:
-                # LLFR-00406: the main window keeps the keyboard focus.
-                QTimer.singleShot(0, parent.activateWindow)
