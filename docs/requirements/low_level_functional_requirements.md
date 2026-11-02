@@ -926,7 +926,9 @@ When the user clicks the Save signals button, the app must show a save file dial
 *Parent: HLFR-00090*
 
 ### LLFR-00397 Replace an existing signals file
-If the chosen file is the opened data file, the app must not ask whether to replace it, must not save any file and must show an error box saying that the opened data file cannot be replaced (LLFR-00253). Otherwise, if the user chooses the name of a file that already exists in the dialog of LLFR-00396, the app must ask the user whether to replace it, and must save the file only if the user agrees. When the system's save file dialog has already asked the user whether to replace the file, the app must not ask a second time.
+If the chosen file is the opened data file, the app must not save any file and must show an error box saying that the opened data file cannot be replaced (LLFR-00253); the app itself must never ask whether to replace the opened data file. Otherwise, if the user chooses the name of a file that already exists in the dialog of LLFR-00396, the app must ask the user whether to replace it, and must save the file only if the user agrees. When the system's save file dialog has already asked the user whether to replace the file, the app must not ask a second time.
+
+Note: On a system whose own save file dialog always asks before replacing an existing file, such as macOS, that system question may appear before the error box when the user chooses the opened data file; the app keeps the system's native dialog and does not ask again.
 
 *Parent: HLFR-00090, HLFR-00055, HLFR-00002*
 

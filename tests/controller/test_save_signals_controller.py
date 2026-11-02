@@ -450,7 +450,8 @@ class SaveSignalsFlowTest(unittest.TestCase):
     @covers("LLFR-00397", "LLFR-00253")
     def test_opened_data_file_is_refused(self) -> None:
         """Choosing the opened data file, even as "run1" or through a
-        link, writes nothing, asks nothing and shows an error box.
+        link, writes nothing, the app never asks to replace it, and the
+        error box is shown.
 
         Inputs: none.
         Outputs: none.
@@ -472,6 +473,25 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(self.view.written_path_list, [])
         self.assertEqual(read_bytes(self.data_path_str),
                          self.data_bytes)
+
+    @covers("LLFR-00397", "LLFR-00253")
+    def test_data_file_after_the_system_question(self) -> None:
+        """When the system dialog (macOS) already asked about the opened
+        data file, the app does not ask again, saves nothing and shows
+        the error box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_data_file()
+        self.view.dialog_answer_list = [
+            (self.data_path_str, CSV_FORMAT_STR, True)]
+        self.view.handler()
+        self.assertEqual(self.view.replace_question_list, [])
+        self.assertEqual(self.view.written_path_list, [])
+        self.assertEqual(len(self.view.error_list), 1)
+        self.assertIn("cannot be replaced", self.view.error_list[0])
+        self.assertEqual(read_bytes(self.data_path_str), self.data_bytes)
 
     @covers("LLFR-00399")
     def test_write_failure_box(self) -> None:

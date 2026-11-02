@@ -164,7 +164,9 @@ class SaveSignalsController:
         # name that does not end with one.
         save_path_str = ensure_format_extension(path_str, format_str)
         file_name_str = os.path.basename(save_path_str)
-        # LLFR-00397, LLFR-00253: the opened data file is never written.
+        # LLFR-00397, LLFR-00253: the opened data file is never written,
+        # and the app never asks to replace it (the native macOS dialog
+        # may already have asked; the app does not ask again).
         if same_file(save_path_str, data_path_str):
             self.view.show_signals_save_error(DATA_FILE_REFUSED_STR.format(
                 name=os.path.basename(data_path_str)))

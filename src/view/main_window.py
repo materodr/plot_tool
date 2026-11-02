@@ -1732,7 +1732,9 @@ class MainWindow(QMainWindow):
         Inputs:
             dialog: a QFileDialog built by build_signals_save_dialog.
         Outputs: True for the native dialog of macOS, which always asks
-            (Qt can't turn its question off); False otherwise.
+            (Qt can't turn its question off), even for the opened data
+            file, which the app then refuses without asking again
+            (LLFR-00397 Note); False otherwise.
         """
         # LLFR-00397: the app must not ask a second time.
         return (sys.platform == "darwin" and not dialog.testOption(
