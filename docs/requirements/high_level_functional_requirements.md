@@ -72,7 +72,7 @@ The app must open a file only if it contains at least two signals, one of which 
 The app must open a file only if all its signals have the same number of samples.
 
 ### HLFR-00010 Replace file confirmation
-If the selected file can be opened and another file is already open, the app must ask the user whether to proceed, stating that proceeding will close the current file.
+When the user selects a file to open while another file is already open, the app must ask the user whether to proceed, stating that proceeding will close the current file, before it reads the selected file. If the user proceeds but the selected file cannot be opened, the app must keep the current file open.
 
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
@@ -339,7 +339,13 @@ The user must be able to change the size of the text of a text note.
 The user must be able to change the border color and the text color of a text note.
 
 ### HLFR-00088 Pick any color
-The user must be able to give any color to an arrow, a flag, the border and the text of a text note, and an area, choosing it in one color picker that is the same for all of them.
+The user must be able to give any color to an arrow, a flag, the border and the text of a text note, an area and a delta marker, choosing it in one color picker that is the same for all of them.
 
 ### HLFR-00089 Flag color
 The user must be able to change the color of a flag.
+
+### HLFR-00092 Delta marker color
+The user must be able to change the color of a delta marker.
+
+### HLFR-00093 Delete all objects of one kind
+The user must be able to delete in one action all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, or all the areas.
