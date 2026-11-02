@@ -25,12 +25,15 @@
   a layout file could not be saved (LLFR-00224) or read (LLFR-00236).
 - Layout Report box: information box that lists what a loaded layout
   could not rebuild as saved, in a scrollable text (LLFR-00237).
+- Report a Bug Error box: error box shown when the web browser could not
+  open the page of a new issue (LLFR-00361).
 
 Each box is made by a ``build_*`` function, so tests can inspect it
 without opening a modal dialog. The ``show_*`` and ``ask_*`` functions
 build the box and run it.
 """
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
     QPlainTextEdit, QStyle, QVBoxLayout)
@@ -84,6 +87,11 @@ LAYOUT_REPORT_TEXT_OBJECT_NAME_STR = "layout_report_text"
 LAYOUT_REPORT_MINIMUM_WIDTH_I = 560
 LAYOUT_REPORT_MINIMUM_HEIGHT_I = 260
 LAYOUT_REPORT_ICON_SIZE_I = 32
+# LLFR-00361: the error box shown when the browser cannot be opened.
+REPORT_BUG_ERROR_TITLE_STR = "Report a Bug Error"
+REPORT_BUG_ERROR_MESSAGE_STR = (
+    "The page could not be opened in the web browser. To report a bug, "
+    "open this address in a web browser:\n\n{url}")
 # LLFR-00128: question asked before an existing .pdf file is replaced.
 REPLACE_EXISTING_TITLE_STR = "Replace File"
 REPLACE_EXISTING_MESSAGE_STR = (
@@ -402,6 +410,26 @@ def build_copy_error_box(parent, reason_str: str) -> QMessageBox:
     return build_message_box(parent, QMessageBox.Icon.Critical,
                              COPY_ERROR_TITLE_STR,
                              join_reason(COPY_ERROR_INTRO_STR, reason_str))
+
+
+def build_report_bug_error_box(parent, url_str: str) -> QMessageBox:
+    """Build the error box shown when the page could not be opened.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        url_str: the address of the page that could not be opened.
+    Outputs: a QMessageBox with the critical icon, the title
+        REPORT_BUG_ERROR_TITLE_STR and a text saying that the page could
+        not be opened, followed by its address, which the user can
+        select and copy.
+    """
+    # LLFR-00361: an error box (HLFR-00002) with the page's address.
+    box = build_message_box(parent, QMessageBox.Icon.Critical,
+                            REPORT_BUG_ERROR_TITLE_STR,
+                            REPORT_BUG_ERROR_MESSAGE_STR.format(url=url_str))
+    box.setTextInteractionFlags(
+        Qt.TextInteractionFlag.TextSelectableByMouse)
+    return box
 
 
 def build_replace_existing_file_box(parent, path_str: str) -> QMessageBox:

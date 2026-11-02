@@ -109,7 +109,7 @@ The user must not be able to change the time signal after the file is open.
 ### HLFR-00077 Button groups
 The buttons of the top panel must be organized in groups of related buttons. The buttons of a group must look like one joined block, with no space between them, and there must be a space between one group and the next.
 
-Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export and Copy; Undo and Redo.
+Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export and Copy; Undo and Redo; Report a bug (HLFR-00078).
 
 ### HLFR-00078 Report a bug
 The user must be able to open, from the top panel, the page that creates a new issue in the project's GitHub repository, in their web browser.

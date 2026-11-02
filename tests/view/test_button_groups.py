@@ -21,20 +21,25 @@ from view import icon_shapes, theme
 # LLFR-00347: the names of the buttons of each group, left to right.
 EXPECTED_GROUP_LIST = [
     ["Open file", "Save layout", "Load layout"],
-    ["Data tip", "Zoom", "Vertical marker", "Delta X", "Delta Y", "Area",
-     "Text"],
+    ["Data tip", "Zoom", "Pan", "Vertical marker", "Delta X", "Delta Y",
+     "Area", "Text"],
     ["Reset zoom", "Grid"],
     ["Export", "Copy"],
-    ["Undo", "Redo"]]
+    ["Undo", "Redo"],
+    ["Report a bug"]]
 
 
 def expected_segment_list(button_count_i: int) -> list:
     """Return the segment names expected for a group.
 
     Inputs:
-        button_count_i: the number of buttons of the group (2 or more).
-    Outputs: first, then middle for each inner button, then last.
+        button_count_i: the number of buttons of the group.
+    Outputs: single for a group of one button (Report a bug,
+        LLFR-00347 item 6); otherwise first, then middle for each inner
+        button, then last.
     """
+    if button_count_i == 1:
+        return [theme.SEGMENT_SINGLE_STR]
     return ([theme.SEGMENT_FIRST_STR]
             + [theme.SEGMENT_MIDDLE_STR] * (button_count_i - 2)
             + [theme.SEGMENT_LAST_STR])
