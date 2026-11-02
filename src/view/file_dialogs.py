@@ -1,35 +1,37 @@
 """File dialogs that are built once and shown quickly (HLFR-00091).
 
-LLFR-00406 asks every file dialog to appear within 0.3 s of the click,
-the first click after the start included. Measured on the macOS build
-check (issue #154), the system's open and save panels take 0.3 to 0.5 s
-to appear on every click, because Qt creates a new system panel each
-time it shows one, so reusing the QFileDialog does not help them. Qt's
-own file dialog, built once and shown again, appears in about 0.1 s.
-So the app uses Qt's own file dialog (QFileDialog.Option.
-DontUseNativeDialog) on every operating system, builds each one once,
-right after the main window is shown (LLFR-00406, note: "The app may
-prepare the dialogs after the main window is shown"), and shows the
-same dialog again on every later click.
+LLFR-00406 asks every file dialog to appear within 0.6 s of the click,
+the first click after the start included. The app keeps the system's
+own (native) file dialogs. It builds each QFileDialog once, right after
+the main window is shown (LLFR-00406, note: "The app may prepare the
+dialogs after the main window is shown"), and shows the same object
+again on every later click, so no click pays for building and styling
+the dialog.
+
+Measured on the macOS build check (issue #154): Qt creates a new system
+panel each time it shows a native dialog, so the panel itself takes
+about 0.3 to 0.5 s on every click; Qt's own (not native) dialog, reused,
+took about 0.1 s, but the owner chose to keep the system's dialogs and
+the 0.6 s limit.
 
 A FileDialogPool keeps these dialogs:
 
 - ``register(key_str, build_function)`` names a dialog and the factory
   function that builds it (a function of no arguments returning a
-  QFileDialog, for example ``MainWindow.build_layout_save_dialog``); the
-  pool switches the dialog to Qt's own dialog when it builds it;
+  QFileDialog, for example ``MainWindow.build_layout_save_dialog``);
 - ``prepare_all()`` builds and styles every registered dialog that is
   not built yet;
 - ``prepared_dialog(key_str, start_folder_str)`` returns the dialog of a
   key, built on first use when it was not prepared, reset for a new
   use: it shows the given folder (LLFR-00204, LLFR-00220), its first
-  name filter and no file name left from an earlier use;
+  name filter and, in Qt's own dialog (used where the system has none),
+  no file name left from an earlier use;
 - ``run_file_dialog(dialog)`` shows a dialog modally and returns the
   chosen path ("" when cancelled).
 
-Any other file dialog (for example the Save signals dialog) is made fast
-the same way: register its factory function with a new key and ask for
-it with prepared_dialog.
+Any other file dialog is made fast the same way: register its factory
+function with a new key and ask for it with prepared_dialog, as the
+Save signals dialog does.
 """
 
 import time
@@ -38,7 +40,8 @@ from PyQt6 import sip
 from PyQt6.QtWidgets import QDialog, QFileDialog, QLineEdit
 
 # LLFR-00406: the name of the field where a file name is typed in Qt's
-# own file dialog.
+# own file dialog (used where the system has no file dialog, as in the
+# tests).
 FILE_NAME_FIELD_NAME_STR = "fileNameEdit"
 
 
@@ -57,18 +60,6 @@ def run_file_dialog(dialog) -> str:
     if not selected_file_list:
         return ""
     return str(selected_file_list[0])
-
-
-def use_fast_dialog(dialog) -> None:
-    """Make a file dialog Qt's own dialog, which can be shown again fast.
-
-    Inputs:
-        dialog: a QFileDialog, not shown yet.
-    Outputs: none.
-    """
-    # LLFR-00406: a system panel is built again on every show and takes
-    # more than 0.3 s on macOS; Qt's own dialog is built once.
-    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
 
 
 def reset_for_new_use(dialog, start_folder_str: str) -> None:
@@ -156,14 +147,11 @@ class FileDialogPool:
 
         Inputs:
             key_str: a registered name.
-        Outputs: the QFileDialog, Qt's own dialog; the same object on
-            every call.
+        Outputs: the QFileDialog; the same object on every call.
         """
         # LLFR-00406: built once, then shown again on every click.
         if not self.is_built(key_str):
-            dialog = self.build_function_dict[key_str]()
-            use_fast_dialog(dialog)
-            self.dialog_dict[key_str] = dialog
+            self.dialog_dict[key_str] = self.build_function_dict[key_str]()
         return self.dialog_dict[key_str]
 
     def prepared_dialog(self, key_str: str, start_folder_str: str = ""):

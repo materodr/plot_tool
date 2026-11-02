@@ -148,9 +148,9 @@ Note: For example, the cache of fonts used to draw text in the plots is built on
 *Parent: HLFR-00047*
 
 ### LLFR-00406 Dialog opening time limit
-The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of "Save all tabs as PDF" (LLFR-00128) and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.3 seconds after the user's click, including the first click after the app starts.
+The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of "Save all tabs as PDF" (LLFR-00128) and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.6 seconds after the user's click, including the first click after the app starts.
 
-Note: The app may prepare the dialogs after the main window is shown (LLFR-00186), so that the first click is fast.
+Note: As in LLFR-00188, the time is measured from the second launch onward, on the computer the app is tested on, so that work done only once on the first launch does not count. The app may prepare the dialogs after the main window is shown (LLFR-00186), so that the first click is fast.
 
 *Parent: HLFR-00091*
 
@@ -369,7 +369,7 @@ When the user clicks the Copy button, the app must put on the system clipboard a
 *Parent: HLFR-00039*
 
 ### LLFR-00134 HDF5 file signals
-In HDF5 files, the app must read each dataset that holds a one-dimensional numeric array as one signal, in any group, named after the dataset's path in the file without the leading `/` (for example `engine/speed`).
+In HDF5 files, the app must read each dataset that holds a one-dimensional numeric array as one signal, in any group, named after the dataset's path in the file without the leading `/` (for example `engine/speed`). The app must list the members of each group in the order they were created when the group tracks its creation order, as in the files of the Save signals button (LLFR-00402), and otherwise by name; the members of a group come right after the group.
 
 Note: A time signal found by its name (HLFR-00006) is therefore a dataset at the top level of the file (LLFR-00330). Reading HDF5 needs a new library (COR-00011).
 
@@ -926,7 +926,9 @@ When the user clicks the Save signals button, the app must show a save file dial
 *Parent: HLFR-00090*
 
 ### LLFR-00397 Replace an existing signals file
-If the chosen file is the opened data file, the app must not ask whether to replace it, must not save any file and must show an error box saying that the opened data file cannot be replaced (LLFR-00253). Otherwise, if the user chooses the name of a file that already exists in the dialog of LLFR-00396, the app must ask the user whether to replace it, and must save the file only if the user agrees. When the system's save file dialog has already asked the user whether to replace the file, the app must not ask a second time.
+If the chosen file is the opened data file, the app must not save any file and must show an error box saying that the opened data file cannot be replaced (LLFR-00253); the app itself must never ask whether to replace the opened data file. Otherwise, if the user chooses the name of a file that already exists in the dialog of LLFR-00396, the app must ask the user whether to replace it, and must save the file only if the user agrees. When the system's save file dialog has already asked the user whether to replace the file, the app must not ask a second time.
+
+Note: On a system whose own save file dialog always asks before replacing an existing file, such as macOS, that system question may appear before the error box when the user chooses the opened data file; the app keeps the system's native dialog and does not ask again.
 
 *Parent: HLFR-00090, HLFR-00055, HLFR-00002*
 
@@ -959,14 +961,17 @@ The app must write the saved file following the reading rules of its format, so 
 
 Each value must be written with enough digits, or as a 64-bit floating-point number, to be read back as the same value.
 
+Note: A value of `-0.0` may be read back from an Excel file as `0`, which is the same number.
+
 *Parent: HLFR-00090, HLFR-00005*
 
 ### LLFR-00403 Names a format cannot store
 The app must change each signal name that the chosen format cannot store into a valid name, as follows:
 1. MAT: every character that is not an English letter, a digit or `_` must be replaced by `_`; a name that does not start with a letter must get `x` added at its start; a name longer than 63 characters must be cut to 63 characters;
-2. HDF5: empty parts between `/` characters, parts that are `.` or `..`, and a `/` at the start or end of the name, must be removed (an empty result must become `signal`); a name that is also the group of another saved name (for example `engine` with `engine/speed`) must get an underscore and the smallest number from 2 up that makes it neither a group nor the name of another saved signal.
+2. HDF5: empty parts between `/` characters, parts that are `.` or `..`, and a `/` at the start or end of the name, must be removed (an empty result must become `signal`); a name that is also the group of another saved name (for example `engine` with `engine/speed`) must get an underscore and the smallest number from 2 up that makes it neither a group nor the name of another saved signal; because the time signal is the dataset `Time` (LLFR-00407), a name whose first part is the group `Time` (for example `Time/x`) must get an underscore and the smallest number from 2 up on that first part that makes it different from the first parts of the other saved names (for example `Time_2/x`);
+3. CSV and Excel: spaces and other blank characters at the start and end of the name must be removed, because the app removes them when it reads the names (LLFR-00059), and a name left empty must become `signal`.
 
-When a changed name is the name of another saved signal, the app must add an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241, and must still keep a MAT name within 63 characters. CSV and Excel names must not be changed, except as in LLFR-00407.
+When a changed name is the name of another saved signal, the app must add an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241, and must still keep a MAT name within 63 characters. CSV and Excel names must not be changed otherwise, except as in LLFR-00407. Every change is listed in the box of LLFR-00404.
 
 *Parent: HLFR-00090*
 
@@ -988,6 +993,11 @@ The app must write the time signal (HLFR-00006, LLFR-00326) under the name `Time
 Note: Such other names exist, for example, when the data file holds both `Time` and `TIME` (LLFR-00324), or when a synthetic signal was renamed `time` (LLFR-00266). A time signal chosen in the window (LLFR-00326) has no other signal of the data file matching the time signal name.
 
 *Parent: HLFR-00090, HLFR-00006*
+
+### LLFR-00408 Signals with values that are not numbers
+If any signal to save (LLFR-00401) has a sample that is not a finite number (infinite or NaN), for example a synthetic signal whose values overflowed, the app must not write the file and must show an error box saying that the signals could not be saved because these signals have values that are not finite numbers, naming each of them, because no data file the app opens can hold such values (LLFR-00065).
+
+*Parent: HLFR-00090, HLFR-00002*
 
 ## Signal list panel
 

@@ -71,7 +71,8 @@ DIALOG_PREPARE_TIMEOUT_S = 10.0
 # window's FileDialogPool).
 PROBE_DIALOG_TUPLE = (
     ("open_file", "open_file"), ("save_layout", "save_layout"),
-    ("load_layout", "load_layout"), ("save_pdf", "save_pdf"))
+    ("load_layout", "load_layout"), ("save_pdf", "save_pdf"),
+    ("save_signals", "save_signals"))
 PROBE_CLICK_COUNT_I = 2
 # LLFR-00058: how often the probe checks the window, and how long it
 # waits for it to be exposed before reporting anyway.

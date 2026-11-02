@@ -91,6 +91,24 @@ class FakeMainWindow(FakePlotView):
         """
         self.layout_buttons_enabled_b = bool(enabled_b)
 
+    def set_save_signals_handler(self, handler) -> None:
+        """Record the handler of the Save signals button.
+
+        Inputs:
+            handler: called when Save signals is clicked.
+        Outputs: none.
+        """
+        self.save_signals_handler = handler
+
+    def set_save_signals_button_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Save signals button is enabled.
+
+        Inputs:
+            enabled_b: True when it is enabled.
+        Outputs: none.
+        """
+        self.save_signals_button_enabled_b = bool(enabled_b)
+
     def show(self) -> None:
         """Record that the window was shown.
 

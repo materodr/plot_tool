@@ -268,6 +268,52 @@ class Hdf5SignalTest(Hdf5FolderTest):
         self.assertEqual(signal_file.signal_name_list,
                          ["Time", "alpha", "beta/a", "beta/b", "zeta"])
 
+    @requires_h5py
+    @covers("LLFR-00134")
+    def test_tracked_creation_order(self) -> None:
+        """A file whose groups track their creation order is read in that
+        order; an untracked group inside it is read by name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = self.time_array()
+        path_str = self.path("tracked.h5")
+        with h5py.File(path_str, "w", track_order=True) as hdf5_file:
+            hdf5_file.create_dataset("zeta", data=time_array)
+            hdf5_file.create_dataset("Time", data=time_array)
+            tracked_group = hdf5_file.create_group("grp", track_order=True)
+            tracked_group.create_dataset("z", data=time_array)
+            tracked_group.create_dataset("a", data=time_array)
+            hdf5_file.create_dataset("alpha", data=time_array)
+            plain_group = hdf5_file.create_group("plain", track_order=False)
+            plain_group.create_dataset("y", data=time_array)
+            plain_group.create_dataset("b", data=time_array)
+        signal_file = load_signal_file(path_str)
+        self.assertEqual(signal_file.signal_name_list, [
+            "zeta", "Time", "grp/z", "grp/a", "alpha", "plain/b",
+            "plain/y"])
+        self.assertEqual(signal_file.time_signal_name_str, "Time")
+
+    @requires_h5py
+    @covers("LLFR-00134")
+    def test_links_are_visited_once(self) -> None:
+        """A soft link is not followed and a second hard link to the same
+        dataset is not read twice, as with visititems.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = self.time_array()
+        path_str = self.path("links.h5")
+        with h5py.File(path_str, "w") as hdf5_file:
+            hdf5_file.create_dataset("Time", data=time_array)
+            hdf5_file.create_dataset("speed", data=time_array * 2.0)
+            hdf5_file["soft"] = h5py.SoftLink("/speed")
+            hdf5_file["twin"] = hdf5_file["speed"]
+        signal_file = load_signal_file(path_str)
+        self.assertEqual(signal_file.signal_name_list, ["Time", "speed"])
+
     @covers("LLFR-00134")
     def test_row_and_column_vectors(self) -> None:
         """(N,), (1, N) and (N, 1) datasets are signals of N samples.

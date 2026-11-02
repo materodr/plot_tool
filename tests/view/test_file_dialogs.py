@@ -16,17 +16,21 @@ from unittest import mock
 from tests.support import button_name, covers, get_qt_application, requires_qt
 
 # LLFR-00406: the limit from the click to the dialog being shown.
-DIALOG_LIMIT_S = 0.3
+DIALOG_LIMIT_S = 0.6
 FILE_TEXT_STR = "Time,speed,force\n0,1,5\n1,2,6\n2,3,7\n"
 OPEN_FILTER_LIST = ["Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)",
                     "All files (*)"]
 LAYOUT_FILTER_LIST = ["Layout files (*.json)"]
 PDF_FILTER_LIST = ["PDF files (*.pdf)"]
+SIGNALS_FILTER_LIST = ["CSV files (*.csv)", "Excel files (*.xlsx)",
+                       "MAT files (*.mat)", "HDF5 files (*.h5 *.hdf5)"]
+KEY_LIST = ["open_file", "save_layout", "load_layout", "save_pdf",
+            "save_signals"]
 
 
 @requires_qt
 class FileDialogTimingTest(unittest.TestCase):
-    """Every file dialog appears within 0.3 s of its click."""
+    """Every file dialog appears within 0.6 s of its click."""
 
     def setUp(self) -> None:
         """Start the app as src/main.py does, with a data file at hand.
@@ -158,7 +162,7 @@ class FileDialogTimingTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        key_list = ["open_file", "save_layout", "load_layout", "save_pdf"]
+        key_list = KEY_LIST
         self.assertEqual(self.pool.key_list(), key_list)
         # Not built before the event loop runs, so the window is not
         # delayed by them.
@@ -173,9 +177,10 @@ class FileDialogTimingTest(unittest.TestCase):
                 self.assertFalse(self.pool.dialog(key_str).isVisible())
 
     @covers("LLFR-00406", "HLFR-00091", "LLFR-00005", "LLFR-00219",
-            "LLFR-00221", "LLFR-00128", "LLFR-00204", "LLFR-00220")
+            "LLFR-00221", "LLFR-00128", "LLFR-00204", "LLFR-00220",
+            "LLFR-00396")
     def test_every_dialog_appears_quickly(self) -> None:
-        """First and second click of each dialog: shown within 0.3 s.
+        """First and second click of each dialog: shown within 0.6 s.
 
         Inputs: none.
         Outputs: none.
@@ -195,16 +200,17 @@ class FileDialogTimingTest(unittest.TestCase):
         self.process_events()
         for button in (top_panel.save_layout_button,
                        top_panel.load_layout_button,
-                       top_panel.export_button):
+                       top_panel.export_button,
+                       top_panel.save_signals_button):
             record_list.append(self.click_and_time(button))
         for button in (top_panel.open_file_button,
                        top_panel.save_layout_button,
                        top_panel.load_layout_button,
-                       top_panel.export_button):
+                       top_panel.export_button,
+                       top_panel.save_signals_button):
             record_list.append(self.click_and_time(button))
         key_list = [record[0] for record in record_list]
-        self.assertEqual(key_list, ["open_file", "save_layout",
-                                    "load_layout", "save_pdf"] * 2)
+        self.assertEqual(key_list, KEY_LIST * 2)
         for click_i, record in enumerate(record_list):
             key_str, dialog, elapsed_s, visible_b = record[:4]
             with self.subTest(key_str=key_str, click_i=click_i):
@@ -212,8 +218,9 @@ class FileDialogTimingTest(unittest.TestCase):
                 self.assertLessEqual(elapsed_s, DIALOG_LIMIT_S)
                 # LLFR-00406: the same dialog on every click.
                 self.assertIs(dialog, self.pool.dialog(key_str))
-        # LLFR-00204, LLFR-00220: after the open, the folder of the data
-        # file, for the Open file and both layout dialogs.
+        # LLFR-00204, LLFR-00220, LLFR-00396: after the open, the
+        # folder of the data file, for the Open file, both layout and the
+        # Save signals dialogs.
         for record in record_list[1:]:
             if record[0] != "save_pdf":
                 self.assertEqual(record[4], self.folder_str)
@@ -224,7 +231,16 @@ class FileDialogTimingTest(unittest.TestCase):
             "open_file": OPEN_FILTER_LIST,
             "save_layout": LAYOUT_FILTER_LIST,
             "load_layout": LAYOUT_FILTER_LIST,
-            "save_pdf": PDF_FILTER_LIST})
+            "save_pdf": PDF_FILTER_LIST,
+            "save_signals": SIGNALS_FILTER_LIST})
+        # LLFR-00396: the Save signals dialog proposes the CSV format
+        # and the name of the data file, on every use.
+        signals_dialog = self.pool.dialog("save_signals")
+        self.assertEqual(signals_dialog.selectedNameFilter(),
+                         SIGNALS_FILTER_LIST[0])
+        self.assertEqual(
+            os.path.basename(signals_dialog.selectedFiles()[0]),
+            "data_signals.csv")
         # Every button is back to normal after the cancel (LLFR-00003),
         # once its minimum active time has passed.
         deadline_s = time.perf_counter() + 1.0
@@ -234,7 +250,8 @@ class FileDialogTimingTest(unittest.TestCase):
         for button in (top_panel.open_file_button,
                        top_panel.save_layout_button,
                        top_panel.load_layout_button,
-                       top_panel.export_button):
+                       top_panel.export_button,
+                       top_panel.save_signals_button):
             self.assertFalse(button.is_active(), button_name(button))
 
     @covers("LLFR-00406", "LLFR-00005", "LLFR-00219", "LLFR-00221",
@@ -340,8 +357,8 @@ class FileDialogTimingTest(unittest.TestCase):
         self.assertEqual(new_dialog.nameFilters(), PDF_FILTER_LIST)
 
     @covers("LLFR-00406")
-    def test_pooled_dialogs_are_qt_dialogs(self) -> None:
-        """Every pooled dialog is Qt's own dialog, which shows fast.
+    def test_pooled_dialogs_stay_system_dialogs(self) -> None:
+        """The pool keeps the system's own dialogs, also for new keys.
 
         Inputs: none.
         Outputs: none.
@@ -351,18 +368,18 @@ class FileDialogTimingTest(unittest.TestCase):
         self.process_events()
         for key_str in self.pool.key_list():
             with self.subTest(key_str=key_str):
-                self.assertTrue(self.pool.dialog(key_str).testOption(
+                self.assertFalse(self.pool.dialog(key_str).testOption(
                     native_option))
         self.assertGreaterEqual(self.pool.prepare_duration_s, 0.0)
-        # Any factory registered later gets the same dialog kind, so
-        # another dialog (for example Save signals) is fast too.
+        # Any factory registered later is prepared the same way.
         pool = file_dialogs.FileDialogPool()
         pool.register("other", lambda: self.file_dialog_class(
             self.main_window, "Other", "", "Data files (*.csv)"))
         self.assertFalse(pool.is_built("other"))
         pool.prepare_all()
         self.assertTrue(pool.prepared_b)
-        self.assertTrue(pool.dialog("other").testOption(native_option))
+        self.assertTrue(pool.is_built("other"))
+        self.assertFalse(pool.dialog("other").testOption(native_option))
         self.assertEqual(pool.dialog("other").nameFilters(),
                          ["Data files (*.csv)"])
 
