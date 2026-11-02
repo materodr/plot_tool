@@ -12,6 +12,7 @@ from unittest import mock
 from tests.support import (
     button_name, button_tip_line_list, covers, get_qt_application,
     requires_qt)
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 DATA_FILE_TEXT_STR = (
     "time,speed,force\n"
@@ -80,9 +81,8 @@ class SaveSignalsViewTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(self.data_path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=self.data_path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
 
