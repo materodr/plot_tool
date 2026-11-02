@@ -538,6 +538,9 @@ class SyntheticController:
         # LLFR-00266: every legend shows the new name; the dependents
         # keep theirs. Not undoable, and the history is kept.
         self.plot_controller.rename_signal(signal_name_str, new_name_str)
+        # LLFR-00292: the renamed signal keeps its selection.
+        self.signal_list_controller.rename_signal(signal_name_str,
+                                                  new_name_str)
         self.show_synthetic_signals()
 
     def on_delete_requested(self, signal_name_str: str) -> None:

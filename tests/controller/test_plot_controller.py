@@ -122,6 +122,15 @@ class FakePlotView:
         """
         self.handler_dict["double_click"] = handler
 
+    def set_selected_signals_plot_handler(self, handler) -> None:
+        """Record the handler of the Enter key in the signal list.
+
+        Inputs:
+            handler: function taking a list of signal names.
+        Outputs: none.
+        """
+        self.handler_dict["plot_selection"] = handler
+
     def set_plot_tool_handler(self, handler) -> None:
         """Record the plot tool handler.
 
