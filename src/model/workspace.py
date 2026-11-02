@@ -21,11 +21,12 @@ PRESET_WIDTH_TUPLE = (1, 2, 3, 4, 5)
 DEFAULT_WIDTH_I = 1
 # LLFR-00024: prefix of the default tab names ("Tab 1", "Tab 2", ...).
 TAB_NAME_PREFIX_STR = "Tab "
-# LLFR-00085: default name of a new vertical marker ("Marker 1", ...).
-DEFAULT_MARKER_NAME_FORMAT_STR = "Marker {}"
-# LLFR-00111, LLFR-00233: a default marker name, to read its number back
-# when a marker of a layout file keeps its saved name.
-DEFAULT_MARKER_NAME_PATTERN_STR = r"Marker (\d+)"
+# LLFR-00085: default name of a new flag ("Flag 1", "Flag 2", ...). In
+# the code, a flag is a "marker" (VerticalMarker).
+DEFAULT_MARKER_NAME_FORMAT_STR = "Flag {}"
+# LLFR-00111, LLFR-00233: a default flag name, to read its number back
+# when a flag of a layout file keeps its saved name.
+DEFAULT_MARKER_NAME_PATTERN_STR = r"Flag (\d+)"
 # LLFR-00309: default name of a new area ("Area 1", "Area 2", ...).
 DEFAULT_AREA_NAME_FORMAT_STR = "Area {}"
 # LLFR-00309, LLFR-00319: a default area name, to read its number back
@@ -1028,7 +1029,7 @@ class Workspace:
         # LLFR-00205: the vertical markers, shared by every plot of every
         # tab, in the order they were placed.
         self.marker_list = []
-        # LLFR-00085, LLFR-00111: number of the next "Marker N"; it only
+        # LLFR-00085, LLFR-00111: number of the next "Flag N"; it only
         # grows, also on undo, until a file is opened (reset).
         self.next_marker_number_i = 1
         # LLFR-00310: the areas, shared by every time plot of every tab,
@@ -1049,7 +1050,7 @@ class Workspace:
         # LLFR-00015: close all tabs and plots of the previous file.
         self.tab_list = []
         # LLFR-00205: with no plot left, no marker is left either.
-        # LLFR-00085, LLFR-00111: a new file numbers from "Marker 1".
+        # LLFR-00085, LLFR-00111: a new file numbers from "Flag 1".
         self.marker_list = []
         self.next_marker_number_i = 1
         # LLFR-00310, LLFR-00309: the same for the areas.
@@ -1335,10 +1336,10 @@ class Workspace:
 
         Inputs:
             time_s: time of the marker, in seconds; stored as given.
-        Outputs: the new VerticalMarker, named "Marker N" (LLFR-00085).
+        Outputs: the new VerticalMarker, named "Flag N" (LLFR-00085).
         """
         # LLFR-00081, LLFR-00205: one marker for every plot of every tab.
-        # LLFR-00085: "Marker N", N counting across the whole workspace.
+        # LLFR-00085: "Flag N", N counting across the whole workspace.
         name_str = DEFAULT_MARKER_NAME_FORMAT_STR.format(
             self.next_marker_number_i)
         # LLFR-00111: the number only grows and is never reused.
@@ -1365,7 +1366,7 @@ class Workspace:
         marker = VerticalMarker(self.marker_id_counter.take_next_id(),
                                 stripped_name_str, float(time_s))
         self.marker_list.append(marker)
-        # LLFR-00085, LLFR-00111: a saved name "Marker N" uses up N, so
+        # LLFR-00085, LLFR-00111: a saved name "Flag N" uses up N, so
         # that a marker placed later never gets the same default name.
         number_match = re.fullmatch(DEFAULT_MARKER_NAME_PATTERN_STR,
                                     stripped_name_str)

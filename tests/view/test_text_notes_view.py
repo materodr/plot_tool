@@ -576,7 +576,7 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_widget.set_markers([(1, "Marker 1", 5.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         for tool_str in ALL_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_text_notes(
@@ -694,7 +694,7 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
         Outputs: none.
         """
         super().setUp()
-        self.plot_widget.set_markers([(1, "Marker 1", 6.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 6.0)])
         self.plot_widget.set_delta_markers([
             (1, "y", ("Ramp", 6.0, 3.6), ("Ramp", 7.0, 3.7), 0.1)])
         self.plot_widget.set_text_notes([("over items", 5.9, 3.59)])

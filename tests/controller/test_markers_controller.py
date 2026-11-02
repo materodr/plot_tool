@@ -107,7 +107,7 @@ class PlaceMarkerTest(MarkerControllerTestCase):
 
     @covers("LLFR-00081", "LLFR-00085")
     def test_place_draws_marker_at_clicked_time(self) -> None:
-        """Each click draws a new "Marker N" at the clicked time.
+        """Each click draws a new "Flag N" at the clicked time.
 
         Inputs: none.
         Outputs: none.
@@ -115,7 +115,7 @@ class PlaceMarkerTest(MarkerControllerTestCase):
         self.assertEqual(self.drawn_markers(), [])
         self.place(2.5)
         self.place(7.25)
-        self.assertEqual(self.drawn_names(), ["Marker 1", "Marker 2"])
+        self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 2"])
         self.assertEqual([marker_tuple[2]
                           for marker_tuple in self.drawn_markers()],
                          [2.5, 7.25])
@@ -137,16 +137,16 @@ class PlaceMarkerTest(MarkerControllerTestCase):
         second_plot_id_i = self.current_plot_ids()[1]
         # LLFR-00205: the new plot shows the markers placed before it.
         self.assertEqual(self.marker_names_of(second_plot_id_i),
-                         ["Marker 1", "Marker 2"])
+                         ["Flag 1", "Flag 2"])
         self.place(3.0, second_plot_id_i)
         for plot_id_i in (self.plot_id_i, second_plot_id_i):
             self.assertEqual(self.marker_names_of(plot_id_i),
-                             ["Marker 1", "Marker 2", "Marker 3"])
+                             ["Flag 1", "Flag 2", "Flag 3"])
         self.assertEqual(len(self.workspace.marker_list), 3)
 
     @covers("LLFR-00111", "LLFR-00085", "LLFR-00091")
     def test_deleted_number_is_not_reused(self) -> None:
-        """After deleting Marker 2, the next marker is Marker 3.
+        """After deleting Flag 2, the next marker is Flag 3.
 
         Inputs: none.
         Outputs: none.
@@ -154,10 +154,10 @@ class PlaceMarkerTest(MarkerControllerTestCase):
         self.place(1.0)
         self.place(2.0)
         self.view.handler_dict["marker_delete_handler"](
-            self.plot_id_i, self.marker_id("Marker 2"))
-        self.assertEqual(self.drawn_names(), ["Marker 1"])
+            self.plot_id_i, self.marker_id("Flag 2"))
+        self.assertEqual(self.drawn_names(), ["Flag 1"])
         self.place(3.0)
-        self.assertEqual(self.drawn_names(), ["Marker 1", "Marker 3"])
+        self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 3"])
 
     @covers("LLFR-00109", "LLFR-00081")
     def test_tool_stays_active_after_placing(self) -> None:
@@ -230,11 +230,11 @@ class MoveMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         self.view.handler_dict["marker_move_handler"](self.plot_id_i,
                                                       marker_id_i, 6.5)
         self.assertEqual(self.drawn_markers(),
-                         [(marker_id_i, "Marker 1", 6.5)])
+                         [(marker_id_i, "Flag 1", 6.5)])
         self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 6.5)
         self.assertEqual(self.controller.plot_tool_str, MARKER_TOOL_STR)
 
@@ -246,7 +246,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         self.view.handler_dict["plot_tool"](ZOOM_TOOL_STR)
         self.view.handler_dict["marker_move_handler"](self.plot_id_i,
                                                       marker_id_i, 6.5)
@@ -260,7 +260,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         draw_count_i = self.draw_count()
         move_handler = self.view.handler_dict["marker_move_handler"]
         move_handler(999, marker_id_i, 5.0)
@@ -277,7 +277,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         self.double_click("s2")
         second_plot_id_i = self.current_plot_ids()[1]
         other_tab_plot_id_i = self.add_plot_in_new_tab("s1")
@@ -287,7 +287,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         for plot_id_i in (self.plot_id_i, second_plot_id_i,
                           other_tab_plot_id_i):
             self.assertEqual(self.view.marker_drawn_dict[plot_id_i],
-                             [(marker_id_i, "Marker 1", 5.0)])
+                             [(marker_id_i, "Flag 1", 5.0)])
 
 
 class RenameMarkerTest(MarkerControllerTestCase):
@@ -313,15 +313,15 @@ class RenameMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         self.rename(marker_id_i, "  Start $x$  ")
-        self.assertEqual(self.view.marker_name_question_list, ["Marker 1"])
+        self.assertEqual(self.view.marker_name_question_list, ["Flag 1"])
         self.assertEqual(self.drawn_markers(),
                          [(marker_id_i, "Start $x$", 2.0)])
         # A second rename starts from the new name.
         self.rename(marker_id_i, "Stop")
         self.assertEqual(self.view.marker_name_question_list,
-                         ["Marker 1", "Start $x$"])
+                         ["Flag 1", "Start $x$"])
         self.assertEqual(self.drawn_names(), ["Stop"])
 
     @covers("LLFR-00089")
@@ -332,7 +332,7 @@ class RenameMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         for blank_name_str in ("", "   ", "\t"):
             with self.subTest(name=blank_name_str):
                 call_count_i = len(self.view.call_list)
@@ -340,10 +340,10 @@ class RenameMarkerTest(MarkerControllerTestCase):
                 new_call_list = self.view.call_list[call_count_i:]
                 # Only the question itself: no redraw, no box.
                 self.assertEqual(new_call_list,
-                                 [("ask_marker_name", "Marker 1")])
+                                 [("ask_marker_name", "Flag 1")])
                 self.assertEqual(
                     self.workspace.find_marker(marker_id_i).name_str,
-                    "Marker 1")
+                    "Flag 1")
         self.assertEqual(self.view.full_tab_count_i, 0)
 
     @covers("LLFR-00088", "LLFR-00089")
@@ -354,11 +354,11 @@ class RenameMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         draw_count_i = self.draw_count()
         self.rename(marker_id_i, None)
         self.assertEqual(self.draw_count(), draw_count_i)
-        self.assertEqual(self.drawn_names(), ["Marker 1"])
+        self.assertEqual(self.drawn_names(), ["Flag 1"])
 
     @covers("LLFR-00088")
     def test_rename_works_with_any_tool(self) -> None:
@@ -368,7 +368,7 @@ class RenameMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         self.view.handler_dict["plot_tool"](NO_TOOL_STR)
         self.rename(marker_id_i, "Peak")
         self.assertEqual(self.drawn_names(), ["Peak"])
@@ -383,10 +383,10 @@ class RenameMarkerTest(MarkerControllerTestCase):
         self.place(2.0)
         self.view.marker_name_answer_list = ["New"]
         rename_handler = self.view.handler_dict["marker_rename_handler"]
-        rename_handler(999, self.marker_id("Marker 1"))
+        rename_handler(999, self.marker_id("Flag 1"))
         rename_handler(self.plot_id_i, 999)
         self.assertEqual(self.view.marker_name_question_list, [])
-        self.assertEqual(self.drawn_names(), ["Marker 1"])
+        self.assertEqual(self.drawn_names(), ["Flag 1"])
 
     @covers("LLFR-00088")
     def test_plot_deleted_while_asking_is_safe(self) -> None:
@@ -396,7 +396,7 @@ class RenameMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(2.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
 
         def delete_plot_and_answer(current_name_str: str):
             """Delete the plot as if it happened during the dialog.
@@ -428,11 +428,11 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         self.place(2.0)
         self.place(3.0)
         self.view.handler_dict["marker_delete_handler"](
-            self.plot_id_i, self.marker_id("Marker 2"))
-        self.assertEqual(self.drawn_names(), ["Marker 1", "Marker 3"])
+            self.plot_id_i, self.marker_id("Flag 2"))
+        self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 3"])
         self.assertEqual([marker.name_str
                           for marker in self.workspace.marker_list],
-                         ["Marker 1", "Marker 3"])
+                         ["Flag 1", "Flag 3"])
         # The plot itself stays, with its curve.
         self.assertEqual(self.view.drawn_names(self.plot_id_i), ["s1"])
 
@@ -446,7 +446,7 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         self.place(1.0)
         self.view.handler_dict["plot_tool"](TIP_TOOL_STR)
         self.view.handler_dict["marker_delete_handler"](
-            self.plot_id_i, self.marker_id("Marker 1"))
+            self.plot_id_i, self.marker_id("Flag 1"))
         self.assertEqual(self.drawn_markers(), [])
 
     @covers("LLFR-00091")
@@ -457,7 +457,7 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(1.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         delete_handler = self.view.handler_dict["marker_delete_handler"]
         delete_handler(self.plot_id_i, marker_id_i)
         draw_count_i = self.draw_count()
@@ -474,7 +474,7 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         Outputs: none.
         """
         self.place(1.0)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         old_plot_id_i = self.plot_id_i
         self.file_controller.open(self.signal_file, True)
         self.assertIsNone(self.workspace.find_plot(old_plot_id_i))
@@ -527,7 +527,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         # Placing from the other tab's plot shows it on the first one.
         self.place(6.0, other_plot_id_i)
         self.assertEqual(self.marker_names_of(self.plot_id_i),
-                         ["Marker 1", "Marker 2"])
+                         ["Flag 1", "Flag 2"])
 
     @covers("LLFR-00205", "LLFR-00084", "LLFR-00092")
     def test_new_plots_show_the_existing_markers(self) -> None:
@@ -558,7 +558,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         other_plot_id_i = self.add_plot_in_new_tab("s2")
         self.view.marker_name_answer_list = ["Start"]
         self.view.handler_dict["marker_rename_handler"](
-            other_plot_id_i, self.marker_id("Marker 1"))
+            other_plot_id_i, self.marker_id("Flag 1"))
         self.assertEqual(self.marker_names_of(self.plot_id_i), ["Start"])
         self.assertEqual(self.marker_names_of(other_plot_id_i), ["Start"])
 
@@ -573,14 +573,14 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.place(2.0)
         other_plot_id_i = self.add_plot_in_new_tab("s2")
         self.view.handler_dict["marker_delete_handler"](
-            other_plot_id_i, self.marker_id("Marker 1"))
+            other_plot_id_i, self.marker_id("Flag 1"))
         self.assertEqual(self.marker_names_of(self.plot_id_i),
-                         ["Marker 2"])
+                         ["Flag 2"])
         self.assertEqual(self.marker_names_of(other_plot_id_i),
-                         ["Marker 2"])
+                         ["Flag 2"])
         self.assertEqual([marker.name_str
                           for marker in self.workspace.marker_list],
-                         ["Marker 2"])
+                         ["Flag 2"])
 
     @covers("LLFR-00140", "LLFR-00205", "LLFR-00081", "LLFR-00086",
             "LLFR-00088", "LLFR-00091")
@@ -593,7 +593,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         other_plot_id_i = self.add_plot_in_new_tab("s2")
         depth_i = self.controller.undo_history.depth()
         self.place(1.0, other_plot_id_i)
-        marker_id_i = self.marker_id("Marker 1")
+        marker_id_i = self.marker_id("Flag 1")
         self.view.handler_dict["marker_move_handler"](self.plot_id_i,
                                                       marker_id_i, 3.0)
         self.view.marker_name_answer_list = ["Peak"]
@@ -604,8 +604,8 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.assertEqual(self.controller.undo_history.depth(),
                          depth_i + 4)
         expected_state_list = [[(marker_id_i, "Peak", 3.0)],
-                               [(marker_id_i, "Marker 1", 3.0)],
-                               [(marker_id_i, "Marker 1", 1.0)], []]
+                               [(marker_id_i, "Flag 1", 3.0)],
+                               [(marker_id_i, "Flag 1", 1.0)], []]
         for expected_list in expected_state_list:
             self.undo()
             self.assertEqual(self.marker_tuple_list(), expected_list)
@@ -617,7 +617,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
 
     @covers("LLFR-00111", "LLFR-00085")
     def test_undone_placement_does_not_free_its_number(self) -> None:
-        """After undoing "Marker 2", the next marker is "Marker 3".
+        """After undoing "Flag 2", the next marker is "Flag 3".
 
         Inputs: none.
         Outputs: none.
@@ -625,9 +625,9 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.place(1.0)
         self.place(2.0)
         self.undo()
-        self.assertEqual(self.drawn_names(), ["Marker 1"])
+        self.assertEqual(self.drawn_names(), ["Flag 1"])
         self.place(3.0)
-        self.assertEqual(self.drawn_names(), ["Marker 1", "Marker 3"])
+        self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 3"])
 
     @covers("LLFR-00205", "LLFR-00049", "LLFR-00140")
     def test_deleting_the_last_plot_deletes_markers_undoably(self) -> None:
@@ -656,7 +656,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
                          saved_list)
         # LLFR-00111: the numbers are still not reused.
         self.place(3.0)
-        self.assertEqual(self.drawn_names()[-1], "Marker 3")
+        self.assertEqual(self.drawn_names()[-1], "Flag 3")
 
     @covers("LLFR-00205", "LLFR-00051", "LLFR-00140")
     def test_removing_the_last_curve_deletes_markers_undoably(self) -> None:
@@ -702,7 +702,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
 
     @covers("LLFR-00205", "LLFR-00085", "LLFR-00111", "LLFR-00015")
     def test_file_open_clears_markers_and_restarts_numbering(self) -> None:
-        """A file open deletes the markers and restarts at "Marker 1".
+        """A file open deletes the markers and restarts at "Flag 1".
 
         Inputs: none.
         Outputs: none.
@@ -718,7 +718,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         new_plot_id_i = self.current_plot_ids()[0]
         self.assertEqual(self.view.marker_drawn_dict[new_plot_id_i], [])
         self.place(1.5, new_plot_id_i)
-        self.assertEqual(self.marker_names_of(new_plot_id_i), ["Marker 1"])
+        self.assertEqual(self.marker_names_of(new_plot_id_i), ["Flag 1"])
 
 
 if __name__ == "__main__":

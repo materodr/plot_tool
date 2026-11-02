@@ -624,9 +624,9 @@ class CreateTest(SyntheticControllerTestCase):
         for reason_str in reason_list[4:]:
             self.assertIn("order must be a whole number from 1 to 8",
                           reason_str)
-        self.assertEqual(self.store_names(), ["lpf_1.5Hz_order4_Speed"])
+        self.assertEqual(self.store_names(), ["lpf_1p5Hz_order4_Speed"])
         self.assertEqual(self.controller.store.get(
-            "lpf_1.5Hz_order4_Speed").parameter, (1.5, 4, "first_value"))
+            "lpf_1p5Hz_order4_Speed").parameter, (1.5, 4, "first_value"))
         # LLFR-00245: the start choice, "From the first value" at first.
         self.assertEqual(self.view.parameter_choice_list[0], (
             "Filter start:", [("first_value", "From the first value"),
@@ -636,10 +636,10 @@ class CreateTest(SyntheticControllerTestCase):
         self.view.parameter_answer_list = [[["1.5", "4", "zero"]]]
         self.create("Speed", "lowpass")
         self.assertEqual(self.store_names(),
-                         ["lpf_1.5Hz_order4_Speed",
-                          "lpf_1.5Hz_order4_Speed_2"])
+                         ["lpf_1p5Hz_order4_Speed",
+                          "lpf_1p5Hz_order4_Speed_2"])
         self.assertEqual(self.controller.store.get(
-            "lpf_1.5Hz_order4_Speed_2").parameter, (1.5, 4, "zero"))
+            "lpf_1p5Hz_order4_Speed_2").parameter, (1.5, 4, "zero"))
 
     @covers("LLFR-00245", "LLFR-00246")
     def test_highpass_and_cancelled_filter(self) -> None:
@@ -753,18 +753,18 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.view.parameter_question_list[0][2],
                          [("Constant:", "")])
         self.assertEqual(self.store_names(), [
-            "gt_0.5_Torque", "div_4_Torque", "mul_3_Torque",
-            "le_-1_Torque"])
+            "gt_0p5_Torque", "div_4_Torque", "mul_3_Torque",
+            "le_1n0_Torque"])
         store = self.controller.store
         torque_array = make_signal_file().signal_array("Torque")
-        np.testing.assert_allclose(store.get("gt_0.5_Torque").value_array,
+        np.testing.assert_allclose(store.get("gt_0p5_Torque").value_array,
                                    (torque_array > 0.5).astype(float))
         np.testing.assert_allclose(store.get("div_4_Torque").value_array,
                                    torque_array / 4.0)
         np.testing.assert_allclose(
             store.get("mul_3_Torque").value_array, torque_array * 3.0)
         np.testing.assert_allclose(
-            store.get("le_-1_Torque").value_array,
+            store.get("le_1n0_Torque").value_array,
             (torque_array <= -1.0).astype(float))
 
     @covers("LLFR-00275", "LLFR-00276", "LLFR-00240")
@@ -779,7 +779,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.view.second_signal_answer_list = [None, "Torque", "Speed"]
         self.create("Speed", "product")
         self.assertEqual(self.store_names(),
-                         ["fft_0s_to_9.9s_Speed", "int_Speed"])
+                         ["fft_0s_to_9p9s_Speed", "int_Speed"])
         title_str, prompt_str, name_list, selected_name_str = (
             self.view.second_signal_question_list[0])
         self.assertEqual(title_str, "Product with signal")
@@ -883,7 +883,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(search_function("fft"), [])
         self.assertEqual(search_function("zzz"), [])
         self.assertEqual(self.store_names(), [
-            "fft_0s_to_9.9s_Speed", "int_Speed", "int_Torque"])
+            "fft_0s_to_9p9s_Speed", "int_Speed", "int_Torque"])
 
     @covers("LLFR-00248", "LLFR-00240", "LLFR-00249")
     def test_fft_uses_the_whole_file_without_time_plots(self) -> None:
@@ -893,10 +893,10 @@ class CreateTest(SyntheticControllerTestCase):
         Outputs: none.
         """
         self.create("Speed", "fft")
-        signal = self.controller.store.get("fft_0s_to_9.9s_Speed")
+        signal = self.controller.store.get("fft_0s_to_9p9s_Speed")
         self.assertEqual(signal.parameter, (0.0, 9.9))
         self.assertEqual(signal.value_array.size, SAMPLE_COUNT_I // 2 + 1)
-        self.assertEqual(self.view.fft_name_set, {"fft_0s_to_9.9s_Speed"})
+        self.assertEqual(self.view.fft_name_set, {"fft_0s_to_9p9s_Speed"})
         self.assertEqual(self.view.parameter_question_list, [])
 
     @covers("LLFR-00248", "LLFR-00240", "LLFR-00070")
@@ -910,11 +910,11 @@ class CreateTest(SyntheticControllerTestCase):
         plot_id_i = self.plot_id_list()[0]
         self.view.handler_dict["time_range_handler"](plot_id_i, 1.5, 3.0)
         self.create("Torque", "fft")
-        self.assertEqual(self.store_names(), ["fft_1.5s_to_3s_Torque"])
+        self.assertEqual(self.store_names(), ["fft_1p5s_to_3s_Torque"])
         # LLFR-00248: a later change of the range changes nothing.
         self.view.handler_dict["time_range_handler"](plot_id_i, 0.0, 9.0)
         self.assertEqual(self.controller.store.get(
-            "fft_1.5s_to_3s_Torque").parameter, (1.5, 3.0))
+            "fft_1p5s_to_3s_Torque").parameter, (1.5, 3.0))
         # LLFR-00241: the same range again gets "_2"; a reset range is
         # the whole file again.
         self.view.handler_dict["time_range_handler"](plot_id_i, 1.5, 3.0)
@@ -922,8 +922,8 @@ class CreateTest(SyntheticControllerTestCase):
         self.view.handler_dict["reset_zoom"]()
         self.create("Torque", "fft")
         self.assertEqual(self.store_names(), [
-            "fft_1.5s_to_3s_Torque", "fft_1.5s_to_3s_Torque_2",
-            "fft_0s_to_9.9s_Torque"])
+            "fft_1p5s_to_3s_Torque", "fft_1p5s_to_3s_Torque_2",
+            "fft_0s_to_9p9s_Torque"])
 
     @covers("LLFR-00250")
     def test_fft_with_too_few_samples_shows_a_box(self) -> None:
@@ -941,7 +941,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertIn("too few samples", self.view.information_list[0][1])
         self.view.handler_dict["time_range_handler"](plot_id_i, 1.0, 1.75)
         self.create("Speed", "fft")
-        self.assertEqual(self.store_names(), ["fft_1s_to_1.75s_Speed"])
+        self.assertEqual(self.store_names(), ["fft_1s_to_1p75s_Speed"])
 
     @covers("LLFR-00251")
     def test_no_operation_on_fft_signals(self) -> None:
@@ -1048,10 +1048,10 @@ class CopyTest(SyntheticControllerTestCase):
         self.create("Speed", "integral")
         self.create("Speed", "fft")
         for name_str in ("Time", "Speed", "int_Speed",
-                         "fft_0s_to_9.9s_Speed"):
+                         "fft_0s_to_9p9s_Speed"):
             self.menu("copy_name", name_str)
         self.assertEqual(self.view.clipboard_text_list, [
-            "Time", "Speed", "int_Speed", "fft_0s_to_9.9s_Speed"])
+            "Time", "Speed", "int_Speed", "fft_0s_to_9p9s_Speed"])
 
     @covers("LLFR-00278", "LLFR-00279", "LLFR-00225")
     def test_copy_equation_lists_the_signal_and_its_ancestors(

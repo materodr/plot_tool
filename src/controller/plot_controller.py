@@ -699,7 +699,7 @@ class PlotController:
         # LLFR-00015, LLFR-00016: close all tabs and plots and leave one
         # tab with no plots (also harmless for the first file).
         # LLFR-00205, LLFR-00085: every vertical marker is deleted and
-        # the numbering restarts at "Marker 1"; this is not undoable.
+        # the numbering restarts at "Flag 1"; this is not undoable.
         # LLFR-00310, LLFR-00309: so is every area, and the numbering
         # restarts at "Area 1".
         self.workspace.reset()
@@ -1365,7 +1365,7 @@ class PlotController:
             return
         # LLFR-00140: placing a marker is undoable.
         snapshot = self.take_snapshot()
-        # LLFR-00085, LLFR-00111: the model names it "Marker N" and
+        # LLFR-00085, LLFR-00111: the model names it "Flag N" and
         # never reuses N. LLFR-00109: the tool stays active.
         # LLFR-00205: one marker, shown on every plot of every tab.
         self.workspace.add_marker(float(time_s))

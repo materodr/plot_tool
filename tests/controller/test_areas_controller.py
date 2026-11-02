@@ -467,7 +467,7 @@ class LayoutAreaControllerTest(AreaControllerTestCase):
         self.create(1.0, 2.0)
         self.assertEqual(self.controller.layout_dict()["areas"], [
             {"name": "Area 1", "start": 1.0, "end": 2.0,
-             "color": "Orange"}])
+             "color": "#ff8000"}])
         result = self.controller.load_layout(minimal_layout(
             [one_plot_tab([curve("s2")])], areas=[
                 {"name": "Saved", "start": 3.0, "end": 4.0},

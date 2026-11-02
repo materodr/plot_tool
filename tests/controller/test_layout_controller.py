@@ -389,8 +389,8 @@ class SaveLayoutTest(LayoutControllerTestCase):
                          {"plot_panel": 900, "signal_list_panel": 300})
         self.assertEqual(layout_dict["tabs"][0]["name"], "Main")
         self.assertEqual(len(layout_dict["tabs"][0]["plots"]), 2)
-        self.assertEqual(layout_dict["vertical_markers"],
-                         [{"name": "Marker 1", "time": 4.0}])
+        self.assertEqual(layout_dict["flags"],
+                         [{"name": "Flag 1", "time": 4.0, "color": "#ff8000"}])
         self.assertIn('\n  "tabs": [\n', text_str)
         self.assertEqual(self.view.finished_list, ["save"])
         self.assertEqual(self.view.save_error_list, [])
@@ -662,7 +662,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(self.workspace.marker_list, [])
         report_str = self.view.report_list[0]
         self.assertIn("limited to 1 s to 3 s", report_str)
-        self.assertIn("Vertical marker \"Marker 1\" at 4 s", report_str)
+        self.assertIn("Flag \"Flag 1\" at 4 s", report_str)
 
     @covers("LLFR-00234")
     def test_range_without_overlap_shows_the_whole_file(self) -> None:
