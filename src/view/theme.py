@@ -157,6 +157,13 @@ PANEL_SPACING_I = 10
 # LLFR-00348, LLFR-00349: the buttons of a group touch; 16 px separate
 # one group from the next.
 TOOLBAR_GROUP_GAP_I = 16
+# LLFR-00364: the credit text at the right end of the top panel, paler
+# than the panel's normal text (TEXT_COLOR_STR) and than the muted text,
+# so that it never competes with the buttons; it is hidden when it would
+# come closer to the last button than CREDIT_MINIMUM_GAP_I.
+CREDIT_TEXT_COLOR_STR = "#8d98a3"
+CREDIT_FONT_SIZE_I = 11
+CREDIT_MINIMUM_GAP_I = TOOLBAR_GROUP_GAP_I
 SIGNAL_PANEL_SPACING_I = 8
 SPLITTER_HANDLE_WIDTH_I = 8
 PLOT_SPACING_I = 6
@@ -470,6 +477,21 @@ def splash_style_sheet(card_name_str: str, name_label_name_str: str,
         f"{SPLASH_MESSAGE_FONT_SIZE_I}px; background: transparent; "
         "border: none; }",
     ])
+
+
+def credit_label_style_sheet(label_name_str: str) -> str:
+    """Return the style sheet of the credit text of the top panel.
+
+    Inputs:
+        label_name_str: objectName of the QLabel of the credit text.
+    Outputs: a Qt style sheet with the pale CREDIT_TEXT_COLOR_STR, a
+        small font, no background and no border, and no hover rule, so
+        that the text never reacts to the mouse.
+    """
+    # LLFR-00364: paler than the panel's normal text; not a button.
+    return (f"QLabel#{label_name_str} {{ color: {CREDIT_TEXT_COLOR_STR}; "
+            f"font-size: {CREDIT_FONT_SIZE_I}px; background: transparent; "
+            "border: none; padding: 0px; margin: 0px; }")
 
 
 def application_style_sheet() -> str:

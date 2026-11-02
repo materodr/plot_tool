@@ -35,12 +35,14 @@ BUTTON_NAME_DICT = {
     "redo_button": "Redo",
     "save_layout_button": "Save layout",
     "load_layout_button": "Load layout",
+    "pan_button": "Pan",
+    "report_bug_button": "Report a bug",
 }
-# LLFR-00159: the 16 icons of the requirement, in its order.
+# LLFR-00159: the 18 icons of the requirement, in its order.
 REQUIRED_ICON_TUPLE = (
     "open_file", "undo", "tip", "zoom", "reset_zoom", "vertical_marker",
     "delta_x", "delta_y", "grid", "export", "copy", "redo", "save_layout",
-    "load_layout", "area", "text")
+    "load_layout", "area", "text", "pan", "report_bug")
 
 
 def hex_to_rgb_tuple(color_str: str) -> tuple:

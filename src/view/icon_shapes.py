@@ -34,7 +34,7 @@ INK_ROLE_STR = "ink"
 MARKER_DASH_START_TUPLE = (11.25, 15.0, 18.75)
 MARKER_DASH_LENGTH_F = 2.25
 
-# LLFR-00159: the names of the 16 icons. Delta X and Delta Y are drawn
+# LLFR-00159: the names of the 18 icons. Delta X and Delta Y are drawn
 # here for their buttons (LLFR-00161, LLFR-00162).
 OPEN_FILE_ICON_STR = "open_file"
 UNDO_ICON_STR = "undo"
@@ -56,6 +56,16 @@ LOAD_LAYOUT_ICON_STR = "load_layout"
 # icons.
 AREA_ICON_STR = "area"
 TEXT_ICON_STR = "text"
+# LLFR-00159 items 17 and 18, LLFR-00355, LLFR-00358: the Pan and Report
+# a bug icons.
+PAN_ICON_STR = "pan"
+REPORT_BUG_ICON_STR = "report_bug"
+# LLFR-00159 item 17: the four fingers of the Pan icon, as (x, top of
+# the finger), on the 24 by 24 grid; each finger ends at the palm.
+PAN_FINGER_TUPLE = ((8.75, 6.0), (11.75, 3.5), (15.0, 4.5), (18.25, 7.5))
+PAN_PALM_TOP_F = 12.5
+# LLFR-00159 item 18: the heights of the three pairs of legs of the bug.
+BUG_LEG_Y_TUPLE = (12.0, 15.5, 19.0)
 # LLFR-00159 item 15: the hatch lines that shade the Area icon, as the
 # sums x + y of each line, and the band they shade (left, top, right,
 # bottom).
@@ -456,6 +466,53 @@ def text_shape() -> list:
             ink_layer(segment(12.0, 8.5, 12.0, 16.0))]
 
 
+def pan_shape() -> list:
+    """Return the Pan icon: an open hand (17).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 17: four straight fingers held apart, a thumb
+    # opened to the left and a rounded palm, the hand that grabs and
+    # moves the plot (LLFR-00356).
+    layer_list = [ink_layer(segment(finger_x_f, PAN_PALM_TOP_F, finger_x_f,
+                                    finger_top_f))
+                  for finger_x_f, finger_top_f in PAN_FINGER_TUPLE]
+    little_finger_x_f = PAN_FINGER_TUPLE[-1][0]
+    # The palm: from the thumb down around the heel of the hand and up
+    # the outer side into the little finger.
+    layer_list.append(ink_layer([
+        ("M", 6.5, 15.0),
+        ("Q", 7.0, 21.0, 12.0, 21.0),
+        ("Q", little_finger_x_f, 21.0, little_finger_x_f, 15.5),
+        ("L", little_finger_x_f, PAN_PALM_TOP_F)]))
+    # The thumb, opened to the left of the palm.
+    layer_list.append(ink_layer(polyline(
+        [(6.5, 15.0), (4.0, 10.5)])))
+    return layer_list
+
+
+def report_bug_shape() -> list:
+    """Return the Report a bug icon: a small bug (18).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 18: a rounded body split by the wing line, a round
+    # head with two antennae, and three legs on each side.
+    layer_list = [ink_layer([("R", 8.0, 9.0, 8.0, 12.0, 4.0)]),
+                  ink_layer(segment(12.0, 9.0, 12.0, 21.0)),
+                  ink_layer([("O", 12.0, 6.5, 2.25)]),
+                  ink_layer(segment(10.75, 4.5, 9.0, 2.0)),
+                  ink_layer(segment(13.25, 4.5, 15.0, 2.0))]
+    for leg_index_i, leg_y_f in enumerate(BUG_LEG_Y_TUPLE):
+        # The legs point forward, sideways and back, like an insect's.
+        end_y_f = leg_y_f + (leg_index_i - 1) * 1.75
+        layer_list.append(ink_layer(segment(8.0, leg_y_f, 4.5, end_y_f)))
+        layer_list.append(ink_layer(segment(16.0, leg_y_f, 19.5, end_y_f)))
+    return layer_list
+
+
 # LLFR-00159: icon name -> function that returns its layers.
 ICON_SHAPE_FUNCTION_DICT = {
     OPEN_FILE_ICON_STR: open_file_shape,
@@ -474,6 +531,8 @@ ICON_SHAPE_FUNCTION_DICT = {
     LOAD_LAYOUT_ICON_STR: load_layout_shape,
     AREA_ICON_STR: area_shape,
     TEXT_ICON_STR: text_shape,
+    PAN_ICON_STR: pan_shape,
+    REPORT_BUG_ICON_STR: report_bug_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 
