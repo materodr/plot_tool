@@ -795,6 +795,10 @@ class PlotWidget(QWidget):
             self.confirm_text_note_editor)
         self.text_note_editor.cancel_requested.connect(
             self.cancel_text_note_editor)
+        # LLFR-00334: a press anywhere outside the field confirms it,
+        # also on widgets that never take the focus.
+        self.text_note_editor.outside_pressed.connect(
+            self.confirm_text_note_editor_by_press)
         self.rebuild_axes()
 
     # ----------------------------------------------------------------
@@ -982,13 +986,18 @@ class PlotWidget(QWidget):
         Outputs: none. Only the notes are drawn again.
         """
         # LLFR-00337, LLFR-00340: draw exactly the notes of this plot.
-        self.text_note_list = [
+        new_note_list = [
             (str(text_str), float(time_s), float(value_f))
             for (text_str, time_s, value_f) in text_note_data_list]
-        # LLFR-00342: an edited note that is gone ends its text field.
+        # LLFR-00342: the field of "Edit" names its note by its place in
+        # the list; when the list changes (an undo, a redo or another
+        # rebuild), it might name another note, so it is closed and
+        # writes nothing. A field for a new note keeps its own place.
         if (self.text_note_editor_open_b
-                and self.editor_note_index_i >= len(self.text_note_list)):
+                and self.editor_note_index_i != NO_TEXT_NOTE_INDEX_I
+                and new_note_list != self.text_note_list):
             self.close_text_note_editor()
+        self.text_note_list = new_note_list
         self.draw_text_notes()
         self.draw_when_visible()
 
@@ -2472,6 +2481,20 @@ class PlotWidget(QWidget):
             return
         # The receiver redraws the notes, so this is the last step.
         self.text_note_edit_requested.emit(note_index_i, text_str)
+
+    def confirm_text_note_editor_by_press(self) -> None:
+        """Confirm the text field because of a press outside it.
+
+        Inputs: none.
+        Outputs: none. The press itself then does nothing else on this
+            plot (see on_mouse_press).
+        """
+        # LLFR-00334: a click outside the field, anywhere in the app.
+        if not self.text_note_editor_open_b:
+            return
+        self.press_closed_editor_b = True
+        QTimer.singleShot(0, self.forget_press_closed_editor)
+        self.confirm_text_note_editor()
 
     def forget_press_closed_editor(self) -> None:
         """Let the next press act again after a field was confirmed.

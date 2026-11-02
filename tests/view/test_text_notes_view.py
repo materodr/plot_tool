@@ -757,6 +757,59 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
         self.assertEqual(self.edit_list, [(0, "edited")])
 
 
+class EditFieldRebindTest(TextNoteWidgetTestCase):
+    """The Edit field never changes another note (LLFR-00342)."""
+
+    @covers("LLFR-00342", "LLFR-00138", "LLFR-00192")
+    def test_edit_field_closed_when_the_notes_change(self) -> None:
+        """When the notes are drawn again with another list (as after an
+        undo or a redo), an open Edit field is closed and Enter writes
+        nothing; the same list keeps it open.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        note_list = [("first", 2.0, 2.0), ("second", 6.0, 2.0)]
+        self.plot_widget.set_text_notes(note_list)
+        self.draw()
+        self.plot_widget.edit_text_note_at(1)
+        self.assertTrue(self.editor.isVisible())
+        # The same notes drawn again keep the field.
+        self.plot_widget.set_text_notes(list(note_list))
+        self.assertTrue(self.editor.isVisible())
+        QTest.keyClicks(self.editor, "changed")
+        # An undo puts a note back before the edited one.
+        self.plot_widget.set_text_notes(
+            [("restored", 1.0, 1.0)] + note_list)
+        self.application.processEvents()
+        self.assertFalse(self.editor.isVisible())
+        self.assertFalse(self.plot_widget.text_note_editor_open_b)
+        QTest.keyClick(self.editor, Qt.Key.Key_Return)
+        self.application.processEvents()
+        self.assertEqual(self.edit_list, [])
+        self.assertEqual(self.create_list, [])
+
+    @covers("LLFR-00333", "LLFR-00340")
+    def test_new_note_field_stays_open_when_the_notes_change(
+            self) -> None:
+        """A field for a new note keeps its clicked place when the notes
+        are drawn again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        self.open_field_at(*EMPTY_PLACE_TUPLE)
+        QTest.keyClicks(self.editor, "new")
+        self.plot_widget.set_text_notes([("other", 1.0, 1.0)])
+        self.assertTrue(self.editor.isVisible())
+        QTest.keyClick(self.editor, Qt.Key.Key_Return)
+        self.assertEqual([entry[0] for entry in self.create_list], ["new"])
+
+
 class TextNoteImageTest(TextNoteWidgetTestCase):
     """Notes in the PDF pages and the copied image (LLFR-00129,
     LLFR-00133)."""
@@ -1071,6 +1124,128 @@ class TextNoteEndToEndTest(unittest.TestCase):
              self.plot_controller.workspace.tab_list
              for plot in tab.plot_list], [[]])
 
+    @covers("LLFR-00333", "LLFR-00334", "LLFR-00079")
+    def test_tool_buttons_clicked_with_the_mouse_keep_the_field(
+            self) -> None:
+        """Real mouse clicks on the Text button and on other plot tool
+        buttons while typing keep the field open, with its text and the
+        focus; Enter then writes the note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        self.open_field()
+        editor = self.plot_widget.text_note_editor
+        QTest.keyClicks(editor, "typed")
+        tool_button_dict = self.main_window.top_panel.plot_tool_button_dict
+        for tool_str, expected_tool_str in (
+                (TEXT_TOOL_STR, NO_TOOL_STR),
+                (ZOOM_TOOL_STR, ZOOM_TOOL_STR),
+                (MARKER_TOOL_STR, MARKER_TOOL_STR),
+                (TEXT_TOOL_STR, TEXT_TOOL_STR)):
+            with self.subTest(button=tool_str):
+                QTest.mouseClick(tool_button_dict[tool_str],
+                                 Qt.MouseButton.LeftButton)
+                self.process_events()
+                self.assertEqual(self.plot_controller.plot_tool_str,
+                                 expected_tool_str)
+                self.assertTrue(editor.isVisible())
+                self.assertIs(self.application.focusWidget(), editor)
+                self.assertEqual(editor.text(), "typed")
+                self.assertEqual(self.model_notes(), [])
+        QTest.keyClick(editor, Qt.Key.Key_Return)
+        self.process_events()
+        self.assertEqual([note[0] for note in self.model_notes()],
+                         ["typed"])
+
+    @covers("LLFR-00333")
+    def test_top_panel_buttons_never_take_the_focus(self) -> None:
+        """Every top panel button has no keyboard focus policy.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from view.toggle_button import ToggleButton
+        button_list = self.main_window.top_panel.findChildren(ToggleButton)
+        self.assertGreaterEqual(len(button_list), 16)
+        for button in button_list:
+            self.assertEqual(button.focusPolicy(), Qt.FocusPolicy.NoFocus)
+
+    @covers("LLFR-00334")
+    def test_press_on_widgets_without_focus_confirms(self) -> None:
+        """A press on the top panel background, on a disabled button or
+        on the splitter handle confirms the field.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint, Qt
+        from PyQt6.QtTest import QTest
+        top_panel = self.main_window.top_panel
+        # The rightmost place of the panel that holds no button.
+        background_point = next(
+            QPoint(x_i, top_panel.height() // 2)
+            for x_i in range(top_panel.width() - 2, 0, -1)
+            if top_panel.childAt(QPoint(x_i, top_panel.height() // 2))
+            is None)
+        redo_button = top_panel.redo_button
+        self.assertFalse(redo_button.isEnabled())
+        splitter_handle = self.main_window.lower_splitter.handle(1)
+        for index_i, (widget, point) in enumerate((
+                (top_panel, background_point),
+                (redo_button, redo_button.rect().center()),
+                (splitter_handle, splitter_handle.rect().center()))):
+            with self.subTest(widget=type(widget).__name__):
+                self.open_field()
+                editor = self.plot_widget.text_note_editor
+                QTest.keyClicks(editor, f"note {index_i}")
+                QTest.mousePress(widget, Qt.MouseButton.LeftButton,
+                                 Qt.KeyboardModifier.NoModifier, point)
+                QTest.mouseRelease(widget, Qt.MouseButton.LeftButton,
+                                   Qt.KeyboardModifier.NoModifier, point)
+                self.process_events()
+                self.assertFalse(editor.isVisible())
+                self.assertEqual(self.model_notes()[-1][0],
+                                 f"note {index_i}")
+                self.main_window.top_panel.plot_tool_button_dict[
+                    TEXT_TOOL_STR].click()
+                self.process_events()
+        self.assertEqual(len(self.model_notes()), 3)
+
+    @covers("LLFR-00342", "LLFR-00138")
+    def test_undo_while_editing_changes_no_other_note(self) -> None:
+        """An undo while the Edit field is open closes it; Enter then
+        changes no note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        for text_str, time_s in (("A", 1.0), ("B", 3.0)):
+            self.plot_controller.on_text_note_create(
+                self.plot_widget.plot_id_i, text_str, time_s, 4.0)
+        self.plot_controller.on_text_note_delete(
+            self.plot_widget.plot_id_i, 0)
+        self.process_events()
+        self.plot_widget.canvas.draw()
+        self.plot_widget.edit_text_note_at(0)
+        editor = self.plot_widget.text_note_editor
+        self.assertEqual(editor.text(), "B")
+        QTest.keyClicks(editor, "changed")
+        self.main_window.run_undo()
+        self.process_events()
+        self.assertEqual([note[0] for note in self.model_notes()],
+                         ["A", "B"])
+        self.assertFalse(editor.isVisible())
+        QTest.keyClick(editor, Qt.Key.Key_Return)
+        self.process_events()
+        self.assertEqual([note[0] for note in self.model_notes()],
+                         ["A", "B"])
+
     @covers("LLFR-00334", "LLFR-00333")
     def test_tool_switched_off_with_its_button_while_typing(self) -> None:
         """Clicking the Text button off keeps the field; Enter writes.
@@ -1083,8 +1258,9 @@ class TextNoteEndToEndTest(unittest.TestCase):
         self.open_field()
         editor = self.plot_widget.text_note_editor
         QTest.keyClicks(editor, "late")
-        self.main_window.top_panel.plot_tool_button_dict[
-            TEXT_TOOL_STR].click()
+        QTest.mouseClick(
+            self.main_window.top_panel.plot_tool_button_dict[TEXT_TOOL_STR],
+            Qt.MouseButton.LeftButton)
         self.process_events()
         self.assertEqual(self.plot_controller.plot_tool_str, NO_TOOL_STR)
         self.assertTrue(editor.isVisible())

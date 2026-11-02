@@ -17,7 +17,7 @@ Colors:
         active (LLFR-00002, LLFR-00003).
 """
 
-from PyQt6.QtCore import QSize, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import QPushButton
 
 from view import icons, theme
@@ -81,6 +81,10 @@ class ToggleButton(QPushButton):
             self.setText(self.button_name_str)
         # LLFR-00001: the checked state is the active state.
         self.setCheckable(True)
+        # LLFR-00333: a click on a top panel button never takes the
+        # keyboard focus, as on macOS, so a text note field (and the
+        # search box) keeps it while a plot tool is turned on or off.
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         # The stylesheet is scoped by objectName so it does not leak to
         # child widgets; a default name is given when none is set.
         if not self.objectName():
