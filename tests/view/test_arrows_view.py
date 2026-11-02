@@ -463,7 +463,13 @@ class ArrowLookTest(ArrowWidgetTestCase):
         """
         self.set_one_arrow()
         patch = self.plot_widget.arrow_patch(0)
-        self.assertIsNotNone(patch.get_clip_path())
+        # Clipped to the drawing area (matplotlib turns the axes patch
+        # into a clip box).
+        self.assertTrue(patch.get_clip_on())
+        clip_box = patch.get_clip_box()
+        self.assertIsNotNone(clip_box)
+        self.assertTrue(np.allclose(clip_box.extents,
+                                    self.plot_widget.axes.bbox.extents))
         # The end (x = 6) leaves the shown range: no head.
         self.plot_widget.set_time_range(0.0, 5.0)
         self.draw()
