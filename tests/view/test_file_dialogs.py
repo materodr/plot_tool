@@ -225,7 +225,12 @@ class FileDialogTimingTest(unittest.TestCase):
             "save_layout": LAYOUT_FILTER_LIST,
             "load_layout": LAYOUT_FILTER_LIST,
             "save_pdf": PDF_FILTER_LIST})
-        # Every button is back to normal after the cancel (LLFR-00003).
+        # Every button is back to normal after the cancel (LLFR-00003),
+        # once its minimum active time has passed.
+        deadline_s = time.perf_counter() + 1.0
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
         for button in (top_panel.open_file_button,
                        top_panel.save_layout_button,
                        top_panel.load_layout_button,

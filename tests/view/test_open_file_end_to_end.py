@@ -379,7 +379,9 @@ class MainWindowFacadeTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QFileDialog
-        folder_str = self.temporary_folder.name
+        temporary_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_folder.cleanup)
+        folder_str = temporary_folder.name
         with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
                         return_value="/x/y.csv") as dialog_mock:
             self.assertEqual(

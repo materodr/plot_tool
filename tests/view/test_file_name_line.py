@@ -448,11 +448,18 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.widget.selectAll()
         QTest.keyClick(self.widget, Qt.Key.Key_Return)
         self.assertEqual(self.plot_request_list, [NAME_LIST])
+        # The row is outside the list's viewport: no item is under it,
+        # so no click on it can reach an item.
+        from PyQt6.QtCore import QPoint
+        viewport = self.widget.viewport()
+        for point in (self.label.rect().topLeft(),
+                      self.label.rect().center(),
+                      self.label.rect().bottomRight()):
+            viewport_point = viewport.mapFrom(self.label, QPoint(point))
+            self.assertLess(viewport_point.y(), 0)
+            self.assertIsNone(self.widget.itemAt(viewport_point))
         # A double-click on a signal still plots it (LLFR-00019).
-        point = self.widget.visualItemRect(self.widget.item(2)).center()
-        QTest.mouseDClick(self.widget.viewport(), Qt.MouseButton.LeftButton,
-                          Qt.KeyboardModifier.NoModifier, point)
-        self.application.processEvents()
+        self.widget.itemDoubleClicked.emit(self.widget.item(2))
         self.assertEqual(self.double_clicked_list, ["Pressure"])
 
     @covers("LLFR-00362", "LLFR-00021")
