@@ -27,7 +27,7 @@ Note: This applies to every button, including the button that opens a file.
 The user must be able to change the widths of the plot panel and the signal list panel.
 
 ### HLFR-00040 Undo
-The user must be able to undo their most recent actions on the tabs, plots, curves, data tips and markers.
+The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, markers, areas and text notes.
 
 ### HLFR-00048 Redo
 The user must be able to redo the actions they have undone (HLFR-00040).
@@ -53,7 +53,9 @@ The app must open files in these formats: CSV (`.csv`), Excel (`.xlsx`), MATLAB 
 Note: More formats may be added in later versions.
 
 ### HLFR-00006 Time signal name
-The app must identify the time signal as the signal named `Time`.
+The app must identify the time signal as the signal named `Time`, ignoring the difference between uppercase and lowercase letters, or, when no signal has that name, as the signal the user chooses (HLFR-00070).
+
+Note: The time signal is the signal used as the x-axis of the time plots.
 
 ### HLFR-00007 Time unit
 The app must treat the values of the time signal as seconds.
@@ -61,7 +63,7 @@ The app must treat the values of the time signal as seconds.
 Note: Files are assumed to always store time in seconds.
 
 ### HLFR-00008 Minimum file content
-The app must open a file only if it contains a time signal (HLFR-00006) and at least one other signal.
+The app must open a file only if it contains at least two signals, one of which is the time signal (HLFR-00006).
 
 ### HLFR-00009 Equal sample count
 The app must open a file only if all its signals have the same number of samples.
@@ -72,7 +74,7 @@ If the selected file can be opened and another file is already open, the app mus
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
 
-Note: The **plot tools** are the Data tip, Zoom, Vertical marker, Delta X and Delta Y functions. Each one is started from its own button in the top panel.
+Note: The **plot tools** are the Data tip, Zoom, Vertical marker, Delta X, Delta Y, Area and Text functions. Each one is started from its own button in the top panel.
 
 ### HLFR-00042 Button icons
 Each button in the top panel must show an icon that illustrates its function.
@@ -82,7 +84,7 @@ Note: The small box with a button's name that appears while the mouse pointer is
 ### HLFR-00049 Save a layout
 The user must be able to save the current layout of the plots to a layout file from the top panel.
 
-Note: The **layout** is what the plot panel shows and how: the tabs, their plots, the curves in each plot, the time range, the grid, the vertical markers, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. The file with the time series that the user opens with the Open file button is called the **data file**. The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
+Note: The **layout** is what the plot panel shows and how: the tabs, their plots, the curves in each plot, the time range, the grid, the vertical markers, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. The file with the time series that the user opens with the Open file button is called the **data file**. The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
 
 ### HLFR-00050 Load a layout
 The user must be able to load a layout file from the top panel and rebuild its layout with the signals of the opened data file.
@@ -95,6 +97,19 @@ After loading a layout file, the app must tell the user which parts of the layou
 
 ### HLFR-00056 Synthetic signals in the layout
 The layout file must hold what the app needs to create again the synthetic signals (HLFR-00053) when the layout file is loaded, except the FFT signals, which are not saved in the layout file.
+
+### HLFR-00070 Choose the time signal
+When the user opens a file in which no signal is named `Time` (HLFR-00006), the app must ask the user to choose the signal that goes on the x-axis, in a window with the list of the signals and a search box.
+
+Note: The window works like the second signal window of the Product with signal operation.
+
+### HLFR-00072 Time signal fixed after opening
+The user must not be able to change the time signal after the file is open.
+
+### HLFR-00077 Button groups
+The buttons of the top panel must be organized in groups of related buttons. The buttons of a group must look like one joined block, with no space between them, and there must be a space between one group and the next.
+
+Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export and Copy; Undo and Redo.
 
 ## Signal list panel
 
@@ -144,6 +159,18 @@ The user must be able to copy the name of a signal in the signal list to the cli
 The user must be able to copy to the clipboard the equation of a synthetic signal.
 
 Note: The **equation** of a synthetic signal is the text that the layout file uses to create it again (HLFR-00056), including every synthetic signal it is computed from.
+
+### HLFR-00063 Select several signals
+The user must be able to select several signals in the signal list at once.
+
+### HLFR-00064 Plot several signals in a new plot
+The user must be able to plot the selected signals together, as curves of one new plot, by pressing the Enter key.
+
+### HLFR-00065 Add several signals to an existing plot
+The user must be able to add all the selected signals to an existing plot at once, by dragging them to it.
+
+### HLFR-00071 Time signal shown in green
+The signal list panel must show the name of the time signal in green, whether the app found it by its name or the user chose it.
 
 ## Plot panel
 
@@ -238,3 +265,31 @@ Note: The measurement is shown in the plot by a **Delta Y marker**. Delta X and 
 The app must draw FFT signals in plots that have frequency on their x-axis.
 
 Note: Such a plot is called a **frequency plot**. A plot that has time on its x-axis is called a **time plot**.
+
+### HLFR-00066 Mark a time range with an area
+The user must be able to mark a time range with an area, shown on every time plot.
+
+Note: An **area** is a shaded vertical band across the plot, between two time values, with a name label at its top. It is started from the **Area** button in the top panel.
+
+### HLFR-00067 Move or resize an area
+The user must be able to move an area along the x-axis and change its start and end times.
+
+### HLFR-00068 Rename an area
+The user must be able to rename an area.
+
+### HLFR-00069 Delete an area
+The user must be able to delete an area.
+
+### HLFR-00073 Write text on a plot
+The user must be able to write any text at any place in a plot.
+
+Note: Such a text is called a **text note**. It is started from the **Text** button in the top panel.
+
+### HLFR-00074 Move a text note
+The user must be able to move a text note to another place in the plot.
+
+### HLFR-00075 Edit a text note
+The user must be able to change the text of a text note.
+
+### HLFR-00076 Delete a text note
+The user must be able to delete a text note.

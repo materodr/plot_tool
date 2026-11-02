@@ -56,7 +56,7 @@ While the mouse pointer is over the part of the border of LLFR-00280, and while 
 *Parent: HLFR-00026*
 
 ### LLFR-00138 Undo action
-When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, plots, curves, data tips and markers to the state they were in before that action.
+When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, plots, curves, data tips, markers, areas and text notes to the state they were in before that action.
 
 *Parent: HLFR-00040*
 
@@ -66,7 +66,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 *Parent: HLFR-00040*
 
 ### LLFR-00140 Undoable actions
-The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker, deleting a vertical marker, placing a delta marker and deleting a delta marker.
+The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a vertical marker, moving a vertical marker, renaming a vertical marker, deleting a vertical marker, placing a delta marker, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, deleting an area, creating a text note, moving a text note, editing a text note and deleting a text note.
 
 Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either.
 
@@ -78,7 +78,7 @@ When the app opens a file or replaces the current file (LLFR-00013), it must cle
 *Parent: HLFR-00040, HLFR-00010, HLFR-00048*
 
 ### LLFR-00192 Redo action
-When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, plots, curves, data tips and markers to the state they were in after that action, and must make that action available to undo again.
+When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, plots, curves, data tips, markers, areas and text notes to the state they were in after that action, and must make that action available to undo again.
 
 Note: The user can redo, one by one, every action undone since the last new undoable action, so at most 30 (LLFR-00139).
 
@@ -90,14 +90,14 @@ When the user does an undoable action (LLFR-00140) after undoing, the app must d
 *Parent: HLFR-00048*
 
 ### LLFR-00195 Redo shortcut while typing
-While the keyboard focus is in a text field (LLFR-00157), the Redo shortcut (LLFR-00191) must not redo actions on the tabs, plots, curves, data tips and markers.
+While the keyboard focus is in a text field (LLFR-00157), the Redo shortcut (LLFR-00191) must not redo actions on the tabs, plots, curves, data tips, markers, areas and text notes.
 
 Note: This lets Ctrl+Y act on the text being typed, as text fields usually do.
 
 *Parent: HLFR-00048*
 
 ### LLFR-00196 Undo shortcut while typing
-While the keyboard focus is in a text field (LLFR-00157), the Undo shortcut (LLFR-00137) must not undo actions on the tabs, plots, curves, data tips and markers.
+While the keyboard focus is in a text field (LLFR-00157), the Undo shortcut (LLFR-00137) must not undo actions on the tabs, plots, curves, data tips, markers, areas and text notes.
 
 Note: This lets Ctrl+Z (Cmd+Z on macOS) act on the text being typed, as text fields usually do.
 
@@ -230,8 +230,8 @@ The top panel must contain a button called "Data tip".
 
 *Parent: HLFR-00024, HLFR-00032*
 
-### LLFR-00053 Case-sensitive time signal name
-The app must match the time signal name `Time` (HLFR-00006) case-sensitively, so that a signal named `time` or `TIME` is not the time signal.
+### LLFR-00053 Case-insensitive time signal name
+The app must match the time signal name `Time` (HLFR-00006) ignoring the difference between uppercase and lowercase letters, so that a signal named `time` or `TIME` is the time signal.
 
 *Parent: HLFR-00006*
 
@@ -305,7 +305,7 @@ When the user clicks the Reset zoom button, the button must show its active colo
 *Parent: HLFR-00035, HLFR-00003*
 
 ### LLFR-00207 Z key resets the zoom
-When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116). While the user is dragging the mouse (a pan, a marker or data tip drag, or a time span selection), the Z key must do nothing.
+When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116). While the user is dragging the mouse (a pan, a marker, area, text note or data tip drag, or a time span selection), the Z key must do nothing.
 
 Note: Ctrl+Z and Cmd+Z stay Undo (LLFR-00137).
 
@@ -337,7 +337,7 @@ When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a s
 *Parent: HLFR-00038*
 
 ### LLFR-00129 PDF content
-The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page and the tab's plots below it as they are shown on screen, including their time range, curves, legends, grid, vertical markers, delta markers and pinned data tips.
+The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page and the tab's plots below it as they are shown on screen, including their time range, curves, legends, grid, vertical markers, areas, text notes, delta markers and pinned data tips.
 
 *Parent: HLFR-00038*
 
@@ -364,7 +364,7 @@ When the user clicks the Copy button, the app must put on the system clipboard a
 ### LLFR-00134 HDF5 file signals
 In HDF5 files, the app must read each dataset that holds a one-dimensional numeric array as one signal, in any group, named after the dataset's path in the file without the leading `/` (for example `engine/speed`).
 
-Note: The time signal (HLFR-00006) is therefore a dataset named `Time` at the top level of the file. Reading HDF5 needs a new library (COR-00011).
+Note: A time signal found by its name (HLFR-00006) is therefore a dataset at the top level of the file (LLFR-00330). Reading HDF5 needs a new library (COR-00011).
 
 *Parent: HLFR-00005*
 
@@ -476,7 +476,7 @@ If the user presses another keyboard key while holding the Y key, the app must e
 *Parent: HLFR-00044, HLFR-00032*
 
 ### LLFR-00157 Plot tool keys while typing
-While the keyboard focus is in a text field (the search box, the search box of the second signal dialog (LLFR-00285), or a field where the user types a tab, marker or synthetic signal name), the app must not apply LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200 or LLFR-00207.
+While the keyboard focus is in a text field (the search box, the search box of the second signal dialog (LLFR-00285) or of the time signal window (LLFR-00325), or a field where the user types a tab, marker, area or synthetic signal name or a text note), the app must not apply LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287 or LLFR-00321.
 
 Note: This lets the user type capital letters and use keyboard shortcuts in text fields without activating a plot tool.
 
@@ -504,9 +504,11 @@ The app must show these icons, the same on every operating system:
 11. Copy: two overlapping sheets of paper;
 12. Redo: an arrow curving to the right;
 13. Save layout: a sheet of paper with two small stacked plots and an arrow pointing down into it;
-14. Load layout: a sheet of paper with two small stacked plots and an arrow pointing up out of it.
+14. Load layout: a sheet of paper with two small stacked plots and an arrow pointing up out of it;
+15. Area: two vertical lines with the space between them shaded;
+16. Text: a capital letter T inside a small box.
 
-*Parent: HLFR-00042, HLFR-00048, HLFR-00049, HLFR-00050*
+*Parent: HLFR-00042, HLFR-00048, HLFR-00049, HLFR-00050, HLFR-00066, HLFR-00073*
 
 ### LLFR-00160 Icon visibility
 Each icon must be clearly visible against its button's background in the normal, active (LLFR-00001) and disabled (LLFR-00141) states, and must be shown paler while the button is disabled.
@@ -552,12 +554,14 @@ The line below the name in the button tip of each button with a shortcut (LLFR-0
 | Delta X | Hold X | Hold X |
 | Delta Y | Hold Y | Hold Y |
 | Reset zoom | Z | Z |
+| Area | Hold A | Hold A |
+| Text | Hold T | Hold T |
 
 The button tip of the Zoom button (LLFR-00214) must show two lines below its name, on macOS and on Windows: "Click or drag to zoom in" and "Wheel or two-finger swipe to zoom in or out".
 
 The button tips of the Open file, Save layout, Load layout, Grid, Export and Copy buttons must show only the button's name.
 
-Note: The texts follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00078, LLFR-00208, LLFR-00074 and LLFR-00206. When a shortcut or a mouse use changes, its button tip text must change with it.
+Note: The texts follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00078, LLFR-00208, LLFR-00074 and LLFR-00206. When a shortcut or a mouse use changes, its button tip text must change with it.
 
 *Parent: HLFR-00042*
 
@@ -617,12 +621,13 @@ The layout file must hold:
 7. for each pinned data tip of a time plot, its plot, the signal and time of its point, and its position relative to the point;
 8. for each delta marker of a time plot, its plot, whether it is a Delta X or a Delta Y marker, and the signal and time of each of its two points;
 9. the widths of the plot panel and the signal list panel;
-10. for each synthetic signal that is not an FFT signal (LLFR-00283), in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average) or the constant (Comparison operations and Arithmetic operations with a constant); Integral, Derivative, Max, Min and Absolute value have no parameter, and the second signal of Product with signal is one of the signals it was computed from.
+10. for each synthetic signal that is not an FFT signal (LLFR-00283), in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average) or the constant (Comparison operations and Arithmetic operations with a constant); Integral, Derivative, Max, Min and Absolute value have no parameter, and the second signal of Product with signal is one of the signals it was computed from;
+11. for each area, its name, start time and end time, in seconds.
 
 *Parent: HLFR-00049, HLFR-00056*
 
 ### LLFR-00226 Not in the layout file
-The layout file must not hold the name or the path of the data file, the undo and redo history, the active plot tool or the text of the search box.
+The layout file must not hold the name or the path of the data file, the undo and redo history, the active plot tool, the text of the search box or the text notes.
 
 *Parent: HLFR-00049*
 
@@ -639,14 +644,14 @@ The layout file must start with an entry `format` with the value `plot_tool layo
 *Parent: HLFR-00051, HLFR-00050*
 
 ### LLFR-00229 Layout added in new tabs
-When the user loads a layout file (LLFR-00221), the app must add only the tabs of the layout file that hold at least one plot once it is loaded (LLFR-00231). When the current tabs hold at least one plot, the app must keep the current tabs, with their plots, curves, pinned data tips and delta markers, unchanged, and must add those tabs of the layout file after the last current tab. When no current tab holds a plot, the app must replace the current tabs with those tabs of the layout file. If no tab of the layout file holds a plot, the app must keep the current tabs, so that at least one tab always exists (LLFR-00066). The app must show the first tab it added from the layout file.
+When the user loads a layout file (LLFR-00221), the app must add only the tabs of the layout file that hold at least one plot once it is loaded (LLFR-00231). When the current tabs hold at least one plot, the app must keep the current tabs, with their plots, curves, pinned data tips, delta markers and text notes, unchanged, and must add those tabs of the layout file after the last current tab. When no current tab holds a plot, the app must replace the current tabs with those tabs of the layout file. If no tab of the layout file holds a plot, the app must keep the current tabs, so that at least one tab always exists (LLFR-00066). The app must show the first tab it added from the layout file.
 
 Note: Loading a layout never asks for confirmation, because it removes no plot. It also keeps the current synthetic signals (LLFR-00262).
 
 *Parent: HLFR-00050*
 
 ### LLFR-00230 Rebuild the layout
-When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00231), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, add the vertical markers of the file to the current ones (LLFR-00205), and apply the file's time range to every plot (LLFR-00070), the file's grid setting to every plot (LLFR-00122, LLFR-00123) and the file's panel widths, using the signals of the opened data file and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235.
+When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00231), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, add the vertical markers of the file to the current ones (LLFR-00205) and the areas of the file to the current ones (LLFR-00310), and apply the file's time range to every plot (LLFR-00070), the file's grid setting to every plot (LLFR-00122, LLFR-00123) and the file's panel widths, using the signals of the opened data file and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235 and LLFR-00319.
 
 *Parent: HLFR-00050*
 
@@ -685,7 +690,7 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 *Parent: HLFR-00050, HLFR-00002*
 
 ### LLFR-00237 Layout load report
-After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262, LLFR-00282, LLFR-00283), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use (LLFR-00235, LLFR-00282), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, vertical marker and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. A tab of the file that is not created (LLFR-00231) and a synthetic signal reused as in LLFR-00282 must not be listed on their own. If everything was rebuilt as saved, the app must not show any message.
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00262, LLFR-00282, LLFR-00283, LLFR-00319), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use (LLFR-00235, LLFR-00282), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, vertical marker, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced. A tab of the file that is not created (LLFR-00231) and a synthetic signal reused as in LLFR-00282 must not be listed on their own. If everything was rebuilt as saved, the app must not show any message.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long list must be scrollable.
 
@@ -716,6 +721,119 @@ Note: Loading the same layout twice therefore adds nothing to the signal list th
 The layout file must not hold the FFT signals, the frequency plots (HLFR-00058), or the curves, pinned data tips and delta markers of frequency plots. A tab is still saved when all its plots are frequency plots; such a tab is not created when the layout is loaded (LLFR-00231). When a layout file being loaded holds the entry of an FFT signal in its list of synthetic signals (for example after a hand edit, or in an older file), the app must not create it and must list it in the load report (LLFR-00237) with the reason that FFT signals are not loaded from layout files; its curves must be treated as curves of a missing signal (LLFR-00231).
 
 *Parent: HLFR-00049, HLFR-00056*
+
+### LLFR-00286 Area button
+The top panel must contain a button called "Area".
+
+*Parent: HLFR-00066, HLFR-00032*
+
+### LLFR-00287 Hold the A key
+While the user holds down the A key alone, with no other keyboard key, the app must keep the Area button (LLFR-00286) active, deactivating any other plot tool as in LLFR-00079.
+
+*Parent: HLFR-00066, HLFR-00032*
+
+### LLFR-00288 Release the A key
+When the user releases the A key after LLFR-00287, the app must deactivate the Area button, so that no plot tool is active, whatever plot tool was active before the A key was pressed.
+
+*Parent: HLFR-00066, HLFR-00032*
+
+### LLFR-00289 A key with another key
+If the user presses another keyboard key while holding the A key, the app must end the Area activation of LLFR-00287 as in LLFR-00288.
+
+*Parent: HLFR-00066, HLFR-00032*
+
+### LLFR-00320 Text button
+The top panel must contain a button called "Text".
+
+*Parent: HLFR-00073, HLFR-00032*
+
+### LLFR-00321 Hold the T key
+While the user holds down the T key alone, with no other keyboard key, the app must keep the Text button (LLFR-00320) active, deactivating any other plot tool as in LLFR-00079.
+
+*Parent: HLFR-00073, HLFR-00032*
+
+### LLFR-00322 Release the T key
+When the user releases the T key after LLFR-00321, the app must deactivate the Text button, so that no plot tool is active, whatever plot tool was active before the T key was pressed.
+
+*Parent: HLFR-00073, HLFR-00032*
+
+### LLFR-00323 T key with another key
+If the user presses another keyboard key while holding the T key, the app must end the Text activation of LLFR-00321 as in LLFR-00322.
+
+*Parent: HLFR-00073, HLFR-00032*
+
+### LLFR-00324 Several signals named Time
+When more than one signal of a file matches the time signal name (LLFR-00053), the app must use the signal named exactly `Time` or, if there is none, the first matching signal in the file's order, and must not ask the user to choose.
+
+*Parent: HLFR-00006*
+
+### LLFR-00325 Time signal window
+When no signal of a file matches the time signal name (LLFR-00053), the app must show a window with the text "Choose the signal that goes on the x-axis", a list of all the signals of the file in the file's order, and a search box above the list that works as in LLFR-00285. When the window opens, the keyboard focus must be in its search box.
+
+*Parent: HLFR-00070, HLFR-00033*
+
+### LLFR-00326 Time signal chosen
+When the user confirms a signal in the window of LLFR-00325, the app must use that signal as the time signal in every requirement that applies to the time signal, including HLFR-00007, and must continue opening the file.
+
+Note: The chosen signal is therefore treated as seconds, and it stays in the signal list (LLFR-00054).
+
+*Parent: HLFR-00070, HLFR-00006, HLFR-00007*
+
+### LLFR-00327 Time signal window cancelled
+If the user cancels the window of LLFR-00325, the app must not open the file, must keep the currently opened file and its signal list unchanged, and must not show any message.
+
+*Parent: HLFR-00070, HLFR-00004*
+
+### LLFR-00328 Order of the opening steps
+When opening a file, the app must first read it and apply the checks of HLFR-00008 and HLFR-00009, then show the window of LLFR-00325 if it is needed, and only then show the confirmation of HLFR-00010.
+
+Note: A file with fewer than two signals therefore fails with LLFR-00012 and never shows the window.
+
+*Parent: HLFR-00070, HLFR-00008, HLFR-00009, HLFR-00010*
+
+### LLFR-00329 Chosen signal must increase
+If the user confirms a signal in the window of LLFR-00325 in which any sample is not greater than the sample before it, the window must stay open and say that the signal on the x-axis must always increase.
+
+Note: Zoom and pan use the first and last samples as the limits of the time range (LLFR-00119).
+
+*Parent: HLFR-00070*
+
+### LLFR-00330 Time signal in an HDF5 group
+In HDF5 files, only a dataset at the top level of the file must match the time signal name (LLFR-00053), so that a dataset such as `engine/time` is not found automatically. The user can still choose it in the window of LLFR-00325.
+
+*Parent: HLFR-00006, HLFR-00005*
+
+### LLFR-00331 No later change of the time signal
+The app must not offer any button, menu option or other control that changes the time signal of an opened file. To use another time signal, the user must open the file again.
+
+Note: Reopening a file that has a signal matching the time signal name does not show the window of LLFR-00325 (HLFR-00070).
+
+*Parent: HLFR-00072*
+
+### LLFR-00347 Order of the button groups
+The top panel must show its buttons in this order, from left to right, in these groups:
+1. Open file, Save layout, Load layout;
+2. Data tip, Zoom, Vertical marker, Delta X, Delta Y, Area, Text;
+3. Reset zoom, Grid;
+4. Export, Copy;
+5. Undo, Redo.
+
+*Parent: HLFR-00077*
+
+### LLFR-00348 Joined buttons
+The buttons of a group (LLFR-00347) must have no space between them and must share one border line, with rounded corners only on the outer side of the group's first and last buttons.
+
+*Parent: HLFR-00077*
+
+### LLFR-00349 Space between groups
+The top panel must leave a space of 16 pixels between one button group (LLFR-00347) and the next.
+
+*Parent: HLFR-00077*
+
+### LLFR-00350 Button states inside a group
+Each button of a group (LLFR-00347) must keep showing its own state, normal, active (LLFR-00001) or disabled (LLFR-00141, LLFR-00194, LLFR-00218), whatever the state of the other buttons of the group.
+
+*Parent: HLFR-00077, HLFR-00003*
 
 ## Signal list panel
 
@@ -1049,6 +1167,80 @@ When the user chooses "Copy equation" (LLFR-00278), the app must put on the syst
 
 *Parent: HLFR-00062, HLFR-00056*
 
+### LLFR-00290 Select signals with the mouse
+In the signal list, a click on a signal must select only that signal. A click with the Data tip key held (LLFR-00148) must add the signal to the selection, or remove it if it is already selected. A click with the Shift key held must select all the signals shown from the last clicked signal up to the clicked one.
+
+*Parent: HLFR-00063*
+
+### LLFR-00291 Selection shown in the list
+The signal list must highlight every selected signal.
+
+*Parent: HLFR-00063*
+
+### LLFR-00292 Only shown signals stay selected
+A signal that is no longer shown in the signal list, because of the search (LLFR-00095), a deleted synthetic signal (LLFR-00255) or a replaced file (LLFR-00017), must no longer be selected, and must stay unselected if it is shown again.
+
+*Parent: HLFR-00063, HLFR-00033*
+
+### LLFR-00293 Right-click with several signals selected
+When the user right-clicks a signal, the app must select only that signal, deselecting any others, before it shows the signal menu (LLFR-00239), and the menu must act on that signal.
+
+*Parent: HLFR-00063, HLFR-00053*
+
+### LLFR-00294 Double-click with several signals selected
+A double-click on a signal (LLFR-00019, LLFR-00020) must draw only the double-clicked signal, whatever other signals are selected.
+
+*Parent: HLFR-00063, HLFR-00012*
+
+### LLFR-00295 Enter key plots the selection
+When the keyboard focus is in the signal list, at least one signal is selected and the user presses the Enter key, the app must create one new plot in the current tab and draw every selected signal in it, in the order of the signal list, using the curve colors of LLFR-00033 and LLFR-00034. If the tab is full, the app must not create the plot, as in LLFR-00031 and LLFR-00032. When every selected signal is an FFT signal, the new plot must be a frequency plot (LLFR-00256).
+
+Note: On a keyboard with both keys, Return and Enter act the same.
+
+*Parent: HLFR-00064, HLFR-00018, HLFR-00058*
+
+### LLFR-00296 Enter key with nothing to plot
+The Enter key must not create a plot and must not show any message when no signal is selected, or when the keyboard focus is not in the signal list, for example while it is in the search box (LLFR-00094).
+
+*Parent: HLFR-00064*
+
+### LLFR-00297 Drag several signals to a plot
+When the user presses the left mouse button on a selected signal, drags and drops on a plot, the app must draw every selected signal in that plot, in the order of the signal list, using the curve colors of LLFR-00033 and LLFR-00034. Dropping anywhere other than on a plot must behave as in LLFR-00022 and LLFR-00023.
+
+*Parent: HLFR-00065*
+
+### LLFR-00298 Drag a signal that is not selected
+When the user presses the left mouse button on a signal that is not selected and drags it, the app must select only that signal and drag it alone (LLFR-00021).
+
+*Parent: HLFR-00063, HLFR-00013*
+
+### LLFR-00299 Selected signals already in the plot
+When several signals are dropped on a plot (LLFR-00297), the app must apply LLFR-00056 and LLFR-00057 to each signal, so that it draws the others and shows no message about those already in the plot.
+
+*Parent: HLFR-00065*
+
+### LLFR-00300 FFT and time signals selected together
+If the Enter key (LLFR-00295) is pressed while the selection holds both FFT signals and other signals, or a drop (LLFR-00297) holds any signal that cannot be drawn in the plot (LLFR-00257), the app must draw none of the selected signals, must not create a plot, and must show the information box of LLFR-00257.
+
+*Parent: HLFR-00064, HLFR-00065, HLFR-00058*
+
+### LLFR-00301 One undoable action for several signals
+Plotting several signals with the Enter key (LLFR-00295) or a drop (LLFR-00297) must be one undoable action (LLFR-00140), so that one undo removes the new plot or all the curves that the drop added.
+
+*Parent: HLFR-00064, HLFR-00065, HLFR-00040*
+
+### LLFR-00302 Selection keys over the signal list
+When the user presses the Data tip key or the Shift key while the mouse pointer is over the signal list panel, the app must not apply LLFR-00148 or LLFR-00154, and must leave the active plot tool unchanged when the key is released.
+
+Note: These keys select signals in the list (LLFR-00290), so using them there must not change the plot tool.
+
+*Parent: HLFR-00063, HLFR-00032*
+
+### LLFR-00332 Green time signal name
+The signal list panel must show the name of the time signal (LLFR-00053, LLFR-00326) in a green that is easy to read against the list's background, and the names of all the other signals in other colors, including in search results (LLFR-00095) and while the signal is selected (LLFR-00291).
+
+*Parent: HLFR-00071*
+
 ## Plot panel
 
 ### LLFR-00024 Initial tab
@@ -1188,7 +1380,7 @@ When the user chooses "Delete" in the pinned data tip menu (LLFR-00046), the app
 *Parent: HLFR-00025*
 
 ### LLFR-00048 Plot menu delete option
-When the user right-clicks an empty area of a plot (not on a curve, a pinned data tip, a vertical marker or a delta marker), the app must show a menu with a "Delete plot" option.
+When the user right-clicks an empty area of a plot (not on a curve, a pinned data tip, a vertical marker, a delta marker, an area or a text note), the app must show a menu with a "Delete plot" option.
 
 *Parent: HLFR-00019*
 
@@ -1412,7 +1604,7 @@ When the user holds the mouse wheel pressed over a plot and moves the mouse left
 *Parent: HLFR-00036*
 
 ### LLFR-00118 No pan without zoom
-While a plot shows the whole time range of the file (for a frequency plot, its whole frequency range, LLFR-00258), holding the mouse wheel pressed and moving the mouse must not change the plot's x-axis range.
+While a plot shows the whole time range of the file (for a frequency plot, its whole frequency range, LLFR-00258), holding the mouse wheel pressed and moving the mouse, or a horizontal two-finger swipe (LLFR-00345), must not change the plot's x-axis range.
 
 *Parent: HLFR-00036*
 
@@ -1467,7 +1659,7 @@ When the user presses the left mouse button on a pinned data tip and drags it, t
 *Parent: HLFR-00041*
 
 ### LLFR-00153 Press on a pinned data tip
-A left mouse button press on a pinned data tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new data tip, zoom, place a vertical marker or pick a delta marker point.
+A left mouse button press on a pinned data tip must start moving it (LLFR-00152), whether or not a plot tool is active, and must not pin a new data tip, zoom, place a vertical marker, create, move or resize an area, start a text note or pick a delta marker point.
 
 *Parent: HLFR-00041, HLFR-00032*
 
@@ -1578,7 +1770,7 @@ If the user drops an FFT signal on a time plot, or any other signal on a frequen
 *Parent: HLFR-00058, HLFR-00013*
 
 ### LLFR-00258 Frequency plot x-axis range
-Each frequency plot must have its own x-axis range, which must not follow the time plots (LLFR-00070) or the other frequency plots. A new frequency plot must show the frequencies from 0 Hz up to the highest frequency of its curves. Mouse wheel zoom (LLFR-00074), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117) must change only the frequency plot they are used on, limited to that frequency range, and Reset zoom (LLFR-00115) must return every frequency plot to that frequency range.
+Each frequency plot must have its own x-axis range, which must not follow the time plots (LLFR-00070) or the other frequency plots. A new frequency plot must show the frequencies from 0 Hz up to the highest frequency of its curves. Mouse wheel zoom (LLFR-00074), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345) must change only the frequency plot they are used on, limited to that frequency range, and Reset zoom (LLFR-00115) must return every frequency plot to that frequency range.
 
 *Parent: HLFR-00058, HLFR-00027, HLFR-00035, HLFR-00036*
 
@@ -1596,3 +1788,160 @@ A data tip on a frequency plot must show the x-axis value in Hz, instead of seco
 A Delta X marker on a frequency plot must show the text "Δf = <value> Hz", where the value is the frequency of the second point minus the frequency of the first point, instead of the text of LLFR-00169.
 
 *Parent: HLFR-00058, HLFR-00043*
+
+### LLFR-00303 Area preview while dragging
+While the Area button (LLFR-00286) is active and the user presses the left mouse button on a time plot's drawing area, outside any area and more than 5 pixels from its edges, and moves the pointer 5 pixels or more from where the button was pressed, the app must show on that plot a preview of the area, from the time of the press to the time under the pointer. The preview must stop at the edge of the nearest existing area, so that it never overlaps one.
+
+*Parent: HLFR-00066*
+
+### LLFR-00304 Create an area
+When the user releases the left mouse button after LLFR-00303, the app must remove the preview and create an area between the two times, on every time plot (LLFR-00310). If the button is released outside the plot's drawing area, the end of the area must be the time at the nearer left or right edge of the drawing area. A release less than 5 pixels from the press must not create an area and must not show any message. An area must not overlap another area, but two areas may share an edge.
+
+*Parent: HLFR-00066*
+
+### LLFR-00305 Area appearance
+The app must draw an area as a see-through band in a paler version of the reserved marker color (LLFR-00083), between its start and end times, covering the whole y-axis range shown in the plot, and must keep it covering that range when the range changes.
+
+*Parent: HLFR-00066*
+
+### LLFR-00306 Area behind the other items
+The app must draw an area behind the curves, grid, vertical markers, delta markers, data tips and text notes, so that they stay visible.
+
+*Parent: HLFR-00066*
+
+### LLFR-00307 Area label
+The app must show the name of an area in a label at the top of the band.
+
+*Parent: HLFR-00066*
+
+### LLFR-00308 Area time values
+The app must show the start and end times of an area, in seconds, directly below its label (LLFR-00307), and must update them to the area's current position while the user moves or resizes it (LLFR-00312, LLFR-00313).
+
+*Parent: HLFR-00066, HLFR-00067, HLFR-00007*
+
+### LLFR-00309 Default area name
+The app must name each new area "Area N", where N is 1 for the first area created after a file is opened and grows by 1 for each new area. The app must not reuse the number of a deleted area, even when the area's creation is undone, until a file is opened or replaced.
+
+*Parent: HLFR-00066*
+
+### LLFR-00310 Areas on every time plot
+Every area must be shown on every time plot in every tab, including time plots created after the area. Moving, resizing (LLFR-00312, LLFR-00313), renaming (LLFR-00315) or deleting (LLFR-00316) an area on any time plot must apply to it on every time plot; while an area is dragged, it must follow the pointer on every time plot of the current tab, and on the time plots of the other tabs it must be at its new position at the latest when the button is released. When no plot is left in any tab, the app must delete every area in the same way as vertical markers (LLFR-00205), so that undoing the deletion of a plot or a tab brings the areas back.
+
+Note: Each of these remains one undoable action (LLFR-00140).
+
+*Parent: HLFR-00066, HLFR-00067, HLFR-00068, HLFR-00069*
+
+### LLFR-00311 No areas on frequency plots
+The app must not show areas or their preview on frequency plots (HLFR-00058), and a drag on a frequency plot while the Area button is active must not create an area.
+
+*Parent: HLFR-00066, HLFR-00058*
+
+### LLFR-00312 Move an area
+While the Area button (LLFR-00286) is active and the user presses the left mouse button inside an area, more than 5 pixels from both of its edges, and drags, the app must move the area along the x-axis with the mouse pointer, keeping its width, and leave it where the button is released. The whole area must stay within the time range of the file (LLFR-00119), and must stop at the edge of the next area, so that it never overlaps one.
+
+*Parent: HLFR-00067*
+
+### LLFR-00313 Resize an area
+While the Area button (LLFR-00286) is active and the user presses the left mouse button within 5 pixels of an edge of an area and drags, the app must move that edge along the x-axis with the mouse pointer, and leave it where the button is released, while the other edge stays in place. The edge must stay within the time range of the file (LLFR-00119) and at least 5 pixels from the other edge, and must stop at the edge of the next area, so that it never overlaps one.
+
+*Parent: HLFR-00067*
+
+### LLFR-00314 Area menu
+When the user right-clicks an area, the app must show a menu with the options "Rename", "Delete" and "Delete plot".
+
+Note: "Delete plot" acts as in LLFR-00049, so a plot whose whole shown range is covered by an area can still be deleted.
+
+*Parent: HLFR-00068, HLFR-00069, HLFR-00019*
+
+### LLFR-00315 Rename an area action
+When the user chooses "Rename" in the area menu (LLFR-00314), the app must let the user type a new name for that area and must show it in the area's label (LLFR-00307). If the name is empty or made only of spaces, the app must keep the area's previous name and must not show any message.
+
+*Parent: HLFR-00068*
+
+### LLFR-00316 Delete an area action
+When the user chooses "Delete" in the area menu (LLFR-00314), the app must remove that area and its label from every plot.
+
+*Parent: HLFR-00069*
+
+### LLFR-00317 Menus over an area
+When the user right-clicks a point inside an area where a curve, a pinned data tip, a vertical marker, a delta marker or a text note is drawn, the app must show the menu of that item and not the area menu (LLFR-00314). The app must show the area menu only when the right-clicked point holds nothing but the area.
+
+*Parent: HLFR-00068, HLFR-00069*
+
+### LLFR-00318 Other plot tools over an area
+An area must not change what the other plot tools do with a press inside it: while the Data tip, Zoom, Vertical marker, Delta X, Delta Y or Text button is active, or no plot tool is active, a press inside an area must act as it does outside one, and must not move or resize the area.
+
+*Parent: HLFR-00066, HLFR-00032*
+
+### LLFR-00319 Areas in a layout
+When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the opened data file, and it does not overlap a current area or an area already rebuilt from the same file. The load report (LLFR-00237) must give the reason for each area that is not rebuilt.
+
+*Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-00333 Start writing a text note
+While the Text button (LLFR-00320) is active and the user left-clicks a plot's drawing area, on a time plot or a frequency plot, anywhere other than on an existing text note or pinned data tip, the app must show a one-line text field at the clicked point, with the keyboard focus in it. The field must stay open if the button is deactivated while the user types.
+
+*Parent: HLFR-00073*
+
+### LLFR-00334 Confirm a text note
+When the user presses the Enter key or clicks outside the text field of LLFR-00333, the app must remove the field and, if the text is not empty or made only of spaces, create a text note with that text at the clicked point. If the text is empty or made only of spaces, it must not create a text note and must not show any message.
+
+*Parent: HLFR-00073*
+
+### LLFR-00335 Cancel a text note
+When the user presses the Esc key in the text field of LLFR-00333, the app must remove the field, must not create a text note and must not show any message.
+
+*Parent: HLFR-00073*
+
+### LLFR-00336 Text note appearance
+The app must show a text note as its text, in a dark color, on a light background box, so that it is easy to read over the curves and the grid.
+
+*Parent: HLFR-00073*
+
+### LLFR-00337 Text note follows its place
+A text note must stay attached to its x-axis and y-axis values when the plot's x-axis or y-axis range or the plot's size changes, and must be hidden while either value is outside the range shown in the plot.
+
+*Parent: HLFR-00073*
+
+### LLFR-00338 Text note kept inside the plot
+While a text note is shown, the app must move it by the shortest distance needed to keep the whole text note inside the plot's drawing area.
+
+*Parent: HLFR-00073, HLFR-00074*
+
+### LLFR-00339 Drag a text note
+When the user presses the left mouse button on a text note and drags it, the app must move the text note with the mouse pointer and leave it where the button is released, attached to the x-axis and y-axis values of that place. The press must start the move whether or not a plot tool is active, and must not pin a data tip, zoom, place a vertical marker, create, move or resize an area, pick a delta marker point or start another text note.
+
+*Parent: HLFR-00074, HLFR-00032*
+
+### LLFR-00340 Text notes belong to one plot
+A text note must be shown only on the plot where it was written, and must be removed with that plot (LLFR-00049, LLFR-00051). A plot must be able to hold any number of text notes.
+
+*Parent: HLFR-00073*
+
+### LLFR-00341 Text note menu
+When the user right-clicks a text note, the app must show a menu with the options "Edit" and "Delete", and not the menu of a curve, a vertical marker, a delta marker or an area under it.
+
+*Parent: HLFR-00075, HLFR-00076*
+
+### LLFR-00342 Edit a text note action
+When the user chooses "Edit" in the text note menu (LLFR-00341), the app must let the user type a new text for that text note. If the new text is empty or made only of spaces, the app must keep the previous text and must not show any message.
+
+*Parent: HLFR-00075*
+
+### LLFR-00343 Delete a text note action
+When the user chooses "Delete" in the text note menu (LLFR-00341), the app must remove that text note from the plot.
+
+*Parent: HLFR-00076*
+
+### LLFR-00344 DELETED
+DELETED
+
+### LLFR-00345 Pan by two-finger swipe
+When the user swipes two fingers left or right on a trackpad or touchpad with the mouse pointer over a plot, the app must shift the plot's x-axis range in proportion to the movement, so that the curves follow the fingers horizontally, whether or not a plot tool is active and whatever the system's "natural scrolling" setting. The limits and y-axis ranges of LLFR-00118 to LLFR-00120 must apply.
+
+*Parent: HLFR-00036*
+
+### LLFR-00346 Swipe direction chooses pan or zoom
+A two-finger swipe that moves more horizontally than vertically must only pan (LLFR-00345), and any other two-finger swipe must only zoom (LLFR-00074, LLFR-00206), so that a swipe never does both.
+
+*Parent: HLFR-00036, HLFR-00027*
