@@ -41,6 +41,9 @@ While the app is starting, it must show the user a splash screen.
 ### HLFR-00047 Opening time
 The app must open quickly, so that the user waits as little as possible before it is ready to use.
 
+### HLFR-00091 Dialog opening time
+The windows in which the user chooses a file to open or to save must appear quickly after the user asks for them.
+
 
 ## Top panel
 
@@ -109,7 +112,7 @@ The user must not be able to change the time signal after the file is open.
 ### HLFR-00077 Button groups
 The buttons of the top panel must be organized in groups of related buttons. The buttons of a group must look like one joined block, with no space between them, and there must be a space between one group and the next.
 
-Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export and Copy; Undo and Redo; Report a bug (HLFR-00078).
+Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export, Copy and Save signals; Undo and Redo; Report a bug (HLFR-00078).
 
 ### HLFR-00078 Report a bug
 The user must be able to open, from the top panel, the page that creates a new issue in the project's GitHub repository, in their web browser.
@@ -118,6 +121,11 @@ Note: The page is opened with the **Report a bug** button.
 
 ### HLFR-00080 Author credit
 The top panel must show the text "designed by materodr" in its upper-right corner.
+
+### HLFR-00090 Save the signals to a data file
+The user must be able to save, from the top panel, the signals of the signal list, including the synthetic signals, to a new file in one of the formats of HLFR-00005, which the app can open again as a data file.
+
+Note: FFT signals are not saved, because their samples are frequencies, not times (HLFR-00009). The file is written with the **Save signals** button.
 
 ## Signal list panel
 

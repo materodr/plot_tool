@@ -68,7 +68,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 ### LLFR-00140 Undoable actions
 The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, changing an arrow's color and deleting an arrow.
 
-Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming the color an item already has, is not an undoable action (LLFR-00390).
+Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) and saving the signals (LLFR-00405) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming the color an item already has, is not an undoable action (LLFR-00390).
 
 *Parent: HLFR-00040*
 
@@ -146,6 +146,13 @@ The app must not repeat on every launch work whose result does not change betwee
 Note: For example, the cache of fonts used to draw text in the plots is built on every launch today; it must be built once and reused.
 
 *Parent: HLFR-00047*
+
+### LLFR-00406 Dialog opening time limit
+The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of "Save all tabs as PDF" (LLFR-00128) and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.3 seconds after the user's click, including the first click after the app starts.
+
+Note: The app may prepare the dialogs after the main window is shown (LLFR-00186), so that the first click is fast.
+
+*Parent: HLFR-00091*
 
 
 ## Top panel
@@ -509,9 +516,10 @@ The app must show these icons, the same on every operating system:
 16. Text: a capital letter T inside a small box;
 17. Pan: an open hand;
 18. Report a bug: a small bug;
-19. Arrow: an arrow pointing up and to the right.
+19. Arrow: an arrow pointing up and to the right;
+20. Save signals: a sheet of paper with a small table and an arrow pointing down into it.
 
-*Parent: HLFR-00042, HLFR-00048, HLFR-00049, HLFR-00050, HLFR-00066, HLFR-00073, HLFR-00036, HLFR-00078, HLFR-00081*
+*Parent: HLFR-00042, HLFR-00048, HLFR-00049, HLFR-00050, HLFR-00066, HLFR-00073, HLFR-00036, HLFR-00078, HLFR-00081, HLFR-00090*
 
 ### LLFR-00160 Icon visibility
 Each icon must be clearly visible against its button's background in the normal, active (LLFR-00001) and disabled (LLFR-00141) states, and must be shown paler while the button is disabled.
@@ -563,7 +571,7 @@ The line below the name in the button tip of each button with a shortcut (LLFR-0
 
 The button tip of the Zoom button (LLFR-00214) must show two lines below its name, on macOS and on Windows: "Click or drag to zoom in" and "Wheel or two-finger swipe to zoom in or out". The button tip of the Pan button (LLFR-00214) must show one line below its name, on macOS and on Windows: "Drag on a plot to pan".
 
-The button tips of the Open file, Save layout, Load layout, Grid, Export, Copy and Report a bug buttons must show only the button's name.
+The button tips of the Open file, Save layout, Load layout, Grid, Export, Copy, Save signals and Report a bug buttons must show only the button's name.
 
 Note: The texts follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00367, LLFR-00078, LLFR-00208, LLFR-00074, LLFR-00206 and LLFR-00356. When a shortcut or a mouse use changes, its button tip text must change with it.
 
@@ -819,7 +827,7 @@ The top panel must show its buttons in this order, from left to right, in these 
 1. Open file, Save layout, Load layout;
 2. Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Area, Text, Arrow;
 3. Reset zoom, Grid;
-4. Export, Copy;
+4. Export, Copy, Save signals;
 5. Undo, Redo;
 6. Report a bug.
 
@@ -836,7 +844,7 @@ The top panel must leave a space of 16 pixels between one button group (LLFR-003
 *Parent: HLFR-00077*
 
 ### LLFR-00350 Button states inside a group
-Each button of a group (LLFR-00347) must keep showing its own state, normal, active (LLFR-00001) or disabled (LLFR-00141, LLFR-00194, LLFR-00218), whatever the state of the other buttons of the group.
+Each button of a group (LLFR-00347) must keep showing its own state, normal, active (LLFR-00001) or disabled (LLFR-00141, LLFR-00194, LLFR-00218, LLFR-00395), whatever the state of the other buttons of the group.
 
 *Parent: HLFR-00077, HLFR-00003*
 
@@ -901,6 +909,78 @@ When the user presses the Esc key alone, with no other keyboard key, while a plo
 Note: The Esc key has no button, so it is not shown in any button tip (LLFR-00215).
 
 *Parent: HLFR-00032, HLFR-00085*
+
+### LLFR-00394 Save signals button
+The top panel must contain a button called "Save signals", placed directly to the right of the Copy button (LLFR-00132).
+
+*Parent: HLFR-00090*
+
+### LLFR-00395 Save signals button needs a data file
+While no data file is open, the app must show the Save signals button as disabled, in a paler color, and the button must do nothing.
+
+*Parent: HLFR-00090, HLFR-00003*
+
+### LLFR-00396 Save signals dialog
+When the user clicks the Save signals button, the app must show a save file dialog in which the user chooses the folder, types the name of the file and chooses its format among CSV (`.csv`), Excel (`.xlsx`), MAT (`.mat`) and HDF5 (`.h5`, `.hdf5`) (HLFR-00005). The dialog must open in the folder of the opened data file, with the name of the opened data file without its extension, followed by `_signals` and the extension of the opened data file, and with the format of the opened data file chosen; for example `run1_signals.csv` for `run1.csv`. If the typed name does not end with an extension of the chosen format, the app must add `.csv`, `.xlsx`, `.mat` or `.h5`.
+
+*Parent: HLFR-00090*
+
+### LLFR-00397 Replace an existing signals file
+If the user chooses the name of a file that already exists in the dialog of LLFR-00396, the app must ask the user whether to replace it, and must save the file only if the user agrees. If the chosen file is the opened data file, the app must not save any file and must show an error box saying that the opened data file cannot be replaced (LLFR-00253).
+
+*Parent: HLFR-00090, HLFR-00055, HLFR-00002*
+
+### LLFR-00398 Save signals cancelled
+If the user cancels the dialog of LLFR-00396 or the question of LLFR-00397, the app must not save any file and must not show any message.
+
+*Parent: HLFR-00090*
+
+### LLFR-00399 Save signals failure
+If the file cannot be written, the app must show an error box saying that the file could not be saved.
+
+*Parent: HLFR-00090, HLFR-00002*
+
+### LLFR-00400 Too many signals or samples for Excel
+If the signals to save (LLFR-00401) do not fit in one Excel sheet, which holds at most 16384 columns and 1048576 rows, so at most 16384 signals of at most 1048575 samples below the row of names, the app must not write the file and must show an error box saying that the signals have too many samples or are too many for an Excel file.
+
+*Parent: HLFR-00090, HLFR-00002*
+
+### LLFR-00401 Saved signals
+The saved file must hold every signal of the signal list, in the order of the list, with all its samples, including the time signal and the synthetic signals, except the FFT signals, which the app must leave out without any message.
+
+*Parent: HLFR-00090*
+
+### LLFR-00402 Saved file opens as a data file
+The app must write the saved file following the reading rules of its format, so that opening it (LLFR-00006) shows the same signals, with the names of LLFR-00403, and the same values:
+1. CSV: one column per signal with the signal names in the first row (LLFR-00059), with `,` as the separator and `.` as the decimal mark (LLFR-00061);
+2. Excel: the same columns in the first and only sheet (LLFR-00059, LLFR-00060);
+3. MAT: one top-level variable holding a one-dimensional numeric array per signal (LLFR-00062), in a MAT format that is not v7.3 (LLFR-00064);
+4. HDF5: one dataset holding a one-dimensional numeric array per signal, at the path given by the signal's name, so that a `/` in the name puts the dataset in groups (LLFR-00134).
+
+The time signal must keep its name. Each value must be written with enough digits, or as a 64-bit floating-point number, to be read back as the same value.
+
+*Parent: HLFR-00090, HLFR-00005*
+
+### LLFR-00403 Names a format cannot store
+The app must change each signal name that the chosen format cannot store into a valid name, as follows:
+1. MAT: every character that is not an English letter, a digit or `_` must be replaced by `_`; a name that does not start with a letter must get `x` added at its start; a name longer than 63 characters must be cut to 63 characters;
+2. HDF5: empty parts between `/` characters, and a `/` at the start or end of the name, must be removed (an empty result must become `signal`); a name that is also the group of another saved name (for example `engine` with `engine/speed`) must get an underscore and the smallest number from 2 up that makes it neither a group nor the name of another saved signal.
+
+When a changed name is the name of another saved signal, the app must add an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241, and must still keep a MAT name within 63 characters. CSV and Excel names must not be changed.
+
+*Parent: HLFR-00090*
+
+### LLFR-00404 Changed names after saving
+After saving the file, if any name was changed (LLFR-00403), the app must show one information box that lists each changed name as `<old name> → <new name>`. If no name was changed, the app must not show any message.
+
+Note: The box is an information box, not an error box (HLFR-00002). A long list must be scrollable, like the layout load report (LLFR-00237).
+
+*Parent: HLFR-00090*
+
+### LLFR-00405 Saving changes nothing in the app
+Saving the signals must not change the signal list, the names of the signals in the app, the plots, the opened data file or the undo and redo history, and must not be an undoable action (LLFR-00140).
+
+*Parent: HLFR-00090, HLFR-00040*
 
 ## Signal list panel
 
@@ -1029,14 +1109,20 @@ The app must name a synthetic signal as follows, using the abbreviation of its o
 | Operation | Name | Example |
 |---|---|---|
 | Integral, Derivative, Max, Min, Absolute value | `<abbreviation>_<signal>` | `int_Speed`, `abs_Speed` |
-| Add, Subtract, Multiply and Divide by constant | `<abbreviation>_<constant>_<signal>` | `add_2.5_Speed`, `div_-4_Speed` |
-| Greater than, Less than, Greater than or equal, Less than or equal | `<abbreviation>_<constant>_<signal>` | `gt_2.5_Speed` |
-| Low-pass filter, High-pass filter | `<abbreviation>_<cutoff>Hz_order<order>_<signal>` | `lpf_5Hz_order2_Speed` |
+| Add, Subtract, Multiply and Divide by constant | `<abbreviation>_<constant>_<signal>` | `add_2p5_Speed`, `sub_2n0_Speed` |
+| Greater than, Less than, Greater than or equal, Less than or equal | `<abbreviation>_<constant>_<signal>` | `gt_2p5_Speed` |
+| Low-pass filter, High-pass filter | `<abbreviation>_<cutoff>Hz_order<order>_<signal>` | `lpf_0p5Hz_order2_Speed` |
 | Moving average | `mavg_<window>samples_<signal>` | `mavg_10samples_Speed` |
-| FFT | `fft_<start>s_to_<end>s_<signal>` | `fft_1.5s_to_3s_Speed` |
+| FFT | `fft_<start>s_to_<end>s_<signal>` | `fft_1p5s_to_3s_Speed` |
 | Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `Speed_prod_Torque` |
 
-The constant, the cutoff frequency and the times must be written in the same number format as the data tip's values (LLFR-00043, LLFR-00044); the FFT times are the time range of LLFR-00248, so two FFTs of the same signal over different time ranges get different names. How a filter starts (LLFR-00246) must not be part of the name. When a signal it was computed from is itself a synthetic signal, its whole name is used, so that the names build up from left to right, for example `der_int_Speed` or `fft_1.5s_to_3s_lpf_5Hz_order2_Speed`.
+Every number in the name, which is the constant, the cutoff frequency, the filter order, the window size or an FFT time, must be written with letters and digits only, with the same significant digits as the data tip's values (LLFR-00043, LLFR-00044), up to 6:
+1. the decimal point must be written `p` for a positive number and `n` for a negative number, and a negative number must have no minus sign: 2.5 is `2p5`, -2.5 is `2n5` and -0.000123457 is `0n000123457`;
+2. a positive whole number must be written as it is, and a negative whole number must get `n0`: 2 is `2` and -2 is `2n0`;
+3. no exponent must be used, and all digits must be written: 1e+06 is `1000000` and 1e-07 is `0p0000001`;
+4. zero must be written `0`.
+
+The name of a synthetic signal therefore holds only letters, digits and `_` apart from the names of the signals it was computed from. The FFT times are the time range of LLFR-00248, so two FFTs of the same signal over different time ranges get different names. How a filter starts (LLFR-00246) must not be part of the name. When a signal it was computed from is itself a synthetic signal, its whole name is used, so that the names build up from left to right, for example `der_int_Speed` or `fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
 
 *Parent: HLFR-00054*
 
@@ -1046,7 +1132,7 @@ The app must let the user create a synthetic signal from a synthetic signal in t
 *Parent: HLFR-00053*
 
 ### LLFR-00241 Synthetic signal name already used
-If the name of LLFR-00240 is already the name of a signal in the signal list, the app must add an underscore and the smallest number from 2 up that makes the name unique, for example `lpf_5Hz_order2_Speed_2`.
+If the name of LLFR-00240 is already the name of a signal in the signal list, the app must add an underscore and the smallest number from 2 up that makes the name unique, for example `lpf_0p5Hz_order2_Speed_2`.
 
 Note: This happens, for example, when the same signal is filtered twice with the same cutoff frequency and order but different starts (LLFR-00246).
 
@@ -1114,7 +1200,7 @@ When the app opens a data file or replaces the current one (LLFR-00013), it must
 ### LLFR-00253 Data file unchanged
 The app must never write synthetic signals, or anything else, to the data file. Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255), the data file is replaced (LLFR-00252) or the app is closed.
 
-Note: A layout file can create them again (LLFR-00262), except the FFT signals (LLFR-00283).
+Note: A layout file can create them again (LLFR-00262), except the FFT signals (LLFR-00283). The Save signals button writes them to a new file, never to the data file (LLFR-00397, LLFR-00401).
 
 *Parent: HLFR-00055*
 
