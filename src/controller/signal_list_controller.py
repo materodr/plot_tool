@@ -4,14 +4,36 @@ It talks to the view only through plain method calls (no Qt code), so
 it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``set_search_text_handler``, ``show_signal_names``,
 ``show_no_match_message``, ``clear_search``, ``set_signal_kinds``,
-``clear_signal_selection`` and ``rename_shown_signal``.
+``clear_signal_selection``, ``rename_shown_signal`` and
+``show_file_name``.
+
+The file name line above the list (LLFR-00362) gets the name of each
+file the FileController opens; the FileController calls its listeners
+only after a successful open or replace, so a failed, cancelled or
+declined open leaves the line unchanged (LLFR-00363).
 
 The list shows the data file signals, then the synthetic signals in
 creation order (LLFR-00242); the SyntheticController gives the names of
 the synthetic signals with ``set_synthetic_signals``.
 """
 
+import os
+
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
+
+
+def file_name_from_path(path_str: str) -> str:
+    """Return the name of a file, with its extension, without its folder.
+
+    Inputs:
+        path_str: the path of the file, in the form of the operating
+            system the app runs on.
+    Outputs: the last part of the path, for example "signals.csv".
+    """
+    # LLFR-00362: the folder is left out, the extension is kept. The
+    # separators of the operating system are used (also the backslash
+    # on Windows), so that a backslash in a macOS file name is kept.
+    return os.path.basename(str(path_str))
 
 
 class SignalListController:
@@ -112,6 +134,9 @@ class SignalListController:
             replaced_b: True when the new file replaced another one.
         Outputs: none.
         """
+        # LLFR-00362, LLFR-00363: the file name line shows the new
+        # file; this listener only runs after a successful open.
+        self.view.show_file_name(file_name_from_path(signal_file.path_str))
         # LLFR-00054: the full list includes the time signal.
         self.all_signal_name_list = list(signal_file.signal_name_list)
         # LLFR-00252: the synthetic signals of the previous data file

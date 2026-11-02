@@ -18,6 +18,12 @@ Output (never committed, see .gitignore):
 - Windows: ``bin\\plot_tool\\plot_tool.exe`` (keep the whole folder).
 - Linux: ``bin/plot_tool/plot_tool`` (keep the whole folder).
 
+After a successful build, the sample files of ``tests/user_tests/good``
+and ``tests/user_tests/bad`` are copied to ``bin/user_tests/good`` and
+``bin/user_tests/bad``, replacing any earlier copy (COR-00020), so that
+they are next to the app, in the folder where the Open file dialog
+starts (LLFR-00204). The copy is never committed either.
+
 The app icon (LLFR-00182) is drawn from the same vector drawing as the
 window icon and written to ``build/app_icon`` before PyInstaller runs
 (src/view/app_icon_files.py); PyInstaller gets the ``.icns`` file on
@@ -43,6 +49,9 @@ SOURCE_FOLDER_STR = os.path.join(REPOSITORY_ROOT_STR, "src")
 ENTRY_SCRIPT_STR = os.path.join(SOURCE_FOLDER_STR, "main.py")
 # LLFR-00182: where the app icon files are written before the build.
 ICON_FOLDER_STR = os.path.join(WORK_FOLDER_STR, "app_icon")
+# COR-00020: the sample folders copied next to the app after the build.
+USER_TESTS_FOLDER_NAME_STR = "user_tests"
+SAMPLE_FOLDER_NAME_TUPLE = ("good", "bad")
 
 # Modules that PyInstaller would find through optional imports of the
 # libraries but that the app never uses: other GUI toolkits and their
@@ -124,6 +133,36 @@ def write_icon_file() -> str:
     return platform_icon_path(path_dict, sys.platform)
 
 
+def copy_sample_folders(repository_root_str: str = REPOSITORY_ROOT_STR,
+                        bin_folder_str: str = BIN_FOLDER_STR) -> list:
+    """Copy the sample files of tests/user_tests next to the app.
+
+    Inputs:
+        repository_root_str: the repository folder, which holds
+            tests/user_tests/good and tests/user_tests/bad.
+        bin_folder_str: the bin folder that holds the built app.
+    Outputs: the list of the folders written, bin/user_tests/good and
+        bin/user_tests/bad. Each one is first removed, so that it holds
+        exactly the files of its original, without any file left from
+        an earlier copy. Raises OSError when a folder cannot be copied.
+    """
+    # COR-00020, LLFR-00204: the samples are next to the app, in the
+    # folder where the Open file dialog starts.
+    written_folder_list = []
+    for folder_name_str in SAMPLE_FOLDER_NAME_TUPLE:
+        source_folder_str = os.path.join(
+            repository_root_str, "tests", USER_TESTS_FOLDER_NAME_STR,
+            folder_name_str)
+        target_folder_str = os.path.join(
+            bin_folder_str, USER_TESTS_FOLDER_NAME_STR, folder_name_str)
+        # COR-00020: an earlier copy is replaced, not merged.
+        if os.path.isdir(target_folder_str):
+            shutil.rmtree(target_folder_str)
+        shutil.copytree(source_folder_str, target_folder_str)
+        written_folder_list.append(target_folder_str)
+    return written_folder_list
+
+
 def main() -> int:
     """Build the app and print where it is.
 
@@ -147,6 +186,9 @@ def main() -> int:
         executable_str = APP_NAME_STR + (
             ".exe" if sys.platform == "win32" else "")
         print(f"Built {os.path.join(folder_path_str, executable_str)}")
+    # COR-00020: copied only after the build has succeeded.
+    for folder_str in copy_sample_folders():
+        print(f"Copied the sample files to {folder_str}")
     return 0
 
 
