@@ -22,7 +22,7 @@ from model.workspace import (
 
 # The FFT of the whole test file: 100 samples every 0.1 s, so its
 # frequencies go from 0 Hz to 5 Hz.
-WHOLE_FFT_NAME_STR = "fft_0s_to_9.9s_Speed"
+WHOLE_FFT_NAME_STR = "fft_0s_to_9p9s_Speed"
 WHOLE_FFT_HIGHEST_HZ = 5.0
 
 
@@ -432,7 +432,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         time_plot_id_i = self.last_plot_id()
         self.set_range(time_plot_id_i, 1.5, 3.0)
         fft_name_str = self.create_fft("Torque")
-        self.assertEqual(fft_name_str, "fft_1.5s_to_3s_Torque")
+        self.assertEqual(fft_name_str, "fft_1p5s_to_3s_Torque")
         self.double_click(fft_name_str)
         frequency_plot_id_i = self.last_plot_id()
         # A zoom of the frequency plot is not a time range.
@@ -442,7 +442,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
         self.assertEqual(self.plot_controller.time_plot_range_tuple(),
                          (0.0, 9.9))
-        self.assertEqual(self.create_fft("Torque"), "fft_0s_to_9.9s_Torque")
+        self.assertEqual(self.create_fft("Torque"), "fft_0s_to_9p9s_Torque")
 
 
 class FrequencyPlotMarkerTest(FrequencyPlotTestCase):

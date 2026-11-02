@@ -348,8 +348,8 @@ class UndoEachActionTest(UndoControllerTestCase):
                                                          4.0))
         self.handler("marker_place_handler")(self.plot_id_i, 4.0)
         # LLFR-00111: the undone placement does not free its number
-        # ("Marker 3"), so the new marker is "Marker 4".
-        self.assertEqual(self.workspace.marker_list[-1].name_str, "Marker 4")
+        # ("Flag 3"), so the new marker is "Flag 4".
+        self.assertEqual(self.workspace.marker_list[-1].name_str, "Flag 4")
         self.assertEqual(len({marker.marker_id_i
                               for marker in self.workspace.marker_list}), 3)
 
@@ -379,7 +379,7 @@ class UndoEachActionTest(UndoControllerTestCase):
             lambda: self.handler("marker_rename_handler")(self.plot_id_i,
                                                           marker_id_i))
         self.assertEqual(self.workspace.find_marker(marker_id_i).name_str,
-                         "Marker 2")
+                         "Flag 2")
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00091")
     def test_delete_marker(self) -> None:
@@ -490,7 +490,7 @@ class UndoNotRecordedTest(UndoControllerTestCase):
         self.assert_not_recorded(
             lambda: self.handler("marker_delete_handler")(self.plot_id_i,
                                                           999))
-        for answer in (None, "   ", "Marker 1"):
+        for answer in (None, "   ", "Flag 1"):
             self.view.marker_name_answer_list.append(answer)
             self.assert_not_recorded(
                 lambda: rename(self.plot_id_i, marker_id_i))

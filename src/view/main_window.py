@@ -30,9 +30,9 @@ from view.top_panel import TopPanel
 OPEN_FILE_DIALOG_TITLE_STR = "Open file"
 OPEN_FILE_FILTER_STR = ("Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)"
                         ";;All files (*)")
-# LLFR-00088: title and label of the marker rename dialog.
-RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
-RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
+# LLFR-00088: title and label of the flag rename dialog.
+RENAME_MARKER_DIALOG_TITLE_STR = "Rename flag"
+RENAME_MARKER_DIALOG_LABEL_STR = "New flag name:"
 # LLFR-00315: the dialog that renames an area.
 RENAME_AREA_DIALOG_TITLE_STR = "Rename area"
 RENAME_AREA_DIALOG_LABEL_STR = "New area name:"
@@ -83,11 +83,12 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE_STR = "plot_tool"
     INITIAL_WIDTH_I = 1200
     INITIAL_HEIGHT_I = 800
-    # LLFR-00072: the signal list panel starts at 25% of the width and
-    # keeps that share (3:1) when the window grows or shrinks.
-    PLOT_PANEL_STRETCH_I = 3
+    # LLFR-00072: the signal list panel starts at 20% of the width, the
+    # plot panel at 80%, and they keep that share (4:1) when the window
+    # grows or shrinks.
+    PLOT_PANEL_STRETCH_I = 4
     SIGNAL_LIST_STRETCH_I = 1
-    SIGNAL_LIST_WIDTH_FRACTION_F = 0.25
+    SIGNAL_LIST_WIDTH_FRACTION_F = 0.20
 
     def __init__(self) -> None:
         """Create the panels and arrange them in the window.

@@ -502,8 +502,10 @@ class TextNoteDrawingTest(TextNoteWidgetTestCase):
         # The model place is unchanged.
         self.assertEqual(self.plot_widget.text_note_list[0][1:3],
                          (9.9, top_f))
-        # Zoomed in on the point, there is room on its right again.
-        self.plot_widget.set_time_range(0.0, 20.0)
+        # Zoomed out, there is room on the point's right again (the note
+        # is 12 points tall by default, LLFR-00385, so it needs about
+        # three quarters of the plot's width).
+        self.plot_widget.set_time_range(0.0, 40.0)
         self.draw()
         box = self.plot_widget.text_note_box_extent(0)
         point_tuple = self.display_of(9.9, top_f)
@@ -576,7 +578,7 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_widget.set_markers([(1, "Marker 1", 5.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         for tool_str in ALL_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_text_notes(
@@ -694,7 +696,7 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
         Outputs: none.
         """
         super().setUp()
-        self.plot_widget.set_markers([(1, "Marker 1", 6.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 6.0)])
         self.plot_widget.set_delta_markers([
             (1, "y", ("Ramp", 6.0, 3.6), ("Ramp", 7.0, 3.7), 0.1)])
         self.plot_widget.set_text_notes([("over items", 5.9, 3.59)])

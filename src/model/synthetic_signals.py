@@ -53,7 +53,7 @@ Example::
 
     [
       {
-        "name": "lpf_2.5Hz_order2_Speed",
+        "name": "lpf_2p5Hz_order2_Speed",
         "operation": "lowpass",
         "signals": [
           "Speed"
@@ -65,10 +65,10 @@ Example::
         }
       },
       {
-        "name": "lpf_2.5Hz_order2_Speed_prod_Torque",
+        "name": "lpf_2p5Hz_order2_Speed_prod_Torque",
         "operation": "product",
         "signals": [
-          "lpf_2.5Hz_order2_Speed",
+          "lpf_2p5Hz_order2_Speed",
           "Torque"
         ],
         "parameter": null
@@ -88,7 +88,7 @@ from model import synthetic_operations as operations
 from model.errors import (
     EmptySyntheticNameError, SyntheticEntryError, SyntheticNameInUseError,
     SyntheticSignalError, SyntheticSourceError)
-from model.number_format import format_signal_value, format_time_value
+from model.number_format import format_name_number
 
 # LLFR-00227: keys of a layout file entry of a synthetic signal.
 NAME_KEY_STR = "name"
@@ -121,25 +121,27 @@ def parameter_name_part(operation_str: str, parameter) -> str:
         product, whose second signal is a source); else the text that
         LLFR-00240 puts between the abbreviation and the source name:
         "<constant>", "<cutoff>Hz_order<order>", "<window>samples" or
-        "<start>s_to_<end>s". Numbers are in the number format of the
-        data tip values (LLFR-00043, LLFR-00044), which never holds a
-        space.
+        "<start>s_to_<end>s". Every number is written with letters and
+        digits only, with the significant digits of the data tip values
+        (format_name_number), for example "2p5" or "2n0".
     """
-    # LLFR-00240: the parameter in the data tip number format; how a
-    # filter starts is never part of the name.
+    # LLFR-00240: every number with letters and digits only, rounded to
+    # the data tip's significant digits; how a filter starts is never
+    # part of the name.
     kind_str = operations.find_operation(operation_str).parameter_kind_str
     if kind_str == operations.CONSTANT_PARAMETER_STR:
-        return format_signal_value(parameter)
+        return format_name_number(parameter)
     if kind_str == operations.FILTER_PARAMETER_STR:
         cutoff_hz, order_i = parameter[0], parameter[1]
-        return f"{format_signal_value(cutoff_hz)}Hz_order{int(order_i)}"
+        return (f"{format_name_number(cutoff_hz)}Hz_order"
+                f"{format_name_number(int(order_i))}")
     if kind_str == operations.WINDOW_PARAMETER_STR:
-        return f"{int(parameter)}samples"
+        return f"{format_name_number(int(parameter))}samples"
     if kind_str == operations.TIME_RANGE_PARAMETER_STR:
-        # LLFR-00240: the FFT time range, as the data tip's x value.
+        # LLFR-00240: the FFT time range (LLFR-00248).
         start_s, end_s = parameter
-        return (f"{format_time_value(start_s)}s_to_"
-                f"{format_time_value(end_s)}s")
+        return (f"{format_name_number(start_s)}s_to_"
+                f"{format_name_number(end_s)}s")
     return ""
 
 

@@ -262,7 +262,7 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         place_list = self.recorder(self.plot_widget.marker_place_requested)
         preview_list = self.recorder(
             self.plot_widget.marker_preview_changed)
-        self.plot_widget.set_markers([(1, "Marker 1", 2.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 2.0)])
         self.draw()
         self.assertEqual(self.plot_widget.marker_count(), 0)
         self.assertEqual(self.plot_widget.marker_id_list(), [])

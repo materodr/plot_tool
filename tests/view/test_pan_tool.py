@@ -448,7 +448,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_widget.set_markers([(1, "Marker 1", 4.0)])
+        self.plot_widget.set_markers([(1, "Flag 1", 4.0)])
         self.zoom_to(3.0, 7.0)
         self.assertEqual(self.plot_widget.marker_at(self.point_at(4.0, 0.5)),
                          1)

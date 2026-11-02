@@ -43,6 +43,8 @@ class LayoutAreaWriteTest(unittest.TestCase):
         area = workspace.add_area(5.0, 7.25, "Run")
         workspace.set_area_color(area.area_id_i, "#2CA02C")
         layout_dict = build_layout_dict(workspace, -1, (), False)
+        # LLFR-00225 item 11: colors as "#rrggbb" in lowercase; a new
+        # area has the reserved marker color (LLFR-00351).
         self.assertEqual(layout_dict["areas"], [
             {"name": "Area 1", "start": 0.1, "end": 1.0 / 3.0,
              "color": DEFAULT_AREA_COLOR_STR},
@@ -193,11 +195,38 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         replaced_list = result.report.replaced_line_list
         self.assertEqual(len(replaced_list), 3)
         self.assertIn('Color "Purple" of the area "Odd"', replaced_list[0])
-        self.assertIn(f"replaced by {DEFAULT_AREA_COLOR_STR}",
+        self.assertIn(f'replaced by "{DEFAULT_AREA_COLOR_STR}"',
                       replaced_list[0])
         self.assertIn('Color 3 of the area "Num"', replaced_list[1])
         self.assertIn('Color "#abc" of the area "Short"', replaced_list[2])
         self.assertIn("Values replaced:", result.report.text())
+        self.assertEqual(result.report.not_rebuilt_line_list, [])
+
+    @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237",
+            "LLFR-00228")
+    def test_color_names_of_older_files_are_replaced(self) -> None:
+        """Color names that older layout files saved ("Orange", "Blue",
+        "Magenta", ...) are not "#rrggbb": each such area gets the default
+        color and is listed as a replaced value.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        result = self.rebuild(self.layout_with_areas([
+            {"name": "Old", "start": 1.0, "end": 2.0, "color": "Magenta"},
+            {"name": "Hot", "start": 5.0, "end": 6.0, "color": "Orange"},
+            {"name": "Sea", "start": 6.5, "end": 7.0, "color": "Blue"}]))
+        self.assertEqual([area.color_str
+                          for area in self.workspace.area_list],
+                         [DEFAULT_AREA_COLOR_STR] * 3)
+        replaced_list = result.report.replaced_line_list
+        self.assertEqual(len(replaced_list), 3)
+        for line_str, value_str in zip(replaced_list,
+                                       ("Magenta", "Orange", "Blue")):
+            self.assertIn(f'Color "{value_str}" of the area', line_str)
+            self.assertIn("not written as #rrggbb", line_str)
+            self.assertIn(f'replaced by "{DEFAULT_AREA_COLOR_STR}"',
+                          line_str)
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
     @covers("LLFR-00319", "LLFR-00230")

@@ -4,7 +4,7 @@ HLFR-00052).
 A layout file is a JSON text file (HLFR-00051, LLFR-00227) that holds
 what the plot panel shows and how (LLFR-00225): the tabs, their plots,
 the curves of each plot with their color and width, the pinned data
-tips and the delta markers of each plot, the vertical markers, the
+tips and the delta markers of each plot, the flags, the
 areas, the shared time range, the grid setting and the panel widths.
 It holds no path or name of the data file, no undo or redo history, no
 active plot tool, no search text and no text notes (LLFR-00226).
@@ -18,14 +18,14 @@ An example of a layout file::
 
     {
       "format": "plot_tool layout",
-      "version": 1,
+      "version": 2,
       "shown_tab": 0,
       "time_range": {"start": 0.5, "end": 2.25},
       "grid": true,
       "panel_widths": {"plot_panel": 900, "signal_list_panel": 300},
-      "vertical_markers": [{"name": "Marker 1", "time": 1.0}],
+      "flags": [{"name": "Flag 1", "time": 1.0, "color": "#ff8000"}],
       "areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
-                 "color": "Orange"}],
+                 "color": "#ff8000"}],
       "synthetic_signals": [],
       "tabs": [
         {"name": "Tab 1",
@@ -43,6 +43,11 @@ An example of a layout file::
     }
 
 (The app writes every value on its own line, indented by 2 spaces.)
+Colors of flags and areas are written as "#rrggbb" in lowercase
+(LLFR-00225 items 6 and 11). A file of an earlier version is read with
+the same rules (LLFR-00228): for example, its flags, saved under the
+key ``vertical_markers`` in version 1, are not rebuilt.
+
 A ``label_position`` of ``null`` means that the data tip was never
 moved, so the app places its label beside the point by itself.
 
@@ -79,14 +84,14 @@ import numpy as np
 
 from model.curve_colors import hex_color_or_none, is_far_from_marker_color
 from model.workspace import (
-    AUTOMATIC_LABEL_OFFSET_TUPLE,
-    DEFAULT_AREA_COLOR_STR, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
+    AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_AREA_COLOR_STR,
+    DEFAULT_FLAG_COLOR_STR, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
     DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
     spans_overlap_b)
 
-# LLFR-00228: the identification of a layout file.
+# LLFR-00228: the identification of a layout file; the version is 2.
 LAYOUT_FORMAT_STR = "plot_tool layout"
-LAYOUT_VERSION_I = 1
+LAYOUT_VERSION_I = 2
 # LLFR-00219, LLFR-00221: the extension of a layout file.
 LAYOUT_SUFFIX_STR = ".json"
 # LLFR-00227: the JSON text is indented by 2 spaces.
@@ -107,10 +112,12 @@ GRID_KEY_STR = "grid"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
 PLOT_PANEL_KEY_STR = "plot_panel"
 SIGNAL_LIST_PANEL_KEY_STR = "signal_list_panel"
-VERTICAL_MARKERS_KEY_STR = "vertical_markers"
+# LLFR-00225 item 6: the list of flags, each with "name", "time" and
+# "color" ("#rrggbb", COLOR_KEY_STR). A file without it has no flag.
+FLAGS_KEY_STR = "flags"
 # LLFR-00225 item 11: the list of areas, each with "name", "start",
-# "end" (START_KEY_STR, END_KEY_STR) and "color" (COLOR_KEY_STR, the name
-# of an area color, LLFR-00351). A file without it has no area.
+# "end" (START_KEY_STR, END_KEY_STR) and "color" ("#rrggbb",
+# COLOR_KEY_STR, LLFR-00351). A file without it has no area.
 AREAS_KEY_STR = "areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
 TABS_KEY_STR = "tabs"
@@ -187,7 +194,7 @@ class LayoutReport:
             LLFR-00282).
         missing_signal_list: the signals not in the data file, each named
             once, in the order they were met (LLFR-00231).
-        not_rebuilt_line_list: data tips, vertical markers, delta
+        not_rebuilt_line_list: data tips, flags, areas, delta
             markers, plots and curves not rebuilt, with time and reason
             (LLFR-00231 to LLFR-00233, LLFR-00235).
         time_range_line_list: how the time range was changed
@@ -459,6 +466,28 @@ def file_time_range(time_array) -> tuple:
             float(np.max(finite_time_array)))
 
 
+def saved_color(entry_dict: dict, default_color_str: str) -> tuple:
+    """Read the saved color of a flag or an area.
+
+    Inputs:
+        entry_dict: the entry of the flag or area in the file.
+        default_color_str: the color of a new item of that kind
+            (DEFAULT_FLAG_COLOR_STR or DEFAULT_AREA_COLOR_STR).
+    Outputs: a tuple (color_str, replaced_b): the lowercase "#rrggbb"
+        color to use, and True when a saved value that is not written as
+        "#rrggbb" was replaced by the default color.
+    """
+    # LLFR-00393, LLFR-00319: a missing color is the default color; a
+    # "#rrggbb" color, in uppercase or lowercase, is used as it is;
+    # anything else is replaced by the default color and reported.
+    if COLOR_KEY_STR not in entry_dict:
+        return default_color_str, False
+    color_str = hex_color_or_none(entry_dict.get(COLOR_KEY_STR))
+    if color_str is None:
+        return default_color_str, True
+    return color_str, False
+
+
 # ----------------------------------------------------------------------
 # Writing (LLFR-00225 to LLFR-00228)
 # ----------------------------------------------------------------------
@@ -559,15 +588,17 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
             SIGNAL_LIST_PANEL_KEY_STR: int(panel_width_tuple[1])}
     else:
         layout_dict[PANEL_WIDTHS_KEY_STR] = None
-    # LLFR-00225 item 6: each vertical marker, with its name and time.
-    layout_dict[VERTICAL_MARKERS_KEY_STR] = [
-        {NAME_KEY_STR: marker.name_str, TIME_KEY_STR: float(marker.time_s)}
+    # LLFR-00225 item 6: under "flags", each flag with its name, time
+    # and color ("#rrggbb" in lowercase).
+    layout_dict[FLAGS_KEY_STR] = [
+        {NAME_KEY_STR: marker.name_str, TIME_KEY_STR: float(marker.time_s),
+         COLOR_KEY_STR: marker.color_str}
         for marker in workspace.marker_list]
-    # LLFR-00225 item 11: each area, with its name, start and end time.
+    # LLFR-00225 item 11: each area, with its name, start and end time
+    # and color ("#rrggbb" in lowercase).
     layout_dict[AREAS_KEY_STR] = [
         {NAME_KEY_STR: area.name_str, START_KEY_STR: float(area.start_s),
-         END_KEY_STR: float(area.end_s),
-         COLOR_KEY_STR: area.color_str}
+         END_KEY_STR: float(area.end_s), COLOR_KEY_STR: area.color_str}
         for area in workspace.area_list]
     # LLFR-00225 item 10, LLFR-00262: the synthetic signals.
     layout_dict[SYNTHETIC_SIGNALS_KEY_STR] = list(synthetic_signal_list)
@@ -636,15 +667,17 @@ def parse_layout_text(text_str: str, path_str: str = "") -> dict:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NOT_LAYOUT_REASON_STR))
     version_value = layout_dict.get(VERSION_KEY_STR)
-    # LLFR-00228: a whole number, also when hand-edited as 1.0.
-    version_i = 0
+    # LLFR-00228: a whole number, also when hand-edited as 1.0; any lower
+    # version, 0 included, is read with the current rules.
+    version_i = None
     if isinstance(version_value, int) and not isinstance(version_value,
                                                          bool):
         version_i = int(version_value)
     elif (isinstance(version_value, float) and math.isfinite(version_value)
           and version_value.is_integer()):
         version_i = int(version_value)
-    if layout_dict.get(FORMAT_KEY_STR) != LAYOUT_FORMAT_STR or version_i < 1:
+    if (layout_dict.get(FORMAT_KEY_STR) != LAYOUT_FORMAT_STR
+            or version_i is None):
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NOT_LAYOUT_REASON_STR))
     # LLFR-00228: a later format may hold entries this app cannot read.
@@ -1257,21 +1290,39 @@ class LayoutBuilder:
 
     # Markers, range, grid and widths ------------------------------------
 
-    def rebuild_vertical_markers(self, marker_entry_list: list) -> None:
-        """Add the saved vertical markers to the current ones.
+    def place_flag(self, name_str: str, time_s: float, color_str: str):
+        """Add one flag of the file to the workspace, with its color.
 
         Inputs:
-            marker_entry_list: the "vertical_markers" list of the file.
+            name_str: the saved name, or "" for the name of a new flag.
+            time_s: the time of the flag, in seconds.
+            color_str: its color, lowercase "#rrggbb" (LLFR-00393).
+        Outputs: the new VerticalMarker.
+        """
+        # LLFR-00393: the flag gets its saved color.
+        if name_str:
+            return self.workspace.add_named_marker(name_str, time_s,
+                                                   color_str=color_str)
+        # LLFR-00235, LLFR-00085: the name of a new flag.
+        marker = self.workspace.add_marker(time_s)
+        self.workspace.set_marker_color(marker.marker_id_i, color_str)
+        return marker
+
+    def rebuild_flags(self, marker_entry_list: list) -> None:
+        """Add the saved flags to the current ones.
+
+        Inputs:
+            marker_entry_list: the "flags" list of the file.
         Outputs: none.
         """
-        # LLFR-00230, LLFR-00205: added to the current markers, shown on
+        # LLFR-00230, LLFR-00205: added to the current flags, shown on
         # every plot.
         for marker_entry in marker_entry_list:
             name_value = (marker_entry.get(NAME_KEY_STR)
                           if isinstance(marker_entry, dict) else None)
             time_s = (finite_number(marker_entry.get(TIME_KEY_STR))
                       if isinstance(marker_entry, dict) else None)
-            label_str = (f"Vertical marker {describe_value(name_value)} at "
+            label_str = (f"Flag {describe_value(name_value)} at "
                          f"{format_time(time_s)}")
             if time_s is None:
                 self.report.add_not_rebuilt(
@@ -1285,24 +1336,35 @@ class LayoutBuilder:
                     f"{label_str}: its time is outside the time range of "
                     f"the data file{self.file_range_text()}.")
                 continue
-            # LLFR-00205: markers exist only while a plot exists.
+            # LLFR-00205: flags exist only while a plot exists.
             if not self.workspace.has_plots():
                 self.report.add_not_rebuilt(
                     f"{label_str}: no plot was rebuilt to show it on.")
                 continue
+            # LLFR-00393: the saved color, the default when it is missing.
+            color_str, color_replaced_b = saved_color(
+                marker_entry, DEFAULT_FLAG_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
-                # LLFR-00230: the saved name, kept even when another
-                # marker has the same name (marker names need not be
-                # unique, LLFR-00088).
-                self.workspace.add_named_marker(name_value, time_s)
-                continue
-            # LLFR-00235, LLFR-00085: a name that cannot be used is
-            # replaced by the name of a new marker.
-            marker = self.workspace.add_marker(time_s)
-            self.report.add_replaced(
-                f"Name {describe_value(name_value)} of the vertical marker "
-                f"at {format_time(time_s)} is empty or not a text; "
-                f"replaced by \"{marker.name_str}\".")
+                # LLFR-00230: the saved name, kept even when another flag
+                # has the same name (flag names need not be unique,
+                # LLFR-00088).
+                marker = self.place_flag(name_value, time_s, color_str)
+            else:
+                # LLFR-00235, LLFR-00085: a name that cannot be used is
+                # replaced by the name of a new flag.
+                marker = self.place_flag("", time_s, color_str)
+                self.report.add_replaced(
+                    f"Name {describe_value(name_value)} of the flag at "
+                    f"{format_time(time_s)} is empty or not a text; "
+                    f"replaced by \"{marker.name_str}\".")
+            if color_replaced_b:
+                # LLFR-00393, LLFR-00235, LLFR-00237: a color not written
+                # as "#rrggbb" is replaced by the default color.
+                self.report.add_replaced(
+                    f"Color {describe_value(marker_entry[COLOR_KEY_STR])} "
+                    f"of the flag \"{marker.name_str}\" at "
+                    f"{format_time(time_s)} is not written as #rrggbb; "
+                    f"replaced by \"{DEFAULT_FLAG_COLOR_STR}\".")
 
     def rebuild_areas(self, area_entry_list: list) -> None:
         """Add the saved areas to the current ones.
@@ -1361,11 +1423,10 @@ class LayoutBuilder:
                     f"\"{overlapped.name_str}\".")
                 continue
             # LLFR-00319, LLFR-00351: the saved color; a missing one is
-            # the default color, an unknown one is replaced and reported.
-            color_value = entry_dict.get(COLOR_KEY_STR,
-                                         DEFAULT_AREA_COLOR_STR)
-            color_str = (hex_color_or_none(color_value)
-                         or DEFAULT_AREA_COLOR_STR)
+            # the default color, one not written as "#rrggbb" is replaced
+            # and reported.
+            color_str, color_replaced_b = saved_color(
+                entry_dict, DEFAULT_AREA_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another area
                 # has the same name.
@@ -1381,13 +1442,13 @@ class LayoutBuilder:
                     f"{format_time(start_s)} to {format_time(end_s)} is "
                     f"empty or not a text; replaced by "
                     f"\"{area.name_str}\".")
-            if hex_color_or_none(color_value) is None:
+            if color_replaced_b:
                 # LLFR-00235, LLFR-00237: a color not written as
-                # "#rrggbb" is replaced by the default and reported.
+                # "#rrggbb" is replaced by the default color.
                 self.report.add_replaced(
-                    f"Color {describe_value(color_value)} of the area "
-                    f"\"{area.name_str}\" is not written as #rrggbb; "
-                    f"replaced by {DEFAULT_AREA_COLOR_STR}.")
+                    f"Color {describe_value(entry_dict[COLOR_KEY_STR])} of "
+                    f"the area \"{area.name_str}\" is not written as "
+                    f"#rrggbb; replaced by \"{DEFAULT_AREA_COLOR_STR}\".")
 
     def file_range_text(self) -> str:
         """Return the time range of the data file, for the report.
@@ -1563,9 +1624,9 @@ class LayoutBuilder:
         if tabs_replaced_b:
             self.workspace.remove_all_tabs()
         first_tab_id_i = self.rebuild_tabs(tab_entry_list)
-        # LLFR-00230, LLFR-00233: the vertical markers of the file.
-        self.rebuild_vertical_markers(
-            list_entry(layout_dict, VERTICAL_MARKERS_KEY_STR))
+        # LLFR-00230, LLFR-00233: the flags of the file; LLFR-00228: only
+        # under "flags", also in a file of an earlier version.
+        self.rebuild_flags(list_entry(layout_dict, FLAGS_KEY_STR))
         # LLFR-00230, LLFR-00319: the areas of the file.
         self.rebuild_areas(list_entry(layout_dict, AREAS_KEY_STR))
         # LLFR-00234: the time range, limited to the data file.

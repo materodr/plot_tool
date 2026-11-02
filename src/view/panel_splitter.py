@@ -20,7 +20,7 @@ from view import theme
 
 # LLFR-00072: QSplitter stretch factors only share out extra space, so
 # the start sizes are set once, when the final width is known.
-DEFAULT_LAST_WIDGET_FRACTION_F = 0.25
+DEFAULT_LAST_WIDGET_FRACTION_F = 0.20
 
 
 class PanelSplitterHandle(QSplitterHandle):

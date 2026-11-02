@@ -20,7 +20,8 @@ from model.curve_colors import MARKER_COLOR_STR, PALETTE_COLOR_TUPLE
 from model.layout_file import (
     LayoutFileError, build_layout_dict, ensure_layout_suffix, layout_bytes,
     layout_text, parse_layout_text, read_layout_file, rebuild_layout)
-from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR, Workspace
+from model.workspace import (
+    DELTA_X_KIND_STR, DELTA_Y_KIND_STR, Workspace)
 
 
 def make_signal_dict(signal_name_list=("Speed", "Torque", "Power"),
@@ -113,9 +114,9 @@ def minimal_layout(tab_list: list, **entry_dict) -> dict:
         entry_dict: other entries to set or replace.
     Outputs: the dict, as parse_layout_text returns it.
     """
-    layout_dict = {"format": "plot_tool layout", "version": 1,
+    layout_dict = {"format": "plot_tool layout", "version": 2,
                    "shown_tab": 0, "time_range": None, "grid": False,
-                   "panel_widths": None, "vertical_markers": [],
+                   "panel_widths": None, "flags": [],
                    "synthetic_signals": [], "tabs": tab_list}
     layout_dict.update(entry_dict)
     return layout_dict
@@ -187,9 +188,9 @@ class LayoutWriteTest(unittest.TestCase):
         self.assertEqual(layout_dict["time_range"],
                          {"start": 0.1, "end": 7.123456789012345})
         self.assertIs(layout_dict["grid"], True)
-        self.assertEqual(layout_dict["vertical_markers"], [
-            {"name": "Marker 1", "time": 1.0},
-            {"name": "Peak", "time": 4.25}])
+        self.assertEqual(layout_dict["flags"], [
+            {"name": "Flag 1", "time": 1.0, "color": "#ff8000"},
+            {"name": "Peak", "time": 4.25, "color": "#ff8000"}])
         self.assertEqual(first_plot_dict["data_tips"], [
             {"signal": "Speed", "time": 1.5,
              "label_position": {"right_points": 20.25, "up_points": -7.5}},
@@ -238,7 +239,7 @@ class LayoutWriteTest(unittest.TestCase):
         line_list = text_str.splitlines()
         self.assertEqual(line_list[0], "{")
         self.assertEqual(line_list[1], '  "format": "plot_tool layout",')
-        self.assertEqual(line_list[2], '  "version": 1,')
+        self.assertEqual(line_list[2], '  "version": 2,')
         self.assertEqual(list(json.loads(text_str))[:2],
                          ["format", "version"])
         # LLFR-00227: each value on its own line, indented by 2 spaces.
@@ -260,7 +261,7 @@ class LayoutWriteTest(unittest.TestCase):
         text_str = layout_text(build_layout_dict(
             self.workspace, -1, (1.0 / 3.0, 2.0 / 3.0), False, ()))
         layout_dict = json.loads(text_str)
-        self.assertEqual(layout_dict["vertical_markers"][-1]["time"], time_s)
+        self.assertEqual(layout_dict["flags"][-1]["time"], time_s)
         self.assertEqual(layout_dict["time_range"]["start"], 1.0 / 3.0)
         self.assertIn(repr(time_s), text_str)
         self.assertIsNone(layout_dict["panel_widths"])
@@ -364,19 +365,25 @@ class LayoutReadTest(unittest.TestCase):
                          '{"format": "plot_tool layout"}',
                          '{"format": "plot_tool layout", "version": "1"}',
                          '{"format": "plot_tool layout", "version": true}',
-                         '{"format": "plot_tool layout", "version": 0}',
-                         '{"format": "plot_tool layout", "version": 2}'):
+                         '{"format": "plot_tool layout", "version": 3}'):
             with self.subTest(text=text_str):
                 with self.assertRaises(LayoutFileError):
                     parse_layout_text(text_str, "x.json")
+        # LLFR-00228: version 2 and the lower version 1 are both read.
+        self.assertEqual(parse_layout_text(
+            '{"format": "plot_tool layout", "version": 2}')["version"], 2)
         self.assertEqual(parse_layout_text(
             '{"format": "plot_tool layout", "version": 1}')["version"], 1)
-        # LLFR-00228: a hand-edited 1.0 is version 1; 2.0 is too new.
+        # LLFR-00228: any lower version is read, 0 included.
+        self.assertEqual(parse_layout_text(
+            '{"format": "plot_tool layout", "version": 0}')["version"], 0)
+        # LLFR-00228: a hand-edited 2.0 is version 2; 3.0 is too new.
+        parse_layout_text('{"format": "plot_tool layout", "version": 2.0}')
         parse_layout_text('{"format": "plot_tool layout", "version": 1.0}')
         with self.assertRaises(LayoutFileError) as context:
             parse_layout_text(
-                '{"format": "plot_tool layout", "version": 2.0}')
-        self.assertIn("version 2", str(context.exception))
+                '{"format": "plot_tool layout", "version": 3.0}')
+        self.assertIn("version 3", str(context.exception))
         with self.assertRaises(LayoutFileError):
             parse_layout_text(
                 '{"format": "plot_tool layout", "version": 1.5}')
@@ -826,7 +833,7 @@ class LayoutPointTest(LayoutRebuildTestCase):
 
 
 class LayoutMarkerTest(LayoutRebuildTestCase):
-    """Vertical markers of the file (LLFR-00233)."""
+    """Flags of the file (LLFR-00233, LLFR-00393, LLFR-00228)."""
 
     @covers("LLFR-00233", "LLFR-00230", "LLFR-00205", "LLFR-00111")
     def test_markers_added_inside_the_file_range(self) -> None:
@@ -839,28 +846,28 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         self.workspace.add_plot(tab.tab_id_i).add_curve("Speed")
         self.workspace.add_marker(1.0)
         result = self.rebuild(minimal_layout(
-            [one_plot_tab([curve("Speed")])], vertical_markers=[
+            [one_plot_tab([curve("Speed")])], flags=[
                 {"name": "Start", "time": 0.0},
-                {"name": "Marker 1", "time": 10.0},
-                {"name": "Marker 7", "time": 5.0},
+                {"name": "Flag 1", "time": 10.0},
+                {"name": "Flag 7", "time": 5.0},
                 {"name": "Late", "time": 10.5},
                 {"name": "Text", "time": "3"},
                 {"name": "", "time": 4.0}]))
         name_time_list = [(marker.name_str, marker.time_s)
                           for marker in self.workspace.marker_list]
         self.assertEqual(name_time_list[:4], [
-            ("Marker 1", 1.0), ("Start", 0.0), ("Marker 1", 10.0),
-            ("Marker 7", 5.0)])
-        # LLFR-00085, LLFR-00111: "Marker 7" used up the numbers up to 7.
-        self.assertEqual(name_time_list[4], ("Marker 8", 4.0))
-        self.assertEqual(self.workspace.add_marker(2.0).name_str, "Marker 9")
+            ("Flag 1", 1.0), ("Start", 0.0), ("Flag 1", 10.0),
+            ("Flag 7", 5.0)])
+        # LLFR-00085, LLFR-00111: "Flag 7" used up the numbers up to 7.
+        self.assertEqual(name_time_list[4], ("Flag 8", 4.0))
+        self.assertEqual(self.workspace.add_marker(2.0).name_str, "Flag 9")
         not_rebuilt_list = result.report.not_rebuilt_line_list
         self.assertEqual(len(not_rebuilt_list), 2)
         self.assertIn('"Late" at 10.5 s', not_rebuilt_list[0])
         self.assertIn("outside the time range", not_rebuilt_list[0])
         self.assertIn("0 s to 10 s", not_rebuilt_list[0])
         self.assertIn("not a number", not_rebuilt_list[1])
-        self.assertIn('"Marker 8"', result.report.replaced_line_list[0])
+        self.assertIn('"Flag 8"', result.report.replaced_line_list[0])
 
     @covers("LLFR-00233", "LLFR-00205", "LLFR-00231")
     def test_markers_need_a_plot(self) -> None:
@@ -871,9 +878,121 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         """
         result = self.rebuild(minimal_layout(
             [one_plot_tab([curve("Gone")])],
-            vertical_markers=[{"name": "M", "time": 1.0}]))
+            flags=[{"name": "M", "time": 1.0}]))
         self.assertEqual(self.workspace.marker_list, [])
         self.assertIn("no plot", result.report.not_rebuilt_line_list[-1])
+
+    @covers("LLFR-00225", "LLFR-00227", "LLFR-00083")
+    def test_flags_written_under_flags_with_lowercase_colors(self) -> None:
+        """The flags are written under "flags" with "#rrggbb" colors.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tab = self.workspace.tab_list[0]
+        self.workspace.add_plot(tab.tab_id_i).add_curve("Speed")
+        first_marker = self.workspace.add_marker(1.0)
+        self.workspace.add_marker(2.5)
+        # LLFR-00392: a flag the user gave another color.
+        self.workspace.set_marker_color(first_marker.marker_id_i, "#1F77B4")
+        layout_dict = json.loads(layout_text(build_layout_dict(
+            self.workspace, -1, (), False)))
+        self.assertNotIn("vertical_markers", layout_dict)
+        self.assertEqual(layout_dict["version"], 2)
+        flag_list = layout_dict["flags"]
+        self.assertEqual([(flag_dict["name"], flag_dict["time"])
+                          for flag_dict in flag_list],
+                         [("Flag 1", 1.0), ("Flag 2", 2.5)])
+        for flag_dict in flag_list:
+            self.assertEqual(sorted(flag_dict), ["color", "name", "time"])
+            self.assertRegex(flag_dict["color"], r"^#[0-9a-f]{6}$")
+        # LLFR-00083: a new flag has the reserved marker color.
+        self.assertEqual(flag_list[1]["color"], "#ff8000")
+        self.assertEqual(flag_list[0]["color"], "#1f77b4")
+
+    @covers("LLFR-00393", "LLFR-00235", "LLFR-00237", "LLFR-00083")
+    def test_flag_colors_read_back(self) -> None:
+        """A "#rrggbb" color is used, a missing one is the default, any
+        other is replaced by the default and reported.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        result = self.rebuild(minimal_layout(
+            [one_plot_tab([curve("Speed")])], flags=[
+                {"name": "Upper", "time": 1.0, "color": "#00AA11"},
+                {"name": "Lower", "time": 2.0, "color": "#2f7dff"},
+                {"name": "Missing", "time": 3.0},
+                {"name": "Named", "time": 4.0, "color": "Blue"},
+                {"name": "Short", "time": 5.0, "color": "#abc"},
+                {"name": "Number", "time": 6.0, "color": 255}]))
+        marker_list = self.workspace.marker_list
+        self.assertEqual([marker.name_str for marker in marker_list],
+                         ["Upper", "Lower", "Missing", "Named", "Short",
+                          "Number"])
+        color_list = [marker.color_str for marker in marker_list]
+        self.assertEqual(color_list[2:], ["#ff8000"] * 4)
+        self.assertEqual(color_list[:2], ["#00aa11", "#2f7dff"])
+        # LLFR-00237: only the three colors not written as "#rrggbb" are
+        # listed as replaced values; nothing is listed as not rebuilt.
+        replaced_list = result.report.replaced_line_list
+        self.assertEqual(len(replaced_list), 3)
+        for replaced_str, value_str, name_str in zip(
+                replaced_list, ('"Blue"', '"#abc"', "255"),
+                ("Named", "Short", "Number")):
+            self.assertIn(f"Color {value_str} of the flag \"{name_str}\"",
+                          replaced_str)
+            self.assertIn("replaced by \"#ff8000\"", replaced_str)
+        self.assertEqual(result.report.not_rebuilt_line_list, [])
+
+    @covers("LLFR-00228", "LLFR-00233")
+    def test_older_file_without_flags_loads_without_flags(self) -> None:
+        """A version 1 file with "vertical_markers" loads, with no flag.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        layout_dict = minimal_layout([one_plot_tab([curve("Speed")])])
+        del layout_dict["flags"]
+        layout_dict["version"] = 1
+        layout_dict["vertical_markers"] = [{"name": "Marker 1",
+                                            "time": 1.0}]
+        layout_dict = parse_layout_text(json.dumps(layout_dict))
+        result = self.rebuild(layout_dict)
+        self.assertEqual(self.workspace.marker_list, [])
+        self.assertEqual(len(self.only_plot().curve_list), 1)
+        # LLFR-00228: no special support, so nothing about them is
+        # reported either.
+        self.assertTrue(result.report.is_empty())
+        # A file with no "flags" entry at all, of the current version.
+        layout_dict = minimal_layout([one_plot_tab([curve("Torque")])])
+        del layout_dict["flags"]
+        self.rebuild(layout_dict)
+        self.assertEqual(self.workspace.marker_list, [])
+
+    @covers("LLFR-00225", "LLFR-00393", "LLFR-00230")
+    def test_flags_round_trip(self) -> None:
+        """Saved flags come back with their names, times and colors.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tab = self.workspace.tab_list[0]
+        self.workspace.add_plot(tab.tab_id_i).add_curve("Speed")
+        self.workspace.add_marker(1.25)
+        peak = self.workspace.add_named_marker("Peak", 7.5)
+        # LLFR-00392: a color the user gave in the picker.
+        self.workspace.set_marker_color(peak.marker_id_i, "#2CA02C")
+        saved_dict = json.loads(layout_text(build_layout_dict(
+            self.workspace, -1, (), False)))
+        other_workspace = Workspace(random.Random(2))
+        result = rebuild_layout(other_workspace, saved_dict,
+                                self.signal_dict, self.signal_dict["Time"])
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        self.assertEqual(
+            [(marker.name_str, marker.time_s, marker.color_str)
+             for marker in other_workspace.marker_list],
+            [("Flag 1", 1.25, "#ff8000"), ("Peak", 7.5, "#2ca02c")])
 
 
 class LayoutRangeTest(LayoutRebuildTestCase):
@@ -989,15 +1108,15 @@ class LayoutValueTest(LayoutRebuildTestCase):
 
     @covers("LLFR-00235", "LLFR-00365", "LLFR-00083", "LLFR-00237")
     def test_colors_close_to_the_orange_marker_are_replaced(self) -> None:
-        """The marker color and colors closer than 70 to it, such as the
-        red and the orange of the previous palette, are replaced by the
-        next palette color and reported; the new dark red is kept.
+        """The marker color #ff8000 and colors closer than 70 to it, such
+        as the orange of the previous palette, are replaced by the next
+        palette color and reported; the dark red is kept.
 
         Inputs: none.
         Outputs: none.
         """
         signal_list = ["s0", "s1", "s2", "s3"]
-        color_list = ["#b2182b", "#ff4400", "#d62728", "#ff7f0e"]
+        color_list = ["#b2182b", "#ff8000", "#ff9900", "#ff7f0e"]
         curve_list = [{"signal": signal_str, "color": color_str,
                        "width": 1}
                       for signal_str, color_str in zip(signal_list,
@@ -1082,8 +1201,8 @@ class LayoutValueTest(LayoutRebuildTestCase):
                 minimal_layout([one_plot_tab([curve("Speed")],
                                              data_tip_list=["x"],
                                              delta_marker_list=[None])]),
-                minimal_layout([], vertical_markers="x"),
-                minimal_layout([], vertical_markers=[None, [], {"time": 1}]),
+                minimal_layout([], flags="x"),
+                minimal_layout([], flags=[None, [], {"time": 1}]),
                 minimal_layout([], time_range={"start": 1e400, "end": 2}),
                 {"format": "plot_tool layout", "version": 1}):
             with self.subTest(layout=layout_dict):
