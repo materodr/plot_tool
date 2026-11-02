@@ -651,7 +651,7 @@ Note: JSON can be read and written with Python's standard library, so no new lib
 *Parent: HLFR-00051*
 
 ### LLFR-00228 Layout file identification
-The layout file must start with an entry `format` with the value `plot_tool layout` and an entry `version` with the number of the layout file format, so that the app can tell a layout file from other JSON files.
+The layout file must start with an entry `format` with the value `plot_tool layout` and an entry `version` with the number of the layout file format, which must be 2, so that the app can tell a layout file from other JSON files. A layout file with a lower `version` must still be read, with the current rules and with no special support for the earlier format, so that, for example, the flags it saved under another key are not rebuilt.
 
 *Parent: HLFR-00051, HLFR-00050*
 
@@ -926,7 +926,7 @@ When the user clicks the Save signals button, the app must show a save file dial
 *Parent: HLFR-00090*
 
 ### LLFR-00397 Replace an existing signals file
-If the user chooses the name of a file that already exists in the dialog of LLFR-00396, the app must ask the user whether to replace it, and must save the file only if the user agrees. If the chosen file is the opened data file, the app must not save any file and must show an error box saying that the opened data file cannot be replaced (LLFR-00253).
+If the chosen file is the opened data file, the app must not ask whether to replace it, must not save any file and must show an error box saying that the opened data file cannot be replaced (LLFR-00253). Otherwise, if the user chooses the name of a file that already exists in the dialog of LLFR-00396, the app must ask the user whether to replace it, and must save the file only if the user agrees. When the system's save file dialog has already asked the user whether to replace the file, the app must not ask a second time.
 
 *Parent: HLFR-00090, HLFR-00055, HLFR-00002*
 
@@ -957,14 +957,14 @@ The app must write the saved file following the reading rules of its format, so 
 3. MAT: one top-level variable holding a one-dimensional numeric array per signal (LLFR-00062), in a MAT format that is not v7.3 (LLFR-00064);
 4. HDF5: one dataset holding a one-dimensional numeric array per signal, at the path given by the signal's name, so that a `/` in the name puts the dataset in groups (LLFR-00134).
 
-The time signal must keep its name. Each value must be written with enough digits, or as a 64-bit floating-point number, to be read back as the same value.
+The time signal must keep its name, except as in LLFR-00403, which changes it like any other name and lists it (LLFR-00404). Each value must be written with enough digits, or as a 64-bit floating-point number, to be read back as the same value.
 
 *Parent: HLFR-00090, HLFR-00005*
 
 ### LLFR-00403 Names a format cannot store
 The app must change each signal name that the chosen format cannot store into a valid name, as follows:
 1. MAT: every character that is not an English letter, a digit or `_` must be replaced by `_`; a name that does not start with a letter must get `x` added at its start; a name longer than 63 characters must be cut to 63 characters;
-2. HDF5: empty parts between `/` characters, and a `/` at the start or end of the name, must be removed (an empty result must become `signal`); a name that is also the group of another saved name (for example `engine` with `engine/speed`) must get an underscore and the smallest number from 2 up that makes it neither a group nor the name of another saved signal.
+2. HDF5: empty parts between `/` characters, parts that are `.` or `..`, and a `/` at the start or end of the name, must be removed (an empty result must become `signal`); a name that is also the group of another saved name (for example `engine` with `engine/speed`) must get an underscore and the smallest number from 2 up that makes it neither a group nor the name of another saved signal.
 
 When a changed name is the name of another saved signal, the app must add an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241, and must still keep a MAT name within 63 characters. CSV and Excel names must not be changed.
 
@@ -1119,7 +1119,7 @@ The app must name a synthetic signal as follows, using the abbreviation of its o
 Every number in the name, which is the constant, the cutoff frequency, the filter order, the window size or an FFT time, must be written with letters and digits only, with the same significant digits as the data tip's values (LLFR-00043, LLFR-00044), up to 6:
 1. the decimal point must be written `p` for a positive number and `n` for a negative number, and a negative number must have no minus sign: 2.5 is `2p5`, -2.5 is `2n5` and -0.000123457 is `0n000123457`;
 2. a positive whole number must be written as it is, and a negative whole number must get `n0`: 2 is `2` and -2 is `2n0`;
-3. no exponent must be used, and all digits must be written: 1e+06 is `1000000` and 1e-07 is `0p0000001`;
+3. no exponent must be used, and all digits must be written, rounded to the significant digits above: 1e+06 is `1000000`, 1e-07 is `0p0000001` and 1234567 is `1234570`;
 4. zero must be written `0`.
 
 The name of a synthetic signal therefore holds only letters, digits and `_` apart from the names of the signals it was computed from. The FFT times are the time range of LLFR-00248, so two FFTs of the same signal over different time ranges get different names. How a filter starts (LLFR-00246) must not be part of the name. When a signal it was computed from is itself a synthetic signal, its whole name is used, so that the names build up from left to right, for example `der_int_Speed` or `fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
