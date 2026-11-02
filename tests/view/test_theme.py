@@ -298,7 +298,7 @@ class ThemeWidgetTestCase(unittest.TestCase):
             (name_str, time_array, time_array * index_i,
              PALETTE_COLOR_TUPLE[index_i], 1)
             for index_i, name_str in enumerate(name_list)])
-        plot_widget.set_markers([(1, "Marker 1", 0.5)])
+        plot_widget.set_markers([(1, "Flag 1", 0.5)])
         plot_widget.set_pinned_tips([("second", 0.5, 0.5)])
         plot_widget.canvas.draw()
         line_color_list = [to_hex(plot_widget.curve_line_dict[name_str]

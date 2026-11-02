@@ -214,7 +214,7 @@ class SharedMarkerDrawingTest(SharedMarkerWindowTestCase):
             self.assertEqual(plot_widget.marker_id_list(),
                              [marker.marker_id_i])
             self.assertEqual(plot_widget.marker_label_text(
-                marker.marker_id_i), "Marker 1")
+                marker.marker_id_i), "Flag 1")
             self.assertAlmostEqual(plot_widget.marker_time_s(
                 marker.marker_id_i), marker.time_s)
             self.assertEqual(plot_widget.marker_time_text(
@@ -243,7 +243,7 @@ class SharedMarkerDrawingTest(SharedMarkerWindowTestCase):
         self.assertEqual(new_widget.marker_id_list(), id_list)
         self.assertEqual([new_widget.marker_label_text(marker_id_i)
                           for marker_id_i in id_list],
-                         ["Marker 1", "Marker 2"])
+                         ["Flag 1", "Flag 2"])
         # Rename and delete through the controller, as the menus do.
         with mock.patch.object(
                 self.main_window, "ask_marker_name", return_value="Peak"):

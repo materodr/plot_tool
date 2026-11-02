@@ -262,8 +262,8 @@ PINNED_TIP_BOX_DICT = {"boxstyle": "round,pad=0.45,rounding_size=0.35",
 # markers only because it is see-through. All four are drawn with the
 # same see-through opacity (view.plot_widget.AREA_ALPHA_F), so that
 # they show pale and the curves and every other item stay visible; the
-# fills are chosen so that, as drawn, every two of them are at least 40
-# RGB units apart (the closest pair, Yellow and Orange, about 43;
+# fills are chosen so that, as drawn, every two of them are at least 25
+# RGB units apart (the closest pair, Yellow and Orange, about 28;
 # tests/view/test_area_colors.py), and none is a color of the curve
 # palette (model.curve_colors.PALETTE_COLOR_TUPLE).
 AREA_COLOR_DICT = {"Orange": curve_colors.MARKER_COLOR_STR,

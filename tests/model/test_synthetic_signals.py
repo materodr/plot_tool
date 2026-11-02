@@ -12,6 +12,7 @@ from model.errors import (
     EmptySyntheticNameError, SyntheticEntryError, SyntheticNameInUseError,
     SyntheticOperationError, SyntheticParameterError, SyntheticSignalError,
     SyntheticSourceError, TooFewSamplesError, UnevenTimeStepError)
+from model.number_format import format_name_number
 from model.synthetic_signals import (
     LAYOUT_KEY_STR, SyntheticSignal, SyntheticSignalStore, entries_text,
     synthetic_name)
@@ -114,49 +115,69 @@ class NameTest(unittest.TestCase):
         Outputs: none.
         """
         for operation_str, constant_f, name_str in (
-                ("add", 2.5, "add_2.5_Speed"),
+                ("add", 2.5, "add_2p5_Speed"),
                 ("subtract", 3.0, "sub_3_Speed"),
-                ("multiply", 0.5, "mul_0.5_Speed"),
-                ("divide", -4.0, "div_-4_Speed"),
-                ("greater", 2.5, "gt_2.5_Speed"),
-                ("less", -0.25, "lt_-0.25_Speed"),
+                ("multiply", 0.5, "mul_0p5_Speed"),
+                ("divide", -4.0, "div_4n0_Speed"),
+                ("greater", 2.5, "gt_2p5_Speed"),
+                ("less", -0.25, "lt_0n25_Speed"),
                 ("greaterorequal", 0.0, "ge_0_Speed"),
                 ("lessorequal", 1.0, "le_1_Speed"),
-                ("add", -2, "add_-2_Speed")):
+                ("add", -2, "add_2n0_Speed")):
             with self.subTest(operation=operation_str, constant=constant_f):
                 self.assertEqual(synthetic_name(operation_str, ["Speed"],
                                                 constant_f, set()),
                                  name_str)
 
-    @covers("LLFR-00240", "LLFR-00044", "HLFR-00054")
+    @covers("LLFR-00240", "LLFR-00043", "LLFR-00044", "HLFR-00054")
     def test_numbers_are_plain_tokens_in_the_data_tip_format(
             self) -> None:
-        """Large, small and long constants use the data tip format.
+        """Every number holds only letters and digits, with 6 digits.
 
         Inputs: none.
         Outputs: none.
         """
-        for constant_f, name_str in (
-                (1e6, "add_1e+06_Speed"), (-1e6, "add_-1e+06_Speed"),
-                (1.5e-7, "add_1.5e-07_Speed"),
-                (0.1 + 0.2, "add_0.3_Speed"),
-                (123456789.0, "add_1.23457e+08_Speed"),
-                (3.14159265, "add_3.14159_Speed")):
+        # LLFR-00240 items 1 to 4, with the examples of the requirement.
+        for constant_f, token_str in (
+                (2.5, "2p5"), (-2.5, "2n5"),
+                (-0.000123457, "0n000123457"), (2, "2"), (2.0, "2"),
+                (-2, "2n0"), (-2.0, "2n0"), (1e6, "1000000"),
+                (-1e6, "1000000n0"), (1e-7, "0p0000001"),
+                (1234567, "1234570"), (1234567.0, "1234570"),
+                (0, "0"), (0.0, "0"), (-0.0, "0"),
+                (1.5e-7, "0p00000015"), (0.1 + 0.2, "0p3"),
+                (123456789.0, "123457000"), (3.14159265, "3p14159"),
+                (-1234567.0, "1234570n0"), (0.5, "0p5"),
+                (999999.5, "1000000"), (-0.0000004, "0n0000004")):
             with self.subTest(constant=constant_f):
                 found_str = synthetic_name("add", ["Speed"], constant_f,
                                            set())
-                self.assertEqual(found_str, name_str)
-                self.assertNotIn(" ", found_str)
-        for parameter in ((1e-5, 2, "zero"), (12345.678, 8, "zero")):
+                self.assertEqual(found_str, f"add_{token_str}_Speed")
+                self.assertEqual(format_name_number(constant_f), token_str)
+                self.assertRegex(token_str, r"^[0-9a-z]+$")
+                self.assertNotIn("e", token_str)
+        # LLFR-00240: the name holds only letters, digits and "_" apart
+        # from the source names, also for filters and FFTs.
+        for operation_str, parameter in (
+                ("lowpass", (1e-5, 2, "zero")),
+                ("lowpass", (12345.678, 8, "zero")),
+                ("fft", (-1e-7, 2e6))):
             with self.subTest(parameter=parameter):
-                self.assertNotIn(" ", synthetic_name(
-                    "lowpass", ["Speed"], parameter, set()))
+                self.assertRegex(synthetic_name(
+                    operation_str, ["Speed"], parameter, set()),
+                    r"^[0-9A-Za-z_]+$")
         self.assertEqual(synthetic_name("lowpass", ["Speed"],
                                         (12345.678, 8, "zero"), set()),
-                         "lpf_12345.7Hz_order8_Speed")
+                         "lpf_12345p7Hz_order8_Speed")
+        self.assertEqual(synthetic_name("lowpass", ["Speed"],
+                                        (1e-5, 2, "zero"), set()),
+                         "lpf_0p00001Hz_order2_Speed")
         self.assertEqual(synthetic_name("fft", ["Speed"],
                                         (-1e-7, 2e6), set()),
-                         "fft_-1e-07s_to_2e+06s_Speed")
+                         "fft_0n0000001s_to_2000000s_Speed")
+        self.assertEqual(synthetic_name("movingaverage", ["Speed"],
+                                        1234567, set()),
+                         "mavg_1234570samples_Speed")
 
     @covers("LLFR-00240", "LLFR-00246", "HLFR-00054")
     def test_filter_names_hold_cutoff_and_order_not_start(self) -> None:
@@ -173,7 +194,7 @@ class NameTest(unittest.TestCase):
                          "lpf_5Hz_order2_Speed")
         self.assertEqual(synthetic_name("highpass", ["Speed"],
                                         (0.25, 8, "zero"), set()),
-                         "hpf_0.25Hz_order8_Speed")
+                         "hpf_0p25Hz_order8_Speed")
 
     @covers("LLFR-00240", "HLFR-00054")
     def test_moving_average_name_holds_the_window(self) -> None:
@@ -226,13 +247,13 @@ class NameTest(unittest.TestCase):
         """
         self.assertEqual(synthetic_name("fft", ["Speed"], (1.5, 3.0),
                                         set()),
-                         "fft_1.5s_to_3s_Speed")
+                         "fft_1p5s_to_3s_Speed")
         self.assertEqual(synthetic_name("fft", ["lpf_5Hz_order2_Speed"],
                                         (1.5, 3.0), set()),
-                         "fft_1.5s_to_3s_lpf_5Hz_order2_Speed")
+                         "fft_1p5s_to_3s_lpf_5Hz_order2_Speed")
         self.assertEqual(synthetic_name("fft", ["Speed"],
                                         (0.1 + 0.2, 12.3456789), set()),
-                         "fft_0.3s_to_12.3457s_Speed")
+                         "fft_0p3s_to_12p3457s_Speed")
         self.assertNotEqual(
             synthetic_name("fft", ["Speed"], (0.0, 1.0), set()),
             synthetic_name("fft", ["Speed"], (0.0, 2.0), set()))
@@ -423,7 +444,7 @@ class StoreCreateTest(unittest.TestCase):
         Outputs: none.
         """
         signal = self.data_file.create("fft", ["Torque"], (1.0, 2.99))
-        self.assertEqual(signal.name_str, "fft_1s_to_2.99s_Torque")
+        self.assertEqual(signal.name_str, "fft_1s_to_2p99s_Torque")
         self.assertTrue(signal.is_fft_b)
         self.assertEqual(signal.parameter, (1.0, 2.99))
         self.assertEqual(signal.frequency_array.size,
@@ -707,11 +728,11 @@ class LayoutEntryTest(unittest.TestCase):
         self.data_file = DataFile()
         self.data_file.create("lowpass", ["Speed"], (2.5, 4, "zero"))
         self.data_file.create("movingaverage", ["Torque"], 4)
-        self.data_file.create("greaterorequal", ["lpf_2.5Hz_order4_Speed"],
+        self.data_file.create("greaterorequal", ["lpf_2p5Hz_order4_Speed"],
                               0.1 + 0.2)
-        self.data_file.create("product", ["lpf_2.5Hz_order4_Speed",
+        self.data_file.create("product", ["lpf_2p5Hz_order4_Speed",
                                           "mavg_4samples_Torque"])
-        self.data_file.create("fft", ["lpf_2.5Hz_order4_Speed"],
+        self.data_file.create("fft", ["lpf_2p5Hz_order4_Speed"],
                               (0.1 + 0.2, 3.0))
         self.data_file.create("integral", ["Torque"])
 
@@ -723,7 +744,7 @@ class LayoutEntryTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.data_file.store.rename("lpf_2.5Hz_order4_Speed", "Smooth",
+        self.data_file.store.rename("lpf_2p5Hz_order4_Speed", "Smooth",
                                     self.data_file.data_name_set())
         entry_list = self.data_file.store.layout_entries()
         self.assertEqual(entry_list[0], {
@@ -771,17 +792,17 @@ class LayoutEntryTest(unittest.TestCase):
         """
         store = self.data_file.store
         name_list = [entry["name"] for entry in store.equation_entries(
-            "lpf_2.5Hz_order4_Speed_prod_mavg_4samples_Torque")]
+            "lpf_2p5Hz_order4_Speed_prod_mavg_4samples_Torque")]
         self.assertEqual(name_list, [
-            "lpf_2.5Hz_order4_Speed", "mavg_4samples_Torque",
-            "lpf_2.5Hz_order4_Speed_prod_mavg_4samples_Torque"])
+            "lpf_2p5Hz_order4_Speed", "mavg_4samples_Torque",
+            "lpf_2p5Hz_order4_Speed_prod_mavg_4samples_Torque"])
         self.assertEqual([entry["name"] for entry in
                           store.equation_entries("int_Torque")],
                          ["int_Torque"])
-        text_str = store.equation_text("ge_0.3_lpf_2.5Hz_order4_Speed")
+        text_str = store.equation_text("ge_0p3_lpf_2p5Hz_order4_Speed")
         self.assertEqual(json.loads(text_str),
                          store.equation_entries(
-                             "ge_0.3_lpf_2.5Hz_order4_Speed"))
+                             "ge_0p3_lpf_2p5Hz_order4_Speed"))
         with self.assertRaises(KeyError):
             store.equation_entries("Speed")
 
@@ -814,7 +835,7 @@ class LayoutEntryTest(unittest.TestCase):
         Outputs: none.
         """
         store = self.data_file.store
-        store.rename("lpf_2.5Hz_order4_Speed", "Smooth",
+        store.rename("lpf_2p5Hz_order4_Speed", "Smooth",
                      self.data_file.data_name_set())
         text_str = entries_text(store.layout_entries())
         new_file = DataFile()
@@ -958,13 +979,13 @@ class LayoutEntryTest(unittest.TestCase):
         new_file = DataFile()
         for entry_dict in entry_list:
             new_file.create_from_entry(entry_dict)
-        for name_str in ("lpf_2.5Hz_order3_Speed",
-                         "hpf_0.5Hz_order1_Speed"):
+        for name_str in ("lpf_2p5Hz_order3_Speed",
+                         "hpf_0p5Hz_order1_Speed"):
             np.testing.assert_array_equal(
                 new_file.store.get(name_str).value_array,
                 source_file.store.get(name_str).value_array)
         self.assertEqual(
-            new_file.store.get("lpf_2.5Hz_order3_Speed").parameter,
+            new_file.store.get("lpf_2p5Hz_order3_Speed").parameter,
             (2.5, 3, "zero"))
 
     @covers("LLFR-00262", "LLFR-00267")
