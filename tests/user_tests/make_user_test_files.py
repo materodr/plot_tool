@@ -75,7 +75,7 @@ def write_good_files(folder_str: str, signal_dict: dict) -> None:
     Inputs:
         folder_str: the folder to write into; it must exist.
         signal_dict: the signals returned by sample_signals.
-    Outputs: none. Writes five files into folder_str.
+    Outputs: none. Writes seven files into folder_str.
     """
     signal_df = pd.DataFrame(signal_dict)
     # HLFR-00005, LLFR-00059, LLFR-00061: CSV with "," and "." decimals.
@@ -98,6 +98,14 @@ def write_good_files(folder_str: str, signal_dict: dict) -> None:
     small_df = signal_df[["Time", "Sine_1Hz", "Cosine_1Hz"]].iloc[:11]
     small_df.round(4).to_csv(os.path.join(folder_str, "small_3_signals.csv"),
                              index=False)
+    # LLFR-00053: "time" is the time signal (any letter case).
+    signal_df.rename(columns={"Time": "time"}).to_csv(
+        os.path.join(folder_str, "lowercase_time.csv"), index=False)
+    # HLFR-00070, LLFR-00325, LLFR-00329: no signal is named "Time", so
+    # the app asks for the time signal; "t_s" (and "Ramp") always
+    # increase, the other signals are refused.
+    signal_df.rename(columns={"Time": "t_s"}).to_csv(
+        os.path.join(folder_str, "time_signal_to_choose.csv"), index=False)
 
 
 def write_bad_files(folder_str: str, signal_dict: dict) -> None:
@@ -106,16 +114,10 @@ def write_bad_files(folder_str: str, signal_dict: dict) -> None:
     Inputs:
         folder_str: the folder to write into; it must exist.
         signal_dict: the signals returned by sample_signals.
-    Outputs: none. Writes nine files into folder_str.
+    Outputs: none. Writes eight files into folder_str.
     """
     signal_df = pd.DataFrame(signal_dict)
-    # HLFR-00008, LLFR-00012: no time signal.
-    signal_df.drop(columns="Time").to_csv(
-        os.path.join(folder_str, "no_time_column.csv"), index=False)
-    # LLFR-00053: "time" is not "Time" (case-sensitive).
-    signal_df.rename(columns={"Time": "time"}).to_csv(
-        os.path.join(folder_str, "lowercase_time.csv"), index=False)
-    # HLFR-00008, LLFR-00012: no signal other than "Time".
+    # HLFR-00008, LLFR-00012: fewer than two signals.
     signal_df[["Time"]].to_csv(os.path.join(folder_str, "only_time.csv"),
                                index=False)
     # LLFR-00065: empty cells, which is how a shorter column looks in CSV.
@@ -151,8 +153,8 @@ def write_hdf5_files(good_folder_str: str, bad_folder_str: str,
         good_folder_str: folder of the files that must open.
         bad_folder_str: folder of the files that must be refused.
         signal_dict: the signals returned by sample_signals.
-    Outputs: none. Writes good/signals.h5, bad/corrupt.h5 and
-        bad/time_in_group.h5. Needs h5py.
+    Outputs: none. Writes good/signals.h5, good/time_in_group.h5 and
+        bad/corrupt.h5. Needs h5py.
     """
     import h5py
     # LLFR-00134: "Time" at the top level, some signals in groups (named
@@ -182,9 +184,10 @@ def write_hdf5_files(good_folder_str: str, bad_folder_str: str,
         hdf5_file.create_dataset(
             "events/flags", data=np.zeros(SAMPLE_COUNT_I, dtype=bool),
             track_times=False)
-    # LLFR-00053, LLFR-00134: a "Time" inside a group is not the time
-    # signal, so this file has none (HLFR-00008, LLFR-00012).
-    with h5py.File(os.path.join(bad_folder_str, "time_in_group.h5"),
+    # LLFR-00330: a "Time" inside a group is not found as the time
+    # signal, so the app asks for it (LLFR-00325); "run/Time" can be
+    # chosen.
+    with h5py.File(os.path.join(good_folder_str, "time_in_group.h5"),
                    "w") as hdf5_file:
         hdf5_file.create_dataset("run/Time", data=signal_dict["Time"],
                                  track_times=False)

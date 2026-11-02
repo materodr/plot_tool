@@ -11,10 +11,8 @@ import unittest
 
 from tests.support import REPOSITORY_ROOT_STR, covers, requires_h5py
 
-from model.errors import (
-    TIME_SIGNAL_CHECK_STR, ContentCheckError, FileReadError)
+from model.errors import FileReadError
 from model.file_loader import SUPPORTED_EXTENSION_TUPLE, load_signal_file
-from model.signal_file import TIME_SIGNAL_NAME_STR
 
 USER_TESTS_FOLDER_STR = os.path.join(REPOSITORY_ROOT_STR, "tests",
                                      "user_tests")
@@ -60,9 +58,15 @@ class SampleFileTest(unittest.TestCase):
         for path_str in path_list:
             with self.subTest(file_name_str=os.path.basename(path_str)):
                 signal_file = load_signal_file(path_str)
-                self.assertIn(TIME_SIGNAL_NAME_STR,
-                              signal_file.signal_name_list)
                 self.assertGreaterEqual(len(signal_file.signal_name_list), 2)
+                # HLFR-00006, HLFR-00070: the time signal is found by its
+                # name, or one of the signals can be chosen as it.
+                if signal_file.needs_time_signal_choice_b:
+                    self.assertTrue(any(
+                        signal_file.choose_time_signal(name_str) == ""
+                        for name_str in signal_file.signal_name_list))
+                self.assertIn(signal_file.time_signal_name_str,
+                              signal_file.signal_name_list)
 
     @covers("PCR-00032", "HLFR-00005")
     def test_formats_cover_supported_extensions(self) -> None:
@@ -136,20 +140,45 @@ class SampleFileTest(unittest.TestCase):
             self.assertNotIn(name_str, name_list)
 
     @requires_h5py
-    @covers("LLFR-00008", "LLFR-00012", "LLFR-00053")
+    @covers("LLFR-00008")
     def test_hdf5_bad_sample_files_are_refused(self) -> None:
-        """The bad HDF5 sample files are refused with a File Open Error.
+        """The bad HDF5 sample file is refused with a File Open Error.
 
         Inputs: none.
         Outputs: none.
         """
         with self.assertRaises(FileReadError):
             load_signal_file(os.path.join(BAD_FOLDER_STR, "corrupt.h5"))
-        with self.assertRaises(ContentCheckError) as context:
-            load_signal_file(os.path.join(BAD_FOLDER_STR,
-                                          "time_in_group.h5"))
-        self.assertEqual(context.exception.failed_check_str,
-                         TIME_SIGNAL_CHECK_STR)
+
+    @requires_h5py
+    @covers("LLFR-00330", "LLFR-00325", "HLFR-00070")
+    def test_hdf5_time_in_group_sample_file(self) -> None:
+        """time_in_group.h5 asks for the time signal; run/Time is usable.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_file = load_signal_file(os.path.join(GOOD_FOLDER_STR,
+                                                    "time_in_group.h5"))
+        self.assertTrue(signal_file.needs_time_signal_choice_b)
+        self.assertEqual(signal_file.choose_time_signal("run/Time"), "")
+
+    @covers("LLFR-00053", "LLFR-00325", "LLFR-00329", "HLFR-00070")
+    def test_time_signal_sample_files(self) -> None:
+        """lowercase_time.csv finds "time"; the other file asks for it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_file = load_signal_file(os.path.join(GOOD_FOLDER_STR,
+                                                    "lowercase_time.csv"))
+        self.assertEqual(signal_file.time_signal_name_str, "time")
+        signal_file = load_signal_file(os.path.join(
+            GOOD_FOLDER_STR, "time_signal_to_choose.csv"))
+        self.assertTrue(signal_file.needs_time_signal_choice_b)
+        self.assertIn("must always increase",
+                      signal_file.choose_time_signal("Sine_1Hz"))
+        self.assertEqual(signal_file.choose_time_signal("t_s"), "")
 
 
 if __name__ == "__main__":
