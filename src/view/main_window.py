@@ -2,7 +2,7 @@
 
 import sys
 
-from PyQt6.QtCore import Qt, QTimer, QUrl
+from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
@@ -355,24 +355,29 @@ class MainWindow(QMainWindow):
         return file_dialogs.run_file_dialog(dialog)
 
     def prepare_file_dialogs(self) -> None:
-        """Build every file dialog, so the first click is fast.
+        """Build every file dialog at once, so the first click is fast.
 
         Inputs: none.
-        Outputs: none.
+        Outputs: none. No dialog is shown.
         """
-        # LLFR-00406: called once the main window is shown.
+        # LLFR-00406: the same steps as schedule_file_dialog_preparation,
+        # without waiting.
         self.file_dialog_pool.prepare_all()
 
-    def schedule_file_dialog_preparation(self) -> None:
-        """Prepare the file dialogs once the event loop runs.
+    def schedule_file_dialog_preparation(
+            self, start_delay_ms_i: int =
+            file_dialogs.PREPARE_START_DELAY_MS_I) -> None:
+        """Prepare the file dialogs in steps, once the window is shown.
 
-        Inputs: none.
-        Outputs: none. prepare_file_dialogs runs after the window has
-            been shown (LLFR-00186).
+        Inputs:
+            start_delay_ms_i: milliseconds before the first step.
+        Outputs: none. The steps run one per event-loop turn; none of
+            them shows a dialog (issue #165).
         """
-        # LLFR-00406: the dialogs are built after the window is shown,
-        # so that preparing them does not delay the window.
-        QTimer.singleShot(0, self.prepare_file_dialogs)
+        # LLFR-00406, LLFR-00188: after the window is shown, so that
+        # preparing the dialogs neither delays the window nor keeps it
+        # from answering the user.
+        self.file_dialog_pool.schedule_preparation(self, start_delay_ms_i)
 
     def finish_open_file_button(self) -> None:
         """Return the Open file button to its normal color.

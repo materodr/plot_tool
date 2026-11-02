@@ -27,7 +27,18 @@ Checks, each switched on by its option:
 - ``--font-cache-folder``: matplotlib's font list in this folder is
   written by the first launch and never again (LLFR-00189). With
   ``--clear-font-cache`` the folder is emptied before the first launch,
-  so that the first launch is really cold.
+  so that the first launch is really cold;
+- ``--dialog-limit-s``: every launch also asks for each file dialog
+  twice, as a click would (``PLOT_TOOL_DIALOG_PROBE=1``); on every
+  launch the dialogs must be prepared with no dialog shown before the
+  first request and every request must show its dialog; on every warm
+  launch each dialog must be shown within this time (LLFR-00406: 0.65
+  s; as in LLFR-00188, the work done once on the first launch does not
+  count, so the cold launch is only reported);
+- ``--turn-limit-s``: with ``--dialog-limit-s``, no turn of the event
+  loop may take longer than this while the dialogs are prepared after
+  the window is shown, so that the window answers the user at once
+  (LLFR-00188).
 
 In GitHub Actions the timings are also printed as ``::notice``
 annotations and the failures as ``::error`` annotations. The exit code
@@ -49,6 +60,11 @@ PROBE_FILES_VARIABLE_STR = "PLOT_TOOL_PROBE_FILES"
 STARTUP_LINE_PREFIX_STR = "plot_tool startup:"
 SPLASH_LINE_PREFIX_STR = "plot_tool splash:"
 PROBE_FILE_PREFIX_STR = "plot_tool probe file:"
+DIALOG_PROBE_VARIABLE_STR = "PLOT_TOOL_DIALOG_PROBE"
+DIALOG_LINE_PREFIX_STR = "plot_tool dialog:"
+PREPARE_LINE_PREFIX_STR = "plot_tool prepare:"
+# LLFR-00406: the probe asks for 5 dialogs, twice each.
+DIALOG_REQUEST_COUNT_I = 10
 FONT_LIST_PATTERN_STR = "fontlist-*.json"
 
 
@@ -122,6 +138,137 @@ def parse_splash_line(output_str: str) -> dict:
         return {}
 
 
+def parse_prepare_line(output_str: str) -> dict:
+    """Find and read the line on the preparation of the file dialogs.
+
+    Inputs:
+        output_str: everything the app printed to standard output.
+    Outputs: a dict with "prepared_b" and "dialog_seen_b" (bools),
+        "waited_s", "prepare_s", "longest_step_s" and "longest_turn_s"
+        (floats), "step_count_i" (int) and "panel_state_str"; an empty
+        dict when the line is missing or incomplete.
+    """
+    field_dict = parse_probe_line_dict(output_str, PREPARE_LINE_PREFIX_STR)
+    try:
+        return {"prepared_b": field_dict["prepared"] == "yes",
+                "dialog_seen_b": field_dict["dialog_seen"] == "yes",
+                "waited_s": float(field_dict["waited_s"]),
+                "prepare_s": float(field_dict["prepare_s"]),
+                "longest_step_s": float(field_dict["longest_step_s"]),
+                "longest_turn_s": float(field_dict["longest_turn_s"]),
+                "step_count_i": int(field_dict["steps"]),
+                "panel_state_str": field_dict["panels"]}
+    except (KeyError, ValueError):
+        return {}
+
+
+def parse_dialog_line_list(output_str: str) -> list:
+    """Find and read every dialog line of the startup probe.
+
+    Inputs:
+        output_str: everything the app printed to standard output.
+    Outputs: one dict per line, in order, with "name_str",
+        "click_i" (int), "shown_s" (float) and "visible_b" (bool);
+        lines that cannot be read are left out.
+    """
+    dialog_list = []
+    for line_str in output_str.splitlines():
+        line_str = line_str.strip()
+        if not line_str.startswith(DIALOG_LINE_PREFIX_STR):
+            continue
+        field_dict = parse_probe_line_dict(line_str, DIALOG_LINE_PREFIX_STR)
+        try:
+            dialog_list.append({
+                "name_str": field_dict["name"],
+                "click_i": int(field_dict["click"]),
+                "shown_s": float(field_dict["shown_s"]),
+                "visible_b": field_dict["visible"] == "yes"})
+        except (KeyError, ValueError):
+            continue
+    return dialog_list
+
+
+def dialog_failure_list(output_str: str, warm_b: bool,
+                        dialog_limit_s: float,
+                        turn_limit_s: float = None) -> list:
+    """Check the dialog lines of one launch.
+
+    Inputs:
+        output_str: everything the app printed to standard output.
+        warm_b: whether the launch is a warm one (not the first).
+        dialog_limit_s: the longest time from a request to its dialog
+            for a warm launch (LLFR-00406).
+        turn_limit_s: the longest event-loop turn allowed while the
+            dialogs are prepared, or None for no check (LLFR-00188).
+    Outputs: the list of failure descriptions; empty when every check
+        passed.
+    """
+    failure_list = []
+    prepare_dict = parse_prepare_line(output_str)
+    if not prepare_dict:
+        failure_list.append("the app did not report the preparation of "
+                            "its file dialogs (LLFR-00406)")
+    else:
+        if not prepare_dict["prepared_b"]:
+            failure_list.append("the file dialogs were not prepared "
+                                "(LLFR-00406)")
+        if prepare_dict["dialog_seen_b"]:
+            failure_list.append("a file dialog was shown before any "
+                                "request (issue #165)")
+        if (turn_limit_s is not None
+                and prepare_dict["longest_turn_s"] > turn_limit_s):
+            failure_list.append(
+                "the window was kept busy for "
+                f"{prepare_dict['longest_turn_s']:.3f} s while the "
+                f"dialogs were prepared, more than {turn_limit_s} s "
+                "(LLFR-00188)")
+    dialog_list = parse_dialog_line_list(output_str)
+    if len(dialog_list) < DIALOG_REQUEST_COUNT_I:
+        failure_list.append(f"{len(dialog_list)} of "
+                            f"{DIALOG_REQUEST_COUNT_I} dialog requests "
+                            "were reported (LLFR-00406)")
+    for dialog_dict in dialog_list:
+        request_str = (f"{dialog_dict['name_str']} request "
+                       f"{dialog_dict['click_i']}")
+        if not dialog_dict["visible_b"]:
+            failure_list.append(f"{request_str} showed no dialog "
+                                "(LLFR-00406)")
+        elif warm_b and dialog_dict["shown_s"] > dialog_limit_s:
+            failure_list.append(
+                f"{request_str} showed its dialog after "
+                f"{dialog_dict['shown_s']:.3f} s, more than "
+                f"{dialog_limit_s} s (LLFR-00406)")
+    return failure_list
+
+
+def dialog_summary_str(output_str: str) -> str:
+    """Summarize the dialog lines of one launch.
+
+    Inputs:
+        output_str: everything the app printed to standard output.
+    Outputs: one line with the slowest first and second request and the
+        preparation figures; "no dialog lines" when there are none.
+    """
+    dialog_list = parse_dialog_line_list(output_str)
+    if not dialog_list:
+        return "no dialog lines"
+    first_s = max([dialog_dict["shown_s"] for dialog_dict in dialog_list
+                   if dialog_dict["click_i"] == 1] or [0.0])
+    second_s = max([dialog_dict["shown_s"] for dialog_dict in dialog_list
+                    if dialog_dict["click_i"] != 1] or [0.0])
+    summary_str = (f"slowest dialog {first_s:.3f} s on the first request,"
+                   f" {second_s:.3f} s on the second")
+    prepare_dict = parse_prepare_line(output_str)
+    if prepare_dict:
+        summary_str += (
+            f"; prepared in {prepare_dict['prepare_s']:.3f} s "
+            f"({prepare_dict['step_count_i']} steps, longest "
+            f"{prepare_dict['longest_step_s']:.3f} s, longest event-loop"
+            f" turn {prepare_dict['longest_turn_s']:.3f} s, panels "
+            f"{prepare_dict['panel_state_str']})")
+    return summary_str
+
+
 def good_file_path_list() -> list:
     """Return the sample files that the app must open.
 
@@ -147,13 +294,15 @@ def font_list_state_dict(folder_str: str) -> dict:
 
 
 def launch_once(command_list: list, probe_path_list: list,
-                timeout_s: float) -> dict:
+                timeout_s: float, dialog_probe_b: bool = False) -> dict:
     """Launch the app once with the startup probe and time it.
 
     Inputs:
         command_list: the command that starts the app.
         probe_path_list: files the app must open after the window shows.
         timeout_s: how long to wait for the app to quit by itself.
+        dialog_probe_b: whether the app also measures its file dialogs
+            (PLOT_TOOL_DIALOG_PROBE=1).
     Outputs: a dict with "launch_to_window_s" and "launch_to_splash_s"
         (floats, or None when the probe line is missing),
         "same_process_b", "exposed_b", "splash_exposed_b",
@@ -165,6 +314,8 @@ def launch_once(command_list: list, probe_path_list: list,
     environment_dict[STARTUP_PROBE_VARIABLE_STR] = "1"
     environment_dict[PROBE_FILES_VARIABLE_STR] = os.pathsep.join(
         probe_path_list)
+    if dialog_probe_b:
+        environment_dict[DIALOG_PROBE_VARIABLE_STR] = "1"
     launch_epoch_s = time.time()
     process = subprocess.Popen(command_list, env=environment_dict,
                                stdout=subprocess.PIPE,
@@ -320,6 +471,13 @@ def build_argument_parser() -> argparse.ArgumentParser:
                         "launch")
     parser.add_argument("--timeout-s", type=float, default=180.0,
                         help="time after which a launch is killed")
+    parser.add_argument("--dialog-limit-s", type=float, default=None,
+                        help="also measure the file dialogs; maximum time "
+                        "from a request to its dialog on a warm launch "
+                        "(LLFR-00406)")
+    parser.add_argument("--turn-limit-s", type=float, default=None,
+                        help="with --dialog-limit-s, maximum event-loop "
+                        "turn while the dialogs are prepared (LLFR-00188)")
     parser.add_argument("--probe-good-files", action="store_true",
                         help="open every file of tests/user_tests/good")
     parser.add_argument("command", nargs="+",
@@ -347,9 +505,11 @@ def main() -> int:
     for run_i in range(1, argument_namespace.runs + 1):
         kind_str = "cold" if run_i == 1 else "warm"
         title_str = f"Startup run {run_i} ({kind_str})"
+        dialog_limit_s = argument_namespace.dialog_limit_s
         result_dict = launch_once(argument_namespace.command,
                                   probe_path_list,
-                                  argument_namespace.timeout_s)
+                                  argument_namespace.timeout_s,
+                                  dialog_limit_s is not None)
         print(f"--- run {run_i} ({kind_str}) output ---")
         print(result_dict["output_str"].rstrip())
         failure_list = []
@@ -370,6 +530,13 @@ def main() -> int:
             failure_list += limit_failure_list(
                 result_dict, run_i > 1, argument_namespace.warm_limit_s,
                 argument_namespace.splash_limit_s)
+        if dialog_limit_s is not None:
+            report(f"run {run_i} ({kind_str}): "
+                   + dialog_summary_str(result_dict["output_str"]),
+                   "notice", "Dialog time", in_actions_b)
+            failure_list += dialog_failure_list(
+                result_dict["output_str"], run_i > 1, dialog_limit_s,
+                argument_namespace.turn_limit_s)
         if font_folder_str:
             font_state_dict = font_list_state_dict(font_folder_str)
             print(f"font list after run {run_i}: {font_state_dict}")

@@ -36,7 +36,17 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
        prepared=<yes|no> prepare_s=<seconds the preparation took>
 
    (all on one line). The first request comes once the dialogs have
-   been prepared, or after DIALOG_PREPARE_TIMEOUT_S;
+   been prepared, or after DIALOG_PREPARE_TIMEOUT_S. Before them, one
+   line tells how the preparation went::
+
+       plot_tool prepare: prepared=<yes|no> waited_s=<seconds from the
+       window line> steps=<count> prepare_s=<seconds in the steps>
+       longest_step_s=<seconds> longest_turn_s=<longest event-loop
+       turn meanwhile> panels=<warmed|skipped|failed|none>
+       dialog_seen=<yes|no>
+
+   (all on one line; dialog_seen tells whether a file dialog was
+   visible before the first request, which must never happen);
 5. the app quits, with exit code 0, or 1 when a probe file failed.
 
 Code traced to LLFR-00058, LLFR-00184, LLFR-00186, LLFR-00188 and
@@ -66,6 +76,7 @@ PROBE_FILE_LINE_PREFIX_STR = "plot_tool probe file:"
 # LLFR-00406: the dialog part of the probe.
 DIALOG_PROBE_VARIABLE_STR = "PLOT_TOOL_DIALOG_PROBE"
 DIALOG_LINE_PREFIX_STR = "plot_tool dialog:"
+PREPARE_LINE_PREFIX_STR = "plot_tool prepare:"
 DIALOG_PREPARE_TIMEOUT_S = 10.0
 # LLFR-00406: (name in the probe line, key of the dialog in the main
 # window's FileDialogPool).
@@ -321,6 +332,69 @@ def measure_dialog(main_window, application, key_str: str) -> tuple:
     return shown_s, visible_b
 
 
+def prepare_line_str(pool, waited_s: float, longest_wait_s: float,
+                     dialog_seen_b: bool) -> str:
+    """Build the line that reports the preparation of the dialogs.
+
+    Inputs:
+        pool: the main window's FileDialogPool.
+        waited_s: seconds from the window being shown to the dialogs
+            being prepared.
+        longest_wait_s: the longest time one turn of the event loop
+            took meanwhile, so how long the window was kept from
+            answering the user at most.
+        dialog_seen_b: whether a file dialog was visible meanwhile.
+    Outputs: the report line, without a line break.
+    """
+    # LLFR-00406, LLFR-00188: the preparation shows nothing and never
+    # blocks the window for long.
+    return (f"{PREPARE_LINE_PREFIX_STR} "
+            f"prepared={yes_no_str(pool.prepared_b)} "
+            f"waited_s={waited_s:.3f} steps={pool.step_count_i} "
+            f"prepare_s={pool.prepare_duration_s:.3f} "
+            f"longest_step_s={pool.longest_step_s:.3f} "
+            f"longest_turn_s={longest_wait_s:.3f} "
+            f"panels={pool.panel_state_str or 'none'} "
+            f"dialog_seen={yes_no_str(dialog_seen_b)}")
+
+
+def any_dialog_visible(pool) -> bool:
+    """Tell whether a dialog of the pool is shown.
+
+    Inputs:
+        pool: the main window's FileDialogPool.
+    Outputs: True when a built dialog of the pool is visible.
+    """
+    # LLFR-00406: no dialog may appear without a click (issue #165).
+    return any(pool.is_built(key_str) and pool.dialog(key_str).isVisible()
+               for key_str in pool.key_list())
+
+
+def wait_for_preparation(pool, application) -> tuple:
+    """Let the event loop run until the dialogs are prepared.
+
+    Inputs:
+        pool: the main window's FileDialogPool.
+        application: the QApplication.
+    Outputs: a tuple (seconds waited, longest processEvents call in
+        seconds, True when a dialog of the pool was seen visible).
+    """
+    # LLFR-00406: as a user would wait before clicking; each turn is
+    # timed, so a preparation step that blocks the window shows.
+    start_s = time.perf_counter()
+    deadline_s = start_s + DIALOG_PREPARE_TIMEOUT_S
+    longest_wait_s = 0.0
+    dialog_seen_b = False
+    while not pool.prepared_b and time.perf_counter() < deadline_s:
+        turn_start_s = time.perf_counter()
+        application.processEvents()
+        longest_wait_s = max(longest_wait_s,
+                             time.perf_counter() - turn_start_s)
+        dialog_seen_b = dialog_seen_b or any_dialog_visible(pool)
+        time.sleep(POLL_INTERVAL_MS_I / 1000.0)
+    return time.perf_counter() - start_s, longest_wait_s, dialog_seen_b
+
+
 def dialog_line_list(main_window, application, output_stream=None) -> list:
     """Measure every file dialog twice and describe the results.
 
@@ -329,16 +403,19 @@ def dialog_line_list(main_window, application, output_stream=None) -> list:
         application: the QApplication, to let pending work run.
         output_stream: where to print each line as soon as it is
             measured, or None to print nothing.
-    Outputs: a list of report lines (dialog_line_str).
+    Outputs: a list of report lines: the prepare line, then one
+        dialog_line_str per dialog and request.
     """
     # LLFR-00406: wait for the preparation that the app schedules once
     # the window is shown, as a user would before clicking.
     pool = main_window.file_dialog_pool
-    deadline_s = time.perf_counter() + DIALOG_PREPARE_TIMEOUT_S
-    while not pool.prepared_b and time.perf_counter() < deadline_s:
-        application.processEvents()
-        time.sleep(POLL_INTERVAL_MS_I / 1000.0)
-    line_list = []
+    waited_s, longest_wait_s, dialog_seen_b = wait_for_preparation(
+        pool, application)
+    line_list = [prepare_line_str(pool, waited_s, longest_wait_s,
+                                  dialog_seen_b)]
+    if output_stream is not None:
+        print(line_list[0], file=output_stream)
+        output_stream.flush()
     for name_str, key_str in PROBE_DIALOG_TUPLE:
         for click_i in range(1, PROBE_CLICK_COUNT_I + 1):
             prepared_b = pool.prepared_b

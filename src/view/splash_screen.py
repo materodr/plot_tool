@@ -9,8 +9,8 @@ pandas or the plot views at import time (LLFR-00184).
 
 Contents:
 - ``SplashScreen``: a white card with the app icon, the app name and
-  "Loading..." (LLFR-00185), closed by ``finish`` once the main window
-  is on screen (LLFR-00186);
+  "Loading..." (LLFR-00185), closed by ``finish`` in the same step
+  that shows the main window (LLFR-00186);
 - ``show_splash``: create it, centre it on the primary screen, show it
   and make sure it is painted before the slow imports start.
 
@@ -35,8 +35,8 @@ CARD_OBJECT_NAME_STR = "splash_card"
 ICON_OBJECT_NAME_STR = "splash_icon"
 NAME_OBJECT_NAME_STR = "splash_name"
 MESSAGE_OBJECT_NAME_STR = "splash_message"
-# LLFR-00184, LLFR-00186: how long show_splash and finish wait at most
-# for the window system to put a window on screen.
+# LLFR-00184: how long show_splash waits at most for the window system
+# to put the splash screen on screen.
 EXPOSE_TIMEOUT_S = 1.0
 EXPOSE_POLL_INTERVAL_S = 0.005
 
@@ -101,18 +101,30 @@ class SplashScreen(QWidget):
         layout.addWidget(self.message_label)
         layout.addStretch(1)
 
-    def finish(self, main_window) -> None:
-        """Close the splash screen once the main window is on screen.
+    def finish(self, main_window, show_function=None) -> None:
+        """Show the main window and close the splash screen at once.
 
         Inputs:
-            main_window: the shown main window.
-        Outputs: none. Waits at most EXPOSE_TIMEOUT_S for the window to
-            be exposed, then closes the splash screen.
+            main_window: the main window, built but not shown yet.
+            show_function: function without arguments that shows the
+                main window; main_window.show when None.
+        Outputs: none. The window is shown, the splash screen closed in
+            the same step, with no event handled in between, and the
+            window raised and made the active window.
         """
-        # LLFR-00186: the splash stays until the window replaces it.
-        wait_until_exposed(QApplication.instance(), main_window,
-                           EXPOSE_TIMEOUT_S)
+        # LLFR-00186: the window system draws both changes together,
+        # so the splash screen is never seen above the visible window.
+        # Waiting for the window to be exposed before closing the
+        # splash (as before issue #165) left the splash, a window kept
+        # on top, over the shown window during that wait.
+        if show_function is None:
+            show_function = main_window.show
+        show_function()
         self.close()
+        # LLFR-00186: the window comes to the front with the keyboard
+        # focus, where the splash screen was.
+        main_window.raise_()
+        main_window.activateWindow()
 
 
 def splash_icon_pixmap(device_pixel_ratio_f: float):
@@ -194,6 +206,12 @@ def show_splash(application: QApplication,
     if screen is not None:
         available_rect = screen.availableGeometry()
         splash.move(available_rect.center() - splash.rect().center())
+    # LLFR-00184: styled and given its native window first, so that the
+    # startup probe tells which part of showing it takes the time.
+    splash.ensurePolished()
+    phase_list.append(("splash_polished", time.perf_counter()))
+    splash.winId()
+    phase_list.append(("splash_native", time.perf_counter()))
     splash.show()
     phase_list.append(("splash_show", time.perf_counter()))
     # LLFR-00184: there is no event loop yet, and the slow imports that
