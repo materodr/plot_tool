@@ -13,7 +13,8 @@ from tests.support import covers
 from model.curve_colors import (
     MARKER_COLOR_STR, PALETTE_COLOR_TUPLE, hex_color_or_none)
 from model.workspace import (
-    DEFAULT_FLAG_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR,
+    DEFAULT_FLAG_COLOR_STR, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
+    DEFAULT_TEXT_NOTE_COLOR_STR,
     DEFAULT_TEXT_NOTE_SIZE_I, TEXT_NOTE_SIZE_TUPLE, Workspace,
     plot_state_tuple)
 
@@ -136,17 +137,19 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
 
     @covers("LLFR-00336", "LLFR-00385")
     def test_new_note_has_the_text_color_and_size_12(self) -> None:
-        """A new note has #24303b as text and border color and 12 points.
+        """A new note has #24303b as text color, the orange #ff8000 as
+        border color and 12 points.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(DEFAULT_TEXT_NOTE_COLOR_STR, "#24303b")
+        self.assertEqual(DEFAULT_TEXT_NOTE_BORDER_COLOR_STR, "#ff8000")
         self.assertEqual(DEFAULT_TEXT_NOTE_SIZE_I, 12)
         self.assertEqual(TEXT_NOTE_SIZE_TUPLE, (8, 10, 12, 16, 20, 24, 32))
         self.assertEqual((self.note.size_i, self.note.border_color_str,
                           self.note.text_color_str),
-                         (12, "#24303b", "#24303b"))
+                         (12, "#ff8000", "#24303b"))
 
     @covers("LLFR-00385", "LLFR-00386", "LLFR-00140")
     def test_size_only_from_the_presets(self) -> None:
@@ -177,7 +180,7 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.assertFalse(self.plot.set_text_note_border_color(0, "#24303B"))
+        self.assertFalse(self.plot.set_text_note_border_color(0, "#FF8000"))
         self.assertFalse(self.plot.set_text_note_text_color(0, "#24303b"))
         self.assertFalse(self.plot.set_text_note_border_color(0, "blue"))
         self.assertFalse(self.plot.set_text_note_text_color(3, "#ff0000"))
@@ -214,7 +217,7 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
         Outputs: none.
         """
         self.assertEqual(plot_state_tuple(self.plot)[5],
-                         (("Peak", 1.0, 2.0, 12, "#24303b", "#24303b"),))
+                         (("Peak", 1.0, 2.0, 12, "#ff8000", "#24303b"),))
         for change in (lambda: self.plot.set_text_note_size(0, 8),
                        lambda: self.plot.set_text_note_border_color(
                            0, "#ff0000"),

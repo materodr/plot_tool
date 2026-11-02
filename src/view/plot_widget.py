@@ -211,7 +211,8 @@ from controller.plot_tools import (
 from model.curve_colors import MARKER_COLOR_STR, hex_color_or_none
 from model.workspace import (
     DEFAULT_AREA_COLOR_STR, DEFAULT_ARROW_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
-    DEFAULT_TEXT_NOTE_COLOR_STR, DEFAULT_TEXT_NOTE_SIZE_I,
+    DEFAULT_TEXT_NOTE_BORDER_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR,
+    DEFAULT_TEXT_NOTE_SIZE_I,
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
     TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR)
 from view import (
@@ -807,13 +808,13 @@ def text_note_data_tuple(note_tuple) -> tuple:
     # border color and text color.
     note_tuple = tuple(note_tuple)
     size_i = DEFAULT_TEXT_NOTE_SIZE_I
-    border_color_str = DEFAULT_TEXT_NOTE_COLOR_STR
+    border_color_str = DEFAULT_TEXT_NOTE_BORDER_COLOR_STR
     text_color_str = DEFAULT_TEXT_NOTE_COLOR_STR
     if len(note_tuple) >= 6:
         if note_tuple[3] in TEXT_NOTE_SIZE_TUPLE:
             size_i = int(note_tuple[3])
         border_color_str = (hex_color_or_none(note_tuple[4])
-                            or DEFAULT_TEXT_NOTE_COLOR_STR)
+                            or DEFAULT_TEXT_NOTE_BORDER_COLOR_STR)
         text_color_str = (hex_color_or_none(note_tuple[5])
                           or DEFAULT_TEXT_NOTE_COLOR_STR)
     return (str(note_tuple[0]), float(note_tuple[1]), float(note_tuple[2]),
@@ -5661,7 +5662,7 @@ class PlotWidget(QWidget):
             self.cancel_arrow_drag()
         for (start_time_s, start_value_f, end_time_s, end_value_f,
              color_str) in self.arrow_list:
-            # LLFR-00373: a solid line and a filled head in its color;
+            # LLFR-00373: a dashed line and a filled head in its color;
             # LLFR-00374: attached to the values of its ends and clipped
             # to the drawing area (add_artist clips to the axes patch).
             patch = ArrowPatch((start_time_s, start_value_f),

@@ -301,7 +301,7 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
     @covers("LLFR-00336", "LLFR-00385")
     def test_white_rounded_box_with_the_default_colors(self) -> None:
         """A new note is #24303b text at 12 points on a white rounded box
-        with a #24303b border, the box of a pinned data tip.
+        with an orange #ff8000 border, the box of a pinned data tip.
 
         Inputs: none.
         Outputs: none.
@@ -312,7 +312,7 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         annotation = self.plot_widget.text_note_annotation(0)
         patch = annotation.get_bbox_patch()
         self.assertEqual(to_hex_str(patch.get_facecolor()), "#ffffff")
-        self.assertEqual(to_hex_str(patch.get_edgecolor()), "#24303b")
+        self.assertEqual(to_hex_str(patch.get_edgecolor()), "#ff8000")
         self.assertEqual(to_hex_str(annotation.get_color()), "#24303b")
         self.assertEqual(annotation.get_fontsize(), 12.0)
         self.assertEqual(patch.get_boxstyle().__class__.__name__, "Round")
@@ -606,11 +606,11 @@ class ItemColorEndToEndTest(unittest.TestCase):
         self.answer_list = ["#ff0000", "#0000ff"]
         self.choose(note_point(), "Border color/Other color...")
         self.choose(note_point(), "Text color/Other color...")
-        self.assertEqual(self.question_list, ["#24303b", "#24303b"])
+        self.assertEqual(self.question_list, ["#ff8000", "#24303b"])
         self.assertEqual(drawn_style(), (16.0, "#ff0000", "#0000ff"))
         for expected_tuple in ((16.0, "#ff0000", "#24303b"),
-                               (16.0, "#24303b", "#24303b"),
-                               (12.0, "#24303b", "#24303b")):
+                               (16.0, "#ff8000", "#24303b"),
+                               (12.0, "#ff8000", "#24303b")):
             self.main_window.run_undo()
             self.process_events()
             self.assertEqual(drawn_style(), expected_tuple)

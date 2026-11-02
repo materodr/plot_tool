@@ -46,11 +46,13 @@ DEFAULT_AREA_COLOR_STR = MARKER_COLOR_STR
 # of a new text note.
 TEXT_NOTE_SIZE_TUPLE = (8, 10, 12, 16, 20, 24, 32)
 DEFAULT_TEXT_NOTE_SIZE_I = 12
-# LLFR-00336: the text color and the border color of a new text note,
-# the app's text color, a near-black dark grey.
+# LLFR-00336: the text color of a new text note, the app's text color,
+# a near-black dark grey, and its border color, the reserved marker
+# color.
 DEFAULT_TEXT_NOTE_COLOR_STR = "#24303b"
-# LLFR-00373: the color of a new arrow, the same app text color.
-DEFAULT_ARROW_COLOR_STR = DEFAULT_TEXT_NOTE_COLOR_STR
+DEFAULT_TEXT_NOTE_BORDER_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00373: the color of a new arrow, the reserved marker color.
+DEFAULT_ARROW_COLOR_STR = MARKER_COLOR_STR
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -129,7 +131,7 @@ class TextNote:
     time_s: float
     value_f: float
     size_i: int = DEFAULT_TEXT_NOTE_SIZE_I
-    border_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
+    border_color_str: str = DEFAULT_TEXT_NOTE_BORDER_COLOR_STR
     text_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
 
 
