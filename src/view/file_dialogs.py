@@ -13,8 +13,11 @@ right after the start; the owner saw them flash, and that work, run
 while the splash screen still waited for the window, blocked the app
 for about 0.9 s. The preparation now only builds the dialogs, and on
 macOS creates one system open panel and one save panel without showing
-them (warm_up_system_panels), so that the system loads the panel code
-before the first click.
+them (warm_up_system_panel), so that the system loads the panel code
+before the first click. Measured on the macOS build check: the first
+Open file dialog of a launch took 0.91 to 1.04 s without this, 0.41 to
+0.48 s with it; every later dialog takes 0.4 to 0.5 s either way,
+because the system builds a new panel each time Qt shows one.
 
 The preparation runs in small steps, one per turn of the event loop,
 starting PREPARE_START_DELAY_MS_I after the window is shown
@@ -43,7 +46,6 @@ Save signals dialog does.
 
 import ctypes
 import ctypes.util
-import os
 import sys
 import time
 
@@ -67,54 +69,66 @@ OBJECTIVE_C_LIBRARY_STR = "objc"
 OBJECTIVE_C_LIBRARY_PATH_STR = "/usr/lib/libobjc.A.dylib"
 SYSTEM_PANEL_TUPLE = ((b"NSOpenPanel", b"openPanel"),
                       (b"NSSavePanel", b"savePanel"))
-# LLFR-00406: TEMPORARY experiment switch (issue #165), "none" skips
-# the panel warm-up; removed before review.
-PANEL_WARMUP_VARIABLE_STR = "PLOT_TOOL_PANEL_WARMUP"
-# LLFR-00406: the panels created by warm_up_system_panels, kept for the
+# LLFR-00406: the panels created by warm_up_system_panel, kept for the
 # whole run so that the system keeps what it loaded for them.
 KEPT_PANEL_LIST = []
 
 
-def warm_up_system_panels(platform_str: str = sys.platform) -> str:
-    """Make macOS load its open and save panels without showing them.
+def objective_c_runtime() -> tuple:
+    """Load the Objective-C runtime of macOS through ctypes.
+
+    Inputs: none.
+    Outputs: a tuple (the runtime library, its objc_msgSend function
+        set up for messages without arguments).
+    """
+    # LLFR-00406: ctypes is part of Python, so no library is added
+    # (COR-00011).
+    library_path_str = (ctypes.util.find_library(OBJECTIVE_C_LIBRARY_STR)
+                        or OBJECTIVE_C_LIBRARY_PATH_STR)
+    runtime = ctypes.CDLL(library_path_str)
+    runtime.objc_getClass.restype = ctypes.c_void_p
+    runtime.objc_getClass.argtypes = [ctypes.c_char_p]
+    runtime.sel_registerName.restype = ctypes.c_void_p
+    runtime.sel_registerName.argtypes = [ctypes.c_char_p]
+    send_message = runtime.objc_msgSend
+    send_message.restype = ctypes.c_void_p
+    send_message.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    return runtime, send_message
+
+
+def warm_up_system_panel(panel_tuple: tuple,
+                         platform_str: str = sys.platform) -> str:
+    """Make macOS load one kind of system panel without showing it.
 
     Inputs:
+        panel_tuple: (class name, class method) as bytes, one entry of
+            SYSTEM_PANEL_TUPLE.
         platform_str: the platform name, as sys.platform.
-    Outputs: "warmed" when one open panel and one save panel were
-        created, "skipped" on other systems, "failed" when the system
-        could not be asked. Nothing is shown on screen.
+    Outputs: "warmed" when the panel was created, "skipped" on other
+        systems, "failed" when the system could not be asked. Nothing is
+        shown on screen.
     """
     # LLFR-00406: [NSOpenPanel openPanel] and [NSSavePanel savePanel]
-    # create the panels as the first dialog of a process would, but
-    # only ordering a panel front shows it, and that is never done here.
+    # create the panel as the first dialog of a process would, so the
+    # system loads its code; only ordering a panel front shows it, and
+    # that is never done here (issue #165).
     if platform_str != MACOS_PLATFORM_STR:
         return "skipped"
-    if os.environ.get(PANEL_WARMUP_VARIABLE_STR, "") == "none":
-        return "skipped"
+    class_name_bytes, method_name_bytes = panel_tuple
     try:
-        library_path_str = (ctypes.util.find_library(OBJECTIVE_C_LIBRARY_STR)
-                            or OBJECTIVE_C_LIBRARY_PATH_STR)
-        runtime = ctypes.CDLL(library_path_str)
-        runtime.objc_getClass.restype = ctypes.c_void_p
-        runtime.objc_getClass.argtypes = [ctypes.c_char_p]
-        runtime.sel_registerName.restype = ctypes.c_void_p
-        runtime.sel_registerName.argtypes = [ctypes.c_char_p]
-        send_message = runtime.objc_msgSend
-        send_message.restype = ctypes.c_void_p
-        send_message.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        retain_selector_i = runtime.sel_registerName(b"retain")
-        for class_name_bytes, method_name_bytes in SYSTEM_PANEL_TUPLE:
-            # LLFR-00406: the runtime answers with object addresses.
-            panel_class_i = runtime.objc_getClass(class_name_bytes)
-            if not panel_class_i:
-                return "failed"
-            panel_i = send_message(
-                panel_class_i, runtime.sel_registerName(method_name_bytes))
-            if not panel_i:
-                return "failed"
-            # LLFR-00406: kept, so it is not freed at the end of the
-            # event-loop turn.
-            KEPT_PANEL_LIST.append(send_message(panel_i, retain_selector_i))
+        runtime, send_message = objective_c_runtime()
+        # LLFR-00406: the runtime answers with object addresses.
+        panel_class_i = runtime.objc_getClass(class_name_bytes)
+        if not panel_class_i:
+            return "failed"
+        panel_i = send_message(panel_class_i,
+                               runtime.sel_registerName(method_name_bytes))
+        if not panel_i:
+            return "failed"
+        # LLFR-00406: kept, so it is not freed at the end of the
+        # event-loop turn.
+        KEPT_PANEL_LIST.append(send_message(
+            panel_i, runtime.sel_registerName(b"retain")))
     except (OSError, AttributeError, ValueError):
         return "failed"
     return "warmed"
@@ -168,9 +182,10 @@ class FileDialogPool:
     Inputs:
         platform_str: the platform name (sys.platform by default); on
             macOS the preparation also warms up the system's panels.
-        warm_up_function: function taking the platform name that warms
-            up the system's panels without showing them;
-            warm_up_system_panels by default.
+        warm_up_function: function taking an entry of
+            SYSTEM_PANEL_TUPLE and the platform name, that warms up that
+            system panel without showing it; warm_up_system_panel by
+            default.
     Attributes:
         build_function_dict: key -> factory function of the dialog.
         dialog_dict: key -> the QFileDialog built for it.
@@ -178,13 +193,14 @@ class FileDialogPool:
         prepare_duration_s: seconds spent in the preparation steps.
         longest_step_s: seconds of the longest preparation step.
         step_count_i: how many preparation steps have run.
-        panel_state_str: what the panel warm-up did ("" before it ran,
-            then as warm_up_system_panels returns).
+        step_duration_list: the seconds of each step that has run.
+        panel_state_list: what each panel warm-up step did, as
+            warm_up_system_panel returns.
         step_timer: the QTimer of schedule_preparation, or None.
     """
 
     def __init__(self, platform_str: str = sys.platform,
-                 warm_up_function=warm_up_system_panels) -> None:
+                 warm_up_function=warm_up_system_panel) -> None:
         """Create an empty pool.
 
         Inputs:
@@ -202,7 +218,8 @@ class FileDialogPool:
         self.prepare_duration_s = 0.0
         self.longest_step_s = 0.0
         self.step_count_i = 0
-        self.panel_state_str = ""
+        self.step_duration_list = []
+        self.panel_state_list = []
         self.pending_step_list = []
         self.step_timer = None
 
@@ -275,27 +292,43 @@ class FileDialogPool:
         # LLFR-00406: one preparation step; nothing appears on screen.
         self.dialog(key_str).ensurePolished()
 
-    def warm_up_panels(self) -> None:
-        """Warm up the system's panels, without showing anything.
+    def warm_up_panel(self, panel_tuple: tuple) -> None:
+        """Warm up one kind of system panel, without showing anything.
+
+        Inputs:
+            panel_tuple: an entry of SYSTEM_PANEL_TUPLE.
+        Outputs: none. panel_state_list tells what was done.
+        """
+        # LLFR-00406: on macOS only (warm_up_system_panel).
+        self.panel_state_list.append(
+            self.warm_up_function(panel_tuple, self.platform_str))
+
+    def panel_state_str(self) -> str:
+        """Describe what the panel warm-up did.
 
         Inputs: none.
-        Outputs: none. panel_state_str tells what was done.
+        Outputs: the states of panel_state_list joined by commas, or
+            "none" when no warm-up step has run.
         """
-        # LLFR-00406: on macOS only (warm_up_system_panels).
-        self.panel_state_str = self.warm_up_function(self.platform_str)
+        # LLFR-00406: reported by the startup probe.
+        return ",".join(self.panel_state_list) or "none"
 
     def preparation_step_list(self) -> list:
         """Return the preparation steps, in the order they run.
 
         Inputs: none.
-        Outputs: a list of functions without arguments: on macOS the
-            panel warm-up first, then one step per registered dialog.
+        Outputs: a list of functions without arguments: on macOS one
+            warm-up step per kind of system panel first, then one step
+            per registered dialog.
         """
         # LLFR-00406: the panel warm-up first, because the first panel
-        # of a process is the slowest one to show.
+        # of a process is the slowest one to show; one kind per step,
+        # so that each step blocks the window for a shorter time.
         step_list = []
         if self.platform_str == MACOS_PLATFORM_STR:
-            step_list.append(self.warm_up_panels)
+            for panel_tuple in SYSTEM_PANEL_TUPLE:
+                step_list.append(lambda panel_tuple=panel_tuple:
+                                 self.warm_up_panel(panel_tuple))
         for key_str in self.key_list():
             step_list.append(
                 lambda key_str=key_str: self.build_and_polish(key_str))
@@ -315,6 +348,7 @@ class FileDialogPool:
         step_s = time.perf_counter() - start_s
         self.prepare_duration_s += step_s
         self.longest_step_s = max(self.longest_step_s, step_s)
+        self.step_duration_list.append(step_s)
         self.step_count_i += 1
 
     def prepare_all(self) -> None:

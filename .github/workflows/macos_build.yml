@@ -167,19 +167,6 @@ jobs:
             --clear-font-cache --probe-good-files -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
 
-      # TEMPORARY (issue #165): the same dialog times without the
-      # warm-up of the system panels, for comparison.
-      - name: EXPERIMENT dialog times without the panel warm-up
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 10
-        env:
-          PLOT_TOOL_PANEL_WARMUP: none
-        run: |
-          python tests/user_tests/measure_startup.py --runs 3 \
-            --limit-s 1000 --dialog-limit-s 0.65 -- \
-            bin/plot_tool.app/Contents/MacOS/plot_tool
-
       - name: Show the kept matplotlib cache
         if: always()
         run: ls -la ~/Library/Caches/plot_tool/matplotlib || true

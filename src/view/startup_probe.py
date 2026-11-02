@@ -42,8 +42,9 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
        plot_tool prepare: prepared=<yes|no> waited_s=<seconds from the
        window line> steps=<count> prepare_s=<seconds in the steps>
        longest_step_s=<seconds> longest_turn_s=<longest event-loop
-       turn meanwhile> panels=<warmed|skipped|failed|none>
-       dialog_seen=<yes|no>
+       turn meanwhile> step_s=<seconds of each step, comma-separated>
+       panels=<what each panel warm-up step did, comma-separated, or
+       none> dialog_seen=<yes|no>
 
    (all on one line; dialog_seen tells whether a file dialog was
    visible before the first request, which must never happen);
@@ -348,13 +349,16 @@ def prepare_line_str(pool, waited_s: float, longest_wait_s: float,
     """
     # LLFR-00406, LLFR-00188: the preparation shows nothing and never
     # blocks the window for long.
+    step_s_str = ",".join(f"{step_s:.3f}"
+                          for step_s in pool.step_duration_list)
     return (f"{PREPARE_LINE_PREFIX_STR} "
             f"prepared={yes_no_str(pool.prepared_b)} "
             f"waited_s={waited_s:.3f} steps={pool.step_count_i} "
             f"prepare_s={pool.prepare_duration_s:.3f} "
             f"longest_step_s={pool.longest_step_s:.3f} "
             f"longest_turn_s={longest_wait_s:.3f} "
-            f"panels={pool.panel_state_str or 'none'} "
+            f"step_s={step_s_str or 'none'} "
+            f"panels={pool.panel_state_str()} "
             f"dialog_seen={yes_no_str(dialog_seen_b)}")
 
 

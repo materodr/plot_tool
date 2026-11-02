@@ -195,6 +195,19 @@ class StartupProbeTest(unittest.TestCase):
             {"PLOT_TOOL_DIALOG_PROBE": "0"}))
         self.assertTrue(probe.dialog_probe_enabled(
             {"PLOT_TOOL_DIALOG_PROBE": "1"}))
+        pool = mock.Mock(prepared_b=True, step_count_i=3,
+                         prepare_duration_s=0.4, longest_step_s=0.25,
+                         step_duration_list=[0.25, 0.1, 0.05])
+        pool.panel_state_str.return_value = "warmed,warmed"
+        self.assertEqual(
+            probe.prepare_line_str(pool, 0.5, 0.26, False),
+            "plot_tool prepare: prepared=yes waited_s=0.500 steps=3 "
+            "prepare_s=0.400 longest_step_s=0.250 longest_turn_s=0.260 "
+            "step_s=0.250,0.100,0.050 panels=warmed,warmed "
+            "dialog_seen=no")
+        pool.step_duration_list = []
+        self.assertIn("step_s=none panels=warmed,warmed dialog_seen=yes",
+                      probe.prepare_line_str(pool, 0.5, 0.16, True))
         line_str = probe.dialog_line_str("save_pdf", 2, 0.0456, True,
                                          False, 0.25)
         self.assertEqual(line_str, "plot_tool dialog: name=save_pdf "
@@ -243,6 +256,17 @@ class StartupProbeTest(unittest.TestCase):
                                          "save_signals", "save_signals"])
             for line_str in dialog_line_list:
                 self.assertIn("visible=yes prepared=yes", line_str)
+            # LLFR-00406, issue #165: the preparation line comes first,
+            # with no dialog seen before the first request.
+            output_str = output_stream.getvalue()
+            self.assertLess(output_str.index("plot_tool prepare:"),
+                            output_str.index("plot_tool dialog:"))
+            prepare_dict = measure_startup.parse_prepare_line(output_str)
+            self.assertTrue(prepare_dict["prepared_b"])
+            self.assertFalse(prepare_dict["dialog_seen_b"])
+            self.assertEqual(prepare_dict["step_count_i"], 5)
+            self.assertEqual(measure_startup.dialog_failure_list(
+                output_str, True, 5.0), [])
             # Every dialog is closed again.
             for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
                 self.assertFalse(pool.dialog(key_str).isVisible())
