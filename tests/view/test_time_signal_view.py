@@ -379,6 +379,29 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         list_widget.itemDoubleClicked.emit(item)
         self.application.processEvents()
 
+    def row_colors(self, name_str: str) -> str:
+        """TEMPORARY diagnostic: the most common colors of a row.
+
+        Inputs:
+            name_str: a shown name.
+        Outputs: a text with the colors.
+        """
+        import collections
+        from PyQt6.QtCore import Qt
+        list_widget = self.panel.signal_list_widget
+        item = list_widget.findItems(name_str, Qt.MatchFlag.MatchExactly)[0]
+        image = list_widget.viewport().grab().toImage()
+        row_rect = list_widget.visualItemRect(item)
+        counter = collections.Counter()
+        for y_i in range(row_rect.top(), row_rect.bottom() + 1):
+            for x_i in range(row_rect.left(), row_rect.right() + 1):
+                if 0 <= x_i < image.width() and 0 <= y_i < image.height():
+                    counter[image.pixelColor(x_i, y_i).name()] += 1
+        return (f"{name_str} rect={row_rect} img={image.width()}x"
+                f"{image.height()} dpr={image.devicePixelRatio()} "
+                f"{counter.most_common(12)} "
+                f"fg={item.foreground().color().name()}")
+
     def green_pixel_count(self, name_str: str) -> int:
         """Count the green pixels drawn in the row of a name.
 
@@ -514,14 +537,17 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         for name_str in ("speed", "force"):
             self.assertNotEqual(self.panel.name_color_str(name_str),
                                 green_str)
-            self.assertEqual(self.green_pixel_count(name_str), 0)
-        self.assertGreater(self.green_pixel_count("t_s"), 0)
+            self.assertEqual(self.green_pixel_count(name_str), 0,
+                             self.row_colors(name_str))
+        self.assertGreater(self.green_pixel_count("t_s"), 0,
+                           self.row_colors("t_s"))
         # LLFR-00332: also among the search results.
         self.panel.search_box.setText("t s")
         self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list(), ["t_s"])
         self.assertEqual(self.panel.name_color_str("t_s"), green_str)
-        self.assertGreater(self.green_pixel_count("t_s"), 0)
+        self.assertGreater(self.green_pixel_count("t_s"), 0,
+                           self.row_colors("t_s"))
         self.panel.search_box.setText("")
         self.application.processEvents()
         # LLFR-00332: also while selected.
@@ -532,19 +558,22 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         list_widget.setFocus()
         self.application.processEvents()
         self.assertTrue(item.isSelected())
-        self.assertGreater(self.green_pixel_count("t_s"), 0)
+        self.assertGreater(self.green_pixel_count("t_s"), 0,
+                           self.row_colors("t_s"))
         other_item = list_widget.findItems("speed",
                                            Qt.MatchFlag.MatchExactly)[0]
         list_widget.setCurrentItem(other_item)
         self.application.processEvents()
         self.assertTrue(other_item.isSelected())
-        self.assertEqual(self.green_pixel_count("speed"), 0)
+        self.assertEqual(self.green_pixel_count("speed"), 0,
+                         self.row_colors("speed"))
         # HLFR-00071: a time signal found by its name is green too.
         self.replace_answer_list.append(True)
         self.open_file(self.time_path_str)
         self.assertEqual(self.panel.name_color_str("TIME"), green_str)
         self.assertNotEqual(self.panel.name_color_str("a"), green_str)
-        self.assertGreater(self.green_pixel_count("TIME"), 0)
+        self.assertGreater(self.green_pixel_count("TIME"), 0,
+                           self.row_colors("TIME"))
 
 
 if __name__ == "__main__":
