@@ -154,6 +154,21 @@ class FakeSyntheticWindow(FakePlotView):
         Outputs: none.
         """
 
+    def show_loading_indication(self, text_str: str) -> None:
+        """Do nothing (LLFR-00418 is tested in test_file_controller).
+
+        Inputs:
+            text_str: the status line text.
+        Outputs: none.
+        """
+
+    def hide_loading_indication(self) -> None:
+        """Do nothing (LLFR-00418 is tested in test_file_controller).
+
+        Inputs: none.
+        Outputs: none.
+        """
+
     def set_time_signal_name(self, name_str: str) -> None:
         """Record the time signal shown in green (LLFR-00332).
 

@@ -634,6 +634,8 @@ class FileNameLineWindowTest(unittest.TestCase):
                 csv_file.write("Time,Speed\n0,1\n1,abc\n")
             error_list = []
             window.show_file_open_error = error_list.append
+            # HLFR-00010: the question comes before the read.
+            window.ask_replace_file = lambda: True
             window.ask_open_file_path = (
                 lambda start_folder_str: broken_path_str)
             controller.file_controller.open_file_requested()

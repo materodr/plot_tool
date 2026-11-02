@@ -292,6 +292,21 @@ class FakeFileView(FakeSignalListView):
         Outputs: none.
         """
 
+    def show_loading_indication(self, text_str: str) -> None:
+        """Do nothing (LLFR-00418 is tested in test_file_controller).
+
+        Inputs:
+            text_str: the status line text.
+        Outputs: none.
+        """
+
+    def hide_loading_indication(self) -> None:
+        """Do nothing (LLFR-00418 is tested in test_file_controller).
+
+        Inputs: none.
+        Outputs: none.
+        """
+
 
 class SignalListControllerTestCase(unittest.TestCase):
     """Shared setup: a controller, a fake view and a fake file source."""

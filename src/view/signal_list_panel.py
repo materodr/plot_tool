@@ -518,6 +518,8 @@ class SignalListPanel(QWidget):
         title_label: the "Signals" title.
         signal_list_widget: the SignalListWidget with the signal names.
         search_box: the QLineEdit below the list (LLFR-00094).
+        status_label: the status line below the search box
+            (LLFR-00418).
     Signals:
         signal_double_clicked(str): emitted with the name of a signal
             the user double-clicked (LLFR-00019).
@@ -579,6 +581,16 @@ class SignalListPanel(QWidget):
         self.search_box.setPlaceholderText(SEARCH_PLACEHOLDER_TEXT_STR)
         self.search_box.setClearButtonEnabled(True)
         self.panel_layout.addWidget(self.search_box)
+        # LLFR-00418: the status line at the bottom of the panel, below
+        # the search box; it is empty except while a file is read. Its
+        # height is kept when it is empty, so the list does not move.
+        self.status_label = QLabel("")
+        self.status_label.setObjectName("signal_list_status")
+        self.status_label.setStyleSheet(
+            f"color: {theme.MUTED_TEXT_COLOR_STR};")
+        self.status_label.setMinimumHeight(
+            self.status_label.fontMetrics().height())
+        self.panel_layout.addWidget(self.status_label)
         # LLFR-00019: a double-click passes the signal name on.
         self.signal_list_widget.itemDoubleClicked.connect(
             self._emit_signal_double_clicked)
@@ -726,6 +738,25 @@ class SignalListPanel(QWidget):
         if no_match_label.isHidden():
             return ""
         return no_match_label.text()
+
+    def show_status_text(self, text_str: str) -> None:
+        """Show a text in the status line below the search box.
+
+        Inputs:
+            text_str: the text to show; "" empties the status line.
+        Outputs: none.
+        """
+        # LLFR-00418: "Loading..." while a file is read, no text else.
+        self.status_label.setText(text_str)
+
+    def status_text(self) -> str:
+        """Return the text of the status line.
+
+        Inputs: none.
+        Outputs: the shown text, "" when the line is empty.
+        """
+        # LLFR-00418: what the status line shows.
+        return self.status_label.text()
 
     def search_text(self) -> str:
         """Return the text of the search box.

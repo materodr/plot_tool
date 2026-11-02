@@ -120,7 +120,7 @@ The user must be able to open, from the top panel, the page that creates a new i
 Note: The page is opened with the **Report a bug** button.
 
 ### HLFR-00080 Author credit
-The top panel must show the text "designed by materodr" in its upper-right corner.
+The top panel must show the text "Designed by materodr" in its upper-right corner.
 
 ### HLFR-00090 Save the signals to a data file
 The user must be able to save, from the top panel, the signals of the signal list, including the synthetic signals, to a new file in one of the formats of HLFR-00005, which the app can open again as a data file.

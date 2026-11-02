@@ -75,7 +75,10 @@ class SearchBoxTest(unittest.TestCase):
         layout = self.panel.panel_layout
         self.assertEqual(layout.indexOf(search_box),
                          layout.indexOf(list_widget) + 1)
-        self.assertEqual(layout.indexOf(search_box), layout.count() - 1)
+        # LLFR-00418: only the status line comes after the search box.
+        self.assertEqual(layout.indexOf(search_box), layout.count() - 2)
+        self.assertEqual(layout.indexOf(self.panel.status_label),
+                         layout.count() - 1)
         # The list keeps most of the height.
         self.assertGreater(list_geometry.height(), box_geometry.height())
 

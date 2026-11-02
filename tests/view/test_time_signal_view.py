@@ -485,25 +485,28 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.plot_widgets()), 2)
         self.assertEqual(self.box_record_list, [])
 
-    @covers("LLFR-00327", "HLFR-00070")
+    @covers("LLFR-00327", "HLFR-00070", "LLFR-00010", "LLFR-00328")
     def test_cancel_keeps_the_open_file(self) -> None:
-        """Cancelling the window keeps the open file and shows nothing.
+        """Yes, then cancelling the window, keeps the open file.
 
         Inputs: none.
         Outputs: none.
         """
         self.open_file(self.time_path_str)
         self.double_click_signal("a")
+        self.replace_answer_list.append(True)
         self.window_attempt_list.append([])
         self.open_file(self.no_time_path_str)
         self.assertEqual(len(self.window_record_list), 1)
-        self.assertEqual(self.box_record_list, [])
+        # LLFR-00327: only the replace question, no other message.
+        self.assertEqual([record[0] for record in self.box_record_list],
+                         [self.message_box_class.Icon.Question])
         self.assertEqual(self.panel.signal_name_list(), ["a", "TIME", "b"])
         self.assertEqual(len(self.plot_widgets()), 1)
 
-    @covers("LLFR-00328", "HLFR-00010")
-    def test_window_comes_before_the_replace_question(self) -> None:
-        """The window is shown before the replace confirmation.
+    @covers("LLFR-00328", "HLFR-00010", "LLFR-00014")
+    def test_replace_question_comes_before_the_window(self) -> None:
+        """No in the replace question: the window is never shown.
 
         Inputs: none.
         Outputs: none.
@@ -512,7 +515,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.window_attempt_list.append(["t_s"])
         self.replace_answer_list.append(False)
         self.open_file(self.no_time_path_str)
-        self.assertEqual(len(self.window_record_list), 1)
+        self.assertEqual(len(self.window_record_list), 0)
         self.assertEqual(len(self.box_record_list), 1)
         self.assertEqual(self.box_record_list[0][0],
                          self.message_box_class.Icon.Question)
