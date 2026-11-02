@@ -1034,7 +1034,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
                                                  2.0)
         self.process_events()
 
-        def magenta_count(path_str: str) -> int:
+        def marker_color_count(path_str: str) -> int:
             """Export to a PDF and count marker-colored pixels drawn.
 
             Inputs:
@@ -1074,15 +1074,15 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
                         count_i += 1
             return count_i
 
-        with_count_i = magenta_count(os.path.join(self.folder_str,
-                                                  "with.pdf"))
+        with_count_i = marker_color_count(
+            os.path.join(self.folder_str, "with.pdf"))
         plot = self.plot_controller.workspace.find_plot(plot_id_i)
         for delta_marker in list(plot.delta_marker_list):
             self.plot_controller.on_delta_marker_delete(
                 plot_id_i, delta_marker.delta_marker_id_i)
         self.process_events()
-        without_count_i = magenta_count(os.path.join(self.folder_str,
-                                                     "without.pdf"))
+        without_count_i = marker_color_count(
+            os.path.join(self.folder_str, "without.pdf"))
         self.assertGreater(with_count_i, 200)
         self.assertLess(without_count_i, with_count_i / 20)
 

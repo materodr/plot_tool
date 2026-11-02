@@ -334,10 +334,9 @@ DELTA_HEADROOM_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
 DELTA_HEADROOM_MAXIMUM_RATIO_F = 0.45
 # LLFR-00175: no delta marker is under the mouse.
 NO_DELTA_MARKER_ID_I = -1
-# LLFR-00305: an area is the marker color mixed with this much of the
-# plot background, drawn see-through with this opacity. Its preview
-# (LLFR-00303) is a little more opaque, so it reads as "in progress".
-AREA_PALE_RATIO_F = 0.45
+# LLFR-00305: an area is drawn see-through in its color with this
+# opacity. Its preview (LLFR-00303) is a little more opaque, so it reads
+# as "in progress".
 AREA_ALPHA_F = 0.25
 AREA_PREVIEW_ALPHA_F = 0.4
 # LLFR-00306: behind the grid (the axis is drawn at zorder 1.5), the
@@ -725,10 +724,10 @@ MARKER_PREVIEW_COLOR_STR = pale_color_str(
 # LLFR-00352, LLFR-00353: the delta marker previews use the same paler
 # version of the marker color as the marker preview.
 DELTA_PREVIEW_COLOR_STR = MARKER_PREVIEW_COLOR_STR
-# LLFR-00305: the default color of an area and of its preview.
-AREA_COLOR_STR = pale_color_str(
-    MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR, AREA_PALE_RATIO_F)
-# LLFR-00351: the five area colors, by name, in menu order.
+# LLFR-00305: the default color of an area and of its preview, the
+# marker color, made pale by the see-through drawing (AREA_ALPHA_F).
+AREA_COLOR_STR = theme.AREA_COLOR_DICT[DEFAULT_AREA_COLOR_NAME_STR]
+# LLFR-00351: the four area colors, by name, in menu order.
 AREA_COLOR_DICT = {name_str: theme.AREA_COLOR_DICT[name_str]
                    for name_str in AREA_COLOR_NAME_TUPLE}
 

@@ -4,7 +4,7 @@ The theme only changes how the interface looks. These tests protect the
 looks that requirements fix: active and normal button colors
 (LLFR-00001 to LLFR-00003), the paler disabled Undo button (LLFR-00141),
 the "+" button styled like an unselected tab (LLFR-00107), the curve
-palette and the dashed magenta markers (LLFR-00144, LLFR-00083,
+palette and the dashed orange markers (LLFR-00144, LLFR-00083,
 LLFR-00143), legend and tip colors (LLFR-00037, LLFR-00151). They also
 check that the style lives in one place: the application style sheet is
 set once, and no view file other than theme.py holds a color literal.
@@ -185,7 +185,7 @@ class ThemeTokenTestCase(unittest.TestCase):
             if name_str.endswith("_COLOR_STR")}
         self.assertNotIn(MARKER_COLOR_STR.lower(), theme_color_set)
         self.assertEqual(PALETTE_COLOR_TUPLE[:3],
-                         ("#1f77b4", "#000000", "#d62728"))
+                         ("#1f77b4", "#000000", "#b2182b"))
 
 
 @requires_qt

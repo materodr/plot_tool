@@ -25,7 +25,7 @@ An example of a layout file::
       "panel_widths": {"plot_panel": 900, "signal_list_panel": 300},
       "vertical_markers": [{"name": "Marker 1", "time": 1.0}],
       "areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
-                 "color": "Magenta"}],
+                 "color": "Orange"}],
       "synthetic_signals": [],
       "tabs": [
         {"name": "Tab 1",

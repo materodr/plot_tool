@@ -155,6 +155,89 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.assertNotEqual(preview_rgb_tuple, marker_rgb_tuple)
         self.assertGreater(sum(preview_rgb_tuple), sum(marker_rgb_tuple))
 
+    def changed_pixel_array(self, clean_array, shown_array):
+        """Return the RGB values of the pixels a blit changed.
+
+        Inputs:
+            clean_array: RGBA buffer of the canvas before the blit.
+            shown_array: RGBA buffer after it.
+        Outputs: numpy array of shape (N, 3) of integers 0 to 255.
+        """
+        changed_array = np.any(clean_array != shown_array, axis=2)
+        return shown_array[changed_array][:, :3].astype(int)
+
+    def assert_drawn_in_pale_marker_color(self, pixel_array) -> None:
+        """Check that blitted pixels are the paler marker color, never
+        the marker color itself.
+
+        Inputs:
+            pixel_array: (N, 3) RGB values of the changed pixels.
+        Outputs: none.
+        """
+        from matplotlib.colors import to_rgb
+        from view.plot_widget import DELTA_PREVIEW_COLOR_STR
+        pale_array = np.round(
+            np.array(to_rgb(DELTA_PREVIEW_COLOR_STR)) * 255.0)
+        marker_array = np.round(np.array(to_rgb(MARKER_COLOR_STR)) * 255.0)
+        self.assertGreater(len(pixel_array), 0)
+        pale_distance_array = np.max(np.abs(pixel_array - pale_array),
+                                     axis=1)
+        marker_distance_array = np.max(np.abs(pixel_array - marker_array),
+                                       axis=1)
+        # The solid inside of the dot (and of the lines and text) has
+        # the pale color exactly, up to rounding.
+        self.assertGreater(int(np.sum(pale_distance_array <= 2)), 10)
+        # No pixel has the full marker color.
+        self.assertEqual(int(np.sum(marker_distance_array <= 8)), 0)
+
+    @covers("LLFR-00352", "LLFR-00353", "LLFR-00083", "LLFR-00172")
+    def test_previews_are_drawn_in_the_pale_theme_marker_color(
+            self) -> None:
+        """The pixels the dot and the marker preview draw are the paler
+        version of the theme's marker color, on time plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import theme
+        from view.plot_widget import (
+            DELTA_PREVIEW_COLOR_STR, MARKER_PREVIEW_PALE_RATIO_F,
+            pale_color_str)
+        # The marker color mixed with the theme's plot background.
+        self.assertEqual(DELTA_PREVIEW_COLOR_STR, pale_color_str(
+            MARKER_COLOR_STR, theme.PLOT_BACKGROUND_COLOR_STR,
+            MARKER_PREVIEW_PALE_RATIO_F))
+        for tool_str in (DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR):
+            self.plot_widget.set_plot_tool(tool_str)
+            self.plot_widget.set_delta_first_point(())
+            self.draw()
+            self.application.processEvents()
+            clean_array = np.array(self.plot_widget.canvas.buffer_rgba(),
+                                   copy=True)
+            # LLFR-00352: the dot alone.
+            self.hover(*self.ramp_point(6.0)[1:])
+            self.assertFalse(self.plot_widget.delta_preview_marker_shown())
+            self.assert_drawn_in_pale_marker_color(self.changed_pixel_array(
+                clean_array,
+                np.array(self.plot_widget.canvas.buffer_rgba(), copy=True)))
+            self.plot_widget.on_mouse_leave(None)
+            # LLFR-00353: the whole marker preview.
+            self.plot_widget.set_delta_first_point(self.sine_point(2.0))
+            self.draw()
+            self.application.processEvents()
+            clean_array = np.array(self.plot_widget.canvas.buffer_rgba(),
+                                   copy=True)
+            self.hover(*self.ramp_point(6.0)[1:])
+            self.assertTrue(self.plot_widget.delta_preview_marker_shown())
+            marker_pixel_array = self.changed_pixel_array(
+                clean_array,
+                np.array(self.plot_widget.canvas.buffer_rgba(), copy=True))
+            self.assert_drawn_in_pale_marker_color(marker_pixel_array)
+            # The bracket, the leader lines and the value draw much more
+            # than the dot alone.
+            self.assertGreater(len(marker_pixel_array), 200)
+            self.plot_widget.on_mouse_leave(None)
+
     @covers("LLFR-00352", "LLFR-00354", "LLFR-00165")
     def test_no_dot_off_the_curves_or_without_a_delta_tool(self) -> None:
         """Off the curves, out of the plot or with another tool: none.

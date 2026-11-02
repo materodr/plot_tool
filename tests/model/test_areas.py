@@ -89,8 +89,8 @@ class CreateAreaTest(AreaModelTestCase):
         self.assertEqual((first_area.start_s, first_area.end_s), (1.0, 2.0))
         self.assertNotEqual(first_area.area_id_i, second_area.area_id_i)
         self.assertEqual(self.workspace.area_state_tuple(), (
-            (first_area.area_id_i, "Area 1", 1.0, 2.0, "Magenta"),
-            (second_area.area_id_i, "Area 2", 3.0, 4.0, "Magenta")))
+            (first_area.area_id_i, "Area 1", 1.0, 2.0, "Orange"),
+            (second_area.area_id_i, "Area 2", 3.0, 4.0, "Orange")))
 
     @covers("LLFR-00304", "LLFR-00309")
     def test_overlap_or_empty_span_creates_nothing(self) -> None:
@@ -255,20 +255,25 @@ class AreaColorTest(AreaModelTestCase):
     """The color of an area (LLFR-00351)."""
 
     @covers("LLFR-00351", "LLFR-00305")
-    def test_five_colors_and_new_areas_get_the_default(self) -> None:
-        """There are five colors, Magenta first and the default; a new
-        area, or one given an unknown color name, gets the default.
+    def test_four_colors_and_new_areas_get_the_default(self) -> None:
+        """There are four colors, Orange first and the default; a new
+        area, or one given an unknown color name (also the former
+        "Magenta" and "Pink"), gets the default.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(AREA_COLOR_NAME_TUPLE,
-                         ("Magenta", "Blue", "Green", "Yellow", "Orange"))
-        self.assertEqual(DEFAULT_AREA_COLOR_NAME_STR, "Magenta")
+                         ("Orange", "Blue", "Green", "Yellow"))
+        self.assertEqual(DEFAULT_AREA_COLOR_NAME_STR, "Orange")
         self.assertEqual(self.workspace.add_area(1.0, 2.0).color_name_str,
-                         "Magenta")
+                         "Orange")
         self.assertEqual(self.workspace.add_area(
-            3.0, 4.0, "", "Purple").color_name_str, "Magenta")
+            3.0, 4.0, "", "Purple").color_name_str, "Orange")
+        self.assertEqual(self.workspace.add_area(
+            7.0, 8.0, "", "Magenta").color_name_str, "Orange")
+        self.assertEqual(self.workspace.add_area(
+            9.0, 10.0, "", "Pink").color_name_str, "Orange")
         self.assertEqual(self.workspace.add_area(
             5.0, 6.0, "", "Yellow").color_name_str, "Yellow")
 
@@ -283,9 +288,11 @@ class AreaColorTest(AreaModelTestCase):
         area = self.workspace.add_area(1.0, 2.0)
         snapshot = self.workspace.snapshot()
         self.assertFalse(self.workspace.set_area_color(area.area_id_i,
-                                                       "Magenta"))
+                                                       "Orange"))
         self.assertFalse(self.workspace.set_area_color(area.area_id_i,
                                                        "Purple"))
+        self.assertFalse(self.workspace.set_area_color(area.area_id_i,
+                                                       "Magenta"))
         self.assertFalse(self.workspace.set_area_color(999, "Blue"))
         self.assertTrue(self.workspace.is_unchanged_since(snapshot))
         self.assertTrue(self.workspace.set_area_color(area.area_id_i,
@@ -294,7 +301,7 @@ class AreaColorTest(AreaModelTestCase):
         self.assertEqual(self.workspace.area_state_tuple()[0][4], "Blue")
         self.workspace.restore(snapshot)
         self.assertEqual(self.workspace.area_list[0].color_name_str,
-                         "Magenta")
+                         "Orange")
 
 
 class AreasWithoutPlotsTest(AreaModelTestCase):
