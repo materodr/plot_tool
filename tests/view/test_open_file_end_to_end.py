@@ -181,19 +181,24 @@ class OpenFileEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import FILE_OPEN_ERROR_TITLE_STR
+        from view.message_boxes import (
+            FILE_OPEN_ERROR_TITLE_STR, REPLACE_FILE_TITLE_STR)
         self.click_open_file(self.first_path_str)
+        self.replace_answer_list = [True, True]
         self.click_open_file(self.bad_path_str)
         self.assert_button_finished()
         self.click_open_file(self.text_path_str)
         self.assert_button_finished()
-        self.assertEqual(len(self.box_record_list), 2)
-        for title_str, icon, _ in self.box_record_list:
-            self.assertEqual(title_str, FILE_OPEN_ERROR_TITLE_STR)
+        # HLFR-00010: each time the question first, then the error box.
+        self.assertEqual([record[0] for record in self.box_record_list], [
+            REPLACE_FILE_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR,
+            REPLACE_FILE_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR])
+        error_record_list = self.box_record_list[1::2]
+        for _, icon, _ in error_record_list:
             self.assertEqual(icon, self.message_box_class.Icon.Critical)
-        self.assertIn("could not be read", self.box_record_list[0][2])
-        self.assertIn("bad.csv", self.box_record_list[0][2])
-        self.assertIn("not supported", self.box_record_list[1][2])
+        self.assertIn("could not be read", error_record_list[0][2])
+        self.assertIn("bad.csv", error_record_list[0][2])
+        self.assertIn("not supported", error_record_list[1][2])
         self.assertEqual(self.shown_name_list(),
                          ["Time", "speed", "force"])
 
@@ -244,18 +249,32 @@ class OpenFileEndToEndTest(unittest.TestCase):
                          .path_str, self.first_path_str)
         self.assert_button_finished()
 
-    @covers("HLFR-00010", "LLFR-00010")
-    def test_bad_file_after_open_does_not_ask_replace(self) -> None:
-        """A file that can't be opened never shows the Replace File box.
+    @covers("HLFR-00010", "LLFR-00010", "LLFR-00013", "LLFR-00014",
+            "LLFR-00328")
+    def test_bad_file_after_open_asks_replace_first(self) -> None:
+        """The Replace File box comes before the read of a bad file.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import FILE_OPEN_ERROR_TITLE_STR
+        from view.message_boxes import (
+            FILE_OPEN_ERROR_TITLE_STR, REPLACE_FILE_TITLE_STR)
         self.click_open_file(self.first_path_str)
+        # LLFR-00014: No, the bad file is not read, no error box.
+        self.replace_answer_list = [False]
         self.click_open_file(self.bad_path_str)
         self.assertEqual([record[0] for record in self.box_record_list],
-                         [FILE_OPEN_ERROR_TITLE_STR])
+                         [REPLACE_FILE_TITLE_STR])
+        # LLFR-00013, LLFR-00010: Yes, the read fails, the file is kept.
+        self.replace_answer_list = [True]
+        self.click_open_file(self.bad_path_str)
+        self.assertEqual([record[0] for record in self.box_record_list], [
+            REPLACE_FILE_TITLE_STR, REPLACE_FILE_TITLE_STR,
+            FILE_OPEN_ERROR_TITLE_STR])
+        self.assertEqual(self.shown_name_list(),
+                         ["Time", "speed", "force"])
+        self.assertEqual(self.controller.file_controller.current_file
+                         .path_str, self.first_path_str)
 
     @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010")
     def test_dialog_folder_follows_opened_files(self) -> None:

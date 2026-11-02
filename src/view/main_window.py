@@ -2,7 +2,7 @@
 
 import sys
 
-from PyQt6.QtCore import Qt, QTimer, QUrl
+from PyQt6.QtCore import QEventLoop, Qt, QTimer, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
@@ -131,6 +131,8 @@ class MainWindow(QMainWindow):
         self.top_panel = TopPanel()
         self.plot_panel = PlotPanel()
         self.signal_list_panel = SignalListPanel()
+        # LLFR-00418: whether the busy pointer of a file read is shown.
+        self.loading_cursor_shown_b = False
 
         # LLFR-00058: the signal list panel is to the right of the plot
         # panel. LLFR-00073: the user can drag the border between them.
@@ -393,6 +395,41 @@ class MainWindow(QMainWindow):
         # LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012: notify the
         # error (HLFR-00002).
         message_boxes.show_file_open_error(self, message_str)
+
+    def show_loading_indication(self, text_str: str) -> None:
+        """Show the busy pointer and the loading text while a file is read.
+
+        Inputs:
+            text_str: the text of the status line ("Loading...").
+        Outputs: none. The window is repainted before this returns, so
+            the indication is seen while the file is read.
+        """
+        # LLFR-00418: the busy pointer over the app window. It is set
+        # only once, so that hide_loading_indication restores it fully.
+        if not self.loading_cursor_shown_b:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            self.loading_cursor_shown_b = True
+        # LLFR-00418: "Loading..." in the status line below the search
+        # box.
+        self.signal_list_panel.show_status_text(text_str)
+        # LLFR-00418: repaint now; the file is read in this same event
+        # handler, so without this the text would appear only after the
+        # read. User input waits, so no other action starts meanwhile.
+        QApplication.processEvents(
+            QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
+
+    def hide_loading_indication(self) -> None:
+        """Restore the normal pointer and empty the status line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00418: reading ended; the indication goes away before any
+        # File Open Error box or the time signal window.
+        if self.loading_cursor_shown_b:
+            QApplication.restoreOverrideCursor()
+            self.loading_cursor_shown_b = False
+        self.signal_list_panel.show_status_text("")
 
     def ask_replace_file(self) -> bool:
         """Ask whether to close the open file and open the selected one.
