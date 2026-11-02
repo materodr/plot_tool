@@ -22,9 +22,38 @@ from tests.view.test_plot_tools import ALL_TOOL_TUPLE, PlotWidgetToolTestCase
 
 from controller.plot_tools import MARKER_TOOL_STR, NO_TOOL_STR
 
-# Allowed error, in widget pixels, on where a time is drawn after a pan
-# (the widget points are whole pixels).
-PIXEL_TOLERANCE_F = 1.5
+
+def geometry_of(plot_widget) -> tuple:
+    """Return what decides how far a swipe pans a plot.
+
+    Inputs:
+        plot_widget: the PlotWidget.
+    Outputs: a tuple (start_s, end_s, axes_width_px): the shown range
+        and the width of the drawing area in screen (logical) pixels.
+    """
+    start_s, end_s = plot_widget.time_range_tuple()
+    return (start_s, end_s,
+            plot_widget.axes.bbox.width / plot_widget.pixel_ratio_f())
+
+
+def assert_moved(test_case, plot_widget, before_tuple: tuple,
+                 expected_shift_px: float) -> None:
+    """Check that a plot's curves moved right by a number of pixels.
+
+    Inputs:
+        test_case: the unittest.TestCase that checks.
+        plot_widget: the PlotWidget.
+        before_tuple: geometry_of(plot_widget) before the swipe.
+        expected_shift_px: how far right (screen pixels) the curves must
+            have moved, at the drawing area's width before the swipe.
+    Outputs: none.
+    """
+    start_s, end_s, axes_width_px = before_tuple
+    width_s = end_s - start_s
+    new_start_s, new_end_s = plot_widget.time_range_tuple()
+    test_case.assertAlmostEqual(
+        new_start_s, start_s - expected_shift_px * width_s / axes_width_px)
+    test_case.assertAlmostEqual(new_end_s - new_start_s, width_s)
 
 
 def make_swipe_event(canvas, local_point, pixel_x_i: int, pixel_y_i: int,
@@ -203,20 +232,28 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
                    pixel_x_i, **keyword_dict)
         self.draw()
 
-    def assert_curves_moved(self, time_s: float, x_before_i: int,
+    def geometry_tuple(self) -> tuple:
+        """Return what decides how far a swipe pans, before the swipe.
+
+        Inputs: none.
+        Outputs: a tuple (start_s, end_s, axes_width_px): the shown time
+            range and the width of the drawing area in screen pixels.
+        """
+        return geometry_of(self.plot_widget)
+
+    def assert_curves_moved(self, before_tuple: tuple,
                             expected_shift_px: float) -> None:
-        """Check where a time is drawn after a pan.
+        """Check that the curves moved right by a number of pixels.
 
         Inputs:
-            time_s: a time, in seconds.
-            x_before_i: the widget x of that time before the pan.
-            expected_shift_px: how far right (widget pixels) it must be
-                drawn now.
+            before_tuple: geometry_tuple() before the swipe.
+            expected_shift_px: how far right (screen pixels) the curves
+                must have moved, at the drawing area's width before the
+                swipe (the y fit may change the width afterwards).
         Outputs: none.
         """
-        x_after_i = self.point_at(time_s).x()
-        self.assertAlmostEqual(x_after_i - x_before_i, expected_shift_px,
-                               delta=PIXEL_TOLERANCE_F)
+        assert_moved(self, self.plot_widget, before_tuple,
+                     expected_shift_px)
 
     @covers("LLFR-00345", "LLFR-00070", "LLFR-00120")
     def test_swipe_moves_the_curves_by_its_pixels(self) -> None:
@@ -229,11 +266,11 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         for pixel_x_i in (-60, 60, -7, 150):
             with self.subTest(pixel=pixel_x_i):
                 self.zoom_to(3.0, 7.0)
-                x_before_i = self.point_at(5.0).x()
+                before_tuple = self.geometry_tuple()
                 self.swipe(pixel_x_i)
                 # Off macOS the delta is physical: negative is fingers
                 # right, so the curves move right.
-                self.assert_curves_moved(5.0, x_before_i, -pixel_x_i)
+                self.assert_curves_moved(before_tuple, -pixel_x_i)
                 start_s, end_s = self.plot_widget.time_range_tuple()
                 self.assertAlmostEqual(end_s - start_s, 4.0)
                 self.assertEqual(self.range_list, [(start_s, end_s)])
@@ -256,10 +293,9 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
                     (80, False, -80.0), (-80, True, -80.0)):
                 with self.subTest(pixel=pixel_x_i, inverted=inverted_b):
                     self.zoom_to(3.0, 7.0)
-                    x_before_i = self.point_at(5.0).x()
+                    before_tuple = self.geometry_tuple()
                     self.swipe(pixel_x_i, inverted_b=inverted_b)
-                    self.assert_curves_moved(5.0, x_before_i,
-                                             expected_shift_px)
+                    self.assert_curves_moved(before_tuple, expected_shift_px)
 
     @covers("LLFR-00345")
     def test_angle_only_swipe_counts_one_pixel_per_eighth(self) -> None:
@@ -272,9 +308,9 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         for phase_name_str in ("ScrollUpdate", "NoScrollPhase"):
             with self.subTest(phase=phase_name_str):
                 self.zoom_to(3.0, 7.0)
-                x_before_i = self.point_at(5.0).x()
+                before_tuple = self.geometry_tuple()
                 self.swipe(0, angle_x_i=-120, phase_name_str=phase_name_str)
-                self.assert_curves_moved(5.0, x_before_i, 120.0)
+                self.assert_curves_moved(before_tuple, 120.0)
 
     @covers("LLFR-00346", "LLFR-00345", "LLFR-00074", "LLFR-00113")
     def test_diagonal_swipe_either_pans_or_zooms(self) -> None:
@@ -286,11 +322,11 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         Outputs: none.
         """
         self.zoom_to(3.0, 7.0)
-        x_before_i = self.point_at(5.0).x()
+        before_tuple = self.geometry_tuple()
         self.swipe(-50, pixel_y_i=40, angle_x_i=-50, angle_y_i=40)
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(end_s - start_s, 4.0)
-        self.assert_curves_moved(5.0, x_before_i, 50.0)
+        self.assert_curves_moved(before_tuple, 50.0)
         for pixel_x_i, pixel_y_i in ((40, 50), (60, 60), (-30, 60)):
             with self.subTest(pixel_x=pixel_x_i, pixel_y=pixel_y_i):
                 self.zoom_to(3.0, 7.0)
@@ -385,9 +421,9 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
                 self.zoom_to(3.0, 7.0)
-                x_before_i = self.point_at(5.0).x()
+                before_tuple = self.geometry_tuple()
                 self.swipe(-40)
-                self.assert_curves_moved(5.0, x_before_i, 40.0)
+                self.assert_curves_moved(before_tuple, 40.0)
         self.assertEqual(self.pin_list, [])
         self.assertEqual(marker_list, [])
 
@@ -401,9 +437,9 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         """
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
         self.zoom_to(3.0, 7.0)
-        x_before_i = self.point_at(5.0).x()
+        before_tuple = self.geometry_tuple()
         self.swipe(-40, angle_x_i=-40, shift_b=True)
-        self.assert_curves_moved(5.0, x_before_i, 40.0)
+        self.assert_curves_moved(before_tuple, 40.0)
         self.zoom_to(3.0, 7.0)
         self.swipe(0, angle_x_i=120, phase_name_str="NoScrollPhase",
                    shift_b=True)
@@ -453,12 +489,10 @@ class SwipeFrequencyWidgetTest(FrequencyPlotWidgetTest):
         self.assertEqual(self.range_list, [])
         self.plot_widget.set_time_range(10.0, 15.0)
         self.draw()
-        x_before_i = self.plot_widget.data_to_widget_point(12.5, 0.0).x()
+        before_tuple = geometry_of(self.plot_widget)
         send_swipe(self.application, self.plot_widget, middle_point, -50)
         self.draw()
-        x_after_i = self.plot_widget.data_to_widget_point(12.5, 0.0).x()
-        self.assertAlmostEqual(x_after_i - x_before_i, 50.0,
-                               delta=PIXEL_TOLERANCE_F)
+        assert_moved(self, self.plot_widget, before_tuple, 50.0)
         send_swipe(self.application, self.plot_widget, middle_point, -9000)
         self.assertAlmostEqual(self.range_list[-1][0], 0.0)
         self.assertAlmostEqual(self.range_list[-1][1], 5.0)
