@@ -29,7 +29,8 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
    show that the bundle holds every library the loaders need;
 4. if ``PLOT_TOOL_DIALOG_PROBE`` is ``"1"``, each file dialog of the
    app (LLFR-00406) is shown twice, as a click would (measure_dialog),
-   and closed as soon as it is shown; for each one a line is printed::
+   PROBE_PAUSE_S after the previous one, and closed as soon as it is
+   shown; for each one a line is printed::
 
        plot_tool dialog: name=<dialog> click=<1|2> shown_s=<seconds
        from the request to the dialog being shown> visible=<yes|no>
@@ -61,7 +62,7 @@ import sys
 import time
 import traceback
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer
 
 STARTUP_PROBE_VARIABLE_STR = "PLOT_TOOL_STARTUP_PROBE"
 PROBE_FILES_VARIABLE_STR = "PLOT_TOOL_PROBE_FILES"
@@ -86,6 +87,8 @@ PROBE_DIALOG_TUPLE = (
     ("load_layout", "load_layout"), ("save_pdf", "save_pdf"),
     ("save_signals", "save_signals"))
 PROBE_CLICK_COUNT_I = 2
+# LLFR-00406: the time between two requests, as between two clicks.
+PROBE_PAUSE_S = 0.5
 # LLFR-00058: how often the probe checks the window, and how long it
 # waits for it to be exposed before reporting anyway.
 POLL_INTERVAL_MS_I = 10
@@ -307,11 +310,15 @@ def dialog_line_str(name_str: str, click_i: int, shown_s: float,
 def measure_dialog(main_window, application, key_str: str) -> tuple:
     """Show one file dialog as a click would, then close it.
 
-    The dialog is shown with ``open`` (window-modal), not ``exec``, so
-    that the probe never waits in a modal loop it cannot close (a
-    system panel run with ``exec`` on macOS runs the system's own modal
-    loop). Both show the same dialog, so the time is the time the user
-    waits.
+    The probe first lets the event loop run for PROBE_PAUSE_S, as the
+    time between two clicks of a user, so that the closing of the
+    previous dialog is not counted. The dialog is then shown as a
+    standalone window, as ``exec`` (the click) shows it, but with
+    ``show`` on a non-modal dialog, so that the probe never waits in a
+    modal loop it cannot close (a system panel run with ``exec`` on
+    macOS runs the system's own modal loop). ``open`` would show it as
+    a sheet of the main window instead, with an animation that the
+    next sheet must wait for.
 
     Inputs:
         main_window: the app's MainWindow.
@@ -322,13 +329,20 @@ def measure_dialog(main_window, application, key_str: str) -> tuple:
     """
     # LLFR-00406: the same steps as the MainWindow ask_... methods,
     # up to the dialog being on screen.
+    pause_until_s = time.perf_counter() + PROBE_PAUSE_S
+    while time.perf_counter() < pause_until_s:
+        application.processEvents()
+        time.sleep(POLL_INTERVAL_MS_I / 1000.0)
     start_s = time.perf_counter()
     dialog = main_window.file_dialog_pool.prepared_dialog(key_str)
-    dialog.open()
+    modality = dialog.windowModality()
+    dialog.setWindowModality(Qt.WindowModality.NonModal)
+    dialog.show()
     application.processEvents()
     shown_s = time.perf_counter() - start_s
     visible_b = bool(dialog.isVisible())
     dialog.reject()
+    dialog.setWindowModality(modality)
     application.processEvents()
     return shown_s, visible_b
 

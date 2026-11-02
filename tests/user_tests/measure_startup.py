@@ -35,10 +35,10 @@ Checks, each switched on by its option:
   launch each dialog must be shown within this time (LLFR-00406: 0.65
   s; as in LLFR-00188, the work done once on the first launch does not
   count, so the cold launch is only reported);
-- ``--turn-limit-s``: with ``--dialog-limit-s``, no turn of the event
-  loop may take longer than this while the dialogs are prepared after
-  the window is shown, so that the window answers the user at once
-  (LLFR-00188).
+- ``--turn-limit-s``: with ``--dialog-limit-s``, on every warm launch
+  no turn of the event loop may take longer than this while the
+  dialogs are prepared after the window is shown, so that the window
+  answers the user soon (LLFR-00188).
 
 In GitHub Actions the timings are also printed as ``::notice``
 annotations and the failures as ``::error`` annotations. The exit code
@@ -199,7 +199,8 @@ def dialog_failure_list(output_str: str, warm_b: bool,
         dialog_limit_s: the longest time from a request to its dialog
             for a warm launch (LLFR-00406).
         turn_limit_s: the longest event-loop turn allowed while the
-            dialogs are prepared, or None for no check (LLFR-00188).
+            dialogs are prepared on a warm launch, or None for no check
+            (LLFR-00188).
     Outputs: the list of failure descriptions; empty when every check
         passed.
     """
@@ -215,7 +216,7 @@ def dialog_failure_list(output_str: str, warm_b: bool,
         if prepare_dict["dialog_seen_b"]:
             failure_list.append("a file dialog was shown before any "
                                 "request (issue #165)")
-        if (turn_limit_s is not None
+        if (warm_b and turn_limit_s is not None
                 and prepare_dict["longest_turn_s"] > turn_limit_s):
             failure_list.append(
                 "the window was kept busy for "

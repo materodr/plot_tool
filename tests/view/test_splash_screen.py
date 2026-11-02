@@ -362,9 +362,11 @@ class MeasureStartupChecksTest(unittest.TestCase):
             for warm_b in (False, True):
                 with self.subTest(index_i=index_i, warm_b=warm_b):
                     self.assertEqual(len(check(bad_str, warm_b, 0.65)), 1)
-        # LLFR-00188: a long event-loop turn fails only with a limit.
-        self.assertEqual(len(check(good_str, False, 0.65, 0.1)), 1)
-        self.assertEqual(check(good_str, False, 0.65), [])
+        # LLFR-00188: a long event-loop turn fails only with a limit,
+        # and on a warm launch.
+        self.assertEqual(len(check(good_str, True, 0.65, 0.1)), 1)
+        self.assertEqual(check(good_str, False, 0.65, 0.1), [])
+        self.assertEqual(check(good_str, True, 0.65), [])
         self.assertEqual(measure_startup.dialog_summary_str(""),
                          "no dialog lines")
         self.assertEqual(measure_startup.parse_prepare_line(
@@ -385,8 +387,8 @@ class MeasureStartupChecksTest(unittest.TestCase):
             "name: Measure the startup and file dialog times"):]
         step_str = step_str[:step_str.index("bin/plot_tool.app")]
         for option_str in ("--warm-limit-s 5 ", "--splash-limit-s 2 ",
-                           "--dialog-limit-s 0.65 ", "--runs 6 ",
-                           "--clear-font-cache"):
+                           "--dialog-limit-s 0.65 ", "--turn-limit-s 2 ",
+                           "--runs 6 ", "--clear-font-cache"):
             with self.subTest(option_str=option_str):
                 self.assertIn(option_str, step_str)
         # The step is not allowed to fail.
