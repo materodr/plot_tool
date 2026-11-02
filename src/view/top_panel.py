@@ -25,6 +25,7 @@ from view.action_button import ActionButton
 from view.tip_key_filter import (
     AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I,
     RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I)
+from view.text_note_editor import KEEPS_TEXT_NOTE_OPEN_PROPERTY_STR
 from view.toggle_button import ToggleButton
 from view.undo_button import UndoButton
 
@@ -362,6 +363,9 @@ class TopPanel(QWidget):
             AREA_TOOL_STR: self.area_button,
             TEXT_TOOL_STR: self.text_button}
         for tool_str, button in self.plot_tool_button_dict.items():
+            # LLFR-00333: turning a plot tool on or off with its button
+            # keeps a text note field open (TextNoteEditor).
+            button.setProperty(KEEPS_TEXT_NOTE_OPEN_PROPERTY_STR, True)
             # LLFR-00079: activating a tool button deactivates the others.
             button.activated.connect(
                 lambda tool_str=tool_str: self.activate_plot_tool(tool_str))

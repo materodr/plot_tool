@@ -4,9 +4,10 @@ LLFR-00323) and for these keys while typing in a text field
 
 The keys are sent to a MainWindow with the real controllers and the
 real ToolKeyFilter, so the tests also check that the window gives the
-filter the A and T keys. The Area and Text tools themselves do nothing
-on the plots yet (issues #129 and #130); activating them must not
-change the plots or raise. No modal dialog is ever left open.
+filter the A and T keys. With the Area or Text tool active, clicks and
+drags must not change the time range, the markers, the tips or the
+delta markers (the Text tool's own text field and notes are tested in
+test_text_notes_view.py). No modal dialog is ever left open.
 """
 
 import unittest
@@ -206,9 +207,10 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
     def test_area_and_text_tools_change_nothing_on_the_plots(self) -> None:
         """With Area or Text active, clicks and drags on a plot raise
         nothing and change neither the time range nor the markers, tips
-        and delta markers; the tool stays active (LLFR-00109). (The
-        Area drag creates an area, checked in tests/view/
-        test_areas_view.py.)
+        and delta markers; the tool stays active (LLFR-00109). The Area
+        drag here creates an area (tests/view/test_areas_view.py) and the
+        Text click opens a text field (the text note tests); this test
+        only checks the other items and the range.
 
         Inputs: none.
         Outputs: none.

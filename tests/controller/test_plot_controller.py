@@ -87,6 +87,8 @@ class FakePlotView:
         area_name_question_list: the current names given to
             ask_area_name.
         set_areas_count_i: how many times set_areas was called.
+        text_note_drawn_dict: plot id -> text_note_data_list of the last
+            set_text_notes call.
     """
 
     def __init__(self) -> None:
@@ -120,6 +122,7 @@ class FakePlotView:
         self.area_name_answer_list = []
         self.area_name_question_list = []
         self.set_areas_count_i = 0
+        self.text_note_drawn_dict = {}
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -367,6 +370,21 @@ class FakePlotView:
             time_array = curve_data_list[0][1]
             self.range_dict[plot_id_i] = (float(time_array[0]),
                                           float(time_array[-1]))
+
+    def set_text_notes(self, plot_id_i: int,
+                       text_note_data_list: list) -> None:
+        """Record the text notes drawn in a plot.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            text_note_data_list: the text note tuples (text_str, time_s,
+                value_f).
+        Outputs: none.
+        """
+        self.text_note_drawn_dict[plot_id_i] = list(text_note_data_list)
 
     def set_markers(self, marker_data_list: list) -> None:
         """Record the shared markers drawn on every shown plot.

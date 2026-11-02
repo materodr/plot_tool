@@ -508,6 +508,8 @@ def plot_entry(plot) -> dict:
          FIRST_POINT_KEY_STR: point_entry(delta_marker.first_point_tuple),
          SECOND_POINT_KEY_STR: point_entry(delta_marker.second_point_tuple)}
         for delta_marker in plot.delta_marker_list]
+    # LLFR-00226: the text notes of the plot (Plot.text_note_list) are
+    # never written to the layout file.
     return {CURVES_KEY_STR: curve_list, DATA_TIPS_KEY_STR: data_tip_list,
             DELTA_MARKERS_KEY_STR: delta_marker_list}
 
@@ -1557,6 +1559,8 @@ class LayoutBuilder:
             not self.workspace.has_plots()
             and any(self.tab_will_hold_plot(tab_entry)
                     for tab_entry in tab_entry_list))
+        # LLFR-00229: kept tabs keep their plots as they are, with their
+        # text notes, which a layout file never holds (LLFR-00226).
         if tabs_replaced_b:
             self.workspace.remove_all_tabs()
         first_tab_id_i = self.rebuild_tabs(tab_entry_list)

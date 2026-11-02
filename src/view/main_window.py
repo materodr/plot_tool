@@ -1045,6 +1045,21 @@ class MainWindow(QMainWindow):
         # LLFR-00168, LLFR-00170, LLFR-00176: draw the delta markers.
         plot_widget.set_delta_markers(delta_marker_data_list)
 
+    def set_text_notes(self, plot_id_i: int,
+                       text_note_data_list: list) -> None:
+        """Draw the text notes of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            text_note_data_list: tuples (text_str, time_s, value_f); see
+                PlotWidget.set_text_notes.
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00337, LLFR-00340: the notes are shown only on their plot.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_text_notes(text_note_data_list)
+
     def set_markers(self, marker_data_list: list) -> None:
         """Draw the shared vertical markers on every plot of every tab.
 

@@ -19,7 +19,8 @@ from tests.view.test_span_zoom import (
 from tests.view.test_xyz_keys import XyzKeyWindowTestCase
 
 from controller.plot_tools import (
-    AREA_TOOL_STR, NO_TOOL_STR, PLOT_TOOL_TUPLE, ZOOM_TOOL_STR)
+    AREA_TOOL_STR, NO_TOOL_STR, PLOT_TOOL_TUPLE, TEXT_TOOL_STR,
+    ZOOM_TOOL_STR)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import FREQUENCY_PLOT_KIND_STR
 
@@ -287,10 +288,10 @@ class AreaLookTest(AreaWidgetTestCase):
                         self.plot_widget.axes.xaxis.get_zorder())
         self.assertLess(label.get_zorder(),
                         self.plot_widget.axes.xaxis.get_zorder())
-        # LLFR-00306: also behind the vertical markers, delta markers and
-        # pinned data tips drawn over the area. (Text notes come with
-        # issue #130 and are checked there.)
+        # LLFR-00306: also behind the vertical markers, delta markers,
+        # pinned data tips and text notes drawn over the area.
         self.plot_widget.set_markers([(5, "Marker 1", 4.0)])
+        self.plot_widget.set_text_notes([("Note", 4.2, 2.0)])
         self.plot_widget.set_pinned_tips([("Ramp", 4.5, 3.45, ())])
         self.plot_widget.set_delta_markers([
             (6, "y", ("Ramp", 3.5, 3.35), ("Sine", 3.5, float(np.sin(3.5))),
@@ -300,7 +301,8 @@ class AreaLookTest(AreaWidgetTestCase):
         item_list += [artist for artist
                       in self.plot_widget.delta_artist_tuple(6)]
         item_list.append(self.plot_widget.pinned_tip_annotation(0))
-        self.assertEqual(len(item_list), 8)
+        item_list.append(self.plot_widget.text_note_annotation(0))
+        self.assertEqual(len(item_list), 9)
         for artist in item_list:
             self.assertLess(band.get_zorder(), artist.get_zorder())
             self.assertLess(label.get_zorder(), artist.get_zorder())
@@ -552,7 +554,7 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
                          (3.5, 5.5))
         self.assertEqual(self.plot_widget.area_times_text(1),
                          "3.5 s to 5.5 s")
-        self.assertEqual(self.plot_widget.area_data_list[0][2:], (3.0, 5.0))
+        self.assertEqual(self.plot_widget.area_data_list[0][2:4], (3.0, 5.0))
         self.plot_widget.follow_area_drag(99, 1.0, 2.0)
 
 
@@ -564,7 +566,8 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
     def test_other_tools_never_move_or_resize_an_area(self) -> None:
         """With every other tool, and with none, a drag inside an area
         or on its edge asks for no area change; the Zoom tool still
-        selects a span there.
+        selects a span there and the Text tool still opens its text
+        field there (closed with Esc).
 
         Inputs: none.
         Outputs: none.
@@ -577,6 +580,13 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
                 self.plot_widget.set_plot_tool(tool_str)
                 for press_point in (self.at(4.0), self.at(3.0, 2)):
                     self.left_press(press_point)
+                    if tool_str == TEXT_TOOL_STR:
+                        # LLFR-00333: the press opens the text field, as
+                        # outside an area.
+                        self.assertTrue(
+                            self.plot_widget.text_note_editor_open_b)
+                        self.plot_widget.cancel_text_note_editor()
+                        self.application.processEvents()
                     self.move_to(self.at(4.6))
                     if tool_str == ZOOM_TOOL_STR:
                         self.assertTrue(
@@ -590,6 +600,47 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         self.assertEqual(self.change_list, [])
         self.assertEqual(self.create_list, [])
         self.assertEqual(self.drag_list, [])
+
+    @covers("LLFR-00339", "LLFR-00318")
+    def test_press_on_a_text_note_moves_the_note(self) -> None:
+        """With the Area tool, a press on a text note inside an area
+        moves the note, not the area.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        self.set_areas([(1, "Area 1", 3.0, 6.0)])
+        self.plot_widget.set_text_notes([("Note", 4.5, 2.0)])
+        self.draw()
+        move_list = recorder(self.plot_widget.text_note_move_requested)
+        box = self.plot_widget.text_note_box_extent(0)
+        note_point = self.plot_widget.display_to_widget_point(
+            (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+        self.assertEqual(self.plot_widget.text_note_at(note_point), 0)
+        self.drag(note_point, note_point + QPoint(30, 0))
+        self.assertEqual(len(move_list), 1)
+        self.assertEqual(self.change_list, [])
+        self.assertEqual(self.create_list, [])
+        self.assertEqual(self.drag_list, [])
+
+    @covers("LLFR-00341", "LLFR-00317", "LLFR-00314")
+    def test_text_note_inside_an_area_takes_the_menu(self) -> None:
+        """A right-click on a text note inside an area shows the text
+        note menu, not the area menu.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_areas([(1, "Area 1", 3.0, 6.0)])
+        self.plot_widget.set_text_notes([("Note", 4.5, 2.0)])
+        self.draw()
+        box = self.plot_widget.text_note_box_extent(0)
+        note_point = self.plot_widget.display_to_widget_point(
+            (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+        menu, _ = self.plot_widget.context_menu_and_requests(note_point)
+        self.assertEqual([action.text() for action in menu.actions()],
+                         ["Edit", "Delete"])
 
     @covers("LLFR-00153", "LLFR-00318")
     def test_press_on_a_pinned_tip_moves_the_tip(self) -> None:

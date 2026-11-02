@@ -89,6 +89,11 @@ PLOT_SIGNAL_HANDLER_DICT = {
     # LLFR-00351: a color chosen in an area's menu.
     "area_color_requested": "area_color_handler",
     "area_delete_requested": "area_delete_handler",
+    # LLFR-00334, LLFR-00339, LLFR-00342, LLFR-00343: the text notes.
+    "text_note_create_requested": "text_note_create_handler",
+    "text_note_move_requested": "text_note_move_handler",
+    "text_note_edit_requested": "text_note_edit_handler",
+    "text_note_delete_requested": "text_note_delete_handler",
 }
 
 
