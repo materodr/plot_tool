@@ -500,6 +500,17 @@ class MainWindow(QMainWindow):
         finally:
             dialog.deleteLater()
 
+    def show_file_name(self, file_name_str: str) -> None:
+        """Show the name of the opened data file above the signal list.
+
+        Inputs:
+            file_name_str: the file name with its extension, without
+                its folder.
+        Outputs: none.
+        """
+        # LLFR-00362, LLFR-00363: the file name line.
+        self.signal_list_panel.show_file_name(file_name_str)
+
     def set_time_signal_name(self, name_str: str) -> None:
         """Tell the signal list which signal is the time signal.
 

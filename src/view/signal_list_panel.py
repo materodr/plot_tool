@@ -15,6 +15,12 @@ in green, also while it is selected (LLFR-00332). The menu is shown
 once the right-click has been handled, and its request is emitted after
 the menu is closed, so a request may change the list safely.
 
+The first line of the panel is the file name line (LLFR-00362): a
+label, not an item of the list, with the name of the opened data file,
+shortened in the middle with "..." when it is too wide, and the whole
+name in a tip while it is shortened. It is empty while no file is open
+(LLFR-00363).
+
 Several signals can be selected (HLFR-00063): a click selects one, a
 click with the Data tip key (Cmd on macOS, which Qt reports as the
 Control modifier, Ctrl elsewhere) toggles one and a click with Shift
@@ -32,9 +38,10 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import QBrush, QColor, QPalette
 from PyQt6.QtWidgets import (
     QAbstractItemView, QLabel, QLineEdit, QListWidget, QMenu,
-    QStyledItemDelegate, QVBoxLayout, QWidget)
+    QSizePolicy, QStyledItemDelegate, QVBoxLayout, QWidget)
 
 from view import theme
+from view.elided_text import is_elided, middle_elided_text
 
 # LLFR-00021: MIME type of a dragged signal name. The plot widget
 # accepts drops of this type, so the literal must stay the same there.
@@ -57,6 +64,98 @@ COPY_NAME_TEXT_STR = "Copy name"
 COPY_EQUATION_TEXT_STR = "Copy equation"
 RENAME_SIGNAL_TEXT_STR = "Rename"
 DELETE_SIGNAL_TEXT_STR = "Delete signal"
+
+
+class FileNameLabel(QLabel):
+    """The file name line above the signal list (LLFR-00362).
+
+    It shows the whole file name when it fits in the label's width, and
+    otherwise the name shortened in the middle with "...", with the
+    whole name as its tip. It cannot be selected, dragged or plotted,
+    and has no menu.
+
+    Inputs:
+        parent: optional parent widget.
+    Attributes:
+        file_name_str: the whole file name ("" while no file is open).
+    """
+
+    def __init__(self, parent=None) -> None:
+        """Create an empty file name line.
+
+        Inputs:
+            parent: optional parent widget.
+        Outputs: none.
+        """
+        super().__init__("", parent)
+        # LLFR-00363: empty while no data file is open.
+        self.file_name_str = ""
+        # LLFR-00362: plain text that cannot be selected or edited.
+        self.setTextFormat(Qt.TextFormat.PlainText)
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        # LLFR-00362: no menu, also not the menu of the panel below it.
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
+        self.setAcceptDrops(False)
+        # LLFR-00362: a long name never widens the panel; it is
+        # shortened to the width the panel gives instead.
+        self.setSizePolicy(QSizePolicy.Policy.Ignored,
+                           QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(1)
+        # LLFR-00363: the empty line keeps the height of one line, so
+        # the list does not move when a file is opened.
+        self.setMinimumHeight(self.fontMetrics().height())
+
+    def set_file_name(self, file_name_str: str) -> None:
+        """Show a new file name, shortened when it does not fit.
+
+        Inputs:
+            file_name_str: the file name with its extension, without
+                its folder, or "" for no file.
+        Outputs: none.
+        """
+        # LLFR-00362, LLFR-00363: the name of the opened data file.
+        self.file_name_str = str(file_name_str)
+        self.refresh_shown_text()
+
+    def available_width(self) -> int:
+        """Return the width the name may take, in pixels.
+
+        Inputs: none.
+        Outputs: the width of the label's contents, at least 0.
+        """
+        # LLFR-00362: the name is shortened to the panel's width.
+        return max(0, self.contentsRect().width())
+
+    def refresh_shown_text(self) -> None:
+        """Shorten the name to the current width and set its tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00362: "..." in the middle when the name is too wide.
+        font_metrics = self.fontMetrics()
+        shown_text_str = middle_elided_text(
+            self.file_name_str, self.available_width(),
+            font_metrics.horizontalAdvance)
+        if not self.file_name_str:
+            shown_text_str = ""
+        self.setText(shown_text_str)
+        # LLFR-00362: the whole name in a tip while it is shortened.
+        if is_elided(shown_text_str, self.file_name_str):
+            self.setToolTip(self.file_name_str)
+        else:
+            self.setToolTip("")
+
+    def resizeEvent(self, event) -> None:
+        """Shorten the name again when the label's width changes.
+
+        Inputs:
+            event: the QResizeEvent.
+        Outputs: none.
+        """
+        # LLFR-00362: the shortening follows the panel's width.
+        super().resizeEvent(event)
+        self.refresh_shown_text()
 
 
 class SignalItemDelegate(QStyledItemDelegate):
@@ -291,6 +390,8 @@ class SignalListPanel(QWidget):
     Inputs: none.
     Attributes:
         panel_layout: vertical layout that holds the panel's content.
+        file_name_label: the FileNameLabel in the first line
+            (LLFR-00362).
         title_label: the "Signals" title.
         signal_list_widget: the SignalListWidget with the signal names.
         search_box: the QLineEdit below the list (LLFR-00094).
@@ -344,6 +445,11 @@ class SignalListPanel(QWidget):
         self.title_label.setObjectName("signal_list_title")
         self.signal_list_widget = SignalListWidget()
         self.signal_list_widget.setObjectName("signal_list_widget")
+        # LLFR-00362: the file name line is the first line of the
+        # panel, above the signal list; it is a label, not a list item.
+        self.file_name_label = FileNameLabel()
+        self.file_name_label.setObjectName("file_name_label")
+        self.panel_layout.addWidget(self.file_name_label)
         self.panel_layout.addWidget(self.title_label)
         self.panel_layout.addWidget(self.signal_list_widget, 1)
         # LLFR-00094: the search box is placed directly below the list.
@@ -421,6 +527,26 @@ class SignalListPanel(QWidget):
             if item.text() == self.time_signal_name_str:
                 item.setForeground(QBrush(QColor(
                     theme.TIME_SIGNAL_TEXT_COLOR_STR)))
+
+    def show_file_name(self, file_name_str: str) -> None:
+        """Show the name of the opened data file in the first line.
+
+        Inputs:
+            file_name_str: the file name with its extension, without
+                its folder.
+        Outputs: none.
+        """
+        # LLFR-00362, LLFR-00363: the line follows the opened file.
+        self.file_name_label.set_file_name(file_name_str)
+
+    def file_name(self) -> str:
+        """Return the whole file name of the first line.
+
+        Inputs: none.
+        Outputs: the name, or "" while no data file is open.
+        """
+        # LLFR-00363: empty before any file is opened.
+        return self.file_name_label.file_name_str
 
     def set_time_signal_name(self, name_str: str) -> None:
         """Keep which name is the time signal.

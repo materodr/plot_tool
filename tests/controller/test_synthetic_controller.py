@@ -163,6 +163,15 @@ class FakeSyntheticWindow(FakePlotView):
         """
         self.time_signal_name_str = name_str
 
+    def show_file_name(self, file_name_str: str) -> None:
+        """Record the name of the file name line (LLFR-00362).
+
+        Inputs:
+            file_name_str: the opened file's name, without its folder.
+        Outputs: none.
+        """
+        self.file_name_str = file_name_str
+
     def show_signal_names(self, signal_name_list: list) -> None:
         """Record the shown names.
 

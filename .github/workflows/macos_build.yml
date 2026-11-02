@@ -7,7 +7,11 @@ name: macOS build
 # loaders, and the warm launch under 10 s. It also checks that the
 # bundle carries the app icon (LLFR-00182): Contents/Resources holds
 # plot_tool.icns, Info.plist names it in CFBundleIconFile, and iconutil
-# can read every image of it. The main test workflow
+# can read every image of it. It also checks that the build copied the
+# sample files next to the app (COR-00020): bin/user_tests/good and
+# bin/user_tests/bad hold the same files as tests/user_tests, with at
+# least one good sample of every format of HLFR-00005 (PCR-00032).
+# The main test workflow
 # (tests.yml) is not changed.
 #
 # Startup checks of the built app (issue #75), from a cold first launch
@@ -89,6 +93,24 @@ jobs:
           echo "Largest parts of the bundle:"
           du -sh "$app"/Contents/Frameworks/* "$app"/Contents/Resources/* 2>/dev/null | sort -h | tail -15
           echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
+          exit $failed
+
+      # COR-00020, PCR-00032: the sample files are copied next to the
+      # app, one good sample at least for every format of HLFR-00005.
+      - name: Check the sample files next to the app
+        run: |
+          failed=0
+          fail() { echo "::error title=Sample files::$1"; failed=1; }
+          ls -la bin/user_tests bin/user_tests/good bin/user_tests/bad || true
+          for folder in good bad; do
+            [ -d "bin/user_tests/$folder" ] || fail "no bin/user_tests/$folder"
+            diff -r "tests/user_tests/$folder" "bin/user_tests/$folder" || fail "bin/user_tests/$folder differs from tests/user_tests/$folder"
+          done
+          for extension in csv xlsx mat h5; do
+            count=$(find bin/user_tests/good -maxdepth 1 -type f -name "*.$extension" | wc -l | tr -d ' ')
+            [ "$count" -gt 0 ] || fail "no .$extension sample in bin/user_tests/good"
+          done
+          [ -z "$(git status --porcelain --ignored=no bin)" ] || fail "bin/ has files that git would commit"
           exit $failed
 
       # LLFR-00182: the bundle icon replaces PyInstaller's default one.
