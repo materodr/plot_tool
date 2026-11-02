@@ -92,8 +92,10 @@ DISABLED_BORDER_COLOR_STR = "#dfe4e9"
 BUTTON_RADIUS_I = 6
 BUTTON_VERTICAL_PADDING_I = 6
 BUTTON_HORIZONTAL_PADDING_I = 12
-# Position of a button in a segmented group (the plot tools, which are
-# exclusive, HLFR-00032, are drawn joined): single, first, middle, last.
+# LLFR-00348: position of a button in a joined group of buttons
+# (LLFR-00347): single, first, middle, last. Only the outer side of the
+# first and last buttons is rounded, and joined buttons share one
+# border line: the right border of the button on its left.
 SEGMENT_SINGLE_STR = "single"
 SEGMENT_FIRST_STR = "first"
 SEGMENT_MIDDLE_STR = "middle"
@@ -152,7 +154,8 @@ SPLASH_MESSAGE_FONT_SIZE_I = 13
 WINDOW_MARGIN_I = 12
 WINDOW_TOP_MARGIN_I = 10
 PANEL_SPACING_I = 10
-TOOLBAR_BUTTON_GAP_I = 4
+# LLFR-00348, LLFR-00349: the buttons of a group touch; 16 px separate
+# one group from the next.
 TOOLBAR_GROUP_GAP_I = 16
 SIGNAL_PANEL_SPACING_I = 8
 SPLITTER_HANDLE_WIDTH_I = 8
@@ -260,7 +263,9 @@ def segment_corner_rule(segment_str: str) -> str:
     Outputs: Qt style sheet declarations for the corner radii and the
         left border; joined segments share one border line.
     """
-    # LLFR-00001: the plot tool buttons form one joined group.
+    # LLFR-00348: the buttons of a group are joined; a middle or last
+    # button has no left border, so the right border of its left
+    # neighbour is the one line they share.
     radius_str = f"{BUTTON_RADIUS_I}px"
     if segment_str == SEGMENT_FIRST_STR:
         return (f"border-top-left-radius: {radius_str}; "
@@ -276,6 +281,25 @@ def segment_corner_rule(segment_str: str) -> str:
                 "border-bottom-left-radius: 0px; "
                 "border-left-width: 0px;")
     return f"border-radius: {radius_str};"
+
+
+def shared_border_rule(segment_str: str) -> str:
+    """Return the color of the line a button shares with its right
+    neighbour while the button is disabled.
+
+    Inputs:
+        segment_str: the button's place in a joined group.
+    Outputs: a declaration that keeps the right border, which the next
+        button of the group uses as its left edge, in the normal border
+        color; "" for a last or single button, which shares no line.
+    """
+    # LLFR-00350: a disabled button must not make its enabled right
+    # neighbour look paler, so the shared line keeps the normal color;
+    # the disabled button still shows its state by its paler
+    # background, icon and outer borders (LLFR-00141).
+    if segment_str in (SEGMENT_FIRST_STR, SEGMENT_MIDDLE_STR):
+        return f"border-right-color: {BUTTON_BORDER_COLOR_STR};"
+    return ""
 
 
 def toggle_button_style_sheet(object_name_str: str, active_b: bool,
@@ -334,7 +358,8 @@ def toggle_button_style_sheet(object_name_str: str, active_b: bool,
             f"background-color: {DISABLED_COLOR_STR}; "
             f"color: {DISABLED_TEXT_COLOR_STR}; "
             f"border: 1px solid {DISABLED_BORDER_COLOR_STR}; "
-            f"{segment_corner_rule(segment_str)} }}")
+            f"{segment_corner_rule(segment_str)} "
+            f"{shared_border_rule(segment_str)} }}")
     return "\n".join(rule_list)
 
 

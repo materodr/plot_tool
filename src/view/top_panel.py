@@ -18,12 +18,13 @@ from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QHBoxLayout, QMenu, QWidget
 
 from controller.plot_tools import (
-    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
-    TIP_TOOL_STR, ZOOM_TOOL_STR)
+    AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
+    NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 from view import icon_shapes, theme
 from view.action_button import ActionButton
 from view.tip_key_filter import (
-    DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I, RESET_ZOOM_KEY_I, TIP_KEY_I)
+    AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I,
+    RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I)
 from view.toggle_button import ToggleButton
 from view.undo_button import UndoButton
 
@@ -38,6 +39,9 @@ MARKER_TEXT_STR = "Vertical marker"
 # LLFR-00161, LLFR-00162: the delta marker tool buttons.
 DELTA_X_TEXT_STR = "Delta X"
 DELTA_Y_TEXT_STR = "Delta Y"
+# LLFR-00286, LLFR-00320: the Area and Text tool buttons.
+AREA_TEXT_STR = "Area"
+TEXT_TEXT_STR = "Text"
 RESET_ZOOM_TEXT_STR = "Reset zoom"
 GRID_TEXT_STR = "Grid"
 # LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
@@ -57,6 +61,8 @@ BUTTON_ICON_DICT = {
     MARKER_TEXT_STR: icon_shapes.MARKER_ICON_STR,
     DELTA_X_TEXT_STR: icon_shapes.DELTA_X_ICON_STR,
     DELTA_Y_TEXT_STR: icon_shapes.DELTA_Y_ICON_STR,
+    AREA_TEXT_STR: icon_shapes.AREA_ICON_STR,
+    TEXT_TEXT_STR: icon_shapes.TEXT_ICON_STR,
     RESET_ZOOM_TEXT_STR: icon_shapes.RESET_ZOOM_ICON_STR,
     GRID_TEXT_STR: icon_shapes.GRID_ICON_STR,
     EXPORT_TEXT_STR: icon_shapes.EXPORT_ICON_STR,
@@ -82,7 +88,7 @@ SHORTCUT_HOLD_STR = "hold"
 SHORTCUT_PRESS_STR = "press"
 MOUSE_USE_STR = "mouse"
 # LLFR-00215: the word "Hold" before a held key (LLFR-00148, LLFR-00154,
-# LLFR-00197, LLFR-00200).
+# LLFR-00197, LLFR-00200, LLFR-00287, LLFR-00321).
 HOLD_PREFIX_STR = "Hold "
 # LLFR-00148: Qt reports the Command key of macOS as Key_Control, so the
 # Data tip key is written "Cmd" on macOS and "Ctrl" elsewhere.
@@ -106,6 +112,9 @@ BUTTON_TIP_SHORTCUT_DICT = {
     MARKER_TEXT_STR: (SHORTCUT_HOLD_STR, MARKER_KEY_I),
     DELTA_X_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_X_KEY_I),
     DELTA_Y_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_Y_KEY_I),
+    # LLFR-00287, LLFR-00321: "Hold A" and "Hold T".
+    AREA_TEXT_STR: (SHORTCUT_HOLD_STR, AREA_KEY_I),
+    TEXT_TEXT_STR: (SHORTCUT_HOLD_STR, TEXT_KEY_I),
     RESET_ZOOM_TEXT_STR: (SHORTCUT_PRESS_STR, RESET_ZOOM_KEY_I),
     ZOOM_TEXT_STR: (MOUSE_USE_STR, ZOOM_MOUSE_LINE_TUPLE),
 }
@@ -232,6 +241,25 @@ def new_icon_button(button_class, name_str: str, object_name_str: str):
     return button
 
 
+def group_segment_list(button_count_i: int) -> list:
+    """Return the place of each button in a joined group.
+
+    Inputs:
+        button_count_i: the number of buttons of the group.
+    Outputs: a list of theme segment names, one per button:
+        [SEGMENT_SINGLE_STR] for one button, otherwise
+        SEGMENT_FIRST_STR, then SEGMENT_MIDDLE_STR for the inner
+        buttons, then SEGMENT_LAST_STR.
+    """
+    # LLFR-00348: rounded corners only on the outer side of the first
+    # and last buttons of a group.
+    if button_count_i <= 1:
+        return [theme.SEGMENT_SINGLE_STR] * button_count_i
+    return ([theme.SEGMENT_FIRST_STR]
+            + [theme.SEGMENT_MIDDLE_STR] * (button_count_i - 2)
+            + [theme.SEGMENT_LAST_STR])
+
+
 class TopPanel(QWidget):
     """Panel placed above the plot and signal list panels (HLFR-00001).
 
@@ -254,7 +282,10 @@ class TopPanel(QWidget):
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
         delta_x_button: the "Delta X" ToggleButton (LLFR-00161).
         delta_y_button: the "Delta Y" ToggleButton (LLFR-00162).
-        plot_tool_button_dict: plot tool name -> its ToggleButton.
+        area_button: the "Area" ToggleButton (LLFR-00286).
+        text_button: the "Text" ToggleButton (LLFR-00320).
+        plot_tool_button_dict: plot tool name -> its ToggleButton, in
+            the order of the buttons (LLFR-00347).
         reset_zoom_button: the "Reset zoom" ActionButton (LLFR-00114);
             not a plot tool.
         grid_button: the "Grid" ToggleButton (LLFR-00121); not a plot
@@ -266,6 +297,8 @@ class TopPanel(QWidget):
         redo_button: the "Redo" UndoButton (LLFR-00190), directly right
             of the Undo button; disabled while nothing can be redone
             (LLFR-00194).
+        button_group_list: the button groups of LLFR-00347, from left
+            to right, each a list of its buttons from left to right.
     """
 
     plot_tool_changed = pyqtSignal(str)
@@ -284,114 +317,113 @@ class TopPanel(QWidget):
         # LLFR-00058: the top panel exists and is placed by MainWindow.
         self.setObjectName("top_panel")
         self.button_layout = QHBoxLayout(self)
-        # LLFR-00058: the window margins frame the panel; the buttons are
-        # spaced by explicit gaps, small inside a group of related
-        # buttons and wider between groups.
+        # LLFR-00058: the window margins frame the panel.
         self.button_layout.setContentsMargins(0, 0, 0, 0)
+        # LLFR-00348: no space inside a group; LLFR-00349 adds the gaps
+        # between the groups explicitly.
         self.button_layout.setSpacing(0)
         # LLFR-00004: the "Open file" button; LLFR-00001: it shows when
         # it is active. LLFR-00158: each button shows only its icon.
         self.open_file_button = new_icon_button(
             ToggleButton, OPEN_FILE_TEXT_STR, "open_file_button")
-        # LLFR-00018, LLFR-00077, LLFR-00080: the plot tool buttons,
-        # placed after "Open file".
+        # LLFR-00216, LLFR-00217: Save layout and Load layout, right of
+        # Open file. LLFR-00218: disabled, and paler, until a data file
+        # is open.
+        self.save_layout_button = new_icon_button(
+            UndoButton, SAVE_LAYOUT_TEXT_STR, "save_layout_button")
+        self.load_layout_button = new_icon_button(
+            UndoButton, LOAD_LAYOUT_TEXT_STR, "load_layout_button")
+        self.save_layout_button.setEnabled(False)
+        self.load_layout_button.setEnabled(False)
+        # LLFR-00018, LLFR-00077, LLFR-00080, LLFR-00161, LLFR-00162,
+        # LLFR-00286, LLFR-00320: the plot tool buttons.
         self.tip_button = new_icon_button(
             ToggleButton, TIP_TEXT_STR, "tip_button")
         self.zoom_button = new_icon_button(
             ToggleButton, ZOOM_TEXT_STR, "zoom_button")
         self.marker_button = new_icon_button(
             ToggleButton, MARKER_TEXT_STR, "marker_button")
-        # LLFR-00161, LLFR-00162: the Delta X and Delta Y tools, after
-        # Vertical marker in the same group.
         self.delta_x_button = new_icon_button(
             ToggleButton, DELTA_X_TEXT_STR, "delta_x_button")
         self.delta_y_button = new_icon_button(
             ToggleButton, DELTA_Y_TEXT_STR, "delta_y_button")
+        self.area_button = new_icon_button(
+            ToggleButton, AREA_TEXT_STR, "area_button")
+        self.text_button = new_icon_button(
+            ToggleButton, TEXT_TEXT_STR, "text_button")
+        # LLFR-00079, LLFR-00347: the plot tools, in the order of their
+        # buttons.
         self.plot_tool_button_dict = {
             TIP_TOOL_STR: self.tip_button,
             ZOOM_TOOL_STR: self.zoom_button,
             MARKER_TOOL_STR: self.marker_button,
             DELTA_X_TOOL_STR: self.delta_x_button,
-            DELTA_Y_TOOL_STR: self.delta_y_button}
-        self.button_layout.addWidget(self.open_file_button)
-        # LLFR-00216, LLFR-00217: Save layout and Load layout, in the
-        # group of Open file. LLFR-00218: disabled, and paler, until a
-        # data file is open.
-        self.save_layout_button = new_icon_button(
-            UndoButton, SAVE_LAYOUT_TEXT_STR, "save_layout_button")
-        self.load_layout_button = new_icon_button(
-            UndoButton, LOAD_LAYOUT_TEXT_STR, "load_layout_button")
-        for layout_button in (self.save_layout_button,
-                              self.load_layout_button):
-            layout_button.setEnabled(False)
-            self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
-            self.button_layout.addWidget(layout_button)
-        # LLFR-00219, LLFR-00221: the dialogs open once control is back
-        # in Qt, so the active color is painted first (LLFR-00001).
-        self.save_layout_button.triggered.connect(
-            lambda: QTimer.singleShot(0, self.emit_pending_save_layout))
-        self.load_layout_button.triggered.connect(
-            lambda: QTimer.singleShot(0, self.emit_pending_load_layout))
-        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
-        # LLFR-00079: only one plot tool is active at a time, so the
-        # five tool buttons are drawn joined, as one group.
-        segment_list = ([theme.SEGMENT_FIRST_STR]
-                        + [theme.SEGMENT_MIDDLE_STR]
-                        * (len(self.plot_tool_button_dict) - 2)
-                        + [theme.SEGMENT_LAST_STR])
-        for segment_str, (tool_str, button) in zip(
-                segment_list, self.plot_tool_button_dict.items()):
-            button.set_segment_position(segment_str)
-            self.button_layout.addWidget(button)
+            DELTA_Y_TOOL_STR: self.delta_y_button,
+            AREA_TOOL_STR: self.area_button,
+            TEXT_TOOL_STR: self.text_button}
+        for tool_str, button in self.plot_tool_button_dict.items():
             # LLFR-00079: activating a tool button deactivates the others.
             button.activated.connect(
                 lambda tool_str=tool_str: self.activate_plot_tool(tool_str))
             # LLFR-00002: a second click leaves no tool active.
             button.deactivated.connect(self.deactivate_plot_tools)
-        # LLFR-00114, LLFR-00121: Reset zoom and Grid come after the plot
-        # tools. They are not in plot_tool_button_dict, so the plot tools
-        # never deactivate them and they never deactivate a plot tool.
+        # LLFR-00114, LLFR-00121: Reset zoom and Grid. They are not in
+        # plot_tool_button_dict, so the plot tools never deactivate them
+        # and they never deactivate a plot tool.
         self.reset_zoom_button = new_icon_button(
             ActionButton, RESET_ZOOM_TEXT_STR, "reset_zoom_button")
         self.grid_button = new_icon_button(
             ToggleButton, GRID_TEXT_STR, "grid_button")
-        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
-        self.button_layout.addWidget(self.reset_zoom_button)
-        self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
-        self.button_layout.addWidget(self.grid_button)
         # LLFR-00126, LLFR-00132: the Export and Copy buttons; they are
         # active while their function runs (LLFR-00001, LLFR-00003).
         self.export_button = new_icon_button(
             ToggleButton, EXPORT_TEXT_STR, "export_button")
         self.copy_button = new_icon_button(
             ToggleButton, COPY_TEXT_STR, "copy_button")
-        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
-        self.button_layout.addWidget(self.export_button)
-        self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
-        self.button_layout.addWidget(self.copy_button)
+        # LLFR-00136: the Undo button; LLFR-00141: disabled until there
+        # is an action to undo. Not a plot tool. LLFR-00190: the Redo
+        # button, directly right of Undo; LLFR-00194: disabled until an
+        # action is undone.
+        self.undo_button = new_icon_button(
+            UndoButton, UNDO_TEXT_STR, "undo_button")
+        self.undo_button.setEnabled(False)
+        self.redo_button = new_icon_button(
+            UndoButton, REDO_TEXT_STR, "redo_button")
+        self.redo_button.setEnabled(False)
+        # LLFR-00347: the groups, from left to right.
+        self.button_group_list = [
+            [self.open_file_button, self.save_layout_button,
+             self.load_layout_button],
+            list(self.plot_tool_button_dict.values()),
+            [self.reset_zoom_button, self.grid_button],
+            [self.export_button, self.copy_button],
+            [self.undo_button, self.redo_button]]
+        for group_index_i, button_group in enumerate(
+                self.button_group_list):
+            # LLFR-00349: 16 px between one group and the next.
+            if group_index_i > 0:
+                self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
+            # LLFR-00348: the buttons of a group touch and are drawn as
+            # one joined block.
+            for segment_str, button in zip(
+                    group_segment_list(len(button_group)), button_group):
+                button.set_segment_position(segment_str)
+                self.button_layout.addWidget(button)
+        # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
+        # left.
+        self.button_layout.addStretch(1)
+        # LLFR-00219, LLFR-00221: the dialogs open once control is back
+        # in Qt, so the active color is painted first (LLFR-00001).
+        self.save_layout_button.triggered.connect(
+            lambda: QTimer.singleShot(0, self.emit_pending_save_layout))
+        self.load_layout_button.triggered.connect(
+            lambda: QTimer.singleShot(0, self.emit_pending_load_layout))
         # LLFR-00127, LLFR-00133: the menu and the copy run once control
         # is back in Qt, so the active color is painted first.
         self.export_button.activated.connect(
             lambda: QTimer.singleShot(0, self.show_pending_export_menu))
         self.copy_button.activated.connect(
             lambda: QTimer.singleShot(0, self.emit_pending_copy))
-        # LLFR-00136: the Undo button; LLFR-00141: disabled until there
-        # is an action to undo. Not a plot tool.
-        self.undo_button = new_icon_button(
-            UndoButton, UNDO_TEXT_STR, "undo_button")
-        self.undo_button.setEnabled(False)
-        self.button_layout.addSpacing(theme.TOOLBAR_GROUP_GAP_I)
-        self.button_layout.addWidget(self.undo_button)
-        # LLFR-00190: the Redo button, directly right of Undo in the same
-        # group; LLFR-00194: disabled until an action is undone.
-        self.redo_button = new_icon_button(
-            UndoButton, REDO_TEXT_STR, "redo_button")
-        self.redo_button.setEnabled(False)
-        self.button_layout.addSpacing(theme.TOOLBAR_BUTTON_GAP_I)
-        self.button_layout.addWidget(self.redo_button)
-        # LLFR-00004, LLFR-00018: the stretch keeps the buttons on the
-        # left.
-        self.button_layout.addStretch(1)
 
     def button_list(self) -> list:
         """Return the buttons of the panel, from left to right.
