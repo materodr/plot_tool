@@ -880,7 +880,7 @@ If the app cannot open the web browser, it must show an error box saying that th
 *Parent: HLFR-00078, HLFR-00002*
 
 ### LLFR-00364 Credit text
-The top panel must show the text "designed by materodr" at its right end, in a paler color than the panel's normal text. The text must not be a button and must not react to the mouse. When the window is too narrow for the buttons and the text, the app must hide the text and must not cover or move any button.
+The top panel must show the text "Designed by materodr", with a capital D, at its right end, in a paler color than the panel's normal text. The text must not be a button and must not react to the mouse. When the window is too narrow for the buttons and the text, the app must hide the text and must not cover or move any button.
 
 *Parent: HLFR-00080*
 
@@ -1660,7 +1660,7 @@ A flag must cover the whole y-axis range shown in its plot, and must keep coveri
 *Parent: HLFR-00028*
 
 ### LLFR-00083 Default flag color and reserved marker color
-The app must give every new flag the reserved marker color, the orange `#ff8000`, which it never uses for curves (LLFR-00033, LLFR-00034). The reserved marker color must also be the color of every new delta marker (LLFR-00172), of the dot of a first point (LLFR-00163), of the delta marker previews (LLFR-00352, LLFR-00353), of the time span selection (LLFR-00208) and of the flag preview (LLFR-00203), whatever color the user gave to the flags or to the delta markers. The user may give a flag (LLFR-00392) or a delta marker (LLFR-00409) any color, including a color of the curve palette.
+The app must give every new flag the reserved marker color, the orange `#ff8000`, which it never uses for curves (LLFR-00033, LLFR-00034). The reserved marker color must also be the color of every new delta marker (LLFR-00172), of every new arrow (LLFR-00373), of the border of every new text note (LLFR-00336), of the dot of a first point (LLFR-00163), of the delta marker previews (LLFR-00352, LLFR-00353), of the time span selection (LLFR-00208) and of the flag preview (LLFR-00203), whatever color the user gave to the flags or to the delta markers. The user may give a flag (LLFR-00392) or a delta marker (LLFR-00409) any color, including a color of the curve palette.
 
 Note: A flag stays easy to tell from a curve by its dashed line (LLFR-00143) and its name label (LLFR-00084).
 
@@ -2094,7 +2094,7 @@ When the user presses the Esc key in the text field of LLFR-00333, the app must 
 *Parent: HLFR-00073*
 
 ### LLFR-00336 Text note appearance
-The app must show a text note as its text on a white rounded box with a border, like a pinned data tip (LLFR-00045), with no other fill color, so that it is easy to read over the curves and the grid. The text must be drawn in the text note's text color and the border in its border color (LLFR-00387). Every new text note must have the app's text color `#24303b`, a near-black dark grey, as both its text color and its border color, and the size of LLFR-00385.
+The app must show a text note as its text on a white rounded box with a border, like a pinned data tip (LLFR-00045), with no other fill color, so that it is easy to read over the curves and the grid. The text must be drawn in the text note's text color and the border in its border color (LLFR-00387). Every new text note must have the app's text color `#24303b`, a near-black dark grey, as its text color, the reserved orange `#ff8000` of LLFR-00083 as its border color, and the size of LLFR-00385.
 
 *Parent: HLFR-00073*
 
@@ -2182,7 +2182,7 @@ When the user releases the left mouse button after LLFR-00371, the app must remo
 *Parent: HLFR-00081*
 
 ### LLFR-00373 Arrow appearance
-The app must draw an arrow as a straight solid line with an arrowhead at its end, both in the arrow's color. Every new arrow must have the app's text color `#24303b`, a dark grey, until the user chooses another color (LLFR-00379). The app must draw arrows above the curves, the grid, the areas, the flags and the delta markers, and below the pinned data tips and the text notes. The previews of LLFR-00371, LLFR-00376 and LLFR-00377 must be drawn in a paler version of the arrow's color and must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133). A point is on an arrow when it is within 5 pixels of its line or on its arrowhead.
+The app must draw an arrow as a straight dashed line with a filled arrowhead at its end, both in the arrow's color. Every new arrow must have the reserved orange `#ff8000` of LLFR-00083 until the user chooses another color (LLFR-00379). The app must draw arrows above the curves, the grid, the areas, the flags and the delta markers, and below the pinned data tips and the text notes. The previews of LLFR-00371, LLFR-00376 and LLFR-00377 must be drawn in a paler version of the arrow's color and must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133). A point is on an arrow when it is within 5 pixels of its line or on its arrowhead.
 
 *Parent: HLFR-00081*
 
