@@ -12,7 +12,9 @@ Measured on the macOS build check (issue #154): Qt creates a new system
 panel each time it shows a native dialog, so the panel itself takes
 about 0.3 to 0.5 s on every click; Qt's own (not native) dialog, reused,
 took about 0.1 s, but the owner chose to keep the system's dialogs and
-the 0.6 s limit.
+the 0.6 s limit. The first system panel of a process is the slowest, so
+on macOS the preparation also shows and closes one open and one save
+panel at once (load_system_panels), before the user clicks.
 
 A FileDialogPool keeps these dialogs:
 
@@ -20,7 +22,7 @@ A FileDialogPool keeps these dialogs:
   function that builds it (a function of no arguments returning a
   QFileDialog, for example ``MainWindow.build_layout_save_dialog``);
 - ``prepare_all()`` builds and styles every registered dialog that is
-  not built yet;
+  not built yet, and, on macOS, makes the system load its panels once;
 - ``prepared_dialog(key_str, start_folder_str)`` returns the dialog of a
   key, built on first use when it was not prepared, reset for a new
   use: it shows the given folder (LLFR-00204, LLFR-00220), its first
@@ -34,15 +36,20 @@ function with a new key and ask for it with prepared_dialog, as the
 Save signals dialog does.
 """
 
+import sys
 import time
 
 from PyQt6 import sip
-from PyQt6.QtWidgets import QDialog, QFileDialog, QLineEdit
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QDialog, QLineEdit
 
 # LLFR-00406: the name of the field where a file name is typed in Qt's
 # own file dialog (used where the system has no file dialog, as in the
 # tests).
 FILE_NAME_FIELD_NAME_STR = "fileNameEdit"
+# LLFR-00406: the platform whose system file panels are slow on their
+# first use in a process.
+MACOS_PLATFORM_STR = "darwin"
 
 
 def run_file_dialog(dialog) -> str:
@@ -90,21 +97,27 @@ def reset_for_new_use(dialog, start_folder_str: str) -> None:
 class FileDialogPool:
     """The app's file dialogs, each built once and reused (LLFR-00406).
 
-    Inputs: none.
+    Inputs:
+        platform_str: the platform name (sys.platform by default); on
+            macOS prepare_all also loads the system's file panels.
     Attributes:
         build_function_dict: key -> factory function of the dialog.
         dialog_dict: key -> the QFileDialog built for it.
         prepared_b: True once prepare_all has run.
         prepare_duration_s: how long prepare_all took, in seconds.
+        system_panels_loaded_b: True once load_system_panels has run.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, platform_str: str = sys.platform) -> None:
         """Create an empty pool.
 
-        Inputs: none.
+        Inputs:
+            platform_str: the platform name, as sys.platform.
         Outputs: none.
         """
         # LLFR-00406: no dialog is built before prepare_all or first use.
+        self.platform_str = str(platform_str)
+        self.system_panels_loaded_b = False
         self.build_function_dict = {}
         self.dialog_dict = {}
         self.prepared_b = False
@@ -180,5 +193,38 @@ class FileDialogPool:
         start_s = time.perf_counter()
         for key_str in self.key_list():
             self.dialog(key_str).ensurePolished()
+        if self.platform_str == MACOS_PLATFORM_STR:
+            self.load_system_panels()
         self.prepared_b = True
         self.prepare_duration_s = time.perf_counter() - start_s
+
+    def load_system_panels(self) -> None:
+        """Make macOS load its open and save panels once.
+
+        Inputs: none.
+        Outputs: none. One dialog of each kind (open and save) is shown
+            and closed in the same step of the event loop, before the
+            screen is drawn again, and the main window gets the keyboard
+            focus back.
+        """
+        # LLFR-00406: the first system panel of a process is the slowest
+        # (measured on the macOS build check: about 0.6 s for the first
+        # Open file dialog without this step, 0.4 to 0.5 s with it);
+        # showing one here moves that wait to the start, while the user
+        # looks at the new window.
+        if self.system_panels_loaded_b:
+            return
+        self.system_panels_loaded_b = True
+        shown_mode_set = set()
+        for key_str in self.key_list():
+            dialog = self.dialog(key_str)
+            accept_mode = dialog.acceptMode()
+            if accept_mode in shown_mode_set:
+                continue
+            shown_mode_set.add(accept_mode)
+            dialog.setVisible(True)
+            dialog.setVisible(False)
+            parent = dialog.parentWidget()
+            if parent is not None:
+                # LLFR-00406: the main window keeps the keyboard focus.
+                QTimer.singleShot(0, parent.activateWindow)

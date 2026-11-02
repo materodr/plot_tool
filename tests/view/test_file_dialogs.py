@@ -383,6 +383,41 @@ class FileDialogTimingTest(unittest.TestCase):
         self.assertEqual(pool.dialog("other").nameFilters(),
                          ["Data files (*.csv)"])
 
+    @covers("LLFR-00406")
+    def test_macos_panels_loaded_once_and_hidden(self) -> None:
+        """On macOS the preparation shows each kind of panel and hides it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import file_dialogs
+        pool = file_dialogs.FileDialogPool("darwin")
+        shown_list = []
+        for key_str in ("open", "save_a", "save_b"):
+            dialog = self.main_window.build_open_file_dialog("")
+            if key_str != "open":
+                dialog.setAcceptMode(
+                    self.file_dialog_class.AcceptMode.AcceptSave)
+            dialog.setVisible = (
+                lambda visible_b, key_str=key_str:
+                shown_list.append((key_str, visible_b)))
+            pool.register(key_str, lambda dialog=dialog: dialog)
+        pool.prepare_all()
+        pool.prepare_all()
+        self.assertTrue(pool.system_panels_loaded_b)
+        # One open panel and one save panel, each shown then hidden.
+        self.assertEqual(shown_list, [("open", True), ("open", False),
+                                      ("save_a", True), ("save_a", False)])
+        # Elsewhere no panel is shown by the preparation.
+        other_pool = file_dialogs.FileDialogPool("linux")
+        other_list = []
+        dialog = self.main_window.build_open_file_dialog("")
+        dialog.setVisible = other_list.append
+        other_pool.register("open", lambda: dialog)
+        other_pool.prepare_all()
+        self.assertEqual(other_list, [])
+        self.assertFalse(other_pool.system_panels_loaded_b)
+
 
 if __name__ == "__main__":
     unittest.main()
