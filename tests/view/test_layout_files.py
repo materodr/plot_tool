@@ -60,7 +60,6 @@ class LayoutButtonTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from view import theme
         from view.undo_button import UndoButton
         button_list = self.top_panel.button_list()
         open_index_i = button_list.index(self.top_panel.open_file_button)
@@ -80,9 +79,8 @@ class LayoutButtonTest(unittest.TestCase):
                 self.assertTrue(button.isVisible())
                 previous_right_i = (previous_button.x()
                                     + previous_button.width())
-                self.assertGreaterEqual(button.x(), previous_right_i)
-                self.assertLessEqual(button.x() - previous_right_i,
-                                     theme.TOOLBAR_BUTTON_GAP_I)
+                # LLFR-00348: joined to the button on its left.
+                self.assertEqual(button.x(), previous_right_i)
                 self.assertEqual(button.y(), previous_button.y())
                 previous_button = button
 
