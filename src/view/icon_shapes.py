@@ -34,7 +34,7 @@ INK_ROLE_STR = "ink"
 MARKER_DASH_START_TUPLE = (11.25, 15.0, 18.75)
 MARKER_DASH_LENGTH_F = 2.25
 
-# LLFR-00159: the names of the 14 icons. Delta X and Delta Y are drawn
+# LLFR-00159: the names of the 16 icons. Delta X and Delta Y are drawn
 # here for their buttons (LLFR-00161, LLFR-00162).
 OPEN_FILE_ICON_STR = "open_file"
 UNDO_ICON_STR = "undo"
@@ -52,6 +52,15 @@ REDO_ICON_STR = "redo"
 # LLFR-00159 items 13 and 14, LLFR-00216, LLFR-00217: the layout icons.
 SAVE_LAYOUT_ICON_STR = "save_layout"
 LOAD_LAYOUT_ICON_STR = "load_layout"
+# LLFR-00159 items 15 and 16, LLFR-00286, LLFR-00320: the Area and Text
+# icons.
+AREA_ICON_STR = "area"
+TEXT_ICON_STR = "text"
+# LLFR-00159 item 15: the hatch lines that shade the Area icon, as the
+# sums x + y of each line, and the band they shade (left, top, right,
+# bottom).
+AREA_HATCH_SUM_TUPLE = (14.0, 20.0, 26.0, 32.0)
+AREA_BAND_TUPLE = (4.5, 3.0, 19.5, 21.0)
 
 
 def ink_layer(command_list: list) -> tuple:
@@ -395,6 +404,58 @@ def load_layout_shape() -> list:
         ink_layer(arrow_head(12.0, 1.5, "up", 2.75))]
 
 
+def hatch_segment_list(band_tuple: tuple, sum_f: float) -> list:
+    """Return one rising diagonal hatch line, cut to a rectangle.
+
+    Inputs:
+        band_tuple: (left, top, right, bottom) of the rectangle.
+        sum_f: the value of x + y along the line.
+    Outputs: the commands of the part of the line x + y = sum_f inside
+        the rectangle, or an empty list when the line misses it.
+    """
+    # LLFR-00159 item 15: the shading is drawn with the icon pen, so it
+    # stays in the one visual language of the icons and is visible in
+    # every button state (LLFR-00160).
+    left_f, top_f, right_f, bottom_f = band_tuple
+    start_x_f = max(left_f, sum_f - bottom_f)
+    end_x_f = min(right_f, sum_f - top_f)
+    if end_x_f <= start_x_f:
+        return []
+    return segment(start_x_f, sum_f - start_x_f, end_x_f, sum_f - end_x_f)
+
+
+def area_shape() -> list:
+    """Return the Area icon: two vertical lines, shaded between (15).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 15: the two edges of the area and diagonal hatch
+    # lines that shade the space between them, as an area shades a time
+    # range of the plots (HLFR-00066).
+    left_f, top_f, right_f, bottom_f = AREA_BAND_TUPLE
+    layer_list = [ink_layer(segment(left_f, top_f, left_f, bottom_f)),
+                  ink_layer(segment(right_f, top_f, right_f, bottom_f))]
+    for sum_f in AREA_HATCH_SUM_TUPLE:
+        command_list = hatch_segment_list(AREA_BAND_TUPLE, sum_f)
+        if command_list:
+            layer_list.append(ink_layer(command_list))
+    return layer_list
+
+
+def text_shape() -> list:
+    """Return the Text icon: a capital T inside a small box (16).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 16: a rounded box, smaller than the Grid frame,
+    # with the bar and the stem of a capital T in it.
+    return [ink_layer([("R", 4.0, 4.0, 16.0, 16.0, 3.0)]),
+            ink_layer(segment(8.0, 8.5, 16.0, 8.5)),
+            ink_layer(segment(12.0, 8.5, 12.0, 16.0))]
+
+
 # LLFR-00159: icon name -> function that returns its layers.
 ICON_SHAPE_FUNCTION_DICT = {
     OPEN_FILE_ICON_STR: open_file_shape,
@@ -411,6 +472,8 @@ ICON_SHAPE_FUNCTION_DICT = {
     REDO_ICON_STR: redo_shape,
     SAVE_LAYOUT_ICON_STR: save_layout_shape,
     LOAD_LAYOUT_ICON_STR: load_layout_shape,
+    AREA_ICON_STR: area_shape,
+    TEXT_ICON_STR: text_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 

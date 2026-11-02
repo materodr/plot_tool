@@ -75,7 +75,6 @@ class RedoButtonTest(RedoWindowTestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QPushButton
-        from view import theme
         from view.undo_button import UndoButton
         self.assertIsInstance(self.redo_button, QPushButton)
         self.assertIsInstance(self.redo_button, UndoButton)
@@ -93,9 +92,8 @@ class RedoButtonTest(RedoWindowTestCase):
         self.assertIs(button_list[undo_index_i + 1], self.redo_button)
         undo_right_i = (self.top_panel.undo_button.x()
                         + self.top_panel.undo_button.width())
-        self.assertGreater(self.redo_button.x(), undo_right_i - 1)
-        self.assertLessEqual(self.redo_button.x() - undo_right_i,
-                             theme.TOOLBAR_BUTTON_GAP_I)
+        # LLFR-00348: joined to the Undo button, with no gap.
+        self.assertEqual(self.redo_button.x(), undo_right_i)
         self.assertEqual(self.redo_button.y(),
                          self.top_panel.undo_button.y())
         self.assertEqual(self.redo_button.size(),
