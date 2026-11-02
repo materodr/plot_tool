@@ -572,6 +572,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         # LLFR-00332: also while selected.
         list_widget = self.panel.signal_list_widget
         from PyQt6.QtCore import Qt
+        from view.signal_list_panel import SignalItemDelegate
         item = list_widget.findItems("t_s", Qt.MatchFlag.MatchExactly)[0]
         list_widget.setCurrentItem(item)
         list_widget.setFocus()
@@ -586,6 +587,37 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertTrue(other_item.isSelected())
         self.assertEqual(self.green_pixel_count("speed"), 0,
                          self.row_colors("speed"))
+        # LLFR-00332, LLFR-00291: several rows selected at once.
+        self.assertIsInstance(list_widget.itemDelegate(),
+                              SignalItemDelegate)
+        item.setSelected(True)
+        other_item.setSelected(True)
+        self.application.processEvents()
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["speed", "t_s"])
+        self.assertGreater(self.green_pixel_count("t_s"), 0,
+                           self.row_colors("t_s"))
+        self.assertEqual(self.green_pixel_count("speed"), 0,
+                         self.row_colors("speed"))
+        # LLFR-00292: the list refilled by a search change keeps the
+        # selection, and the time row stays green.
+        self.panel.search_box.setText("s")
+        self.application.processEvents()
+        self.panel.search_box.setText("")
+        self.application.processEvents()
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["speed", "t_s"])
+        self.assertEqual(self.panel.name_color_str("t_s"), green_str)
+        self.assertGreater(self.green_pixel_count("t_s"), 0,
+                           self.row_colors("t_s"))
+        self.assertEqual(self.green_pixel_count("speed"), 0,
+                         self.row_colors("speed"))
+        # LLFR-00266: renaming another shown row keeps the time row green.
+        self.panel.rename_shown_signal("force", "force_renamed")
+        self.application.processEvents()
+        self.assertEqual(self.panel.name_color_str("t_s"), green_str)
+        self.assertNotEqual(self.panel.name_color_str("force_renamed"),
+                            green_str)
         # HLFR-00071: a time signal found by its name is green too.
         self.replace_answer_list.append(True)
         self.open_file(self.time_path_str)

@@ -196,7 +196,7 @@ class SignalListPanelTest(unittest.TestCase):
         self.assertTrue(widget.dragEnabled())
         self.assertFalse(widget.acceptDrops())
         self.assertEqual(widget.selectionMode(),
-                         QAbstractItemView.SelectionMode.SingleSelection)
+                         QAbstractItemView.SelectionMode.ExtendedSelection)
         self.panel.show_signal_names(NAME_LIST)
         self.assertTrue(widget.item(0).flags()
                         & Qt.ItemFlag.ItemIsDragEnabled)
