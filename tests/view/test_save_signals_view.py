@@ -245,6 +245,11 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "force"])
         self.assertEqual(self.changed_names_list, ["time → Time"])
+        # LLFR-00003: normal again once the save is done and the minimum
+        # active time of an action button has passed.
+        from PyQt6.QtTest import QTest
+        from view.action_button import MINIMUM_ACTIVE_TIME_MS_I
+        QTest.qWait(MINIMUM_ACTIVE_TIME_MS_I + 200)
         self.assertFalse(self.top_panel.save_signals_button.is_active())
 
     @covers("LLFR-00397", "LLFR-00399")
