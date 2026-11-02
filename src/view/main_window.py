@@ -1,5 +1,7 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
+import sys
+
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
@@ -10,6 +12,7 @@ from PyQt6.QtWidgets import (
 from controller.plot_tools import (
     AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
     NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
+from model import file_writer
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     file_writing, icons, message_boxes, plot_export, synthetic_dialogs,
@@ -52,6 +55,15 @@ LAYOUT_FILTER_STR = "Layout files (*.json)"
 # LLFR-00219: added by the dialog to a name typed without an extension,
 # so that its overwrite question (LLFR-00223) names the file written.
 LAYOUT_DEFAULT_SUFFIX_STR = "json"
+# LLFR-00396: title and format filters of the Save signals dialog, one
+# filter per format of HLFR-00005.
+SAVE_SIGNALS_DIALOG_TITLE_STR = "Save signals"
+SIGNALS_FILTER_DICT = {
+    file_writer.CSV_FORMAT_STR: "CSV files (*.csv)",
+    file_writer.EXCEL_FORMAT_STR: "Excel files (*.xlsx)",
+    file_writer.MAT_FORMAT_STR: "MAT files (*.mat)",
+    file_writer.HDF5_FORMAT_STR: "HDF5 files (*.h5 *.hdf5)",
+}
 # LLFR-00196, LLFR-00195: widgets whose own Ctrl+Z (Cmd+Z) and Ctrl+Y
 # (Cmd+Y) act on the typed text, so the workspace undo and redo must not
 # run while one of them has the focus.
@@ -245,6 +257,11 @@ class MainWindow(QMainWindow):
             self._on_save_layout_requested)
         self.top_panel.load_layout_requested.connect(
             self._on_load_layout_requested)
+        # LLFR-00394: the Save signals button goes to the save signals
+        # controller.
+        self.save_signals_handler = None
+        self.top_panel.save_signals_requested.connect(
+            self._on_save_signals_requested)
         # LLFR-00359: the Report a bug button opens the page of a new
         # issue; it needs no controller, since it changes nothing in the
         # model (no file, plot or undo history is touched).
@@ -1620,6 +1637,176 @@ class MainWindow(QMainWindow):
             self.finish_load_layout_button()
             return
         self.load_layout_handler()
+
+    # ----------------------------------------------------------------
+    # Save signals facade, used by the save signals controller
+    # ----------------------------------------------------------------
+
+    def set_save_signals_handler(self, handler) -> None:
+        """Set the function called by the Save signals button.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        # LLFR-00396: the controller runs the flow.
+        self.save_signals_handler = handler
+
+    def set_save_signals_button_enabled(self, enabled_b: bool) -> None:
+        """Enable the Save signals button, or disable it and show it
+        paler.
+
+        Inputs:
+            enabled_b: True once a data file is open.
+        Outputs: none.
+        """
+        # LLFR-00395: disabled, paler and doing nothing without a file.
+        self.top_panel.save_signals_button.setEnabled(bool(enabled_b))
+
+    def build_signals_save_dialog(self, start_folder_str: str,
+                                  file_name_str: str,
+                                  format_str: str) -> QFileDialog:
+        """Build the save file dialog of the Save signals button, not
+        shown.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+            file_name_str: the name proposed in the dialog.
+            format_str: the format chosen when the dialog opens.
+        Outputs: a QFileDialog in save mode with one filter per format
+            (SIGNALS_FILTER_DICT). The dialog does not ask before
+            replacing a file, where Qt allows it, so that the app asks
+            once (LLFR-00397).
+        """
+        # LLFR-00396: the folder, the name and the format of the data
+        # file; the user may choose any of the four formats.
+        dialog = QFileDialog(self, SAVE_SIGNALS_DIALOG_TITLE_STR,
+                             start_folder_str,
+                             ";;".join(SIGNALS_FILTER_DICT.values()))
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        # LLFR-00397: the app asks about an existing file itself, and
+        # never about the opened data file.
+        dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
+        dialog.selectNameFilter(SIGNALS_FILTER_DICT.get(
+            format_str, SIGNALS_FILTER_DICT[file_writer.CSV_FORMAT_STR]))
+        dialog.selectFile(file_name_str)
+        return dialog
+
+    def run_signals_save_dialog(self, dialog) -> tuple:
+        """Run the Save signals dialog modally.
+
+        Inputs:
+            dialog: a QFileDialog built by build_signals_save_dialog.
+        Outputs: a tuple (path_str, filter_str): the chosen path and the
+            chosen filter, or ("", "") when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00398: a cancelled dialog returns "".
+        if dialog.exec() != QDialog.DialogCode.Accepted.value:
+            return ("", "")
+        selected_file_list = dialog.selectedFiles()
+        if not selected_file_list:
+            return ("", "")
+        return (str(selected_file_list[0]), str(dialog.selectedNameFilter()))
+
+    def signals_dialog_confirms_overwrite(self, dialog) -> bool:
+        """Tell whether the system's dialog asks before replacing a file.
+
+        Inputs:
+            dialog: a QFileDialog built by build_signals_save_dialog.
+        Outputs: True for the native dialog of macOS, which always asks
+            (Qt can't turn its question off); False otherwise.
+        """
+        # LLFR-00397: the app must not ask a second time.
+        return (sys.platform == "darwin" and not dialog.testOption(
+            QFileDialog.Option.DontUseNativeDialog))
+
+    def ask_signals_save_path(self, start_folder_str: str,
+                              file_name_str: str, format_str: str) -> tuple:
+        """Show the save file dialog of the Save signals button.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+            file_name_str: the name proposed in the dialog.
+            format_str: the format chosen when the dialog opens.
+        Outputs: a tuple (path_str, format_str, confirmed_b): the chosen
+            path ("" when cancelled), the chosen format, and True when
+            the dialog itself asked before replacing an existing file.
+        """
+        # LLFR-00396, LLFR-00397, LLFR-00398.
+        dialog = self.build_signals_save_dialog(start_folder_str,
+                                                file_name_str, format_str)
+        try:
+            path_str, filter_str = self.run_signals_save_dialog(dialog)
+            confirmed_b = self.signals_dialog_confirms_overwrite(dialog)
+        finally:
+            dialog.deleteLater()
+        chosen_format_str = format_str
+        for candidate_str, candidate_filter_str in (
+                SIGNALS_FILTER_DICT.items()):
+            if candidate_filter_str == filter_str:
+                chosen_format_str = candidate_str
+        return (path_str or "", chosen_format_str, confirmed_b)
+
+    def save_signal_bytes(self, path_str: str,
+                          content_bytes: bytes) -> tuple:
+        """Write the saved signals without risking a file already there.
+
+        Inputs:
+            path_str: the path of the new data file.
+            content_bytes: its content.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-00399: written to a temporary file that then replaces the
+        # target, so a failed save never damages an existing file.
+        return file_writing.write_file_safely(path_str, content_bytes)
+
+    def show_signals_save_error(self, message_str: str) -> None:
+        """Show the error box of the Save signals button.
+
+        Inputs:
+            message_str: the text of the box.
+        Outputs: none.
+        """
+        # LLFR-00397, LLFR-00399, LLFR-00400: an error box (HLFR-00002).
+        message_boxes.build_signals_save_error_box(self, message_str).exec()
+
+    def show_changed_signal_names(self, text_str: str) -> None:
+        """Show the information box that lists the changed names.
+
+        Inputs:
+            text_str: one "<old name> → <new name>" per line.
+        Outputs: none.
+        """
+        # LLFR-00404: one information box, scrollable when long.
+        dialog = message_boxes.build_changed_names_box(self, text_str)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+
+    def finish_save_signals_button(self) -> None:
+        """Return the Save signals button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the save has finished.
+        self.top_panel.save_signals_button.finish()
+
+    def _on_save_signals_requested(self) -> None:
+        """Run the save signals handler after the button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00396: the controller shows the save dialog.
+        if self.save_signals_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_save_signals_button()
+            return
+        self.save_signals_handler()
 
     def _on_pdf_export_requested(self) -> None:
         """Run the PDF export handler after the menu choice.

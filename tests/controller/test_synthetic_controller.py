@@ -265,6 +265,22 @@ class FakeSyntheticWindow(FakePlotView):
         Outputs: none.
         """
 
+    def set_save_signals_handler(self, handler) -> None:
+        """Ignore the Save signals handler.
+
+        Inputs:
+            handler: ignored.
+        Outputs: none.
+        """
+
+    def set_save_signals_button_enabled(self, enabled_b: bool) -> None:
+        """Ignore the Save signals button state.
+
+        Inputs:
+            enabled_b: ignored.
+        Outputs: none.
+        """
+
     # Synthetic signal facade.
 
     def set_synthetic_operation_groups(self, group_list: list) -> None:

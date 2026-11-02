@@ -24,7 +24,7 @@ EXPECTED_GROUP_LIST = [
     ["Data tip", "Zoom", "Pan", "Vertical marker", "Delta X", "Delta Y",
      "Area", "Text"],
     ["Reset zoom", "Grid"],
-    ["Export", "Copy"],
+    ["Export", "Copy", "Save signals"],
     ["Undo", "Redo"],
     ["Report a bug"]]
 

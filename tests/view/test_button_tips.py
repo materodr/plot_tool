@@ -42,11 +42,13 @@ EXPECTED_TIP_DICT = {
                    ["Drag on a plot to pan"]),
     # LLFR-00358: Report a bug shows only its name.
     "report_bug_button": ("Report a bug", [], []),
+    # LLFR-00215: Save signals shows only its name.
+    "save_signals_button": ("Save signals", [], []),
 }
 # LLFR-00215: the buttons whose tip shows only the name.
 NAME_ONLY_ATTRIBUTE_TUPLE = ("open_file_button", "grid_button",
                              "export_button", "copy_button",
-                             "report_bug_button")
+                             "report_bug_button", "save_signals_button")
 # LLFR-00213: minimum WCAG contrast of the paler line on the tip
 # background, so that it stays readable.
 MINIMUM_DETAIL_CONTRAST_F = 4.5
