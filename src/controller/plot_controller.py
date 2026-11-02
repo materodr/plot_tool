@@ -195,7 +195,13 @@ class PlotController:
             marker_delete_handler=self.on_marker_delete,
             # LLFR-00163, LLFR-00164, LLFR-00176: the delta markers.
             delta_point_pick_handler=self.on_delta_point_pick,
-            delta_marker_delete_handler=self.on_delta_marker_delete)
+            delta_marker_delete_handler=self.on_delta_marker_delete,
+            # LLFR-00334, LLFR-00339, LLFR-00342, LLFR-00343: the text
+            # notes of a plot.
+            text_note_create_handler=self.on_text_note_create,
+            text_note_move_handler=self.on_text_note_move,
+            text_note_edit_handler=self.on_text_note_edit,
+            text_note_delete_handler=self.on_text_note_delete)
         # LLFR-00115: the Reset zoom button of the top panel.
         view.set_reset_zoom_handler(self.on_reset_zoom)
         # LLFR-00122, LLFR-00123: the Grid button of the top panel.
@@ -480,6 +486,20 @@ class PlotController:
                  delta_marker.delta_f())
                 for delta_marker in plot.delta_marker_list]
 
+    def text_note_data_list(self, plot) -> list:
+        """Return the drawing data of every text note of a plot.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: a list of tuples (text_str, time_s, value_f) in the
+            order the notes were written; time_s is in Hz on a frequency
+            plot.
+        """
+        # LLFR-00336, LLFR-00337, LLFR-00340: the notes of this plot only,
+        # each with the text and the place it is attached to.
+        return [(text_note.text_str, text_note.time_s, text_note.value_f)
+                for text_note in plot.text_note_list]
+
     def all_plot_list(self) -> list:
         """Return every plot of every tab.
 
@@ -576,6 +596,9 @@ class PlotController:
                             self.pinned_tip_data_list(plot),
                             self.plot_marker_data_list(plot),
                             self.delta_marker_data_list(plot))
+        # LLFR-00337, LLFR-00340: and the text notes of the plot.
+        self.view.set_text_notes(plot.plot_id_i,
+                                 self.text_note_data_list(plot))
         # LLFR-00070, LLFR-00180: draw_plot shows the whole range; a new
         # or redrawn time plot takes the range shared by all time plots.
         # LLFR-00258: a frequency plot its own range.
@@ -968,6 +991,123 @@ class PlotController:
             return
         self.record_undo(snapshot)
         self.redraw_plot(plot)
+
+    # ----------------------------------------------------------------
+    # Text notes
+    # ----------------------------------------------------------------
+
+    def on_text_note_create(self, plot_id_i: int, text_str: str,
+                            time_s: float, value_f: float) -> None:
+        """Write a text note confirmed in the text field of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            text_str: the typed text.
+            time_s: x-axis value of the clicked point (s, or Hz on a
+                frequency plot).
+            value_f: y-axis value of the clicked point.
+        Outputs: none. A blank text, an unknown plot or a place that is
+            not finite writes nothing and shows no message.
+        """
+        # LLFR-00333: the field stays open when the Text tool is
+        # deactivated while typing, so the tool is not checked here.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: creating a text note is undoable.
+        snapshot = self.take_snapshot()
+        try:
+            # LLFR-00334: a blank text creates nothing, silently.
+            text_note = plot.add_text_note(str(text_str), time_s, value_f)
+        except (TypeError, ValueError):
+            return
+        if text_note is None:
+            return
+        self.record_undo(snapshot)
+        self.show_text_notes(plot)
+
+    def on_text_note_move(self, plot_id_i: int, note_index_i: int,
+                          time_s: float, value_f: float) -> None:
+        """Attach a dragged text note to the place where it was dropped.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            note_index_i: index of the note in the list last drawn.
+            time_s: x-axis value of the drop place (s, or Hz).
+            value_f: y-axis value of the drop place.
+        Outputs: none. An unknown plot or note, or a place that is not
+            finite, changes nothing.
+        """
+        # LLFR-00339: with any plot tool or none.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: moving a text note is undoable; a drop at the same
+        # place changes nothing and is not recorded.
+        snapshot = self.take_snapshot()
+        try:
+            moved_b = plot.move_text_note(note_index_i, time_s, value_f)
+        except (TypeError, ValueError):
+            moved_b = False
+        if moved_b:
+            self.record_undo(snapshot)
+        # LLFR-00339: the view shows the note where the model keeps it.
+        self.show_text_notes(plot)
+
+    def on_text_note_edit(self, plot_id_i: int, note_index_i: int,
+                          text_str: str) -> None:
+        """Give a text note the text typed after "Edit".
+
+        Inputs:
+            plot_id_i: id of the plot.
+            note_index_i: index of the note in the list last drawn.
+            text_str: the typed text.
+        Outputs: none. A blank text keeps the previous one and shows no
+            message.
+        """
+        # LLFR-00342: let the user change the text of the note.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: editing a text note is undoable; the same text
+        # again changes nothing and is not recorded.
+        snapshot = self.take_snapshot()
+        if plot.edit_text_note(note_index_i, str(text_str)):
+            self.record_undo(snapshot)
+        # LLFR-00342: the note shows its kept text in every case.
+        self.show_text_notes(plot)
+
+    def on_text_note_delete(self, plot_id_i: int,
+                            note_index_i: int) -> None:
+        """Remove a text note from a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            note_index_i: index of the note in the list last drawn.
+        Outputs: none.
+        """
+        # LLFR-00343: "Delete" in the text note menu.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: deleting a text note is undoable.
+        snapshot = self.take_snapshot()
+        if not plot.remove_text_note(note_index_i):
+            return
+        self.record_undo(snapshot)
+        self.show_text_notes(plot)
+
+    def show_text_notes(self, plot) -> None:
+        """Draw the text notes of a plot again, and nothing else.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: none.
+        """
+        # LLFR-00337, LLFR-00340: only the notes change, so the curves,
+        # tips, markers and the shown range are not drawn again.
+        self.view.set_text_notes(plot.plot_id_i,
+                                 self.text_note_data_list(plot))
 
     # ----------------------------------------------------------------
     # Tabs

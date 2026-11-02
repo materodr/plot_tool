@@ -9,14 +9,17 @@ pick a delta marker point, delete a delta marker). The plot controller
 decides what to do with each request.
 
 A right-click picks the topmost item under the mouse, in drawing order:
-a pinned tip, then a vertical marker, then a delta marker, then a
-curve, else the empty plot area (LLFR-00046, LLFR-00110, LLFR-00177,
-LLFR-00038, LLFR-00048).
+a text note, then a pinned tip, then a vertical marker, then a delta
+marker, then a curve, else the empty plot area (LLFR-00341, LLFR-00046,
+LLFR-00110, LLFR-00177, LLFR-00038, LLFR-00048).
 
-A left press is handled in the same order: on a pinned tip it starts
-moving the tip's label, with any plot tool or none (LLFR-00152,
-LLFR-00153); with the Vertical marker tool, on a marker it starts
-dragging the marker (LLFR-00086); otherwise it is a click of the active
+A left press is handled in the same order: on a text note it starts
+moving the note (LLFR-00339), and on a pinned tip it starts moving the
+tip's label (LLFR-00152, LLFR-00153), both with any plot tool or none;
+with the Text tool, any other press on the drawing area opens a
+one-line text field at the pressed point (LLFR-00333); with the
+Vertical marker tool, on a marker it starts dragging the marker
+(LLFR-00086); otherwise it is a click of the active
 tool (LLFR-00045, LLFR-00078, LLFR-00081). With the Delta X or Delta Y
 tool, a click on a curve reports its nearest sample (LLFR-00163,
 LLFR-00164), also when a vertical marker or a delta marker lies over
@@ -46,6 +49,16 @@ constrained layout has given the axes their final size, so it follows
 every resize, zoom, pan and drag. Only the drawn position is moved: the
 stored offset is kept, so the label goes back towards it when the plot
 grows again.
+
+A text note is drawn at the x and y values it is attached to, hidden
+while either value is outside the shown range (LLFR-00337), and moved
+by the shortest distance that keeps its box inside the axes, at each
+draw, like a pinned tip (LLFR-00338). The text field (TextNoteEditor) is
+a QLineEdit over the canvas, so the window's text field rules apply to
+it (LLFR-00157, LLFR-00195, LLFR-00196). Enter, or a click outside it,
+confirms it (LLFR-00334); the press of that click does nothing else.
+Esc cancels it (LLFR-00335). It stays open when the Text tool is
+deactivated (LLFR-00333).
 
 Vertical markers are shared by every plot (LLFR-00205): the controller
 gives every plot the same list. While a marker is dragged, the widget
@@ -119,13 +132,14 @@ from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
-    is_delta_tool)
+    MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
+    ZOOM_TOOL_STR, is_delta_tool)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import (
     DELTA_X_KIND_STR, FREQUENCY_PLOT_KIND_STR, TIME_PLOT_KIND_STR)
 from view import delta_geometry, theme, value_text
 from view.delta_geometry import DeltaBracketPatch
+from view.text_note_editor import TextNoteEditor
 
 # LLFR-00068: every plot uses the look of view.theme (spines, ticks,
 # grid, fonts); curve and marker colors are always given explicitly.
@@ -247,6 +261,14 @@ DELTA_HEADROOM_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
 DELTA_HEADROOM_MAXIMUM_RATIO_F = 0.45
 # LLFR-00175: no delta marker is under the mouse.
 NO_DELTA_MARKER_ID_I = -1
+# LLFR-00339, LLFR-00341: no text note is pressed, dragged or hit; for
+# the text field, a new note (not the edit of an existing one).
+NO_TEXT_NOTE_INDEX_I = -1
+# LLFR-00336, LLFR-00341: text notes are drawn above the pinned tips and
+# every other item, so a press or a right-click on one is for the note.
+TEXT_NOTE_ZORDER_F = 9.5
+# LLFR-00333: width of the one-line text field, in widget pixels.
+TEXT_NOTE_EDITOR_WIDTH_I = 200
 
 
 def mouse_button_held_b(event, qt_button) -> bool:
@@ -566,6 +588,15 @@ class PlotWidget(QWidget):
         marker_preview_changed(float): the marker preview of the hovered
             plot moved to this time in s, or was hidden (NaN), so that
             the other plots of the tab follow (LLFR-00203).
+        text_note_create_requested(str, float, float): a text was
+            confirmed in the text field opened by a click with the Text
+            tool (text, x value of the clicked point in s or Hz, y value).
+        text_note_move_requested(int, float, float): a text note was
+            dragged and released (note index in the list given to
+            set_text_notes, then the x and y values of the drop place).
+        text_note_edit_requested(int, str): a new text was confirmed for
+            a text note after "Edit" (note index, text).
+        text_note_delete_requested(int): "Delete" chosen on a text note.
     Attributes:
         plot_id_i: the identifier given at creation.
         frequency_plot_b: True for a frequency plot (HLFR-00058).
@@ -594,6 +625,10 @@ class PlotWidget(QWidget):
     delta_marker_delete_requested = pyqtSignal(int)
     marker_drag_moved = pyqtSignal(int, float)
     marker_preview_changed = pyqtSignal(float)
+    text_note_create_requested = pyqtSignal(str, float, float)
+    text_note_move_requested = pyqtSignal(int, float, float)
+    text_note_edit_requested = pyqtSignal(int, str)
+    text_note_delete_requested = pyqtSignal(int)
 
     def __init__(self, plot_id_i: int, parent=None,
                  kind_str: str = TIME_PLOT_KIND_STR) -> None:
@@ -686,6 +721,29 @@ class PlotWidget(QWidget):
         # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
         # grid is drawn; hidden until the Grid button is clicked.
         self.grid_shown_b = False
+        # LLFR-00336, LLFR-00337: text notes to draw, as tuples
+        # (text_str, time_s, value_f), and their annotations.
+        self.text_note_list = []
+        self.text_note_annotation_list = []
+        # LLFR-00339: the text note being dragged, if any; where it was
+        # pressed; the display pixels from the pointer to the note's
+        # point, so the grabbed note does not jump; the place (x, y) it
+        # is shown at while dragged.
+        self.drag_note_index_i = NO_TEXT_NOTE_INDEX_I
+        self.note_press_point = QPoint()
+        self.note_grab_offset_tuple = (0.0, 0.0)
+        self.note_drag_place_tuple = ()
+        self.note_drag_moved_b = False
+        # LLFR-00333, LLFR-00342: whether the text field is open, the
+        # note it edits (NO_TEXT_NOTE_INDEX_I for a new note) and, for a
+        # new note, the clicked place (x, y).
+        self.text_note_editor_open_b = False
+        self.editor_note_index_i = NO_TEXT_NOTE_INDEX_I
+        self.editor_place_tuple = ()
+        # LLFR-00334: True during the mouse press whose focus change has
+        # just confirmed the text field, so that this press does nothing
+        # else; cleared once control is back in the event loop.
+        self.press_closed_editor_b = False
 
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
@@ -725,6 +783,13 @@ class PlotWidget(QWidget):
         # range only when it is shown; any real draw clears the flag.
         self.redraw_pending_b = False
         self.canvas.mpl_connect("draw_event", self.on_canvas_drawn)
+        # LLFR-00333: the one-line text field of the Text tool, shown
+        # over the canvas at the clicked point.
+        self.text_note_editor = TextNoteEditor(self)
+        self.text_note_editor.confirm_requested.connect(
+            self.confirm_text_note_editor)
+        self.text_note_editor.cancel_requested.connect(
+            self.cancel_text_note_editor)
         self.rebuild_axes()
 
     # ----------------------------------------------------------------
@@ -902,6 +967,26 @@ class PlotWidget(QWidget):
         self.draw_delta_first_point()
         self.canvas.draw_idle()
 
+    def set_text_notes(self, text_note_data_list: list) -> None:
+        """Replace the text notes drawn in the plot.
+
+        Inputs:
+            text_note_data_list: list of tuples (text_str, time_s,
+                value_f), in the order the notes were written; time_s is
+                in Hz on a frequency plot.
+        Outputs: none. Only the notes are drawn again.
+        """
+        # LLFR-00337, LLFR-00340: draw exactly the notes of this plot.
+        self.text_note_list = [
+            (str(text_str), float(time_s), float(value_f))
+            for (text_str, time_s, value_f) in text_note_data_list]
+        # LLFR-00342: an edited note that is gone ends its text field.
+        if (self.text_note_editor_open_b
+                and self.editor_note_index_i >= len(self.text_note_list)):
+            self.close_text_note_editor()
+        self.draw_text_notes()
+        self.draw_when_visible()
+
     def set_time_range(self, start_s: float, end_s: float) -> None:
         """Show the given time range without emitting time_range_changed.
 
@@ -1047,6 +1132,9 @@ class PlotWidget(QWidget):
         self.delta_first_point_artist = None
         self.draw_delta_markers()
         self.draw_delta_first_point()
+        # LLFR-00337: the text notes survive the redraw too.
+        self.text_note_annotation_list = []
+        self.draw_text_notes()
         # LLFR-00203: the preview artists went away with axes.clear().
         self.create_preview_artists()
         # LLFR-00208: so did those of the time span selection line.
@@ -1913,6 +2001,8 @@ class PlotWidget(QWidget):
         self.place_tips()
         # LLFR-00082, LLFR-00084: markers follow the new range.
         self.place_markers()
+        # LLFR-00337, LLFR-00338: so do the text notes.
+        self.place_text_notes()
 
     def place_tips(self) -> None:
         """Place the hover tip and the pinned tips around their points.
@@ -2028,6 +2118,504 @@ class PlotWidget(QWidget):
         if self.delta_marker_data_list:
             self.apply_time_range()
         self.canvas.draw_idle()
+
+    # ----------------------------------------------------------------
+    # Text notes
+    # ----------------------------------------------------------------
+
+    def draw_text_notes(self) -> None:
+        """Draw the stored text notes, replacing the previous ones.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00343: remove the old annotations before drawing new ones.
+        for annotation in self.text_note_annotation_list:
+            annotation.remove()
+        self.text_note_annotation_list = []
+        # LLFR-00339: the notes are replaced, so a note drag in progress
+        # refers to a note that is gone; it ends without a request.
+        self.reset_note_drag()
+        for text_str, time_s, value_f in self.text_note_list:
+            # LLFR-00336: dark text on a light box; LLFR-00337: attached
+            # to its x and y values, in data coordinates.
+            annotation = self.axes.annotate(
+                text_str, xy=(time_s, value_f), xytext=(0.0, 0.0),
+                textcoords="offset points", parse_math=False,
+                horizontalalignment="left", verticalalignment="center",
+                color=theme.TEXT_NOTE_TEXT_COLOR_STR,
+                fontsize=theme.TEXT_NOTE_FONT_SIZE_F,
+                bbox=dict(theme.TEXT_NOTE_BOX_DICT),
+                annotation_clip=False, zorder=TEXT_NOTE_ZORDER_F)
+            annotation.set_in_layout(False)
+            # LLFR-00337, LLFR-00338: every draw (screen, image and PDF
+            # export) first hides or places the note for that draw.
+            annotation.draw = functools.partial(
+                self.draw_text_note, len(self.text_note_annotation_list),
+                annotation, annotation.draw)
+            self.text_note_annotation_list.append(annotation)
+        self.place_text_notes()
+
+    def draw_text_note(self, note_index_i: int, annotation, original_draw,
+                       renderer) -> None:
+        """Draw a text note when its place is shown, inside the axes.
+
+        Inputs:
+            note_index_i: index of the note in the list of set_text_notes.
+            annotation: the matplotlib Annotation of the note.
+            original_draw: the Annotation's own draw method.
+            renderer: the matplotlib renderer of this draw.
+        Outputs: none.
+        """
+        # LLFR-00337: hidden while its x or y value is outside the range
+        # shown; LLFR-00338: else kept inside the axes of this draw.
+        if not self.text_note_place_shown_b(annotation.xy):
+            return
+        if (note_index_i < len(self.text_note_annotation_list)
+                and self.text_note_annotation_list[note_index_i]
+                is annotation):
+            self.place_text_note(annotation, renderer)
+        original_draw(renderer)
+
+    def text_note_place_shown_b(self, place_tuple) -> bool:
+        """Tell whether a text note's place is inside the shown ranges.
+
+        Inputs:
+            place_tuple: the (x, y) values the note is attached to.
+        Outputs: True when both values are within the x-axis and y-axis
+            ranges shown.
+        """
+        # LLFR-00337: either value outside its range hides the note.
+        x_low_f, x_high_f = sorted(self.axes.get_xlim())
+        y_low_f, y_high_f = sorted(self.axes.get_ylim())
+        x_f, y_f = float(place_tuple[0]), float(place_tuple[1])
+        return x_low_f <= x_f <= x_high_f and y_low_f <= y_f <= y_high_f
+
+    def place_text_notes(self) -> None:
+        """Place every shown text note inside the axes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00338: after a change of range, size or drag, so that the
+        # hit tests see the notes where the next draw shows them.
+        for annotation in self.text_note_annotation_list:
+            if self.text_note_place_shown_b(annotation.xy):
+                self.place_text_note(annotation)
+
+    def place_text_note(self, annotation, renderer=None) -> None:
+        """Move a text note the shortest way into the axes.
+
+        Inputs:
+            annotation: the matplotlib Annotation of a shown note.
+            renderer: the matplotlib renderer, or None for the canvas's.
+        Outputs: none. Only the drawn position changes: the note stays
+            attached to its values and goes back to them when there is
+            room again.
+        """
+        # LLFR-00337: the note starts at its point; LLFR-00338: then it
+        # is moved by the shortest distance that keeps its whole box
+        # inside the drawing area.
+        if renderer is None:
+            renderer = self.canvas.get_renderer()
+        annotation.set_position((0.0, 0.0))
+        annotation.update_positions(renderer)
+        box = self.tip_box_extent(annotation, renderer)
+        axes_box = self.axes.bbox
+        shift_x_px = inside_shift_px(float(box.x0), float(box.x1),
+                                     float(axes_box.x0),
+                                     float(axes_box.x1), False)
+        shift_y_px = inside_shift_px(float(box.y0), float(box.y1),
+                                     float(axes_box.y0),
+                                     float(axes_box.y1), True)
+        if shift_x_px == 0.0 and shift_y_px == 0.0:
+            return
+        pixels_per_point_f = self.pixels_per_point_f()
+        annotation.set_position((shift_x_px / pixels_per_point_f,
+                                 shift_y_px / pixels_per_point_f))
+        annotation.update_positions(renderer)
+
+    def text_note_at(self, widget_point) -> int:
+        """Return the index of the text note under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the index in the list given to set_text_notes, or -1
+            when no shown text note is there.
+        """
+        # LLFR-00339, LLFR-00341: a note is hit on its box; the last
+        # written note is drawn on top, so it is checked first.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        renderer = self.canvas.get_renderer()
+        for index_i in reversed(range(len(self.text_note_annotation_list))):
+            annotation = self.text_note_annotation_list[index_i]
+            # LLFR-00337: a hidden note cannot be hit.
+            if not self.text_note_place_shown_b(annotation.xy):
+                continue
+            if self.tip_box_extent(annotation, renderer).contains(
+                    display_x_px, display_y_px):
+                return index_i
+        return NO_TEXT_NOTE_INDEX_I
+
+    def text_note_count(self) -> int:
+        """Return how many text notes the plot holds.
+
+        Inputs: none.
+        Outputs: the number of notes given to set_text_notes.
+        """
+        # LLFR-00340: any number of notes per plot.
+        return len(self.text_note_annotation_list)
+
+    def text_note_annotation(self, note_index_i: int):
+        """Return the annotation of a text note.
+
+        Inputs:
+            note_index_i: index in the list given to set_text_notes.
+        Outputs: the matplotlib Annotation, or None for an unknown index.
+        """
+        # LLFR-00336, LLFR-00337: lets tests and the editor read a note.
+        if 0 <= note_index_i < len(self.text_note_annotation_list):
+            return self.text_note_annotation_list[note_index_i]
+        return None
+
+    def text_note_shown(self, note_index_i: int) -> bool:
+        """Tell whether a text note is drawn now.
+
+        Inputs:
+            note_index_i: index in the list given to set_text_notes.
+        Outputs: True when its place is within the shown ranges.
+        """
+        # LLFR-00337: hidden while either value is outside its range.
+        annotation = self.text_note_annotation(note_index_i)
+        return (annotation is not None
+                and self.text_note_place_shown_b(annotation.xy))
+
+    def text_note_box_extent(self, note_index_i: int):
+        """Return the display box of a text note, as drawn now.
+
+        Inputs:
+            note_index_i: index in the list given to set_text_notes.
+        Outputs: a matplotlib Bbox in display pixels, or None for an
+            unknown index.
+        """
+        # LLFR-00338: the box after it was kept inside the axes.
+        annotation = self.text_note_annotation(note_index_i)
+        if annotation is None:
+            return None
+        return self.tip_box_extent(annotation)
+
+    def value_at(self, widget_point) -> float:
+        """Return the value on the y-axis under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: the y value.
+        """
+        # LLFR-00333: a text note is attached to the clicked y value.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        return float(self.axes.transData.inverted().transform(
+            (display_x_px, display_y_px))[1])
+
+    def text_click_at(self, widget_point) -> None:
+        """Open the text field at a point clicked with the Text tool.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. A click outside the drawing area does nothing.
+        """
+        # LLFR-00333: on the drawing area of a time or frequency plot;
+        # press_at already sent a press on a note or a pinned tip away.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return
+        self.open_text_note_editor(
+            widget_point, "", NO_TEXT_NOTE_INDEX_I,
+            (self.time_at(widget_point), self.value_at(widget_point)))
+
+    def edit_text_note_at(self, note_index_i: int) -> None:
+        """Open the text field over a text note, with its text.
+
+        Inputs:
+            note_index_i: index in the list given to set_text_notes.
+        Outputs: none. An unknown note does nothing.
+        """
+        # LLFR-00342: "Edit" lets the user type a new text for the note,
+        # starting from its text, where the note is drawn.
+        box = self.text_note_box_extent(note_index_i)
+        if box is None or self.retired_b:
+            return
+        widget_point = self.display_to_widget_point(
+            float(box.x0), (float(box.y0) + float(box.y1)) / 2.0)
+        self.open_text_note_editor(
+            widget_point, self.text_note_list[note_index_i][0],
+            note_index_i, ())
+
+    def open_text_note_editor(self, widget_point, text_str: str,
+                              note_index_i: int,
+                              place_tuple: tuple) -> None:
+        """Show the one-line text field at a point, with the focus in it.
+
+        Inputs:
+            widget_point: QPoint where the field starts, its left end
+                vertically centred on it.
+            text_str: the text the field starts with.
+            note_index_i: the note edited, or NO_TEXT_NOTE_INDEX_I for a
+                new note.
+            place_tuple: for a new note, the (x, y) values of the clicked
+                point; () for an edit.
+        Outputs: none.
+        """
+        # LLFR-00334: a field already open is confirmed first.
+        if self.text_note_editor_open_b:
+            self.confirm_text_note_editor()
+        # LLFR-00333: no hover tip under the field.
+        self.hide_hover_tip()
+        editor = self.text_note_editor
+        editor.setText(str(text_str))
+        editor.selectAll()
+        width_i = min(TEXT_NOTE_EDITOR_WIDTH_I, max(self.width(), 1))
+        height_i = editor.sizeHint().height()
+        # The field is moved inside the widget when the click is near
+        # its right or bottom edge; the note keeps the clicked place.
+        left_i = min(max(widget_point.x(), 0),
+                     max(self.width() - width_i, 0))
+        top_i = min(max(widget_point.y() - height_i // 2, 0),
+                    max(self.height() - height_i, 0))
+        editor.setGeometry(left_i, top_i, width_i, height_i)
+        self.editor_note_index_i = int(note_index_i)
+        self.editor_place_tuple = tuple(place_tuple)
+        self.text_note_editor_open_b = True
+        editor.show()
+        editor.raise_()
+        # LLFR-00333, LLFR-00157: the keyboard focus goes to the field,
+        # so the plot tool keys, Z, Undo and Redo leave the plots alone.
+        editor.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def text_note_editor_text(self) -> str:
+        """Return the text typed in the text field.
+
+        Inputs: none.
+        Outputs: the text, "" when the field is closed.
+        """
+        # LLFR-00333: lets tests read the field.
+        if not self.text_note_editor_open_b:
+            return ""
+        return str(self.text_note_editor.text())
+
+    def close_text_note_editor(self) -> None:
+        """Hide the text field without writing anything.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00335: the field is removed. The state is cleared first,
+        # so the focus loss of hiding it confirms nothing.
+        was_open_b = self.text_note_editor_open_b
+        self.text_note_editor_open_b = False
+        self.editor_note_index_i = NO_TEXT_NOTE_INDEX_I
+        self.editor_place_tuple = ()
+        if not was_open_b:
+            return
+        editor_had_focus_b = self.text_note_editor.hasFocus()
+        self.text_note_editor.hide()
+        # LLFR-00137: the focus goes back to the plot, not to the next
+        # text field of the focus chain (the search box).
+        if editor_had_focus_b and not self.retired_b:
+            self.canvas.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def cancel_text_note_editor(self) -> None:
+        """End the text field with Esc: nothing is written.
+
+        Inputs: none.
+        Outputs: none. No message is shown.
+        """
+        # LLFR-00335: no text note and no message.
+        self.close_text_note_editor()
+
+    def confirm_text_note_editor(self) -> None:
+        """End the text field with Enter or a click outside it.
+
+        Inputs: none.
+        Outputs: none. Emits text_note_create_requested for a new note or
+            text_note_edit_requested for an edited one, as the last step,
+            unless the text is empty or made only of spaces.
+        """
+        # LLFR-00334: only once, even when Enter is followed by the focus
+        # loss of the hidden field.
+        if not self.text_note_editor_open_b:
+            return
+        text_str = str(self.text_note_editor.text())
+        note_index_i = self.editor_note_index_i
+        place_tuple = self.editor_place_tuple
+        # LLFR-00334: a press whose focus change confirmed the field does
+        # nothing else (see on_mouse_press).
+        if not self.text_note_editor.hasFocus():
+            self.press_closed_editor_b = True
+            QTimer.singleShot(0, self.forget_press_closed_editor)
+        self.close_text_note_editor()
+        # LLFR-00334, LLFR-00342: an empty or blank text writes nothing
+        # and shows nothing; an edited note keeps its previous text.
+        if not text_str.strip():
+            return
+        if note_index_i == NO_TEXT_NOTE_INDEX_I:
+            if len(place_tuple) == 2:
+                self.text_note_create_requested.emit(
+                    text_str, float(place_tuple[0]), float(place_tuple[1]))
+            return
+        # The receiver redraws the notes, so this is the last step.
+        self.text_note_edit_requested.emit(note_index_i, text_str)
+
+    def forget_press_closed_editor(self) -> None:
+        """Let the next press act again after a field was confirmed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00334: only the press that closed the field is ignored.
+        if sip.isdeleted(self):
+            return
+        self.press_closed_editor_b = False
+
+    def note_press_at(self, widget_point, note_index_i: int) -> None:
+        """Start moving a text note from a pressed point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+            note_index_i: index of the pressed note.
+        Outputs: none. Nothing moves until the mouse moves.
+        """
+        # LLFR-00339: grab the note where it is, whatever plot tool is
+        # active; the point it is attached to keeps its distance from
+        # the pointer.
+        annotation = self.text_note_annotation(note_index_i)
+        if annotation is None:
+            return
+        pointer_x_px, pointer_y_px = self.widget_to_display_tuple(
+            widget_point)
+        point_x_px, point_y_px = self.axes.transData.transform(
+            annotation.xy)
+        self.hide_hover_tip()
+        self.drag_note_index_i = note_index_i
+        self.note_press_point = QPoint(widget_point)
+        self.note_grab_offset_tuple = (float(point_x_px) - pointer_x_px,
+                                       float(point_y_px) - pointer_y_px)
+        self.note_drag_place_tuple = ()
+        self.note_drag_moved_b = False
+
+    def note_drag_to(self, widget_point) -> None:
+        """Move the dragged text note with the mouse pointer.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. The note's point stays inside the axes. Does
+            nothing when no note is dragged.
+        """
+        # LLFR-00339: until the mouse leaves the pressed pixel, nothing
+        # moves (a press and release is not a drag).
+        if self.drag_note_index_i == NO_TEXT_NOTE_INDEX_I:
+            return
+        if (not self.note_drag_moved_b
+                and widget_point == self.note_press_point):
+            return
+        annotation = self.text_note_annotation(self.drag_note_index_i)
+        if annotation is None:
+            self.reset_note_drag()
+            return
+        pointer_x_px, pointer_y_px = self.widget_to_display_tuple(
+            widget_point)
+        axes_box = self.axes.bbox
+        # LLFR-00339: the note moves to another place in the plot, so
+        # its point never leaves the drawing area (LLFR-00337).
+        point_x_px = min(max(pointer_x_px + self.note_grab_offset_tuple[0],
+                             float(axes_box.x0)), float(axes_box.x1))
+        point_y_px = min(max(pointer_y_px + self.note_grab_offset_tuple[1],
+                             float(axes_box.y0)), float(axes_box.y1))
+        x_f, y_f = self.axes.transData.inverted().transform(
+            (point_x_px, point_y_px))
+        place_tuple = (float(x_f), float(y_f))
+        if self.note_drag_moved_b and place_tuple == (
+                self.note_drag_place_tuple):
+            return
+        self.note_drag_place_tuple = place_tuple
+        self.note_drag_moved_b = True
+        annotation.xy = place_tuple
+        # LLFR-00338: kept inside the axes while it is dragged too.
+        self.place_text_note(annotation)
+        self.canvas.draw_idle()
+
+    def note_release_at(self, widget_point) -> None:
+        """End a text note drag where the button was released.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Emits text_note_move_requested once, as the last
+            step, when the note was moved.
+        """
+        # LLFR-00339: the note is left where the button is released.
+        if self.drag_note_index_i == NO_TEXT_NOTE_INDEX_I:
+            return
+        self.note_drag_to(widget_point)
+        self.finish_note_drag()
+
+    def finish_note_drag(self) -> None:
+        """End a text note drag at the note's last shown place.
+
+        Inputs: none.
+        Outputs: none. Emits text_note_move_requested once, as the last
+            step, when the note was moved; a press and release without
+            movement emits nothing.
+        """
+        # LLFR-00339: also used when the release was lost.
+        if self.drag_note_index_i == NO_TEXT_NOTE_INDEX_I:
+            return
+        note_index_i = self.drag_note_index_i
+        place_tuple = self.note_drag_place_tuple
+        moved_b = self.note_drag_moved_b and len(place_tuple) == 2
+        if moved_b and 0 <= note_index_i < len(self.text_note_list):
+            # The drawn note stays where it was released until the
+            # controller draws the notes again from the model.
+            self.text_note_list[note_index_i] = (
+                self.text_note_list[note_index_i][0],) + place_tuple
+        self.reset_note_drag()
+        if moved_b:
+            # The receiver may redraw this widget, so this is the very
+            # last step.
+            self.text_note_move_requested.emit(
+                note_index_i, place_tuple[0], place_tuple[1])
+
+    def cancel_note_drag(self) -> None:
+        """Forget the text note drag in progress, if any.
+
+        Inputs: none.
+        Outputs: none. A moved note goes back to where it was.
+        """
+        # LLFR-00339: without a release, the note is not moved.
+        note_index_i = self.drag_note_index_i
+        moved_b = (note_index_i != NO_TEXT_NOTE_INDEX_I
+                   and self.note_drag_moved_b)
+        self.reset_note_drag()
+        if not moved_b:
+            return
+        annotation = self.text_note_annotation(note_index_i)
+        if annotation is not None and note_index_i < len(
+                self.text_note_list):
+            annotation.xy = tuple(self.text_note_list[note_index_i][1:])
+            self.place_text_notes()
+        self.canvas.draw_idle()
+
+    def reset_note_drag(self) -> None:
+        """Clear the state of a text note drag without redrawing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00339, LLFR-00207: no text note is being moved.
+        self.drag_note_index_i = NO_TEXT_NOTE_INDEX_I
+        self.note_drag_place_tuple = ()
+        self.note_drag_moved_b = False
 
     # ----------------------------------------------------------------
     # Inspection helpers (used by tests and by the plot panel)
@@ -2525,6 +3113,19 @@ class PlotWidget(QWidget):
             request_list.append(request)
             return action
 
+        # LLFR-00341: a text note is drawn on top of everything, so its
+        # menu has priority over every item under it.
+        note_index_i = self.text_note_at(widget_point)
+        if note_index_i != NO_TEXT_NOTE_INDEX_I:
+            add_request_action(
+                menu, "Edit",
+                lambda index_i=note_index_i:
+                self.edit_text_note_at(index_i))
+            add_request_action(
+                menu, "Delete",
+                lambda index_i=note_index_i:
+                self.text_note_delete_requested.emit(index_i))
+            return menu, request_list
         # LLFR-00046: a pinned tip has priority over a curve under it
         # (and over a marker: tips are drawn on top of markers).
         tip_index_i = self.pinned_tip_at(widget_point)
@@ -2577,7 +3178,7 @@ class PlotWidget(QWidget):
                 width_action.setChecked(width_i == current_width_i)
             return menu, request_list
         # LLFR-00048: empty area of the plot (no curve, pinned tip,
-        # vertical marker or delta marker under the mouse).
+        # vertical marker, delta marker or text note under the mouse).
         add_request_action(menu, "Delete plot",
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
@@ -2588,7 +3189,8 @@ class PlotWidget(QWidget):
         Inputs:
             widget_point: QPoint in this widget's coordinates.
         Outputs: a QMenu (not shown) whose actions emit their request
-            when triggered. On a pinned tip it has "Delete"; on a marker
+            when triggered. On a text note it has "Edit" and "Delete";
+            on a pinned tip "Delete"; on a marker
             "Rename" and "Delete"; on a delta marker "Delete"; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
             elsewhere "Delete plot".
@@ -2731,6 +3333,10 @@ class PlotWidget(QWidget):
             # LLFR-00081: place a marker at the clicked time.
             self.marker_click_at(widget_point)
             return
+        if self.plot_tool_str == TEXT_TOOL_STR:
+            # LLFR-00333: start writing a text note at the clicked point.
+            self.text_click_at(widget_point)
+            return
         # LLFR-00045: pin the point of the hover tip that is shown.
         if self.plot_tool_str != TIP_TOOL_STR or not self.hover_point_tuple:
             return
@@ -2779,18 +3385,27 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: none. A press on a pinned tip starts moving it, with any
-            tool or none; with the Vertical marker tool, a press on a
-            marker starts dragging it; with the Zoom tool, a press starts
-            a click zoom or a time span selection, decided by the mouse
-            moves and the release (span_press_at); any other press is a
-            click (click_at).
+        Outputs: none. A press on a text note or a pinned tip starts
+            moving it, with any tool or none; with the Vertical marker
+            tool, a press on a marker starts dragging it; with the Zoom
+            tool, a press starts a click zoom or a time span selection,
+            decided by the mouse moves and the release (span_press_at);
+            any other press is a click (click_at), which opens the text
+            field with the Text tool.
         """
         # LLFR-00086, LLFR-00152: a drag whose release was lost (no move
         # came after it) is dropped; the item stays where it was.
         self.cancel_tip_drag()
         self.cancel_marker_drag()
-        # LLFR-00153: a pinned tip is on top of everything else, so a
+        self.cancel_note_drag()
+        # LLFR-00339: a text note is on top of everything else, so a
+        # press on it moves it, with any tool or none, and never pins,
+        # zooms, places a marker, picks a delta point or starts a note.
+        note_index_i = self.text_note_at(widget_point)
+        if note_index_i != NO_TEXT_NOTE_INDEX_I:
+            self.note_press_at(widget_point, note_index_i)
+            return
+        # LLFR-00153: a pinned tip is on top of the other items, so a
         # press on it moves it and never pins, zooms or places a marker.
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i != NO_TIP_INDEX_I:
@@ -3103,6 +3718,8 @@ class PlotWidget(QWidget):
         self.panning_b = False
         self.cancel_marker_drag()
         self.cancel_tip_drag()
+        # LLFR-00339: a text note drag ends without a move.
+        self.cancel_note_drag()
         # LLFR-00208: a time span selection ends without a zoom.
         self.cancel_time_span()
 
@@ -3111,7 +3728,8 @@ class PlotWidget(QWidget):
 
         Inputs: none.
         Outputs: True during a pan (LLFR-00117), a marker drag
-            (LLFR-00086), a pinned tip drag (LLFR-00152) or a time span
+            (LLFR-00086), a pinned tip drag (LLFR-00152), a text note
+            drag (LLFR-00339) or a time span
             selection (LLFR-00208, flag time_span_drag_b), from the
             press to the release.
         """
@@ -3120,6 +3738,7 @@ class PlotWidget(QWidget):
         return (self.panning_b
                 or self.drag_marker_id_i != NO_MARKER_ID_I
                 or self.drag_tip_index_i != NO_TIP_INDEX_I
+                or self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I
                 or self.time_span_drag_b)
 
     def retire(self) -> None:
@@ -3142,6 +3761,11 @@ class PlotWidget(QWidget):
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_moved_b = False
         self.reset_tip_drag()
+        # LLFR-00339: so does a text note drag. LLFR-00333: an open text
+        # field writes nothing on a removed plot.
+        self.reset_note_drag()
+        self.retired_b = True
+        self.close_text_note_editor()
         # LLFR-00203: a removed plot shows no preview.
         self.preview_time_s = None
         # LLFR-00207, LLFR-00208: a time span selection stops too, so a
@@ -3416,10 +4040,11 @@ class PlotWidget(QWidget):
         """
         # LLFR-00117: the time under the pointer is held under it while
         # the mouse moves; any plot tool, or none, may be active.
-        # LLFR-00086, LLFR-00152, LLFR-00208: not while a marker or tip
-        # is dragged, or a time span is selected.
+        # LLFR-00086, LLFR-00152, LLFR-00208, LLFR-00339: not while a
+        # marker, tip or text note is dragged, or a time span is selected.
         if (self.drag_marker_id_i != NO_MARKER_ID_I
                 or self.drag_tip_index_i != NO_TIP_INDEX_I
+                or self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I
                 or self.time_span_drag_b):
             return
         self.panning_b = True
@@ -3512,6 +4137,14 @@ class PlotWidget(QWidget):
                 return
             self.tip_drag_to(widget_point)
             return
+        # LLFR-00339: a move with a text note held moves it. A lost
+        # release leaves it at its last shown place.
+        if self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I:
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_note_drag()
+                return
+            self.note_drag_to(widget_point)
+            return
         if self.drag_marker_id_i != NO_MARKER_ID_I:
             # LLFR-00086: a lost release leaves the marker at its last
             # shown position.
@@ -3541,9 +4174,15 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
+        # LLFR-00334: a press while the text field is open confirms it
+        # (the focus leaves the field), and does nothing else.
+        editor_closed_b = (self.text_note_editor_open_b
+                           or self.press_closed_editor_b)
         # LLFR-00137: any press on the plot gives it the keyboard focus,
         # so that Ctrl+Z (Cmd+Z) is not taken by a text field.
         self.canvas.setFocus(Qt.FocusReason.MouseFocusReason)
+        self.confirm_text_note_editor()
+        self.press_closed_editor_b = False
         widget_point = self.display_to_widget_point(event.x, event.y)
         # LLFR-00117: the wheel button starts a pan, with any tool, and
         # never zooms, pins, places or grabs a marker, or opens a menu.
@@ -3566,6 +4205,9 @@ class PlotWidget(QWidget):
         # LLFR-00045, LLFR-00078: the second press of a double-click must
         # not pin the same tip again nor zoom a second time.
         if event.dblclick:
+            return
+        # LLFR-00334: the press that confirmed the text field.
+        if editor_closed_b and event.button == MouseButton.LEFT:
             return
         if event.button == MouseButton.LEFT:
             # LLFR-00153: a press on a pinned tip moves it; LLFR-00045: a
@@ -3593,6 +4235,10 @@ class PlotWidget(QWidget):
         # LLFR-00152: or a dragged pinned tip.
         if self.drag_tip_index_i != NO_TIP_INDEX_I:
             self.tip_release_at(widget_point)
+            return
+        # LLFR-00339: or a dragged text note.
+        if self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I:
+            self.note_release_at(widget_point)
             return
         # LLFR-00078, LLFR-00209: or ends a Zoom press: a click zoom or
         # a zoom to the selected span.

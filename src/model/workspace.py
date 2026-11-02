@@ -84,6 +84,52 @@ class PinnedTip:
 
 
 @dataclass
+class TextNote:
+    """A text written at one place of a plot (HLFR-00073).
+
+    Inputs:
+        text_str: the text shown, without leading and trailing spaces
+            and never empty (LLFR-00334).
+        time_s: x-axis value the note is attached to, in seconds (in Hz
+            on a frequency plot, LLFR-00333).
+        value_f: y-axis value the note is attached to (LLFR-00337).
+    """
+
+    text_str: str
+    time_s: float
+    value_f: float
+
+
+def text_note_text(text_str) -> str:
+    """Return the text a text note keeps for a typed text.
+
+    Inputs:
+        text_str: the typed text.
+    Outputs: the text without leading and trailing spaces; "" when it is
+        empty or made only of spaces (LLFR-00334, LLFR-00342).
+    """
+    # LLFR-00334, LLFR-00342: a blank text writes nothing.
+    return str(text_str).strip()
+
+
+def finite_place_tuple(time_s: float, value_f: float) -> tuple:
+    """Return a text note place as two finite floats.
+
+    Inputs:
+        time_s: x-axis value (s, or Hz on a frequency plot).
+        value_f: y-axis value.
+    Outputs: (time_s, value_f) as floats. Raises ValueError when a value
+        is not a finite number.
+    """
+    # LLFR-00333, LLFR-00339: a note is attached to a place it can be
+    # drawn at.
+    place_tuple = (float(time_s), float(value_f))
+    if not all(math.isfinite(number_f) for number_f in place_tuple):
+        raise ValueError("A text note needs a finite x and y value.")
+    return place_tuple
+
+
+@dataclass
 class VerticalMarker:
     """A vertical line drawn across a plot at one time value (HLFR-00028).
 
@@ -263,6 +309,9 @@ class Plot:
         # LLFR-00164, LLFR-00174: any number of delta markers, in the
         # order they were placed.
         self.delta_marker_list = []
+        # LLFR-00340: any number of text notes, in the order they were
+        # written; they belong to this plot only.
+        self.text_note_list = []
 
     def is_frequency_plot(self) -> bool:
         """Tell whether the plot is a frequency plot.
@@ -487,6 +536,96 @@ class Plot:
                 return True
         return False
 
+    def add_text_note(self, text_str: str, time_s: float,
+                      value_f: float):
+        """Write a text note at a place of the plot.
+
+        Inputs:
+            text_str: the typed text.
+            time_s: x-axis value of the place (s, or Hz on a frequency
+                plot).
+            value_f: y-axis value of the place.
+        Outputs: the new TextNote, or None when the text is empty or made
+            only of spaces (nothing is written). Raises ValueError when
+            the place is not finite.
+        """
+        # LLFR-00334: a blank text creates no note.
+        note_text_str = text_note_text(text_str)
+        place_tuple = finite_place_tuple(time_s, value_f)
+        if not note_text_str:
+            return None
+        # LLFR-00340: any number of notes per plot.
+        text_note = TextNote(note_text_str, *place_tuple)
+        self.text_note_list.append(text_note)
+        return text_note
+
+    def has_text_note_index(self, note_index_i: int) -> bool:
+        """Tell whether an index points at a text note of the plot.
+
+        Inputs:
+            note_index_i: index in text_note_list.
+        Outputs: True for a valid index.
+        """
+        # LLFR-00339, LLFR-00342, LLFR-00343: the view names a note by
+        # its index in the list it last drew.
+        return (isinstance(note_index_i, int)
+                and 0 <= note_index_i < len(self.text_note_list))
+
+    def edit_text_note(self, note_index_i: int, text_str: str) -> bool:
+        """Change the text of a text note.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+            text_str: the typed text.
+        Outputs: True when the text changed; False for an unknown index,
+            a blank text (the previous text is kept) or the same text.
+        """
+        # LLFR-00342: a blank text keeps the previous one.
+        note_text_str = text_note_text(text_str)
+        if not note_text_str or not self.has_text_note_index(note_index_i):
+            return False
+        text_note = self.text_note_list[note_index_i]
+        if text_note.text_str == note_text_str:
+            return False
+        text_note.text_str = note_text_str
+        return True
+
+    def move_text_note(self, note_index_i: int, time_s: float,
+                       value_f: float) -> bool:
+        """Attach a text note to another place of the plot.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+            time_s: new x-axis value (s, or Hz on a frequency plot).
+            value_f: new y-axis value.
+        Outputs: True when the note moved; False for an unknown index or
+            the same place. Raises ValueError when the place is not
+            finite.
+        """
+        # LLFR-00339: the note is attached to the values of the place
+        # where the button was released.
+        place_tuple = finite_place_tuple(time_s, value_f)
+        if not self.has_text_note_index(note_index_i):
+            return False
+        text_note = self.text_note_list[note_index_i]
+        if (text_note.time_s, text_note.value_f) == place_tuple:
+            return False
+        text_note.time_s, text_note.value_f = place_tuple
+        return True
+
+    def remove_text_note(self, note_index_i: int) -> bool:
+        """Remove a text note from the plot.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+        Outputs: True when it was removed, False for an unknown index.
+        """
+        # LLFR-00343: the note leaves the plot.
+        if not self.has_text_note_index(note_index_i):
+            return False
+        del self.text_note_list[note_index_i]
+        return True
+
     def is_empty(self) -> bool:
         """Tell whether the plot has no curves.
 
@@ -625,8 +764,9 @@ def plot_state_tuple(plot) -> tuple:
         (signal_name_str, color_str, width_i), pinned tip tuples
         (signal_name_str, time_s, value_f, label_offset_tuple), delta
         marker tuples (delta_marker_id_i, kind_str, first_point_tuple,
-        second_point_tuple), plot kind_str). For a frequency plot, the
-        time_s of the tips and delta marker points is a frequency in Hz.
+        second_point_tuple), text note tuples (text_str, time_s,
+        value_f), plot kind_str). For a frequency plot, the time_s of the tips,
+        delta marker points and text notes is a frequency in Hz.
     """
     # LLFR-00140: curves with color and width, pinned tips with their
     # label offsets, and the counter that picks the next color. The
@@ -646,8 +786,14 @@ def plot_state_tuple(plot) -> tuple:
         for delta_marker in plot.delta_marker_list)
     # LLFR-00256, LLFR-00140: creating a frequency plot is undoable like
     # creating a time plot, and an undo gives the plot back its kind.
+    # LLFR-00140: creating, moving, editing and deleting a text note are
+    # undoable; LLFR-00340: the notes are part of their plot's state.
+    text_note_tuple = tuple(
+        (text_note.text_str, text_note.time_s, text_note.value_f)
+        for text_note in plot.text_note_list)
     return (plot.plot_id_i, plot.drawn_count_i, curve_tuple,
-            pinned_tip_tuple, delta_marker_tuple, plot.kind_str)
+            pinned_tip_tuple, delta_marker_tuple, text_note_tuple,
+            plot.kind_str)
 
 
 def tabs_state_tuple(tab_list: list, marker_list: list) -> tuple:

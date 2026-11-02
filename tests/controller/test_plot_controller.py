@@ -80,6 +80,8 @@ class FakePlotView:
             set_delta_first_point (() when the dot was removed).
         plot_kind_dict: plot id -> kind_str given to add_plot_view.
         kind_mismatch_count_i: how many boxes of LLFR-00257 were shown.
+        text_note_drawn_dict: plot id -> text_note_data_list of the last
+            set_text_notes call.
     """
 
     def __init__(self) -> None:
@@ -109,6 +111,7 @@ class FakePlotView:
         self.delta_first_point_dict = {}
         self.plot_kind_dict = {}
         self.kind_mismatch_count_i = 0
+        self.text_note_drawn_dict = {}
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -346,6 +349,21 @@ class FakePlotView:
             time_array = curve_data_list[0][1]
             self.range_dict[plot_id_i] = (float(time_array[0]),
                                           float(time_array[-1]))
+
+    def set_text_notes(self, plot_id_i: int,
+                       text_note_data_list: list) -> None:
+        """Record the text notes drawn in a plot.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            text_note_data_list: the text note tuples (text_str, time_s,
+                value_f).
+        Outputs: none.
+        """
+        self.text_note_drawn_dict[plot_id_i] = list(text_note_data_list)
 
     def set_markers(self, marker_data_list: list) -> None:
         """Record the shared markers drawn on every shown plot.

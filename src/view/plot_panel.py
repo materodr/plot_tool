@@ -80,6 +80,11 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "delta_point_picked": "delta_point_pick_handler",
     # LLFR-00176: "Delete" chosen on a delta marker.
     "delta_marker_delete_requested": "delta_marker_delete_handler",
+    # LLFR-00334, LLFR-00339, LLFR-00342, LLFR-00343: the text notes.
+    "text_note_create_requested": "text_note_create_handler",
+    "text_note_move_requested": "text_note_move_handler",
+    "text_note_edit_requested": "text_note_edit_handler",
+    "text_note_delete_requested": "text_note_delete_handler",
 }
 
 
