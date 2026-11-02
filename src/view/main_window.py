@@ -143,6 +143,10 @@ class MainWindow(QMainWindow):
         self.top_panel.plot_tool_changed.connect(self._on_plot_tool_changed)
         self.signal_list_panel.signal_double_clicked.connect(
             self._on_signal_double_clicked)
+        # LLFR-00295: Enter in the signal list plots the selection.
+        self.selected_signals_plot_handler = None
+        self.signal_list_panel.selected_signals_plot_requested.connect(
+            self._on_selected_signals_plot_requested)
         # LLFR-00095: the search text goes to the signal list controller.
         self.search_text_handler = None
         self.signal_list_panel.search_text_changed.connect(
@@ -202,6 +206,9 @@ class MainWindow(QMainWindow):
             {RESET_ZOOM_KEY_I: self.on_reset_zoom_key})
         # LLFR-00148: the name used before the Shift key was added.
         self.tip_key_filter = self.tool_key_filter
+        # LLFR-00302: over the signal list, Cmd/Ctrl and Shift select.
+        self.tool_key_filter.set_selection_area_function(
+            self.is_pointer_over_signal_list)
         application = QApplication.instance()
         if application is not None:
             application.installEventFilter(self.tool_key_filter)
@@ -519,6 +526,38 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00019: the plot controller creates a plot through it.
         self.signal_double_click_handler = handler
+
+    def set_selected_signals_plot_handler(self, handler) -> None:
+        """Set the function called when Enter plots the selection.
+
+        Inputs:
+            handler: a function taking the selected names (list of str),
+                in list order.
+        Outputs: none.
+        """
+        # LLFR-00295: the plot controller creates one plot through it.
+        self.selected_signals_plot_handler = handler
+
+    def clear_signal_selection(self) -> None:
+        """Deselect every signal of the signal list.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00292: no signal of a previous file stays selected.
+        self.signal_list_panel.clear_signal_selection()
+
+    def is_pointer_over_signal_list(self) -> bool:
+        """Tell whether the mouse pointer is over the signal list panel.
+
+        Inputs: none.
+        Outputs: True while the pointer is inside the shown panel, as
+            Qt's enter and leave events tell (QWidget.underMouse, which
+            is also true while the pointer is over a child of it).
+        """
+        # LLFR-00302: there the Tip key and Shift select signals.
+        panel = self.signal_list_panel
+        return panel.isVisible() and panel.underMouse()
 
     def set_plot_tool_handler(self, handler) -> None:
         """Set the function called when the active plot tool changes.
@@ -1614,6 +1653,18 @@ class MainWindow(QMainWindow):
         # LLFR-00095: every change re-filters the signal list.
         if self.search_text_handler is not None:
             self.search_text_handler(text_str)
+
+    def _on_selected_signals_plot_requested(self,
+                                            signal_name_list: list) -> None:
+        """Pass the selected signal names to their handler.
+
+        Inputs:
+            signal_name_list: the selected names, in list order.
+        Outputs: none.
+        """
+        # LLFR-00295: the handler creates one plot with every signal.
+        if self.selected_signals_plot_handler is not None:
+            self.selected_signals_plot_handler(list(signal_name_list))
 
     def _on_signal_double_clicked(self, signal_name_str: str) -> None:
         """Pass a double-clicked signal name to its handler.

@@ -13,7 +13,17 @@ name" (LLFR-00277); and, for a synthetic signal, "Copy equation"
 Synthetic signals are shown in italics (LLFR-00242). The menu is shown
 once the right-click has been handled, and its request is emitted after
 the menu is closed, so a request may change the list safely.
+
+Several signals can be selected (HLFR-00063): a click selects one, a
+click with the Data tip key (Cmd on macOS, which Qt reports as the
+Control modifier, Ctrl elsewhere) toggles one and a click with Shift
+selects a range, as Qt's extended selection does (LLFR-00290). The
+Enter key plots the selection in one new plot (LLFR-00295), and a drag
+from a selected signal carries every selected name, in list order
+(LLFR-00297), as a JSON list in SIGNAL_LIST_MIME_TYPE_STR.
 """
+
+import json
 
 from PyQt6.QtCore import QByteArray, QMimeData, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -25,6 +35,12 @@ from view import theme
 # LLFR-00021: MIME type of a dragged signal name. The plot widget
 # accepts drops of this type, so the literal must stay the same there.
 SIGNAL_MIME_TYPE_STR = "application/x-plot-tool-signal"
+# LLFR-00297: MIME type of the dragged names, as a JSON list in list
+# order; the plot widget uses the same literal.
+SIGNAL_LIST_MIME_TYPE_STR = "application/x-plot-tool-signal-list"
+# LLFR-00295: the keys that plot the selection (Return and Enter act the
+# same).
+PLOT_SELECTION_KEY_TUPLE = (Qt.Key.Key_Return, Qt.Key.Key_Enter)
 PLAIN_TEXT_MIME_TYPE_STR = "text/plain"
 TITLE_TEXT_STR = "Signals"
 TEXT_ENCODING_STR = "utf-8"
@@ -47,19 +63,32 @@ class SignalListWidget(QListWidget):
     Attributes:
         no_match_label: label shown inside the list area when no signal
             matches the search (LLFR-00097); hidden by default.
+        pressed_item: the item under the last left press, or None.
+        pressed_item_was_selected_b: True when that item was already
+            selected before the press (LLFR-00298).
+    Signals:
+        plot_selection_requested(): the Enter key was pressed while the
+            list has the keyboard focus (LLFR-00295).
     """
 
+    plot_selection_requested = pyqtSignal()
+
     def __init__(self, parent=None) -> None:
-        """Create a single-selection, drag-only list.
+        """Create a multi-selection, drag-only list.
 
         Inputs:
             parent: optional parent widget.
         Outputs: none.
         """
         super().__init__(parent)
-        # HLFR-00011: one signal is picked at a time.
+        # LLFR-00290: click, Data tip key + click and Shift + click, as
+        # in Qt's extended selection; LLFR-00291: every selected signal
+        # is highlighted.
         self.setSelectionMode(
-            QAbstractItemView.SelectionMode.SingleSelection)
+            QAbstractItemView.SelectionMode.ExtendedSelection)
+        # LLFR-00298: what the last left press was on.
+        self.pressed_item = None
+        self.pressed_item_was_selected_b = False
         # LLFR-00021: names can be dragged out, never dropped in or
         # reordered.
         self.setDragEnabled(True)
@@ -91,47 +120,128 @@ class SignalListWidget(QListWidget):
         # row from the list.
         return Qt.DropAction.CopyAction
 
+    def mousePressEvent(self, event) -> None:
+        """Remember what a left press is on, then select as Qt does.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00298: whether the pressed signal was selected before the
+        # press decides what a drag that starts here carries.
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.pressed_item = self.itemAt(event.position().toPoint())
+            self.pressed_item_was_selected_b = (
+                self.pressed_item is not None
+                and self.pressed_item.isSelected())
+        # LLFR-00290: Qt's extended selection handles the modifiers.
+        super().mousePressEvent(event)
+
+    def select_only(self, item) -> None:
+        """Select one item and deselect every other one.
+
+        Inputs:
+            item: a QListWidgetItem of this list.
+        Outputs: none. The item also becomes the current item, the
+            start of the next Shift + click range (LLFR-00290).
+        """
+        # LLFR-00293, LLFR-00298: only that signal is selected.
+        self.clearSelection()
+        self.setCurrentItem(item)
+        item.setSelected(True)
+
+    def drag_selection_check(self) -> None:
+        """Select only the pressed signal when it was not selected.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00298: a drag that starts on a signal that was not
+        # selected (also with the Data tip key held, which Qt would add
+        # to the selection) drags that signal alone.
+        pressed_item = self.pressed_item
+        if (pressed_item is not None
+                and not self.pressed_item_was_selected_b
+                and self.row(pressed_item) >= 0):
+            self.select_only(pressed_item)
+
     def startDrag(self, supported_actions) -> None:
-        """Start dragging the selected signal name, as a copy only.
+        """Start dragging the selected signal names, as a copy only.
 
         Inputs:
             supported_actions: the Qt.DropAction flags Qt proposes; they
                 are replaced by CopyAction.
         Outputs: none.
         """
+        # LLFR-00297, LLFR-00298: drag the selection, or the pressed
+        # signal alone when it was not selected.
+        self.drag_selection_check()
         # LLFR-00021, LLFR-00154: with Shift (or Cmd on macOS) held, Qt
         # would make the drop a move and then delete the dragged row;
         # offering only a copy keeps the signal list unchanged.
         super().startDrag(Qt.DropAction.CopyAction)
 
+    def keyPressEvent(self, event) -> None:
+        """Ask for a plot of the selection when Enter is pressed.
+
+        Inputs:
+            event: the QKeyEvent.
+        Outputs: none. Other keys are handled by QListWidget.
+        """
+        # LLFR-00295: Return and Enter, with the focus in the list; the
+        # panel checks that a signal is selected (LLFR-00296).
+        if event.key() in PLOT_SELECTION_KEY_TUPLE:
+            event.accept()
+            self.plot_selection_requested.emit()
+            return
+        super().keyPressEvent(event)
+
+    def selected_name_list(self) -> list:
+        """Return the selected signal names, in list order.
+
+        Inputs: none.
+        Outputs: a list of str, from top to bottom.
+        """
+        # LLFR-00295, LLFR-00297: the order of the signal list.
+        return [self.item(row_i).text() for row_i in range(self.count())
+                if self.item(row_i).isSelected()]
+
     def mimeTypes(self) -> list:
         """Return the MIME types used by a drag from this list.
 
         Inputs: none.
-        Outputs: a list with SIGNAL_MIME_TYPE_STR and
-            PLAIN_TEXT_MIME_TYPE_STR.
+        Outputs: a list with SIGNAL_LIST_MIME_TYPE_STR,
+            SIGNAL_MIME_TYPE_STR and PLAIN_TEXT_MIME_TYPE_STR.
         """
-        # LLFR-00021: a dragged name is offered in both types.
-        return [SIGNAL_MIME_TYPE_STR, PLAIN_TEXT_MIME_TYPE_STR]
+        # LLFR-00021, LLFR-00297: the dragged names are offered in these
+        # types.
+        return [SIGNAL_LIST_MIME_TYPE_STR, SIGNAL_MIME_TYPE_STR,
+                PLAIN_TEXT_MIME_TYPE_STR]
 
     def mimeData(self, item_list: list) -> QMimeData:
         """Build the drag data for the dragged items.
 
         Inputs:
-            item_list: the dragged QListWidgetItem objects (one, since
-                the list has single selection).
-        Outputs: a QMimeData carrying the first item's name as text and
-            as SIGNAL_MIME_TYPE_STR.
+            item_list: the dragged QListWidgetItem objects, in any
+                order.
+        Outputs: a QMimeData carrying every name, in list order, as a
+            JSON list in SIGNAL_LIST_MIME_TYPE_STR, the first name as
+            SIGNAL_MIME_TYPE_STR, and the names as text, one per line.
         """
-        # LLFR-00021: the drop target reads the signal name from here.
+        # LLFR-00021, LLFR-00297: the drop target reads the signal names
+        # from here, in the order of the signal list.
         mime_data = QMimeData()
-        if not item_list:
+        sorted_item_list = sorted(item_list, key=self.row)
+        name_list = [item.text() for item in sorted_item_list]
+        if not name_list:
             return mime_data
-        signal_name_str = item_list[0].text()
-        mime_data.setText(signal_name_str)
+        mime_data.setText("\n".join(name_list))
+        # LLFR-00297: the plot widget decodes this JSON as UTF-8.
+        mime_data.setData(SIGNAL_LIST_MIME_TYPE_STR, QByteArray(
+            json.dumps(name_list).encode(TEXT_ENCODING_STR)))
         # LLFR-00021: the plot widget decodes these bytes as UTF-8.
         mime_data.setData(SIGNAL_MIME_TYPE_STR, QByteArray(
-            signal_name_str.encode(TEXT_ENCODING_STR)))
+            name_list[0].encode(TEXT_ENCODING_STR)))
         return mime_data
 
 
@@ -147,6 +257,10 @@ class SignalListPanel(QWidget):
     Signals:
         signal_double_clicked(str): emitted with the name of a signal
             the user double-clicked (LLFR-00019).
+        selected_signals_plot_requested(list): emitted with the
+            selected names, in list order, when the user presses Enter
+            in the list and at least one signal is selected
+            (LLFR-00295).
         search_text_changed(str): emitted with the new text each time
             the text of the search box changes (LLFR-00095).
         synthetic_operation_requested(str, str): the signal name and the
@@ -159,6 +273,8 @@ class SignalListPanel(QWidget):
     """
 
     signal_double_clicked = pyqtSignal(str)
+    # LLFR-00295: the selected names, in list order.
+    selected_signals_plot_requested = pyqtSignal(list)
     search_text_changed = pyqtSignal(str)
     # LLFR-00239: (signal name, operation id) chosen in the menu.
     synthetic_operation_requested = pyqtSignal(str, str)
@@ -199,6 +315,9 @@ class SignalListPanel(QWidget):
         # LLFR-00019: a double-click passes the signal name on.
         self.signal_list_widget.itemDoubleClicked.connect(
             self._emit_signal_double_clicked)
+        # LLFR-00295: Enter in the list plots the selection.
+        self.signal_list_widget.plot_selection_requested.connect(
+            self.request_selection_plot)
         # LLFR-00095: every change of the text is passed on.
         self.search_box.textChanged.connect(self.search_text_changed.emit)
         # LLFR-00268: the operation groups given by the controller, as
@@ -222,11 +341,18 @@ class SignalListPanel(QWidget):
                 including the time signal.
         Outputs: none.
         """
+        # LLFR-00292: the signals still shown stay selected; the others
+        # are no longer selected, and stay unselected when shown again.
+        kept_selection_set = set(self.selected_signal_names())
         # LLFR-00017: only the names of the new file are shown.
         # LLFR-00054: the time signal is shown like any other name.
         self.signal_list_widget.clear()
         self.signal_list_widget.addItems(
             [str(name_str) for name_str in signal_name_list])
+        for row_i in range(self.signal_list_widget.count()):
+            item = self.signal_list_widget.item(row_i)
+            if item.text() in kept_selection_set:
+                item.setSelected(True)
         # LLFR-00242: synthetic signals are shown in italic letters.
         for row_i in range(self.signal_list_widget.count()):
             item = self.signal_list_widget.item(row_i)
@@ -289,6 +415,36 @@ class SignalListPanel(QWidget):
         return [self.signal_list_widget.item(row_i).text()
                 for row_i in range(self.signal_list_widget.count())]
 
+    def selected_signal_names(self) -> list:
+        """Return the selected signal names, from top to bottom.
+
+        Inputs: none.
+        Outputs: a list of str.
+        """
+        # LLFR-00290, LLFR-00295: the selection, in list order.
+        return self.signal_list_widget.selected_name_list()
+
+    def clear_signal_selection(self) -> None:
+        """Deselect every signal.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00292: used when a data file is opened or replaced.
+        self.signal_list_widget.clearSelection()
+
+    def request_selection_plot(self) -> None:
+        """Emit selected_signals_plot_requested when a signal is selected.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00296: with no signal selected, Enter does nothing.
+        selected_name_list = self.selected_signal_names()
+        if selected_name_list:
+            # LLFR-00295: every selected signal, in list order.
+            self.selected_signals_plot_requested.emit(selected_name_list)
+
     def _emit_signal_double_clicked(self, item) -> None:
         """Emit signal_double_clicked with the double-clicked name.
 
@@ -296,7 +452,8 @@ class SignalListPanel(QWidget):
             item: the QListWidgetItem that was double-clicked.
         Outputs: none.
         """
-        # LLFR-00019: the name of the double-clicked signal.
+        # LLFR-00019, LLFR-00294: only the double-clicked signal, whatever
+        # other signals are selected.
         self.signal_double_clicked.emit(item.text())
 
     # ----------------------------------------------------------------
@@ -444,6 +601,9 @@ class SignalListPanel(QWidget):
         item = self.signal_list_widget.itemAt(widget_point)
         if item is None:
             return
+        # LLFR-00293: only the right-clicked signal is selected before
+        # the menu is shown, and the menu acts on it.
+        self.signal_list_widget.select_only(item)
         global_point = self.signal_list_widget.viewport().mapToGlobal(
             QPoint(widget_point))
         self.pending_menu_tuple = (item.text(), global_point)

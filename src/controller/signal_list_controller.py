@@ -3,7 +3,8 @@
 It talks to the view only through plain method calls (no Qt code), so
 it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``set_search_text_handler``, ``show_signal_names``,
-``show_no_match_message``, ``clear_search`` and ``set_signal_kinds``.
+``show_no_match_message``, ``clear_search``, ``set_signal_kinds`` and
+``clear_signal_selection``.
 
 The list shows the data file signals, then the synthetic signals in
 creation order (LLFR-00242); the SyntheticController gives the names of
@@ -105,6 +106,10 @@ class SignalListController:
         # are gone.
         self.synthetic_name_list = []
         self.fft_name_set = set()
+        # LLFR-00292: the signals of the previous file are no longer
+        # shown, so none stays selected, also when the new file has a
+        # signal with the same name.
+        self.view.clear_signal_selection()
         if replaced_b:
             # LLFR-00104: the search box is cleared on file replace. The
             # stored text is reset first, so the change the view reports

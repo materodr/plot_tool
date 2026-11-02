@@ -200,6 +200,13 @@ class FakeSyntheticWindow(FakePlotView):
         """
         self.search_text_handler("")
 
+    def clear_signal_selection(self) -> None:
+        """Do nothing: the fake list keeps no selection.
+
+        Inputs: none.
+        Outputs: none.
+        """
+
     def set_export_handlers(self, pdf_export_handler,
                             copy_handler) -> None:
         """Ignore the export handlers.

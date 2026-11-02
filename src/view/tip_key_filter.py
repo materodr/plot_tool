@@ -16,7 +16,9 @@ a function once when it is pressed alone. The Z key is one: it resets
 the zoom (LLFR-00207).
 No key activates a tool or runs an action while the keyboard focus is
 in a text field (LLFR-00157), so that letters, capital letters and
-shortcuts can be typed there.
+shortcuts can be typed there. The Tip key and Shift activate nothing
+while the mouse pointer is over the signal list panel, where they select
+signals (LLFR-00302); see ``set_selection_area_function``.
 
 The Tip key:
     The Tip key is ``Qt.Key.Key_Control``. On Windows and Linux this is the
@@ -188,6 +190,31 @@ class ToolKeyFilter(QObject):
         self.text_field_widget_tuple = tuple(text_field_widget_tuple)
         self.held_key_set = set()
         self.active_key_i = NO_KEY_I
+        # LLFR-00302: tells whether the pointer is over the signal list.
+        self.selection_area_function = None
+
+    def set_selection_area_function(self, area_function) -> None:
+        """Set the function that tells where the selection keys select.
+
+        Inputs:
+            area_function: function without arguments that returns True
+                while the mouse pointer is over the signal list panel,
+                or None to switch the check off.
+        Outputs: none.
+        """
+        # LLFR-00302: there, the Tip key and Shift select signals.
+        self.selection_area_function = area_function
+
+    def is_pointer_in_selection_area(self) -> bool:
+        """Tell whether the pointer is where the selection keys select.
+
+        Inputs: none.
+        Outputs: True while the pointer is over the signal list panel.
+        """
+        # LLFR-00302: no function set means no such area.
+        if self.selection_area_function is None:
+            return False
+        return bool(self.selection_area_function())
 
     def is_activation_on(self) -> bool:
         """Tell whether a tool key is holding its tool active.
@@ -282,6 +309,12 @@ class ToolKeyFilter(QObject):
             return
         if text_field_focused_b:
             # LLFR-00157: typing in a text field activates no tool.
+            return
+        if (key_i in OWN_MODIFIER_DICT
+                and self.is_pointer_in_selection_area()):
+            # LLFR-00302: over the signal list the Tip key and Shift
+            # select signals; the active tool stays as it is, also when
+            # the key is released (no activation was started).
             return
         self.active_key_i = key_i
         self.on_tool_key_activate(tool_str)

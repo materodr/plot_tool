@@ -24,7 +24,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - grid: ``set_grid_shown``;
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
-  ``set_plot_tool_handler``, ``set_tab_handlers``,
+  ``set_selected_signals_plot_handler``, ``set_plot_tool_handler``,
+  ``set_tab_handlers``,
   ``set_plot_handlers``, ``set_reset_zoom_handler``,
   ``set_grid_handler``, ``set_undo_handler`` and ``set_redo_handler``.
 
@@ -171,6 +172,9 @@ class PlotController:
         file_controller.add_file_opened_listener(self.on_file_opened)
         # LLFR-00019: signal list requests.
         view.set_signal_double_click_handler(self.on_signal_double_clicked)
+        # LLFR-00295: the Enter key plots the selected signals.
+        view.set_selected_signals_plot_handler(
+            self.on_selected_signals_plotted)
         # LLFR-00079, LLFR-00109: the plot tool buttons of the top panel.
         view.set_plot_tool_handler(self.on_plot_tool_changed)
         # LLFR-00026, LLFR-00028, LLFR-00030: tab menu and "+" button.
@@ -185,6 +189,8 @@ class PlotController:
             curve_width_handler=self.on_curve_width,
             plot_delete_handler=self.on_plot_delete,
             signal_drop_handler=self.on_signal_dropped,
+            # LLFR-00297: a drop of one or several selected signals.
+            signals_drop_handler=self.on_signals_dropped,
             tip_pin_handler=self.on_tip_pin,
             pinned_tip_delete_handler=self.on_pinned_tip_delete,
             pinned_tip_move_handler=self.on_pinned_tip_move,
@@ -646,6 +652,67 @@ class PlotController:
         # LLFR-00180: the new plot shows the range of the other plots.
         self.redraw_plot(plot)
 
+    def plottable_signal_list(self, signal_name_list: list) -> list:
+        """Return the names that can be plotted, once each, in order.
+
+        Inputs:
+            signal_name_list: signal names sent by the view, in the
+                order of the signal list.
+        Outputs: the names of signals of the open file or synthetic
+            signals, without repeats, in the given order.
+        """
+        # LLFR-00295, LLFR-00297: the selected signals, in list order.
+        plottable_list = []
+        for signal_name_str in signal_name_list:
+            signal_name_str = str(signal_name_str)
+            if (self.has_signal(signal_name_str)
+                    and signal_name_str not in plottable_list):
+                plottable_list.append(signal_name_str)
+        return plottable_list
+
+    def on_selected_signals_plotted(self, signal_name_list: list) -> None:
+        """Create one plot in the current tab that draws every signal.
+
+        Inputs:
+            signal_name_list: the selected signal names, in the order
+                of the signal list (Enter key).
+        Outputs: none.
+        """
+        # LLFR-00296: nothing selected, nothing plotted, no message.
+        plottable_list = self.plottable_signal_list(signal_name_list)
+        if not plottable_list:
+            return
+        tab = self.workspace.find_tab(self.view.current_tab_id())
+        if tab is None:
+            return
+        # LLFR-00300: FFT signals and other signals cannot share a plot;
+        # nothing is drawn and the box of LLFR-00257 is shown.
+        kind_set = {self.plot_kind_for_signal(signal_name_str)
+                    for signal_name_str in plottable_list}
+        if len(kind_set) != 1:
+            self.view.show_plot_kind_mismatch_notification()
+            return
+        # LLFR-00301: the new plot and all its curves are one undoable
+        # action.
+        snapshot = self.take_snapshot()
+        # LLFR-00295, LLFR-00031: a full tab gets no new plot; when every
+        # signal is an FFT signal the plot is a frequency plot
+        # (LLFR-00256).
+        plot = self.workspace.add_plot(tab.tab_id_i, kind_set.pop())
+        if plot is None:
+            # LLFR-00032: tell the user to add a tab or delete a plot.
+            self.view.show_full_tab_notification()
+            return
+        # LLFR-00069: the new plot goes below the others.
+        self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i, plot.kind_str)
+        # LLFR-00295, LLFR-00033, LLFR-00034: every signal in list order,
+        # so the curves get the palette colors in that order.
+        for signal_name_str in plottable_list:
+            plot.add_curve(signal_name_str)
+        self.record_undo(snapshot)
+        # LLFR-00180: the new plot shows the range of the other plots.
+        self.redraw_plot(plot)
+
     def on_signal_dropped(self, plot_id_i: int,
                           signal_name_str: str) -> None:
         """Draw a dropped signal in the plot it was dropped on.
@@ -655,24 +722,47 @@ class PlotController:
             signal_name_str: the dropped signal name.
         Outputs: none.
         """
+        # LLFR-00021: a drop of one signal is a drop of a list of one.
+        self.on_signals_dropped(plot_id_i, [signal_name_str])
+
+    def on_signals_dropped(self, plot_id_i: int,
+                           signal_name_list: list) -> None:
+        """Draw the dropped signals in the plot they were dropped on.
+
+        Inputs:
+            plot_id_i: id of the plot the signals were dropped on.
+            signal_name_list: the dropped signal names, in the order of
+                the signal list.
+        Outputs: none.
+        """
         # LLFR-00022, LLFR-00023: only a drop on a known plot does
         # anything; there is no other path from a drop to a new plot.
         plot = self.workspace.find_plot(plot_id_i)
-        if plot is None or not self.has_signal(signal_name_str):
+        plottable_list = self.plottable_signal_list(signal_name_list)
+        if plot is None or not plottable_list:
             return
-        # LLFR-00257: an FFT signal on a time plot, or another signal on
-        # a frequency plot, is not drawn; an information box says why.
-        if self.plot_kind_for_signal(signal_name_str) != plot.kind_str:
-            self.view.show_plot_kind_mismatch_notification()
-            return
-        # LLFR-00140: adding a curve is undoable.
+        # LLFR-00257, LLFR-00300: an FFT signal on a time plot, or
+        # another signal on a frequency plot, is not drawn; when one of
+        # the dropped signals cannot be drawn there, none is, and an
+        # information box says why.
+        for signal_name_str in plottable_list:
+            if self.plot_kind_for_signal(signal_name_str) != plot.kind_str:
+                self.view.show_plot_kind_mismatch_notification()
+                return
+        # LLFR-00140, LLFR-00301: the curves of one drop are one
+        # undoable action.
         snapshot = self.take_snapshot()
-        # LLFR-00056, LLFR-00057: a signal already shown is not drawn
-        # again, and no message is shown.
-        if plot.add_curve(signal_name_str) is None:
+        # LLFR-00056, LLFR-00057, LLFR-00299: a signal already shown is
+        # not drawn again, and no message is shown; the others are drawn
+        # in list order (LLFR-00297).
+        added_count_i = 0
+        for signal_name_str in plottable_list:
+            if plot.add_curve(signal_name_str) is not None:
+                added_count_i += 1
+        if added_count_i == 0:
             return
         self.record_undo(snapshot)
-        # LLFR-00021: draw the signal in that plot.
+        # LLFR-00021, LLFR-00297: draw the signals in that plot.
         self.redraw_plot(plot)
 
     # ----------------------------------------------------------------

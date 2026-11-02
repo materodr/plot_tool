@@ -94,6 +94,7 @@ class FakeSignalListView:
         self.call_list = []
         self.synthetic_name_set = set()
         self.fft_name_set = set()
+        self.selection_clear_count_i = 0
 
     def set_search_text_handler(self, handler) -> None:
         """Record the search box handler.
@@ -169,6 +170,17 @@ class FakeSignalListView:
         """
         self.call_list.append("clear_search")
         self.type_text("")
+
+    def clear_signal_selection(self) -> None:
+        """Record that the selection of the list was cleared.
+
+        Not added to call_list, so that the call order tests of the
+        search are not affected.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.selection_clear_count_i += 1
 
 
 class FakeFileView(FakeSignalListView):
