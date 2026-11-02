@@ -34,7 +34,7 @@ INK_ROLE_STR = "ink"
 MARKER_DASH_START_TUPLE = (11.25, 15.0, 18.75)
 MARKER_DASH_LENGTH_F = 2.25
 
-# LLFR-00159: the names of the 18 icons. Delta X and Delta Y are drawn
+# LLFR-00159: the names of the 19 icons. Delta X and Delta Y are drawn
 # here for their buttons (LLFR-00161, LLFR-00162).
 OPEN_FILE_ICON_STR = "open_file"
 UNDO_ICON_STR = "undo"
@@ -60,6 +60,8 @@ TEXT_ICON_STR = "text"
 # a bug icons.
 PAN_ICON_STR = "pan"
 REPORT_BUG_ICON_STR = "report_bug"
+# LLFR-00159 item 20, LLFR-00394: the Save signals icon.
+SAVE_SIGNALS_ICON_STR = "save_signals"
 # LLFR-00159 item 17: the four fingers of the Pan icon, as (x, top of
 # the finger), on the 24 by 24 grid; each finger ends at the palm.
 PAN_FINGER_TUPLE = ((8.75, 6.0), (11.75, 3.5), (15.0, 4.5), (18.25, 7.5))
@@ -414,6 +416,28 @@ def load_layout_shape() -> list:
         ink_layer(arrow_head(12.0, 1.5, "up", 2.75))]
 
 
+def save_signals_shape() -> list:
+    """Return the Save signals icon: a sheet with a small table and an
+    arrow down into it (20).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 20: the sheet of the layout icons, with a table of
+    # two columns and three rows instead of the two plots; the arrow
+    # comes from above, as in the Save layout icon, and points down
+    # into the sheet through the gap of its top edge.
+    sheet_layer_list = layout_sheet_layer_list()[:2]
+    table_layer_list = [
+        ink_layer([("R", 6.75, 13.0, 10.5, 7.0, 1.0)]),
+        ink_layer(segment(6.75, 15.5, 17.25, 15.5)),
+        ink_layer(segment(6.75, 17.75, 17.25, 17.75)),
+        ink_layer(segment(12.0, 13.0, 12.0, 20.0))]
+    return sheet_layer_list + table_layer_list + [
+        ink_layer(segment(12.0, 1.5, 12.0, 10.75)),
+        ink_layer(arrow_head(12.0, 10.75, "down", 2.75))]
+
+
 def hatch_segment_list(band_tuple: tuple, sum_f: float) -> list:
     """Return one rising diagonal hatch line, cut to a rectangle.
 
@@ -533,6 +557,7 @@ ICON_SHAPE_FUNCTION_DICT = {
     TEXT_ICON_STR: text_shape,
     PAN_ICON_STR: pan_shape,
     REPORT_BUG_ICON_STR: report_bug_shape,
+    SAVE_SIGNALS_ICON_STR: save_signals_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 

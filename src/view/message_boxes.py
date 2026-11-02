@@ -87,6 +87,14 @@ LAYOUT_REPORT_TEXT_OBJECT_NAME_STR = "layout_report_text"
 LAYOUT_REPORT_MINIMUM_WIDTH_I = 560
 LAYOUT_REPORT_MINIMUM_HEIGHT_I = 260
 LAYOUT_REPORT_ICON_SIZE_I = 32
+# LLFR-00397, LLFR-00399, LLFR-00400: the error box of Save signals.
+SAVE_SIGNALS_ERROR_TITLE_STR = "Save Signals Error"
+# LLFR-00404: the information box that lists the changed names.
+CHANGED_NAMES_TITLE_STR = "Signals Saved"
+CHANGED_NAMES_INTRO_STR = (
+    "The signals were saved. Some names were changed so that the file "
+    "format can store them and the time signal is named Time:")
+CHANGED_NAMES_TEXT_OBJECT_NAME_STR = "changed_names_text"
 # LLFR-00361: the error box shown when the browser cannot be opened.
 REPORT_BUG_ERROR_TITLE_STR = "Report a Bug Error"
 REPORT_BUG_ERROR_MESSAGE_STR = (
@@ -588,22 +596,29 @@ def build_layout_load_error_box(parent, message_str: str) -> QMessageBox:
                              LOAD_LAYOUT_ERROR_TITLE_STR, message_str)
 
 
-def build_layout_report_box(parent, report_text_str: str) -> QDialog:
+def build_layout_report_box(
+        parent, report_text_str: str,
+        title_str: str = LAYOUT_REPORT_TITLE_STR,
+        intro_str: str = LAYOUT_REPORT_INTRO_STR,
+        text_object_name_str: str = LAYOUT_REPORT_TEXT_OBJECT_NAME_STR
+) -> QDialog:
     """Build the information box of the layout load report.
 
     Inputs:
         parent: parent widget of the box, or None.
         report_text_str: the list of what was not rebuilt or changed, one
             entry per line.
-    Outputs: a QDialog titled LAYOUT_REPORT_TITLE_STR with the
-        information icon, the text LAYOUT_REPORT_INTRO_STR, the report in
-        a read-only, scrollable text field (objectName
-        LAYOUT_REPORT_TEXT_OBJECT_NAME_STR) and an OK button.
+        title_str: the window title.
+        intro_str: the sentence above the list.
+        text_object_name_str: the objectName of the text field.
+    Outputs: a QDialog titled title_str with the information icon, the
+        text intro_str, the report in a read-only, scrollable text field
+        (objectName text_object_name_str) and an OK button.
     """
-    # LLFR-00237: an information box, not an error box, like the Full
-    # Tab Notification box; a long list can be scrolled.
+    # LLFR-00237, LLFR-00404: an information box, not an error box, like
+    # the Full Tab Notification box; a long list can be scrolled.
     dialog = QDialog(parent)
-    dialog.setWindowTitle(LAYOUT_REPORT_TITLE_STR)
+    dialog.setWindowTitle(title_str)
     dialog.setMinimumSize(LAYOUT_REPORT_MINIMUM_WIDTH_I,
                           LAYOUT_REPORT_MINIMUM_HEIGHT_I)
     dialog_layout = QVBoxLayout(dialog)
@@ -612,13 +627,13 @@ def build_layout_report_box(parent, report_text_str: str) -> QDialog:
     icon_label.setPixmap(dialog.style().standardIcon(
         QStyle.StandardPixmap.SP_MessageBoxInformation).pixmap(
             LAYOUT_REPORT_ICON_SIZE_I, LAYOUT_REPORT_ICON_SIZE_I))
-    intro_label = QLabel(LAYOUT_REPORT_INTRO_STR, dialog)
+    intro_label = QLabel(intro_str, dialog)
     intro_label.setWordWrap(True)
     intro_layout.addWidget(icon_label)
     intro_layout.addWidget(intro_label, 1)
     dialog_layout.addLayout(intro_layout)
     report_field = QPlainTextEdit(dialog)
-    report_field.setObjectName(LAYOUT_REPORT_TEXT_OBJECT_NAME_STR)
+    report_field.setObjectName(text_object_name_str)
     report_field.setReadOnly(True)
     report_field.setPlainText(report_text_str)
     dialog_layout.addWidget(report_field, 1)
@@ -627,3 +642,37 @@ def build_layout_report_box(parent, report_text_str: str) -> QDialog:
     button_box.accepted.connect(dialog.accept)
     dialog_layout.addWidget(button_box)
     return dialog
+
+
+def build_signals_save_error_box(parent, message_str: str) -> QMessageBox:
+    """Build the error box of the Save signals button.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the text from the save signals controller, which
+            says that the signals could not be saved or that the opened
+            data file cannot be replaced, and why.
+    Outputs: a QMessageBox with the critical icon and the title
+        SAVE_SIGNALS_ERROR_TITLE_STR.
+    """
+    # LLFR-00397, LLFR-00399, LLFR-00400: an error box (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             SAVE_SIGNALS_ERROR_TITLE_STR, message_str)
+
+
+def build_changed_names_box(parent, changed_names_text_str: str) -> QDialog:
+    """Build the information box that lists the changed signal names.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        changed_names_text_str: one "<old name> → <new name>" per line.
+    Outputs: a QDialog titled CHANGED_NAMES_TITLE_STR with the
+        information icon, the text CHANGED_NAMES_INTRO_STR, the list in a
+        read-only, scrollable text field (objectName
+        CHANGED_NAMES_TEXT_OBJECT_NAME_STR) and an OK button.
+    """
+    # LLFR-00404: an information box, scrollable like the layout load
+    # report (LLFR-00237).
+    return build_layout_report_box(
+        parent, changed_names_text_str, CHANGED_NAMES_TITLE_STR,
+        CHANGED_NAMES_INTRO_STR, CHANGED_NAMES_TEXT_OBJECT_NAME_STR)

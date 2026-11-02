@@ -57,6 +57,8 @@ GRID_TEXT_STR = "Grid"
 EXPORT_TEXT_STR = "Export"
 SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
 COPY_TEXT_STR = "Copy"
+# LLFR-00394: the Save signals button, right of Copy.
+SAVE_SIGNALS_TEXT_STR = "Save signals"
 UNDO_TEXT_STR = "Undo"
 # LLFR-00190: the Redo button, right of the Undo button.
 REDO_TEXT_STR = "Redo"
@@ -84,6 +86,7 @@ BUTTON_ICON_DICT = {
     GRID_TEXT_STR: icon_shapes.GRID_ICON_STR,
     EXPORT_TEXT_STR: icon_shapes.EXPORT_ICON_STR,
     COPY_TEXT_STR: icon_shapes.COPY_ICON_STR,
+    SAVE_SIGNALS_TEXT_STR: icon_shapes.SAVE_SIGNALS_ICON_STR,
     UNDO_TEXT_STR: icon_shapes.UNDO_ICON_STR,
     REDO_TEXT_STR: icon_shapes.REDO_ICON_STR,
     REPORT_BUG_TEXT_STR: icon_shapes.REPORT_BUG_ICON_STR,
@@ -124,7 +127,8 @@ PAN_MOUSE_LINE_TUPLE = ("Drag on a plot to pan",)
 # LLFR-00213 to LLFR-00215: the shortcut or mouse use of each button,
 # next to the keys the app really uses (view.tip_key_filter and the
 # shortcuts above), as (kind, value). A button that is not listed (Open
-# file, Grid, Export, Copy, Save layout, Load layout, Report a bug)
+# file, Grid, Export, Copy, Save signals, Save layout, Load layout,
+# Report a bug)
 # shows only its name.
 BUTTON_TIP_SHORTCUT_DICT = {
     UNDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, UNDO_STANDARD_KEY),
@@ -318,6 +322,9 @@ class TopPanel(QWidget):
             tool, it shows whether the grid is shown (LLFR-00124).
         export_button: the "Export" ToggleButton (LLFR-00126).
         copy_button: the "Copy" ToggleButton (LLFR-00132).
+        save_signals_button: the "Save signals" UndoButton
+            (LLFR-00394), directly right of Copy; disabled while no data
+            file is open (LLFR-00395).
         undo_button: the "Undo" UndoButton (LLFR-00136); not a plot
             tool, disabled while nothing can be undone (LLFR-00141).
         redo_button: the "Redo" UndoButton (LLFR-00190), directly right
@@ -337,6 +344,7 @@ class TopPanel(QWidget):
     copy_requested = pyqtSignal()
     save_layout_requested = pyqtSignal()
     load_layout_requested = pyqtSignal()
+    save_signals_requested = pyqtSignal()
     report_bug_requested = pyqtSignal()
 
     def __init__(self) -> None:
@@ -419,6 +427,11 @@ class TopPanel(QWidget):
             ToggleButton, EXPORT_TEXT_STR, "export_button")
         self.copy_button = new_icon_button(
             ToggleButton, COPY_TEXT_STR, "copy_button")
+        # LLFR-00394: the Save signals button, right of Copy.
+        # LLFR-00395: disabled, and paler, until a data file is open.
+        self.save_signals_button = new_icon_button(
+            UndoButton, SAVE_SIGNALS_TEXT_STR, "save_signals_button")
+        self.save_signals_button.setEnabled(False)
         # LLFR-00136: the Undo button; LLFR-00141: disabled until there
         # is an action to undo. Not a plot tool. LLFR-00190: the Redo
         # button, directly right of Undo; LLFR-00194: disabled until an
@@ -440,7 +453,8 @@ class TopPanel(QWidget):
              self.load_layout_button],
             list(self.plot_tool_button_dict.values()),
             [self.reset_zoom_button, self.grid_button],
-            [self.export_button, self.copy_button],
+            [self.export_button, self.copy_button,
+             self.save_signals_button],
             [self.undo_button, self.redo_button],
             [self.report_bug_button]]
         for group_index_i, button_group in enumerate(
@@ -483,6 +497,10 @@ class TopPanel(QWidget):
             lambda: QTimer.singleShot(0, self.emit_pending_save_layout))
         self.load_layout_button.triggered.connect(
             lambda: QTimer.singleShot(0, self.emit_pending_load_layout))
+        # LLFR-00396: the save dialog opens once control is back in Qt,
+        # so the active color is painted first (LLFR-00001).
+        self.save_signals_button.triggered.connect(
+            lambda: QTimer.singleShot(0, self.emit_pending_save_signals))
         # LLFR-00127, LLFR-00133: the menu and the copy run once control
         # is back in Qt, so the active color is painted first.
         self.export_button.activated.connect(
@@ -715,3 +733,15 @@ class TopPanel(QWidget):
         if sip.isdeleted(self):
             return
         self.load_layout_requested.emit()
+
+    def emit_pending_save_signals(self) -> None:
+        """Report the click on the Save signals button.
+
+        Inputs: none.
+        Outputs: none. Emits save_signals_requested unless the panel was
+            deleted meanwhile.
+        """
+        # LLFR-00396: the save dialog opens after the active color shows.
+        if sip.isdeleted(self):
+            return
+        self.save_signals_requested.emit()

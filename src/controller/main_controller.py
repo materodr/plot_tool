@@ -4,6 +4,7 @@ from controller.export_controller import ExportController
 from controller.file_controller import FileController
 from controller.layout_controller import LayoutController
 from controller.plot_controller import PlotController
+from controller.save_signals_controller import SaveSignalsController
 from controller.signal_list_controller import SignalListController
 from controller.synthetic_controller import SyntheticController
 
@@ -28,6 +29,8 @@ class MainController:
             the Copy button.
         layout_controller: the LayoutController of the Save layout and
             Load layout buttons.
+        save_signals_controller: the SaveSignalsController of the Save
+            signals button.
     """
 
     def __init__(self, main_window: object) -> None:
@@ -69,6 +72,10 @@ class MainController:
             self.synthetic_controller.load_layout_signals)
         self.layout_controller.synthetic_signal_snapshot_function = (
             self.synthetic_controller.layout_snapshot)
+        # LLFR-00394, LLFR-00395: the Save signals button writes the
+        # signals of the signal list, enabled once a data file is open.
+        self.save_signals_controller = SaveSignalsController(
+            main_window, self.file_controller, self.synthetic_controller)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
         self.export_controller = ExportController(main_window)
