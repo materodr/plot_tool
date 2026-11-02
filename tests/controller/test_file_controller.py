@@ -11,11 +11,11 @@ import numpy as np
 from tests.support import REPOSITORY_ROOT_STR, covers
 
 from controller.file_controller import (
-    REPOSITORY_FOLDER_STR, FileController, first_start_folder_str)
+    REPOSITORY_FOLDER_STR, TIME_SIGNAL_PROMPT_STR, FileController,
+    first_start_folder_str)
 from model.errors import (
-    OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
-    ContentCheckError, FileAccessError, FileReadError,
-    UnsupportedFormatError)
+    SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
+    FileAccessError, FileReadError, UnsupportedFormatError)
 from model.file_loader import load_signal_file
 from model.signal_file import SignalFile
 
@@ -45,18 +45,28 @@ class FakeView:
             ("" means the dialog was cancelled).
         replace_answer_list: answers returned by successive
             ask_replace_file calls.
+        time_answer_list: lists of names "confirmed" by successive
+            ask_time_signal_name calls; each name is checked with the
+            window's check function like the real window does, and the
+            first accepted one is returned; an empty list cancels.
     """
 
-    def __init__(self, path_list: list, replace_answer_list=None) -> None:
+    def __init__(self, path_list: list, replace_answer_list=None,
+                 time_answer_list=None) -> None:
         """Store the scripted answers and start with no calls.
 
         Inputs:
             path_list: the scripted dialog results.
             replace_answer_list: the scripted confirmation answers.
+            time_answer_list: the scripted time signal window answers.
         Outputs: none.
         """
         self.path_list = list(path_list)
         self.replace_answer_list = list(replace_answer_list or [])
+        self.time_answer_list = list(time_answer_list or [])
+        self.time_window_list = []
+        self.time_reason_list = []
+        self.time_signal_name_list = []
         self.call_list = []
         self.error_message_list = []
         self.shown_name_list = []
@@ -91,6 +101,40 @@ class FakeView:
         """
         self.call_list.append("ask_replace_file")
         return self.replace_answer_list.pop(0)
+
+    def ask_time_signal_name(self, prompt_str: str, name_list: list,
+                             search_function, no_match_text_str: str,
+                             check_function):
+        """Record the window and return the first accepted answer.
+
+        Inputs:
+            prompt_str: the text of the window.
+            name_list: the names listed.
+            search_function: text -> matching names.
+            no_match_text_str: the text shown when nothing matches.
+            check_function: name -> reason ("" when accepted).
+        Outputs: the first scripted name that check_function accepts,
+            or None (cancel) when none is.
+        """
+        self.call_list.append("ask_time_signal_name")
+        self.time_window_list.append(
+            (prompt_str, list(name_list), search_function,
+             no_match_text_str))
+        for name_str in self.time_answer_list.pop(0):
+            reason_str = check_function(name_str)
+            if not reason_str:
+                return name_str
+            self.time_reason_list.append(reason_str)
+        return None
+
+    def set_time_signal_name(self, name_str: str) -> None:
+        """Record the time signal given to the signal list.
+
+        Inputs:
+            name_str: the time signal name.
+        Outputs: none.
+        """
+        self.time_signal_name_list.append(name_str)
 
     def show_signal_names(self, signal_name_list: list) -> None:
         """Record the names shown in the signal list.
@@ -149,10 +193,8 @@ ERROR_CASE_LIST = [
      FileAccessError("The file 'x.csv' could not be accessed.")),
     ("LLFR-00011",
      UnsupportedFormatError("The file format is not supported.")),
-    ("LLFR-00012", ContentCheckError("No time signal.",
-                                     TIME_SIGNAL_CHECK_STR)),
-    ("LLFR-00012", ContentCheckError("No other signal.",
-                                     OTHER_SIGNAL_CHECK_STR)),
+    ("LLFR-00012", ContentCheckError("Fewer than two signals.",
+                                     SIGNAL_COUNT_CHECK_STR)),
     ("LLFR-00012", ContentCheckError("Different sample counts.",
                                      SAMPLE_COUNT_CHECK_STR)),
 ]
@@ -584,7 +626,7 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         self.other_path_str = self.write_file(
             "other.csv", "Time,pressure\n0,1\n1,2\n")
         self.no_time_path_str = self.write_file(
-            "no_time.csv", "time,speed\n0,1\n1,2\n")
+            "one_signal.csv", "speed\n0\n1\n")
         self.bad_value_path_str = self.write_file(
             "bad_value.csv", "Time,speed\n0,1\n1,abc\n")
         self.text_path_str = self.write_file("notes.txt", "hello")
@@ -625,8 +667,8 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         self.assertEqual(len(view.error_message_list), 4)
         no_time_str, bad_value_str, text_str, missing_str = (
             view.error_message_list)
-        self.assertIn("no_time.csv", no_time_str)
-        self.assertIn("Time", no_time_str)
+        self.assertIn("one_signal.csv", no_time_str)
+        self.assertIn("at least two signals", no_time_str)
         self.assertIn("could not be read", bad_value_str)
         self.assertIn("abc", bad_value_str)
         self.assertIn("not supported", text_str)
@@ -642,6 +684,250 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         self.assertEqual(view.shown_name_list, ["Time", "pressure"])
         self.assertEqual(view.call_list.count("finish_open_file_button"),
                          7)
+        self.assertNotIn("ask_time_signal_name", view.call_list)
+        self.assertEqual(view.time_signal_name_list, ["Time", "Time"])
+
+    @covers("LLFR-00325", "LLFR-00326", "LLFR-00328", "LLFR-00329",
+            "LLFR-00068", "HLFR-00070", "HLFR-00007")
+    def test_real_file_without_time_asks_for_it(self) -> None:
+        """A real CSV whose x column is "t_s" opens after the choice.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        path_str = self.write_file(
+            "x_axis.csv", "speed,t_s,force\n5,0,2\n4,0.5,4\n3,2,1\n")
+        view = FakeView([path_str], [], [["speed", "force", "t_s"]])
+        controller = FileController(view)
+        controller.open_file_requested()
+        self.assertEqual(view.call_list, [
+            "ask_open_file_path", "ask_time_signal_name",
+            "show_signal_names", "finish_open_file_button"])
+        self.assertEqual(len(view.time_reason_list), 2)
+        for reason_str in view.time_reason_list:
+            self.assertIn("must always increase", reason_str)
+        self.assertEqual(controller.current_file.time_signal_name_str,
+                         "t_s")
+        np.testing.assert_array_equal(controller.current_file.time_array,
+                                      [0.0, 0.5, 2.0])
+        self.assertEqual(view.shown_name_list, ["speed", "t_s", "force"])
+        self.assertEqual(view.time_signal_name_list, ["t_s"])
+
+
+def build_no_time_file(path_str: str) -> SignalFile:
+    """Build a SignalFile with no signal named "Time".
+
+    Inputs:
+        path_str: the path stored in the SignalFile.
+    Outputs: a SignalFile with "Down" (decreasing), "t_s" (increasing)
+        and "Flat" (not always increasing), three samples each.
+    """
+    return SignalFile(path_str, {
+        "Down": np.array([3.0, 2.0, 1.0]),
+        "t_s": np.array([0.0, 0.5, 1.5]),
+        "Flat": np.array([1.0, 1.0, 2.0])})
+
+
+class TimeSignalWindowTest(unittest.TestCase):
+    """The time signal window in the open-file flow (HLFR-00070)."""
+
+    def setUp(self) -> None:
+        """Prepare a file with Time, a file without, and a recorder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.first_file = build_signal_file(FIRST_PATH_STR, ["a", "b"])
+        self.no_time_file = build_no_time_file(SECOND_PATH_STR)
+        self.listener_call_list = []
+
+    def build_controller(self, view, result_dict: dict) -> FileController:
+        """Build a FileController with a scripted loader and listener.
+
+        Inputs:
+            view: the fake view.
+            result_dict: path -> SignalFile or exception.
+        Outputs: the FileController.
+        """
+        controller = FileController(view, ScriptedLoader(result_dict))
+        controller.add_file_opened_listener(
+            lambda signal_file, replaced_b: self.listener_call_list.append(
+                (signal_file, replaced_b)))
+        return controller
+
+    @covers("LLFR-00325", "LLFR-00326", "HLFR-00070", "LLFR-00054")
+    def test_window_shown_when_no_time_signal(self) -> None:
+        """The window lists every signal; the choice is the time signal.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([SECOND_PATH_STR], [], [["t_s"]])
+        controller = self.build_controller(
+            view, {SECOND_PATH_STR: self.no_time_file})
+        controller.open_file_requested()
+        self.assertEqual(len(view.time_window_list), 1)
+        prompt_str, name_list, search_function, no_match_str = (
+            view.time_window_list[0])
+        self.assertEqual(prompt_str,
+                         "Choose the signal that goes on the x-axis")
+        self.assertEqual(prompt_str, TIME_SIGNAL_PROMPT_STR)
+        self.assertEqual(name_list, ["Down", "t_s", "Flat"])
+        self.assertEqual(no_match_str, "No matching signals")
+        self.assertIs(controller.current_file, self.no_time_file)
+        self.assertEqual(self.no_time_file.time_signal_name_str, "t_s")
+        np.testing.assert_array_equal(self.no_time_file.time_array,
+                                      [0.0, 0.5, 1.5])
+        self.assertEqual(view.shown_name_list, ["Down", "t_s", "Flat"])
+        self.assertEqual(view.time_signal_name_list, ["t_s"])
+        self.assertEqual(self.listener_call_list,
+                         [(self.no_time_file, False)])
+
+    @covers("LLFR-00325", "LLFR-00285", "LLFR-00098", "LLFR-00101",
+            "LLFR-00102")
+    def test_window_search_uses_signal_list_rules(self) -> None:
+        """The window's search finds names like the signal list search.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([SECOND_PATH_STR], [], [[]])
+        controller = self.build_controller(
+            view, {SECOND_PATH_STR: self.no_time_file})
+        controller.open_file_requested()
+        search_function = view.time_window_list[0][2]
+        self.assertEqual(search_function(""), ["Down", "t_s", "Flat"])
+        self.assertEqual(search_function("   "), ["Down", "t_s", "Flat"])
+        self.assertEqual(search_function("TS"), ["t_s"])
+        self.assertEqual(search_function("flta"), ["Flat"])
+        self.assertEqual(search_function("zzzz"), [])
+
+    @covers("LLFR-00329", "LLFR-00326")
+    def test_non_increasing_signal_is_refused(self) -> None:
+        """A signal that does not always increase keeps the window open.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([SECOND_PATH_STR], [], [["Down", "Flat", "t_s"]])
+        controller = self.build_controller(
+            view, {SECOND_PATH_STR: self.no_time_file})
+        controller.open_file_requested()
+        self.assertEqual(len(view.time_reason_list), 2)
+        self.assertIn("'Down'", view.time_reason_list[0])
+        self.assertIn("'Flat'", view.time_reason_list[1])
+        for reason_str in view.time_reason_list:
+            self.assertIn("must always increase", reason_str)
+        self.assertEqual(controller.current_file.time_signal_name_str,
+                         "t_s")
+
+    @covers("LLFR-00329")
+    def test_unchecked_bad_answer_never_becomes_time(self) -> None:
+        """A window that returns a refused name opens nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([SECOND_PATH_STR])
+        view.ask_time_signal_name = lambda *argument_tuple: "Down"
+        controller = self.build_controller(
+            view, {SECOND_PATH_STR: self.no_time_file})
+        controller.open_file_requested()
+        self.assertIsNone(controller.current_file)
+        self.assertIsNone(self.no_time_file.time_signal_name_str)
+        self.assertEqual(self.listener_call_list, [])
+
+    @covers("LLFR-00327", "HLFR-00070", "LLFR-00003")
+    def test_cancel_keeps_the_current_file(self) -> None:
+        """Cancelling the window opens nothing and shows no message.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR], [True], [[]])
+        controller = self.build_controller(
+            view, {FIRST_PATH_STR: self.first_file,
+                   SECOND_PATH_STR: self.no_time_file})
+        controller.open_file_requested()
+        view.call_list.clear()
+        self.listener_call_list.clear()
+        controller.open_file_requested()
+        self.assertIs(controller.current_file, self.first_file)
+        self.assertEqual(view.shown_name_list, ["Time", "a", "b"])
+        self.assertEqual(view.error_message_list, [])
+        self.assertEqual(view.call_list, [
+            "ask_open_file_path", "ask_time_signal_name",
+            "finish_open_file_button"])
+        self.assertEqual(self.listener_call_list, [])
+        self.assertEqual(view.replace_answer_list, [True])
+        # LLFR-00204: the cancelled file does not move the dialog folder.
+        self.assertEqual(controller.dialog_folder_str,
+                         os.path.dirname(os.path.abspath(FIRST_PATH_STR)))
+
+    @covers("LLFR-00328", "HLFR-00010", "LLFR-00013", "LLFR-00014")
+    def test_window_comes_before_the_replace_confirmation(self) -> None:
+        """The window is shown first, then the replace confirmation.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for answer_b in (False, True):
+            with self.subTest(answer_b=answer_b):
+                no_time_file = build_no_time_file(SECOND_PATH_STR)
+                view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR],
+                                [answer_b], [["t_s"]])
+                controller = self.build_controller(
+                    view, {FIRST_PATH_STR: self.first_file,
+                           SECOND_PATH_STR: no_time_file})
+                controller.open_file_requested()
+                view.call_list.clear()
+                controller.open_file_requested()
+                expected_list = ["ask_open_file_path",
+                                 "ask_time_signal_name", "ask_replace_file"]
+                if answer_b:
+                    expected_list.append("show_signal_names")
+                expected_list.append("finish_open_file_button")
+                self.assertEqual(view.call_list, expected_list)
+                expected_file = no_time_file if answer_b else self.first_file
+                self.assertIs(controller.current_file, expected_file)
+
+    @covers("LLFR-00328", "LLFR-00012", "HLFR-00008")
+    def test_failed_check_never_shows_the_window(self) -> None:
+        """A file that fails the content checks never shows the window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        error = ContentCheckError("Fewer than two signals.",
+                                  SIGNAL_COUNT_CHECK_STR)
+        view = FakeView([SECOND_PATH_STR])
+        controller = self.build_controller(view, {SECOND_PATH_STR: error})
+        controller.open_file_requested()
+        self.assertEqual(view.call_list, [
+            "ask_open_file_path", "show_file_open_error",
+            "finish_open_file_button"])
+
+    @covers("LLFR-00331", "LLFR-00324", "HLFR-00072", "HLFR-00070")
+    def test_file_with_time_never_shows_the_window(self) -> None:
+        """Opening (and reopening) a file with a Time match asks nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        lowercase_file = SignalFile(SECOND_PATH_STR, {
+            "a": np.arange(3.0), "TIME": np.arange(3.0),
+            "time": np.arange(3.0)})
+        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR, FIRST_PATH_STR],
+                        [True, True])
+        controller = self.build_controller(
+            view, {FIRST_PATH_STR: self.first_file,
+                   SECOND_PATH_STR: lowercase_file})
+        for _ in range(3):
+            controller.open_file_requested()
+        self.assertNotIn("ask_time_signal_name", view.call_list)
+        self.assertEqual(view.time_signal_name_list,
+                         ["Time", "TIME", "Time"])
+        self.assertIs(controller.current_file, self.first_file)
 
 
 if __name__ == "__main__":

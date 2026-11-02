@@ -20,9 +20,8 @@ from tests.support import H5PY_AVAILABLE_B, covers, requires_h5py
 
 import model.file_loader as file_loader
 from model.errors import (
-    OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
-    ContentCheckError, FileAccessError, FileReadError,
-    UnsupportedFormatError)
+    SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
+    FileAccessError, FileReadError, UnsupportedFormatError)
 from model.file_loader import SUPPORTED_EXTENSION_TUPLE, load_signal_file
 from model.signal_file import TIME_SIGNAL_NAME_STR
 
@@ -337,24 +336,41 @@ class Hdf5SignalTest(Hdf5FolderTest):
             "Time": time_array, "engine/Time": time_array + 100,
             "engine/speed": time_array})
         signal_file = load_signal_file(path_str)
-        np.testing.assert_array_equal(
-            signal_file.signal_dict[TIME_SIGNAL_NAME_STR], time_array)
+        self.assertEqual(signal_file.time_signal_name_str,
+                         TIME_SIGNAL_NAME_STR)
+        np.testing.assert_array_equal(signal_file.time_array, time_array)
         np.testing.assert_array_equal(
             signal_file.signal_dict["engine/Time"], time_array + 100)
 
-    @covers("LLFR-00053", "LLFR-00134", "LLFR-00012", "HLFR-00008")
-    def test_time_in_a_group_or_other_case_is_not_time(self) -> None:
-        """"time", "TIME" and "group/Time" are not the time signal.
+    @covers("LLFR-00330", "LLFR-00053", "LLFR-00134", "HLFR-00006")
+    def test_time_in_a_group_is_not_found(self) -> None:
+        """"group/Time" is not found; "time" and "TIME" at the top are.
 
         Inputs: none.
         Outputs: none.
         """
         time_array = self.time_array()
-        for time_path_str in ("time", "TIME", "group/Time", "Time/Time"):
+        for time_path_str in ("group/Time", "Time/Time", "engine/time"):
             with self.subTest(time_path_str=time_path_str):
                 path_str = self.write_hdf5("no_time.h5", {
                     time_path_str: time_array, "signal": time_array})
-                self.assert_content_check(path_str, TIME_SIGNAL_CHECK_STR)
+                signal_file = load_signal_file(path_str)
+                self.assertIsNone(signal_file.time_signal_name_str)
+                self.assertTrue(signal_file.needs_time_signal_choice_b)
+                # LLFR-00330: the user can still choose it.
+                self.assertIn(time_path_str, signal_file.signal_name_list)
+                self.assertEqual(
+                    signal_file.choose_time_signal(time_path_str), "")
+                np.testing.assert_array_equal(signal_file.time_array,
+                                              time_array)
+        for time_path_str in ("time", "TIME"):
+            with self.subTest(time_path_str=time_path_str):
+                path_str = self.write_hdf5("top_time.h5", {
+                    "engine/Time": time_array, time_path_str: time_array,
+                    "signal": time_array})
+                self.assertEqual(
+                    load_signal_file(path_str).time_signal_name_str,
+                    time_path_str)
 
     @covers("LLFR-00134", "HLFR-00005")
     def test_hdf5_extension_and_letter_case(self) -> None:
@@ -446,20 +462,21 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
         signal_file = load_signal_file(path_str)
         self.assertEqual(signal_file.signal_name_list, ["A", "Time"])
 
-    @covers("LLFR-00135", "LLFR-00012", "HLFR-00008")
+    @covers("LLFR-00135", "LLFR-00328", "HLFR-00070", "HLFR-00008")
     def test_no_time_signal(self) -> None:
-        """A file whose signals have no "Time" fails the time check.
+        """A file whose signals have no "Time" waits for a choice.
 
         Inputs: none.
         Outputs: none.
         """
         path_str = self.write_hdf5("no_time.h5", {
             "A": self.time_array(), "B": self.time_array()})
-        self.assert_content_check(path_str, TIME_SIGNAL_CHECK_STR)
+        self.assertTrue(load_signal_file(path_str)
+                        .needs_time_signal_choice_b)
 
     @covers("LLFR-00135", "LLFR-00012", "HLFR-00008")
     def test_time_that_is_not_a_vector_is_not_a_signal(self) -> None:
-        """A 2-D or text "Time" dataset is ignored, so there is no time.
+        """A 2-D or text "Time" dataset is ignored, so it is not a signal.
 
         Inputs: none.
         Outputs: none.
@@ -468,11 +485,11 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
             with self.subTest(time_data=time_data):
                 path_str = self.write_hdf5("bad_time.h5", {
                     "Time": time_data, "A": self.time_array()})
-                self.assert_content_check(path_str, TIME_SIGNAL_CHECK_STR)
+                self.assert_content_check(path_str, SIGNAL_COUNT_CHECK_STR)
 
     @covers("LLFR-00135", "LLFR-00012", "HLFR-00008")
     def test_only_time_among_the_signals(self) -> None:
-        """Only "Time" plus ignored datasets fails the other signal check.
+        """Only "Time" plus ignored datasets fails the signal count check.
 
         Inputs: none.
         Outputs: none.
@@ -480,7 +497,7 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
         path_str = self.write_hdf5("only_time.h5", {
             "Time": self.time_array(), "matrix": np.ones((3, 3)),
             "group/text": "hello", "scalar": 1.0})
-        self.assert_content_check(path_str, OTHER_SIGNAL_CHECK_STR)
+        self.assert_content_check(path_str, SIGNAL_COUNT_CHECK_STR)
 
     @covers("LLFR-00135", "LLFR-00012", "HLFR-00009")
     def test_different_sample_counts(self) -> None:

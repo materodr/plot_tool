@@ -15,10 +15,9 @@ import re
 import numpy as np
 
 from model.errors import (
-    OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
-    ContentCheckError, FileAccessError, FileReadError,
-    UnsupportedFormatError)
-from model.signal_file import TIME_SIGNAL_NAME_STR, SignalFile
+    SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
+    FileAccessError, FileReadError, UnsupportedFormatError)
+from model.signal_file import SignalFile, matching_time_signal_name
 
 # HLFR-00005: the file formats the app opens, by extension.
 SUPPORTED_EXTENSION_TUPLE = (".csv", ".xlsx", ".mat", ".h5", ".hdf5")
@@ -562,31 +561,36 @@ def is_hdf5_signal(dataset: object) -> bool:
 def check_signal_content(file_name_str: str, signal_dict: dict) -> None:
     """Check the content rules of HLFR-00008 and HLFR-00009.
 
+    A file with no signal named "Time" passes these checks when it has
+    at least two signals: the user then chooses the time signal
+    (LLFR-00325, LLFR-00328).
+
     Inputs:
         file_name_str: name of the file, for error messages.
         signal_dict: signal name -> float64 array.
     Outputs: none. Raises ContentCheckError naming the failed check.
     """
-    # HLFR-00008, LLFR-00053: "Time" (case-sensitive) must exist.
     prefix_str = f"The file '{file_name_str}' cannot be opened because"
-    if TIME_SIGNAL_NAME_STR not in signal_dict:
-        raise ContentCheckError(
-            f"{prefix_str} it has no time signal named "
-            f"'{TIME_SIGNAL_NAME_STR}' (the name is case-sensitive).",
-            TIME_SIGNAL_CHECK_STR)
-    # HLFR-00008, LLFR-00012: at least one signal besides "Time".
+    # HLFR-00008, LLFR-00012, LLFR-00328: at least two signals, one of
+    # which is the time signal, found by its name or chosen later.
     if len(signal_dict) < 2:
         raise ContentCheckError(
-            f"{prefix_str} it has no signal other than "
-            f"'{TIME_SIGNAL_NAME_STR}'.", OTHER_SIGNAL_CHECK_STR)
-    # HLFR-00009, LLFR-00012: every signal has as many samples as "Time".
-    time_count_i = len(signal_dict[TIME_SIGNAL_NAME_STR])
+            f"{prefix_str} it must contain at least two signals, one of "
+            f"which is the time signal, but it has {len(signal_dict)}.",
+            SIGNAL_COUNT_CHECK_STR)
+    # HLFR-00009, LLFR-00012: every signal has as many samples as the
+    # time signal, or as the first signal while the time signal is not
+    # chosen yet.
+    reference_name_str = matching_time_signal_name(list(signal_dict))
+    if reference_name_str is None:
+        reference_name_str = next(iter(signal_dict))
+    reference_count_i = len(signal_dict[reference_name_str])
     different_list = [
         f"'{name_str}' has {len(signal_array)}"
         for name_str, signal_array in signal_dict.items()
-        if len(signal_array) != time_count_i]
+        if len(signal_array) != reference_count_i]
     if different_list:
         raise ContentCheckError(
             f"{prefix_str} its signals have different sample counts: "
-            f"'{TIME_SIGNAL_NAME_STR}' has {time_count_i} samples, but "
+            f"'{reference_name_str}' has {reference_count_i} samples, but "
             f"{', '.join(different_list)}.", SAMPLE_COUNT_CHECK_STR)
