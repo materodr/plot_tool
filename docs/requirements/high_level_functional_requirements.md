@@ -189,7 +189,7 @@ The user must be able to add all the selected signals to an existing plot at onc
 The signal list panel must show the name of the time signal in green, whether the app found it by its name or the user chose it.
 
 ### HLFR-00079 Name of the opened file
-The signal list panel must show, in its first line, the name of the data file that is open.
+The signal list panel must show the name of the data file that is open as the first row of the signal list.
 
 ## Plot panel
 

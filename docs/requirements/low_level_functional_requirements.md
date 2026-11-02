@@ -1045,7 +1045,7 @@ When the search box is empty or contains only spaces, the signal list must show 
 *Parent: HLFR-00033*
 
 ### LLFR-00097 No matching signals
-When no signal matches the text in the search box, the signal list must show no signals and must show the text "No matching signals".
+When no signal matches the text in the search box, the signal list must show no signals and must show the text "No matching signals", below the file name row (LLFR-00362).
 
 *Parent: HLFR-00033*
 
@@ -1394,13 +1394,13 @@ The signal list panel must show the name of the time signal (LLFR-00053, LLFR-00
 
 *Parent: HLFR-00071*
 
-### LLFR-00362 File name line
-The signal list panel must show, in a line above the signal list, the name of the opened data file with its extension and without its folder. The line must not be a signal: it must not be selected, dragged, plotted or filtered by the search (LLFR-00095), and it must have no menu. When the name does not fit in the panel's width, the app must shorten it with "..." in the middle and show the whole name in a tip while the mouse pointer is over the line.
+### LLFR-00362 File name row
+The signal list must show, as its first row, in bold letters, the name of the opened data file with its extension and without its folder. The row must stay first whatever the text in the search box: the search (LLFR-00095) must never hide it, and when no signal matches, the row must stay first, with the text "No matching signals" below it (LLFR-00097). The row must not be a signal: it must not be selected (LLFR-00290), a click with the Shift key held must never include it in the selection, it must not be dragged or plotted, so that a double-click on it (LLFR-00019) and the Enter key (LLFR-00295) ignore it, and it must have no menu (LLFR-00239). When the name does not fit in the panel's width, the app must shorten it with "..." in the middle and show the whole name in a tip while the mouse pointer is over the row.
 
-*Parent: HLFR-00079*
+*Parent: HLFR-00079, HLFR-00033, HLFR-00063*
 
-### LLFR-00363 File name line follows the opened file
-The file name line (LLFR-00362) must be empty while no data file is open, and must show the new name when a file is opened or replaced (LLFR-00013). It must not change when opening a file fails, is cancelled or is declined (LLFR-00007, LLFR-00010, LLFR-00014, LLFR-00327).
+### LLFR-00363 File name row follows the opened file
+The file name row (LLFR-00362) must not be shown while no data file is open, and must show the new name when a file is opened or replaced (LLFR-00013). It must not change when opening a file fails, is cancelled or is declined (LLFR-00007, LLFR-00010, LLFR-00014, LLFR-00327).
 
 *Parent: HLFR-00079, HLFR-00010*
 
@@ -1632,7 +1632,7 @@ A flag must cover the whole y-axis range shown in its plot, and must keep coveri
 *Parent: HLFR-00028*
 
 ### LLFR-00083 Default flag color and reserved marker color
-The app must give every new flag the reserved marker color, the orange `#ff4400`, which it never uses for curves (LLFR-00033, LLFR-00034). The reserved marker color must also be the color of the delta markers and their dots (LLFR-00172), of the delta marker previews (LLFR-00352, LLFR-00353), of the time span selection (LLFR-00208) and of the flag preview (LLFR-00203), whatever color the user gave to the flags. The user may give a flag any color (LLFR-00392), including a color of the curve palette.
+The app must give every new flag the reserved marker color, the orange `#ff8000`, which it never uses for curves (LLFR-00033, LLFR-00034). The reserved marker color must also be the color of the delta markers and their dots (LLFR-00172), of the delta marker previews (LLFR-00352, LLFR-00353), of the time span selection (LLFR-00208) and of the flag preview (LLFR-00203), whatever color the user gave to the flags. The user may give a flag any color (LLFR-00392), including a color of the curve palette.
 
 Note: A flag stays easy to tell from a curve by its dashed line (LLFR-00143) and its name label (LLFR-00084).
 
@@ -2046,7 +2046,7 @@ When loading a layout, the app must rebuild an area only if its start time is be
 *Parent: HLFR-00050, HLFR-00052, HLFR-00088*
 
 ### LLFR-00351 Area colors
-When the user chooses "Color" in the area menu (LLFR-00314), the app must open the color picker (LLFR-00388) and draw that area in the confirmed color (LLFR-00390) on every time plot of every tab (LLFR-00310). Every new area must get the default color, the reserved marker color `#ff4400` (LLFR-00083). Whatever its color, an area must be drawn see-through with the same opacity (LLFR-00305), so that the curves, the grid and the other items stay visible (LLFR-00306).
+When the user chooses "Color" in the area menu (LLFR-00314), the app must open the color picker (LLFR-00388) and draw that area in the confirmed color (LLFR-00390) on every time plot of every tab (LLFR-00310). Every new area must get the default color, the reserved marker color `#ff8000` (LLFR-00083). Whatever its color, an area must be drawn see-through with the same opacity (LLFR-00305), so that the curves, the grid and the other items stay visible (LLFR-00306).
 
 *Parent: HLFR-00066, HLFR-00088*
 
