@@ -99,6 +99,32 @@ scrolling") is turned back to the physical direction, so that fingers
 moving up on the trackpad zoom in like a mouse wheel turned forward
 (LLFR-00206).
 
+A wheel event that moves more horizontally than vertically (a two-finger
+swipe left or right, or a tilted wheel) only pans, and any other one
+only zooms (LLFR-00346). The pan moves the curves by as many screen
+pixels as the swipe's pixel delta, in the physical direction of the
+fingers (LLFR-00345, as LLFR-00206 does for the zoom); when the event
+has no pixel delta, one eighth of a degree of its angle delta is taken
+as one pixel, the same conversion the zoom uses in the other direction
+(LLFR-00113). The only exception is the Shift+wheel of a mouse, which
+macOS reports sideways: it keeps zooming, so that holding Shift for the
+Vertical marker tool does not stop the wheel zoom (LLFR-00154). It is
+told apart from a trackpad swipe by its scroll phase: a trackpad (and
+the Magic Mouse) reports the phases of its gesture, a classic mouse
+wheel reports none. The pixel delta cannot tell them apart, because
+macOS also fills it for a mouse wheel (about 20 pixels per notch). As a
+side effect, a touchpad that reports no phase (some Windows or Linux
+drivers) zooms on a sideways swipe while Shift is held.
+
+For a gesture that reports its phases, the choice between pan and zoom
+is made once, at its first event that moves, and kept until the next
+gesture begins, so that a small vertical jitter in a sideways swipe
+never zooms and a small sideways jitter in a vertical swipe never pans
+(LLFR-00346). The momentum events that follow a sideways swipe after
+the fingers are lifted belong to the same gesture and keep panning, as
+in other applications; those of a vertical swipe keep zooming. Wheel
+events without a phase (a mouse) are chosen one by one.
+
 A delta marker's bracket and leader lines are computed again in display
 pixels at every draw (screen, image and PDF export), from the current
 position of its two points (DeltaBracketPatch), so they stay attached
@@ -173,6 +199,16 @@ ZOOM_IN_FACTOR_F = 0.95
 # LLFR-00113: one wheel notch is 15 degrees, which Qt reports as 120
 # eighths of a degree in QWheelEvent.angleDelta().
 WHEEL_NOTCH_EIGHTHS_I = 120
+# LLFR-00345: a sideways wheel event without a pixel delta pans by this
+# many screen pixels per eighth of a degree of its angle delta, so that
+# a notch (120 eighths) pans by 120 pixels, the inverse of the pixel to
+# notch conversion of the zoom (LLFR-00113).
+SWIPE_PIXELS_PER_EIGHTH_F = 1.0
+# LLFR-00346: what a trackpad gesture does, chosen at its first event
+# that moves and kept until the next gesture begins.
+NO_SWIPE_CHOICE_STR = ""
+SWIPE_PAN_STR = "pan"
+SWIPE_ZOOM_STR = "zoom"
 # LLFR-00078: a click with the Zoom tool narrows the range to 95%.
 CLICK_ZOOM_FACTOR_F = 0.95
 # LLFR-00078, LLFR-00208: a left press with the Zoom tool becomes a
@@ -346,21 +382,96 @@ def format_time_text(time_s: float) -> str:
     return value_text.format_time_text(time_s)
 
 
-def is_shift_horizontal_wheel(wheel_event) -> bool:
-    """Tell whether a Qt wheel event is a Shift+wheel turned sideways.
+def is_trackpad_wheel(wheel_event) -> bool:
+    """Tell whether a Qt wheel event comes from a trackpad or touchpad.
 
     Inputs:
         wheel_event: a QWheelEvent.
-    Outputs: True when Shift is held, the vertical rotation is 0 and the
-        horizontal one is not, as macOS reports Shift+wheel.
+    Outputs: True when the event has a scroll phase, which a trackpad
+        (and the Magic Mouse) reports and a classic mouse wheel does
+        not. The pixel delta is not used: macOS fills it for a mouse
+        wheel too. A touchpad without phases counts as a mouse.
+    """
+    # LLFR-00345, LLFR-00154: a two-finger swipe pans even while Shift
+    # is held, but the sideways Shift+wheel of a mouse keeps zooming.
+    return wheel_event.phase() != Qt.ScrollPhase.NoScrollPhase
+
+
+def is_shift_horizontal_wheel(wheel_event) -> bool:
+    """Tell whether a Qt wheel event is a mouse Shift+wheel turned
+    sideways.
+
+    Inputs:
+        wheel_event: a QWheelEvent.
+    Outputs: True when Shift is held, the vertical rotation is 0, the
+        horizontal one is not, as macOS reports Shift+wheel, and the
+        event does not come from a trackpad (is_trackpad_wheel).
     """
     # LLFR-00154, LLFR-00074: holding Shift for the marker tool must not
     # stop the wheel zoom; macOS turns Shift+wheel into a sideways wheel.
+    # LLFR-00346: a sideways trackpad swipe with Shift held still pans.
     shift_held_b = bool(wheel_event.modifiers()
                         & Qt.KeyboardModifier.ShiftModifier)
     angle_delta = wheel_event.angleDelta()
     return (shift_held_b and angle_delta.y() == 0
-            and angle_delta.x() != 0)
+            and angle_delta.x() != 0
+            and not is_trackpad_wheel(wheel_event))
+
+
+def wheel_delta_tuple(wheel_event) -> tuple:
+    """Return the movement of a Qt wheel event, as reported by Qt.
+
+    Inputs:
+        wheel_event: a QWheelEvent.
+    Outputs: a tuple (horizontal_f, vertical_f): the pixel delta when
+        the event has one, else the angle delta in eighths of a degree.
+    """
+    # LLFR-00346: the larger of the two components decides between a
+    # pan and a zoom; the pixel delta is the finest measure of a swipe.
+    pixel_delta = wheel_event.pixelDelta()
+    if not pixel_delta.isNull():
+        return (float(pixel_delta.x()), float(pixel_delta.y()))
+    angle_delta = wheel_event.angleDelta()
+    return (float(angle_delta.x()), float(angle_delta.y()))
+
+
+def is_horizontal_swipe(wheel_event) -> bool:
+    """Tell whether a Qt wheel event moves more horizontally than
+    vertically.
+
+    Inputs:
+        wheel_event: a QWheelEvent.
+    Outputs: True when the horizontal movement is larger than the
+        vertical one (so the event only pans), False otherwise (so it
+        only zooms, or does nothing when it does not move).
+    """
+    # LLFR-00346: a swipe never both pans and zooms; a tie zooms.
+    horizontal_f, vertical_f = wheel_delta_tuple(wheel_event)
+    return abs(horizontal_f) > abs(vertical_f)
+
+
+def swipe_pixels_f(wheel_event) -> float:
+    """Return how far a sideways swipe moves, in screen pixels.
+
+    Inputs:
+        wheel_event: a QWheelEvent.
+    Outputs: the horizontal movement in screen (Qt logical) pixels, in
+        the physical direction: negative when the fingers move right,
+        positive when they move left, whatever the natural scrolling
+        setting.
+    """
+    # LLFR-00345, LLFR-00206: Qt reports a positive horizontal delta for
+    # fingers (or a wheel top) moving left; with natural scrolling macOS
+    # inverts it and says so, and it is turned back here.
+    # LLFR-00345: without a pixel delta, SWIPE_PIXELS_PER_EIGHTH_F gives
+    # the pixels of the angle delta.
+    pixel_delta = wheel_event.pixelDelta()
+    if not pixel_delta.isNull():
+        horizontal_px = float(pixel_delta.x())
+    else:
+        horizontal_px = (float(wheel_event.angleDelta().x())
+                         * SWIPE_PIXELS_PER_EIGHTH_F)
+    return physical_wheel_sign_f(wheel_event) * horizontal_px
 
 
 def physical_wheel_sign_f(wheel_event) -> float:
@@ -736,6 +847,10 @@ class PlotWidget(QWidget):
         # time that was under the pointer when it was pressed.
         self.panning_b = False
         self.pan_anchor_s = 0.0
+        # LLFR-00346: the choice of the trackpad gesture in progress:
+        # SWIPE_PAN_STR, SWIPE_ZOOM_STR, or NO_SWIPE_CHOICE_STR until its
+        # first event that moves.
+        self.swipe_choice_str = NO_SWIPE_CHOICE_STR
         # LLFR-00207, LLFR-00208: True while a time span is selected with
         # the mouse; the time span selection sets it on this instance, so
         # that the Z key does nothing during its drag.
@@ -3578,6 +3693,51 @@ class PlotWidget(QWidget):
         # LLFR-00117: the curves follow the pointer horizontally.
         if not self.panning_b:
             return
+        # The shift is computed first, so a pointer back at the press
+        # point gives exactly no shift (start + a - a can differ from
+        # start in floating point and would report a false pan).
+        self.shift_time_range(self.pan_anchor_s
+                              - self.time_at(widget_point))
+
+    def swipe_pan_by(self, swipe_px: float) -> None:
+        """Pan the time range by a two-finger swipe.
+
+        Inputs:
+            swipe_px: the swipe's horizontal movement in screen pixels,
+                in the physical direction (swipe_pixels_f): negative
+                when the fingers move right.
+        Outputs: none. Emits time_range_changed when the range moved.
+            Nothing moves while a marker or tip is dragged, a time span
+            is selected or a wheel button pan is in progress.
+        """
+        # LLFR-00345: the curves move by as many screen pixels as the
+        # fingers, so fingers moving right (negative) show earlier
+        # times; any plot tool, or none, may be active.
+        # LLFR-00086, LLFR-00152, LLFR-00208, LLFR-00117: as pan_press_at,
+        # not during another drag, so the dragged item stays put.
+        if (swipe_px == 0 or self.panning_b
+                or self.drag_marker_id_i != NO_MARKER_ID_I
+                or self.drag_tip_index_i != NO_TIP_INDEX_I
+                or self.time_span_drag_b):
+            return
+        # LLFR-00345: the axes' width in screen (Qt logical) pixels.
+        axes_width_px = self.axes.bbox.width / self.pixel_ratio_f()
+        if not axes_width_px > 0:
+            return
+        start_s, end_s = self.time_range_tuple()
+        self.shift_time_range(swipe_px * (end_s - start_s) / axes_width_px)
+
+    def shift_time_range(self, shift_s: float) -> None:
+        """Move the time range by a time shift, keeping its width.
+
+        Inputs:
+            shift_s: the shift, in seconds (Hz for a frequency plot);
+                positive shows later times.
+        Outputs: none. Emits time_range_changed when the range moved,
+            so that the whole tab follows (LLFR-00070).
+        """
+        # LLFR-00117, LLFR-00345: the pan code shared by the wheel button
+        # drag and the two-finger swipe.
         start_s, end_s = self.time_range_tuple()
         width_s = end_s - start_s
         full_start_s, full_end_s = self.full_time_range_tuple()
@@ -3585,11 +3745,7 @@ class PlotWidget(QWidget):
         # LLFR-00118: at the whole time range there is nothing to pan.
         if width_s >= full_width_s * (1.0 - FULL_RANGE_TOLERANCE_F):
             return
-        # The shift is computed first, so a pointer back at the press
-        # point gives exactly no shift (start + a - a can differ from
-        # start in floating point and would report a false pan).
-        new_start_s = start_s + (self.pan_anchor_s - self.time_at(
-            widget_point))
+        new_start_s = start_s + shift_s
         # LLFR-00119: never before the first or after the last sample;
         # the width is kept.
         new_start_s = min(max(new_start_s, full_start_s),
@@ -4375,28 +4531,72 @@ class PlotWidget(QWidget):
         self.update_marker_preview(widget_point)
 
     def eventFilter(self, watched, event) -> bool:
-        """Zoom on a Shift+wheel turned sideways, which matplotlib drops.
+        """Handle the sideways wheel events of the canvas, which
+        matplotlib drops or would take as a zoom.
 
         Inputs:
             watched: the object the event is sent to (the canvas).
             event: the QEvent.
-        Outputs: True only for a sideways Shift+wheel on the canvas, which
-            is then handled here; False for every other event.
+        Outputs: True for a wheel event on the canvas that pans (one
+            that moves more horizontally than vertically, or any event
+            of a trackpad gesture that started so, swipe_pans_b) or for
+            a mouse Shift+wheel turned sideways (a zoom), both handled
+            here; False for every other event, so that matplotlib zooms
+            on it as before.
         """
+        if event.type() != QEvent.Type.Wheel or watched is not self.canvas:
+            return super().eventFilter(watched, event)
+        widget_point = self.mapFrom(self.canvas, event.position().toPoint())
         # LLFR-00154, LLFR-00074, LLFR-00108: holding Shift (the marker
-        # key) still zooms with the wheel; matplotlib only reads the
+        # key) still zooms with a mouse wheel; matplotlib only reads the
         # vertical wheel, so this case never reaches on_mouse_scroll.
-        if (event.type() == QEvent.Type.Wheel and watched is self.canvas
-                and is_shift_horizontal_wheel(event)):
-            widget_point = self.mapFrom(self.canvas,
-                                        event.position().toPoint())
+        if is_shift_horizontal_wheel(event):
             # LLFR-00206: in its physical direction, as on_mouse_scroll.
             self.wheel_at(widget_point, physical_wheel_sign_f(event)
                           * float(event.angleDelta().x())
                           / WHEEL_NOTCH_EIGHTHS_I)
             event.accept()
             return True
+        # LLFR-00346: a mostly sideways swipe only pans and never reaches
+        # matplotlib, whose zoom would read its vertical part.
+        if self.swipe_pans_b(event):
+            # LLFR-00345: the curves follow the fingers.
+            self.swipe_pan_by(swipe_pixels_f(event))
+            # LLFR-00203: after a pan, another time is under the pointer.
+            self.update_marker_preview(widget_point)
+            event.accept()
+            return True
+        # LLFR-00346, LLFR-00074: any other wheel event only zooms, in
+        # on_mouse_scroll, with its vertical part (wheel_step_f).
         return super().eventFilter(watched, event)
+
+    def swipe_pans_b(self, wheel_event) -> bool:
+        """Tell whether a wheel event pans (else it zooms), keeping the
+        choice for the whole trackpad gesture.
+
+        Inputs:
+            wheel_event: a QWheelEvent on the canvas.
+        Outputs: True when the event must only pan, False when it must
+            only zoom (or does not move).
+        """
+        # LLFR-00346: a mouse wheel (no phase) is chosen event by event.
+        phase = wheel_event.phase()
+        if phase == Qt.ScrollPhase.NoScrollPhase:
+            self.swipe_choice_str = NO_SWIPE_CHOICE_STR
+            return is_horizontal_swipe(wheel_event)
+        # LLFR-00346: a new gesture chooses again; its first event that
+        # moves decides, and the rest of the gesture, its momentum
+        # included, follows that choice, so it never both pans and zooms.
+        if phase == Qt.ScrollPhase.ScrollBegin:
+            self.swipe_choice_str = NO_SWIPE_CHOICE_STR
+        if self.swipe_choice_str == NO_SWIPE_CHOICE_STR:
+            horizontal_f, vertical_f = wheel_delta_tuple(wheel_event)
+            if horizontal_f == 0 and vertical_f == 0:
+                return False
+            self.swipe_choice_str = (
+                SWIPE_PAN_STR if is_horizontal_swipe(wheel_event)
+                else SWIPE_ZOOM_STR)
+        return self.swipe_choice_str == SWIPE_PAN_STR
 
     def on_mouse_leave(self, event) -> None:
         """Hide the hover tip when the mouse leaves the canvas.

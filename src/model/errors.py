@@ -10,8 +10,9 @@
 """
 
 # LLFR-00012: names of the content checks of HLFR-00008 and HLFR-00009.
-TIME_SIGNAL_CHECK_STR = "time signal"
-OTHER_SIGNAL_CHECK_STR = "other signal"
+# HLFR-00008: a file needs at least two signals; the time signal is
+# found by its name or chosen by the user (LLFR-00325, LLFR-00328).
+SIGNAL_COUNT_CHECK_STR = "signal count"
 SAMPLE_COUNT_CHECK_STR = "sample count"
 
 
@@ -60,8 +61,8 @@ class ContentCheckError(FileOpenError):
     Inputs:
         message_str: message that says the file cannot be opened and
             which check failed.
-        failed_check_str: one of TIME_SIGNAL_CHECK_STR,
-            OTHER_SIGNAL_CHECK_STR or SAMPLE_COUNT_CHECK_STR.
+        failed_check_str: SIGNAL_COUNT_CHECK_STR or
+            SAMPLE_COUNT_CHECK_STR.
     Outputs: the exception, with the attribute failed_check_str.
     """
 

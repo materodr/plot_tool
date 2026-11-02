@@ -6,6 +6,9 @@
   stays open, and says why, while the typed value is not allowed.
 - SecondSignalDialog: asks for the second signal of a "Product with
   signal" (LLFR-00275), with a search box above the list (LLFR-00285).
+  The same dialog is the time signal window (LLFR-00325), which also
+  checks the chosen signal and stays open, saying why, while it can't
+  be used (LLFR-00329).
 
 The view does not import the model (COR-00009): the controller gives
 the prompt, which states the allowed ranges, the fields, and a check
@@ -28,6 +31,8 @@ MINIMUM_DIALOG_WIDTH_I = 380
 # LLFR-00285: hint shown in the empty search box of the second signal
 # dialog.
 SEARCH_PLACEHOLDER_TEXT_STR = "Search signals"
+# LLFR-00325: the window title of the time signal window.
+TIME_SIGNAL_TITLE_STR = "Time signal"
 
 
 class ParameterDialog(QDialog):
@@ -259,19 +264,25 @@ class SecondSignalDialog(QDialog):
             shows every name whatever the text.
         no_match_text_str: the text shown when no name matches
             ("No matching signals").
+        check_function: function name -> the reason the selected name
+            can't be accepted, or "" when it can; None accepts every
+            name (LLFR-00329).
     Attributes:
         prompt_label: the label with the question.
         search_box: the QLineEdit above the list, with the keyboard
             focus when the dialog opens.
         signal_list_widget: the QListWidget with the names shown.
         no_match_label: the label shown when no name matches.
+        error_label: the label with the reason of check_function,
+            hidden while there is none.
         button_box: the OK and Cancel buttons.
     """
 
     def __init__(self, parent, title_str: str, prompt_str: str,
                  name_list: list, selected_name_str: str,
                  search_function=None,
-                 no_match_text_str: str = "") -> None:
+                 no_match_text_str: str = "",
+                 check_function=None) -> None:
         """Create the dialog, not shown.
 
         Inputs:
@@ -282,15 +293,18 @@ class SecondSignalDialog(QDialog):
             selected_name_str: the name selected at first.
             search_function: text -> matching names, or None.
             no_match_text_str: the text shown when nothing matches.
+            check_function: name -> reason ("" when allowed), or None.
         Outputs: none.
         """
         super().__init__(parent)
-        # LLFR-00275: the user chooses the second signal.
+        # LLFR-00275, LLFR-00325: the user chooses a signal.
         self.setWindowTitle(title_str)
         self.setModal(True)
         self.setMinimumWidth(MINIMUM_DIALOG_WIDTH_I)
         self.all_name_list = [str(name_str) for name_str in name_list]
         self.search_function = search_function
+        # LLFR-00329: the check of the confirmed name, if any.
+        self.check_function = check_function
         dialog_layout = QVBoxLayout(self)
         self.prompt_label = QLabel(prompt_str)
         self.prompt_label.setObjectName("second_signal_prompt_label")
@@ -307,6 +321,13 @@ class SecondSignalDialog(QDialog):
         self.no_match_label.setObjectName("second_signal_no_match_label")
         self.no_match_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.no_match_label.hide()
+        # LLFR-00329: says why the confirmed signal can't be used.
+        self.error_label = QLabel("")
+        self.error_label.setObjectName("second_signal_error_label")
+        self.error_label.setWordWrap(True)
+        self.error_label.setStyleSheet(
+            f"color: {theme.DIALOG_ERROR_TEXT_COLOR_STR};")
+        self.error_label.hide()
         self.button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel)
@@ -320,6 +341,7 @@ class SecondSignalDialog(QDialog):
         dialog_layout.addWidget(self.search_box)
         dialog_layout.addWidget(self.signal_list_widget, 1)
         dialog_layout.addWidget(self.no_match_label)
+        dialog_layout.addWidget(self.error_label)
         dialog_layout.addWidget(self.button_box)
         # LLFR-00285, LLFR-00096: an empty search shows every signal.
         self.show_names(self.all_name_list, str(selected_name_str))
@@ -433,9 +455,30 @@ class SecondSignalDialog(QDialog):
         """
         # LLFR-00275: OK needs a chosen signal; LLFR-00285: with no
         # matching signal, OK and Enter do nothing.
-        if self.chosen_name() is None:
+        chosen_name_str = self.chosen_name()
+        if chosen_name_str is None:
             return
+        # LLFR-00329: a signal that can't be used keeps the dialog open
+        # and the reason is shown.
+        if self.check_function is not None:
+            reason_str = str(self.check_function(chosen_name_str) or "")
+            if reason_str:
+                self.error_label.setText(reason_str)
+                self.error_label.show()
+                return
+        self.error_label.hide()
         self.accept()
+
+    def error_text(self) -> str:
+        """Return the reason shown in the dialog.
+
+        Inputs: none.
+        Outputs: the reason, or "" while it is hidden.
+        """
+        # LLFR-00329: the reason the confirmed signal can't be used.
+        if self.error_label.isHidden():
+            return ""
+        return self.error_label.text()
 
 
 def build_parameter_dialog(parent, title_str: str, prompt_str: str,
@@ -479,6 +522,28 @@ def build_second_signal_dialog(parent, title_str: str, prompt_str: str,
     return SecondSignalDialog(parent, title_str, prompt_str, name_list,
                               selected_name_str, search_function,
                               no_match_text_str)
+
+
+def build_time_signal_dialog(parent, prompt_str: str, name_list: list,
+                             search_function, no_match_text_str: str,
+                             check_function) -> SecondSignalDialog:
+    """Build the time signal window, not shown.
+
+    Inputs:
+        parent: parent widget, or None.
+        prompt_str: the text "Choose the signal that goes on the x-axis".
+        name_list: every signal of the file, in the file's order.
+        search_function: text -> matching names.
+        no_match_text_str: the text shown when nothing matches.
+        check_function: name -> reason it can't be the time signal.
+    Outputs: the SecondSignalDialog used as the time signal window.
+    """
+    # LLFR-00325: the window works like the second signal dialog
+    # (HLFR-00070), with its search box; the first signal is selected.
+    # LLFR-00329: check_function keeps it open for a bad signal.
+    return SecondSignalDialog(parent, TIME_SIGNAL_TITLE_STR, prompt_str,
+                              name_list, "", search_function,
+                              no_match_text_str, check_function)
 
 
 def run_dialog(dialog) -> bool:

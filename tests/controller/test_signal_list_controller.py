@@ -223,6 +223,15 @@ class FakeFileView(FakeSignalListView):
         """
         return self.path_str
 
+    def set_time_signal_name(self, name_str: str) -> None:
+        """Record the time signal shown in green (LLFR-00332).
+
+        Inputs:
+            name_str: the time signal name.
+        Outputs: none.
+        """
+        self.time_signal_name_str = name_str
+
     def ask_replace_file(self) -> bool:
         """Return the prepared answer.
 

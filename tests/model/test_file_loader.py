@@ -17,11 +17,12 @@ import scipy.io
 from tests.support import covers
 
 from model.errors import (
-    OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
-    ContentCheckError, FileAccessError, FileOpenError, FileReadError,
-    UnsupportedFormatError)
+    SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
+    FileAccessError, FileOpenError, FileReadError, UnsupportedFormatError)
 from model.file_loader import SUPPORTED_EXTENSION_TUPLE, load_signal_file
-from model.signal_file import TIME_SIGNAL_NAME_STR, SignalFile
+from model.signal_file import (
+    TIME_SIGNAL_NAME_STR, SignalFile, increasing_check_reason,
+    is_time_signal_name, matching_time_signal_name)
 
 
 class TemporaryFolderTest(unittest.TestCase):
@@ -350,7 +351,7 @@ class CsvReadErrorTest(TemporaryFolderTest):
         Outputs: none.
         """
         path_str = self.write_text("data.csv", "Time\n0,5\n1\n")
-        self.assert_check_error(path_str, OTHER_SIGNAL_CHECK_STR)
+        self.assert_check_error(path_str, SIGNAL_COUNT_CHECK_STR)
 
 
 class ExcelLoadingTest(TemporaryFolderTest):
@@ -385,7 +386,7 @@ class ExcelLoadingTest(TemporaryFolderTest):
         path_str = self.write_excel("data.xlsx", [
             [["Speed"], [1], [2]],
             [["Time", "Speed"], [0, 1], [1, 2]]])
-        self.assert_check_error(path_str, TIME_SIGNAL_CHECK_STR)
+        self.assert_check_error(path_str, SIGNAL_COUNT_CHECK_STR)
 
     @covers("LLFR-00065", "HLFR-00002")
     def test_text_cell_is_not_a_number(self) -> None:
@@ -574,44 +575,64 @@ class MatLoadingTest(TemporaryFolderTest):
 class ContentCheckTest(TemporaryFolderTest):
     """Content checks (HLFR-00006, HLFR-00008, HLFR-00009, LLFR-00012)."""
 
-    @covers("LLFR-00012", "HLFR-00008", "HLFR-00006", "HLFR-00002")
-    def test_no_time_signal(self) -> None:
-        """A file without "Time" fails the time signal check.
+    @covers("LLFR-00328", "HLFR-00008", "HLFR-00070", "LLFR-00012")
+    def test_no_time_signal_opens_for_a_choice(self) -> None:
+        """A file without "Time" opens, waiting for the user's choice.
 
         Inputs: none.
         Outputs: none.
         """
-        path_str = self.write_text("data.csv", "Clock,A\n0,1\n")
-        message_str = self.assert_check_error(path_str,
-                                              TIME_SIGNAL_CHECK_STR)
-        self.assertIn("no time signal named 'Time'", message_str)
+        path_str = self.write_text("data.csv", "t_s,A\n0,1\n1,2\n")
+        signal_file = load_signal_file(path_str)
+        self.assertEqual(signal_file.signal_name_list, ["t_s", "A"])
+        self.assertIsNone(signal_file.time_signal_name_str)
+        self.assertTrue(signal_file.needs_time_signal_choice_b)
+        with self.assertRaises(KeyError):
+            signal_file.time_array
 
-    @covers("LLFR-00053", "LLFR-00012", "HLFR-00006")
-    def test_time_name_is_case_sensitive(self) -> None:
-        """"time" and "TIME" are not the time signal, in every format.
+    @covers("LLFR-00053", "HLFR-00006")
+    def test_time_name_ignores_letter_case(self) -> None:
+        """"time" and "TIME" are the time signal, in every format.
 
         Inputs: none.
         Outputs: none.
         """
-        for name_str in ("time", "TIME", "Time ", " time"):
+        for name_str in ("time", "TIME", "tImE", "Time"):
             with self.subTest(name_str=name_str):
                 path_str = self.write_text(
-                    "data.csv", f"{name_str},A\n0,1\n")
-                if name_str.strip() == "Time":
-                    load_signal_file(path_str)
-                else:
-                    self.assert_check_error(path_str, TIME_SIGNAL_CHECK_STR)
-        self.assert_check_error(
-            self.write_mat("data.mat", {"time": np.arange(3.0),
-                                        "A": np.arange(3.0)}),
-            TIME_SIGNAL_CHECK_STR)
-        self.assert_check_error(
-            self.write_excel("data.xlsx", [[["TIME", "A"], [0, 1]]]),
-            TIME_SIGNAL_CHECK_STR)
+                    "data.csv", f"A,{name_str}\n5,0\n6,1\n")
+                signal_file = load_signal_file(path_str)
+                self.assertEqual(signal_file.time_signal_name_str,
+                                 name_str)
+                self.assertFalse(signal_file.needs_time_signal_choice_b)
+                np.testing.assert_array_equal(signal_file.time_array,
+                                              [0.0, 1.0])
+        signal_file = load_signal_file(self.write_mat(
+            "data.mat", {"time": np.arange(3.0), "A": np.arange(3.0)}))
+        self.assertEqual(signal_file.time_signal_name_str, "time")
+        signal_file = load_signal_file(self.write_excel(
+            "data.xlsx", [[["A", "TIME"], [1, 0], [2, 1]]]))
+        self.assertEqual(signal_file.time_signal_name_str, "TIME")
 
-    @covers("LLFR-00053", "LLFR-00054", "HLFR-00006")
-    def test_lowercase_time_is_an_ordinary_signal(self) -> None:
-        """With "Time" present, "time" is an ordinary signal.
+    @covers("LLFR-00053", "HLFR-00006")
+    def test_only_the_whole_name_matches(self) -> None:
+        """Names that only contain "time" are not the time signal.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for name_str in ("Time ", " time", "Time_s", "times", "t",
+                         "run/Time", "engine/time", "Timer"):
+            with self.subTest(name_str=name_str):
+                self.assertFalse(is_time_signal_name(name_str))
+        self.assertTrue(is_time_signal_name("TIME"))
+        path_str = self.write_text("data.csv", "Time_s,A\n0,1\n1,2\n")
+        self.assertTrue(load_signal_file(path_str)
+                        .needs_time_signal_choice_b)
+
+    @covers("LLFR-00324", "LLFR-00053", "LLFR-00054", "HLFR-00006")
+    def test_several_matches_prefer_exact_time(self) -> None:
+        """With several matches, "Time" wins, else the first one.
 
         Inputs: none.
         Outputs: none.
@@ -621,13 +642,25 @@ class ContentCheckTest(TemporaryFolderTest):
         signal_file = load_signal_file(path_str)
         self.assertEqual(signal_file.signal_name_list,
                          ["time", "Time", "TIME"])
+        self.assertEqual(signal_file.time_signal_name_str, "Time")
         np.testing.assert_array_equal(signal_file.time_array, [0.0, 1.0])
         np.testing.assert_array_equal(signal_file.signal_array("time"),
                                       [5.0, 6.0])
+        self.assertFalse(signal_file.needs_time_signal_choice_b)
+        path_str = self.write_text("data.csv",
+                                   "A,TIME,time\n5,0,7\n6,1,8\n")
+        signal_file = load_signal_file(path_str)
+        self.assertEqual(signal_file.time_signal_name_str, "TIME")
+        self.assertEqual(matching_time_signal_name(["x", "tImE", "TIME"]),
+                         "tImE")
+        self.assertEqual(matching_time_signal_name(["TIME", "Time"]),
+                         "Time")
+        self.assertIsNone(matching_time_signal_name(["x", "y"]))
+        self.assertIsNone(matching_time_signal_name([]))
 
-    @covers("LLFR-00012", "HLFR-00008")
-    def test_only_time_signal(self) -> None:
-        """A file with only "Time" fails the other signal check.
+    @covers("LLFR-00012", "HLFR-00008", "LLFR-00328")
+    def test_fewer_than_two_signals(self) -> None:
+        """A file with one signal fails, whatever its name.
 
         Inputs: none.
         Outputs: none.
@@ -635,37 +668,48 @@ class ContentCheckTest(TemporaryFolderTest):
         message_str = self.assert_check_error(
             self.write_mat("data.mat", {"Time": np.arange(3.0),
                                         "M": np.ones((3, 3))}),
-            OTHER_SIGNAL_CHECK_STR)
-        self.assertIn("no signal other than 'Time'", message_str)
+            SIGNAL_COUNT_CHECK_STR)
+        self.assertIn("at least two signals", message_str)
+        self.assertIn("has 1", message_str)
         self.assert_check_error(
             self.write_excel("data.xlsx", [[["Time"], [0], [1]]]),
-            OTHER_SIGNAL_CHECK_STR)
+            SIGNAL_COUNT_CHECK_STR)
+        self.assert_check_error(
+            self.write_text("data.csv", "Clock\n0\n1\n"),
+            SIGNAL_COUNT_CHECK_STR)
 
     @covers("LLFR-00012", "HLFR-00008")
     def test_mat_without_signals(self) -> None:
-        """A MAT file with no 1-D numeric variable has no time signal.
+        """A MAT file with no 1-D numeric variable has too few signals.
 
         Inputs: none.
         Outputs: none.
         """
-        self.assert_check_error(
+        message_str = self.assert_check_error(
             self.write_mat("data.mat", {"Note": "text"}),
-            TIME_SIGNAL_CHECK_STR)
+            SIGNAL_COUNT_CHECK_STR)
+        self.assertIn("has 0", message_str)
 
-    @covers("LLFR-00012", "HLFR-00008", "HLFR-00009")
+    @covers("LLFR-00012", "HLFR-00008", "HLFR-00009", "LLFR-00328")
     def test_check_order(self) -> None:
-        """Time is checked first, then other signals, then counts.
+        """The signal count is checked first, then the sample counts.
 
         Inputs: none.
         Outputs: none.
         """
-        self.assert_check_error(
+        message_str = self.assert_check_error(
             self.write_mat("a.mat", {"A": np.arange(2.0),
                                      "B": np.arange(3.0)}),
-            TIME_SIGNAL_CHECK_STR)
+            SAMPLE_COUNT_CHECK_STR)
+        self.assertIn("'A' has 2 samples", message_str)
+        message_str = self.assert_check_error(
+            self.write_mat("c.mat", {"A": np.arange(2.0),
+                                     "time": np.arange(3.0)}),
+            SAMPLE_COUNT_CHECK_STR)
+        self.assertIn("'time' has 3 samples", message_str)
         self.assert_check_error(
             self.write_mat("b.mat", {"Time": np.arange(2.0)}),
-            OTHER_SIGNAL_CHECK_STR)
+            SIGNAL_COUNT_CHECK_STR)
 
     @covers("HLFR-00007", "HLFR-00006", "LLFR-00054")
     def test_signal_file_interface(self) -> None:
@@ -678,12 +722,92 @@ class ContentCheckTest(TemporaryFolderTest):
                        "Time": np.array([0.0, 0.5])}
         signal_file = SignalFile("x.csv", signal_dict)
         self.assertEqual(TIME_SIGNAL_NAME_STR, "Time")
+        self.assertEqual(signal_file.time_signal_name_str, "Time")
         self.assertEqual(signal_file.signal_name_list, ["A", "Time"])
         np.testing.assert_array_equal(signal_file.time_array, [0.0, 0.5])
         np.testing.assert_array_equal(signal_file.signal_array("Time"),
                                       [0.0, 0.5])
         with self.assertRaises(KeyError):
             signal_file.signal_array("Missing")
+        with self.assertRaises(KeyError):
+            SignalFile("x.csv", signal_dict, "Missing")
+        given_file = SignalFile("x.csv", signal_dict, "A")
+        self.assertEqual(given_file.time_signal_name_str, "A")
+        np.testing.assert_array_equal(given_file.time_array, [1.0, 2.0])
+
+
+class TimeSignalChoiceTest(unittest.TestCase):
+    """The time signal chosen by the user (LLFR-00326 to LLFR-00331)."""
+
+    def make_file(self) -> SignalFile:
+        """Build a file with no signal named "Time".
+
+        Inputs: none.
+        Outputs: a SignalFile with "t_s" (increasing), "Flat" (constant
+            then increasing) and "Down" (decreasing).
+        """
+        return SignalFile("x.csv", {
+            "Down": np.array([3.0, 2.0, 1.0]),
+            "t_s": np.array([0.0, 0.5, 1.5]),
+            "Flat": np.array([0.0, 0.0, 1.0])})
+
+    @covers("LLFR-00329")
+    def test_increasing_check_reason(self) -> None:
+        """Only signals whose samples always increase are accepted.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(increasing_check_reason("t", [0.0, 0.1, 5.0]), "")
+        self.assertEqual(increasing_check_reason("t", [-3.0, -1.0]), "")
+        self.assertEqual(increasing_check_reason("t", [7.0]), "")
+        reason_str = increasing_check_reason("Flat", [0.0, 0.0, 1.0])
+        self.assertIn("must always increase", reason_str)
+        self.assertIn("sample 2", reason_str)
+        self.assertIn("'Flat'", reason_str)
+        reason_str = increasing_check_reason("Back", [0.0, 1.0, 2.0, 1.5])
+        self.assertIn("sample 4", reason_str)
+        self.assertIn("must always increase",
+                      increasing_check_reason("Down", [3.0, 2.0]))
+
+    @covers("LLFR-00326", "LLFR-00329", "HLFR-00007", "LLFR-00054")
+    def test_choose_time_signal(self) -> None:
+        """A refused choice changes nothing; an accepted one is used.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_file = self.make_file()
+        self.assertIn("must always increase",
+                      signal_file.choose_time_signal("Down"))
+        self.assertIn("must always increase",
+                      signal_file.choose_time_signal("Flat"))
+        self.assertTrue(signal_file.needs_time_signal_choice_b)
+        self.assertEqual(signal_file.choose_time_signal("t_s"), "")
+        self.assertEqual(signal_file.time_signal_name_str, "t_s")
+        self.assertFalse(signal_file.needs_time_signal_choice_b)
+        np.testing.assert_array_equal(signal_file.time_array,
+                                      [0.0, 0.5, 1.5])
+        self.assertIn("t_s", signal_file.signal_name_list)
+        with self.assertRaises(KeyError):
+            self.make_file().choose_time_signal("Missing")
+
+    @covers("LLFR-00331", "HLFR-00072")
+    def test_time_signal_cannot_change(self) -> None:
+        """Once set, the time signal can't be chosen again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_file = self.make_file()
+        signal_file.choose_time_signal("t_s")
+        with self.assertRaises(ValueError):
+            signal_file.choose_time_signal("t_s")
+        found_file = SignalFile("y.csv", {"Time": np.arange(2.0),
+                                          "A": np.arange(2.0)})
+        with self.assertRaises(ValueError):
+            found_file.choose_time_signal("A")
+        self.assertEqual(found_file.time_signal_name_str, "Time")
 
 
 class FormatAndAccessTest(TemporaryFolderTest):
@@ -804,8 +928,7 @@ class FormatAndAccessTest(TemporaryFolderTest):
         for error_class in (FileAccessError, FileReadError,
                             UnsupportedFormatError, ContentCheckError):
             self.assertTrue(issubclass(error_class, FileOpenError))
-        self.assertEqual(len({TIME_SIGNAL_CHECK_STR, OTHER_SIGNAL_CHECK_STR,
-                              SAMPLE_COUNT_CHECK_STR}), 3)
+        self.assertNotEqual(SIGNAL_COUNT_CHECK_STR, SAMPLE_COUNT_CHECK_STR)
 
 
 if __name__ == "__main__":
