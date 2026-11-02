@@ -12,6 +12,8 @@ Constants:
     DELTA_X_TOOL_STR: the Delta X tool (LLFR-00161, LLFR-00163).
     DELTA_Y_TOOL_STR: the Delta Y tool (LLFR-00162, LLFR-00163).
     DELTA_TOOL_TUPLE: the two delta marker tools.
+    AREA_TOOL_STR: the Area tool (LLFR-00286, LLFR-00287).
+    TEXT_TOOL_STR: the Text tool (LLFR-00320, LLFR-00321).
     PLOT_TOOL_TUPLE: every plot tool name, NO_TOOL_STR excluded.
 """
 
@@ -24,8 +26,16 @@ MARKER_TOOL_STR = "marker"
 DELTA_X_TOOL_STR = "delta_x"
 DELTA_Y_TOOL_STR = "delta_y"
 DELTA_TOOL_TUPLE = (DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR)
+# LLFR-00286, LLFR-00320: the Area and Text tools (HLFR-00066,
+# HLFR-00073), the last two plot tools of LLFR-00347. Activating them
+# only changes the active tool; what they do on the plots is added with
+# the areas and the text notes.
+AREA_TOOL_STR = "area"
+TEXT_TOOL_STR = "text"
+# LLFR-00347: in the order of their buttons.
 PLOT_TOOL_TUPLE = (TIP_TOOL_STR, ZOOM_TOOL_STR, MARKER_TOOL_STR,
-                   DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR)
+                   DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, AREA_TOOL_STR,
+                   TEXT_TOOL_STR)
 
 
 def is_known_plot_tool(tool_str: str) -> bool:
