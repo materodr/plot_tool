@@ -23,10 +23,16 @@ KEEPS_TEXT_NOTE_OPEN_PROPERTY_STR = "keepsTextNoteOpen"
 # LLFR-00334: the mouse presses that may confirm the field.
 MOUSE_PRESS_EVENT_TUPLE = (QEvent.Type.MouseButtonPress,
                            QEvent.Type.MouseButtonDblClick)
-# LLFR-00334: focus losses that do not confirm the text, because the
-# field gets the focus back when the popup or the other window closes.
-KEEP_OPEN_FOCUS_REASON_TUPLE = (Qt.FocusReason.PopupFocusReason,
-                                Qt.FocusReason.ActiveWindowFocusReason)
+# LLFR-00334: the focus losses that confirm the text: the user moved
+# the focus with the mouse or the keyboard. A popup or another window
+# taking the focus for a moment (the field gets it back afterwards) does
+# not, nor does the app moving the focus by itself, for example while
+# an undo rebuilds the plots (LLFR-00342: an Edit field must then write
+# nothing). Mouse presses are also caught by OutsidePressFilter.
+CONFIRM_FOCUS_REASON_TUPLE = (Qt.FocusReason.MouseFocusReason,
+                              Qt.FocusReason.TabFocusReason,
+                              Qt.FocusReason.BacktabFocusReason,
+                              Qt.FocusReason.ShortcutFocusReason)
 
 
 def text_note_editor_style_sheet() -> str:
@@ -218,14 +224,12 @@ class TextNoteEditor(QLineEdit):
             event: the QFocusEvent.
         Outputs: none.
         """
-        # LLFR-00334: a click outside the field confirms it. The plot
-        # widget ignores this once the field was already closed. A popup
-        # or another window taking the focus for a moment (the field
-        # gets it back afterwards) is not a click outside the field.
-        # LLFR-00333: nor is the focus going to a widget that keeps the
-        # field open.
+        # LLFR-00334: the user moving the focus elsewhere confirms the
+        # field (CONFIRM_FOCUS_REASON_TUPLE). The plot widget ignores
+        # this once the field was already closed. LLFR-00333: the focus
+        # going to a widget that keeps the field open does not.
         super().focusOutEvent(event)
-        if event.reason() in KEEP_OPEN_FOCUS_REASON_TUPLE:
+        if event.reason() not in CONFIRM_FOCUS_REASON_TUPLE:
             return
         if keeps_text_note_open(QApplication.focusWidget()):
             return

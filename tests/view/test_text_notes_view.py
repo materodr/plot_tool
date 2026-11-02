@@ -927,10 +927,11 @@ class TextNoteEndToEndTest(unittest.TestCase):
         return [(note.text_str, note.time_s, note.value_f)
                 for note in plot.text_note_list]
 
-    def open_field(self) -> None:
-        """Activate the Text tool and click the middle of the plot.
+    def open_field(self, time_s: float = 2.0) -> None:
+        """Activate the Text tool and click the plot.
 
-        Inputs: none.
+        Inputs:
+            time_s: x value of the click (y is 4); a place with no note.
         Outputs: none.
         """
         self.main_window.top_panel.plot_tool_button_dict[
@@ -939,7 +940,7 @@ class TextNoteEndToEndTest(unittest.TestCase):
         self.plot_widget = list(
             self.main_window.plot_panel.plot_widget_dict.values())[0]
         self.plot_widget.press_at(
-            self.plot_widget.data_to_widget_point(2.0, 4.0))
+            self.plot_widget.data_to_widget_point(time_s, 4.0))
         self.process_events()
         self.assertIs(self.application.focusWidget(),
                       self.plot_widget.text_note_editor)
@@ -1199,7 +1200,8 @@ class TextNoteEndToEndTest(unittest.TestCase):
                 (redo_button, redo_button.rect().center()),
                 (splitter_handle, splitter_handle.rect().center()))):
             with self.subTest(widget=type(widget).__name__):
-                self.open_field()
+                # Each note at its own place, so no click lands on one.
+                self.open_field(0.5 + 1.2 * index_i)
                 editor = self.plot_widget.text_note_editor
                 QTest.keyClicks(editor, f"note {index_i}")
                 QTest.mousePress(widget, Qt.MouseButton.LeftButton,
