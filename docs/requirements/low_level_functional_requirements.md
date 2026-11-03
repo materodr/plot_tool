@@ -4040,7 +4040,7 @@ While no plot tool is active, a left mouse button press and drag on the rest of 
 *Parent: HLFR-00085, HLFR-00099*
 
 ### LLFR-00383 Order of the objects at one point
-When the user presses the left mouse button at a point where several objects that react to the press are drawn (LLFR-00382, LLFR-00790, LLFR-00791, LLFR-00792, LLFR-00793, LLFR-00794, LLFR-00384, LLFR-00800, LLFR-00801), the app must act only on the first of them in this order: text note, pinned data tip, arrow, flag, area.
+When the user presses the left mouse button at a point where several objects that react to the press are drawn (LLFR-00382, LLFR-00790, LLFR-00791, LLFR-00792, LLFR-00793, LLFR-00794, LLFR-00384, LLFR-00800, LLFR-00801), the app must act only on the first of them in this order: text note, pinned data tip, arrow, delta marker point, flag, area.
 
 *Parent: HLFR-00085, HLFR-00032*
 
@@ -4577,7 +4577,7 @@ If the second point of LLFR-00164 gives a value of zero (LLFR-00431), the app mu
 *Parent: HLFR-00098*
 
 ### LLFR-00432 No preview of a zero value
-While the curve sample nearest to the pointer would give a value of zero (LLFR-00431), the app must not show the preview of LLFR-00353.
+While a first point is picked (LLFR-00163) and the curve sample nearest to the pointer would give a value of zero (LLFR-00431), the app must hide the whole delta marker preview: the preview of LLFR-00353 and the dot on that curve sample.
 
 *Parent: HLFR-00098*
 

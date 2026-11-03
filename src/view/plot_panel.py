@@ -116,6 +116,9 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "all_delta_markers_delete_requested": "all_delta_markers_delete_handler",
     "all_markers_delete_requested": "all_markers_delete_handler",
     "all_areas_delete_requested": "all_areas_delete_handler",
+    # LLFR-00433, LLFR-00794: a point of a delta marker dragged to
+    # another sample of its curve.
+    "delta_point_move_requested": "delta_point_move_handler",
 }
 
 

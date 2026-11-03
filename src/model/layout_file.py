@@ -91,7 +91,7 @@ from model.workspace import (
     DEFAULT_DELTA_MARKER_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
     DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
     DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
-    spans_overlap_b)
+    delta_value_zero_b, spans_overlap_b)
 
 # LLFR-00228: the identification of a layout file; the version is 2.
 LAYOUT_FORMAT_STR = "plot_tool layout"
@@ -1110,6 +1110,12 @@ class LayoutBuilder:
             if len(point_list) != 2:
                 # LLFR-00232, LLFR-00237: not rebuilt, times and reason.
                 self.report.add_not_rebuilt(f"{label_str}: {reason_str}.")
+                continue
+            if delta_value_zero_b(kind_str, point_list[0], point_list[1]):
+                # LLFR-00486, LLFR-00237: no delta marker of value zero.
+                self.report.add_not_rebuilt(
+                    f"{label_str}: its value on the samples of the data "
+                    f"file would be zero.")
                 continue
             # LLFR-00410: the saved color; a missing one is the default
             # color, with no report.

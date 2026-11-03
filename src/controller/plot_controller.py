@@ -148,7 +148,8 @@ from model.layout_file import build_layout_dict, rebuild_layout
 from model.undo_history import UndoHistory
 from model.workspace import (
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
-    TIME_PLOT_KIND_STR, WHOLE_FREQUENCY_RANGE_TUPLE, Workspace)
+    TIME_PLOT_KIND_STR, WHOLE_FREQUENCY_RANGE_TUPLE, Workspace,
+    delta_value_zero_b)
 
 
 class PlotController:
@@ -281,6 +282,10 @@ class PlotController:
                 self.on_all_delta_markers_delete),
             all_markers_delete_handler=self.on_all_markers_delete,
             all_areas_delete_handler=self.on_all_areas_delete)
+        # LLFR-00433, LLFR-00794: a point of a delta marker dragged to
+        # another sample of its curve.
+        view.set_plot_handlers(
+            delta_point_move_handler=self.on_delta_point_move)
         # LLFR-00115: the Reset zoom button of the top panel.
         view.set_reset_zoom_handler(self.on_reset_zoom)
         # LLFR-00122, LLFR-00123: the Grid button of the top panel.
@@ -2150,6 +2155,12 @@ class PlotController:
         point_tuple = (str(signal_name_str), time_s, value_f)
         if (self.pending_delta_tuple
                 and self.pending_delta_tuple[0] == plot_id_i):
+            # LLFR-00431, LLFR-00860, LLFR-00861: a second point that
+            # gives a value of zero draws nothing, keeps the first point
+            # and its dot, and shows no message.
+            if delta_value_zero_b(self.delta_kind_str(),
+                                  self.pending_delta_tuple[1], point_tuple):
+                return
             self.place_delta_marker(plot, self.pending_delta_tuple[1],
                                     point_tuple)
             return
@@ -2159,6 +2170,58 @@ class PlotController:
         # a dot (LLFR-00172: in the marker color, drawn by the view).
         self.pending_delta_tuple = (plot_id_i, point_tuple)
         self.view.set_delta_first_point(plot_id_i, point_tuple)
+
+    def delta_kind_str(self) -> str:
+        """Return the kind of delta marker the active tool draws.
+
+        Inputs: none.
+        Outputs: DELTA_X_KIND_STR with the Delta X tool, else
+            DELTA_Y_KIND_STR.
+        """
+        # LLFR-00164, LLFR-00682: according to the active button.
+        if self.plot_tool_str == DELTA_X_TOOL_STR:
+            return DELTA_X_KIND_STR
+        return DELTA_Y_KIND_STR
+
+    def on_delta_point_move(self, plot_id_i: int, delta_marker_id_i: int,
+                            point_index_i: int, time_s: float,
+                            value_f: float) -> None:
+        """Leave a dragged point of a delta marker on its new sample.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            delta_marker_id_i: id of the delta marker.
+            point_index_i: 0 for the first point, 1 for the second one.
+            time_s: time of the sample chosen at the release (its
+                frequency, in Hz, on a frequency plot).
+            value_f: value of that sample.
+        Outputs: none. An unknown plot, marker or point, a value that is
+            not finite, a point that would give a value of zero or a
+            point left where it was changes nothing and records nothing.
+        """
+        # LLFR-00433, LLFR-00794: the point is left on the chosen sample
+        # of its own curve (LLFR-00862); the other point stays
+        # (LLFR-00863).
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: moving a point of a delta marker is ONE undoable
+        # action; a drag that leaves it where it started is none.
+        snapshot = self.take_snapshot()
+        try:
+            moved_b = plot.move_delta_marker_point(
+                int(delta_marker_id_i), int(point_index_i), float(time_s),
+                float(value_f))
+        except (TypeError, ValueError):
+            return
+        if not moved_b:
+            # LLFR-00435: the plot keeps showing the stored marker.
+            self.redraw_plot(plot)
+            return
+        self.record_undo(snapshot)
+        # LLFR-00865: a first point already picked is kept;
+        # LLFR-00864: the bracket and the value are drawn again.
+        self.redraw_plot(plot)
 
     def place_delta_marker(self, plot, first_point_tuple: tuple,
                            second_point_tuple: tuple) -> None:
@@ -2171,8 +2234,7 @@ class PlotController:
         Outputs: none.
         """
         # LLFR-00164: the kind follows the active button.
-        kind_str = (DELTA_X_KIND_STR if self.plot_tool_str == DELTA_X_TOOL_STR
-                    else DELTA_Y_KIND_STR)
+        kind_str = self.delta_kind_str()
         # LLFR-00164: the dot of the first point goes away.
         self.discard_pending_delta()
         # LLFR-00140: placing a delta marker is ONE undoable action.
