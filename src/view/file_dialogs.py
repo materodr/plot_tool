@@ -129,11 +129,6 @@ def warm_up_system_panel(panel_tuple: tuple,
         # event-loop turn.
         KEPT_PANEL_LIST.append(send_message(
             panel_i, runtime.sel_registerName(b"retain")))
-        # LLFR-00406: TEMPORARY experiment (issue #165), removed before
-        # review: draw the panel off screen, without ordering it front.
-        import os
-        if os.environ.get("PLOT_TOOL_PANEL_DISPLAY_EXPERIMENT") == "1":
-            send_message(panel_i, runtime.sel_registerName(b"display"))
     except (OSError, AttributeError, ValueError):
         return "failed"
     return "warmed"

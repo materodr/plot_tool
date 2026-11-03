@@ -170,28 +170,6 @@ jobs:
             --clear-font-cache --probe-good-files -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
 
-      # TEMPORARY (issue #165): A/B of an off-screen display of the
-      # warmed-up panels.
-      - name: EXPERIMENT dialog times with the off-screen display
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 10
-        env:
-          PLOT_TOOL_PANEL_DISPLAY_EXPERIMENT: "1"
-        run: |
-          python tests/user_tests/measure_startup.py --runs 5 \
-            --limit-s 1000 --dialog-limit-s 0.65 -- \
-            bin/plot_tool.app/Contents/MacOS/plot_tool
-
-      - name: EXPERIMENT dialog times again without it
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 10
-        run: |
-          python tests/user_tests/measure_startup.py --runs 5 \
-            --limit-s 1000 --dialog-limit-s 0.65 -- \
-            bin/plot_tool.app/Contents/MacOS/plot_tool
-
       - name: Show the kept matplotlib cache
         if: always()
         run: ls -la ~/Library/Caches/plot_tool/matplotlib || true
