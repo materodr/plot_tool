@@ -1673,7 +1673,7 @@ The signal list panel must contain a search box placed directly below the signal
 *Parent: HLFR-00033*
 
 ### LLFR-00095 Filter while typing
-Each time the text in the search box changes, the app must show in the signal list only the signals that match the text (LLFR-00098 to LLFR-00101 and LLFR-00105).
+Each time the text in the search box changes, the app must show in the signal list only the signals that match the text (LLFR-00098 to LLFR-00101, LLFR-60002, LLFR-00105 and LLFR-60003).
 
 *Parent: HLFR-00033*
 
@@ -1683,7 +1683,12 @@ When the search box is empty or contains only spaces, the signal list must show 
 *Parent: HLFR-00033*
 
 ### LLFR-00097 No matching signals
-When no signal matches the text in the search box, the signal list must show no signals and must show the text "No matching signals", below the file name row (LLFR-00362).
+When no signal matches the text in the search box, the signal list must show the text "No matching signals", below the file name row (LLFR-00362).
+
+*Parent: HLFR-00033*
+
+### LLFR-60001 No signals shown when nothing matches
+When no signal matches the text in the search box, the signal list must show no signals.
 
 *Parent: HLFR-00033*
 
@@ -1697,8 +1702,13 @@ A search word (LLFR-00105) must match a signal when it appears anywhere in the s
 
 *Parent: HLFR-00034*
 
-### LLFR-00100 Separator-insensitive search
-The search must ignore underscores (`_`), hyphens (`-`) and dots (`.`) in the typed text, and must ignore spaces, underscores, hyphens and dots in the signal names.
+### LLFR-00100 Separators ignored in the typed text
+The search must ignore underscores (`_`), hyphens (`-`) and dots (`.`) in the typed text.
+
+*Parent: HLFR-00034*
+
+### LLFR-60002 Separators ignored in the signal names
+The search must ignore spaces, underscores, hyphens and dots in the signal names.
 
 Note: For example, `enginespeed` finds `Engine_Speed`.
 
@@ -1712,8 +1722,8 @@ Note: For example, `presure` finds `Pressure`, and `sine_2hz` finds `Sine_3Hz`.
 *Parent: HLFR-00034*
 
 ### LLFR-00102 Order of search results
-The app must list the matching signals, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105), in three groups in this order, keeping the file order within each group:
-1. the signals that match every search word without LLFR-00101 and whose name, after LLFR-00098 and LLFR-00100 are applied, starts with the first search word;
+The app must list the matching signals, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105, LLFR-60003), in three groups in this order, keeping the file order within each group:
+1. the signals that match every search word without LLFR-00101 and whose name, after LLFR-00098, LLFR-00100 and LLFR-60002 are applied, starts with the first search word;
 2. the other signals that match every search word without LLFR-00101;
 3. the signals that need LLFR-00101 for at least one search word.
 
@@ -1730,14 +1740,26 @@ When the app replaces the current file (LLFR-00013), it must clear the search bo
 *Parent: HLFR-00033, HLFR-00010*
 
 ### LLFR-00105 Multi-word search
-The app must split the typed text into search words at each space, and a signal must match only when every search word matches its name (LLFR-00098 to LLFR-00101), in any order.
+The app must split the typed text into search words at each space.
+
+Note: For example, with the signals `mateus_soares_rodrigues 2026` and `mateus_soares_rodrigues 2025`, typing `mate so 25` finds only `mateus_soares_rodrigues 2025`.
+
+*Parent: HLFR-00034*
+
+### LLFR-60003 Every search word must match
+A signal must match the search only when every search word (LLFR-00105) matches its name (LLFR-00098 to LLFR-00101 and LLFR-60002), in any order.
 
 Note: For example, with the signals `mateus_soares_rodrigues 2026` and `mateus_soares_rodrigues 2025`, typing `mate so 25` finds only `mateus_soares_rodrigues 2025`.
 
 *Parent: HLFR-00034*
 
 ### LLFR-00239 Synthetic signal menu
-When the user right-clicks a signal name in the signal list panel, the app must show a menu with a "Create synthetic signal" option that lists the operations of LLFR-00268, showing only these operation names and not the names the new signals will have (LLFR-00240). Choosing an operation must create the synthetic signal of that operation from the right-clicked signal.
+When the user right-clicks a signal name in the signal list panel, the app must show a menu with a "Create synthetic signal" option that lists the operations of LLFR-00268, showing only these operation names and not the names the new signals will have (LLFR-00240).
+
+*Parent: HLFR-00053*
+
+### LLFR-60004 Choosing an operation
+When the user chooses an operation in the "Create synthetic signal" option (LLFR-00239), the app must create the synthetic signal of that operation from the right-clicked signal.
 
 *Parent: HLFR-00053*
 
@@ -1754,30 +1776,79 @@ The app must name a synthetic signal as follows, using the abbreviation of its o
 | FFT | `fft_<start>s_to_<end>s_<signal>` | `fft_1p5s_to_3s_Speed` |
 | Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `Speed_prod_Torque` |
 
-Every number in the name, which is the constant, the cutoff frequency, the filter order, the window size or an FFT time, must be written with letters and digits only, with the same significant digits as the data tip's values (LLFR-00043, LLFR-00044), up to 6:
-1. the decimal point must be written `p` for a positive number and `n` for a negative number, and a negative number must have no minus sign: 2.5 is `2p5`, -2.5 is `2n5` and -0.000123457 is `0n000123457`;
-2. a positive whole number must be written as it is, and a negative whole number must get `n0`: 2 is `2` and -2 is `2n0`;
-3. no exponent must be used, and all digits must be written, rounded to the significant digits above: 1e+06 is `1000000`, 1e-07 is `0p0000001` and 1234567 is `1234570`;
-4. zero must be written `0`.
+The FFT times are the time range of LLFR-00248 and LLFR-60086, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name is used, so that the names build up from left to right, for example `der_int_Speed` or `fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
 
-The name of a synthetic signal therefore holds only letters, digits and `_` apart from the names of the signals it was computed from. The FFT times are the time range of LLFR-00248, so two FFTs of the same signal over different time ranges get different names. How a filter starts (LLFR-00246) must not be part of the name. When a signal it was computed from is itself a synthetic signal, its whole name is used, so that the names build up from left to right, for example `der_int_Speed` or `fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
+*Parent: HLFR-00054*
+
+### LLFR-60005 Numbers in synthetic signal names
+Every number in the name of a synthetic signal (LLFR-00240), which is the constant, the cutoff frequency, the filter order, the window size or an FFT time, must be written with letters and digits only, with the same significant digits as the data tip's values (LLFR-00043, LLFR-00044), up to 6, as in LLFR-60006, LLFR-60007, LLFR-60008, LLFR-60009, LLFR-60010, LLFR-60011 and LLFR-60012. The name of a synthetic signal therefore holds only letters, digits and `_` apart from the names of the signals it was computed from.
+
+*Parent: HLFR-00054*
+
+### LLFR-60006 Decimal point in a name number
+In a number of a synthetic signal name (LLFR-60005), the decimal point must be written `p` for a positive number and `n` for a negative number: 2.5 is `2p5`, -2.5 is `2n5` and -0.000123457 is `0n000123457`.
+
+*Parent: HLFR-00054*
+
+### LLFR-60007 No minus sign in a name number
+In a number of a synthetic signal name (LLFR-60005), a negative number must have no minus sign: -2.5 is `2n5` and -0.000123457 is `0n000123457`.
+
+*Parent: HLFR-00054*
+
+### LLFR-60008 Positive whole number in a name
+In a number of a synthetic signal name (LLFR-60005), a positive whole number must be written as it is: 2 is `2`.
+
+*Parent: HLFR-00054*
+
+### LLFR-60009 Negative whole number in a name
+In a number of a synthetic signal name (LLFR-60005), a negative whole number must get `n0`: -2 is `2n0`.
+
+*Parent: HLFR-00054*
+
+### LLFR-60010 No exponent in a name number
+In a number of a synthetic signal name (LLFR-60005), no exponent must be used: 1e+06 is `1000000` and 1e-07 is `0p0000001`.
+
+*Parent: HLFR-00054*
+
+### LLFR-60011 All digits in a name number
+In a number of a synthetic signal name (LLFR-60005), all digits must be written, rounded to the significant digits of LLFR-60005: 1e+06 is `1000000`, 1e-07 is `0p0000001` and 1234567 is `1234570`.
+
+*Parent: HLFR-00054*
+
+### LLFR-60012 Zero in a name
+In a number of a synthetic signal name (LLFR-60005), zero must be written `0`.
+
+*Parent: HLFR-00054*
+
+### LLFR-60013 Filter start not in the name
+How a filter starts (LLFR-60023, LLFR-60085) must not be part of the name of a synthetic signal (LLFR-00240).
 
 *Parent: HLFR-00054*
 
 ### LLFR-00264 Synthetic signals from synthetic signals
-The app must let the user create a synthetic signal from a synthetic signal in the same way as from a signal of the data file (LLFR-00239), except as in LLFR-00251.
+The app must let the user create a synthetic signal from a synthetic signal in the same way as from a signal of the data file (LLFR-00239, LLFR-60004), except as in LLFR-00251.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00241 Synthetic signal name already used
 If the name of LLFR-00240 is already the name of a signal in the signal list, the app must add an underscore and the smallest number from 2 up that makes the name unique, for example `lpf_0p5Hz_order2_Speed_2`.
 
-Note: This happens, for example, when the same signal is filtered twice with the same cutoff frequency and order but different starts (LLFR-00246).
+Note: This happens, for example, when the same signal is filtered twice with the same cutoff frequency and order but different starts (LLFR-60023, LLFR-60085).
 
 *Parent: HLFR-00054*
 
 ### LLFR-00242 Synthetic signals in the signal list
-The signal list panel must show the synthetic signals after the signals of the data file, in the order they were created, in italic letters, and the user must be able to search for them (HLFR-00033) and plot them (LLFR-00019, LLFR-00021) like the signals of the data file, except as in LLFR-00257.
+The signal list panel must show the synthetic signals after the signals of the data file, in the order they were created, in italic letters.
+
+*Parent: HLFR-00053, HLFR-00011*
+
+### LLFR-60014 Search for synthetic signals
+The user must be able to search for the synthetic signals (HLFR-00033) like the signals of the data file.
+
+*Parent: HLFR-00053, HLFR-00011*
+
+### LLFR-60015 Plot synthetic signals
+The user must be able to plot the synthetic signals (LLFR-00019, LLFR-00021) like the signals of the data file, except as in LLFR-00257.
 
 *Parent: HLFR-00053, HLFR-00011*
 
@@ -1787,39 +1858,116 @@ The Integral of a signal must have, at each time sample, the integral of the sig
 *Parent: HLFR-00053*
 
 ### LLFR-00244 Derivative
-The Derivative of a signal must have, at each time sample, the rate of change of the signal with respect to time, computed from the neighboring samples on both sides, and from the one neighbor at the first and last samples.
+The Derivative of a signal must have, at each time sample other than the first and the last, the rate of change of the signal with respect to time, computed from the neighboring samples on both sides.
+
+*Parent: HLFR-00053*
+
+### LLFR-60084 Derivative at the ends
+The Derivative of a signal (LLFR-00244) must have, at the first and last samples, the rate of change of the signal with respect to time, computed from the one neighbor.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00245 Filter dialog
-When the user chooses "Low-pass filter" or "High-pass filter" (LLFR-00239), the app must show a dialog that asks for the cutoff frequency in Hz and for the filter order, and states both allowed ranges: for the cutoff frequency, greater than 0 and less than half the sampling rate (LLFR-00247); for the order, a whole number from 1 to 8. The dialog must show 2 as the starting value of the order. The dialog must also let the user choose how the filter starts (LLFR-00246), with two choices, "From the first value" and "From zero", and "From the first value" chosen when the dialog opens. The app must create the filtered signal only when the user confirms a cutoff frequency and an order in their allowed ranges. If a value is outside its range or not a number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+When the user chooses "Low-pass filter" or "High-pass filter" (LLFR-00239), the app must show a dialog that asks for the cutoff frequency in Hz and for the filter order, and states both allowed ranges: for the cutoff frequency, greater than 0 and less than half the sampling rate (LLFR-00247); for the order, a whole number from 1 to 8.
+
+*Parent: HLFR-00053*
+
+### LLFR-60016 Starting filter order
+The dialog of LLFR-00245 must show 2 as the starting value of the order.
+
+*Parent: HLFR-00053*
+
+### LLFR-60017 Filter start choice
+The dialog of LLFR-00245 must also let the user choose how the filter starts (LLFR-60023, LLFR-60085), with two choices, "From the first value" and "From zero".
+
+*Parent: HLFR-00053*
+
+### LLFR-60018 Starting filter start choice
+In the dialog of LLFR-00245, "From the first value" must be chosen when the dialog opens (LLFR-60017).
+
+*Parent: HLFR-00053*
+
+### LLFR-60019 Filter created only from allowed values
+The app must create the filtered signal of LLFR-00245 only when the user confirms a cutoff frequency and an order in their allowed ranges.
+
+*Parent: HLFR-00053*
+
+### LLFR-60020 Filter dialog stays open
+If a value in the dialog of LLFR-00245 is outside its range or not a number, the dialog must stay open.
+
+*Parent: HLFR-00053*
+
+### LLFR-60021 Filter dialog says why
+If a value in the dialog of LLFR-00245 is outside its range or not a number, the dialog must say why.
+
+*Parent: HLFR-00053*
+
+### LLFR-60022 Filter dialog cancelled
+If the user cancels the dialog of LLFR-00245, the app must not create any signal.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00246 Filter type
-The Low-pass filter and the High-pass filter must be Butterworth filters of the order of LLFR-00245, with its cutoff frequency, applied once over the signal, forward in time, as a real-time filter would be, so that the filtered curve is delayed like the output of a real filter. The filter must start as the user chose in the dialog of LLFR-00245: with "From the first value", as if the signal had kept the value of its first sample before the first sample (steady-state initial conditions), so that the filtered curve starts in sync with the first value and does not jump at the start; with "From zero", at rest (zero initial state), as if the signal had been 0 before the first sample, like a real filter switched on at the first sample, so that the filtered curve settles after the start.
-
-Note: With "From the first value", a constant signal stays unchanged through a Low-pass filter and gives 0 through a High-pass filter, from the first sample on. With "From zero", a constant signal gives a Low-pass output that starts below the constant and rises towards it, and a High-pass output that starts at a part of the constant (close to it when the cutoff frequency is well below half the sampling rate) and decays towards 0.
+The Low-pass filter and the High-pass filter must be Butterworth filters of the order of LLFR-00245, with its cutoff frequency, applied once over the signal, forward in time, as a real-time filter would be, so that the filtered curve is delayed like the output of a real filter.
 
 *Parent: HLFR-00053*
 
-### LLFR-00247 Evenly spaced time samples
-The app must compute the sampling rate as 1 divided by the mean time step of the time signal. If any time step differs from the mean time step by more than 1%, the app must not create a Low-pass filter, High-pass filter or FFT signal, and must show an information box saying that the operation needs evenly spaced time samples.
+### LLFR-60023 Filter start from the first value
+When the user chose "From the first value" in the dialog of LLFR-00245 (LLFR-60017), the Low-pass filter and the High-pass filter (LLFR-00246) must start as if the signal had kept the value of its first sample before the first sample (steady-state initial conditions), so that the filtered curve starts in sync with the first value and does not jump at the start.
+
+Note: With "From the first value", a constant signal stays unchanged through a Low-pass filter and gives 0 through a High-pass filter, from the first sample on.
+
+*Parent: HLFR-00053*
+
+### LLFR-60085 Filter start from zero
+When the user chose "From zero" in the dialog of LLFR-00245 (LLFR-60017), the Low-pass filter and the High-pass filter (LLFR-00246) must start at rest (zero initial state), as if the signal had been 0 before the first sample, like a real filter switched on at the first sample, so that the filtered curve settles after the start.
+
+Note: With "From zero", a constant signal gives a Low-pass output that starts below the constant and rises towards it, and a High-pass output that starts at a part of the constant (close to it when the cutoff frequency is well below half the sampling rate) and decays towards 0.
+
+*Parent: HLFR-00053*
+
+### LLFR-00247 Sampling rate
+The app must compute the sampling rate as 1 divided by the mean time step of the time signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-60024 Evenly spaced time samples
+If any time step differs from the mean time step (LLFR-00247) by more than 1%, the app must not create a Low-pass filter, High-pass filter or FFT signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-60025 Uneven time samples message
+If any time step differs from the mean time step (LLFR-00247) by more than 1%, the app must show an information box saying that the operation needs evenly spaced time samples.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00248 FFT time range
-The FFT must use only the samples of the signal whose time is within the x-axis range shared by the time plots (LLFR-00070) when the FFT is created, or all samples when no time plot exists. A later change of the time range must not change the FFT signal.
+When at least one time plot exists, the FFT must use only the samples of the signal whose time is within the x-axis range shared by the time plots (LLFR-00070) when the FFT is created.
+
+*Parent: HLFR-00057*
+
+### LLFR-60086 FFT without a time plot
+When no time plot exists when the FFT is created, the FFT must use all samples of the signal.
+
+*Parent: HLFR-00057*
+
+### LLFR-60026 FFT fixed after creation
+A change of the time range after an FFT signal is created (LLFR-00248, LLFR-60086) must not change the FFT signal.
 
 *Parent: HLFR-00057*
 
 ### LLFR-00249 FFT result
-The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-00248, from 0 Hz up to half the sampling rate (LLFR-00247), computed with a Hann window and scaled so that a sine wave of amplitude A over the whole time range gives a peak of height close to A.
+The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-00248 and LLFR-60086, from 0 Hz up to half the sampling rate (LLFR-00247), computed with a Hann window and scaled so that a sine wave of amplitude A over the whole time range gives a peak of height close to A.
 
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00250 Too few samples for an FFT
-If fewer than 8 samples of the signal are within the time range of LLFR-00248, the app must not create the FFT signal and must show an information box saying that the time range holds too few samples.
+If fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-60086, the app must not create the FFT signal.
+
+*Parent: HLFR-00053, HLFR-00057*
+
+### LLFR-60027 Too few samples message
+If fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-60086, the app must show an information box saying that the time range holds too few samples.
 
 *Parent: HLFR-00053, HLFR-00057*
 
@@ -1836,43 +1984,110 @@ When the app opens a data file or replaces the current one (LLFR-00013), it must
 *Parent: HLFR-00053, HLFR-00010*
 
 ### LLFR-00253 Data file unchanged
-The app must never write synthetic signals, or anything else, to the data file. Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255), the data file is replaced (LLFR-00252) or the app is closed.
+The app must never write synthetic signals, or anything else, to the data file.
 
-Note: A layout file can create them again (LLFR-00262), except the FFT signals (LLFR-00283). The Save signals button writes them to a new file, never to the data file (LLFR-00397, LLFR-00401).
+Note: The Save signals button writes them to a new file, never to the data file (LLFR-00397, LLFR-00401).
+
+*Parent: HLFR-00055*
+
+### LLFR-60028 Synthetic signals only in memory
+Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255, LLFR-60030), the data file is replaced (LLFR-00252) or the app is closed.
+
+Note: A layout file can create them again (LLFR-00262), except the FFT signals (LLFR-00283).
 
 *Parent: HLFR-00055*
 
 ### LLFR-00254 Delete synthetic signal option
-When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Delete signal" option in the menu of LLFR-00239. The menu of a signal of the data file must not have this option.
+When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Delete signal" option in the menu of LLFR-00239.
+
+*Parent: HLFR-00059*
+
+### LLFR-60029 No Delete signal option for data file signals
+The menu of LLFR-00239 of a signal of the data file must not have the "Delete signal" option (LLFR-00254).
 
 *Parent: HLFR-00059*
 
 ### LLFR-00255 Delete synthetic signal action
-When the user chooses "Delete signal" (LLFR-00254), the app must ask the user whether to proceed, naming the synthetic signals that were computed from it, directly or through other synthetic signals. If the user proceeds, the app must remove the signal and those synthetic signals from the signal list, remove their curves from every plot (deleting each plot left with no curve as in LLFR-00051), and clear the undo and redo history.
+When the user chooses "Delete signal" (LLFR-00254), the app must ask the user whether to proceed, naming the synthetic signals that were computed from it, directly or through other synthetic signals.
+
+*Parent: HLFR-00059*
+
+### LLFR-60030 Deleted signals leave the list
+If the user proceeds in the question of LLFR-00255, the app must remove the signal and the synthetic signals named in the question from the signal list.
+
+*Parent: HLFR-00059*
+
+### LLFR-60031 Curves of deleted signals removed
+If the user proceeds in the question of LLFR-00255, the app must remove the curves of the signal and of the synthetic signals named in the question from every plot (deleting each plot left with no curve as in LLFR-00051).
+
+*Parent: HLFR-00059*
+
+### LLFR-60032 History cleared on signal delete
+If the user proceeds in the question of LLFR-00255, the app must clear the undo and redo history.
 
 Note: Creating and deleting a synthetic signal are not undoable actions (LLFR-00140).
 
 *Parent: HLFR-00059*
 
 ### LLFR-00263 Removing a synthetic curve keeps the signal
-When the user removes the curve of a synthetic signal from a plot (LLFR-00039), or deletes a plot or tab that holds it (LLFR-00049, LLFR-00028), the app must keep the synthetic signal in the signal list. Only "Delete signal" (LLFR-00255) must remove a synthetic signal from the list.
+When the user removes the curve of a synthetic signal from a plot (LLFR-00039), or deletes a plot or tab that holds it (LLFR-00049, LLFR-00028), the app must keep the synthetic signal in the signal list.
+
+*Parent: HLFR-00059, HLFR-00022*
+
+### LLFR-60033 Only Delete signal removes a synthetic signal
+Only "Delete signal" (LLFR-00255, LLFR-60030) must remove a synthetic signal from the list.
 
 *Parent: HLFR-00059, HLFR-00022*
 
 ### LLFR-00265 Rename synthetic signal option
-When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Rename" option in the menu of LLFR-00239. The menu of a signal of the data file must not have this option.
+When the user right-clicks a synthetic signal in the signal list panel, the app must show a "Rename" option in the menu of LLFR-00239.
+
+*Parent: HLFR-00060*
+
+### LLFR-60034 No Rename option for data file signals
+The menu of LLFR-00239 of a signal of the data file must not have the "Rename" option (LLFR-00265).
 
 *Parent: HLFR-00060*
 
 ### LLFR-00266 Rename synthetic signal action
-When the user chooses "Rename" (LLFR-00265), the app must let the user type a new name for the synthetic signal, and must then show the new name in the signal list and in the legend of every plot that draws the signal. The names of synthetic signals already computed from it must not change; synthetic signals created from it afterwards must use the new name (LLFR-00240).
+When the user chooses "Rename" (LLFR-00265), the app must let the user type a new name for the synthetic signal.
 
 Note: Renaming a synthetic signal is not an undoable action (LLFR-00140) and does not clear the undo and redo history.
 
 *Parent: HLFR-00060*
 
+### LLFR-60035 New name in the signal list
+After the user types a new name for a synthetic signal (LLFR-00266), the app must show the new name in the signal list.
+
+*Parent: HLFR-00060*
+
+### LLFR-60036 New name in the legends
+After the user types a new name for a synthetic signal (LLFR-00266), the app must show the new name in the legend of every plot that draws the signal.
+
+*Parent: HLFR-00060*
+
+### LLFR-60037 Names of dependent signals kept
+When a synthetic signal is renamed (LLFR-00266), the names of synthetic signals already computed from it must not change.
+
+*Parent: HLFR-00060*
+
+### LLFR-60038 Later signals use the new name
+Synthetic signals created from a renamed synthetic signal (LLFR-00266) after the rename must use the new name (LLFR-00240).
+
+*Parent: HLFR-00060*
+
 ### LLFR-00267 Invalid synthetic signal name
-If the user enters a name that, without leading and trailing spaces, is empty or is the name of another signal in the signal list, the app must keep the previous name. For a name already in use, it must show an information box saying that a signal with that name already exists; for an empty name, it must not show any message.
+If the user enters a name that, without leading and trailing spaces, is empty or is the name of another signal in the signal list, the app must keep the previous name.
+
+*Parent: HLFR-00060*
+
+### LLFR-60039 Synthetic signal name already in use
+If the user enters a name (LLFR-00266) that, without leading and trailing spaces, is the name of another signal in the signal list, the app must show an information box saying that a signal with that name already exists.
+
+*Parent: HLFR-00060*
+
+### LLFR-60040 Empty synthetic signal name
+If the user enters a name (LLFR-00266) that, without leading and trailing spaces, is empty, the app must not show any message.
 
 *Parent: HLFR-00060*
 
@@ -1890,12 +2105,37 @@ The text in parentheses is the operation's abbreviation, which the app uses in t
 *Parent: HLFR-00053*
 
 ### LLFR-00269 Moving average window dialog
-When the user chooses "Moving average", the app must show a dialog that asks for the window size as a whole number of samples and states the allowed range: from 2 up to the number of samples of the signal. The app must create the signal only when the user confirms a value in the allowed range. If the value is outside the range or not a whole number, the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+When the user chooses "Moving average", the app must show a dialog that asks for the window size as a whole number of samples and states the allowed range: from 2 up to the number of samples of the signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-60041 Moving average created only from allowed values
+The app must create the Moving average signal of LLFR-00269 only when the user confirms a value in the allowed range.
+
+*Parent: HLFR-00053*
+
+### LLFR-60042 Window dialog stays open
+If the value in the dialog of LLFR-00269 is outside the range or not a whole number, the dialog must stay open.
+
+*Parent: HLFR-00053*
+
+### LLFR-60043 Window dialog says why
+If the value in the dialog of LLFR-00269 is outside the range or not a whole number, the dialog must say why.
+
+*Parent: HLFR-00053*
+
+### LLFR-60044 Window dialog cancelled
+If the user cancels the dialog of LLFR-00269, the app must not create any signal.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00270 Moving average
-The Moving average of a signal must have, at each time sample, the mean of the window of LLFR-00269 centered on that sample, with one more sample after it than before it when the window size is even. Near the first and last samples, the window must hold only the samples that exist.
+The Moving average of a signal must have, at each time sample, the mean of the window of LLFR-00269 centered on that sample, with one more sample after it than before it when the window size is even.
+
+*Parent: HLFR-00053*
+
+### LLFR-60045 Moving average near the ends
+Near the first and last samples, the window of the Moving average (LLFR-00270) must hold only the samples that exist.
 
 *Parent: HLFR-00053*
 
@@ -1905,7 +2145,27 @@ The Max and the Min of a signal must be constant signals, with at every time sam
 *Parent: HLFR-00053*
 
 ### LLFR-00272 Constant value dialog
-When the user chooses a Comparison or an Arithmetic operation other than "Absolute value" and "Product with signal" (LLFR-00268), the app must show a dialog that asks for a constant number. The app must create the signal only when the user confirms a number, which must not be 0 for "Divide by constant". If the value is not a number, or is 0 for "Divide by constant", the dialog must stay open and say why. If the user cancels the dialog, the app must not create any signal.
+When the user chooses a Comparison or an Arithmetic operation other than "Absolute value" and "Product with signal" (LLFR-00268), the app must show a dialog that asks for a constant number.
+
+*Parent: HLFR-00053*
+
+### LLFR-60046 Constant signal created only from allowed values
+The app must create the signal of LLFR-00272 only when the user confirms a number, other than 0 for "Divide by constant".
+
+*Parent: HLFR-00053*
+
+### LLFR-60047 Constant dialog stays open
+If the value in the dialog of LLFR-00272 is not a number, or is 0 for "Divide by constant", the dialog must stay open.
+
+*Parent: HLFR-00053*
+
+### LLFR-60048 Constant dialog says why
+If the value in the dialog of LLFR-00272 is not a number, or is 0 for "Divide by constant", the dialog must say why.
+
+*Parent: HLFR-00053*
+
+### LLFR-60049 Constant dialog cancelled
+If the user cancels the dialog of LLFR-00272, the app must not create any signal.
 
 *Parent: HLFR-00053*
 
@@ -1920,7 +2180,12 @@ An "Add constant", "Subtract constant", "Multiply by constant" or "Divide by con
 *Parent: HLFR-00053*
 
 ### LLFR-00275 Second signal dialog
-When the user chooses "Product with signal", the app must show a dialog that lists every signal of the signal list except the FFT signals, including the right-clicked signal, in which the user chooses the second signal. If the user cancels the dialog, the app must not create any signal.
+When the user chooses "Product with signal", the app must show a dialog that lists every signal of the signal list except the FFT signals, including the right-clicked signal, in which the user chooses the second signal.
+
+*Parent: HLFR-00053*
+
+### LLFR-60050 Second signal dialog cancelled
+If the user cancels the dialog of LLFR-00275, the app must not create any signal.
 
 *Parent: HLFR-00053*
 
@@ -1935,19 +2200,56 @@ The Absolute value of a signal must have, at each time sample, the absolute valu
 *Parent: HLFR-00053*
 
 ### LLFR-00285 Search in the second signal dialog
-The dialog of LLFR-00275 must contain a search box above its list of signals. Each time the text in the search box changes, the dialog must show only the signals that match it, with the same rules and in the same order as the search of the signal list panel (LLFR-00095, LLFR-00098 to LLFR-00102, LLFR-00105). When the search box is empty or contains only spaces, the dialog must show all its signals (LLFR-00096); when no signal matches, it must show no signals and the text "No matching signals" (LLFR-00097). When the dialog opens, the keyboard focus must be in its search box.
+The dialog of LLFR-00275 must contain a search box above its list of signals.
 
 Note: The search box is a text field (LLFR-00157), so typing in it never activates a plot tool, undoes or redoes (LLFR-00195, LLFR-00196).
 
 *Parent: HLFR-00053, HLFR-00034*
 
+### LLFR-60051 Second signal dialog filter
+Each time the text in the search box of LLFR-00285 changes, the dialog must show only the signals that match it, with the same rules and in the same order as the search of the signal list panel (LLFR-00095, LLFR-00098 to LLFR-00102, LLFR-60002, LLFR-00105, LLFR-60003).
+
+*Parent: HLFR-00053, HLFR-00034*
+
+### LLFR-60052 Second signal dialog empty search
+When the search box of LLFR-00285 is empty or contains only spaces, the dialog must show all its signals (LLFR-00096).
+
+*Parent: HLFR-00053, HLFR-00034*
+
+### LLFR-60053 Second signal dialog with no match
+When no signal matches the text in the search box of LLFR-00285, the dialog must show no signals (LLFR-60001).
+
+*Parent: HLFR-00053, HLFR-00034*
+
+### LLFR-60054 Second signal dialog no-match text
+When no signal matches the text in the search box of LLFR-00285, the dialog must show the text "No matching signals" (LLFR-00097).
+
+*Parent: HLFR-00053, HLFR-00034*
+
+### LLFR-60055 Second signal dialog focus
+When the dialog of LLFR-00275 opens, the keyboard focus must be in its search box (LLFR-00285).
+
+*Parent: HLFR-00053, HLFR-00034*
+
 ### LLFR-00277 Copy name option
-When the user right-clicks a signal name in the signal list panel, the app must show a "Copy name" option in the menu of LLFR-00239. When the user chooses it, the app must put the signal's name on the system clipboard as text.
+When the user right-clicks a signal name in the signal list panel, the app must show a "Copy name" option in the menu of LLFR-00239.
+
+*Parent: HLFR-00061*
+
+### LLFR-60056 Copy name action
+When the user chooses "Copy name" (LLFR-00277), the app must put the signal's name on the system clipboard as text.
 
 *Parent: HLFR-00061*
 
 ### LLFR-00278 Copy equation option
-When the user right-clicks a synthetic signal that is not an FFT signal in the signal list panel, the app must show a "Copy equation" option in the menu of LLFR-00239. The menu of a signal of the data file or of an FFT signal must not have this option.
+When the user right-clicks a synthetic signal that is not an FFT signal in the signal list panel, the app must show a "Copy equation" option in the menu of LLFR-00239.
+
+Note: FFT signals are not saved in layout files (LLFR-00283), so they have no equation.
+
+*Parent: HLFR-00062*
+
+### LLFR-60057 No Copy equation option for other signals
+The menu of LLFR-00239 of a signal of the data file or of an FFT signal must not have the "Copy equation" option (LLFR-00278).
 
 Note: FFT signals are not saved in layout files (LLFR-00283), so they have no equation.
 
@@ -1959,7 +2261,17 @@ When the user chooses "Copy equation" (LLFR-00278), the app must put on the syst
 *Parent: HLFR-00062, HLFR-00056*
 
 ### LLFR-00290 Select signals with the mouse
-In the signal list, a click on a signal must select only that signal. A click with the Data tip key held (LLFR-00148) must add the signal to the selection, or remove it if it is already selected. A click with the Shift key held must select all the signals shown from the last clicked signal up to the clicked one.
+In the signal list, a click on a signal must select only that signal.
+
+*Parent: HLFR-00063*
+
+### LLFR-60058 Click with the Data tip key
+In the signal list, a click on a signal with the Data tip key held (LLFR-00148) must add the signal to the selection, or remove it if it is already selected.
+
+*Parent: HLFR-00063*
+
+### LLFR-60059 Click with the Shift key
+In the signal list, a click on a signal with the Shift key held must select all the signals shown from the last clicked signal up to the clicked one.
 
 *Parent: HLFR-00063*
 
@@ -1969,12 +2281,22 @@ The signal list must highlight every selected signal.
 *Parent: HLFR-00063*
 
 ### LLFR-00292 Only shown signals stay selected
-A signal that is no longer shown in the signal list, because of the search (LLFR-00095), a deleted synthetic signal (LLFR-00255) or a replaced file (LLFR-00017), must no longer be selected, and must stay unselected if it is shown again.
+A signal that is no longer shown in the signal list, because of the search (LLFR-00095), a deleted synthetic signal (LLFR-00255, LLFR-60030) or a replaced file (LLFR-00017), must no longer be selected.
+
+*Parent: HLFR-00063, HLFR-00033*
+
+### LLFR-60060 Hidden signals stay unselected
+A signal that was deselected because it was no longer shown in the signal list (LLFR-00292) must stay unselected if it is shown again.
 
 *Parent: HLFR-00063, HLFR-00033*
 
 ### LLFR-00293 Right-click with several signals selected
-When the user right-clicks a signal, the app must select only that signal, deselecting any others, before it shows the signal menu (LLFR-00239), and the menu must act on that signal.
+When the user right-clicks a signal, the app must select only that signal, deselecting any others, before it shows the signal menu (LLFR-00239).
+
+*Parent: HLFR-00063, HLFR-00053*
+
+### LLFR-60061 Menu acts on the right-clicked signal
+When the user right-clicks a signal, the signal menu (LLFR-00239) must act on that signal, whatever other signals were selected before (LLFR-00293).
 
 *Parent: HLFR-00063, HLFR-00053*
 
@@ -1984,24 +2306,54 @@ A double-click on a signal (LLFR-00019, LLFR-00020) must draw only the double-cl
 *Parent: HLFR-00063, HLFR-00012*
 
 ### LLFR-00295 Enter key plots the selection
-When the keyboard focus is in the signal list, at least one signal is selected and the user presses the Enter key, the app must create one new plot in the current tab and draw every selected signal in it, in the order of the signal list, using the curve colors of LLFR-00033 and LLFR-00034. If the tab is full, the app must not create the plot, as in LLFR-00031 and LLFR-00032. When every selected signal is an FFT signal, the new plot must be a frequency plot (LLFR-00256).
+When the keyboard focus is in the signal list, at least one signal is selected and the user presses the Enter key, the app must create one new plot in the current tab.
 
 Note: On a keyboard with both keys, Return and Enter act the same.
 
 *Parent: HLFR-00064, HLFR-00018, HLFR-00058*
 
+### LLFR-60062 Enter key draws every selected signal
+When the app creates a plot with the Enter key (LLFR-00295), it must draw every selected signal in it, in the order of the signal list, using the curve colors of LLFR-00033 and LLFR-00034.
+
+*Parent: HLFR-00064*
+
+### LLFR-60063 Enter key in a full tab
+If the tab is full when the user presses the Enter key as in LLFR-00295, the app must not create the plot, as in LLFR-00031 and LLFR-00032.
+
+*Parent: HLFR-00064, HLFR-00018*
+
+### LLFR-60064 Enter key with only FFT signals
+When every selected signal is an FFT signal, the plot created with the Enter key (LLFR-00295) must be a frequency plot (LLFR-00256).
+
+*Parent: HLFR-00064, HLFR-00058*
+
 ### LLFR-00296 Enter key with nothing to plot
-The Enter key must not create a plot and must not show any message when no signal is selected, or when the keyboard focus is not in the signal list, for example while it is in the search box (LLFR-00094).
+The Enter key must not create a plot when no signal is selected, or when the keyboard focus is not in the signal list, for example while it is in the search box (LLFR-00094).
+
+*Parent: HLFR-00064*
+
+### LLFR-60065 No message for the Enter key with nothing to plot
+The Enter key must not show any message when no signal is selected, or when the keyboard focus is not in the signal list, for example while it is in the search box (LLFR-00094).
 
 *Parent: HLFR-00064*
 
 ### LLFR-00297 Drag several signals to a plot
-When the user presses the left mouse button on a selected signal, drags and drops on a plot, the app must draw every selected signal in that plot, in the order of the signal list, using the curve colors of LLFR-00033 and LLFR-00034. Dropping anywhere other than on a plot must behave as in LLFR-00022 and LLFR-00023.
+When the user presses the left mouse button on a selected signal, drags and drops on a plot, the app must draw every selected signal in that plot, in the order of the signal list, using the curve colors of LLFR-00033 and LLFR-00034.
+
+*Parent: HLFR-00065*
+
+### LLFR-60066 Several signals dropped outside a plot
+When the user drags the selected signals as in LLFR-00297, dropping them anywhere other than on a plot must behave as in LLFR-00022 and LLFR-00023.
 
 *Parent: HLFR-00065*
 
 ### LLFR-00298 Drag a signal that is not selected
-When the user presses the left mouse button on a signal that is not selected and drags it, the app must select only that signal and drag it alone (LLFR-00021).
+When the user presses the left mouse button on a signal that is not selected and drags it, the app must select only that signal.
+
+*Parent: HLFR-00063, HLFR-00013*
+
+### LLFR-60087 Unselected signal dragged alone
+When the user presses the left mouse button on a signal that is not selected and drags it, the app must drag it alone (LLFR-00021).
 
 *Parent: HLFR-00063, HLFR-00013*
 
@@ -2011,39 +2363,131 @@ When several signals are dropped on a plot (LLFR-00297), the app must apply LLFR
 *Parent: HLFR-00065*
 
 ### LLFR-00300 FFT and time signals selected together
-If the Enter key (LLFR-00295) is pressed while the selection holds both FFT signals and other signals, or a drop (LLFR-00297) holds any signal that cannot be drawn in the plot (LLFR-00257), the app must draw none of the selected signals, must not create a plot, and must show the information box of LLFR-00257.
+If the Enter key (LLFR-00295) is pressed while the selection holds both FFT signals and other signals, or a drop (LLFR-00297) holds any signal that cannot be drawn in the plot (LLFR-00257), the app must draw none of the selected signals.
+
+*Parent: HLFR-00064, HLFR-00065, HLFR-00058*
+
+### LLFR-60067 No plot for FFT and time signals together
+In the cases of LLFR-00300, the app must not create a plot.
+
+*Parent: HLFR-00064, HLFR-00065, HLFR-00058*
+
+### LLFR-60068 Message for FFT and time signals together
+In the cases of LLFR-00300, the app must show the information box of LLFR-00257.
 
 *Parent: HLFR-00064, HLFR-00065, HLFR-00058*
 
 ### LLFR-00301 One undoable action for several signals
-Plotting several signals with the Enter key (LLFR-00295) or a drop (LLFR-00297) must be one undoable action (LLFR-00140), so that one undo removes the new plot or all the curves that the drop added.
+Plotting several signals with the Enter key (LLFR-00295, LLFR-60062) or a drop (LLFR-00297) must be one undoable action (LLFR-00140), so that one undo removes the new plot or all the curves that the drop added.
 
 *Parent: HLFR-00064, HLFR-00065, HLFR-00040*
 
 ### LLFR-00302 Selection keys over the signal list
-When the user presses the Data tip key or the Shift key while the mouse pointer is over the signal list panel, the app must not apply LLFR-00148 or LLFR-00154, and must leave the active plot tool unchanged when the key is released.
+When the user presses the Data tip key or the Shift key while the mouse pointer is over the signal list panel, the app must not apply LLFR-00148 or LLFR-00154.
 
-Note: These keys select signals in the list (LLFR-00290), so using them there must not change the plot tool.
+Note: These keys select signals in the list (LLFR-60058, LLFR-60059), so using them there must not change the plot tool.
+
+*Parent: HLFR-00063, HLFR-00032*
+
+### LLFR-60069 Selection key released over the signal list
+When the user releases the Data tip key or the Shift key after pressing it as in LLFR-00302, the app must leave the active plot tool unchanged.
+
+Note: These keys select signals in the list (LLFR-60058, LLFR-60059), so using them there must not change the plot tool.
 
 *Parent: HLFR-00063, HLFR-00032*
 
 ### LLFR-00332 Green time signal name
-The signal list panel must show the name of the time signal (LLFR-00053, LLFR-00326) in a green that is easy to read against the list's background, and the names of all the other signals in other colors, including in search results (LLFR-00095) and while the signal is selected (LLFR-00291).
+The signal list panel must show the name of the time signal (LLFR-00053, LLFR-00326) in a green that is easy to read against the list's background, including in search results (LLFR-00095) and while the signal is selected (LLFR-00291).
+
+*Parent: HLFR-00071*
+
+### LLFR-60088 Other signal names not green
+The signal list panel must show the names of all the signals other than the time signal in colors other than the green of LLFR-00332, including in search results (LLFR-00095) and while the signal is selected (LLFR-00291).
 
 *Parent: HLFR-00071*
 
 ### LLFR-00362 File name row
-The signal list must show, as its first row, in bold letters, the name of the opened data file with its extension and without its folder. The row must stay first whatever the text in the search box: the search (LLFR-00095) must never hide it, and when no signal matches, the row must stay first, with the text "No matching signals" below it (LLFR-00097). The row must not be a signal: it must not be selected (LLFR-00290), a click with the Shift key held must never include it in the selection, it must not be dragged or plotted, so that a double-click on it (LLFR-00019) and the Enter key (LLFR-00295) ignore it, and it must have no menu (LLFR-00239). When the name does not fit in the panel's width, the app must shorten it with "..." in the middle and show the whole name in a tip while the mouse pointer is over the row.
+The signal list must show, as its first row, in bold letters, the name of the opened data file with its extension and without its folder.
 
 *Parent: HLFR-00079, HLFR-00033, HLFR-00063*
 
+### LLFR-60070 File name row stays first
+The file name row (LLFR-00362) must stay first whatever the text in the search box.
+
+*Parent: HLFR-00079, HLFR-00033*
+
+### LLFR-60071 Search never hides the file name row
+The search (LLFR-00095) must never hide the file name row (LLFR-00362).
+
+*Parent: HLFR-00079, HLFR-00033*
+
+### LLFR-60072 File name row when nothing matches
+When no signal matches the text in the search box, the file name row (LLFR-00362) must stay first, with the text "No matching signals" below it (LLFR-00097).
+
+*Parent: HLFR-00079, HLFR-00033*
+
+### LLFR-60073 File name row is not a signal
+The file name row (LLFR-00362) must not be a signal.
+
+*Parent: HLFR-00079*
+
+### LLFR-60074 File name row not selected
+The file name row (LLFR-00362) must not be selected (LLFR-00290, LLFR-60058, LLFR-60059).
+
+*Parent: HLFR-00079, HLFR-00063*
+
+### LLFR-60075 File name row not in a Shift range
+A click with the Shift key held (LLFR-60059) must never include the file name row (LLFR-00362) in the selection.
+
+*Parent: HLFR-00079, HLFR-00063*
+
+### LLFR-60076 File name row not dragged
+The file name row (LLFR-00362) must not be dragged.
+
+*Parent: HLFR-00079*
+
+### LLFR-60077 File name row not plotted
+The file name row (LLFR-00362) must not be plotted, so that a double-click on it (LLFR-00019) and the Enter key (LLFR-00295, LLFR-60062) ignore it.
+
+*Parent: HLFR-00079*
+
+### LLFR-60078 File name row has no menu
+The file name row (LLFR-00362) must have no menu (LLFR-00239).
+
+*Parent: HLFR-00079*
+
+### LLFR-60079 Long file name shortened
+When the name in the file name row (LLFR-00362) does not fit in the panel's width, the app must shorten it with "..." in the middle.
+
+*Parent: HLFR-00079*
+
+### LLFR-60080 Whole file name in a tip
+When the name in the file name row (LLFR-00362) does not fit in the panel's width, the app must show the whole name in a tip while the mouse pointer is over the row.
+
+*Parent: HLFR-00079*
+
 ### LLFR-00363 File name row follows the opened file
-The file name row (LLFR-00362) must not be shown while no data file is open, and must show the new name when a file is opened or replaced (LLFR-00013). It must not change when opening a file fails, is cancelled or is declined (LLFR-00007, LLFR-00010, LLFR-00014, LLFR-00327).
+The file name row (LLFR-00362) must not be shown while no data file is open.
+
+*Parent: HLFR-00079, HLFR-00010*
+
+### LLFR-60081 File name row on open or replace
+The file name row (LLFR-00362) must show the new name when a file is opened or replaced (LLFR-00013).
+
+*Parent: HLFR-00079, HLFR-00010*
+
+### LLFR-60082 File name row kept on a failed open
+The file name row (LLFR-00362) must not change when opening a file fails, is cancelled or is declined (LLFR-00007, LLFR-00010, LLFR-00014, LLFR-00327).
 
 *Parent: HLFR-00079, HLFR-00010*
 
 ### LLFR-00424 Search box bottom edge
-The bottom edge of the search box (LLFR-00094) must be at the same height as the bottom edge of the lowest plot of the current tab, including its x-axis numbers and label, at any window size. When the current tab holds no plot, it must be at the height where the bottom edge of a plot would be.
+The bottom edge of the search box (LLFR-00094) must be at the same height as the bottom edge of the lowest plot of the current tab, including its x-axis numbers and label, at any window size.
+
+*Parent: HLFR-00095*
+
+### LLFR-60083 Search box bottom edge with no plot
+When the current tab holds no plot, the bottom edge of the search box (LLFR-00094) must be at the height where the bottom edge of a plot would be (LLFR-00424).
 
 *Parent: HLFR-00095*
 
