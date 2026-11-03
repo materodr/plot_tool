@@ -39,12 +39,15 @@ An example of a layout file::
                                "first_point": {"signal": "Speed",
                                                "time": 0.5},
                                "second_point": {"signal": "Speed",
-                                                "time": 2.0}}]}]}]
+                                                "time": 2.0},
+                               "color": "#ff8000"}]}]}]
     }
 
 (The app writes every value on its own line, indented by 2 spaces.)
-Colors of flags and areas are written as "#rrggbb" in lowercase
-(LLFR-00225 items 6 and 11). A file of an earlier version is read with
+Colors of flags, delta markers and areas are written as "#rrggbb" in
+lowercase (LLFR-00225 items 6, 8 and 11). A delta marker saved without a
+color (a file written before delta markers had one) gets the default
+color, with no report (LLFR-00410). A file of an earlier version is read with
 the same rules (LLFR-00228): for example, its flags, saved under the
 key ``vertical_markers`` in version 1, are not rebuilt.
 
@@ -85,7 +88,8 @@ import numpy as np
 from model.curve_colors import hex_color_or_none, is_far_from_marker_color
 from model.workspace import (
     AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_AREA_COLOR_STR,
-    DEFAULT_FLAG_COLOR_STR, DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
+    DEFAULT_DELTA_MARKER_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
+    DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
     DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
     spans_overlap_b)
 
@@ -467,19 +471,20 @@ def file_time_range(time_array) -> tuple:
 
 
 def saved_color(entry_dict: dict, default_color_str: str) -> tuple:
-    """Read the saved color of a flag or an area.
+    """Read the saved color of a flag, a delta marker or an area.
 
     Inputs:
         entry_dict: the entry of the flag or area in the file.
         default_color_str: the color of a new item of that kind
-            (DEFAULT_FLAG_COLOR_STR or DEFAULT_AREA_COLOR_STR).
+            (DEFAULT_FLAG_COLOR_STR, DEFAULT_DELTA_MARKER_COLOR_STR or
+            DEFAULT_AREA_COLOR_STR).
     Outputs: a tuple (color_str, replaced_b): the lowercase "#rrggbb"
         color to use, and True when a saved value that is not written as
         "#rrggbb" was replaced by the default color.
     """
-    # LLFR-00393, LLFR-00319: a missing color is the default color; a
-    # "#rrggbb" color, in uppercase or lowercase, is used as it is;
-    # anything else is replaced by the default color and reported.
+    # LLFR-00393, LLFR-00410, LLFR-00319: a missing color is the default
+    # color; a "#rrggbb" color, in uppercase or lowercase, is used as it
+    # is; anything else is replaced by the default color and reported.
     if COLOR_KEY_STR not in entry_dict:
         return default_color_str, False
     color_str = hex_color_or_none(entry_dict.get(COLOR_KEY_STR))
@@ -531,11 +536,13 @@ def plot_entry(plot) -> dict:
         data_tip_list.append({SIGNAL_KEY_STR: pinned_tip.signal_name_str,
                               TIME_KEY_STR: float(pinned_tip.time_s),
                               LABEL_POSITION_KEY_STR: label_position_dict})
-    # LLFR-00225 item 8: the kind and the two points of each delta marker.
+    # LLFR-00225 item 8: the kind, the two points and the color
+    # ("#rrggbb" in lowercase, LLFR-00409) of each delta marker.
     delta_marker_list = [
         {KIND_KEY_STR: KIND_NAME_DICT[delta_marker.kind_str],
          FIRST_POINT_KEY_STR: point_entry(delta_marker.first_point_tuple),
-         SECOND_POINT_KEY_STR: point_entry(delta_marker.second_point_tuple)}
+         SECOND_POINT_KEY_STR: point_entry(delta_marker.second_point_tuple),
+         COLOR_KEY_STR: delta_marker.color_str.lower()}
         for delta_marker in plot.delta_marker_list]
     # LLFR-00226: the text notes of the plot (Plot.text_note_list) and
     # its arrows (Plot.arrow_list) are never written to the layout file.
@@ -1104,8 +1111,20 @@ class LayoutBuilder:
                 # LLFR-00232, LLFR-00237: not rebuilt, times and reason.
                 self.report.add_not_rebuilt(f"{label_str}: {reason_str}.")
                 continue
+            # LLFR-00410: the saved color; a missing one is the default
+            # color, with no report.
+            color_str, color_replaced_b = saved_color(
+                delta_entry, DEFAULT_DELTA_MARKER_COLOR_STR)
             # LLFR-00232: both points are placed on their samples.
-            plot.add_delta_marker(kind_str, point_list[0], point_list[1])
+            plot.add_delta_marker(kind_str, point_list[0], point_list[1],
+                                  color_str)
+            if color_replaced_b:
+                # LLFR-00410, LLFR-00235, LLFR-00237: a color not written
+                # as "#rrggbb" is replaced by the default color.
+                self.report.add_replaced(
+                    f"Color {describe_value(delta_entry[COLOR_KEY_STR])} "
+                    f"of the {label_str} is not written as #rrggbb; "
+                    f"replaced by \"{DEFAULT_DELTA_MARKER_COLOR_STR}\".")
 
     # Plots and tabs -------------------------------------------------
 

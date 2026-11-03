@@ -633,7 +633,8 @@ class DeltaMenuTest(DeltaWidgetTestCase):
 
     @covers("LLFR-00175", "LLFR-00048")
     def test_menu_on_bracket_dot_and_label(self) -> None:
-        """Bracket, dot and value all show "Delete", never Delete plot.
+        """Bracket, dot and value all show "Color" and "Delete", never
+        Delete plot.
 
         Inputs: none.
         Outputs: none.

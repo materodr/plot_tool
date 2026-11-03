@@ -14,6 +14,7 @@ from tests.support import covers
 from controller.plot_tools import (
     DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
     TIP_TOOL_STR, ZOOM_TOOL_STR)
+from model.curve_colors import MARKER_COLOR_STR
 from model.undo_history import MAXIMUM_UNDO_DEPTH_I
 from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR
 from tests.controller.test_plot_controller import (
@@ -120,7 +121,7 @@ class PickPointsTest(DeltaControllerTestCase):
         self.assertEqual(self.plot.delta_marker_list, [])
         self.assertEqual(self.drawn_delta_list(), [])
 
-    @covers("LLFR-00164", "LLFR-00168", "LLFR-00169")
+    @covers("LLFR-00164", "LLFR-00168", "LLFR-00169", "LLFR-00172")
     def test_second_click_on_another_curve_places_delta_x(self) -> None:
         """s1 at 2 s then s2 at 7 s gives Delta X with +5 s.
 
@@ -138,7 +139,8 @@ class PickPointsTest(DeltaControllerTestCase):
         drawn_tuple = self.drawn_delta_list()[0]
         self.assertEqual(drawn_tuple[1:], (DELTA_X_KIND_STR,
                                            ("s1", 2.0, 2.0),
-                                           ("s2", 7.0, 14.0), 5.0))
+                                           ("s2", 7.0, 14.0), 5.0,
+                                           MARKER_COLOR_STR))
         # LLFR-00109: the tool stays active.
         self.assertEqual(self.controller.plot_tool_str, DELTA_X_TOOL_STR)
 
