@@ -192,11 +192,14 @@ class FileNameLinePanelTest(unittest.TestCase):
             list_widget, QPoint(0, list_widget.visualItemRect(
                 list_widget.item(0)).top())).y()
         self.assertGreaterEqual(first_row_top_i, label.geometry().bottom())
-        # The list is still placed between the title and the search box
-        # (LLFR-00094).
+        # The list is still placed between the title and the search box,
+        # with only the status line between the list and the search box
+        # (LLFR-00094, LLFR-00560).
         layout = self.panel.panel_layout
-        self.assertEqual(layout.indexOf(self.panel.search_box),
+        self.assertEqual(layout.indexOf(self.panel.status_label),
                          layout.indexOf(list_widget) + 1)
+        self.assertEqual(layout.indexOf(self.panel.search_box),
+                         layout.indexOf(list_widget) + 2)
         self.assertEqual(layout.indexOf(label), -1)
 
     @covers("LLFR-00362", "LLFR-00363", "LLFR-00649", "LLFR-00650")

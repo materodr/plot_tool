@@ -57,28 +57,33 @@ class SearchBoxTest(unittest.TestCase):
         self.assertIn("search", search_box.placeholderText().lower())
         self.assertTrue(search_box.isClearButtonEnabled())
 
-    @covers("LLFR-00094")
+    @covers("LLFR-00094", "LLFR-00560")
     def test_search_box_directly_below_list(self) -> None:
-        """The box is under the list, aligned with it, nothing between.
+        """The box is under the list, aligned with it, with only the
+        status line of LLFR-00560 between them.
 
         Inputs: none.
         Outputs: none.
         """
         list_widget = self.panel.signal_list_widget
         search_box = self.panel.search_box
+        status_label = self.panel.status_label
         list_geometry = list_widget.geometry()
         box_geometry = search_box.geometry()
         self.assertGreaterEqual(box_geometry.top(), list_geometry.bottom())
-        # Directly below: only the layout spacing separates them.
-        self.assertLess(box_geometry.top() - list_geometry.bottom(), 20)
+        # Directly below: only the status line (one text line, empty
+        # except while a file is read) and the layout spacing.
+        self.assertLess(box_geometry.top() - list_geometry.bottom(),
+                        status_label.height() + 20)
         self.assertLess(abs(box_geometry.left() - list_geometry.left()), 2)
         layout = self.panel.panel_layout
-        self.assertEqual(layout.indexOf(search_box),
+        # LLFR-00560: only the status line is between the list and the
+        # search box; the search box is the last row.
+        self.assertEqual(layout.indexOf(status_label),
                          layout.indexOf(list_widget) + 1)
-        # LLFR-00418: only the status line comes after the search box.
-        self.assertEqual(layout.indexOf(search_box), layout.count() - 2)
-        self.assertEqual(layout.indexOf(self.panel.status_label),
-                         layout.count() - 1)
+        self.assertEqual(layout.indexOf(search_box),
+                         layout.indexOf(status_label) + 1)
+        self.assertEqual(layout.indexOf(search_box), layout.count() - 1)
         # The list keeps most of the height.
         self.assertGreater(list_geometry.height(), box_geometry.height())
 
