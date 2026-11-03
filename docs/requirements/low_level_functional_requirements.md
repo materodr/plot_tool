@@ -1610,8 +1610,8 @@ While the app reads and checks a selected file (LLFR-00328, step 2), for the fir
 
 *Parent: HLFR-00004, HLFR-00010*
 
-### LLFR-00560 Loading text
-While the app reads and checks a selected file (LLFR-00328, step 2), for the first file opened as for a file that replaces another, it must show the text "Loading..." in a status line of the signal list panel, directly above the search box (LLFR-00094).
+### LLFR-00560 Loading title
+While the app reads and checks a selected file (LLFR-00328, step 2), for the first file opened as for a file that replaces another, the title of the main window must be "plot_tool (loading)".
 
 *Parent: HLFR-00004, HLFR-00010*
 
@@ -1620,18 +1620,18 @@ As soon as reading and checking end (LLFR-00418), whether the file can be opened
 
 *Parent: HLFR-00004, HLFR-00010*
 
-### LLFR-00562 Loading text removed
-As soon as reading and checking end (LLFR-00560), whether the file can be opened or not, and before the app shows a File Open Error box or the window of LLFR-00325, the app must remove the text "Loading...".
+### LLFR-00562 Normal title after loading
+As soon as reading and checking end (LLFR-00560), whether the file can be opened or not, and before the app shows a File Open Error box or the window of LLFR-00325, the app must set the title of the main window back to the normal title "plot_tool".
 
 *Parent: HLFR-00004, HLFR-00010*
 
-### LLFR-00563 Status line empty otherwise
-The status line of LLFR-00560 must show no text the rest of the time.
+### LLFR-00563 Normal title otherwise
+The title of the main window must be the normal title "plot_tool" the rest of the time, outside the reading and checking of LLFR-00560.
 
 *Parent: HLFR-00004, HLFR-00010*
 
 ### LLFR-00564 No loading indication during the confirmation
-The busy pointer of LLFR-00418 and the text of LLFR-00560 must not be shown during the confirmation of HLFR-00010.
+The busy pointer of LLFR-00418 and the loading title of LLFR-00560 must not be shown during the confirmation of HLFR-00010.
 
 *Parent: HLFR-00004, HLFR-00010*
 
@@ -1683,7 +1683,7 @@ If the user drops a signal name on a plot that already shows that signal, the ap
 *Parent: HLFR-00013*
 
 ### LLFR-00094 Search box
-The signal list panel must contain a search box placed below the signal list, with only the status line of LLFR-00560 between them.
+The signal list panel must contain a search box placed directly below the signal list, with nothing between them.
 
 *Parent: HLFR-00033*
 

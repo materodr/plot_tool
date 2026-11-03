@@ -57,33 +57,42 @@ class SearchBoxTest(unittest.TestCase):
         self.assertIn("search", search_box.placeholderText().lower())
         self.assertTrue(search_box.isClearButtonEnabled())
 
-    @covers("LLFR-00094", "LLFR-00560")
+    @covers("LLFR-00094", "HLFR-00033")
     def test_search_box_directly_below_list(self) -> None:
-        """The box is under the list, aligned with it, with only the
-        status line of LLFR-00560 between them.
+        """The box is directly under the list, aligned with it, with
+        nothing between them.
 
         Inputs: none.
         Outputs: none.
         """
+        from PyQt6.QtWidgets import QWidget
         list_widget = self.panel.signal_list_widget
         search_box = self.panel.search_box
-        status_label = self.panel.status_label
         list_geometry = list_widget.geometry()
         box_geometry = search_box.geometry()
-        self.assertGreaterEqual(box_geometry.top(), list_geometry.bottom())
-        # Directly below: only the status line (one text line, empty
-        # except while a file is read) and the layout spacing.
-        self.assertLess(box_geometry.top() - list_geometry.bottom(),
-                        status_label.height() + 20)
-        self.assertLess(abs(box_geometry.left() - list_geometry.left()), 2)
+        list_end_i = list_geometry.top() + list_geometry.height()
+        self.assertGreaterEqual(box_geometry.top(), list_end_i)
         layout = self.panel.panel_layout
-        # LLFR-00560: only the status line is between the list and the
-        # search box; the search box is the last row.
-        self.assertEqual(layout.indexOf(status_label),
-                         layout.indexOf(list_widget) + 1)
+        # Directly below: only the layout spacing separates them.
+        self.assertLessEqual(box_geometry.top() - list_end_i,
+                             max(layout.spacing(), 0) + 1)
+        self.assertLess(abs(box_geometry.left() - list_geometry.left()), 2)
+        # Nothing between them in the layout; the search box is the
+        # last row.
         self.assertEqual(layout.indexOf(search_box),
-                         layout.indexOf(status_label) + 1)
+                         layout.indexOf(list_widget) + 1)
         self.assertEqual(layout.indexOf(search_box), layout.count() - 1)
+        # No other visible widget of the panel lies between them.
+        for child in self.panel.findChildren(QWidget):
+            if (child in (list_widget, search_box)
+                    or child.parentWidget() is not self.panel
+                    or not child.isVisible()):
+                continue
+            child_top_i = child.geometry().top()
+            child_end_i = child_top_i + child.geometry().height()
+            with self.subTest(child=child.objectName()):
+                self.assertFalse(child_top_i < box_geometry.top()
+                                 and child_end_i > list_end_i)
         # The list keeps most of the height.
         self.assertGreater(list_geometry.height(), box_geometry.height())
 
