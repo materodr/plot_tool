@@ -368,8 +368,8 @@ def label_place_tuple(start_tuple: tuple, end_tuple: tuple,
     unit_x_f, unit_y_f = reading_direction_tuple(start_tuple, end_tuple)
     normal_x_f, normal_y_f = -unit_y_f, unit_x_f
     angle_deg = math.degrees(math.atan2(unit_y_f, unit_x_f))
-    # LLFR-00436: next to the middle of the line, beside it: above it as
-    # the text is read, or below it when only that side fits.
+    # LLFR-00436, LLFR-00887: next to the middle of the line, beside it:
+    # above it as the text is read, or below it when only that side fits.
     (visible_start_tuple, visible_end_tuple) = visible_tuple
     middle_tuple = ((visible_start_tuple[0] + visible_end_tuple[0]) / 2.0,
                     (visible_start_tuple[1] + visible_end_tuple[1]) / 2.0)

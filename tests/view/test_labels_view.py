@@ -18,7 +18,7 @@ from tests.view.menu_texts import (
 from tests.view.test_plot_tools import (
     ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 
-from controller.plot_tools import NO_TOOL_STR
+from controller.plot_tools import NO_TOOL_STR, ZOOM_TOOL_STR
 from model.workspace import DELTA_X_KIND_STR, DELTA_Y_KIND_STR
 
 ORANGE_STR = "#ff8000"
@@ -417,8 +417,8 @@ class ArrowLabelViewTest(LabelWidgetTestCase):
             angle_deg -= 180.0
         return angle_deg
 
-    @covers("LLFR-00436", "LLFR-00869", "LLFR-00373", "LLFR-00788",
-            "HLFR-00100")
+    @covers("LLFR-00436", "LLFR-00869", "LLFR-00887", "LLFR-00373",
+            "LLFR-00788", "HLFR-00100")
     def test_label_parallel_readable_and_part_of_the_arrow(self) -> None:
         """The name is drawn next to the middle of the line, parallel to
         it as shown, never upside down, in the arrow's color; a point on
@@ -561,6 +561,56 @@ class LabelDoubleClickTest(LabelWidgetTestCase):
                         self.plot_widget.text_note_editor_open_b)
                     self.assertFalse(
                         self.plot_widget.is_mouse_drag_in_progress())
+
+    @covers("LLFR-00886", "LLFR-00081", "LLFR-00078", "LLFR-00045",
+            "LLFR-00333", "LLFR-00163", "LLFR-00798", "HLFR-00094",
+            "HLFR-00107")
+    def test_single_click_on_a_name_changes_nothing(self) -> None:
+        """With every tool or none, a single left click on the name of a
+        flag, an area, a delta marker or an arrow asks for nothing and
+        changes nothing: no flag, zoom, data tip, text field or delta
+        point.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        point_dict = self.label_point_dict()
+        for tool_str in ALL_TOOL_TUPLE:
+            for kind_str, (display_tuple, _) in point_dict.items():
+                with self.subTest(tool=tool_str, label=kind_str):
+                    self.plot_widget.set_plot_tool(tool_str)
+                    self.other_list.clear()
+                    range_count_i = len(self.range_list)
+                    pin_count_i = len(self.pin_list)
+                    self.send("button_press_event", display_tuple)
+                    self.send("button_release_event", display_tuple)
+                    for _ in range(3):
+                        self.application.processEvents()
+                    self.assertEqual(self.other_list, [])
+                    self.assertEqual(len(self.range_list), range_count_i)
+                    self.assertEqual(len(self.pin_list), pin_count_i)
+                    self.assertFalse(
+                        self.plot_widget.text_note_editor_open_b)
+                    self.assertEqual(sum(
+                        len(record_list) for record_list
+                        in self.rename_dict.values()), 0)
+
+    @covers("LLFR-00886", "LLFR-00208", "HLFR-00094")
+    def test_drag_from_a_name_still_zooms(self) -> None:
+        """With the Zoom tool, a drag of 5 pixels or more from the name
+        of a flag selects a time span and zooms, as elsewhere.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        display_tuple = self.label_point_dict()["flag"][0]
+        self.plot_widget.set_plot_tool(ZOOM_TOOL_STR)
+        end_tuple = (display_tuple[0] - 80.0, display_tuple[1])
+        self.send("button_press_event", display_tuple)
+        self.send("motion_notify_event", end_tuple, None)
+        self.send("button_release_event", end_tuple)
+        self.application.processEvents()
+        self.assertEqual(len(self.range_list), 1)
 
     @covers("LLFR-00422", "LLFR-00843", "LLFR-00844", "HLFR-00107")
     def test_double_click_on_values_renames_nothing(self) -> None:

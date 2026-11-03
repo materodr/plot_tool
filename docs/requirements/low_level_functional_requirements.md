@@ -2645,7 +2645,7 @@ The data tip must show the y-axis value as stored in the file, without a unit.
 *Parent: HLFR-00024*
 
 ### LLFR-00045 Pin a data tip
-If the user left-clicks a curve while the hover data tip (LLFR-00042) is shown, the app must fix the data tip at that point in the plot.
+If the user left-clicks a curve while the hover data tip (LLFR-00042) is shown, the app must fix the data tip at that point in the plot, except as in LLFR-00886.
 
 *Parent: HLFR-00025*
 
@@ -2756,12 +2756,12 @@ After every zoom, the app must set the y-axis range of each plot so that every c
 *Parent: HLFR-00027*
 
 ### LLFR-00078 Click to zoom
-While the Zoom button (LLFR-00077) is active and the user left-clicks a plot and releases the button less than 5 pixels from where it was pressed (LLFR-00208), the app must narrow the plot's x-axis range to 95% of its width, centered on the time (the frequency, on a frequency plot) of the clicked point.
+While the Zoom button (LLFR-00077) is active and the user left-clicks a plot and releases the button less than 5 pixels from where it was pressed (LLFR-00208), the app must narrow the plot's x-axis range to 95% of its width, centered on the time (the frequency, on a frequency plot) of the clicked point, except as in LLFR-00886.
 
 *Parent: HLFR-00027*
 
 ### LLFR-00081 Place a flag by click
-While the Flag button (LLFR-00080) is active and the user left-clicks a plot anywhere other than on an existing flag, the app must draw a new flag at the time of the clicked point on every plot (LLFR-00205).
+While the Flag button (LLFR-00080) is active and the user left-clicks a plot anywhere other than on an existing flag, the app must draw a new flag at the time of the clicked point on every plot (LLFR-00205), except as in LLFR-00886.
 
 *Parent: HLFR-00028*
 
@@ -3072,7 +3072,7 @@ A left mouse button press on a pinned data tip (LLFR-00153) must not pin a new d
 *Parent: HLFR-00041, HLFR-00032*
 
 ### LLFR-00163 Pick the first point
-While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active and the user left-clicks a curve, the app must take the curve sample nearest to the mouse pointer as the first point of a measurement.
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active and the user left-clicks a curve, the app must take the curve sample nearest to the mouse pointer as the first point of a measurement, except as in LLFR-00886.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -3082,7 +3082,7 @@ When the app takes a first point (LLFR-00163), it must mark it in the plot with 
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00164 Pick the second point
-When the user then left-clicks a curve in the same plot, the app must take the curve sample nearest to the mouse pointer as the second point. The two points may be on the same curve or on different curves.
+When the user then left-clicks a curve in the same plot, the app must take the curve sample nearest to the mouse pointer as the second point, except as in LLFR-00886. The two points may be on the same curve or on different curves.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -3561,7 +3561,7 @@ Whatever its color, an area must be drawn see-through with the same opacity (LLF
 *Parent: HLFR-00066, HLFR-00088*
 
 ### LLFR-00333 Start writing a text note
-While the Text button (LLFR-00320) is active and the user left-clicks a plot's drawing area, on a time plot or a frequency plot, anywhere other than on an existing text note or pinned data tip, the app must show a one-line text field at the clicked point, with the keyboard focus in it.
+While the Text button (LLFR-00320) is active and the user left-clicks a plot's drawing area, on a time plot or a frequency plot, anywhere other than on an existing text note or pinned data tip, the app must show a one-line text field at the clicked point, with the keyboard focus in it, except as in LLFR-00886.
 
 *Parent: HLFR-00073*
 
@@ -4055,7 +4055,7 @@ While a plot tool is active, a press on a flag, an area or an arrow must edit th
 *Parent: HLFR-00085, HLFR-00032*
 
 ### LLFR-00798 Other plot tools act as where no object is drawn
-While a plot tool is active, with any plot tool other than the own tool of LLFR-00384, a press on a flag, an area or an arrow must act as the active tool does where no object is drawn; for example, with the Zoom button active, a press on a flag zooms (LLFR-00318, LLFR-00761).
+While a plot tool is active, with any plot tool other than the own tool of LLFR-00384, a press on a flag, an area or an arrow must act as the active tool does where no object is drawn, except as in LLFR-00886; for example, with the Zoom button active, a press on a flag zooms (LLFR-00318, LLFR-00761).
 
 *Parent: HLFR-00085, HLFR-00032*
 
@@ -4417,6 +4417,13 @@ When the user double-clicks with the left mouse button the name in the label of 
 
 *Parent: HLFR-00094*
 
+### LLFR-00886 Single click on a name label
+When the user presses and releases the left mouse button less than 5 pixels apart on the name in the label of a flag, an area, a delta marker or an arrow (LLFR-00420), whether a plot tool is active or not, the app must leave the plot unchanged, so that the double-click of LLFR-00842 changes only the name.
+
+Note: A press on the name followed by a drag of 5 pixels or more still acts as the active tool does, for example a time span selection with the Zoom button (LLFR-00208), a pan with the Pan button (LLFR-00356), or a move of the object with its own tool or with no tool (LLFR-00384, LLFR-00382).
+
+*Parent: HLFR-00094*
+
 ### LLFR-00421 Double-click a tab
 When the user double-clicks a tab with the left mouse button, the app must act as when the user chooses "Rename" in the tab menu (LLFR-00030, LLFR-00067, LLFR-00656, LLFR-00211, LLFR-00657, LLFR-00658).
 
@@ -4634,7 +4641,12 @@ While the user drags a point of a delta marker (LLFR-00433), when the sample und
 *Parent: HLFR-00099, HLFR-00098*
 
 ### LLFR-00436 Arrow label
-The app must show the name of an arrow in a label next to the middle of its straight line, with its text parallel to the line as the line is shown on screen, in the arrow's color (LLFR-00373, LLFR-00788), on a label box as in LLFR-00704.
+The app must show the name of an arrow in a label next to the middle of its straight line, with its text parallel to the line as the line is shown on screen, in the arrow's color (LLFR-00373, LLFR-00788), on a label box as in LLFR-00704, on the side of the line of LLFR-00887.
+
+*Parent: HLFR-00100*
+
+### LLFR-00887 Side of the arrow label
+The app must place the label of LLFR-00436 on the side of the line that is above the text as it is read (LLFR-00869), or on the other side only when no place along the line on that upper side keeps the whole label inside the plot's drawing area (LLFR-00437).
 
 *Parent: HLFR-00100*
 

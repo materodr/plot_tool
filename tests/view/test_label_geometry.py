@@ -58,7 +58,7 @@ class ArrowLabelPlaceTest(unittest.TestCase):
             self.assertGreaterEqual(y_px, -1e-6)
             self.assertLessEqual(y_px, 100.0 + 1e-6)
 
-    @covers("LLFR-00436", "HLFR-00100")
+    @covers("LLFR-00436", "LLFR-00887", "HLFR-00100")
     def test_label_beside_the_middle_and_parallel(self) -> None:
         """The label is centered next to the middle of the line, beside
         it, turned to the angle of the line.
@@ -74,6 +74,8 @@ class ArrowLabelPlaceTest(unittest.TestCase):
         offset_y_px = place_tuple[1] - 50.0
         self.assertAlmostEqual(math.hypot(offset_x_px, offset_y_px), 6.0)
         self.assertAlmostEqual(offset_x_px + offset_y_px, 0.0)
+        # LLFR-00887: on the upper side as the text is read.
+        self.assertGreater(offset_y_px, 0.0)
         self.assertTrue(arrow_geometry.point_in_label_b(
             place_tuple[:2], place_tuple, 20.0, 8.0))
         self.assertFalse(arrow_geometry.point_in_label_b(
@@ -101,7 +103,7 @@ class ArrowLabelPlaceTest(unittest.TestCase):
                 self.assertLessEqual(forward_tuple[2], 90.0 + 1e-9)
                 self.assertAlmostEqual(forward_tuple[2], backward_tuple[2])
 
-    @covers("LLFR-00437", "HLFR-00112")
+    @covers("LLFR-00437", "LLFR-00887", "HLFR-00112", "HLFR-00100")
     def test_kept_inside_by_moving_along_the_line(self) -> None:
         """When the middle of the shown part is near the edge, the label
         moves along the line, the shortest way, to stay inside.

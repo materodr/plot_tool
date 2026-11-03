@@ -4431,11 +4431,11 @@ class PlotWidget(QWidget):
             when the click is on a curve. A click on a name label
             (name_label_tuple_at) does nothing.
         """
-        # LLFR-00842: a click on the name in the label of a flag, an
-        # area, a delta marker or an arrow may be the first click of a
-        # double-click that renames it (LLFR-00420), so it never picks a
-        # delta point, zooms, places a flag, starts a text note or pins a
-        # tip. A drag from it still acts as the tool does.
+        # LLFR-00886, LLFR-00842: a click on the name in the label of a
+        # flag, an area, a delta marker or an arrow may be the first click
+        # of a double-click that renames it (LLFR-00420), so it leaves the
+        # plot unchanged: no delta point, zoom, flag, text note or tip. A
+        # drag from it still acts as the tool does.
         if self.name_label_tuple_at(widget_point):
             return
         # LLFR-00109: using a tool never changes the active tool.
