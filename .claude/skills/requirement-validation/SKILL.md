@@ -37,7 +37,7 @@ This skill checks, validates by independent review, and corrects the requirement
   git fetch origin develop
   git diff origin/develop...HEAD -- docs/requirements/
   ```
-  Collect every ID that is new on the branch. A requirement that only changed is out of this scope, and a reviewer still reads it (PCR-00048).
+  Collect every ID that is new on the branch. A requirement that only changed is out of this scope, and a reviewer still reads it (PCR-00048, PCR-00056).
 
 ## Step 2. Automatic check
 Run `python tests/check_requirements.py`. It checks:
