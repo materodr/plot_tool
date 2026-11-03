@@ -118,7 +118,7 @@ Note: For example, PyQt6 or h5py can't be installed in the cloud workspace. `pyt
 ### PCR-00023 Test matrix column 4
 The fourth column must contain "pass" if all tests of the HLFR passed, except as in PCR-00065.
 
-Note: The fourth column shows "pass", "fail" (PCR-00042) or a `Fail*` (PCR-00065, PCR-00071).
+Note: Besides "pass", the fourth column can show "fail" (PCR-00042), a `Fail*` (PCR-00065, PCR-00071), or "no tests" and "not run" as `tests/build_test_matrix.py` explains.
 
 ### PCR-00042 Test matrix column 4 on a failure
 The fourth column of the test matrix must contain "fail" if at least one test of the HLFR failed.
