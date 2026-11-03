@@ -191,6 +191,9 @@ The signal list panel must show the name of the time signal in green, whether th
 ### HLFR-00079 Name of the opened file
 The signal list panel must show the name of the data file that is open as the first row of the signal list.
 
+### HLFR-00095 Search box aligned with the plots
+The bottom of the search box must be aligned with the bottom of the last plot.
+
 ## Plot panel
 
 ### HLFR-00014 Plot tabs
@@ -328,9 +331,7 @@ The user must be able to turn an arrow around one of its ends and to make it lon
 The user must be able to delete an arrow.
 
 ### HLFR-00085 Edit the objects with no tool active
-When no plot tool is active, the user must be able to move flags, areas, pinned data tips, text notes and arrows, to resize areas and to rotate and stretch arrows, by dragging them with the mouse.
-
-Note: Delta markers cannot be moved.
+When no plot tool is active, the user must be able to move flags, areas, pinned data tips, text notes, arrows and the points of delta markers, to resize areas and to rotate and stretch arrows, by dragging them with the mouse.
 
 ### HLFR-00086 Text note size
 The user must be able to change the size of the text of a text note.
@@ -349,3 +350,23 @@ The user must be able to change the color of a delta marker.
 
 ### HLFR-00093 Delete all objects of one kind
 The user must be able to delete in one action all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, or all the areas.
+
+### HLFR-00094 Rename a label by double-click
+The user must be able to rename a tab, a flag, an area, a delta marker and an arrow by double-clicking its label. A double-click must change only the name, never a time or another value linked to the plotted curves.
+
+Note: The time of a flag, for example, changes only by moving the flag. A text note is edited by a double-click in the same way (HLFR-00075).
+
+### HLFR-00096 Object name in the plot menus
+The menu that appears when the user right-clicks in a plot must show, at its top, the name of the object it acts on. The name must look different from the options and must not be an option that can be clicked.
+
+### HLFR-00097 Name of a delta marker
+Each delta marker must show a label with its name, and the user must be able to rename it.
+
+### HLFR-00098 No delta marker of value zero
+The app must not create a delta marker whose value is zero.
+
+### HLFR-00099 Move the points of a delta marker
+The user must be able to move each of the two points of a delta marker after it is created, by dragging it with the mouse.
+
+### HLFR-00100 Name of an arrow
+Each arrow must show a label with its name, parallel to its straight line, and the user must be able to rename it. When the position or the angle of the arrow changes, the label must change with it.
