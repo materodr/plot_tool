@@ -600,6 +600,149 @@ class LabelDoubleClickTest(LabelWidgetTestCase):
                         len(record_list) for record_list
                         in self.rename_dict.values()), 0)
 
+    def name_on_curve_tuple(self) -> tuple:
+        """Draw a delta marker whose name label lies on a curve.
+
+        A constant curve "Level" is drawn through the center of the name
+        label of a Delta X marker on the sine, so that a hover tip, a
+        pin or a delta point pick is possible there.
+
+        Inputs: none.
+        Outputs: the display point of the center of the name label.
+        """
+        import numpy as np
+        widget = self.plot_widget
+        delta_tuple = (7, DELTA_X_KIND_STR,
+                       ("Sine", 4.6, float(np.sin(4.6))),
+                       ("Sine", 5.0, float(np.sin(5.0))), 0.0, ORANGE_STR,
+                       "Delta X 1")
+        widget.set_delta_markers([delta_tuple])
+        self.draw()
+        center_tuple = center_of(self.box_of(widget.delta_name_label(7)))
+        level_f = float(widget.axes.transData.inverted().transform(
+            center_tuple)[1])
+        widget.set_curves([
+            ("Sine", self.time_array, self.sine_array, "#ff0000", 1),
+            ("Ramp", self.time_array, self.ramp_array, "#0000ff", 1),
+            ("Level", self.time_array,
+             np.full_like(self.time_array, level_f), GREEN_STR, 1)])
+        widget.set_delta_markers([delta_tuple])
+        self.draw()
+        center_tuple = center_of(self.box_of(widget.delta_name_label(7)))
+        self.assertEqual(widget.name_label_tuple_at(
+            self.widget_point(center_tuple)), ("delta", 7))
+        self.assertEqual(widget.nearest_curve_tuple(
+            self.widget_point(center_tuple))[0], "Level")
+        return center_tuple
+
+    def drag_from(self, display_tuple: tuple) -> None:
+        """Hover a point, press there, move 20 pixels left and release.
+
+        Inputs:
+            display_tuple: (x, y) of the press, in display pixels.
+        Outputs: none.
+        """
+        end_tuple = (display_tuple[0] - 20.0, display_tuple[1])
+        self.send("motion_notify_event", display_tuple, None)
+        self.send("button_press_event", display_tuple)
+        self.send("motion_notify_event", end_tuple, None)
+        self.send("button_release_event", end_tuple)
+        self.application.processEvents()
+
+    @covers("LLFR-00886", "LLFR-00798", "LLFR-00045", "HLFR-00094")
+    def test_drag_from_a_name_pins_with_the_tip_tool(self) -> None:
+        """With the Data tip tool, a drag of 5 pixels or more from a name
+        label over a curve pins the tip, as elsewhere; a single click
+        there pins nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import TIP_TOOL_STR
+        center_tuple = self.name_on_curve_tuple()
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        self.send("motion_notify_event", center_tuple, None)
+        self.send("button_press_event", center_tuple)
+        self.send("button_release_event", center_tuple)
+        self.assertEqual(self.pin_list, [])
+        self.drag_from(center_tuple)
+        self.assertEqual(len(self.pin_list), 1)
+        self.assertEqual(self.pin_list[0][0], "Level")
+
+    @covers("LLFR-00886", "LLFR-00798", "LLFR-00163", "HLFR-00094")
+    def test_drag_from_a_name_picks_with_the_delta_tools(self) -> None:
+        """With the Delta X or Delta Y tool, a drag of 5 pixels or more
+        from a name label over a curve picks the sample, as elsewhere.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR
+        center_tuple = self.name_on_curve_tuple()
+        pick_list = recorder(self.plot_widget.delta_point_picked)
+        for tool_str in (DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                self.plot_widget.set_plot_tool(tool_str)
+                pick_list.clear()
+                self.drag_from(center_tuple)
+                self.assertEqual(len(pick_list), 1)
+                self.assertEqual(pick_list[0][0], "Level")
+
+    @covers("LLFR-00886", "LLFR-00166", "LLFR-00684", "LLFR-00163",
+            "HLFR-00094")
+    def test_click_on_a_name_over_a_curve_picks_nothing(self) -> None:
+        """With the Delta X or Delta Y tool, a single click on a name
+        label over a curve picks no point, so a first point picked in
+        another plot is neither replaced nor discarded.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR
+        center_tuple = self.name_on_curve_tuple()
+        pick_list = recorder(self.plot_widget.delta_point_picked)
+        for tool_str in (DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                self.plot_widget.set_plot_tool(tool_str)
+                self.send("button_press_event", center_tuple)
+                self.send("button_release_event", center_tuple)
+                self.application.processEvents()
+                self.assertEqual(pick_list, [])
+
+    @covers("LLFR-00886", "LLFR-00798", "LLFR-00081", "HLFR-00094")
+    def test_drag_from_a_name_places_a_flag(self) -> None:
+        """With the Flag tool, a drag of 5 pixels or more from the name of
+        an area places a flag at the press, as elsewhere.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import MARKER_TOOL_STR
+        display_tuple = self.label_point_dict()["area"][0]
+        place_list = recorder(self.plot_widget.marker_place_requested)
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.drag_from(display_tuple)
+        self.assertEqual(len(place_list), 1)
+        press_time_s = float(self.plot_widget.axes.transData.inverted(
+        ).transform(display_tuple)[0])
+        self.assertAlmostEqual(place_list[0][0], press_time_s, delta=0.05)
+
+    @covers("LLFR-00886", "LLFR-00798", "LLFR-00333", "HLFR-00094")
+    def test_drag_from_a_name_opens_the_text_field(self) -> None:
+        """With the Text tool, a drag of 5 pixels or more from the name
+        of an area opens the text field, as elsewhere.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import TEXT_TOOL_STR
+        display_tuple = self.label_point_dict()["area"][0]
+        self.plot_widget.set_plot_tool(TEXT_TOOL_STR)
+        self.drag_from(display_tuple)
+        self.assertTrue(self.plot_widget.text_note_editor_open_b)
+        self.plot_widget.cancel_text_note_editor()
+        self.application.processEvents()
+
     @covers("LLFR-00886", "LLFR-00208", "HLFR-00094")
     def test_drag_from_a_name_still_zooms(self) -> None:
         """With the Zoom tool, a drag of 5 pixels or more from the name

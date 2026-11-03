@@ -248,6 +248,9 @@ LABEL_KIND_FLAG_STR = "flag"
 LABEL_KIND_AREA_STR = "area"
 LABEL_KIND_DELTA_STR = "delta"
 LABEL_KIND_ARROW_STR = "arrow"
+# LLFR-00886, LLFR-00798: a press on a name label becomes a drag once the
+# pointer is this far from it, in screen pixels.
+LABEL_DRAG_THRESHOLD_PIXELS_F = 5.0
 # LLFR-00256: the x-axis label of a frequency plot.
 FREQUENCY_AXIS_LABEL_STR = "Frequency (Hz)"
 # LLFR-00046, LLFR-00090, LLFR-00175, LLFR-00314: the texts of the
@@ -1051,6 +1054,10 @@ class PlotWidget(QWidget):
         # LLFR-00420: the (kind, id or index) of the label double-clicked,
         # until its rename request is sent.
         self.pending_rename_tuple = ()
+        # LLFR-00886, LLFR-00798: the widget point of a left press on a
+        # name label with the Data tip, Flag, Text, Delta X or Delta Y
+        # tool, while it may still be a single click; None otherwise.
+        self.label_press_point = None
         # LLFR-00163: the picked first point (signal_name_str, time_s,
         # value_f) and its dot, or () and None.
         self.delta_first_point_tuple = ()
@@ -1376,6 +1383,9 @@ class PlotWidget(QWidget):
         if not (is_delta_tool(self.plot_tool_str)
                 or self.plot_tool_str == NO_TOOL_STR):
             self.cancel_delta_point_drag()
+        # LLFR-00886: a press on a name label waits for the tool that was
+        # active; another tool drops it.
+        self.label_press_point = None
         # LLFR-00371: an arrow is only drawn with the Arrow tool;
         # LLFR-00376, LLFR-00377, LLFR-00382: one is moved, rotated or
         # stretched with the Arrow tool or with none. Any other change
@@ -4457,11 +4467,14 @@ class PlotWidget(QWidget):
         self.hover_annotation.set_visible(False)
         self.canvas.draw_idle()
 
-    def click_at(self, widget_point) -> None:
+    def click_at(self, widget_point, label_drag_b: bool = False) -> None:
         """Do what a left click at a point does with the active tool.
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
+            label_drag_b: True when the press was on a name label and
+                the pointer then moved 5 pixels or more (LLFR-00798), so
+                that the tool acts as where no object is drawn.
         Outputs: none. With the Tip tool, emits tip_pin_requested when a
             hover tip is shown; with the Zoom tool, zooms in (see
             zoom_click_at); with the Vertical marker tool, emits
@@ -4474,8 +4487,8 @@ class PlotWidget(QWidget):
         # flag, an area, a delta marker or an arrow may be the first click
         # of a double-click that renames it (LLFR-00420), so it leaves the
         # plot unchanged: no delta point, zoom, flag, text note or tip. A
-        # drag from it still acts as the tool does.
-        if self.name_label_tuple_at(widget_point):
+        # drag from it still acts as the tool does (label_drag_b).
+        if not label_drag_b and self.name_label_tuple_at(widget_point):
             return
         # LLFR-00109: using a tool never changes the active tool.
         if is_delta_tool(self.plot_tool_str):
@@ -4566,6 +4579,9 @@ class PlotWidget(QWidget):
         self.cancel_note_drag()
         self.cancel_arrow_drag()
         self.cancel_delta_point_drag()
+        # LLFR-00886: a press on a name label whose release was lost
+        # does nothing.
+        self.label_press_point = None
         # LLFR-00383: text note first. LLFR-00339: a press on it moves
         # it, with any tool or none, and never pins, zooms, places a
         # flag, picks a delta point or starts a note.
@@ -4625,6 +4641,13 @@ class PlotWidget(QWidget):
             if dot_tuple:
                 self.delta_point_press_at(widget_point, *dot_tuple)
                 return
+        # LLFR-00886, LLFR-00798: with the Data tip, Flag, Text, Delta X
+        # or Delta Y tool, a press on a name label waits: a move of 5
+        # pixels or more then acts as the tool does where no object is
+        # drawn (label_drag_to), a release before does nothing.
+        if self.name_label_tuple_at(widget_point):
+            self.label_press_point = QPoint(widget_point)
+            return
         self.click_at(widget_point)
 
     def edit_press_at(self, widget_point) -> None:
@@ -4991,6 +5014,29 @@ class PlotWidget(QWidget):
         self.cancel_arrow_drag()
         # LLFR-00433: and the drag of a delta marker point.
         self.cancel_delta_point_drag()
+        # LLFR-00886: and a press on a name label that waits.
+        self.label_press_point = None
+
+    def label_drag_to(self, widget_point) -> None:
+        """Follow the pointer after a press on a name label.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Once the pointer is 5 pixels or more from the
+            press, the active tool acts at the press point as where no
+            object is drawn (LLFR-00798), and the wait ends.
+        """
+        # LLFR-00886: under 5 pixels it may still be a single click.
+        press_point = self.label_press_point
+        if press_point is None:
+            return
+        if math.hypot(widget_point.x() - press_point.x(),
+                      widget_point.y() - press_point.y()) < (
+                LABEL_DRAG_THRESHOLD_PIXELS_F):
+            return
+        # LLFR-00798: the tool acts as it does on a press anywhere else.
+        self.label_press_point = None
+        self.click_at(press_point, True)
 
     def is_mouse_drag_in_progress(self) -> bool:
         """Tell whether the user is dragging the mouse on this plot.
@@ -6778,6 +6824,15 @@ class PlotWidget(QWidget):
                 return
             self.delta_point_drag_to(widget_point)
             return
+        if self.label_press_point is not None:
+            # LLFR-00886, LLFR-00798: a move with the left button held
+            # after a press on a name label; a lost release was a single
+            # click, which does nothing.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.label_press_point = None
+            else:
+                self.label_drag_to(widget_point)
+                return
         # LLFR-00042: any other move runs the hover code.
         self.hover_at(widget_point)
         # LLFR-00203: and moves the marker preview with the pointer.
@@ -6891,6 +6946,12 @@ class PlotWidget(QWidget):
         # a delta marker.
         if self.delta_drag_id_i != NO_DELTA_MARKER_ID_I:
             self.delta_point_release_at(widget_point)
+            return
+        # LLFR-00886: a release less than 5 pixels from a press on a name
+        # label is a single click, which leaves the plot unchanged.
+        if self.label_press_point is not None:
+            self.label_drag_to(widget_point)
+            self.label_press_point = None
             return
         self.release_at(widget_point)
 

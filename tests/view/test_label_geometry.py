@@ -124,6 +124,23 @@ class ArrowLabelPlaceTest(unittest.TestCase):
         self.assert_inside(place_tuple, 30.0, 8.0)
         self.assertLess(place_tuple[1], 97.0)
 
+    @covers("LLFR-00888", "LLFR-00887", "LLFR-00437", "HLFR-00100")
+    def test_no_room_on_either_side_keeps_the_upper_side(self) -> None:
+        """When the label fits on neither side of the line, it stays on
+        the upper side, next to the middle of the shown part.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # A drawing area 20 px high and a label 15 px high beside a line
+        # at y = 10: neither side keeps it inside.
+        place_tuple = arrow_geometry.label_place_tuple(
+            (-40.0, 10.0), (100.0, 10.0), 30.0, 15.0, 2.0,
+            (0.0, 0.0, 100.0, 20.0))
+        self.assertAlmostEqual(place_tuple[0], 50.0)
+        self.assertAlmostEqual(place_tuple[1], 10.0 + 7.5 + 2.0)
+        self.assertAlmostEqual(place_tuple[2], 0.0)
+
     @covers("LLFR-00437", "LLFR-00871", "HLFR-00112", "HLFR-00100")
     def test_follows_the_shown_part_and_hides(self) -> None:
         """The label follows the part of the line inside the drawing

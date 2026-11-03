@@ -3107,12 +3107,12 @@ While a first point is picked (LLFR-00163), a left-click that is not on a curve 
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00166 First point in another plot
-While a first point is picked (LLFR-00163), a left-click on a curve in another plot must take the clicked sample as the new first point (LLFR-00163).
+While a first point is picked (LLFR-00163), a left-click on a curve in another plot must take the clicked sample as the new first point (LLFR-00163), except as in LLFR-00886.
 
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00684 Old first point discarded
-While a first point is picked (LLFR-00163), a left-click on a curve in another plot must discard the first point and its dot.
+While a first point is picked (LLFR-00163), a left-click on a curve in another plot must discard the first point and its dot, except as in LLFR-00886.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -4646,7 +4646,12 @@ The app must show the name of an arrow in a label next to the middle of its stra
 *Parent: HLFR-00100*
 
 ### LLFR-00887 Side of the arrow label
-The app must place the label of LLFR-00436 on the side of the line that is above the text as it is read (LLFR-00869), or on the other side only when no place along the line on that upper side keeps the whole label inside the plot's drawing area (LLFR-00437).
+The app must place the label of LLFR-00436 on the side of the line that is above the text as it is read (LLFR-00869), or on the other side only when no place along the line on that upper side keeps the whole label inside the plot's drawing area (LLFR-00437), except as in LLFR-00888.
+
+*Parent: HLFR-00100*
+
+### LLFR-00888 Arrow label with no room on either side
+When no place along the line keeps the whole label of LLFR-00436 inside the plot's drawing area on either side of the line, the app must place the label on the side of the line that is above the text as it is read (LLFR-00869), next to the middle of the part of the line that is shown.
 
 *Parent: HLFR-00100*
 
@@ -4656,7 +4661,7 @@ The text of the label of LLFR-00436 must never be shown upside down, whatever th
 *Parent: HLFR-00100*
 
 ### LLFR-00437 Arrow label follows the arrow
-Whenever the position, angle or length of an arrow changes (LLFR-00376, LLFR-00377), or the plot's x-axis or y-axis range or size changes (LLFR-00374), the app must draw the label of LLFR-00436 again next to the middle of the part of the line that is shown, parallel to it, moved along the line by the shortest distance needed to keep the whole label inside the plot's drawing area, except as in LLFR-00871.
+Whenever the position, angle or length of an arrow changes (LLFR-00376, LLFR-00377), or the plot's x-axis or y-axis range or size changes (LLFR-00374), the app must draw the label of LLFR-00436 again next to the middle of the part of the line that is shown, parallel to it, moved along the line by the shortest distance needed to keep the whole label inside the plot's drawing area, except as in LLFR-00871 and LLFR-00888.
 
 *Parent: HLFR-00100, HLFR-00112*
 
