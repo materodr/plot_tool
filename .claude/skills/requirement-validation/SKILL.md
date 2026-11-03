@@ -1,6 +1,6 @@
 ---
 name: "requirement-validation"
-description: "Check, validate and correct the plot_tool requirements so each states one obligation about one thing. Required before every develop-to-main PR (PCR-00050)."
+description: "Check, validate and correct the plot_tool requirements so each states one obligation about one thing. Required before every develop-to-main PR (PCR-00050) and before every PR into develop whose branch adds requirements (PCR-00052)."
 ---
 
 # Requirement validation (plot_tool)
@@ -8,7 +8,8 @@ description: "Check, validate and correct the plot_tool requirements so each sta
 This skill checks, validates by independent review, and corrects the requirements in `docs/requirements/` of materodr/plot_tool, without changing their meaning.
 
 **When to run it**
-- **Before every pull request from `develop` to `main`** (PCR-00050). The scope is every requirement created or changed since the last merge into `main`, and the release PR must show the result (PCR-00051).
+- **Before every pull request from `develop` to `main`** (PCR-00050). The scope is every active requirement, and the release PR must show the result (PCR-00051).
+- **Before every pull request into `develop` whose branch adds requirements** (PCR-00052). The scope is the requirements that the branch adds, and the PR must show the result (PCR-00053).
 - Whenever the owner asks for a requirements quality check, or the `requirements-quality` CI job fails.
 
 **Owner's ground rules (never break them)**
@@ -24,13 +25,13 @@ This skill checks, validates by independent review, and corrects the requirement
 ---
 
 ## Step 1. Scope
-- **Before a develop to main PR:**
+- **Before a develop to main PR, or an owner-requested full check:** all active requirements.
+- **Before a PR into develop:**
   ```bash
-  git fetch origin main develop
-  git diff origin/main origin/develop -- docs/requirements/
+  git fetch origin develop
+  git diff origin/develop...HEAD -- docs/requirements/
   ```
-  Collect every ID whose heading or body changed, plus every new ID.
-- **Owner-requested full check:** all active requirements.
+  Collect every ID that is new on the branch. A requirement that only changed is out of this scope, and a reviewer still reads it (PCR-00048).
 
 ## Step 2. Automatic check
 Run `python tests/check_requirements.py`. It checks:
@@ -177,8 +178,8 @@ When in doubt, don't split: over-splitting hurts readability.
   - the matrix counts (pass, fail, no tests), with the reason for each HLFR that doesn't pass;
   - the untested new parts;
   - known points.
-- **For a develop to main PR (PCR-00051):** add a "Requirement validation (PCR-00050)" section with:
-  - the scope (IDs created or changed since the last merge into `main`);
+- **For a develop to main PR (PCR-00051):** add a "Requirement validation (PCR-00050)" section. **For a PR into develop whose branch adds requirements (PCR-00053):** add a "Requirement validation (PCR-00052)" section instead. `tests/check_requirement_review.py` looks for these headings. The section has:
+  - the scope (all active requirements, or the IDs the branch adds);
   - the check result;
   - the judgement-pass findings and how each was resolved, with links to the fix issue and PR;
   - a statement that no finding is still open.
