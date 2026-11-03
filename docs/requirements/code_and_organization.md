@@ -21,7 +21,10 @@ The `src` folder must contain all the code and other artifacts needed to run the
 The `tests` folder must contain all the tests used to evaluate the code.
 
 ### COR-00007 Contents of bin
-The `bin` folder must contain the standalone executables built from the code in `src` (for example with PyInstaller) and the copy of the sample files of COR-00020. Build outputs must not be committed to the repository.
+The `bin` folder must contain the standalone executables built from the code in `src` (for example with PyInstaller) and the copy of the sample files of COR-00020.
+
+### COR-40001 Build outputs not committed
+Build outputs must not be committed to the repository.
 
 ### COR-00008 Layout of src
 The `src` folder must contain the sub-folders `model`, `view` and `controller`.
@@ -36,7 +39,10 @@ The code comments, besides explaining the code, must trace each code section to 
 A new external library must only be added when there is high confidence that the current set of libraries is not enough.
 
 ### COR-00012 Meaningful names
-The names of variables, classes and methods must be meaningful and self-explanatory. Unnecessary abbreviations must be avoided.
+The names of variables, classes and methods must be meaningful and self-explanatory.
+
+### COR-40002 No unnecessary abbreviations
+In the names of variables, classes and methods, unnecessary abbreviations must be avoided.
 
 ### COR-00013 Variable name length
 Variable names must be shorter than 40 characters.

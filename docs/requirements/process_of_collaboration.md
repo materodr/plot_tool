@@ -21,7 +21,10 @@ A GitHub issue must be created to track the development of every fix and new fea
 Note: Every issue must be created from one of the two templates: [Fix](../../.github/ISSUE_TEMPLATE/fix.yml) or [Feature](../../.github/ISSUE_TEMPLATE/feature.yml).
 
 ### PCR-00005 Branch linked to an issue
-Feature and fix branches must always be created pointing to an issue, and the issue must be explicit in the branch name.
+Feature and fix branches must always be created pointing to an issue.
+
+### PCR-40001 Issue in the branch name
+The issue that a feature or fix branch points to (PCR-00005) must be explicit in the branch name.
 
 ### PCR-00006 Fix issue contents
 A fix issue must contain:
@@ -47,8 +50,11 @@ A feature issue must contain:
 ### PCR-00009 Feature urgency levels
 The urgency of a feature must be classified as low, medium or high.
 
-### PCR-00010 Work priority
-Priority of work must be given to feature issues with higher urgency and fix issues with higher severity.
+### PCR-00010 Work priority of features
+Priority of work must be given to feature issues with higher urgency.
+
+### PCR-40006 Work priority of fixes
+Priority of work must be given to fix issues with higher severity.
 
 ### PCR-00011 Fixes before features
 Between a feature of high urgency and a fix of high severity, the fix of high severity must have priority.
@@ -56,10 +62,11 @@ Between a feature of high urgency and a fix of high severity, the fix of high se
 ### PCR-00012 Issue before work
 A feature or fix must only start to be tackled when the issue that tracks it has already been created.
 
-### PCR-00013 Bugs found during work
-If a new bug is found while creating a feature or fixing a bug:
-1. if the bug is correlated with the ongoing work, it must be fixed under the same issue;
-2. if it is not correlated, a new issue must be opened.
+### PCR-00013 Correlated bugs found during work
+If a new bug is found while creating a feature or fixing a bug, and the bug is correlated with the ongoing work, it must be fixed under the same issue.
+
+### PCR-40002 Uncorrelated bugs found during work
+If a new bug is found while creating a feature or fixing a bug, and the bug is not correlated with the ongoing work, a new issue must be opened.
 
 ### PCR-00014 Pull request preconditions
 A pull request must only be merged if its issue has all the information required by PCR-00006 (fixes) or PCR-00008 (features).
@@ -89,7 +96,10 @@ The second column must show, for each HLFR, its child low-level functional requi
 The third column must contain the tests linked to each HLFR and the last run status of each test, as passed or failed.
 
 ### PCR-00023 Test matrix column 4
-The fourth column must contain "pass" if all tests of the HLFR passed and "fail" if at least one test failed.
+The fourth column must contain "pass" if all tests of the HLFR passed.
+
+### PCR-40007 Test matrix column 4 on a failure
+The fourth column of the test matrix must contain "fail" if at least one test of the HLFR failed.
 
 ### PCR-00024 Test coverage
 Agents must write tests that robustly cover every aspect of the high-level functional requirements.
@@ -100,8 +110,17 @@ The `develop` and `main` branches must be kept free of crashes.
 ### PCR-00026 Worktrees
 Worktrees must be used to give each agent a separate environment.
 
-### PCR-00027 Deleted requirements
-When a requirement is deleted, its ID must stay in the file and its title and text must be replaced by `DELETED`. The ID must never be reused, and new requirements must continue from the next number.
+### PCR-00027 Deleted requirement ID kept
+When a requirement is deleted, its ID must stay in the file.
+
+### PCR-40003 Deleted requirement text
+When a requirement is deleted, its title and text must be replaced by `DELETED`.
+
+### PCR-40004 Deleted IDs not reused
+The ID of a deleted requirement must never be reused.
+
+### PCR-40005 Numbering after a deletion
+When a requirement is deleted, new requirements must continue from the next number.
 
 ### PCR-00028 Functional requirement categories
 Functional requirements must be divided into two categories: high-level functional requirements (HLFR) and low-level functional requirements (LLFR).
