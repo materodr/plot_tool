@@ -269,6 +269,17 @@ class PlotController:
             area_rename_handler=self.on_area_rename,
             area_color_handler=self.on_area_color,
             area_delete_handler=self.on_area_delete)
+        # LLFR-00412 to LLFR-00417: the "Delete all ..." options of the
+        # pinned tip, delta marker, flag and area menus.
+        view.set_plot_handlers(
+            plot_pinned_tips_delete_handler=self.on_plot_pinned_tips_delete,
+            all_pinned_tips_delete_handler=self.on_all_pinned_tips_delete,
+            plot_delta_markers_delete_handler=(
+                self.on_plot_delta_markers_delete),
+            all_delta_markers_delete_handler=(
+                self.on_all_delta_markers_delete),
+            all_markers_delete_handler=self.on_all_markers_delete,
+            all_areas_delete_handler=self.on_all_areas_delete)
         # LLFR-00115: the Reset zoom button of the top panel.
         view.set_reset_zoom_handler(self.on_reset_zoom)
         # LLFR-00122, LLFR-00123: the Grid button of the top panel.
@@ -1180,6 +1191,47 @@ class PlotController:
         self.record_undo(snapshot)
         self.redraw_plot(plot)
 
+    def on_plot_pinned_tips_delete(self, plot_id_i: int) -> None:
+        """Remove every pinned tip of one plot.
+
+        Inputs:
+            plot_id_i: id of the plot where "Delete all data tips in this
+                plot" was chosen.
+        Outputs: none. An unknown plot is ignored.
+        """
+        # LLFR-00412: every tip of this plot, as ONE undoable action
+        # (LLFR-00140), with no confirmation and no message; the other
+        # plots keep their tips.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        snapshot = self.take_snapshot()
+        if not plot.remove_all_pinned_tips():
+            return
+        self.record_undo(snapshot)
+        self.redraw_plot(plot)
+
+    def on_all_pinned_tips_delete(self, plot_id_i: int) -> None:
+        """Remove every pinned tip of every plot of every tab.
+
+        Inputs:
+            plot_id_i: id of the plot where "Delete all data tips in all
+                plots" was chosen.
+        Outputs: none. An unknown plot is ignored.
+        """
+        # LLFR-00413: time plots and frequency plots of every tab, as ONE
+        # undoable action (LLFR-00140), with no confirmation or message.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        changed_plot_list = [plot for plot in self.all_plot_list()
+                             if plot.pinned_tip_list]
+        snapshot = self.take_snapshot()
+        if not self.workspace.remove_all_pinned_tips():
+            return
+        self.record_undo(snapshot)
+        for plot in changed_plot_list:
+            self.redraw_plot(plot)
+
     def on_pinned_tip_move(self, plot_id_i: int, tip_index_i: int,
                            offset_x_f: float, offset_y_f: float) -> None:
         """Keep a pinned tip's label where the user dragged it.
@@ -1783,6 +1835,24 @@ class PlotController:
         self.record_undo(snapshot)
         self.show_markers()
 
+    def on_all_markers_delete(self, plot_id_i: int) -> None:
+        """Remove every flag from every time plot of every tab.
+
+        Inputs:
+            plot_id_i: id of the plot where "Delete all flags" was chosen.
+        Outputs: none. An unknown plot is ignored.
+        """
+        # LLFR-00416, LLFR-00205: every flag, with its label and time
+        # value, as ONE undoable action (LLFR-00140), with no
+        # confirmation and no message.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        snapshot = self.take_snapshot()
+        if not self.workspace.remove_all_markers():
+            return
+        self.record_undo(snapshot)
+        self.show_markers()
+
     # ----------------------------------------------------------------
     # Areas
     # ----------------------------------------------------------------
@@ -2004,6 +2074,24 @@ class PlotController:
         self.record_undo(snapshot)
         self.show_areas()
 
+    def on_all_areas_delete(self, plot_id_i: int) -> None:
+        """Remove every area from every time plot of every tab.
+
+        Inputs:
+            plot_id_i: id of the plot where "Delete all areas" was chosen.
+        Outputs: none. An unknown plot is ignored.
+        """
+        # LLFR-00417, LLFR-00310: every area, with its label and time
+        # values, as ONE undoable action (LLFR-00140), with no
+        # confirmation and no message.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        snapshot = self.take_snapshot()
+        if not self.workspace.remove_all_areas():
+            return
+        self.record_undo(snapshot)
+        self.show_areas()
+
     # ----------------------------------------------------------------
     # Delta markers
     # ----------------------------------------------------------------
@@ -2150,6 +2238,49 @@ class PlotController:
                 lambda color_str: plot.set_delta_marker_color(
                     int(delta_marker_id_i), color_str),
                 chosen_color_str):
+            self.redraw_plot(plot)
+
+    def on_plot_delta_markers_delete(self, plot_id_i: int) -> None:
+        """Remove every delta marker of one plot.
+
+        Inputs:
+            plot_id_i: id of the plot where "Delete all delta markers in
+                this plot" was chosen.
+        Outputs: none. An unknown plot is ignored.
+        """
+        # LLFR-00414: every Delta X and Delta Y marker of this plot, as
+        # ONE undoable action (LLFR-00140), with no confirmation and no
+        # message; the other plots and a picked first point (LLFR-00163,
+        # pending_delta_tuple) do not change.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        snapshot = self.take_snapshot()
+        if not plot.remove_all_delta_markers():
+            return
+        self.record_undo(snapshot)
+        self.redraw_plot(plot)
+
+    def on_all_delta_markers_delete(self, plot_id_i: int) -> None:
+        """Remove every delta marker of every plot of every tab.
+
+        Inputs:
+            plot_id_i: id of the plot where "Delete all delta markers in
+                all plots" was chosen.
+        Outputs: none. An unknown plot is ignored.
+        """
+        # LLFR-00415: time plots and frequency plots of every tab, as ONE
+        # undoable action (LLFR-00140), with no confirmation or message;
+        # a picked first point (LLFR-00163) does not change.
+        if self.workspace.find_plot(plot_id_i) is None:
+            return
+        changed_plot_list = [plot for plot in self.all_plot_list()
+                             if plot.delta_marker_list]
+        snapshot = self.take_snapshot()
+        if not self.workspace.remove_all_delta_markers():
+            return
+        self.record_undo(snapshot)
+        for plot in changed_plot_list:
             self.redraw_plot(plot)
 
     # ----------------------------------------------------------------

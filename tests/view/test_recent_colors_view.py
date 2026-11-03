@@ -19,6 +19,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.view.menu_texts import DELTA_MENU_TEXT_LIST
 from tests.view.test_plot_tools import PlotWidgetToolTestCase, recorder
 
 from controller.plot_tools import (
@@ -279,15 +280,16 @@ class ColorSubmenuTest(PlotWidgetToolTestCase):
 
     @covers("LLFR-00175", "LLFR-00409")
     def test_delta_marker_menu_starts_with_color(self) -> None:
-        """The delta marker menu shows "Color" before "Delete".
+        """The delta marker menu is "Color", "Delete" and the two
+        "Delete all delta markers" options, in this order.
 
         Inputs: none.
         Outputs: none.
         """
         option_tuple = self.option_list()[-1]
         menu = self.plot_widget.build_context_menu(option_tuple[1])
-        self.assertEqual([action.text() for action in menu.actions()][:2],
-                         ["Color", "Delete"])
+        self.assertEqual([action.text() for action in menu.actions()],
+                         DELTA_MENU_TEXT_LIST)
         menu.deleteLater()
 
     @covers("LLFR-00419", "LLFR-00390", "LLFR-00388")

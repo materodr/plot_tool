@@ -654,6 +654,17 @@ class Plot:
                 return True
         return False
 
+    def remove_all_pinned_tips(self) -> int:
+        """Remove every pinned tip of the plot.
+
+        Inputs: none.
+        Outputs: the number of pinned tips removed.
+        """
+        # LLFR-00412: "Delete all data tips in this plot".
+        removed_count_i = len(self.pinned_tip_list)
+        self.pinned_tip_list = []
+        return removed_count_i
+
     def move_pinned_tip(self, pinned_tip: PinnedTip,
                         label_offset_tuple: tuple) -> bool:
         """Move the label of a pinned tip; its point stays the same.
@@ -1036,6 +1047,17 @@ class Plot:
             return False
         self.delta_marker_list.remove(delta_marker)
         return True
+
+    def remove_all_delta_markers(self) -> int:
+        """Remove every Delta X and Delta Y marker of the plot.
+
+        Inputs: none.
+        Outputs: the number of delta markers removed.
+        """
+        # LLFR-00414: "Delete all delta markers in this plot".
+        removed_count_i = len(self.delta_marker_list)
+        self.delta_marker_list = []
+        return removed_count_i
 
     def remove_delta_markers_of_signal(self, signal_name_str: str) -> int:
         """Remove every delta marker with a point on a signal's curve.
@@ -1776,6 +1798,38 @@ class Workspace:
         self.marker_list.remove(marker)
         return True
 
+    def remove_all_markers(self) -> int:
+        """Remove every vertical marker (flag) from every plot.
+
+        Inputs: none.
+        Outputs: the number of flags removed.
+        """
+        # LLFR-00416, LLFR-00205: every flag leaves every time plot.
+        # LLFR-00111: next_marker_number_i is not lowered.
+        removed_count_i = len(self.marker_list)
+        self.marker_list = []
+        return removed_count_i
+
+    def remove_all_pinned_tips(self) -> int:
+        """Remove every pinned tip of every plot of every tab.
+
+        Inputs: none.
+        Outputs: the number of pinned tips removed.
+        """
+        # LLFR-00413: time plots and frequency plots, in every tab.
+        return sum(plot.remove_all_pinned_tips()
+                   for tab in self.tab_list for plot in tab.plot_list)
+
+    def remove_all_delta_markers(self) -> int:
+        """Remove every delta marker of every plot of every tab.
+
+        Inputs: none.
+        Outputs: the number of delta markers removed.
+        """
+        # LLFR-00415: time plots and frequency plots, in every tab.
+        return sum(plot.remove_all_delta_markers()
+                   for tab in self.tab_list for plot in tab.plot_list)
+
     def marker_state_tuple(self) -> tuple:
         """Return the vertical markers as plain values.
 
@@ -2099,6 +2153,18 @@ class Workspace:
         # LLFR-00309: next_area_number_i is not lowered.
         self.area_list.remove(area)
         return True
+
+    def remove_all_areas(self) -> int:
+        """Remove every area from every time plot.
+
+        Inputs: none.
+        Outputs: the number of areas removed.
+        """
+        # LLFR-00417, LLFR-00310: every area leaves every time plot.
+        # LLFR-00309: next_area_number_i is not lowered.
+        removed_count_i = len(self.area_list)
+        self.area_list = []
+        return removed_count_i
 
     def area_state_tuple(self) -> tuple:
         """Return the areas as plain values.

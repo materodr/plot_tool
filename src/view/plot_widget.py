@@ -240,6 +240,15 @@ PICK_TOLERANCE_PIXELS_I = 6
 TIME_AXIS_LABEL_STR = "Time (s)"
 # LLFR-00256: the x-axis label of a frequency plot.
 FREQUENCY_AXIS_LABEL_STR = "Frequency (Hz)"
+# LLFR-00046, LLFR-00090, LLFR-00175, LLFR-00314: the texts of the
+# "Delete all ..." menu options (LLFR-00412 to LLFR-00417).
+DELETE_ALL_TIPS_IN_PLOT_TEXT_STR = "Delete all data tips in this plot"
+DELETE_ALL_TIPS_IN_ALL_PLOTS_TEXT_STR = "Delete all data tips in all plots"
+DELETE_ALL_DELTAS_IN_PLOT_TEXT_STR = "Delete all delta markers in this plot"
+DELETE_ALL_DELTAS_IN_ALL_PLOTS_TEXT_STR = (
+    "Delete all delta markers in all plots")
+DELETE_ALL_FLAGS_TEXT_STR = "Delete all flags"
+DELETE_ALL_AREAS_TEXT_STR = "Delete all areas"
 # LLFR-00074, LLFR-00113: range width kept per forward wheel notch
 # (narrow to 95%; a backward notch widens to 1/0.95).
 ZOOM_IN_FACTOR_F = 0.95
@@ -955,6 +964,13 @@ class PlotWidget(QWidget):
     arrow_change_requested = pyqtSignal(int, float, float, float, float)
     arrow_color_requested = pyqtSignal(int, str)
     arrow_delete_requested = pyqtSignal(int)
+    # LLFR-00412 to LLFR-00417: the "Delete all ..." menu options.
+    plot_pinned_tips_delete_requested = pyqtSignal()
+    all_pinned_tips_delete_requested = pyqtSignal()
+    plot_delta_markers_delete_requested = pyqtSignal()
+    all_delta_markers_delete_requested = pyqtSignal()
+    all_markers_delete_requested = pyqtSignal()
+    all_areas_delete_requested = pyqtSignal()
 
     def __init__(self, plot_id_i: int, parent=None,
                  kind_str: str = TIME_PLOT_KIND_STR) -> None:
@@ -2932,6 +2948,25 @@ class PlotWidget(QWidget):
             widget_point, self.text_note_list[note_index_i][0],
             note_index_i, ())
 
+    def double_click_at(self, widget_point) -> None:
+        """Handle the second press of a left double-click at a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. On a text note, its text field is opened as by
+            "Edit"; anywhere else nothing happens.
+        """
+        # LLFR-00411: the first press of the double-click grabbed the
+        # note without moving it (LLFR-00339); a grab still held (its
+        # release was lost) is dropped here, so the note keeps its place.
+        self.cancel_note_drag()
+        note_index_i = self.text_note_at(widget_point)
+        if note_index_i == NO_TEXT_NOTE_INDEX_I:
+            return
+        # LLFR-00411, LLFR-00342: the same text field as "Edit"; no tip,
+        # zoom, pan, flag, area, note, arrow or delta point.
+        self.edit_text_note_at(note_index_i)
+
     def open_text_note_editor(self, widget_point, text_str: str,
                               note_index_i: int,
                               place_tuple: tuple) -> None:
@@ -3785,6 +3820,14 @@ class PlotWidget(QWidget):
                 menu, "Delete",
                 lambda index_i=tip_index_i:
                 self.pinned_tip_delete_requested.emit(index_i))
+            # LLFR-00046, LLFR-00412, LLFR-00413: then the two "Delete
+            # all" options, in this order.
+            add_request_action(
+                menu, DELETE_ALL_TIPS_IN_PLOT_TEXT_STR,
+                lambda: self.plot_pinned_tips_delete_requested.emit())
+            add_request_action(
+                menu, DELETE_ALL_TIPS_IN_ALL_PLOTS_TEXT_STR,
+                lambda: self.all_pinned_tips_delete_requested.emit())
             return menu, request_list
         # LLFR-00381: an arrow is drawn above the curves, flags, delta
         # markers and areas, so its menu has priority over theirs.
@@ -3815,6 +3858,11 @@ class PlotWidget(QWidget):
                 menu, "Delete",
                 lambda chosen_id_i=marker_id_i:
                 self.marker_delete_requested.emit(chosen_id_i))
+            # LLFR-00090, LLFR-00416: directly followed by "Delete all
+            # flags".
+            add_request_action(
+                menu, DELETE_ALL_FLAGS_TEXT_STR,
+                lambda: self.all_markers_delete_requested.emit())
             return menu, request_list
         # LLFR-00175, LLFR-00177: a delta marker has priority over a
         # curve under it, whatever plot tool is active.
@@ -3828,6 +3876,14 @@ class PlotWidget(QWidget):
                 menu, "Delete",
                 lambda chosen_id_i=delta_marker_id_i:
                 self.delta_marker_delete_requested.emit(chosen_id_i))
+            # LLFR-00175, LLFR-00414, LLFR-00415: then the two "Delete
+            # all" options, in this order.
+            add_request_action(
+                menu, DELETE_ALL_DELTAS_IN_PLOT_TEXT_STR,
+                lambda: self.plot_delta_markers_delete_requested.emit())
+            add_request_action(
+                menu, DELETE_ALL_DELTAS_IN_ALL_PLOTS_TEXT_STR,
+                lambda: self.all_delta_markers_delete_requested.emit())
             return menu, request_list
         signal_name_str = self.curve_at(widget_point)
         if signal_name_str:
@@ -3864,6 +3920,11 @@ class PlotWidget(QWidget):
                 menu, "Delete",
                 lambda chosen_id_i=area_id_i:
                 self.area_delete_requested.emit(chosen_id_i))
+            # LLFR-00314, LLFR-00417: "Delete all areas" before "Delete
+            # plot".
+            add_request_action(
+                menu, DELETE_ALL_AREAS_TEXT_STR,
+                lambda: self.all_areas_delete_requested.emit())
             # LLFR-00314 Note: a plot covered by an area can be deleted.
             add_request_action(menu, "Delete plot",
                                lambda: self.plot_delete_requested.emit())
@@ -3902,10 +3963,13 @@ class PlotWidget(QWidget):
         Outputs: a QMenu (not shown) whose actions emit their request
             when triggered. On a text note it has "Edit", "Size", "Border
             color", "Text color" and "Delete"; on a pinned tip "Delete";
-            on a marker "Rename", "Color" and "Delete"; on a delta
-            marker "Color" and "Delete"; on an area "Rename", "Color",
-            "Delete" and "Delete plot"; every color option is a submenu
-            of the recent colors and "Other color..."; on a
+            and "Delete all data tips in this plot" and "... in all
+            plots"; on a marker "Rename", "Color", "Delete" and "Delete
+            all flags"; on a delta marker "Color", "Delete" and "Delete
+            all delta markers in this plot" and "... in all plots"; on
+            an area "Rename", "Color", "Delete", "Delete all areas" and
+            "Delete plot"; every color option is a submenu of the
+            recent colors and "Other color..."; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
             elsewhere "Delete plot".
         """
@@ -6247,6 +6311,11 @@ class PlotWidget(QWidget):
         # LLFR-00045, LLFR-00078: the second press of a double-click must
         # not pin the same tip again nor zoom a second time.
         if event.dblclick:
+            # LLFR-00411: a left double-click on a text note, with any
+            # plot tool or none, acts as "Edit" (LLFR-00342) and nothing
+            # else; the first press only grabbed the note (LLFR-00339).
+            if event.button == MouseButton.LEFT:
+                self.double_click_at(widget_point)
             return
         # LLFR-00334: the press that confirmed the text field.
         if editor_closed_b and event.button == MouseButton.LEFT:

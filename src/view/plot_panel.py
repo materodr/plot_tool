@@ -108,6 +108,14 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "arrow_change_requested": "arrow_change_handler",
     "arrow_color_requested": "arrow_color_handler",
     "arrow_delete_requested": "arrow_delete_handler",
+    # LLFR-00412 to LLFR-00417: the "Delete all ..." menu options.
+    "plot_pinned_tips_delete_requested": "plot_pinned_tips_delete_handler",
+    "all_pinned_tips_delete_requested": "all_pinned_tips_delete_handler",
+    "plot_delta_markers_delete_requested":
+        "plot_delta_markers_delete_handler",
+    "all_delta_markers_delete_requested": "all_delta_markers_delete_handler",
+    "all_markers_delete_requested": "all_markers_delete_handler",
+    "all_areas_delete_requested": "all_areas_delete_handler",
 }
 
 
