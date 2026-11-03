@@ -1,12 +1,13 @@
 """Self-tests for tests/build_test_matrix.py (PCR-00022, PCR-00023,
-PCR-00042)."""
+PCR-00042, PCR-00059)."""
 
 import io
 import unittest
+from unittest import mock
 
 from tests.build_test_matrix import (FAILED_STR, PASSED_STR, SKIPPED_STR,
                                      RecordingResult, build_matrix,
-                                     hlfr_result)
+                                     hlfr_result, untested_hlfrs)
 from tests.support import covers
 
 
@@ -139,6 +140,30 @@ class MatrixResultTest(unittest.TestCase):
         self.assertIn("`sample.test_x` failed", row_list[0])
         self.assertTrue(row_list[0].rstrip().endswith("| fail |"))
         self.assertNotIn("LLFR-00024", untested_list)
+
+
+class UntestedHlfrTest(unittest.TestCase):
+    """Check which affected HLFRs count as having no test."""
+
+    @covers("PCR-00059")
+    def test_only_given_hlfrs_without_links_are_listed(self) -> None:
+        """A test of the HLFR or of a child LLFR counts as its test.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        requirements_tuple = ([], {"HLFR-00001": ["LLFR-00001"],
+                                   "HLFR-00002": [],
+                                   "HLFR-00003": [],
+                                   "HLFR-00004": []})
+        status_list = [("a", ["LLFR-00001"], PASSED_STR),
+                       ("b", ["HLFR-00002"], PASSED_STR)]
+        with mock.patch("tests.build_test_matrix.read_requirements",
+                        return_value=requirements_tuple):
+            self.assertEqual(
+                untested_hlfrs(status_list, {"HLFR-00001", "HLFR-00002",
+                                             "HLFR-00003"}),
+                ["HLFR-00003"])
 
 
 if __name__ == "__main__":

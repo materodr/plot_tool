@@ -119,6 +119,17 @@ The fourth column of the test matrix must contain "fail" if at least one test of
 ### PCR-00024 Test coverage
 Agents must write tests that robustly cover every aspect of the high-level functional requirements.
 
+### PCR-00057 Tests of a pull request into develop
+A pull request into `develop` must run every test.
+
+### PCR-00058 Tests of a pull request into main
+A pull request from `develop` to `main` must run every test.
+
+### PCR-00059 Affected requirements without tests
+The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test.
+
+Note: A branch affects an HLFR when it changes the text of the HLFR or of a child LLFR, or a function in `src` that names a child LLFR. For a pull request into `main`, these are the changes since the last merge into `main`.
+
 ### PCR-00025 Stable permanent branches
 The `develop` and `main` branches must be kept free of crashes.
 

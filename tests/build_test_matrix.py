@@ -4,6 +4,7 @@ PCR-00042).
 Usage:
     python tests/build_test_matrix.py [--output PATH] [--require-qt]
                                       [--require-h5py]
+                                      [--base BRANCH --head COMMIT]
 
 The matrix has one row per HLFR with four columns:
 1. the HLFR (PCR-00020);
@@ -20,7 +21,10 @@ skipped (for example without PyQt6) and none failed.
 The script exits with code 1 when a test fails, when --require-qt is
 given and PyQt6 is not installed, or when --require-h5py is given and
 h5py (needed by the HDF5 tests) is not installed. CI passes both, so
-those tests can't be skipped there without failing the run.
+those tests can't be skipped there without failing the run. With --base
+and --head, it also exits with code 1 when an HLFR that the branch
+affects has no test, or when git can't tell which HLFRs it affects
+(PCR-00059).
 """
 
 import argparse
@@ -34,6 +38,7 @@ REPOSITORY_ROOT_STR = os.path.dirname(TESTS_FOLDER_STR)
 if REPOSITORY_ROOT_STR not in sys.path:
     sys.path.insert(0, REPOSITORY_ROOT_STR)
 
+from tests.find_affected_requirements import find_affected_hlfrs  # noqa
 from tests.support import (  # noqa
     COVERED_ATTRIBUTE_STR, H5PY_AVAILABLE_B, QT_AVAILABLE_B)
 
@@ -261,6 +266,48 @@ def build_matrix(test_status_list: list) -> tuple:
     return text_str, sorted(set(untested_list))
 
 
+def untested_hlfrs(test_status_list: list, hlfr_id_set: set) -> list:
+    """Find which of the given HLFRs have no linked test (PCR-00059).
+
+    Inputs:
+        test_status_list: the tuples returned by run_all_tests.
+        hlfr_id_set: the HLFR IDs to check.
+    Outputs: the sorted IDs of those with no test tagged with the HLFR
+        or with one of its child LLFRs.
+    """
+    _, children_dict = read_requirements()
+    tested_set = {requirement_str
+                  for _, requirement_list, _ in test_status_list
+                  for requirement_str in requirement_list}
+    return sorted(
+        hlfr_id_str for hlfr_id_str in hlfr_id_set
+        if not ({hlfr_id_str} | set(children_dict.get(hlfr_id_str, [])))
+        & tested_set)
+
+
+def affected_hlfrs_have_tests(test_status_list: list, base_str: str,
+                              head_str: str) -> bool:
+    """Report whether every HLFR that a branch affects has a test.
+
+    Inputs:
+        test_status_list: the tuples returned by run_all_tests.
+        base_str: the branch the pull request goes into.
+        head_str: the commit of the pull request.
+    Outputs: True when they all have one (PCR-00059).
+    """
+    hlfr_id_set = find_affected_hlfrs(base_str, head_str,
+                                      REPOSITORY_ROOT_STR)
+    if hlfr_id_set is None:
+        print("git can't tell which HLFRs this branch affects.",
+              file=sys.stderr)
+        return False
+    missing_list = untested_hlfrs(test_status_list, hlfr_id_set)
+    if missing_list:
+        print("HLFRs affected by this branch without tests: "
+              + ", ".join(missing_list), file=sys.stderr)
+    return not missing_list
+
+
 def report_to_github(test_status_list: list, untested_list: list) -> None:
     """Print GitHub Actions annotations for failed tests and coverage.
 
@@ -294,6 +341,8 @@ def main() -> int:
     parser.add_argument("--output", default=DEFAULT_OUTPUT_PATH_STR)
     parser.add_argument("--require-qt", action="store_true")
     parser.add_argument("--require-h5py", action="store_true")
+    parser.add_argument("--base", default="")
+    parser.add_argument("--head", default="")
     argument_namespace = parser.parse_args()
     if argument_namespace.require_qt and not QT_AVAILABLE_B:
         print("PyQt6 is required but not installed.", file=sys.stderr)
@@ -313,6 +362,10 @@ def main() -> int:
         print("LLFRs without tests: " + ", ".join(untested_list))
     failed_b = any(status_str == FAILED_STR
                    for _, _, status_str in test_status_list)
+    if argument_namespace.base and not affected_hlfrs_have_tests(
+            test_status_list, argument_namespace.base,
+            argument_namespace.head):
+        failed_b = True
     return 1 if failed_b or not test_result.wasSuccessful() else 0
 
 
