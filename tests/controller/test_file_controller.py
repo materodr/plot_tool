@@ -74,7 +74,6 @@ class FakeView:
         self.error_message_list = []
         self.shown_name_list = []
         self.start_folder_list = []
-        self.loading_text_list = []
         self.loading_shown_b = False
 
     def ask_open_file_path(self, start_folder_str: str) -> str:
@@ -159,15 +158,13 @@ class FakeView:
         """
         self.call_list.append("finish_open_file_button")
 
-    def show_loading_indication(self, text_str: str) -> None:
-        """Record that the busy pointer and the status text were shown.
+    def show_loading_indication(self) -> None:
+        """Record that the busy pointer and the loading title were shown.
 
-        Inputs:
-            text_str: the status line text.
+        Inputs: none.
         Outputs: none.
         """
         self.call_list.append("show_loading_indication")
-        self.loading_text_list.append(text_str)
         self.loading_shown_b = True
 
     def hide_loading_indication(self) -> None:
@@ -298,7 +295,6 @@ class FileControllerTest(unittest.TestCase):
         self.assertEqual(view.call_list, [
             "ask_open_file_path", *LOADING_CALL_LIST, "show_signal_names",
             "finish_open_file_button"])
-        self.assertEqual(view.loading_text_list, ["Loading..."])
         self.assertEqual(self.listener_call_list,
                          [(self.first_file, False)])
 
@@ -463,7 +459,6 @@ class FileControllerTest(unittest.TestCase):
             "finish_open_file_button"])
         # LLFR-00014: the selected file is not read, no indication.
         self.assertEqual(self.loader.loaded_path_list, [FIRST_PATH_STR])
-        self.assertEqual(view.loading_text_list, ["Loading..."])
         self.assertEqual(self.listener_call_list, [])
 
     @covers("LLFR-00013", "LLFR-00017", "HLFR-00010")
@@ -882,7 +877,6 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertIs(controller.current_file, self.first_file)
         view.call_list.clear()
         view.state_list.clear()
-        view.loading_text_list.clear()
         self.listener_call_list.clear()
         return controller
 
@@ -907,7 +901,7 @@ class OpeningOrderTest(unittest.TestCase):
 
     @covers("LLFR-00418", "LLFR-00328", "LLFR-00006", "LLFR-00560")
     def test_first_file_read_under_the_indication(self) -> None:
-        """The first file is read while "Loading..." is shown.
+        """The first file is read while the loading indication is shown.
 
         Inputs: none.
         Outputs: none.
@@ -917,7 +911,7 @@ class OpeningOrderTest(unittest.TestCase):
             view, {FIRST_PATH_STR: self.first_file})
         controller.open_file_requested()
         self.assertEqual(view.state_list, [("load", True)])
-        self.assertEqual(view.loading_text_list, ["Loading..."])
+        self.assertEqual(view.call_list.count("show_loading_indication"), 1)
         self.assertFalse(view.loading_shown_b)
         self.assertNotIn("ask_replace_file", view.call_list)
         self.assertIs(controller.current_file, self.first_file)
@@ -955,7 +949,7 @@ class OpeningOrderTest(unittest.TestCase):
             view, {SECOND_PATH_STR: self.second_file})
         controller.open_file_requested()
         self.assertEqual(view.state_list, [("ask_replace_file", False)])
-        self.assertEqual(view.loading_text_list, [])
+        self.assertNotIn("show_loading_indication", view.call_list)
         self.assertEqual(self.loader.loaded_path_list, [FIRST_PATH_STR])
         self.assertEqual(view.error_message_list, [])
         self.assert_previous_file_kept(controller, view)

@@ -225,28 +225,46 @@ class SearchBoxAlignmentTest(unittest.TestCase):
                 self.settle()
                 self.assert_level_with_lowest_plot()
 
-    @covers("LLFR-00560", "LLFR-00424")
-    def test_loading_text_keeps_the_search_box_level(self) -> None:
-        """Showing "Loading..." moves neither the search box nor the
-        alignment, and the status line stays directly above the box.
+    @covers("LLFR-00424", "LLFR-00652", "LLFR-00094", "HLFR-00095")
+    def test_level_with_the_search_box_directly_below_the_list(
+            self) -> None:
+        """With nothing between the list and the search box, the box is
+        still level with the lowest plot, and with the page bottom when
+        the tab holds no plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        panel = self.main_window.signal_list_panel
+        layout = panel.panel_layout
+        self.assertEqual(layout.indexOf(panel.search_box),
+                         layout.indexOf(panel.signal_list_widget) + 1)
+        self.assert_level_with_empty_page()
+        self.plot_controller.on_signal_double_clicked("speed")
+        self.settle()
+        self.assert_level_with_lowest_plot()
+
+    @covers("LLFR-00560", "LLFR-00562", "LLFR-00424")
+    def test_loading_title_keeps_the_search_box_level(self) -> None:
+        """The loading indication moves neither the search box nor the
+        alignment.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_controller.on_signal_double_clicked("speed")
         self.settle()
-        panel = self.main_window.signal_list_panel
         before_bottom_i = self.search_box_bottom_y()
-        panel.show_status_text("Loading...")
+        self.addCleanup(self.main_window.hide_loading_indication)
+        self.main_window.show_loading_indication()
         self.settle()
+        self.assertEqual(self.main_window.windowTitle(),
+                         "plot_tool (loading)")
         self.assertEqual(self.search_box_bottom_y(), before_bottom_i)
         self.assert_level_with_lowest_plot()
-        status_bottom_i = bottom_edge_y(panel.status_label)
-        search_top_i = (bottom_edge_y(panel.search_box)
-                        - panel.search_box.height())
-        self.assertLessEqual(status_bottom_i, search_top_i)
-        panel.show_status_text("")
+        self.main_window.hide_loading_indication()
         self.settle()
+        self.assertEqual(self.main_window.windowTitle(), "plot_tool")
         self.assertEqual(self.search_box_bottom_y(), before_bottom_i)
 
 

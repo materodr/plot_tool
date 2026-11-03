@@ -292,11 +292,10 @@ class FakeFileView(FakeSignalListView):
         Outputs: none.
         """
 
-    def show_loading_indication(self, text_str: str) -> None:
+    def show_loading_indication(self) -> None:
         """Do nothing (LLFR-00418 is tested in test_file_controller).
 
-        Inputs:
-            text_str: the status line text.
+        Inputs: none.
         Outputs: none.
         """
 

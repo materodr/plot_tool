@@ -110,6 +110,8 @@ class MainWindow(QMainWindow):
     """
 
     WINDOW_TITLE_STR = "plot_tool"
+    # LLFR-00560: the title while a selected file is read and checked.
+    LOADING_WINDOW_TITLE_STR = "plot_tool (loading)"
     INITIAL_WIDTH_I = 1200
     INITIAL_HEIGHT_I = 800
     # LLFR-00072: the signal list panel starts at 20% of the width, the
@@ -130,6 +132,7 @@ class MainWindow(QMainWindow):
         # application, from view.theme.
         theme.apply_application_theme(QApplication.instance())
         # LLFR-00058: the window holds the three panels of HLFR-00001.
+        # LLFR-00563: the normal title outside the reading of a file.
         self.setWindowTitle(self.WINDOW_TITLE_STR)
         # LLFR-00182: the app icon in the title bar and, set on the
         # application, in the Dock and app switcher (macOS) and the
@@ -419,11 +422,10 @@ class MainWindow(QMainWindow):
         # error (HLFR-00002).
         message_boxes.show_file_open_error(self, message_str)
 
-    def show_loading_indication(self, text_str: str) -> None:
-        """Show the busy pointer and the loading text while a file is read.
+    def show_loading_indication(self) -> None:
+        """Show the busy pointer and the loading title while a file is read.
 
-        Inputs:
-            text_str: the text of the status line ("Loading...").
+        Inputs: none.
         Outputs: none. The window is repainted before this returns, so
             the indication is seen while the file is read.
         """
@@ -432,27 +434,29 @@ class MainWindow(QMainWindow):
         if not self.loading_cursor_shown_b:
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             self.loading_cursor_shown_b = True
-        # LLFR-00560: "Loading..." in the status line directly above the
-        # search box.
-        self.signal_list_panel.show_status_text(text_str)
-        # LLFR-00418: repaint now; the file is read in this same event
-        # handler, so without this the text would appear only after the
-        # read. User input waits, so no other action starts meanwhile.
+        # LLFR-00560: "plot_tool (loading)" in the window title.
+        self.setWindowTitle(self.LOADING_WINDOW_TITLE_STR)
+        # LLFR-00418, LLFR-00560: repaint now; the file is read in this
+        # same event handler, so without this the title would change only
+        # after the read. User input waits, so no other action starts
+        # meanwhile.
         QApplication.processEvents(
             QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
 
     def hide_loading_indication(self) -> None:
-        """Restore the normal pointer and empty the status line.
+        """Restore the normal pointer and the normal window title.
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00418: reading ended; the indication goes away before any
-        # File Open Error box or the time signal window.
+        # LLFR-00561: reading ended; the busy pointer goes away before
+        # any File Open Error box or the time signal window.
         if self.loading_cursor_shown_b:
             QApplication.restoreOverrideCursor()
             self.loading_cursor_shown_b = False
-        self.signal_list_panel.show_status_text("")
+        # LLFR-00562, LLFR-00563: the normal title, also before any box
+        # or window is shown.
+        self.setWindowTitle(self.WINDOW_TITLE_STR)
 
     def ask_replace_file(self) -> bool:
         """Ask whether to close the open file and open the selected one.

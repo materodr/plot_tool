@@ -5,11 +5,11 @@ it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``ask_open_file_path(start_folder_str)``, ``show_file_open_error``,
 ``ask_time_signal_name``, ``ask_replace_file``, ``set_time_signal_name``,
 ``show_signal_names``, ``finish_open_file_button``,
-``show_loading_indication(text_str)`` and ``hide_loading_indication()``.
+``show_loading_indication()`` and ``hide_loading_indication()``.
 
-``show_loading_indication`` shows the busy pointer and the text in the
-status line of the signal list panel, and ``hide_loading_indication``
-restores the normal pointer and empties the status line (LLFR-00418).
+``show_loading_indication`` shows the busy pointer and the loading title
+of the main window, and ``hide_loading_indication`` restores the normal
+pointer and the normal title (LLFR-00418, LLFR-00560, LLFR-00562).
 
 ``ask_time_signal_name(prompt_str, name_list, search_function,
 no_match_text_str, check_function)`` shows the time signal window
@@ -28,8 +28,6 @@ from model.file_loader import load_signal_file
 from model.signal_file import increasing_check_reason
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
 
-# LLFR-00418: the text of the status line while a file is read.
-LOADING_TEXT_STR = "Loading..."
 # LLFR-00325: the text of the time signal window.
 TIME_SIGNAL_PROMPT_STR = "Choose the signal that goes on the x-axis"
 
@@ -221,9 +219,10 @@ class FileController:
             (None, message_str) with the text of the File Open Error box
             when it can't.
         """
-        # LLFR-00418: the busy pointer and "Loading..." while the file
-        # is read and checked, for the first file as for a replacement.
-        self.view.show_loading_indication(LOADING_TEXT_STR)
+        # LLFR-00418, LLFR-00560: the busy pointer and the loading title
+        # while the file is read and checked, for the first file as for a
+        # replacement.
+        self.view.show_loading_indication()
         try:
             # LLFR-00006: try to open the selected file.
             return self.load_function(path_str), ""
@@ -237,8 +236,8 @@ class FileController:
             return None, UNEXPECTED_ERROR_MESSAGE_STR.format(
                 path=path_str, error=error)
         finally:
-            # LLFR-00418: reading ended, whatever the result; remove the
-            # indication before any box or window is shown.
+            # LLFR-00561, LLFR-00562: reading ended, whatever the result;
+            # remove the indication before any box or window is shown.
             self.view.hide_loading_indication()
 
     def _choose_time_signal(self, signal_file) -> bool:
