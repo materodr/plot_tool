@@ -108,13 +108,26 @@ The first column of the test matrix must contain the current set of high-level f
 The second column must show, for each HLFR, its child low-level functional requirements (LLFR).
 
 ### PCR-00022 Test matrix column 3
-The third column must contain the tests linked to each HLFR and the last run status of each test, as passed or failed.
+The third column must contain the tests linked to each HLFR and the last run status of each test, as passed or failed, except as in PCR-00063.
+
+### PCR-00063 Fail* for an environment limit
+The third column of the test matrix must show `Fail*`, followed by a justification that names the missing capability, for each test that could not run because the environment that ran the tests lacked that capability.
+
+Note: For example, PyQt6 or h5py can't be installed in the cloud workspace. `python tests/build_test_matrix.py --environment-limit` writes these cells. A test that runs and fails, locally or on GitHub, is a failed test, not a `Fail*`.
 
 ### PCR-00023 Test matrix column 4
-The fourth column must contain "pass" if all tests of the HLFR passed.
+The fourth column must contain "pass" if all tests of the HLFR passed, except as in PCR-00065.
+
+Note: The fourth column shows "pass", "fail" (PCR-00042) or a `Fail*` (PCR-00065, PCR-00071).
 
 ### PCR-00042 Test matrix column 4 on a failure
 The fourth column of the test matrix must contain "fail" if at least one test of the HLFR failed.
+
+### PCR-00065 Fail* for an HLFR not implemented yet
+The fourth column of the test matrix must show `Fail*`, followed by the explanation that the implementation has not been done yet, for each HLFR listed in `tests/not_implemented.txt` (PCR-00066), except as in PCR-00042.
+
+### PCR-00071 Fail* in the fourth column for an environment limit
+The fourth column of the test matrix must show `Fail*`, followed by the missing capabilities, for an HLFR that has a test shown with the `Fail*` of PCR-00063, except as in PCR-00042 and PCR-00065.
 
 ### PCR-00024 Test coverage
 Agents must write tests that robustly cover every aspect of the high-level functional requirements.
@@ -126,7 +139,7 @@ A pull request into `develop` must run every test.
 A pull request from `develop` to `main` must run every test.
 
 ### PCR-00059 Affected requirements without tests
-The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test.
+The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test, except as in PCR-00068.
 
 Note: A branch affects an HLFR when it changes the text of the HLFR or of a child LLFR, or a function in `src` that names a child LLFR. For a pull request into `main`, these are the changes since the last merge into `main`.
 
@@ -139,9 +152,35 @@ The test matrix committed on the branch of a pull request into `develop` or `mai
 Note: The matrix holds a hash of the files it was built from, so its own commit doesn't make it old.
 
 ### PCR-00062 Tests passed before a pull request
-A pull request into `develop` or `main` must be opened only when every test of the run of PCR-00061 has passed, except a test of `tests/known_macos_failures.txt` that fails on macOS.
+A pull request into `develop` or `main` must be opened only when every test of the run of PCR-00061 has passed, except a test of `tests/known_macos_failures.txt` that fails on macOS, and except as in PCR-00064.
 
 Note: Such a test shows as "known macOS failure" in the matrix and doesn't make column 4 show "fail".
+
+### PCR-00064 Environment Fail* counts as passed
+For PCR-00062, a test shown with the `Fail*` of PCR-00063 must count as passed.
+
+Note: A justified `Fail*` is enough to open and to merge the pull request, even when GitHub can't run the test either.
+
+### PCR-00066 List of HLFRs not implemented yet
+An HLFR whose implementation has not been done yet must be declared in `tests/not_implemented.txt`, on a line that holds its ID followed by the explanation.
+
+Note: Lines that start with `#` are comments, as in `tests/known_macos_failures.txt`.
+
+### PCR-00067 Implemented HLFR leaves the list
+An HLFR must be removed from `tests/not_implemented.txt` when its implementation is done.
+
+### PCR-00068 Not-implemented HLFR in a pull request into develop
+In a pull request into `develop`, the test check of PCR-00059 must pass an affected HLFR that has no test when the HLFR is listed in `tests/not_implemented.txt` (PCR-00066).
+
+### PCR-00069 No not-implemented Fail* into main
+A pull request from `develop` to `main` must be opened only when its test matrix shows no `Fail*` of PCR-00065.
+
+Note: Every functional requirement then has its implementation (PCR-00018).
+
+### PCR-00070 Fail* list at the top of the pull request
+A pull request whose test matrix shows a `Fail*` must start its description with a section headed `## Fail* (PCR-00070)` that lists every `Fail*` of the matrix with its justification.
+
+Note: The reviewer then sees every exception first. `tests/build_test_matrix.py` prints the section, ready to paste, and the `fail-star-section` CI job checks it with `tests/check_pr_ready.py`.
 
 ### PCR-00025 Stable permanent branches
 The `develop` and `main` branches must be kept free of crashes.

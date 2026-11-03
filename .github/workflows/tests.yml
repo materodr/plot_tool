@@ -86,7 +86,11 @@ jobs:
             --output test_matrix_ci.md "${affected_option_list[@]}"
 
       # PCR-00060 to PCR-00062: the branch is up to date and its committed
-      # matrix was built from its code, with no failed test.
+      # matrix was built from its code, with no failed test. An
+      # environment Fail* counts as passed (PCR-00064); a Fail* for an
+      # HLFR not implemented yet is refused into main (PCR-00069). This
+      # run has PyQt6 and h5py and doesn't pass --environment-limit, so a
+      # test that runs here and fails is still a failure.
       - name: Check the branch and its committed matrix
         if: >-
           github.event_name == 'pull_request' &&

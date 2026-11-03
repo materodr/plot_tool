@@ -1,13 +1,17 @@
-"""Self-tests for tests/check_pr_ready.py (PCR-00060 to PCR-00062)."""
+"""Self-tests for tests/check_pr_ready.py (PCR-00060 to PCR-00062,
+PCR-00064, PCR-00069, PCR-00070)."""
 
 import os
+import re
 import subprocess
 import tempfile
 import unittest
 
-from tests.check_pr_ready import (MATRIX_PATH_STR, branch_problems,
-                                  matrix_problems, pull_request_target,
-                                  source_hash)
+from tests.check_pr_ready import (MATRIX_PATH_STR, TEST_CELL_PATTERN_STR,
+                                  branch_problems, description_problems,
+                                  fail_star_entries, matrix_problems,
+                                  pull_request_target, source_hash,
+                                  starts_with_fail_star_section)
 from tests.support import covers
 
 
@@ -44,6 +48,119 @@ class MatrixProblemsTest(unittest.TestCase):
         """
         text_str = "Source hash: `abc1`\n\n`a.test` failed\n"
         self.assertEqual(len(matrix_problems(text_str, "abc1")), 1)
+
+
+ENVIRONMENT_ENTRY_STR = ("Environment, PyQt6: 2 tests shown as \"Fail* (PyQt6 "
+                         "missing)\". PyQt6 cannot be installed in the "
+                         "environment that built this matrix.")
+NOT_IMPLEMENTED_ENTRY_STR = ("Not implemented, HLFR-00014: Fail* in column 4, "
+                             "the implementation has not been done yet. "
+                             "Waits for #190.")
+FAIL_STAR_MATRIX_STR = (
+    "# Test matrix\n\nSource hash: `abc1`\n\n## Fail* (PCR-00070)\n\n"
+    f"- {ENVIRONMENT_ENTRY_STR}\n- {NOT_IMPLEMENTED_ENTRY_STR}\n\n"
+    "| HLFR | LLFR | Tests (last run status) | Result |\n|---|---|---|---|\n"
+    "| HLFR-00001 A | LLFR-00001 | `view.test_a` Fail* (PyQt6 missing)"
+    "<br>`model.test_b` passed | Fail* (PyQt6 missing) |\n")
+
+
+class FailStarMatrixTest(unittest.TestCase):
+    """Check how a committed matrix with Fail* is judged."""
+
+    @covers("PCR-00064")
+    def test_environment_fail_star_counts_as_passed(self) -> None:
+        """An environment Fail* isn't a failed test, into any branch.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        text_str = FAIL_STAR_MATRIX_STR.replace(
+            f"- {NOT_IMPLEMENTED_ENTRY_STR}\n", "")
+        self.assertEqual(matrix_problems(text_str, "abc1", "develop"), [])
+        self.assertEqual(matrix_problems(text_str, "abc1", "main"), [])
+
+    @covers("PCR-00068", "PCR-00069")
+    def test_not_implemented_only_into_develop(self) -> None:
+        """A not-implemented Fail* goes into develop, never into main.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(
+            matrix_problems(FAIL_STAR_MATRIX_STR, "abc1", "develop"), [])
+        problem_list = matrix_problems(FAIL_STAR_MATRIX_STR, "abc1", "main")
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("HLFR-00014", problem_list[0])
+
+    @covers("PCR-00061", "PCR-00063")
+    def test_fail_star_cells_are_tests_of_the_matrix(self) -> None:
+        """The comparison with the CI matrix sees the Fail* tests too.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(
+            set(re.findall(TEST_CELL_PATTERN_STR, FAIL_STAR_MATRIX_STR)),
+            {"view.test_a", "model.test_b"})
+
+
+class FailStarDescriptionTest(unittest.TestCase):
+    """Check the Fail* section at the top of the description."""
+
+    @covers("PCR-00070")
+    def test_entries_are_read(self) -> None:
+        """The entries of the section are read, and nothing else.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(fail_star_entries(FAIL_STAR_MATRIX_STR),
+                         [ENVIRONMENT_ENTRY_STR, NOT_IMPLEMENTED_ENTRY_STR])
+        self.assertEqual(fail_star_entries("# Test matrix\n\n| a |\n"), [])
+
+    @covers("PCR-00070")
+    def test_complete_section_first_passes(self) -> None:
+        """A description that starts with every entry passes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        body_str = (f"\n## Fail* (PCR-00070)\n\n- {ENVIRONMENT_ENTRY_STR}\n"
+                    f"- {NOT_IMPLEMENTED_ENTRY_STR}\n\n## Summary\n\nText\n")
+        self.assertTrue(starts_with_fail_star_section(body_str))
+        self.assertEqual(description_problems(body_str, FAIL_STAR_MATRIX_STR),
+                         [])
+
+    @covers("PCR-00070")
+    def test_section_not_first_or_incomplete_fails(self) -> None:
+        """The section must be first and hold every entry.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        late_body_str = (f"Closes #1\n\n## Fail* (PCR-00070)\n\n"
+                         f"- {ENVIRONMENT_ENTRY_STR}\n"
+                         f"- {NOT_IMPLEMENTED_ENTRY_STR}\n")
+        self.assertFalse(starts_with_fail_star_section(late_body_str))
+        self.assertEqual(
+            len(description_problems(late_body_str, FAIL_STAR_MATRIX_STR)), 1)
+        short_body_str = f"## Fail* (PCR-00070)\n\n- {ENVIRONMENT_ENTRY_STR}\n"
+        problem_list = description_problems(short_body_str,
+                                            FAIL_STAR_MATRIX_STR)
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("HLFR-00014", problem_list[0])
+        self.assertEqual(len(description_problems("", FAIL_STAR_MATRIX_STR)),
+                         1)
+
+    @covers("PCR-00070")
+    def test_matrix_without_fail_star_needs_no_section(self) -> None:
+        """With no Fail* in the matrix, any description passes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(description_problems(
+            "Closes #1", "Source hash: `a`\n\n| a |\n"), [])
 
 
 class TargetTest(unittest.TestCase):
