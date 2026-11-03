@@ -1,0 +1,31 @@
+name: Release pull request
+
+# PCR-00051: a pull request into main must show the result of the
+# requirements review of PCR-00050. A separate workflow, so that editing
+# the description runs only this short check and not the whole test
+# suite. The description goes through an environment variable, so its
+# text is never read as shell code.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  requirement-validation-section:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the requirements review section
+        env:
+          PULL_REQUEST_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PULL_REQUEST_BODY" > pull_request_body.md
+          python tests/check_release_pr.py --body-file pull_request_body.md
