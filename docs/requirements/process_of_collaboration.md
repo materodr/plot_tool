@@ -119,6 +119,30 @@ The fourth column of the test matrix must contain "fail" if at least one test of
 ### PCR-00024 Test coverage
 Agents must write tests that robustly cover every aspect of the high-level functional requirements.
 
+### PCR-00057 Tests of a pull request into develop
+A pull request into `develop` must run every test.
+
+### PCR-00058 Tests of a pull request into main
+A pull request from `develop` to `main` must run every test.
+
+### PCR-00059 Affected requirements without tests
+The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test.
+
+Note: A branch affects an HLFR when it changes the text of the HLFR or of a child LLFR, or a function in `src` that names a child LLFR. For a pull request into `main`, these are the changes since the last merge into `main`.
+
+### PCR-00060 Branch up to date before a pull request into develop
+A branch must contain the latest commit of `develop` when its pull request into `develop` is opened.
+
+### PCR-00061 Test matrix built from the branch
+The test matrix committed on the branch of a pull request into `develop` or `main` must come from a run of every test on the code of that branch.
+
+Note: The matrix holds a hash of the files it was built from, so its own commit doesn't make it old.
+
+### PCR-00062 Tests passed before a pull request
+A pull request into `develop` or `main` must be opened only when every test of the run of PCR-00061 has passed, except a test of `tests/known_macos_failures.txt` that fails on macOS.
+
+Note: Such a test shows as "known macOS failure" in the matrix and doesn't make column 4 show "fail".
+
 ### PCR-00025 Stable permanent branches
 The `develop` and `main` branches must be kept free of crashes.
 

@@ -1,12 +1,15 @@
 """Self-tests for tests/build_test_matrix.py (PCR-00022, PCR-00023,
-PCR-00042)."""
+PCR-00042, PCR-00059)."""
 
 import io
 import unittest
+from unittest import mock
 
-from tests.build_test_matrix import (FAILED_STR, PASSED_STR, SKIPPED_STR,
+from tests.build_test_matrix import (FAILED_STR, KNOWN_FAILURE_STR,
+                                     PASSED_STR, SKIPPED_STR,
                                      RecordingResult, build_matrix,
-                                     hlfr_result)
+                                     hlfr_result, mark_known_failures,
+                                     untested_hlfrs)
 from tests.support import covers
 
 
@@ -139,6 +142,50 @@ class MatrixResultTest(unittest.TestCase):
         self.assertIn("`sample.test_x` failed", row_list[0])
         self.assertTrue(row_list[0].rstrip().endswith("| fail |"))
         self.assertNotIn("LLFR-00024", untested_list)
+
+
+class KnownFailureTest(unittest.TestCase):
+    """Check the tests that are known to fail on macOS."""
+
+    @covers("PCR-00062")
+    def test_only_listed_failures_on_macos_change(self) -> None:
+        """A listed failure changes on macOS, and nothing else does.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        status_list = [("a", [], FAILED_STR), ("b", [], FAILED_STR),
+                       ("c", [], PASSED_STR)]
+        marked_list = mark_known_failures(status_list, "darwin", {"a", "c"})
+        self.assertEqual([item[2] for item in marked_list],
+                         [KNOWN_FAILURE_STR, FAILED_STR, PASSED_STR])
+        self.assertEqual(mark_known_failures(status_list, "linux", {"a"}),
+                         status_list)
+        self.assertEqual(hlfr_result([KNOWN_FAILURE_STR, PASSED_STR]), "pass")
+
+
+class UntestedHlfrTest(unittest.TestCase):
+    """Check which affected HLFRs count as having no test."""
+
+    @covers("PCR-00059")
+    def test_only_given_hlfrs_without_links_are_listed(self) -> None:
+        """A test of the HLFR or of a child LLFR counts as its test.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        requirements_tuple = ([], {"HLFR-00001": ["LLFR-00001"],
+                                   "HLFR-00002": [],
+                                   "HLFR-00003": [],
+                                   "HLFR-00004": []})
+        status_list = [("a", ["LLFR-00001"], PASSED_STR),
+                       ("b", ["HLFR-00002"], PASSED_STR)]
+        with mock.patch("tests.build_test_matrix.read_requirements",
+                        return_value=requirements_tuple):
+            self.assertEqual(
+                untested_hlfrs(status_list, {"HLFR-00001", "HLFR-00002",
+                                             "HLFR-00003"}),
+                ["HLFR-00003"])
 
 
 if __name__ == "__main__":
