@@ -1474,9 +1474,14 @@ When a file is opened or replaced, the numbering of new tabs (LLFR-00210) must r
 *Parent: HLFR-00015*
 
 ### LLFR-00212 New tab name not in use
-When the app names a new tab (LLFR-00210), it must skip every number N for which another tab is already named "Tab N", so that no two tabs share a name. A skipped number is used up like the number of a deleted tab.
+When the app names a new tab (LLFR-00210), it must skip every number N for which another tab is already named "Tab N", so that no two tabs share a name.
 
 Note: For example, after the user renames "Tab 2" to "Tab 3", the next new tab is named "Tab 4". Names are compared as in LLFR-70005.
+
+*Parent: HLFR-00015*
+
+### LLFR-70084 Skipped tab numbers used up
+A number skipped when the app names a new tab (LLFR-00212) must be used up like the number of a deleted tab (LLFR-70001).
 
 *Parent: HLFR-00015*
 
@@ -1662,7 +1667,12 @@ All time plots in all tabs must share the same x-axis range, so that a change to
 *Parent: HLFR-00014, HLFR-00027, HLFR-00036*
 
 ### LLFR-00074 Mouse wheel zoom
-When the user turns the mouse wheel over a plot, the app must zoom in the plot's x-axis when the wheel turns forward and zoom out when it turns backward, centered on the time (the frequency, on a frequency plot) under the mouse pointer.
+When the user turns the mouse wheel forward over a plot, the app must zoom in the plot's x-axis, centered on the time (the frequency, on a frequency plot) under the mouse pointer.
+
+*Parent: HLFR-00027*
+
+### LLFR-70085 Mouse wheel zoom out
+When the user turns the mouse wheel backward over a plot, the app must zoom out the plot's x-axis, centered on the time (the frequency, on a frequency plot) under the mouse pointer.
 
 *Parent: HLFR-00027*
 
@@ -1701,7 +1711,7 @@ Note: A flag stays easy to tell from a curve by its dashed line (LLFR-00143) and
 *Parent: HLFR-00028, HLFR-00020*
 
 ### LLFR-70006 Other uses of the reserved marker color
-The reserved marker color (LLFR-00083) must also be the color of every new delta marker (LLFR-00172), of every new arrow (LLFR-00373), of the border of every new text note (LLFR-70075), of the dot of a first point (LLFR-00163), of the delta marker previews (LLFR-00352, LLFR-00353), of the time span selection (LLFR-00208) and of the flag preview (LLFR-00203), whatever color the user gave to the flags or to the delta markers.
+The reserved marker color (LLFR-00083) must also be the color of every new delta marker (LLFR-00172), of every new arrow (LLFR-00373), of the border of every new text note (LLFR-70075), of the dot of a first point (LLFR-70089), of the delta marker previews (LLFR-00352, LLFR-00353), of the time span selection (LLFR-00208) and of the flag preview (LLFR-00203), whatever color the user gave to the flags or to the delta markers.
 
 *Parent: HLFR-00028, HLFR-00020*
 
@@ -1829,7 +1839,7 @@ The "+" button (LLFR-00025) must be narrower than a tab, like the new tab button
 *Parent: HLFR-00015*
 
 ### LLFR-00108 Wheel zoom with any plot tool
-The app must apply mouse wheel zoom (LLFR-00074) whether or not a plot tool is active.
+The app must apply mouse wheel zoom (LLFR-00074, LLFR-70085) whether or not a plot tool is active.
 
 Note: Mouse wheel zoom is not a plot tool (HLFR-00032).
 
@@ -1851,17 +1861,27 @@ After the user types a new flag name (LLFR-00088), the app must show the new nam
 *Parent: HLFR-00030*
 
 ### LLFR-00113 Wheel zoom step
-Each notch of the mouse wheel (15 degrees of rotation) must change the x-axis range of the plot by 5%: turning forward narrows the range to 95% of its width, and turning backward widens it to 1/0.95 of its width.
+Each notch of the mouse wheel (15 degrees of rotation) turned forward must change the x-axis range of the plot by 5%, narrowing the range to 95% of its width.
+
+*Parent: HLFR-00027*
+
+### LLFR-70086 Wheel zoom step backward
+Each notch of the mouse wheel (15 degrees of rotation) turned backward must change the x-axis range of the plot by 5%, widening the range to 1/0.95 of its width.
 
 *Parent: HLFR-00027*
 
 ### LLFR-70016 Wheel zoom for smaller movements
-Wheel movements smaller than a notch (LLFR-00113), such as from a touchpad, must zoom in proportion.
+Wheel movements smaller than a notch (LLFR-00113, LLFR-70086), such as from a touchpad, must zoom in proportion.
 
 *Parent: HLFR-00027*
 
 ### LLFR-00206 Wheel direction on a trackpad
-On macOS, the app must zoom in when the user's fingers move up on the trackpad and zoom out when they move down, as with the mouse wheel turning forward and backward (LLFR-00074), whatever the system's "natural scrolling" setting.
+On macOS, the app must zoom in when the user's fingers move up on the trackpad, as with the mouse wheel turning forward (LLFR-00074), whatever the system's "natural scrolling" setting.
+
+*Parent: HLFR-00027*
+
+### LLFR-70087 Trackpad fingers down zoom out
+On macOS, the app must zoom out when the user's fingers move down on the trackpad, as with the mouse wheel turning backward (LLFR-70085), whatever the system's "natural scrolling" setting.
 
 *Parent: HLFR-00027*
 
@@ -1871,9 +1891,14 @@ While the Zoom button (LLFR-00077) is active and the user presses the left mouse
 *Parent: HLFR-00027*
 
 ### LLFR-00209 Zoom to the selected span
-When the user releases the left mouse button after LLFR-00208, the app must set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every time plot (LLFR-00070), with the y-axis ranges set as in LLFR-00076. On a frequency plot, the span zoom changes only that plot (LLFR-70029) and is limited as in LLFR-70030.
+When the user releases the left mouse button after LLFR-00208, the app must set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every time plot (LLFR-00070). On a frequency plot, the span zoom changes only that plot (LLFR-70029) and is limited as in LLFR-70030.
 
 Note: A release less than 5 pixels from the press is a click (LLFR-00078).
+
+*Parent: HLFR-00027*
+
+### LLFR-70088 Y-axis ranges after a span zoom
+When the span zoom (LLFR-00209) sets the x-axis range, the app must set the y-axis ranges as in LLFR-00076.
 
 *Parent: HLFR-00027*
 
@@ -1980,12 +2005,27 @@ A left mouse button press on a pinned data tip (LLFR-00153) must not pin a new d
 *Parent: HLFR-00041, HLFR-00032*
 
 ### LLFR-00163 Pick the first point
-While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active and the user left-clicks a curve, the app must take the curve sample nearest to the mouse pointer as the first point of a measurement and mark it in the plot with a dot.
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active and the user left-clicks a curve, the app must take the curve sample nearest to the mouse pointer as the first point of a measurement.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-70089 Dot of the first point
+When the app takes a first point (LLFR-00163), it must mark it in the plot with a dot.
 
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00164 Pick the second point
-When the user then left-clicks a curve in the same plot, the app must take the curve sample nearest to the mouse pointer as the second point, remove the dot of LLFR-00163 and draw a Delta X marker (LLFR-00168) or a Delta Y marker (LLFR-00170, LLFR-70024) between the two points, according to the active button, except as in LLFR-00431. The two points may be on the same curve or on different curves.
+When the user then left-clicks a curve in the same plot, the app must take the curve sample nearest to the mouse pointer as the second point. The two points may be on the same curve or on different curves.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-70090 First point dot removed
+When the app takes the second point (LLFR-00164), it must remove the dot of LLFR-70089, except as in LLFR-00431.
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-70091 Draw the delta marker
+When the app takes the second point (LLFR-00164), it must draw a Delta X marker (LLFR-00168) or a Delta Y marker (LLFR-00170, LLFR-70024) between the two points, according to the active button, except as in LLFR-00431.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -2000,7 +2040,12 @@ While a first point is picked (LLFR-00163), a left-click that is not on a curve 
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00166 First point in another plot
-While a first point is picked (LLFR-00163), a left-click on a curve in another plot must discard the first point and its dot and take the clicked sample as the new first point (LLFR-00163).
+While a first point is picked (LLFR-00163), a left-click on a curve in another plot must take the clicked sample as the new first point (LLFR-00163).
+
+*Parent: HLFR-00043, HLFR-00044*
+
+### LLFR-70092 Old first point discarded
+While a first point is picked (LLFR-00163), a left-click on a curve in another plot must discard the first point and its dot.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -2044,7 +2089,7 @@ The app must draw every new delta marker in the reserved marker color (LLFR-0008
 *Parent: HLFR-00043, HLFR-00044, HLFR-00020, HLFR-00092*
 
 ### LLFR-70025 First point dot and previews color
-The dot of a first point (LLFR-00163) and the previews of LLFR-00352 and LLFR-00353 must always be drawn in the reserved marker color (LLFR-00083), whatever color the user gave to the flags or to the delta markers.
+The dot of a first point (LLFR-70089) and the previews of LLFR-00352 and LLFR-00353 must always be drawn in the reserved marker color (LLFR-00083), whatever color the user gave to the flags or to the delta markers.
 
 *Parent: HLFR-00043, HLFR-00044, HLFR-00020, HLFR-00092*
 
@@ -2091,12 +2136,27 @@ Note: When the plot grows again, the data tip returns towards the position the u
 *Parent: HLFR-00025, HLFR-00041*
 
 ### LLFR-00180 Time range of a new plot
-A new time plot must show the x-axis range shared by the existing time plots (LLFR-00070), or the whole time range of the file when no other time plot exists.
+When other time plots exist, a new time plot must show the x-axis range shared by the existing time plots (LLFR-00070).
+
+*Parent: HLFR-00012, HLFR-00014*
+
+### LLFR-70093 Time range of the first time plot
+When no other time plot exists, a new time plot must show the whole time range of the file.
 
 *Parent: HLFR-00012, HLFR-00014*
 
 ### LLFR-00256 Frequency plot
-When the user double-clicks an FFT signal (LLFR-00019), the app must create a frequency plot in the current tab, with frequency in Hz on its x-axis, labeled "Frequency (Hz)", and draw the FFT signal in it. A frequency plot counts towards the maximum number of plots of a tab (HLFR-00018).
+When the user double-clicks an FFT signal (LLFR-00019), the app must create a frequency plot in the current tab, with frequency in Hz on its x-axis, labeled "Frequency (Hz)".
+
+*Parent: HLFR-00058*
+
+### LLFR-70094 FFT signal drawn in its frequency plot
+When the app creates a frequency plot by double-click (LLFR-00256), it must draw the double-clicked FFT signal in it.
+
+*Parent: HLFR-00058*
+
+### LLFR-70095 Frequency plots in the plot count
+A frequency plot must count towards the maximum number of plots of a tab (HLFR-00018).
 
 *Parent: HLFR-00058*
 
@@ -2121,12 +2181,12 @@ A new frequency plot must show the frequencies from 0 Hz up to the highest frequ
 *Parent: HLFR-00058*
 
 ### LLFR-70029 Zoom and pan on one frequency plot
-Mouse wheel zoom (LLFR-00074), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345, LLFR-00356) must change only the frequency plot they are used on.
+Mouse wheel zoom (LLFR-00074, LLFR-70085), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345, LLFR-00356) must change only the frequency plot they are used on.
 
 *Parent: HLFR-00058, HLFR-00027, HLFR-00036*
 
 ### LLFR-70030 Zoom and pan limits on a frequency plot
-On a frequency plot, mouse wheel zoom (LLFR-00074), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345, LLFR-00356) must be limited to the frequency range of LLFR-70028.
+On a frequency plot, mouse wheel zoom (LLFR-00074, LLFR-70085), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345, LLFR-00356) must be limited to the frequency range of LLFR-70028.
 
 *Parent: HLFR-00058, HLFR-00027, HLFR-00036*
 
@@ -2238,7 +2298,12 @@ The app must name each new area "Area N", where N is 1 for the first area create
 *Parent: HLFR-00066*
 
 ### LLFR-70042 Area numbers not reused
-The app must not reuse the number of a deleted area (LLFR-00309), even when the area's creation is undone, until a file is opened or replaced. When the user renames an area "Area N" (LLFR-00315), the number N is used up, like a skipped tab number (LLFR-00212), so that a later new area never gets that name.
+The app must not reuse the number of a deleted area (LLFR-00309), even when the area's creation is undone, until a file is opened or replaced.
+
+*Parent: HLFR-00066*
+
+### LLFR-70096 Renamed area number used up
+When the user renames an area "Area N" (LLFR-00315), the number N must be used up, like a skipped tab number (LLFR-70084), so that a later new area never gets that name.
 
 *Parent: HLFR-00066*
 
