@@ -1,0 +1,7 @@
+# HLFRs whose implementation has not been done yet (PCR-00066). One HLFR ID
+# per line, followed by the explanation, for example:
+#   HLFR-00113 The requirements are in develop; the code comes with #190.
+# The test matrix shows them as Fail* in column 4 (PCR-00065), and a pull
+# request into develop may affect them with no test (PCR-00068). A pull
+# request from develop to main must list none (PCR-00069). Remove an HLFR
+# from this list when its implementation is done (PCR-00067).
