@@ -417,7 +417,7 @@ class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):
                          DELTA_Y_KIND_STR)
 
     @covers("LLFR-00353", "LLFR-00163", "LLFR-00164", "LLFR-00680",
-            "LLFR-00681")
+            "LLFR-00681", "LLFR-00432")
     def test_preview_follows_the_first_point_as_it_is_picked(self) -> None:
         """Picking a first point turns the dot into a marker preview;
         placing the marker turns it back into a dot.
@@ -428,11 +428,14 @@ class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.set_plot_tool(DELTA_X_TOOL_STR)
         self.hover(*self.sine_point(3.0)[1:])
         self.assertFalse(self.plot_widget.delta_preview_marker_shown())
-        # The controller answers the click with the first point.
+        # The controller answers the click with the first point. The
+        # pointer is still on it, where a marker would measure zero, so
+        # no preview is shown (LLFR-00432).
         self.plot_widget.set_delta_first_point(self.sine_point(3.0))
-        self.assertTrue(self.plot_widget.delta_preview_marker_shown())
-        self.assertEqual(self.plot_widget.delta_preview_text(), "Δt = 0 s")
+        self.assertFalse(self.plot_widget.delta_preview_marker_shown())
+        self.assertEqual(self.plot_widget.delta_preview_text(), "")
         self.hover(*self.sine_point(4.0)[1:])
+        self.assertTrue(self.plot_widget.delta_preview_marker_shown())
         self.assertEqual(self.plot_widget.delta_preview_text(), "Δt = 1 s")
         # The second click places the marker; the first point goes.
         self.plot_widget.set_delta_first_point(())
