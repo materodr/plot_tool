@@ -23,7 +23,7 @@ Note: Every issue must be created from one of the two templates: [Fix](../../.gi
 ### PCR-00005 Branch linked to an issue
 Feature and fix branches must always be created pointing to an issue.
 
-### PCR-40001 Issue in the branch name
+### PCR-00039 Issue in the branch name
 The issue that a feature or fix branch points to (PCR-00005) must be explicit in the branch name.
 
 ### PCR-00006 Fix issue contents
@@ -53,7 +53,7 @@ The urgency of a feature must be classified as low, medium or high.
 ### PCR-00010 Work priority of features
 Priority of work must be given to feature issues with higher urgency.
 
-### PCR-40006 Work priority of fixes
+### PCR-00040 Work priority of fixes
 Priority of work must be given to fix issues with higher severity.
 
 ### PCR-00011 Fixes before features
@@ -65,7 +65,7 @@ A feature or fix must only start to be tackled when the issue that tracks it has
 ### PCR-00013 Correlated bugs found during work
 If a new bug is found while creating a feature or fixing a bug, and the bug is correlated with the ongoing work, it must be fixed under the same issue.
 
-### PCR-40002 Uncorrelated bugs found during work
+### PCR-00041 Uncorrelated bugs found during work
 If a new bug is found while creating a feature or fixing a bug, and the bug is not correlated with the ongoing work, a new issue must be opened.
 
 ### PCR-00014 Pull request preconditions
@@ -98,7 +98,7 @@ The third column must contain the tests linked to each HLFR and the last run sta
 ### PCR-00023 Test matrix column 4
 The fourth column must contain "pass" if all tests of the HLFR passed.
 
-### PCR-40007 Test matrix column 4 on a failure
+### PCR-00042 Test matrix column 4 on a failure
 The fourth column of the test matrix must contain "fail" if at least one test of the HLFR failed.
 
 ### PCR-00024 Test coverage
@@ -113,13 +113,13 @@ Worktrees must be used to give each agent a separate environment.
 ### PCR-00027 Deleted requirement ID kept
 When a requirement is deleted, its ID must stay in the file.
 
-### PCR-40003 Deleted requirement text
+### PCR-00043 Deleted requirement text
 When a requirement is deleted, its title and text must be replaced by `DELETED`.
 
-### PCR-40004 Deleted IDs not reused
+### PCR-00044 Deleted IDs not reused
 The ID of a deleted requirement must never be reused.
 
-### PCR-40005 Numbering after a deletion
+### PCR-00045 Numbering after a deletion
 When a requirement is deleted, new requirements must continue from the next number.
 
 ### PCR-00028 Functional requirement categories

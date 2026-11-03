@@ -23,7 +23,7 @@ The `tests` folder must contain all the tests used to evaluate the code.
 ### COR-00007 Contents of bin
 The `bin` folder must contain the standalone executables built from the code in `src` (for example with PyInstaller) and the copy of the sample files of COR-00020.
 
-### COR-40001 Build outputs not committed
+### COR-00021 Build outputs not committed
 Build outputs must not be committed to the repository.
 
 ### COR-00008 Layout of src
@@ -41,7 +41,7 @@ A new external library must only be added when there is high confidence that the
 ### COR-00012 Meaningful names
 The names of variables, classes and methods must be meaningful and self-explanatory.
 
-### COR-40002 No unnecessary abbreviations
+### COR-00022 No unnecessary abbreviations
 In the names of variables, classes and methods, unnecessary abbreviations must be avoided.
 
 ### COR-00013 Variable name length

@@ -17,7 +17,7 @@ An ID is a prefix, a hyphen and a 5-digit integer padded with zeros: `<PREFIX>-<
 - Five digits give room for 10000 requirements per prefix and beyond (up to `99999`).
 - No sub-numbering (no `1.2`). An LLFR is linked to its HLFR with a `Parent:` line, not through its number.
 - An ID is never reused or renumbered. New requirements continue from the next number, even after a deletion.
-- A deleted requirement keeps its ID in the file, and its title and text are replaced by `DELETED` (PCR-00027).
+- A deleted requirement keeps its ID in the file, and its title and text are replaced by `DELETED` (PCR-00027, PCR-00043).
 - Regular expression for a valid ID: `^(COR|PCR|HLFR|LLFR)-\d{5}$`
 
 ## Requirement entry
