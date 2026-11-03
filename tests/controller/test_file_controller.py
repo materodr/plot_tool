@@ -373,7 +373,8 @@ class FileControllerTest(unittest.TestCase):
 
     @covers("LLFR-00010", "LLFR-00008", "LLFR-00009", "LLFR-00011",
             "LLFR-00012", "HLFR-00010", "LLFR-00013", "LLFR-00328",
-            "LLFR-00418", "LLFR-00363")
+            "LLFR-00418", "LLFR-00363", "HLFR-00101", "LLFR-00448",
+            "LLFR-00510", "LLFR-00511", "LLFR-00651")
     def test_failed_open_keeps_previous_file(self) -> None:
         """Proceeding, then a failed read, keeps the previous file.
 
@@ -444,7 +445,7 @@ class FileControllerTest(unittest.TestCase):
                          [(self.second_file, True)])
 
     @covers("LLFR-00014", "HLFR-00010", "LLFR-00003", "LLFR-00010",
-            "LLFR-00328", "LLFR-00418")
+            "LLFR-00328", "LLFR-00418", "LLFR-00449", "LLFR-00450")
     def test_replace_declined_keeps_current_file(self) -> None:
         """No in the confirmation keeps the file; nothing is read.
 
@@ -561,7 +562,7 @@ class FileControllerTest(unittest.TestCase):
 class StartFolderTest(unittest.TestCase):
     """Check the folder shown by the file selection dialog (LLFR-00204)."""
 
-    @covers("LLFR-00204", "LLFR-00005")
+    @covers("LLFR-00204", "LLFR-00005", "LLFR-00446")
     def test_from_source_the_repository_folder(self) -> None:
         """Run from source, the first folder is the repository folder.
 
@@ -607,7 +608,7 @@ class StartFolderTest(unittest.TestCase):
         self.assertEqual(first_start_folder_str(True, executable_path_str),
                          "/Users/me/Apps/bin")
 
-    @covers("LLFR-00204")
+    @covers("LLFR-00204", "LLFR-00446")
     def test_defaults_read_sys(self) -> None:
         """Without arguments the folder comes from sys.frozen.
 
@@ -626,7 +627,7 @@ class StartFolderTest(unittest.TestCase):
                          first_start_folder_str())
 
     @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010",
-            "LLFR-00014")
+            "LLFR-00014", "LLFR-00447")
     def test_folder_follows_only_successful_opens(self) -> None:
         """Cancel, failed open and declined replace keep the folder.
 
@@ -692,7 +693,7 @@ class FileControllerRealLoaderTest(unittest.TestCase):
 
     @covers("LLFR-00006", "LLFR-00054", "LLFR-00008", "LLFR-00009",
             "LLFR-00010", "LLFR-00011", "LLFR-00012", "LLFR-00013",
-            "LLFR-00014", "LLFR-00017", "HLFR-00010")
+            "LLFR-00014", "LLFR-00017", "HLFR-00010", "HLFR-00101")
     def test_real_messages_reach_the_view(self) -> None:
         """Real files open, fail with the loader's messages, or replace.
 
@@ -734,7 +735,7 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         self.assertEqual(view.time_signal_name_list, ["Time", "Time"])
 
     @covers("LLFR-00325", "LLFR-00326", "LLFR-00328", "LLFR-00329",
-            "LLFR-00068", "HLFR-00070", "HLFR-00007")
+            "LLFR-00068", "HLFR-00070", "HLFR-00007", "LLFR-00507")
     def test_real_file_without_time_asks_for_it(self) -> None:
         """A real CSV whose x column is "t_s" opens after the choice.
 
@@ -904,7 +905,7 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertEqual(controller.dialog_folder_str, "/data")
         self.assertFalse(view.loading_shown_b)
 
-    @covers("LLFR-00418", "LLFR-00328", "LLFR-00006")
+    @covers("LLFR-00418", "LLFR-00328", "LLFR-00006", "LLFR-00560")
     def test_first_file_read_under_the_indication(self) -> None:
         """The first file is read while "Loading..." is shown.
 
@@ -921,7 +922,8 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertNotIn("ask_replace_file", view.call_list)
         self.assertIs(controller.current_file, self.first_file)
 
-    @covers("LLFR-00418", "LLFR-00328", "LLFR-00013", "HLFR-00010")
+    @covers("LLFR-00418", "LLFR-00328", "LLFR-00013", "HLFR-00010",
+            "LLFR-00448", "LLFR-00564")
     def test_replace_accepted_order(self) -> None:
         """Confirmation without indication, then the read under it.
 
@@ -940,7 +942,8 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertIs(controller.current_file, self.second_file)
         self.assertEqual(self.listener_call_list, [(self.second_file, True)])
 
-    @covers("LLFR-00014", "LLFR-00328", "LLFR-00418", "LLFR-00010")
+    @covers("LLFR-00014", "LLFR-00328", "LLFR-00418", "LLFR-00010",
+            "LLFR-00449", "LLFR-00450", "LLFR-00564")
     def test_replace_declined_order(self) -> None:
         """Declined: the file is not read and no indication is shown.
 
@@ -958,7 +961,8 @@ class OpeningOrderTest(unittest.TestCase):
         self.assert_previous_file_kept(controller, view)
 
     @covers("LLFR-00008", "LLFR-00009", "LLFR-00011", "LLFR-00012",
-            "LLFR-00010", "LLFR-00013", "LLFR-00328", "LLFR-00418")
+            "LLFR-00010", "LLFR-00013", "LLFR-00328", "LLFR-00418",
+            "LLFR-00448", "LLFR-00510", "LLFR-00511", "LLFR-00562")
     def test_error_after_proceeding_order(self) -> None:
         """Every File Open Error after Yes: box after the indication.
 
@@ -982,7 +986,8 @@ class OpeningOrderTest(unittest.TestCase):
                                  "finish_open_file_button")
                 self.assert_previous_file_kept(controller, view)
 
-    @covers("LLFR-00011", "LLFR-00328", "LLFR-00418", "LLFR-00010")
+    @covers("LLFR-00011", "LLFR-00328", "LLFR-00418", "LLFR-00010",
+            "LLFR-00510")
     def test_unsupported_format_after_proceeding(self) -> None:
         """A real .txt file after Yes gives the unsupported format box.
 
@@ -1016,7 +1021,8 @@ class OpeningOrderTest(unittest.TestCase):
         self.assert_previous_file_kept(controller, view)
 
     @covers("LLFR-00327", "LLFR-00328", "LLFR-00418", "LLFR-00010",
-            "LLFR-00325")
+            "LLFR-00325", "LLFR-00508", "LLFR-00509", "LLFR-00512",
+            "LLFR-00513", "LLFR-00562")
     def test_time_window_cancelled_after_proceeding(self) -> None:
         """Yes, read under the indication, window without it, cancel.
 
@@ -1034,7 +1040,8 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertEqual(view.error_message_list, [])
         self.assert_previous_file_kept(controller, view)
 
-    @covers("LLFR-00326", "LLFR-00328", "LLFR-00418", "LLFR-00013")
+    @covers("LLFR-00326", "LLFR-00328", "LLFR-00418", "LLFR-00013",
+            "LLFR-00448", "LLFR-00507")
     def test_time_window_confirmed_after_proceeding(self) -> None:
         """Yes, read, window, then only now the file is replaced.
 
@@ -1054,7 +1061,7 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertIs(controller.current_file, no_time_file)
         self.assertEqual(self.listener_call_list, [(no_time_file, True)])
 
-    @covers("LLFR-00418")
+    @covers("LLFR-00418", "LLFR-00561", "LLFR-00562")
     def test_indication_removed_when_reading_is_interrupted(self) -> None:
         """Even an exception that is not caught removes the indication.
 
@@ -1138,7 +1145,7 @@ class TimeSignalWindowTest(unittest.TestCase):
                          [(self.no_time_file, False)])
 
     @covers("LLFR-00325", "LLFR-00285", "LLFR-00098", "LLFR-00101",
-            "LLFR-00102")
+            "LLFR-00102", "LLFR-00618")
     def test_window_search_uses_signal_list_rules(self) -> None:
         """The window's search finds names like the signal list search.
 
@@ -1192,7 +1199,8 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.assertEqual(self.listener_call_list, [])
 
     @covers("LLFR-00327", "HLFR-00070", "LLFR-00003", "LLFR-00010",
-            "LLFR-00328", "LLFR-00418", "LLFR-00363")
+            "LLFR-00328", "LLFR-00418", "LLFR-00363", "LLFR-00508",
+            "LLFR-00512", "LLFR-00651")
     def test_cancel_keeps_the_current_file(self) -> None:
         """Proceeding, then cancelling the window, opens nothing.
 
@@ -1222,7 +1230,7 @@ class TimeSignalWindowTest(unittest.TestCase):
                          os.path.dirname(os.path.abspath(FIRST_PATH_STR)))
 
     @covers("LLFR-00328", "HLFR-00010", "LLFR-00013", "LLFR-00014",
-            "LLFR-00418")
+            "LLFR-00418", "LLFR-00449")
     def test_replace_confirmation_comes_before_the_window(self) -> None:
         """The confirmation is asked first; declined, nothing is read.
 
@@ -1266,7 +1274,8 @@ class TimeSignalWindowTest(unittest.TestCase):
             "ask_open_file_path", *LOADING_CALL_LIST,
             "show_file_open_error", "finish_open_file_button"])
 
-    @covers("LLFR-00331", "LLFR-00324", "HLFR-00072", "HLFR-00070")
+    @covers("LLFR-00331", "LLFR-00324", "HLFR-00072", "HLFR-00070",
+            "LLFR-00505")
     def test_file_with_time_never_shows_the_window(self) -> None:
         """Opening (and reopening) a file with a Time match asks nothing.
 

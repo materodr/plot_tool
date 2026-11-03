@@ -316,7 +316,7 @@ class IconShapeDataTest(unittest.TestCase):
                 self.assertNotEqual(
                     icon_shapes.icon_layer_list(icon_name_str), layer_list)
 
-    @covers("LLFR-00160")
+    @covers("LLFR-00160", "LLFR-00461")
     def test_icon_colors_have_contrast_in_every_state(self) -> None:
         """Icon vs background is at least 3:1; disabled is paler.
 
@@ -346,7 +346,7 @@ class IconShapeDataTest(unittest.TestCase):
             theme.contrast_ratio_f(theme.ICON_COLOR_STR,
                                    theme.NORMAL_COLOR_STR))
 
-    @covers("LLFR-00183")
+    @covers("LLFR-00183", "LLFR-00445")
     def test_app_icon_shape_uses_palette_blue_and_red(self) -> None:
         """The app icon has a square, axes, a blue and a red curve.
 
@@ -482,7 +482,7 @@ class ButtonIconTest(unittest.TestCase):
                 self.assertEqual(button_tip_line_list(button)[0], name_str)
                 self.assertEqual(button.accessibleName(), name_str)
 
-    @covers("LLFR-00181")
+    @covers("LLFR-00181", "LLFR-00462")
     def test_tooltip_shows_on_hover_and_hides_on_leave(self) -> None:
         """Hovering shows the name next to the pointer; leaving hides it.
 
@@ -531,7 +531,7 @@ class ButtonIconTest(unittest.TestCase):
                     digest_set.add(image_digest_str(image))
             self.assertEqual(len(digest_set), len(REQUIRED_ICON_TUPLE))
 
-    @covers("LLFR-00159", "LLFR-00160")
+    @covers("LLFR-00159", "LLFR-00160", "LLFR-00461")
     def test_save_signals_icon_visible_in_every_state(self) -> None:
         """The floppy disk of Save signals is drawn in the icon color of
         the normal, active and disabled states, with enough contrast on
@@ -603,7 +603,7 @@ class ButtonIconTest(unittest.TestCase):
                     if pixel_tuple[3] == 255)
                 self.assertGreater(opaque_large_i, opaque_scaled_i)
 
-    @covers("LLFR-00160")
+    @covers("LLFR-00160", "LLFR-00461")
     def test_icon_color_follows_mode_and_state(self) -> None:
         """Normal ink, white while active (On), paler while disabled.
 
@@ -662,7 +662,8 @@ class ButtonIconTest(unittest.TestCase):
                     target_tuple))
         return min(distance_list)
 
-    @covers("LLFR-00160", "LLFR-00001", "LLFR-00141", "LLFR-00194")
+    @covers("LLFR-00160", "LLFR-00001", "LLFR-00141", "LLFR-00194",
+            "LLFR-00461")
     def test_painted_buttons_show_the_state_icon_color(self) -> None:
         """Painted buttons show ink, white when active, pale when disabled.
 
@@ -731,7 +732,7 @@ class AppIconTest(unittest.TestCase):
                    if pixel_tuple[3] >= 200 and color_distance_f(
                        pixel_tuple[:3], target_tuple) <= tolerance_f)
 
-    @covers("LLFR-00183")
+    @covers("LLFR-00183", "LLFR-00445")
     def test_blue_and_red_curves_on_a_light_rounded_square(self) -> None:
         """At 16, 32 and 256 px the icon has blue, red and dark axes.
 

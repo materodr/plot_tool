@@ -68,7 +68,7 @@ class ArrowGeometryTest(unittest.TestCase):
         self.assertFalse(arrow_geometry.point_in_triangle_b(
             (90.0, 8.0), vertex_array))
 
-    @covers("LLFR-00373", "LLFR-00374")
+    @covers("LLFR-00373", "LLFR-00374", "LLFR-00776")
     def test_path_with_and_without_head(self) -> None:
         """With its head, the path is the line to the head's back and the
         closed head; without it, only the line to the end.

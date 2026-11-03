@@ -53,7 +53,7 @@ class PlotKindTest(unittest.TestCase):
             Plot(99, random.Random(), None, "spectrum")
         self.assertEqual(len(self.workspace.tab_list[0].plot_list), 1)
 
-    @covers("LLFR-00256", "LLFR-00031", "HLFR-00018")
+    @covers("LLFR-00256", "LLFR-00031", "HLFR-00018", "LLFR-00690")
     def test_frequency_plots_count_towards_the_maximum(self) -> None:
         """Both kinds together fill a tab at the maximum.
 
@@ -110,7 +110,7 @@ class PlotKindTest(unittest.TestCase):
         self.assertEqual(restored_plot.curve_list[0].signal_name_str,
                          "fft_Speed_0s_to_1s")
 
-    @covers("LLFR-00205", "LLFR-00259")
+    @covers("LLFR-00205", "LLFR-00259", "LLFR-00667")
     def test_frequency_plots_keep_the_markers(self) -> None:
         """Markers are deleted only when no plot of any kind is left.
 

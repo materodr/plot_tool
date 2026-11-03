@@ -547,7 +547,7 @@ class XyKeyMainWindowTest(XyzKeyWindowTestCase):
             self.assertEqual(self.main_window.plot_view(
                 plot_id_i).delta_first_point_tuple, ())
 
-    @covers("LLFR-00197", "LLFR-00164", "LLFR-00168")
+    @covers("LLFR-00197", "LLFR-00164", "LLFR-00168", "LLFR-00682")
     def test_measure_while_holding_x(self) -> None:
         """Two picks while X is held place a Delta X marker that stays
         after the release.
@@ -668,7 +668,8 @@ class ZKeyMainWindowTest(XyzKeyWindowTestCase):
         self.application.processEvents()
         self.assert_every_range(FULL_RANGE_TUPLE)
 
-    @covers("LLFR-00207", "LLFR-00116", "LLFR-00001", "LLFR-00003")
+    @covers("LLFR-00207", "LLFR-00116", "LLFR-00001", "LLFR-00003",
+            "LLFR-00453")
     def test_z_shows_the_reset_zoom_button_feedback(self) -> None:
         """Z makes the Reset zoom button active for at least 0.3 s, then
         normal again, as a click does.
@@ -727,7 +728,7 @@ class ZKeyMainWindowTest(XyzKeyWindowTestCase):
         self.release_key("Key_Z")
         self.assert_every_range(FULL_RANGE_TUPLE)
 
-    @covers("LLFR-00207", "LLFR-00117")
+    @covers("LLFR-00207", "LLFR-00117", "LLFR-00454")
     def test_z_does_nothing_during_a_pan(self) -> None:
         """Z while the wheel button is held for a pan does nothing; after
         the release it resets.
@@ -753,7 +754,7 @@ class ZKeyMainWindowTest(XyzKeyWindowTestCase):
         self.release_key("Key_Z", plot_widget.canvas)
         self.assert_every_range(FULL_RANGE_TUPLE)
 
-    @covers("LLFR-00207", "LLFR-00086")
+    @covers("LLFR-00207", "LLFR-00086", "LLFR-00454")
     def test_z_does_nothing_during_a_marker_drag(self) -> None:
         """Z while a vertical marker is held with the mouse does nothing;
         after the release it resets.
@@ -789,7 +790,7 @@ class ZKeyMainWindowTest(XyzKeyWindowTestCase):
         self.release_key("Key_Z")
         self.assert_every_range(FULL_RANGE_TUPLE)
 
-    @covers("LLFR-00207", "LLFR-00152")
+    @covers("LLFR-00207", "LLFR-00152", "LLFR-00454")
     def test_drag_query_counts_tip_and_time_span_drags(self) -> None:
         """A pinned tip drag and a time span selection count as mouse
         drags, and Z does nothing during them.

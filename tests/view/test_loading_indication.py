@@ -67,7 +67,7 @@ class StatusLineTest(unittest.TestCase):
         self.panel.deleteLater()
         self.application.processEvents()
 
-    @covers("LLFR-00418", "LLFR-00094")
+    @covers("LLFR-00418", "LLFR-00094", "LLFR-00560")
     def test_status_line_below_the_search_box(self) -> None:
         """The status line is the last row, under the search box.
 
@@ -89,7 +89,7 @@ class StatusLineTest(unittest.TestCase):
         self.assertLess(self.panel.height()
                         - status_label.geometry().bottom(), 20)
 
-    @covers("LLFR-00418")
+    @covers("LLFR-00418", "LLFR-00560", "LLFR-00562", "LLFR-00563")
     def test_status_line_empty_except_while_loading(self) -> None:
         """No text at start; the text is shown and removed on request.
 
@@ -138,7 +138,7 @@ class MainWindowLoadingTest(unittest.TestCase):
         self.main_window.deleteLater()
         self.application.processEvents()
 
-    @covers("LLFR-00418")
+    @covers("LLFR-00418", "LLFR-00560", "LLFR-00561")
     def test_show_and_hide_the_indication(self) -> None:
         """Busy pointer and text while shown; normal pointer after.
 
@@ -155,7 +155,7 @@ class MainWindowLoadingTest(unittest.TestCase):
         self.assertIsNone(current_cursor_shape())
         self.assertEqual(panel.status_text(), "")
 
-    @covers("LLFR-00418")
+    @covers("LLFR-00418", "LLFR-00561")
     def test_repeated_calls_restore_the_normal_pointer(self) -> None:
         """Two shows and one hide leave no busy pointer; hide is safe.
 
@@ -301,7 +301,7 @@ class LoadingEndToEndTest(unittest.TestCase):
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()
 
-    @covers("LLFR-00418", "LLFR-00328", "LLFR-00006")
+    @covers("LLFR-00418", "LLFR-00328", "LLFR-00006", "LLFR-00560")
     def test_first_file_shows_the_indication_while_read(self) -> None:
         """The first file is read under the busy pointer and the text.
 
@@ -317,7 +317,9 @@ class LoadingEndToEndTest(unittest.TestCase):
         self.assertEqual(self.panel.signal_name_list(), ["Time", "speed"])
 
     @covers("LLFR-00418", "LLFR-00328", "LLFR-00010", "LLFR-00013",
-            "LLFR-00008", "LLFR-00363", "HLFR-00010")
+            "LLFR-00008", "LLFR-00363", "HLFR-00010", "HLFR-00101",
+            "LLFR-00448", "LLFR-00510", "LLFR-00561", "LLFR-00562",
+            "LLFR-00651")
     def test_bad_file_after_a_good_one(self) -> None:
         """Yes, read under the indication, error box without it.
 
@@ -351,7 +353,8 @@ class LoadingEndToEndTest(unittest.TestCase):
         self.assertEqual(self.controller.file_controller.current_file
                          .path_str, self.good_path_str)
 
-    @covers("LLFR-00418", "LLFR-00014", "LLFR-00328")
+    @covers("LLFR-00418", "LLFR-00014", "LLFR-00328", "LLFR-00449",
+            "LLFR-00450", "LLFR-00564")
     def test_declined_replace_reads_nothing(self) -> None:
         """No in the question: no read, no indication, no other box.
 
@@ -367,7 +370,7 @@ class LoadingEndToEndTest(unittest.TestCase):
         self.assertEqual(self.panel.signal_name_list(), ["Time", "speed"])
 
     @covers("LLFR-00418", "LLFR-00327", "LLFR-00328", "LLFR-00010",
-            "LLFR-00325")
+            "LLFR-00325", "LLFR-00561", "LLFR-00562")
     def test_time_window_shown_after_the_indication(self) -> None:
         """Yes, read, then the window without the indication; cancel.
 

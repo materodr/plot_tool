@@ -876,7 +876,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(self.controller.shared_time_range_tuple,
                          (1.5, 3.0))
 
-    @covers("LLFR-00070", "LLFR-00180")
+    @covers("LLFR-00070", "LLFR-00180", "LLFR-00688")
     def test_first_plot_keeps_full_range(self) -> None:
         """The first plot of the workspace shows the whole time range.
 
@@ -888,7 +888,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertNotIn("set_plot_time_range", self.view.method_names())
         self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00049")
+    @covers("LLFR-00180", "LLFR-00049", "LLFR-00688")
     def test_plot_after_deleting_every_plot_shows_whole_range(
             self) -> None:
         """Once every plot is gone, the next plot starts unzoomed.
@@ -913,7 +913,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertNotIn("set_plot_time_range", self.view.method_names())
         self.assertEqual(self.view.range_dict[new_plot_id_i], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00051", "LLFR-00028")
+    @covers("LLFR-00180", "LLFR-00051", "LLFR-00028", "LLFR-00688")
     def test_last_plot_removed_by_curve_or_tab_resets_range(self) -> None:
         """Removing the last curve, or the last tab with plots, also resets.
 
@@ -937,7 +937,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(
             self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00015")
+    @covers("LLFR-00180", "LLFR-00015", "LLFR-00688")
     def test_file_replace_resets_the_shared_range(self) -> None:
         """A newly opened file starts with the whole time range.
 
@@ -1365,7 +1365,7 @@ class TabActionTest(PlotControllerTestCase):
         self.assertTrue(self.view.delete_enabled_b)
 
     @covers("LLFR-00210", "LLFR-00026", "LLFR-00028", "LLFR-00138",
-            "LLFR-00016", "HLFR-00015")
+            "LLFR-00016", "HLFR-00015", "LLFR-00653", "LLFR-00654")
     def test_tab_numbers_not_reused_until_a_file_opens(self) -> None:
         """Deleted and undone tab numbers stay used; a file restarts them.
 
@@ -1427,7 +1427,7 @@ class TabActionTest(PlotControllerTestCase):
         self.assertEqual(self.workspace.find_tab(tab_id_i).name_str,
                          "Speeds")
 
-    @covers("LLFR-00067", "HLFR-00017")
+    @covers("LLFR-00067", "HLFR-00017", "LLFR-00656")
     def test_empty_name_keeps_old_name(self) -> None:
         """Empty or blank names keep the old name and show nothing.
 
@@ -1466,7 +1466,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
         """
         self.view.handler_dict["rename_tab"](tab_id_i, name_str)
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00657")
     def test_rename_to_another_tab_name_is_refused(self) -> None:
         """The previous name is kept and the box names the taken name.
 
@@ -1483,7 +1483,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
             self.workspace.find_tab(self.second_tab_id_i).name_str, "Tab 2")
         self.assertEqual(self.view.full_tab_count_i, 0)
 
-    @covers("LLFR-00211", "HLFR-00017")
+    @covers("LLFR-00211", "HLFR-00017", "LLFR-00657")
     def test_surrounding_spaces_do_not_avoid_the_conflict(self) -> None:
         """"  Tab 1 " is the name of Tab 1; the box shows it trimmed.
 
@@ -1496,7 +1496,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
         self.assertEqual(list(self.view.tab_dict.values()),
                          ["Engine", "Tab 2"])
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00658")
     def test_own_name_and_other_case_are_accepted(self) -> None:
         """A tab's own name and a name differing only in case are free.
 
@@ -1512,7 +1512,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
         self.assertEqual(self.view.tab_dict[self.second_tab_id_i], "TAB 1")
         self.assertEqual(self.view.tab_name_taken_list, [])
 
-    @covers("LLFR-00211", "LLFR-00067")
+    @covers("LLFR-00211", "LLFR-00067", "LLFR-00656")
     def test_blank_name_shows_no_box(self) -> None:
         """A blank name is still refused silently, not as a conflict.
 

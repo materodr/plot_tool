@@ -106,7 +106,7 @@ class DeltaControllerTestCase(PlotControllerTestCase):
 class PickPointsTest(DeltaControllerTestCase):
     """Picking the two points of a delta marker."""
 
-    @covers("LLFR-00163", "LLFR-00172")
+    @covers("LLFR-00163", "LLFR-00172", "LLFR-00680")
     def test_first_click_picks_a_point_and_shows_a_dot(self) -> None:
         """The first click keeps the sample and asks for its dot.
 
@@ -121,7 +121,8 @@ class PickPointsTest(DeltaControllerTestCase):
         self.assertEqual(self.plot.delta_marker_list, [])
         self.assertEqual(self.drawn_delta_list(), [])
 
-    @covers("LLFR-00164", "LLFR-00168", "LLFR-00169", "LLFR-00172")
+    @covers("LLFR-00164", "LLFR-00168", "LLFR-00169", "LLFR-00172",
+            "LLFR-00682")
     def test_second_click_on_another_curve_places_delta_x(self) -> None:
         """s1 at 2 s then s2 at 7 s gives Delta X with +5 s.
 
@@ -144,7 +145,7 @@ class PickPointsTest(DeltaControllerTestCase):
         # LLFR-00109: the tool stays active.
         self.assertEqual(self.controller.plot_tool_str, DELTA_X_TOOL_STR)
 
-    @covers("LLFR-00164", "LLFR-00170", "LLFR-00171")
+    @covers("LLFR-00164", "LLFR-00170", "LLFR-00171", "LLFR-00682")
     def test_delta_y_on_the_same_curve_is_signed(self) -> None:
         """Delta Y from s2 at 6 s to s2 at 1 s measures 2 - 12 = -10.
 
@@ -170,7 +171,7 @@ class PickPointsTest(DeltaControllerTestCase):
         self.pick("s1", 4.0)
         self.assertEqual(self.drawn_delta_list()[0][4], -5.0)
 
-    @covers("LLFR-00165")
+    @covers("LLFR-00165", "LLFR-00683")
     def test_click_off_a_curve_keeps_the_first_point(self) -> None:
         """The view reports no click off a curve: the point stays.
 
@@ -196,7 +197,7 @@ class PickPointsTest(DeltaControllerTestCase):
         self.pick("s1", 5.0)
         self.assertEqual(self.drawn_delta_list()[0][4], 3.0)
 
-    @covers("LLFR-00166")
+    @covers("LLFR-00166", "LLFR-00684")
     def test_click_in_another_plot_starts_again_there(self) -> None:
         """A curve in another plot discards the first point and its dot.
 

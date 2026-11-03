@@ -521,7 +521,7 @@ class UndoNotRecordedTest(UndoControllerTestCase):
 class UndoHistoryBehaviourTest(UndoControllerTestCase):
     """Depth, availability and file opening."""
 
-    @covers("LLFR-00141")
+    @covers("LLFR-00141", "LLFR-00457")
     def test_nothing_to_undo_does_nothing(self) -> None:
         """With an empty history, undo changes neither model nor view.
 
@@ -671,7 +671,7 @@ class UndoViewStateTest(UndoControllerTestCase):
         self.assertEqual(self.view.range_dict[self.lone_plot_id_i],
                          (3.0, 4.0))
 
-    @covers("LLFR-00138", "LLFR-00180")
+    @covers("LLFR-00138", "LLFR-00180", "LLFR-00688")
     def test_plots_restored_after_all_were_deleted_show_whole_range(
             self) -> None:
         """With no plot left before the undo, the restored ones are unzoomed.
@@ -693,7 +693,7 @@ class UndoViewStateTest(UndoControllerTestCase):
                           self.lone_plot_id_i):
             self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
 
-    @covers("LLFR-00138", "LLFR-00180")
+    @covers("LLFR-00138", "LLFR-00180", "LLFR-00688")
     def test_undo_to_no_plots_resets_the_shared_range(self) -> None:
         """Undoing the creation of the only plot forgets the shared range.
 

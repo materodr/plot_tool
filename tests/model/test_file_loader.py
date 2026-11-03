@@ -138,7 +138,7 @@ class TemporaryFolderTest(unittest.TestCase):
 class CsvLoadingTest(TemporaryFolderTest):
     """CSV layout and style detection (LLFR-00059, LLFR-00061)."""
 
-    @covers("LLFR-00059", "LLFR-00061", "HLFR-00005")
+    @covers("LLFR-00059", "LLFR-00061", "HLFR-00005", "LLFR-00451")
     def test_comma_style_columns_are_signals(self) -> None:
         """A ","/"." CSV gives one signal per column, names from row 1.
 
@@ -188,7 +188,7 @@ class CsvLoadingTest(TemporaryFolderTest):
         path_str = self.write_text("data.csv", "Time;Speed\n0;1.5\n")
         self.assert_read_error(path_str, "'1.5'", "Speed", "row 2")
 
-    @covers("LLFR-00061", "LLFR-00059")
+    @covers("LLFR-00061", "LLFR-00059", "LLFR-00451")
     def test_quoted_names_with_separators(self) -> None:
         """Quoted names may contain the other style's separator.
 
@@ -203,7 +203,7 @@ class CsvLoadingTest(TemporaryFolderTest):
         np.testing.assert_array_equal(
             signal_file.signal_array("Speed, front"), [1.5, 2.0])
 
-    @covers("LLFR-00059")
+    @covers("LLFR-00059", "LLFR-00451")
     def test_bom_spaces_and_trailing_blank_lines(self) -> None:
         """BOM, spaces around names and empty end lines are ignored.
 
@@ -484,7 +484,7 @@ class MatLoadingTest(TemporaryFolderTest):
                              np.float64)
             self.assertEqual(signal_file.signal_array(name_str).shape, (3,))
 
-    @covers("LLFR-00063", "HLFR-00009")
+    @covers("LLFR-00063", "HLFR-00009", "LLFR-00452")
     def test_ignored_variables_skip_sample_count_check(self) -> None:
         """Ignored variables of other lengths don't fail HLFR-00009.
 
@@ -508,7 +508,7 @@ class MatLoadingTest(TemporaryFolderTest):
         signal_file = load_signal_file(path_str)
         np.testing.assert_array_equal(signal_file.signal_array("A"), [5.0])
 
-    @covers("LLFR-00063", "LLFR-00012", "HLFR-00009")
+    @covers("LLFR-00063", "LLFR-00012", "HLFR-00009", "LLFR-00452")
     def test_unequal_lengths_fail_sample_count_check(self) -> None:
         """MAT signals of different lengths fail HLFR-00009.
 
@@ -751,7 +751,7 @@ class TimeSignalChoiceTest(unittest.TestCase):
             "t_s": np.array([0.0, 0.5, 1.5]),
             "Flat": np.array([0.0, 0.0, 1.0])})
 
-    @covers("LLFR-00329")
+    @covers("LLFR-00329", "LLFR-00514")
     def test_increasing_check_reason(self) -> None:
         """Only signals whose samples always increase are accepted.
 

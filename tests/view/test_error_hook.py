@@ -66,7 +66,7 @@ class ErrorHookTest(unittest.TestCase):
             message_boxes.show_unexpected_error(self.parent_widget, "x")
         self.assertEqual(exec_mock.call_count, 1)
 
-    @covers("LLFR-00071", "HLFR-00002")
+    @covers("LLFR-00071", "HLFR-00002", "LLFR-00441")
     def test_hook_shows_box_and_prints_traceback(self) -> None:
         """The hook prints the traceback and shows the box; no raise.
 
@@ -100,7 +100,7 @@ class ErrorHookTest(unittest.TestCase):
         self.assertIn("Traceback", error_stream.getvalue())
         self.assertIn("bad plot id 42", error_stream.getvalue())
 
-    @covers("LLFR-00071")
+    @covers("LLFR-00071", "LLFR-00441")
     def test_hook_never_raises(self) -> None:
         """A failing box or stream does not make the hook raise.
 

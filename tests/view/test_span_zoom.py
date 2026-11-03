@@ -240,7 +240,7 @@ class ClickOrSpanTest(SpanWidgetTestCase):
                 press_point + QPoint(0, 5)))
             self.plot_widget.cancel_time_span()
 
-    @covers("LLFR-00078", "LLFR-00208", "LLFR-00209")
+    @covers("LLFR-00078", "LLFR-00208", "LLFR-00209", "LLFR-00674")
     def test_release_back_within_5_pixels_is_a_click_zoom(self) -> None:
         """After the line was shown, a release less than 5 pixels from
         the press (sideways or straight back) removes the line and is
@@ -309,7 +309,8 @@ class ClickOrSpanTest(SpanWidgetTestCase):
 class SelectionLineTest(SpanWidgetTestCase):
     """The look and the fast drawing of the selection line."""
 
-    @covers("LLFR-00208", "LLFR-00083", "LLFR-00172", "LLFR-00143")
+    @covers("LLFR-00208", "LLFR-00083", "LLFR-00172", "LLFR-00143",
+            "LLFR-00660")
     def test_line_is_horizontal_dashed_marker_colored_with_ticks(
             self) -> None:
         """The line is at the press height, from the pressed time to the
@@ -438,7 +439,7 @@ class SelectionLineTest(SpanWidgetTestCase):
         self.left_release(self.point_at(6.0, 0.0))
         self.assert_range(2.0, 6.0)
 
-    @covers("LLFR-00208", "LLFR-00203")
+    @covers("LLFR-00208", "LLFR-00203", "LLFR-00662")
     def test_marker_preview_is_never_shown_with_the_line(self) -> None:
         """During a selection, a preview sent by another plot is not
         shown; a preview shown before a Zoom press is hidden.
@@ -465,7 +466,8 @@ class SelectionLineTest(SpanWidgetTestCase):
 class ZoomToSpanTest(SpanWidgetTestCase):
     """The release zooms to the selected span."""
 
-    @covers("LLFR-00209", "LLFR-00076", "LLFR-00070")
+    @covers("LLFR-00209", "LLFR-00076", "LLFR-00070", "LLFR-00674",
+            "LLFR-00673")
     def test_release_zooms_to_the_span_in_either_direction(self) -> None:
         """Dragging right or left gives the range [earlier, later], with
         y fitted, emitted once for the tab and the other tabs.
@@ -489,7 +491,7 @@ class ZoomToSpanTest(SpanWidgetTestCase):
         # LLFR-00109: the Zoom tool stays active.
         self.assertEqual(self.plot_widget.plot_tool_str, ZOOM_TOOL_STR)
 
-    @covers("LLFR-00209")
+    @covers("LLFR-00209", "LLFR-00675")
     def test_release_outside_the_drawing_area_ends_at_the_edge(
             self) -> None:
         """Released beyond the right or left edge (also below the axes),
@@ -514,7 +516,7 @@ class ZoomToSpanTest(SpanWidgetTestCase):
         self.left_release(self.axes_edge_point(False, 80))
         self.assert_range(2.0, 5.0)
 
-    @covers("LLFR-00209", "LLFR-00119")
+    @covers("LLFR-00209", "LLFR-00119", "LLFR-00674", "LLFR-00676")
     def test_span_is_limited_to_the_file_range(self) -> None:
         """A span reaching beyond the data stops at the first or last
         sample; one wholly outside the data zooms nothing.
@@ -541,7 +543,7 @@ class ZoomToSpanTest(SpanWidgetTestCase):
         self.assertEqual(self.plot_widget.time_range_tuple(), (-4.0, 14.0))
         self.assertFalse(self.plot_widget.time_span_line_shown())
 
-    @covers("LLFR-00209", "LLFR-00208")
+    @covers("LLFR-00209", "LLFR-00208", "LLFR-00674")
     def test_vertical_drag_gives_an_empty_span_and_does_nothing(
             self) -> None:
         """A drag straight up shows the line (of zero length) and the
@@ -565,7 +567,7 @@ class ZoomToSpanTest(SpanWidgetTestCase):
 class SpanInteractionTest(SpanWidgetTestCase):
     """The selection with the other mouse actions and the tools."""
 
-    @covers("LLFR-00208", "LLFR-00207")
+    @covers("LLFR-00208", "LLFR-00207", "LLFR-00454")
     def test_drag_flag_is_set_from_press_to_release(self) -> None:
         """is_mouse_drag_in_progress is True from the Zoom press to the
         release, and False again after it (the Z key is ignored then).
@@ -649,7 +651,7 @@ class SpanInteractionTest(SpanWidgetTestCase):
         self.assertAlmostEqual(end_s - start_s, 4.0)
         self.assertAlmostEqual(start_s, 1.5, delta=PIXEL_TOLERANCE_S)
 
-    @covers("LLFR-00153", "LLFR-00208")
+    @covers("LLFR-00153", "LLFR-00208", "LLFR-00679")
     def test_press_on_a_pinned_tip_still_moves_the_tip(self) -> None:
         """With the Zoom tool, a drag that starts on a pinned tip moves
         the tip: no line, no zoom.
@@ -672,7 +674,7 @@ class SpanInteractionTest(SpanWidgetTestCase):
         self.assertEqual(len(tip_move_list), 1)
         self.assertEqual(self.range_list, [])
 
-    @covers("LLFR-00208", "LLFR-00209")
+    @covers("LLFR-00208", "LLFR-00209", "LLFR-00674")
     def test_lost_release_applies_the_span_last_shown(self) -> None:
         """A move without the left button held (its release was lost)
         ends the selection as if released at the last position.
@@ -752,7 +754,7 @@ class TrackpadDirectionTest(PlotWidgetToolTestCase):
         return make_qt_wheel_event(canvas, local_point, 0, angle_y_i,
                                    inverted_b, pixel_y_i)
 
-    @covers("LLFR-00206", "LLFR-00113")
+    @covers("LLFR-00206", "LLFR-00113", "LLFR-00671", "LLFR-00672")
     def test_inverted_delta_is_turned_back_on_macos(self) -> None:
         """On macOS an inverted delta gives the opposite step (fingers up
         with natural scrolling report a backward delta), also for pixel
@@ -803,7 +805,7 @@ class TrackpadDirectionTest(PlotWidgetToolTestCase):
                 self.assertEqual(wheel_step_f(FakeScrollEvent(
                     -9.0, self.wheel_event(-60, inverted_b))), -0.5)
 
-    @covers("LLFR-00206", "LLFR-00074")
+    @covers("LLFR-00206", "LLFR-00074", "LLFR-00672")
     def test_fingers_up_zoom_in_through_the_canvas(self) -> None:
         """Real wheel events sent to the canvas on macOS: fingers up with
         natural scrolling (backward delta, inverted) zoom in; fingers
@@ -907,7 +909,7 @@ class SpanZoomWindowTest(XyzKeyWindowTestCase):
         self.application.processEvents()
 
     @covers("LLFR-00208", "LLFR-00209", "LLFR-00070", "LLFR-00207",
-            "LLFR-00076")
+            "LLFR-00076", "LLFR-00454", "LLFR-00674")
     def test_span_zooms_every_plot_and_z_waits_for_the_release(
             self) -> None:
         """A span drag on one plot zooms every plot of both tabs; the Z

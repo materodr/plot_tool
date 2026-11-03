@@ -104,7 +104,7 @@ class RedoEachActionTest(RedoControllerTestCase):
     """Each undoable action of LLFR-00140 is redone after an undo."""
 
     @covers("LLFR-00192", "LLFR-00194", "LLFR-00026", "LLFR-00028",
-            "LLFR-00030")
+            "LLFR-00030", "LLFR-00444")
     def test_tab_actions(self) -> None:
         """Adding, deleting and renaming a tab are redone.
 
@@ -119,7 +119,7 @@ class RedoEachActionTest(RedoControllerTestCase):
         self.assertEqual(self.view.tab_dict[self.first_tab_id_i], "Brake")
 
     @covers("LLFR-00192", "LLFR-00019", "LLFR-00049", "LLFR-00021",
-            "LLFR-00039", "LLFR-00041")
+            "LLFR-00039", "LLFR-00041", "LLFR-00444")
     def test_plot_and_curve_actions(self) -> None:
         """Creating and deleting a plot, adding, removing and widening a
         curve are redone.
@@ -141,7 +141,8 @@ class RedoEachActionTest(RedoControllerTestCase):
         plot = self.workspace.find_plot(self.plot_id_i)
         self.assertEqual(plot.find_curve("s1").width_i, 4)
 
-    @covers("LLFR-00192", "LLFR-00045", "LLFR-00047", "LLFR-00152")
+    @covers("LLFR-00192", "LLFR-00045", "LLFR-00047", "LLFR-00152",
+            "LLFR-00444")
     def test_tip_actions(self) -> None:
         """Pinning, moving and deleting a tip are redone.
 
@@ -159,7 +160,7 @@ class RedoEachActionTest(RedoControllerTestCase):
                 self.plot_id_i, 0))
 
     @covers("LLFR-00192", "LLFR-00081", "LLFR-00086", "LLFR-00088",
-            "LLFR-00091")
+            "LLFR-00091", "LLFR-00444")
     def test_marker_actions(self) -> None:
         """Placing, moving, renaming and deleting a marker are redone.
 
@@ -183,7 +184,8 @@ class RedoEachActionTest(RedoControllerTestCase):
         # LLFR-00205: the markers belong to the workspace.
         self.assertIsNone(self.workspace.find_marker(marker_id_i))
 
-    @covers("LLFR-00192", "LLFR-00164", "LLFR-00176", "LLFR-00178")
+    @covers("LLFR-00192", "LLFR-00164", "LLFR-00176", "LLFR-00178",
+            "LLFR-00444")
     def test_delta_marker_actions(self) -> None:
         """Placing and deleting delta markers, and removing a curve with a
         delta marker, are redone.
@@ -251,7 +253,7 @@ class RedoEachActionTest(RedoControllerTestCase):
 class RedoHistoryBehaviourTest(RedoControllerTestCase):
     """Order, availability, new actions and file opening."""
 
-    @covers("LLFR-00194")
+    @covers("LLFR-00194", "LLFR-00458")
     def test_nothing_to_redo_does_nothing(self) -> None:
         """With nothing undone, redo changes neither model nor view.
 
@@ -292,7 +294,7 @@ class RedoHistoryBehaviourTest(RedoControllerTestCase):
         self.assertFalse(self.view.redo_enabled_b)
         self.assertTrue(self.view.undo_enabled_b)
 
-    @covers("LLFR-00192", "LLFR-00139", "LLFR-00138")
+    @covers("LLFR-00192", "LLFR-00139", "LLFR-00138", "LLFR-00444")
     def test_redo_every_undone_action_in_order(self) -> None:
         """31 actions: 30 undos, then 30 redos back to the last state.
 
@@ -319,7 +321,7 @@ class RedoHistoryBehaviourTest(RedoControllerTestCase):
         self.assertEqual(self.depth(), 30)
         self.assertEqual(self.view.tab_dict[self.first_tab_id_i], "Name 31")
 
-    @covers("LLFR-00192", "LLFR-00138")
+    @covers("LLFR-00192", "LLFR-00138", "LLFR-00444")
     def test_mixed_undo_and_redo(self) -> None:
         """Undo two, redo one, undo one, redo two lands on the last state.
 

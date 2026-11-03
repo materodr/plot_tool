@@ -445,7 +445,8 @@ class ClickZoomTest(PlotWidgetToolTestCase):
 class WheelZoomTest(PlotWidgetToolTestCase):
     """The mouse wheel zooms the x-axis with any tool or none."""
 
-    @covers("LLFR-00074", "LLFR-00108", "LLFR-00113")
+    @covers("LLFR-00074", "LLFR-00108", "LLFR-00113", "LLFR-00659",
+            "LLFR-00670")
     def test_wheel_zooms_with_every_tool_and_none(self) -> None:
         """Forward narrows and backward widens around the mouse time.
 

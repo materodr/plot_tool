@@ -172,7 +172,7 @@ class UndoButtonTest(UndoWindowTestCase):
         self.assertEqual(self.current_plot_ids(), [])
         self.assertEqual(self.state(), start_state)
 
-    @covers("LLFR-00141")
+    @covers("LLFR-00141", "LLFR-00457")
     def test_disabled_button_does_nothing(self) -> None:
         """Clicks on the disabled button change nothing.
 
@@ -292,7 +292,7 @@ class UndoShortcutTest(UndoWindowTestCase):
         self.assertEqual(self.current_plot_ids(), [])
         self.assertFalse(self.undo_button.isEnabled())
 
-    @covers("LLFR-00141", "LLFR-00137")
+    @covers("LLFR-00141", "LLFR-00137", "LLFR-00457")
     def test_ctrl_z_does_nothing_when_nothing_to_undo(self) -> None:
         """With nothing to undo, Ctrl+Z changes nothing.
 

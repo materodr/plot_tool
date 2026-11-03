@@ -223,7 +223,8 @@ class SharedMarkerDrawingTest(SharedMarkerWindowTestCase):
             self.assertEqual(line.get_color(), MARKER_COLOR_STR)
             self.assertNotEqual(line.get_linestyle(), "-")
 
-    @covers("LLFR-00205", "LLFR-00091", "LLFR-00088", "LLFR-00112")
+    @covers("LLFR-00205", "LLFR-00091", "LLFR-00088", "LLFR-00112",
+            "LLFR-00664")
     def test_new_plot_shows_markers_and_delete_applies_everywhere(
             self) -> None:
         """A later plot shows the markers; Delete on it removes them all.
@@ -256,7 +257,7 @@ class SharedMarkerDrawingTest(SharedMarkerWindowTestCase):
             self.assertEqual(plot_widget.marker_label_text(id_list[0]),
                              "Peak")
 
-    @covers("LLFR-00086", "LLFR-00093", "LLFR-00205")
+    @covers("LLFR-00086", "LLFR-00093", "LLFR-00205", "LLFR-00665")
     def test_drag_on_one_plot_moves_marker_on_all(self) -> None:
         """While dragged, the marker follows on the plots of the tab.
 
@@ -304,7 +305,7 @@ class SharedMarkerDrawingTest(SharedMarkerWindowTestCase):
         """
         return list(self.panel.plot_widget_dict.values())
 
-    @covers("LLFR-00086", "LLFR-00205")
+    @covers("LLFR-00086", "LLFR-00205", "LLFR-00665")
     def test_cancelled_drag_puts_the_marker_back_on_all(self) -> None:
         """A drag ended by a tool change shows the stored time again.
 
@@ -353,7 +354,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
                 plot_widget.marker_preview_text(),
                 f"t = {plot_widget.marker_preview_time_s():.6g} s")
 
-    @covers("LLFR-00203", "LLFR-00083", "LLFR-00143")
+    @covers("LLFR-00203", "LLFR-00083", "LLFR-00143", "LLFR-00660")
     def test_preview_is_a_paler_dashed_line(self) -> None:
         """The preview is dashed, in a paler version of the marker color.
 
@@ -374,7 +375,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.assertGreater(sum(preview_rgb_tuple), sum(marker_rgb_tuple))
         self.assertNotEqual(preview_rgb_tuple, marker_rgb_tuple)
 
-    @covers("LLFR-00203")
+    @covers("LLFR-00203", "LLFR-00662")
     def test_preview_is_hidden_on_leave_and_deactivation(self) -> None:
         """Leaving the plot or deactivating the tool hides the preview.
 
@@ -407,7 +408,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.hover(hovered_widget, 2.5)
         self.assert_no_preview()
 
-    @covers("LLFR-00203", "LLFR-00154", "LLFR-00155")
+    @covers("LLFR-00203", "LLFR-00154", "LLFR-00155", "LLFR-00662")
     def test_preview_while_shift_is_held(self) -> None:
         """Holding Shift shows the preview; releasing it hides it.
 
@@ -441,7 +442,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.application.processEvents()
         self.assert_no_preview()
 
-    @covers("LLFR-00203", "LLFR-00081")
+    @covers("LLFR-00203", "LLFR-00081", "LLFR-00662")
     def test_no_preview_over_a_marker_or_while_dragging(self) -> None:
         """Over a marker, and during a drag, the preview is hidden.
 
@@ -505,7 +506,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.assert_preview_on_current_tab(
             0.5 + 3.0 * (PREVIEW_MOVE_COUNT_I - 1) / PREVIEW_MOVE_COUNT_I)
 
-    @covers("LLFR-00203")
+    @covers("LLFR-00203", "LLFR-00662")
     def test_preview_is_drawn_on_the_canvas_and_removed(self) -> None:
         """Showing the preview changes the canvas image; hiding restores.
 
@@ -523,7 +524,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         hidden_array = np.array(plot_widget.canvas.buffer_rgba(), copy=True)
         self.assertTrue(np.array_equal(clean_array, hidden_array))
 
-    @covers("LLFR-00203", "LLFR-00129", "LLFR-00133")
+    @covers("LLFR-00203", "LLFR-00129", "LLFR-00133", "LLFR-00663")
     def test_preview_is_not_exported_or_copied(self) -> None:
         """The PDF images and the copied image never show the preview.
 

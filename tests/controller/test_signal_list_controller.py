@@ -381,7 +381,8 @@ class FilterTest(SignalListControllerTestCase):
     """Check the filtering while typing (LLFR-00095 to LLFR-00097)."""
 
     @covers("LLFR-00095", "LLFR-00098", "LLFR-00099", "LLFR-00100",
-            "LLFR-00101", "LLFR-00105", "HLFR-00033", "HLFR-00034")
+            "LLFR-00101", "LLFR-00105", "HLFR-00033", "HLFR-00034",
+            "LLFR-00566", "LLFR-00567")
     def test_every_change_filters_again(self) -> None:
         """Each new text shows only the matching names.
 
@@ -478,7 +479,7 @@ class FilterTest(SignalListControllerTestCase):
         self.view.type_text("time")
         self.assertEqual(self.view.shown_name_list, ["Time"])
 
-    @covers("LLFR-00097")
+    @covers("LLFR-00097", "LLFR-00565")
     def test_no_match_shows_empty_list_and_message(self) -> None:
         """No match gives an empty list and "No matching signals".
 
@@ -554,7 +555,7 @@ class FileOpenedTest(SignalListControllerTestCase):
         self.assertEqual(self.view.search_text_str, "presure")
         self.assertNotIn("clear_search", self.view.call_list)
 
-    @covers("LLFR-00097")
+    @covers("LLFR-00097", "LLFR-00565")
     def test_first_open_with_no_match_shows_message(self) -> None:
         """A text typed before the first file can give the message.
 
@@ -769,7 +770,7 @@ class FileNameLineTest(unittest.TestCase):
         self.assertEqual(self.view.file_name_str, "")
         self.assertEqual(self.view.file_name_call_count_i, 0)
 
-    @covers("LLFR-00362", "LLFR-00363", "HLFR-00079")
+    @covers("LLFR-00362", "LLFR-00363", "HLFR-00079", "LLFR-00650")
     def test_name_after_open_and_replace(self) -> None:
         """The line shows the name with its extension, not the folder.
 
@@ -783,7 +784,7 @@ class FileNameLineTest(unittest.TestCase):
         self.assertEqual(self.view.file_name_call_count_i, 2)
         self.assertNotIn(os.sep, self.view.file_name_str)
 
-    @covers("LLFR-00363", "LLFR-00007")
+    @covers("LLFR-00363", "LLFR-00007", "LLFR-00651")
     def test_unchanged_after_cancelled_dialog(self) -> None:
         """Cancelling the file selection dialog keeps the line.
 
@@ -795,7 +796,7 @@ class FileNameLineTest(unittest.TestCase):
         self.assertEqual(self.view.file_name_str, "first_run.csv")
         self.assertEqual(self.view.file_name_call_count_i, 1)
 
-    @covers("LLFR-00363", "LLFR-00010")
+    @covers("LLFR-00363", "LLFR-00010", "LLFR-00651")
     def test_unchanged_after_failed_open(self) -> None:
         """A file that cannot be opened keeps the line.
 
@@ -808,7 +809,7 @@ class FileNameLineTest(unittest.TestCase):
         self.assertEqual(self.view.file_name_str, "first_run.csv")
         self.assertEqual(self.view.file_name_call_count_i, 1)
 
-    @covers("LLFR-00363", "LLFR-00014")
+    @covers("LLFR-00363", "LLFR-00014", "LLFR-00651")
     def test_unchanged_after_declined_replace(self) -> None:
         """Declining the replace confirmation keeps the line.
 
@@ -825,7 +826,7 @@ class FileNameLineTest(unittest.TestCase):
         self.open_path(self.second_path_str)
         self.assertEqual(self.view.file_name_str, "second run.v2.xlsx")
 
-    @covers("LLFR-00363", "LLFR-00327")
+    @covers("LLFR-00363", "LLFR-00327", "LLFR-00508", "LLFR-00651")
     def test_unchanged_after_cancelled_time_window(self) -> None:
         """Cancelling the time signal window keeps the line.
 
@@ -843,7 +844,7 @@ class FileNameLineTest(unittest.TestCase):
         self.open_path(self.no_time_path_str)
         self.assertEqual(self.view.file_name_str, "no_time.mat")
 
-    @covers("LLFR-00362", "LLFR-00095")
+    @covers("LLFR-00362", "LLFR-00095", "LLFR-00640", "LLFR-00642")
     def test_name_is_not_a_signal(self) -> None:
         """The file name is not shown in, or searched with, the list.
 

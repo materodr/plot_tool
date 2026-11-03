@@ -139,7 +139,8 @@ class ButtonTipTest(unittest.TestCase):
             block = block.next()
         return color_list
 
-    @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181")
+    @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181",
+            "LLFR-00463", "LLFR-00464", "LLFR-00465")
     def test_tip_texts_on_macos_and_windows(self) -> None:
         """Each button tip has the lines of the table, on both systems.
 
@@ -155,7 +156,7 @@ class ButtonTipTest(unittest.TestCase):
                         button_tip_line_list(button),
                         [expected_tuple[0]] + expected_tuple[column_i])
 
-    @covers("LLFR-00215", "LLFR-00181")
+    @covers("LLFR-00215", "LLFR-00181", "LLFR-00465")
     def test_name_only_buttons(self) -> None:
         """Open file, Grid, Export and Copy show only their plain name.
 
@@ -172,7 +173,7 @@ class ButtonTipTest(unittest.TestCase):
                     self.assertEqual(button.toolTip(), name_str)
                     self.assertFalse(Qt.mightBeRichText(button.toolTip()))
 
-    @covers("LLFR-00215")
+    @covers("LLFR-00215", "LLFR-00465")
     def test_unknown_button_shows_only_its_name(self) -> None:
         """A button not in the table (e.g. Save layout) has no detail.
 
@@ -210,7 +211,7 @@ class ButtonTipTest(unittest.TestCase):
                             color_str,
                             theme.TOOLTIP_DETAIL_COLOR_STR.lower())
 
-    @covers("LLFR-00213", "LLFR-00214", "LLFR-00181")
+    @covers("LLFR-00213", "LLFR-00214", "LLFR-00181", "LLFR-00462")
     def test_tip_shows_on_hover_with_all_lines(self) -> None:
         """The shown tip is the rich tip, and it hides on leave.
 

@@ -53,7 +53,7 @@ class LayoutButtonTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00216", "LLFR-00217", "LLFR-00158", "LLFR-00181",
-            "LLFR-00215")
+            "LLFR-00215", "LLFR-00465")
     def test_buttons_in_order_with_icons_and_names(self) -> None:
         """Save layout right of Open file, Load layout right of it; icon
         only, the name alone in the button tip.
@@ -85,7 +85,7 @@ class LayoutButtonTest(unittest.TestCase):
                 self.assertEqual(button.y(), previous_button.y())
                 previous_button = button
 
-    @covers("LLFR-00218", "LLFR-00160")
+    @covers("LLFR-00218", "LLFR-00160", "LLFR-00466")
     def test_disabled_and_paler_without_a_data_file(self) -> None:
         """Both buttons are disabled before a file is open, and a click
         does nothing.
@@ -153,7 +153,7 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
         self.main_window.deleteLater()
         self.application.processEvents()
 
-    @covers("LLFR-00219", "LLFR-00220", "LLFR-00223")
+    @covers("LLFR-00219", "LLFR-00220", "LLFR-00223", "LLFR-00467")
     def test_save_dialog(self) -> None:
         """A save dialog for .json files that adds the extension and
         starts in the given folder.
@@ -272,7 +272,7 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
             self.assertFalse(saved_b)
             self.assertIn(folder_str, reason_str)
 
-    @covers("LLFR-00230", "LLFR-00225")
+    @covers("LLFR-00230", "LLFR-00225", "LLFR-00482")
     def test_panel_widths_round_trip(self) -> None:
         """The panel widths can be read and set.
 
@@ -485,7 +485,7 @@ class LayoutEndToEndTest(unittest.TestCase):
         self.assertFalse(top_panel.undo_button.isEnabled())
         self.assertFalse(top_panel.redo_button.isEnabled())
 
-    @covers("LLFR-00236", "LLFR-00222")
+    @covers("LLFR-00236", "LLFR-00222", "LLFR-00469", "LLFR-00491")
     def test_unreadable_file_and_cancel_keep_the_layout(self) -> None:
         """A non-layout file shows the error box; cancel does nothing.
 

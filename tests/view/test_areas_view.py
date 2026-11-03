@@ -87,7 +87,8 @@ class AreaWidgetTestCase(SpanWidgetTestCase):
 class AreaCreateTest(AreaWidgetTestCase):
     """Preview and creation of a new area (LLFR-00303, LLFR-00304)."""
 
-    @covers("LLFR-00303", "LLFR-00304", "LLFR-00207")
+    @covers("LLFR-00303", "LLFR-00304", "LLFR-00207", "LLFR-00454",
+            "LLFR-00698")
     def test_drag_shows_a_preview_and_release_creates(self) -> None:
         """No preview before 5 pixels; then a preview from the press to
         the pointer; the release asks once for the area and removes the
@@ -129,7 +130,7 @@ class AreaCreateTest(AreaWidgetTestCase):
         self.assertTrue(self.plot_widget.area_preview_span_tuple())
         self.left_release(self.at(5.0))
 
-    @covers("LLFR-00304")
+    @covers("LLFR-00304", "LLFR-00700", "LLFR-00701")
     def test_release_less_than_5_pixels_away_creates_nothing(self) -> None:
         """A release 4 pixels from the press, even after a longer move,
         creates nothing and shows no message.
@@ -181,7 +182,7 @@ class AreaCreateTest(AreaWidgetTestCase):
                 self.left_release(press_point + QPoint(60, 0))
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00303", "LLFR-00304")
+    @covers("LLFR-00303", "LLFR-00304", "LLFR-00697", "LLFR-00702")
     def test_preview_stops_at_the_nearest_area(self) -> None:
         """A new area stops at the edge of the area on either side, so
         that it may share the edge but never overlaps.
@@ -201,7 +202,7 @@ class AreaCreateTest(AreaWidgetTestCase):
         self.assertEqual(self.create_list[0][0], 1.5)
         self.assert_span(self.create_list[0], 1.5, 3.0)
 
-    @covers("LLFR-00304", "LLFR-00119")
+    @covers("LLFR-00304", "LLFR-00119", "LLFR-00699")
     def test_release_outside_ends_at_the_nearer_edge(self) -> None:
         """A release right or left of the drawing area ends the area at
         that edge of the shown range.
@@ -216,7 +217,7 @@ class AreaCreateTest(AreaWidgetTestCase):
         self.drag(self.at(3.0), self.axes_edge_point(False, 30))
         self.assert_span(self.create_list[-1], 2.0, 3.0)
 
-    @covers("LLFR-00311")
+    @covers("LLFR-00311", "LLFR-00712")
     def test_frequency_plot_shows_and_creates_no_area(self) -> None:
         """A frequency plot draws no area and a drag on it with the Area
         tool asks for none.
@@ -256,7 +257,8 @@ class AreaCreateTest(AreaWidgetTestCase):
 class AreaLookTest(AreaWidgetTestCase):
     """How an area is drawn (LLFR-00305 to LLFR-00308)."""
 
-    @covers("LLFR-00305", "LLFR-00306", "LLFR-00307", "LLFR-00308")
+    @covers("LLFR-00305", "LLFR-00306", "LLFR-00307", "LLFR-00308",
+            "LLFR-00703")
     def test_band_label_and_times(self) -> None:
         """A see-through band in the orange marker color, shown paler
         because it is see-through, over the whole y range, behind the
@@ -327,7 +329,8 @@ class AreaLookTest(AreaWidgetTestCase):
         self.assertLess(times_box.y1, label_box.y1)
         self.assertLessEqual(times_box.y1, label_box.y0 + 1.0)
 
-    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306", "LLFR-00388")
+    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306", "LLFR-00388",
+            "LLFR-00730", "LLFR-00732", "LLFR-00810")
     def test_each_color_drawn_with_the_same_opacity(self) -> None:
         """Every area is drawn in its own color, any "#rrggbb" color, with
         the same see-through opacity; a color that is not "#rrggbb" (a
@@ -429,7 +432,8 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         super().setUp()
         self.set_areas([(1, "Area 1", 3.0, 5.0), (2, "Area 2", 7.0, 8.0)])
 
-    @covers("LLFR-00312", "LLFR-00308", "LLFR-00310", "LLFR-00207")
+    @covers("LLFR-00312", "LLFR-00308", "LLFR-00310", "LLFR-00207",
+            "LLFR-00454", "LLFR-00705")
     def test_press_inside_moves_the_area_keeping_its_width(self) -> None:
         """A drag from inside the area moves it with the pointer, its
         times update live, and the release asks once for the new span.
@@ -467,7 +471,7 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         return value_text.format_area_times_text(
             *self.plot_widget.area_drawn_span_tuple(area_id_i))
 
-    @covers("LLFR-00312", "LLFR-00119")
+    @covers("LLFR-00312", "LLFR-00119", "LLFR-00713", "LLFR-00714")
     def test_move_stops_at_the_next_area_and_the_file_range(self) -> None:
         """A moved area stops at the next area's edge and at the start of
         the file.
@@ -500,7 +504,8 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         self.assert_span(self.change_list[-1][1:], 3.0, 6.0)
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00313", "LLFR-00119")
+    @covers("LLFR-00313", "LLFR-00119", "LLFR-00715", "LLFR-00716",
+            "LLFR-00717")
     def test_resize_limits(self) -> None:
         """An edge stops at the next area, at the file's range and 5
         pixels before the other edge.
@@ -536,7 +541,7 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         self.assertEqual(self.change_list, [])
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00312", "LLFR-00310")
+    @covers("LLFR-00312", "LLFR-00310", "LLFR-00709")
     def test_tool_change_cancels_a_move(self) -> None:
         """Leaving the Area tool mid-drag puts the area back and asks for
         nothing; the other plots are told to put it back too.
@@ -554,7 +559,7 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         self.assertEqual(self.change_list, [])
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
 
-    @covers("LLFR-00310")
+    @covers("LLFR-00310", "LLFR-00709")
     def test_follow_drag_moves_only_the_drawing(self) -> None:
         """follow_area_drag (another plot of the tab) moves the band and
         its times, not the stored areas.
@@ -575,7 +580,8 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
 class AreaOtherToolsTest(AreaWidgetTestCase):
     """Areas change nothing for the other tools (LLFR-00318)."""
 
-    @covers("LLFR-00318", "LLFR-00208", "LLFR-00384")
+    @covers("LLFR-00318", "LLFR-00208", "LLFR-00384", "LLFR-00722",
+            "LLFR-00798", "LLFR-00799")
     def test_other_tools_never_move_or_resize_an_area(self) -> None:
         """With every other tool (not with none, LLFR-00382), a drag
         inside an area or on its edge asks for no area change; the Zoom
@@ -614,7 +620,7 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         self.assertEqual(self.create_list, [])
         self.assertEqual(self.drag_list, [])
 
-    @covers("LLFR-00339", "LLFR-00318")
+    @covers("LLFR-00339", "LLFR-00318", "LLFR-00742", "LLFR-00743")
     def test_press_on_a_text_note_moves_the_note(self) -> None:
         """With the Area tool, a press on a text note inside an area
         moves the note, not the area.
@@ -637,7 +643,7 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         self.assertEqual(self.create_list, [])
         self.assertEqual(self.drag_list, [])
 
-    @covers("LLFR-00341", "LLFR-00317", "LLFR-00314")
+    @covers("LLFR-00341", "LLFR-00317", "LLFR-00314", "LLFR-00721")
     def test_text_note_inside_an_area_takes_the_menu(self) -> None:
         """A right-click on a text note inside an area shows the text
         note menu, not the area menu.
@@ -656,7 +662,7 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
                          ["Edit", "Size", "Border color", "Text color",
                           "Delete"])
 
-    @covers("LLFR-00153", "LLFR-00318")
+    @covers("LLFR-00153", "LLFR-00318", "LLFR-00679")
     def test_press_on_a_pinned_tip_moves_the_tip(self) -> None:
         """With the Area tool, a press on a pinned tip inside an area
         moves the tip, not the area.
@@ -731,7 +737,8 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.plot_widget.show_context_menu(widget_point)
         return shown_list
 
-    @covers("LLFR-00314", "LLFR-00315", "LLFR-00316", "LLFR-00317")
+    @covers("LLFR-00314", "LLFR-00315", "LLFR-00316", "LLFR-00317",
+            "LLFR-00721")
     def test_area_menu_and_its_requests(self) -> None:
         """Inside the area, away from every other item, the menu has
         Rename, Color, Delete and Delete plot, each emitting its request,
@@ -754,7 +761,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(delete_list, [(1,)])
         self.assertEqual(plot_delete_list, [()])
 
-    @covers("LLFR-00351", "LLFR-00314", "LLFR-00388")
+    @covers("LLFR-00351", "LLFR-00314", "LLFR-00388", "LLFR-00809")
     def test_color_option_asks_for_the_picker(self) -> None:
         """"Color" is the shared color submenu, with no list of fixed
         colors: with no recent color only "Other color...", which emits
@@ -775,7 +782,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(color_list, [(1, "")])
 
     @covers("LLFR-00317", "LLFR-00110", "LLFR-00038", "LLFR-00046",
-            "LLFR-00175")
+            "LLFR-00175", "LLFR-00721")
     def test_items_inside_the_area_take_the_menu(self) -> None:
         """A curve, a vertical marker, a pinned tip or a delta marker
         inside the area shows its own menu.
@@ -922,7 +929,8 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         for plot_widget in self.all_plot_widgets():
             self.assertEqual(plot_widget.area_id_list(), [])
 
-    @covers("LLFR-00312", "LLFR-00310", "LLFR-00207", "LLFR-00140")
+    @covers("LLFR-00312", "LLFR-00310", "LLFR-00207", "LLFR-00140",
+            "LLFR-00454", "LLFR-00708", "LLFR-00709")
     def test_move_follows_on_the_tab_and_z_waits(self) -> None:
         """Moving an area shows it moving on the other plot of the tab
         before the release; the Z key does nothing during the drag; the
@@ -977,7 +985,8 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         return ZOOMED_RANGE_TUPLE
 
     @covers("LLFR-00351", "LLFR-00310", "LLFR-00138", "LLFR-00192",
-            "LLFR-00388", "LLFR-00389", "LLFR-00390")
+            "LLFR-00388", "LLFR-00389", "LLFR-00390", "LLFR-00708",
+            "LLFR-00730", "LLFR-00809")
     def test_color_from_the_menu_on_every_plot_of_every_tab(self) -> None:
         """Choosing "Color" in the area menu of one plot opens the picker
         at the area's color; the confirmed blue is drawn on every time

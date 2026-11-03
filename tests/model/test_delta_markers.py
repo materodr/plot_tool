@@ -32,7 +32,7 @@ class DeltaMarkerModelTestCase(unittest.TestCase):
 class DeltaMarkerTest(DeltaMarkerModelTestCase):
     """Placing, measuring and removing delta markers."""
 
-    @covers("LLFR-00164", "LLFR-00168", "LLFR-00170")
+    @covers("LLFR-00164", "LLFR-00168", "LLFR-00170", "LLFR-00682")
     def test_add_keeps_kind_and_exact_points(self) -> None:
         """A new marker keeps its kind and both points as given.
 
@@ -64,7 +64,7 @@ class DeltaMarkerTest(DeltaMarkerModelTestCase):
             DELTA_Y_KIND_STR, ("b", 1.5, 9.0), ("a", 5.0, 2.0))
         self.assertEqual(reverse_y.delta_f(), -7.0)
 
-    @covers("LLFR-00164")
+    @covers("LLFR-00164", "LLFR-00682")
     def test_both_points_may_be_on_the_same_curve(self) -> None:
         """Two points of one curve make a valid marker.
 

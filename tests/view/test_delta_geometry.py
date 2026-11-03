@@ -67,7 +67,7 @@ class BracketShapeTest(unittest.TestCase):
                          [(300.0, 50.0), (305.0, 50.0),
                           (100.0, 80.0), (305.0, 80.0)])
 
-    @covers("LLFR-00170")
+    @covers("LLFR-00170", "LLFR-00685")
     def test_delta_y_mirrored_left_of_the_earlier_point(self) -> None:
         """On the left side: left of the earlier point, tip left.
 
@@ -93,7 +93,7 @@ class BracketShapeTest(unittest.TestCase):
             DEPTH_PX_F, delta_geometry.LEFT_SIDE_STR)
         self.assertEqual(tuple(x_path.vertices[0]), (100.0, 85.0))
 
-    @covers("LLFR-00170")
+    @covers("LLFR-00170", "LLFR-00685")
     def test_side_choice(self) -> None:
         """Right when it fits, else left when it fits, else more room.
 

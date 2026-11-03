@@ -100,7 +100,7 @@ class DeltaPreviewWidgetTestCase(DeltaWidgetTestCase):
 class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
     """The dot on the sample a click would pick (LLFR-00352)."""
 
-    @covers("LLFR-00352", "LLFR-00163")
+    @covers("LLFR-00352", "LLFR-00163", "LLFR-00751")
     def test_dot_on_the_nearest_sample_follows_the_pointer(self) -> None:
         """The dot sits on the sample a click would pick and moves.
 
@@ -134,7 +134,7 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
             self.left_click(*self.ramp_point(6.0)[1:])
             self.assertEqual(self.pick_list[-1], self.ramp_point(6.0))
 
-    @covers("LLFR-00352", "LLFR-00083", "LLFR-00172")
+    @covers("LLFR-00352", "LLFR-00083", "LLFR-00172", "LLFR-00686")
     def test_dot_is_a_paler_marker_color(self) -> None:
         """The dot is a paler version of the marker color.
 
@@ -205,7 +205,8 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         # No pixel has the full marker color.
         self.assertEqual(int(np.sum(marker_distance_array <= 8)), 0)
 
-    @covers("LLFR-00352", "LLFR-00353", "LLFR-00083", "LLFR-00172")
+    @covers("LLFR-00352", "LLFR-00353", "LLFR-00083", "LLFR-00172",
+            "LLFR-00660", "LLFR-00686")
     def test_previews_are_drawn_in_the_pale_theme_marker_color(
             self) -> None:
         """The pixels the dot and the marker preview draw are the paler
@@ -284,7 +285,7 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.on_mouse_leave(None)
         self.assert_no_delta_preview()
 
-    @covers("LLFR-00352", "LLFR-00153")
+    @covers("LLFR-00352", "LLFR-00153", "LLFR-00679")
     def test_no_dot_where_a_press_moves_a_pinned_tip(self) -> None:
         """Over a pinned tip, a press moves the tip: no dot there.
 
@@ -311,7 +312,8 @@ class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):
     """The preview of the marker a second click would draw
     (LLFR-00353)."""
 
-    @covers("LLFR-00353", "LLFR-00168", "LLFR-00169", "LLFR-00164")
+    @covers("LLFR-00353", "LLFR-00168", "LLFR-00169", "LLFR-00164",
+            "LLFR-00752")
     def test_delta_x_preview_is_the_marker_a_click_would_draw(
             self) -> None:
         """Same bracket and value as the real Delta X marker, updated.
@@ -358,7 +360,7 @@ class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):
         self.assertTrue(self.plot_widget.delta_preview_text().startswith(
             "Δt = -"))
 
-    @covers("LLFR-00353", "LLFR-00170", "LLFR-00171")
+    @covers("LLFR-00353", "LLFR-00170", "LLFR-00171", "LLFR-00685")
     def test_delta_y_preview_with_its_mirroring(self) -> None:
         """Same bracket, side and value as the real Delta Y marker.
 
@@ -389,7 +391,7 @@ class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):
                                        atol=SHAPE_TOLERANCE_PX_F)
         self.assertEqual(self.delta_y_side(1), "left")
 
-    @covers("LLFR-00353", "LLFR-00164")
+    @covers("LLFR-00353", "LLFR-00164", "LLFR-00682")
     def test_kind_follows_the_active_button(self) -> None:
         """Switching between Delta X and Delta Y changes the preview.
 
@@ -414,7 +416,8 @@ class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):
         self.assertEqual(self.plot_widget.delta_preview_artists()[2].kind_str,
                          DELTA_Y_KIND_STR)
 
-    @covers("LLFR-00353", "LLFR-00163", "LLFR-00164")
+    @covers("LLFR-00353", "LLFR-00163", "LLFR-00164", "LLFR-00680",
+            "LLFR-00681")
     def test_preview_follows_the_first_point_as_it_is_picked(self) -> None:
         """Picking a first point turns the dot into a marker preview;
         placing the marker turns it back into a dot.
@@ -525,7 +528,7 @@ class DeltaPreviewFrequencyPlotTest(unittest.TestCase):
 class DeltaPreviewHiddenTest(DeltaPreviewWidgetTestCase):
     """When the previews go, and what they never reach (LLFR-00354)."""
 
-    @covers("LLFR-00354", "LLFR-00165", "LLFR-00167")
+    @covers("LLFR-00354", "LLFR-00165", "LLFR-00167", "LLFR-00756")
     def test_hidden_off_curve_and_on_deactivation_first_dot_kept(
             self) -> None:
         """Off the curves the dot of the first point stays; leaving the
@@ -579,7 +582,8 @@ class DeltaPreviewHiddenTest(DeltaPreviewWidgetTestCase):
             self.plot_widget.set_plot_tool(NO_TOOL_STR)
             self.assert_no_delta_preview()
 
-    @covers("LLFR-00354", "LLFR-00352", "LLFR-00353")
+    @covers("LLFR-00354", "LLFR-00352", "LLFR-00353", "LLFR-00751",
+            "LLFR-00752")
     def test_following_the_pointer_never_redraws_the_canvas(self) -> None:
         """Moves only blit the preview: no full draw of the canvas.
 
@@ -638,7 +642,7 @@ class DeltaPreviewHiddenTest(DeltaPreviewWidgetTestCase):
                                 copy=True)
         self.assertTrue(np.array_equal(clean_array, hidden_array))
 
-    @covers("LLFR-00354", "LLFR-00129", "LLFR-00133")
+    @covers("LLFR-00354", "LLFR-00129", "LLFR-00133", "LLFR-00753")
     def test_preview_artists_are_not_part_of_the_figure(self) -> None:
         """The preview artists are not in the axes, a full draw or the
         PDF image of the figure.
@@ -797,7 +801,7 @@ class DeltaPreviewWindowTest(SharedMarkerWindowTestCase):
             self.assertFalse(plot_widget.delta_preview_shown())
 
     @covers("LLFR-00352", "LLFR-00197", "LLFR-00198", "LLFR-00200",
-            "LLFR-00201", "LLFR-00354")
+            "LLFR-00201", "LLFR-00354", "LLFR-00751")
     def test_x_and_y_keys_held_show_the_preview(self) -> None:
         """Holding X or Y with the pointer on a curve shows the dot at
         once and while moving; releasing the key hides it.
@@ -824,7 +828,7 @@ class DeltaPreviewWindowTest(SharedMarkerWindowTestCase):
             self.hover_sample(plot_widget, 2.0)
 
     @covers("LLFR-00354", "LLFR-00129", "LLFR-00133", "LLFR-00140",
-            "LLFR-00225")
+            "LLFR-00225", "LLFR-00753", "LLFR-00754", "LLFR-00755")
     def test_not_exported_copied_saved_or_undoable(self) -> None:
         """The grab of the page never shows the previews; the layout
         and the undo history do not change while they are shown.

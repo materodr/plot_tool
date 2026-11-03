@@ -157,7 +157,7 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.dialog.reject()
         self.application.processEvents()
 
-    @covers("LLFR-00325", "HLFR-00070", "LLFR-00157")
+    @covers("LLFR-00325", "HLFR-00070", "LLFR-00157", "LLFR-00506")
     def test_text_list_and_search_box_with_focus(self) -> None:
         """The window shows its text, every signal and a focused search.
 
@@ -186,7 +186,8 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.assertIs(self.dialog.focusWidget(), self.dialog.search_box)
 
     @covers("LLFR-00325", "LLFR-00285", "LLFR-00095", "LLFR-00096",
-            "LLFR-00097", "LLFR-00102")
+            "LLFR-00097", "LLFR-00102", "LLFR-00618", "LLFR-00619",
+            "LLFR-00620", "LLFR-00621")
     def test_search_filters_the_list(self) -> None:
         """Typing filters the window's list like the signal list panel.
 
@@ -208,7 +209,7 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.assertEqual(self.dialog.name_list(), self.name_list)
         self.assertEqual(self.dialog.no_match_text(), "")
 
-    @covers("LLFR-00329", "LLFR-00326")
+    @covers("LLFR-00329", "LLFR-00326", "LLFR-00514")
     def test_non_increasing_signal_keeps_the_window_open(self) -> None:
         """OK with a signal that does not increase says why and stays.
 
@@ -447,7 +448,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
 
     @covers("LLFR-00325", "LLFR-00326", "LLFR-00329", "LLFR-00068",
             "LLFR-00055", "LLFR-00054", "HLFR-00070", "HLFR-00007",
-            "HLFR-00006")
+            "HLFR-00006", "LLFR-00507")
     def test_choose_t_s_and_plot_against_it(self) -> None:
         """Choosing "t_s" opens the file and puts it on the x-axis.
 
@@ -485,7 +486,8 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.plot_widgets()), 2)
         self.assertEqual(self.box_record_list, [])
 
-    @covers("LLFR-00327", "HLFR-00070", "LLFR-00010", "LLFR-00328")
+    @covers("LLFR-00327", "HLFR-00070", "LLFR-00010", "LLFR-00328",
+            "LLFR-00508", "LLFR-00509", "LLFR-00512", "LLFR-00513")
     def test_cancel_keeps_the_open_file(self) -> None:
         """Yes, then cancelling the window, keeps the open file.
 
@@ -504,7 +506,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertEqual(self.panel.signal_name_list(), ["a", "TIME", "b"])
         self.assertEqual(len(self.plot_widgets()), 1)
 
-    @covers("LLFR-00328", "HLFR-00010", "LLFR-00014")
+    @covers("LLFR-00328", "HLFR-00010", "LLFR-00014", "LLFR-00449")
     def test_replace_question_comes_before_the_window(self) -> None:
         """No in the replace question: the window is never shown.
 
@@ -521,7 +523,8 @@ class TimeSignalEndToEndTest(unittest.TestCase):
                          self.message_box_class.Icon.Question)
         self.assertEqual(self.panel.signal_name_list(), ["a", "TIME", "b"])
 
-    @covers("LLFR-00331", "LLFR-00324", "LLFR-00053", "HLFR-00072")
+    @covers("LLFR-00331", "LLFR-00324", "LLFR-00053", "HLFR-00072",
+            "LLFR-00505")
     def test_file_with_time_shows_no_window_and_no_control(self) -> None:
         """A "TIME" match opens directly; no menu changes the time signal.
 
@@ -545,7 +548,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
             self.assertNotIn("x-axis", text_str)
         menu.deleteLater()
 
-    @covers("LLFR-00332", "HLFR-00071")
+    @covers("LLFR-00332", "HLFR-00071", "LLFR-00638")
     def test_time_signal_name_is_green(self) -> None:
         """The time signal is green; other names are not, in every case.
 

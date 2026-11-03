@@ -211,7 +211,7 @@ class CalculusTest(unittest.TestCase):
             operations.integral(np.array([3.0]), value_array), [0.0])
         self.assertEqual(value_array[0], 7.0)
 
-    @covers("LLFR-00244")
+    @covers("LLFR-00244", "LLFR-00580")
     def test_derivative_of_t_squared(self) -> None:
         """d(t^2)/dt is exact (2t) inside; one-sided at the ends.
 
@@ -264,7 +264,7 @@ class SamplingRateTest(unittest.TestCase):
             operations.sampling_rate_hz(even_time_array(100.0, 3.0)),
             100.0)
 
-    @covers("LLFR-00247")
+    @covers("LLFR-00247", "LLFR-00590")
     def test_step_within_one_percent_is_accepted(self) -> None:
         """A step 0.9% off the mean step is accepted.
 
@@ -277,7 +277,7 @@ class SamplingRateTest(unittest.TestCase):
         rate_hz = operations.sampling_rate_hz(time_array)
         self.assertAlmostEqual(rate_hz, 1.0 / np.mean(step_array))
 
-    @covers("LLFR-00247")
+    @covers("LLFR-00247", "LLFR-00590")
     def test_step_beyond_one_percent_is_rejected(self) -> None:
         """A step 1.1% off the mean step raises UnevenTimeStepError.
 
@@ -303,7 +303,7 @@ class SamplingRateTest(unittest.TestCase):
         with self.assertRaises(UnevenTimeStepError):
             operations.sampling_rate_hz(np.array([2.0, 1.0, 0.0]))
 
-    @covers("LLFR-00245")
+    @covers("LLFR-00245", "LLFR-00584")
     def test_allowed_cutoff_range(self) -> None:
         """The cutoff range is (0, fs / 2), both limits excluded.
 
@@ -322,7 +322,7 @@ class SamplingRateTest(unittest.TestCase):
         self.assertEqual(operations.check_cutoff_hz(1e-3, time_array),
                          1e-3)
 
-    @covers("LLFR-00245", "LLFR-00247")
+    @covers("LLFR-00245", "LLFR-00247", "LLFR-00590")
     def test_cutoff_check_on_uneven_times_reports_uneven_steps(
             self) -> None:
         """With uneven times the uneven step error comes first.
@@ -351,7 +351,7 @@ class FilterTest(unittest.TestCase):
         """
         self.time_array = even_time_array(1000.0, 10.0)
 
-    @covers("LLFR-00246")
+    @covers("LLFR-00246", "LLFR-00588", "LLFR-00589")
     def test_output_is_scipy_forward_filter_for_both_starts(
             self) -> None:
         """The output is scipy's sosfilt, steady or at rest at the start.
@@ -383,7 +383,7 @@ class FilterTest(unittest.TestCase):
                 np.testing.assert_allclose(result_array, at_rest_array,
                                            rtol=1e-12, atol=1e-12)
 
-    @covers("LLFR-00246")
+    @covers("LLFR-00246", "LLFR-00588")
     def test_lowpass_keeps_a_constant_without_start_jump(self) -> None:
         """A constant goes through every low-pass order unchanged.
 
@@ -399,7 +399,7 @@ class FilterTest(unittest.TestCase):
                                               constant_array, 5.0, order_i)
             np.testing.assert_allclose(result_array, 4.0, atol=1e-9)
 
-    @covers("LLFR-00246")
+    @covers("LLFR-00246", "LLFR-00588")
     def test_highpass_of_a_constant_is_zero(self) -> None:
         """A constant gives 0 through every high-pass order, from the start.
 
@@ -412,7 +412,7 @@ class FilterTest(unittest.TestCase):
                                                constant_array, 1.0, order_i)
             np.testing.assert_allclose(result_array, 0.0, atol=1e-9)
 
-    @covers("LLFR-00246")
+    @covers("LLFR-00246", "LLFR-00589")
     def test_zero_start_settles_towards_the_constant(self) -> None:
         """From zero, a low-pass rises from 0 and a high-pass decays.
 
@@ -437,7 +437,8 @@ class FilterTest(unittest.TestCase):
         np.testing.assert_allclose(operations.lowpass(
             self.time_array, constant_array, 5.0, 2), 5.0, atol=1e-9)
 
-    @covers("LLFR-00245", "LLFR-00246")
+    @covers("LLFR-00245", "LLFR-00246", "LLFR-00582", "LLFR-00583",
+            "LLFR-00588", "LLFR-00589")
     def test_filter_start_choices(self) -> None:
         """The start is "first_value" (the default) or "zero".
 
@@ -559,7 +560,7 @@ class FilterTest(unittest.TestCase):
             self.assertEqual(result_array.size, sample_count_i)
             np.testing.assert_allclose(result_array, 3.0)
 
-    @covers("LLFR-00245")
+    @covers("LLFR-00245", "LLFR-00581", "LLFR-00584")
     def test_filter_order_range(self) -> None:
         """The order is a whole number from 1 to 8, 2 at first.
 
@@ -577,7 +578,7 @@ class FilterTest(unittest.TestCase):
                 operations.check_filter_order(order)
             self.assertIn("from 1 to 8", str(context.exception))
 
-    @covers("LLFR-00245", "LLFR-00247")
+    @covers("LLFR-00245", "LLFR-00247", "LLFR-00584", "LLFR-00590")
     def test_filters_reject_bad_values_and_uneven_times(self) -> None:
         """Out-of-range cutoffs or orders and uneven steps raise.
 
@@ -602,7 +603,7 @@ class FilterTest(unittest.TestCase):
 class MovingAverageTest(unittest.TestCase):
     """Check the centered moving average."""
 
-    @covers("LLFR-00270")
+    @covers("LLFR-00270", "LLFR-00612")
     def test_odd_window_is_centered_and_shrinks_at_the_ends(self) -> None:
         """Window 3 on 0..5: one sample before and after each sample.
 
@@ -627,7 +628,7 @@ class MovingAverageTest(unittest.TestCase):
             (4 + 8 + 16 + 32) / 4, (8 + 16 + 32) / 3, (16 + 32) / 2]
         np.testing.assert_allclose(result_array, expected_list)
 
-    @covers("LLFR-00270")
+    @covers("LLFR-00270", "LLFR-00612")
     def test_window_two_and_full_window(self) -> None:
         """Window 2 averages a sample with the next; window n is wide.
 
@@ -654,7 +655,7 @@ class MovingAverageTest(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(result_array[1:4])))
         np.testing.assert_allclose(result_array[[0, 4, 5, 6]], 1.0)
 
-    @covers("LLFR-00269")
+    @covers("LLFR-00269", "LLFR-00608")
     def test_allowed_window_range(self) -> None:
         """Windows from 2 to n are allowed, whole numbers only.
 
@@ -729,7 +730,7 @@ class ComparisonTest(unittest.TestCase):
             self.assertEqual(result_array.dtype, np.float64)
             np.testing.assert_array_equal(result_array, expected_list)
 
-    @covers("LLFR-00272")
+    @covers("LLFR-00272", "LLFR-00613")
     def test_constant_must_be_a_number(self) -> None:
         """Not a number is rejected; 0 is allowed except for divide.
 
@@ -767,7 +768,7 @@ class ArithmeticTest(unittest.TestCase):
                                    [0.25, -0.5, 1.0])
         np.testing.assert_array_equal(value_array, [1.0, -2.0, 4.0])
 
-    @covers("LLFR-00272", "LLFR-00274")
+    @covers("LLFR-00272", "LLFR-00274", "LLFR-00613")
     def test_divide_by_zero_is_rejected(self) -> None:
         """Dividing by 0 raises SyntheticParameterError.
 
@@ -925,7 +926,7 @@ class FftTest(unittest.TestCase):
         with self.assertRaises(TooFewSamplesError):
             operations.fft(self.time_array, value_array, 1.0, 0.5)
 
-    @covers("LLFR-00247", "LLFR-00249")
+    @covers("LLFR-00247", "LLFR-00249", "LLFR-00590")
     def test_uneven_time_steps_are_rejected(self) -> None:
         """An FFT on unevenly spaced samples raises UnevenTimeStepError.
 
@@ -942,7 +943,8 @@ class FftTest(unittest.TestCase):
 class CheckParameterTest(unittest.TestCase):
     """Check the parameter dispatch used by the dialogs."""
 
-    @covers("LLFR-00245", "LLFR-00269", "LLFR-00272", "LLFR-00248")
+    @covers("LLFR-00245", "LLFR-00269", "LLFR-00272", "LLFR-00248",
+            "LLFR-00584", "LLFR-00608", "LLFR-00613")
     def test_check_parameter_by_kind(self) -> None:
         """check_parameter normalizes each kind and rejects bad values.
 

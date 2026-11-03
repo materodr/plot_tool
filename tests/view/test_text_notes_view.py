@@ -245,7 +245,7 @@ class TextFieldTest(TextNoteWidgetTestCase):
                 self.click_display(self.display_of(*EMPTY_PLACE_TUPLE))
                 self.assertFalse(self.plot_widget.text_note_editor_open_b)
 
-    @covers("LLFR-00334")
+    @covers("LLFR-00334", "LLFR-00734")
     def test_enter_confirms_at_the_clicked_values(self) -> None:
         """Enter removes the field and asks for a note with the text at
         the clicked x and y values.
@@ -267,7 +267,7 @@ class TextFieldTest(TextNoteWidgetTestCase):
         self.assertEqual([entry[0] for entry in self.create_list],
                          ["Peak torque", "second"])
 
-    @covers("LLFR-00334")
+    @covers("LLFR-00334", "LLFR-00735")
     def test_blank_text_creates_nothing(self) -> None:
         """An empty field, or one with only spaces, asks for nothing.
 
@@ -284,7 +284,7 @@ class TextFieldTest(TextNoteWidgetTestCase):
             [widget for widget in self.application.topLevelWidgets()
              if widget.isVisible() and widget.isModal()], [])
 
-    @covers("LLFR-00335")
+    @covers("LLFR-00335", "LLFR-00737", "LLFR-00738")
     def test_escape_cancels_silently(self) -> None:
         """Esc removes the field and asks for nothing.
 
@@ -299,7 +299,7 @@ class TextFieldTest(TextNoteWidgetTestCase):
         self.assertEqual(self.create_list, [])
         self.assertEqual(self.plot_widget.text_note_count(), 0)
 
-    @covers("LLFR-00334")
+    @covers("LLFR-00334", "LLFR-00734")
     def test_click_outside_confirms_and_does_nothing_else(self) -> None:
         """A click elsewhere on the plot confirms the text; that click
         opens no second field.
@@ -337,7 +337,7 @@ class TextFieldTest(TextNoteWidgetTestCase):
         self.type_and_press("", "Key_Return")
         self.assertEqual(len(self.create_list), 1)
 
-    @covers("LLFR-00333", "LLFR-00334")
+    @covers("LLFR-00333", "LLFR-00334", "LLFR-00733")
     def test_field_stays_open_when_the_tool_is_deactivated(self) -> None:
         """Deactivating the Text tool while typing keeps the field, and
         Enter still confirms it.
@@ -454,7 +454,7 @@ class TextNoteDrawingTest(TextNoteWidgetTestCase):
             self.assertEqual(tuple(
                 self.plot_widget.text_note_annotation(0).xy), (4.0, 2.0))
 
-    @covers("LLFR-00337")
+    @covers("LLFR-00337", "LLFR-00741")
     def test_note_hidden_while_its_values_are_outside(self) -> None:
         """A note is hidden, and cannot be hit, while its x or y value is
         outside the shown range, and comes back afterwards.
@@ -529,7 +529,7 @@ class TextNoteDrawingTest(TextNoteWidgetTestCase):
             self.assertGreaterEqual(float(box.x0), float(axes_box.x0) - 0.5)
             self.assertGreaterEqual(float(box.y0), float(axes_box.y0) - 0.5)
 
-    @covers("LLFR-00340")
+    @covers("LLFR-00340", "LLFR-00745")
     def test_any_number_of_notes_and_redraws(self) -> None:
         """Many notes are drawn, and survive a redraw of the curves.
 
@@ -570,7 +570,7 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
         self.plot_widget.set_text_notes([("drag me",) + EMPTY_PLACE_TUPLE])
         self.draw()
 
-    @covers("LLFR-00339", "LLFR-00109")
+    @covers("LLFR-00339", "LLFR-00109", "LLFR-00742", "LLFR-00743")
     def test_drag_with_every_tool(self) -> None:
         """With any tool or none, a press on the note moves it, and does
         nothing else.
@@ -615,7 +615,7 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
                                  range_tuple)
                 self.assertEqual(self.plot_widget.plot_tool_str, tool_str)
 
-    @covers("LLFR-00339", "LLFR-00153")
+    @covers("LLFR-00339", "LLFR-00153", "LLFR-00743")
     def test_note_over_a_pinned_tip_wins(self) -> None:
         """A press where a note covers a pinned tip moves the note.
 
@@ -654,7 +654,7 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
         self.draw()
         self.assertTrue(self.plot_widget.text_note_shown(0))
 
-    @covers("LLFR-00207", "LLFR-00339")
+    @covers("LLFR-00207", "LLFR-00339", "LLFR-00454")
     def test_drag_counts_as_a_mouse_drag(self) -> None:
         """From the press to the release, a note drag is a mouse drag.
 
@@ -733,7 +733,7 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
         self.assertEqual(self.delete_list, [(0,)])
         self.assertEqual(self.plot_widget.marker_id_list(), [1])
 
-    @covers("LLFR-00342", "LLFR-00333")
+    @covers("LLFR-00342", "LLFR-00333", "LLFR-00746")
     def test_edit_opens_the_field_with_the_text(self) -> None:
         """Edit shows the field over the note with its text; Enter asks
         for the new text; a blank text asks for nothing.
@@ -818,7 +818,8 @@ class TextNoteImageTest(TextNoteWidgetTestCase):
     """Notes in the PDF pages and the copied image (LLFR-00129,
     LLFR-00133)."""
 
-    @covers("LLFR-00129", "LLFR-00133", "LLFR-00337", "LLFR-00387")
+    @covers("LLFR-00129", "LLFR-00133", "LLFR-00337", "LLFR-00387",
+            "LLFR-00739", "LLFR-00741", "LLFR-00808")
     def test_rendered_figure_shows_shown_notes_only(self) -> None:
         """The figure image of the export holds the note, in its own
         border and text colors, and a hidden note is not in it.
@@ -1094,7 +1095,7 @@ class TextNoteEndToEndTest(unittest.TestCase):
         self.process_events()
         self.assertEqual(self.model_notes()[0], written_tuple)
 
-    @covers("LLFR-00340", "LLFR-00049")
+    @covers("LLFR-00340", "LLFR-00049", "LLFR-00744")
     def test_notes_only_on_their_plot_and_removed_with_it(self) -> None:
         """A note shows only on its plot and goes with it.
 
@@ -1124,7 +1125,7 @@ class TextNoteEndToEndTest(unittest.TestCase):
              self.plot_controller.workspace.tab_list
              for plot in tab.plot_list], [[]])
 
-    @covers("LLFR-00333", "LLFR-00334", "LLFR-00079")
+    @covers("LLFR-00333", "LLFR-00334", "LLFR-00079", "LLFR-00733")
     def test_tool_buttons_clicked_with_the_mouse_keep_the_field(
             self) -> None:
         """Real mouse clicks on the Text button and on other plot tool
@@ -1247,7 +1248,7 @@ class TextNoteEndToEndTest(unittest.TestCase):
         self.assertEqual([note[0] for note in self.model_notes()],
                          ["A", "B"])
 
-    @covers("LLFR-00334", "LLFR-00333")
+    @covers("LLFR-00334", "LLFR-00333", "LLFR-00733")
     def test_tool_switched_off_with_its_button_while_typing(self) -> None:
         """Clicking the Text button off keeps the field; Enter writes.
 

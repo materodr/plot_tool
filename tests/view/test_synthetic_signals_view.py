@@ -111,7 +111,8 @@ class SignalMenuTest(unittest.TestCase):
         return text_list
 
     @covers("LLFR-00239", "LLFR-00277", "LLFR-00254", "LLFR-00265",
-            "LLFR-00278", "LLFR-00283")
+            "LLFR-00278", "LLFR-00283", "LLFR-00596", "LLFR-00601",
+            "LLFR-00624")
     def test_options_of_data_and_synthetic_signals(self) -> None:
         """Data signals get Create and Copy name; synthetic ones more.
 
@@ -180,7 +181,7 @@ class SignalMenuTest(unittest.TestCase):
         menu.deleteLater()
 
     @covers("LLFR-00239", "LLFR-00277", "LLFR-00278", "LLFR-00265",
-            "LLFR-00254")
+            "LLFR-00254", "LLFR-00568")
     def test_options_emit_their_requests(self) -> None:
         """Each option emits its request with the signal name.
 
@@ -200,7 +201,7 @@ class SignalMenuTest(unittest.TestCase):
             ("rename", "int_Speed"),
             ("delete", "int_Speed")])
 
-    @covers("LLFR-00239")
+    @covers("LLFR-00239", "LLFR-00568")
     def test_chosen_option_is_emitted_after_the_menu_closes(self) -> None:
         """show_signal_menu runs the request of the chosen action.
 
@@ -265,7 +266,8 @@ class SyntheticDialogTest(unittest.TestCase):
         """
         self.application = get_qt_application()
 
-    @covers("LLFR-00245")
+    @covers("LLFR-00245", "LLFR-00581", "LLFR-00582", "LLFR-00583",
+            "LLFR-00585", "LLFR-00586")
     def test_filter_dialog_stays_open_and_says_why(self) -> None:
         """OK with a refused value keeps the dialog and shows why.
 
@@ -317,7 +319,7 @@ class SyntheticDialogTest(unittest.TestCase):
         self.assertEqual(dialog.value_list(), ["1.5", "4", "zero"])
         dialog.deleteLater()
 
-    @covers("LLFR-00269", "LLFR-00272")
+    @covers("LLFR-00269", "LLFR-00272", "LLFR-00611", "LLFR-00616")
     def test_cancel_rejects_the_dialog(self) -> None:
         """Cancel closes a one-field dialog without accepting it.
 
@@ -375,7 +377,7 @@ class SyntheticDialogTest(unittest.TestCase):
             NO_MATCH_TEXT_STR)
         return dialog, name_list
 
-    @covers("LLFR-00285", "LLFR-00157")
+    @covers("LLFR-00285", "LLFR-00157", "LLFR-00622")
     def test_second_signal_search_box_above_the_list_with_focus(
             self) -> None:
         """The search box is above the list and has the focus.
@@ -405,7 +407,8 @@ class SyntheticDialogTest(unittest.TestCase):
 
     @covers("LLFR-00285", "LLFR-00095", "LLFR-00096", "LLFR-00097",
             "LLFR-00102", "LLFR-00105", "LLFR-00098", "LLFR-00100",
-            "LLFR-00101")
+            "LLFR-00101", "LLFR-00618", "LLFR-00619", "LLFR-00620",
+            "LLFR-00621")
     def test_second_signal_search_filters_the_list(self) -> None:
         """Typing filters the list in the panel's order.
 
@@ -433,7 +436,7 @@ class SyntheticDialogTest(unittest.TestCase):
         self.assertEqual(dialog.no_match_text(), "")
         dialog.deleteLater()
 
-    @covers("LLFR-00285", "LLFR-00275")
+    @covers("LLFR-00285", "LLFR-00275", "LLFR-00617")
     def test_second_signal_search_accept_and_cancel(self) -> None:
         """Enter takes the selected match; with no match it does nothing.
 
@@ -495,7 +498,8 @@ class SyntheticDialogTest(unittest.TestCase):
         self.assertNotIn("computed from it", alone_box.text())
         alone_box.deleteLater()
 
-    @covers("LLFR-00247", "LLFR-00250", "LLFR-00267")
+    @covers("LLFR-00247", "LLFR-00250", "LLFR-00267", "LLFR-00591",
+            "LLFR-00594", "LLFR-00606")
     def test_information_box(self) -> None:
         """The synthetic signal boxes are information boxes.
 
@@ -649,7 +653,8 @@ class SyntheticEndToEndTest(unittest.TestCase):
         return [name_str for name_str, _ in plot_widget.legend_entry_list()]
 
     @covers("LLFR-00239", "LLFR-00242", "LLFR-00245", "LLFR-00019",
-            "LLFR-00021", "LLFR-00255", "LLFR-00051")
+            "LLFR-00021", "LLFR-00255", "LLFR-00051", "LLFR-00568",
+            "LLFR-00579", "LLFR-00597", "LLFR-00598")
     def test_create_plot_and_delete_with_dependents(self) -> None:
         """Integral and low-pass are created, plotted and deleted.
 
@@ -696,7 +701,8 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(self.legend_names(remaining_list[0]), ["Torque"])
         self.assertFalse(self.main_window.is_undo_enabled())
 
-    @covers("LLFR-00266", "LLFR-00267", "LLFR-00277", "LLFR-00279")
+    @covers("LLFR-00266", "LLFR-00267", "LLFR-00277", "LLFR-00279",
+            "LLFR-00603", "LLFR-00623")
     def test_rename_and_clipboard(self) -> None:
         """Rename updates the legend; names and equations are copied.
 

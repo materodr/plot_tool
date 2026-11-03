@@ -503,7 +503,7 @@ class TipDragWidgetTest(TipDragTestCase):
 class PressOnTipTest(TipDragTestCase):
     """A press on a pinned tip only moves it (LLFR-00153)."""
 
-    @covers("LLFR-00153", "LLFR-00152", "LLFR-00109")
+    @covers("LLFR-00153", "LLFR-00152", "LLFR-00109", "LLFR-00679")
     def test_press_on_tip_with_every_tool_starts_a_move(self) -> None:
         """With any tool or none: no pin, zoom or marker; the tip moves.
 
@@ -568,7 +568,7 @@ class PressOnTipTest(TipDragTestCase):
         self.assertEqual(len(self.range_list), 1)
         self.assertEqual(self.move_list, [])
 
-    @covers("LLFR-00153", "LLFR-00117")
+    @covers("LLFR-00153", "LLFR-00117", "LLFR-00679")
     def test_wheel_button_press_during_a_tip_drag_does_not_pan(self) -> None:
         """The wheel button does not start a pan while a tip is held.
 
@@ -779,7 +779,7 @@ class RightPressDuringDragTest(TipDragTestCase):
 class PixelWheelTest(PlotWidgetToolTestCase):
     """Wheel events that only report pixels still zoom (LLFR-00113)."""
 
-    @covers("LLFR-00113", "LLFR-00074")
+    @covers("LLFR-00113", "LLFR-00074", "LLFR-00671")
     def test_pixel_delta_is_used_when_the_angle_is_zero(self) -> None:
         """120 pixels count as one notch; the angle wins when present.
 
@@ -801,7 +801,7 @@ class PixelWheelTest(PlotWidgetToolTestCase):
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(end_s - start_s, 10.0 * 0.95 ** 0.5)
 
-    @covers("LLFR-00113")
+    @covers("LLFR-00113", "LLFR-00671")
     def test_real_pixel_only_wheel_event_zooms(self) -> None:
         """A real QWheelEvent with only pixels zooms by its pixels.
 

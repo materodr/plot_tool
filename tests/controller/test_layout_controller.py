@@ -410,7 +410,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.assertEqual(layout_dict["time_range"],
                          {"start": 0.0, "end": 10.0})
 
-    @covers("LLFR-00219")
+    @covers("LLFR-00219", "LLFR-00467")
     def test_json_suffix_added_without_extension(self) -> None:
         """A name typed without an extension gets ".json".
 
@@ -423,7 +423,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.save(self.path("other.txt"))
         self.assertTrue(os.path.exists(self.path("other.txt")))
 
-    @covers("LLFR-00223")
+    @covers("LLFR-00223", "LLFR-00470")
     def test_replace_asked_when_suffix_names_an_existing_file(self) -> None:
         """The added ".json" names an existing file: replace is asked.
 
@@ -446,7 +446,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.save(existing_str)
         self.assertEqual(len(self.view.replace_question_list), 2)
 
-    @covers("LLFR-00222")
+    @covers("LLFR-00222", "LLFR-00469")
     def test_cancel_saves_nothing(self) -> None:
         """A cancelled dialog writes no file and changes nothing.
 
@@ -473,7 +473,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
                          ["Permission denied: x.json"])
         self.assertEqual(self.view.finished_list, ["save"])
 
-    @covers("LLFR-00238")
+    @covers("LLFR-00238", "LLFR-00494")
     def test_saving_is_not_undoable(self) -> None:
         """Saving records nothing for undo and keeps the history.
 
@@ -489,7 +489,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
 class DialogFolderTest(LayoutControllerTestCase):
     """The folder the layout dialogs show (LLFR-00220)."""
 
-    @covers("LLFR-00220", "LLFR-00204")
+    @covers("LLFR-00220", "LLFR-00204", "LLFR-00468")
     def test_folder_sequence(self) -> None:
         """First the Open file folder, then the last layout's folder.
 
@@ -540,7 +540,8 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.file_controller.open(make_data_file(signal_name_list), True)
         return path_str
 
-    @covers("LLFR-00221", "LLFR-00230", "LLFR-00229", "LLFR-00237")
+    @covers("LLFR-00221", "LLFR-00230", "LLFR-00229", "LLFR-00237",
+            "LLFR-00478", "LLFR-00480", "LLFR-00481", "LLFR-00493")
     def test_round_trip_after_replacing_the_file(self) -> None:
         """Loading into a new file rebuilds everything, with no report.
 
@@ -567,7 +568,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
                          self.workspace.tab_list[0].tab_id_i)
         self.assertEqual(self.view.finished_list[-1], "load")
 
-    @covers("LLFR-00229")
+    @covers("LLFR-00229", "LLFR-00473", "LLFR-00474", "LLFR-00477")
     def test_tabs_added_after_tabs_with_plots(self) -> None:
         """Current tabs with plots are kept; the first new tab is shown.
 
@@ -591,7 +592,8 @@ class LoadLayoutTest(LayoutControllerTestCase):
             self.assertEqual(len(self.view.marker_drawn_dict[plot_id_i]), 1)
         self.assertEqual(self.view.report_list, [])
 
-    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00489",
+            "LLFR-00490")
     def test_add_mode_with_default_tab_names_reports_renames(self) -> None:
         """Loading a layout of the same file after its own tabs renames
         the clashing default names and lists them in the box.
@@ -664,7 +666,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertIn("limited to 1 s to 3 s", report_str)
         self.assertIn("Flag \"Flag 1\" at 4 s", report_str)
 
-    @covers("LLFR-00234")
+    @covers("LLFR-00234", "LLFR-00487")
     def test_range_without_overlap_shows_the_whole_file(self) -> None:
         """A range outside the file shows the whole range in every plot.
 
@@ -682,7 +684,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
             self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
         self.assertIn("whole time range", self.view.report_list[0])
 
-    @covers("LLFR-00235", "LLFR-00237", "LLFR-00032")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00032", "LLFR-00488")
     def test_replaced_values_and_sixth_plot(self) -> None:
         """Bad widths and colors are replaced; a 6th plot is skipped, and
         no Full Tab box is shown for it.
@@ -714,7 +716,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertIn("is empty", report_str)
         self.assertIn("at most 5 plots", report_str)
 
-    @covers("LLFR-00237")
+    @covers("LLFR-00237", "LLFR-00493")
     def test_no_report_when_everything_is_rebuilt(self) -> None:
         """A layout rebuilt as saved shows no box at all.
 
@@ -726,7 +728,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(self.view.report_list, [])
         self.assertEqual(self.view.load_error_list, [])
 
-    @covers("LLFR-00238", "LLFR-00140")
+    @covers("LLFR-00238", "LLFR-00140", "LLFR-00494")
     def test_load_clears_undo_and_redo(self) -> None:
         """Loading clears both histories and is not undoable itself.
 
@@ -748,7 +750,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.view.handler_dict["undo"]()
         self.assertEqual(self.content(), before_tuple)
 
-    @covers("LLFR-00222")
+    @covers("LLFR-00222", "LLFR-00469")
     def test_cancel_loads_nothing(self) -> None:
         """A cancelled dialog keeps the layout unchanged.
 
@@ -764,7 +766,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(self.view.report_list, [])
         self.assertEqual(self.view.finished_list, ["load"])
 
-    @covers("LLFR-00236")
+    @covers("LLFR-00236", "LLFR-00491")
     def test_unreadable_files_keep_the_layout(self) -> None:
         """A missing file, bad JSON or another JSON file is refused.
 

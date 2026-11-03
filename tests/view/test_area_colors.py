@@ -36,7 +36,7 @@ def drawn_rgb_tuple(color_str: str, alpha_f: float = AREA_ALPHA_F) -> tuple:
 class DefaultAreaColorTest(unittest.TestCase):
     """The default color of a new area (LLFR-00351). No Qt is needed."""
 
-    @covers("LLFR-00351", "LLFR-00083", "LLFR-00305")
+    @covers("LLFR-00351", "LLFR-00083", "LLFR-00305", "LLFR-00731")
     def test_new_area_gets_ff8000_drawn_paler(self) -> None:
         """A new area gets the reserved marker color #ff8000, which the
         see-through drawing shows paler than an opaque item of that
@@ -66,7 +66,7 @@ class SharedAreaOpacityTest(PlotWidgetToolTestCase):
     """Every area color is drawn with the same see-through opacity
     (LLFR-00305, LLFR-00306, LLFR-00351)."""
 
-    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306")
+    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306", "LLFR-00732")
     def test_any_color_same_opacity_behind_the_curves(self) -> None:
         """The default color and colors the picker may give (black,
         white, a palette color, any other) are all drawn with the one

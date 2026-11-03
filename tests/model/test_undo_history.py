@@ -12,7 +12,7 @@ from model.workspace import Workspace
 class UndoHistoryTest(unittest.TestCase):
     """The bounded stack of saved states."""
 
-    @covers("LLFR-00139", "LLFR-00141", "LLFR-00194")
+    @covers("LLFR-00139", "LLFR-00141", "LLFR-00194", "LLFR-00457")
     def test_starts_empty(self) -> None:
         """A new history has nothing to undo and refuses to pop.
 
@@ -103,7 +103,7 @@ class UndoHistoryTest(unittest.TestCase):
 class RedoHistoryTest(unittest.TestCase):
     """The redo stack of the history (HLFR-00048)."""
 
-    @covers("LLFR-00192", "LLFR-00138")
+    @covers("LLFR-00192", "LLFR-00138", "LLFR-00444")
     def test_undo_then_redo_restores(self) -> None:
         """Undo trades the current state; redo trades it back.
 
@@ -153,7 +153,7 @@ class RedoHistoryTest(unittest.TestCase):
         self.assertEqual(history.depth(), 2)
         self.assertEqual(history.pop(), "s1 changed")
 
-    @covers("LLFR-00139", "LLFR-00192")
+    @covers("LLFR-00139", "LLFR-00192", "LLFR-00444")
     def test_depth_limit_holds_through_undo_and_redo(self) -> None:
         """31 actions give 30 undos and 30 redos; the stacks stay at 30.
 

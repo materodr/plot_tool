@@ -282,7 +282,7 @@ class DoubleClickTextNoteTest(TextNoteWidgetTestCase):
         self.assertEqual(self.plot_widget.text_note_list[0][:3],
                          self.note_tuple)
 
-    @covers("LLFR-00411", "LLFR-00342", "LLFR-00339")
+    @covers("LLFR-00411", "LLFR-00342", "LLFR-00339", "LLFR-00825")
     def test_double_click_with_every_tool_opens_edit(self) -> None:
         """With any plot tool or none, the double-click opens the field
         of "Edit" over the note, with its text and the keyboard focus,
@@ -319,7 +319,7 @@ class DoubleClickTextNoteTest(TextNoteWidgetTestCase):
                 self.assertFalse(self.editor.isVisible())
                 self.assertEqual(self.edit_list, [])
 
-    @covers("LLFR-00411", "LLFR-00342")
+    @covers("LLFR-00411", "LLFR-00342", "LLFR-00746")
     def test_double_click_then_enter_edits_the_text(self) -> None:
         """Enter in the field asks for the new text, as with "Edit"; a
         blank text asks for nothing.
@@ -551,7 +551,7 @@ class DeleteAllEndToEndTest(EndToEndTestCase):
     """Each "Delete all" option in a real window, undo and redo."""
 
     @covers("LLFR-00413", "LLFR-00046", "LLFR-00140", "LLFR-00138",
-            "LLFR-00192")
+            "LLFR-00192", "LLFR-00828")
     def test_all_tips_from_the_menu(self) -> None:
         """"Delete all data tips in all plots", chosen on the tip of the
         shown tab, removes the tip of the hidden tab too.
@@ -570,7 +570,8 @@ class DeleteAllEndToEndTest(EndToEndTestCase):
              [(2, 2), (2, 2)]))
 
     @covers("LLFR-00412", "LLFR-00414", "LLFR-00415", "LLFR-00416",
-            "LLFR-00417", "LLFR-00140")
+            "LLFR-00417", "LLFR-00140", "LLFR-00827", "LLFR-00831",
+            "LLFR-00833", "LLFR-00834", "LLFR-00835")
     def test_every_request_reaches_the_controller(self) -> None:
         """Each "Delete all" request of a plot widget runs its action on
         the model and on every plot widget, as one undoable action.
@@ -620,7 +621,7 @@ class DoubleClickEndToEndTest(EndToEndTestCase):
     """A real window: a double-click on a text note edits it and creates
     no plot (LLFR-00411)."""
 
-    @covers("LLFR-00411", "LLFR-00342", "LLFR-00140")
+    @covers("LLFR-00411", "LLFR-00342", "LLFR-00140", "LLFR-00825")
     def test_double_click_edits_the_note_and_creates_no_plot(self) -> None:
         """The edited text reaches the model as one undoable action; the
         plots, tips and markers do not change.

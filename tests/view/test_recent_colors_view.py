@@ -109,7 +109,7 @@ class RecentColorSettingsTest(unittest.TestCase):
         """
         self.application = get_qt_application()
 
-    @covers("LLFR-00419")
+    @covers("LLFR-00419", "LLFR-00840")
     def test_list_is_kept_between_launches(self) -> None:
         """Remembered colors are written to the settings file, most
         recent first, without repeats, at most 8, and read back by a new
@@ -132,7 +132,7 @@ class RecentColorSettingsTest(unittest.TestCase):
             color_picker.RECENT_COLORS_KEY_STR)
         self.assertEqual(list(stored_value), expected_list)
 
-    @covers("LLFR-00419")
+    @covers("LLFR-00419", "LLFR-00841")
     def test_settings_that_cannot_be_read_give_no_color(self) -> None:
         """A stored value that is not a list of colors gives an empty
         list, and a list with wrong entries keeps only the colors.
@@ -149,7 +149,7 @@ class RecentColorSettingsTest(unittest.TestCase):
         isolate_recent_colors(self, stored_value="#010203")
         self.assertEqual(color_picker.recent_color_list(), ["#010203"])
 
-    @covers("LLFR-00419")
+    @covers("LLFR-00419", "LLFR-00841")
     def test_settings_failure_never_raises(self) -> None:
         """When the settings cannot be opened, the list is empty and
         remembering a color does not raise.
@@ -163,7 +163,7 @@ class RecentColorSettingsTest(unittest.TestCase):
             self.assertEqual(color_picker.recent_color_list(), [])
             color_picker.remember_color("#123456")
 
-    @covers("LLFR-00419", "LLFR-00390")
+    @covers("LLFR-00419", "LLFR-00390", "LLFR-00838")
     def test_picker_confirm_puts_the_color_first(self) -> None:
         """A confirmed color, also the item's current color, goes first
         in the list; a cancelled picker changes nothing.
@@ -257,7 +257,8 @@ class ColorSubmenuTest(PlotWidgetToolTestCase):
              plot_widget.delta_marker_color_requested, 9)]
 
     @covers("LLFR-00388", "LLFR-00419", "LLFR-00391", "LLFR-00351",
-            "LLFR-00379", "LLFR-00387", "LLFR-00409", "LLFR-00175")
+            "LLFR-00379", "LLFR-00387", "LLFR-00409", "LLFR-00175",
+            "LLFR-00836", "LLFR-00839")
     def test_every_option_lists_recent_colors_then_other(self) -> None:
         """Each color option is a submenu with the recent colors, most
         recent first, each with its swatch and "#rrggbb" code, then
@@ -292,7 +293,8 @@ class ColorSubmenuTest(PlotWidgetToolTestCase):
                          DELTA_MENU_TEXT_LIST)
         menu.deleteLater()
 
-    @covers("LLFR-00419", "LLFR-00390", "LLFR-00388")
+    @covers("LLFR-00419", "LLFR-00390", "LLFR-00388", "LLFR-00837",
+            "LLFR-00838")
     def test_entries_ask_for_their_color_and_update_the_list(self) -> None:
         """A recent entry asks for its color with the item and puts it
         first in the list; "Other color..." asks with "" and leaves the
@@ -320,7 +322,7 @@ class ColorSubmenuTest(PlotWidgetToolTestCase):
                 menu.deleteLater()
                 signal.disconnect()
 
-    @covers("LLFR-00419", "LLFR-00388")
+    @covers("LLFR-00419", "LLFR-00388", "LLFR-00841")
     def test_empty_list_shows_only_other_color(self) -> None:
         """With no recent color, every submenu holds only "Other
         color...".
@@ -337,7 +339,7 @@ class ColorSubmenuTest(PlotWidgetToolTestCase):
                                  ["Other color..."])
                 menu.deleteLater()
 
-    @covers("LLFR-00390", "LLFR-00419")
+    @covers("LLFR-00390", "LLFR-00419", "LLFR-00811", "LLFR-00812")
     def test_closed_menu_emits_nothing(self) -> None:
         """A menu closed without a choice asks for no color and leaves
         the list as it is.
@@ -377,7 +379,7 @@ class DeltaMarkerColorViewTest(PlotWidgetToolTestCase):
                     label.get_bbox_patch().get_edgecolor())}
 
     @covers("LLFR-00409", "LLFR-00172", "LLFR-00168", "LLFR-00170",
-            "LLFR-00169", "LLFR-00171")
+            "LLFR-00169", "LLFR-00171", "LLFR-00818")
     def test_bracket_dots_and_value_in_the_marker_color(self) -> None:
         """Each delta marker draws its bracket, dots and value in its own
         color; one without a usable color in the reserved marker color.
@@ -398,7 +400,8 @@ class DeltaMarkerColorViewTest(PlotWidgetToolTestCase):
                          {MARKER_COLOR_STR})
         self.assertEqual(self.plot_widget.delta_label_text(1), "Δt = 2 s")
 
-    @covers("LLFR-00172", "LLFR-00083", "LLFR-00352", "LLFR-00353")
+    @covers("LLFR-00172", "LLFR-00083", "LLFR-00352", "LLFR-00353",
+            "LLFR-00660", "LLFR-00686")
     def test_first_dot_and_previews_stay_orange(self) -> None:
         """With colored delta markers drawn, the dot of a first point
         stays the marker color and the previews the pale marker color.
@@ -431,7 +434,8 @@ class AreaLabelColorViewTest(PlotWidgetToolTestCase):
     """Area name and times in the area's color (LLFR-00307,
     LLFR-00308)."""
 
-    @covers("LLFR-00307", "LLFR-00308", "LLFR-00351", "LLFR-00305")
+    @covers("LLFR-00307", "LLFR-00308", "LLFR-00351", "LLFR-00305",
+            "LLFR-00704")
     def test_label_and_times_follow_the_area_color(self) -> None:
         """The name and the times are drawn in the area's color at full
         opacity, on the white label box, while the band stays
@@ -578,7 +582,8 @@ class RecentColorEndToEndTest(unittest.TestCase):
         return self.plot_controller.undo_history.depth()
 
     @covers("LLFR-00419", "LLFR-00390", "LLFR-00392", "LLFR-00205",
-            "LLFR-00138", "LLFR-00140")
+            "LLFR-00138", "LLFR-00140", "LLFR-00664", "LLFR-00811",
+            "LLFR-00812", "LLFR-00837", "LLFR-00838", "LLFR-00813")
     def test_recent_color_on_a_flag(self) -> None:
         """A recent color is drawn on every plot as one undoable action;
         choosing the flag's own color moves it first in the list and
@@ -606,7 +611,8 @@ class RecentColorEndToEndTest(unittest.TestCase):
         self.assertEqual(self.flag_colors(), ["#00aa00", "#00aa00"])
 
     @covers("LLFR-00409", "LLFR-00388", "LLFR-00389", "LLFR-00390",
-            "LLFR-00419", "LLFR-00138", "LLFR-00192")
+            "LLFR-00419", "LLFR-00138", "LLFR-00192", "LLFR-00809",
+            "LLFR-00838", "LLFR-00818")
     def test_picker_color_on_a_delta_marker(self) -> None:
         """"Other color..." on a delta marker opens the real picker at
         the marker's color; the confirmed color is drawn on its bracket,

@@ -129,7 +129,7 @@ class CreateAreaControllerTest(AreaControllerTestCase):
         self.assertEqual(self.drawn_area_list(new_plot_id_i),
                          [("Area 1", 1.0, 3.0)])
 
-    @covers("LLFR-00304", "LLFR-00119")
+    @covers("LLFR-00304", "LLFR-00119", "LLFR-00702")
     def test_create_is_limited_to_the_file_and_never_overlaps(self) -> None:
         """A span beyond the file is cut to it; an overlapping, empty or
         unfinished span creates nothing and records no undo step.
@@ -149,7 +149,8 @@ class CreateAreaControllerTest(AreaControllerTestCase):
         self.assertEqual(self.area_tuple_list(),
                          [("Area 1", 0.0, 2.0), ("Area 2", 2.0, 10.0)])
 
-    @covers("LLFR-00318", "LLFR-00303", "LLFR-00311", "LLFR-00384")
+    @covers("LLFR-00318", "LLFR-00303", "LLFR-00311", "LLFR-00384",
+            "LLFR-00712", "LLFR-00722", "LLFR-00799")
     def test_other_tools_and_frequency_plots_create_nothing(self) -> None:
         """With another tool than Area, or on a frequency plot or an
         unknown plot, no area is created or changed; with no tool, no
@@ -182,7 +183,7 @@ class CreateAreaControllerTest(AreaControllerTestCase):
         self.assertEqual(self.area_tuple_list(), [("Area 1", 1.0, 2.0)])
 
     @covers("LLFR-00382", "LLFR-00312", "LLFR-00313", "LLFR-00140",
-            "LLFR-00138")
+            "LLFR-00138", "LLFR-00790")
     def test_no_tool_moves_and_resizes_undoably(self) -> None:
         """With no plot tool active, a move and a resize are applied as
         one undoable action each, and not on a frequency plot.
@@ -277,7 +278,7 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.second_id_i = self.workspace.area_list[1].area_id_i
 
     @covers("LLFR-00312", "LLFR-00313", "LLFR-00310", "LLFR-00140",
-            "LLFR-00308")
+            "LLFR-00308", "LLFR-00708")
     def test_move_and_resize_are_undoable_and_shown_everywhere(
             self) -> None:
         """A move and a resize are one undoable action each, shown on
@@ -306,7 +307,8 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.redo()
         self.assertEqual(self.area_tuple_list(), expected_list)
 
-    @covers("LLFR-00312", "LLFR-00313", "LLFR-00119", "LLFR-00140")
+    @covers("LLFR-00312", "LLFR-00313", "LLFR-00119", "LLFR-00140",
+            "LLFR-00713", "LLFR-00714", "LLFR-00715")
     def test_refused_change_redraws_the_area_where_it_was(self) -> None:
         """An overlapping change or one to the same place records
         nothing, and the view is told the area's real place; a change
@@ -330,7 +332,7 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.change(self.first_id_i, 2.0, 9.0)
         self.assertEqual(self.area_tuple_list()[0], ("Area 1", 2.0, 9.0))
 
-    @covers("LLFR-00312", "LLFR-00119")
+    @covers("LLFR-00312", "LLFR-00119", "LLFR-00713")
     def test_move_beyond_the_file_is_shifted_keeping_the_width(
             self) -> None:
         """A moved span (as wide as the area) that leaves the file is
@@ -344,7 +346,8 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.change(self.first_id_i, -0.75, 0.25)
         self.assertEqual(self.area_tuple_list()[0], ("Area 1", 0.0, 1.0))
 
-    @covers("LLFR-00315", "LLFR-00307", "LLFR-00140")
+    @covers("LLFR-00315", "LLFR-00307", "LLFR-00140", "LLFR-00718",
+            "LLFR-00719")
     def test_rename_with_any_tool_and_blank_keeps_the_name(self) -> None:
         """Rename asks with the current name; a blank answer or a
         cancelled dialog keeps it and records nothing.
@@ -373,7 +376,9 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.assertEqual(self.area_tuple_list()[0][0], "Area 1")
 
     @covers("LLFR-00351", "LLFR-00310", "LLFR-00140", "LLFR-00138",
-            "LLFR-00192", "LLFR-00388", "LLFR-00389", "LLFR-00390")
+            "LLFR-00192", "LLFR-00388", "LLFR-00389", "LLFR-00390",
+            "LLFR-00708", "LLFR-00730", "LLFR-00809", "LLFR-00811",
+            "LLFR-00812")
     def test_color_change_is_undoable_and_shown_on_every_plot(
             self) -> None:
         """"Color" opens the picker at the area's color; the confirmed
@@ -418,7 +423,8 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.redo()
         self.assertEqual(self.workspace.area_list[0].color_str, "#12ab34")
 
-    @covers("LLFR-00316", "LLFR-00310", "LLFR-00140", "LLFR-00309")
+    @covers("LLFR-00316", "LLFR-00310", "LLFR-00140", "LLFR-00309",
+            "LLFR-00706", "LLFR-00708")
     def test_delete_with_any_tool_and_undo(self) -> None:
         """Delete removes the area from every plot; undo brings it back;
         its number is not reused.
@@ -441,7 +447,8 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.create(7.0, 8.0)
         self.assertEqual(self.area_tuple_list()[-1][0], "Area 3")
 
-    @covers("LLFR-00310", "LLFR-00205", "LLFR-00138", "LLFR-00049")
+    @covers("LLFR-00310", "LLFR-00205", "LLFR-00138", "LLFR-00049",
+            "LLFR-00711")
     def test_deleting_the_last_plot_deletes_the_areas_undoably(
             self) -> None:
         """The last plot's deletion removes the areas in the same undo
@@ -456,7 +463,7 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.assertEqual(len(self.workspace.area_list), 2)
         self.assertEqual(len(self.drawn_area_list()), 2)
 
-    @covers("LLFR-00310", "LLFR-00028", "LLFR-00138")
+    @covers("LLFR-00310", "LLFR-00028", "LLFR-00138", "LLFR-00711")
     def test_deleting_the_tab_of_the_last_plot(self) -> None:
         """Deleting the tab of the last plot removes the areas, undoably.
 
@@ -470,7 +477,8 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.undo()
         self.assertEqual(len(self.workspace.area_list), 2)
 
-    @covers("LLFR-00310", "LLFR-00309", "LLFR-00015", "LLFR-00142")
+    @covers("LLFR-00310", "LLFR-00309", "LLFR-00015", "LLFR-00142",
+            "LLFR-00706", "LLFR-00711")
     def test_file_replace_deletes_areas_and_restarts_numbering(
             self) -> None:
         """Opening a file removes every area, clears the history and the
@@ -492,7 +500,7 @@ class LayoutAreaControllerTest(AreaControllerTestCase):
     """Areas saved in and loaded from layout files by the controller."""
 
     @covers("LLFR-00225", "LLFR-00230", "LLFR-00319", "LLFR-00310",
-            "LLFR-00238")
+            "LLFR-00238", "LLFR-00479")
     def test_save_and_load_add_the_areas_to_the_current_ones(self) -> None:
         """layout_dict holds the areas; loading it adds the areas that do
         not overlap, draws them on every time plot and clears the undo

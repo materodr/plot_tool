@@ -49,7 +49,7 @@ class NormalizeTest(unittest.TestCase):
         """
         self.assertEqual(normalize_text("EnGiNe"), "engine")
 
-    @covers("LLFR-00100", "HLFR-00034")
+    @covers("LLFR-00100", "HLFR-00034", "LLFR-00566")
     def test_separators_removed(self) -> None:
         """Spaces, underscores, hyphens and dots are removed.
 
@@ -181,7 +181,7 @@ class SearchSignalsTest(unittest.TestCase):
             self.assertEqual(result_list, name_list)
             self.assertIsNot(result_list, name_list)
 
-    @covers("LLFR-00097", "HLFR-00033")
+    @covers("LLFR-00097", "HLFR-00033", "LLFR-00565")
     def test_no_match(self) -> None:
         """No match gives an empty list and the no-match text is fixed.
 
@@ -214,7 +214,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "speed"),
                          ["SpeedFront", "FrontSpeedLeft", "WheelSpeed"])
 
-    @covers("LLFR-00100", "HLFR-00034")
+    @covers("LLFR-00100", "HLFR-00034", "LLFR-00566")
     def test_separators(self) -> None:
         """Separators are ignored in text and names, spaces in names.
 
@@ -232,7 +232,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(["Engine-Speed.A"], "speeda"),
                          ["Engine-Speed.A"])
 
-    @covers("LLFR-00105", "HLFR-00034")
+    @covers("LLFR-00105", "HLFR-00034", "LLFR-00567")
     def test_requirement_multi_word_example(self) -> None:
         """mate so 25 finds only mateus_soares_rodrigues 2025.
 
@@ -244,7 +244,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "mate so 25"),
                          ["mateus_soares_rodrigues 2025"])
 
-    @covers("LLFR-00105", "HLFR-00034")
+    @covers("LLFR-00105", "HLFR-00034", "LLFR-00567")
     def test_every_word_any_order(self) -> None:
         """Every word must match; the order of the words is free.
 
@@ -258,7 +258,7 @@ class SearchSignalsTest(unittest.TestCase):
                          ["Front_Left_Speed"])
         self.assertEqual(search_signals(name_list, "left voltage"), [])
 
-    @covers("LLFR-00105", "HLFR-00034")
+    @covers("LLFR-00105", "HLFR-00034", "LLFR-00567")
     def test_repeated_words(self) -> None:
         """A repeated word matches like the single word.
 
@@ -269,7 +269,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "speed speed"),
                          ["Speed", "Speed_Speed"])
 
-    @covers("LLFR-00105", "LLFR-00101", "HLFR-00034")
+    @covers("LLFR-00105", "LLFR-00101", "HLFR-00034", "LLFR-00567")
     def test_typo_per_word(self) -> None:
         """Each word gets its own typo allowance.
 
@@ -321,7 +321,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "speed rear"),
                          ["Wheel_Speed_Rear", "Speed_Reer"])
 
-    @covers("LLFR-00102", "LLFR-00100", "HLFR-00034")
+    @covers("LLFR-00102", "LLFR-00100", "HLFR-00034", "LLFR-00566")
     def test_starts_with_uses_normalized_name(self) -> None:
         """Group 1 compares the normalized name with the first word.
 

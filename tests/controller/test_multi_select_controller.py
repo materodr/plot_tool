@@ -70,7 +70,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
     """The Enter key plots the selection in one new plot."""
 
     @covers("LLFR-00295", "LLFR-00033", "LLFR-00144", "HLFR-00064",
-            "HLFR-00020")
+            "HLFR-00020", "LLFR-00629")
     def test_enter_creates_one_plot_with_every_signal(self) -> None:
         """One new plot draws every selected signal, in list order.
 
@@ -107,7 +107,8 @@ class EnterKeyPlotTest(MultiSelectTestCase):
                          ["s3", "s4"])
         self.assertEqual(self.view.drawn_names(first_plot_id_i), ["s1"])
 
-    @covers("LLFR-00295", "LLFR-00034", "HLFR-00064", "HLFR-00020")
+    @covers("LLFR-00295", "LLFR-00034", "HLFR-00064", "HLFR-00020",
+            "LLFR-00629")
     def test_enter_with_more_than_eight_signals(self) -> None:
         """Signals after the 8th get distinct random colors.
 
@@ -122,7 +123,8 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         self.assertEqual(color_list[:8], list(PALETTE_COLOR_TUPLE[:8]))
         self.assertEqual(len(set(color_list)), len(color_list))
 
-    @covers("LLFR-00295", "LLFR-00031", "LLFR-00032", "HLFR-00018")
+    @covers("LLFR-00295", "LLFR-00031", "LLFR-00032", "HLFR-00018",
+            "LLFR-00630")
     def test_enter_in_a_full_tab_shows_the_full_tab_box(self) -> None:
         """A full tab gets no new plot and the Full Tab box is shown.
 
@@ -138,7 +140,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         self.assertEqual(self.view.full_tab_count_i, 1)
         self.assertFalse(self.controller.undo_history.can_redo())
 
-    @covers("LLFR-00295", "LLFR-00056", "HLFR-00064")
+    @covers("LLFR-00295", "LLFR-00056", "HLFR-00064", "LLFR-00629")
     def test_enter_with_repeated_names_draws_each_once(self) -> None:
         """A name given twice is drawn once; unknown names are skipped.
 
@@ -149,7 +151,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         plot_id_i = self.current_plot_ids()[0]
         self.assertEqual(self.view.drawn_names(plot_id_i), ["s1", "s2"])
 
-    @covers("LLFR-00296", "HLFR-00064")
+    @covers("LLFR-00296", "HLFR-00064", "LLFR-00632")
     def test_enter_with_nothing_selected_does_nothing(self) -> None:
         """An empty selection creates no plot and shows no message.
 
@@ -260,7 +262,8 @@ class DropSeveralTest(MultiSelectTestCase):
         self.undo()
         self.assertEqual(self.view.drawn_names(plot_id_i), ["s1"])
 
-    @covers("LLFR-00297", "LLFR-00022", "LLFR-00023", "HLFR-00065")
+    @covers("LLFR-00297", "LLFR-00022", "LLFR-00023", "HLFR-00065",
+            "LLFR-00633")
     def test_drop_on_an_unknown_plot_does_nothing(self) -> None:
         """A drop that is not on a plot creates nothing.
 
@@ -318,7 +321,8 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         """
         return [self.create_fft("Speed"), self.create_fft("Torque")]
 
-    @covers("LLFR-00295", "LLFR-00256", "HLFR-00064", "HLFR-00058")
+    @covers("LLFR-00295", "LLFR-00256", "HLFR-00064", "HLFR-00058",
+            "LLFR-00631")
     def test_enter_with_only_fft_signals_makes_a_frequency_plot(
             self) -> None:
         """Only FFT signals selected give one frequency plot.
@@ -337,7 +341,8 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.drawn_names(plot_id_i), fft_name_list)
         self.assertEqual(self.view.kind_mismatch_count_i, 0)
 
-    @covers("LLFR-00300", "LLFR-00257", "HLFR-00064", "HLFR-00058")
+    @covers("LLFR-00300", "LLFR-00257", "HLFR-00064", "HLFR-00058",
+            "LLFR-00635", "LLFR-00636")
     def test_enter_with_fft_and_time_signals_is_refused(self) -> None:
         """A mixed selection creates no plot and shows the box.
 
@@ -350,7 +355,8 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
         self.assertFalse(self.plot_controller.undo_history.can_undo())
 
-    @covers("LLFR-00300", "LLFR-00257", "HLFR-00065", "HLFR-00058")
+    @covers("LLFR-00300", "LLFR-00257", "HLFR-00065", "HLFR-00058",
+            "LLFR-00636")
     def test_drop_with_an_fft_signal_on_a_time_plot(self) -> None:
         """A drop holding an FFT signal on a time plot draws nothing.
 
@@ -365,7 +371,7 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
 
     @covers("LLFR-00300", "LLFR-00257", "LLFR-00297", "HLFR-00065",
-            "HLFR-00058")
+            "HLFR-00058", "LLFR-00636", "LLFR-00691")
     def test_drop_on_a_frequency_plot(self) -> None:
         """FFT signals are added; one time signal blocks the whole drop.
 
@@ -387,7 +393,7 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
 class RenameSelectionTest(FrequencyPlotTestCase):
     """A renamed synthetic signal keeps its place in the selection."""
 
-    @covers("LLFR-00292", "LLFR-00266", "HLFR-00063")
+    @covers("LLFR-00292", "LLFR-00266", "HLFR-00063", "LLFR-00602")
     def test_rename_tells_the_view_before_the_list_is_shown(self) -> None:
         """The view renames the shown name, then shows the new list.
 

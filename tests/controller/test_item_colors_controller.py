@@ -76,7 +76,8 @@ class FlagColorControllerTest(ItemColorControllerTestCase):
     """"Color" in the flag menu (LLFR-00391, LLFR-00392)."""
 
     @covers("LLFR-00392", "LLFR-00205", "LLFR-00388", "LLFR-00389",
-            "LLFR-00390", "LLFR-00140")
+            "LLFR-00390", "LLFR-00140", "LLFR-00664", "LLFR-00809",
+            "LLFR-00813")
     def test_confirmed_color_on_every_plot_of_every_tab(self) -> None:
         """The picker starts at the flag's color; the confirmed color is
         drawn on every time plot, the other tab included, as one
@@ -103,7 +104,7 @@ class FlagColorControllerTest(ItemColorControllerTestCase):
             self.drawn_flag_colors(self.current_plot_ids()[-1]),
             ["#1f77b4"])
 
-    @covers("LLFR-00390", "LLFR-00140")
+    @covers("LLFR-00390", "LLFR-00140", "LLFR-00811", "LLFR-00812")
     def test_cancel_or_same_color_changes_nothing(self) -> None:
         """A cancelled picker, the flag's own color (in any case) or
         unknown ids add no undoable action and draw nothing new.
@@ -169,7 +170,7 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
     """Size, border color and text color of a note (LLFR-00385 to
     LLFR-00387)."""
 
-    @covers("LLFR-00336", "LLFR-00385")
+    @covers("LLFR-00336", "LLFR-00385", "LLFR-00740", "LLFR-00803")
     def test_new_note_is_drawn_with_the_default_style(self) -> None:
         """A new note is drawn at 12 points in #24303b with an orange
         #ff8000 border.
@@ -182,7 +183,8 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
                          (12, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
                           DEFAULT_TEXT_NOTE_COLOR_STR))
 
-    @covers("LLFR-00385", "LLFR-00140", "LLFR-00138", "LLFR-00192")
+    @covers("LLFR-00385", "LLFR-00140", "LLFR-00138", "LLFR-00192",
+            "LLFR-00802")
     def test_size_change_is_undoable(self) -> None:
         """A preset size is drawn and is one undoable action; the same
         size, another value or unknown ids record nothing.
@@ -206,7 +208,7 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
         self.assertEqual(self.drawn_note_style()[0], 24)
 
     @covers("LLFR-00387", "LLFR-00388", "LLFR-00389", "LLFR-00390",
-            "LLFR-00140")
+            "LLFR-00140", "LLFR-00809", "LLFR-00808")
     def test_border_and_text_colors_from_the_picker(self) -> None:
         """"Border color" and "Text color" open the picker at the
         border's and the text's own color and change only that part.
@@ -242,7 +244,8 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
                          (12, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
                           DEFAULT_TEXT_NOTE_COLOR_STR))
 
-    @covers("LLFR-00390", "LLFR-00387", "LLFR-00140")
+    @covers("LLFR-00390", "LLFR-00387", "LLFR-00140", "LLFR-00811",
+            "LLFR-00812")
     def test_cancel_or_same_color_records_nothing(self) -> None:
         """A cancelled picker, the part's own color or unknown ids
         change nothing and add no undoable action.
@@ -265,7 +268,7 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
                          (12, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
                           DEFAULT_TEXT_NOTE_COLOR_STR))
 
-    @covers("LLFR-00342", "LLFR-00385", "LLFR-00387")
+    @covers("LLFR-00342", "LLFR-00385", "LLFR-00387", "LLFR-00748")
     def test_edit_keeps_the_size_and_colors(self) -> None:
         """Editing the text keeps the chosen size and colors.
 

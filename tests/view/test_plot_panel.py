@@ -244,7 +244,7 @@ class TabTest(PlotPanelTestCase):
         self.assertEqual(self.controller.plot_controller.workspace
                          .tab_list[0].name_str, "Forces & speeds")
 
-    @covers("LLFR-00067", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00067", "LLFR-00030", "HLFR-00017", "LLFR-00656")
     def test_blank_or_cancelled_rename_keeps_name(self) -> None:
         """Blank names and Cancel keep the old name, with no message.
 

@@ -134,7 +134,7 @@ class SwipeClassifyTest(PlotWidgetToolTestCase):
                                 angle_x_i, angle_y_i, inverted_b,
                                 phase_name_str, shift_b)
 
-    @covers("LLFR-00346")
+    @covers("LLFR-00346", "LLFR-00750")
     def test_larger_component_chooses_pan_or_zoom(self) -> None:
         """An event pans only when it moves more horizontally than
         vertically; the pixel delta decides when there is one.
@@ -334,7 +334,8 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
                 self.swipe(0, angle_x_i=-120, phase_name_str=phase_name_str)
                 self.assert_curves_moved(before_tuple, 120.0)
 
-    @covers("LLFR-00346", "LLFR-00345", "LLFR-00074", "LLFR-00113")
+    @covers("LLFR-00346", "LLFR-00345", "LLFR-00074", "LLFR-00113",
+            "LLFR-00750")
     def test_diagonal_swipe_either_pans_or_zooms(self) -> None:
         """A mostly sideways diagonal swipe only pans (width kept); a
         mostly vertical or exactly diagonal one only zooms around the
@@ -388,7 +389,7 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
                     self.assertAlmostEqual(end_s - start_s,
                                            expected_width_s)
 
-    @covers("LLFR-00345", "LLFR-00119", "LLFR-00120")
+    @covers("LLFR-00345", "LLFR-00119", "LLFR-00120", "LLFR-00749")
     def test_swipe_stops_at_the_first_and_last_sample(self) -> None:
         """A long swipe stops at the file's range, keeps the width and
         fits the y-axis to the shown range.
@@ -415,7 +416,7 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         self.swipe(300)
         self.assertEqual(self.range_list, [])
 
-    @covers("LLFR-00345", "LLFR-00118")
+    @covers("LLFR-00345", "LLFR-00118", "LLFR-00749")
     def test_no_pan_at_the_whole_range(self) -> None:
         """At the whole time range a swipe neither pans nor zooms.
 
@@ -469,7 +470,7 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
         self.assertAlmostEqual(end_s - start_s, 4.0 * 0.95)
 
     @covers("LLFR-00154", "LLFR-00074", "LLFR-00113", "LLFR-00206",
-            "LLFR-00346")
+            "LLFR-00346", "LLFR-00659", "LLFR-00670")
     def test_macos_mouse_shift_wheel_zooms(self) -> None:
         """A real macOS mouse Shift+wheel (sideways angle of one notch,
         pixel delta of 20, no scroll phase) zooms a zoomed plot by 95%
@@ -539,7 +540,7 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
                                / axes_width_px)
         self.assertLess(start_s, 3.0)
 
-    @covers("LLFR-00346", "LLFR-00074")
+    @covers("LLFR-00346", "LLFR-00074", "LLFR-00750")
     def test_vertical_gesture_never_pans(self) -> None:
         """A trackpad gesture that starts vertically keeps zooming to its
         end, even for events that move more sideways (their vertical
@@ -600,7 +601,8 @@ class SwipeFrequencyWidgetTest(FrequencyPlotWidgetTest):
         super().setUp()
         self.range_list = self.recorder(self.plot_widget.time_range_changed)
 
-    @covers("LLFR-00345", "LLFR-00258", "LLFR-00118", "LLFR-00119")
+    @covers("LLFR-00345", "LLFR-00258", "LLFR-00118", "LLFR-00119",
+            "LLFR-00694", "LLFR-00749")
     def test_swipe_stays_in_the_frequency_range(self) -> None:
         """A swipe pans a zoomed frequency plot by its pixels, between
         0 Hz and the highest frequency, and not at the whole range.
@@ -656,7 +658,7 @@ class SwipeEndToEndTest(unittest.TestCase):
         self.assertEqual(second_widget.time_range_tuple(),
                          (new_start_s, new_end_s))
 
-    @covers("LLFR-00345", "LLFR-00258")
+    @covers("LLFR-00345", "LLFR-00258", "LLFR-00693")
     def test_frequency_plot_pans_alone(self) -> None:
         """A swipe on a frequency plot leaves the time plot alone, and a
         swipe on the time plot leaves the frequency plot alone.

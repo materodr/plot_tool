@@ -287,7 +287,7 @@ class ExportFlowTest(unittest.TestCase):
         self.assertNotIn("show_export_error",
                          self.view.called_names_list())
 
-    @covers("LLFR-00145", "LLFR-00003")
+    @covers("LLFR-00145", "LLFR-00003", "LLFR-00459")
     def test_no_plots_shows_information_and_no_dialog(self) -> None:
         """With no plot in any tab, only the information box is shown.
 
@@ -339,7 +339,7 @@ class CopyFlowTest(unittest.TestCase):
             "current_tab_plot_count", "copy_current_tab_image",
             "finish_copy_button"])
 
-    @covers("LLFR-00146", "LLFR-00003")
+    @covers("LLFR-00146", "LLFR-00003", "LLFR-00460")
     def test_copy_without_plots_shows_information(self) -> None:
         """With no plot in the current tab, nothing is copied.
 

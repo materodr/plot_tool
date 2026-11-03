@@ -58,7 +58,7 @@ class ReportBugDataTest(unittest.TestCase):
         self.assertEqual(len(left_leg_list), 3)
         self.assertEqual(len(right_leg_list), 3)
 
-    @covers("LLFR-00364")
+    @covers("LLFR-00364", "LLFR-00521")
     def test_credit_color_is_paler_than_the_normal_text(self) -> None:
         """The credit color is lighter than the panel's normal text, and
         its style sheet has no hover rule.
@@ -106,7 +106,8 @@ class ReportBugButtonTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00358", "LLFR-00347", "LLFR-00349", "LLFR-00348",
-            "LLFR-00158", "LLFR-00159", "LLFR-00215", "LLFR-00181")
+            "LLFR-00158", "LLFR-00159", "LLFR-00215", "LLFR-00181",
+            "LLFR-00465")
     def test_button_alone_in_the_last_group(self) -> None:
         """"Report a bug" is the last button, alone in its group, 16 px
         right of Redo, with only the bug icon and its name as the tip.
@@ -142,7 +143,7 @@ class ReportBugButtonTest(unittest.TestCase):
         self.assertNotIn(button,
                          self.top_panel.plot_tool_button_dict.values())
 
-    @covers("LLFR-00358")
+    @covers("LLFR-00358", "LLFR-00517")
     def test_button_enabled_without_a_data_file(self) -> None:
         """The button is enabled when the panel is created, while the
         layout buttons are still disabled.
@@ -197,7 +198,7 @@ class ReportBugButtonTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(label.geometry().right(), 1399)
 
-    @covers("LLFR-00364")
+    @covers("LLFR-00364", "LLFR-00520", "LLFR-00521")
     def test_credit_text_is_pale_and_not_a_button(self) -> None:
         """The text is drawn in the pale credit color, is not a button,
         lets the mouse through and takes no focus.
@@ -226,7 +227,7 @@ class ReportBugButtonTest(unittest.TestCase):
         center_point = label.geometry().center()
         self.assertIsNot(self.top_panel.childAt(center_point), label)
 
-    @covers("LLFR-00364", "LLFR-00349")
+    @covers("LLFR-00364", "LLFR-00349", "LLFR-00522", "LLFR-00523")
     def test_credit_hidden_when_narrow_and_buttons_unmoved(self) -> None:
         """When the panel is too narrow, the text is hidden, and the
         buttons keep their places and sizes.
@@ -347,7 +348,8 @@ class ReportBugWindowTest(unittest.TestCase):
             time.sleep(0.01)
         return time.monotonic() - start_s
 
-    @covers("LLFR-00359", "LLFR-00360", "LLFR-00358", "LLFR-00003")
+    @covers("LLFR-00359", "LLFR-00360", "LLFR-00358", "LLFR-00003",
+            "LLFR-00519")
     def test_click_opens_the_new_issue_page(self) -> None:
         """A click asks the browser once for the exact page, while the
         button is active, and the button turns normal after >= 0.3 s;
@@ -371,7 +373,7 @@ class ReportBugWindowTest(unittest.TestCase):
         self.assertLess(normal_after_s, MAXIMUM_WAIT_TIME_S)
         self.assertEqual(self.box_list, [])
 
-    @covers("LLFR-00359", "LLFR-00358")
+    @covers("LLFR-00359", "LLFR-00358", "LLFR-00518")
     def test_click_with_a_file_changes_nothing_else(self) -> None:
         """With a file open and plotted, the click leaves the signal
         list, the plots, the time range and the undo and redo history
@@ -409,7 +411,7 @@ class ReportBugWindowTest(unittest.TestCase):
         self.assertEqual(self.opened_url_list, [(EXPECTED_URL_STR, True)])
         self.assertEqual(self.box_list, [])
 
-    @covers("LLFR-00361", "LLFR-00360", "HLFR-00002")
+    @covers("LLFR-00361", "LLFR-00360", "HLFR-00002", "LLFR-00519")
     def test_error_box_when_the_browser_cannot_be_opened(self) -> None:
         """When openUrl fails, an error box says that the page could
         not be opened, with its address, and the button turns normal.
