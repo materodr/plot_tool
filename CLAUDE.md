@@ -20,4 +20,5 @@ The requirements below are loaded into every session. Follow them in all work.
 - Pull requests from `develop` to `main` must follow PCR-00017 and PCR-00018 and need human approval (PCR-00015). Agents never merge into `main`.
 - Do not merge your own work. A different agent or a human must review and test it first (PCR-00016).
 - Before a pull request is merged, fill in the remaining sections of its issue, as listed in PCR-00006 (fixes) or PCR-00008 (features) (PCR-00014).
+- Before opening a pull request that changes requirements, run `python tests/check_requirements.py` (PCR-00037). CI posts the result on the pull request (PCR-00038).
 - Work in your own git worktree (PCR-00026).

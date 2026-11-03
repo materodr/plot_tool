@@ -66,7 +66,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 *Parent: HLFR-00040*
 
 ### LLFR-00140 Undoable actions
-The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
+The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
 
 Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00238) and saving the signals (LLFR-00405) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00390).
 
@@ -314,7 +314,7 @@ When the user clicks the Reset zoom button, the button must show its active colo
 *Parent: HLFR-00035, HLFR-00003*
 
 ### LLFR-00207 Z key resets the zoom
-When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116). While the user is dragging the mouse (a pan, a flag, area, text note, data tip or arrow drag, the drawing of an area or an arrow, or a time span selection), the Z key must do nothing.
+When the user presses the Z key alone, with no other keyboard key, the app must reset the zoom as if the Reset zoom button were clicked (LLFR-00115, LLFR-00116). While the user is dragging the mouse (a pan, a flag, area, text note, data tip, arrow or delta marker point drag, the drawing of an area or an arrow, or a time span selection), the Z key must do nothing.
 
 Note: Ctrl+Z and Cmd+Z stay Undo (LLFR-00137).
 
@@ -485,7 +485,7 @@ If the user presses another keyboard key while holding the Y key, the app must e
 *Parent: HLFR-00044, HLFR-00032*
 
 ### LLFR-00157 Plot tool keys while typing
-While the keyboard focus is in a text field (the search box, the search box of the second signal dialog (LLFR-00285) or of the time signal window (LLFR-00325), or a field where the user types a tab, flag, area or synthetic signal name or a text note), the app must not apply LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00367 or LLFR-00370.
+While the keyboard focus is in a text field (the search box, the search box of the second signal dialog (LLFR-00285) or of the time signal window (LLFR-00325), or a field where the user types a tab, flag, area, delta marker, arrow or synthetic signal name or a text note), the app must not apply LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00367 or LLFR-00370.
 
 Note: This lets the user type capital letters and use keyboard shortcuts in text fields without activating a plot tool.
 
@@ -633,12 +633,12 @@ The layout file must hold:
 5. whether the grid is shown (HLFR-00037);
 6. under the key `flags`, for each flag, its name, its time and its color (LLFR-00392), written as `#rrggbb` in lowercase;
 7. for each pinned data tip of a time plot, its plot, the signal and time of its point, and its position relative to the point;
-8. for each delta marker of a time plot, its plot, whether it is a Delta X or a Delta Y marker, the signal and time of each of its two points, and its color (LLFR-00409), written as `#rrggbb` in lowercase;
+8. for each delta marker of a time plot, its plot, its name (LLFR-00427), whether it is a Delta X or a Delta Y marker, the signal and time of each of its two points, and its color (LLFR-00409), written as `#rrggbb` in lowercase;
 9. the widths of the plot panel and the signal list panel;
 10. for each synthetic signal that is not an FFT signal (LLFR-00283), in the order it was created, its current name, its operation, the current names of the signals it was computed from, and its parameter: the cutoff frequency, the filter order and how the filter starts (Low-pass and High-pass filters), the window size (Moving average) or the constant (Comparison operations and Arithmetic operations with a constant); Integral, Derivative, Max, Min and Absolute value have no parameter, and the second signal of Product with signal is one of the signals it was computed from;
 11. for each area, its name, start time and end time, in seconds, and its color (LLFR-00351), written as `#rrggbb` in lowercase.
 
-*Parent: HLFR-00049, HLFR-00056, HLFR-00092*
+*Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097*
 
 ### LLFR-00226 Not in the layout file
 The layout file must not hold the name or the path of the data file, the undo and redo history, the active plot tool, the text of the search box, the text notes or the arrows.
@@ -677,9 +677,9 @@ Note: A tab that is not created is not listed on its own in the load report (LLF
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00232 Data tips and delta markers in a layout
-When loading a layout, the app must rebuild a pinned data tip or a delta marker only if the signal of each of its points is drawn in its plot and has a sample whose time differs from the saved time by at most 1 microsecond, and must place each point on that sample.
+When loading a layout, the app must rebuild a pinned data tip or a delta marker only if the signal of each of its points is drawn in its plot and has a sample whose time differs from the saved time by at most 1 microsecond, and must place each point on that sample. It must not rebuild a delta marker whose value on those samples would be zero (LLFR-00431).
 
-*Parent: HLFR-00050, HLFR-00052*
+*Parent: HLFR-00050, HLFR-00052, HLFR-00098*
 
 ### LLFR-00233 Flags in a layout
 When loading a layout, the app must rebuild a flag only if its time is within the time range of the opened data file.
@@ -1008,7 +1008,7 @@ If any signal to save (LLFR-00401) has a sample that is not a finite number (inf
 *Parent: HLFR-00090, HLFR-00002*
 
 ### LLFR-00418 Loading indication
-While the app reads and checks a selected file (LLFR-00328, step 2), for the first file opened as for a file that replaces another, it must show the mouse pointer as a busy pointer over the app window and show the text "Loading..." in a status line at the bottom of the signal list panel, below the search box (LLFR-00094). As soon as reading and checking end, whether the file can be opened or not, and before the app shows a File Open Error box or the window of LLFR-00325, it must restore the normal mouse pointer and remove the text. The status line must show no text the rest of the time, and the busy pointer and the text must not be shown during the confirmation of HLFR-00010.
+While the app reads and checks a selected file (LLFR-00328, step 2), for the first file opened as for a file that replaces another, it must show the mouse pointer as a busy pointer over the app window and show the text "Loading..." in a status line of the signal list panel, directly above the search box (LLFR-00094). As soon as reading and checking end, whether the file can be opened or not, and before the app shows a File Open Error box or the window of LLFR-00325, it must restore the normal mouse pointer and remove the text. The status line must show no text the rest of the time, and the busy pointer and the text must not be shown during the confirmation of HLFR-00010.
 
 *Parent: HLFR-00004, HLFR-00010*
 
@@ -1434,6 +1434,11 @@ The file name row (LLFR-00362) must not be shown while no data file is open, and
 
 *Parent: HLFR-00079, HLFR-00010*
 
+### LLFR-00424 Search box bottom edge
+The bottom edge of the search box (LLFR-00094) must be at the same height as the bottom edge of the lowest plot of the current tab, including its x-axis numbers and label, at any window size. When the current tab holds no plot, it must be at the height where the bottom edge of a plot would be.
+
+*Parent: HLFR-00095*
+
 ## Plot panel
 
 ### LLFR-00024 Initial tab
@@ -1838,8 +1843,10 @@ The first three colors of the palette of LLFR-00033 must be blue, black and a da
 
 *Parent: HLFR-00020*
 
-### LLFR-00147 Grid hidden at start
-When the app starts, the grid must be hidden.
+### LLFR-00147 Grid shown at start
+Every time the app starts, the grid must be shown, and the Grid button must show its active color (LLFR-00124), whatever the user chose the last time the app was open.
+
+Note: The user can still hide the grid (LLFR-00123). Loading a layout applies the layout file's grid setting (LLFR-00230).
 
 *Parent: HLFR-00037*
 
@@ -1864,7 +1871,7 @@ While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is acti
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00164 Pick the second point
-When the user then left-clicks a curve in the same plot, the app must take the curve sample nearest to the mouse pointer as the second point, remove the dot of LLFR-00163 and draw a Delta X marker (LLFR-00168) or a Delta Y marker (LLFR-00170) between the two points, according to the active button. The two points may be on the same curve or on different curves.
+When the user then left-clicks a curve in the same plot, the app must take the curve sample nearest to the mouse pointer as the second point, remove the dot of LLFR-00163 and draw a Delta X marker (LLFR-00168) or a Delta Y marker (LLFR-00170) between the two points, according to the active button, except as in LLFR-00431. The two points may be on the same curve or on different curves.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -1896,9 +1903,9 @@ A Delta X marker must show the text "Δt = <value> s" next to the middle point o
 *Parent: HLFR-00043, HLFR-00007*
 
 ### LLFR-00170 Delta Y marker
-A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle point pointing right, away from the points. When the bracket and its value (LLFR-00171) do not fit to the right of the later point inside the plot's drawing area, the app must draw them mirrored, just to the left of the earlier of the two points, with the middle point pointing left.
+A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle point pointing right, away from the points. When the bracket, its value (LLFR-00171) and its label (LLFR-00427) do not fit to the right of the later point inside the plot's drawing area, the app must draw them mirrored, just to the left of the earlier of the two points, with the middle point pointing left.
 
-Note: If neither side has room for the bracket and its value, the app uses the side with more room. The bracket is cut at the edge of the plot only when one of its points is itself outside the shown x-axis range, or when the two points leave less room than the bracket needs on both sides.
+Note: If neither side has room for the bracket, its value and its label, the app uses the side with more room. The bracket is cut at the edge of the plot only when one of its points is itself outside the shown x-axis range, or when the two points leave less room than the bracket needs on both sides.
 
 *Parent: HLFR-00044*
 
@@ -1923,9 +1930,9 @@ A plot must be able to hold any number of Delta X and Delta Y markers at the sam
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00175 Delta marker menu
-When the user right-clicks a delta marker, the app must show a menu with the options "Color", "Delete", "Delete all delta markers in this plot" and "Delete all delta markers in all plots", in this order.
+When the user right-clicks a delta marker, the app must show a menu with the options "Rename", "Color", "Delete", "Delete all delta markers in this plot" and "Delete all delta markers in all plots", in this order.
 
-*Parent: HLFR-00043, HLFR-00044, HLFR-00092, HLFR-00093*
+*Parent: HLFR-00043, HLFR-00044, HLFR-00092, HLFR-00093, HLFR-00097*
 
 ### LLFR-00176 Delete delta marker action
 When the user chooses "Delete" in the delta marker menu (LLFR-00175), the app must remove that delta marker from the plot.
@@ -2154,7 +2161,7 @@ While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is acti
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00353 Preview of a delta marker
-While a first point is picked (LLFR-00163) and the mouse pointer is over a curve in the same plot, the app must show a preview of the marker that a click would draw (LLFR-00164): a Delta X or Delta Y marker, according to the active button, between the first point and the curve sample nearest to the pointer, in a paler version of the reserved marker color, with its value (LLFR-00169, LLFR-00171, LLFR-00261), and must update it as the pointer moves.
+While a first point is picked (LLFR-00163) and the mouse pointer is over a curve in the same plot, the app must show a preview of the marker that a click would draw (LLFR-00164): a Delta X or Delta Y marker, according to the active button, between the first point and the curve sample nearest to the pointer, in a paler version of the reserved marker color, with its value (LLFR-00169, LLFR-00171, LLFR-00261) and without a label (LLFR-00427), and must update it as the pointer moves, except as in LLFR-00432.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -2184,7 +2191,7 @@ When the user releases the left mouse button after LLFR-00371, the app must remo
 *Parent: HLFR-00081*
 
 ### LLFR-00373 Arrow appearance
-The app must draw an arrow as a straight dashed line with a filled arrowhead at its end, both in the arrow's color. Every new arrow must have the reserved orange `#ff8000` of LLFR-00083 until the user chooses another color (LLFR-00379). The app must draw arrows above the curves, the grid, the areas, the flags and the delta markers, and below the pinned data tips and the text notes. The previews of LLFR-00371, LLFR-00376 and LLFR-00377 must be drawn in a paler version of the arrow's color and must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133). A point is on an arrow when it is within 5 pixels of its line or on its arrowhead.
+The app must draw an arrow as a straight dashed line with a filled arrowhead at its end, both in the arrow's color. Every new arrow must have the reserved orange `#ff8000` of LLFR-00083 until the user chooses another color (LLFR-00379). The app must draw arrows above the curves, the grid, the areas, the flags and the delta markers, and below the pinned data tips and the text notes. The previews of LLFR-00371, LLFR-00376 and LLFR-00377 must be drawn in a paler version of the arrow's color and must not appear in the PDF export (LLFR-00129) or the copied image (LLFR-00133). A point is on an arrow when it is within 5 pixels of its line, on its arrowhead or on its label (LLFR-00436). The preview of LLFR-00371 must not show a label.
 
 *Parent: HLFR-00081*
 
@@ -2211,12 +2218,12 @@ While the Arrow button (LLFR-00366) is active or no plot tool is active (LLFR-00
 *Parent: HLFR-00083*
 
 ### LLFR-00378 Arrow menu
-When the user right-clicks an arrow, the app must show a menu with the options "Color" and "Delete".
+When the user right-clicks an arrow, the app must show a menu with the options "Rename", "Color" and "Delete", in this order.
 
-*Parent: HLFR-00084, HLFR-00088*
+*Parent: HLFR-00084, HLFR-00088, HLFR-00100*
 
 ### LLFR-00379 Arrow color action
-When the user chooses "Color" in the arrow menu (LLFR-00378), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the arrow's line and arrowhead in the chosen color (LLFR-00390).
+When the user chooses "Color" in the arrow menu (LLFR-00378), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the arrow's line, arrowhead and label (LLFR-00436) in the chosen color (LLFR-00390).
 
 *Parent: HLFR-00088*
 
@@ -2236,11 +2243,12 @@ While no plot tool is active, a left mouse button press and drag on a plot must:
 2. on an area, move it (LLFR-00312) or resize it (LLFR-00313);
 3. on a pinned data tip, move it (LLFR-00152);
 4. on a text note, move it (LLFR-00339);
-5. on an arrow, move it (LLFR-00376) or rotate and stretch it (LLFR-00377).
+5. on an arrow, move it (LLFR-00376) or rotate and stretch it (LLFR-00377);
+6. on one of the two dots of a delta marker, move that point (LLFR-00433).
 
-A press and drag on a delta marker, on a curve or on a part of a plot where none of these objects is drawn must do nothing and must not show any message.
+A press and drag on the rest of a delta marker, on a curve or on a part of a plot where none of these objects is drawn must do nothing and must not show any message.
 
-*Parent: HLFR-00085, HLFR-00029, HLFR-00067, HLFR-00041, HLFR-00074, HLFR-00082, HLFR-00083*
+*Parent: HLFR-00085, HLFR-00029, HLFR-00067, HLFR-00041, HLFR-00074, HLFR-00082, HLFR-00083, HLFR-00099*
 
 ### LLFR-00383 Order of the objects at one point
 When the user presses the left mouse button at a point where several objects that react to the press are drawn (LLFR-00382, LLFR-00384), the app must act only on the first of them in this order: text note, pinned data tip, arrow, flag, area. Among objects of the same kind, it must act on the one drawn last.
@@ -2248,7 +2256,7 @@ When the user presses the left mouse button at a point where several objects tha
 *Parent: HLFR-00085, HLFR-00032*
 
 ### LLFR-00384 Objects of the active plot tool
-While a plot tool is active, a press on a flag, an area or an arrow must edit that object only when the active tool is its own: the Flag button for flags (LLFR-00086), the Area button for areas (LLFR-00312, LLFR-00313) and the Arrow button for arrows (LLFR-00376, LLFR-00377). With any other plot tool, a press on such an object must act as the active tool does where no object is drawn and must not change the object; for example, with the Zoom button active, a press on a flag zooms (LLFR-00318, LLFR-00357). Pinned data tips and text notes must move with any plot tool (LLFR-00153, LLFR-00339), and delta markers must never move.
+While a plot tool is active, a press on a flag, an area or an arrow must edit that object only when the active tool is its own: the Flag button for flags (LLFR-00086), the Area button for areas (LLFR-00312, LLFR-00313) and the Arrow button for arrows (LLFR-00376, LLFR-00377). With any other plot tool, a press on such an object must act as the active tool does where no object is drawn and must not change the object; for example, with the Zoom button active, a press on a flag zooms (LLFR-00318, LLFR-00357). Pinned data tips and text notes must move with any plot tool (LLFR-00153, LLFR-00339), and the points of a delta marker must move only with the Delta X or the Delta Y button (LLFR-00433).
 
 *Parent: HLFR-00085, HLFR-00032*
 
@@ -2298,7 +2306,7 @@ When loading a layout, the app must give each rebuilt flag (LLFR-00233) its save
 *Parent: HLFR-00050, HLFR-00052, HLFR-00089*
 
 ### LLFR-00409 Delta marker color action
-When the user chooses "Color" in the delta marker menu (LLFR-00175), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the delta marker's curly bracket, both of its dots and its value text (LLFR-00169, LLFR-00171, LLFR-00261) in the chosen color (LLFR-00390). Changing the color must not change the delta marker's points or value, nor the color of any other delta marker.
+When the user chooses "Color" in the delta marker menu (LLFR-00175), the app must let the user choose a color (LLFR-00388, LLFR-00419) and draw the delta marker's curly bracket, both of its dots, its value text (LLFR-00169, LLFR-00171, LLFR-00261) and its label (LLFR-00427) in the chosen color (LLFR-00390). Changing the color must not change the delta marker's points or value, nor the color of any other delta marker.
 
 *Parent: HLFR-00092, HLFR-00088*
 
@@ -2350,3 +2358,114 @@ The submenu of LLFR-00388 must list, before "Other color...", the last 8 differe
 Note: Default colors given by the app (LLFR-00083, LLFR-00172, LLFR-00336, LLFR-00351, LLFR-00373) and colors read from a layout file are not added to the list. This list replaces saving custom colors in the system's color window, which does not work in the app on macOS.
 
 *Parent: HLFR-00088*
+
+### LLFR-00420 Double-click a label
+When the user double-clicks with the left mouse button the name in the label of a flag (LLFR-00084), of an area (LLFR-00307), of a delta marker (LLFR-00427) or of an arrow (LLFR-00436), whether a plot tool is active or not, the app must act as when the user chooses "Rename" in the menu of that object (LLFR-00088, LLFR-00315, LLFR-00429, LLFR-00439), and must do nothing else: it must not pin a data tip, zoom, pan, place a flag, create an area, start a text note, draw an arrow, pick a delta marker point or create a plot.
+
+*Parent: HLFR-00094*
+
+### LLFR-00421 Double-click a tab
+When the user double-clicks a tab with the left mouse button, the app must act as when the user chooses "Rename" in the tab menu (LLFR-00030, LLFR-00067, LLFR-00211).
+
+*Parent: HLFR-00094, HLFR-00017*
+
+### LLFR-00422 Values are not renamed
+A double-click on the time value of a flag (LLFR-00092), on the times of an area (LLFR-00308) or on the value of a delta marker (LLFR-00169, LLFR-00171, LLFR-00261) must not let the user type and must not change any value. These values must change only by moving the object: a flag (LLFR-00086), an area (LLFR-00312, LLFR-00313) or a point of a delta marker (LLFR-00433).
+
+*Parent: HLFR-00094*
+
+### LLFR-00423 Data tip text alignment
+The app must align all the text inside a hover data tip (LLFR-00042) and a pinned data tip (LLFR-00045) to the left.
+
+*Parent: HLFR-00024, HLFR-00025*
+
+### LLFR-00425 Title of the plot menus
+The menus of a curve (LLFR-00038, LLFR-00040), a pinned data tip (LLFR-00046), a plot (LLFR-00048), a flag (LLFR-00087), a delta marker (LLFR-00175), an area (LLFR-00314), a text note (LLFR-00341) and an arrow (LLFR-00378) must show a title above their first option, with a separator line between the title and the options. The title must be drawn in bold and in a paler color than the options. It must not be an option: clicking it must do nothing and must not close the menu, and neither the mouse pointer nor the keyboard must highlight it.
+
+*Parent: HLFR-00096*
+
+### LLFR-00426 Text of the menu title
+The title of LLFR-00425 must be the name of the object the menu acts on:
+
+| Menu | Title |
+|---|---|
+| Curve | The name of its signal |
+| Pinned data tip | The name of the signal of its point |
+| Flag, area, delta marker, arrow | Its name |
+| Text note | Its text |
+| Plot | "Plot" |
+
+When the title has more than 40 characters, the app must shorten it with "..." in the middle.
+
+*Parent: HLFR-00096*
+
+### LLFR-00427 Delta marker label
+The app must show the name of a delta marker in a label directly above its value (LLFR-00169, LLFR-00171, LLFR-00261), in the delta marker's color (LLFR-00172, LLFR-00409).
+
+Note: The label appears wherever the delta marker appears, including the PDF export (LLFR-00129) and the copied image (LLFR-00133).
+
+*Parent: HLFR-00097*
+
+### LLFR-00428 Default delta marker name
+The app must name each new Delta X marker "Delta X N" and each new Delta Y marker "Delta Y N", where N is 1 for the first marker of that kind placed after a file is opened and grows by 1 for each new marker of that kind. The app must not reuse the number of a deleted marker, even when the marker's placement is undone, until a file is opened or replaced, and must skip every number whose name another delta marker of that kind already has.
+
+*Parent: HLFR-00097*
+
+### LLFR-00429 Rename delta marker action
+When the user chooses "Rename" in the delta marker menu (LLFR-00175), the app must let the user type a new name for that delta marker and must show it in its label (LLFR-00427). If the name is empty or made only of spaces, the app must keep the previous name and must not show any message. Renaming must not change the delta marker's points, value or color.
+
+*Parent: HLFR-00097*
+
+### LLFR-00430 Delta marker names in a layout
+When loading a layout, the app must give each rebuilt delta marker (LLFR-00232) its saved name (LLFR-00225). A delta marker whose saved name is missing must get a name as in LLFR-00428; one whose saved name is empty or not a text must also get a name as in LLFR-00428, and the load report (LLFR-00237) must list it as a replaced value (LLFR-00235).
+
+Note: A layout file saved before delta markers had a name has no name for them, so they get a default name and nothing is reported.
+
+*Parent: HLFR-00050, HLFR-00052, HLFR-00097*
+
+### LLFR-00431 Second point that gives zero
+If the second point of LLFR-00164 gives a value of zero, because it has exactly the same time (frequency, on a frequency plot) as the first point for a Delta X marker, or exactly the same y-axis value as the first point for a Delta Y marker, the app must not draw the marker, must keep the first point and its dot, and must not show any message.
+
+*Parent: HLFR-00098*
+
+### LLFR-00432 No preview of a zero value
+While the curve sample nearest to the pointer would give a value of zero (LLFR-00431), the app must not show the preview of LLFR-00353.
+
+*Parent: HLFR-00098*
+
+### LLFR-00433 Drag a delta marker point
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, or no plot tool is active (LLFR-00382), and the user presses the left mouse button on one of the two dots of a delta marker and moves the pointer 5 pixels or more from where the button was pressed, the app must move that point along its curve to the sample nearest to the time (the frequency, on a frequency plot) under the pointer, and leave it on the sample chosen when the button is released, limited to the x-axis range shown in the plot. The app must keep the point on the same curve, keep the other point in place, and update the curly bracket and the value (LLFR-00169, LLFR-00171, LLFR-00261) while the user drags.
+
+Note: A drag that leaves the point on the sample where it started is not an undoable action (LLFR-00140).
+
+*Parent: HLFR-00099, HLFR-00085*
+
+### LLFR-00434 Press on a delta marker point
+A press that starts the drag of LLFR-00433 must not pin a data tip or pick a delta marker point, and it must not change a first point already picked (LLFR-00163). While the Delta X or the Delta Y button is active, a press on a dot that moves the pointer less than 5 pixels must act as a click on the curve (LLFR-00163, LLFR-00164). While no plot tool is active, it must do nothing and must not show any message.
+
+*Parent: HLFR-00099, HLFR-00032*
+
+### LLFR-00435 Dragging to a zero value
+While the user drags a point of a delta marker (LLFR-00433), when the sample under the pointer would give a value of zero (LLFR-00431), the point must stay on the last sample that gave a value other than zero.
+
+*Parent: HLFR-00099, HLFR-00098*
+
+### LLFR-00436 Arrow label
+The app must show the name of an arrow in a label next to the middle of its straight line, with its text parallel to the line as the line is shown on screen, in the arrow's color (LLFR-00373, LLFR-00379), on a label box as in LLFR-00307. The text must never be shown upside down, whatever the direction of the arrow.
+
+*Parent: HLFR-00100*
+
+### LLFR-00437 Arrow label follows the arrow
+Whenever the position, angle or length of an arrow changes (LLFR-00376, LLFR-00377), or the plot's x-axis or y-axis range or size changes (LLFR-00374), the app must draw the label of LLFR-00436 again next to the middle of the part of the line that is shown, parallel to it, moved along the line by the shortest distance needed to keep the whole label inside the plot's drawing area. While the user moves, rotates or stretches the arrow, the label must follow the preview. The label must be hidden while no part of the line is shown.
+
+*Parent: HLFR-00100*
+
+### LLFR-00438 Default arrow name
+The app must name each new arrow "Arrow N", where N is 1 for the first arrow drawn after a file is opened and grows by 1 for each new arrow, in any plot. The app must not reuse the number of a deleted arrow, even when the arrow's drawing is undone, until a file is opened or replaced.
+
+*Parent: HLFR-00100*
+
+### LLFR-00439 Rename arrow action
+When the user chooses "Rename" in the arrow menu (LLFR-00378), the app must let the user type a new name for that arrow and must show it in its label (LLFR-00436). If the name is empty or made only of spaces, the app must keep the previous name and must not show any message. Renaming must not change the arrow's ends or color.
+
+*Parent: HLFR-00100*
