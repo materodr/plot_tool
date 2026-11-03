@@ -21,7 +21,10 @@ A GitHub issue must be created to track the development of every fix and new fea
 Note: Every issue must be created from one of the two templates: [Fix](../../.github/ISSUE_TEMPLATE/fix.yml) or [Feature](../../.github/ISSUE_TEMPLATE/feature.yml).
 
 ### PCR-00005 Branch linked to an issue
-Feature and fix branches must always be created pointing to an issue, and the issue must be explicit in the branch name.
+Feature and fix branches must always be created pointing to an issue.
+
+### PCR-40001 Issue in the branch name
+The issue that a feature or fix branch points to (PCR-00005) must be explicit in the branch name.
 
 ### PCR-00006 Fix issue contents
 A fix issue must contain:
@@ -56,10 +59,11 @@ Between a feature of high urgency and a fix of high severity, the fix of high se
 ### PCR-00012 Issue before work
 A feature or fix must only start to be tackled when the issue that tracks it has already been created.
 
-### PCR-00013 Bugs found during work
-If a new bug is found while creating a feature or fixing a bug:
-1. if the bug is correlated with the ongoing work, it must be fixed under the same issue;
-2. if it is not correlated, a new issue must be opened.
+### PCR-00013 Correlated bugs found during work
+If a new bug is found while creating a feature or fixing a bug, and the bug is correlated with the ongoing work, it must be fixed under the same issue.
+
+### PCR-40002 Uncorrelated bugs found during work
+If a new bug is found while creating a feature or fixing a bug, and the bug is not correlated with the ongoing work, a new issue must be opened.
 
 ### PCR-00014 Pull request preconditions
 A pull request must only be merged if its issue has all the information required by PCR-00006 (fixes) or PCR-00008 (features).
@@ -100,8 +104,17 @@ The `develop` and `main` branches must be kept free of crashes.
 ### PCR-00026 Worktrees
 Worktrees must be used to give each agent a separate environment.
 
-### PCR-00027 Deleted requirements
-When a requirement is deleted, its ID must stay in the file and its title and text must be replaced by `DELETED`. The ID must never be reused, and new requirements must continue from the next number.
+### PCR-00027 Deleted requirement ID kept
+When a requirement is deleted, its ID must stay in the file.
+
+### PCR-40003 Deleted requirement text
+When a requirement is deleted, its title and text must be replaced by `DELETED`.
+
+### PCR-40004 Deleted IDs not reused
+The ID of a deleted requirement must never be reused.
+
+### PCR-40005 Numbering after a deletion
+When a requirement is deleted, new requirements must continue from the next number.
 
 ### PCR-00028 Functional requirement categories
 Functional requirements must be divided into two categories: high-level functional requirements (HLFR) and low-level functional requirements (LLFR).

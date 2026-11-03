@@ -23,18 +23,33 @@ When the function started by a button has finished, the app must return the butt
 
 *Parent: HLFR-00003*
 
-### LLFR-00058 Panel positions
-The top panel must be placed above the other two panels, and the signal list panel must be placed to the right of the plot panel.
+### LLFR-00058 Top panel position
+The top panel must be placed above the other two panels.
+
+*Parent: HLFR-00001*
+
+### LLFR-40001 Signal list panel position
+The signal list panel must be placed to the right of the plot panel.
 
 *Parent: HLFR-00001*
 
 ### LLFR-00071 Unexpected error box
-If an unexpected error occurs while the app handles a user action, the app must show an error box titled "Error" that describes the error, and must keep running.
+If an unexpected error occurs while the app handles a user action, the app must show an error box titled "Error" that describes the error.
+
+*Parent: HLFR-00002*
+
+### LLFR-40002 Keep running after an unexpected error
+If an unexpected error occurs while the app handles a user action, the app must keep running.
 
 *Parent: HLFR-00002*
 
 ### LLFR-00072 Initial signal list width
-When the app starts, the signal list panel must take 20% of the app window's width, and the plot panel must take the rest, 80%.
+When the app starts, the signal list panel must take 20% of the app window's width.
+
+*Parent: HLFR-00001, HLFR-00026*
+
+### LLFR-40003 Initial plot panel width
+When the app starts, the plot panel must take the rest of the width left by the signal list panel (LLFR-00072), 80%.
 
 *Parent: HLFR-00001, HLFR-00026*
 
@@ -44,7 +59,12 @@ The user must be able to drag the border between the plot panel and the signal l
 *Parent: HLFR-00026*
 
 ### LLFR-00280 Resize border highlight
-While the mouse pointer is over the part of the border between the plot panel and the signal list panel where a drag changes their widths (LLFR-00073), and while the user drags that border, the app must draw a blue vertical line, 2 pixels wide, along the border over the full height of the two panels. The app must hide the line as soon as the pointer is no longer over that part of the border and no drag is in progress.
+While the mouse pointer is over the part of the border between the plot panel and the signal list panel where a drag changes their widths (LLFR-00073), and while the user drags that border, the app must draw a blue vertical line, 2 pixels wide, along the border over the full height of the two panels.
+
+*Parent: HLFR-00026*
+
+### LLFR-40004 Resize border highlight hidden
+The app must hide the line of LLFR-00280 as soon as the pointer is no longer over the part of the border of LLFR-00280 and no drag is in progress.
 
 Note: The line is hidden the rest of the time, so the border is visible only when the user can use it.
 
@@ -78,9 +98,14 @@ When the app opens a file or replaces the current file (LLFR-00013), it must cle
 *Parent: HLFR-00040, HLFR-00010, HLFR-00048*
 
 ### LLFR-00192 Redo action
-When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, plots, curves, data tips, flags, delta markers, areas, text notes and arrows to the state they were in after that action, and must make that action available to undo again.
+When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, plots, curves, data tips, flags, delta markers, areas, text notes and arrows to the state they were in after that action.
 
 Note: The user can redo, one by one, every action undone since the last new undoable action, so at most 30 (LLFR-00139).
+
+*Parent: HLFR-00048*
+
+### LLFR-40005 Redone action can be undone again
+When the app reapplies an action as in LLFR-00192, it must make that action available to undo again.
 
 *Parent: HLFR-00048*
 
@@ -109,7 +134,12 @@ The app must show its icon (HLFR-00045), instead of the default PyInstaller or P
 *Parent: HLFR-00045*
 
 ### LLFR-00183 App icon picture
-The app icon must show a small line chart with a blue curve and a red curve (LLFR-00144) over a pair of axes, on a light rounded square, and must stay recognizable at 16 by 16 pixels.
+The app icon must show a small line chart with a blue curve and a red curve (LLFR-00144) over a pair of axes, on a light rounded square.
+
+*Parent: HLFR-00045*
+
+### LLFR-40006 App icon at small size
+The app icon (LLFR-00183) must stay recognizable at 16 by 16 pixels.
 
 *Parent: HLFR-00045*
 
