@@ -308,8 +308,11 @@ The user must be able to mark a time range with an area, shown on every time plo
 
 Note: An **area** is a shaded vertical band across the plot, between two time values, with a name label at its top. It is started from the **Area** button in the top panel.
 
-### HLFR-00067 Move or resize an area
-The user must be able to move an area along the x-axis and change its start and end times.
+### HLFR-00067 Move an area
+The user must be able to move an area along the x-axis.
+
+### HLFR-40012 Resize an area
+The user must be able to change the start and end times of an area.
 
 ### HLFR-00068 Rename an area
 The user must be able to rename an area.

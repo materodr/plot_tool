@@ -50,8 +50,11 @@ A feature issue must contain:
 ### PCR-00009 Feature urgency levels
 The urgency of a feature must be classified as low, medium or high.
 
-### PCR-00010 Work priority
-Priority of work must be given to feature issues with higher urgency and fix issues with higher severity.
+### PCR-00010 Work priority of features
+Priority of work must be given to feature issues with higher urgency.
+
+### PCR-40006 Work priority of fixes
+Priority of work must be given to fix issues with higher severity.
 
 ### PCR-00011 Fixes before features
 Between a feature of high urgency and a fix of high severity, the fix of high severity must have priority.
@@ -93,7 +96,10 @@ The second column must show, for each HLFR, its child low-level functional requi
 The third column must contain the tests linked to each HLFR and the last run status of each test, as passed or failed.
 
 ### PCR-00023 Test matrix column 4
-The fourth column must contain "pass" if all tests of the HLFR passed and "fail" if at least one test failed.
+The fourth column must contain "pass" if all tests of the HLFR passed.
+
+### PCR-40007 Test matrix column 4 on a failure
+The fourth column of the test matrix must contain "fail" if at least one test of the HLFR failed.
 
 ### PCR-00024 Test coverage
 Agents must write tests that robustly cover every aspect of the high-level functional requirements.
