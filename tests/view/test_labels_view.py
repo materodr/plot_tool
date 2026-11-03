@@ -279,7 +279,12 @@ class MenuTitleTest(LabelWidgetTestCase):
         from PyQt6 import sip
         from PyQt6.QtCore import QPoint, Qt
         from PyQt6.QtTest import QTest
+        from PyQt6.QtGui import QCursor
         from view.menu_title import menu_title_label
+        # QTest moves the pointer of the test session: put it back at
+        # the end, so later tests see no hover.
+        cursor_point = QCursor.pos()
+        self.addCleanup(QCursor.setPos, cursor_point)
         self.plot_widget.set_markers([(9, "Start", 4.0, ORANGE_STR)])
         self.draw()
         menu = self.build_menu(self.data_display(4.0, 2.0))
@@ -679,14 +684,21 @@ class TabDoubleClickTest(unittest.TestCase):
             typed_name_str: the text the user types and accepts.
         Outputs: the list of the getText calls.
         """
-        from PyQt6.QtTest import QTest
+        from PyQt6.QtCore import QEvent, QPointF, Qt
+        from PyQt6.QtGui import QMouseEvent
         from PyQt6.QtWidgets import QInputDialog
         tab_bar = self.main_window.plot_panel.tab_widget.tabBar()
+        local_point = QPointF(tab_bar.tabRect(0).center())
+        # The event is sent directly, so the mouse pointer of the test
+        # session does not move and later tests see no hover.
+        double_click_event = QMouseEvent(
+            QEvent.Type.MouseButtonDblClick, local_point,
+            QPointF(tab_bar.mapToGlobal(local_point)), button, button,
+            Qt.KeyboardModifier.NoModifier)
         with mock.patch.object(QInputDialog, "getText",
                                return_value=(typed_name_str, True)) as (
                 get_text):
-            QTest.mouseDClick(tab_bar, button,
-                              pos=tab_bar.tabRect(0).center())
+            self.application.sendEvent(tab_bar, double_click_event)
             for _ in range(3):
                 self.application.processEvents()
         return get_text.call_args_list
