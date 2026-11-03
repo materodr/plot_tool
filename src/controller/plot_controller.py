@@ -29,7 +29,11 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   ``show_plot_kind_mismatch_notification``, ``ask_marker_name``,
   ``ask_area_name``, and ``ask_color(current_color_str)``, the shared
   color picker (LLFR-00388), which returns the confirmed "#rrggbb" or
-  None when cancelled;
+  None when cancelled. Every color handler (flag, area, delta marker,
+  arrow, text note border and text) also takes the color the user chose
+  in the recent colors of the color submenu (LLFR-00419), or "" for
+  "Other color...", which opens the picker; the view keeps the recent
+  colors list itself;
 - grid: ``set_grid_shown``;
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
@@ -236,6 +240,8 @@ class PlotController:
             # LLFR-00163, LLFR-00164, LLFR-00176: the delta markers.
             delta_point_pick_handler=self.on_delta_point_pick,
             delta_marker_delete_handler=self.on_delta_marker_delete,
+            # LLFR-00409: "Color" in the delta marker menu.
+            delta_marker_color_handler=self.on_delta_marker_color,
             # LLFR-00334, LLFR-00339, LLFR-00342, LLFR-00343: the text
             # notes of a plot.
             text_note_create_handler=self.on_text_note_create,
@@ -585,17 +591,19 @@ class PlotController:
         Inputs:
             plot: the model Plot.
         Outputs: a list of tuples (delta_marker_id_i, kind_str,
-            first_point_tuple, second_point_tuple, delta_f) in the order
-            the markers were placed; each point is (signal_name_str,
-            time_s, value_f) and delta_f is the second point minus the
-            first (LLFR-00169, LLFR-00171).
+            first_point_tuple, second_point_tuple, delta_f, color_str) in
+            the order the markers were placed; each point is
+            (signal_name_str, time_s, value_f), delta_f is the second
+            point minus the first (LLFR-00169, LLFR-00171) and color_str
+            the marker's color (LLFR-00172, LLFR-00409).
         """
         # LLFR-00168, LLFR-00170, LLFR-00174: every delta marker, with
-        # the value it shows computed by the model.
+        # the value it shows computed by the model. LLFR-00409: and its
+        # color.
         return [(delta_marker.delta_marker_id_i, delta_marker.kind_str,
                  tuple(delta_marker.first_point_tuple),
                  tuple(delta_marker.second_point_tuple),
-                 delta_marker.delta_f())
+                 delta_marker.delta_f(), delta_marker.color_str)
                 for delta_marker in plot.delta_marker_list]
 
     def text_note_data_list(self, plot) -> list:
@@ -1384,13 +1392,16 @@ class PlotController:
         self.show_text_notes(plot)
 
     def pick_text_note_color(self, plot_id_i: int, note_index_i: int,
-                             part_str: str) -> None:
+                             part_str: str,
+                             chosen_color_str: str = "") -> None:
         """Open the color picker for the border or the text of a note.
 
         Inputs:
             plot_id_i: id of the plot.
             note_index_i: index of the note in the list last drawn.
             part_str: "border" or "text".
+            chosen_color_str: a recent color chosen in the submenu
+                (LLFR-00419), or "" to open the picker.
         Outputs: none. A cancelled picker, an unknown plot or note, or
             the color the part already has changes nothing.
         """
@@ -1409,49 +1420,65 @@ class PlotController:
         # LLFR-00390: one undoable action on confirm, nothing on cancel.
         if self.apply_picked_color(
                 current_color_str,
-                lambda color_str: apply_color(note_index_i, color_str)):
+                lambda color_str: apply_color(note_index_i, color_str),
+                chosen_color_str):
             self.show_text_notes(plot)
 
     def on_text_note_border_color(self, plot_id_i: int,
-                                  note_index_i: int) -> None:
+                                  note_index_i: int,
+                                  chosen_color_str: str = "") -> None:
         """Let the user pick the border color of a text note.
 
         Inputs:
             plot_id_i: id of the plot.
             note_index_i: index of the note in the list last drawn.
+            chosen_color_str: a recent color chosen in the submenu
+                (LLFR-00419), or "" to open the picker.
         Outputs: none.
         """
         # LLFR-00387: "Border color" in the text note menu.
-        self.pick_text_note_color(plot_id_i, note_index_i, "border")
+        self.pick_text_note_color(plot_id_i, note_index_i, "border",
+                                  chosen_color_str)
 
     def on_text_note_text_color(self, plot_id_i: int,
-                                note_index_i: int) -> None:
+                                note_index_i: int,
+                                chosen_color_str: str = "") -> None:
         """Let the user pick the text color of a text note.
 
         Inputs:
             plot_id_i: id of the plot.
             note_index_i: index of the note in the list last drawn.
+            chosen_color_str: a recent color chosen in the submenu
+                (LLFR-00419), or "" to open the picker.
         Outputs: none.
         """
         # LLFR-00387: "Text color" in the text note menu.
-        self.pick_text_note_color(plot_id_i, note_index_i, "text")
+        self.pick_text_note_color(plot_id_i, note_index_i, "text",
+                                  chosen_color_str)
 
-    def apply_picked_color(self, current_color_str: str,
-                           apply_color) -> bool:
-        """Open the shared color picker and apply the confirmed color.
+    def apply_picked_color(self, current_color_str: str, apply_color,
+                           chosen_color_str: str = "") -> bool:
+        """Apply a recent color, or the color confirmed in the picker.
 
         Inputs:
             current_color_str: the item's current color, "#rrggbb",
                 shown as chosen when the picker opens (LLFR-00389).
             apply_color: function(color_str) -> bool that changes the
                 model and tells whether anything changed.
+            chosen_color_str: the recent color the user chose in the
+                color submenu (LLFR-00419), or "" for "Other color...",
+                which opens the shared color picker (LLFR-00388).
         Outputs: True when the item got a new color, as one undoable
             action; False when the picker was cancelled or the confirmed
-            color is the item's current color (nothing is recorded).
+            or chosen color is the item's current color (nothing is
+            recorded).
         """
-        # LLFR-00388: the same picker for every item; LLFR-00389: it
-        # starts at the current color.
-        picked_color_str = self.view.ask_color(current_color_str)
+        # LLFR-00419: a recent color is applied as a confirmed one.
+        picked_color_str = chosen_color_str
+        if not picked_color_str:
+            # LLFR-00388: the same picker for every item; LLFR-00389: it
+            # starts at the current color.
+            picked_color_str = self.view.ask_color(current_color_str)
         if picked_color_str is None:
             return False
         # LLFR-00390, LLFR-00140: the snapshot is taken after the picker,
@@ -1543,12 +1570,15 @@ class PlotController:
         # model keeps it.
         self.show_arrows(plot)
 
-    def on_arrow_color(self, plot_id_i: int, arrow_index_i: int) -> None:
+    def on_arrow_color(self, plot_id_i: int, arrow_index_i: int,
+                       chosen_color_str: str = "") -> None:
         """Let the user pick the color of an arrow.
 
         Inputs:
             plot_id_i: id of the plot.
             arrow_index_i: index of the arrow in the list last drawn.
+            chosen_color_str: a recent color chosen in the submenu
+                (LLFR-00419), or "" to open the picker.
         Outputs: none. A cancelled picker, an unknown plot or arrow, or
             the arrow's current color changes nothing.
         """
@@ -1562,7 +1592,8 @@ class PlotController:
         if self.apply_picked_color(
                 arrow.color_str,
                 lambda color_str: plot.set_arrow_color(arrow_index_i,
-                                                       color_str)):
+                                                       color_str),
+                chosen_color_str):
             self.show_arrows(plot)
 
     def on_arrow_delete(self, plot_id_i: int, arrow_index_i: int) -> None:
@@ -1758,12 +1789,15 @@ class PlotController:
         # LLFR-00112, LLFR-00205: every label shows the new name.
         self.show_markers()
 
-    def on_marker_color(self, plot_id_i: int, marker_id_i: int) -> None:
+    def on_marker_color(self, plot_id_i: int, marker_id_i: int,
+                        chosen_color_str: str = "") -> None:
         """Let the user pick a flag's color and show it on every plot.
 
         Inputs:
             plot_id_i: id of the plot where "Color" was chosen.
             marker_id_i: id of the flag whose "Color" was chosen.
+            chosen_color_str: a recent color chosen in the submenu
+                (LLFR-00419), or "" to open the picker.
         Outputs: none. A cancelled picker or the flag's current color
             changes nothing and records nothing.
         """
@@ -1777,7 +1811,8 @@ class PlotController:
         if self.apply_picked_color(
                 marker.color_str,
                 lambda color_str: self.workspace.set_marker_color(
-                    marker_id_i, color_str)):
+                    marker_id_i, color_str),
+                chosen_color_str):
             # LLFR-00392, LLFR-00205: the line, label and time in the new
             # color on every time plot of every tab.
             self.show_markers()
@@ -1992,12 +2027,15 @@ class PlotController:
         # LLFR-00307, LLFR-00310: every label shows the new name.
         self.show_areas()
 
-    def on_area_color(self, plot_id_i: int, area_id_i: int) -> None:
+    def on_area_color(self, plot_id_i: int, area_id_i: int,
+                      chosen_color_str: str = "") -> None:
         """Let the user pick an area's color and show it on every plot.
 
         Inputs:
             plot_id_i: id of the plot where "Color" was chosen.
             area_id_i: id of the area.
+            chosen_color_str: a recent color chosen in the submenu
+                (LLFR-00419), or "" to open the picker.
         Outputs: none. An unknown plot or area, a cancelled picker or the
             area's current color changes nothing and records nothing.
         """
@@ -2013,7 +2051,8 @@ class PlotController:
         if self.apply_picked_color(
                 area.color_str,
                 lambda color_str: self.workspace.set_area_color(
-                    int(area_id_i), color_str)):
+                    int(area_id_i), color_str),
+                chosen_color_str):
             # LLFR-00310, LLFR-00351: every time plot of every tab.
             self.show_areas()
 
@@ -2168,6 +2207,38 @@ class PlotController:
             return
         self.record_undo(snapshot)
         self.redraw_plot(plot)
+
+    def on_delta_marker_color(self, plot_id_i: int, delta_marker_id_i: int,
+                              chosen_color_str: str = "") -> None:
+        """Let the user pick the color of one delta marker.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            delta_marker_id_i: id of the delta marker whose "Color" was
+                chosen.
+            chosen_color_str: a recent color chosen in the submenu
+                (LLFR-00419), or "" to open the picker.
+        Outputs: none. An unknown plot or delta marker, a cancelled
+            picker or the marker's current color changes nothing and
+            records nothing.
+        """
+        # LLFR-00409: "Color" in the delta marker menu opens the shared
+        # picker (LLFR-00388) at the marker's color (LLFR-00389).
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        delta_marker = plot.find_delta_marker(int(delta_marker_id_i))
+        if delta_marker is None:
+            return
+        # LLFR-00140, LLFR-00390: changing a delta marker's color is one
+        # undoable action; the points, the value and the other delta
+        # markers stay as they are.
+        if self.apply_picked_color(
+                delta_marker.color_str,
+                lambda color_str: plot.set_delta_marker_color(
+                    int(delta_marker_id_i), color_str),
+                chosen_color_str):
+            self.redraw_plot(plot)
 
     def on_plot_delta_markers_delete(self, plot_id_i: int) -> None:
         """Remove every delta marker of one plot.

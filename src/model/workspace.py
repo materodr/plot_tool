@@ -36,6 +36,9 @@ DEFAULT_AREA_NAME_FORMAT_STR = "Area {}"
 DEFAULT_AREA_NAME_PATTERN_STR = r"Area (\d+)"
 # LLFR-00083: the color of a new flag, the reserved marker color.
 DEFAULT_FLAG_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00172: the color of a new delta marker, the reserved marker
+# color; the user may change it (LLFR-00409).
+DEFAULT_DELTA_MARKER_COLOR_STR = MARKER_COLOR_STR
 # LLFR-00351: the color of a new area, the reserved marker color; the
 # view draws every area see-through (LLFR-00305).
 DEFAULT_AREA_COLOR_STR = MARKER_COLOR_STR
@@ -43,11 +46,13 @@ DEFAULT_AREA_COLOR_STR = MARKER_COLOR_STR
 # of a new text note.
 TEXT_NOTE_SIZE_TUPLE = (8, 10, 12, 16, 20, 24, 32)
 DEFAULT_TEXT_NOTE_SIZE_I = 12
-# LLFR-00336: the text color and the border color of a new text note,
-# the app's text color, a near-black dark grey.
+# LLFR-00336: the text color of a new text note, the app's text color,
+# a near-black dark grey, and its border color, the reserved marker
+# color.
 DEFAULT_TEXT_NOTE_COLOR_STR = "#24303b"
-# LLFR-00373: the color of a new arrow, the same app text color.
-DEFAULT_ARROW_COLOR_STR = DEFAULT_TEXT_NOTE_COLOR_STR
+DEFAULT_TEXT_NOTE_BORDER_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00373: the color of a new arrow, the reserved marker color.
+DEFAULT_ARROW_COLOR_STR = MARKER_COLOR_STR
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -126,7 +131,7 @@ class TextNote:
     time_s: float
     value_f: float
     size_i: int = DEFAULT_TEXT_NOTE_SIZE_I
-    border_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
+    border_color_str: str = DEFAULT_TEXT_NOTE_BORDER_COLOR_STR
     text_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
 
 
@@ -294,12 +299,15 @@ class DeltaMarker:
             curve sample.
         second_point_tuple: the second picked point (LLFR-00164), in the
             same form.
+        color_str: color of its curly bracket, dots and value text,
+            "#rrggbb" in lowercase (LLFR-00172, LLFR-00409).
     """
 
     delta_marker_id_i: int
     kind_str: str
     first_point_tuple: tuple
     second_point_tuple: tuple
+    color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
 
     def delta_f(self) -> float:
         """Return the measured difference, second point minus first.
@@ -948,7 +956,9 @@ class Plot:
         return not self.curve_list
 
     def add_delta_marker(self, kind_str: str, first_point_tuple,
-                         second_point_tuple) -> DeltaMarker:
+                         second_point_tuple,
+                         color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
+                         ) -> DeltaMarker:
         """Place a new delta marker between two curve points.
 
         Inputs:
@@ -957,6 +967,10 @@ class Plot:
                 first picked point.
             second_point_tuple: the same for the second picked point; it
                 may be on the same curve or on another one.
+            color_str: its color, "#rrggbb" (any case); a new marker gets
+                the default color (LLFR-00172), a marker of a layout file
+                its saved color (LLFR-00410). A value that is not
+                "#rrggbb" gives the default color.
         Outputs: the new DeltaMarker. Raises ValueError for an unknown
             kind, a point that is not finite, or a point on a signal
             that is not in the plot.
@@ -971,12 +985,40 @@ class Plot:
             if not self.has_signal(point_tuple[0]):
                 raise ValueError(f"Signal {point_tuple[0]!r} is not in "
                                  f"the plot.")
+        # LLFR-00172, LLFR-00410: the default color unless a usable
+        # color is given.
+        marker_color_str = hex_color_or_none(color_str)
+        if marker_color_str is None:
+            marker_color_str = DEFAULT_DELTA_MARKER_COLOR_STR
         # LLFR-00174: markers are added, never replaced.
         delta_marker = DeltaMarker(self.marker_id_counter.take_next_id(),
                                    kind_str, first_point_tuple,
-                                   second_point_tuple)
+                                   second_point_tuple, marker_color_str)
         self.delta_marker_list.append(delta_marker)
         return delta_marker
+
+    def set_delta_marker_color(self, delta_marker_id_i: int,
+                               color_str: str) -> bool:
+        """Give one delta marker of this plot another color.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False when no delta marker
+            of this plot has that id, the value is not "#rrggbb" or it is
+            the marker's current color.
+        """
+        # LLFR-00409, LLFR-00390: the chosen color, but nothing when it
+        # is the color the marker already has; the points, the value and
+        # the other delta markers stay as they are.
+        new_color_str = hex_color_or_none(color_str)
+        delta_marker = self.find_delta_marker(delta_marker_id_i)
+        if delta_marker is None or new_color_str is None:
+            return False
+        if delta_marker.color_str == new_color_str:
+            return False
+        delta_marker.color_str = new_color_str
+        return True
 
     def find_delta_marker(self, delta_marker_id_i: int):
         """Return a delta marker of this plot by its id.
@@ -1098,7 +1140,7 @@ def plot_state_tuple(plot) -> tuple:
         (signal_name_str, color_str, width_i), pinned tip tuples
         (signal_name_str, time_s, value_f, label_offset_tuple), delta
         marker tuples (delta_marker_id_i, kind_str, first_point_tuple,
-        second_point_tuple), text note tuples (text_str, time_s,
+        second_point_tuple, color_str), text note tuples (text_str, time_s,
         value_f, size_i, border_color_str, text_color_str), arrow tuples
         (start_time_s, start_value_f, end_time_s, end_value_f,
         color_str), plot kind_str). For a frequency plot, the time_s of
@@ -1115,11 +1157,12 @@ def plot_state_tuple(plot) -> tuple:
         (pinned_tip.signal_name_str, pinned_tip.time_s, pinned_tip.value_f,
          tuple(pinned_tip.label_offset_tuple))
         for pinned_tip in plot.pinned_tip_list)
-    # LLFR-00140: placing and deleting a delta marker are undoable.
+    # LLFR-00140: placing, changing the color of (LLFR-00409) and
+    # deleting a delta marker are undoable.
     delta_marker_tuple = tuple(
         (delta_marker.delta_marker_id_i, delta_marker.kind_str,
          tuple(delta_marker.first_point_tuple),
-         tuple(delta_marker.second_point_tuple))
+         tuple(delta_marker.second_point_tuple), delta_marker.color_str)
         for delta_marker in plot.delta_marker_list)
     # LLFR-00256, LLFR-00140: creating a frequency plot is undoable like
     # creating a time plot, and an undo gives the plot back its kind.

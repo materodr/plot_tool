@@ -1,6 +1,6 @@
 """Shape of an arrow drawn on a plot (HLFR-00081), in display pixels.
 
-An arrow is a straight solid line with a filled arrowhead at its end
+An arrow is a straight dashed line with a filled, solid arrowhead at its end
 (LLFR-00373). Its two ends are attached to x-axis and y-axis values
 (LLFR-00374), so its shape in pixels is computed again at every draw,
 on screen, in the copied image and in the PDF export, from the current
@@ -27,6 +27,10 @@ from matplotlib.transforms import IdentityTransform
 ARROW_HEAD_LENGTH_POINTS_F = 9.0
 ARROW_HEAD_HALF_WIDTH_POINTS_F = 3.6
 ARROW_LINE_WIDTH_F = 1.6
+# LLFR-00373: the line of an arrow is dashed (dash and gap lengths in
+# multiples of the line width); its head stays filled and solid.
+ARROW_LINE_STYLE_TUPLE = (0, (4.0, 2.0))
+ARROW_HEAD_LINE_STYLE_STR = "-"
 POINTS_PER_INCH_F = 72.0
 # LLFR-00373: an arrowhead is never longer than this part of its arrow,
 # so that a short arrow (5 pixels at least, LLFR-00377) still shows a
@@ -192,11 +196,12 @@ class ArrowPatch(PathPatch):
             patch_keyword_dict: more PathPatch style.
         Outputs: none.
         """
-        # LLFR-00373: a solid line and a filled head in the same color.
+        # LLFR-00373: a dashed line and a filled head in the same color.
         super().__init__(Path(np.zeros((1, 2))),
                          transform=IdentityTransform(), facecolor=color_str,
                          edgecolor=color_str, linewidth=ARROW_LINE_WIDTH_F,
-                         linestyle="-", capstyle="butt", joinstyle="miter",
+                         linestyle=ARROW_LINE_STYLE_TUPLE, capstyle="butt",
+                         joinstyle="miter",
                          **patch_keyword_dict)
         self.start_tuple = tuple(float(value_f) for value_f in start_tuple)
         self.end_tuple = tuple(float(value_f) for value_f in end_tuple)
@@ -244,7 +249,18 @@ class ArrowPatch(PathPatch):
                    start_px_tuple + end_px_tuple):
             return
         pixels_per_point_f = float(self.axes.figure.dpi) / POINTS_PER_INCH_F
-        self._path = arrow_path(start_px_tuple, end_px_tuple,
-                                pixels_per_point_f,
-                                self.head_shown_b(end_px_tuple))
+        full_path = arrow_path(start_px_tuple, end_px_tuple,
+                               pixels_per_point_f,
+                               self.head_shown_b(end_px_tuple))
+        # LLFR-00373: the line (its first two vertices) is drawn dashed,
+        # the head (the closed triangle after them) solid and filled.
+        line_path = Path(full_path.vertices[:2], full_path.codes[:2])
+        if len(full_path.vertices) > 2:
+            self._path = Path(full_path.vertices[2:], full_path.codes[2:])
+            self.set_linestyle(ARROW_HEAD_LINE_STYLE_STR)
+            super().draw(renderer)
+        self._path = line_path
+        self.set_linestyle(ARROW_LINE_STYLE_TUPLE)
         super().draw(renderer)
+        # The patch keeps the whole path, line and head, for hit tests.
+        self._path = full_path

@@ -50,8 +50,8 @@ class ArrowModelTest(unittest.TestCase):
         self.assertEqual((arrow.start_time_s, arrow.start_value_f,
                           arrow.end_time_s, arrow.end_value_f),
                          (1.0, 2.0, 3.5, -4.0))
-        self.assertEqual(arrow.color_str, "#24303b")
-        self.assertEqual(DEFAULT_ARROW_COLOR_STR, "#24303b")
+        self.assertEqual(arrow.color_str, "#ff8000")
+        self.assertEqual(DEFAULT_ARROW_COLOR_STR, "#ff8000")
         for index_i in range(20):
             self.plot.add_arrow(index_i, 0.0, index_i + 1.0, 1.0)
         self.assertEqual(len(self.plot.arrow_list), 21)
@@ -171,7 +171,7 @@ class ArrowModelTest(unittest.TestCase):
         self.plot.add_arrow(0.0, 0.0, 1.0, 1.0)
         state_tuple = plot_state_tuple(self.plot)
         self.assertEqual(state_tuple[6],
-                         ((0.0, 0.0, 1.0, 1.0, "#24303b"),))
+                         ((0.0, 0.0, 1.0, 1.0, "#ff8000"),))
         # The kind stays last and the text notes stay at index 5.
         self.assertEqual(state_tuple[-1], self.plot.kind_str)
         self.assertEqual(state_tuple[5], ())
@@ -190,7 +190,7 @@ class ArrowModelTest(unittest.TestCase):
         restored_arrow = self.plot.arrow_list[0]
         restored_arrow.color_str = "#000000"
         self.assertEqual(snapshot.tab_list[0].plot_list[0]
-                         .arrow_list[0].color_str, "#24303b")
+                         .arrow_list[0].color_str, "#ff8000")
 
 
 class ArrowLayoutTest(unittest.TestCase):
