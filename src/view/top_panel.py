@@ -70,7 +70,7 @@ REPORT_BUG_TEXT_STR = "Report a bug"
 # LLFR-00359: the page of the repository's "New issue" button.
 REPORT_BUG_URL_STR = "https://github.com/materodr/plot_tool/issues/new/choose"
 # LLFR-00364: the credit text and the objectName of its label.
-CREDIT_TEXT_STR = "designed by materodr"
+CREDIT_TEXT_STR = "Designed by materodr"
 CREDIT_LABEL_NAME_STR = "credit_label"
 # LLFR-00159: the icon of each button, by button name.
 BUTTON_ICON_DICT = {

@@ -4,7 +4,7 @@ Covers LLFR-00358 (the Report a bug button), LLFR-00359 (it opens the
 "New issue" page), LLFR-00360 (its active color for at least 0.3 s),
 LLFR-00361 (the error box when the browser cannot be opened), its icon
 and button tip (LLFR-00159, LLFR-00215) and group (LLFR-00347), and
-LLFR-00364 (the credit text "designed by materodr"). The browser is
+LLFR-00364 (the credit text "Designed by materodr"). The browser is
 never really opened: QDesktopServices.openUrl is patched.
 """
 
@@ -24,7 +24,7 @@ from view import icon_shapes, theme
 # LLFR-00359: the page of the repository's "New issue" button.
 EXPECTED_URL_STR = "https://github.com/materodr/plot_tool/issues/new/choose"
 # LLFR-00364: the credit text.
-EXPECTED_CREDIT_STR = "designed by materodr"
+EXPECTED_CREDIT_STR = "Designed by materodr"
 # LLFR-00360: the shortest active time of the button.
 MINIMUM_ACTIVE_TIME_S = 0.3
 MAXIMUM_WAIT_TIME_S = 3.0

@@ -14,6 +14,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.view.menu_texts import FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 from controller.plot_tools import (
@@ -682,9 +683,9 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         self.assertEqual(self.plot_widget.curve_at(crossing_point), "Ramp")
         self.assertEqual(self.plot_widget.marker_at(crossing_point), 3)
         self.assertEqual(self.menu_texts_at(5.0, 3.5),
-                         ["Rename", "Color", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
         self.assertEqual(self.menu_texts_at(5.0, float(np.sin(5.0))),
-                         ["Rename", "Color", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
         # Away from the marker the same curve shows the curve menu.
         self.assertEqual(self.menu_texts_at(8.0, 3.8),
                          ["Delete signal", "Width"])
@@ -701,7 +702,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
                 self.plot_widget.set_plot_tool(tool_str)
                 for value_f in (2.0, 3.5):
                     text_list = self.menu_texts_at(5.0, value_f)
-                    self.assertEqual(text_list, ["Rename", "Color", "Delete"])
+                    self.assertEqual(text_list, FLAG_MENU_TEXT_LIST)
                     self.assertNotIn("Delete plot", text_list)
         # An empty area away from the marker still offers "Delete plot".
         self.assertEqual(self.menu_texts_at(8.0, 2.0), ["Delete plot"])
@@ -720,7 +721,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
             label_box.x1 - 2.0, (label_box.y0 + label_box.y1) / 2.0)
         menu = self.plot_widget.build_context_menu(label_point)
         self.assertEqual([action.text() for action in menu.actions()],
-                         ["Rename", "Color", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
         sip.delete(menu)
 
     @covers("LLFR-00087", "LLFR-00088", "LLFR-00090", "LLFR-00091")
@@ -732,7 +733,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         """
         shown_list = self.choose_action_text("Rename")
         self.right_click(5.0, 3.5)
-        self.assertEqual(shown_list, [["Rename", "Color", "Delete"]])
+        self.assertEqual(shown_list, [FLAG_MENU_TEXT_LIST])
         self.assertEqual(self.rename_list, [(3,)])
         self.assertEqual(self.delete_list, [])
         self.choose_action_text("Delete")
@@ -779,10 +780,10 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         """
         self.plot_widget.set_pinned_tips([("Ramp", 5.0, 3.5)])
         self.draw()
-        self.assertEqual(self.menu_texts_at(5.0, 3.5), ["Delete"])
+        self.assertEqual(self.menu_texts_at(5.0, 3.5), TIP_MENU_TEXT_LIST)
         # Lower on the line, away from the tip, the marker menu is back.
         self.assertEqual(self.menu_texts_at(5.0, float(np.sin(5.0))),
-                         ["Rename", "Color", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
 
 
 @requires_qt
@@ -950,7 +951,7 @@ class MarkerEndToEndTest(unittest.TestCase):
         self.assertTrue(
             top_panel.plot_tool_button_dict[MARKER_TOOL_STR].is_active())
         shown_list = self.right_click_choose(second_time_s, 2.5, "Delete")
-        self.assertEqual(shown_list, ["Rename", "Color", "Delete"])
+        self.assertEqual(shown_list, FLAG_MENU_TEXT_LIST)
         self.assertEqual(self.drawn_names(), ["Flag 1"])
         self.left_click(1.0, 2.5)
         self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 3"])

@@ -132,26 +132,6 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertFalse(icons.icon_for(
             icon_shapes.SAVE_SIGNALS_ICON_STR).isNull())
 
-    @covers("LLFR-00159")
-    def test_icon_differs_from_save_layout(self) -> None:
-        """The Save signals icon shares the sheet and the arrow of the
-        Save layout icon but shows a table, so the two differ.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from view import icon_shapes
-        signals_layer_list = icon_shapes.icon_layer_list(
-            icon_shapes.SAVE_SIGNALS_ICON_STR)
-        layout_layer_list = icon_shapes.icon_layer_list(
-            icon_shapes.SAVE_LAYOUT_ICON_STR)
-        self.assertEqual(signals_layer_list[:2], layout_layer_list[:2])
-        self.assertEqual(signals_layer_list[-2:], layout_layer_list[-2:])
-        self.assertNotEqual(signals_layer_list, layout_layer_list)
-        # LLFR-00159 item 20: the table is a frame with inner lines.
-        self.assertTrue(any(layer_tuple[0][0][0] == "R"
-                            for layer_tuple in signals_layer_list))
-
     @covers("LLFR-00395", "LLFR-00160", "LLFR-00350")
     def test_disabled_without_a_data_file(self) -> None:
         """Disabled and paler before a file is open, a click does
