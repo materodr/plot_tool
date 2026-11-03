@@ -3957,7 +3957,7 @@ In the drag of LLFR-00377, a release less than 5 pixels from the press must not 
 ### LLFR-00378 Arrow menu
 When the user right-clicks an arrow, the app must show a menu with the options "Rename", "Color" and "Delete", in this order.
 
-*Parent: HLFR-00084, HLFR-00088, HLFR-00111*
+*Parent: HLFR-00084, HLFR-00088, HLFR-00100, HLFR-00111*
 
 ### LLFR-00379 Arrow color action
 When the user chooses "Color" in the arrow menu (LLFR-00378), the app must let the user choose a color (LLFR-00388, LLFR-00809, LLFR-00419).
@@ -4017,7 +4017,7 @@ While no plot tool is active, a left mouse button press and drag on one of the t
 ### LLFR-00795 Drag elsewhere with no plot tool active
 While no plot tool is active, a left mouse button press and drag on the rest of a delta marker, on a curve or on a part of a plot where none of the objects of LLFR-00382, LLFR-00790, LLFR-00791, LLFR-00792, LLFR-00793 and LLFR-00794 is drawn must do nothing.
 
-*Parent: HLFR-00085*
+*Parent: HLFR-00085, HLFR-00099*
 
 ### LLFR-00796 No message on a drag elsewhere with no plot tool active
 While no plot tool is active, a left mouse button press and drag on the rest of a delta marker, on a curve or on a part of a plot where none of the objects of LLFR-00382, LLFR-00790, LLFR-00791, LLFR-00792, LLFR-00793 and LLFR-00794 is drawn must not show any message.
