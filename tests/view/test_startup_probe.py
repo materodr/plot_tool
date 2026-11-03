@@ -195,6 +195,19 @@ class StartupProbeTest(unittest.TestCase):
             {"PLOT_TOOL_DIALOG_PROBE": "0"}))
         self.assertTrue(probe.dialog_probe_enabled(
             {"PLOT_TOOL_DIALOG_PROBE": "1"}))
+        pool = mock.Mock(prepared_b=True, step_count_i=3,
+                         prepare_duration_s=0.4, longest_step_s=0.25,
+                         step_duration_list=[0.25, 0.1, 0.05])
+        pool.panel_state_str.return_value = "warmed,warmed"
+        self.assertEqual(
+            probe.prepare_line_str(pool, 0.5, 0.26, False),
+            "plot_tool prepare: prepared=yes waited_s=0.500 steps=3 "
+            "prepare_s=0.400 longest_step_s=0.250 longest_turn_s=0.260 "
+            "step_s=0.250,0.100,0.050 panels=warmed,warmed "
+            "dialog_seen=no")
+        pool.step_duration_list = []
+        self.assertIn("step_s=none panels=warmed,warmed dialog_seen=yes",
+                      probe.prepare_line_str(pool, 0.5, 0.16, True))
         line_str = probe.dialog_line_str("save_pdf", 2, 0.0456, True,
                                          False, 0.25)
         self.assertEqual(line_str, "plot_tool dialog: name=save_pdf "
@@ -218,14 +231,24 @@ class StartupProbeTest(unittest.TestCase):
         controller.start()
         main_window.schedule_file_dialog_preparation()
         pool = main_window.file_dialog_pool
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QFileDialog
         call_list = []
         for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
             dialog = pool.dialog(key_str)
-            dialog.open = (lambda key_str=key_str, dialog=dialog:
-                           (call_list.append(key_str), dialog.show()))
+            # Shown as a standalone, non-modal window, as exec shows it.
+            dialog.show = (lambda key_str=key_str, dialog=dialog: (
+                call_list.append((key_str, dialog.windowModality())),
+                QFileDialog.show(dialog)))
+        pool.dialog("save_pdf").setWindowModality(
+            Qt.WindowModality.ApplicationModal)
         output_stream = io.StringIO()
         fake_application = FakeApplication()
         fake_application.processEvents = self.application.processEvents
+        pause_patch = mock.patch.object(self.startup_probe,
+                                        "PROBE_PAUSE_S", 0.01)
+        pause_patch.start()
+        self.addCleanup(pause_patch.stop)
         try:
             self.startup_probe.report_startup(
                 fake_application, 0.0, True, mock.Mock(),
@@ -236,13 +259,30 @@ class StartupProbeTest(unittest.TestCase):
                 for line_str in output_stream.getvalue().splitlines()
                 if line_str.startswith("plot_tool dialog:")]
             self.assertEqual(len(dialog_line_list), 10)
-            self.assertEqual(call_list, ["open_file", "open_file",
-                                         "save_layout", "save_layout",
-                                         "load_layout", "load_layout",
-                                         "save_pdf", "save_pdf",
-                                         "save_signals", "save_signals"])
+            non_modal = Qt.WindowModality.NonModal
+            self.assertEqual(call_list, [
+                (key_str, non_modal) for key_str in (
+                    "open_file", "open_file", "save_layout", "save_layout",
+                    "load_layout", "load_layout", "save_pdf", "save_pdf",
+                    "save_signals", "save_signals")])
+            # The modality the dialog had is given back.
+            self.assertEqual(pool.dialog("save_pdf").windowModality(),
+                             Qt.WindowModality.ApplicationModal)
+            self.assertEqual(pool.dialog("open_file").windowModality(),
+                             non_modal)
             for line_str in dialog_line_list:
                 self.assertIn("visible=yes prepared=yes", line_str)
+            # LLFR-00406, issue #165: the preparation line comes first,
+            # with no dialog seen before the first request.
+            output_str = output_stream.getvalue()
+            self.assertLess(output_str.index("plot_tool prepare:"),
+                            output_str.index("plot_tool dialog:"))
+            prepare_dict = measure_startup.parse_prepare_line(output_str)
+            self.assertTrue(prepare_dict["prepared_b"])
+            self.assertFalse(prepare_dict["dialog_seen_b"])
+            self.assertEqual(prepare_dict["step_count_i"], 5)
+            self.assertEqual(measure_startup.dialog_failure_list(
+                output_str, True), [])
             # Every dialog is closed again.
             for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
                 self.assertFalse(pool.dialog(key_str).isVisible())

@@ -50,13 +50,14 @@ STARTUP_PHASE_LIST = [("imports", time.perf_counter())]
 
 
 def build_main_window(application: QApplication) -> tuple:
-    """Import the rest of the app, build the main window and show it.
+    """Import the rest of the app and build the main window, not shown.
 
     Inputs:
         application: the QApplication (not used here; kept so that a
             replacement can be given to start_main_window in tests).
     Outputs: a tuple (main window, main controller). The controller
-        must be kept for as long as the app runs.
+        must be kept for as long as the app runs. The window is shown
+        by show_main_window, when the splash screen closes.
     """
     # LLFR-00184: the slow imports happen here, after the splash screen
     # is shown.
@@ -68,26 +69,36 @@ def build_main_window(application: QApplication) -> tuple:
     # LLFR-00071: an unexpected error shows a box instead of aborting.
     install_error_hook(main_window)
     controller = MainController(main_window)
-    # LLFR-00058: show the window.
-    controller.start()
-    # LLFR-00406: once the window is shown, build the file dialogs so
-    # that even the first click shows its dialog quickly.
-    main_window.schedule_file_dialog_preparation()
     return main_window, controller
+
+
+def show_main_window(window_tuple: tuple) -> None:
+    """Show the main window built by build_main_window.
+
+    Inputs:
+        window_tuple: the tuple (main window, controller).
+    Outputs: none.
+    """
+    # LLFR-00058: the controller shows the window with its panels.
+    window_tuple[1].start()
 
 
 def start_main_window(application: QApplication, splash,
                       build_function=build_main_window,
-                      show_error=message_boxes.show_unexpected_error):
-    """Build the main window behind the splash screen, then close it.
+                      show_error=message_boxes.show_unexpected_error,
+                      show_function=show_main_window):
+    """Build the main window behind the splash screen, then swap them.
 
     Inputs:
         application: the QApplication.
         splash: the shown SplashScreen.
-        build_function: builds and shows the window, returning a tuple
-            (main window, controller); build_main_window by default.
+        build_function: builds the window without showing it, returning
+            a tuple (main window, controller); build_main_window by
+            default.
         show_error: shows the error box, taking (parent, message_str);
             message_boxes.show_unexpected_error by default.
+        show_function: shows the window, taking the tuple of
+            build_function; show_main_window by default.
     Outputs: the tuple of build_function, or None when it raised. Then
         the splash screen was closed first and the error box shown.
     """
@@ -100,9 +111,9 @@ def start_main_window(application: QApplication, splash,
         splash.close()
         show_error(None, format_error_message(type(error), error))
         return None
-    # LLFR-00186: the splash screen closes once the main window is
-    # shown and exposed on screen.
-    splash.finish(window_tuple[0])
+    # LLFR-00186: the window is shown and the splash screen closed in
+    # the same step, so the splash is never above the visible window.
+    splash.finish(window_tuple[0], lambda: show_function(window_tuple))
     return window_tuple
 
 
@@ -133,6 +144,10 @@ def main() -> int:
         sip.delete(splash)
         return STARTUP_ERROR_EXIT_CODE_I
     main_window = window_tuple[0]
+    # LLFR-00406: once the window is shown, the file dialogs are built
+    # in small steps, without showing any, so that even the first click
+    # shows its dialog quickly (issue #165).
+    main_window.schedule_file_dialog_preparation()
     from model.file_loader import load_signal_file
     # LLFR-00188: only with PLOT_TOOL_STARTUP_PROBE=1, report when the
     # window is shown and quit (build check, issue #67).

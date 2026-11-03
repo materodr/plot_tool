@@ -1,10 +1,11 @@
 """Tests for the fast file dialogs (HLFR-00091, LLFR-00406).
 
-Each file dialog of the app is built once, prepared after the main
-window is shown, and reused. The tests click each button as the user
-does and measure the time from the click to the dialog being shown on
-screen; the dialog's ``exec`` is replaced by one that shows it, notes
-the time, hides it and cancels, so no modal loop is left open.
+Each file dialog of the app is built once, prepared in steps after the
+main window is shown, and reused; no dialog is shown without a click
+(issue #165). The tests click each button as the user does and measure
+the time from the click to the dialog being shown on screen; the
+dialog's ``exec`` is replaced by one that shows it, notes the time,
+hides it and cancels, so no modal loop is left open.
 """
 
 import os
@@ -16,7 +17,9 @@ from unittest import mock
 from tests.support import button_name, covers, get_qt_application, requires_qt
 
 # LLFR-00406: the limit from the click to the dialog being shown.
-DIALOG_LIMIT_S = 0.6
+DIALOG_LIMIT_S = 0.65
+# LLFR-00406: how long the tests wait at most for the preparation.
+PREPARE_TIMEOUT_S = 10.0
 FILE_TEXT_STR = "Time,speed,force\n0,1,5\n1,2,6\n2,3,7\n"
 OPEN_FILTER_LIST = ["Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)",
                     "All files (*)"]
@@ -30,7 +33,7 @@ KEY_LIST = ["open_file", "save_layout", "load_layout", "save_pdf",
 
 @requires_qt
 class FileDialogTimingTest(unittest.TestCase):
-    """Every file dialog appears within 0.6 s of its click."""
+    """Every file dialog appears within 0.65 s of its click."""
 
     def setUp(self) -> None:
         """Start the app as src/main.py does, with a data file at hand.
@@ -71,13 +74,26 @@ class FileDialogTimingTest(unittest.TestCase):
         self.application.processEvents()
 
     def process_events(self) -> None:
-        """Let the deferred work of the window run.
+        """Let the deferred work of the window run, the preparation too.
 
         Inputs: none.
         Outputs: none.
         """
         for _ in range(3):
             self.application.processEvents()
+        self.wait_until_prepared(self.pool)
+
+    def wait_until_prepared(self, pool) -> None:
+        """Run the event loop until a pool's preparation has finished.
+
+        Inputs:
+            pool: a FileDialogPool whose preparation was scheduled.
+        Outputs: none.
+        """
+        deadline_s = time.perf_counter() + PREPARE_TIMEOUT_S
+        while not pool.prepared_b and time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.005)
 
     def choose_pdf_option(self, menu):
         """Stand-in for the modal Export menu: choose the PDF option.
@@ -155,20 +171,27 @@ class FileDialogTimingTest(unittest.TestCase):
             self.controller.file_controller.open_file_requested()
         self.process_events()
 
-    @covers("LLFR-00406", "HLFR-00091")
+    @covers("LLFR-00406", "HLFR-00091", "LLFR-00188")
     def test_dialogs_are_prepared_after_the_window_is_shown(self) -> None:
-        """The five dialogs (KEY_LIST) are built once the event loop has run.
+        """The five dialogs (KEY_LIST) are built in steps, after a delay.
 
         Inputs: none.
         Outputs: none.
         """
         key_list = KEY_LIST
         self.assertEqual(self.pool.key_list(), key_list)
-        # Not built before the event loop runs, so the window is not
-        # delayed by them.
+        # Not built before the event loop runs, nor in its first turns,
+        # so the window is drawn and answers first.
         self.assertFalse(self.pool.prepared_b)
-        self.process_events()
+        self.application.processEvents()
+        self.assertFalse(self.pool.prepared_b)
+        self.assertEqual(self.pool.step_count_i, 0)
+        self.wait_until_prepared(self.pool)
         self.assertTrue(self.pool.prepared_b)
+        # One step per dialog (and the panel warm-up on macOS only).
+        self.assertEqual(self.pool.step_count_i, len(key_list))
+        self.assertGreaterEqual(self.pool.prepare_duration_s,
+                                self.pool.longest_step_s)
         for key_str in key_list:
             with self.subTest(key_str=key_str):
                 self.assertTrue(self.pool.is_built(key_str))
@@ -176,11 +199,153 @@ class FileDialogTimingTest(unittest.TestCase):
                                       self.file_dialog_class)
                 self.assertFalse(self.pool.dialog(key_str).isVisible())
 
+    @covers("LLFR-00406", "LLFR-00188")
+    def test_one_preparation_step_per_turn(self) -> None:
+        """Each turn of the event loop runs at most one step.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import file_dialogs
+        pool = file_dialogs.FileDialogPool("linux")
+        call_list = []
+        for key_str in ("first", "second", "third"):
+            pool.register(key_str, lambda key_str=key_str: (
+                call_list.append(key_str)
+                or self.main_window.build_open_file_dialog("")))
+        pool.schedule_preparation(self.main_window, 0)
+        self.assertEqual(call_list, [])
+        pool.run_next_step()
+        self.assertEqual(call_list, ["first"])
+        self.assertFalse(pool.prepared_b)
+        # The next step is left to the next turn of the event loop.
+        self.assertTrue(pool.step_timer.isActive())
+        self.wait_until_prepared(pool)
+        self.assertEqual(call_list, ["first", "second", "third"])
+        self.assertEqual(pool.step_count_i, 3)
+        self.assertTrue(pool.prepared_b)
+        # A dialog built before its step (a click during the
+        # preparation) is not built again.
+        other_pool = file_dialogs.FileDialogPool("linux")
+        other_list = []
+        other_pool.register("open", lambda: (
+            other_list.append("open")
+            or self.main_window.build_open_file_dialog("")))
+        other_pool.schedule_preparation(self.main_window, 0)
+        clicked_dialog = other_pool.prepared_dialog("open")
+        self.wait_until_prepared(other_pool)
+        self.assertEqual(other_list, ["open"])
+        self.assertIs(other_pool.dialog("open"), clicked_dialog)
+
+    @covers("LLFR-00406")
+    def test_failing_step_does_not_stop_the_preparation(self) -> None:
+        """A step that raises is reported and the next steps still run.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import file_dialogs
+        pool = file_dialogs.FileDialogPool("linux")
+        built_list = []
+
+        def broken_build():
+            """Fail as a broken dialog factory would.
+
+            Inputs: none.
+            Outputs: none; always raises.
+            """
+            raise RuntimeError("broken dialog")
+
+        pool.register("broken", broken_build)
+        pool.register("open", lambda: (
+            built_list.append("open")
+            or self.main_window.build_open_file_dialog("")))
+        with mock.patch("sys.stderr") as error_stream:
+            pool.schedule_preparation(self.main_window, 0)
+            self.wait_until_prepared(pool)
+        self.assertTrue(pool.prepared_b)
+        self.assertEqual(built_list, ["open"])
+        self.assertTrue(pool.is_built("open"))
+        self.assertFalse(pool.is_built("broken"))
+        self.assertEqual(pool.failed_step_count_i, 1)
+        self.assertEqual(pool.step_count_i, 1)
+        self.assertTrue(error_stream.write.called)
+
+    @covers("LLFR-00406", "LLFR-00184", "LLFR-00186")
+    def test_no_dialog_is_shown_without_a_click(self) -> None:
+        """Starting the app and preparing the dialogs shows no dialog.
+
+        The startup of src/main.py runs with every way to show a file
+        dialog watched; nothing may be shown until the Open file
+        button is clicked (issue #165).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import sys
+        import main
+        from view import splash_screen
+        file_dialog_class = self.file_dialog_class
+        call_list = []
+
+        def watched(name_str: str):
+            """Return a stand-in that records a way to show a dialog.
+
+            Inputs:
+                name_str: the name of the QFileDialog method.
+            Outputs: the stand-in, which cancels like a closed dialog.
+            """
+            def record(dialog, *argument_tuple):
+                """Record the call instead of showing the dialog.
+
+                Inputs:
+                    dialog: the QFileDialog.
+                    argument_tuple: the arguments of the call.
+                Outputs: the int value of QDialog.DialogCode.Rejected.
+                """
+                if name_str != "setVisible" or argument_tuple[:1] != (
+                        False,):
+                    call_list.append((name_str, dialog.windowTitle()))
+                return self.dialog_class.DialogCode.Rejected.value
+            return record
+
+        patch_list = [mock.patch.object(file_dialog_class, name_str,
+                                        watched(name_str), create=True)
+                      for name_str in ("exec", "open", "show",
+                                       "setVisible")]
+        for patcher in patch_list:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        splash = splash_screen.show_splash(self.application)
+        self.addCleanup(splash.deleteLater)
+        window_tuple = main.start_main_window(self.application, splash)
+        self.addCleanup(setattr, sys, "excepthook", sys.__excepthook__)
+        main_window = window_tuple[0]
+        self.addCleanup(main_window.deleteLater)
+        self.addCleanup(main_window.close)
+        main_window.schedule_file_dialog_preparation()
+        pool = main_window.file_dialog_pool
+        self.wait_until_prepared(pool)
+        self.assertTrue(pool.prepared_b)
+        self.assertTrue(main_window.isVisible())
+        self.assertEqual(call_list, [])
+        for key_str in pool.key_list():
+            self.assertFalse(pool.dialog(key_str).isVisible())
+        # The click shows the Open file dialog, and only then.
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        QTest.mouseClick(main_window.top_panel.open_file_button,
+                         Qt.MouseButton.LeftButton)
+        deadline_s = time.perf_counter() + 2.0
+        while not call_list and time.perf_counter() < deadline_s:
+            self.application.processEvents()
+        self.assertEqual(call_list, [("exec", "Open file")])
+
     @covers("LLFR-00406", "HLFR-00091", "LLFR-00005", "LLFR-00219",
             "LLFR-00221", "LLFR-00128", "LLFR-00204", "LLFR-00220",
             "LLFR-00396")
     def test_every_dialog_appears_quickly(self) -> None:
-        """First and second click of each dialog: shown within 0.6 s.
+        """First and second click of each dialog: shown within 0.65 s.
 
         Inputs: none.
         Outputs: none.
@@ -384,39 +549,65 @@ class FileDialogTimingTest(unittest.TestCase):
                          ["Data files (*.csv)"])
 
     @covers("LLFR-00406")
-    def test_macos_panels_loaded_once_and_hidden(self) -> None:
-        """On macOS the preparation shows each kind of panel and hides it.
+    def test_macos_panels_warmed_up_without_showing(self) -> None:
+        """On macOS the panels are warmed up first, and nothing is shown.
 
         Inputs: none.
         Outputs: none.
         """
         from view import file_dialogs
-        pool = file_dialogs.FileDialogPool("darwin")
+        warm_up_list = []
+        pool = file_dialogs.FileDialogPool(
+            "darwin", lambda panel_tuple, platform_str: warm_up_list.append(
+                (panel_tuple, platform_str)) or "warmed")
         shown_list = []
         for key_str in ("open", "save_a", "save_b"):
             dialog = self.main_window.build_open_file_dialog("")
             if key_str != "open":
                 dialog.setAcceptMode(
                     self.file_dialog_class.AcceptMode.AcceptSave)
-            dialog.setVisible = (
-                lambda visible_b, key_str=key_str:
-                shown_list.append((key_str, visible_b)))
+            dialog.setVisible = shown_list.append
+            dialog.show = lambda: shown_list.append(True)
+            dialog.open = lambda: shown_list.append(True)
             pool.register(key_str, lambda dialog=dialog: dialog)
+        # One warm-up step per kind of panel, first, then one per dialog.
+        step_list = pool.preparation_step_list()
+        self.assertEqual(len(step_list), 5)
+        step_list[0]()
+        self.assertEqual(warm_up_list,
+                         [((b"NSOpenPanel", b"openPanel"), "darwin")])
+        self.assertFalse(any(pool.is_built(key_str)
+                             for key_str in pool.key_list()))
+        step_list[1]()
+        self.assertEqual(warm_up_list[1],
+                         ((b"NSSavePanel", b"savePanel"), "darwin"))
+        self.assertFalse(any(pool.is_built(key_str)
+                             for key_str in pool.key_list()))
         pool.prepare_all()
-        pool.prepare_all()
-        self.assertTrue(pool.system_panels_loaded_b)
-        # One open panel and one save panel, each shown then hidden.
-        self.assertEqual(shown_list, [("open", True), ("open", False),
-                                      ("save_a", True), ("save_a", False)])
-        # Elsewhere no panel is shown by the preparation.
-        other_pool = file_dialogs.FileDialogPool("linux")
+        self.assertTrue(pool.prepared_b)
+        self.assertEqual(pool.panel_state_str(),
+                         "warmed,warmed,warmed,warmed")
+        self.assertEqual(pool.step_count_i, 5)
+        self.assertEqual(len(pool.step_duration_list), 5)
+        # LLFR-00406, issue #165: no dialog is shown by the preparation.
+        self.assertEqual(shown_list, [])
+        # Elsewhere there is no warm-up step.
         other_list = []
-        dialog = self.main_window.build_open_file_dialog("")
-        dialog.setVisible = other_list.append
-        other_pool.register("open", lambda: dialog)
+        other_pool = file_dialogs.FileDialogPool(
+            "linux", lambda panel_tuple, platform_str: other_list.append(
+                platform_str))
+        other_pool.register("open", lambda: self.main_window
+                            .build_open_file_dialog(""))
+        self.assertEqual(len(other_pool.preparation_step_list()), 1)
         other_pool.prepare_all()
         self.assertEqual(other_list, [])
-        self.assertFalse(other_pool.system_panels_loaded_b)
+        self.assertEqual(other_pool.panel_state_str(), "none")
+        # The real warm-up does nothing outside macOS.
+        for platform_str in ("linux", "win32"):
+            for panel_tuple in file_dialogs.SYSTEM_PANEL_TUPLE:
+                self.assertEqual(file_dialogs.warm_up_system_panel(
+                    panel_tuple, platform_str), "skipped")
+        self.assertEqual(file_dialogs.KEPT_PANEL_LIST, [])
 
 
 if __name__ == "__main__":
