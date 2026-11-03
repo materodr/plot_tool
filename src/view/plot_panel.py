@@ -85,6 +85,9 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "delta_marker_delete_requested": "delta_marker_delete_handler",
     # LLFR-00409: an entry of the "Color" submenu of a delta marker.
     "delta_marker_color_requested": "delta_marker_color_handler",
+    # LLFR-00429, LLFR-00420: "Rename" of a delta marker, or a
+    # double-click on its label.
+    "delta_marker_rename_requested": "delta_marker_rename_handler",
     # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: an
     # area created, moved or resized, renamed or deleted.
     "area_create_requested": "area_create_handler",
@@ -108,6 +111,9 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "arrow_change_requested": "arrow_change_handler",
     "arrow_color_requested": "arrow_color_handler",
     "arrow_delete_requested": "arrow_delete_handler",
+    # LLFR-00439, LLFR-00420: "Rename" of an arrow, or a double-click on
+    # its label.
+    "arrow_rename_requested": "arrow_rename_handler",
     # LLFR-00412 to LLFR-00417: the "Delete all ..." menu options.
     "plot_pinned_tips_delete_requested": "plot_pinned_tips_delete_handler",
     "all_pinned_tips_delete_requested": "all_pinned_tips_delete_handler",
@@ -394,7 +400,31 @@ class PlotPanel(QWidget):
                 and watched in (self.tab_widget.tabBar(),
                                 self.add_tab_button)):
             self.setFocus(Qt.FocusReason.MouseFocusReason)
+        # LLFR-00421: a left double-click on a tab acts as "Rename" in
+        # its menu.
+        if (event.type() == QEvent.Type.MouseButtonDblClick
+                and watched is self.tab_widget.tabBar()
+                and event.button() == Qt.MouseButton.LeftButton):
+            self.double_click_tab_at(event.position().toPoint())
         return super().eventFilter(watched, event)
+
+    def double_click_tab_at(self, position) -> None:
+        """Rename the tab under a left double-click on the tab bar.
+
+        Inputs:
+            position: the QPoint of the double-click, in tab bar
+                coordinates.
+        Outputs: none. A double-click beside the tabs does nothing. The
+            rename dialog opens once control is back in Qt, so it is not
+            run inside the mouse event.
+        """
+        # LLFR-00421: as "Rename" in the tab menu (LLFR-00030), with the
+        # same checks of the typed name in the controller.
+        tab_id_i = self.tab_id_at_index(
+            self.tab_widget.tabBar().tabAt(position))
+        if tab_id_i < 0:
+            return
+        QTimer.singleShot(0, partial(self.request_rename_tab, tab_id_i))
 
     # ----------------------------------------------------------------
     # Handlers

@@ -16,7 +16,8 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.menu_texts import FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST
+from tests.view.menu_texts import (
+    FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST, menu_option_texts)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_plot_tools import (
     ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
@@ -694,7 +695,7 @@ class RightPressDuringDragTest(TipDragTestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: None.
             """
-            shown_list.append([action.text() for action in menu.actions()])
+            shown_list.append(menu_option_texts(menu))
             return None
 
         self.plot_widget.execute_menu = fake_execute_menu

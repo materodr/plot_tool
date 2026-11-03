@@ -35,7 +35,8 @@ An example of a layout file::
             "data_tips": [{"signal": "Speed", "time": 1.5,
                            "label_position": {"right_points": 20.0,
                                               "up_points": 15.0}}],
-            "delta_markers": [{"kind": "delta_x",
+            "delta_markers": [{"name": "Delta X 1",
+                               "kind": "delta_x",
                                "first_point": {"signal": "Speed",
                                                "time": 0.5},
                                "second_point": {"signal": "Speed",
@@ -536,10 +537,12 @@ def plot_entry(plot) -> dict:
         data_tip_list.append({SIGNAL_KEY_STR: pinned_tip.signal_name_str,
                               TIME_KEY_STR: float(pinned_tip.time_s),
                               LABEL_POSITION_KEY_STR: label_position_dict})
-    # LLFR-00225 item 8: the kind, the two points and the color
-    # ("#rrggbb" in lowercase, LLFR-00409) of each delta marker.
+    # LLFR-00225 item 8: the name (LLFR-00427), the kind, the two points
+    # and the color ("#rrggbb" in lowercase, LLFR-00409) of each delta
+    # marker.
     delta_marker_list = [
-        {KIND_KEY_STR: KIND_NAME_DICT[delta_marker.kind_str],
+        {NAME_KEY_STR: delta_marker.name_str,
+         KIND_KEY_STR: KIND_NAME_DICT[delta_marker.kind_str],
          FIRST_POINT_KEY_STR: point_entry(delta_marker.first_point_tuple),
          SECOND_POINT_KEY_STR: point_entry(delta_marker.second_point_tuple),
          COLOR_KEY_STR: delta_marker.color_str.lower()}
@@ -1115,9 +1118,26 @@ class LayoutBuilder:
             # color, with no report.
             color_str, color_replaced_b = saved_color(
                 delta_entry, DEFAULT_DELTA_MARKER_COLOR_STR)
+            # LLFR-00430: the saved name. LLFR-00857: a missing name
+            # gets the name of a new delta marker, with no report.
+            # LLFR-00858: so does a name that is empty or not a text.
+            name_value = delta_entry.get(NAME_KEY_STR)
+            name_usable_b = (isinstance(name_value, str)
+                             and bool(name_value.strip()))
+            if name_usable_b:
+                name_str = name_value.strip()
+            else:
+                name_str = self.workspace.take_delta_marker_name(kind_str)
             # LLFR-00232: both points are placed on their samples.
             plot.add_delta_marker(kind_str, point_list[0], point_list[1],
-                                  color_str)
+                                  color_str, name_str)
+            if NAME_KEY_STR in delta_entry and not name_usable_b:
+                # LLFR-00859, LLFR-00235, LLFR-00237: the replaced name
+                # is listed with the replaced values.
+                self.report.add_replaced(
+                    f"Name {describe_value(name_value)} of the "
+                    f"{label_str} is empty or not a text; replaced by "
+                    f"\"{name_str}\".")
             if color_replaced_b:
                 # LLFR-00410, LLFR-00235, LLFR-00237: a color not written
                 # as "#rrggbb" is replaced by the default color.

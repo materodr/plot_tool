@@ -20,6 +20,7 @@ import unittest
 
 import numpy as np
 
+from tests.view.menu_texts import menu_option_texts
 from tests.support import (
     button_name, button_tip_line_list, covers, get_qt_application,
     requires_qt)
@@ -231,7 +232,7 @@ class ArrowWidgetTestCase(PlotWidgetToolTestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str:
                     return action
@@ -869,7 +870,7 @@ class ArrowMenuTest(ArrowWidgetTestCase):
     @covers("LLFR-00378", "LLFR-00379", "LLFR-00380", "LLFR-00381",
             "LLFR-00048")
     def test_menu_over_curves_with_every_tool(self) -> None:
-        """An arrow over a curve shows "Color" and "Delete" with any
+        """An arrow over a curve shows "Rename", "Color" and "Delete" with any
         tool, and each asks for that arrow; elsewhere "Delete plot".
 
         Inputs: none.
@@ -883,7 +884,7 @@ class ArrowMenuTest(ArrowWidgetTestCase):
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
                 self.assertEqual(self.choose_menu(on_curve_tuple, ""),
-                                 ["Color", "Delete"])
+                                 ["Rename", "Color", "Delete"])
         self.choose_menu(on_curve_tuple, "Other color...")
         self.assertEqual(self.color_list, [(1, "")])
         self.choose_menu(self.display_of(4.0, 2.0), "Delete")

@@ -54,3 +54,22 @@ def is_elided(shown_text_str: str, whole_text_str: str) -> bool:
     # LLFR-00362: the tip with the whole name is only needed when the
     # name was shortened.
     return shown_text_str != whole_text_str
+
+
+# LLFR-00850: the longest title of a plot menu, in characters.
+MENU_TITLE_MAXIMUM_LENGTH_I = 40
+
+
+def menu_title_text(name_str: str) -> str:
+    """Return the title of a plot menu for the name of its object.
+
+    Inputs:
+        name_str: the name of the object the menu acts on (LLFR-00426).
+    Outputs: the name itself when it has at most 40 characters; else a
+        text of 40 characters made of its start, "..." and its end
+        (LLFR-00850).
+    """
+    # LLFR-00426: the title is the object's name; LLFR-00850: a long
+    # one is shortened in the middle, each character counting as 1.
+    return middle_elided_text(str(name_str), MENU_TITLE_MAXIMUM_LENGTH_I,
+                              len)

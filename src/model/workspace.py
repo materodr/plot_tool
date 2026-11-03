@@ -53,6 +53,8 @@ DEFAULT_TEXT_NOTE_COLOR_STR = "#24303b"
 DEFAULT_TEXT_NOTE_BORDER_COLOR_STR = MARKER_COLOR_STR
 # LLFR-00373: the color of a new arrow, the reserved marker color.
 DEFAULT_ARROW_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00438: default name of a new arrow ("Arrow 1", "Arrow 2", ...).
+DEFAULT_ARROW_NAME_FORMAT_STR = "Arrow {}"
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -61,6 +63,10 @@ AUTOMATIC_LABEL_OFFSET_TUPLE = ()
 DELTA_X_KIND_STR = "x"
 DELTA_Y_KIND_STR = "y"
 DELTA_KIND_TUPLE = (DELTA_X_KIND_STR, DELTA_Y_KIND_STR)
+# LLFR-00428: default names of new delta markers, "Delta X N" and
+# "Delta Y N", numbered separately for each kind.
+DEFAULT_DELTA_NAME_FORMAT_DICT = {DELTA_X_KIND_STR: "Delta X {}",
+                                  DELTA_Y_KIND_STR: "Delta Y {}"}
 # LLFR-00256, HLFR-00058: the two kinds of plots, a time plot (time in
 # seconds on its x-axis, LLFR-00068) and a frequency plot (frequency in
 # Hz on its x-axis, for FFT signals). Plot.kind_str holds one of them.
@@ -148,6 +154,8 @@ class Arrow:
         end_value_f: y-axis value of the arrowhead's end.
         color_str: color of the line and the arrowhead, "#rrggbb" in
             lowercase (LLFR-00373, LLFR-00379).
+        name_str: name shown in the arrow's label (LLFR-00436), never
+            empty once the arrow is in a plot (LLFR-00438, LLFR-00874).
     """
 
     start_time_s: float
@@ -155,6 +163,7 @@ class Arrow:
     end_time_s: float
     end_value_f: float
     color_str: str = DEFAULT_ARROW_COLOR_STR
+    name_str: str = ""
 
 
 def finite_arrow_tuple(start_time_s: float, start_value_f: float,
@@ -299,8 +308,11 @@ class DeltaMarker:
             curve sample.
         second_point_tuple: the second picked point (LLFR-00164), in the
             same form.
-        color_str: color of its curly bracket, dots and value text,
-            "#rrggbb" in lowercase (LLFR-00172, LLFR-00409).
+        color_str: color of its curly bracket, dots, value text and
+            label, "#rrggbb" in lowercase (LLFR-00172, LLFR-00409,
+            LLFR-00818).
+        name_str: name shown in its label (LLFR-00427), never empty once
+            the marker is in a plot (LLFR-00428, LLFR-00854).
     """
 
     delta_marker_id_i: int
@@ -308,6 +320,7 @@ class DeltaMarker:
     first_point_tuple: tuple
     second_point_tuple: tuple
     color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
+    name_str: str = ""
 
     def delta_f(self) -> float:
         """Return the measured difference, second point minus first.
@@ -354,6 +367,26 @@ def delta_point_tuple(point_tuple) -> tuple:
     if not (math.isfinite(time_s) and math.isfinite(value_f)):
         raise ValueError("A delta marker point must be finite.")
     return (str(point_tuple[0]), time_s, value_f)
+
+
+def first_free_name(name_format_str: str, used_name_set: set,
+                    first_number_i: int = 1) -> str:
+    """Return the first default name that is not in use.
+
+    Inputs:
+        name_format_str: the default name with "{}" for its number, for
+            example "Delta X {}".
+        used_name_set: the names already in use.
+        first_number_i: the smallest number to try.
+    Outputs: the name with the smallest number from first_number_i up
+        that is not in used_name_set.
+    """
+    # LLFR-00428, LLFR-00852, LLFR-00438: a new default name is never
+    # the name of another item of the same kind.
+    number_i = int(first_number_i)
+    while name_format_str.format(number_i) in used_name_set:
+        number_i += 1
+    return name_format_str.format(number_i)
 
 
 class MarkerIdCounter:
@@ -849,7 +882,8 @@ class Plot:
         return True
 
     def add_arrow(self, start_time_s: float, start_value_f: float,
-                  end_time_s: float, end_value_f: float) -> Arrow:
+                  end_time_s: float, end_value_f: float,
+                  name_str: str = "") -> Arrow:
         """Draw a new arrow on the plot.
 
         Inputs:
@@ -859,6 +893,10 @@ class Plot:
             end_time_s: x value of the release point, where the
                 arrowhead is.
             end_value_f: y value of the release point.
+            name_str: the name of its label (LLFR-00436); the workspace
+                gives a new arrow "Arrow N" (Workspace.take_arrow_name).
+                Empty or blank gives "Arrow N" with the smallest N not
+                used by an arrow of this plot.
         Outputs: the new Arrow, in the default color. Raises ValueError
             when a value is not finite or the two ends are the same.
         """
@@ -866,10 +904,38 @@ class Plot:
         # at the release. LLFR-00373: in the default color.
         end_tuple = finite_arrow_tuple(start_time_s, start_value_f,
                                        end_time_s, end_value_f)
+        # LLFR-00438: every arrow has a name.
+        arrow_name_str = str(name_str).strip()
+        if not arrow_name_str:
+            used_name_set = {arrow.name_str for arrow in self.arrow_list}
+            arrow_name_str = first_free_name(DEFAULT_ARROW_NAME_FORMAT_STR,
+                                             used_name_set)
         # LLFR-00375: any number of arrows per plot.
-        arrow = Arrow(*end_tuple)
+        arrow = Arrow(*end_tuple, name_str=arrow_name_str)
         self.arrow_list.append(arrow)
         return arrow
+
+    def rename_arrow(self, arrow_index_i: int, new_name_str: str) -> bool:
+        """Give an arrow the name typed by the user.
+
+        Inputs:
+            arrow_index_i: index of the arrow in arrow_list.
+            new_name_str: the typed name; surrounding spaces are removed.
+        Outputs: True when the name changed; False for an unknown index,
+            a name that is empty or only spaces (LLFR-00874) or the
+            current name.
+        """
+        # LLFR-00439, LLFR-00873: the label shows the typed name.
+        # LLFR-00874: a blank name keeps the previous one.
+        stripped_name_str = str(new_name_str).strip()
+        if not stripped_name_str or not self.has_arrow_index(arrow_index_i):
+            return False
+        arrow = self.arrow_list[arrow_index_i]
+        if arrow.name_str == stripped_name_str:
+            return False
+        # LLFR-00876: the ends and the color stay as they are.
+        arrow.name_str = stripped_name_str
+        return True
 
     def has_arrow_index(self, arrow_index_i: int) -> bool:
         """Tell whether an index points at an arrow of the plot.
@@ -957,8 +1023,8 @@ class Plot:
 
     def add_delta_marker(self, kind_str: str, first_point_tuple,
                          second_point_tuple,
-                         color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
-                         ) -> DeltaMarker:
+                         color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR,
+                         name_str: str = "") -> DeltaMarker:
         """Place a new delta marker between two curve points.
 
         Inputs:
@@ -971,6 +1037,12 @@ class Plot:
                 the default color (LLFR-00172), a marker of a layout file
                 its saved color (LLFR-00410). A value that is not
                 "#rrggbb" gives the default color.
+            name_str: the name of its label (LLFR-00427); the workspace
+                gives a new marker "Delta X N" or "Delta Y N"
+                (Workspace.take_delta_marker_name), a marker of a layout
+                file its saved name (LLFR-00430). Empty or blank gives
+                the default name with the smallest N not used by a
+                marker of that kind in this plot.
         Outputs: the new DeltaMarker. Raises ValueError for an unknown
             kind, a point that is not finite, or a point on a signal
             that is not in the plot.
@@ -990,12 +1062,44 @@ class Plot:
         marker_color_str = hex_color_or_none(color_str)
         if marker_color_str is None:
             marker_color_str = DEFAULT_DELTA_MARKER_COLOR_STR
+        # LLFR-00428: every delta marker has a name.
+        marker_name_str = str(name_str).strip()
+        if not marker_name_str:
+            used_name_set = {delta_marker.name_str for delta_marker
+                             in self.delta_marker_list}
+            marker_name_str = first_free_name(
+                DEFAULT_DELTA_NAME_FORMAT_DICT[kind_str], used_name_set)
         # LLFR-00174: markers are added, never replaced.
         delta_marker = DeltaMarker(self.marker_id_counter.take_next_id(),
                                    kind_str, first_point_tuple,
-                                   second_point_tuple, marker_color_str)
+                                   second_point_tuple, marker_color_str,
+                                   marker_name_str)
         self.delta_marker_list.append(delta_marker)
         return delta_marker
+
+    def rename_delta_marker(self, delta_marker_id_i: int,
+                            new_name_str: str) -> bool:
+        """Give one delta marker of this plot the name typed by the user.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+            new_name_str: the typed name; surrounding spaces are removed.
+        Outputs: True when the name changed; False when no delta marker
+            of this plot has that id, the name is empty or only spaces
+            (LLFR-00854) or it is the current name.
+        """
+        # LLFR-00429, LLFR-00853: the label shows the typed name.
+        # LLFR-00854: a blank name keeps the previous one.
+        stripped_name_str = str(new_name_str).strip()
+        delta_marker = self.find_delta_marker(delta_marker_id_i)
+        if delta_marker is None or not stripped_name_str:
+            return False
+        if delta_marker.name_str == stripped_name_str:
+            return False
+        # LLFR-00856: the points, the value and the color stay as they
+        # are.
+        delta_marker.name_str = stripped_name_str
+        return True
 
     def set_delta_marker_color(self, delta_marker_id_i: int,
                                color_str: str) -> bool:
@@ -1140,12 +1244,12 @@ def plot_state_tuple(plot) -> tuple:
         (signal_name_str, color_str, width_i), pinned tip tuples
         (signal_name_str, time_s, value_f, label_offset_tuple), delta
         marker tuples (delta_marker_id_i, kind_str, first_point_tuple,
-        second_point_tuple, color_str), text note tuples (text_str, time_s,
-        value_f, size_i, border_color_str, text_color_str), arrow tuples
-        (start_time_s, start_value_f, end_time_s, end_value_f,
-        color_str), plot kind_str). For a frequency plot, the time_s of
-        the tips, delta marker points, text notes and arrows is a
-        frequency in Hz.
+        second_point_tuple, color_str, name_str), text note tuples
+        (text_str, time_s, value_f, size_i, border_color_str,
+        text_color_str), arrow tuples (start_time_s, start_value_f,
+        end_time_s, end_value_f, color_str, name_str), plot kind_str).
+        For a frequency plot, the time_s of the tips, delta marker
+        points, text notes and arrows is a frequency in Hz.
     """
     # LLFR-00140: curves with color and width, pinned tips with their
     # label offsets, and the counter that picks the next color. The
@@ -1162,7 +1266,8 @@ def plot_state_tuple(plot) -> tuple:
     delta_marker_tuple = tuple(
         (delta_marker.delta_marker_id_i, delta_marker.kind_str,
          tuple(delta_marker.first_point_tuple),
-         tuple(delta_marker.second_point_tuple), delta_marker.color_str)
+         tuple(delta_marker.second_point_tuple), delta_marker.color_str,
+         delta_marker.name_str)
         for delta_marker in plot.delta_marker_list)
     # LLFR-00256, LLFR-00140: creating a frequency plot is undoable like
     # creating a time plot, and an undo gives the plot back its kind.
@@ -1178,7 +1283,9 @@ def plot_state_tuple(plot) -> tuple:
     # LLFR-00140: drawing, moving, rotating or stretching, recoloring and
     # deleting an arrow are undoable; LLFR-00375: the arrows are part of
     # their plot's state.
-    arrow_tuple = tuple(arrow_end_tuple(arrow) + (arrow.color_str,)
+    # LLFR-00140: renaming a delta marker or an arrow is undoable too.
+    arrow_tuple = tuple(arrow_end_tuple(arrow) + (arrow.color_str,
+                                                  arrow.name_str)
                         for arrow in plot.arrow_list)
     return (plot.plot_id_i, plot.drawn_count_i, curve_tuple,
             pinned_tip_tuple, delta_marker_tuple, text_note_tuple,
@@ -1365,6 +1472,14 @@ class Workspace:
         # LLFR-00309: number of the next "Area N"; it only grows, also on
         # undo, until a file is opened (reset).
         self.next_area_number_i = 1
+        # LLFR-00428, LLFR-00851: number of the next "Delta X N" and
+        # "Delta Y N", one for each kind; they only grow, also on undo,
+        # until a file is opened (reset).
+        self.next_delta_number_dict = {kind_str: 1
+                                       for kind_str in DELTA_KIND_TUPLE}
+        # LLFR-00438, LLFR-00872: number of the next "Arrow N", shared
+        # by all plots; the same rules.
+        self.next_arrow_number_i = 1
         # LLFR-00024: the app starts with one tab.
         self.reset()
 
@@ -1383,6 +1498,11 @@ class Workspace:
         # LLFR-00310, LLFR-00309: the same for the areas.
         self.area_list = []
         self.next_area_number_i = 1
+        # LLFR-00428, LLFR-00851, LLFR-00438, LLFR-00872: a new file
+        # numbers from "Delta X 1", "Delta Y 1" and "Arrow 1".
+        self.next_delta_number_dict = {kind_str: 1
+                                       for kind_str in DELTA_KIND_TUPLE}
+        self.next_arrow_number_i = 1
         # LLFR-00210, LLFR-00016: tab numbering restarts with "Tab 1".
         self.next_tab_number_i = 1
         # LLFR-00016: one tab with no plots; ids keep counting up.
@@ -1708,6 +1828,57 @@ class Workspace:
             self.next_marker_number_i = max(
                 self.next_marker_number_i, int(number_match.group(1)) + 1)
         return marker
+
+    def delta_marker_name_set(self, kind_str: str) -> set:
+        """Return the names of the delta markers of one kind.
+
+        Inputs:
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+        Outputs: the set of the names of every delta marker of that
+            kind, in every plot of every tab.
+        """
+        # LLFR-00852: the names a new delta marker must not take.
+        return {delta_marker.name_str
+                for tab in self.tab_list for plot in tab.plot_list
+                for delta_marker in plot.delta_marker_list
+                if delta_marker.kind_str == kind_str}
+
+    def take_delta_marker_name(self, kind_str: str) -> str:
+        """Return the name of a new delta marker and use up its number.
+
+        Inputs:
+            kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+        Outputs: "Delta X N" or "Delta Y N" (LLFR-00428), N from the
+            counter of that kind up, skipping every number whose name a
+            delta marker of that kind already has (LLFR-00852). Raises
+            ValueError for an unknown kind.
+        """
+        if kind_str not in DELTA_KIND_TUPLE:
+            raise ValueError(f"Unknown delta marker kind {kind_str!r}.")
+        # LLFR-00428, LLFR-00852: the first free number from the counter.
+        name_format_str = DEFAULT_DELTA_NAME_FORMAT_DICT[kind_str]
+        name_str = first_free_name(name_format_str,
+                                   self.delta_marker_name_set(kind_str),
+                                   self.next_delta_number_dict[kind_str])
+        # LLFR-00851: the number is used up, also when the placement is
+        # undone or the marker deleted; a skipped number too.
+        number_i = int(name_str.rsplit(" ", 1)[1])
+        self.next_delta_number_dict[kind_str] = number_i + 1
+        return name_str
+
+    def take_arrow_name(self) -> str:
+        """Return the name of a new arrow and use up its number.
+
+        Inputs: none.
+        Outputs: "Arrow N" (LLFR-00438), N growing by 1 for each new
+            arrow in any plot.
+        """
+        # LLFR-00438, LLFR-00872: the number only grows, also when the
+        # drawing is undone or the arrow deleted.
+        name_str = DEFAULT_ARROW_NAME_FORMAT_STR.format(
+            self.next_arrow_number_i)
+        self.next_arrow_number_i += 1
+        return name_str
 
     def find_marker(self, marker_id_i: int):
         """Return a vertical marker by its id.

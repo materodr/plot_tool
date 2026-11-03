@@ -141,7 +141,7 @@ class PickPointsTest(DeltaControllerTestCase):
         self.assertEqual(drawn_tuple[1:], (DELTA_X_KIND_STR,
                                            ("s1", 2.0, 2.0),
                                            ("s2", 7.0, 14.0), 5.0,
-                                           MARKER_COLOR_STR))
+                                           MARKER_COLOR_STR, "Delta X 1"))
         # LLFR-00109: the tool stays active.
         self.assertEqual(self.controller.plot_tool_str, DELTA_X_TOOL_STR)
 

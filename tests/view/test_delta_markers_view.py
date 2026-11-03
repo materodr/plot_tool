@@ -15,6 +15,7 @@ import numpy as np
 
 from tests.support import button_name, covers, get_qt_application
 from tests.view.menu_texts import (
+    menu_option_texts,
     DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.support import button_tip_line_list, requires_qt
@@ -903,7 +904,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str:
                     return action

@@ -167,7 +167,7 @@ class LayoutWriteTest(unittest.TestCase):
             (0.1, 7.123456789012345), True, (900, 300))
         self.text_str = layout_text(self.layout_dict)
 
-    @covers("LLFR-00225")
+    @covers("LLFR-00225", "HLFR-00097")
     def test_content_lists_every_part_of_the_layout(self) -> None:
         """Tabs, shown tab, plots, curves, range, grid, markers, tips,
         delta markers and panel widths are all in the file.
@@ -196,11 +196,11 @@ class LayoutWriteTest(unittest.TestCase):
              "label_position": {"right_points": 20.25, "up_points": -7.5}},
             {"signal": "Torque", "time": 2.0, "label_position": None}])
         self.assertEqual(first_plot_dict["delta_markers"], [
-            {"kind": "delta_x",
+            {"name": "Delta X 1", "kind": "delta_x",
              "first_point": {"signal": "Speed", "time": 1.0},
              "second_point": {"signal": "Torque", "time": 3.0},
              "color": "#ff8000"},
-            {"kind": "delta_y",
+            {"name": "Delta Y 1", "kind": "delta_y",
              "first_point": {"signal": "Speed", "time": 0.5},
              "second_point": {"signal": "Speed", "time": 2.5},
              "color": "#ff8000"}])
