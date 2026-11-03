@@ -29,7 +29,7 @@ from matplotlib.path import Path
 from matplotlib.transforms import IdentityTransform
 
 # LLFR-00168, LLFR-00170: the two kinds of delta markers.
-from model.workspace import DELTA_X_KIND_STR
+from model.workspace import DELTA_X_KIND_STR, delta_value_zero_b
 
 # LLFR-00168, LLFR-00170: gap (points) from the higher (Delta X) or the
 # later (Delta Y) point to the bracket's ends, and the bracket's depth
@@ -245,6 +245,54 @@ def headroom_high_f(low_f: float, high_f: float, top_value_f: float,
     ratio_f = min(max(float(headroom_ratio_f), 0.0), 0.9)
     needed_f = (float(top_value_f) - ratio_f * float(low_f)) / (1.0 - ratio_f)
     return max(float(high_f), needed_f)
+
+
+def dragged_point_tuple(point_list: list, point_index_i: int,
+                        kind_str: str, x_array, y_array, target_x_f: float,
+                        shown_start_f: float, shown_end_f: float) -> tuple:
+    """Return the sample a dragged point of a delta marker moves to.
+
+    Inputs:
+        point_list: the two points of the marker as shown now, each
+            (signal_name_str, x_f, y_f); x is the time in seconds, or
+            the frequency in Hz on a frequency plot.
+        point_index_i: 0 for the dragged first point, 1 for the second.
+        kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+        x_array: the x values of the dragged point's curve.
+        y_array: its y values, one per x value.
+        target_x_f: the x value under the pointer.
+        shown_start_f: one end of the x-axis range shown in the plot.
+        shown_end_f: its other end.
+    Outputs: (signal_name_str, x_f, y_f) of the sample of the same curve
+        whose x is nearest to target_x_f, among the samples within the
+        shown range; the point as shown now when no sample is there or
+        when that sample would give a value of zero.
+    """
+    # LLFR-00862: the point keeps the name of its curve.
+    current_point_tuple = tuple(point_list[point_index_i])
+    x_array = np.asarray(x_array, dtype=float)
+    y_array = np.asarray(y_array, dtype=float)
+    # LLFR-00433: limited to the x-axis range shown in the plot.
+    low_f, high_f = sorted((float(shown_start_f), float(shown_end_f)))
+    clamped_x_f = min(max(float(target_x_f), low_f), high_f)
+    usable_array = (np.isfinite(x_array) & np.isfinite(y_array)
+                    & (x_array >= low_f) & (x_array <= high_f))
+    if not np.any(usable_array):
+        return current_point_tuple
+    index_array = np.flatnonzero(usable_array)
+    # LLFR-00433: the sample nearest to the x under the pointer.
+    index_i = int(index_array[int(np.argmin(
+        np.abs(x_array[index_array] - clamped_x_f)))])
+    new_point_tuple = (str(current_point_tuple[0]), float(x_array[index_i]),
+                       float(y_array[index_i]))
+    # LLFR-00863: the other point stays where it is.
+    new_point_list = list(point_list)
+    new_point_list[point_index_i] = new_point_tuple
+    # LLFR-00435: a sample that gives zero keeps the last sample that
+    # gave another value.
+    if delta_value_zero_b(kind_str, new_point_list[0], new_point_list[1]):
+        return current_point_tuple
+    return new_point_tuple
 
 
 class DeltaBracketPatch(PathPatch):

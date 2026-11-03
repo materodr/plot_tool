@@ -214,7 +214,8 @@ from model.workspace import (
     DEFAULT_TEXT_NOTE_BORDER_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR,
     DEFAULT_TEXT_NOTE_SIZE_I,
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
-    TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR)
+    TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR, delta_value_f,
+    delta_value_zero_b)
 from view import (
     arrow_geometry, color_picker, delta_geometry, theme, value_text)
 from view.arrow_geometry import ArrowLabel, ArrowPatch
@@ -382,6 +383,9 @@ DELTA_NAME_HEADROOM_POINTS_F = (DELTA_NAME_GAP_POINTS_F
 DELTA_HEADROOM_MAXIMUM_RATIO_F = 0.45
 # LLFR-00175: no delta marker is under the mouse.
 NO_DELTA_MARKER_ID_I = -1
+# LLFR-00433, LLFR-00866: a press on a dot of a delta marker drags its
+# point once the pointer is this many screen pixels from the press.
+DELTA_DRAG_THRESHOLD_PIXELS_F = 5.0
 # LLFR-00305: an area is drawn see-through in its color with this
 # opacity. Its preview (LLFR-00303) is a little more opaque, so it reads
 # as "in progress".
@@ -893,6 +897,10 @@ class PlotWidget(QWidget):
             "" for "Other color...").
         delta_marker_rename_requested(int): "Rename" chosen on a delta
             marker, or its label double-clicked (its id).
+        delta_point_move_requested(int, int, float, float): a point of a
+            delta marker was dragged to another sample of its curve and
+            released (marker id, 0 for the first point or 1 for the
+            second, then the x value and the y value of the sample).
         marker_drag_moved(int, float): a dragged marker is now shown at
             this time (marker id, time in s), so that the other plots of
             the tab show it there too (LLFR-00205).
@@ -970,6 +978,7 @@ class PlotWidget(QWidget):
     delta_marker_color_requested = pyqtSignal(int, str)
     # LLFR-00429, LLFR-00420: "Rename" or a double-click on the label.
     delta_marker_rename_requested = pyqtSignal(int)
+    delta_point_move_requested = pyqtSignal(int, int, float, float)
     marker_drag_moved = pyqtSignal(int, float)
     marker_preview_changed = pyqtSignal(float)
     area_create_requested = pyqtSignal(float, float)
@@ -1053,6 +1062,16 @@ class PlotWidget(QWidget):
         self.delta_preview_state_tuple = ()
         self.delta_preview_dot = None
         self.delta_preview_artist_tuple = ()
+        # LLFR-00433: the delta marker whose point is pressed or dragged
+        # (NO_DELTA_MARKER_ID_I for none), which point (0 or 1), the
+        # press point, whether the pointer got 5 pixels away, the point
+        # where the press found it and where it is shown now.
+        self.delta_drag_id_i = NO_DELTA_MARKER_ID_I
+        self.delta_drag_index_i = 0
+        self.delta_drag_press_point = QPoint()
+        self.delta_drag_moved_b = False
+        self.delta_drag_start_tuple = ()
+        self.delta_drag_point_tuple = ()
         # LLFR-00086, LLFR-00093: the marker being dragged, if any.
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_time_s = 0.0
@@ -1347,6 +1366,12 @@ class PlotWidget(QWidget):
         # (for example with a hold key) ends the pan where it is.
         if self.plot_tool_str != PAN_TOOL_STR:
             self.stop_tool_pan()
+        # LLFR-00433, LLFR-00801: a point of a delta marker moves only
+        # with the Delta X or Delta Y tool or with none; any other tool
+        # drops the drag, and the point stays where it was.
+        if not (is_delta_tool(self.plot_tool_str)
+                or self.plot_tool_str == NO_TOOL_STR):
+            self.cancel_delta_point_drag()
         # LLFR-00371: an arrow is only drawn with the Arrow tool;
         # LLFR-00376, LLFR-00377, LLFR-00382: one is moved, rotated or
         # stretched with the Arrow tool or with none. Any other change
@@ -1416,6 +1441,9 @@ class PlotWidget(QWidget):
                 reserved marker color is used (LLFR-00172).
         Outputs: none.
         """
+        # LLFR-00433: new markers from the controller end a drag of a
+        # point; the drawn markers are the ones given here.
+        self.reset_delta_point_drag()
         # LLFR-00164, LLFR-00174, LLFR-00176: draw exactly these.
         # LLFR-00409: each in its own color.
         self.delta_marker_data_list = [
@@ -4526,6 +4554,7 @@ class PlotWidget(QWidget):
         self.cancel_area_drag()
         self.cancel_note_drag()
         self.cancel_arrow_drag()
+        self.cancel_delta_point_drag()
         # LLFR-00383: text note first. LLFR-00339: a press on it moves
         # it, with any tool or none, and never pins, zooms, places a
         # flag, picks a delta point or starts a note.
@@ -4577,6 +4606,14 @@ class PlotWidget(QWidget):
         if self.plot_tool_str == ZOOM_TOOL_STR:
             self.span_press_at(widget_point)
             return
+        # LLFR-00433, LLFR-00801: with the Delta X or Delta Y tool, a
+        # press on a dot of a delta marker may drag its point; whether
+        # it is a drag or a click (LLFR-00866) is known only later.
+        if is_delta_tool(self.plot_tool_str):
+            dot_tuple = self.delta_dot_at(widget_point)
+            if dot_tuple:
+                self.delta_point_press_at(widget_point, *dot_tuple)
+                return
         self.click_at(widget_point)
 
     def edit_press_at(self, widget_point) -> None:
@@ -4589,9 +4626,10 @@ class PlotWidget(QWidget):
         Outputs: none. A press on an arrow starts moving, rotating or
             stretching it; else a press on a flag starts dragging it;
             else a press in an area, or within 5 pixels of its edge,
-            starts moving or resizing it; any other press (on a curve, a
-            delta marker or an empty part of the plot) does nothing and
-            shows nothing.
+            starts moving or resizing it; a press on a dot of a delta
+            marker, after the arrows, may drag its point; any other
+            press (on a curve, the rest of a delta marker or an empty
+            part of the plot) does nothing and shows nothing.
         """
         # LLFR-00383: after the text note and the pinned tip, the arrow
         # (the one drawn last). LLFR-00382, LLFR-00376, LLFR-00377: a
@@ -4599,6 +4637,14 @@ class PlotWidget(QWidget):
         arrow_index_i = self.arrow_at(widget_point)
         if arrow_index_i != NO_ARROW_INDEX_I:
             self.arrow_edit_press_at(widget_point, arrow_index_i)
+            return
+        # LLFR-00383: then the delta marker point, before the flag and
+        # the area. LLFR-00794: a press on a dot of a delta marker may
+        # drag its point (LLFR-00433); a short press does nothing
+        # (LLFR-00867).
+        dot_tuple = self.delta_dot_at(widget_point)
+        if dot_tuple:
+            self.delta_point_press_at(widget_point, *dot_tuple)
             return
         # LLFR-00383: then the flag.
         # LLFR-00382, LLFR-00086: a press on a flag moves it.
@@ -4612,8 +4658,8 @@ class PlotWidget(QWidget):
         area_id_i, _ = self.area_press_part_tuple(widget_point)
         if area_id_i != NO_AREA_ID_I:
             self.area_press_at(widget_point)
-        # LLFR-00382: a delta marker never moves, and a press anywhere
-        # else does nothing and shows no message.
+        # LLFR-00795, LLFR-00796: a press on the rest of a delta marker,
+        # or anywhere else, does nothing and shows no message.
 
     def marker_press_at(self, widget_point, marker_id_i: int) -> None:
         """Start dragging a flag from a pressed point.
@@ -4932,6 +4978,8 @@ class PlotWidget(QWidget):
         self.cancel_area_drag()
         # LLFR-00371, LLFR-00376, LLFR-00377: and an arrow drag.
         self.cancel_arrow_drag()
+        # LLFR-00433: and the drag of a delta marker point.
+        self.cancel_delta_point_drag()
 
     def is_mouse_drag_in_progress(self) -> bool:
         """Tell whether the user is dragging the mouse on this plot.
@@ -4954,7 +5002,9 @@ class PlotWidget(QWidget):
                 or self.time_span_drag_b
                 or self.area_drag_mode_str != AREA_DRAG_NONE_STR
                 # LLFR-00207: and the drawing or the drag of an arrow.
-                or self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR)
+                or self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR
+                # LLFR-00454: and the drag of a delta marker point.
+                or self.delta_drag_id_i != NO_DELTA_MARKER_ID_I)
 
     def retire(self) -> None:
         """Stop all interaction before the widget is removed.
@@ -4995,6 +5045,8 @@ class PlotWidget(QWidget):
         self.reset_area_drag()
         # LLFR-00371, LLFR-00376: so does an arrow drag.
         self.reset_arrow_drag()
+        # LLFR-00433: and the drag of a delta marker point.
+        self.reset_delta_point_drag()
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
         self.retired_b = True
         self.blockSignals(True)
@@ -6706,6 +6758,15 @@ class PlotWidget(QWidget):
                 return
             self.arrow_drag_to(widget_point)
             return
+        if self.delta_drag_id_i != NO_DELTA_MARKER_ID_I:
+            # LLFR-00433: a move with the left button held after a press
+            # on a dot of a delta marker drags its point. A lost release
+            # leaves it on its last shown sample.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_delta_point_drag()
+                return
+            self.delta_point_drag_to(widget_point)
+            return
         # LLFR-00042: any other move runs the hover code.
         self.hover_at(widget_point)
         # LLFR-00203: and moves the marker preview with the pointer.
@@ -6814,6 +6875,11 @@ class PlotWidget(QWidget):
         # LLFR-00372, LLFR-00376, LLFR-00377: or ends an arrow drag.
         if self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR:
             self.arrow_release_at(widget_point)
+            return
+        # LLFR-00433, LLFR-00866, LLFR-00867: or ends a press on a dot of
+        # a delta marker.
+        if self.delta_drag_id_i != NO_DELTA_MARKER_ID_I:
+            self.delta_point_release_at(widget_point)
             return
         self.release_at(widget_point)
 
@@ -6999,7 +7065,15 @@ class PlotWidget(QWidget):
         if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
             return ()
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
-        return self.nearest_curve_tuple(widget_point)
+        nearest_tuple = self.nearest_curve_tuple(widget_point)
+        # LLFR-00432: where the second point would give a value of zero
+        # (LLFR-00431), the whole preview is hidden, the dot too.
+        if (nearest_tuple and self.delta_first_point_tuple
+                and delta_value_zero_b(self.delta_preview_kind_str(),
+                                       self.delta_first_point_tuple,
+                                       nearest_tuple)):
+            return ()
+        return nearest_tuple
 
     def update_delta_preview(self, widget_point) -> None:
         """Show, move or hide the delta previews for the pointer at a point.
@@ -7197,6 +7271,268 @@ class PlotWidget(QWidget):
             for artist in self.delta_preview_artist_tuple:
                 self.axes.draw_artist(artist)
         self.axes.draw_artist(self.delta_preview_dot)
+
+    # ----------------------------------------------------------------
+    # Dragging the points of a delta marker
+    # ----------------------------------------------------------------
+
+    def delta_dot_at(self, widget_point) -> tuple:
+        """Return the dot of a delta marker under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: a tuple (delta_marker_id_i, point_index_i), with 0 for
+            the first point and 1 for the second, or () when no dot of a
+            delta marker is within PICK_TOLERANCE_PIXELS_I of the point
+            inside the drawing area.
+        """
+        # LLFR-00433, LLFR-00794: only the two dots, not the bracket, the
+        # leader lines or the value (LLFR-00795); the last placed marker
+        # is on top, and of its two dots the nearer one wins.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return ()
+        tolerance_px = PICK_TOLERANCE_PIXELS_I * self.pixel_ratio_f()
+        for marker_tuple in reversed(self.delta_marker_data_list):
+            best_index_i = -1
+            best_distance_px = tolerance_px
+            for point_index_i in (0, 1):
+                point_tuple = marker_tuple[2 + point_index_i]
+                dot_x_px, dot_y_px = self.axes.transData.transform(
+                    (point_tuple[1], point_tuple[2]))
+                # A dot outside the shown range is not drawn.
+                if not self.inside_axes_b(float(dot_x_px), float(dot_y_px)):
+                    continue
+                distance_px = math.hypot(float(dot_x_px) - display_x_px,
+                                         float(dot_y_px) - display_y_px)
+                if distance_px <= best_distance_px:
+                    best_index_i = point_index_i
+                    best_distance_px = distance_px
+            if best_index_i >= 0:
+                return (int(marker_tuple[0]), best_index_i)
+        return ()
+
+    def delta_marker_data_tuple(self, delta_marker_id_i: int) -> tuple:
+        """Return the drawing data of one delta marker.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: its tuple in delta_marker_data_list, or () when it is
+            not drawn in this plot.
+        """
+        # LLFR-00433: the marker whose point is dragged.
+        for marker_tuple in self.delta_marker_data_list:
+            if marker_tuple[0] == delta_marker_id_i:
+                return marker_tuple
+        return ()
+
+    def delta_point_press_at(self, widget_point, delta_marker_id_i: int,
+                             point_index_i: int) -> None:
+        """Start a press on a dot of a delta marker.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+            delta_marker_id_i: id of the pressed delta marker.
+            point_index_i: 0 for its first point, 1 for its second one.
+        Outputs: none. Nothing moves until the pointer is 5 pixels or
+            more from the press point.
+        """
+        # LLFR-00434, LLFR-00865: the press neither pins a data tip nor
+        # picks a delta marker point, so a first point already picked
+        # (delta_first_point_tuple) is kept.
+        marker_tuple = self.delta_marker_data_tuple(delta_marker_id_i)
+        if not marker_tuple:
+            return
+        # LLFR-00042, LLFR-00354: a drag is not a hover over a curve and
+        # shows no preview of a new delta marker.
+        self.hide_hover_tip()
+        self.hide_delta_preview()
+        self.delta_drag_id_i = int(delta_marker_id_i)
+        self.delta_drag_index_i = int(point_index_i)
+        self.delta_drag_press_point = QPoint(widget_point)
+        self.delta_drag_moved_b = False
+        self.delta_drag_start_tuple = tuple(
+            marker_tuple[2 + self.delta_drag_index_i])
+        self.delta_drag_point_tuple = self.delta_drag_start_tuple
+
+    def delta_drag_reached_b(self, widget_point) -> bool:
+        """Tell whether a point is far enough from the press for a drag.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True when the point is 5 pixels or more from the press
+            point (straight-line distance, in screen pixels).
+        """
+        # LLFR-00433, LLFR-00866, LLFR-00867: widget points are Qt
+        # logical pixels, which are screen pixels.
+        distance_px = math.hypot(
+            widget_point.x() - self.delta_drag_press_point.x(),
+            widget_point.y() - self.delta_drag_press_point.y())
+        return distance_px >= DELTA_DRAG_THRESHOLD_PIXELS_F
+
+    def dragged_delta_point_tuple(self, widget_point) -> tuple:
+        """Return the sample the dragged point takes for a pointer point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: (signal_name_str, x_f, y_f): the sample of the point's
+            own curve nearest to the time (the frequency, on a frequency
+            plot) under the pointer, within the shown x-axis range; the
+            point as shown now when its curve is gone or that sample
+            would give a value of zero.
+        """
+        # LLFR-00433, LLFR-00862, LLFR-00863, LLFR-00435: computed by
+        # view.delta_geometry, without Qt.
+        marker_tuple = self.delta_marker_data_tuple(self.delta_drag_id_i)
+        if not marker_tuple:
+            return self.delta_drag_point_tuple
+        signal_name_str = self.delta_drag_point_tuple[0]
+        for curve_tuple in self.curve_data_list:
+            if curve_tuple[0] != signal_name_str:
+                continue
+            start_s, end_s = self.time_range_tuple()
+            return delta_geometry.dragged_point_tuple(
+                [marker_tuple[2], marker_tuple[3]], self.delta_drag_index_i,
+                marker_tuple[1], curve_tuple[1], curve_tuple[2],
+                self.time_at(widget_point), start_s, end_s)
+        return self.delta_drag_point_tuple
+
+    def show_delta_drag_point(self, point_tuple: tuple) -> None:
+        """Draw the dragged delta marker with its point on a sample.
+
+        Inputs:
+            point_tuple: (signal_name_str, x_f, y_f) of the sample.
+        Outputs: none. Only the drawn marker changes; the controller is
+            told at the release.
+        """
+        # LLFR-00864: the bracket and the value follow the point; the
+        # other point (LLFR-00863) and the other markers stay.
+        for list_index_i, marker_tuple in enumerate(
+                self.delta_marker_data_list):
+            if marker_tuple[0] != self.delta_drag_id_i:
+                continue
+            point_list = [marker_tuple[2], marker_tuple[3]]
+            point_list[self.delta_drag_index_i] = tuple(point_tuple)
+            self.delta_marker_data_list[list_index_i] = (
+                marker_tuple[:2] + tuple(point_list)
+                + (delta_value_f(marker_tuple[1], point_list[0],
+                                 point_list[1]),)
+                + marker_tuple[5:])
+        self.delta_drag_point_tuple = tuple(point_tuple)
+        self.draw_delta_markers()
+        self.canvas.draw_idle()
+
+    def delta_point_drag_to(self, widget_point) -> None:
+        """Move the dragged point of a delta marker for a pointer point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Does nothing until the pointer is 5 pixels or
+            more from the press point.
+        """
+        # LLFR-00433: a press that has not moved 5 pixels is no drag yet.
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        if not self.delta_drag_moved_b:
+            if not self.delta_drag_reached_b(widget_point):
+                return
+            self.delta_drag_moved_b = True
+        # LLFR-00433, LLFR-00435: the nearest sample of the curve, or
+        # the last one that gave a value other than zero.
+        point_tuple = self.dragged_delta_point_tuple(widget_point)
+        if point_tuple == self.delta_drag_point_tuple:
+            return
+        self.show_delta_drag_point(point_tuple)
+
+    def delta_point_release_at(self, widget_point) -> None:
+        """End a press on a dot of a delta marker at a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. After a drag, emits delta_point_move_requested
+            once, as the last step, when the point is on another sample.
+            A release less than 5 pixels from the press is a click on
+            the curve with the Delta X or Delta Y tool (LLFR-00866) and
+            nothing with no tool (LLFR-00867, LLFR-00868).
+        """
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        if self.delta_drag_moved_b:
+            # LLFR-00433: the point is left on the sample chosen at the
+            # release.
+            self.delta_point_drag_to(widget_point)
+            self.finish_delta_point_drag()
+            return
+        press_point = QPoint(self.delta_drag_press_point)
+        self.reset_delta_point_drag()
+        # LLFR-00866: with a delta tool, a short press on a dot is a
+        # click on the curve: it picks the first or the second point.
+        if is_delta_tool(self.plot_tool_str):
+            self.delta_click_at(press_point)
+        # LLFR-00867, LLFR-00868: with no tool, it does nothing and
+        # shows nothing.
+
+    def finish_delta_point_drag(self) -> None:
+        """End the drag of a delta marker point where it is shown now.
+
+        Inputs: none.
+        Outputs: none. Emits delta_point_move_requested once, as the last
+            step, when the point is on another sample than at the press.
+        """
+        # LLFR-00433: also used when the release was lost, so that the
+        # point stays where the user last saw it.
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        delta_marker_id_i = self.delta_drag_id_i
+        point_index_i = self.delta_drag_index_i
+        point_tuple = self.delta_drag_point_tuple
+        moved_b = point_tuple != self.delta_drag_start_tuple
+        self.reset_delta_point_drag()
+        # LLFR-00433, LLFR-00140: a drag that leaves the point on the
+        # sample where it started asks for nothing.
+        if moved_b:
+            # The receiver redraws this widget, so this is the last step.
+            self.delta_point_move_requested.emit(
+                delta_marker_id_i, point_index_i, float(point_tuple[1]),
+                float(point_tuple[2]))
+
+    def cancel_delta_point_drag(self) -> None:
+        """Forget the drag of a delta marker point, if any.
+
+        Inputs: none.
+        Outputs: none. A moved point is drawn back where it was.
+        """
+        # LLFR-00433: without a release, the point is not moved.
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        if self.delta_drag_point_tuple != self.delta_drag_start_tuple:
+            self.show_delta_drag_point(self.delta_drag_start_tuple)
+        self.reset_delta_point_drag()
+
+    def reset_delta_point_drag(self) -> None:
+        """Clear the state of a drag of a delta marker point.
+
+        Inputs: none.
+        Outputs: none. Nothing is drawn and nothing is emitted.
+        """
+        # LLFR-00433, LLFR-00454: no drag of a delta marker point.
+        self.delta_drag_id_i = NO_DELTA_MARKER_ID_I
+        self.delta_drag_index_i = 0
+        self.delta_drag_moved_b = False
+        self.delta_drag_start_tuple = ()
+        self.delta_drag_point_tuple = ()
+
+    def delta_point_drag_shown(self) -> bool:
+        """Tell whether a point of a delta marker is being dragged.
+
+        Inputs: none.
+        Outputs: True once a press on a dot has moved 5 pixels or more,
+            until the release.
+        """
+        # LLFR-00433: for checks of the drag.
+        return (self.delta_drag_id_i != NO_DELTA_MARKER_ID_I
+                and self.delta_drag_moved_b)
 
     # ----------------------------------------------------------------
     # Drag and drop

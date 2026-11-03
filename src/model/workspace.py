@@ -332,9 +332,8 @@ class DeltaMarker:
         """
         # LLFR-00169, LLFR-00171: second minus first, never the absolute
         # value, so the sign tells the order of the two points.
-        index_i = 1 if self.kind_str == DELTA_X_KIND_STR else 2
-        return (float(self.second_point_tuple[index_i])
-                - float(self.first_point_tuple[index_i]))
+        return delta_value_f(self.kind_str, self.first_point_tuple,
+                             self.second_point_tuple)
 
     def has_point_on(self, signal_name_str: str) -> bool:
         """Tell whether one of the two points is on a signal's curve.
@@ -346,6 +345,43 @@ class DeltaMarker:
         # LLFR-00178: such a marker goes away with the curve.
         return signal_name_str in (self.first_point_tuple[0],
                                    self.second_point_tuple[0])
+
+
+def delta_value_f(kind_str: str, first_point_tuple,
+                  second_point_tuple) -> float:
+    """Return the value a delta marker between two points would show.
+
+    Inputs:
+        kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+        first_point_tuple: (signal_name_str, time_s, value_f) of the
+            first point.
+        second_point_tuple: the same for the second point.
+    Outputs: the second point minus the first point: the time (the
+        frequency, on a frequency plot) for a Delta X marker
+        (LLFR-00169, LLFR-00261), the y-axis value for a Delta Y marker
+        (LLFR-00171).
+    """
+    # LLFR-00169, LLFR-00171, LLFR-00431: the measured coordinate.
+    index_i = 1 if kind_str == DELTA_X_KIND_STR else 2
+    return (float(second_point_tuple[index_i])
+            - float(first_point_tuple[index_i]))
+
+
+def delta_value_zero_b(kind_str: str, first_point_tuple,
+                       second_point_tuple) -> bool:
+    """Tell whether a delta marker between two points would measure zero.
+
+    Inputs:
+        kind_str: DELTA_X_KIND_STR or DELTA_Y_KIND_STR.
+        first_point_tuple: (signal_name_str, time_s, value_f).
+        second_point_tuple: the same for the second point.
+    Outputs: True when the two points have exactly the same time (the
+        frequency, on a frequency plot) for a Delta X marker, or exactly
+        the same y-axis value for a Delta Y marker.
+    """
+    # LLFR-00431: such a marker measures nothing (HLFR-00098).
+    return delta_value_f(kind_str, first_point_tuple,
+                         second_point_tuple) == 0.0
 
 
 def delta_point_tuple(point_tuple) -> tuple:
@@ -1044,8 +1080,9 @@ class Plot:
                 the default name with the smallest N not used by a
                 marker of that kind in this plot.
         Outputs: the new DeltaMarker. Raises ValueError for an unknown
-            kind, a point that is not finite, or a point on a signal
-            that is not in the plot.
+            kind, a point that is not finite, a point on a signal that
+            is not in the plot, or two points that give a value of zero
+            (LLFR-00431).
         """
         # LLFR-00168, LLFR-00170: a Delta X or a Delta Y marker.
         if kind_str not in DELTA_KIND_TUPLE:
@@ -1057,6 +1094,10 @@ class Plot:
             if not self.has_signal(point_tuple[0]):
                 raise ValueError(f"Signal {point_tuple[0]!r} is not in "
                                  f"the plot.")
+        # LLFR-00431, LLFR-00486: never a delta marker of value zero.
+        if delta_value_zero_b(kind_str, first_point_tuple,
+                              second_point_tuple):
+            raise ValueError("A delta marker must not measure zero.")
         # LLFR-00172, LLFR-00410: the default color unless a usable
         # color is given.
         marker_color_str = hex_color_or_none(color_str)
@@ -1136,6 +1177,46 @@ class Plot:
             if delta_marker.delta_marker_id_i == delta_marker_id_i:
                 return delta_marker
         return None
+
+    def move_delta_marker_point(self, delta_marker_id_i: int,
+                                point_index_i: int, time_s: float,
+                                value_f: float) -> bool:
+        """Move one point of a delta marker to another sample of its curve.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+            point_index_i: 0 for the first point, 1 for the second one.
+            time_s: time of the new sample (its frequency, in Hz, on a
+                frequency plot).
+            value_f: value of the new sample.
+        Outputs: True when the point moved; False when no delta marker
+            of this plot has that id, the index is not 0 or 1, a number
+            is not finite, the new point would give a value of zero
+            (LLFR-00435), or the point is already there.
+        """
+        # LLFR-00433: the dragged point is left on the chosen sample.
+        delta_marker = self.find_delta_marker(delta_marker_id_i)
+        if delta_marker is None or point_index_i not in (0, 1):
+            return False
+        point_list = [delta_marker.first_point_tuple,
+                      delta_marker.second_point_tuple]
+        # LLFR-00862: the point stays on the same curve.
+        try:
+            new_point_tuple = delta_point_tuple(
+                (point_list[point_index_i][0], time_s, value_f))
+        except (TypeError, ValueError):
+            return False
+        if new_point_tuple == point_list[point_index_i]:
+            return False
+        # LLFR-00863: the other point stays in place.
+        point_list[point_index_i] = new_point_tuple
+        # LLFR-00435: never a value of zero.
+        if delta_value_zero_b(delta_marker.kind_str, point_list[0],
+                              point_list[1]):
+            return False
+        delta_marker.first_point_tuple = point_list[0]
+        delta_marker.second_point_tuple = point_list[1]
+        return True
 
     def remove_delta_marker(self, delta_marker_id_i: int) -> bool:
         """Remove a delta marker from the plot.

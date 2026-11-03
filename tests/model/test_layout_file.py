@@ -836,6 +836,43 @@ class LayoutPointTest(LayoutRebuildTestCase):
         self.assertIn("kind", not_rebuilt_list[2])
         self.assertIn("an unreadable time", not_rebuilt_list[3])
 
+    @covers("LLFR-00486", "LLFR-00237", "LLFR-00485", "HLFR-00098")
+    def test_delta_marker_of_value_zero_is_not_rebuilt(self) -> None:
+        """A delta marker whose points land on samples that give zero is
+        not rebuilt and is reported; the others are rebuilt.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # Speed is Time, Torque is 2 * Time (make_signal_dict).
+        layout_dict = minimal_layout([one_plot_tab(
+            [curve("Speed"), curve("Torque", "#000000")],
+            delta_marker_list=[
+                # Two times within 1 us of the same sample.
+                {"kind": "delta_x",
+                 "first_point": {"signal": "Speed", "time": 2.0},
+                 "second_point": {"signal": "Torque", "time": 2.0000004}},
+                # Speed at 4 s and Torque at 2 s are both 4.
+                {"kind": "delta_y",
+                 "first_point": {"signal": "Speed", "time": 4.0},
+                 "second_point": {"signal": "Torque", "time": 2.0}},
+                # Same time, other values: a valid Delta Y.
+                {"kind": "delta_y",
+                 "first_point": {"signal": "Speed", "time": 2.0},
+                 "second_point": {"signal": "Torque", "time": 2.0}}])])
+        result = self.rebuild(layout_dict)
+        delta_list = self.only_plot().delta_marker_list
+        self.assertEqual(len(delta_list), 1)
+        self.assertEqual(delta_list[0].kind_str, DELTA_Y_KIND_STR)
+        self.assertEqual(delta_list[0].delta_f(), 2.0)
+        not_rebuilt_list = result.report.not_rebuilt_line_list
+        self.assertEqual(len(not_rebuilt_list), 2)
+        self.assertIn("Delta X marker between 2 s and 2", not_rebuilt_list[0])
+        self.assertIn("Delta Y marker between 4 s and 2 s",
+                      not_rebuilt_list[1])
+        for line_str in not_rebuilt_list:
+            self.assertIn("would be zero", line_str)
+
 
 class LayoutMarkerTest(LayoutRebuildTestCase):
     """Flags of the file (LLFR-00233, LLFR-00393, LLFR-00228)."""
