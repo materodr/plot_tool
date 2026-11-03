@@ -2,10 +2,12 @@ name: Requirements review
 
 # PCR-00051 and PCR-00053: a pull request must show the result of the
 # requirements review it needs. Into main that is PCR-00050, and into
-# develop PCR-00052, when the branch adds a requirement. A separate
-# workflow, so that editing the description runs only this short check
-# and not the whole test suite. The description goes through an
-# environment variable, so its text is never read as shell code.
+# develop PCR-00052, when the branch adds a requirement. PCR-00070: when
+# the committed test matrix shows a Fail*, the description must start
+# with the list of every Fail*. A separate workflow, so that editing the
+# description runs only these short checks and not the whole test suite.
+# The description goes through an environment variable, so its text is
+# never read as shell code.
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
@@ -36,4 +38,28 @@ jobs:
           printf '%s' "$PULL_REQUEST_BODY" > pull_request_body.md
           python tests/check_requirement_review.py \
             --body-file pull_request_body.md \
+            --base "$BASE_BRANCH" --head "$HEAD_COMMIT"
+
+  # PCR-00070: the reviewer sees every Fail* of the committed matrix, with
+  # its justification, at the top of the description.
+  fail-star-section:
+    runs-on: ubuntu-latest
+    steps:
+      # The whole history, to read the matrix of the head commit.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the Fail* section
+        env:
+          PULL_REQUEST_BODY: ${{ github.event.pull_request.body }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          printf '%s' "$PULL_REQUEST_BODY" > pull_request_body.md
+          python tests/check_pr_ready.py --body-file pull_request_body.md \
             --base "$BASE_BRANCH" --head "$HEAD_COMMIT"
