@@ -517,9 +517,10 @@ class SignalListPanel(QWidget):
             first row of the signal list (LLFR-00362).
         title_label: the "Signals" title.
         signal_list_widget: the SignalListWidget with the signal names.
-        search_box: the QLineEdit below the list (LLFR-00094).
-        status_label: the status line below the search box
-            (LLFR-00418).
+        status_label: the status line below the list, directly above
+            the search box (LLFR-00560).
+        search_box: the QLineEdit below the list and the status line,
+            the last row of the panel (LLFR-00094, LLFR-00424).
     Signals:
         signal_double_clicked(str): emitted with the name of a signal
             the user double-clicked (LLFR-00019).
@@ -575,15 +576,10 @@ class SignalListPanel(QWidget):
         self.file_name_label = self.signal_list_widget.file_name_label
         self.panel_layout.addWidget(self.title_label)
         self.panel_layout.addWidget(self.signal_list_widget, 1)
-        # LLFR-00094: the search box is placed directly below the list.
-        self.search_box = QLineEdit()
-        self.search_box.setObjectName("signal_search_box")
-        self.search_box.setPlaceholderText(SEARCH_PLACEHOLDER_TEXT_STR)
-        self.search_box.setClearButtonEnabled(True)
-        self.panel_layout.addWidget(self.search_box)
-        # LLFR-00418: the status line at the bottom of the panel, below
-        # the search box; it is empty except while a file is read. Its
-        # height is kept when it is empty, so the list does not move.
+        # LLFR-00560: the status line below the list, directly above the
+        # search box; it is empty except while a file is read
+        # (LLFR-00563). Its height is kept when it is empty, so the list
+        # and the search box do not move.
         self.status_label = QLabel("")
         self.status_label.setObjectName("signal_list_status")
         self.status_label.setStyleSheet(
@@ -591,6 +587,15 @@ class SignalListPanel(QWidget):
         self.status_label.setMinimumHeight(
             self.status_label.fontMetrics().height())
         self.panel_layout.addWidget(self.status_label)
+        # LLFR-00094: the search box below the list (only the status
+        # line between them). LLFR-00424: it is the last row, so its
+        # bottom edge is the bottom of the panel's layout, which
+        # set_search_box_bottom_margin lines up with the lowest plot.
+        self.search_box = QLineEdit()
+        self.search_box.setObjectName("signal_search_box")
+        self.search_box.setPlaceholderText(SEARCH_PLACEHOLDER_TEXT_STR)
+        self.search_box.setClearButtonEnabled(True)
+        self.panel_layout.addWidget(self.search_box)
         # LLFR-00019: a double-click passes the signal name on.
         self.signal_list_widget.itemDoubleClicked.connect(
             self._emit_signal_double_clicked)
@@ -739,14 +744,40 @@ class SignalListPanel(QWidget):
             return ""
         return no_match_label.text()
 
+    def set_search_box_bottom_margin(self, bottom_margin_i: int) -> None:
+        """Leave room below the search box, so its bottom edge is higher.
+
+        Inputs:
+            bottom_margin_i: the space, in pixels, between the bottom edge of
+                the search box and the bottom of the panel; a negative
+                value is taken as 0.
+        Outputs: none.
+        """
+        # LLFR-00424, LLFR-00652: the main window gives the distance
+        # from the bottom of the lowest plot to the bottom of the panel.
+        margin_i = max(int(bottom_margin_i), 0)
+        if margin_i == self.search_box_bottom_margin():
+            return
+        self.panel_layout.setContentsMargins(0, 0, 0, margin_i)
+
+    def search_box_bottom_margin(self) -> int:
+        """Return the space left below the search box.
+
+        Inputs: none.
+        Outputs: the bottom margin of the panel's layout, in pixels.
+        """
+        # LLFR-00424: the margin of set_search_box_bottom_margin.
+        return int(self.panel_layout.contentsMargins().bottom())
+
     def show_status_text(self, text_str: str) -> None:
-        """Show a text in the status line below the search box.
+        """Show a text in the status line directly above the search box.
 
         Inputs:
             text_str: the text to show; "" empties the status line.
         Outputs: none.
         """
-        # LLFR-00418: "Loading..." while a file is read, no text else.
+        # LLFR-00560, LLFR-00563: "Loading..." while a file is read, no
+        # text else.
         self.status_label.setText(text_str)
 
     def status_text(self) -> str:

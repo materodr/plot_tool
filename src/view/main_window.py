@@ -19,6 +19,7 @@ from view import (
     plot_export, synthetic_dialogs, theme)
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
+from view.search_box_alignment import SearchBoxAligner
 from view.signal_list_panel import SignalListPanel
 from view.tip_key_filter import (
     ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, ESCAPE_KEY_I,
@@ -103,6 +104,9 @@ class MainWindow(QMainWindow):
         plot_panel: the PlotPanel placed on the left, below the top panel.
         signal_list_panel: the SignalListPanel placed on the right of the
             plot panel.
+        search_box_aligner: the SearchBoxAligner that keeps the bottom
+            edge of the search box level with the lowest plot
+            (LLFR-00424, LLFR-00652).
     """
 
     WINDOW_TITLE_STR = "plot_tool"
@@ -161,6 +165,10 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.top_panel)
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)
+        # LLFR-00424, LLFR-00652: the bottom edge of the search box
+        # follows the bottom edge of the lowest plot of the current tab.
+        self.search_box_aligner = SearchBoxAligner(
+            self.plot_panel, self.signal_list_panel, self)
 
         # LLFR-00406: every file dialog is built once, prepared after
         # the window is shown (prepare_file_dialogs), and reused.
@@ -223,10 +231,14 @@ class MainWindow(QMainWindow):
         self.top_panel.reset_zoom_button.triggered.connect(
             self._on_reset_zoom_triggered)
         # LLFR-00122, LLFR-00123: the Grid button goes to the plot
-        # controller. LLFR-00147: the grid is hidden at start; the
-        # choice applies to every plot, now and later (LLFR-00125).
+        # controller. LLFR-00147: the grid is shown at start (the
+        # controller confirms it with set_grid_shown); the choice applies
+        # to every plot, now and later (LLFR-00125).
         self.grid_handler = None
-        self.grid_shown_b = False
+        self.grid_shown_b = True
+        # LLFR-00124, LLFR-00678: the Grid button shows its active color
+        # with it.
+        self.top_panel.grid_button.setChecked(self.grid_shown_b)
         self.top_panel.grid_button.activated.connect(
             lambda: self._on_grid_clicked(True))
         self.top_panel.grid_button.deactivated.connect(
@@ -420,8 +432,8 @@ class MainWindow(QMainWindow):
         if not self.loading_cursor_shown_b:
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             self.loading_cursor_shown_b = True
-        # LLFR-00418: "Loading..." in the status line below the search
-        # box.
+        # LLFR-00560: "Loading..." in the status line directly above the
+        # search box.
         self.signal_list_panel.show_status_text(text_str)
         # LLFR-00418: repaint now; the file is read in this same event
         # handler, so without this the text would appear only after the

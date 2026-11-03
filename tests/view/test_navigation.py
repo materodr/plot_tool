@@ -567,9 +567,10 @@ class PanWidgetTest(NavigationWidgetTestCase):
 class GridWidgetTest(NavigationWidgetTestCase):
     """The grid of one plot widget."""
 
-    @covers("LLFR-00122", "LLFR-00123", "LLFR-00147")
+    @covers("LLFR-00122", "LLFR-00123")
     def test_grid_is_hidden_until_shown(self) -> None:
-        """A new plot has no grid; set_grid_shown shows and hides it.
+        """A lone plot widget has no grid until the main window applies
+        its grid choice; set_grid_shown shows and hides it.
 
         Inputs: none.
         Outputs: none.
@@ -820,9 +821,11 @@ class NavigationEndToEndTest(unittest.TestCase):
                               10.0)
         self.process_events()
 
-    @covers("LLFR-00114", "LLFR-00121", "LLFR-00147")
+    @covers("LLFR-00114", "LLFR-00121", "LLFR-00147", "LLFR-00124",
+            "LLFR-00678")
     def test_buttons_exist_after_the_plot_tools(self) -> None:
-        """Reset zoom and Grid follow Vertical marker, both inactive.
+        """Reset zoom and Grid follow Vertical marker; Reset zoom is
+        inactive and Grid is active, because the grid is shown at start.
 
         Inputs: none.
         Outputs: none.
@@ -838,7 +841,6 @@ class NavigationEndToEndTest(unittest.TestCase):
         for button in (reset_button, grid_button):
             self.assertTrue(button.isVisible())
             self.assertIs(button.parentWidget(), self.top_panel)
-            self.assertFalse(button.is_active())
             self.assertNotIn(button,
                              self.top_panel.plot_tool_button_dict.values())
         layout = self.top_panel.button_layout
@@ -848,11 +850,18 @@ class NavigationEndToEndTest(unittest.TestCase):
         self.assertGreater(reset_button.x(),
                            self.top_panel.marker_button.x())
         self.assertGreater(grid_button.x(), reset_button.x())
-        # LLFR-00147: the grid is hidden at start.
-        self.assertFalse(self.main_window.is_grid_shown())
-        self.assertFalse(self.plot_controller.grid_shown_b)
+        self.assertFalse(reset_button.is_active())
+        # LLFR-00147: the grid is shown at start, on every plot.
+        # LLFR-00124: so the Grid button shows its active color.
+        from view.toggle_button import ACTIVE_COLOR_STR
+        self.assertTrue(grid_button.is_active())
+        self.assertEqual(grid_button.current_background_color_str(),
+                         ACTIVE_COLOR_STR)
+        self.assertTrue(self.main_window.is_grid_shown())
+        self.assertTrue(self.plot_controller.grid_shown_b)
+        self.assertTrue(self.all_plot_widgets())
         for plot_widget in self.all_plot_widgets():
-            self.assertFalse(plot_widget.grid_shown())
+            self.assertTrue(plot_widget.grid_shown())
 
     @covers("LLFR-00115", "LLFR-00070", "LLFR-00076", "LLFR-00677")
     def test_reset_zoom_shows_the_whole_range_in_the_tab(self) -> None:
@@ -1141,15 +1150,10 @@ class NavigationEndToEndTest(unittest.TestCase):
         self.process_events()
         grid_button = self.top_panel.grid_button
         self.assertEqual(len(self.all_plot_widgets()), 3)
+        # LLFR-00147: the grid is shown at start, so the first click
+        # hides it.
+        self.assertTrue(grid_button.is_active())
         for _ in range(2):
-            self.click(grid_button)
-            self.process_events()
-            self.assertTrue(grid_button.is_active())
-            self.assertEqual(grid_button.current_background_color_str(),
-                             ACTIVE_COLOR_STR)
-            self.assertTrue(self.plot_controller.grid_shown_b)
-            for plot_widget in self.all_plot_widgets():
-                self.assertTrue(plot_widget.grid_shown())
             self.click(grid_button)
             self.process_events()
             self.assertFalse(grid_button.is_active())
@@ -1158,6 +1162,14 @@ class NavigationEndToEndTest(unittest.TestCase):
             self.assertFalse(self.plot_controller.grid_shown_b)
             for plot_widget in self.all_plot_widgets():
                 self.assertFalse(plot_widget.grid_shown())
+            self.click(grid_button)
+            self.process_events()
+            self.assertTrue(grid_button.is_active())
+            self.assertEqual(grid_button.current_background_color_str(),
+                             ACTIVE_COLOR_STR)
+            self.assertTrue(self.plot_controller.grid_shown_b)
+            for plot_widget in self.all_plot_widgets():
+                self.assertTrue(plot_widget.grid_shown())
 
     @covers("LLFR-00125", "LLFR-00122")
     def test_new_plots_follow_the_grid(self) -> None:
@@ -1167,7 +1179,8 @@ class NavigationEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.click(self.top_panel.grid_button)
+        # LLFR-00147: the grid is shown from the start.
+        self.assertTrue(self.top_panel.grid_button.is_active())
         self.main_window.signal_double_click_handler("angle")
         self.main_window.plot_panel.request_add_tab()
         self.main_window.signal_double_click_handler("speed")
@@ -1197,7 +1210,8 @@ class NavigationEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         grid_button = self.top_panel.grid_button
-        self.click(grid_button)
+        # LLFR-00147: the grid is shown from the start.
+        self.assertTrue(grid_button.is_active())
         for tool_str in PLOT_TOOL_TUPLE:
             self.click(self.top_panel.plot_tool_button_dict[tool_str])
             self.assertTrue(grid_button.is_active())
@@ -1216,21 +1230,24 @@ class NavigationEndToEndTest(unittest.TestCase):
             self.assertTrue(plot_widget.grid_shown())
             self.assertEqual(plot_widget.plot_tool_str, MARKER_TOOL_STR)
 
-    @covers("LLFR-00147", "LLFR-00125")
+    @covers("LLFR-00147", "LLFR-00125", "LLFR-00678")
     def test_grid_choice_is_kept_on_file_replace(self) -> None:
-        """A replaced file keeps the grid shown; a new window hides it.
+        """A replaced file keeps the grid hidden after the user hid it;
+        a new app start shows it again.
 
         Inputs: none.
         Outputs: none.
         """
         self.click(self.top_panel.grid_button)
+        self.assertFalse(self.top_panel.grid_button.is_active())
         self.plot_controller.on_file_opened(self.make_file(8.0), True)
         self.main_window.signal_double_click_handler("speed")
         self.process_events()
-        self.assertTrue(self.top_panel.grid_button.is_active())
+        self.assertFalse(self.top_panel.grid_button.is_active())
         self.assertEqual(len(self.all_plot_widgets()), 1)
-        self.assertTrue(self.all_plot_widgets()[0].grid_shown())
-        # A new app start (window and controllers) hides it again.
+        self.assertFalse(self.all_plot_widgets()[0].grid_shown())
+        # LLFR-00147: a new app start (window and controllers) shows it
+        # again, whatever the user chose before.
         from controller.main_controller import MainController
         from view.main_window import MainWindow
         fresh_window = MainWindow()
@@ -1239,10 +1256,13 @@ class NavigationEndToEndTest(unittest.TestCase):
             fresh_controller.plot_controller.on_file_opened(
                 self.make_file(2.0), False)
             fresh_window.signal_double_click_handler("speed")
-            self.assertFalse(fresh_window.top_panel.grid_button.is_active())
-            for plot_widget in (fresh_window.plot_panel.plot_widget_dict
-                                .values()):
-                self.assertFalse(plot_widget.grid_shown())
+            self.assertTrue(fresh_window.top_panel.grid_button.is_active())
+            self.assertTrue(fresh_window.is_grid_shown())
+            fresh_plot_list = list(
+                fresh_window.plot_panel.plot_widget_dict.values())
+            self.assertEqual(len(fresh_plot_list), 1)
+            for plot_widget in fresh_plot_list:
+                self.assertTrue(plot_widget.grid_shown())
         finally:
             fresh_window.close()
             fresh_window.deleteLater()

@@ -1683,7 +1683,7 @@ If the user drops a signal name on a plot that already shows that signal, the ap
 *Parent: HLFR-00013*
 
 ### LLFR-00094 Search box
-The signal list panel must contain a search box placed directly below the signal list.
+The signal list panel must contain a search box placed below the signal list, with only the status line of LLFR-00560 between them.
 
 *Parent: HLFR-00033*
 
