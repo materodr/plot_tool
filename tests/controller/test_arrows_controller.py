@@ -63,11 +63,24 @@ class ArrowControllerTestCase(PlotControllerTestCase):
         Inputs:
             plot_id_i: the plot (default: the plot of the setup).
         Outputs: the list of (start_time_s, start_value_f, end_time_s,
-            end_value_f, color_str).
+            end_value_f, color_str); the names are left out (see
+            drawn_names).
         """
         if plot_id_i is None:
             plot_id_i = self.plot_id_i
-        return [tuple(arrow_tuple) for arrow_tuple in
+        return [tuple(arrow_tuple)[:5] for arrow_tuple in
+                self.view.arrow_drawn_dict.get(plot_id_i, [])]
+
+    def drawn_names(self, plot_id_i: int = None) -> list:
+        """Return the names of the arrows last drawn in a plot.
+
+        Inputs:
+            plot_id_i: the plot (default: the plot of the setup).
+        Outputs: the list of name_str, in drawing order.
+        """
+        if plot_id_i is None:
+            plot_id_i = self.plot_id_i
+        return [tuple(arrow_tuple)[5] for arrow_tuple in
                 self.view.arrow_drawn_dict.get(plot_id_i, [])]
 
     def undo_depth(self) -> int:

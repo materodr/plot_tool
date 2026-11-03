@@ -14,6 +14,7 @@ import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
 from tests.view.menu_texts import (
+    menu_option_texts,
     AREA_MENU_TEXT_LIST, DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST,
     TIP_MENU_TEXT_LIST)
 from tests.view.test_plot_tools import recorder
@@ -658,7 +659,7 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         note_point = self.plot_widget.display_to_widget_point(
             (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
         menu, _ = self.plot_widget.context_menu_and_requests(note_point)
-        self.assertEqual([action.text() for action in menu.actions()],
+        self.assertEqual(menu_option_texts(menu),
                          ["Edit", "Size", "Border color", "Text color",
                           "Delete"])
 
@@ -718,7 +719,7 @@ class AreaMenuTest(AreaWidgetTestCase):
                 global_point: unused.
             Outputs: the chosen QAction or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             action_list = list(menu.actions())
             for action in list(action_list):
                 if action.menu() is not None:

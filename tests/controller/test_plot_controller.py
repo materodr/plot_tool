@@ -131,6 +131,12 @@ class FakePlotView:
         self.arrow_drawn_dict = {}
         self.color_answer_list = []
         self.color_question_list = []
+        # LLFR-00429, LLFR-00439: answers of the delta marker and arrow
+        # rename dialogs, and the names they started with.
+        self.delta_name_answer_list = []
+        self.delta_name_question_list = []
+        self.arrow_name_answer_list = []
+        self.arrow_name_question_list = []
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -550,6 +556,32 @@ class FakePlotView:
         self.call_list.append(("show_tab_name_taken_notification",
                                name_str))
         self.tab_name_taken_list.append(name_str)
+
+    def ask_delta_marker_name(self, current_name_str: str):
+        """Answer a delta marker name question with the next answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of delta_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.delta_name_question_list.append(current_name_str)
+        if not self.delta_name_answer_list:
+            return None
+        return self.delta_name_answer_list.pop(0)
+
+    def ask_arrow_name(self, current_name_str: str):
+        """Answer an arrow name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of arrow_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.arrow_name_question_list.append(current_name_str)
+        if not self.arrow_name_answer_list:
+            return None
+        return self.arrow_name_answer_list.pop(0)
 
     def ask_marker_name(self, current_name_str: str):
         """Answer a marker name question with the next prepared answer.

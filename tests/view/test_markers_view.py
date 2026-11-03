@@ -14,7 +14,8 @@ from unittest import mock
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.menu_texts import FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST
+from tests.view.menu_texts import (
+    FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST, menu_option_texts)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 from controller.plot_tools import (
@@ -207,8 +208,7 @@ class MarkerWidgetTestCase(unittest.TestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.append([action.text() for action in menu.actions()
-                               if not action.isSeparator()])
+            shown_list.append(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str and action.menu() is None:
                     return action
@@ -240,8 +240,7 @@ class MarkerWidgetTestCase(unittest.TestCase):
         from PyQt6 import sip
         menu = self.plot_widget.build_context_menu(
             self.plot_widget.data_to_widget_point(time_s, value_f))
-        text_list = [action.text() for action in menu.actions()
-                     if not action.isSeparator()]
+        text_list = menu_option_texts(menu)
         sip.delete(menu)
         return text_list
 
@@ -720,7 +719,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         label_point = self.plot_widget.display_to_widget_point(
             label_box.x1 - 2.0, (label_box.y0 + label_box.y1) / 2.0)
         menu = self.plot_widget.build_context_menu(label_point)
-        self.assertEqual([action.text() for action in menu.actions()],
+        self.assertEqual(menu_option_texts(menu),
                          FLAG_MENU_TEXT_LIST)
         sip.delete(menu)
 
@@ -890,7 +889,7 @@ class MarkerEndToEndTest(unittest.TestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str:
                     return action
