@@ -90,6 +90,14 @@ Before a pull request from `develop` to `main` is opened, the requirements revie
 ### PCR-00051 Requirements review result for develop to main
 A pull request from `develop` to `main` must show the result of the requirements review of PCR-00050.
 
+### PCR-00052 Requirements review before a pull request into develop
+Before a pull request into `develop` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement that its branch adds.
+
+Note: A branch that adds no requirement has nothing to review, so its pull request has no result to show (PCR-00053).
+
+### PCR-00053 Requirements review result for a pull request into develop
+A pull request into `develop` whose branch adds a requirement must show the result of the requirements review of PCR-00052.
+
 ### PCR-00019 Test matrix
 A table named test matrix must be permanently kept in the `tests` folder.
 
@@ -141,6 +149,11 @@ Low-level functional requirements must be created and edited by agents during de
 ### PCR-00031 LLFR traceability
 Every low-level functional requirement must be linked to at least one high-level functional requirement.
 
+### PCR-00055 HLFR children
+Every high-level functional requirement must have at least one low-level functional requirement linked to it.
+
+Note: `tests/check_requirements.py` tests it.
+
 ### PCR-00032 Sample file for every format
 The `tests/user_tests/good` folder must contain at least one sample file that the app can open for each file format listed in HLFR-00005.
 
@@ -163,6 +176,11 @@ Each requirement must state only one obligation, about only one thing.
 
 Note: The word `must` therefore appears only once in the statement. A `Note:` line is not part of the statement, and deleted requirements are excluded.
 
+### PCR-00054 Clear requirements
+Each requirement must be clear and unambiguous.
+
+Note: A script can't tell this, so the requirements review of the `requirement-validation` skill and the reviewer of PCR-00056 check it.
+
 ### PCR-00049 Positive statements in new requirements
 Each requirement created after this requirement was added must state its obligation in positive form, without the words "must not".
 
@@ -173,6 +191,9 @@ Note: `tests/check_requirements.py` tests it and runs on every pull request.
 
 ### PCR-00048 Review of changed requirements
 A reviewer must read every requirement that changed in a pull request, to check the part of PCR-00036 that a script can't check (whether a requirement talks about only one thing).
+
+### PCR-00056 Clarity review of changed requirements
+A reviewer must read every requirement that changed in a pull request, to check that it is clear and unambiguous (PCR-00054).
 
 ### PCR-00038 Requirements quality result on the pull request
 The result of the requirements quality test (PCR-00037) must be added to the pull request.

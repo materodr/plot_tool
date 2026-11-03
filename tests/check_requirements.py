@@ -9,7 +9,8 @@ checks that:
   (PCR-00045);
 - each ID named anywhere in the files exists;
 - each active LLFR has one Parent line that names existing HLFRs
-  (PCR-00031), and each active HLFR has at least one child LLFR;
+  (PCR-00031), and each active HLFR has at least one child LLFR
+  (PCR-00055);
 - each active requirement uses the word "must" exactly once in its
   statement (PCR-00036). Note and Parent lines are not part of the
   statement, and deleted requirements are skipped. A mention of the
@@ -23,6 +24,9 @@ A script can't tell whether a requirement talks about only one thing, so
 the second half of PCR-00036 still has to be checked by reading it
 (PCR-00048). The script doesn't check the older requirements against
 PCR-00049 either, even when they change: the reviewer of PCR-00048 does.
+It can't tell whether a requirement is clear and unambiguous (PCR-00054)
+either: the requirements review of the requirement-validation skill and
+the reviewer of PCR-00056 do.
 
 The script prints a Markdown report, or writes it to --output for the
 pull request (PCR-00038), and exits with code 1 when it finds a problem.
@@ -185,7 +189,7 @@ def check_references(entry_list: list, known_id_set: set) -> list:
 
 
 def check_parents(hlfr_list: list, llfr_list: list) -> list:
-    """Check the links between LLFRs and HLFRs (PCR-00031).
+    """Check the links between LLFRs and HLFRs (PCR-00031, PCR-00055).
 
     Inputs:
         hlfr_list: the HLFRs.
