@@ -153,7 +153,7 @@ The user must be able to add a signal from the signal list to an existing plot.
 The user must be able to search for signals in the signal list panel by typing a text.
 
 ### HLFR-00034 Approximate search
-The search (HLFR-00033) must also find the signals whose names are close to the typed text, not only the signals whose names match it exactly.
+The search (HLFR-00033) must also find the signals whose names are close to the typed text.
 
 Note: For example, typing part of the name, typing it in a different case, leaving out separators such as `_`, or making a small spelling mistake still finds the signal.
 
