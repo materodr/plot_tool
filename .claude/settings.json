@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/tests/check_release_pr.py\" --hook"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tests/check_requirement_review.py\" --hook"
           }
         ]
       }

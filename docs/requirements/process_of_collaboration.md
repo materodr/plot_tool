@@ -85,10 +85,18 @@ A pull request from `develop` to `main` must list all the issues that track the 
 A pull request from `develop` to `main` must show evidence that the code fulfils all the functional requirements.
 
 ### PCR-00050 Requirements review before develop to main
-Before a pull request from `develop` to `main` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement created or changed since the last merge into `main`.
+Before a pull request from `develop` to `main` is opened, the requirements review of the `requirement-validation` skill must be run on every active requirement.
 
 ### PCR-00051 Requirements review result for develop to main
 A pull request from `develop` to `main` must show the result of the requirements review of PCR-00050.
+
+### PCR-00052 Requirements review before a pull request into develop
+Before a pull request into `develop` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement that its branch adds.
+
+Note: A branch that adds no requirement has nothing to review, so its pull request has no result to show (PCR-00053).
+
+### PCR-00053 Requirements review result for a pull request into develop
+A pull request into `develop` whose branch adds a requirement must show the result of the requirements review of PCR-00052.
 
 ### PCR-00019 Test matrix
 A table named test matrix must be permanently kept in the `tests` folder.
