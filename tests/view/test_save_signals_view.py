@@ -274,7 +274,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertFalse(os.path.exists(target_str))
         self.assertEqual(self.changed_names_list, [])
 
-    @covers("LLFR-00404")
+    @covers("LLFR-00404", "LLFR-00885")
     def test_changed_names_box_is_scrollable_information(self) -> None:
         """The changed names box is an information box with a long list
         that can be scrolled.

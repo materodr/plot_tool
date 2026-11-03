@@ -12,10 +12,17 @@ checks that:
   (PCR-00031), and each active HLFR has at least one child LLFR;
 - each active requirement uses the word "must" exactly once in its
   statement (PCR-00036). Note and Parent lines are not part of the
-  statement, and deleted requirements are skipped.
+  statement, and deleted requirements are skipped. A mention of the
+  words in quotes or backticks, such as "must not", is not a use;
+- each active requirement whose ID is above the last ID of its prefix
+  when PCR-00049 was added (LAST_ID_BEFORE_POSITIVE_RULE_DICT) states
+  its obligation without the words "must not" (PCR-00049), in its
+  statement only.
 
 A script can't tell whether a requirement talks about only one thing, so
-the second half of PCR-00036 still has to be checked by reading it.
+the second half of PCR-00036 still has to be checked by reading it
+(PCR-00048). The script doesn't check the older requirements against
+PCR-00049 either, even when they change: the reviewer of PCR-00048 does.
 
 The script prints a Markdown report, or writes it to --output for the
 pull request (PCR-00038), and exits with code 1 when it finds a problem.
@@ -43,12 +50,24 @@ VALID_ID_PATTERN_STR = r"^(COR|PCR|HLFR|LLFR)-\d{5}$"
 REFERENCE_PATTERN_STR = r"\b(?:COR|PCR|HLFR|LLFR)-\d{5}\b"
 PARENT_PATTERN_STR = r"^\*Parent: (.+)\*$"
 MUST_PATTERN_STR = r"\bmust\b"
+MUST_NOT_PATTERN_STR = r"\bmust\s+not\b"
+# PCR-00036, PCR-00049: a quoted mention of the words is not a use.
+MUST_MENTION_PATTERN_STR = r"[\"`]must(?:\s+not)?[\"`]"
+# PCR-00049: the last ID of each prefix when the rule was added. Only
+# the requirements created after it must avoid "must not".
+LAST_ID_BEFORE_POSITIVE_RULE_DICT = {
+    "COR": 22,
+    "PCR": 49,
+    "HLFR": 112,
+    "LLFR": 885,
+}
 DELETED_STR = "DELETED"
 ID_RULE_STR = "IDs"
 REFERENCE_RULE_STR = "References"
 PARENT_RULE_STR = "Parent links"
 CHILD_RULE_STR = "HLFR children"
 MUST_RULE_STR = "One must"
+POSITIVE_RULE_STR = "Positive statement"
 
 
 def read_requirement_file(path_str: str) -> list:
@@ -101,6 +120,19 @@ def statement_text(entry_dict: dict) -> str:
             break
         statement_line_list.append(line_str)
     return "\n".join(statement_line_list)
+
+
+def statement_without_mentions(entry_dict: dict) -> str:
+    """Return the statement of a requirement without quoted mentions.
+
+    Inputs:
+        entry_dict: a requirement from read_requirement_file.
+    Outputs: the statement, with each quoted "must" or "must not"
+        removed, because a mention of the words is not a use of them
+        (PCR-00036, PCR-00049).
+    """
+    return re.sub(MUST_MENTION_PATTERN_STR, "", statement_text(entry_dict),
+                  flags=re.IGNORECASE)
 
 
 def check_identifiers(prefix_str: str, entry_list: list) -> list:
@@ -202,11 +234,44 @@ def check_one_must(entry_list: list) -> list:
         if is_deleted(entry_dict):
             continue
         must_count_i = len(re.findall(MUST_PATTERN_STR,
-                                      statement_text(entry_dict),
+                                      statement_without_mentions(entry_dict),
                                       re.IGNORECASE))
         if must_count_i != 1:
             problem_list.append((MUST_RULE_STR, entry_dict["id"],
                                  f'uses "must" {must_count_i} times, not 1'))
+    return problem_list
+
+
+def is_new_requirement(id_str: str) -> bool:
+    """Tell whether a requirement was created after PCR-00049.
+
+    Inputs:
+        id_str: the ID of the requirement.
+    Outputs: True when the ID is valid and its number is above the last
+        number of its prefix in LAST_ID_BEFORE_POSITIVE_RULE_DICT.
+    """
+    if not re.match(VALID_ID_PATTERN_STR, id_str):
+        return False
+    prefix_str, number_str = id_str.split("-")
+    return int(number_str) > LAST_ID_BEFORE_POSITIVE_RULE_DICT[prefix_str]
+
+
+def check_positive_statements(entry_list: list) -> list:
+    """Check that new statements don't use "must not" (PCR-00049).
+
+    Inputs:
+        entry_list: the requirements of every file.
+    Outputs: a list of (rule, ID, description) tuples, one per problem.
+    """
+    problem_list = []
+    for entry_dict in entry_list:
+        if is_deleted(entry_dict) or not is_new_requirement(
+                entry_dict["id"]):
+            continue
+        if re.search(MUST_NOT_PATTERN_STR,
+                     statement_without_mentions(entry_dict), re.IGNORECASE):
+            problem_list.append((POSITIVE_RULE_STR, entry_dict["id"],
+                                 'uses "must not" in a new requirement'))
     return problem_list
 
 
@@ -234,6 +299,7 @@ def check_requirement_folder(folder_str: str) -> tuple:
     problem_list.extend(check_parents(entries_of_prefix_dict["HLFR"],
                                       entries_of_prefix_dict["LLFR"]))
     problem_list.extend(check_one_must(all_entry_list))
+    problem_list.extend(check_positive_statements(all_entry_list))
     active_count_i = sum(not is_deleted(entry_dict)
                          for entry_dict in all_entry_list)
     return active_count_i, problem_list
@@ -253,7 +319,7 @@ def build_report(active_count_i: int, problem_list: list) -> str:
                  f"in {active_count_i} active requirements.", "",
                  "| Check | Problems |", "|---|---|"]
     for rule_str in (ID_RULE_STR, REFERENCE_RULE_STR, PARENT_RULE_STR,
-                     CHILD_RULE_STR, MUST_RULE_STR):
+                     CHILD_RULE_STR, MUST_RULE_STR, POSITIVE_RULE_STR):
         rule_count_i = sum(problem_tuple[0] == rule_str
                            for problem_tuple in problem_list)
         line_list.append(f"| {rule_str} | {rule_count_i} |")

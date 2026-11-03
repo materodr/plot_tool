@@ -153,9 +153,9 @@ The user must be able to add a signal from the signal list to an existing plot.
 The user must be able to search for signals in the signal list panel by typing a text.
 
 ### HLFR-00034 Approximate search
-The search (HLFR-00033) must find a signal even when the typed text is not exactly the signal's name.
+The search (HLFR-00033) must also find the signals whose names are close to the typed text, not only the signals whose names match it exactly.
 
-Note: For example, typing part of the name, typing it in a different case, leaving out separators such as `_`, or making a small spelling mistake must still find the signal.
+Note: For example, typing part of the name, typing it in a different case, leaving out separators such as `_`, or making a small spelling mistake still finds the signal.
 
 ### HLFR-00053 Synthetic signals
 The user must be able to create, from a signal in the signal list, including a synthetic signal, a new signal computed from it.

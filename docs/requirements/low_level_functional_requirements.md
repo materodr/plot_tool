@@ -173,9 +173,9 @@ Note: The time is measured from the second launch onward, on the computer the ap
 *Parent: HLFR-00047*
 
 ### LLFR-00189 No repeated startup work
-The app must not repeat on every launch work whose result does not change between launches.
+The app must only repeat on each launch the startup work whose results can change between launches.
 
-Note: For example, the cache of fonts used to draw text in the plots is built on every launch today; it must be built once and reused.
+Note: For example, the cache of fonts used to draw text in the plots is built on the first launch and reused on later launches.
 
 *Parent: HLFR-00047*
 
@@ -686,7 +686,12 @@ The line below the name in the button tip of each button with a shortcut (LLFR-0
 | Text | Hold T | Hold T |
 | Arrow | Hold R | Hold R |
 
-Note: The texts of LLFR-00215, LLFR-00463, LLFR-00464 and LLFR-00465 follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00367, LLFR-00078, LLFR-00208, LLFR-00074, LLFR-00659, LLFR-00206, LLFR-00672 and LLFR-00356. When a shortcut or a mouse use changes, its button tip text must change with it.
+Note: The texts of LLFR-00215, LLFR-00463, LLFR-00464 and LLFR-00465 follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00367, LLFR-00078, LLFR-00208, LLFR-00074, LLFR-00659, LLFR-00206, LLFR-00672 and LLFR-00356.
+
+*Parent: HLFR-00042*
+
+### LLFR-00883 Button tip texts follow their shortcuts
+When a shortcut or a mouse use that a button tip names (LLFR-00213, LLFR-00214) changes, the app must change the text of that button tip with it.
 
 *Parent: HLFR-00042*
 
@@ -900,7 +905,7 @@ Note: A tab that is not created is not listed on its own in the load report (LLF
 ### LLFR-00232 Data tips and delta markers in a layout
 When loading a layout, the app must rebuild a pinned data tip or a delta marker only if the signal of each of its points is drawn in its plot and has a sample whose time differs from the saved time by at most 1 microsecond.
 
-*Parent: HLFR-00050, HLFR-00052, HLFR-00098*
+*Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00485 Points placed on the saved sample
 When the app rebuilds a pinned data tip or a delta marker from a layout (LLFR-00232), it must place each of its points on the sample whose time differs from the saved time by at most 1 microsecond.
@@ -962,7 +967,12 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 ### LLFR-00237 Layout load report
 After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00262, LLFR-00496, LLFR-00282, LLFR-00499, LLFR-00283, LLFR-00502, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00817, LLFR-00410, LLFR-00824), the app must show one information box that lists, except as in LLFR-00492: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use (LLFR-00489, LLFR-00499), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, flag, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced.
 
-Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long list must be scrollable.
+Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032).
+
+*Parent: HLFR-00052*
+
+### LLFR-00884 Scrollable load report
+The information box of LLFR-00237 must be scrollable when its list is longer than the box can show.
 
 *Parent: HLFR-00052*
 
@@ -1544,7 +1554,12 @@ CSV and Excel names must not be changed otherwise than as in LLFR-00550, LLFR-00
 ### LLFR-00404 Changed names after saving
 After saving the file, if any name was changed (LLFR-00403, LLFR-00407, LLFR-00557), including the name of the time signal, the app must show one information box that lists each changed name as `<old name> → <new name>`.
 
-Note: The box is an information box, not an error box (HLFR-00002). A long list must be scrollable, like the layout load report (LLFR-00237).
+Note: The box is an information box, not an error box (HLFR-00002).
+
+*Parent: HLFR-00090*
+
+### LLFR-00885 Scrollable changed names box
+The information box of LLFR-00404 must be scrollable when its list is longer than the box can show.
 
 *Parent: HLFR-00090*
 
@@ -2385,14 +2400,14 @@ Plotting several signals with the Enter key (LLFR-00295, LLFR-00629) or a drop (
 ### LLFR-00302 Selection keys over the signal list
 When the user presses the Data tip key or the Shift key while the mouse pointer is over the signal list panel, the app must not apply LLFR-00148 or LLFR-00154.
 
-Note: These keys select signals in the list (LLFR-00625, LLFR-00626), so using them there must not change the plot tool.
+Note: These keys select signals in the list (LLFR-00625, LLFR-00626), so using them there does not change the plot tool.
 
 *Parent: HLFR-00063, HLFR-00032*
 
 ### LLFR-00637 Selection key released over the signal list
 When the user releases the Data tip key or the Shift key after pressing it as in LLFR-00302, the app must leave the active plot tool unchanged.
 
-Note: These keys select signals in the list (LLFR-00625, LLFR-00626), so using them there must not change the plot tool.
+Note: These keys select signals in the list (LLFR-00625, LLFR-00626), so using them there does not change the plot tool.
 
 *Parent: HLFR-00063, HLFR-00032*
 

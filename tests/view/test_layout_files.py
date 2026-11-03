@@ -229,7 +229,7 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
         self.assertEqual(load_box.icon(), QMessageBox.Icon.Critical)
         self.assertIn("could not be read as a layout file", load_box.text())
 
-    @covers("LLFR-00237")
+    @covers("LLFR-00237", "LLFR-00884")
     def test_report_box_is_scrollable_information(self) -> None:
         """The report is an information box with a scrollable list.
 
