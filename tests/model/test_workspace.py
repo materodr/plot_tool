@@ -53,7 +53,7 @@ class TabTest(unittest.TestCase):
         id_list = [tab.tab_id_i for tab in workspace.tab_list]
         self.assertEqual(len(set(id_list)), 3)
 
-    @covers("LLFR-00210", "LLFR-00026", "HLFR-00015")
+    @covers("LLFR-00210", "LLFR-00026", "HLFR-00015", "LLFR-00653")
     def test_deleted_tab_numbers_are_not_reused(self) -> None:
         """Deleting Tab 2 and adding a tab gives Tab 4, not Tab 2.
 
@@ -85,7 +85,7 @@ class TabTest(unittest.TestCase):
         workspace.rename_tab(first_tab.tab_id_i, "Tab 7")
         self.assertEqual(workspace.add_tab().name_str, "Tab 3")
 
-    @covers("LLFR-00210", "LLFR-00138")
+    @covers("LLFR-00210", "LLFR-00138", "LLFR-00653")
     def test_undone_tab_number_is_not_reused(self) -> None:
         """Restoring a snapshot from before an add keeps the number used.
 
@@ -106,7 +106,7 @@ class TabTest(unittest.TestCase):
         workspace.restore(later_snapshot)
         self.assertEqual(workspace.add_tab().name_str, "Tab 6")
 
-    @covers("LLFR-00210", "LLFR-00016")
+    @covers("LLFR-00210", "LLFR-00016", "LLFR-00654")
     def test_reset_restarts_the_numbering(self) -> None:
         """After reset (a file opened) the tabs count from Tab 1 again.
 
@@ -132,7 +132,8 @@ class TabTest(unittest.TestCase):
         self.assertEqual(workspace.next_tab_name(), "Tab 2")
         self.assertEqual(workspace.next_tab_name(), "Tab 2")
 
-    @covers("LLFR-00212", "LLFR-00210", "LLFR-00026", "HLFR-00015")
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00026", "HLFR-00015",
+            "LLFR-00653")
     def test_new_tab_skips_names_in_use(self) -> None:
         """Renamed "Tab 5" is skipped and deleted numbers stay used.
 
@@ -153,7 +154,7 @@ class TabTest(unittest.TestCase):
         workspace.delete_tab(workspace.tab_list[-1].tab_id_i)
         self.assertEqual(workspace.add_tab().name_str, "Tab 8")
 
-    @covers("LLFR-00212", "LLFR-00210")
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00655")
     def test_skipped_numbers_are_used_up(self) -> None:
         """Numbers skipped for a name in use are not handed out later.
 
@@ -188,7 +189,7 @@ class TabTest(unittest.TestCase):
                          ["Tab 1"])
         self.assertEqual(workspace.add_tab().name_str, "Tab 2")
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00658")
     def test_rename_to_another_tab_name_is_refused(self) -> None:
         """Another tab's name, trimmed and exact, keeps the old name.
 
@@ -210,7 +211,7 @@ class TabTest(unittest.TestCase):
         self.assertTrue(workspace.rename_tab(first_tab.tab_id_i, " Tab 1 "))
         self.assertEqual(first_tab.name_str, "Tab 1")
 
-    @covers("LLFR-00211", "LLFR-00212")
+    @covers("LLFR-00211", "LLFR-00212", "LLFR-00658")
     def test_is_tab_name_taken(self) -> None:
         """is_tab_name_taken trims, is exact and can leave a tab out.
 

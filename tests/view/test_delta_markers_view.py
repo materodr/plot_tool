@@ -240,7 +240,7 @@ class DeltaPickTest(DeltaWidgetTestCase):
         self.assertEqual(self.pin_list, [])
         self.assertEqual(self.range_list, [])
 
-    @covers("LLFR-00165")
+    @covers("LLFR-00165", "LLFR-00683")
     def test_click_off_every_curve_reports_nothing(self) -> None:
         """A click on an empty area or outside the axes sends nothing.
 
@@ -280,7 +280,7 @@ class DeltaPickTest(DeltaWidgetTestCase):
         self.assertEqual(self.pick_list, [self.sine_point(2.0)])
         self.assertEqual(self.move_list, [])
 
-    @covers("LLFR-00153", "LLFR-00163")
+    @covers("LLFR-00153", "LLFR-00163", "LLFR-00679")
     def test_press_on_a_pinned_tip_moves_it_and_never_picks(self) -> None:
         """A press on a pinned tip's point starts moving the tip.
 
@@ -307,7 +307,7 @@ class DeltaPickTest(DeltaWidgetTestCase):
 class DeltaFirstPointTest(DeltaWidgetTestCase):
     """The dot of a picked first point."""
 
-    @covers("LLFR-00163", "LLFR-00172")
+    @covers("LLFR-00163", "LLFR-00172", "LLFR-00686", "LLFR-00680")
     def test_dot_in_marker_color_at_the_point(self) -> None:
         """The dot is drawn at the point in the reserved marker color.
 
@@ -332,7 +332,7 @@ class DeltaFirstPointTest(DeltaWidgetTestCase):
             self.assertNotEqual(to_hex_str(line.get_color()),
                                 MARKER_COLOR_STR)
 
-    @covers("LLFR-00164", "LLFR-00167")
+    @covers("LLFR-00164", "LLFR-00167", "LLFR-00681")
     def test_dot_removed_and_kept_over_redraws(self) -> None:
         """The dot survives a redraw, goes with () or a tool change.
 
@@ -441,7 +441,7 @@ class DeltaDrawingTest(DeltaWidgetTestCase):
         self.assertLessEqual(box.y0, float(tip_px[1]))
         self.assertGreaterEqual(box.y1, float(tip_px[1]))
 
-    @covers("LLFR-00173", "LLFR-00168", "LLFR-00170")
+    @covers("LLFR-00173", "LLFR-00168", "LLFR-00170", "LLFR-00687")
     def test_markers_follow_zoom_pan_and_resize(self) -> None:
         """After a zoom, a pan and a resize, both stay at their points.
 
@@ -473,7 +473,7 @@ class DeltaDrawingTest(DeltaWidgetTestCase):
                                   self.plot_widget.delta_label_text(2)),
                                  text_tuple)
 
-    @covers("LLFR-00170", "LLFR-00171", "LLFR-00173")
+    @covers("LLFR-00170", "LLFR-00171", "LLFR-00173", "LLFR-00685")
     def test_delta_y_near_the_right_edge_is_mirrored_left(self) -> None:
         """No room right of the later point: bracket and value go left.
 
@@ -930,7 +930,8 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         return plot_widget_list[0]
 
     @covers("LLFR-00161", "LLFR-00163", "LLFR-00164", "LLFR-00168",
-            "LLFR-00169", "LLFR-00138", "LLFR-00140", "LLFR-00109")
+            "LLFR-00169", "LLFR-00138", "LLFR-00140", "LLFR-00109",
+            "LLFR-00682")
     def test_measure_delta_x_between_two_curves_and_undo(self) -> None:
         """speed at 0.5 s then force at 1.5 s gives "Δt = 1 s"; undo.
 

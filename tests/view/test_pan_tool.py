@@ -179,7 +179,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertEqual(self.menu_list, [])
         self.assertFalse(self.plot_widget.text_note_editor_open_b)
 
-    @covers("LLFR-00356", "LLFR-00120", "LLFR-00109")
+    @covers("LLFR-00356", "LLFR-00120", "LLFR-00109", "LLFR-00757")
     def test_left_drag_pans_by_the_pointer_distance(self) -> None:
         """The time grabbed at the press stays under the pointer, the
         width is kept, y fits the curves, and the tool stays active.
@@ -220,7 +220,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertEqual(self.plot_widget.plot_tool_str, PAN_TOOL_STR)
         self.assert_nothing_else_happened()
 
-    @covers("LLFR-00356", "LLFR-00118")
+    @covers("LLFR-00356", "LLFR-00118", "LLFR-00757")
     def test_no_pan_at_the_whole_range(self) -> None:
         """At the whole time range a left drag changes nothing.
 
@@ -236,7 +236,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertEqual(self.range_list, [])
         self.assert_nothing_else_happened()
 
-    @covers("LLFR-00356", "LLFR-00119")
+    @covers("LLFR-00356", "LLFR-00119", "LLFR-00757")
     def test_pan_stops_at_first_and_last_sample(self) -> None:
         """A long left drag stops at the data's ends and keeps the width.
 
@@ -259,7 +259,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
             self.assertAlmostEqual(emitted_end_s - emitted_start_s, 2.0)
         self.left_release(press_x_px - 20.0 * pixels_per_second_f)
 
-    @covers("LLFR-00357")
+    @covers("LLFR-00357", "LLFR-00763")
     def test_click_without_a_move_does_nothing(self) -> None:
         """A left press and release at one point shifts nothing, pins
         nothing, places nothing and opens nothing, also on a curve and
@@ -354,7 +354,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertAlmostEqual(start_s, 2.5, delta=PIXEL_TOLERANCE_S)
         self.assertAlmostEqual(end_s - start_s, 2.0)
 
-    @covers("LLFR-00207", "LLFR-00356")
+    @covers("LLFR-00207", "LLFR-00356", "LLFR-00454")
     def test_pan_is_a_drag_in_progress(self) -> None:
         """From the left press to the release the plot reports a mouse
         drag, so the Z key does nothing.
@@ -371,7 +371,8 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.left_release(self.display_x_px(4.3))
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
 
-    @covers("LLFR-00357", "LLFR-00153", "LLFR-00152")
+    @covers("LLFR-00357", "LLFR-00153", "LLFR-00152", "LLFR-00679",
+            "LLFR-00760")
     def test_press_on_a_pinned_tip_moves_it_and_does_not_pan(self) -> None:
         """A left press on a pinned tip's label drags the label.
 
@@ -396,7 +397,8 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertEqual(len(self.tip_move_list), 1)
         self.assertEqual(self.tip_move_list[0][0], 0)
 
-    @covers("LLFR-00357", "LLFR-00339")
+    @covers("LLFR-00357", "LLFR-00339", "LLFR-00742", "LLFR-00743",
+            "LLFR-00760")
     def test_press_on_a_text_note_moves_it_and_does_not_pan(self) -> None:
         """A left press on a text note drags the note.
 
@@ -442,7 +444,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertAlmostEqual(start_s, 2.5, delta=PIXEL_TOLERANCE_S)
         self.assertAlmostEqual(end_s - start_s, 4.0)
 
-    @covers("LLFR-00357", "LLFR-00086")
+    @covers("LLFR-00357", "LLFR-00086", "LLFR-00761", "LLFR-00762")
     def test_press_on_a_vertical_marker_pans(self) -> None:
         """A press on a marker pans and leaves the marker in place.
 
@@ -457,7 +459,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertEqual(self.plot_widget.marker_time_s(1), 4.0)
         self.assert_nothing_else_happened()
 
-    @covers("LLFR-00357", "LLFR-00163")
+    @covers("LLFR-00357", "LLFR-00163", "LLFR-00761", "LLFR-00762")
     def test_press_on_a_delta_marker_pans(self) -> None:
         """A press on a delta marker's dot pans, picks no point.
 
@@ -475,7 +477,8 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
         self.assertEqual(self.plot_widget.delta_marker_id_list(), [5])
         self.assert_nothing_else_happened()
 
-    @covers("LLFR-00357", "LLFR-00318")
+    @covers("LLFR-00357", "LLFR-00318", "LLFR-00722", "LLFR-00761",
+            "LLFR-00762")
     def test_press_inside_an_area_pans(self) -> None:
         """A press inside an area, and on its edge, pans and neither
         moves nor resizes the area.
@@ -499,7 +502,8 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
 class PanFrequencyPlotTest(unittest.TestCase):
     """A left drag with the Pan tool on a frequency plot alone."""
 
-    @covers("LLFR-00356", "LLFR-00258", "LLFR-00118", "LLFR-00119")
+    @covers("LLFR-00356", "LLFR-00258", "LLFR-00118", "LLFR-00119",
+            "LLFR-00694", "LLFR-00757")
     def test_left_drag_stays_in_the_frequency_range(self) -> None:
         """A left drag pans a zoomed frequency plot within 0 Hz to its
         highest frequency, and does nothing at its whole range.
@@ -658,7 +662,8 @@ class PanEndToEndTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00355", "LLFR-00356", "LLFR-00258", "LLFR-00070",
-            "LLFR-00109", "LLFR-00079")
+            "LLFR-00109", "LLFR-00079", "LLFR-00693", "LLFR-00758",
+            "LLFR-00759")
     def test_pan_moves_all_time_plots_and_one_frequency_plot(self) -> None:
         """With the Pan button active, a left drag on a time plot pans
         every time plot and not the frequency plot; a drag on the
@@ -724,7 +729,7 @@ class PanEndToEndTest(unittest.TestCase):
         self.assertTrue(self.top_panel.pan_button.is_active())
         self.assertEqual(self.box_record_list, [])
 
-    @covers("LLFR-00207", "LLFR-00356")
+    @covers("LLFR-00207", "LLFR-00356", "LLFR-00454")
     def test_z_key_does_nothing_during_a_pan(self) -> None:
         """While the left button pans, the Z key resets nothing; after
         the release it resets the zoom again.
@@ -827,7 +832,8 @@ class PanButtonTest(unittest.TestCase):
                          self.top_panel.marker_button.x())
         self.assertFalse(pan_button.is_active())
 
-    @covers("LLFR-00215", "LLFR-00214", "LLFR-00213", "LLFR-00181")
+    @covers("LLFR-00215", "LLFR-00214", "LLFR-00213", "LLFR-00181",
+            "LLFR-00464")
     def test_pan_button_tip_on_both_systems(self) -> None:
         """The tip shows "Pan" and "Drag on a plot to pan" in a paler
         color, on macOS and on Windows.

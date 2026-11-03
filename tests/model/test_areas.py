@@ -58,7 +58,7 @@ class AreaSpanTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     area_span_tuple(start_s, end_s)
 
-    @covers("LLFR-00304")
+    @covers("LLFR-00304", "LLFR-00702")
     def test_shared_edge_is_no_overlap(self) -> None:
         """Two spans that only share an edge do not overlap; any common
         part does.
@@ -95,7 +95,7 @@ class CreateAreaTest(AreaModelTestCase):
             (second_area.area_id_i, "Area 2", 3.0, 4.0,
              DEFAULT_AREA_COLOR_STR)))
 
-    @covers("LLFR-00304", "LLFR-00309")
+    @covers("LLFR-00304", "LLFR-00309", "LLFR-00702", "LLFR-00706")
     def test_overlap_or_empty_span_creates_nothing(self) -> None:
         """An overlapping or empty area is refused and uses no number;
         an area that shares an edge is accepted.
@@ -115,7 +115,7 @@ class CreateAreaTest(AreaModelTestCase):
         self.assertEqual(area_name_list(self.workspace),
                          ["Area 1", "Area 2", "Area 3"])
 
-    @covers("LLFR-00309")
+    @covers("LLFR-00309", "LLFR-00706")
     def test_numbers_never_reused_until_reset(self) -> None:
         """A deleted area's number, or one whose creation is undone, is
         not reused; opening a file (reset) restarts at "Area 1".
@@ -168,7 +168,7 @@ class ChangeAreaTest(AreaModelTestCase):
         self.first_area = self.workspace.add_area(1.0, 2.0)
         self.second_area = self.workspace.add_area(4.0, 5.0)
 
-    @covers("LLFR-00312", "LLFR-00313")
+    @covers("LLFR-00312", "LLFR-00313", "LLFR-00714", "LLFR-00717")
     def test_move_and_resize_never_overlap(self) -> None:
         """A span may move up to the next area's edge but not over it.
 
@@ -187,7 +187,7 @@ class ChangeAreaTest(AreaModelTestCase):
         self.assertEqual((self.first_area.start_s, self.first_area.end_s),
                          (0.5, 3.5))
 
-    @covers("LLFR-00315")
+    @covers("LLFR-00315", "LLFR-00719")
     def test_rename_strips_and_blank_keeps_the_name(self) -> None:
         """A name is stored without surrounding spaces; a blank one is
         refused.
@@ -203,7 +203,7 @@ class ChangeAreaTest(AreaModelTestCase):
         self.assertFalse(self.workspace.rename_area(999, "X"))
         self.assertEqual(self.first_area.name_str, "Run")
 
-    @covers("LLFR-00309", "LLFR-00315")
+    @covers("LLFR-00309", "LLFR-00315", "LLFR-00707")
     def test_rename_to_area_n_uses_up_n(self) -> None:
         """Renaming an area "Area 7" makes the next new area "Area 8".
 
@@ -257,7 +257,8 @@ class ChangeAreaTest(AreaModelTestCase):
 class AreaColorTest(AreaModelTestCase):
     """The color of an area (LLFR-00351)."""
 
-    @covers("LLFR-00351", "LLFR-00305", "LLFR-00319", "LLFR-00388")
+    @covers("LLFR-00351", "LLFR-00305", "LLFR-00319", "LLFR-00388",
+            "LLFR-00731", "LLFR-00810")
     def test_any_color_and_new_areas_get_the_default(self) -> None:
         """A new area gets the reserved marker color; an area may be
         given any "#rrggbb" color, kept in lowercase; a value that is not
@@ -282,7 +283,8 @@ class AreaColorTest(AreaModelTestCase):
         self.assertEqual(self.workspace.add_area(
             52.0, 53.0, "", "#000000").color_str, "#000000")
 
-    @covers("LLFR-00351", "LLFR-00140", "LLFR-00138", "LLFR-00390")
+    @covers("LLFR-00351", "LLFR-00140", "LLFR-00138", "LLFR-00390",
+            "LLFR-00811")
     def test_set_color_is_part_of_the_undo_state(self) -> None:
         """A color change of a known area to another "#rrggbb" color
         changes the state; the same color (in any case), a value that is
@@ -313,7 +315,7 @@ class AreaColorTest(AreaModelTestCase):
 class AreasWithoutPlotsTest(AreaModelTestCase):
     """Areas go with the last plot, like the vertical markers."""
 
-    @covers("LLFR-00310", "LLFR-00205")
+    @covers("LLFR-00310", "LLFR-00205", "LLFR-00711")
     def test_last_plot_deleted_deletes_the_areas(self) -> None:
         """Deleting the last plot deletes every area in the same change,
         so the snapshot before it brings them back.
@@ -328,7 +330,7 @@ class AreasWithoutPlotsTest(AreaModelTestCase):
         self.workspace.restore(snapshot)
         self.assertEqual(area_name_list(self.workspace), ["Area 1"])
 
-    @covers("LLFR-00310")
+    @covers("LLFR-00310", "LLFR-00711")
     def test_last_tab_with_plots_and_last_curve(self) -> None:
         """Deleting the tab of the last plot, or the last curve, deletes
         every area; while another plot exists, the areas stay.

@@ -31,7 +31,7 @@ def character_width(text_str: str) -> int:
 class MiddleElidedTextTest(unittest.TestCase):
     """The name is shortened in the middle with "..." (LLFR-00362)."""
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00648")
     def test_name_that_fits_is_whole(self) -> None:
         """A name that fits, exactly or with room, is not changed.
 
@@ -45,7 +45,7 @@ class MiddleElidedTextTest(unittest.TestCase):
         self.assertEqual(middle_elided_text("", 0, character_width), "")
         self.assertFalse(is_elided("run.csv", "run.csv"))
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00648")
     def test_long_name_keeps_start_and_extension(self) -> None:
         """A long name keeps its start and end around "...".
 
@@ -58,7 +58,7 @@ class MiddleElidedTextTest(unittest.TestCase):
         self.assertTrue(is_elided(shown_str, "measurement_2026.csv"))
         self.assertEqual(ELLIPSIS_TEXT_STR, "...")
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00648")
     def test_longest_text_that_fits(self) -> None:
         """The shortened text is the longest that fits, for every width.
 
@@ -81,7 +81,7 @@ class MiddleElidedTextTest(unittest.TestCase):
                 self.assertGreater(character_width(shown_str) + 10,
                                    width_i)
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00648")
     def test_too_narrow_for_any_character(self) -> None:
         """Only "..." is left when no character fits next to it.
 
@@ -199,7 +199,7 @@ class FileNameLinePanelTest(unittest.TestCase):
                          layout.indexOf(list_widget) + 1)
         self.assertEqual(layout.indexOf(label), -1)
 
-    @covers("LLFR-00362", "LLFR-00363")
+    @covers("LLFR-00362", "LLFR-00363", "LLFR-00649", "LLFR-00650")
     def test_shows_and_replaces_the_name(self) -> None:
         """A short name is shown whole, without a tip, and replaced.
 
@@ -215,7 +215,7 @@ class FileNameLinePanelTest(unittest.TestCase):
         self.assertEqual(label.text(), "signals.h5")
         self.assertEqual(self.panel.file_name(), "signals.h5")
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00648", "LLFR-00649")
     def test_long_name_is_shortened_with_tip(self) -> None:
         """A name wider than the panel is shortened and has a tip.
 
@@ -240,7 +240,7 @@ class FileNameLinePanelTest(unittest.TestCase):
         self.assertLessEqual(self.panel.width(), 250)
         self.assertEqual(self.panel.file_name(), LONG_NAME_STR)
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00648")
     def test_shortening_follows_the_width(self) -> None:
         """Widening shows the whole name; narrowing shortens it again.
 
@@ -261,7 +261,8 @@ class FileNameLinePanelTest(unittest.TestCase):
         self.assertGreater(len(wider_str), len(narrow_str))
         self.assertEqual(label.toolTip(), LONG_NAME_STR)
 
-    @covers("LLFR-00362", "LLFR-00095")
+    @covers("LLFR-00362", "LLFR-00095", "LLFR-00642", "LLFR-00643",
+            "LLFR-00645")
     def test_row_is_not_a_signal(self) -> None:
         """The name is not an item: not listed, selected or dragged.
 
@@ -290,7 +291,7 @@ class FileNameLinePanelTest(unittest.TestCase):
         self.assertEqual(label.text(), "Engine.csv")
         self.assertTrue(label.isVisible())
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00647")
     def test_line_has_no_menu(self) -> None:
         """A right-click on the line opens no menu.
 
@@ -386,7 +387,7 @@ class FileNameRowMouseTest(unittest.TestCase):
                          self.label.rect().center())
         self.application.processEvents()
 
-    @covers("LLFR-00362", "LLFR-00290")
+    @covers("LLFR-00362", "LLFR-00290", "LLFR-00643", "LLFR-00644")
     def test_clicks_never_select_the_row(self) -> None:
         """A click, Cmd/Ctrl + click or Shift + click on it selects none.
 
@@ -405,7 +406,8 @@ class FileNameRowMouseTest(unittest.TestCase):
                 self.assertIs(self.widget.currentItem(),
                               self.widget.item(1))
 
-    @covers("LLFR-00362", "LLFR-00290", "LLFR-00291")
+    @covers("LLFR-00362", "LLFR-00290", "LLFR-00291", "LLFR-00626",
+            "LLFR-00644")
     def test_shift_range_starts_at_the_first_signal(self) -> None:
         """A Shift + click range from the top holds only signals.
 
@@ -424,7 +426,8 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.assertEqual(self.panel.selected_signal_names(),
                          ["Time", "Pressure"])
 
-    @covers("LLFR-00362", "LLFR-00019", "LLFR-00295", "LLFR-00296")
+    @covers("LLFR-00362", "LLFR-00019", "LLFR-00295", "LLFR-00296",
+            "LLFR-00646")
     def test_double_click_and_enter_ignore_the_row(self) -> None:
         """A double-click on the row plots nothing; Enter plots signals.
 
@@ -462,7 +465,7 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.widget.itemDoubleClicked.emit(self.widget.item(2))
         self.assertEqual(self.double_clicked_list, ["Pressure"])
 
-    @covers("LLFR-00362", "LLFR-00021")
+    @covers("LLFR-00362", "LLFR-00021", "LLFR-00645")
     def test_row_is_not_dragged(self) -> None:
         """A press and move on the row starts no drag.
 
@@ -488,7 +491,7 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.assertEqual(drag_list, [])
         self.assertEqual(self.panel.selected_signal_names(), [])
 
-    @covers("LLFR-00362", "LLFR-00239")
+    @covers("LLFR-00362", "LLFR-00239", "LLFR-00647")
     def test_row_has_no_menu(self) -> None:
         """A right-click on the row opens no menu; a signal still has one.
 
@@ -513,7 +516,8 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(len(self.menu_list), 1)
 
-    @covers("LLFR-00362", "LLFR-00097", "LLFR-00095", "LLFR-00096")
+    @covers("LLFR-00362", "LLFR-00097", "LLFR-00095", "LLFR-00096",
+            "LLFR-00565", "LLFR-00639", "LLFR-00640", "LLFR-00641")
     def test_row_stays_first_during_any_search(self) -> None:
         """Filtered, empty or no-match lists keep the row on top.
 
@@ -571,7 +575,7 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.assertEqual(self.panel.name_color_str("Time"),
                          theme.TIME_SIGNAL_TEXT_COLOR_STR.lower())
 
-    @covers("LLFR-00362")
+    @covers("LLFR-00362", "LLFR-00648", "LLFR-00649")
     def test_long_name_in_a_narrow_list(self) -> None:
         """A long name is shortened to the row's width, with a tip.
 
@@ -597,7 +601,7 @@ class FileNameLineWindowTest(unittest.TestCase):
     """The main window passes the opened file's name to the line."""
 
     @covers("LLFR-00362", "LLFR-00363", "HLFR-00079", "LLFR-00010",
-            "LLFR-00013", "LLFR-00014")
+            "LLFR-00013", "LLFR-00014", "LLFR-00650", "LLFR-00651")
     def test_open_file_shows_its_name(self) -> None:
         """Opening a real CSV file through the app shows its name.
 

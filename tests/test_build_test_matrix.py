@@ -1,4 +1,5 @@
-"""Self-tests for tests/build_test_matrix.py (PCR-00022, PCR-00023)."""
+"""Self-tests for tests/build_test_matrix.py (PCR-00022, PCR-00023,
+PCR-00042)."""
 
 import io
 import unittest
@@ -109,7 +110,7 @@ class RecordingResultTest(unittest.TestCase):
 class MatrixResultTest(unittest.TestCase):
     """Check column 4 and the linking of tests to HLFRs."""
 
-    @covers("PCR-00023")
+    @covers("PCR-00023", "PCR-00042")
     def test_hlfr_result_values(self) -> None:
         """Column 4 is pass, fail, not run or no tests as documented.
 
@@ -122,7 +123,7 @@ class MatrixResultTest(unittest.TestCase):
         self.assertEqual(hlfr_result([PASSED_STR, SKIPPED_STR]), "not run")
         self.assertEqual(hlfr_result([]), "no tests")
 
-    @covers("PCR-00020", "PCR-00021", "PCR-00022", "PCR-00023")
+    @covers("PCR-00020", "PCR-00021", "PCR-00022", "PCR-00023", "PCR-00042")
     def test_failed_llfr_test_fails_its_hlfr_row(self) -> None:
         """A failed test tagged with an LLFR makes its HLFR row fail.
 

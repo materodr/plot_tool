@@ -597,7 +597,7 @@ class MarkerDragTest(MarkerWidgetTestCase):
         self.mouse("button_release_event", 14.0, 2.0)
         self.assertEqual(self.move_list, [(9, end_s)])
 
-    @covers("LLFR-00086", "LLFR-00078", "LLFR-00384")
+    @covers("LLFR-00086", "LLFR-00078", "LLFR-00384", "LLFR-00799")
     def test_drag_needs_the_marker_tool(self) -> None:
         """With another tool a press on the marker does not grab it
         (LLFR-00384; with no tool it does, LLFR-00382).

@@ -107,7 +107,9 @@ class NameTest(unittest.TestCase):
                 self.assertEqual(synthetic_name(operation_str, ["Speed"],
                                                 None, set()), name_str)
 
-    @covers("LLFR-00240", "LLFR-00043", "LLFR-00044", "HLFR-00054")
+    @covers("LLFR-00240", "LLFR-00043", "LLFR-00044", "HLFR-00054",
+            "LLFR-00569", "LLFR-00570", "LLFR-00571", "LLFR-00572",
+            "LLFR-00573", "LLFR-00576")
     def test_constant_operations(self) -> None:
         """Arithmetic and comparisons are <abbr>_<constant>_<signal>.
 
@@ -129,7 +131,9 @@ class NameTest(unittest.TestCase):
                                                 constant_f, set()),
                                  name_str)
 
-    @covers("LLFR-00240", "LLFR-00043", "LLFR-00044", "HLFR-00054")
+    @covers("LLFR-00240", "LLFR-00043", "LLFR-00044", "HLFR-00054",
+            "LLFR-00569", "LLFR-00570", "LLFR-00571", "LLFR-00572",
+            "LLFR-00573", "LLFR-00574", "LLFR-00575", "LLFR-00576")
     def test_numbers_are_plain_tokens_in_the_data_tip_format(
             self) -> None:
         """Every number holds only letters and digits, with 6 digits.
@@ -179,7 +183,8 @@ class NameTest(unittest.TestCase):
                                         1234567, set()),
                          "mavg_1234570samples_Speed")
 
-    @covers("LLFR-00240", "LLFR-00246", "HLFR-00054")
+    @covers("LLFR-00240", "LLFR-00246", "HLFR-00054", "LLFR-00569",
+            "LLFR-00577")
     def test_filter_names_hold_cutoff_and_order_not_start(self) -> None:
         """Filters are <abbr>_<cutoff>Hz_order<order>_<signal>.
 
@@ -196,7 +201,7 @@ class NameTest(unittest.TestCase):
                                         (0.25, 8, "zero"), set()),
                          "hpf_0p25Hz_order8_Speed")
 
-    @covers("LLFR-00240", "HLFR-00054")
+    @covers("LLFR-00240", "HLFR-00054", "LLFR-00569")
     def test_moving_average_name_holds_the_window(self) -> None:
         """A moving average is mavg_<window>samples_<signal>.
 
@@ -220,7 +225,7 @@ class NameTest(unittest.TestCase):
         self.assertEqual(synthetic_name("abs", ["der_int_Speed"], None,
                                         set()), "abs_der_int_Speed")
 
-    @covers("LLFR-00240", "LLFR-00275", "HLFR-00054")
+    @covers("LLFR-00240", "LLFR-00275", "HLFR-00054", "HLFR-00104")
     def test_product_names_both_signals(self) -> None:
         """A product is named <first>_prod_<second>.
 
@@ -238,7 +243,8 @@ class NameTest(unittest.TestCase):
                                         None, set()),
                          "int_Speed_prod_Torque")
 
-    @covers("LLFR-00240", "LLFR-00043", "HLFR-00054", "HLFR-00057")
+    @covers("LLFR-00240", "LLFR-00043", "HLFR-00054", "HLFR-00057",
+            "LLFR-00569")
     def test_fft_name_shows_the_time_range(self) -> None:
         """FFT names are fft_<start>s_to_<end>s_<signal>.
 
@@ -314,7 +320,7 @@ class StoreCreateTest(unittest.TestCase):
         self.assertIs(self.data_file.store.get("int_Speed"), integral)
         self.assertEqual(integral.operation.label_str, "Integral")
 
-    @covers("LLFR-00253", "HLFR-00055")
+    @covers("LLFR-00253", "HLFR-00055", "HLFR-00105")
     def test_create_never_changes_the_data_signals(self) -> None:
         """The data file signals are unchanged after every operation.
 
@@ -472,7 +478,7 @@ class StoreCreateTest(unittest.TestCase):
             self.data_file.create("fft", [fft_name_str], (0.0, 1.0))
         self.assertEqual(self.data_file.store.names(), [fft_name_str])
 
-    @covers("LLFR-00262")
+    @covers("LLFR-00262", "LLFR-00496")
     def test_missing_source_and_wrong_source_count(self) -> None:
         """A missing source or a wrong number of sources is rejected.
 
@@ -490,7 +496,8 @@ class StoreCreateTest(unittest.TestCase):
             self.data_file.create("square", ["Speed"])
 
     @covers("LLFR-00245", "LLFR-00247", "LLFR-00250", "LLFR-00269",
-            "LLFR-00272")
+            "LLFR-00272", "LLFR-00584", "LLFR-00590", "LLFR-00608",
+            "LLFR-00613")
     def test_failed_creation_leaves_the_store_unchanged(self) -> None:
         """Every rejected creation raises and adds nothing.
 
@@ -591,7 +598,7 @@ class StoreDeleteTest(unittest.TestCase):
             "add_1_Torque_prod_der_int_Speed", "max_Speed",
             "fft_0s_to_10s_der_int_Speed"])
 
-    @covers("LLFR-00255", "HLFR-00059")
+    @covers("LLFR-00255", "HLFR-00059", "LLFR-00597")
     def test_delete_removes_the_signal_and_its_dependents(self) -> None:
         """delete removes the signal and every dependent, and lists them.
 
@@ -639,7 +646,7 @@ class StoreRenameTest(unittest.TestCase):
         return self.data_file.store.rename(
             old_name_str, new_name_str, self.data_file.data_name_set())
 
-    @covers("LLFR-00266", "HLFR-00060")
+    @covers("LLFR-00266", "HLFR-00060", "LLFR-00604")
     def test_rename_keeps_dependent_names_and_updates_sources(
             self) -> None:
         """Dependents keep their names; their sources follow the rename.
@@ -661,7 +668,7 @@ class StoreRenameTest(unittest.TestCase):
             "der_int_Speed",
             "int_Speed_prod_int_Speed"])
 
-    @covers("LLFR-00266", "LLFR-00240")
+    @covers("LLFR-00266", "LLFR-00240", "LLFR-00605")
     def test_new_signals_use_the_new_name(self) -> None:
         """Signals created after the rename use the new name.
 
@@ -674,7 +681,7 @@ class StoreRenameTest(unittest.TestCase):
         with self.assertRaises(SyntheticSourceError):
             self.data_file.create("max", ["int_Speed"])
 
-    @covers("LLFR-00267")
+    @covers("LLFR-00267", "LLFR-00607")
     def test_empty_name_is_rejected_silently(self) -> None:
         """An empty or blank name raises EmptySyntheticNameError.
 
@@ -848,7 +855,7 @@ class LayoutEntryTest(unittest.TestCase):
         self.assertEqual(new_file.store.layout_entries(),
                          store.layout_entries())
 
-    @covers("LLFR-00262", "LLFR-00283")
+    @covers("LLFR-00262", "LLFR-00283", "LLFR-00496", "LLFR-00502")
     def test_fft_entries_are_not_created(self) -> None:
         """An FFT entry is never created from a layout file.
 
@@ -866,7 +873,7 @@ class LayoutEntryTest(unittest.TestCase):
                              "files.")
         self.assertEqual(self.data_file.store.names(), names_before_list)
 
-    @covers("LLFR-00262", "LLFR-00237")
+    @covers("LLFR-00262", "LLFR-00237", "LLFR-00496", "LLFR-00498")
     def test_entries_that_cannot_be_rebuilt(self) -> None:
         """Each reason of LLFR-00262 raises with a sentence.
 
@@ -937,7 +944,7 @@ class LayoutEntryTest(unittest.TestCase):
                 valid_dict, operation="highpass",
                 parameter={"cutoff": 1.0, "order": 2, "start": "zero"}))
 
-    @covers("LLFR-00262")
+    @covers("LLFR-00262", "LLFR-00496")
     def test_duplicate_saved_name_and_fft_source(self) -> None:
         """A saved name used twice, or an FFT source, is rejected.
 

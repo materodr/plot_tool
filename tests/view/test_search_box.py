@@ -119,7 +119,7 @@ class SearchBoxTest(unittest.TestCase):
         self.assertFalse(label.isVisible())
         self.assertEqual(self.panel.no_match_message(), "")
 
-    @covers("LLFR-00097")
+    @covers("LLFR-00097", "LLFR-00565")
     def test_no_match_message_shown_in_list_area(self) -> None:
         """The message is shown inside the empty list and hidden again.
 
@@ -147,7 +147,7 @@ class SearchBoxTest(unittest.TestCase):
         self.assertEqual(self.panel.no_match_message(), "")
         self.assertEqual(self.panel.signal_name_list(), NAME_LIST)
 
-    @covers("LLFR-00097", "LLFR-00019", "LLFR-00021")
+    @covers("LLFR-00097", "LLFR-00019", "LLFR-00021", "LLFR-00565")
     def test_message_is_not_a_signal(self) -> None:
         """The message is not an item: no double-click and no drag.
 

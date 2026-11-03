@@ -195,7 +195,8 @@ class MarkerNumberReuseTest(unittest.TestCase):
         self.assertEqual(marker_name_list(workspace), ["Flag 1"])
         self.assertEqual(workspace.add_marker(3.0).name_str, "Flag 3")
 
-    @covers("LLFR-00085", "LLFR-00111", "LLFR-00205", "LLFR-00015")
+    @covers("LLFR-00085", "LLFR-00111", "LLFR-00205", "LLFR-00015",
+            "LLFR-00667")
     def test_reset_clears_markers_and_restarts_numbering(self) -> None:
         """A file open (reset) deletes every marker; N restarts at 1.
 
@@ -367,7 +368,7 @@ class RemoveMarkerTest(unittest.TestCase):
         self.assertFalse(workspace.remove_marker(marker.marker_id_i))
         self.assertEqual(workspace.marker_list, [])
 
-    @covers("LLFR-00205", "LLFR-00049")
+    @covers("LLFR-00205", "LLFR-00049", "LLFR-00667")
     def test_deleting_the_last_plot_deletes_the_markers(self) -> None:
         """Markers stay while a plot is left, and go with the last one.
 
@@ -388,7 +389,7 @@ class RemoveMarkerTest(unittest.TestCase):
         new_plot.add_curve("Speed")
         self.assertEqual(workspace.add_marker(1.0).name_str, "Flag 3")
 
-    @covers("LLFR-00205", "LLFR-00051")
+    @covers("LLFR-00205", "LLFR-00051", "LLFR-00667")
     def test_removing_the_last_curve_deletes_the_markers(self) -> None:
         """The last curve of the last plot takes the markers along.
 
@@ -401,7 +402,7 @@ class RemoveMarkerTest(unittest.TestCase):
         self.assertIsNone(workspace.find_plot(plot.plot_id_i))
         self.assertEqual(workspace.marker_list, [])
 
-    @covers("LLFR-00205", "LLFR-00028")
+    @covers("LLFR-00205", "LLFR-00028", "LLFR-00667")
     def test_deleting_the_tab_of_the_last_plots_deletes_markers(self) -> None:
         """A tab delete deletes the markers only when no plot is left.
 
@@ -418,7 +419,7 @@ class RemoveMarkerTest(unittest.TestCase):
         self.assertTrue(workspace.delete_tab(first_tab_id_i))
         self.assertEqual(workspace.marker_list, [])
 
-    @covers("LLFR-00205", "LLFR-00138")
+    @covers("LLFR-00205", "LLFR-00138", "LLFR-00668")
     def test_undo_of_the_last_plot_delete_restores_markers(self) -> None:
         """The snapshot holds the markers, so undo brings them back.
 

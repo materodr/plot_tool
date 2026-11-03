@@ -191,7 +191,8 @@ class SearchEndToEndTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
 
     @covers("LLFR-00095", "LLFR-00098", "LLFR-00099", "LLFR-00100",
-            "LLFR-00101", "LLFR-00105", "HLFR-00033", "HLFR-00034")
+            "LLFR-00101", "LLFR-00105", "HLFR-00033", "HLFR-00034",
+            "LLFR-00566", "LLFR-00567")
     def test_requirement_examples(self) -> None:
         """The examples of the requirements filter the list.
 
@@ -228,7 +229,7 @@ class SearchEndToEndTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list(), FIRST_NAME_LIST)
 
-    @covers("LLFR-00097")
+    @covers("LLFR-00097", "LLFR-00565")
     def test_no_match_message(self) -> None:
         """No match empties the list and shows "No matching signals".
 

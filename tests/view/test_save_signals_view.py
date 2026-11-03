@@ -104,7 +104,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         return dialog_mock
 
     @covers("LLFR-00394", "LLFR-00347", "LLFR-00158", "LLFR-00159",
-            "LLFR-00181", "LLFR-00215")
+            "LLFR-00181", "LLFR-00215", "LLFR-00465")
     def test_button_right_of_copy_with_icon_and_name(self) -> None:
         """Save signals is directly right of Copy, the last of its group,
         shows only its icon and its plain name in the button tip.
@@ -132,7 +132,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertFalse(icons.icon_for(
             icon_shapes.SAVE_SIGNALS_ICON_STR).isNull())
 
-    @covers("LLFR-00395", "LLFR-00160", "LLFR-00350")
+    @covers("LLFR-00395", "LLFR-00160", "LLFR-00350", "LLFR-00531")
     def test_disabled_without_a_data_file(self) -> None:
         """Disabled and paler before a file is open, a click does
         nothing; enabled after a file is opened.
@@ -151,7 +151,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.open_data_file()
         self.assertTrue(button.isEnabled())
 
-    @covers("LLFR-00396", "LLFR-00397")
+    @covers("LLFR-00396", "LLFR-00397", "LLFR-00532", "LLFR-00536")
     def test_dialog_with_format_filters(self) -> None:
         """The dialog saves, offers the four formats, opens in the folder
         with the proposed name and format, and leaves the replace
@@ -190,7 +190,7 @@ class SaveSignalsViewTest(unittest.TestCase):
                 self.folder_str, "run1_signals.csv", "csv")[0], "")
 
     @covers("LLFR-00396", "LLFR-00401", "LLFR-00402", "LLFR-00404",
-            "LLFR-00407", "LLFR-00406")
+            "LLFR-00407", "LLFR-00406", "LLFR-00532", "LLFR-00558")
     def test_click_saves_the_file(self) -> None:
         """A click opens the dialog with run1_signals.csv and the CSV
         filter; the file is written and the renamed time signal listed.
@@ -226,7 +226,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         QTest.qWait(MINIMUM_ACTIVE_TIME_MS_I + 200)
         self.assertFalse(self.top_panel.save_signals_button.is_active())
 
-    @covers("LLFR-00397", "LLFR-00399")
+    @covers("LLFR-00397", "LLFR-00399", "LLFR-00534")
     def test_error_boxes(self) -> None:
         """The opened data file is refused, and a write failure shows
         the error box; both are critical boxes.
@@ -249,7 +249,7 @@ class SaveSignalsViewTest(unittest.TestCase):
                          self.message_box_class.Icon.Critical)
         self.assertIn("could not be saved", self.box_record_list[0][2])
 
-    @covers("LLFR-00408")
+    @covers("LLFR-00408", "LLFR-00559")
     def test_non_finite_values_show_a_critical_box(self) -> None:
         """A synthetic signal with an infinite value: a critical box that
         names it, and no Excel file afterwards.
@@ -274,7 +274,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertFalse(os.path.exists(target_str))
         self.assertEqual(self.changed_names_list, [])
 
-    @covers("LLFR-00404")
+    @covers("LLFR-00404", "LLFR-00885")
     def test_changed_names_box_is_scrollable_information(self) -> None:
         """The changed names box is an information box with a long list
         that can be scrolled.
@@ -300,7 +300,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         dialog.close()
         dialog.deleteLater()
 
-    @covers("LLFR-00405")
+    @covers("LLFR-00405", "LLFR-00556")
     def test_saving_keeps_plots_and_undo_history(self) -> None:
         """Saving leaves the plots, the signal list and the undo and redo
         history as they were.

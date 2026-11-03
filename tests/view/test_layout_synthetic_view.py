@@ -201,7 +201,8 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(store.get("lpf_2Hz_order3_int_Speed").parameter,
                          (2.0, 3, "zero"))
 
-    @covers("LLFR-00262", "LLFR-00237", "LLFR-00231")
+    @covers("LLFR-00262", "LLFR-00237", "LLFR-00231", "LLFR-00496",
+            "LLFR-00497", "LLFR-00498")
     def test_signal_not_created_is_reported(self) -> None:
         """A hand-edited entry that cannot be created is in the report,
         and its curve is not drawn."""
@@ -231,7 +232,7 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
                       self.report_list[0])
         self.assertIn("  - int_Speed\n", self.report_list[0] + "\n")
 
-    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229")
+    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229", "LLFR-00484")
     def test_fft_and_frequency_plots_are_not_saved(self) -> None:
         """An FFT signal and its frequency plot stay out of the file; a
         tab of only frequency plots does not come back."""

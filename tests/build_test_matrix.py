@@ -1,4 +1,5 @@
-"""Run all tests and write the test matrix (PCR-00019 to PCR-00023).
+"""Run all tests and write the test matrix (PCR-00019 to PCR-00023,
+PCR-00042).
 
 Usage:
     python tests/build_test_matrix.py [--output PATH] [--require-qt]
@@ -9,7 +10,7 @@ The matrix has one row per HLFR with four columns:
 2. its child LLFRs (PCR-00021);
 3. the tests linked to the HLFR and their last run status (PCR-00022);
 4. "pass" when all those tests passed, "fail" when at least one failed
-   (PCR-00023).
+   (PCR-00023, PCR-00042).
 
 A test is linked to an HLFR when it is tagged (tests/support.covers)
 with the HLFR itself or with one of its child LLFRs. Column 4 shows
@@ -209,7 +210,8 @@ def hlfr_result(status_list: list) -> str:
 
     Inputs:
         status_list: the statuses of the tests linked to the HLFR.
-    Outputs: "pass", "fail", "not run" or "no tests" (PCR-00023).
+    Outputs: "pass", "fail", "not run" or "no tests" (PCR-00023,
+        PCR-00042).
     """
     if not status_list:
         return "no tests"

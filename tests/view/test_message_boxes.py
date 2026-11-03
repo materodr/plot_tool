@@ -160,7 +160,7 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(shown_box.text(),
                          self.message_module.FULL_TAB_MESSAGE_STR)
 
-    @covers("LLFR-00211")
+    @covers("LLFR-00211", "LLFR-00657")
     def test_tab_name_taken_box_content(self) -> None:
         """The tab name box is information and names the taken name.
 
@@ -179,7 +179,7 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(self.button_value_set(box),
                          {self.message_box_class.StandardButton.Ok.value})
 
-    @covers("LLFR-00211")
+    @covers("LLFR-00211", "LLFR-00657")
     def test_show_tab_name_taken_notification_runs_box(self) -> None:
         """``show_tab_name_taken_notification`` runs the information box.
 

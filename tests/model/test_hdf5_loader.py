@@ -252,7 +252,7 @@ class Hdf5SignalTest(Hdf5FolderTest):
         for name_str in signal_file.signal_name_list:
             self.assertFalse(name_str.startswith("/"))
 
-    @covers("LLFR-00134")
+    @covers("LLFR-00134", "LLFR-00455")
     def test_signal_order_is_visit_order(self) -> None:
         """Signals keep h5py's visit order: by name, groups recursively.
 
@@ -269,7 +269,7 @@ class Hdf5SignalTest(Hdf5FolderTest):
                          ["Time", "alpha", "beta/a", "beta/b", "zeta"])
 
     @requires_h5py
-    @covers("LLFR-00134")
+    @covers("LLFR-00134", "LLFR-00455")
     def test_tracked_creation_order(self) -> None:
         """A file whose groups track their creation order is read in that
         order; an untracked group inside it is read by name.
@@ -533,7 +533,7 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
                     "Time": time_data, "A": self.time_array()})
                 self.assert_content_check(path_str, SIGNAL_COUNT_CHECK_STR)
 
-    @covers("LLFR-00135", "LLFR-00012", "HLFR-00008")
+    @covers("LLFR-00135", "LLFR-00012", "HLFR-00008", "LLFR-00456")
     def test_only_time_among_the_signals(self) -> None:
         """Only "Time" plus ignored datasets fails the signal count check.
 
@@ -545,7 +545,7 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
             "group/text": "hello", "scalar": 1.0})
         self.assert_content_check(path_str, SIGNAL_COUNT_CHECK_STR)
 
-    @covers("LLFR-00135", "LLFR-00012", "HLFR-00009")
+    @covers("LLFR-00135", "LLFR-00012", "HLFR-00009", "LLFR-00456")
     def test_different_sample_counts(self) -> None:
         """Signals of different lengths fail the sample count check.
 
@@ -560,7 +560,7 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
                          SAMPLE_COUNT_CHECK_STR)
         self.assertIn("'group/short' has 3", str(context.exception))
 
-    @covers("LLFR-00135", "HLFR-00009")
+    @covers("LLFR-00135", "HLFR-00009", "LLFR-00456")
     def test_ignored_datasets_are_not_counted(self) -> None:
         """Ignored datasets of other lengths don't fail the count check.
 

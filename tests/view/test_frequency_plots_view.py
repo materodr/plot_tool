@@ -115,7 +115,7 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
             float(self.frequency_array[index_i]),
             float(self.amplitude_array[index_i]))
 
-    @covers("LLFR-00256", "LLFR-00068", "HLFR-00058")
+    @covers("LLFR-00256", "LLFR-00068", "HLFR-00058", "LLFR-00689")
     def test_axis_label_and_curve_in_hz(self) -> None:
         """The x-axis says Hz and the curve is drawn against frequency.
 
@@ -135,7 +135,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.assertEqual(time_widget.axes.get_xlabel(), "Time (s)")
         time_widget.deleteLater()
 
-    @covers("LLFR-00258", "LLFR-00074", "LLFR-00113", "LLFR-00078")
+    @covers("LLFR-00258", "LLFR-00074", "LLFR-00113", "LLFR-00078",
+            "LLFR-00694", "LLFR-00659")
     def test_wheel_and_click_zoom_stay_in_the_frequency_range(self) -> None:
         """Zoom out stops at 0 Hz to the highest frequency.
 
@@ -156,7 +157,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.plot_widget.wheel_at(center_point, -5.0)
         self.assertEqual(range_list[-1], (0.0, 25.0))
 
-    @covers("LLFR-00258", "LLFR-00117", "LLFR-00118", "LLFR-00119")
+    @covers("LLFR-00258", "LLFR-00117", "LLFR-00118", "LLFR-00119",
+            "LLFR-00694")
     def test_pan_stays_in_the_frequency_range(self) -> None:
         """A pan never goes below 0 Hz or above the highest frequency.
 
@@ -212,7 +214,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.plot_widget.span_release_at(release_point)
         self.draw()
 
-    @covers("LLFR-00258", "LLFR-00209", "LLFR-00208")
+    @covers("LLFR-00258", "LLFR-00209", "LLFR-00208", "LLFR-00676",
+            "LLFR-00694")
     def test_span_zoom_stays_in_the_frequency_range(self) -> None:
         """A span dragged past an edge stops at 0 Hz or at the highest
         frequency.
@@ -253,7 +256,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.assertEqual(self.plot_widget.time_range_tuple(),
                          range_list[-1])
 
-    @covers("LLFR-00259", "LLFR-00203", "LLFR-00205", "LLFR-00081")
+    @covers("LLFR-00259", "LLFR-00203", "LLFR-00205", "LLFR-00081",
+            "LLFR-00696")
     def test_no_marker_and_no_preview(self) -> None:
         """Markers are not drawn, previewed or placed on the plot.
 
@@ -428,7 +432,7 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         return self.panel.signal_name_list()[-1]
 
     @covers("LLFR-00256", "LLFR-00249", "LLFR-00019", "HLFR-00058",
-            "HLFR-00057")
+            "HLFR-00057", "LLFR-00689")
     def test_fft_of_a_sine_peaks_at_its_frequency(self) -> None:
         """The frequency plot of a 2 Hz sine peaks at 2 Hz.
 
@@ -456,7 +460,8 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         self.assertAlmostEqual(end_hz, SAMPLE_RATE_HZ / 2.0)
         self.assertEqual(self.box_record_list, [])
 
-    @covers("LLFR-00257", "LLFR-00258", "LLFR-00070", "LLFR-00115")
+    @covers("LLFR-00257", "LLFR-00258", "LLFR-00070", "LLFR-00115",
+            "LLFR-00691", "LLFR-00693")
     def test_mixing_is_refused_and_ranges_stay_apart(self) -> None:
         """Drops that mix kinds show the box; zooms stay per plot.
 
@@ -500,7 +505,7 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         self.assertAlmostEqual(frequency_widget.time_range_tuple()[1],
                                SAMPLE_RATE_HZ / 2.0)
 
-    @covers("LLFR-00258", "LLFR-00209", "LLFR-00070")
+    @covers("LLFR-00258", "LLFR-00209", "LLFR-00070", "LLFR-00693")
     def test_span_zooms_stay_apart(self) -> None:
         """A span zoom of a frequency plot leaves the time plots alone,
         and a span zoom of a time plot leaves the frequency plot alone.

@@ -248,7 +248,8 @@ class ArrowDrawingTest(ArrowWidgetTestCase):
     """Drawing a new arrow with the Arrow tool (LLFR-00371,
     LLFR-00372)."""
 
-    @covers("LLFR-00371", "LLFR-00372", "LLFR-00373", "HLFR-00081")
+    @covers("LLFR-00371", "LLFR-00372", "LLFR-00373", "HLFR-00081",
+            "LLFR-00765", "LLFR-00766", "LLFR-00772")
     def test_drag_shows_a_preview_and_release_creates(self) -> None:
         """Below 5 pixels nothing is shown; from 5 pixels on a pale
         preview goes from the press to the pointer, outside the axes;
@@ -298,7 +299,7 @@ class ArrowDrawingTest(ArrowWidgetTestCase):
         # LLFR-00109: the tool stays active.
         self.assertEqual(self.plot_widget.plot_tool_str, ARROW_TOOL_STR)
 
-    @covers("LLFR-00372")
+    @covers("LLFR-00372", "LLFR-00766", "LLFR-00768")
     def test_release_near_the_press_creates_nothing(self) -> None:
         """A click, or a release less than 5 pixels from the press after
         the pointer went further, creates nothing and shows nothing.
@@ -318,7 +319,7 @@ class ArrowDrawingTest(ArrowWidgetTestCase):
         self.assertEqual(self.create_list, [])
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
 
-    @covers("LLFR-00372")
+    @covers("LLFR-00372", "LLFR-00767")
     def test_release_outside_ends_at_the_drawing_area(self) -> None:
         """A release outside the drawing area ends the arrow at the
         nearest point of the drawing area.
@@ -339,7 +340,7 @@ class ArrowDrawingTest(ArrowWidgetTestCase):
                 self.assert_near(start_px, start_tuple)
                 self.assert_near(end_px, corner_tuple)
 
-    @covers("LLFR-00371", "LLFR-00382")
+    @covers("LLFR-00371", "LLFR-00382", "LLFR-00795")
     def test_no_arrow_outside_or_without_the_tool(self) -> None:
         """A press outside the drawing area, or a drag with no tool or
         another tool where no arrow is, creates no arrow.
@@ -428,7 +429,7 @@ class ArrowLookTest(ArrowWidgetTestCase):
         self.assertEqual(len(patch.get_path().vertices), 6)
         self.assertEqual(patch.get_linestyle(), ARROW_LINE_STYLE_TUPLE)
 
-    @covers("LLFR-00373")
+    @covers("LLFR-00373", "LLFR-00770", "LLFR-00771")
     def test_dashed_line_and_head_in_its_color_between_layers(self) -> None:
         """An arrow without a color gets #ff8000; its line is dashed, its
         head filled, both in its color, drawn above the curves, flags,
@@ -491,7 +492,7 @@ class ArrowLookTest(ArrowWidgetTestCase):
                                  self.display_of(*EMPTY_ARROW_TUPLE[2:4]),
                                  0.01)
 
-    @covers("LLFR-00374")
+    @covers("LLFR-00374", "LLFR-00775", "LLFR-00776")
     def test_cut_at_the_edge_and_head_only_while_shown(self) -> None:
         """An arrow is clipped to the drawing area, and its head is
         drawn only while the end that holds it is shown.
@@ -522,7 +523,7 @@ class ArrowLookTest(ArrowWidgetTestCase):
             self.plot_widget.arrow_at(self.plot_widget.display_to_widget_point(
                 box.x0 - 5.0, self.display_of(2.0, 1.5)[1])), -1)
 
-    @covers("LLFR-00373", "LLFR-00383")
+    @covers("LLFR-00373", "LLFR-00383", "LLFR-00797")
     def test_on_the_arrow_within_5_pixels_or_on_the_head(self) -> None:
         """A point within 5 pixels of the line or on the head is on the
         arrow; further away it is not; of two arrows the one drawn last
@@ -577,7 +578,8 @@ class ArrowEditTest(ArrowWidgetTestCase):
     """Moving, rotating and stretching an arrow (LLFR-00376,
     LLFR-00377, LLFR-00382, LLFR-00384)."""
 
-    @covers("LLFR-00376", "LLFR-00382", "HLFR-00082", "HLFR-00085")
+    @covers("LLFR-00376", "LLFR-00382", "HLFR-00082", "HLFR-00085",
+            "LLFR-00772", "LLFR-00779", "LLFR-00793")
     def test_move_by_the_middle_keeps_length_and_direction(self) -> None:
         """With the Arrow tool or no tool, a drag from the middle shows a
         pale preview of the moved arrow and the release asks for the
@@ -627,7 +629,7 @@ class ArrowEditTest(ArrowWidgetTestCase):
                     self.plot_widget.arrow_preview_display_tuple(), ())
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00376", "LLFR-00377")
+    @covers("LLFR-00376", "LLFR-00377", "LLFR-00781", "LLFR-00787")
     def test_short_release_changes_nothing(self) -> None:
         """A release less than 5 pixels from the press, on the middle or
         on an end, changes nothing.
@@ -647,7 +649,8 @@ class ArrowEditTest(ArrowWidgetTestCase):
         self.assertEqual(self.change_list, [])
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00377", "LLFR-00382", "HLFR-00083", "HLFR-00085")
+    @covers("LLFR-00377", "LLFR-00382", "HLFR-00083", "HLFR-00085",
+            "LLFR-00782", "LLFR-00786", "LLFR-00793")
     def test_rotate_and_stretch_by_either_end(self) -> None:
         """A drag from within 5 pixels of an end moves that end to the
         pointer and keeps the other end; the arrowhead stays at the end
@@ -683,7 +686,7 @@ class ArrowEditTest(ArrowWidgetTestCase):
                     self.assert_near(preview_tuple[0], new_start_px)
                     self.assert_near(preview_tuple[1], new_end_px)
 
-    @covers("LLFR-00377")
+    @covers("LLFR-00377", "LLFR-00783", "LLFR-00784", "LLFR-00785")
     def test_nearer_end_and_minimum_length(self) -> None:
         """On a short arrow, a press within 5 pixels of both ends moves
         the nearer one; the moved end stays 5 pixels from the other; a
@@ -721,7 +724,8 @@ class ArrowEditTest(ArrowWidgetTestCase):
         self.assert_near(new_start_px, start_tuple, 0.01)
         self.assert_near(new_end_px, (box.x1, start_tuple[1]))
 
-    @covers("LLFR-00384", "LLFR-00357", "LLFR-00318")
+    @covers("LLFR-00384", "LLFR-00357", "LLFR-00318", "LLFR-00761",
+            "LLFR-00762", "LLFR-00798", "LLFR-00799")
     def test_other_tools_never_edit_an_arrow(self) -> None:
         """With every other tool, a drag on an arrow asks for no arrow
         change and does what the tool does there: the Zoom tool selects
@@ -758,7 +762,8 @@ class ArrowEditTest(ArrowWidgetTestCase):
         self.assertEqual(self.change_list, [])
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00383", "LLFR-00153", "LLFR-00339")
+    @covers("LLFR-00383", "LLFR-00153", "LLFR-00339", "LLFR-00679",
+            "LLFR-00743")
     def test_notes_and_tips_over_an_arrow_win(self) -> None:
         """A press on a text note or a pinned tip drawn over an arrow
         moves the note or the tip, never the arrow; with no tool, a press
@@ -800,7 +805,8 @@ class ArrowEditTest(ArrowWidgetTestCase):
         self.drag(self.display_of(5.0, 3.5), self.display_of(5.0, 2.0))
         self.assertEqual(len(self.change_list), 1)
 
-    @covers("LLFR-00383", "LLFR-00384", "LLFR-00382", "LLFR-00086")
+    @covers("LLFR-00383", "LLFR-00384", "LLFR-00382", "LLFR-00086",
+            "LLFR-00793", "LLFR-00798", "LLFR-00799")
     def test_arrow_before_flags_and_areas(self) -> None:
         """With no tool, a press on an arrow over a flag and an area
         moves the arrow, not the flag; with the Arrow tool, a press on a
@@ -827,7 +833,7 @@ class ArrowEditTest(ArrowWidgetTestCase):
         self.assertEqual(marker_move_list, [])
         self.assertEqual(area_change_list, [])
 
-    @covers("LLFR-00207", "LLFR-00376")
+    @covers("LLFR-00207", "LLFR-00376", "LLFR-00454")
     def test_drag_counts_as_a_mouse_drag(self) -> None:
         """From the press to the release, a drawing or an edit of an
         arrow is a mouse drag; a right press cancels it.
@@ -885,7 +891,7 @@ class ArrowMenuTest(ArrowWidgetTestCase):
         self.assertEqual(self.choose_menu(self.display_of(8.0, 2.0), ""),
                          ["Delete plot"])
 
-    @covers("LLFR-00381", "LLFR-00341", "LLFR-00046")
+    @covers("LLFR-00381", "LLFR-00341", "LLFR-00046", "LLFR-00789")
     def test_note_and_tip_menus_over_an_arrow(self) -> None:
         """A text note or a pinned tip over an arrow shows its own menu.
 
@@ -919,7 +925,7 @@ class ArrowImageTest(ArrowWidgetTestCase):
     """Arrows in the PDF pages and the copied image (LLFR-00129,
     LLFR-00133), without their previews (LLFR-00373)."""
 
-    @covers("LLFR-00129", "LLFR-00133", "LLFR-00373")
+    @covers("LLFR-00129", "LLFR-00133", "LLFR-00373", "LLFR-00773")
     def test_rendered_figure_shows_arrows_but_no_preview(self) -> None:
         """The figure image of the export holds a magenta arrow, but not
         the preview of an arrow being drawn.
@@ -1263,7 +1269,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.assertEqual(len(self.model_arrows()), 1)
         self.assertEqual(self.plot_widgets()[0].arrow_count(), 1)
 
-    @covers("LLFR-00207", "LLFR-00371", "LLFR-00376")
+    @covers("LLFR-00207", "LLFR-00371", "LLFR-00376", "LLFR-00454")
     def test_z_does_nothing_during_an_arrow_drag(self) -> None:
         """Z while an arrow is drawn or dragged does nothing; after the
         release it resets.
@@ -1308,7 +1314,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.release_key("Key_Z")
         self.assert_every_range(FULL_RANGE_TUPLE)
 
-    @covers("LLFR-00370", "LLFR-00366")
+    @covers("LLFR-00370", "LLFR-00366", "LLFR-00530")
     def test_escape_switches_off_the_arrow_tool(self) -> None:
         """Esc switches the Arrow tool off, but not while an arrow is
         being drawn.
@@ -1336,7 +1342,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.assert_tool_everywhere(NO_TOOL_STR)
         self.assertEqual(len(self.model_arrows()), 1)
 
-    @covers("LLFR-00379", "LLFR-00380", "LLFR-00390")
+    @covers("LLFR-00379", "LLFR-00380", "LLFR-00390", "LLFR-00788")
     def test_color_and_delete_through_the_menu(self) -> None:
         """"Color" asks the shared picker and draws the arrow in the
         confirmed color; "Delete" removes it; both are undoable.

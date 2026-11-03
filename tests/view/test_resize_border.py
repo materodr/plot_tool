@@ -145,7 +145,7 @@ class ResizeBorderTest(LayoutTestCase):
         self.assertEqual(self.handle.x() + self.handle.width(),
                          signal_list_panel.x())
 
-    @covers("LLFR-00280")
+    @covers("LLFR-00280", "LLFR-00443")
     def test_line_hidden_at_start(self) -> None:
         """Before the pointer comes over the border, nothing is drawn.
 
@@ -154,7 +154,7 @@ class ResizeBorderTest(LayoutTestCase):
         """
         self.assert_line_hidden()
 
-    @covers("LLFR-00280")
+    @covers("LLFR-00280", "LLFR-00443")
     def test_line_shown_on_hover_and_hidden_on_leave(self) -> None:
         """Hovering shows the blue line; leaving hides it at once.
 
@@ -171,7 +171,7 @@ class ResizeBorderTest(LayoutTestCase):
         self.send_leave()
         self.assert_line_hidden()
 
-    @covers("LLFR-00280", "LLFR-00073")
+    @covers("LLFR-00280", "LLFR-00073", "LLFR-00443")
     def test_line_shown_during_drag(self) -> None:
         """The line stays during a drag, even when the pointer leaves.
 
@@ -198,7 +198,7 @@ class ResizeBorderTest(LayoutTestCase):
                         -self.handle.width() * 4, "LeftButton", "NoButton")
         self.assert_line_hidden()
 
-    @covers("LLFR-00280")
+    @covers("LLFR-00280", "LLFR-00443")
     def test_release_over_the_border_keeps_the_line(self) -> None:
         """Released over the border, the line stays until the pointer leaves.
 

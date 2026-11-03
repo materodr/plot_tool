@@ -152,7 +152,8 @@ class RedoButtonTest(RedoWindowTestCase):
             disabled_image.pixelColor(*point_tuple).lightness(),
             enabled_image.pixelColor(*point_tuple).lightness())
 
-    @covers("LLFR-00192", "LLFR-00194", "LLFR-00001", "LLFR-00003")
+    @covers("LLFR-00192", "LLFR-00194", "LLFR-00001", "LLFR-00003",
+            "LLFR-00444")
     def test_click_redoes_the_undone_action(self) -> None:
         """Undo two plots, redo them one by one with the button.
 
@@ -185,7 +186,7 @@ class RedoButtonTest(RedoWindowTestCase):
         self.assertFalse(self.redo_button.isEnabled())
         self.assertFalse(self.redo_button.is_active())
 
-    @covers("LLFR-00194")
+    @covers("LLFR-00194", "LLFR-00458")
     def test_disabled_button_does_nothing(self) -> None:
         """Clicks on the disabled button change nothing.
 
@@ -238,7 +239,7 @@ class RedoShortcutTest(RedoWindowTestCase):
         self.assertEqual(len(self.current_plot_ids()), 2)
         self.assertFalse(self.redo_button.isEnabled())
 
-    @covers("LLFR-00194", "LLFR-00191")
+    @covers("LLFR-00194", "LLFR-00191", "LLFR-00458")
     def test_ctrl_y_does_nothing_when_nothing_to_redo(self) -> None:
         """With nothing to redo, Ctrl+Y changes nothing.
 

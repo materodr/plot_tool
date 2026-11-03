@@ -57,7 +57,7 @@ def menu_action_dict(menu) -> dict:
 class SharedPickerSourceTest(unittest.TestCase):
     """One picker for every item (LLFR-00388). No Qt is needed."""
 
-    @covers("LLFR-00388")
+    @covers("LLFR-00388", "LLFR-00809")
     def test_only_the_picker_module_uses_qcolordialog(self) -> None:
         """QColorDialog appears only in view/color_picker.py, and the
         main window's ask_color calls its pick_color, so every "Color"
@@ -93,7 +93,7 @@ class ColorPickerTest(unittest.TestCase):
         """
         self.application = get_qt_application()
 
-    @covers("LLFR-00389", "LLFR-00388")
+    @covers("LLFR-00389", "LLFR-00388", "LLFR-00810")
     def test_starts_at_the_current_color_without_alpha(self) -> None:
         """The window shows the item's color as chosen and has no alpha
         channel, so every color is opaque; an unusable start is black.
@@ -113,7 +113,7 @@ class ColorPickerTest(unittest.TestCase):
         self.assertEqual(dialog.currentColor().name(), "#000000")
         dialog.deleteLater()
 
-    @covers("LLFR-00390", "LLFR-00388")
+    @covers("LLFR-00390", "LLFR-00388", "LLFR-00810")
     def test_confirm_returns_the_opaque_color_and_cancel_none(self) -> None:
         """Confirming gives the chosen color in lowercase "#rrggbb",
         opaque even if the window held a see-through color; cancelling
@@ -158,7 +158,7 @@ class ColorPickerTest(unittest.TestCase):
         with mock.patch.object(QColorDialog, "exec", reject):
             self.assertIsNone(color_picker.pick_color(None, "#ff8000"))
 
-    @covers("LLFR-00388", "LLFR-00389")
+    @covers("LLFR-00388", "LLFR-00389", "LLFR-00809")
     def test_main_window_asks_the_shared_picker(self) -> None:
         """MainWindow.ask_color passes the current color to pick_color
         and returns its answer.
@@ -197,7 +197,8 @@ class FlagColorViewTest(PlotWidgetToolTestCase):
         return [to_hex_str(line.get_color()), to_hex_str(label.get_color()),
                 to_hex_str(time_text.get_color())]
 
-    @covers("LLFR-00392", "LLFR-00083", "LLFR-00084", "LLFR-00092")
+    @covers("LLFR-00392", "LLFR-00083", "LLFR-00084", "LLFR-00092",
+            "LLFR-00813")
     def test_line_label_and_time_in_the_flag_color(self) -> None:
         """Each flag's line, name label and time value are drawn in its
         own color; a flag without a usable color in the default color.
@@ -214,7 +215,7 @@ class FlagColorViewTest(PlotWidgetToolTestCase):
         self.assertEqual(self.flag_colors(3), [MARKER_COLOR_STR] * 3)
         self.assertEqual(self.flag_colors(4), ["#000000"] * 3)
 
-    @covers("LLFR-00083", "LLFR-00203", "LLFR-00172")
+    @covers("LLFR-00083", "LLFR-00203", "LLFR-00172", "LLFR-00660")
     def test_preview_and_delta_markers_keep_the_marker_color(self) -> None:
         """Whatever the flags' colors, the flag preview stays the pale
         marker color and the delta markers the marker color.
@@ -299,7 +300,8 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         """
         return 0.25 * float(self.plot_widget.axes.bbox.height)
 
-    @covers("LLFR-00336", "LLFR-00385")
+    @covers("LLFR-00336", "LLFR-00385", "LLFR-00739", "LLFR-00740",
+            "LLFR-00803")
     def test_white_rounded_box_with_the_default_colors(self) -> None:
         """A new note is #24303b text at 12 points on a white rounded box
         with an orange #ff8000 border, the box of a pinned data tip.
@@ -320,7 +322,8 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         self.assertEqual(patch.get_linewidth(),
                          theme.PINNED_TIP_BOX_DICT["linewidth"])
 
-    @covers("LLFR-00336", "LLFR-00387", "LLFR-00385")
+    @covers("LLFR-00336", "LLFR-00387", "LLFR-00385", "LLFR-00739",
+            "LLFR-00802", "LLFR-00808")
     def test_each_note_in_its_own_size_and_colors(self) -> None:
         """Each note is drawn with its size, border color and text color;
         the box stays white.
@@ -347,7 +350,7 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         self.assertGreater(self.plot_widget.text_note_box_extent(1).height,
                            self.plot_widget.text_note_box_extent(0).height)
 
-    @covers("LLFR-00341", "LLFR-00385", "LLFR-00387")
+    @covers("LLFR-00341", "LLFR-00385", "LLFR-00387", "LLFR-00802")
     def test_menu_size_presets_and_color_requests(self) -> None:
         """The menu is Edit, Size, Border color, Text color, Delete; Size
         lists the presets with the chosen one checked; each option asks
@@ -381,7 +384,8 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         self.assertEqual(text_list, [(0, "")])
         menu.deleteLater()
 
-    @covers("LLFR-00386", "LLFR-00385")
+    @covers("LLFR-00386", "LLFR-00385", "LLFR-00804", "LLFR-00805",
+            "LLFR-00806", "LLFR-00807")
     def test_never_taller_than_a_quarter_of_the_plot(self) -> None:
         """A 32-point note in a short plot is drawn at the largest size
         that keeps it within 25% of the drawing area's height; the menu
@@ -525,7 +529,8 @@ class ItemColorEndToEndTest(unittest.TestCase):
         self.process_events()
 
     @covers("LLFR-00392", "LLFR-00205", "LLFR-00389", "LLFR-00390",
-            "LLFR-00138", "LLFR-00192")
+            "LLFR-00138", "LLFR-00192", "LLFR-00664", "LLFR-00811",
+            "LLFR-00813")
     def test_flag_color_on_every_tab_with_undo(self) -> None:
         """"Color" on a flag opens the picker at its color; the confirmed
         color is drawn on the plots of both tabs; a cancel changes
@@ -565,7 +570,7 @@ class ItemColorEndToEndTest(unittest.TestCase):
         self.assertEqual(line_colors(), ["#1f77b4", "#1f77b4"])
 
     @covers("LLFR-00385", "LLFR-00387", "LLFR-00389", "LLFR-00390",
-            "LLFR-00138")
+            "LLFR-00138", "LLFR-00802", "LLFR-00808")
     def test_text_note_size_and_colors_with_undo(self) -> None:
         """Size, Border color and Text color change the drawn note, each
         as one undoable action.

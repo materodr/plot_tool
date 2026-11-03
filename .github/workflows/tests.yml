@@ -1,7 +1,7 @@
 name: Tests
 
 # Runs every test with PyQt6 offscreen, builds the test matrix
-# (PCR-00019 to PCR-00023) and checks PEP 8 (COR-00002).
+# (PCR-00019 to PCR-00023, PCR-00042) and checks PEP 8 (COR-00002).
 on:
   pull_request:
   push:

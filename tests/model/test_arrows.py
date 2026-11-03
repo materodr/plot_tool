@@ -36,7 +36,8 @@ class ArrowModelTest(unittest.TestCase):
         self.tab = self.workspace.tab_list[0]
         self.plot = self.workspace.add_plot(self.tab.tab_id_i)
 
-    @covers("LLFR-00372", "LLFR-00373", "LLFR-00375", "HLFR-00081")
+    @covers("LLFR-00372", "LLFR-00373", "LLFR-00375", "HLFR-00081",
+            "LLFR-00770", "LLFR-00778")
     def test_add_keeps_both_ends_and_the_default_color(self) -> None:
         """A new arrow goes from the press to the release, with the
         arrowhead at the release, in the app's text color; any number of
@@ -76,7 +77,8 @@ class ArrowModelTest(unittest.TestCase):
             self.plot.add_arrow("a", 0.0, 1.0, 1.0)
         self.assertEqual(self.plot.arrow_list, [])
 
-    @covers("LLFR-00376", "LLFR-00377", "HLFR-00082", "HLFR-00083")
+    @covers("LLFR-00376", "LLFR-00377", "HLFR-00082", "HLFR-00083",
+            "LLFR-00786")
     def test_set_ends_moves_rotates_and_stretches(self) -> None:
         """New ends replace the old ones, the arrowhead staying at the
         end; the same ends, an unknown index or invalid ends change
@@ -104,7 +106,7 @@ class ArrowModelTest(unittest.TestCase):
             self.plot.set_arrow_ends(0, math.nan, 1.0, 1.0, 2.0)
         self.assertEqual(arrow.end_value_f, 5.0)
 
-    @covers("LLFR-00379", "LLFR-00390", "HLFR-00088")
+    @covers("LLFR-00379", "LLFR-00390", "HLFR-00088", "LLFR-00811")
     def test_color_takes_any_hex_color_once(self) -> None:
         """Any "#rrggbb" color is kept in lowercase; the same color, a
         value that is not a color or an unknown index changes nothing.
@@ -138,7 +140,7 @@ class ArrowModelTest(unittest.TestCase):
         self.assertFalse(self.plot.remove_arrow(-1))
         self.assertEqual(len(self.plot.arrow_list), 2)
 
-    @covers("LLFR-00375")
+    @covers("LLFR-00375", "LLFR-00777")
     def test_arrows_belong_to_their_plot(self) -> None:
         """An arrow is only in its own plot, and goes away with it; a
         frequency plot holds arrows too.
@@ -230,7 +232,7 @@ class ArrowLayoutTest(unittest.TestCase):
         self.assertEqual(sorted(plot_entry_dict),
                          ["curves", "data_tips", "delta_markers"])
 
-    @covers("LLFR-00226", "LLFR-00229")
+    @covers("LLFR-00226", "LLFR-00229", "LLFR-00473", "LLFR-00474")
     def test_loading_keeps_the_arrows_of_the_kept_tabs(self) -> None:
         """Loading a layout adds tabs after the current ones, whose
         arrows stay unchanged, and the new plots have no arrow.

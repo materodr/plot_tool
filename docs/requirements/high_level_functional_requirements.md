@@ -72,7 +72,10 @@ The app must open a file only if it contains at least two signals, one of which 
 The app must open a file only if all its signals have the same number of samples.
 
 ### HLFR-00010 Replace file confirmation
-When the user selects a file to open while another file is already open, the app must ask the user whether to proceed, stating that proceeding will close the current file, before it reads the selected file. If the user proceeds but the selected file cannot be opened, the app must keep the current file open.
+When the user selects a file to open while another file is already open, the app must ask the user whether to proceed, stating that proceeding will close the current file, before it reads the selected file.
+
+### HLFR-00101 Failed replace keeps the current file
+If the user proceeds in the confirmation of HLFR-00010 but the selected file cannot be opened, the app must keep the current file open.
 
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
@@ -110,9 +113,15 @@ Note: The window works like the second signal window of the Product with signal 
 The user must not be able to change the time signal after the file is open.
 
 ### HLFR-00077 Button groups
-The buttons of the top panel must be organized in groups of related buttons. The buttons of a group must look like one joined block, with no space between them, and there must be a space between one group and the next.
+The buttons of the top panel must be organized in groups of related buttons.
 
 Note: The groups are: Open file, Save layout and Load layout; the plot tools (HLFR-00032); Reset zoom and Grid; Export, Copy and Save signals; Undo and Redo; Report a bug (HLFR-00078).
+
+### HLFR-00102 Joined buttons in a group
+The buttons of a group (HLFR-00077) must look like one joined block, with no space between them.
+
+### HLFR-00103 Space between button groups
+There must be a space between one button group (HLFR-00077) and the next.
 
 ### HLFR-00078 Report a bug
 The user must be able to open, from the top panel, the page that creates a new issue in the project's GitHub repository, in their web browser.
@@ -144,9 +153,9 @@ The user must be able to add a signal from the signal list to an existing plot.
 The user must be able to search for signals in the signal list panel by typing a text.
 
 ### HLFR-00034 Approximate search
-The search (HLFR-00033) must find a signal even when the typed text is not exactly the signal's name.
+The search (HLFR-00033) must also find the signals whose names are close to the typed text.
 
-Note: For example, typing part of the name, typing it in a different case, leaving out separators such as `_`, or making a small spelling mistake must still find the signal.
+Note: For example, typing part of the name, typing it in a different case, leaving out separators such as `_`, or making a small spelling mistake still finds the signal.
 
 ### HLFR-00053 Synthetic signals
 The user must be able to create, from a signal in the signal list, including a synthetic signal, a new signal computed from it.
@@ -154,10 +163,16 @@ The user must be able to create, from a signal in the signal list, including a s
 Note: Such a signal is called a **synthetic signal**. The operations that create one are Integral, Derivative, Low-pass filter, High-pass filter, Moving average, Max, Min, Greater than, Less than, Greater than or equal, Less than or equal, Add constant, Subtract constant, Multiply by constant, Divide by constant, Absolute value, Product with signal and FFT. Product with signal multiplies two signals sample by sample; the Comparison operations and the other Arithmetic operations, except Absolute value, use a constant number. An FFT signal is a synthetic signal created by the FFT operation.
 
 ### HLFR-00054 Synthetic signal name
-The app must name each synthetic signal with the abbreviation of its operation shown in the menu, an underscore, the value of its parameter when it has one, an underscore and the name of the signal it was computed from. For the product of two signals, the name must be the name of the first signal, the abbreviation of the operation and the name of the second signal, separated by underscores. The parameter of an FFT signal is the time range it was computed from (HLFR-00057).
+Except for the product of two signals (HLFR-00104), the app must name each synthetic signal with the abbreviation of its operation shown in the menu, an underscore, the value of its parameter when it has one, an underscore and the name of the signal it was computed from. The parameter of an FFT signal is the time range it was computed from (HLFR-00057).
+
+### HLFR-00104 Product signal name
+For the product of two signals, the name of the synthetic signal must be the name of the first signal, the abbreviation of the operation and the name of the second signal, separated by underscores.
 
 ### HLFR-00055 Synthetic signals in memory
-The app must keep synthetic signals only in its memory and must not add them to the data file.
+The app must keep synthetic signals only in its memory.
+
+### HLFR-00105 Synthetic signals not in the data file
+The app must not add synthetic signals to the data file.
 
 ### HLFR-00057 FFT time range
 The app must compute an FFT signal only from the samples within the time range shown in the plots when the FFT signal is created.
@@ -293,8 +308,11 @@ The user must be able to mark a time range with an area, shown on every time plo
 
 Note: An **area** is a shaded vertical band across the plot, between two time values, with a name label at its top. It is started from the **Area** button in the top panel.
 
-### HLFR-00067 Move or resize an area
-The user must be able to move an area along the x-axis and change its start and end times.
+### HLFR-00067 Move an area
+The user must be able to move an area along the x-axis.
+
+### HLFR-00106 Resize an area
+The user must be able to change the start and end times of an area.
 
 ### HLFR-00068 Rename an area
 The user must be able to rename an area.
@@ -352,15 +370,29 @@ The user must be able to change the color of a delta marker.
 The user must be able to delete in one action all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, or all the areas.
 
 ### HLFR-00094 Rename a label by double-click
-The user must be able to rename a tab, a flag, an area, a delta marker and an arrow by double-clicking its label. A double-click must change only the name, never a time or another value linked to the plotted curves.
+The user must be able to rename a tab, a flag, an area, a delta marker and an arrow by double-clicking its label.
 
-Note: The time of a flag, for example, changes only by moving the flag. A text note is edited by a double-click in the same way (HLFR-00075).
+Note: A text note is edited by a double-click in the same way (HLFR-00075).
+
+### HLFR-00107 Double-click changes only the name
+The double-click of HLFR-00094 must change only the name, never a time or another value linked to the plotted curves.
+
+Note: The time of a flag, for example, changes only by moving the flag.
 
 ### HLFR-00096 Object name in the plot menus
-The menu that appears when the user right-clicks in a plot must show, at its top, the name of the object it acts on. The name must look different from the options and must not be an option that can be clicked.
+The menu that appears when the user right-clicks in a plot must show, at its top, the name of the object it acts on.
+
+### HLFR-00108 Menu name look
+The name at the top of a plot menu (HLFR-00096) must look different from the options.
+
+### HLFR-00109 Menu name not clickable
+The name at the top of a plot menu (HLFR-00096) must not be an option that can be clicked.
 
 ### HLFR-00097 Name of a delta marker
-Each delta marker must show a label with its name, and the user must be able to rename it.
+Each delta marker must show a label with its name.
+
+### HLFR-00110 Rename a delta marker
+The user must be able to rename a delta marker.
 
 ### HLFR-00098 No delta marker of value zero
 The app must not create a delta marker whose value is zero.
@@ -369,4 +401,10 @@ The app must not create a delta marker whose value is zero.
 The user must be able to move each of the two points of a delta marker after it is created, by dragging it with the mouse.
 
 ### HLFR-00100 Name of an arrow
-Each arrow must show a label with its name, parallel to its straight line, and the user must be able to rename it. When the position or the angle of the arrow changes, the label must change with it.
+Each arrow must show a label with its name, parallel to its straight line.
+
+### HLFR-00111 Rename an arrow
+The user must be able to rename an arrow.
+
+### HLFR-00112 Arrow label follows the arrow
+When the position or the angle of an arrow changes, its label (HLFR-00100) must change with it.

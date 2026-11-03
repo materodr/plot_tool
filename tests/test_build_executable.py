@@ -220,7 +220,7 @@ class SampleCopyTest(unittest.TestCase):
             os.path.dirname(build_module.BIN_FOLDER_STR),
             build_module.REPOSITORY_ROOT_STR)
 
-    @covers("COR-00007", "COR-00020")
+    @covers("COR-00007", "COR-00020", "COR-00021")
     def test_copy_is_never_committed(self) -> None:
         """bin/user_tests is ignored by git.
 

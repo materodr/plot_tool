@@ -43,7 +43,7 @@ class CreateTextNoteTest(TextNoteModelTestCase):
         self.assertEqual(text_note, TextNote("peak here", 2.5, -1.25))
         self.assertEqual(self.plot.text_note_list, [text_note])
 
-    @covers("LLFR-00334")
+    @covers("LLFR-00334", "LLFR-00735")
     def test_blank_text_creates_nothing(self) -> None:
         """An empty text or one made only of spaces writes no note.
 
@@ -55,7 +55,7 @@ class CreateTextNoteTest(TextNoteModelTestCase):
         self.assertEqual(self.plot.text_note_list, [])
         self.assertEqual(text_note_text("  a b  "), "a b")
 
-    @covers("LLFR-00340")
+    @covers("LLFR-00340", "LLFR-00745")
     def test_any_number_of_notes_and_same_place(self) -> None:
         """A plot holds any number of notes, even at the same place.
 
@@ -120,7 +120,7 @@ class ChangeTextNoteTest(TextNoteModelTestCase):
         self.assertEqual(self.plot.text_note_list[1].text_str, "changed")
         self.assertEqual(self.plot.text_note_list[0].text_str, "first")
 
-    @covers("LLFR-00342")
+    @covers("LLFR-00342", "LLFR-00746")
     def test_blank_edit_keeps_the_previous_text(self) -> None:
         """A blank text, the same text or a bad index change nothing.
 
@@ -173,7 +173,7 @@ class ChangeTextNoteTest(TextNoteModelTestCase):
         self.plot.remove_curve("s1")
         self.assertEqual(len(self.plot.text_note_list), 2)
 
-    @covers("LLFR-00340", "LLFR-00049")
+    @covers("LLFR-00340", "LLFR-00049", "LLFR-00744")
     def test_notes_go_with_their_plot(self) -> None:
         """Deleting the plot removes its notes from the workspace.
 

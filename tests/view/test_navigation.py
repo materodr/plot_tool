@@ -221,7 +221,7 @@ class WheelStepTest(NavigationWidgetTestCase):
         self.plot_widget.wheel_at(self.point_at(3.0), 1.0)
         self.assert_width(9.5 * 0.95)
 
-    @covers("LLFR-00113", "LLFR-00074")
+    @covers("LLFR-00113", "LLFR-00074", "LLFR-00659", "LLFR-00670")
     def test_one_notch_backward_widens_to_1_over_0_95(self) -> None:
         """A backward notch multiplies the width by 1/0.95.
 
@@ -243,7 +243,7 @@ class WheelStepTest(NavigationWidgetTestCase):
         self.plot_widget.wheel_at(self.point_at(mouse_s), 1.0)
         self.assert_width(4.0)
 
-    @covers("LLFR-00113")
+    @covers("LLFR-00113", "LLFR-00671")
     def test_fractional_steps_zoom_in_proportion(self) -> None:
         """Half a notch zooms by 0.95 ** 0.5; 3 notches by 0.95 ** 3.
 
@@ -650,7 +650,7 @@ class ActionButtonTest(unittest.TestCase):
             QTest.qWait(5)
         return time.monotonic()
 
-    @covers("LLFR-00116", "LLFR-00001", "LLFR-00003")
+    @covers("LLFR-00116", "LLFR-00001", "LLFR-00003", "LLFR-00453")
     def test_finished_action_waits_for_the_minimum_time(self) -> None:
         """Finishing at once still shows the active color 100 ms.
 
@@ -854,7 +854,7 @@ class NavigationEndToEndTest(unittest.TestCase):
         for plot_widget in self.all_plot_widgets():
             self.assertFalse(plot_widget.grid_shown())
 
-    @covers("LLFR-00115", "LLFR-00070", "LLFR-00076")
+    @covers("LLFR-00115", "LLFR-00070", "LLFR-00076", "LLFR-00677")
     def test_reset_zoom_shows_the_whole_range_in_the_tab(self) -> None:
         """All plots of the tab go back to 0..4 s with the start y.
 
@@ -881,7 +881,7 @@ class NavigationEndToEndTest(unittest.TestCase):
         self.assertEqual(first_widget.time_range_tuple(),
                          second_widget.time_range_tuple())
 
-    @covers("LLFR-00115", "LLFR-00070", "LLFR-00076")
+    @covers("LLFR-00115", "LLFR-00070", "LLFR-00076", "LLFR-00677")
     def test_reset_zoom_resets_every_tab(self) -> None:
         """The plots of the tabs that are not shown are reset too.
 
@@ -1023,7 +1023,7 @@ class NavigationEndToEndTest(unittest.TestCase):
                 self.assertAlmostEqual(drawn_list[0][index_i],
                                        zoomed_tuple[index_i])
 
-    @covers("LLFR-00116", "LLFR-00001", "LLFR-00003")
+    @covers("LLFR-00116", "LLFR-00001", "LLFR-00003", "LLFR-00453")
     def test_reset_button_active_for_at_least_0_3_seconds(self) -> None:
         """The button is active from the click for 0.3 s, then normal.
 
@@ -1087,7 +1087,7 @@ class NavigationEndToEndTest(unittest.TestCase):
         self.assertGreaterEqual(normal_s - second_click_s,
                                 MINIMUM_ACTIVE_TIME_S)
 
-    @covers("LLFR-00116", "LLFR-00115")
+    @covers("LLFR-00116", "LLFR-00115", "LLFR-00453")
     def test_reset_without_plots_returns_to_normal(self) -> None:
         """With an empty tab the button still turns normal.
 

@@ -124,7 +124,8 @@ class RecentColorChoiceTest(RecentColorControllerTestCase):
 
     @covers("LLFR-00419", "LLFR-00390", "LLFR-00140", "LLFR-00388",
             "LLFR-00392", "LLFR-00351", "LLFR-00379", "LLFR-00387",
-            "LLFR-00409")
+            "LLFR-00409", "LLFR-00730", "LLFR-00837", "LLFR-00839",
+            "LLFR-00788", "LLFR-00808", "LLFR-00813", "LLFR-00818")
     def test_recent_color_is_one_undoable_action(self) -> None:
         """For every color option, a recent color is applied without
         opening the picker, as one undoable action; undo brings the old
@@ -144,7 +145,8 @@ class RecentColorChoiceTest(RecentColorControllerTestCase):
                 self.view.handler_dict["undo"]()
                 self.assertEqual(read_color(), old_color_str)
 
-    @covers("LLFR-00419", "LLFR-00390", "LLFR-00140")
+    @covers("LLFR-00419", "LLFR-00390", "LLFR-00140", "LLFR-00811",
+            "LLFR-00812")
     def test_current_color_records_nothing(self) -> None:
         """Choosing the recent color the item already has, in any case,
         changes nothing and adds no undoable action.
@@ -160,7 +162,8 @@ class RecentColorChoiceTest(RecentColorControllerTestCase):
                 self.assertEqual(read_color(), current_color_str)
                 self.assertEqual(self.undo_depth(), depth_i)
 
-    @covers("LLFR-00388", "LLFR-00389", "LLFR-00390")
+    @covers("LLFR-00388", "LLFR-00389", "LLFR-00390", "LLFR-00809",
+            "LLFR-00811")
     def test_other_color_opens_the_picker(self) -> None:
         """"Other color..." ("") opens the picker at the item's color;
         a confirmed color is applied, a cancel changes nothing.
@@ -202,7 +205,7 @@ class RecentColorChoiceTest(RecentColorControllerTestCase):
 class DeltaMarkerColorControllerTest(RecentColorControllerTestCase):
     """"Color" in the delta marker menu (LLFR-00409, LLFR-00172)."""
 
-    @covers("LLFR-00172", "LLFR-00083")
+    @covers("LLFR-00172", "LLFR-00083", "LLFR-00660")
     def test_new_delta_markers_get_the_marker_color(self) -> None:
         """Every new delta marker has, and is drawn in, the reserved
         marker color.
@@ -217,7 +220,8 @@ class DeltaMarkerColorControllerTest(RecentColorControllerTestCase):
                          [MARKER_COLOR_STR] * 2)
 
     @covers("LLFR-00409", "LLFR-00389", "LLFR-00390", "LLFR-00140",
-            "LLFR-00138", "LLFR-00192")
+            "LLFR-00138", "LLFR-00192", "LLFR-00819", "LLFR-00820",
+            "LLFR-00818")
     def test_color_of_one_delta_marker(self) -> None:
         """The picker starts at the marker's color; the confirmed color
         is drawn for that marker only, with its points and value
@@ -244,7 +248,7 @@ class DeltaMarkerColorControllerTest(RecentColorControllerTestCase):
         self.assertEqual(self.drawn_delta_colors(),
                          [MARKER_COLOR_STR, "#1f77b4"])
 
-    @covers("LLFR-00409", "LLFR-00390")
+    @covers("LLFR-00409", "LLFR-00390", "LLFR-00811", "LLFR-00812")
     def test_unknown_ids_cancel_and_same_color(self) -> None:
         """Unknown plot or marker ids, a cancelled picker and the
         marker's own color change nothing and record nothing.
@@ -262,7 +266,7 @@ class DeltaMarkerColorControllerTest(RecentColorControllerTestCase):
         self.assertEqual(self.undo_depth(), depth_i)
         self.assertEqual(self.drawn_delta_colors(), [MARKER_COLOR_STR] * 2)
 
-    @covers("LLFR-00172", "LLFR-00409")
+    @covers("LLFR-00172", "LLFR-00409", "LLFR-00686")
     def test_first_point_dot_keeps_the_marker_color(self) -> None:
         """After a marker got another color, a new first point and a new
         delta marker still use the reserved marker color: the first

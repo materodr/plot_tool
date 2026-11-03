@@ -232,7 +232,7 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual(self.shown_name_list(), ["Time", "pressure"])
         self.assert_button_finished()
 
-    @covers("LLFR-00014", "HLFR-00010", "LLFR-00003")
+    @covers("LLFR-00014", "HLFR-00010", "LLFR-00003", "LLFR-00450")
     def test_replace_no_keeps_current_file(self) -> None:
         """No in the Replace File box keeps the current names.
 
@@ -250,7 +250,7 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assert_button_finished()
 
     @covers("HLFR-00010", "LLFR-00010", "LLFR-00013", "LLFR-00014",
-            "LLFR-00328")
+            "LLFR-00328", "HLFR-00101", "LLFR-00448")
     def test_bad_file_after_open_asks_replace_first(self) -> None:
         """The Replace File box comes before the read of a bad file.
 
@@ -276,7 +276,8 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual(self.controller.file_controller.current_file
                          .path_str, self.first_path_str)
 
-    @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010")
+    @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010",
+            "LLFR-00447")
     def test_dialog_folder_follows_opened_files(self) -> None:
         """The first dialog shows the app folder, then the last file's.
 

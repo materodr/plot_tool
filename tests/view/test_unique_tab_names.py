@@ -83,7 +83,7 @@ class UniqueTabNameWindowTest(unittest.TestCase):
             self.application.processEvents()
         return shown_box_list
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00657")
     def test_rename_to_another_tab_name_shows_box(self) -> None:
         """Renaming Tab 2 to " Tab 1 " keeps Tab 2 and shows the box.
 
@@ -106,7 +106,7 @@ class UniqueTabNameWindowTest(unittest.TestCase):
         # LLFR-00140: the refused rename records no undo step.
         self.assertEqual(undo_history.depth(), depth_i)
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00657")
     def test_own_name_and_new_name_show_no_box(self) -> None:
         """The tab's own name and a free name are accepted silently.
 

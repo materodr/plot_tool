@@ -288,7 +288,8 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertEqual(self.curve_names(),
                          [("Tab 1", [[name_list[2]]])])
 
-    @covers("LLFR-00262", "LLFR-00231", "LLFR-00237")
+    @covers("LLFR-00262", "LLFR-00231", "LLFR-00237", "LLFR-00496",
+            "LLFR-00497", "LLFR-00498", "LLFR-00501")
     def test_signals_not_created_are_reported(self) -> None:
         """Not created signals are named with the reason, and their
         curves are treated as missing signals."""
@@ -323,7 +324,7 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertIn("Data tip at 2 s", report_str)
         self.assertIn("Delta X marker between 1 s and 5 s", report_str)
 
-    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229")
+    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229", "LLFR-00484")
     def test_round_trip_with_an_fft_after_reopening(self) -> None:
         """The FFT signal and its frequency plot do not come back, and
         nothing is reported, since the file does not hold them."""
@@ -335,7 +336,8 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertEqual(self.store.names(), name_list[:5])
         self.assertEqual(len(self.workspace.tab_list[0].plot_list), 2)
 
-    @covers("LLFR-00283", "LLFR-00262", "LLFR-00237", "LLFR-00231")
+    @covers("LLFR-00283", "LLFR-00262", "LLFR-00237", "LLFR-00231",
+            "LLFR-00502", "LLFR-00503", "LLFR-00504")
     def test_fft_entry_in_a_file_is_reported(self) -> None:
         """A hand-added FFT entry is not created; its curve is missing."""
         self.build_synthetic_layout()
@@ -475,7 +477,8 @@ class KeptTabsTest(LayoutSyntheticTestCase):
     LLFR-00262); the file's signals are reused or renamed (LLFR-00282).
     """
 
-    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00490",
+            "LLFR-00492")
     def test_same_layout_twice_adds_nothing(self) -> None:
         """Loading the same layout again reuses every signal."""
         name_list = self.build_synthetic_layout(with_fft_b=True)
@@ -500,7 +503,8 @@ class KeptTabsTest(LayoutSyntheticTestCase):
                              .pinned_tip_list), 1)
         self.assertEqual(self.view.synthetic_name_set, set(name_list))
 
-    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00237")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00237",
+            "LLFR-00473", "LLFR-00499", "LLFR-00500", "LLFR-00501")
     def test_changed_signals_get_new_names(self) -> None:
         """A changed recipe creates "_2" signals; the file's curves and
         later entries use them; the kept tabs are unchanged."""
@@ -534,7 +538,8 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         self.assertEqual(self.store.names(), name_list + renamed_list)
         self.assert_screen_matches_model()
 
-    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00473",
+            "LLFR-00495")
     def test_kept_curves_of_signals_left_out_stay(self) -> None:
         """Signals and curves the file does not hold are kept."""
         name_list = self.build_synthetic_layout(with_fft_b=True)
@@ -578,7 +583,8 @@ class EmptyTabsTest(LayoutSyntheticTestCase):
         layout_dict["tabs"] = tab_list
         return self.write_layout("tabs.json", layout_dict)
 
-    @covers("LLFR-00231", "LLFR-00229", "LLFR-00237")
+    @covers("LLFR-00231", "LLFR-00229", "LLFR-00237", "LLFR-00477",
+            "LLFR-00484")
     def test_shown_tab_is_the_first_created(self) -> None:
         """Empty tabs are skipped; the first created tab is shown."""
         path_str = self.file_with_tabs([
@@ -592,7 +598,8 @@ class EmptyTabsTest(LayoutSyntheticTestCase):
         self.assertEqual(self.view.current_tab_id(),
                          self.workspace.tab_list[0].tab_id_i)
 
-    @covers("LLFR-00231", "LLFR-00229", "LLFR-00066")
+    @covers("LLFR-00231", "LLFR-00229", "LLFR-00066", "LLFR-00476",
+            "LLFR-00484")
     def test_no_tab_with_a_plot_keeps_the_current_tabs(self) -> None:
         """When no tab of the file holds a plot, nothing changes."""
         self.view.handler_dict["add_tab"]()
@@ -704,7 +711,7 @@ class FailedLoadTest(LayoutSyntheticTestCase):
         layout_dict[LAYOUT_KEY_STR][0]["parameter"]["order"] = 5
         self.check_failed_load(layout_dict)
 
-    @covers("LLFR-00236", "LLFR-00262")
+    @covers("LLFR-00236", "LLFR-00262", "LLFR-00491")
     def test_unreadable_file_keeps_the_signals(self) -> None:
         """A file that is not a layout changes no synthetic signal."""
         name_list = self.build_synthetic_layout()

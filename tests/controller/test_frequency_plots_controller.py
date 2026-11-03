@@ -97,7 +97,7 @@ class FrequencyPlotCreationTest(FrequencyPlotTestCase):
     """Double-click on an FFT signal (LLFR-00256)."""
 
     @covers("LLFR-00256", "LLFR-00019", "LLFR-00020", "HLFR-00058",
-            "HLFR-00012")
+            "HLFR-00012", "LLFR-00689")
     def test_double_click_creates_a_frequency_plot(self) -> None:
         """An FFT signal gets a frequency plot drawn against frequency.
 
@@ -145,7 +145,8 @@ class FrequencyPlotCreationTest(FrequencyPlotTestCase):
                 self.view.drawn_dict[plot_id_i][0][0][1],
                 self.plot_controller.signal_file.time_array)
 
-    @covers("LLFR-00256", "LLFR-00031", "LLFR-00032", "HLFR-00018")
+    @covers("LLFR-00256", "LLFR-00031", "LLFR-00032", "HLFR-00018",
+            "LLFR-00690")
     def test_frequency_plots_count_towards_the_limit(self) -> None:
         """Time and frequency plots together fill a tab at 5 plots.
 
@@ -175,7 +176,7 @@ class FrequencyPlotCreationTest(FrequencyPlotTestCase):
 class FrequencyPlotDropTest(FrequencyPlotTestCase):
     """Drops that mix FFT and time signals (LLFR-00257)."""
 
-    @covers("LLFR-00257", "HLFR-00013")
+    @covers("LLFR-00257", "HLFR-00013", "LLFR-00691")
     def test_fft_signal_on_a_time_plot_is_refused(self) -> None:
         """An FFT signal dropped on a time plot shows the box only.
 
@@ -195,7 +196,7 @@ class FrequencyPlotDropTest(FrequencyPlotTestCase):
             self.plot_controller.undo_history.saved_snapshot_list()),
             snapshot_count_i)
 
-    @covers("LLFR-00257", "HLFR-00013", "LLFR-00055")
+    @covers("LLFR-00257", "HLFR-00013", "LLFR-00055", "LLFR-00691")
     def test_time_signals_on_a_frequency_plot_are_refused(self) -> None:
         """Data, Time and other synthetic signals are refused there.
 
@@ -244,7 +245,7 @@ class FrequencyPlotDropTest(FrequencyPlotTestCase):
 class FrequencyPlotRangeTest(FrequencyPlotTestCase):
     """Each frequency plot has its own x-axis range (LLFR-00258)."""
 
-    @covers("LLFR-00258", "LLFR-00180", "LLFR-00070")
+    @covers("LLFR-00258", "LLFR-00180", "LLFR-00070", "LLFR-00692")
     def test_new_frequency_plot_ignores_the_shared_time_range(self) -> None:
         """A zoomed time range is not applied to a new frequency plot.
 
@@ -269,7 +270,8 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.plot_time_range(self.last_plot_id()),
                          (2.0, 4.0))
 
-    @covers("LLFR-00258", "LLFR-00070", "LLFR-00074", "LLFR-00117")
+    @covers("LLFR-00258", "LLFR-00070", "LLFR-00074", "LLFR-00117",
+            "LLFR-00693")
     def test_zoom_changes_only_its_own_plot(self) -> None:
         """Time and frequency ranges never follow each other.
 
@@ -308,7 +310,8 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.plot_time_range(first_frequency_id_i),
                          (1.0, 3.0))
 
-    @covers("LLFR-00258", "LLFR-00115", "LLFR-00207", "HLFR-00035")
+    @covers("LLFR-00258", "LLFR-00115", "LLFR-00207", "HLFR-00035",
+            "LLFR-00695")
     def test_reset_zoom_returns_every_plot_to_its_whole_range(self) -> None:
         """Time plots show the file again; frequency plots 0 Hz to max.
 
@@ -332,7 +335,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
                          .frequency_range_tuple, ())
         self.assertEqual(self.plot_controller.shared_time_range_tuple, ())
 
-    @covers("LLFR-00258")
+    @covers("LLFR-00258", "LLFR-00692", "LLFR-00694")
     def test_range_limit_follows_the_highest_frequency(self) -> None:
         """Adding a curve widens the limit; removing it cuts the range.
 
@@ -366,7 +369,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.plot_time_range(plot_id_i),
                          (4.0, short_highest_hz))
 
-    @covers("LLFR-00258")
+    @covers("LLFR-00258", "LLFR-00692")
     def test_range_outside_the_limit_shows_the_whole_range(self) -> None:
         """A kept range wholly above the limit falls back to the whole.
 
@@ -401,7 +404,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.plot(plot_id_i).frequency_range_tuple, ())
         self.assertEqual(self.plot_controller.shared_time_range_tuple, ())
 
-    @covers("LLFR-00180", "LLFR-00070", "LLFR-00258")
+    @covers("LLFR-00180", "LLFR-00070", "LLFR-00258", "LLFR-00688")
     def test_shared_range_is_forgotten_with_the_last_time_plot(
             self) -> None:
         """Frequency plots do not keep the shared time range alive.
@@ -421,7 +424,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.plot_time_range(self.last_plot_id()),
                          (0.0, 9.9))
 
-    @covers("LLFR-00248", "LLFR-00258", "HLFR-00057")
+    @covers("LLFR-00248", "LLFR-00258", "HLFR-00057", "LLFR-00592")
     def test_fft_range_uses_only_the_time_plots(self) -> None:
         """An FFT made while only frequency plots exist uses the file.
 
@@ -459,7 +462,8 @@ class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
         self.view.handler_dict["plot_tool"](MARKER_TOOL_STR)
         self.view.handler_dict["marker_place_handler"](plot_id_i, time_s)
 
-    @covers("LLFR-00259", "LLFR-00205", "LLFR-00081", "HLFR-00028")
+    @covers("LLFR-00259", "LLFR-00205", "LLFR-00081", "HLFR-00028",
+            "LLFR-00696")
     def test_no_marker_on_frequency_plots(self) -> None:
         """Frequency plots get no marker and a click places none.
 
@@ -491,7 +495,7 @@ class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
             frequency_plot_id_i, marker_list[0].marker_id_i, 3.0)
         self.assertEqual(marker_list[0].time_s, 2.0)
 
-    @covers("LLFR-00205", "LLFR-00259")
+    @covers("LLFR-00205", "LLFR-00259", "LLFR-00667")
     def test_markers_stay_while_a_frequency_plot_exists(self) -> None:
         """A frequency plot is a plot: the markers are not deleted.
 
@@ -515,7 +519,8 @@ class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
         self.view.handler_dict["plot_delete_handler"](frequency_plot_id_i)
         self.assertEqual(self.plot_controller.workspace.marker_list, [])
 
-    @covers("LLFR-00261", "LLFR-00163", "LLFR-00164", "HLFR-00043")
+    @covers("LLFR-00261", "LLFR-00163", "LLFR-00164", "HLFR-00043",
+            "LLFR-00682")
     def test_delta_x_on_a_frequency_plot_measures_frequency(self) -> None:
         """The Delta X value of a frequency plot is a difference in Hz.
 

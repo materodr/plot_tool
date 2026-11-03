@@ -70,7 +70,7 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
                               areas=area_entry_list)
 
     @covers("LLFR-00319", "LLFR-00230", "LLFR-00310", "LLFR-00237",
-            "LLFR-00351")
+            "LLFR-00351", "LLFR-00479", "LLFR-00493", "LLFR-00727")
     def test_round_trip_rebuilds_the_areas_as_saved(self) -> None:
         """Saving and loading in an empty workspace gives the same areas
         and an empty report.
@@ -95,7 +95,8 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         self.assertEqual(self.workspace.add_area(6.0, 7.0).name_str,
                          "Area 2")
 
-    @covers("LLFR-00319", "LLFR-00237", "LLFR-00230")
+    @covers("LLFR-00319", "LLFR-00237", "LLFR-00230", "LLFR-00479",
+            "LLFR-00725")
     def test_every_reason_an_area_is_not_rebuilt(self) -> None:
         """Areas with a wrong order, times outside the file, an overlap
         with a current area or with one rebuilt before, or unreadable
@@ -139,7 +140,8 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         self.assertIn("not a number", line_list[7])
         self.assertIn("Not rebuilt:", result.report.text())
 
-    @covers("LLFR-00319", "LLFR-00310", "LLFR-00231")
+    @covers("LLFR-00319", "LLFR-00310", "LLFR-00231", "LLFR-00483",
+            "LLFR-00725")
     def test_areas_need_a_plot(self) -> None:
         """With no plot rebuilt, no area is kept, and it is reported.
 
@@ -171,7 +173,8 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         self.assertIn('replaced by "Area 5"',
                       result.report.replaced_line_list[0])
 
-    @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237")
+    @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237",
+            "LLFR-00726", "LLFR-00727", "LLFR-00728", "LLFR-00729")
     def test_missing_or_unusable_color_gives_the_default(self) -> None:
         """An area without "color" (an older file) gets the default color
         silently; a color written as "#rrggbb", in any case, is kept; a
@@ -203,7 +206,7 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
     @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237",
-            "LLFR-00228")
+            "LLFR-00228", "LLFR-00472", "LLFR-00728", "LLFR-00729")
     def test_color_names_of_older_files_are_replaced(self) -> None:
         """Color names that older layout files saved ("Orange", "Blue",
         "Magenta", ...) are not "#rrggbb": each such area gets the default
@@ -229,7 +232,7 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
                           line_str)
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
-    @covers("LLFR-00319", "LLFR-00230")
+    @covers("LLFR-00319", "LLFR-00230", "LLFR-00479")
     def test_file_without_areas_entry_adds_none(self) -> None:
         """An older file without "areas", or with a value that is not a
         list, adds no area and keeps the current ones.

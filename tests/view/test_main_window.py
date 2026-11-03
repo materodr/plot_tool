@@ -69,7 +69,7 @@ class MainWindowLayoutTest(unittest.TestCase):
             panel_x_i, panel_y_i = self.panel_position_tuple(panel)
             self.assertLessEqual(top_bottom_i, panel_y_i)
 
-    @covers("LLFR-00058")
+    @covers("LLFR-00058", "LLFR-00440")
     def test_signal_list_is_right_of_plot_panel(self) -> None:
         """The signal list panel starts right of where the plot panel ends.
 

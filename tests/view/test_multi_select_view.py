@@ -144,7 +144,7 @@ class SelectionPanelTest(unittest.TestCase):
         self.assertEqual([item.text() for item in
                           self.widget.selectedItems()], ["temperature"])
 
-    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063", "LLFR-00625")
     def test_data_tip_key_click_toggles(self) -> None:
         """Ctrl (Cmd on macOS) + click adds or removes one signal.
 
@@ -159,7 +159,7 @@ class SelectionPanelTest(unittest.TestCase):
         self.click(1, "ControlModifier")
         self.assertEqual(self.selected(), ["Time", "temperature"])
 
-    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063", "LLFR-00626")
     def test_shift_click_selects_a_range(self) -> None:
         """Shift + click selects from the last clicked signal.
 
@@ -174,7 +174,8 @@ class SelectionPanelTest(unittest.TestCase):
         self.assertEqual(self.selected(),
                          ["force", "temperature", "pressure"])
 
-    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033")
+    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033",
+            "LLFR-00627")
     def test_hidden_signals_are_deselected_for_good(self) -> None:
         """Hidden names lose the selection; shown names keep it.
 
@@ -195,7 +196,7 @@ class SelectionPanelTest(unittest.TestCase):
         self.panel.clear_signal_selection()
         self.assertEqual(self.selected(), [])
 
-    @covers("LLFR-00293", "LLFR-00239", "HLFR-00063")
+    @covers("LLFR-00293", "LLFR-00239", "HLFR-00063", "LLFR-00628")
     def test_right_click_selects_only_the_clicked_signal(self) -> None:
         """The menu is for the right-clicked signal, then alone selected.
 
@@ -211,7 +212,7 @@ class SelectionPanelTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(menu_name_list, ["temperature"])
 
-    @covers("LLFR-00293", "LLFR-00277", "HLFR-00063")
+    @covers("LLFR-00293", "LLFR-00277", "HLFR-00063", "LLFR-00628")
     def test_right_click_on_a_selected_signal(self) -> None:
         """Right-clicking one of several selected keeps only that one.
 
@@ -253,7 +254,7 @@ class SelectionPanelTest(unittest.TestCase):
         self.assertEqual(self.double_clicked_list, ["speed", "force"])
         self.assertEqual(self.plot_request_list, [])
 
-    @covers("LLFR-00295", "HLFR-00064")
+    @covers("LLFR-00295", "HLFR-00064", "LLFR-00629")
     def test_enter_and_return_request_the_selection(self) -> None:
         """Enter or Return in the list sends the selection in list order.
 
@@ -322,7 +323,7 @@ class SelectionPanelTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(self.plot_request_list, [["speed", "force"]])
 
-    @covers("LLFR-00290", "LLFR-00292", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00292", "HLFR-00063", "LLFR-00626")
     def test_shift_click_range_starts_at_the_last_click_after_refill(
             self) -> None:
         """A refill of the list keeps the start of the Shift range.
@@ -420,7 +421,8 @@ class SelectionPanelTest(unittest.TestCase):
                            self.row_point(2))
         self.application.processEvents()
 
-    @covers("LLFR-00298", "LLFR-00021", "HLFR-00063", "HLFR-00013")
+    @covers("LLFR-00298", "LLFR-00021", "HLFR-00063", "HLFR-00013",
+            "LLFR-00634")
     def test_drag_from_an_unselected_signal_drags_it_alone(self) -> None:
         """A drag from an unselected signal selects only that signal.
 
@@ -484,7 +486,7 @@ class SelectionAreaKeyFilterTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00063",
-            "HLFR-00032")
+            "HLFR-00032", "LLFR-00637")
     def test_tip_key_and_shift_do_nothing_over_the_list(self) -> None:
         """Over the list, Ctrl and Shift neither activate nor release.
 
@@ -662,7 +664,8 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         plot_widget.dropEvent(drop_event)
         self.application.processEvents()
 
-    @covers("LLFR-00295", "LLFR-00301", "HLFR-00064", "HLFR-00040")
+    @covers("LLFR-00295", "LLFR-00301", "HLFR-00064", "HLFR-00040",
+            "LLFR-00629")
     def test_enter_plots_the_selection_and_one_undo_removes_it(
             self) -> None:
         """Enter makes one plot of the selection; one undo removes it.
@@ -681,7 +684,7 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(self.plot_widgets(), [])
 
-    @covers("LLFR-00296", "HLFR-00064")
+    @covers("LLFR-00296", "HLFR-00064", "LLFR-00632")
     def test_enter_in_the_search_box_plots_nothing(self) -> None:
         """Enter in the search box creates no plot and no message.
 
@@ -717,7 +720,7 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         plot_widget = self.plot_widgets()[0]
         self.assertEqual(self.model_names(plot_widget), ["force"])
 
-    @covers("LLFR-00292", "LLFR-00017", "HLFR-00063")
+    @covers("LLFR-00292", "LLFR-00017", "HLFR-00063", "LLFR-00627")
     def test_replacing_the_file_clears_the_selection(self) -> None:
         """After a replace no signal is selected, even same names.
 
@@ -730,7 +733,8 @@ class MultiSelectMainWindowTest(unittest.TestCase):
                          ["Time", "speed", "force", "temperature"])
         self.assertEqual(self.panel.selected_signal_names(), [])
 
-    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033")
+    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033",
+            "LLFR-00627")
     def test_search_keeps_only_shown_signals_selected(self) -> None:
         """A search drops the hidden signals from the selection.
 
@@ -766,7 +770,8 @@ class MultiSelectMainWindowTest(unittest.TestCase):
                          item_rect.center())
         self.application.processEvents()
 
-    @covers("LLFR-00290", "LLFR-00292", "LLFR-00095", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00292", "LLFR-00095", "HLFR-00063",
+            "LLFR-00626")
     def test_shift_click_after_a_search_starts_at_the_last_click(
             self) -> None:
         """Typing a search between the clicks keeps the range start.
@@ -783,7 +788,8 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         self.assertEqual(self.panel.selected_signal_names(),
                          ["speed", "force", "temperature"])
 
-    @covers("LLFR-00290", "LLFR-00292", "LLFR-00242", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00292", "LLFR-00242", "HLFR-00063",
+            "LLFR-00626")
     def test_shift_click_after_a_synthetic_signal_is_created(self) -> None:
         """Creating a synthetic signal between the clicks keeps the start.
 
@@ -817,7 +823,8 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         self.assertEqual(self.panel.selected_signal_names(),
                          ["force", "distance"])
 
-    @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00032")
+    @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00032",
+            "LLFR-00637")
     def test_tool_keys_over_the_list_keep_the_active_tool(self) -> None:
         """Ctrl and Shift over the list leave the Zoom tool active.
 

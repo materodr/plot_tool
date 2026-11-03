@@ -570,7 +570,8 @@ class MenuWiringTest(SyntheticControllerTestCase):
 class CreateTest(SyntheticControllerTestCase):
     """Check the creation of synthetic signals from the menu."""
 
-    @covers("LLFR-00239", "LLFR-00240", "LLFR-00242", "LLFR-00243")
+    @covers("LLFR-00239", "LLFR-00240", "LLFR-00242", "LLFR-00243",
+            "LLFR-00568")
     def test_integral_is_listed_after_the_data_signals(self) -> None:
         """Integral creates int_Speed, listed last and in italics.
 
@@ -610,7 +611,7 @@ class CreateTest(SyntheticControllerTestCase):
         np.testing.assert_allclose(
             self.controller.store.get("max_Torque").value_array, 19.8)
 
-    @covers("LLFR-00242", "LLFR-00095")
+    @covers("LLFR-00242", "LLFR-00095", "LLFR-00578")
     def test_synthetic_signals_are_searched(self) -> None:
         """The search finds synthetic signals like data signals.
 
@@ -627,7 +628,9 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.view.shown_name_list[-2:],
                          ["int_Speed", "int_Torque"])
 
-    @covers("LLFR-00245", "LLFR-00246", "LLFR-00241")
+    @covers("LLFR-00245", "LLFR-00246", "LLFR-00241", "LLFR-00577",
+            "LLFR-00581", "LLFR-00582", "LLFR-00583", "LLFR-00584",
+            "LLFR-00585", "LLFR-00586", "LLFR-00588")
     def test_filter_dialog_states_ranges_and_keeps_open(self) -> None:
         """The filter dialog asks for cutoff and order and checks them.
 
@@ -672,7 +675,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.controller.store.get(
             "lpf_1p5Hz_order4_Speed_2").parameter, (1.5, 4, "zero"))
 
-    @covers("LLFR-00245", "LLFR-00246")
+    @covers("LLFR-00245", "LLFR-00246", "LLFR-00587", "LLFR-00589")
     def test_highpass_and_cancelled_filter(self) -> None:
         """A cancelled dialog creates nothing; highpass is created.
 
@@ -699,7 +702,7 @@ class CreateTest(SyntheticControllerTestCase):
                          "High-pass filter")
         self.assertEqual(self.view.information_list, [])
 
-    @covers("LLFR-00247")
+    @covers("LLFR-00247", "LLFR-00590", "LLFR-00591")
     def test_uneven_time_steps_show_a_box_before_any_dialog(self) -> None:
         """Filters and FFT on uneven steps show an information box.
 
@@ -721,7 +724,8 @@ class CreateTest(SyntheticControllerTestCase):
         self.create("Speed", "integral")
         self.assertEqual(self.store_names(), ["int_Speed"])
 
-    @covers("LLFR-00269", "LLFR-00270")
+    @covers("LLFR-00269", "LLFR-00270", "LLFR-00608", "LLFR-00609",
+            "LLFR-00610", "LLFR-00611")
     def test_moving_average_window_dialog(self) -> None:
         """The window dialog states 2 to n and refuses other values.
 
@@ -760,7 +764,8 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(len(self.view.information_list), 1)
         self.assertEqual(self.store_names(), [])
 
-    @covers("LLFR-00272", "LLFR-00273", "LLFR-00274")
+    @covers("LLFR-00272", "LLFR-00273", "LLFR-00274", "LLFR-00613",
+            "LLFR-00614", "LLFR-00615", "LLFR-00616")
     def test_constant_dialog(self) -> None:
         """Constants must be numbers, not 0 for a division.
 
@@ -798,7 +803,7 @@ class CreateTest(SyntheticControllerTestCase):
             store.get("le_1n0_Torque").value_array,
             (torque_array <= -1.0).astype(float))
 
-    @covers("LLFR-00275", "LLFR-00276", "LLFR-00240")
+    @covers("LLFR-00275", "LLFR-00276", "LLFR-00240", "LLFR-00617")
     def test_product_second_signal_dialog(self) -> None:
         """The second signal list has every non-FFT signal.
 
@@ -878,7 +883,8 @@ class CreateTest(SyntheticControllerTestCase):
 
     @covers("LLFR-00285", "LLFR-00275", "LLFR-00095", "LLFR-00096",
             "LLFR-00097", "LLFR-00102", "LLFR-00105", "LLFR-00098",
-            "LLFR-00100", "LLFR-00101")
+            "LLFR-00100", "LLFR-00101", "LLFR-00618", "LLFR-00619",
+            "LLFR-00620", "LLFR-00621")
     def test_second_signal_dialog_search(self) -> None:
         """The dialog searches its own signals as the panel searches.
 
@@ -916,7 +922,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.store_names(), [
             "fft_0s_to_9p9s_Speed", "int_Speed", "int_Torque"])
 
-    @covers("LLFR-00248", "LLFR-00240", "LLFR-00249")
+    @covers("LLFR-00248", "LLFR-00240", "LLFR-00249", "LLFR-00592")
     def test_fft_uses_the_whole_file_without_time_plots(self) -> None:
         """With no plot, the FFT range is the file's whole range.
 
@@ -930,7 +936,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.view.fft_name_set, {"fft_0s_to_9p9s_Speed"})
         self.assertEqual(self.view.parameter_question_list, [])
 
-    @covers("LLFR-00248", "LLFR-00240", "LLFR-00070")
+    @covers("LLFR-00248", "LLFR-00240", "LLFR-00070", "LLFR-00593")
     def test_fft_uses_the_shared_range_of_the_time_plots(self) -> None:
         """The FFT range is the zoomed range shared by the plots.
 
@@ -956,7 +962,7 @@ class CreateTest(SyntheticControllerTestCase):
             "fft_1p5s_to_3s_Torque", "fft_1p5s_to_3s_Torque_2",
             "fft_0s_to_9p9s_Torque"])
 
-    @covers("LLFR-00250")
+    @covers("LLFR-00250", "LLFR-00594")
     def test_fft_with_too_few_samples_shows_a_box(self) -> None:
         """A range with fewer than 8 samples creates no FFT.
 
@@ -991,7 +997,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.view.second_signal_question_list, [])
         self.assertEqual(self.view.information_list, [])
 
-    @covers("LLFR-00239")
+    @covers("LLFR-00239", "LLFR-00568")
     def test_stale_requests_are_ignored(self) -> None:
         """Unknown signals or operations create nothing.
 
@@ -1019,7 +1025,8 @@ class CreateTest(SyntheticControllerTestCase):
 class PlotSyntheticTest(SyntheticControllerTestCase):
     """Check that synthetic signals are plotted like data signals."""
 
-    @covers("LLFR-00242", "LLFR-00019", "LLFR-00020", "LLFR-00021")
+    @covers("LLFR-00242", "LLFR-00019", "LLFR-00020", "LLFR-00021",
+            "LLFR-00579")
     def test_double_click_and_drop_draw_synthetic_signals(self) -> None:
         """Synthetic signals can be double-clicked and dropped.
 
@@ -1040,7 +1047,8 @@ class PlotSyntheticTest(SyntheticControllerTestCase):
             self.controller.store.get("int_Speed").value_array)
         np.testing.assert_allclose(curve_list[1][2], 19.8)
 
-    @covers("LLFR-00263", "LLFR-00039", "LLFR-00049", "LLFR-00028")
+    @covers("LLFR-00263", "LLFR-00039", "LLFR-00049", "LLFR-00028",
+            "LLFR-00600")
     def test_removing_curves_keeps_the_synthetic_signal(self) -> None:
         """Curve, plot and tab deletions keep the signal in the list.
 
@@ -1069,7 +1077,7 @@ class PlotSyntheticTest(SyntheticControllerTestCase):
 class CopyTest(SyntheticControllerTestCase):
     """Check "Copy name" and "Copy equation"."""
 
-    @covers("LLFR-00277")
+    @covers("LLFR-00277", "LLFR-00623")
     def test_copy_name_for_every_kind_of_signal(self) -> None:
         """The name of a data, synthetic or FFT signal is copied.
 
@@ -1156,7 +1164,8 @@ class DeleteTest(SyntheticControllerTestCase):
         self.assertEqual(len(self.plot_id_list()), 3)
         self.assertTrue(self.view.undo_enabled_b)
 
-    @covers("LLFR-00255", "LLFR-00051", "LLFR-00050")
+    @covers("LLFR-00255", "LLFR-00051", "LLFR-00050", "LLFR-00597",
+            "LLFR-00598", "LLFR-00599")
     def test_delete_removes_signals_curves_and_history(self) -> None:
         """Yes removes the signals, their curves, empty plots, history.
 
@@ -1186,7 +1195,8 @@ class DeleteTest(SyntheticControllerTestCase):
         self.assertFalse(self.view.redo_enabled_b)
         self.assertFalse(self.plot_controller.undo_history.can_undo())
 
-    @covers("LLFR-00255", "LLFR-00205", "LLFR-00178")
+    @covers("LLFR-00255", "LLFR-00205", "LLFR-00178", "LLFR-00598",
+            "LLFR-00667")
     def test_deleting_the_last_plot_deletes_markers(self) -> None:
         """When every plot goes, the vertical markers go too.
 
@@ -1209,7 +1219,7 @@ class DeleteTest(SyntheticControllerTestCase):
         self.assertEqual(self.plot_controller.shared_time_range_tuple, ())
         self.assertEqual(self.store_names(), [])
 
-    @covers("LLFR-00255", "LLFR-00178", "LLFR-00167")
+    @covers("LLFR-00255", "LLFR-00178", "LLFR-00167", "LLFR-00598")
     def test_delete_removes_delta_markers_and_pending_point(self) -> None:
         """Delta markers and a first point on deleted curves go away.
 
@@ -1234,7 +1244,7 @@ class DeleteTest(SyntheticControllerTestCase):
         self.assertEqual(self.plot_controller.pending_delta_tuple, ())
         self.assertEqual(self.view.delta_first_point_dict[plot_id_i], ())
 
-    @covers("LLFR-00254")
+    @covers("LLFR-00254", "LLFR-00596")
     def test_data_signals_cannot_be_deleted(self) -> None:
         """A delete request on a data file signal does nothing.
 
@@ -1253,7 +1263,8 @@ class DeleteTest(SyntheticControllerTestCase):
 class RenameTest(SyntheticControllerTestCase):
     """Check "Rename" of a synthetic signal."""
 
-    @covers("LLFR-00266")
+    @covers("LLFR-00266", "LLFR-00602", "LLFR-00603", "LLFR-00604",
+            "LLFR-00605")
     def test_rename_updates_list_legends_and_later_names(self) -> None:
         """The list and the legends show the new name.
 
@@ -1353,7 +1364,7 @@ class RenameTest(SyntheticControllerTestCase):
         self.assertEqual(plot.delta_marker_list[0].first_point_tuple[0],
                          "Distance")
 
-    @covers("LLFR-00267")
+    @covers("LLFR-00267", "LLFR-00606", "LLFR-00607")
     def test_invalid_names_keep_the_previous_name(self) -> None:
         """Empty names are silent; names in use show a box.
 
@@ -1375,7 +1386,7 @@ class RenameTest(SyntheticControllerTestCase):
             self.assertIn("already exists", message_str)
         self.assertIn('"Torque"', self.view.information_list[1][1])
 
-    @covers("LLFR-00265")
+    @covers("LLFR-00265", "LLFR-00601")
     def test_data_signals_cannot_be_renamed(self) -> None:
         """A rename request on a data file signal does nothing.
 
@@ -1416,7 +1427,7 @@ class FileTest(SyntheticControllerTestCase):
         self.create("Speed", "integral")
         self.assertEqual(self.store_names(), ["int_Speed"])
 
-    @covers("LLFR-00253", "HLFR-00055")
+    @covers("LLFR-00253", "HLFR-00055", "HLFR-00105", "LLFR-00595")
     def test_data_file_is_never_written(self) -> None:
         """Creating, plotting, renaming and deleting leave the file.
 
@@ -1458,7 +1469,7 @@ class FileTest(SyntheticControllerTestCase):
 class WorkspaceRenameTest(unittest.TestCase):
     """Check the model helpers used by rename and delete."""
 
-    @covers("LLFR-00266", "LLFR-00255")
+    @covers("LLFR-00266", "LLFR-00255", "LLFR-00598", "LLFR-00603")
     def test_workspace_rename_and_remove_signal_curves(self) -> None:
         """Curves, tips and delta points follow a rename; removal works.
 

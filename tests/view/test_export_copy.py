@@ -689,7 +689,7 @@ class ExportCopyTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
         self.assertFalse(self.top_panel.export_button.is_active())
 
-    @covers("LLFR-00145", "LLFR-00003")
+    @covers("LLFR-00145", "LLFR-00003", "LLFR-00459")
     def test_no_plots_shows_information_without_dialog(self) -> None:
         """With no plot in any tab, an information box is shown.
 
@@ -828,7 +828,7 @@ class ExportCopyTest(unittest.TestCase):
         self.assert_plots_still_drawn(self.tab_plot_widget_list(
             self.main_window.current_tab_id()))
 
-    @covers("LLFR-00146", "LLFR-00003")
+    @covers("LLFR-00146", "LLFR-00003", "LLFR-00460")
     def test_copy_without_plots_keeps_clipboard(self) -> None:
         """With no plot in the current tab, the clipboard is unchanged.
 

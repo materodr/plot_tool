@@ -46,7 +46,8 @@ class PaletteTest(unittest.TestCase):
                     color_distance(first_str, second_str),
                     MINIMUM_COLOR_DISTANCE_F)
 
-    @covers("LLFR-00144", "LLFR-00033", "LLFR-00365", "HLFR-00020")
+    @covers("LLFR-00144", "LLFR-00033", "LLFR-00365", "HLFR-00020",
+            "LLFR-00525")
     def test_first_three_colors_are_blue_black_red(self) -> None:
         """The palette starts with blue, black and a dark red, in that
         order; the red is darker than, and far from, the marker color.
@@ -254,7 +255,8 @@ class MarkerColorTest(unittest.TestCase):
         self.assertLess(color_luminance(PALETTE_COLOR_TUPLE[2]),
                         color_luminance(MARKER_COLOR_STR))
 
-    @covers("LLFR-00225", "LLFR-00319", "LLFR-00393")
+    @covers("LLFR-00225", "LLFR-00319", "LLFR-00393", "LLFR-00727",
+            "LLFR-00814")
     def test_hex_color_or_none(self) -> None:
         """Only a text "#rrggbb" is a color; it is returned in lowercase.
 
@@ -269,7 +271,7 @@ class MarkerColorTest(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertIsNone(hex_color_or_none(value))
 
-    @covers("LLFR-00365", "LLFR-00033")
+    @covers("LLFR-00365", "LLFR-00033", "LLFR-00524")
     def test_palette_has_no_orange(self) -> None:
         """No palette color has the hue of an orange (red high, green
         between the red and the blue, saturated).

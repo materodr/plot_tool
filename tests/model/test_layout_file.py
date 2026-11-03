@@ -225,7 +225,7 @@ class LayoutWriteTest(unittest.TestCase):
         key_list = list(json.loads(self.text_str))
         self.assertFalse(any("tool" in key_str for key_str in key_list))
 
-    @covers("LLFR-00227", "LLFR-00228")
+    @covers("LLFR-00227", "LLFR-00228", "LLFR-00471")
     def test_json_utf8_indent_and_identification_first(self) -> None:
         """JSON in UTF-8 with 2-space indents; format and version first.
 
@@ -406,7 +406,7 @@ class LayoutReadTest(unittest.TestCase):
             self.assertEqual(read_layout_file(path_str)["format"],
                              "plot_tool layout")
 
-    @covers("LLFR-00219")
+    @covers("LLFR-00219", "LLFR-00467")
     def test_json_suffix_only_without_extension(self) -> None:
         """".json" is added only to a name with no extension.
 
@@ -467,7 +467,8 @@ class LayoutRoundTripTest(LayoutRebuildTestCase):
     """A saved layout is rebuilt as saved (LLFR-00230)."""
 
     @covers("LLFR-00230", "LLFR-00225", "LLFR-00229", "LLFR-00237",
-            "LLFR-00231")
+            "LLFR-00231", "LLFR-00478", "LLFR-00480", "LLFR-00481",
+            "LLFR-00482", "LLFR-00493")
     def test_round_trip_rebuilds_everything(self) -> None:
         """Tabs, plots, curves, tips, delta and vertical markers, range,
         grid and widths come back as saved, with nothing to report.
@@ -494,7 +495,7 @@ class LayoutRoundTripTest(LayoutRebuildTestCase):
         self.assertEqual(result.first_tab_id_i,
                          self.workspace.tab_list[0].tab_id_i)
 
-    @covers("LLFR-00230", "LLFR-00234")
+    @covers("LLFR-00230", "LLFR-00234", "LLFR-00480", "LLFR-00482")
     def test_whole_range_and_missing_widths(self) -> None:
         """The whole range is given back as (); no widths stay ().
 
@@ -513,7 +514,7 @@ class LayoutRoundTripTest(LayoutRebuildTestCase):
 class LayoutTabsTest(LayoutRebuildTestCase):
     """Where the tabs of the file go (LLFR-00229)."""
 
-    @covers("LLFR-00229")
+    @covers("LLFR-00229", "LLFR-00475")
     def test_tabs_replace_current_tabs_without_plots(self) -> None:
         """With no plot in any tab, the file's tabs replace them.
 
@@ -533,7 +534,8 @@ class LayoutTabsTest(LayoutRebuildTestCase):
                          self.workspace.tab_list[0].tab_id_i)
         self.assertTrue(result.report.is_empty())
 
-    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00210")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00210",
+            "LLFR-00473", "LLFR-00474")
     def test_tabs_added_after_tabs_with_plots(self) -> None:
         """Current tabs with a plot are kept; the file's tabs follow.
 
@@ -562,7 +564,8 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         self.assertEqual(result.report.text(),
                          'Renamed:\n  - Tab "Tab 1" \u2192 "Tab 2"')
 
-    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00212")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00212",
+            "LLFR-00474", "LLFR-00489", "LLFR-00490")
     def test_clash_with_kept_tab_cascades_and_is_reported(self) -> None:
         """File tabs "Tab 1" and "Tab 2" after a kept "Tab 1" become
         "Tab 2" and "Tab 3", and both renames are reported.
@@ -583,7 +586,7 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         self.assertEqual(result.report.replaced_line_list, [])
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00210",
-            "LLFR-00212")
+            "LLFR-00212", "LLFR-00489")
     def test_empty_duplicate_and_wrong_type_tab_names(self) -> None:
         """Empty, non-text or repeated (within the file) tab names get
         default names and are reported; a valid name that a tab of this
@@ -618,7 +621,7 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         self.assertIn("not a text", replaced_list[3])
         self.assertNotIn("Skipped", result.report.text())
 
-    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00489")
     def test_repeat_in_file_found_after_a_silent_rename(self) -> None:
         """A valid name renamed silently still counts as met in the file,
         so its repeat later in the file is reported.
@@ -639,7 +642,7 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         self.assertIn("earlier tab of the file",
                       result.report.replaced_line_list[0])
 
-    @covers("LLFR-00231", "LLFR-00229")
+    @covers("LLFR-00231", "LLFR-00229", "LLFR-00476")
     def test_tabs_entry_that_is_not_a_list(self) -> None:
         """A "tabs" entry that is not a list adds no tab and is reported.
 
@@ -657,7 +660,7 @@ class LayoutTabsTest(LayoutRebuildTestCase):
 class LayoutMissingSignalTest(LayoutRebuildTestCase):
     """Signals that are not in the data file (LLFR-00231)."""
 
-    @covers("LLFR-00231", "LLFR-00237")
+    @covers("LLFR-00231", "LLFR-00237", "LLFR-00483", "LLFR-00484")
     def test_missing_signals_no_curve_no_empty_plot_every_tab(self) -> None:
         """Missing signals draw nothing, empty plots and tabs left with
         no plot are not created, and each missing name is listed once.
@@ -729,7 +732,7 @@ class LayoutPointTest(LayoutRebuildTestCase):
             {"signal": signal_str, "time": tip_time_s,
              "label_position": {"right_points": 5.0, "up_points": 6.0}}])])
 
-    @covers("LLFR-00232")
+    @covers("LLFR-00232", "LLFR-00485")
     def test_tip_within_one_microsecond_snaps_to_sample(self) -> None:
         """A tip 0.9 us from a sample is placed on that sample.
 
@@ -793,7 +796,7 @@ class LayoutPointTest(LayoutRebuildTestCase):
         self.assertIn("an unreadable time",
                       result.report.not_rebuilt_line_list[0])
 
-    @covers("LLFR-00232", "LLFR-00230")
+    @covers("LLFR-00232", "LLFR-00230", "LLFR-00485")
     def test_delta_markers_snap_and_check_both_points(self) -> None:
         """Delta markers are placed on samples only when both points fit.
 
@@ -837,7 +840,8 @@ class LayoutPointTest(LayoutRebuildTestCase):
 class LayoutMarkerTest(LayoutRebuildTestCase):
     """Flags of the file (LLFR-00233, LLFR-00393, LLFR-00228)."""
 
-    @covers("LLFR-00233", "LLFR-00230", "LLFR-00205", "LLFR-00111")
+    @covers("LLFR-00233", "LLFR-00230", "LLFR-00205", "LLFR-00111",
+            "LLFR-00478")
     def test_markers_added_inside_the_file_range(self) -> None:
         """Markers inside the range are added to the current ones.
 
@@ -871,7 +875,7 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         self.assertIn("not a number", not_rebuilt_list[1])
         self.assertIn('"Flag 8"', result.report.replaced_line_list[0])
 
-    @covers("LLFR-00233", "LLFR-00205", "LLFR-00231")
+    @covers("LLFR-00233", "LLFR-00205", "LLFR-00231", "LLFR-00483")
     def test_markers_need_a_plot(self) -> None:
         """With no plot rebuilt, no marker is kept, and it is reported.
 
@@ -912,7 +916,8 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         self.assertEqual(flag_list[1]["color"], "#ff8000")
         self.assertEqual(flag_list[0]["color"], "#1f77b4")
 
-    @covers("LLFR-00393", "LLFR-00235", "LLFR-00237", "LLFR-00083")
+    @covers("LLFR-00393", "LLFR-00235", "LLFR-00237", "LLFR-00083",
+            "LLFR-00814", "LLFR-00815", "LLFR-00816", "LLFR-00817")
     def test_flag_colors_read_back(self) -> None:
         """A "#rrggbb" color is used, a missing one is the default, any
         other is replaced by the default and reported.
@@ -947,7 +952,7 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
             self.assertIn("replaced by \"#ff8000\"", replaced_str)
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
-    @covers("LLFR-00228", "LLFR-00233")
+    @covers("LLFR-00228", "LLFR-00233", "LLFR-00472")
     def test_older_file_without_flags_loads_without_flags(self) -> None:
         """A version 1 file with "vertical_markers" loads, with no flag.
 
@@ -972,7 +977,8 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         self.rebuild(layout_dict)
         self.assertEqual(self.workspace.marker_list, [])
 
-    @covers("LLFR-00225", "LLFR-00393", "LLFR-00230")
+    @covers("LLFR-00225", "LLFR-00393", "LLFR-00230", "LLFR-00478",
+            "LLFR-00814")
     def test_flags_round_trip(self) -> None:
         """Saved flags come back with their names, times and colors.
 
@@ -1014,7 +1020,7 @@ class LayoutRangeTest(LayoutRebuildTestCase):
         self.assertIn("limited to 0 s to 4 s",
                       result.report.time_range_line_list[0])
 
-    @covers("LLFR-00234", "LLFR-00237")
+    @covers("LLFR-00234", "LLFR-00237", "LLFR-00487")
     def test_range_without_overlap_shows_the_whole_range(self) -> None:
         """A range outside the file shows the whole range, reported.
 
@@ -1135,7 +1141,7 @@ class LayoutValueTest(LayoutRebuildTestCase):
         self.assertNotIn(MARKER_COLOR_STR, used_color_list)
         self.assertEqual(len(result.report.replaced_line_list), 3)
 
-    @covers("LLFR-00235", "HLFR-00018", "LLFR-00237")
+    @covers("LLFR-00235", "HLFR-00018", "LLFR-00237", "LLFR-00488")
     def test_plots_beyond_five_are_not_created(self) -> None:
         """The 6th plot of a tab is not created; its items are reported.
 
@@ -1162,7 +1168,7 @@ class LayoutValueTest(LayoutRebuildTestCase):
         self.assertTrue(any(line_str.startswith(
             "Delta X marker between 1 s and 2 s") for line_str in report_list))
 
-    @covers("LLFR-00235", "LLFR-00230")
+    @covers("LLFR-00235", "LLFR-00230", "LLFR-00481", "LLFR-00482")
     def test_bad_grid_and_panel_widths(self) -> None:
         """A grid that is not true or false and bad widths are reported;
         missing entries leave both unchanged without a report.
