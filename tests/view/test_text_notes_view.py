@@ -14,6 +14,7 @@ import unittest
 
 import numpy as np
 
+from tests.view.menu_texts import menu_option_texts
 from tests.support import covers, get_qt_application, requires_qt
 from tests.view.test_plot_tools import (
     ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
@@ -188,7 +189,7 @@ class TextNoteWidgetTestCase(PlotWidgetToolTestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str:
                     return action

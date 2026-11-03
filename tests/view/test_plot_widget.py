@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.menu_texts import TIP_MENU_TEXT_LIST
+from tests.view.menu_texts import TIP_MENU_TEXT_LIST, menu_option_texts
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
 
@@ -21,10 +21,10 @@ def menu_action_text_list(menu) -> list:
 
     Inputs:
         menu: a QMenu.
-    Outputs: list of action texts, separators left out.
+    Outputs: list of action texts, the title of a plot menu
+        (LLFR-00425) and separators left out.
     """
-    return [action.text() for action in menu.actions()
-            if not action.isSeparator()]
+    return menu_option_texts(menu)
 
 
 def find_action(menu, text_str: str):

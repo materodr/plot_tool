@@ -19,7 +19,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.menu_texts import DELTA_MENU_TEXT_LIST
+from tests.view.menu_texts import DELTA_MENU_TEXT_LIST, menu_option_texts
 from tests.view.test_plot_tools import PlotWidgetToolTestCase, recorder
 
 from controller.plot_tools import (
@@ -289,7 +289,7 @@ class ColorSubmenuTest(PlotWidgetToolTestCase):
         """
         option_tuple = self.option_list()[-1]
         menu = self.plot_widget.build_context_menu(option_tuple[1])
-        self.assertEqual([action.text() for action in menu.actions()],
+        self.assertEqual(menu_option_texts(menu),
                          DELTA_MENU_TEXT_LIST)
         menu.deleteLater()
 

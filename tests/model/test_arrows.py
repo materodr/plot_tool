@@ -163,9 +163,9 @@ class ArrowModelTest(unittest.TestCase):
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00192", "HLFR-00040")
     def test_snapshots_hold_the_arrows(self) -> None:
-        """The plot state holds every arrow with its ends and color, so
-        a change is seen; a restored snapshot brings the arrows back and
-        shares nothing with the live plot.
+        """The plot state holds every arrow with its ends, color and
+        name, so a change is seen; a restored snapshot brings the arrows
+        back and shares nothing with the live plot.
 
         Inputs: none.
         Outputs: none.
@@ -173,7 +173,7 @@ class ArrowModelTest(unittest.TestCase):
         self.plot.add_arrow(0.0, 0.0, 1.0, 1.0)
         state_tuple = plot_state_tuple(self.plot)
         self.assertEqual(state_tuple[6],
-                         ((0.0, 0.0, 1.0, 1.0, "#ff8000"),))
+                         ((0.0, 0.0, 1.0, 1.0, "#ff8000", "Arrow 1"),))
         # The kind stays last and the text notes stay at index 5.
         self.assertEqual(state_tuple[-1], self.plot.kind_str)
         self.assertEqual(state_tuple[5], ())

@@ -41,6 +41,12 @@ RENAME_MARKER_DIALOG_LABEL_STR = "New flag name:"
 # LLFR-00315: the dialog that renames an area.
 RENAME_AREA_DIALOG_TITLE_STR = "Rename area"
 RENAME_AREA_DIALOG_LABEL_STR = "New area name:"
+# LLFR-00429: the dialog that renames a delta marker.
+RENAME_DELTA_DIALOG_TITLE_STR = "Rename delta marker"
+RENAME_DELTA_DIALOG_LABEL_STR = "New delta marker name:"
+# LLFR-00439: the dialog that renames an arrow.
+RENAME_ARROW_DIALOG_TITLE_STR = "Rename arrow"
+RENAME_ARROW_DIALOG_LABEL_STR = "New arrow name:"
 # LLFR-00266: title and label of the synthetic signal rename dialog.
 RENAME_SIGNAL_DIALOG_TITLE_STR = "Rename signal"
 RENAME_SIGNAL_DIALOG_LABEL_STR = "New signal name:"
@@ -1329,6 +1335,54 @@ class MainWindow(QMainWindow):
         new_name_str, accepted_b = QInputDialog.getText(
             self, RENAME_AREA_DIALOG_TITLE_STR,
             RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
+            current_name_str)
+        if not accepted_b:
+            return None
+        return str(new_name_str)
+
+    def ask_delta_marker_name(self, current_name_str: str):
+        """Let the user type a new name for a delta marker.
+
+        Inputs:
+            current_name_str: the marker's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when the user
+            cancelled the dialog.
+        """
+        # LLFR-00429: the dialog starts from the current name.
+        # LLFR-00854, LLFR-00855: a blank answer is returned as typed;
+        # the controller keeps the old name without a message.
+        return self.ask_name(RENAME_DELTA_DIALOG_TITLE_STR,
+                             RENAME_DELTA_DIALOG_LABEL_STR,
+                             current_name_str)
+
+    def ask_arrow_name(self, current_name_str: str):
+        """Let the user type a new name for an arrow.
+
+        Inputs:
+            current_name_str: the arrow's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when the user
+            cancelled the dialog.
+        """
+        # LLFR-00439: the dialog starts from the current name.
+        # LLFR-00874, LLFR-00875: a blank answer is returned as typed;
+        # the controller keeps the old name without a message.
+        return self.ask_name(RENAME_ARROW_DIALOG_TITLE_STR,
+                             RENAME_ARROW_DIALOG_LABEL_STR,
+                             current_name_str)
+
+    def ask_name(self, title_str: str, label_str: str,
+                 current_name_str: str):
+        """Show a one-line text dialog that starts from a name.
+
+        Inputs:
+            title_str: the dialog's title.
+            label_str: the text above the field.
+            current_name_str: the text the field starts with.
+        Outputs: the typed text, or None when the user cancelled.
+        """
+        # LLFR-00429, LLFR-00439: the same dialog as for flags and areas.
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, title_str, label_str, QLineEdit.EchoMode.Normal,
             current_name_str)
         if not accepted_b:
             return None

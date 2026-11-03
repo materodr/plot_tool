@@ -27,7 +27,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - boxes: ``show_full_tab_notification``,
   ``show_tab_name_taken_notification``,
   ``show_plot_kind_mismatch_notification``, ``ask_marker_name``,
-  ``ask_area_name``, and ``ask_color(current_color_str)``, the shared
+  ``ask_area_name``, ``ask_delta_marker_name``, ``ask_arrow_name``
+  (LLFR-00429, LLFR-00439), and ``ask_color(current_color_str)``, the shared
   color picker (LLFR-00388), which returns the confirmed "#rrggbb" or
   None when cancelled. Every color handler (flag, area, delta marker,
   arrow, text note border and text) also takes the color the user chose
@@ -263,6 +264,11 @@ class PlotController:
             arrow_change_handler=self.on_arrow_change,
             arrow_color_handler=self.on_arrow_color,
             arrow_delete_handler=self.on_arrow_delete)
+        # LLFR-00429, LLFR-00439, LLFR-00420: "Rename" in the menu of a
+        # delta marker or an arrow, or a double-click on its label.
+        view.set_plot_handlers(
+            delta_marker_rename_handler=self.on_delta_marker_rename,
+            arrow_rename_handler=self.on_arrow_rename)
         # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: the
         # requests made on the areas of a plot.
         view.set_plot_handlers(
@@ -597,19 +603,21 @@ class PlotController:
         Inputs:
             plot: the model Plot.
         Outputs: a list of tuples (delta_marker_id_i, kind_str,
-            first_point_tuple, second_point_tuple, delta_f, color_str) in
-            the order the markers were placed; each point is
-            (signal_name_str, time_s, value_f), delta_f is the second
-            point minus the first (LLFR-00169, LLFR-00171) and color_str
-            the marker's color (LLFR-00172, LLFR-00409).
+            first_point_tuple, second_point_tuple, delta_f, color_str,
+            name_str) in the order the markers were placed; each point
+            is (signal_name_str, time_s, value_f), delta_f is the second
+            point minus the first (LLFR-00169, LLFR-00171), color_str
+            the marker's color (LLFR-00172, LLFR-00409) and name_str the
+            name of its label (LLFR-00427).
         """
         # LLFR-00168, LLFR-00170, LLFR-00174: every delta marker, with
         # the value it shows computed by the model. LLFR-00409: and its
-        # color.
+        # color. LLFR-00427: and its name.
         return [(delta_marker.delta_marker_id_i, delta_marker.kind_str,
                  tuple(delta_marker.first_point_tuple),
                  tuple(delta_marker.second_point_tuple),
-                 delta_marker.delta_f(), delta_marker.color_str)
+                 delta_marker.delta_f(), delta_marker.color_str,
+                 delta_marker.name_str)
                 for delta_marker in plot.delta_marker_list]
 
     def text_note_data_list(self, plot) -> list:
@@ -635,14 +643,16 @@ class PlotController:
         Inputs:
             plot: the model Plot.
         Outputs: a list of tuples (start_time_s, start_value_f,
-            end_time_s, end_value_f, color_str) in the order the arrows
-            were drawn; the arrowhead is at the end; the x values are in
-            Hz on a frequency plot.
+            end_time_s, end_value_f, color_str, name_str) in the order
+            the arrows were drawn; the arrowhead is at the end; the x
+            values are in Hz on a frequency plot; name_str is the name of
+            its label (LLFR-00436).
         """
         # LLFR-00373, LLFR-00374, LLFR-00375: the arrows of this plot
-        # only, each with its two ends and its color.
+        # only, each with its two ends and its color. LLFR-00436: and
+        # its name.
         return [(arrow.start_time_s, arrow.start_value_f, arrow.end_time_s,
-                 arrow.end_value_f, arrow.color_str)
+                 arrow.end_value_f, arrow.color_str, arrow.name_str)
                 for arrow in plot.arrow_list]
 
     def all_plot_list(self) -> list:
@@ -1533,10 +1543,14 @@ class PlotController:
             return
         # LLFR-00140: drawing an arrow is undoable.
         snapshot = self.take_snapshot()
+        # LLFR-00438: the name "Arrow N" of a new arrow; an arrow that is
+        # not drawn uses up no number.
+        next_arrow_number_i = self.workspace.next_arrow_number_i
         try:
             plot.add_arrow(start_time_s, start_value_f, end_time_s,
-                           end_value_f)
+                           end_value_f, self.workspace.take_arrow_name())
         except (TypeError, ValueError):
+            self.workspace.next_arrow_number_i = next_arrow_number_i
             return
         self.record_undo(snapshot)
         self.show_arrows(plot)
@@ -1601,6 +1615,35 @@ class PlotController:
                                                        color_str),
                 chosen_color_str):
             self.show_arrows(plot)
+
+    def on_arrow_rename(self, plot_id_i: int, arrow_index_i: int) -> None:
+        """Ask the user for a new arrow name and show it in its label.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_index_i: index of the arrow in the list last drawn.
+        Outputs: none. A cancelled dialog, an empty name or the current
+            name changes nothing and shows no message.
+        """
+        # LLFR-00439: let the user type the name, starting from the
+        # current one.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.has_arrow_index(arrow_index_i):
+            return
+        new_name_str = self.view.ask_arrow_name(
+            plot.arrow_list[arrow_index_i].name_str)
+        if new_name_str is None:
+            return
+        # LLFR-00140: renaming an arrow is undoable; the snapshot is taken
+        # after the dialog, so it holds the state just before.
+        snapshot = self.take_snapshot()
+        # LLFR-00874, LLFR-00875: a blank name keeps the old one, with no
+        # message. LLFR-00876: the ends and the color stay as they are.
+        if not plot.rename_arrow(arrow_index_i, str(new_name_str)):
+            return
+        self.record_undo(snapshot)
+        # LLFR-00873: the label shows the new name.
+        self.show_arrows(plot)
 
     def on_arrow_delete(self, plot_id_i: int, arrow_index_i: int) -> None:
         """Remove an arrow from a plot.
@@ -2239,11 +2282,16 @@ class PlotController:
         self.discard_pending_delta()
         # LLFR-00140: placing a delta marker is ONE undoable action.
         snapshot = self.take_snapshot()
+        # LLFR-00428: the name "Delta X N" or "Delta Y N"; a marker that is
+        # not placed uses up no number.
+        next_number_dict = dict(self.workspace.next_delta_number_dict)
         try:
-            plot.add_delta_marker(kind_str, first_point_tuple,
-                                  second_point_tuple)
+            plot.add_delta_marker(
+                kind_str, first_point_tuple, second_point_tuple,
+                name_str=self.workspace.take_delta_marker_name(kind_str))
         except ValueError:
             # LLFR-00164: a point whose curve is gone places nothing.
+            self.workspace.next_delta_number_dict = next_number_dict
             return
         self.record_undo(snapshot)
         # LLFR-00109: the tool stays active for the next measurement.
@@ -2269,6 +2317,40 @@ class PlotController:
         if not plot.remove_delta_marker(int(delta_marker_id_i)):
             return
         self.record_undo(snapshot)
+        self.redraw_plot(plot)
+
+    def on_delta_marker_rename(self, plot_id_i: int,
+                               delta_marker_id_i: int) -> None:
+        """Ask the user for a new delta marker name and show it.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            delta_marker_id_i: id of the delta marker whose "Rename" was
+                chosen, or whose label was double-clicked (LLFR-00420).
+        Outputs: none. A cancelled dialog, an empty name or the current
+            name changes nothing and shows no message.
+        """
+        # LLFR-00429: let the user type the name, starting from the
+        # current one.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        delta_marker = plot.find_delta_marker(int(delta_marker_id_i))
+        if delta_marker is None:
+            return
+        new_name_str = self.view.ask_delta_marker_name(delta_marker.name_str)
+        if new_name_str is None:
+            return
+        # LLFR-00140: renaming a delta marker is undoable; the snapshot is
+        # taken after the dialog, so it holds the state just before.
+        snapshot = self.take_snapshot()
+        # LLFR-00854, LLFR-00855: a blank name keeps the old one, with no
+        # message. LLFR-00856: the points, value and color stay.
+        if not plot.rename_delta_marker(int(delta_marker_id_i),
+                                        str(new_name_str)):
+            return
+        self.record_undo(snapshot)
+        # LLFR-00853: the label shows the new name.
         self.redraw_plot(plot)
 
     def on_delta_marker_color(self, plot_id_i: int, delta_marker_id_i: int,

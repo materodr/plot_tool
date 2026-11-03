@@ -18,6 +18,7 @@ import numpy as np
 from tests.support import (
     OPEN_FILE_DIALOG_TARGET_STR, covers, get_qt_application, requires_qt)
 from tests.view.menu_texts import (
+    menu_option_texts,
     AREA_MENU_TEXT_LIST, DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST,
     TIP_MENU_TEXT_LIST)
 from tests.view.test_plot_tools import (
@@ -91,7 +92,7 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == chosen_text_str:
                     return action
@@ -510,7 +511,7 @@ class EndToEndTestCase(unittest.TestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str:
                     return action
