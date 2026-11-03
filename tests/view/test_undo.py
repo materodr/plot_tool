@@ -230,7 +230,7 @@ class UndoButtonTest(UndoWindowTestCase):
                 expected_color_str)
         self.assertEqual(len(color_during_list), 2)
 
-    @covers("LLFR-00138", "LLFR-00125", "LLFR-00109")
+    @covers("LLFR-00138", "LLFR-00125", "LLFR-00109", "LLFR-00147")
     def test_rebuilt_plots_keep_grid_and_plot_tool(self) -> None:
         """Plots rebuilt by undo show the grid and use the active tool.
 
@@ -240,7 +240,8 @@ class UndoButtonTest(UndoWindowTestCase):
         from controller.plot_tools import ZOOM_TOOL_STR
         self.main_window.signal_double_click_handler("speed")
         self.main_window.signal_double_click_handler("force")
-        self.top_panel.grid_button.click()
+        # LLFR-00147: the grid is shown from the start.
+        self.assertTrue(self.top_panel.grid_button.is_active())
         self.top_panel.zoom_button.click()
         self.click_undo()
         plot_widget = self.plot_panel.plot_view(self.current_plot_ids()[0])

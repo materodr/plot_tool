@@ -160,9 +160,8 @@ def build_window(size_tuple: tuple):
     main_window.top_panel.marker_button.click()
     for marker_time_s in MARKER_TIME_TUPLE:
         plot_controller.on_marker_place(first_plot_id_i, marker_time_s)
-    # The Grid and Tip buttons are clicked like a user would; Tip ends
-    # the Vertical marker tool.
-    main_window.top_panel.grid_button.click()
+    # The grid is shown from the start (LLFR-00147). The Tip button is
+    # clicked like a user would; it ends the Vertical marker tool.
     main_window.top_panel.tip_button.click()
     main_window.signal_list_panel.search_box.setText(SEARCH_TEXT_STR)
     return main_window, controller

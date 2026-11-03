@@ -291,6 +291,9 @@ LEGEND_MAXIMUM_HEIGHT_RATIO_F = 0.4
 LEGEND_USABLE_WIDTH_RATIO_F = 0.95
 POINTS_PER_INCH_F = 72.0
 TIP_OFFSET_POINTS_F = 10.0
+# LLFR-00423: the lines inside a hover or pinned data tip start at the
+# left edge of its box.
+TIP_TEXT_ALIGNMENT_STR = "left"
 DEFAULT_TIP_COLOR_STR = theme.DEFAULT_TIP_COLOR_STR
 # LLFR-00082, LLFR-00083, LLFR-00084, LLFR-00092: look of a vertical
 # marker. The marker is drawn above the curves and below the tips.
@@ -1078,7 +1081,8 @@ class PlotWidget(QWidget):
         self.span_line = None
         self.span_end_ticks = None
         # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
-        # grid is drawn; hidden until the Grid button is clicked.
+        # grid is drawn; the main window applies its grid choice to
+        # every new plot (shown at start), so it is off only until then.
         self.grid_shown_b = False
         # LLFR-00305, LLFR-00307, LLFR-00308: areas to draw, as tuples
         # (area_id_i, name_str, start_s, end_s, color_str), and their
@@ -1581,11 +1585,14 @@ class PlotWidget(QWidget):
 
         # LLFR-00042: one hover annotation, hidden until needed. It is
         # left out of the layout so that it never moves the axes.
+        # LLFR-00423: its lines are aligned to the left inside the box,
+        # whichever side of the point the box is placed on.
         self.hover_point_tuple = ()
         self.hover_annotation = self.axes.annotate(
             "", xy=(0.0, 0.0), xytext=(TIP_OFFSET_POINTS_F,
                                        TIP_OFFSET_POINTS_F),
             textcoords="offset points", parse_math=False,
+            multialignment=TIP_TEXT_ALIGNMENT_STR,
             color=theme.TIP_TEXT_COLOR_STR,
             fontsize=theme.PLOT_TIP_FONT_SIZE_F,
             bbox=dict(theme.HOVER_TIP_BOX_DICT),
@@ -1719,6 +1726,10 @@ class PlotWidget(QWidget):
                 xy=(time_s, value_f),
                 xytext=(TIP_OFFSET_POINTS_F, TIP_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
+                # LLFR-00423: the lines are aligned to the left inside
+                # the box, also when the box is centred on a moved
+                # position or turned to the left of its point.
+                multialignment=TIP_TEXT_ALIGNMENT_STR,
                 color=theme.TIP_TEXT_COLOR_STR,
                 fontsize=theme.PLOT_TIP_FONT_SIZE_F,
                 bbox=dict(theme.PINNED_TIP_BOX_DICT, edgecolor=color_str),

@@ -190,8 +190,9 @@ class PlotController:
         self.workspace = workspace
         self.signal_file = None
         self.plot_tool_str = NO_TOOL_STR
-        # LLFR-00147: the grid is hidden at start.
-        self.grid_shown_b = False
+        # LLFR-00147: the grid is shown at every start; no choice of an
+        # earlier run is kept.
+        self.grid_shown_b = True
         # LLFR-00070, LLFR-00180: no plot yet, so the whole range.
         self.shared_time_range_tuple = ()
         # LLFR-00139: the 30 most recent undoable actions;

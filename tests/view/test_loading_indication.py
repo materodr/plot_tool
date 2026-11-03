@@ -42,7 +42,7 @@ def clear_override_cursors() -> None:
 
 @requires_qt
 class StatusLineTest(unittest.TestCase):
-    """The status line at the bottom of the signal list panel."""
+    """The status line of the signal list panel, above the search box."""
 
     def setUp(self) -> None:
         """Create and show a signal list panel.
@@ -67,9 +67,10 @@ class StatusLineTest(unittest.TestCase):
         self.panel.deleteLater()
         self.application.processEvents()
 
-    @covers("LLFR-00418", "LLFR-00094", "LLFR-00560")
-    def test_status_line_below_the_search_box(self) -> None:
-        """The status line is the last row, under the search box.
+    @covers("LLFR-00560", "LLFR-00094")
+    def test_status_line_directly_above_the_search_box(self) -> None:
+        """The status line is between the list and the search box, right
+        above the search box, which is the last row of the panel.
 
         Inputs: none.
         Outputs: none.
@@ -77,17 +78,25 @@ class StatusLineTest(unittest.TestCase):
         layout = self.panel.panel_layout
         status_label = self.panel.status_label
         search_box = self.panel.search_box
-        self.assertEqual(layout.indexOf(status_label), layout.count() - 1)
+        list_widget = self.panel.signal_list_widget
+        # LLFR-00560: directly above the search box in the layout.
+        self.assertEqual(layout.indexOf(search_box), layout.count() - 1)
         self.assertEqual(layout.indexOf(status_label),
-                         layout.indexOf(search_box) + 1)
+                         layout.indexOf(search_box) - 1)
+        self.assertEqual(layout.indexOf(list_widget),
+                         layout.indexOf(status_label) - 1)
         self.assertTrue(status_label.isVisible())
-        self.assertGreaterEqual(status_label.geometry().top(),
-                                search_box.geometry().bottom())
-        # LLFR-00418: at the bottom of the panel.
-        self.assertLessEqual(status_label.geometry().bottom(),
-                             self.panel.height())
-        self.assertLess(self.panel.height()
-                        - status_label.geometry().bottom(), 20)
+        # On screen: below the list, above the search box, with no more
+        # than the layout spacing between them.
+        status_top_i = status_label.geometry().top()
+        status_end_i = status_top_i + status_label.height()
+        list_end_i = list_widget.geometry().top() + list_widget.height()
+        self.assertGreaterEqual(status_top_i, list_end_i)
+        self.assertLessEqual(status_end_i, search_box.geometry().top())
+        self.assertLessEqual(search_box.geometry().top() - status_end_i,
+                             max(layout.spacing(), 0) + 1)
+        # LLFR-00094: the search box stays below the list.
+        self.assertGreater(search_box.geometry().top(), list_end_i)
 
     @covers("LLFR-00418", "LLFR-00560", "LLFR-00562", "LLFR-00563")
     def test_status_line_empty_except_while_loading(self) -> None:
