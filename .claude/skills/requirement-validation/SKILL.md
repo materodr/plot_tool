@@ -199,6 +199,7 @@ When in doubt, don't split: over-splitting hurts readability.
   - a statement that no finding is still open.
 
   If a finding is still open, fix it first through a Fix issue and a PR into `develop`, then open the release PR.
+- **`Fail*` first:** when the branch's test matrix shows a `Fail*`, the description starts with the `## Fail* (PCR-00070)` section that `tests/build_test_matrix.py` prints, before the validation section (PCR-00070). A release PR into `main` can't have a `Fail*` for an HLFR that isn't implemented yet (PCR-00069).
 
 ## Practical notes
 - The shared clone's remote-tracking refs can be stale, so use `git fetch origin <branch>` and FETCH_HEAD.

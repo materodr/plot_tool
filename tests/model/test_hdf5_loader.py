@@ -105,7 +105,7 @@ class Hdf5FolderTest(unittest.TestCase):
 class H5pyInstalledTest(unittest.TestCase):
     """CI guard: the HDF5 tests must run in GitHub Actions."""
 
-    @covers("LLFR-00134", "HLFR-00005")
+    @covers("LLFR-00134", "HLFR-00005", "PCR-00072")
     def test_h5py_is_installed_in_ci(self) -> None:
         """In GitHub Actions h5py is installed, so no HDF5 test skips.
 
@@ -114,6 +114,11 @@ class H5pyInstalledTest(unittest.TestCase):
         """
         if os.environ.get("GITHUB_ACTIONS") != "true":
             self.skipTest("only checked in GitHub Actions")
+        if not H5PY_AVAILABLE_B and os.environ.get(
+                "PLOT_TOOL_ENVIRONMENT_LIMIT"):
+            # PCR-00072: the install step couldn't install h5py, so the
+            # skip reason makes this test a Fail* like the HDF5 tests.
+            self.skipTest("h5py is not installed")
         self.assertTrue(H5PY_AVAILABLE_B,
                         "h5py must be installed in CI (requirements.txt)")
 

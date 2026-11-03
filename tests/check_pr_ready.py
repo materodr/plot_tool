@@ -4,6 +4,8 @@ Usage:
     python tests/check_pr_ready.py --hook
     python tests/check_pr_ready.py --base BRANCH --head COMMIT
         --ci-matrix PATH
+    python tests/check_pr_ready.py --base BRANCH --head COMMIT
+        --body-file PATH
 
 The flow is: make the change, bring the branch up to date with develop
 (PCR-00060), run every test and commit the test matrix (PCR-00061), and
@@ -16,6 +18,18 @@ blocks the command, when the command creates a pull request into develop
 or main from a branch that isn't ready. --ci-matrix is for the CI job,
 which also compares the tests of the committed matrix with those of its
 own run. It exits with code 1 when it finds a problem.
+
+Two justified exceptions show as `Fail*` in the matrix, each with its
+justification, and are listed in its "Fail* (PCR-00070)" section:
+- a test that couldn't run because the environment lacked PyQt6 or h5py
+  (PCR-00063). It counts as passed (PCR-00064);
+- an HLFR of tests/not_implemented.txt (PCR-00065, PCR-00066). It is
+  accepted into develop and refused into main (PCR-00069).
+--body-file is for the fail-star-section CI job: when the committed
+matrix has a `Fail*`, the pull request description must start with the
+same section, listing every `Fail*` with its justification (PCR-00070).
+
+It uses only the standard library, so any Python 3 can run it.
 """
 
 import argparse
@@ -36,13 +50,110 @@ from tests.check_requirement_review import (  # noqa
 from tests.find_affected_requirements import run_git  # noqa
 
 MATRIX_PATH_STR = "tests/test_matrix.md"
+NOT_IMPLEMENTED_LIST_PATH_STR = "tests/not_implemented.txt"
 MAIN_BRANCH_STR = "main"
 DEVELOP_BRANCH_STR = "develop"
 HASH_PATTERN_STR = r"^Source hash: `([0-9a-f]+)`"
 FAILED_CELL_PATTERN_STR = r"` failed\b"
-TEST_CELL_PATTERN_STR = r"`([^`\s]+)` (?:passed|failed|skipped|known)"
+TEST_CELL_PATTERN_STR = (r"`([^`\s]+)` "
+                         r"(?:passed|failed|skipped|known|Fail\*)")
 MATRIX_COMMAND_STR = ("python tests/build_test_matrix.py --require-qt "
                       "--require-h5py --base develop --head HEAD")
+# PCR-00063 to PCR-00070: the justified exceptions to the test rules.
+FAIL_STAR_STR = "Fail*"
+FAIL_STAR_HEADING_STR = "Fail* (PCR-00070)"
+HEADING_LINE_PATTERN_STR = r"^#{1,6}[ \t]+(.*?)[ \t#]*$"
+ENVIRONMENT_ENTRY_START_STR = "Environment, "
+NOT_IMPLEMENTED_ENTRY_START_STR = "Not implemented, "
+
+
+def listed_hlfr_ids(list_text_str: str) -> list:
+    """Read the HLFR IDs of a tests/not_implemented.txt text.
+
+    Inputs:
+        list_text_str: the text of the list (PCR-00066).
+    Outputs: the HLFR IDs that start its lines that are neither blank
+        nor comments, in their order.
+    """
+    id_list = []
+    for line_str in list_text_str.splitlines():
+        id_match = re.match(r"\s*(HLFR-\d{5})\b", line_str)
+        if id_match and not line_str.strip().startswith("#"):
+            id_list.append(id_match.group(1))
+    return id_list
+
+
+def fail_star_entries(text_str: str) -> list:
+    """Read the entries of the Fail* section of a matrix or description.
+
+    Inputs:
+        text_str: the text of a test matrix or of a pull request
+            description.
+    Outputs: the list of the entries of the first section headed
+        FAIL_STAR_HEADING_STR, each one the text of a "- " line without
+        its "- " and its surrounding spaces, in their order. It is empty
+        when there is no such section (PCR-00070).
+    """
+    entry_list = []
+    in_section_b = False
+    for line_str in text_str.splitlines():
+        heading_match = re.match(HEADING_LINE_PATTERN_STR, line_str.strip())
+        if heading_match:
+            if in_section_b:
+                break
+            in_section_b = heading_match.group(1) == FAIL_STAR_HEADING_STR
+            continue
+        if not in_section_b:
+            continue
+        if line_str.startswith("|"):
+            break
+        if line_str.strip().startswith("- "):
+            entry_list.append(line_str.strip()[2:].strip())
+    return entry_list
+
+
+def starts_with_fail_star_section(body_str: str) -> bool:
+    """Tell whether a description starts with the Fail* section.
+
+    Inputs:
+        body_str: the text of the pull request description.
+    Outputs: True when its first line that isn't blank is a heading with
+        the text FAIL_STAR_HEADING_STR (PCR-00070).
+    """
+    for line_str in body_str.splitlines():
+        if not line_str.strip():
+            continue
+        heading_match = re.match(HEADING_LINE_PATTERN_STR, line_str.strip())
+        return bool(heading_match
+                    and heading_match.group(1) == FAIL_STAR_HEADING_STR)
+    return False
+
+
+def description_problems(body_str: str, matrix_str: str) -> list:
+    """Check that a description lists every Fail* of a matrix first.
+
+    Inputs:
+        body_str: the text of the pull request description.
+        matrix_str: the text of the matrix committed on the branch.
+    Outputs: a list of problem texts, empty when the matrix has no
+        Fail* or when the description starts with the Fail* section and
+        that section holds every entry of the matrix's section, with its
+        justification (PCR-00070).
+    """
+    matrix_entry_list = fail_star_entries(matrix_str)
+    if not matrix_entry_list:
+        return []
+    if not starts_with_fail_star_section(body_str):
+        return [f"The test matrix shows {len(matrix_entry_list)} Fail*, so "
+                "the description must start with the section "
+                f"\"## {FAIL_STAR_HEADING_STR}\" (PCR-00070). Copy it from "
+                "tests/test_matrix.md."]
+    body_entry_list = fail_star_entries(body_str)
+    return [f"The section \"## {FAIL_STAR_HEADING_STR}\" of the description "
+            f"is missing this Fail* of the matrix: \"- {entry_str}\" "
+            "(PCR-00070)."
+            for entry_str in matrix_entry_list
+            if entry_str not in body_entry_list]
 
 
 def source_hash(head_str: str, folder_str: str) -> str:
@@ -60,13 +171,18 @@ def source_hash(head_str: str, folder_str: str) -> str:
     return hashlib.sha256("\n".join(kept_line_list).encode()).hexdigest()
 
 
-def matrix_problems(matrix_str: str, expected_hash_str: str) -> list:
+def matrix_problems(matrix_str: str, expected_hash_str: str,
+                    base_str: str = DEVELOP_BRANCH_STR) -> list:
     """Check a committed matrix against the code of its branch.
 
     Inputs:
         matrix_str: the text of the matrix.
         expected_hash_str: the hash of the branch's files.
-    Outputs: a list of problem texts, empty when the matrix is good.
+        base_str: the branch the pull request goes into.
+    Outputs: a list of problem texts, empty when the matrix is good. A
+        test shown as Fail* for an environment limit isn't a failed test
+        (PCR-00064). An HLFR shown as Fail* because it isn't implemented
+        yet is a problem only into main (PCR-00069).
     """
     problem_list = []
     hash_match = re.search(HASH_PATTERN_STR, matrix_str, re.MULTILINE)
@@ -78,6 +194,13 @@ def matrix_problems(matrix_str: str, expected_hash_str: str) -> list:
     if re.search(FAILED_CELL_PATTERN_STR, matrix_str):
         problem_list.append(
             "tests/test_matrix.md shows failed tests (PCR-00062).")
+    if base_str == MAIN_BRANCH_STR:
+        problem_list.extend(
+            f"tests/test_matrix.md shows a Fail* for an HLFR that isn't "
+            f"implemented yet, which can't go into main (PCR-00069): "
+            f"\"{entry_str}\"."
+            for entry_str in fail_star_entries(matrix_str)
+            if entry_str.startswith(NOT_IMPLEMENTED_ENTRY_START_STR))
     return problem_list
 
 
@@ -100,9 +223,24 @@ def branch_problems(base_str: str, head_str: str, folder_str: str) -> list:
             problem_list.append(
                 f"The branch doesn't contain the latest {base_str} "
                 "(PCR-00060). Update it and run the tests again.")
+    if base_str == MAIN_BRANCH_STR:
+        # PCR-00069: the list itself, so that a matrix edited by hand
+        # can't hide an HLFR that isn't implemented yet.
+        try:
+            list_text_str = run_git(
+                folder_str, "show",
+                f"{head_str}:{NOT_IMPLEMENTED_LIST_PATH_STR}")
+        except subprocess.CalledProcessError:
+            list_text_str = ""
+        listed_id_list = listed_hlfr_ids(list_text_str)
+        if listed_id_list:
+            problem_list.append(
+                f"{NOT_IMPLEMENTED_LIST_PATH_STR} lists HLFRs that aren't "
+                "implemented yet, which can't go into main (PCR-00069): "
+                + ", ".join(listed_id_list) + ".")
     matrix_str = run_git(folder_str, "show", f"{head_str}:{MATRIX_PATH_STR}")
     return problem_list + matrix_problems(
-        matrix_str, source_hash(head_str, folder_str))
+        matrix_str, source_hash(head_str, folder_str), base_str)
 
 
 def pull_request_target(command_str: str) -> tuple:
@@ -190,6 +328,39 @@ def check_in_ci(base_str: str, head_str: str, matrix_path_str: str) -> int:
     return 1 if problem_list else 0
 
 
+def check_description(base_str: str, head_str: str,
+                      body_path_str: str) -> int:
+    """Check a saved pull request description, for the CI job.
+
+    Inputs:
+        base_str: the branch the pull request goes into.
+        head_str: the commit of the pull request.
+        body_path_str: the path of the saved description.
+    Outputs: the process exit code, 0 when the description lists every
+        Fail* of the committed matrix at its top, or the matrix has none
+        (PCR-00070).
+    """
+    try:
+        matrix_str = run_git(REPOSITORY_ROOT_STR, "show",
+                             f"{head_str}:{MATRIX_PATH_STR}")
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f"Result: fail, git can't read the matrix of {head_str} "
+              f"(into {base_str}): {error}")
+        return 1
+    with open(body_path_str, encoding="utf-8") as body_file:
+        body_str = body_file.read()
+    problem_list = description_problems(body_str, matrix_str)
+    for problem_str in problem_list:
+        print("Result: fail. " + problem_str)
+    if not problem_list:
+        entry_count_i = len(fail_star_entries(matrix_str))
+        print("Result: pass, " + (
+            f"the description lists the {entry_count_i} Fail* of the "
+            "matrix at its top." if entry_count_i
+            else "the matrix shows no Fail*."))
+    return 1 if problem_list else 0
+
+
 def main() -> int:
     """Run the check that the command-line arguments ask for.
 
@@ -201,9 +372,14 @@ def main() -> int:
     parser.add_argument("--base", default=DEVELOP_BRANCH_STR)
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--ci-matrix", default="")
+    parser.add_argument("--body-file", default="")
     argument_namespace = parser.parse_args()
     if argument_namespace.hook:
         return run_hook()
+    if argument_namespace.body_file:
+        return check_description(argument_namespace.base,
+                                 argument_namespace.head,
+                                 argument_namespace.body_file)
     return check_in_ci(argument_namespace.base, argument_namespace.head,
                        argument_namespace.ci_matrix)
 
