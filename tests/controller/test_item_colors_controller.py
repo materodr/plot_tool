@@ -15,7 +15,8 @@ from controller.plot_tools import (
 from tests.controller.test_plot_controller import PlotControllerTestCase
 
 from model.workspace import (
-    DEFAULT_FLAG_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR)
+    DEFAULT_FLAG_COLOR_STR, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
+    DEFAULT_TEXT_NOTE_COLOR_STR)
 
 
 class ItemColorControllerTestCase(PlotControllerTestCase):
@@ -170,13 +171,15 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
 
     @covers("LLFR-00336", "LLFR-00385")
     def test_new_note_is_drawn_with_the_default_style(self) -> None:
-        """A new note is drawn at 12 points in #24303b.
+        """A new note is drawn at 12 points in #24303b with an orange
+        #ff8000 border.
 
         Inputs: none.
         Outputs: none.
         """
+        self.assertEqual(DEFAULT_TEXT_NOTE_BORDER_COLOR_STR, "#ff8000")
         self.assertEqual(self.drawn_note_style(),
-                         (12, DEFAULT_TEXT_NOTE_COLOR_STR,
+                         (12, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
                           DEFAULT_TEXT_NOTE_COLOR_STR))
 
     @covers("LLFR-00385", "LLFR-00140", "LLFR-00138", "LLFR-00192")
@@ -229,14 +232,14 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
         self.view.handler_dict["text_note_text_color_handler"](
             self.plot_id_i, 0)
         self.assertEqual(self.view.color_question_list, [
-            DEFAULT_TEXT_NOTE_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR,
+            DEFAULT_TEXT_NOTE_BORDER_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR,
             "#ff0000", "#0000ff"])
         self.view.handler_dict["undo"]()
         self.assertEqual(self.drawn_note_style(),
                          (12, "#ff0000", DEFAULT_TEXT_NOTE_COLOR_STR))
         self.view.handler_dict["undo"]()
         self.assertEqual(self.drawn_note_style(),
-                         (12, DEFAULT_TEXT_NOTE_COLOR_STR,
+                         (12, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
                           DEFAULT_TEXT_NOTE_COLOR_STR))
 
     @covers("LLFR-00390", "LLFR-00387", "LLFR-00140")
@@ -248,8 +251,7 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
         Outputs: none.
         """
         depth_i = self.undo_depth()
-        self.view.color_answer_list = [None, DEFAULT_TEXT_NOTE_COLOR_STR,
-                                       None, "#24303B"]
+        self.view.color_answer_list = [None, "#FF8000", None, "#24303B"]
         for handler_name_str in ("text_note_border_color_handler",
                                  "text_note_text_color_handler"):
             handler = self.view.handler_dict[handler_name_str]
@@ -260,7 +262,7 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
         self.assertEqual(len(self.view.color_question_list), 4)
         self.assertEqual(self.undo_depth(), depth_i)
         self.assertEqual(self.drawn_note_style(),
-                         (12, DEFAULT_TEXT_NOTE_COLOR_STR,
+                         (12, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
                           DEFAULT_TEXT_NOTE_COLOR_STR))
 
     @covers("LLFR-00342", "LLFR-00385", "LLFR-00387")

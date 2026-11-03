@@ -125,6 +125,8 @@ class ColorPickerTest(unittest.TestCase):
         from PyQt6.QtGui import QColor
         from PyQt6.QtWidgets import QColorDialog, QDialog
         from view import color_picker
+        from tests.view.test_recent_colors_view import isolate_recent_colors
+        isolate_recent_colors(self)
         start_list = []
 
         def accept(dialog) -> int:
@@ -247,8 +249,8 @@ class FlagColorViewTest(PlotWidgetToolTestCase):
         menu = self.plot_widget.build_context_menu(self.point_at(5.0, 2.0))
         self.assertEqual([action.text() for action in menu.actions()],
                          FLAG_MENU_TEXT_LIST)
-        menu_action_dict(menu)["Color"].trigger()
-        self.assertEqual(color_list, [(7,)])
+        menu_action_dict(menu)["Color/Other color..."].trigger()
+        self.assertEqual(color_list, [(7, "")])
         menu.deleteLater()
 
 
@@ -300,7 +302,7 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
     @covers("LLFR-00336", "LLFR-00385")
     def test_white_rounded_box_with_the_default_colors(self) -> None:
         """A new note is #24303b text at 12 points on a white rounded box
-        with a #24303b border, the box of a pinned data tip.
+        with an orange #ff8000 border, the box of a pinned data tip.
 
         Inputs: none.
         Outputs: none.
@@ -311,7 +313,7 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         annotation = self.plot_widget.text_note_annotation(0)
         patch = annotation.get_bbox_patch()
         self.assertEqual(to_hex_str(patch.get_facecolor()), "#ffffff")
-        self.assertEqual(to_hex_str(patch.get_edgecolor()), "#24303b")
+        self.assertEqual(to_hex_str(patch.get_edgecolor()), "#ff8000")
         self.assertEqual(to_hex_str(annotation.get_color()), "#24303b")
         self.assertEqual(annotation.get_fontsize(), 12.0)
         self.assertEqual(patch.get_boxstyle().__class__.__name__, "Round")
@@ -372,11 +374,11 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         self.assertEqual([action.text() for action in size_action_list
                           if action.isChecked()], ["20"])
         action_dict["Size/32"].trigger()
-        action_dict["Border color"].trigger()
-        action_dict["Text color"].trigger()
+        action_dict["Border color/Other color..."].trigger()
+        action_dict["Text color/Other color..."].trigger()
         self.assertEqual(size_list, [(0, 32)])
-        self.assertEqual(border_list, [(0,)])
-        self.assertEqual(text_list, [(0,)])
+        self.assertEqual(border_list, [(0, "")])
+        self.assertEqual(text_list, [(0, "")])
         menu.deleteLater()
 
     @covers("LLFR-00386", "LLFR-00385")
@@ -549,11 +551,11 @@ class ItemColorEndToEndTest(unittest.TestCase):
                                .get_color()) for widget in self.widgets()]
 
         depth_i = self.plot_controller.undo_history.depth()
-        self.choose(point, "Color")
+        self.choose(point, "Color/Other color...")
         self.assertEqual(self.question_list, [MARKER_COLOR_STR])
         self.assertEqual(self.plot_controller.undo_history.depth(), depth_i)
         self.answer_list = ["#1F77B4"]
-        self.choose(point, "Color")
+        self.choose(point, "Color/Other color...")
         self.assertEqual(line_colors(), ["#1f77b4", "#1f77b4"])
         self.main_window.run_undo()
         self.process_events()
@@ -603,13 +605,13 @@ class ItemColorEndToEndTest(unittest.TestCase):
 
         self.choose(note_point(), "Size/16")
         self.answer_list = ["#ff0000", "#0000ff"]
-        self.choose(note_point(), "Border color")
-        self.choose(note_point(), "Text color")
-        self.assertEqual(self.question_list, ["#24303b", "#24303b"])
+        self.choose(note_point(), "Border color/Other color...")
+        self.choose(note_point(), "Text color/Other color...")
+        self.assertEqual(self.question_list, ["#ff8000", "#24303b"])
         self.assertEqual(drawn_style(), (16.0, "#ff0000", "#0000ff"))
         for expected_tuple in ((16.0, "#ff0000", "#24303b"),
-                               (16.0, "#24303b", "#24303b"),
-                               (12.0, "#24303b", "#24303b")):
+                               (16.0, "#ff8000", "#24303b"),
+                               (12.0, "#ff8000", "#24303b")):
             self.main_window.run_undo()
             self.process_events()
             self.assertEqual(drawn_style(), expected_tuple)

@@ -756,19 +756,23 @@ class AreaMenuTest(AreaWidgetTestCase):
 
     @covers("LLFR-00351", "LLFR-00314", "LLFR-00388")
     def test_color_option_asks_for_the_picker(self) -> None:
-        """"Color" is one option, with no list of fixed colors; choosing
-        it emits area_color_requested with the area's id, so that the
+        """"Color" is the shared color submenu, with no list of fixed
+        colors: with no recent color only "Other color...", which emits
+        area_color_requested with the area's id and "", so that the
         controller opens the shared color picker.
 
         Inputs: none.
         Outputs: none.
         """
+        from tests.view.test_recent_colors_view import isolate_recent_colors
+        isolate_recent_colors(self)
         color_list = recorder(self.plot_widget.area_color_requested)
         self.assertEqual(self.menu_texts(self.at(4.0)),
                          AREA_MENU_TEXT_LIST)
-        self.assertNotIn("Color", self.submenu_dict)
-        self.menu_texts(self.at(4.0), "Color")
-        self.assertEqual(color_list, [(1,)])
+        self.assertEqual(self.submenu_dict["Color"],
+                         [("Other color...", False, False)])
+        self.menu_texts(self.at(4.0), "Other color...")
+        self.assertEqual(color_list, [(1, "")])
 
     @covers("LLFR-00317", "LLFR-00110", "LLFR-00038", "LLFR-00046",
             "LLFR-00175")
@@ -1016,8 +1020,10 @@ class AreaWindowTest(XyzKeyWindowTestCase):
                 first_widget.axes.get_ylim()[1]
                 - first_widget.axes.get_ylim()[0]))
         menu, request_list = first_widget.context_menu_and_requests(point)
-        color_action = next(action for action in menu.actions()
-                            if action.text() == "Color")
+        color_menu = next(action.menu() for action in menu.actions()
+                          if action.text() == "Color")
+        color_action = next(action for action in color_menu.actions()
+                            if action.text() == "Other color...")
         request_list[color_action.data()]()
         self.application.processEvents()
         self.assertEqual(question_list, [AREA_COLOR_STR])
