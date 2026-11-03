@@ -8,7 +8,7 @@ description: "Check, validate and correct the plot_tool requirements so each sta
 This skill checks, validates by independent review, and corrects the requirements in `docs/requirements/` of materodr/plot_tool, without changing their meaning.
 
 **When to run it**
-- **Before every pull request from `develop` to `main`** (PCR-00050). The scope is every active requirement, and the release PR must show the result (PCR-00051).
+- **Before every pull request from `develop` to `main`** (PCR-00050). The scope is every requirement created or changed since the last merge into `main`, and the release PR must show the result (PCR-00051).
 - **Before every pull request into `develop` whose branch adds requirements** (PCR-00052). The scope is the requirements that the branch adds, and the PR must show the result (PCR-00053).
 - Whenever the owner asks for a requirements quality check, or the `requirements-quality` CI job fails.
 
@@ -25,7 +25,13 @@ This skill checks, validates by independent review, and corrects the requirement
 ---
 
 ## Step 1. Scope
-- **Before a develop to main PR, or an owner-requested full check:** all active requirements.
+- **Before a develop to main PR:**
+  ```bash
+  git fetch origin main develop
+  git diff origin/main origin/develop -- docs/requirements/
+  ```
+  Collect every ID whose heading or body changed, plus every new ID.
+- **Owner-requested full check:** all active requirements.
 - **Before a PR into develop:**
   ```bash
   git fetch origin develop
@@ -38,7 +44,7 @@ Run `python tests/check_requirements.py`. It checks:
 - IDs: valid, unique, no gaps (PCR-00044, PCR-00045).
 - References: every ID named exists.
 - Parent links: each active LLFR names existing HLFRs (PCR-00031).
-- HLFR children: each active HLFR has a child LLFR.
+- HLFR children: each active HLFR has a child LLFR (PCR-00055).
 - One must: "must" exactly once in the statement (PCR-00036). Note and Parent lines are excluded, and a quoted mention such as "must not" is ignored.
 - Positive statement: requirements with an ID above `LAST_ID_BEFORE_POSITIVE_RULE_DICT` must not use "must not" (PCR-00049).
 
@@ -69,7 +75,15 @@ When in doubt, don't split: over-splitting hurts readability.
 
 **c. "must not".** PCR-00049 requires positive form for requirements created after it was added. For older requirements that change, the reviewer checks it. Existing "must not" requirements stay unless the owner says otherwise.
 
-**d. Other defects worth reporting:**
+**d. Not clear or ambiguous (PCR-00054).** Flag a requirement that two careful readers could understand differently, for example:
+- a word with no measure, such as "quickly", "easy to read" or "small", where a test needs a limit;
+- a pronoun or a "that" whose target isn't certain;
+- a trigger, condition or exception that leaves a case undecided;
+- a term used with two meanings, or two terms for one thing.
+
+**Never decide alone what it means.** Show the owner the full requirement and ask. The ground rule of keeping an ambiguity applies to corrections that split a requirement; it doesn't excuse leaving one unreported here.
+
+**e. Other defects worth reporting:**
 - a requirement that reads stronger than intended, for example "must find a signal even when…", which implies a search is never empty;
 - an obligation placed on the user instead of the app ("the user must…");
 - stale wording such as "today" or "currently";
@@ -179,7 +193,7 @@ When in doubt, don't split: over-splitting hurts readability.
   - the untested new parts;
   - known points.
 - **For a develop to main PR (PCR-00051):** add a "Requirement validation (PCR-00050)" section. **For a PR into develop whose branch adds requirements (PCR-00053):** add a "Requirement validation (PCR-00052)" section instead. `tests/check_requirement_review.py` looks for these headings. The section has:
-  - the scope (all active requirements, or the IDs the branch adds);
+  - the scope (the IDs created or changed since the last merge into `main`, or the IDs the branch adds);
   - the check result;
   - the judgement-pass findings and how each was resolved, with links to the fix issue and PR;
   - a statement that no finding is still open.
