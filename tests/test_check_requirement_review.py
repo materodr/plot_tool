@@ -19,7 +19,7 @@ from tests.support import covers
 
 MODULE_STR = "tests.check_requirement_review"
 MAIN_BODY_STR = (f"Release.\n\n## {MAIN_HEADING_STR}\n"
-                 "Scope: all. Result: pass.\n")
+                 "Scope: PCR-00001. Result: pass.\n")
 DEVELOP_BODY_STR = (f"Feature.\n\n## {DEVELOP_HEADING_STR}\n"
                     "Scope: PCR-00052. Result: pass.\n")
 BAD_BODY_STR = "No review.\n"
@@ -435,7 +435,7 @@ class EntryPointTest(unittest.TestCase):
 
     @covers("PCR-00050", "PCR-00051")
     def test_hook_blocks_main_with_code_2(self) -> None:
-        """The message for main names the skill and every requirement.
+        """The message for main names the skill and its scope.
 
         Inputs: none.
         Outputs: none.
@@ -444,7 +444,8 @@ class EntryPointTest(unittest.TestCase):
             {"tool_input": {"command": "gh pr create --base main --fill"}}))
         self.assertEqual(exit_code_i, 2)
         self.assertIn("requirement-validation", error_str)
-        self.assertIn("every active requirement", error_str)
+        self.assertIn("created or changed since the last merge into main",
+                      error_str)
         self.assertIn(MAIN_HEADING_STR, error_str)
 
     @covers("PCR-00052", "PCR-00053")

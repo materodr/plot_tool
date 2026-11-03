@@ -160,7 +160,7 @@ class CheckRequirementsTest(unittest.TestCase):
         self.assertEqual(problem_list[0][:2],
                          (REFERENCE_RULE_STR, "COR-00001"))
 
-    @covers("PCR-00031", "PCR-00037")
+    @covers("PCR-00031", "PCR-00037", "PCR-00055")
     def test_parent_links_are_checked(self) -> None:
         """A missing parent and an HLFR without a child are reported.
 

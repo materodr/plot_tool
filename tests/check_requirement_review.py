@@ -7,8 +7,8 @@ Usage:
 
 The requirement-validation skill reviews the requirements, and the pull
 request has to show the result in a section with its own heading:
-- into main: every active requirement, under MAIN_HEADING_STR (PCR-00050,
-  PCR-00051);
+- into main: every requirement created or changed since the last merge
+  into main, under MAIN_HEADING_STR (PCR-00050, PCR-00051);
 - into develop: the requirements that the branch adds, under
   DEVELOP_HEADING_STR (PCR-00052, PCR-00053). A branch that adds no
   requirement needs no section.
@@ -69,7 +69,8 @@ BLOCKED_MESSAGE_STR = (
     "through a shell variable."
 )
 MAIN_SCOPE_DICT = {"scope": "PCR-00050, PCR-00051",
-                   "reviewed": "every active requirement",
+                   "reviewed": ("every requirement created or changed since "
+                                "the last merge into main"),
                    "heading": MAIN_HEADING_STR}
 DEVELOP_SCOPE_DICT = {"scope": "PCR-00052, PCR-00053",
                       "reviewed": "every requirement that this branch adds",

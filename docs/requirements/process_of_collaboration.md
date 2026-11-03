@@ -85,7 +85,7 @@ A pull request from `develop` to `main` must list all the issues that track the 
 A pull request from `develop` to `main` must show evidence that the code fulfils all the functional requirements.
 
 ### PCR-00050 Requirements review before develop to main
-Before a pull request from `develop` to `main` is opened, the requirements review of the `requirement-validation` skill must be run on every active requirement.
+Before a pull request from `develop` to `main` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement created or changed since the last merge into `main`.
 
 ### PCR-00051 Requirements review result for develop to main
 A pull request from `develop` to `main` must show the result of the requirements review of PCR-00050.
@@ -149,6 +149,11 @@ Low-level functional requirements must be created and edited by agents during de
 ### PCR-00031 LLFR traceability
 Every low-level functional requirement must be linked to at least one high-level functional requirement.
 
+### PCR-00055 HLFR children
+Every high-level functional requirement must have at least one low-level functional requirement linked to it.
+
+Note: `tests/check_requirements.py` tests it.
+
 ### PCR-00032 Sample file for every format
 The `tests/user_tests/good` folder must contain at least one sample file that the app can open for each file format listed in HLFR-00005.
 
@@ -170,6 +175,11 @@ All the Markdown (`.md`) files in the repository must be written in English.
 Each requirement must state only one obligation, about only one thing.
 
 Note: The word `must` therefore appears only once in the statement. A `Note:` line is not part of the statement, and deleted requirements are excluded.
+
+### PCR-00054 Clear requirements
+Each requirement must be clear and unambiguous.
+
+Note: A script can't tell this, so the requirements review of the `requirement-validation` skill checks it.
 
 ### PCR-00049 Positive statements in new requirements
 Each requirement created after this requirement was added must state its obligation in positive form, without the words "must not".
