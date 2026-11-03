@@ -18,7 +18,7 @@ The requirements below are loaded into every session. Follow them in all work.
 - Branch names must make the branch type and the issue explicit (PCR-00003, PCR-00005, PCR-00039). Project convention: create the branch from `develop` and name it `feature/<issue number>-<short-name>` or `fix/<issue number>-<short-name>`.
 - Project convention: feature and fix pull requests go into `develop`.
 - Pull requests from `develop` to `main` must follow PCR-00017 and PCR-00018 and need human approval (PCR-00015). Agents never merge into `main`.
-- Before opening a pull request from `develop` to `main`, run the `plot-tool-requirements-review` skill on every requirement created or changed since the last merge into `main`, fix what it finds through a fix issue, and put its result in the pull request (PCR-00050, PCR-00051).
+- Before opening a pull request from `develop` to `main`, run the `requirement-validation` skill on every requirement created or changed since the last merge into `main`, fix what it finds through a fix issue, and put its result in the pull request (PCR-00050, PCR-00051).
 - Do not merge your own work. A different agent or a human must review and test it first (PCR-00016).
 - Before a pull request is merged, fill in the remaining sections of its issue, as listed in PCR-00006 (fixes) or PCR-00008 (features) (PCR-00014).
 - Before opening a pull request that changes requirements, run `python tests/check_requirements.py` (PCR-00037). CI posts the result on the pull request (PCR-00038).

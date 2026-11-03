@@ -85,7 +85,7 @@ A pull request from `develop` to `main` must list all the issues that track the 
 A pull request from `develop` to `main` must show evidence that the code fulfils all the functional requirements.
 
 ### PCR-00050 Requirements review before develop to main
-Before a pull request from `develop` to `main` is opened, the requirements review of the `plot-tool-requirements-review` skill must be run on every requirement created or changed since the last merge into `main`.
+Before a pull request from `develop` to `main` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement created or changed since the last merge into `main`.
 
 ### PCR-00051 Requirements review result for develop to main
 A pull request from `develop` to `main` must show the result of the requirements review of PCR-00050.
