@@ -161,6 +161,54 @@ jobs:
           path: test_matrix_ci.md
           if-no-files-found: ignore
 
+  # PCR-00037 and PCR-00038: test the quality of the requirements and
+  # post the result on the pull request. A separate job, so a problem in
+  # the requirements doesn't hide the results of the tests above.
+  requirements-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test the quality of the requirements
+        run: python tests/check_requirements.py --output requirements_quality.md
+
+      - name: Show the result
+        if: always()
+        run: |
+          if [ -f requirements_quality.md ]; then
+            cat requirements_quality.md
+            cat requirements_quality.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Post the result on the pull request
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ ! -f requirements_quality.md ]; then exit 0; fi
+          {
+            echo "<!-- requirements-quality -->"
+            echo "CI run for commit ${{ github.event.pull_request.head.sha }}"
+            echo
+            cat requirements_quality.md
+          } > quality_comment.md
+          # Update the existing comment, or create it the first time.
+          comment_id=$(gh api "repos/$REPOSITORY/issues/$PULL_NUMBER/comments" \
+            --paginate --jq '.[] | select(.body | startswith("<!-- requirements-quality -->")) | .id' | tail -1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPOSITORY/issues/comments/$comment_id" \
+              -F body=@quality_comment.md > /dev/null
+          else
+            gh api "repos/$REPOSITORY/issues/$PULL_NUMBER/comments" \
+              -F body=@quality_comment.md > /dev/null
+          fi
+
   # PCR-00019 and PCR-00022: keep the committed matrix at the last run
   # on develop. A separate job so that only this short step is
   # serialized: runs for develop queue here (cancel-in-progress: false)

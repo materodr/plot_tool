@@ -31,6 +31,7 @@ The tests use the standard library `unittest`. Each test is tagged with the requ
 ```bash
 python tests/build_test_matrix.py        # runs every test, writes tests/test_matrix.md
 python -m pycodestyle src tests          # PEP 8 check
+python tests/check_requirements.py       # requirements quality (PCR-00037)
 ```
 
 GUI tests are skipped when PyQt6 is not installed. The GitHub Actions workflow (`.github/workflows/tests.yml`) runs every test with PyQt6 on each pull request.
