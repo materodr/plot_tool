@@ -184,6 +184,28 @@ class DeltaPointDragTest(DeltaPointWidgetTestCase):
                          [(1, 0, target_tuple[1], target_tuple[2])])
         self.assertEqual(self.pick_list, [])
 
+    @covers("LLFR-00383", "LLFR-00794", "LLFR-00790")
+    def test_dot_inside_an_area_moves_the_point(self) -> None:
+        """With no tool, a dot drawn inside an area is dragged before the
+        area, which stays where it is (delta marker points come before
+        flags and areas).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        area_change_list = recorder(self.plot_widget.area_change_requested)
+        self.plot_widget.set_plot_tool(NO_TOOL_STR)
+        self.plot_widget.set_areas([(7, "Area 1", 5.0, 7.0)])
+        self.draw()
+        target_tuple = self.ramp_point(6.5)
+        self.drag_display(self.point_display(self.second_tuple),
+                          self.point_display(target_tuple))
+        self.assertEqual(self.point_move_list,
+                         [(1, 1, target_tuple[1], target_tuple[2])])
+        self.assertEqual(area_change_list, [])
+        self.assertEqual(self.plot_widget.area_drawn_span_tuple(7),
+                         (5.0, 7.0))
+
     @covers("LLFR-00433", "LLFR-00801", "LLFR-00384")
     def test_other_tools_never_move_a_point(self) -> None:
         """With the Tip, Zoom or Flag tool, a drag on a dot moves no
@@ -379,6 +401,8 @@ class DeltaZeroPreviewTest(DeltaWidgetTestCase):
                 self.plot_widget.set_delta_first_point(first_tuple)
                 self.draw()
                 self.mouse("motion_notify_event", *zero_tuple[1:])
+                # The whole preview is hidden, the dot too.
+                self.assertFalse(self.plot_widget.delta_preview_shown())
                 self.assertFalse(
                     self.plot_widget.delta_preview_marker_shown())
                 self.assertEqual(self.plot_widget.delta_preview_text(), "")

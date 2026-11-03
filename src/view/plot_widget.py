@@ -4298,9 +4298,10 @@ class PlotWidget(QWidget):
         if arrow_index_i != NO_ARROW_INDEX_I:
             self.arrow_edit_press_at(widget_point, arrow_index_i)
             return
-        # LLFR-00794: a press on a dot of a delta marker may drag its
-        # point (LLFR-00433); a short press does nothing (LLFR-00867).
-        # The dots are drawn above the flags and the areas.
+        # LLFR-00383: then the delta marker point, before the flag and
+        # the area. LLFR-00794: a press on a dot of a delta marker may
+        # drag its point (LLFR-00433); a short press does nothing
+        # (LLFR-00867).
         dot_tuple = self.delta_dot_at(widget_point)
         if dot_tuple:
             self.delta_point_press_at(widget_point, *dot_tuple)
@@ -6619,8 +6620,8 @@ class PlotWidget(QWidget):
             return ()
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
         nearest_tuple = self.nearest_curve_tuple(widget_point)
-        # LLFR-00432: no preview where the second point would give a
-        # value of zero, since a click there draws nothing (LLFR-00431).
+        # LLFR-00432: where the second point would give a value of zero
+        # (LLFR-00431), the whole preview is hidden, the dot too.
         if (nearest_tuple and self.delta_first_point_tuple
                 and delta_value_zero_b(self.delta_preview_kind_str(),
                                        self.delta_first_point_tuple,
