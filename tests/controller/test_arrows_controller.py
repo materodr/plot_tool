@@ -109,12 +109,12 @@ class CreateArrowTest(ArrowControllerTestCase):
         """
         depth_i = self.undo_depth()
         self.create((1.0, 2.0, 3.0, 4.0))
-        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#ff8000")])
+        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#24303b")])
         self.assertEqual(self.undo_depth(), depth_i + 1)
         self.undo()
         self.assertEqual(self.drawn(), [])
         self.redo()
-        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#ff8000")])
+        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#24303b")])
 
     @covers("LLFR-00372")
     def test_bad_requests_create_nothing(self) -> None:
@@ -153,7 +153,7 @@ class CreateArrowTest(ArrowControllerTestCase):
         self.undo()
         self.assertEqual(len(
             self.workspace.find_plot(self.plot_id_i).arrow_list), 1)
-        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#ff8000")])
+        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#24303b")])
 
     @covers("LLFR-00371", "LLFR-00372", "LLFR-00256")
     def test_arrow_on_a_frequency_plot(self) -> None:
@@ -168,7 +168,7 @@ class CreateArrowTest(ArrowControllerTestCase):
         self.create((5.0, 0.1, 20.0, 0.4),
                     plot_id_i=frequency_plot.plot_id_i)
         self.assertEqual(self.drawn(frequency_plot.plot_id_i),
-                         [(5.0, 0.1, 20.0, 0.4, "#ff8000")])
+                         [(5.0, 0.1, 20.0, 0.4, "#24303b")])
         self.handler("arrow_change_handler")(
             frequency_plot.plot_id_i, 0, 6.0, 0.1, 30.0, 0.4)
         self.assertEqual(frequency_plot.arrow_list[0].end_time_s, 30.0)
@@ -207,13 +207,13 @@ class ChangeArrowTest(ArrowControllerTestCase):
                 self.handler("arrow_change_handler")(
                     self.plot_id_i, 0, *end_tuple)
                 self.assertEqual(self.drawn(),
-                                 [end_tuple + ("#ff8000",)])
+                                 [end_tuple + ("#24303b",)])
                 self.assertEqual(self.undo_depth(), depth_i + 1)
                 self.undo()
                 self.assertEqual(self.drawn(), before_list)
                 self.redo()
                 self.assertEqual(self.drawn(),
-                                 [end_tuple + ("#ff8000",)])
+                                 [end_tuple + ("#24303b",)])
 
     @covers("LLFR-00376", "LLFR-00377", "LLFR-00140")
     def test_same_or_bad_ends_record_nothing(self) -> None:
@@ -232,7 +232,7 @@ class ChangeArrowTest(ArrowControllerTestCase):
         change(self.plot_id_i, 0, 1.0, 1.0, 1.0, 1.0)
         change(self.plot_id_i, 0, float("inf"), 1.0, 1.0, 2.0)
         self.assertEqual(self.undo_depth(), depth_i)
-        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#ff8000")])
+        self.assertEqual(self.drawn(), [(1.0, 2.0, 3.0, 4.0, "#24303b")])
 
 
 class ArrowColorAndDeleteTest(ArrowControllerTestCase):
@@ -260,15 +260,15 @@ class ArrowColorAndDeleteTest(ArrowControllerTestCase):
         depth_i = self.undo_depth()
         self.view.color_answer_list = ["#FF0080"]
         self.handler("arrow_color_handler")(self.plot_id_i, 1)
-        self.assertEqual(self.view.color_question_list[-1], "#ff8000")
+        self.assertEqual(self.view.color_question_list[-1], "#24303b")
         self.assertEqual(self.drawn()[1][4], "#ff0080")
-        self.assertEqual(self.drawn()[0][4], "#ff8000")
+        self.assertEqual(self.drawn()[0][4], "#24303b")
         self.assertEqual(self.undo_depth(), depth_i + 1)
         # The picker starts at the new color next time.
         self.handler("arrow_color_handler")(self.plot_id_i, 1)
         self.assertEqual(self.view.color_question_list[-1], "#ff0080")
         self.undo()
-        self.assertEqual(self.drawn()[1][4], "#ff8000")
+        self.assertEqual(self.drawn()[1][4], "#24303b")
         self.redo()
         self.assertEqual(self.drawn()[1][4], "#ff0080")
 
@@ -283,7 +283,7 @@ class ArrowColorAndDeleteTest(ArrowControllerTestCase):
         depth_i = self.undo_depth()
         self.view.color_answer_list = []
         self.handler("arrow_color_handler")(self.plot_id_i, 0)
-        self.view.color_answer_list = ["#FF8000"]
+        self.view.color_answer_list = ["#24303B"]
         self.handler("arrow_color_handler")(self.plot_id_i, 0)
         question_count_i = len(self.view.color_question_list)
         self.handler("arrow_color_handler")(self.plot_id_i, 7)
@@ -291,7 +291,7 @@ class ArrowColorAndDeleteTest(ArrowControllerTestCase):
         self.assertEqual(len(self.view.color_question_list),
                          question_count_i)
         self.assertEqual(self.undo_depth(), depth_i)
-        self.assertEqual(self.drawn()[0][4], "#ff8000")
+        self.assertEqual(self.drawn()[0][4], "#24303b")
 
     @covers("LLFR-00380", "LLFR-00140", "LLFR-00138", "LLFR-00192",
             "HLFR-00084")
@@ -304,7 +304,7 @@ class ArrowColorAndDeleteTest(ArrowControllerTestCase):
         """
         depth_i = self.undo_depth()
         self.handler("arrow_delete_handler")(self.plot_id_i, 0)
-        self.assertEqual(self.drawn(), [(5.0, 6.0, 7.0, 8.0, "#ff8000")])
+        self.assertEqual(self.drawn(), [(5.0, 6.0, 7.0, 8.0, "#24303b")])
         self.assertEqual(self.undo_depth(), depth_i + 1)
         self.handler("arrow_delete_handler")(self.plot_id_i, 4)
         self.handler("arrow_delete_handler")(999, 0)
@@ -323,6 +323,7 @@ class ArrowColorAndDeleteTest(ArrowControllerTestCase):
         """
         layout_str = repr(self.controller.layout_dict()).lower()
         self.assertNotIn("arrow", layout_str)
+        self.assertNotIn("24303b", layout_str)
 
 
 if __name__ == "__main__":

@@ -237,6 +237,40 @@ class FileDialogTimingTest(unittest.TestCase):
         self.assertEqual(other_list, ["open"])
         self.assertIs(other_pool.dialog("open"), clicked_dialog)
 
+    @covers("LLFR-00406")
+    def test_failing_step_does_not_stop_the_preparation(self) -> None:
+        """A step that raises is reported and the next steps still run.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import file_dialogs
+        pool = file_dialogs.FileDialogPool("linux")
+        built_list = []
+
+        def broken_build():
+            """Fail as a broken dialog factory would.
+
+            Inputs: none.
+            Outputs: none; always raises.
+            """
+            raise RuntimeError("broken dialog")
+
+        pool.register("broken", broken_build)
+        pool.register("open", lambda: (
+            built_list.append("open")
+            or self.main_window.build_open_file_dialog("")))
+        with mock.patch("sys.stderr") as error_stream:
+            pool.schedule_preparation(self.main_window, 0)
+            self.wait_until_prepared(pool)
+        self.assertTrue(pool.prepared_b)
+        self.assertEqual(built_list, ["open"])
+        self.assertTrue(pool.is_built("open"))
+        self.assertFalse(pool.is_built("broken"))
+        self.assertEqual(pool.failed_step_count_i, 1)
+        self.assertEqual(pool.step_count_i, 1)
+        self.assertTrue(error_stream.write.called)
+
     @covers("LLFR-00406", "LLFR-00184", "LLFR-00186")
     def test_no_dialog_is_shown_without_a_click(self) -> None:
         """Starting the app and preparing the dialogs shows no dialog.

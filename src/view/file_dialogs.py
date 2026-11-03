@@ -48,6 +48,7 @@ import ctypes
 import ctypes.util
 import sys
 import time
+import traceback
 
 from PyQt6 import sip
 from PyQt6.QtCore import QTimer
@@ -193,6 +194,7 @@ class FileDialogPool:
         prepare_duration_s: seconds spent in the preparation steps.
         longest_step_s: seconds of the longest preparation step.
         step_count_i: how many preparation steps have run.
+        failed_step_count_i: how many scheduled steps raised an error.
         step_duration_list: the seconds of each step that has run.
         panel_state_list: what each panel warm-up step did, as
             warm_up_system_panel returns.
@@ -218,6 +220,7 @@ class FileDialogPool:
         self.prepare_duration_s = 0.0
         self.longest_step_s = 0.0
         self.step_count_i = 0
+        self.failed_step_count_i = 0
         self.step_duration_list = []
         self.panel_state_list = []
         self.pending_step_list = []
@@ -392,10 +395,17 @@ class FileDialogPool:
         Outputs: none. The next step is scheduled for the next turn of
             the event loop, or prepared_b is set after the last one.
         """
-        # LLFR-00406: one step per turn.
-        if self.pending_step_list:
-            self.run_step(self.pending_step_list.pop(0))
-        if self.pending_step_list:
-            self.step_timer.start(0)
-        else:
-            self.prepared_b = True
+        # LLFR-00406: one step per turn. A step that fails is reported
+        # on standard error and the next steps still run, so one broken
+        # dialog does not leave the others unprepared.
+        try:
+            if self.pending_step_list:
+                self.run_step(self.pending_step_list.pop(0))
+        except Exception:
+            self.failed_step_count_i += 1
+            traceback.print_exc()
+        finally:
+            if self.pending_step_list:
+                self.step_timer.start(0)
+            else:
+                self.prepared_b = True

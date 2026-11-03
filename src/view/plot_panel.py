@@ -83,8 +83,6 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "delta_point_picked": "delta_point_pick_handler",
     # LLFR-00176: "Delete" chosen on a delta marker.
     "delta_marker_delete_requested": "delta_marker_delete_handler",
-    # LLFR-00409: an entry of the "Color" submenu of a delta marker.
-    "delta_marker_color_requested": "delta_marker_color_handler",
     # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: an
     # area created, moved or resized, renamed or deleted.
     "area_create_requested": "area_create_handler",

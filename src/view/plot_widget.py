@@ -211,12 +211,10 @@ from controller.plot_tools import (
 from model.curve_colors import MARKER_COLOR_STR, hex_color_or_none
 from model.workspace import (
     DEFAULT_AREA_COLOR_STR, DEFAULT_ARROW_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
-    DEFAULT_TEXT_NOTE_BORDER_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR,
-    DEFAULT_TEXT_NOTE_SIZE_I,
+    DEFAULT_TEXT_NOTE_COLOR_STR, DEFAULT_TEXT_NOTE_SIZE_I,
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
     TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR)
-from view import (
-    arrow_geometry, color_picker, delta_geometry, theme, value_text)
+from view import arrow_geometry, delta_geometry, theme, value_text
 from view.arrow_geometry import ArrowPatch
 from view.delta_geometry import DeltaBracketPatch
 from view.text_note_editor import TextNoteEditor
@@ -817,13 +815,13 @@ def text_note_data_tuple(note_tuple) -> tuple:
     # border color and text color.
     note_tuple = tuple(note_tuple)
     size_i = DEFAULT_TEXT_NOTE_SIZE_I
-    border_color_str = DEFAULT_TEXT_NOTE_BORDER_COLOR_STR
+    border_color_str = DEFAULT_TEXT_NOTE_COLOR_STR
     text_color_str = DEFAULT_TEXT_NOTE_COLOR_STR
     if len(note_tuple) >= 6:
         if note_tuple[3] in TEXT_NOTE_SIZE_TUPLE:
             size_i = int(note_tuple[3])
         border_color_str = (hex_color_or_none(note_tuple[4])
-                            or DEFAULT_TEXT_NOTE_BORDER_COLOR_STR)
+                            or DEFAULT_TEXT_NOTE_COLOR_STR)
         text_color_str = (hex_color_or_none(note_tuple[5])
                           or DEFAULT_TEXT_NOTE_COLOR_STR)
     return (str(note_tuple[0]), float(note_tuple[1]), float(note_tuple[2]),
@@ -859,19 +857,13 @@ class PlotWidget(QWidget):
         marker_move_requested(int, float): a marker was dragged and
             released (marker id, time in s).
         marker_rename_requested(int): "Rename" chosen on a marker.
-        marker_color_requested(int, str): an entry of the "Color"
-            submenu of a flag (its id, then a recent color chosen in the color
-            submenu (LLFR-00419), or "" for "Other color...", which
-            opens the picker).
+        marker_color_requested(int): "Color" chosen on a flag (its id).
         marker_delete_requested(int): "Delete" chosen on a marker.
         delta_point_picked(str, float, float): a left click on a curve
             with the Delta X or Delta Y tool (signal name, time in s
             and value of the nearest sample).
         delta_marker_delete_requested(int): "Delete" chosen on a delta
             marker (its id).
-        delta_marker_color_requested(int, str): an entry of the "Color"
-            submenu of a delta marker (its id, then a recent color, or
-            "" for "Other color...").
         marker_drag_moved(int, float): a dragged marker is now shown at
             this time (marker id, time in s), so that the other plots of
             the tab show it there too (LLFR-00205).
@@ -883,10 +875,8 @@ class PlotWidget(QWidget):
         area_change_requested(int, float, float): an area was moved or
             resized and released (area id, new start and end in s).
         area_rename_requested(int): "Rename" chosen on an area.
-        area_color_requested(int, str): an entry of the "Color" submenu
-            of an area (area id, then a recent color, or "" for "Other
-            color...", for which the controller opens the color
-            picker).
+        area_color_requested(int): "Color" chosen in an area's menu
+            (area id); the controller opens the color picker.
         area_delete_requested(int): "Delete" chosen on an area.
         area_drag_moved(int, float, float): a dragged area is now shown
             between these times (area id, start and end in s), so that
@@ -902,20 +892,17 @@ class PlotWidget(QWidget):
         text_note_delete_requested(int): "Delete" chosen on a text note.
         text_note_size_requested(int, int): a size chosen in the "Size"
             option of a text note (note index, size in points).
-        text_note_border_color_requested(int, str): an entry of the
-            "Border color" submenu of a text note (note index, then a
-            recent color, or "" for "Other color...").
-        text_note_text_color_requested(int, str): the same for "Text
-            color".
+        text_note_border_color_requested(int): "Border color" chosen on
+            a text note (note index).
+        text_note_text_color_requested(int): "Text color" chosen on a
+            text note (note index).
         arrow_create_requested(float, float, float, float): an arrow was
             drawn with the Arrow tool (x and y of the press, then x and
             y of the release, where the arrowhead is; x in s or Hz).
         arrow_change_requested(int, float, float, float, float): an arrow
             was moved, rotated or stretched and released (arrow index in
             the list given to set_arrows, then its new start and end).
-        arrow_color_requested(int, str): an entry of the "Color" submenu
-            of an arrow (arrow index, then a recent color, or "" for
-            "Other color...").
+        arrow_color_requested(int): "Color" chosen on an arrow.
         arrow_delete_requested(int): "Delete" chosen on an arrow.
     Attributes:
         plot_id_i: the identifier given at creation.
@@ -940,17 +927,16 @@ class PlotWidget(QWidget):
     marker_place_requested = pyqtSignal(float)
     marker_move_requested = pyqtSignal(int, float)
     marker_rename_requested = pyqtSignal(int)
-    marker_color_requested = pyqtSignal(int, str)
+    marker_color_requested = pyqtSignal(int)
     marker_delete_requested = pyqtSignal(int)
     delta_point_picked = pyqtSignal(str, float, float)
     delta_marker_delete_requested = pyqtSignal(int)
-    delta_marker_color_requested = pyqtSignal(int, str)
     marker_drag_moved = pyqtSignal(int, float)
     marker_preview_changed = pyqtSignal(float)
     area_create_requested = pyqtSignal(float, float)
     area_change_requested = pyqtSignal(int, float, float)
     area_rename_requested = pyqtSignal(int)
-    area_color_requested = pyqtSignal(int, str)
+    area_color_requested = pyqtSignal(int)
     area_delete_requested = pyqtSignal(int)
     area_drag_moved = pyqtSignal(int, float, float)
     text_note_create_requested = pyqtSignal(str, float, float)
@@ -958,11 +944,11 @@ class PlotWidget(QWidget):
     text_note_edit_requested = pyqtSignal(int, str)
     text_note_delete_requested = pyqtSignal(int)
     text_note_size_requested = pyqtSignal(int, int)
-    text_note_border_color_requested = pyqtSignal(int, str)
-    text_note_text_color_requested = pyqtSignal(int, str)
+    text_note_border_color_requested = pyqtSignal(int)
+    text_note_text_color_requested = pyqtSignal(int)
     arrow_create_requested = pyqtSignal(float, float, float, float)
     arrow_change_requested = pyqtSignal(int, float, float, float, float)
-    arrow_color_requested = pyqtSignal(int, str)
+    arrow_color_requested = pyqtSignal(int)
     arrow_delete_requested = pyqtSignal(int)
     # LLFR-00412 to LLFR-00417: the "Delete all ..." menu options.
     plot_pinned_tips_delete_requested = pyqtSignal()
@@ -1367,24 +1353,19 @@ class PlotWidget(QWidget):
         Inputs:
             delta_marker_data_list: list of tuples (delta_marker_id_i,
                 kind_str, first_point_tuple, second_point_tuple, delta_f)
-                or (..., delta_f, color_str) in placing order; each point
-                is (signal_name_str, time_s, value_f), delta_f is the
-                value shown (second minus first) and color_str the
-                marker's color, "#rrggbb"; without a usable color_str the
-                reserved marker color is used (LLFR-00172).
+                in placing order; each point is (signal_name_str, time_s,
+                value_f) and delta_f is the value shown (second minus
+                first).
         Outputs: none.
         """
         # LLFR-00164, LLFR-00174, LLFR-00176: draw exactly these.
-        # LLFR-00409: each in its own color.
         self.delta_marker_data_list = [
             (int(marker_tuple[0]), str(marker_tuple[1]),
              (str(marker_tuple[2][0]), float(marker_tuple[2][1]),
               float(marker_tuple[2][2])),
              (str(marker_tuple[3][0]), float(marker_tuple[3][1]),
               float(marker_tuple[3][2])),
-             float(marker_tuple[4]),
-             (hex_color_or_none(marker_tuple[5]) if len(marker_tuple) > 5
-              else None) or MARKER_COLOR_STR)
+             float(marker_tuple[4]))
             for marker_tuple in delta_marker_data_list]
         self.draw_delta_markers()
         # LLFR-00168: the y range keeps room above the Delta X markers.
@@ -1817,16 +1798,14 @@ class PlotWidget(QWidget):
                 artist.remove()
         self.delta_artist_dict = {}
         for (delta_marker_id_i, kind_str, first_point_tuple,
-             second_point_tuple, delta_f,
-             color_str) in self.delta_marker_data_list:
+             second_point_tuple, delta_f) in self.delta_marker_data_list:
             self.delta_artist_dict[delta_marker_id_i] = (
                 self.new_delta_artist_tuple(kind_str, first_point_tuple,
-                                            second_point_tuple, delta_f,
-                                            color_str))
+                                            second_point_tuple, delta_f))
 
     def new_delta_artist_tuple(self, kind_str: str, first_point_tuple: tuple,
-                               second_point_tuple: tuple, delta_f: float,
-                               color_str: str = MARKER_COLOR_STR) -> tuple:
+                               second_point_tuple: tuple,
+                               delta_f: float) -> tuple:
         """Create the artists of one delta marker in the axes.
 
         Inputs:
@@ -1834,22 +1813,19 @@ class PlotWidget(QWidget):
             first_point_tuple: (signal_name_str, time_s, value_f).
             second_point_tuple: the same for the second point.
             delta_f: the value shown, second minus first.
-            color_str: the marker's color, "#rrggbb" (LLFR-00172,
-                LLFR-00409).
         Outputs: a tuple (bracket, leader lines, dots, value label).
         """
-        # LLFR-00172, LLFR-00409: everything in the marker's color, the
-        # reserved marker color until the user chooses another one.
+        # LLFR-00172: everything in the reserved marker color.
         # LLFR-00168, LLFR-00170: a dashed curly bracket; dotted leader
         # lines join it to the points.
         bracket = DeltaBracketPatch(
             kind_str, first_point_tuple, second_point_tuple, False,
-            edgecolor=color_str, linewidth=DELTA_LINE_WIDTH_F,
+            edgecolor=MARKER_COLOR_STR, linewidth=DELTA_LINE_WIDTH_F,
             linestyle=DELTA_LINE_STYLE_TUPLE, capstyle="round",
             joinstyle="round", zorder=DELTA_ZORDER_F)
         leader = DeltaBracketPatch(
             kind_str, first_point_tuple, second_point_tuple, True,
-            edgecolor=color_str, linewidth=DELTA_LEADER_LINE_WIDTH_F,
+            edgecolor=MARKER_COLOR_STR, linewidth=DELTA_LEADER_LINE_WIDTH_F,
             linestyle=DELTA_LEADER_LINE_STYLE_TUPLE, capstyle="round",
             zorder=DELTA_ZORDER_F)
         for patch in (leader, bracket):
@@ -1862,7 +1838,7 @@ class PlotWidget(QWidget):
             [first_point_tuple[1], second_point_tuple[1]],
             [first_point_tuple[2], second_point_tuple[2]],
             linestyle="none", marker="o", markersize=DELTA_DOT_SIZE_F,
-            markerfacecolor=color_str,
+            markerfacecolor=MARKER_COLOR_STR,
             markeredgecolor=DELTA_DOT_EDGE_COLOR_STR,
             markeredgewidth=DELTA_DOT_EDGE_WIDTH_F,
             zorder=DELTA_ZORDER_F + 0.1)
@@ -1871,9 +1847,8 @@ class PlotWidget(QWidget):
             self.delta_value_text(kind_str, delta_f),
             xy=(first_point_tuple[1], first_point_tuple[2]),
             xytext=(0.0, 0.0), textcoords="offset points",
-            parse_math=False, color=color_str,
-            fontsize=DELTA_FONT_SIZE_F,
-            bbox=dict(DELTA_LABEL_BOX_DICT, edgecolor=color_str),
+            parse_math=False, color=MARKER_COLOR_STR,
+            fontsize=DELTA_FONT_SIZE_F, bbox=dict(DELTA_LABEL_BOX_DICT),
             zorder=DELTA_ZORDER_F + 0.2)
         label.set_in_layout(False)
         if kind_str != DELTA_X_KIND_STR:
@@ -2048,7 +2023,7 @@ class PlotWidget(QWidget):
         ratio_f = min(DELTA_HEADROOM_POINTS_F / axes_height_points_f,
                       DELTA_HEADROOM_MAXIMUM_RATIO_F)
         for (_, kind_str, first_point_tuple, second_point_tuple,
-             _, _) in self.delta_marker_data_list:
+             _) in self.delta_marker_data_list:
             if kind_str != DELTA_X_KIND_STR:
                 continue
             first_s, second_s = sorted((first_point_tuple[1],
@@ -3745,39 +3720,6 @@ class PlotWidget(QWidget):
             request_list.append(request)
             return action
 
-        def add_color_option(text_str: str, color_signal, item_i: int):
-            """Add a color option: the recent colors, "Other color...".
-
-            Inputs:
-                text_str: the option's text ("Color", "Border color" or
-                    "Text color").
-                color_signal: the bound signal (int, str) to emit.
-                item_i: the id or index of the item, its first argument.
-            Outputs: the submenu.
-            """
-            # LLFR-00388, LLFR-00419: the shared submenu; a recent color
-            # goes first in the list when it is chosen, then it is
-            # applied; "Other color..." ("") opens the picker.
-            def add_color_entry(target_menu, entry_text_str: str,
-                                color_str: str):
-                """Add one entry of the color submenu.
-
-                Inputs:
-                    target_menu: the submenu.
-                    entry_text_str: the entry text.
-                    color_str: its recent color, or "" for the picker.
-                Outputs: the new QAction.
-                """
-                # LLFR-00419: choosing a recent color applies it.
-                return add_request_action(
-                    target_menu, entry_text_str,
-                    lambda chosen_color_str=color_str:
-                    self.request_color(color_signal, item_i,
-                                       chosen_color_str))
-
-            return color_picker.add_color_submenu(menu, text_str,
-                                                  add_color_entry)
-
         # LLFR-00341: a text note is drawn on top of everything, so its
         # menu has priority over every item under it.
         note_index_i = self.text_note_at(widget_point)
@@ -3799,14 +3741,15 @@ class PlotWidget(QWidget):
                                                        picked_size_i))
                 size_action.setCheckable(True)
                 size_action.setChecked(size_i == chosen_size_i)
-            # LLFR-00387, LLFR-00388: the color submenus for the border
-            # and the text.
-            add_color_option("Border color",
-                             self.text_note_border_color_requested,
-                             note_index_i)
-            add_color_option("Text color",
-                             self.text_note_text_color_requested,
-                             note_index_i)
+            # LLFR-00387: the color picker for the border and the text.
+            add_request_action(
+                menu, "Border color",
+                lambda index_i=note_index_i:
+                self.text_note_border_color_requested.emit(index_i))
+            add_request_action(
+                menu, "Text color",
+                lambda index_i=note_index_i:
+                self.text_note_text_color_requested.emit(index_i))
             add_request_action(
                 menu, "Delete",
                 lambda index_i=note_index_i:
@@ -3833,10 +3776,11 @@ class PlotWidget(QWidget):
         # markers and areas, so its menu has priority over theirs.
         arrow_index_i = self.arrow_at(widget_point)
         if arrow_index_i != NO_ARROW_INDEX_I:
-            # LLFR-00378: "Color" and "Delete". LLFR-00379, LLFR-00388:
-            # "Color" is the color submenu.
-            add_color_option("Color", self.arrow_color_requested,
-                             arrow_index_i)
+            # LLFR-00378: "Color" and "Delete".
+            add_request_action(
+                menu, "Color",
+                lambda index_i=arrow_index_i:
+                self.arrow_color_requested.emit(index_i))
             add_request_action(
                 menu, "Delete",
                 lambda index_i=arrow_index_i:
@@ -3850,10 +3794,11 @@ class PlotWidget(QWidget):
                 menu, "Rename",
                 lambda chosen_id_i=marker_id_i:
                 self.marker_rename_requested.emit(chosen_id_i))
-            # LLFR-00391: "Color" between "Rename" and "Delete";
-            # LLFR-00388: the color submenu.
-            add_color_option("Color", self.marker_color_requested,
-                             marker_id_i)
+            # LLFR-00391: "Color" between "Rename" and "Delete".
+            add_request_action(
+                menu, "Color",
+                lambda chosen_id_i=marker_id_i:
+                self.marker_color_requested.emit(chosen_id_i))
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=marker_id_i:
@@ -3868,10 +3813,6 @@ class PlotWidget(QWidget):
         # curve under it, whatever plot tool is active.
         delta_marker_id_i = self.delta_marker_at(widget_point)
         if delta_marker_id_i != NO_DELTA_MARKER_ID_I:
-            # LLFR-00175: "Color" first; LLFR-00409, LLFR-00388: the
-            # color submenu.
-            add_color_option("Color", self.delta_marker_color_requested,
-                             delta_marker_id_i)
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=delta_marker_id_i:
@@ -3913,9 +3854,11 @@ class PlotWidget(QWidget):
                 menu, "Rename",
                 lambda chosen_id_i=area_id_i:
                 self.area_rename_requested.emit(chosen_id_i))
-            # LLFR-00351, LLFR-00388: "Color" is the color submenu.
-            add_color_option("Color", self.area_color_requested,
-                             area_id_i)
+            # LLFR-00351: "Color" opens the shared color picker.
+            add_request_action(
+                menu, "Color",
+                lambda chosen_id_i=area_id_i:
+                self.area_color_requested.emit(chosen_id_i))
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=area_id_i:
@@ -3936,25 +3879,6 @@ class PlotWidget(QWidget):
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
 
-    def request_color(self, color_signal, item_i: int,
-                      chosen_color_str: str) -> None:
-        """Ask for a color chosen in a color submenu.
-
-        Inputs:
-            color_signal: the bound signal (int, str) of the option.
-            item_i: the id or index of the item.
-            chosen_color_str: the recent color chosen, or "" for "Other
-                color...".
-        Outputs: none. A recent color goes first in the recent colors
-            (LLFR-00419) before it is asked for, even when it is the
-            item's current color.
-        """
-        # LLFR-00419: each time the user chooses a recent color, it goes
-        # first in the list; LLFR-00390: the controller then applies it.
-        if chosen_color_str:
-            color_picker.remember_color(chosen_color_str)
-        color_signal.emit(int(item_i), str(chosen_color_str))
-
     def build_context_menu(self, widget_point) -> QMenu:
         """Build the menu that a right-click at a point shows.
 
@@ -3965,11 +3889,10 @@ class PlotWidget(QWidget):
             color", "Text color" and "Delete"; on a pinned tip "Delete";
             and "Delete all data tips in this plot" and "... in all
             plots"; on a marker "Rename", "Color", "Delete" and "Delete
-            all flags"; on a delta marker "Color", "Delete" and "Delete
-            all delta markers in this plot" and "... in all plots"; on
-            an area "Rename", "Color", "Delete", "Delete all areas" and
-            "Delete plot"; every color option is a submenu of the
-            recent colors and "Other color..."; on a
+            all flags"; on a delta marker "Delete" and "Delete all delta
+            markers in this plot" and "... in all plots"; on an area
+            "Rename", "Color", "Delete", "Delete all areas" and "Delete
+            plot"; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
             elsewhere "Delete plot".
         """
@@ -5137,9 +5060,6 @@ class PlotWidget(QWidget):
                 edgecolor="none", alpha=AREA_ALPHA_F, zorder=AREA_ZORDER_F)
             self.axes.add_artist(band)
             band.set_in_layout(False)
-            # LLFR-00307, LLFR-00308: the name and the times in the
-            # area's color at full opacity (no alpha), on the label box
-            # that keeps them readable.
             # LLFR-00307: the name in the upper-left corner of the band,
             # inside the drawing area, shown literally (never as
             # mathtext); place_areas keeps it at the left of the part of
@@ -5149,7 +5069,7 @@ class PlotWidget(QWidget):
                 xytext=(AREA_LABEL_OFFSET_POINTS_F,
                         -AREA_LABEL_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
-                color=color_str, fontsize=MARKER_FONT_SIZE_F,
+                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
                 bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
             label.set_in_layout(False)
@@ -5160,7 +5080,7 @@ class PlotWidget(QWidget):
                 xy=(0.0, 0.0), xycoords=label,
                 xytext=(0.0, -AREA_TIME_GAP_POINTS_F),
                 textcoords="offset points", parse_math=False,
-                color=color_str, fontsize=MARKER_FONT_SIZE_F,
+                color=MARKER_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
                 bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
             times_text.set_in_layout(False)
@@ -5726,7 +5646,7 @@ class PlotWidget(QWidget):
             self.cancel_arrow_drag()
         for (start_time_s, start_value_f, end_time_s, end_value_f,
              color_str) in self.arrow_list:
-            # LLFR-00373: a dashed line and a filled head in its color;
+            # LLFR-00373: a solid line and a filled head in its color;
             # LLFR-00374: attached to the values of its ends and clipped
             # to the drawing area (add_artist clips to the axes patch).
             patch = ArrowPatch((start_time_s, start_value_f),

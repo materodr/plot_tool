@@ -282,7 +282,7 @@ class StartupProbeTest(unittest.TestCase):
             self.assertFalse(prepare_dict["dialog_seen_b"])
             self.assertEqual(prepare_dict["step_count_i"], 5)
             self.assertEqual(measure_startup.dialog_failure_list(
-                output_str, True, 5.0), [])
+                output_str, True), [])
             # Every dialog is closed again.
             for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
                 self.assertFalse(pool.dialog(key_str).isVisible())

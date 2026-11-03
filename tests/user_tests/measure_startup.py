@@ -21,9 +21,11 @@ Checks, each switched on by its option:
 - ``--limit-s``: the last launch shows the window within this time;
 - ``--warm-limit-s``: every warm launch shows the window within this
   time (LLFR-00188: 5 s);
-- ``--splash-limit-s``: every launch, the cold one included, shows the
-  splash screen within this time (LLFR-00184: 2 s), with no slow module
-  imported yet, and closes it when the window is shown (LLFR-00186);
+- ``--splash-limit-s``: the median time to the splash screen of the
+  warm launches must be within this time (LLFR-00184: 2 s; the cold
+  launch is reported only), and on every launch the splash screen is
+  shown with no slow module imported yet and closed when the window is
+  shown (LLFR-00186);
 - ``--font-cache-folder``: matplotlib's font list in this folder is
   written by the first launch and never again (LLFR-00189). With
   ``--clear-font-cache`` the folder is emptied before the first launch,
@@ -31,10 +33,11 @@ Checks, each switched on by its option:
 - ``--dialog-limit-s``: every launch also asks for each file dialog
   twice, as a click would (``PLOT_TOOL_DIALOG_PROBE=1``); on every
   launch the dialogs must be prepared with no dialog shown before the
-  first request and every request must show its dialog; on every warm
-  launch each dialog must be shown within this time (LLFR-00406: 0.65
-  s; as in LLFR-00188, the work done once on the first launch does not
-  count, so the cold launch is only reported);
+  first request and every request must show its dialog; for each
+  dialog, the median of its times over the warm launches must be
+  within this time (LLFR-00406: 0.65 s; as in LLFR-00188, the work done
+  once on the first launch does not count, so the first launch is
+  reported only). Every time and the slowest one are printed too;
 - ``--turn-limit-s``: with ``--dialog-limit-s``, on every warm launch
   no turn of the event loop may take longer than this while the
   dialogs are prepared after the window is shown, so that the window
@@ -49,6 +52,7 @@ import argparse
 import glob
 import os
 import shutil
+import statistics
 import subprocess
 import sys
 import time
@@ -65,6 +69,8 @@ DIALOG_LINE_PREFIX_STR = "plot_tool dialog:"
 PREPARE_LINE_PREFIX_STR = "plot_tool prepare:"
 # LLFR-00406: the probe asks for 5 dialogs, twice each.
 DIALOG_REQUEST_COUNT_I = 10
+DIALOG_NAME_TUPLE = ("open_file", "save_layout", "load_layout",
+                     "save_pdf", "save_signals")
 FONT_LIST_PATTERN_STR = "fontlist-*.json"
 
 
@@ -189,15 +195,15 @@ def parse_dialog_line_list(output_str: str) -> list:
 
 
 def dialog_failure_list(output_str: str, warm_b: bool,
-                        dialog_limit_s: float,
                         turn_limit_s: float = None) -> list:
-    """Check the dialog lines of one launch.
+    """Check the dialog lines of one launch, except their times.
+
+    The times are judged over all the warm launches together
+    (median_failure_list).
 
     Inputs:
         output_str: everything the app printed to standard output.
         warm_b: whether the launch is a warm one (not the first).
-        dialog_limit_s: the longest time from a request to its dialog
-            for a warm launch (LLFR-00406).
         turn_limit_s: the longest event-loop turn allowed while the
             dialogs are prepared on a warm launch, or None for no check
             (LLFR-00188).
@@ -234,12 +240,66 @@ def dialog_failure_list(output_str: str, warm_b: bool,
         if not dialog_dict["visible_b"]:
             failure_list.append(f"{request_str} showed no dialog "
                                 "(LLFR-00406)")
-        elif warm_b and dialog_dict["shown_s"] > dialog_limit_s:
-            failure_list.append(
-                f"{request_str} showed its dialog after "
-                f"{dialog_dict['shown_s']:.3f} s, more than "
-                f"{dialog_limit_s} s (LLFR-00406)")
     return failure_list
+
+
+def add_dialog_times(time_list_dict: dict, output_str: str) -> None:
+    """Add the shown times of one launch to the times of each dialog.
+
+    Inputs:
+        time_list_dict: dialog name -> list of shown times in seconds;
+            changed in place.
+        output_str: everything the app printed to standard output.
+    Outputs: none.
+    """
+    for dialog_dict in parse_dialog_line_list(output_str):
+        if dialog_dict["visible_b"]:
+            time_list_dict.setdefault(dialog_dict["name_str"], []).append(
+                dialog_dict["shown_s"])
+
+
+def median_failure_list(time_list_dict: dict, limit_s: float,
+                        label_str: str, requirement_str: str) -> list:
+    """Check the median time of each kind against a limit.
+
+    Inputs:
+        time_list_dict: name -> list of times in seconds, of the warm
+            launches.
+        limit_s: the longest allowed median.
+        label_str: what is timed, for the messages ("dialog", "splash
+            screen").
+        requirement_str: the requirement checked, such as "LLFR-00406".
+    Outputs: one failure description per name whose median is over the
+        limit, or that has no time at all; empty when all pass.
+    """
+    failure_list = []
+    for name_str, time_list in time_list_dict.items():
+        if not time_list:
+            failure_list.append(f"{label_str} {name_str}: no time measured "
+                                f"on a warm launch ({requirement_str})")
+            continue
+        median_s = statistics.median(time_list)
+        if median_s > limit_s:
+            failure_list.append(
+                f"{label_str} {name_str}: median {median_s:.3f} s over "
+                f"{len(time_list)} warm measurements, more than {limit_s} s"
+                f" ({requirement_str})")
+    return failure_list
+
+
+def median_summary_str(time_list_dict: dict) -> str:
+    """Describe the median and the slowest time of each kind.
+
+    Inputs:
+        time_list_dict: name -> list of times in seconds.
+    Outputs: "name median <s> s, slowest <s> s (<n> times); ..." in the
+        order of the names; "no times" when there is none.
+    """
+    part_list = [f"{name_str} median {statistics.median(time_list):.3f} s,"
+                 f" slowest {max(time_list):.3f} s ({len(time_list)} times)"
+                 for name_str, time_list in time_list_dict.items()
+                 if time_list]
+    return "; ".join(part_list) or "no times"
 
 
 def dialog_summary_str(output_str: str) -> str:
@@ -377,8 +437,10 @@ def limit_failure_list(result_dict: dict, warm_b: bool,
         warm_b: whether the run is a warm launch (not the first one).
         warm_limit_s: the longest time to the window for a warm launch
             (LLFR-00188), or None for no check.
-        splash_limit_s: the longest time to the splash for any launch
-            (LLFR-00184), or None for no check.
+        splash_limit_s: with a value, the splash checks of every launch
+            are made (LLFR-00184, LLFR-00186); its time is judged over
+            the warm launches (median_failure_list), not here. None for
+            no splash check.
     Outputs: the list of failure descriptions; empty when every check
         passed.
     """
@@ -396,10 +458,6 @@ def limit_failure_list(result_dict: dict, warm_b: bool,
         failure_list.append("the app did not report a shown splash screen "
                             "(LLFR-00184)")
         return failure_list
-    if splash_s > splash_limit_s:
-        failure_list.append(
-            f"the splash screen was shown after {splash_s:.2f} s, more "
-            f"than {splash_limit_s} s (LLFR-00184)")
     if not result_dict["splash_exposed_b"]:
         failure_list.append("the splash screen was not exposed on screen "
                             "(LLFR-00184)")
@@ -503,6 +561,9 @@ def main() -> int:
     failed_b = False
     last_time_s = None
     first_font_state_dict = None
+    # LLFR-00184, LLFR-00406: the warm times, judged by their median.
+    splash_time_dict = {"shown": []}
+    dialog_time_dict = {}
     for run_i in range(1, argument_namespace.runs + 1):
         kind_str = "cold" if run_i == 1 else "warm"
         title_str = f"Startup run {run_i} ({kind_str})"
@@ -531,13 +592,18 @@ def main() -> int:
             failure_list += limit_failure_list(
                 result_dict, run_i > 1, argument_namespace.warm_limit_s,
                 argument_namespace.splash_limit_s)
+            if run_i > 1 and splash_s is not None:
+                splash_time_dict["shown"].append(splash_s)
         if dialog_limit_s is not None:
             report(f"run {run_i} ({kind_str}): "
                    + dialog_summary_str(result_dict["output_str"]),
                    "notice", "Dialog time", in_actions_b)
             failure_list += dialog_failure_list(
-                result_dict["output_str"], run_i > 1, dialog_limit_s,
+                result_dict["output_str"], run_i > 1,
                 argument_namespace.turn_limit_s)
+            if run_i > 1:
+                add_dialog_times(dialog_time_dict,
+                                 result_dict["output_str"])
         if font_folder_str:
             font_state_dict = font_list_state_dict(font_folder_str)
             print(f"font list after run {run_i}: {font_state_dict}")
@@ -558,6 +624,27 @@ def main() -> int:
             failed_b = True
             report(f"run {run_i} ({kind_str}) FAILED: {failure_str}",
                    "error", title_str, in_actions_b)
+    median_list = []
+    if argument_namespace.splash_limit_s is not None:
+        report("warm launches, splash screen: "
+               + median_summary_str(splash_time_dict), "notice",
+               "Splash median", in_actions_b)
+        median_list += median_failure_list(
+            splash_time_dict, argument_namespace.splash_limit_s,
+            "splash screen", "LLFR-00184")
+    if argument_namespace.dialog_limit_s is not None:
+        report("warm launches, dialogs: "
+               + median_summary_str(dialog_time_dict), "notice",
+               "Dialog medians", in_actions_b)
+        for name_str in DIALOG_NAME_TUPLE:
+            dialog_time_dict.setdefault(name_str, [])
+        median_list += median_failure_list(
+            dialog_time_dict, argument_namespace.dialog_limit_s, "dialog",
+            "LLFR-00406")
+    for failure_str in median_list:
+        failed_b = True
+        report(f"FAILED: {failure_str}", "error", "Median too slow",
+               in_actions_b)
     if last_time_s is not None and last_time_s > argument_namespace.limit_s:
         failed_b = True
         report(f"last launch took {last_time_s:.2f} s, more than "

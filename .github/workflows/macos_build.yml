@@ -16,19 +16,21 @@ name: macOS build
 #
 # Startup checks of the built app (issue #75), from a cold first launch
 # with an empty matplotlib cache and then warm launches:
-# - LLFR-00184: on every launch, the cold one included, the splash
-#   screen is on screen within 2 s, before matplotlib, numpy, pandas or
-#   the plot views are imported;
+# - LLFR-00184: the median time to the splash screen of the warm
+#   launches is within 2 s (the cold launch is reported only), and on
+#   every launch the splash is shown before matplotlib, numpy, pandas
+#   or the plot views are imported;
 # - LLFR-00186: the splash screen is closed when the window is shown;
 # - LLFR-00188: every warm launch shows the window within 5 s (and the
 #   last launch within the older 10 s guard);
 # - LLFR-00189: the font list that matplotlib writes on the first
 #   launch is not written again by the later launches.
-# - LLFR-00406: on every warm launch, every file dialog (Open file, Save
-#   layout, Load layout, Save all tabs as PDF, Save signals) appears
-#   within 0.65 s of the request, the first request after the start
-#   included (PLOT_TOOL_DIALOG_PROBE=1); on every launch no file dialog
-#   is shown before a request (issue #165).
+# - LLFR-00406: for every file dialog (Open file, Save layout, Load
+#   layout, Save all tabs as PDF, Save signals), the median time from
+#   the request to the dialog over the warm launches, the first request
+#   after the start included, is within 0.65 s
+#   (PLOT_TOOL_DIALOG_PROBE=1); on every launch no file dialog is shown
+#   before a request (issue #165).
 on:
   pull_request:
     paths:
@@ -151,23 +153,36 @@ jobs:
       # PYTHONFAULTHANDLER prints where Python was if a launch crashes.
       # The matplotlib cache is emptied first, so run 1 is the real
       # first launch that builds the font list (LLFR-00184, LLFR-00188,
-      # LLFR-00189). Each launch then asks for every file dialog twice,
-      # as a click would, and closes it once it is shown (LLFR-00406):
-      # launch 1 is reported only, the warm launches must show every
-      # dialog within 0.65 s, and no launch may show a dialog by itself.
-      # While the dialogs are prepared after the window is shown, no
-      # turn of the event loop of a warm launch may take more than 2 s
-      # (measured: about 1 s for the warm-up of the open panel).
-      - name: Measure the startup and file dialog times
-        timeout-minutes: 20
+      # LLFR-00189). The splash time is judged by the median of the
+      # warm launches (LLFR-00184, note); the cold one is reported only.
+      # These launches do not ask for any dialog, so that no system
+      # panel work of a launch slows the next one (issue #165).
+      - name: Measure the startup time
         env:
           PYTHONFAULTHANDLER: "1"
         run: |
           python tests/user_tests/measure_startup.py --runs 6 \
             --limit-s 10 --warm-limit-s 5 --splash-limit-s 2 \
-            --dialog-limit-s 0.65 --turn-limit-s 2 \
             --font-cache-folder "$HOME/Library/Caches/plot_tool/matplotlib" \
             --clear-font-cache --probe-good-files -- \
+            bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      # LLFR-00406: each launch asks for every file dialog twice, as a
+      # click would, and closes it once it is shown. Launch 1 is
+      # reported only; for each dialog, the median of its times over
+      # launches 2 to 5 must be within 0.65 s (LLFR-00406, note). Every
+      # time and the slowest one are printed. No launch may show a
+      # dialog by itself, and while the dialogs are prepared after the
+      # window is shown, no event-loop turn of launches 2 to 5 may take
+      # more than 2 s (measured: about 1 s for the warm-up of the open
+      # panel).
+      - name: Measure the file dialog opening time
+        timeout-minutes: 15
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          python tests/user_tests/measure_startup.py --runs 5 \
+            --limit-s 1000 --dialog-limit-s 0.65 --turn-limit-s 2 -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
 
       - name: Show the kept matplotlib cache

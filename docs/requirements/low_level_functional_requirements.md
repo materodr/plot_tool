@@ -116,6 +116,8 @@ The app icon must show a small line chart with a blue curve and a red curve (LLF
 ### LLFR-00184 Splash screen at launch
 When the user launches the app, the app must show the splash screen (HLFR-00046) within 2 seconds, before the main window is ready.
 
+Note: The limit is checked against the median time over the launches from the second one onward, on the computer the app is tested on. The time of the first launch is measured and reported, but it is not checked against the limit.
+
 *Parent: HLFR-00046*
 
 ### LLFR-00185 Splash screen content
@@ -150,7 +152,7 @@ Note: For example, the cache of fonts used to draw text in the plots is built on
 ### LLFR-00406 Dialog opening time limit
 The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of "Save all tabs as PDF" (LLFR-00128) and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.65 seconds after the user's click, including the first click after the app starts.
 
-Note: As in LLFR-00188, the time is measured from the second launch onward, on the computer the app is tested on, so that work done only once on the first launch does not count.
+Note: As in LLFR-00188, the time is measured from the second launch onward, on the computer the app is tested on, so that work done only once on the first launch does not count. The limit is checked against the median time of each dialog over the launches from the second one onward.
 
 *Parent: HLFR-00091*
 

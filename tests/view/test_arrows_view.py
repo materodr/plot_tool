@@ -168,7 +168,7 @@ class ArrowWidgetTestCase(PlotWidgetToolTestCase):
         self.left_release(end_tuple)
 
     def set_one_arrow(self, arrow_tuple: tuple = EMPTY_ARROW_TUPLE,
-                      color_str: str = "#ff8000") -> None:
+                      color_str: str = "#24303b") -> None:
         """Give the plot one arrow and draw it.
 
         Inputs:
@@ -283,7 +283,8 @@ class ArrowDrawingTest(ArrowWidgetTestCase):
                 self.assertNotIn(patch, self.plot_widget.axes.patches)
                 self.assertNotIn(patch, self.plot_widget.axes.get_children())
                 self.assertNotEqual(
-                    patch.get_facecolor()[:3], (1.0, 128.0 / 255.0, 0.0))
+                    patch.get_facecolor()[:3],
+                    (36.0 / 255.0, 48.0 / 255.0, 59.0 / 255.0))
                 self.assertEqual(len(self.create_list), count_i)
                 self.left_release(end_tuple)
                 self.assertEqual(
@@ -391,46 +392,8 @@ class ArrowLookTest(ArrowWidgetTestCase):
     """The look and the place of an arrow (LLFR-00373, LLFR-00374)."""
 
     @covers("LLFR-00373")
-    def test_head_drawn_solid_and_line_dashed(self) -> None:
-        """Each draw strokes the closed head with a solid line and the
-        line (two vertices) dashed, and the patch keeps the whole path.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from unittest import mock
-        from matplotlib.patches import PathPatch
-        from view.arrow_geometry import (
-            ARROW_HEAD_LINE_STYLE_STR, ARROW_LINE_STYLE_TUPLE)
-        self.plot_widget.set_arrows([EMPTY_ARROW_TUPLE])
-        self.draw()
-        patch = self.plot_widget.arrow_patch(0)
-        stroke_list = []
-        original_draw = PathPatch.draw
-
-        def recording_draw(drawn_patch, renderer) -> None:
-            """Record the path size and line style of each stroke.
-
-            Inputs:
-                drawn_patch: the patch being drawn.
-                renderer: the renderer.
-            Outputs: none.
-            """
-            if drawn_patch is patch:
-                stroke_list.append((len(drawn_patch.get_path().vertices),
-                                    drawn_patch.get_linestyle()))
-            original_draw(drawn_patch, renderer)
-
-        with mock.patch.object(PathPatch, "draw", recording_draw):
-            self.plot_widget.canvas.draw()
-        self.assertEqual(stroke_list, [(4, ARROW_HEAD_LINE_STYLE_STR),
-                                       (2, ARROW_LINE_STYLE_TUPLE)])
-        self.assertEqual(len(patch.get_path().vertices), 6)
-        self.assertEqual(patch.get_linestyle(), ARROW_LINE_STYLE_TUPLE)
-
-    @covers("LLFR-00373")
-    def test_dashed_line_and_head_in_its_color_between_layers(self) -> None:
-        """An arrow without a color gets #ff8000; its line is dashed, its
+    def test_solid_line_and_head_in_its_color_between_layers(self) -> None:
+        """An arrow without a color gets #24303b; its line is solid, its
         head filled, both in its color, drawn above the curves, flags,
         areas and delta markers and below the pinned tips and notes.
 
@@ -442,11 +405,10 @@ class ArrowLookTest(ArrowWidgetTestCase):
         self.plot_widget.set_arrows([EMPTY_ARROW_TUPLE])
         self.draw()
         patch = self.plot_widget.arrow_patch(0)
-        self.assertEqual(self.plot_widget.arrow_list[0][4], "#ff8000")
-        self.assertEqual(to_hex(patch.get_edgecolor()), "#ff8000")
-        self.assertEqual(to_hex(patch.get_facecolor()), "#ff8000")
-        from view.arrow_geometry import ARROW_LINE_STYLE_TUPLE
-        self.assertEqual(patch.get_linestyle(), ARROW_LINE_STYLE_TUPLE)
+        self.assertEqual(self.plot_widget.arrow_list[0][4], "#24303b")
+        self.assertEqual(to_hex(patch.get_edgecolor()), "#24303b")
+        self.assertEqual(to_hex(patch.get_facecolor()), "#24303b")
+        self.assertEqual(patch.get_linestyle(), "-")
         self.assertIn(patch, self.plot_widget.axes.get_children())
         zorder_f = patch.get_zorder()
         curve_zorder_list = [
@@ -878,8 +840,8 @@ class ArrowMenuTest(ArrowWidgetTestCase):
                 self.plot_widget.set_plot_tool(tool_str)
                 self.assertEqual(self.choose_menu(on_curve_tuple, ""),
                                  ["Color", "Delete"])
-        self.choose_menu(on_curve_tuple, "Other color...")
-        self.assertEqual(self.color_list, [(1, "")])
+        self.choose_menu(on_curve_tuple, "Color")
+        self.assertEqual(self.color_list, [(1,)])
         self.choose_menu(self.display_of(4.0, 2.0), "Delete")
         self.assertEqual(self.delete_list, [(0,)])
         self.assertEqual(self.choose_menu(self.display_of(8.0, 2.0), ""),
@@ -1250,7 +1212,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.assertEqual(len(arrow_list), 1)
         self.assertAlmostEqual(arrow_list[0][0], 1.0, delta=0.05)
         self.assertAlmostEqual(arrow_list[0][2], 2.5, delta=0.05)
-        self.assertEqual(arrow_list[0][4], "#ff8000")
+        self.assertEqual(arrow_list[0][4], "#24303b")
         self.assertEqual(self.plot_widgets()[0].arrow_count(), 1)
         self.assertEqual(self.plot_widgets()[1].arrow_count(), 0)
         self.assertEqual(self.model_arrows(1), [])
@@ -1368,22 +1330,18 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
                     global_point: unused.
                 Outputs: the QAction or None.
                 """
-                action_list = list(menu.actions())
-                for action in list(action_list):
-                    if action.menu() is not None:
-                        action_list.extend(action.menu().actions())
-                for action in action_list:
+                for action in menu.actions():
                     if action.text() == text_str:
                         return action
                 return None
             return fake_execute_menu
 
-        plot_widget.execute_menu = choose("Other color...")
+        plot_widget.execute_menu = choose("Color")
         with mock.patch.object(self.main_window, "ask_color",
                                return_value="#00aa00") as ask_mock:
             plot_widget.show_context_menu(menu_point)
             self.application.processEvents()
-        ask_mock.assert_called_once_with("#ff8000")
+        ask_mock.assert_called_once_with("#24303b")
         self.assertEqual(self.model_arrows()[0][4], "#00aa00")
         plot_widget = self.plot_widgets()[0]
         self.assertEqual(plot_widget.arrow_list[0][4], "#00aa00")
@@ -1396,7 +1354,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.assertEqual(self.model_arrows()[0][4], "#00aa00")
         self.main_window.undo_handler()
         self.application.processEvents()
-        self.assertEqual(self.model_arrows()[0][4], "#ff8000")
+        self.assertEqual(self.model_arrows()[0][4], "#24303b")
 
 
 if __name__ == "__main__":

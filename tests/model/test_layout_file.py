@@ -198,12 +198,10 @@ class LayoutWriteTest(unittest.TestCase):
         self.assertEqual(first_plot_dict["delta_markers"], [
             {"kind": "delta_x",
              "first_point": {"signal": "Speed", "time": 1.0},
-             "second_point": {"signal": "Torque", "time": 3.0},
-             "color": "#ff8000"},
+             "second_point": {"signal": "Torque", "time": 3.0}},
             {"kind": "delta_y",
              "first_point": {"signal": "Speed", "time": 0.5},
-             "second_point": {"signal": "Speed", "time": 2.5},
-             "color": "#ff8000"}])
+             "second_point": {"signal": "Speed", "time": 2.5}}])
         self.assertEqual(layout_dict["panel_widths"],
                          {"plot_panel": 900, "signal_list_panel": 300})
         # LLFR-00225 item 10 (issue #110): the place of the synthetic
