@@ -50,6 +50,7 @@ from tests.check_requirement_review import (  # noqa
 from tests.find_affected_requirements import run_git  # noqa
 
 MATRIX_PATH_STR = "tests/test_matrix.md"
+NOT_IMPLEMENTED_LIST_PATH_STR = "tests/not_implemented.txt"
 MAIN_BRANCH_STR = "main"
 DEVELOP_BRANCH_STR = "develop"
 HASH_PATTERN_STR = r"^Source hash: `([0-9a-f]+)`"
@@ -64,6 +65,22 @@ FAIL_STAR_HEADING_STR = "Fail* (PCR-00070)"
 HEADING_LINE_PATTERN_STR = r"^#{1,6}[ \t]+(.*?)[ \t#]*$"
 ENVIRONMENT_ENTRY_START_STR = "Environment, "
 NOT_IMPLEMENTED_ENTRY_START_STR = "Not implemented, "
+
+
+def listed_hlfr_ids(list_text_str: str) -> list:
+    """Read the HLFR IDs of a tests/not_implemented.txt text.
+
+    Inputs:
+        list_text_str: the text of the list (PCR-00066).
+    Outputs: the HLFR IDs that start its lines that are neither blank
+        nor comments, in their order.
+    """
+    id_list = []
+    for line_str in list_text_str.splitlines():
+        id_match = re.match(r"\s*(HLFR-\d{5})\b", line_str)
+        if id_match and not line_str.strip().startswith("#"):
+            id_list.append(id_match.group(1))
+    return id_list
 
 
 def fail_star_entries(text_str: str) -> list:
@@ -206,6 +223,21 @@ def branch_problems(base_str: str, head_str: str, folder_str: str) -> list:
             problem_list.append(
                 f"The branch doesn't contain the latest {base_str} "
                 "(PCR-00060). Update it and run the tests again.")
+    if base_str == MAIN_BRANCH_STR:
+        # PCR-00069: the list itself, so that a matrix edited by hand
+        # can't hide an HLFR that isn't implemented yet.
+        try:
+            list_text_str = run_git(
+                folder_str, "show",
+                f"{head_str}:{NOT_IMPLEMENTED_LIST_PATH_STR}")
+        except subprocess.CalledProcessError:
+            list_text_str = ""
+        listed_id_list = listed_hlfr_ids(list_text_str)
+        if listed_id_list:
+            problem_list.append(
+                f"{NOT_IMPLEMENTED_LIST_PATH_STR} lists HLFRs that aren't "
+                "implemented yet, which can't go into main (PCR-00069): "
+                + ", ".join(listed_id_list) + ".")
     matrix_str = run_git(folder_str, "show", f"{head_str}:{MATRIX_PATH_STR}")
     return problem_list + matrix_problems(
         matrix_str, source_hash(head_str, folder_str), base_str)

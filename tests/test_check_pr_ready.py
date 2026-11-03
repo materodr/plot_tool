@@ -282,6 +282,25 @@ class BranchProblemsTest(unittest.TestCase):
         self.assertEqual(
             branch_problems("main", "feature", self.folder_str), [])
 
+    @covers("PCR-00066", "PCR-00069")
+    def test_listed_hlfr_is_a_problem_only_into_main(self) -> None:
+        """An HLFR in tests/not_implemented.txt can't go into main.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.write_file("tests/not_implemented.txt",
+                        "# comment\n  # indented comment\n"
+                        "HLFR-00014 Waits for #190.\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "list")
+        self.commit_current_matrix()
+        self.assertEqual(
+            branch_problems("develop", "HEAD", self.folder_str), [])
+        problem_list = branch_problems("main", "HEAD", self.folder_str)
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("HLFR-00014", problem_list[0])
+
 
 if __name__ == "__main__":
     unittest.main()

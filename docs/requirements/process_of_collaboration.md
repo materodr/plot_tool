@@ -116,7 +116,7 @@ The third column of the test matrix must show `Fail*`, followed by a justificati
 Note: For example, PyQt6 or h5py can't be installed in the cloud workspace. `python tests/build_test_matrix.py --environment-limit` writes these cells. A test that runs and fails, locally or on GitHub, is a failed test, not a `Fail*`.
 
 ### PCR-00023 Test matrix column 4
-The fourth column must contain "pass" if all tests of the HLFR passed, except as in PCR-00065.
+The fourth column must contain "pass" if all tests of the HLFR passed, except as in PCR-00065 and PCR-00071.
 
 Note: Besides "pass", the fourth column can show "fail" (PCR-00042), a `Fail*` (PCR-00065, PCR-00071), or "no tests" and "not run" as `tests/build_test_matrix.py` explains.
 
@@ -133,10 +133,15 @@ The fourth column of the test matrix must show `Fail*`, followed by the missing 
 Agents must write tests that robustly cover every aspect of the high-level functional requirements.
 
 ### PCR-00057 Tests of a pull request into develop
-A pull request into `develop` must run every test.
+A pull request into `develop` must run every test, except as in PCR-00072.
 
 ### PCR-00058 Tests of a pull request into main
-A pull request from `develop` to `main` must run every test.
+A pull request from `develop` to `main` must run every test, except as in PCR-00072.
+
+### PCR-00072 Environment Fail* counts as run
+For PCR-00057 and PCR-00058, a test shown with the `Fail*` of PCR-00063 must count as run, also when the run on GitHub could not run it either.
+
+Note: The `tests` CI job adds `--environment-limit` only when installing PyQt6 or h5py fails on the runner, with a justification that names the failed install. A test that runs and fails still fails the job.
 
 ### PCR-00059 Affected requirements without tests
 The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test, except as in PCR-00068.
@@ -159,7 +164,7 @@ Note: Such a test shows as "known macOS failure" in the matrix and doesn't make 
 ### PCR-00064 Environment Fail* counts as passed
 For PCR-00062, a test shown with the `Fail*` of PCR-00063 must count as passed.
 
-Note: A justified `Fail*` is enough to open and to merge the pull request, even when GitHub can't run the test either.
+Note: This follows the owner's decision of 2026-11-03 that a justified `Fail*` is enough. PCR-00072 applies the same decision to the runs of PCR-00057 and PCR-00058, including the run on GitHub.
 
 ### PCR-00066 List of HLFRs not implemented yet
 An HLFR whose implementation has not been done yet must be declared in `tests/not_implemented.txt`, on a line that holds its ID followed by the explanation.
@@ -178,7 +183,7 @@ A pull request from `develop` to `main` must be opened only when its test matrix
 Note: Every functional requirement then has its implementation (PCR-00018).
 
 ### PCR-00070 Fail* list at the top of the pull request
-A pull request whose test matrix shows a `Fail*` must start its description with a section headed `## Fail* (PCR-00070)` that lists every `Fail*` of the matrix with its justification.
+A pull request whose test matrix shows a `Fail*` must start its description with a section headed `## Fail* (PCR-00070)` that holds one entry for each missing capability of PCR-00063, with the number of tests it affects, and one entry for each HLFR of PCR-00065, each entry with its justification.
 
 Note: The reviewer then sees every exception first. `tests/build_test_matrix.py` prints the section, ready to paste, and the `fail-star-section` CI job checks it with `tests/check_pr_ready.py`.
 
