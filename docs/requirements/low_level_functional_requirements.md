@@ -2728,6 +2728,13 @@ The plots in a tab must be stacked vertically, one below the other.
 
 *Parent: HLFR-00014, HLFR-00018*
 
+### LLFR-00889 Rounded plot corners
+Each plot must be shown with rounded corners that have the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
+
+Note: The corners outside the rounding show the background of the plot panel behind the plots. The rounding changes only how the plot looks on screen: what the plot draws, and its size and position, are as before. This requirement does not cover the PDF export (LLFR-00129) and the copied image (LLFR-00133), which show the plots with square corners.
+
+*Parent: HLFR-00001*
+
 ### LLFR-00070 Shared time axis
 All time plots in all tabs must share the same x-axis range, so that a change to the time range of one time plot applies to every time plot in every tab.
 

@@ -168,6 +168,11 @@ SIGNAL_PANEL_SPACING_I = 8
 SPLITTER_HANDLE_WIDTH_I = 8
 PLOT_SPACING_I = 6
 CONTROL_RADIUS_I = 6
+# LLFR-00889: the corners and border of the signal list, which the plots
+# share (PLOT_CORNER_RADIUS_I, PLOT_BORDER_WIDTH_I, PLOT_BORDER_COLOR_STR).
+SIGNAL_LIST_RADIUS_I = CONTROL_RADIUS_I
+SIGNAL_LIST_BORDER_WIDTH_I = 1
+SIGNAL_LIST_BORDER_COLOR_STR = HAIRLINE_COLOR_STR
 MENU_RADIUS_I = 6
 TOOLTIP_RADIUS_I = 4
 
@@ -196,6 +201,13 @@ ADD_BUTTON_WIDTH_I = 30
 # Plots (matplotlib)
 # ----------------------------------------------------------------------
 PLOT_BACKGROUND_COLOR_STR = "#ffffff"
+# LLFR-00889: each plot has the rounded corners and the hairline border
+# of the signal list; the corners outside the rounding show the plot
+# well behind the plots (the pane of the tab widget).
+PLOT_CORNER_RADIUS_I = SIGNAL_LIST_RADIUS_I
+PLOT_BORDER_WIDTH_I = SIGNAL_LIST_BORDER_WIDTH_I
+PLOT_BORDER_COLOR_STR = SIGNAL_LIST_BORDER_COLOR_STR
+PLOT_CORNER_COLOR_STR = PLOT_WELL_COLOR_STR
 PLOT_SPINE_COLOR_STR = "#b8c1ca"
 PLOT_TICK_COLOR_STR = "#5f6c78"
 PLOT_GRID_COLOR_STR = "#e3e7ec"
@@ -504,8 +516,9 @@ def application_style_sheet() -> str:
         "font-weight: 600; padding: 6px 2px 0px 2px; }",
         f"QListWidget#signal_list_widget {{ background: "
         f"{SURFACE_COLOR_STR}; color: {TEXT_COLOR_STR}; "
-        f"border: 1px solid {HAIRLINE_COLOR_STR}; border-radius: "
-        f"{radius_str}; padding: 4px; outline: none; }}",
+        f"border: {SIGNAL_LIST_BORDER_WIDTH_I}px solid "
+        f"{SIGNAL_LIST_BORDER_COLOR_STR}; border-radius: "
+        f"{SIGNAL_LIST_RADIUS_I}px; padding: 4px; outline: none; }}",
         f"QListWidget#signal_list_widget:focus {{ border-color: "
         f"{FOCUS_COLOR_STR}; }}",
         "QListWidget#signal_list_widget::item { padding: 4px 8px; "
