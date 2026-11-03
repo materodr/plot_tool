@@ -34,7 +34,7 @@ INK_ROLE_STR = "ink"
 MARKER_DASH_START_TUPLE = (11.25, 15.0, 18.75)
 MARKER_DASH_LENGTH_F = 2.25
 
-# LLFR-00159: the names of the 12 icons. Delta X and Delta Y are drawn
+# LLFR-00159: the names of the 20 icons. Delta X and Delta Y are drawn
 # here for their buttons (LLFR-00161, LLFR-00162).
 OPEN_FILE_ICON_STR = "open_file"
 UNDO_ICON_STR = "undo"
@@ -49,6 +49,32 @@ EXPORT_ICON_STR = "export"
 COPY_ICON_STR = "copy"
 # LLFR-00159 item 12, LLFR-00190: the Redo icon.
 REDO_ICON_STR = "redo"
+# LLFR-00159 items 13 and 14, LLFR-00216, LLFR-00217: the layout icons.
+SAVE_LAYOUT_ICON_STR = "save_layout"
+LOAD_LAYOUT_ICON_STR = "load_layout"
+# LLFR-00159 items 15 and 16, LLFR-00286, LLFR-00320: the Area and Text
+# icons.
+AREA_ICON_STR = "area"
+TEXT_ICON_STR = "text"
+# LLFR-00159 items 17 and 18, LLFR-00355, LLFR-00358: the Pan and Report
+# a bug icons.
+PAN_ICON_STR = "pan"
+REPORT_BUG_ICON_STR = "report_bug"
+# LLFR-00159 item 19, LLFR-00366: the Arrow icon.
+ARROW_ICON_STR = "arrow"
+# LLFR-00159 item 20, LLFR-00394: the Save signals icon.
+SAVE_SIGNALS_ICON_STR = "save_signals"
+# LLFR-00159 item 17: the four fingers of the Pan icon, as (x, top of
+# the finger), on the 24 by 24 grid; each finger ends at the palm.
+PAN_FINGER_TUPLE = ((8.75, 6.0), (11.75, 3.5), (15.0, 4.5), (18.25, 7.5))
+PAN_PALM_TOP_F = 12.5
+# LLFR-00159 item 18: the heights of the three pairs of legs of the bug.
+BUG_LEG_Y_TUPLE = (12.0, 15.5, 19.0)
+# LLFR-00159 item 15: the hatch lines that shade the Area icon, as the
+# sums x + y of each line, and the band they shade (left, top, right,
+# bottom).
+AREA_HATCH_SUM_TUPLE = (14.0, 20.0, 26.0, 32.0)
+AREA_BAND_TUPLE = (4.5, 3.0, 19.5, 21.0)
 
 
 def ink_layer(command_list: list) -> tuple:
@@ -342,6 +368,199 @@ def copy_shape() -> list:
             ink_layer(back_list)]
 
 
+def layout_sheet_layer_list() -> list:
+    """Return the sheet with two stacked plots of the layout icons.
+
+    Inputs: none.
+    Outputs: the list of layers: a sheet whose top edge is open in the
+        middle, where the arrow goes in or out, and two small curves
+        stacked one above the other.
+    """
+    # LLFR-00159 items 13 and 14: a sheet of paper with two small
+    # stacked plots; the gap in the top edge lets the arrow through.
+    sheet_list = [("M", 9.0, 9.0), ("L", 6.0, 9.0), ("Q", 4.0, 9.0, 4.0, 11.0),
+                  ("L", 4.0, 20.0), ("Q", 4.0, 22.0, 6.0, 22.0),
+                  ("L", 18.0, 22.0), ("Q", 20.0, 22.0, 20.0, 20.0),
+                  ("L", 20.0, 12.5), ("L", 16.5, 9.0), ("L", 15.0, 9.0)]
+    # LLFR-00159: the folded corner of the sheet, as in the Export icon.
+    fold_list = polyline([(16.5, 9.0), (16.5, 12.5), (20.0, 12.5)])
+    upper_plot_list = polyline([(6.75, 15.5), (9.5, 13.0), (13.0, 14.75),
+                                (17.25, 13.75)])
+    lower_plot_list = polyline([(6.75, 20.0), (9.5, 17.5), (13.0, 19.25),
+                                (17.25, 18.25)])
+    return [ink_layer(sheet_list), ink_layer(fold_list),
+            ink_layer(upper_plot_list), ink_layer(lower_plot_list)]
+
+
+def save_layout_shape() -> list:
+    """Return the Save layout icon: an arrow down into the sheet (13).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 13: the arrow comes from above and points down into
+    # the sheet through the gap of its top edge.
+    return layout_sheet_layer_list() + [
+        ink_layer(segment(12.0, 1.5, 12.0, 10.75)),
+        ink_layer(arrow_head(12.0, 10.75, "down", 2.75))]
+
+
+def load_layout_shape() -> list:
+    """Return the Load layout icon: an arrow up out of the sheet (14).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 14: the arrow starts inside the sheet and points up
+    # out of it through the gap of its top edge.
+    return layout_sheet_layer_list() + [
+        ink_layer(segment(12.0, 10.75, 12.0, 1.5)),
+        ink_layer(arrow_head(12.0, 1.5, "up", 2.75))]
+
+
+def save_signals_shape() -> list:
+    """Return the Save signals icon: a floppy disk with a small curve on
+    its label (20).
+
+    Inputs: none.
+    Outputs: the list of layers: the disk body with its cut top-right
+        corner, the metal shutter at its top, the label at its bottom and
+        the curve drawn on the label.
+    """
+    # LLFR-00159 item 20: the outline of the disk, a rounded square whose
+    # top-right corner is cut, as on a real floppy disk.
+    body_list = [("M", 5.5, 3.5), ("L", 17.0, 3.5), ("L", 20.5, 7.0),
+                 ("L", 20.5, 18.5), ("Q", 20.5, 20.5, 18.5, 20.5),
+                 ("L", 5.5, 20.5), ("Q", 3.5, 20.5, 3.5, 18.5),
+                 ("L", 3.5, 5.5), ("Q", 3.5, 3.5, 5.5, 3.5), ("Z",)]
+    # LLFR-00159 item 20: the shutter hangs from the top edge, with its
+    # small window.
+    shutter_list = polyline([(7.5, 3.5), (7.5, 8.25), (15.5, 8.25),
+                             (15.5, 3.5)])
+    shutter_window_list = segment(12.75, 5.25, 12.75, 6.5)
+    # LLFR-00159 item 20: the label, and on it a small curve that rises
+    # and falls like a signal, so the disk saves signals.
+    label_list = [("R", 6.5, 11.75, 11.0, 8.75, 1.25)]
+    curve_list = [("M", 8.5, 17.5), ("C", 10.25, 12.5, 12.75, 19.5,
+                                     15.5, 14.0)]
+    return [ink_layer(body_list), ink_layer(shutter_list),
+            ink_layer(shutter_window_list), ink_layer(label_list),
+            ink_layer(curve_list)]
+
+
+def hatch_segment_list(band_tuple: tuple, sum_f: float) -> list:
+    """Return one rising diagonal hatch line, cut to a rectangle.
+
+    Inputs:
+        band_tuple: (left, top, right, bottom) of the rectangle.
+        sum_f: the value of x + y along the line.
+    Outputs: the commands of the part of the line x + y = sum_f inside
+        the rectangle, or an empty list when the line misses it.
+    """
+    # LLFR-00159 item 15: the shading is drawn with the icon pen, so it
+    # stays in the one visual language of the icons and is visible in
+    # every button state (LLFR-00160).
+    left_f, top_f, right_f, bottom_f = band_tuple
+    start_x_f = max(left_f, sum_f - bottom_f)
+    end_x_f = min(right_f, sum_f - top_f)
+    if end_x_f <= start_x_f:
+        return []
+    return segment(start_x_f, sum_f - start_x_f, end_x_f, sum_f - end_x_f)
+
+
+def area_shape() -> list:
+    """Return the Area icon: two vertical lines, shaded between (15).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 15: the two edges of the area and diagonal hatch
+    # lines that shade the space between them, as an area shades a time
+    # range of the plots (HLFR-00066).
+    left_f, top_f, right_f, bottom_f = AREA_BAND_TUPLE
+    layer_list = [ink_layer(segment(left_f, top_f, left_f, bottom_f)),
+                  ink_layer(segment(right_f, top_f, right_f, bottom_f))]
+    for sum_f in AREA_HATCH_SUM_TUPLE:
+        command_list = hatch_segment_list(AREA_BAND_TUPLE, sum_f)
+        if command_list:
+            layer_list.append(ink_layer(command_list))
+    return layer_list
+
+
+def text_shape() -> list:
+    """Return the Text icon: a capital T inside a small box (16).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 16: a rounded box, smaller than the Grid frame,
+    # with the bar and the stem of a capital T in it.
+    return [ink_layer([("R", 4.0, 4.0, 16.0, 16.0, 3.0)]),
+            ink_layer(segment(8.0, 8.5, 16.0, 8.5)),
+            ink_layer(segment(12.0, 8.5, 12.0, 16.0))]
+
+
+def pan_shape() -> list:
+    """Return the Pan icon: an open hand (17).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 17: four straight fingers held apart, a thumb
+    # opened to the left and a rounded palm, the hand that grabs and
+    # moves the plot (LLFR-00356).
+    layer_list = [ink_layer(segment(finger_x_f, PAN_PALM_TOP_F, finger_x_f,
+                                    finger_top_f))
+                  for finger_x_f, finger_top_f in PAN_FINGER_TUPLE]
+    little_finger_x_f = PAN_FINGER_TUPLE[-1][0]
+    # The palm: from the thumb down around the heel of the hand and up
+    # the outer side into the little finger.
+    layer_list.append(ink_layer([
+        ("M", 6.5, 15.0),
+        ("Q", 7.0, 21.0, 12.0, 21.0),
+        ("Q", little_finger_x_f, 21.0, little_finger_x_f, 15.5),
+        ("L", little_finger_x_f, PAN_PALM_TOP_F)]))
+    # The thumb, opened to the left of the palm.
+    layer_list.append(ink_layer(polyline(
+        [(6.5, 15.0), (4.0, 10.5)])))
+    return layer_list
+
+
+def report_bug_shape() -> list:
+    """Return the Report a bug icon: a small bug (18).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 18: a rounded body split by the wing line, a round
+    # head with two antennae, and three legs on each side.
+    layer_list = [ink_layer([("R", 8.0, 9.0, 8.0, 12.0, 4.0)]),
+                  ink_layer(segment(12.0, 9.0, 12.0, 21.0)),
+                  ink_layer([("O", 12.0, 6.5, 2.25)]),
+                  ink_layer(segment(10.75, 4.5, 9.0, 2.0)),
+                  ink_layer(segment(13.25, 4.5, 15.0, 2.0))]
+    for leg_index_i, leg_y_f in enumerate(BUG_LEG_Y_TUPLE):
+        # The legs point forward, sideways and back, like an insect's.
+        end_y_f = leg_y_f + (leg_index_i - 1) * 1.75
+        layer_list.append(ink_layer(segment(8.0, leg_y_f, 4.5, end_y_f)))
+        layer_list.append(ink_layer(segment(16.0, leg_y_f, 19.5, end_y_f)))
+    return layer_list
+
+
+def arrow_shape() -> list:
+    """Return the Arrow icon: an arrow pointing up and to the right (19).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 19: a straight diagonal shaft from the lower left
+    # to the upper right, with a filled head at the upper right, like
+    # the arrows the tool draws (LLFR-00373).
+    return [ink_layer(segment(5.0, 19.0, 15.5, 8.5)),
+            ([("M", 19.5, 4.5), ("L", 18.0, 12.5), ("L", 11.5, 6.0),
+              ("Z",)], INK_ROLE_STR, INK_ROLE_STR, ICON_STROKE_WIDTH_F)]
+
+
 # LLFR-00159: icon name -> function that returns its layers.
 ICON_SHAPE_FUNCTION_DICT = {
     OPEN_FILE_ICON_STR: open_file_shape,
@@ -356,6 +575,14 @@ ICON_SHAPE_FUNCTION_DICT = {
     EXPORT_ICON_STR: export_shape,
     COPY_ICON_STR: copy_shape,
     REDO_ICON_STR: redo_shape,
+    SAVE_LAYOUT_ICON_STR: save_layout_shape,
+    LOAD_LAYOUT_ICON_STR: load_layout_shape,
+    AREA_ICON_STR: area_shape,
+    TEXT_ICON_STR: text_shape,
+    PAN_ICON_STR: pan_shape,
+    REPORT_BUG_ICON_STR: report_bug_shape,
+    ARROW_ICON_STR: arrow_shape,
+    SAVE_SIGNALS_ICON_STR: save_signals_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 

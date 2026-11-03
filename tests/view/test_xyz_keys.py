@@ -703,10 +703,10 @@ class ZKeyMainWindowTest(XyzKeyWindowTestCase):
             self.press_key("Key_Z", modifier_name_str=modifier_name_str)
             self.release_key("Key_Z")
             self.assert_every_range(ZOOMED_RANGE_TUPLE)
-        self.press_key("Key_A")
+        self.press_key("Key_B")
         self.press_key("Key_Z")
         self.release_key("Key_Z")
-        self.release_key("Key_A")
+        self.release_key("Key_B")
         self.assert_every_range(ZOOMED_RANGE_TUPLE)
         for key_name_str, modifier_name_str, tool_str in (
                 ("Key_X", "NoModifier", DELTA_X_TOOL_STR),

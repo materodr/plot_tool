@@ -42,6 +42,8 @@ pip install -r requirements.txt -r requirements-build.txt   # PyInstaller
 python build_executable.py
 ```
 
+To do everything in one command on the branch you have checked out, run `./rebuild_and_launch.py` (or `python3 rebuild_and_launch.py`). It updates the branch from GitHub, installs what is missing from the requirements, quits the app running from this folder's `bin/`, clears `bin/` (keeping `.gitkeep`), builds and launches the new app. Uncommitted changes are included in the build, with a warning. If the branch has diverged from GitHub, it stops before deleting anything.
+
 `build_executable.py` holds the whole PyInstaller configuration, so everyone builds the app the same way. It builds one folder (`--onedir --windowed`), not one file: a one-file executable unpacks the whole app into a temporary folder on every launch and starts it again as a second process, which made the macOS app take tens of seconds to open and its Dock icon disappear and reappear (issue #67). Modules the app doesn't use (tkinter, other GUI toolkits and matplotlib backends, IPython, test packages) are left out.
 
 Where the app ends up (in `bin/`, never committed):

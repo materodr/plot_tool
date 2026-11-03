@@ -78,6 +78,22 @@ class FakePlotView:
             draw_plot call.
         delta_first_point_dict: plot id -> point tuple last given to
             set_delta_first_point (() when the dot was removed).
+        plot_kind_dict: plot id -> kind_str given to add_plot_view.
+        kind_mismatch_count_i: how many boxes of LLFR-00257 were shown.
+        area_drawn_dict: plot id -> area_data_list of the last
+            set_plot_areas or set_areas call.
+        area_name_answer_list: answers returned, in order, by
+            ask_area_name (None stands for a cancelled dialog).
+        area_name_question_list: the current names given to
+            ask_area_name.
+        set_areas_count_i: how many times set_areas was called.
+        text_note_drawn_dict: plot id -> text_note_data_list of the last
+            set_text_notes call.
+        arrow_drawn_dict: plot id -> arrow_data_list of the last
+            set_arrows call.
+        color_answer_list: answers returned, in order, by ask_color, the
+            shared color picker (None stands for a cancelled picker).
+        color_question_list: the current colors given to ask_color.
     """
 
     def __init__(self) -> None:
@@ -105,6 +121,16 @@ class FakePlotView:
         self.redo_enabled_b = None
         self.delta_drawn_dict = {}
         self.delta_first_point_dict = {}
+        self.plot_kind_dict = {}
+        self.kind_mismatch_count_i = 0
+        self.area_drawn_dict = {}
+        self.area_name_answer_list = []
+        self.area_name_question_list = []
+        self.set_areas_count_i = 0
+        self.text_note_drawn_dict = {}
+        self.arrow_drawn_dict = {}
+        self.color_answer_list = []
+        self.color_question_list = []
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -114,6 +140,15 @@ class FakePlotView:
         Outputs: none.
         """
         self.handler_dict["double_click"] = handler
+
+    def set_selected_signals_plot_handler(self, handler) -> None:
+        """Record the handler of the Enter key in the signal list.
+
+        Inputs:
+            handler: function taking a list of signal names.
+        Outputs: none.
+        """
+        self.handler_dict["plot_selection"] = handler
 
     def set_plot_tool_handler(self, handler) -> None:
         """Record the plot tool handler.
@@ -227,6 +262,7 @@ class FakePlotView:
         self.plot_tab_dict = {}
         self.drawn_dict = {}
         self.range_dict = {}
+        self.area_drawn_dict = {}
 
     def add_tab_view(self, tab_id_i: int, name_str: str) -> None:
         """Add a tab.
@@ -293,16 +329,19 @@ class FakePlotView:
         """
         self.delete_enabled_b = enabled_b
 
-    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int,
+                      kind_str: str = "time") -> None:
         """Add a plot at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
             plot_id_i: id of the plot.
+            kind_str: "time" or "frequency".
         Outputs: none.
         """
         self.call_list.append(("add_plot_view", tab_id_i, plot_id_i))
         self.plot_tab_dict[plot_id_i] = tab_id_i
+        self.plot_kind_dict[plot_id_i] = kind_str
         self.range_dict[plot_id_i] = (0.0, 1.0)
 
     def remove_plot_view(self, plot_id_i: int) -> None:
@@ -340,6 +379,34 @@ class FakePlotView:
             self.range_dict[plot_id_i] = (float(time_array[0]),
                                           float(time_array[-1]))
 
+    def set_text_notes(self, plot_id_i: int,
+                       text_note_data_list: list) -> None:
+        """Record the text notes drawn in a plot.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            text_note_data_list: the text note tuples (text_str, time_s,
+                value_f).
+        Outputs: none.
+        """
+        self.text_note_drawn_dict[plot_id_i] = list(text_note_data_list)
+
+    def set_arrows(self, plot_id_i: int, arrow_data_list: list) -> None:
+        """Record the arrows drawn in a plot.
+
+        Not added to call_list, like set_text_notes.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_data_list: the arrow tuples (start_time_s,
+                start_value_f, end_time_s, end_value_f, color_str).
+        Outputs: none.
+        """
+        self.arrow_drawn_dict[plot_id_i] = list(arrow_data_list)
+
     def set_markers(self, marker_data_list: list) -> None:
         """Record the shared markers drawn on every shown plot.
 
@@ -351,6 +418,62 @@ class FakePlotView:
         self.call_list.append(("set_markers", len(marker_data_list)))
         for plot_id_i in self.plot_tab_dict:
             self.marker_drawn_dict[plot_id_i] = list(marker_data_list)
+
+    def set_areas(self, area_data_list: list) -> None:
+        """Record the shared areas drawn on every shown plot.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            area_data_list: the area tuples (area_id_i, name_str,
+                start_s, end_s).
+        Outputs: none. Like the real view, a frequency plot draws none.
+        """
+        self.set_areas_count_i += 1
+        for plot_id_i in self.plot_tab_dict:
+            self.area_drawn_dict[plot_id_i] = (
+                [] if self.plot_kind_dict.get(plot_id_i) == "frequency"
+                else list(area_data_list))
+
+    def set_plot_areas(self, plot_id_i: int, area_data_list: list) -> None:
+        """Record the areas drawn on one plot.
+
+        Not added to call_list, like set_areas.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            area_data_list: the area tuples.
+        Outputs: none.
+        """
+        self.area_drawn_dict[plot_id_i] = list(area_data_list)
+
+    def ask_color(self, current_color_str: str):
+        """Answer the color picker with the next prepared answer.
+
+        Inputs:
+            current_color_str: the color the picker would start at.
+        Outputs: the next answer of color_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.call_list.append(("ask_color", current_color_str))
+        self.color_question_list.append(current_color_str)
+        if not self.color_answer_list:
+            return None
+        return self.color_answer_list.pop(0)
+
+    def ask_area_name(self, current_name_str: str):
+        """Answer an area name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of area_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.area_name_question_list.append(current_name_str)
+        if not self.area_name_answer_list:
+            return None
+        return self.area_name_answer_list.pop(0)
 
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:
@@ -407,6 +530,15 @@ class FakePlotView:
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+
+    def show_plot_kind_mismatch_notification(self) -> None:
+        """Count a box of LLFR-00257 (FFT and time signals mixed).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.call_list.append(("show_plot_kind_mismatch_notification",))
+        self.kind_mismatch_count_i += 1
 
     def show_tab_name_taken_notification(self, name_str: str) -> None:
         """Record a Tab Name Taken box.

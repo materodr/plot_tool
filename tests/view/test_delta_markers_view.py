@@ -14,7 +14,10 @@ from unittest import mock
 import numpy as np
 
 from tests.support import button_name, covers, get_qt_application
-from tests.support import requires_qt
+from tests.view.menu_texts import (
+    DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST)
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
+from tests.support import button_tip_line_list, requires_qt
 
 from controller.plot_tools import (
     DELTA_TOOL_TUPLE, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
@@ -271,7 +274,7 @@ class DeltaPickTest(DeltaWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.set_markers([(1, "Marker 1", 2.0)])
+        self.set_markers([(1, "Flag 1", 2.0)])
         self.plot_widget.set_plot_tool(DELTA_Y_TOOL_STR)
         self.left_click(2.0, float(np.sin(2.0)))
         self.assertEqual(self.pick_list, [self.sine_point(2.0)])
@@ -630,7 +633,8 @@ class DeltaMenuTest(DeltaWidgetTestCase):
 
     @covers("LLFR-00175", "LLFR-00048")
     def test_menu_on_bracket_dot_and_label(self) -> None:
-        """Bracket, dot and value all show "Delete", never Delete plot.
+        """Bracket, dot and value all show "Color" and "Delete", never
+        Delete plot.
 
         Inputs: none.
         Outputs: none.
@@ -648,7 +652,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
                     ("dot", self.second_tuple[1:])):
                 with self.subTest(tool=tool_str, place=name_str):
                     self.assertEqual(self.menu_texts_at(*data_tuple),
-                                     ["Delete"])
+                                     DELTA_MENU_TEXT_LIST)
         # LLFR-00048: an empty area still offers "Delete plot".
         self.assertEqual(self.menu_texts_at(9.0, -0.5), ["Delete plot"])
 
@@ -661,7 +665,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         """
         shown_list = self.choose_action_text("Delete")
         self.right_click(*self.tip_data_tuple())
-        self.assertEqual(shown_list, [["Delete"]])
+        self.assertEqual(shown_list, [DELTA_MENU_TEXT_LIST])
         self.assertEqual(self.delta_delete_list, [(5,)])
         # A closed menu emits nothing.
         self.choose_action_text("")
@@ -680,7 +684,7 @@ class DeltaMenuTest(DeltaWidgetTestCase):
             self.plot_widget.data_to_widget_point(*self.first_tuple[1:])),
             "Sine")
         text_list = self.menu_texts_at(*self.first_tuple[1:])
-        self.assertEqual(text_list, ["Delete"])
+        self.assertEqual(text_list, DELTA_MENU_TEXT_LIST)
         self.assertNotIn("Delete signal", text_list)
         self.assertNotIn("Width", text_list)
         # Away from the marker the curve menu is back.
@@ -695,19 +699,19 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         Outputs: none.
         """
         time_s, value_f = self.tip_data_tuple()
-        self.set_markers([(9, "Marker 1", time_s)])
+        self.set_markers([(9, "Flag 1", time_s)])
         self.assertEqual(self.menu_texts_at(time_s, value_f),
-                         ["Rename", "Delete"])
+                         FLAG_MENU_TEXT_LIST)
         self.set_markers([])
         self.plot_widget.set_pinned_tips([self.second_tuple])
         self.draw()
         self.assertEqual(self.menu_texts_at(*self.second_tuple[1:]),
-                         ["Delete"])
+                         TIP_MENU_TEXT_LIST)
         shown_list = self.choose_action_text("Delete")
         tip_delete_list = recorder(
             self.plot_widget.pinned_tip_delete_requested)
         self.right_click(*self.second_tuple[1:])
-        self.assertEqual(shown_list, [["Delete"]])
+        self.assertEqual(shown_list, [TIP_MENU_TEXT_LIST])
         self.assertEqual(tip_delete_list, [(0,)])
         self.assertEqual(self.delta_delete_list, [])
 
@@ -740,8 +744,8 @@ class DeltaWindowTestCase(unittest.TestCase):
         self.controller = MainController(self.main_window)
         self.controller.start()
         self.main_window.show()
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=path_str):
             self.controller.file_controller.open_file_requested()
         self.process_events()
         self.top_panel = self.main_window.top_panel
@@ -818,7 +822,7 @@ class DeltaButtonTest(DeltaWindowTestCase):
                 self.assertIs(self.top_panel.plot_tool_button_dict[tool_str],
                               button)
                 self.assertEqual(button_name(button), name_str)
-                self.assertEqual(button.toolTip(), name_str)
+                self.assertEqual(button_tip_line_list(button)[0], name_str)
                 self.assertEqual(button.text(), "")
                 self.assertEqual(button.icon_name_str, icon_str)
                 self.assertFalse(button.icon().isNull())
@@ -986,7 +990,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         # on the force curve, removes it.
         shown_list = self.right_click_choose(plot_widget, 1.0, -1.0,
                                              "Delete")
-        self.assertEqual(shown_list, ["Delete"])
+        self.assertEqual(shown_list, DELTA_MENU_TEXT_LIST)
         self.assertEqual(self.current_plot_widget().delta_marker_id_list(),
                          [])
 
@@ -1034,7 +1038,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
                                                  2.0)
         self.process_events()
 
-        def magenta_count(path_str: str) -> int:
+        def marker_color_count(path_str: str) -> int:
             """Export to a PDF and count marker-colored pixels drawn.
 
             Inputs:
@@ -1074,15 +1078,15 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
                         count_i += 1
             return count_i
 
-        with_count_i = magenta_count(os.path.join(self.folder_str,
-                                                  "with.pdf"))
+        with_count_i = marker_color_count(
+            os.path.join(self.folder_str, "with.pdf"))
         plot = self.plot_controller.workspace.find_plot(plot_id_i)
         for delta_marker in list(plot.delta_marker_list):
             self.plot_controller.on_delta_marker_delete(
                 plot_id_i, delta_marker.delta_marker_id_i)
         self.process_events()
-        without_count_i = magenta_count(os.path.join(self.folder_str,
-                                                     "without.pdf"))
+        without_count_i = marker_color_count(
+            os.path.join(self.folder_str, "without.pdf"))
         self.assertGreater(with_count_i, 200)
         self.assertLess(without_count_i, with_count_i / 20)
 

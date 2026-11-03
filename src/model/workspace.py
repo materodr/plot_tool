@@ -1,4 +1,4 @@
-"""Model of the plot panel: tabs, plots, curves, tips and markers.
+"""Model of the plot panel: tabs, plots, curves, tips, markers, areas.
 
 The workspace holds no Qt code (COR-00009). The view draws what the
 workspace holds, and the controller changes the workspace when the user
@@ -8,9 +8,12 @@ acts.
 import copy
 import math
 import random
+import re
 from dataclasses import dataclass
 
-from model.curve_colors import next_curve_color
+from model.curve_colors import (
+    MARKER_COLOR_STR, PALETTE_COLOR_TUPLE, hex_color_or_none,
+    next_curve_color)
 
 # LLFR-00031: maximum number of plots in one tab (HLFR-00018).
 MAXIMUM_PLOTS_PER_TAB_I = 5
@@ -20,8 +23,36 @@ PRESET_WIDTH_TUPLE = (1, 2, 3, 4, 5)
 DEFAULT_WIDTH_I = 1
 # LLFR-00024: prefix of the default tab names ("Tab 1", "Tab 2", ...).
 TAB_NAME_PREFIX_STR = "Tab "
-# LLFR-00085: default name of a new vertical marker ("Marker 1", ...).
-DEFAULT_MARKER_NAME_FORMAT_STR = "Marker {}"
+# LLFR-00085: default name of a new flag ("Flag 1", "Flag 2", ...). In
+# the code, a flag is a "marker" (VerticalMarker).
+DEFAULT_MARKER_NAME_FORMAT_STR = "Flag {}"
+# LLFR-00111, LLFR-00233: a default flag name, to read its number back
+# when a flag of a layout file keeps its saved name.
+DEFAULT_MARKER_NAME_PATTERN_STR = r"Flag (\d+)"
+# LLFR-00309: default name of a new area ("Area 1", "Area 2", ...).
+DEFAULT_AREA_NAME_FORMAT_STR = "Area {}"
+# LLFR-00309, LLFR-00319: a default area name, to read its number back
+# when an area of a layout file keeps its saved name.
+DEFAULT_AREA_NAME_PATTERN_STR = r"Area (\d+)"
+# LLFR-00083: the color of a new flag, the reserved marker color.
+DEFAULT_FLAG_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00172: the color of a new delta marker, the reserved marker
+# color; the user may change it (LLFR-00409).
+DEFAULT_DELTA_MARKER_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00351: the color of a new area, the reserved marker color; the
+# view draws every area see-through (LLFR-00305).
+DEFAULT_AREA_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00385: the sizes of a text note's text, in points, and the size
+# of a new text note.
+TEXT_NOTE_SIZE_TUPLE = (8, 10, 12, 16, 20, 24, 32)
+DEFAULT_TEXT_NOTE_SIZE_I = 12
+# LLFR-00336: the text color of a new text note, the app's text color,
+# a near-black dark grey, and its border color, the reserved marker
+# color.
+DEFAULT_TEXT_NOTE_COLOR_STR = "#24303b"
+DEFAULT_TEXT_NOTE_BORDER_COLOR_STR = MARKER_COLOR_STR
+# LLFR-00373: the color of a new arrow, the reserved marker color.
+DEFAULT_ARROW_COLOR_STR = MARKER_COLOR_STR
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -30,6 +61,15 @@ AUTOMATIC_LABEL_OFFSET_TUPLE = ()
 DELTA_X_KIND_STR = "x"
 DELTA_Y_KIND_STR = "y"
 DELTA_KIND_TUPLE = (DELTA_X_KIND_STR, DELTA_Y_KIND_STR)
+# LLFR-00256, HLFR-00058: the two kinds of plots, a time plot (time in
+# seconds on its x-axis, LLFR-00068) and a frequency plot (frequency in
+# Hz on its x-axis, for FFT signals). Plot.kind_str holds one of them.
+TIME_PLOT_KIND_STR = "time"
+FREQUENCY_PLOT_KIND_STR = "frequency"
+PLOT_KIND_TUPLE = (TIME_PLOT_KIND_STR, FREQUENCY_PLOT_KIND_STR)
+# LLFR-00258: Plot.frequency_range_tuple of a frequency plot that shows
+# its whole frequency range, from 0 Hz to its highest frequency.
+WHOLE_FREQUENCY_RANGE_TUPLE = ()
 
 
 @dataclass
@@ -71,6 +111,109 @@ class PinnedTip:
 
 
 @dataclass
+class TextNote:
+    """A text written at one place of a plot (HLFR-00073).
+
+    Inputs:
+        text_str: the text shown, without leading and trailing spaces
+            and never empty (LLFR-00334).
+        time_s: x-axis value the note is attached to, in seconds (in Hz
+            on a frequency plot, LLFR-00333).
+        value_f: y-axis value the note is attached to (LLFR-00337).
+        size_i: the chosen size of the text, in points, one of
+            TEXT_NOTE_SIZE_TUPLE (LLFR-00385).
+        border_color_str: color of the box's border, "#rrggbb" in
+            lowercase (LLFR-00336, LLFR-00387).
+        text_color_str: color of the text, "#rrggbb" in lowercase.
+    """
+
+    text_str: str
+    time_s: float
+    value_f: float
+    size_i: int = DEFAULT_TEXT_NOTE_SIZE_I
+    border_color_str: str = DEFAULT_TEXT_NOTE_BORDER_COLOR_STR
+    text_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
+
+
+@dataclass
+class Arrow:
+    """A straight arrow drawn on one plot (HLFR-00081).
+
+    Inputs:
+        start_time_s: x-axis value of the end without the arrowhead, in
+            seconds (in Hz on a frequency plot).
+        start_value_f: y-axis value of that end.
+        end_time_s: x-axis value of the end with the arrowhead (s or
+            Hz, LLFR-00372).
+        end_value_f: y-axis value of the arrowhead's end.
+        color_str: color of the line and the arrowhead, "#rrggbb" in
+            lowercase (LLFR-00373, LLFR-00379).
+    """
+
+    start_time_s: float
+    start_value_f: float
+    end_time_s: float
+    end_value_f: float
+    color_str: str = DEFAULT_ARROW_COLOR_STR
+
+
+def finite_arrow_tuple(start_time_s: float, start_value_f: float,
+                       end_time_s: float, end_value_f: float) -> tuple:
+    """Return the two ends of an arrow as four finite floats.
+
+    Inputs:
+        start_time_s: x value of the start (s, or Hz on a frequency
+            plot).
+        start_value_f: y value of the start.
+        end_time_s: x value of the arrowhead's end.
+        end_value_f: y value of the arrowhead's end.
+    Outputs: (start_time_s, start_value_f, end_time_s, end_value_f) as
+        floats. Raises ValueError when a value is not a finite number or
+        when the two ends are the same point.
+    """
+    # LLFR-00372, LLFR-00374: an arrow is attached to the x and y values
+    # of its two ends, which must be places it can be drawn at.
+    end_tuple = (float(start_time_s), float(start_value_f),
+                 float(end_time_s), float(end_value_f))
+    if not all(math.isfinite(number_f) for number_f in end_tuple):
+        raise ValueError("An arrow needs finite x and y values.")
+    # LLFR-00372, LLFR-00377: the ends are apart (the view keeps them at
+    # least 5 pixels apart), so the arrow has a direction.
+    if end_tuple[:2] == end_tuple[2:]:
+        raise ValueError("The two ends of an arrow must differ.")
+    return end_tuple
+
+
+def text_note_text(text_str) -> str:
+    """Return the text a text note keeps for a typed text.
+
+    Inputs:
+        text_str: the typed text.
+    Outputs: the text without leading and trailing spaces; "" when it is
+        empty or made only of spaces (LLFR-00334, LLFR-00342).
+    """
+    # LLFR-00334, LLFR-00342: a blank text writes nothing.
+    return str(text_str).strip()
+
+
+def finite_place_tuple(time_s: float, value_f: float) -> tuple:
+    """Return a text note place as two finite floats.
+
+    Inputs:
+        time_s: x-axis value (s, or Hz on a frequency plot).
+        value_f: y-axis value.
+    Outputs: (time_s, value_f) as floats. Raises ValueError when a value
+        is not a finite number.
+    """
+    # LLFR-00333, LLFR-00339: a note is attached to a place it can be
+    # drawn at.
+    place_tuple = (float(time_s), float(value_f))
+    if not all(math.isfinite(number_f) for number_f in place_tuple):
+        raise ValueError("A text note needs a finite x and y value.")
+    return place_tuple
+
+
+@dataclass
 class VerticalMarker:
     """A vertical line drawn across a plot at one time value (HLFR-00028).
 
@@ -79,11 +222,67 @@ class VerticalMarker:
             never reused.
         name_str: name shown in the marker's label (LLFR-00084).
         time_s: time of the marker on the x-axis, in seconds.
+        color_str: color of its line, label text and time value,
+            "#rrggbb" in lowercase (LLFR-00083, LLFR-00392).
     """
 
     marker_id_i: int
     name_str: str
     time_s: float
+    color_str: str = DEFAULT_FLAG_COLOR_STR
+
+
+@dataclass
+class Area:
+    """A shaded band across the time plots between two times (HLFR-00066).
+
+    Inputs:
+        area_id_i: id of the area, unique within the workspace and never
+            reused.
+        name_str: name shown in the area's label (LLFR-00307).
+        start_s: time of the left edge of the band, in seconds.
+        end_s: time of the right edge, in seconds, after start_s.
+        color_str: its color, "#rrggbb" in lowercase (LLFR-00351); the
+            view draws it see-through (LLFR-00305).
+    """
+
+    area_id_i: int
+    name_str: str
+    start_s: float
+    end_s: float
+    color_str: str = DEFAULT_AREA_COLOR_STR
+
+
+def area_span_tuple(start_s: float, end_s: float) -> tuple:
+    """Check the two times of an area and return them in order.
+
+    Inputs:
+        start_s: one edge of the area, in seconds.
+        end_s: the other edge, in seconds.
+    Outputs: (start_s, end_s) as floats with start_s < end_s. Raises
+        ValueError when a time is not finite or both are equal.
+    """
+    # LLFR-00304: an area lies between two different times.
+    start_s, end_s = sorted((float(start_s), float(end_s)))
+    if not (math.isfinite(start_s) and math.isfinite(end_s)):
+        raise ValueError("The times of an area must be finite.")
+    if not end_s > start_s:
+        raise ValueError("An area needs a start time before its end time.")
+    return (start_s, end_s)
+
+
+def spans_overlap_b(first_start_s: float, first_end_s: float,
+                    second_start_s: float, second_end_s: float) -> bool:
+    """Tell whether two time spans overlap by more than a shared edge.
+
+    Inputs:
+        first_start_s, first_end_s: the first span, start before end.
+        second_start_s, second_end_s: the second span, start before end.
+    Outputs: True when the spans have a part in common that is longer
+        than one point; two spans that only share an edge do not overlap.
+    """
+    # LLFR-00304: areas must not overlap, but may share an edge.
+    return first_start_s < second_end_s and second_start_s < first_end_s
 
 
 @dataclass
@@ -100,12 +299,15 @@ class DeltaMarker:
             curve sample.
         second_point_tuple: the second picked point (LLFR-00164), in the
             same form.
+        color_str: color of its curly bracket, dots and value text,
+            "#rrggbb" in lowercase (LLFR-00172, LLFR-00409).
     """
 
     delta_marker_id_i: int
     kind_str: str
     first_point_tuple: tuple
     second_point_tuple: tuple
+    color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
 
     def delta_f(self) -> float:
         """Return the measured difference, second point minus first.
@@ -190,16 +392,34 @@ class MarkerIdCounter:
 class Plot:
     """An area of a tab in which signal curves are drawn.
 
+    A plot is a time plot or a frequency plot (HLFR-00058), as its
+    ``kind_str`` says; the kind is chosen when the plot is created and
+    never changes. A frequency plot only draws FFT signals, a time plot
+    only the other signals (LLFR-00257); the controller checks this.
+
     Inputs:
         plot_id_i: id of the plot, unique within the workspace.
         random_generator: random.Random used for the curve colors from
             the 9th curve on (LLFR-00034).
         marker_id_counter: optional MarkerIdCounter shared with the other
             plots of the workspace; a new one is used when it is None.
+        kind_str: TIME_PLOT_KIND_STR (the default) or
+            FREQUENCY_PLOT_KIND_STR.
+    Attributes:
+        kind_str: the kind of the plot, one of PLOT_KIND_TUPLE.
+        frequency_range_tuple: for a frequency plot, its own x-axis range
+            (start_hz, end_hz) (LLFR-00258), or
+            WHOLE_FREQUENCY_RANGE_TUPLE (the empty tuple) while it shows
+            its whole frequency range; always () for a time plot, whose
+            range is shared by every time plot (LLFR-00070) and kept by
+            the controller. It is view state: it is not part of the undo
+            states (plot_state_tuple), as zooms are not undoable
+            (LLFR-00140).
     """
 
     def __init__(self, plot_id_i: int, random_generator,
-                 marker_id_counter=None) -> None:
+                 marker_id_counter=None,
+                 kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create an empty plot.
 
         Inputs:
@@ -207,8 +427,15 @@ class Plot:
             random_generator: random.Random used for curve colors.
             marker_id_counter: optional shared MarkerIdCounter for the
                 delta marker ids.
-        Outputs: none.
+            kind_str: TIME_PLOT_KIND_STR or FREQUENCY_PLOT_KIND_STR.
+        Outputs: none. Raises ValueError for an unknown kind.
         """
+        # LLFR-00256, HLFR-00058: a time plot or a frequency plot.
+        if kind_str not in PLOT_KIND_TUPLE:
+            raise ValueError(f"Unknown plot kind {kind_str!r}.")
+        self.kind_str = kind_str
+        # LLFR-00258: a new frequency plot shows its whole range.
+        self.frequency_range_tuple = WHOLE_FREQUENCY_RANGE_TUPLE
         # LLFR-00019: a new plot starts with no curves and no tips.
         self.plot_id_i = plot_id_i
         self.random_generator = random_generator
@@ -225,6 +452,42 @@ class Plot:
         # LLFR-00164, LLFR-00174: any number of delta markers, in the
         # order they were placed.
         self.delta_marker_list = []
+        # LLFR-00340: any number of text notes, in the order they were
+        # written; they belong to this plot only.
+        self.text_note_list = []
+        # LLFR-00375: any number of arrows, in the order they were
+        # drawn; they belong to this plot only.
+        self.arrow_list = []
+
+    def is_frequency_plot(self) -> bool:
+        """Tell whether the plot is a frequency plot.
+
+        Inputs: none.
+        Outputs: True for a frequency plot, False for a time plot.
+        """
+        # LLFR-00256, HLFR-00058: frequency in Hz on the x-axis.
+        return self.kind_str == FREQUENCY_PLOT_KIND_STR
+
+    def set_frequency_range(self, start_hz: float, end_hz: float) -> bool:
+        """Keep the x-axis range a frequency plot shows.
+
+        Inputs:
+            start_hz: start of the range, in Hz.
+            end_hz: end of the range, in Hz, greater than start_hz.
+        Outputs: True when the range was kept; False for a time plot or
+            a range that is not finite or not increasing.
+        """
+        # LLFR-00258: each frequency plot has its own range; time plots
+        # share theirs (LLFR-00070), which the plot does not keep.
+        if not self.is_frequency_plot():
+            return False
+        start_hz = float(start_hz)
+        end_hz = float(end_hz)
+        if not (math.isfinite(start_hz) and math.isfinite(end_hz)
+                and end_hz > start_hz):
+            return False
+        self.frequency_range_tuple = (start_hz, end_hz)
+        return True
 
     def has_signal(self, signal_name_str: str) -> bool:
         """Tell whether the plot shows a signal.
@@ -257,15 +520,61 @@ class Plot:
         Outputs: the new Curve, or None when the plot already shows the
             signal (LLFR-00056).
         """
-        # LLFR-00056: a signal already in the plot is not drawn again.
+        # LLFR-00056: a signal already in the plot is not drawn again;
+        # checked before the color is picked, so a refused drop draws no
+        # random color (LLFR-00034).
         if self.has_signal(signal_name_str):
             return None
         # LLFR-00033, LLFR-00034: pick a color not used in this plot.
-        used_color_list = [curve.color_str for curve in self.curve_list]
-        color_str = next_curve_color(self.drawn_count_i, used_color_list,
-                                     self.random_generator)
         # LLFR-00052: a new curve uses preset width 1.
-        curve = Curve(signal_name_str, color_str, DEFAULT_WIDTH_I)
+        return self.add_styled_curve(signal_name_str, self.next_color(),
+                                     DEFAULT_WIDTH_I)
+
+    def next_color(self) -> str:
+        """Return the color the next new curve of this plot gets.
+
+        Inputs: none.
+        Outputs: the palette color of the next curve (LLFR-00033), or a
+            random color from the 9th curve on (LLFR-00034); never a
+            color that a curve of this plot already uses.
+        """
+        # LLFR-00033: the palette color in drawing order. LLFR-00235: a
+        # plot rebuilt from a layout file may already use that palette
+        # color for another curve, so palette colors in use are skipped.
+        used_color_list = [curve.color_str for curve in self.curve_list]
+        used_lower_set = {color_str.lower() for color_str in used_color_list}
+        for palette_index_i in range(self.drawn_count_i,
+                                     len(PALETTE_COLOR_TUPLE)):
+            color_str = PALETTE_COLOR_TUPLE[palette_index_i]
+            if color_str.lower() not in used_lower_set:
+                return color_str
+        # LLFR-00034: a random color different from every used color.
+        return next_curve_color(len(PALETTE_COLOR_TUPLE), used_color_list,
+                                self.random_generator)
+
+    def add_styled_curve(self, signal_name_str: str, color_str: str,
+                         width_i: int):
+        """Draw a signal in the plot with a given color and width.
+
+        Inputs:
+            signal_name_str: name of the signal to draw.
+            color_str: color of the curve, "#rrggbb", not used by another
+                curve of the plot.
+            width_i: preset width of the curve, one of PRESET_WIDTH_TUPLE.
+        Outputs: the new Curve, or None when the plot already shows the
+            signal (LLFR-00056). Raises ValueError for a width that is not
+            a preset width.
+        """
+        # LLFR-00056: a signal already in the plot is not drawn again.
+        if self.has_signal(signal_name_str):
+            return None
+        # LLFR-00041, LLFR-00235: only the preset widths 1 to 5.
+        if isinstance(width_i, bool) or width_i not in PRESET_WIDTH_TUPLE:
+            raise ValueError(f"Width {width_i!r} is not a preset width "
+                             f"{PRESET_WIDTH_TUPLE}.")
+        # LLFR-00230: a curve of a layout file keeps its saved color and
+        # width; LLFR-00033: it counts as a drawn curve for the colors.
+        curve = Curve(signal_name_str, str(color_str), int(width_i))
         self.curve_list.append(curve)
         self.drawn_count_i += 1
         return curve
@@ -345,6 +654,17 @@ class Plot:
                 return True
         return False
 
+    def remove_all_pinned_tips(self) -> int:
+        """Remove every pinned tip of the plot.
+
+        Inputs: none.
+        Outputs: the number of pinned tips removed.
+        """
+        # LLFR-00412: "Delete all data tips in this plot".
+        removed_count_i = len(self.pinned_tip_list)
+        self.pinned_tip_list = []
+        return removed_count_i
+
     def move_pinned_tip(self, pinned_tip: PinnedTip,
                         label_offset_tuple: tuple) -> bool:
         """Move the label of a pinned tip; its point stays the same.
@@ -373,6 +693,258 @@ class Plot:
                 return True
         return False
 
+    def add_text_note(self, text_str: str, time_s: float,
+                      value_f: float):
+        """Write a text note at a place of the plot.
+
+        Inputs:
+            text_str: the typed text.
+            time_s: x-axis value of the place (s, or Hz on a frequency
+                plot).
+            value_f: y-axis value of the place.
+        Outputs: the new TextNote, or None when the text is empty or made
+            only of spaces (nothing is written). Raises ValueError when
+            the place is not finite.
+        """
+        # LLFR-00334: a blank text creates no note.
+        note_text_str = text_note_text(text_str)
+        place_tuple = finite_place_tuple(time_s, value_f)
+        if not note_text_str:
+            return None
+        # LLFR-00340: any number of notes per plot.
+        text_note = TextNote(note_text_str, *place_tuple)
+        self.text_note_list.append(text_note)
+        return text_note
+
+    def has_text_note_index(self, note_index_i: int) -> bool:
+        """Tell whether an index points at a text note of the plot.
+
+        Inputs:
+            note_index_i: index in text_note_list.
+        Outputs: True for a valid index.
+        """
+        # LLFR-00339, LLFR-00342, LLFR-00343: the view names a note by
+        # its index in the list it last drew.
+        return (isinstance(note_index_i, int)
+                and 0 <= note_index_i < len(self.text_note_list))
+
+    def edit_text_note(self, note_index_i: int, text_str: str) -> bool:
+        """Change the text of a text note.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+            text_str: the typed text.
+        Outputs: True when the text changed; False for an unknown index,
+            a blank text (the previous text is kept) or the same text.
+        """
+        # LLFR-00342: a blank text keeps the previous one.
+        note_text_str = text_note_text(text_str)
+        if not note_text_str or not self.has_text_note_index(note_index_i):
+            return False
+        text_note = self.text_note_list[note_index_i]
+        if text_note.text_str == note_text_str:
+            return False
+        text_note.text_str = note_text_str
+        return True
+
+    def move_text_note(self, note_index_i: int, time_s: float,
+                       value_f: float) -> bool:
+        """Attach a text note to another place of the plot.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+            time_s: new x-axis value (s, or Hz on a frequency plot).
+            value_f: new y-axis value.
+        Outputs: True when the note moved; False for an unknown index or
+            the same place. Raises ValueError when the place is not
+            finite.
+        """
+        # LLFR-00339: the note is attached to the values of the place
+        # where the button was released.
+        place_tuple = finite_place_tuple(time_s, value_f)
+        if not self.has_text_note_index(note_index_i):
+            return False
+        text_note = self.text_note_list[note_index_i]
+        if (text_note.time_s, text_note.value_f) == place_tuple:
+            return False
+        text_note.time_s, text_note.value_f = place_tuple
+        return True
+
+    def remove_text_note(self, note_index_i: int) -> bool:
+        """Remove a text note from the plot.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+        Outputs: True when it was removed, False for an unknown index.
+        """
+        # LLFR-00343: the note leaves the plot.
+        if not self.has_text_note_index(note_index_i):
+            return False
+        del self.text_note_list[note_index_i]
+        return True
+
+    def set_text_note_size(self, note_index_i: int, size_i: int) -> bool:
+        """Give the text of a text note another chosen size.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+            size_i: the size in points, one of TEXT_NOTE_SIZE_TUPLE.
+        Outputs: True when the size changed; False for an unknown index,
+            a size that is not a preset or the note's current size.
+        """
+        # LLFR-00385: one of the preset sizes; LLFR-00386: the chosen
+        # size is kept as chosen, whatever size the view can draw.
+        if (not self.has_text_note_index(note_index_i)
+                or isinstance(size_i, bool)
+                or size_i not in TEXT_NOTE_SIZE_TUPLE):
+            return False
+        text_note = self.text_note_list[note_index_i]
+        if text_note.size_i == int(size_i):
+            return False
+        text_note.size_i = int(size_i)
+        return True
+
+    def set_text_note_border_color(self, note_index_i: int,
+                                   color_str: str) -> bool:
+        """Give the border of a text note another color.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False for an unknown index,
+            a value that is not "#rrggbb" or the current border color.
+        """
+        # LLFR-00387, LLFR-00390: the confirmed color, but nothing when
+        # it is the color the border already has.
+        new_color_str = hex_color_or_none(color_str)
+        if new_color_str is None or not self.has_text_note_index(
+                note_index_i):
+            return False
+        text_note = self.text_note_list[note_index_i]
+        if text_note.border_color_str == new_color_str:
+            return False
+        text_note.border_color_str = new_color_str
+        return True
+
+    def set_text_note_text_color(self, note_index_i: int,
+                                 color_str: str) -> bool:
+        """Give the text of a text note another color.
+
+        Inputs:
+            note_index_i: index of the note in text_note_list.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False for an unknown index,
+            a value that is not "#rrggbb" or the current text color.
+        """
+        # LLFR-00387, LLFR-00390: the confirmed color, but nothing when
+        # it is the color the text already has.
+        new_color_str = hex_color_or_none(color_str)
+        if new_color_str is None or not self.has_text_note_index(
+                note_index_i):
+            return False
+        text_note = self.text_note_list[note_index_i]
+        if text_note.text_color_str == new_color_str:
+            return False
+        text_note.text_color_str = new_color_str
+        return True
+
+    def add_arrow(self, start_time_s: float, start_value_f: float,
+                  end_time_s: float, end_value_f: float) -> Arrow:
+        """Draw a new arrow on the plot.
+
+        Inputs:
+            start_time_s: x value of the press point (s, or Hz on a
+                frequency plot).
+            start_value_f: y value of the press point.
+            end_time_s: x value of the release point, where the
+                arrowhead is.
+            end_value_f: y value of the release point.
+        Outputs: the new Arrow, in the default color. Raises ValueError
+            when a value is not finite or the two ends are the same.
+        """
+        # LLFR-00372: from the press to the release, with the arrowhead
+        # at the release. LLFR-00373: in the default color.
+        end_tuple = finite_arrow_tuple(start_time_s, start_value_f,
+                                       end_time_s, end_value_f)
+        # LLFR-00375: any number of arrows per plot.
+        arrow = Arrow(*end_tuple)
+        self.arrow_list.append(arrow)
+        return arrow
+
+    def has_arrow_index(self, arrow_index_i: int) -> bool:
+        """Tell whether an index points at an arrow of the plot.
+
+        Inputs:
+            arrow_index_i: index in arrow_list.
+        Outputs: True for a valid index.
+        """
+        # LLFR-00376, LLFR-00377, LLFR-00379, LLFR-00380: the view names
+        # an arrow by its index in the list it last drew.
+        return (isinstance(arrow_index_i, int)
+                and not isinstance(arrow_index_i, bool)
+                and 0 <= arrow_index_i < len(self.arrow_list))
+
+    def set_arrow_ends(self, arrow_index_i: int, start_time_s: float,
+                       start_value_f: float, end_time_s: float,
+                       end_value_f: float) -> bool:
+        """Give an arrow new ends, after a move, a rotation or a stretch.
+
+        Inputs:
+            arrow_index_i: index of the arrow in arrow_list.
+            start_time_s: new x value of the end without the arrowhead.
+            start_value_f: new y value of that end.
+            end_time_s: new x value of the arrowhead's end.
+            end_value_f: new y value of the arrowhead's end.
+        Outputs: True when the arrow changed; False for an unknown index
+            or the same ends. Raises ValueError when a value is not
+            finite or the two ends are the same.
+        """
+        # LLFR-00376, LLFR-00377: attached to the values of its new ends;
+        # the arrowhead stays at the end it was at.
+        end_tuple = finite_arrow_tuple(start_time_s, start_value_f,
+                                       end_time_s, end_value_f)
+        if not self.has_arrow_index(arrow_index_i):
+            return False
+        arrow = self.arrow_list[arrow_index_i]
+        if arrow_end_tuple(arrow) == end_tuple:
+            return False
+        (arrow.start_time_s, arrow.start_value_f, arrow.end_time_s,
+         arrow.end_value_f) = end_tuple
+        return True
+
+    def set_arrow_color(self, arrow_index_i: int, color_str: str) -> bool:
+        """Give an arrow another color.
+
+        Inputs:
+            arrow_index_i: index of the arrow in arrow_list.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False for an unknown index,
+            a value that is not "#rrggbb" or the current color.
+        """
+        # LLFR-00379, LLFR-00390: the confirmed color, but nothing when
+        # it is the color the arrow already has.
+        new_color_str = hex_color_or_none(color_str)
+        if new_color_str is None or not self.has_arrow_index(arrow_index_i):
+            return False
+        arrow = self.arrow_list[arrow_index_i]
+        if arrow.color_str == new_color_str:
+            return False
+        arrow.color_str = new_color_str
+        return True
+
+    def remove_arrow(self, arrow_index_i: int) -> bool:
+        """Remove an arrow from the plot.
+
+        Inputs:
+            arrow_index_i: index of the arrow in arrow_list.
+        Outputs: True when it was removed, False for an unknown index.
+        """
+        # LLFR-00380: the arrow leaves the plot.
+        if not self.has_arrow_index(arrow_index_i):
+            return False
+        del self.arrow_list[arrow_index_i]
+        return True
+
     def is_empty(self) -> bool:
         """Tell whether the plot has no curves.
 
@@ -384,7 +956,9 @@ class Plot:
         return not self.curve_list
 
     def add_delta_marker(self, kind_str: str, first_point_tuple,
-                         second_point_tuple) -> DeltaMarker:
+                         second_point_tuple,
+                         color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
+                         ) -> DeltaMarker:
         """Place a new delta marker between two curve points.
 
         Inputs:
@@ -393,6 +967,10 @@ class Plot:
                 first picked point.
             second_point_tuple: the same for the second picked point; it
                 may be on the same curve or on another one.
+            color_str: its color, "#rrggbb" (any case); a new marker gets
+                the default color (LLFR-00172), a marker of a layout file
+                its saved color (LLFR-00410). A value that is not
+                "#rrggbb" gives the default color.
         Outputs: the new DeltaMarker. Raises ValueError for an unknown
             kind, a point that is not finite, or a point on a signal
             that is not in the plot.
@@ -407,12 +985,40 @@ class Plot:
             if not self.has_signal(point_tuple[0]):
                 raise ValueError(f"Signal {point_tuple[0]!r} is not in "
                                  f"the plot.")
+        # LLFR-00172, LLFR-00410: the default color unless a usable
+        # color is given.
+        marker_color_str = hex_color_or_none(color_str)
+        if marker_color_str is None:
+            marker_color_str = DEFAULT_DELTA_MARKER_COLOR_STR
         # LLFR-00174: markers are added, never replaced.
         delta_marker = DeltaMarker(self.marker_id_counter.take_next_id(),
                                    kind_str, first_point_tuple,
-                                   second_point_tuple)
+                                   second_point_tuple, marker_color_str)
         self.delta_marker_list.append(delta_marker)
         return delta_marker
+
+    def set_delta_marker_color(self, delta_marker_id_i: int,
+                               color_str: str) -> bool:
+        """Give one delta marker of this plot another color.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False when no delta marker
+            of this plot has that id, the value is not "#rrggbb" or it is
+            the marker's current color.
+        """
+        # LLFR-00409, LLFR-00390: the chosen color, but nothing when it
+        # is the color the marker already has; the points, the value and
+        # the other delta markers stay as they are.
+        new_color_str = hex_color_or_none(color_str)
+        delta_marker = self.find_delta_marker(delta_marker_id_i)
+        if delta_marker is None or new_color_str is None:
+            return False
+        if delta_marker.color_str == new_color_str:
+            return False
+        delta_marker.color_str = new_color_str
+        return True
 
     def find_delta_marker(self, delta_marker_id_i: int):
         """Return a delta marker of this plot by its id.
@@ -441,6 +1047,17 @@ class Plot:
             return False
         self.delta_marker_list.remove(delta_marker)
         return True
+
+    def remove_all_delta_markers(self) -> int:
+        """Remove every Delta X and Delta Y marker of the plot.
+
+        Inputs: none.
+        Outputs: the number of delta markers removed.
+        """
+        # LLFR-00414: "Delete all delta markers in this plot".
+        removed_count_i = len(self.delta_marker_list)
+        self.delta_marker_list = []
+        return removed_count_i
 
     def remove_delta_markers_of_signal(self, signal_name_str: str) -> int:
         """Remove every delta marker with a point on a signal's curve.
@@ -502,6 +1119,18 @@ class Tab:
         return None
 
 
+def arrow_end_tuple(arrow) -> tuple:
+    """Return the two ends of an arrow as plain values.
+
+    Inputs:
+        arrow: an Arrow.
+    Outputs: (start_time_s, start_value_f, end_time_s, end_value_f).
+    """
+    # LLFR-00374: the values the arrow is attached to.
+    return (arrow.start_time_s, arrow.start_value_f, arrow.end_time_s,
+            arrow.end_value_f)
+
+
 def plot_state_tuple(plot) -> tuple:
     """Return everything an undo restores of a plot, as plain values.
 
@@ -511,7 +1140,12 @@ def plot_state_tuple(plot) -> tuple:
         (signal_name_str, color_str, width_i), pinned tip tuples
         (signal_name_str, time_s, value_f, label_offset_tuple), delta
         marker tuples (delta_marker_id_i, kind_str, first_point_tuple,
-        second_point_tuple)).
+        second_point_tuple, color_str), text note tuples (text_str, time_s,
+        value_f, size_i, border_color_str, text_color_str), arrow tuples
+        (start_time_s, start_value_f, end_time_s, end_value_f,
+        color_str), plot kind_str). For a frequency plot, the time_s of
+        the tips, delta marker points, text notes and arrows is a
+        frequency in Hz.
     """
     # LLFR-00140: curves with color and width, pinned tips with their
     # label offsets, and the counter that picks the next color. The
@@ -523,14 +1157,112 @@ def plot_state_tuple(plot) -> tuple:
         (pinned_tip.signal_name_str, pinned_tip.time_s, pinned_tip.value_f,
          tuple(pinned_tip.label_offset_tuple))
         for pinned_tip in plot.pinned_tip_list)
-    # LLFR-00140: placing and deleting a delta marker are undoable.
+    # LLFR-00140: placing, changing the color of (LLFR-00409) and
+    # deleting a delta marker are undoable.
     delta_marker_tuple = tuple(
         (delta_marker.delta_marker_id_i, delta_marker.kind_str,
          tuple(delta_marker.first_point_tuple),
-         tuple(delta_marker.second_point_tuple))
+         tuple(delta_marker.second_point_tuple), delta_marker.color_str)
         for delta_marker in plot.delta_marker_list)
+    # LLFR-00256, LLFR-00140: creating a frequency plot is undoable like
+    # creating a time plot, and an undo gives the plot back its kind.
+    # LLFR-00140: creating, moving, editing and deleting a text note are
+    # undoable; LLFR-00340: the notes are part of their plot's state.
+    # LLFR-00385, LLFR-00387: changing a note's size, border color or
+    # text color is undoable too.
+    text_note_tuple = tuple(
+        (text_note.text_str, text_note.time_s, text_note.value_f,
+         text_note.size_i, text_note.border_color_str,
+         text_note.text_color_str)
+        for text_note in plot.text_note_list)
+    # LLFR-00140: drawing, moving, rotating or stretching, recoloring and
+    # deleting an arrow are undoable; LLFR-00375: the arrows are part of
+    # their plot's state.
+    arrow_tuple = tuple(arrow_end_tuple(arrow) + (arrow.color_str,)
+                        for arrow in plot.arrow_list)
     return (plot.plot_id_i, plot.drawn_count_i, curve_tuple,
-            pinned_tip_tuple, delta_marker_tuple)
+            pinned_tip_tuple, delta_marker_tuple, text_note_tuple,
+            arrow_tuple, plot.kind_str)
+
+
+def tabs_state_tuple(tab_list: list, marker_list: list,
+                     area_list=()) -> tuple:
+    """Return tabs, vertical markers and areas as plain values.
+
+    Inputs:
+        tab_list: the Tab objects, in tab order.
+        marker_list: the VerticalMarker objects, in placing order.
+        area_list: the Area objects, in creation order.
+    Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
+        (tab_id_i, name_str, plot state tuples) per tab, one entry
+        (marker_id_i, name_str, time_s, color_str) per marker and one
+        entry (area_id_i, name_str, start_s, end_s, color_str) per area;
+        two states with equal tuples show the same thing (LLFR-00140).
+    """
+    # LLFR-00138, LLFR-00140: what an undo restores.
+    tab_tuple = tuple(
+        (tab.tab_id_i, tab.name_str,
+         tuple(plot_state_tuple(plot) for plot in tab.plot_list))
+        for tab in tab_list)
+    # LLFR-00392, LLFR-00140: changing a flag's color is undoable.
+    marker_tuple = tuple((marker.marker_id_i, marker.name_str, marker.time_s,
+                          marker.color_str)
+                         for marker in marker_list)
+    # LLFR-00140: creating, moving, resizing, renaming and deleting an
+    # area are undoable.
+    # LLFR-00351: and changing its color.
+    area_tuple = tuple((area.area_id_i, area.name_str, area.start_s,
+                        area.end_s, area.color_str)
+                       for area in area_list)
+    return (tab_tuple, marker_tuple, area_tuple)
+
+
+def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
+                        new_name_str: str) -> tuple:
+    """Return a delta marker point with a signal name replaced.
+
+    Inputs:
+        point_tuple: (signal_name_str, time_s, value_f).
+        old_name_str: the signal name to replace.
+        new_name_str: the name that replaces it.
+    Outputs: the same point, on new_name_str when it was on old_name_str.
+    """
+    # LLFR-00266: a renamed synthetic signal keeps its delta markers.
+    if point_tuple[0] != old_name_str:
+        return point_tuple
+    return (new_name_str,) + tuple(point_tuple[1:])
+
+
+def rename_signal_in_tabs(tab_list: list, old_name_str: str,
+                          new_name_str: str) -> bool:
+    """Rename a signal in every curve, pinned tip and delta marker.
+
+    Inputs:
+        tab_list: the Tab objects to update in place.
+        old_name_str: the current name of the signal.
+        new_name_str: its new name, not used by another curve.
+    Outputs: True when at least one curve was renamed.
+    """
+    # LLFR-00266: every plot that draws the signal shows the new name in
+    # its legend; its color, width, tips and delta markers are kept.
+    renamed_b = False
+    for tab in tab_list:
+        for plot in tab.plot_list:
+            for curve in plot.curve_list:
+                if curve.signal_name_str == old_name_str:
+                    curve.signal_name_str = new_name_str
+                    renamed_b = True
+            for pinned_tip in plot.pinned_tip_list:
+                if pinned_tip.signal_name_str == old_name_str:
+                    pinned_tip.signal_name_str = new_name_str
+            for delta_marker in plot.delta_marker_list:
+                delta_marker.first_point_tuple = renamed_point_tuple(
+                    delta_marker.first_point_tuple, old_name_str,
+                    new_name_str)
+                delta_marker.second_point_tuple = renamed_point_tuple(
+                    delta_marker.second_point_tuple, old_name_str,
+                    new_name_str)
+    return renamed_b
 
 
 class WorkspaceSnapshot:
@@ -548,10 +1280,13 @@ class WorkspaceSnapshot:
             unknown.
         marker_list: copy of the workspace's vertical markers
             (LLFR-00205), in placing order.
+        area_list: copy of the workspace's areas (LLFR-00310), in
+            creation order.
     """
 
     def __init__(self, tab_list: list, state_tuple: tuple,
-                 current_tab_id_i: int = -1, marker_list=()) -> None:
+                 current_tab_id_i: int = -1, marker_list=(),
+                 area_list=()) -> None:
         """Store the saved state.
 
         Inputs:
@@ -559,6 +1294,7 @@ class WorkspaceSnapshot:
             state_tuple: plain-value dump of the tabs and markers.
             current_tab_id_i: id of the selected tab, -1 when unknown.
             marker_list: copies of the vertical markers.
+            area_list: copies of the areas.
         Outputs: none.
         """
         # LLFR-00138: the state to return to. LLFR-00205: the shared
@@ -567,6 +1303,25 @@ class WorkspaceSnapshot:
         self.state_tuple = state_tuple
         self.current_tab_id_i = current_tab_id_i
         self.marker_list = list(marker_list)
+        # LLFR-00310, LLFR-00138: the shared areas are part of it too.
+        self.area_list = list(area_list)
+
+    def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
+        """Rename a signal in the saved state.
+
+        Inputs:
+            old_name_str: the current name of the signal.
+            new_name_str: its new name.
+        Outputs: none. The saved state is changed in place, so that an
+            undo or a redo after the rename draws the curves of the
+            signal under its new name.
+        """
+        # LLFR-00266: renaming a synthetic signal keeps the undo and
+        # redo history, whose states must then use the new name.
+        rename_signal_in_tabs(self.tab_list, old_name_str, new_name_str)
+        self.state_tuple = tabs_state_tuple(self.tab_list,
+                                            self.marker_list,
+                                            self.area_list)
 
 
 class Workspace:
@@ -601,9 +1356,15 @@ class Workspace:
         # LLFR-00205: the vertical markers, shared by every plot of every
         # tab, in the order they were placed.
         self.marker_list = []
-        # LLFR-00085, LLFR-00111: number of the next "Marker N"; it only
+        # LLFR-00085, LLFR-00111: number of the next "Flag N"; it only
         # grows, also on undo, until a file is opened (reset).
         self.next_marker_number_i = 1
+        # LLFR-00310: the areas, shared by every time plot of every tab,
+        # in the order they were created.
+        self.area_list = []
+        # LLFR-00309: number of the next "Area N"; it only grows, also on
+        # undo, until a file is opened (reset).
+        self.next_area_number_i = 1
         # LLFR-00024: the app starts with one tab.
         self.reset()
 
@@ -616,9 +1377,12 @@ class Workspace:
         # LLFR-00015: close all tabs and plots of the previous file.
         self.tab_list = []
         # LLFR-00205: with no plot left, no marker is left either.
-        # LLFR-00085, LLFR-00111: a new file numbers from "Marker 1".
+        # LLFR-00085, LLFR-00111: a new file numbers from "Flag 1".
         self.marker_list = []
         self.next_marker_number_i = 1
+        # LLFR-00310, LLFR-00309: the same for the areas.
+        self.area_list = []
+        self.next_area_number_i = 1
         # LLFR-00210, LLFR-00016: tab numbering restarts with "Tab 1".
         self.next_tab_number_i = 1
         # LLFR-00016: one tab with no plots; ids keep counting up.
@@ -690,6 +1454,37 @@ class Workspace:
         self.tab_list.append(tab)
         return tab
 
+    def add_named_tab(self, name_str: str) -> Tab:
+        """Add a new empty tab with a given name after the last one.
+
+        Inputs:
+            name_str: the name of the tab; leading and trailing spaces
+                are removed. The caller makes sure it is not empty and
+                not the name of another tab (LLFR-00235).
+        Outputs: the new Tab. The counter of the default tab names is
+            not changed: a later default name skips this name anyway
+            (LLFR-00212).
+        """
+        # LLFR-00230: a tab of a layout file keeps its saved name.
+        tab = Tab(self.next_tab_id_i, str(name_str).strip())
+        self.next_tab_id_i += 1
+        self.tab_list.append(tab)
+        return tab
+
+    def remove_all_tabs(self) -> None:
+        """Remove every tab, leaving the workspace without tabs.
+
+        Inputs: none.
+        Outputs: none. The caller must add at least one tab afterwards.
+            The id counters and the numbering of the default tab and
+            marker names are kept (LLFR-00210, LLFR-00111).
+        """
+        # LLFR-00229: when no current tab holds a plot, the tabs of the
+        # layout file replace the current ones.
+        self.tab_list = []
+        # LLFR-00205: with no plot left, no marker is left either.
+        self.clear_markers_without_plots()
+
     def find_tab(self, tab_id_i: int):
         """Return a tab by its id.
 
@@ -753,21 +1548,25 @@ class Workspace:
         tab.name_str = stripped_name_str
         return True
 
-    def add_plot(self, tab_id_i: int):
+    def add_plot(self, tab_id_i: int,
+                 kind_str: str = TIME_PLOT_KIND_STR):
         """Add a new empty plot at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
+            kind_str: TIME_PLOT_KIND_STR (the default) for a time plot or
+                FREQUENCY_PLOT_KIND_STR for a frequency plot.
         Outputs: the new Plot, or None when the tab is full (LLFR-00031)
-            or no tab has that id.
+            or no tab has that id. Raises ValueError for an unknown kind.
         """
-        # LLFR-00031: a full tab gets no new plot.
+        # LLFR-00031, LLFR-00256: a full tab gets no new plot, of either
+        # kind: a frequency plot counts towards the maximum too.
         tab = self.find_tab(tab_id_i)
         if tab is None or tab.is_full():
             return None
         # LLFR-00069: the new plot goes below the existing ones.
         plot = Plot(self.next_plot_id_i, self.random_generator,
-                    self.marker_id_counter)
+                    self.marker_id_counter, kind_str)
         self.next_plot_id_i += 1
         tab.plot_list.append(plot)
         return plot
@@ -840,29 +1639,34 @@ class Workspace:
         Inputs: none.
         Outputs: True when at least one plot exists.
         """
-        # LLFR-00205: markers are only kept while a plot exists.
+        # LLFR-00205: markers are only kept while a plot exists. A
+        # frequency plot is a plot too (HLFR-00058), so the markers are
+        # kept while one exists, even though it does not show them
+        # (LLFR-00259); a time plot created later shows them again.
         return any(tab.plot_list for tab in self.tab_list)
 
     def clear_markers_without_plots(self) -> None:
-        """Delete every vertical marker when no plot is left.
+        """Delete every vertical marker and area when no plot is left.
 
         Inputs: none.
-        Outputs: none. The marker numbering is not restarted
-            (LLFR-00111): only opening a file restarts it.
+        Outputs: none. The marker and area numbering is not restarted
+            (LLFR-00111, LLFR-00309): only opening a file restarts it.
         """
         # LLFR-00205: no plot left in any tab, no marker left.
+        # LLFR-00310: and no area, in the same way.
         if not self.has_plots():
             self.marker_list = []
+            self.area_list = []
 
     def add_marker(self, time_s: float) -> VerticalMarker:
         """Place a new vertical marker, shown on every plot.
 
         Inputs:
             time_s: time of the marker, in seconds; stored as given.
-        Outputs: the new VerticalMarker, named "Marker N" (LLFR-00085).
+        Outputs: the new VerticalMarker, named "Flag N" (LLFR-00085).
         """
         # LLFR-00081, LLFR-00205: one marker for every plot of every tab.
-        # LLFR-00085: "Marker N", N counting across the whole workspace.
+        # LLFR-00085: "Flag N", N counting across the whole workspace.
         name_str = DEFAULT_MARKER_NAME_FORMAT_STR.format(
             self.next_marker_number_i)
         # LLFR-00111: the number only grows and is never reused.
@@ -870,6 +1674,39 @@ class Workspace:
         marker = VerticalMarker(self.marker_id_counter.take_next_id(),
                                 name_str, float(time_s))
         self.marker_list.append(marker)
+        return marker
+
+    def add_named_marker(self, name_str: str, time_s: float,
+                         color_str: str = DEFAULT_FLAG_COLOR_STR
+                         ) -> VerticalMarker:
+        """Place a new vertical marker with a given name.
+
+        Inputs:
+            name_str: the name shown in the marker's label; leading and
+                trailing spaces are removed. The caller makes sure it is
+                not empty (LLFR-00089).
+            time_s: time of the marker, in seconds.
+            color_str: its color, "#rrggbb" (any case); the default flag
+                color when it is not written as "#rrggbb".
+        Outputs: the new VerticalMarker.
+        """
+        # LLFR-00230, LLFR-00205: a marker of a layout file keeps its
+        # saved name and is shown on every plot.
+        stripped_name_str = str(name_str).strip()
+        # LLFR-00393: with its saved color, or the default color.
+        marker_color_str = (hex_color_or_none(color_str)
+                            or DEFAULT_FLAG_COLOR_STR)
+        marker = VerticalMarker(self.marker_id_counter.take_next_id(),
+                                stripped_name_str, float(time_s),
+                                marker_color_str)
+        self.marker_list.append(marker)
+        # LLFR-00085, LLFR-00111: a saved name "Flag N" uses up N, so
+        # that a marker placed later never gets the same default name.
+        number_match = re.fullmatch(DEFAULT_MARKER_NAME_PATTERN_STR,
+                                    stripped_name_str)
+        if number_match is not None:
+            self.next_marker_number_i = max(
+                self.next_marker_number_i, int(number_match.group(1)) + 1)
         return marker
 
     def find_marker(self, marker_id_i: int):
@@ -921,6 +1758,28 @@ class Workspace:
         marker.name_str = stripped_name_str
         return True
 
+    def set_marker_color(self, marker_id_i: int, color_str: str) -> bool:
+        """Give a vertical marker (flag) another color, on every plot.
+
+        Inputs:
+            marker_id_i: id of the marker.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False when no marker has
+            that id, the value is not "#rrggbb" or it is the marker's
+            current color.
+        """
+        # LLFR-00392, LLFR-00390: the confirmed color; the color the
+        # flag already has changes nothing.
+        new_color_str = hex_color_or_none(color_str)
+        marker = self.find_marker(marker_id_i)
+        if marker is None or new_color_str is None:
+            return False
+        if marker.color_str == new_color_str:
+            return False
+        # LLFR-00205: every time plot draws it in the new color.
+        marker.color_str = new_color_str
+        return True
+
     def remove_marker(self, marker_id_i: int) -> bool:
         """Remove a vertical marker from every plot.
 
@@ -939,35 +1798,67 @@ class Workspace:
         self.marker_list.remove(marker)
         return True
 
+    def remove_all_markers(self) -> int:
+        """Remove every vertical marker (flag) from every plot.
+
+        Inputs: none.
+        Outputs: the number of flags removed.
+        """
+        # LLFR-00416, LLFR-00205: every flag leaves every time plot.
+        # LLFR-00111: next_marker_number_i is not lowered.
+        removed_count_i = len(self.marker_list)
+        self.marker_list = []
+        return removed_count_i
+
+    def remove_all_pinned_tips(self) -> int:
+        """Remove every pinned tip of every plot of every tab.
+
+        Inputs: none.
+        Outputs: the number of pinned tips removed.
+        """
+        # LLFR-00413: time plots and frequency plots, in every tab.
+        return sum(plot.remove_all_pinned_tips()
+                   for tab in self.tab_list for plot in tab.plot_list)
+
+    def remove_all_delta_markers(self) -> int:
+        """Remove every delta marker of every plot of every tab.
+
+        Inputs: none.
+        Outputs: the number of delta markers removed.
+        """
+        # LLFR-00415: time plots and frequency plots, in every tab.
+        return sum(plot.remove_all_delta_markers()
+                   for tab in self.tab_list for plot in tab.plot_list)
+
     def marker_state_tuple(self) -> tuple:
         """Return the vertical markers as plain values.
 
         Inputs: none.
-        Outputs: a tuple of (marker_id_i, name_str, time_s), in placing
-            order.
+        Outputs: a tuple of (marker_id_i, name_str, time_s, color_str),
+            in placing order.
         """
-        # LLFR-00140, LLFR-00205: placing, moving, renaming and deleting
-        # a marker change this, so they are recorded for undo.
-        return tuple((marker.marker_id_i, marker.name_str, marker.time_s)
+        # LLFR-00140, LLFR-00205: placing, moving, renaming, changing the
+        # color of (LLFR-00392) and deleting a marker change this, so
+        # they are recorded for undo.
+        return tuple((marker.marker_id_i, marker.name_str, marker.time_s,
+                      marker.color_str)
                      for marker in self.marker_list)
 
     def state_tuple(self) -> tuple:
         """Return the tabs, plots, curves, tips and markers as plain values.
 
         Inputs: none.
-        Outputs: a tuple (tab tuple, marker tuple): one entry (tab_id_i,
-            name_str, plot state tuples) per tab, in tab order, and the
-            vertical markers (marker_state_tuple); two workspaces with
-            equal tuples show the same thing (LLFR-00140).
+        Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
+            (tab_id_i, name_str, plot state tuples) per tab, in tab
+            order, the vertical markers (marker_state_tuple) and the
+            areas (area_state_tuple); two workspaces with equal tuples
+            show the same thing (LLFR-00140).
         """
         # LLFR-00138, LLFR-00140: what an undo restores; the id counters
-        # and the marker numbering are not part of it, since they only
-        # grow (LLFR-00111).
-        tab_tuple = tuple(
-            (tab.tab_id_i, tab.name_str,
-             tuple(plot_state_tuple(plot) for plot in tab.plot_list))
-            for tab in self.tab_list)
-        return (tab_tuple, self.marker_state_tuple())
+        # and the marker and area numbering are not part of it, since
+        # they only grow (LLFR-00111, LLFR-00309).
+        return tabs_state_tuple(self.tab_list, self.marker_list,
+                                self.area_list)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -998,9 +1889,11 @@ class Workspace:
         """
         # LLFR-00140: saved before every undoable action. LLFR-00205:
         # with the shared vertical markers.
+        # LLFR-00310: and with the shared areas.
         return WorkspaceSnapshot(self.copy_tab_list(self.tab_list),
                                  self.state_tuple(), int(current_tab_id_i),
-                                 copy.deepcopy(self.marker_list))
+                                 copy.deepcopy(self.marker_list),
+                                 copy.deepcopy(self.area_list))
 
     def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
         """Tell whether the workspace still holds a saved state.
@@ -1028,6 +1921,10 @@ class Workspace:
         # marker numbering is kept (LLFR-00111): an undone placement
         # does not free its number.
         self.marker_list = copy.deepcopy(snapshot.marker_list)
+        # LLFR-00310, LLFR-00309: the areas of that state; the area
+        # numbering is kept, so an undone creation does not free its
+        # number.
+        self.area_list = copy.deepcopy(snapshot.area_list)
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.
         highest_tab_id_i = max((tab.tab_id_i for tab in self.tab_list),
                                default=0)
@@ -1036,3 +1933,248 @@ class Workspace:
                                  for plot in tab.plot_list), default=0)
         self.next_plot_id_i = max(self.next_plot_id_i,
                                   highest_plot_id_i + 1)
+
+    def rename_signal(self, old_name_str: str, new_name_str: str) -> bool:
+        """Rename a signal in every plot of every tab.
+
+        Inputs:
+            old_name_str: the current name of the signal.
+            new_name_str: its new name.
+        Outputs: True when at least one plot draws the signal.
+        """
+        # LLFR-00266: the legends show the new name; not undoable.
+        return rename_signal_in_tabs(self.tab_list, old_name_str,
+                                     new_name_str)
+
+    def remove_signal_curves(self, signal_name_set: set) -> list:
+        """Remove the curves of some signals from every plot.
+
+        Inputs:
+            signal_name_set: names of the signals whose curves go away.
+        Outputs: the ids of the plots that were left with no curve and
+            were deleted (LLFR-00051). When no plot is left in any tab,
+            every vertical marker is deleted too (LLFR-00205).
+        """
+        # LLFR-00255: the curves of a deleted synthetic signal and of its
+        # dependents leave every plot, with their tips and delta markers.
+        deleted_plot_id_list = []
+        for tab in self.tab_list:
+            for plot in list(tab.plot_list):
+                removed_b = False
+                for curve in list(plot.curve_list):
+                    if curve.signal_name_str in signal_name_set:
+                        removed_b = (plot.remove_curve(
+                            curve.signal_name_str) or removed_b)
+                # LLFR-00051: a plot left with no curve is deleted.
+                if removed_b and plot.is_empty():
+                    tab.plot_list.remove(plot)
+                    deleted_plot_id_list.append(plot.plot_id_i)
+        # LLFR-00205: with no plot left, no vertical marker is left.
+        self.clear_markers_without_plots()
+        return deleted_plot_id_list
+
+    # ----------------------------------------------------------------
+    # Areas (HLFR-00066 to HLFR-00069)
+    # ----------------------------------------------------------------
+
+    def find_area(self, area_id_i: int):
+        """Return an area by its id.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: the Area, or None when no area has that id.
+        """
+        # LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: areas are found
+        # by id.
+        for area in self.area_list:
+            if area.area_id_i == area_id_i:
+                return area
+        return None
+
+    def area_overlaps_b(self, start_s: float, end_s: float,
+                        except_area_id_i: int = -1) -> bool:
+        """Tell whether a time span overlaps an area.
+
+        Inputs:
+            start_s: start of the span, in seconds, before end_s.
+            end_s: end of the span, in seconds.
+            except_area_id_i: id of an area left out of the check (the
+                area being moved or resized), -1 to check all areas.
+        Outputs: True when the span overlaps an area by more than a
+            shared edge.
+        """
+        # LLFR-00304, LLFR-00312, LLFR-00313: areas never overlap, but
+        # may share an edge.
+        return any(spans_overlap_b(start_s, end_s, area.start_s, area.end_s)
+                   for area in self.area_list
+                   if area.area_id_i != except_area_id_i)
+
+    def take_area_number(self, name_str: str) -> None:
+        """Use up the number of a default area name.
+
+        Inputs:
+            name_str: the name of an area that was just added.
+        Outputs: none. When the name is "Area N", the next default name
+            gets a number greater than N.
+        """
+        # LLFR-00309, LLFR-00319: a saved name "Area N" uses up N, so that
+        # an area created later never gets the same default name.
+        number_match = re.fullmatch(DEFAULT_AREA_NAME_PATTERN_STR, name_str)
+        if number_match is not None:
+            self.next_area_number_i = max(
+                self.next_area_number_i, int(number_match.group(1)) + 1)
+
+    def add_area(self, start_s: float, end_s: float, name_str: str = "",
+                 color_str: str = DEFAULT_AREA_COLOR_STR):
+        """Create a new area, shown on every time plot.
+
+        Inputs:
+            start_s: one edge of the area, in seconds.
+            end_s: the other edge, in seconds (the two are sorted).
+            name_str: the name of the area; leading and trailing spaces
+                are removed. Empty (the default) gives the next default
+                name "Area N" (LLFR-00309).
+            color_str: its color, "#rrggbb" (any case) (LLFR-00351);
+                the default color when it is not written as "#rrggbb".
+        Outputs: the new Area, or None when the span is empty, not
+            finite or overlaps another area (LLFR-00304). Nothing is
+            changed then, and no number is used up.
+        """
+        # LLFR-00304: between two different times, not overlapping.
+        try:
+            start_s, end_s = area_span_tuple(start_s, end_s)
+        except ValueError:
+            return None
+        if self.area_overlaps_b(start_s, end_s):
+            return None
+        stripped_name_str = str(name_str).strip()
+        if not stripped_name_str:
+            # LLFR-00309: "Area N"; N only grows and is never reused.
+            stripped_name_str = DEFAULT_AREA_NAME_FORMAT_STR.format(
+                self.next_area_number_i)
+            self.next_area_number_i += 1
+        else:
+            # LLFR-00319: a saved name keeps its number used up.
+            self.take_area_number(stripped_name_str)
+        # LLFR-00310: one area for every time plot of every tab; its id
+        # comes from the counter of the markers, so it is never reused.
+        # LLFR-00351: a new area gets the default color; LLFR-00319: an
+        # area of a layout file its saved color.
+        area_color_str = hex_color_or_none(color_str) or DEFAULT_AREA_COLOR_STR
+        area = Area(self.marker_id_counter.take_next_id(), stripped_name_str,
+                    start_s, end_s, area_color_str)
+        self.area_list.append(area)
+        return area
+
+    def set_area_span(self, area_id_i: int, start_s: float,
+                      end_s: float) -> bool:
+        """Move or resize an area, on every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+            start_s: new start of the area, in seconds.
+            end_s: new end of the area, in seconds (the two are sorted).
+        Outputs: True when the area was changed; False when no area has
+            that id, the span is empty or not finite, it overlaps another
+            area, or it is the area's current span.
+        """
+        # LLFR-00312, LLFR-00313: the area is left where the mouse
+        # button is released; it never overlaps another area.
+        area = self.find_area(area_id_i)
+        if area is None:
+            return False
+        try:
+            start_s, end_s = area_span_tuple(start_s, end_s)
+        except ValueError:
+            return False
+        if self.area_overlaps_b(start_s, end_s, area_id_i):
+            return False
+        if (start_s, end_s) == (area.start_s, area.end_s):
+            return False
+        area.start_s = start_s
+        area.end_s = end_s
+        return True
+
+    def rename_area(self, area_id_i: int, new_name_str: str) -> bool:
+        """Rename an area, on every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+            new_name_str: the name typed by the user; surrounding spaces
+                are removed.
+        Outputs: True when the area was renamed; False when the name is
+            empty or only spaces (LLFR-00315) or no area has that id.
+        """
+        # LLFR-00315: an empty or blank name keeps the previous name.
+        stripped_name_str = str(new_name_str).strip()
+        area = self.find_area(area_id_i)
+        if area is None or not stripped_name_str:
+            return False
+        # LLFR-00315, LLFR-00310: every label shows the new name.
+        area.name_str = stripped_name_str
+        # LLFR-00309: a typed "Area N" uses up N, like LLFR-00212.
+        self.take_area_number(stripped_name_str)
+        return True
+
+    def set_area_color(self, area_id_i: int, color_str: str) -> bool:
+        """Give an area another color, on every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+            color_str: the color, written as "#rrggbb" (any case).
+        Outputs: True when the color changed; False when no area has
+            that id, the value is not "#rrggbb" or it is the area's
+            current color.
+        """
+        # LLFR-00351, LLFR-00390: any color confirmed in the picker; the
+        # color the area already has changes nothing.
+        new_color_str = hex_color_or_none(color_str)
+        area = self.find_area(area_id_i)
+        if area is None or new_color_str is None:
+            return False
+        if area.color_str == new_color_str:
+            return False
+        # LLFR-00310: every time plot draws it in the new color.
+        area.color_str = new_color_str
+        return True
+
+    def remove_area(self, area_id_i: int) -> bool:
+        """Remove an area from every time plot.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: True when the area was removed, False when no area has
+            that id.
+        """
+        # LLFR-00316: the area and its label leave every plot.
+        area = self.find_area(area_id_i)
+        if area is None:
+            return False
+        # LLFR-00309: next_area_number_i is not lowered.
+        self.area_list.remove(area)
+        return True
+
+    def remove_all_areas(self) -> int:
+        """Remove every area from every time plot.
+
+        Inputs: none.
+        Outputs: the number of areas removed.
+        """
+        # LLFR-00417, LLFR-00310: every area leaves every time plot.
+        # LLFR-00309: next_area_number_i is not lowered.
+        removed_count_i = len(self.area_list)
+        self.area_list = []
+        return removed_count_i
+
+    def area_state_tuple(self) -> tuple:
+        """Return the areas as plain values.
+
+        Inputs: none.
+        Outputs: a tuple of (area_id_i, name_str, start_s, end_s,
+            color_str), in creation order.
+        """
+        # LLFR-00140, LLFR-00310, LLFR-00351: the drawing data of every
+        # area.
+        return tuple((area.area_id_i, area.name_str, area.start_s,
+                      area.end_s, area.color_str)
+                     for area in self.area_list)

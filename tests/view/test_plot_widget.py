@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.view.menu_texts import TIP_MENU_TEXT_LIST
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
 
@@ -604,7 +605,7 @@ class ContextMenuTest(PlotWidgetTestCase):
         self.assertEqual(self.plot_widget.pinned_tip_at(
             self.sample_point("Sine", 20)), 0)
         menu = self.plot_widget.build_context_menu(tip_point)
-        self.assertEqual(menu_action_text_list(menu), ["Delete"])
+        self.assertEqual(menu_action_text_list(menu), TIP_MENU_TEXT_LIST)
         find_action(menu, "Delete").trigger()
         self.assertEqual(record_list, [(1,)])
         # Elsewhere on the curve the curve menu is shown.
@@ -968,7 +969,7 @@ class DropTest(PlotWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        record_list = self.recorder(self.plot_widget.signal_dropped)
+        record_list = self.recorder(self.plot_widget.signals_dropped)
         self.assertTrue(self.plot_widget.acceptDrops())
         # The events keep a pointer to the data, so it is kept alive.
         mime_data = self.mime_data(True, "Time")
@@ -980,7 +981,7 @@ class DropTest(PlotWidgetTestCase):
         self.assertTrue(move_event.isAccepted())
         self.plot_widget.dropEvent(drop_event)
         self.assertTrue(drop_event.isAccepted())
-        self.assertEqual(record_list, [("Time",)])
+        self.assertEqual(record_list, [(["Time"],)])
 
     @covers("LLFR-00021")
     def test_plain_text_drop_is_rejected(self) -> None:
@@ -989,7 +990,7 @@ class DropTest(PlotWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        record_list = self.recorder(self.plot_widget.signal_dropped)
+        record_list = self.recorder(self.plot_widget.signals_dropped)
         mime_data = self.mime_data(False, "Sine")
         enter_event, move_event, drop_event = self.drag_events_tuple(
             mime_data)
@@ -1008,12 +1009,57 @@ class DropTest(PlotWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        record_list = self.recorder(self.plot_widget.signal_dropped)
+        record_list = self.recorder(self.plot_widget.signals_dropped)
         mime_data = self.mime_data(True, "Sine")
         for _ in range(2):
             drop_event = self.drag_events_tuple(mime_data)[2]
             self.plot_widget.dropEvent(drop_event)
-        self.assertEqual(record_list, [("Sine",), ("Sine",)])
+        self.assertEqual(record_list, [(["Sine"],), (["Sine"],)])
+
+    @covers("LLFR-00297", "LLFR-00021", "HLFR-00065")
+    def test_drop_of_several_names_emits_them_in_order(self) -> None:
+        """A drag with the list type emits every name, in its order.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import json
+        from PyQt6.QtCore import QByteArray
+        from view.plot_widget import SIGNAL_LIST_MIME_TYPE_STR
+        record_list = self.recorder(self.plot_widget.signals_dropped)
+        mime_data = self.mime_data(True, "Time")
+        mime_data.setData(SIGNAL_LIST_MIME_TYPE_STR, QByteArray(
+            json.dumps(["Time", "Sine", "Cos"]).encode("utf-8")))
+        enter_event, move_event, drop_event = self.drag_events_tuple(
+            mime_data)
+        self.plot_widget.dragEnterEvent(enter_event)
+        self.assertTrue(enter_event.isAccepted())
+        self.plot_widget.dropEvent(drop_event)
+        self.assertTrue(drop_event.isAccepted())
+        self.assertEqual(record_list, [(["Time", "Sine", "Cos"],)])
+
+    @covers("LLFR-00297", "LLFR-00021")
+    def test_unusable_name_list_falls_back_to_one_name(self) -> None:
+        """A list that is not valid JSON names gives the single name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QByteArray, QMimeData
+        from view.plot_widget import SIGNAL_LIST_MIME_TYPE_STR
+        for payload_bytes in (b"not json", b"[]", b"[1, 2]", b'"Sine"'):
+            with self.subTest(payload_bytes=payload_bytes):
+                mime_data = self.mime_data(True, "Sine")
+                mime_data.setData(SIGNAL_LIST_MIME_TYPE_STR,
+                                  QByteArray(payload_bytes))
+                self.assertEqual(
+                    self.plot_widget.signal_names_from_mime(mime_data),
+                    ["Sine"])
+        only_list_data = QMimeData()
+        only_list_data.setData(SIGNAL_LIST_MIME_TYPE_STR,
+                               QByteArray(b"[]"))
+        self.assertEqual(
+            self.plot_widget.signal_names_from_mime(only_list_data), [])
 
 
 class TimeRangeTest(PlotWidgetTestCase):

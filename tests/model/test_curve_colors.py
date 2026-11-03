@@ -7,8 +7,10 @@ import unittest
 from tests.support import covers
 
 from model.curve_colors import (
-    MARKER_COLOR_STR, MAXIMUM_LUMINANCE_F, MINIMUM_COLOR_DISTANCE_F,
-    PALETTE_COLOR_TUPLE, color_distance, color_luminance, hex_to_rgb,
+    MARKER_COLOR_DISTANCE_F, MARKER_COLOR_STR, MAXIMUM_LUMINANCE_F,
+    MINIMUM_COLOR_DISTANCE_F,
+    PALETTE_COLOR_TUPLE, color_distance, color_luminance, hex_color_or_none,
+    hex_to_rgb,
     is_far_from_marker_color, next_curve_color, rgb_to_hex)
 
 HEX_COLOR_PATTERN_STR = r"^#[0-9a-f]{6}$"
@@ -44,9 +46,10 @@ class PaletteTest(unittest.TestCase):
                     color_distance(first_str, second_str),
                     MINIMUM_COLOR_DISTANCE_F)
 
-    @covers("LLFR-00144", "LLFR-00033", "HLFR-00020")
+    @covers("LLFR-00144", "LLFR-00033", "LLFR-00365", "HLFR-00020")
     def test_first_three_colors_are_blue_black_red(self) -> None:
-        """The palette starts with blue, black and red, in that order.
+        """The palette starts with blue, black and a dark red, in that
+        order; the red is darker than, and far from, the marker color.
 
         Each of the three is checked by its dominant RGB channel, so the
         test does not depend on the exact shade.
@@ -55,19 +58,25 @@ class PaletteTest(unittest.TestCase):
         Outputs: none.
         """
         self.assertEqual(PALETTE_COLOR_TUPLE[:3],
-                         ("#1f77b4", "#000000", "#d62728"))
+                         ("#1f77b4", "#000000", "#b2182b"))
         red_i, green_i, blue_i = hex_to_rgb(PALETTE_COLOR_TUPLE[0])
         self.assertGreater(blue_i, max(red_i, green_i))
         self.assertEqual(hex_to_rgb(PALETTE_COLOR_TUPLE[1]), (0, 0, 0))
         red_i, green_i, blue_i = hex_to_rgb(PALETTE_COLOR_TUPLE[2])
         self.assertGreater(red_i, 2 * max(green_i, blue_i))
+        # LLFR-00144, LLFR-00365: a dark red, clearly not the marker.
+        self.assertLess(color_luminance(PALETTE_COLOR_TUPLE[2]),
+                        color_luminance(MARKER_COLOR_STR))
+        self.assertLess(red_i, hex_to_rgb(MARKER_COLOR_STR)[0])
+        self.assertGreaterEqual(
+            color_distance(PALETTE_COLOR_TUPLE[2], MARKER_COLOR_STR), 90.0)
         # The first, second and third curve of a plot get them.
         random_generator = random.Random(4)
         color_list = []
         for drawn_count_i in range(3):
             color_list.append(next_curve_color(drawn_count_i, color_list,
                                                random_generator))
-        self.assertEqual(color_list, ["#1f77b4", "#000000", "#d62728"])
+        self.assertEqual(color_list, ["#1f77b4", "#000000", "#b2182b"])
 
     @covers("LLFR-00033")
     def test_first_8_curves_use_palette_in_order(self) -> None:
@@ -192,29 +201,96 @@ class ColorHelperTest(unittest.TestCase):
 
 
 class MarkerColorTest(unittest.TestCase):
-    """Check the reserved vertical marker color (LLFR-00083)."""
+    """Check the reserved marker color (LLFR-00083, LLFR-00365)."""
 
-    @covers("LLFR-00083", "LLFR-00033")
-    def test_marker_color_is_not_a_palette_color(self) -> None:
-        """The marker color is valid, visible and far from the palette.
+    @covers("LLFR-00083")
+    def test_marker_color_is_orange_ff8000(self) -> None:
+        """The marker color is exactly the orange #ff8000.
 
         Inputs: none.
         Outputs: none.
         """
+        self.assertEqual(MARKER_COLOR_STR, "#ff8000")
         self.assertRegex(MARKER_COLOR_STR, HEX_COLOR_PATTERN_STR)
-        self.assertNotIn(MARKER_COLOR_STR, PALETTE_COLOR_TUPLE)
         self.assertLessEqual(color_luminance(MARKER_COLOR_STR),
                              MAXIMUM_LUMINANCE_F)
+
+    @covers("LLFR-00365", "LLFR-00083", "LLFR-00033")
+    def test_every_palette_color_at_least_70_from_marker(self) -> None:
+        """Each palette color is at a distance of at least 70 from the
+        marker color; the threshold itself is 70.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(MARKER_COLOR_DISTANCE_F, 70.0)
+        self.assertNotIn(MARKER_COLOR_STR, PALETTE_COLOR_TUPLE)
         for palette_color_str in PALETTE_COLOR_TUPLE:
-            self.assertGreaterEqual(
-                color_distance(palette_color_str, MARKER_COLOR_STR),
-                MINIMUM_COLOR_DISTANCE_F, palette_color_str)
-            self.assertTrue(is_far_from_marker_color(palette_color_str))
+            with self.subTest(color=palette_color_str):
+                self.assertGreaterEqual(
+                    color_distance(palette_color_str, MARKER_COLOR_STR),
+                    70.0)
+                self.assertTrue(is_far_from_marker_color(palette_color_str))
         self.assertFalse(is_far_from_marker_color(MARKER_COLOR_STR))
 
-    @covers("LLFR-00083", "LLFR-00034")
+    @covers("LLFR-00365", "LLFR-00083")
+    def test_is_far_from_marker_color_threshold(self) -> None:
+        """A color just under 70 from the marker is too close; one at 70
+        or more is far enough; the old palette red and orange are close.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # (255, 59, 0) is 69 away and (255, 58, 0) exactly 70 away.
+        self.assertFalse(is_far_from_marker_color("#ff3b00"))
+        self.assertTrue(is_far_from_marker_color("#ff3a00"))
+        self.assertAlmostEqual(color_distance("#ff3a00", MARKER_COLOR_STR),
+                               70.0)
+        # The orange of the previous palette and the previous marker
+        # orange are too close.
+        self.assertFalse(is_far_from_marker_color("#ff7f0e"))
+        self.assertFalse(is_far_from_marker_color("#ff9900"))
+        # LLFR-00365: the palette red is darker than the marker color.
+        self.assertLess(color_luminance(PALETTE_COLOR_TUPLE[2]),
+                        color_luminance(MARKER_COLOR_STR))
+
+    @covers("LLFR-00225", "LLFR-00319", "LLFR-00393")
+    def test_hex_color_or_none(self) -> None:
+        """Only a text "#rrggbb" is a color; it is returned in lowercase.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(hex_color_or_none("#FF8000"), "#ff8000")
+        self.assertEqual(hex_color_or_none("#1f77b4"), "#1f77b4")
+        self.assertEqual(hex_color_or_none("#AbCdEf"), "#abcdef")
+        for value in ("ff8000", "#ff800", "#ff80000", "#gg8000", "Orange",
+                      "", None, 16744448, ["#ff8000"], " #ff8000"):
+            with self.subTest(value=value):
+                self.assertIsNone(hex_color_or_none(value))
+
+    @covers("LLFR-00365", "LLFR-00033")
+    def test_palette_has_no_orange(self) -> None:
+        """No palette color has the hue of an orange (red high, green
+        between the red and the blue, saturated).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import colorsys
+        for palette_color_str in PALETTE_COLOR_TUPLE:
+            with self.subTest(color=palette_color_str):
+                red_i, green_i, blue_i = hex_to_rgb(palette_color_str)
+                hue_f, _, saturation_f = colorsys.rgb_to_hls(
+                    red_i / 255.0, green_i / 255.0, blue_i / 255.0)
+                # Orange hues lie between about 15 and 45 degrees.
+                is_orange_b = (saturation_f > 0.4
+                               and 15.0 <= hue_f * 360.0 <= 45.0)
+                self.assertFalse(is_orange_b)
+
+    @covers("LLFR-00365", "LLFR-00083", "LLFR-00034")
     def test_random_colors_avoid_marker_color(self) -> None:
-        """Random curve colors keep the full distance from the marker.
+        """Random curve colors keep at least 70 from the marker color.
 
         Even with many used colors, which makes the distance to the used
         colors relax, the distance to the marker color is never relaxed.
@@ -225,14 +301,51 @@ class MarkerColorTest(unittest.TestCase):
         for seed_i in range(5):
             random_generator = random.Random(seed_i)
             used_color_list = list(PALETTE_COLOR_TUPLE)
-            for drawn_count_i in range(8, 80):
+            for drawn_count_i in range(8, 120):
                 color_str = next_curve_color(drawn_count_i, used_color_list,
                                              random_generator)
                 self.assertNotEqual(color_str, MARKER_COLOR_STR)
                 self.assertGreaterEqual(
-                    color_distance(color_str, MARKER_COLOR_STR),
-                    MINIMUM_COLOR_DISTANCE_F)
+                    color_distance(color_str, MARKER_COLOR_STR), 70.0)
                 used_color_list.append(color_str)
+
+    @covers("LLFR-00365", "LLFR-00034")
+    def test_random_colors_near_the_marker_are_rejected(self) -> None:
+        """A generator that first offers colors close to the marker
+        color gets a color only after them, far from the marker.
+
+        Inputs: none.
+        Outputs: none.
+        """
+
+        class ScriptedGenerator:
+            """Gives a few orange shades first, then a dark blue.
+
+            Inputs: none.
+            Outputs: randint returns the scripted channel values.
+            """
+
+            def __init__(self) -> None:
+                """Prepare the scripted values.
+
+                Inputs: none.
+                Outputs: none.
+                """
+                self.value_list = [255, 68, 0, 240, 80, 20, 255, 100, 40,
+                                   20, 40, 120]
+
+            def randint(self, low_i: int, high_i: int) -> int:
+                """Return the next scripted value.
+
+                Inputs:
+                    low_i: lowest value (unused).
+                    high_i: highest value (unused).
+                Outputs: the next value of the script.
+                """
+                return self.value_list.pop(0)
+
+        self.assertEqual(next_curve_color(8, [], ScriptedGenerator()),
+                         "#142878")
 
 
 if __name__ == "__main__":

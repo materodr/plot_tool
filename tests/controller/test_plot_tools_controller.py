@@ -10,28 +10,32 @@ from tests.support import covers
 from tests.controller.test_plot_controller import PlotControllerTestCase
 
 from controller.plot_tools import (
-    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
-    PLOT_TOOL_TUPLE, TIP_TOOL_STR, ZOOM_TOOL_STR, is_known_plot_tool)
+    ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
+    MARKER_TOOL_STR, NO_TOOL_STR, PAN_TOOL_STR, PLOT_TOOL_TUPLE,
+    TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR, is_delta_tool,
+    is_known_plot_tool)
 
 
 class PlotToolNameTest(unittest.TestCase):
     """The tool names shared by the controller and the view."""
 
-    @covers("LLFR-00079")
+    @covers("LLFR-00079", "LLFR-00286", "LLFR-00320", "LLFR-00366",
+            "LLFR-00347", "LLFR-00355")
     def test_tool_names_are_distinct(self) -> None:
-        """The five tools and "no tool" have different names.
+        """The nine tools and "no tool" have different names.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(NO_TOOL_STR, "")
         self.assertEqual(PLOT_TOOL_TUPLE,
-                         (TIP_TOOL_STR, ZOOM_TOOL_STR, MARKER_TOOL_STR,
-                          DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR))
-        self.assertEqual(len(set(PLOT_TOOL_TUPLE + (NO_TOOL_STR,))), 6)
+                         (TIP_TOOL_STR, ZOOM_TOOL_STR, PAN_TOOL_STR,
+                          MARKER_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
+                          AREA_TOOL_STR, TEXT_TOOL_STR, ARROW_TOOL_STR))
+        self.assertEqual(len(set(PLOT_TOOL_TUPLE + (NO_TOOL_STR,))), 10)
         for tool_str in PLOT_TOOL_TUPLE + (NO_TOOL_STR,):
             self.assertTrue(is_known_plot_tool(tool_str))
-        for unknown_str in ("Tip", "pan", " ", "zoom "):
+        for unknown_str in ("Tip", "Pan", " ", "zoom "):
             self.assertFalse(is_known_plot_tool(unknown_str))
 
 
@@ -63,6 +67,33 @@ class PlotToolControllerTest(PlotControllerTestCase):
             self.assertEqual(self.view.plot_tool_str, tool_str)
         self.assertEqual(self.tool_call_list(), sequence_list)
 
+    @covers("LLFR-00286", "LLFR-00320", "LLFR-00079", "LLFR-00167")
+    def test_area_and_text_tools_reach_the_view(self) -> None:
+        """Area and Text are plot tools like the others: passed to the
+        view, not delta tools, and they discard a pending first point.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        plot_id_i = self.current_plot_ids()[0]
+        for tool_str in (AREA_TOOL_STR, TEXT_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                self.assertFalse(is_delta_tool(tool_str))
+                self.view.handler_dict["plot_tool"](DELTA_X_TOOL_STR)
+                self.controller.on_delta_point_pick(plot_id_i, "s1", 1.0,
+                                                    2.0)
+                self.assertTrue(self.controller.pending_delta_tuple)
+                self.view.handler_dict["plot_tool"](tool_str)
+                self.assertEqual(self.controller.plot_tool_str, tool_str)
+                self.assertEqual(self.view.plot_tool_str, tool_str)
+                self.assertEqual(self.controller.pending_delta_tuple, ())
+                # A delta point pick does nothing with these tools.
+                self.controller.on_delta_point_pick(plot_id_i, "s1", 1.0,
+                                                    2.0)
+                self.assertEqual(self.controller.pending_delta_tuple, ())
+        self.assertEqual(self.tool_call_list()[-1], TEXT_TOOL_STR)
+
     @covers("LLFR-00002", "LLFR-00109")
     def test_no_tool_is_passed_to_the_view(self) -> None:
         """A second click on the active button leaves no tool active.
@@ -85,7 +116,7 @@ class PlotToolControllerTest(PlotControllerTestCase):
         Outputs: none.
         """
         self.view.handler_dict["plot_tool"](TIP_TOOL_STR)
-        self.view.handler_dict["plot_tool"]("pan")
+        self.view.handler_dict["plot_tool"]("hand")
         self.assertEqual(self.controller.plot_tool_str, TIP_TOOL_STR)
         self.assertEqual(self.tool_call_list(), [TIP_TOOL_STR])
 

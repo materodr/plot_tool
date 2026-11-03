@@ -21,7 +21,7 @@ The `src` folder must contain all the code and other artifacts needed to run the
 The `tests` folder must contain all the tests used to evaluate the code.
 
 ### COR-00007 Contents of bin
-The `bin` folder must contain the standalone executables built from the code in `src` (for example with PyInstaller). Build outputs must not be committed to the repository.
+The `bin` folder must contain the standalone executables built from the code in `src` (for example with PyInstaller) and the copy of the sample files of COR-00020. Build outputs must not be committed to the repository.
 
 ### COR-00008 Layout of src
 The `src` folder must contain the sub-folders `model`, `view` and `controller`.
@@ -71,3 +71,8 @@ The code must follow the Zen of Python guidelines.
 
 ### COR-00019 User interface library
 The user interface (view) code must be written with PyQt.
+
+### COR-00020 Sample files next to the executable
+Each build of the standalone executable must copy the folders `tests/user_tests/good` and `tests/user_tests/bad` to `bin/user_tests/good` and `bin/user_tests/bad`, replacing any earlier copy.
+
+Note: The originals and the scripts stay in `tests/user_tests` (COR-00006, PCR-00032). The copy puts the sample files next to the app, in the folder where the Open file dialog starts (LLFR-00204).

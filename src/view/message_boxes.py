@@ -15,13 +15,28 @@
   when there is no plot to save or copy (LLFR-00145, LLFR-00146).
 - Export Error and Copy Error boxes: error boxes shown when the PDF file
   could not be saved (LLFR-00131) or the image could not be copied.
+- Delete Synthetic Signal box: question asked before a synthetic signal
+  and the synthetic signals computed from it are deleted (LLFR-00255).
+- Signal information box: information box of the synthetic signals,
+  for example when the time samples are not evenly spaced (LLFR-00247),
+  the FFT time range holds too few samples (LLFR-00250) or a new name
+  is already used (LLFR-00267).
+- Save Layout Error and Load Layout Error boxes: error boxes shown when
+  a layout file could not be saved (LLFR-00224) or read (LLFR-00236).
+- Layout Report box: information box that lists what a loaded layout
+  could not rebuild as saved, in a scrollable text (LLFR-00237).
+- Report a Bug Error box: error box shown when the web browser could not
+  open the page of a new issue (LLFR-00361).
 
 Each box is made by a ``build_*`` function, so tests can inspect it
 without opening a modal dialog. The ``show_*`` and ``ask_*`` functions
 build the box and run it.
 """
 
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
+    QPlainTextEdit, QStyle, QVBoxLayout)
 
 FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
 FULL_TAB_TITLE_STR = "Full Tab"
@@ -34,6 +49,12 @@ TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
 TAB_NAME_TAKEN_MESSAGE_STR = (
     "A tab named '{name}' already exists. The tab keeps its previous "
     "name. Type a different name.")
+# LLFR-00257: the information box of a drop that mixes an FFT signal and
+# a time signal in one plot.
+PLOT_KIND_MISMATCH_TITLE_STR = "Frequency Plot"
+PLOT_KIND_MISMATCH_MESSAGE_STR = (
+    "FFT signals and time signals cannot be drawn in the same plot. "
+    "Double-click the signal to draw it in a new plot.")
 REPLACE_FILE_TITLE_STR = "Replace File"
 REPLACE_FILE_MESSAGE_STR = (
     "Another file is already open. Proceeding will close the current "
@@ -53,10 +74,50 @@ EXPORT_ERROR_TITLE_STR = "Export Error"
 EXPORT_ERROR_INTRO_STR = "The file could not be saved."
 COPY_ERROR_TITLE_STR = "Copy Error"
 COPY_ERROR_INTRO_STR = "The plots could not be copied to the clipboard."
+# LLFR-00224, LLFR-00236: the error boxes of the layout files.
+SAVE_LAYOUT_ERROR_TITLE_STR = "Save Layout Error"
+SAVE_LAYOUT_ERROR_INTRO_STR = "The layout file could not be saved."
+LOAD_LAYOUT_ERROR_TITLE_STR = "Load Layout Error"
+# LLFR-00237: the information box of the load report.
+LAYOUT_REPORT_TITLE_STR = "Layout Loaded"
+LAYOUT_REPORT_INTRO_STR = (
+    "The layout was loaded, but some parts of it could not be rebuilt "
+    "as saved:")
+LAYOUT_REPORT_TEXT_OBJECT_NAME_STR = "layout_report_text"
+LAYOUT_REPORT_MINIMUM_WIDTH_I = 560
+LAYOUT_REPORT_MINIMUM_HEIGHT_I = 260
+LAYOUT_REPORT_ICON_SIZE_I = 32
+# LLFR-00397, LLFR-00399, LLFR-00400: the error box of Save signals.
+SAVE_SIGNALS_ERROR_TITLE_STR = "Save Signals Error"
+# LLFR-00404: the information box that lists the changed names.
+CHANGED_NAMES_TITLE_STR = "Signals Saved"
+CHANGED_NAMES_INTRO_STR = (
+    "The signals were saved. Some names were changed so that the file "
+    "format can store them and the time signal is named Time:")
+CHANGED_NAMES_TEXT_OBJECT_NAME_STR = "changed_names_text"
+# LLFR-00361: the error box shown when the browser cannot be opened.
+REPORT_BUG_ERROR_TITLE_STR = "Report a Bug Error"
+REPORT_BUG_ERROR_MESSAGE_STR = (
+    "The page could not be opened in the web browser. To report a bug, "
+    "open this address in a web browser:\n\n{url}")
 # LLFR-00128: question asked before an existing .pdf file is replaced.
 REPLACE_EXISTING_TITLE_STR = "Replace File"
 REPLACE_EXISTING_MESSAGE_STR = (
     "The file '{path}' already exists. Do you want to replace it?")
+
+# LLFR-00255: the question asked before a synthetic signal is deleted.
+DELETE_SYNTHETIC_TITLE_STR = "Delete signal"
+DELETE_SYNTHETIC_MESSAGE_STR = (
+    "Do you want to delete the synthetic signal '{name}'?")
+DELETE_DEPENDENTS_MESSAGE_STR = (
+    "These synthetic signals are computed from it, directly or through "
+    "other synthetic signals, and will be deleted too:")
+DELETE_CONSEQUENCE_MESSAGE_STR = (
+    "Their curves are removed from every plot, and the undo and redo "
+    "history is cleared. This cannot be undone.")
+DELETE_ONE_CONSEQUENCE_MESSAGE_STR = (
+    "Its curves are removed from every plot, and the undo and redo "
+    "history is cleared. This cannot be undone.")
 
 
 def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
@@ -121,6 +182,26 @@ def build_tab_name_taken_box(parent, name_str: str) -> QMessageBox:
     return box
 
 
+def build_plot_kind_mismatch_box(parent) -> QMessageBox:
+    """Build the box of a drop that mixes FFT and time signals.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+    Outputs: a QMessageBox with the information icon (it is not an error
+        box), the title PLOT_KIND_MISMATCH_TITLE_STR, the text
+        PLOT_KIND_MISMATCH_MESSAGE_STR and an OK button.
+    """
+    # LLFR-00257: information message saying that FFT signals and time
+    # signals cannot be drawn in the same plot.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Information)
+    box.setWindowTitle(PLOT_KIND_MISMATCH_TITLE_STR)
+    box.setText(PLOT_KIND_MISMATCH_MESSAGE_STR)
+    box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    box.setDefaultButton(QMessageBox.StandardButton.Ok)
+    return box
+
+
 def build_replace_file_box(parent) -> QMessageBox:
     """Build the Replace File confirmation box.
 
@@ -176,6 +257,17 @@ def show_tab_name_taken_notification(parent, name_str: str) -> None:
     """
     # LLFR-00211: notify that another tab already has the name.
     build_tab_name_taken_box(parent, name_str).exec()
+
+
+def show_plot_kind_mismatch_notification(parent) -> None:
+    """Show the box of a drop that mixes FFT and time signals.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+    Outputs: none.
+    """
+    # LLFR-00257: the dropped signal was not drawn.
+    build_plot_kind_mismatch_box(parent).exec()
 
 
 def ask_replace_file(parent) -> bool:
@@ -328,6 +420,26 @@ def build_copy_error_box(parent, reason_str: str) -> QMessageBox:
                              join_reason(COPY_ERROR_INTRO_STR, reason_str))
 
 
+def build_report_bug_error_box(parent, url_str: str) -> QMessageBox:
+    """Build the error box shown when the page could not be opened.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        url_str: the address of the page that could not be opened.
+    Outputs: a QMessageBox with the critical icon, the title
+        REPORT_BUG_ERROR_TITLE_STR and a text saying that the page could
+        not be opened, followed by its address, which the user can
+        select and copy.
+    """
+    # LLFR-00361: an error box (HLFR-00002) with the page's address.
+    box = build_message_box(parent, QMessageBox.Icon.Critical,
+                            REPORT_BUG_ERROR_TITLE_STR,
+                            REPORT_BUG_ERROR_MESSAGE_STR.format(url=url_str))
+    box.setTextInteractionFlags(
+        Qt.TextInteractionFlag.TextSelectableByMouse)
+    return box
+
+
 def build_replace_existing_file_box(parent, path_str: str) -> QMessageBox:
     """Build the question asked before an existing file is replaced.
 
@@ -365,3 +477,202 @@ def ask_replace_existing_file(parent, path_str: str) -> bool:
     else:
         result_value_i = int(result)
     return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def delete_synthetic_signal_text(name_str: str,
+                                 dependent_name_list: list) -> str:
+    """Return the question asked before a synthetic signal is deleted.
+
+    Inputs:
+        name_str: the name of the synthetic signal.
+        dependent_name_list: the synthetic signals computed from it,
+            directly or indirectly, in creation order.
+    Outputs: the text of the box, which names every dependent.
+    """
+    # LLFR-00255: the question names the signals deleted with it.
+    text_str = DELETE_SYNTHETIC_MESSAGE_STR.format(name=name_str)
+    if not dependent_name_list:
+        return f"{text_str}\n\n{DELETE_ONE_CONSEQUENCE_MESSAGE_STR}"
+    dependent_text_str = "\n".join(
+        f"  - {dependent_name_str}"
+        for dependent_name_str in dependent_name_list)
+    return (f"{text_str}\n\n{DELETE_DEPENDENTS_MESSAGE_STR}\n"
+            f"{dependent_text_str}\n\n{DELETE_CONSEQUENCE_MESSAGE_STR}")
+
+
+def build_delete_synthetic_signal_box(parent, name_str: str,
+                                      dependent_name_list: list
+                                      ) -> QMessageBox:
+    """Build the question asked before a synthetic signal is deleted.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        name_str: the name of the synthetic signal.
+        dependent_name_list: the synthetic signals computed from it.
+    Outputs: a QMessageBox with the question icon, the title
+        DELETE_SYNTHETIC_TITLE_STR, a text naming the signal and its
+        dependents, and the buttons Yes and No, where No is the default
+        and escape button.
+    """
+    # LLFR-00255: the user decides whether to proceed.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(DELETE_SYNTHETIC_TITLE_STR)
+    box.setText(delete_synthetic_signal_text(name_str, dependent_name_list))
+    box.setStandardButtons(QMessageBox.StandardButton.Yes
+                           | QMessageBox.StandardButton.No)
+    box.setDefaultButton(QMessageBox.StandardButton.No)
+    box.setEscapeButton(QMessageBox.StandardButton.No)
+    return box
+
+
+def ask_delete_synthetic_signal(parent, name_str: str,
+                                dependent_name_list: list) -> bool:
+    """Ask whether to delete a synthetic signal and its dependents.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        name_str: the name of the synthetic signal.
+        dependent_name_list: the synthetic signals computed from it.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00255: only Yes deletes.
+    result = build_delete_synthetic_signal_box(
+        parent, name_str, dependent_name_list).exec()
+    if isinstance(result, QMessageBox.StandardButton):
+        result_value_i = int(result.value)
+    else:
+        result_value_i = int(result)
+    return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def build_signal_information_box(parent, title_str: str,
+                                 message_str: str) -> QMessageBox:
+    """Build an information box of the synthetic signals.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        title_str: the window title.
+        message_str: the sentence that says why.
+    Outputs: a QMessageBox with the information icon (not an error box)
+        and an OK button.
+    """
+    # LLFR-00247, LLFR-00250, LLFR-00267: information, not errors.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             title_str, message_str)
+
+
+def build_layout_save_error_box(parent, reason_str: str) -> QMessageBox:
+    """Build the error box shown when a layout file could not be saved.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        reason_str: why the file could not be written, or "".
+    Outputs: a QMessageBox with the critical icon, the title
+        SAVE_LAYOUT_ERROR_TITLE_STR and a text that starts with
+        SAVE_LAYOUT_ERROR_INTRO_STR and ends with the reason.
+    """
+    # LLFR-00224: an error box saying that the layout file could not be
+    # saved (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             SAVE_LAYOUT_ERROR_TITLE_STR,
+                             join_reason(SAVE_LAYOUT_ERROR_INTRO_STR,
+                                         reason_str))
+
+
+def build_layout_load_error_box(parent, message_str: str) -> QMessageBox:
+    """Build the error box shown when a file is not a readable layout.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the text from the layout controller, which says that
+            the file could not be read as a layout file and why.
+    Outputs: a QMessageBox with the critical icon and the title
+        LOAD_LAYOUT_ERROR_TITLE_STR.
+    """
+    # LLFR-00236: an error box saying that the file could not be read as
+    # a layout file (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             LOAD_LAYOUT_ERROR_TITLE_STR, message_str)
+
+
+def build_layout_report_box(
+        parent, report_text_str: str,
+        title_str: str = LAYOUT_REPORT_TITLE_STR,
+        intro_str: str = LAYOUT_REPORT_INTRO_STR,
+        text_object_name_str: str = LAYOUT_REPORT_TEXT_OBJECT_NAME_STR
+) -> QDialog:
+    """Build the information box of the layout load report.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        report_text_str: the list of what was not rebuilt or changed, one
+            entry per line.
+        title_str: the window title.
+        intro_str: the sentence above the list.
+        text_object_name_str: the objectName of the text field.
+    Outputs: a QDialog titled title_str with the information icon, the
+        text intro_str, the report in a read-only, scrollable text field
+        (objectName text_object_name_str) and an OK button.
+    """
+    # LLFR-00237, LLFR-00404: an information box, not an error box, like
+    # the Full Tab Notification box; a long list can be scrolled.
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(title_str)
+    dialog.setMinimumSize(LAYOUT_REPORT_MINIMUM_WIDTH_I,
+                          LAYOUT_REPORT_MINIMUM_HEIGHT_I)
+    dialog_layout = QVBoxLayout(dialog)
+    intro_layout = QHBoxLayout()
+    icon_label = QLabel(dialog)
+    icon_label.setPixmap(dialog.style().standardIcon(
+        QStyle.StandardPixmap.SP_MessageBoxInformation).pixmap(
+            LAYOUT_REPORT_ICON_SIZE_I, LAYOUT_REPORT_ICON_SIZE_I))
+    intro_label = QLabel(intro_str, dialog)
+    intro_label.setWordWrap(True)
+    intro_layout.addWidget(icon_label)
+    intro_layout.addWidget(intro_label, 1)
+    dialog_layout.addLayout(intro_layout)
+    report_field = QPlainTextEdit(dialog)
+    report_field.setObjectName(text_object_name_str)
+    report_field.setReadOnly(True)
+    report_field.setPlainText(report_text_str)
+    dialog_layout.addWidget(report_field, 1)
+    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok,
+                                  dialog)
+    button_box.accepted.connect(dialog.accept)
+    dialog_layout.addWidget(button_box)
+    return dialog
+
+
+def build_signals_save_error_box(parent, message_str: str) -> QMessageBox:
+    """Build the error box of the Save signals button.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the text from the save signals controller, which
+            says that the signals could not be saved or that the opened
+            data file cannot be replaced, and why.
+    Outputs: a QMessageBox with the critical icon and the title
+        SAVE_SIGNALS_ERROR_TITLE_STR.
+    """
+    # LLFR-00397, LLFR-00399, LLFR-00400: an error box (HLFR-00002).
+    return build_message_box(parent, QMessageBox.Icon.Critical,
+                             SAVE_SIGNALS_ERROR_TITLE_STR, message_str)
+
+
+def build_changed_names_box(parent, changed_names_text_str: str) -> QDialog:
+    """Build the information box that lists the changed signal names.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        changed_names_text_str: one "<old name> → <new name>" per line.
+    Outputs: a QDialog titled CHANGED_NAMES_TITLE_STR with the
+        information icon, the text CHANGED_NAMES_INTRO_STR, the list in a
+        read-only, scrollable text field (objectName
+        CHANGED_NAMES_TEXT_OBJECT_NAME_STR) and an OK button.
+    """
+    # LLFR-00404: an information box, scrollable like the layout load
+    # report (LLFR-00237).
+    return build_layout_report_box(
+        parent, changed_names_text_str, CHANGED_NAMES_TITLE_STR,
+        CHANGED_NAMES_INTRO_STR, CHANGED_NAMES_TEXT_OBJECT_NAME_STR)

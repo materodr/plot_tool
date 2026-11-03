@@ -1,4 +1,4 @@
-"""Number formats of the values the plots show (no Qt needed).
+"""Texts of the values the plots show (no Qt needed).
 
 The hover and pinned tips, the vertical marker times and the delta
 marker values all format their numbers here, so that a delta marker
@@ -6,33 +6,14 @@ shows its value "in the same number format as the tip" (LLFR-00169,
 LLFR-00171).
 """
 
-# LLFR-00043, LLFR-00044: 6 significant digits, as Python's "g" format.
-VALUE_FORMAT_STR = ".6g"
+# LLFR-00043, LLFR-00044: the number formats live in the model, so
+# that the names of FFT signals (LLFR-00240) use the same time format.
+from model.number_format import (  # noqa: F401 (re-exported)
+    VALUE_FORMAT_STR, format_signal_value, format_time_value)
+
 # LLFR-00169, LLFR-00171: "Δ" is a plain Unicode character, drawn by the
 # plot fonts (every font of view.theme.PLOT_FONT_FAMILY_LIST has it).
 DELTA_SIGN_STR = "Δ"
-
-
-def format_time_value(time_s: float) -> str:
-    """Return a time as the tips show it, without the unit.
-
-    Inputs:
-        time_s: the time, in seconds.
-    Outputs: the number with 6 significant digits.
-    """
-    # LLFR-00043: the tip's x value.
-    return format(float(time_s), VALUE_FORMAT_STR)
-
-
-def format_signal_value(value_f: float) -> str:
-    """Return a y-axis value as the tips show it.
-
-    Inputs:
-        value_f: the value, as stored in the file.
-    Outputs: the number with 6 significant digits.
-    """
-    # LLFR-00044: the tip's y value, without a unit.
-    return format(float(value_f), VALUE_FORMAT_STR)
 
 
 def format_time_text(time_s: float) -> str:
@@ -74,6 +55,48 @@ def format_delta_x_text(delta_s: float) -> str:
     return f"{DELTA_SIGN_STR}t = {format_time_value(delta_s)} s"
 
 
+def format_frequency_text(frequency_hz: float) -> str:
+    """Return a frequency as shown in the data tips of a frequency plot.
+
+    Inputs:
+        frequency_hz: the frequency, in Hz.
+    Outputs: the text ``f = <frequency> Hz``, in the number format of
+        the times (LLFR-00043).
+    """
+    # LLFR-00260: frequency plots show the x value in Hz.
+    return f"f = {format_time_value(frequency_hz)} Hz"
+
+
+def format_frequency_tip_text(signal_name_str: str, frequency_hz: float,
+                              value_f: float) -> str:
+    """Return the two-line text of a data tip on a frequency plot.
+
+    Inputs:
+        signal_name_str: name of the FFT signal of the curve.
+        frequency_hz: x-axis value of the point, in Hz.
+        value_f: y-axis value of the point (the amplitude).
+    Outputs: the text ``f = <frequency> Hz`` and ``<name> = <value>``
+        on two lines.
+    """
+    # LLFR-00260: the x value in Hz, instead of seconds; LLFR-00044: the
+    # y value as for every data tip.
+    return (f"{format_frequency_text(frequency_hz)}\n"
+            f"{signal_name_str} = {format_signal_value(value_f)}")
+
+
+def format_delta_frequency_text(delta_hz: float) -> str:
+    """Return the text of a Delta X marker on a frequency plot.
+
+    Inputs:
+        delta_hz: frequency of the second point minus frequency of the
+            first, in Hz.
+    Outputs: the text ``Δf = <value> Hz``.
+    """
+    # LLFR-00261: signed, in Hz, in the number format of the data tip's
+    # x value (LLFR-00260).
+    return f"{DELTA_SIGN_STR}f = {format_time_value(delta_hz)} Hz"
+
+
 def format_delta_y_text(delta_f: float) -> str:
     """Return the text of a Delta Y marker.
 
@@ -83,3 +106,15 @@ def format_delta_y_text(delta_f: float) -> str:
     """
     # LLFR-00171: signed, without a unit, in the tip's y format.
     return f"{DELTA_SIGN_STR}y = {format_signal_value(delta_f)}"
+
+
+def format_area_times_text(start_s: float, end_s: float) -> str:
+    """Return the start and end times shown below an area's label.
+
+    Inputs:
+        start_s: start time of the area, in seconds.
+        end_s: end time of the area, in seconds.
+    Outputs: the text ``<start> s to <end> s``.
+    """
+    # LLFR-00308: both times, in seconds, in the tip's x format.
+    return f"{format_time_value(start_s)} s to {format_time_value(end_s)} s"

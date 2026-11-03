@@ -10,6 +10,7 @@ import unittest
 from unittest import mock
 
 from tests.support import covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 
 @requires_qt
@@ -88,19 +89,34 @@ class OpenFileEndToEndTest(unittest.TestCase):
 
         Inputs:
             path_str: the path the patched dialog returns ("" cancels).
-        Outputs: the mock that replaced QFileDialog.getOpenFileName.
+        Outputs: the mock that replaced MainWindow.run_open_file_dialog.
+            Its ``shown_list`` holds, for each call, the folder (real
+            path) and the name filters of the dialog when it was shown.
         """
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
-        from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(
-                QFileDialog, "getOpenFileName",
-                return_value=(path_str, "")) as dialog_mock, \
+        shown_list = []
+
+        def answer(dialog) -> str:
+            """Record what the dialog shows and answer path_str.
+
+            Inputs:
+                dialog: the QFileDialog that would be shown.
+            Outputs: path_str.
+            """
+            shown_list.append((
+                os.path.realpath(dialog.directory().absolutePath()),
+                dialog.nameFilters()))
+            return path_str
+
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        side_effect=answer) as dialog_mock, \
                 mock.patch.object(self.message_box_class, "exec",
                                   new=lambda box: self.fake_exec(box)):
             QTest.mouseClick(self.main_window.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()
+        dialog_mock.shown_list = shown_list
         return dialog_mock
 
     def shown_name_list(self) -> list:
@@ -133,8 +149,9 @@ class OpenFileEndToEndTest(unittest.TestCase):
         """
         dialog_mock = self.click_open_file(self.first_path_str)
         self.assertEqual(dialog_mock.call_count, 1)
-        filter_str = dialog_mock.call_args.args[3]
-        for pattern_str in ("*.csv", "*.xlsx", "*.mat", "*)"):
+        filter_str = ";;".join(dialog_mock.shown_list[0][1])
+        for pattern_str in ("*.csv", "*.xlsx", "*.mat", "*.h5", "*.hdf5",
+                            "*)"):
             self.assertIn(pattern_str, filter_str)
         self.assertEqual(self.shown_name_list(),
                          ["Time", "speed", "force"])
@@ -164,19 +181,24 @@ class OpenFileEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import FILE_OPEN_ERROR_TITLE_STR
+        from view.message_boxes import (
+            FILE_OPEN_ERROR_TITLE_STR, REPLACE_FILE_TITLE_STR)
         self.click_open_file(self.first_path_str)
+        self.replace_answer_list = [True, True]
         self.click_open_file(self.bad_path_str)
         self.assert_button_finished()
         self.click_open_file(self.text_path_str)
         self.assert_button_finished()
-        self.assertEqual(len(self.box_record_list), 2)
-        for title_str, icon, _ in self.box_record_list:
-            self.assertEqual(title_str, FILE_OPEN_ERROR_TITLE_STR)
+        # HLFR-00010: each time the question first, then the error box.
+        self.assertEqual([record[0] for record in self.box_record_list], [
+            REPLACE_FILE_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR,
+            REPLACE_FILE_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR])
+        error_record_list = self.box_record_list[1::2]
+        for _, icon, _ in error_record_list:
             self.assertEqual(icon, self.message_box_class.Icon.Critical)
-        self.assertIn("could not be read", self.box_record_list[0][2])
-        self.assertIn("bad.csv", self.box_record_list[0][2])
-        self.assertIn("not supported", self.box_record_list[1][2])
+        self.assertIn("could not be read", error_record_list[0][2])
+        self.assertIn("bad.csv", error_record_list[0][2])
+        self.assertIn("not supported", error_record_list[1][2])
         self.assertEqual(self.shown_name_list(),
                          ["Time", "speed", "force"])
 
@@ -227,18 +249,32 @@ class OpenFileEndToEndTest(unittest.TestCase):
                          .path_str, self.first_path_str)
         self.assert_button_finished()
 
-    @covers("HLFR-00010", "LLFR-00010")
-    def test_bad_file_after_open_does_not_ask_replace(self) -> None:
-        """A file that can't be opened never shows the Replace File box.
+    @covers("HLFR-00010", "LLFR-00010", "LLFR-00013", "LLFR-00014",
+            "LLFR-00328")
+    def test_bad_file_after_open_asks_replace_first(self) -> None:
+        """The Replace File box comes before the read of a bad file.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import FILE_OPEN_ERROR_TITLE_STR
+        from view.message_boxes import (
+            FILE_OPEN_ERROR_TITLE_STR, REPLACE_FILE_TITLE_STR)
         self.click_open_file(self.first_path_str)
+        # LLFR-00014: No, the bad file is not read, no error box.
+        self.replace_answer_list = [False]
         self.click_open_file(self.bad_path_str)
         self.assertEqual([record[0] for record in self.box_record_list],
-                         [FILE_OPEN_ERROR_TITLE_STR])
+                         [REPLACE_FILE_TITLE_STR])
+        # LLFR-00013, LLFR-00010: Yes, the read fails, the file is kept.
+        self.replace_answer_list = [True]
+        self.click_open_file(self.bad_path_str)
+        self.assertEqual([record[0] for record in self.box_record_list], [
+            REPLACE_FILE_TITLE_STR, REPLACE_FILE_TITLE_STR,
+            FILE_OPEN_ERROR_TITLE_STR])
+        self.assertEqual(self.shown_name_list(),
+                         ["Time", "speed", "force"])
+        self.assertEqual(self.controller.file_controller.current_file
+                         .path_str, self.first_path_str)
 
     @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010")
     def test_dialog_folder_follows_opened_files(self) -> None:
@@ -264,13 +300,14 @@ class OpenFileEndToEndTest(unittest.TestCase):
                          moved_path_str, ""):
             self.replace_answer_list.append(True)
             dialog_mock = self.click_open_file(path_str)
-            folder_list.append(dialog_mock.call_args.args[2])
+            folder_list.append(dialog_mock.shown_list[0][0])
         temporary_folder_str = os.path.dirname(
             os.path.abspath(self.first_path_str))
         self.assertEqual(folder_list, [
-            first_start_folder_str(), first_start_folder_str(),
-            temporary_folder_str, temporary_folder_str,
-            os.path.abspath(other_folder_str)])
+            os.path.realpath(folder_str) for folder_str in (
+                first_start_folder_str(), first_start_folder_str(),
+                temporary_folder_str, temporary_folder_str,
+                os.path.abspath(other_folder_str))])
 
 
 @requires_qt
@@ -345,9 +382,12 @@ class MainWindowFacadeTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=("", "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=""):
+            self.assertEqual(self.main_window.ask_open_file_path(), "")
+        # The real dialog, cancelled, gives "" too.
+        dialog = self.main_window.file_dialog_pool.dialog("open_file")
+        with mock.patch.object(dialog, "exec", return_value=0):
             self.assertEqual(self.main_window.ask_open_file_path(), "")
 
     @covers("LLFR-00204", "LLFR-00005")
@@ -358,12 +398,23 @@ class MainWindowFacadeTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=("/x/y.csv", "")) as dialog_mock:
+        temporary_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_folder.cleanup)
+        folder_str = temporary_folder.name
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value="/x/y.csv") as dialog_mock:
             self.assertEqual(
-                self.main_window.ask_open_file_path("/some/folder"),
+                self.main_window.ask_open_file_path(folder_str),
                 "/x/y.csv")
-        self.assertEqual(dialog_mock.call_args.args[2], "/some/folder")
+        dialog = dialog_mock.call_args.args[0]
+        self.assertIsInstance(dialog, QFileDialog)
+        self.assertEqual(
+            os.path.realpath(dialog.directory().absolutePath()),
+            os.path.realpath(folder_str))
+        self.assertEqual(dialog.acceptMode(),
+                         QFileDialog.AcceptMode.AcceptOpen)
+        self.assertEqual(dialog.fileMode(),
+                         QFileDialog.FileMode.ExistingFile)
 
 
 if __name__ == "__main__":

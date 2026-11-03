@@ -11,7 +11,8 @@ import time
 import unittest
 
 from tests.support import (
-    button_name, covers, get_qt_application, requires_qt)
+    button_name, button_tip_line_list, covers, get_qt_application,
+    requires_qt)
 
 from model.curve_colors import PALETTE_COLOR_TUPLE
 from view import icon_shapes, theme
@@ -19,22 +20,32 @@ from view import icon_shapes, theme
 # LLFR-00158, LLFR-00181: top panel attribute -> the button's name.
 BUTTON_NAME_DICT = {
     "open_file_button": "Open file",
-    "tip_button": "Tip",
+    "tip_button": "Data tip",
     "zoom_button": "Zoom",
-    "marker_button": "Vertical marker",
+    "marker_button": "Flag",
     "delta_x_button": "Delta X",
     "delta_y_button": "Delta Y",
+    "area_button": "Area",
+    "text_button": "Text",
+    "arrow_button": "Arrow",
     "reset_zoom_button": "Reset zoom",
     "grid_button": "Grid",
     "export_button": "Export",
     "copy_button": "Copy",
     "undo_button": "Undo",
     "redo_button": "Redo",
+    "save_layout_button": "Save layout",
+    "load_layout_button": "Load layout",
+    "pan_button": "Pan",
+    "report_bug_button": "Report a bug",
+    "save_signals_button": "Save signals",
 }
-# LLFR-00159: the 12 icons of the requirement, in its order.
+# LLFR-00159: the 20 icons of the requirement, in its order.
 REQUIRED_ICON_TUPLE = (
     "open_file", "undo", "tip", "zoom", "reset_zoom", "vertical_marker",
-    "delta_x", "delta_y", "grid", "export", "copy", "redo")
+    "delta_x", "delta_y", "grid", "export", "copy", "redo", "save_layout",
+    "load_layout", "area", "text", "pan", "report_bug", "arrow",
+    "save_signals")
 
 
 def hex_to_rgb_tuple(color_str: str) -> tuple:
@@ -95,7 +106,7 @@ class IconShapeDataTest(unittest.TestCase):
     """Checks of the icon shapes that need no Qt (view.icon_shapes)."""
 
     @covers("LLFR-00159")
-    def test_all_twelve_icons_are_defined(self) -> None:
+    def test_all_fourteen_icons_are_defined(self) -> None:
         """Every icon of LLFR-00159 has a shape, including Delta X and Y
         and Redo.
 
@@ -225,6 +236,85 @@ class IconShapeDataTest(unittest.TestCase):
         # Copy: two sheets, the front one a whole rounded rectangle.
         self.assertEqual(letters("copy").count("R"), 1)
         self.assertEqual(len(icon_shapes.icon_layer_list("copy")), 2)
+        # Save layout and Load layout (items 13, 14): the same sheet with
+        # two stacked plots; a vertical arrow pointing down into it, or
+        # up out of it.
+        save_layer_list = icon_shapes.icon_layer_list("save_layout")
+        load_layer_list = icon_shapes.icon_layer_list("load_layout")
+        sheet_layer_list = icon_shapes.layout_sheet_layer_list()
+        self.assertEqual(save_layer_list[:len(sheet_layer_list)],
+                         sheet_layer_list)
+        self.assertEqual(load_layer_list[:len(sheet_layer_list)],
+                         sheet_layer_list)
+        self.assertGreaterEqual(len(sheet_layer_list), 3)
+        save_head_list = save_layer_list[-1][0]
+        load_head_list = load_layer_list[-1][0]
+        # The tip of the head is its middle point: lower than the two
+        # ends for Save (pointing down), higher for Load (pointing up).
+        self.assertGreater(save_head_list[1][2], save_head_list[0][2])
+        self.assertLess(load_head_list[1][2], load_head_list[0][2])
+        sheet_top_f = min(command_tuple[2] for command_tuple in
+                          sheet_layer_list[0][0] if len(command_tuple) == 3)
+        self.assertGreater(save_head_list[1][2], sheet_top_f)
+        self.assertLess(load_head_list[1][2], sheet_top_f)
+        self.assertNotEqual(commands("save_layout"), commands("export"))
+
+    @covers("LLFR-00159")
+    def test_icon_is_a_floppy_disk_with_a_curve(self) -> None:
+        """The Save signals icon is a floppy disk (a closed body with a
+        cut corner, a shutter at the top) with a label at the bottom and
+        a small curve drawn on that label, unlike every other icon.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        layer_list = icon_shapes.icon_layer_list(
+            icon_shapes.SAVE_SIGNALS_ICON_STR)
+        command_list = [command_tuple for layer_tuple in layer_list
+                        for command_tuple in layer_tuple[0]]
+        # The body: one closed outline whose top-right corner is cut by a
+        # diagonal, not rounded.
+        body_list = layer_list[0][0]
+        self.assertEqual(body_list[-1], ("Z",))
+        point_list = [command_tuple[-2:] for command_tuple in body_list
+                      if command_tuple[0] in ("M", "L")]
+        self.assertTrue(any(
+            first_tuple[0] != second_tuple[0]
+            and first_tuple[1] != second_tuple[1]
+            for first_tuple, second_tuple in zip(point_list,
+                                                 point_list[1:])))
+        top_f = min(point_tuple[1] for point_tuple in point_list)
+        bottom_f = max(point_tuple[1] for point_tuple in point_list)
+        # The label: a rounded rectangle centred in the lower half of the
+        # disk.
+        label_list = [command_tuple for command_tuple in command_list
+                      if command_tuple[0] == "R"]
+        self.assertEqual(len(label_list), 1)
+        _, label_x_f, label_y_f, label_width_f, label_height_f, _ = (
+            label_list[0])
+        self.assertGreater(label_y_f + label_height_f / 2.0,
+                           (top_f + bottom_f) / 2.0)
+        # The curve: a cubic curve that starts and ends on the label.
+        curve_index_i = next(index_i for index_i, command_tuple in
+                             enumerate(command_list)
+                             if command_tuple[0] == "C")
+        start_tuple = command_list[curve_index_i - 1][1:3]
+        end_tuple = command_list[curve_index_i][5:7]
+        for x_f, y_f in (start_tuple, end_tuple):
+            self.assertTrue(label_x_f < x_f < label_x_f + label_width_f)
+            self.assertTrue(label_y_f < y_f < label_y_f + label_height_f)
+        # The shutter hangs from the top edge of the disk.
+        self.assertTrue(any(
+            command_tuple[0] == "M" and command_tuple[2] == top_f
+            for layer_tuple in layer_list[1:]
+            for command_tuple in layer_tuple[0][:1]))
+        # Distinct from every other icon, in particular Save layout.
+        for icon_name_str in icon_shapes.ICON_NAME_TUPLE:
+            if icon_name_str == icon_shapes.SAVE_SIGNALS_ICON_STR:
+                continue
+            with self.subTest(icon=icon_name_str):
+                self.assertNotEqual(
+                    icon_shapes.icon_layer_list(icon_name_str), layer_list)
 
     @covers("LLFR-00160")
     def test_icon_colors_have_contrast_in_every_state(self) -> None:
@@ -329,9 +419,10 @@ class ButtonIconTest(unittest.TestCase):
     @covers("LLFR-00158", "LLFR-00004", "LLFR-00018", "LLFR-00077",
             "LLFR-00080", "LLFR-00114", "LLFR-00121", "LLFR-00126",
             "LLFR-00132", "LLFR-00136", "LLFR-00161", "LLFR-00162",
-            "LLFR-00190")
+            "LLFR-00190", "LLFR-00216", "LLFR-00217", "LLFR-00286",
+            "LLFR-00320")
     def test_every_button_shows_only_its_icon(self) -> None:
-        """All 12 buttons have an icon, no text and a square icon size.
+        """All 16 buttons have an icon, no text and a square icon size.
 
         Inputs: none.
         Outputs: none.
@@ -380,7 +471,7 @@ class ButtonIconTest(unittest.TestCase):
 
     @covers("LLFR-00181")
     def test_tooltip_is_the_button_name(self) -> None:
-        """Each button's tooltip is its name, e.g. "Vertical marker".
+        """Each button tip starts with the name, e.g. "Flag".
 
         Inputs: none.
         Outputs: none.
@@ -388,7 +479,7 @@ class ButtonIconTest(unittest.TestCase):
         for attribute_str, name_str in BUTTON_NAME_DICT.items():
             button = getattr(self.top_panel, attribute_str)
             with self.subTest(button=name_str):
-                self.assertEqual(button.toolTip(), name_str)
+                self.assertEqual(button_tip_line_list(button)[0], name_str)
                 self.assertEqual(button.accessibleName(), name_str)
 
     @covers("LLFR-00181")
@@ -412,14 +503,15 @@ class ButtonIconTest(unittest.TestCase):
                 QApplication.sendEvent(button, QHelpEvent(
                     QEvent.Type.ToolTip, local_point, global_point))
                 self.assertTrue(self.wait_until(QToolTip.isVisible))
-                self.assertEqual(QToolTip.text(), name_str)
+                self.assertEqual(QToolTip.text(), button.toolTip())
+                self.assertEqual(button_tip_line_list(button)[0], name_str)
                 QApplication.sendEvent(button, QEvent(QEvent.Type.Leave))
                 self.assertTrue(self.wait_until(
                     lambda: not QToolTip.isVisible()))
 
     @covers("LLFR-00159")
     def test_each_icon_renders_a_distinct_picture(self) -> None:
-        """All 12 icons draw something, and no two draw the same picture.
+        """All 16 icons draw something, and no two draw the same picture.
 
         Inputs: none.
         Outputs: none.
@@ -438,6 +530,51 @@ class ButtonIconTest(unittest.TestCase):
                     self.assertLess(pixel_count_i, size_i * size_i * 3 // 4)
                     digest_set.add(image_digest_str(image))
             self.assertEqual(len(digest_set), len(REQUIRED_ICON_TUPLE))
+
+    @covers("LLFR-00159", "LLFR-00160")
+    def test_save_signals_icon_visible_in_every_state(self) -> None:
+        """The floppy disk of Save signals is drawn in the icon color of
+        the normal, active and disabled states, with enough contrast on
+        each state's background, paler when disabled, and its picture
+        differs from every other icon.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import icons
+        size_i = 20
+        state_list = [
+            (theme.ICON_COLOR_STR, theme.NORMAL_COLOR_STR),
+            (theme.ICON_ACTIVE_COLOR_STR, theme.ACTIVE_COLOR_STR),
+            (theme.ICON_DISABLED_COLOR_STR, theme.DISABLED_COLOR_STR)]
+        for icon_color_str, background_str in state_list:
+            with self.subTest(color=icon_color_str):
+                image = icons.render_icon_image(
+                    icon_shapes.SAVE_SIGNALS_ICON_STR, icon_color_str,
+                    size_i)
+                pixel_list = ink_pixel_list(image)
+                self.assertGreater(len(pixel_list), size_i * size_i // 10)
+                # The fully drawn pixels have the state's icon color.
+                solid_list = [pixel_tuple[:3] for pixel_tuple in pixel_list
+                              if pixel_tuple[3] == 255]
+                self.assertTrue(solid_list)
+                self.assertLess(color_distance_f(
+                    solid_list[0], hex_to_rgb_tuple(icon_color_str)), 3.0)
+                self.assertGreaterEqual(
+                    theme.contrast_ratio_f(icon_color_str, background_str),
+                    theme.MINIMUM_ICON_CONTRAST_F)
+        self.assertGreater(
+            theme.relative_luminance_f(theme.ICON_DISABLED_COLOR_STR),
+            theme.relative_luminance_f(theme.ICON_COLOR_STR))
+        floppy_digest_str = image_digest_str(icons.render_icon_image(
+            icon_shapes.SAVE_SIGNALS_ICON_STR, "#000000", size_i))
+        for icon_name_str in REQUIRED_ICON_TUPLE:
+            if icon_name_str == icon_shapes.SAVE_SIGNALS_ICON_STR:
+                continue
+            with self.subTest(icon=icon_name_str):
+                self.assertNotEqual(image_digest_str(
+                    icons.render_icon_image(icon_name_str, "#000000",
+                                            size_i)), floppy_digest_str)
 
     @covers("LLFR-00159")
     def test_icons_scale_without_bitmap_blur(self) -> None:

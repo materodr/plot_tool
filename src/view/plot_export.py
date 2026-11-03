@@ -3,7 +3,7 @@
 HLFR-00038, HLFR-00039. Both use an image of a tab page taken with
 ``QWidget.grab``, so the PDF pages and the copied image show the plots
 exactly as on screen: time range, curves, legends above the axes, grid,
-vertical markers and pinned tips (LLFR-00129, LLFR-00133).
+vertical markers, text notes and pinned tips (LLFR-00129, LLFR-00133).
 
 PDF layout (LLFR-00129): one landscape A4 page per tab that holds at
 least one plot, in tab order, with a margin of PAGE_MARGIN_MM_F on each
@@ -101,6 +101,8 @@ def grab_page_image(page):
         # LLFR-00203: the marker preview is never part of an export or a
         # copy; it comes back at the next mouse move over a plot.
         plot_widget.hide_marker_preview()
+        # LLFR-00354: nor are the delta marker previews.
+        plot_widget.hide_delta_preview()
         plot_widget.canvas.draw()
     return page.grab().toImage()
 

@@ -15,10 +15,9 @@ import re
 import numpy as np
 
 from model.errors import (
-    OTHER_SIGNAL_CHECK_STR, SAMPLE_COUNT_CHECK_STR, TIME_SIGNAL_CHECK_STR,
-    ContentCheckError, FileAccessError, FileReadError,
-    UnsupportedFormatError)
-from model.signal_file import TIME_SIGNAL_NAME_STR, SignalFile
+    SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
+    FileAccessError, FileReadError, UnsupportedFormatError)
+from model.signal_file import SignalFile, matching_time_signal_name
 
 # HLFR-00005: the file formats the app opens, by extension.
 SUPPORTED_EXTENSION_TUPLE = (".csv", ".xlsx", ".mat", ".h5", ".hdf5")
@@ -487,12 +486,51 @@ def is_vector_shape(shape_tuple: tuple) -> bool:
     return len(shape_tuple) == 1 or min(shape_tuple) == 1
 
 
+def collect_hdf5_datasets(h5py_library, group, prefix_str: str,
+                          dataset_list: list, visited_set: set) -> None:
+    """Collect the datasets of an HDF5 group and of its subgroups.
+
+    The members of a group are listed in the order they were created
+    when the group tracks its creation order (h5py then iterates in that
+    order), and otherwise by name in byte order, so "Time" comes before
+    lowercase names. Each group's members come right after the group.
+    Only hard links are followed, and each object is visited once, as
+    h5py's ``visititems`` does.
+
+    Inputs:
+        h5py_library: the h5py module.
+        group: the h5py Group (or File) to walk.
+        prefix_str: the path of the group with a trailing "/", or "" for
+            the root.
+        dataset_list: the list that receives (path, dataset) tuples.
+        visited_set: the ids of the objects already visited.
+    Outputs: none. Appends to dataset_list.
+    """
+    # LLFR-00134: creation order when tracked, otherwise by name.
+    for member_name_str in group:
+        link = group.get(member_name_str, getlink=True)
+        if not isinstance(link, h5py_library.HardLink):
+            continue
+        item = group[member_name_str]
+        if item.id in visited_set:
+            continue
+        visited_set.add(item.id)
+        path_str = prefix_str + member_name_str
+        if isinstance(item, h5py_library.Dataset):
+            dataset_list.append((path_str, item))
+        elif isinstance(item, h5py_library.Group):
+            collect_hdf5_datasets(h5py_library, item, path_str + "/",
+                                  dataset_list, visited_set)
+
+
 def read_hdf5_signals(path_str: str) -> dict:
     """Read the signals of an HDF5 file.
 
-    The datasets are visited in the order of h5py's ``visititems``: by
-    name (byte order, so "Time" comes before lowercase names), each
-    group's members right after the group itself.
+    The datasets are listed as collect_hdf5_datasets visits them: in
+    creation order inside a group that tracks it, as the files of the
+    Save signals button do, otherwise by name (byte order, so "Time"
+    comes before lowercase names), each group's members right after the
+    group itself.
 
     Inputs:
         path_str: path of the .h5 or .hdf5 file.
@@ -512,20 +550,8 @@ def read_hdf5_signals(path_str: str) -> dict:
         with h5py_library.File(path_str, "r") as hdf5_file:
             # LLFR-00134: collect the datasets of every group.
             dataset_list = []
-
-            def collect_dataset(name_str: str, item: object) -> None:
-                """Keep the HDF5 objects that are datasets.
-
-                Inputs:
-                    name_str: path of the object, without leading "/".
-                    item: the h5py Group or Dataset at that path.
-                Outputs: none. Appends (path, dataset) to dataset_list.
-                """
-                # LLFR-00134: groups only hold the datasets.
-                if isinstance(item, h5py_library.Dataset):
-                    dataset_list.append((name_str, item))
-
-            hdf5_file.visititems(collect_dataset)
+            collect_hdf5_datasets(h5py_library, hdf5_file, "",
+                                  dataset_list, set())
             signal_dict = {}
             for name_str, dataset in dataset_list:
                 # LLFR-00135: skip datasets that are not 1-D numeric.
@@ -562,31 +588,36 @@ def is_hdf5_signal(dataset: object) -> bool:
 def check_signal_content(file_name_str: str, signal_dict: dict) -> None:
     """Check the content rules of HLFR-00008 and HLFR-00009.
 
+    A file with no signal named "Time" passes these checks when it has
+    at least two signals: the user then chooses the time signal
+    (LLFR-00325, LLFR-00328).
+
     Inputs:
         file_name_str: name of the file, for error messages.
         signal_dict: signal name -> float64 array.
     Outputs: none. Raises ContentCheckError naming the failed check.
     """
-    # HLFR-00008, LLFR-00053: "Time" (case-sensitive) must exist.
     prefix_str = f"The file '{file_name_str}' cannot be opened because"
-    if TIME_SIGNAL_NAME_STR not in signal_dict:
-        raise ContentCheckError(
-            f"{prefix_str} it has no time signal named "
-            f"'{TIME_SIGNAL_NAME_STR}' (the name is case-sensitive).",
-            TIME_SIGNAL_CHECK_STR)
-    # HLFR-00008, LLFR-00012: at least one signal besides "Time".
+    # HLFR-00008, LLFR-00012, LLFR-00328: at least two signals, one of
+    # which is the time signal, found by its name or chosen later.
     if len(signal_dict) < 2:
         raise ContentCheckError(
-            f"{prefix_str} it has no signal other than "
-            f"'{TIME_SIGNAL_NAME_STR}'.", OTHER_SIGNAL_CHECK_STR)
-    # HLFR-00009, LLFR-00012: every signal has as many samples as "Time".
-    time_count_i = len(signal_dict[TIME_SIGNAL_NAME_STR])
+            f"{prefix_str} it must contain at least two signals, one of "
+            f"which is the time signal, but it has {len(signal_dict)}.",
+            SIGNAL_COUNT_CHECK_STR)
+    # HLFR-00009, LLFR-00012: every signal has as many samples as the
+    # time signal, or as the first signal while the time signal is not
+    # chosen yet.
+    reference_name_str = matching_time_signal_name(list(signal_dict))
+    if reference_name_str is None:
+        reference_name_str = next(iter(signal_dict))
+    reference_count_i = len(signal_dict[reference_name_str])
     different_list = [
         f"'{name_str}' has {len(signal_array)}"
         for name_str, signal_array in signal_dict.items()
-        if len(signal_array) != time_count_i]
+        if len(signal_array) != reference_count_i]
     if different_list:
         raise ContentCheckError(
             f"{prefix_str} its signals have different sample counts: "
-            f"'{TIME_SIGNAL_NAME_STR}' has {time_count_i} samples, but "
+            f"'{reference_name_str}' has {reference_count_i} samples, but "
             f"{', '.join(different_list)}.", SAMPLE_COUNT_CHECK_STR)

@@ -1,31 +1,43 @@
 """Colors of the signal curves in a plot (HLFR-00020).
 
 The first 8 curves drawn in a plot use a fixed palette (LLFR-00033)
-that starts with blue, black and red (LLFR-00144).
+that starts with blue, black and a dark red (LLFR-00144).
 From the 9th curve on, each new curve gets a random color that is
 clearly different from the colors already used in the plot
-(LLFR-00034). Vertical markers use a reserved color that is never
-given to a curve (LLFR-00083).
+(LLFR-00034). Flags use a reserved orange, #ff8000, that is never
+given to a curve (LLFR-00083): every palette color and every random
+color keeps a distance of at least 70 from it (LLFR-00365).
 """
 
 # LLFR-00033: 8 colors that are easy to tell apart on a white
-# background (taken from the Tableau 10 set, plus black).
-# LLFR-00144: the first three are blue, black and red, in that order.
+# background (mostly from the Tableau 10 set, plus black): every two of
+# them are at least MINIMUM_COLOR_DISTANCE_F apart (the closest pair,
+# blue and cyan, about 76).
+# LLFR-00144: the first three are blue, black and a dark red, in that
+# order. LLFR-00365: no orange, and the red (#b2182b, about 136 from the
+# marker color) is darker than the marker color; every color is at
+# least MARKER_COLOR_DISTANCE_F from it (the closest is the red).
 PALETTE_COLOR_TUPLE = (
     "#1f77b4",  # blue
     "#000000",  # black
-    "#d62728",  # red
+    "#b2182b",  # dark red
     "#2ca02c",  # green
-    "#ff7f0e",  # orange
+    "#e377c2",  # pink
     "#9467bd",  # purple
     "#8c564b",  # brown
     "#17becf",  # cyan
 )
 
-# LLFR-00083: reserved color of the vertical markers. It is not in the
-# palette, every palette color is far from it, and random curve colors
-# always keep at least MINIMUM_COLOR_DISTANCE_F from it.
-MARKER_COLOR_STR = "#ff00ff"  # magenta
+# LLFR-00083: reserved color: the color of a new flag and of a new area
+# (LLFR-00351), and always the color of the delta markers, the delta
+# marker previews, the time span selection and the flag preview. It is
+# not in the palette, and every palette color and every random curve
+# color keeps at least MARKER_COLOR_DISTANCE_F from it (LLFR-00365,
+# LLFR-00034).
+MARKER_COLOR_STR = "#ff8000"  # orange
+# LLFR-00365: minimum Euclidean RGB distance (0 to 255 per channel)
+# between a curve color and the marker color. It is never relaxed.
+MARKER_COLOR_DISTANCE_F = 70.0
 
 # LLFR-00034: minimum Euclidean RGB distance between a random color and
 # every color already used in the plot.
@@ -53,6 +65,24 @@ def hex_to_rgb(color_str: str) -> tuple:
     hex_digits_str = color_str.lstrip("#")
     return tuple(int(hex_digits_str[index_i:index_i + 2], 16)
                  for index_i in (0, 2, 4))
+
+
+def hex_color_or_none(value):
+    """Return a color read from a file as lowercase "#rrggbb", if it is one.
+
+    Inputs:
+        value: any value, for example read from a layout file.
+    Outputs: the color in lowercase when value is a text "#rrggbb" with
+        six hexadecimal digits in uppercase or lowercase, else None.
+    """
+    # LLFR-00225, LLFR-00319, LLFR-00393: a saved color is used as it
+    # is when it is written as "#rrggbb"; it is stored in lowercase.
+    if not isinstance(value, str) or len(value) != 7 or value[0] != "#":
+        return None
+    if not all(digit_str in "0123456789abcdefABCDEF"
+               for digit_str in value[1:]):
+        return None
+    return value.lower()
 
 
 def rgb_to_hex(rgb_tuple: tuple) -> str:
@@ -115,12 +145,13 @@ def is_far_from_marker_color(color_str: str) -> bool:
 
     Inputs:
         color_str: color written as "#rrggbb".
-    Outputs: True when the color is at least MINIMUM_COLOR_DISTANCE_F
+    Outputs: True when the color is at least MARKER_COLOR_DISTANCE_F
         away from MARKER_COLOR_STR.
     """
-    # LLFR-00083: curves never look like a vertical marker.
+    # LLFR-00083, LLFR-00365: curves never look like a marker, whether
+    # they come from the palette or are random (LLFR-00034).
     return (color_distance(color_str, MARKER_COLOR_STR)
-            >= MINIMUM_COLOR_DISTANCE_F)
+            >= MARKER_COLOR_DISTANCE_F)
 
 
 def next_curve_color(drawn_count_i: int, used_color_list: list,

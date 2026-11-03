@@ -2,8 +2,11 @@
 
 from controller.export_controller import ExportController
 from controller.file_controller import FileController
+from controller.layout_controller import LayoutController
 from controller.plot_controller import PlotController
+from controller.save_signals_controller import SaveSignalsController
 from controller.signal_list_controller import SignalListController
+from controller.synthetic_controller import SyntheticController
 
 
 class MainController:
@@ -20,8 +23,14 @@ class MainController:
         file_controller: the FileController of the open-file flow.
         plot_controller: the PlotController of the tabs and plots.
         signal_list_controller: the SignalListController of the search.
+        synthetic_controller: the SyntheticController of the signal list
+            menu and the synthetic signals.
         export_controller: the ExportController of the Export menu and
             the Copy button.
+        layout_controller: the LayoutController of the Save layout and
+            Load layout buttons.
+        save_signals_controller: the SaveSignalsController of the Save
+            signals button.
     """
 
     def __init__(self, main_window: object) -> None:
@@ -41,11 +50,32 @@ class MainController:
         # controller listens to opened files and to the plot panel.
         self.plot_controller = PlotController(main_window,
                                               self.file_controller)
+        # LLFR-00216 to LLFR-00218: the Save layout and Load layout
+        # buttons, enabled once a data file is open.
+        self.layout_controller = LayoutController(
+            main_window, self.file_controller, self.plot_controller)
         # LLFR-00095, LLFR-00104: the search box filters the signal
         # list; registered after the plot controller, so it runs after
         # the FileController has shown all names of a new file.
         self.signal_list_controller = SignalListController(
             main_window, self.file_controller)
+        # LLFR-00239, LLFR-00252: the signal list menu and the synthetic
+        # signals, removed when a data file is opened.
+        self.synthetic_controller = SyntheticController(
+            main_window, self.file_controller, self.plot_controller,
+            self.signal_list_controller)
+        # LLFR-00225 item 10, LLFR-00262: layout files save and create
+        # again the synthetic signals.
+        self.layout_controller.synthetic_signal_list_function = (
+            self.synthetic_controller.layout_entries)
+        self.layout_controller.synthetic_signal_builder = (
+            self.synthetic_controller.load_layout_signals)
+        self.layout_controller.synthetic_signal_snapshot_function = (
+            self.synthetic_controller.layout_snapshot)
+        # LLFR-00394, LLFR-00395: the Save signals button writes the
+        # signals of the signal list, enabled once a data file is open.
+        self.save_signals_controller = SaveSignalsController(
+            main_window, self.file_controller, self.synthetic_controller)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
         self.export_controller = ExportController(main_window)

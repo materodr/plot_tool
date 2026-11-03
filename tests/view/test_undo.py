@@ -12,6 +12,7 @@ from unittest import mock
 import numpy as np
 
 from tests.support import button_name, covers, get_qt_application, requires_qt
+from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 
 @requires_qt
@@ -379,8 +380,8 @@ class UndoEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QFileDialog
-        with mock.patch.object(QFileDialog, "getOpenFileName",
-                               return_value=(self.path_str, "")):
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=self.path_str):
             self.click(self.main_window.top_panel.open_file_button)
 
     def double_click_signal(self, signal_name_str: str) -> None:

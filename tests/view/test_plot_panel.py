@@ -357,7 +357,7 @@ class TabPageTest(PlotPanelTestCase):
         self.assertFalse(self.panel.tab_widget.acceptDrops())
         request_list = []
         self.panel.set_plot_handlers(
-            signal_drop_handler=lambda *args: request_list.append(args))
+            signals_drop_handler=lambda *args: request_list.append(args))
         mime_data = QMimeData()
         mime_data.setData(SIGNAL_MIME_TYPE_STR, b"speed")
         center_point = QPoint(page.width() // 2, page.height() // 2)

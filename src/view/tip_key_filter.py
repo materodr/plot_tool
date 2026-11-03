@@ -1,6 +1,6 @@
 """Application-wide filter that turns keys into hold-to-use plot tool keys.
 
-Four keys work this way:
+Eight keys work this way:
     - the Tip key keeps the Tip tool active while it is held alone
       (LLFR-00148); releasing it leaves no plot tool active (LLFR-00149);
       pressing any other key while it is held ends the activation at
@@ -10,13 +10,24 @@ Four keys work this way:
     - the X key does the same for the Delta X tool (LLFR-00197,
       LLFR-00198, LLFR-00199);
     - the Y key does the same for the Delta Y tool (LLFR-00200,
-      LLFR-00201, LLFR-00202).
+      LLFR-00201, LLFR-00202);
+    - the A key and the T key do the same for the Area tool
+      (LLFR-00287, LLFR-00288, LLFR-00289) and the Text tool
+      (LLFR-00321, LLFR-00322, LLFR-00323);
+    - the R key does the same for the Arrow tool (LLFR-00367,
+      LLFR-00368, LLFR-00369).
 Besides these tool keys, the filter knows action keys: a key that runs
 a function once when it is pressed alone. The Z key is one: it resets
-the zoom (LLFR-00207).
+the zoom (LLFR-00207), and the Esc key is another: it switches off the
+active plot tool (LLFR-00370). An Esc pressed while a tool key is held
+ends that hold like any other key (LLFR-00150, LLFR-00156, LLFR-00199,
+LLFR-00202, LLFR-00289, LLFR-00323), so no plot tool is active
+afterwards either; not being pressed alone, it runs nothing more.
 No key activates a tool or runs an action while the keyboard focus is
 in a text field (LLFR-00157), so that letters, capital letters and
-shortcuts can be typed there.
+shortcuts can be typed there. The Tip key and Shift activate nothing
+while the mouse pointer is over the signal list panel, where they select
+signals (LLFR-00302); see ``set_selection_area_function``.
 
 The Tip key:
     The Tip key is ``Qt.Key.Key_Control``. On Windows and Linux this is the
@@ -47,8 +58,8 @@ Rules:
     - Releasing a tool key also forgets every other held key except the
       modifier tool keys (Tip key, Shift), because macOS can drop the
       release of a key pressed together with Cmd. The letter tool keys
-      (X, Y) are forgotten too, since Cmd+X and Cmd+Y (Redo) can lose
-      their release like any other letter.
+      (X, Y, A, T, R) are forgotten too, since Cmd+X and Cmd+Y (Redo) can
+      lose their release like any other letter.
     - When the app or its window loses the keyboard (application state
       change to not active, ``WindowDeactivate``, or ``FocusOut`` with
       ``ActiveWindowFocusReason``) the activation ends as on a release,
@@ -93,8 +104,16 @@ MARKER_KEY_I = int(Qt.Key.Key_Shift.value)
 DELTA_X_KEY_I = int(Qt.Key.Key_X.value)
 # LLFR-00200: the key that holds the Delta Y tool.
 DELTA_Y_KEY_I = int(Qt.Key.Key_Y.value)
+# LLFR-00287: the key that holds the Area tool.
+AREA_KEY_I = int(Qt.Key.Key_A.value)
+# LLFR-00321: the key that holds the Text tool.
+TEXT_KEY_I = int(Qt.Key.Key_T.value)
+# LLFR-00367: the key that holds the Arrow tool.
+ARROW_KEY_I = int(Qt.Key.Key_R.value)
 # LLFR-00207: the key that resets the zoom.
 RESET_ZOOM_KEY_I = int(Qt.Key.Key_Z.value)
+# LLFR-00370: the key that switches off the active plot tool.
+ESCAPE_KEY_I = int(Qt.Key.Key_Escape.value)
 # LLFR-00148, LLFR-00154: the modifier each tool key sets by itself; with
 # the keypad flag, the only modifiers allowed while the key is "alone".
 # LLFR-00197, LLFR-00200, LLFR-00207: a letter key sets none.
@@ -188,6 +207,31 @@ class ToolKeyFilter(QObject):
         self.text_field_widget_tuple = tuple(text_field_widget_tuple)
         self.held_key_set = set()
         self.active_key_i = NO_KEY_I
+        # LLFR-00302: tells whether the pointer is over the signal list.
+        self.selection_area_function = None
+
+    def set_selection_area_function(self, area_function) -> None:
+        """Set the function that tells where the selection keys select.
+
+        Inputs:
+            area_function: function without arguments that returns True
+                while the mouse pointer is over the signal list panel,
+                or None to switch the check off.
+        Outputs: none.
+        """
+        # LLFR-00302: there, the Tip key and Shift select signals.
+        self.selection_area_function = area_function
+
+    def is_pointer_in_selection_area(self) -> bool:
+        """Tell whether the pointer is where the selection keys select.
+
+        Inputs: none.
+        Outputs: True while the pointer is over the signal list panel.
+        """
+        # LLFR-00302: no function set means no such area.
+        if self.selection_area_function is None:
+            return False
+        return bool(self.selection_area_function())
 
     def is_activation_on(self) -> bool:
         """Tell whether a tool key is holding its tool active.
@@ -283,6 +327,12 @@ class ToolKeyFilter(QObject):
         if text_field_focused_b:
             # LLFR-00157: typing in a text field activates no tool.
             return
+        if (key_i in OWN_MODIFIER_DICT
+                and self.is_pointer_in_selection_area()):
+            # LLFR-00302: over the signal list the Tip key and Shift
+            # select signals; the active tool stays as it is, also when
+            # the key is released (no activation was started).
+            return
         self.active_key_i = key_i
         self.on_tool_key_activate(tool_str)
 
@@ -306,7 +356,7 @@ class ToolKeyFilter(QObject):
         # of Cmd+Z or the Y of Cmd+Y), so every held key except the
         # modifier tool keys is forgotten here; otherwise such a key
         # would stay "held" and block the next tool or action key press
-        # alone. Letter tool keys (X, Y) are no exception.
+        # alone. Letter tool keys (X, Y, A, T) are no exception.
         self.held_key_set.intersection_update(OWN_MODIFIER_DICT)
         # LLFR-00149, LLFR-00155: releasing the tool key ends its
         # activation.

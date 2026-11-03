@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
     QToolButton, QVBoxLayout, QWidget)
 
+from model.workspace import TIME_PLOT_KIND_STR
 from view import theme
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
@@ -65,7 +66,8 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "curve_delete_requested": "curve_delete_handler",
     "curve_width_requested": "curve_width_handler",
     "plot_delete_requested": "plot_delete_handler",
-    "signal_dropped": "signal_drop_handler",
+    # LLFR-00297: the dropped names, one or several, as a list.
+    "signals_dropped": "signals_drop_handler",
     "tip_pin_requested": "tip_pin_handler",
     "pinned_tip_delete_requested": "pinned_tip_delete_handler",
     # LLFR-00152: a pinned tip was dragged and released.
@@ -74,11 +76,46 @@ PLOT_SIGNAL_HANDLER_DICT = {
     "marker_place_requested": "marker_place_handler",
     "marker_move_requested": "marker_move_handler",
     "marker_rename_requested": "marker_rename_handler",
+    # LLFR-00392: "Color" chosen in a flag's menu.
+    "marker_color_requested": "marker_color_handler",
     "marker_delete_requested": "marker_delete_handler",
     # LLFR-00163, LLFR-00164: a curve point picked with a delta tool.
     "delta_point_picked": "delta_point_pick_handler",
     # LLFR-00176: "Delete" chosen on a delta marker.
     "delta_marker_delete_requested": "delta_marker_delete_handler",
+    # LLFR-00409: an entry of the "Color" submenu of a delta marker.
+    "delta_marker_color_requested": "delta_marker_color_handler",
+    # LLFR-00304, LLFR-00312, LLFR-00313, LLFR-00315, LLFR-00316: an
+    # area created, moved or resized, renamed or deleted.
+    "area_create_requested": "area_create_handler",
+    "area_change_requested": "area_change_handler",
+    "area_rename_requested": "area_rename_handler",
+    # LLFR-00351: "Color" chosen in an area's menu.
+    "area_color_requested": "area_color_handler",
+    "area_delete_requested": "area_delete_handler",
+    # LLFR-00334, LLFR-00339, LLFR-00342, LLFR-00343: the text notes.
+    "text_note_create_requested": "text_note_create_handler",
+    "text_note_move_requested": "text_note_move_handler",
+    "text_note_edit_requested": "text_note_edit_handler",
+    "text_note_delete_requested": "text_note_delete_handler",
+    # LLFR-00385, LLFR-00387: the size and the colors of a text note.
+    "text_note_size_requested": "text_note_size_handler",
+    "text_note_border_color_requested": "text_note_border_color_handler",
+    "text_note_text_color_requested": "text_note_text_color_handler",
+    # LLFR-00372, LLFR-00376, LLFR-00377, LLFR-00379, LLFR-00380: an
+    # arrow drawn, moved, rotated or stretched, recolored or deleted.
+    "arrow_create_requested": "arrow_create_handler",
+    "arrow_change_requested": "arrow_change_handler",
+    "arrow_color_requested": "arrow_color_handler",
+    "arrow_delete_requested": "arrow_delete_handler",
+    # LLFR-00412 to LLFR-00417: the "Delete all ..." menu options.
+    "plot_pinned_tips_delete_requested": "plot_pinned_tips_delete_handler",
+    "all_pinned_tips_delete_requested": "all_pinned_tips_delete_handler",
+    "plot_delta_markers_delete_requested":
+        "plot_delta_markers_delete_handler",
+    "all_delta_markers_delete_requested": "all_delta_markers_delete_handler",
+    "all_markers_delete_requested": "all_markers_delete_handler",
+    "all_areas_delete_requested": "all_areas_delete_handler",
 }
 
 
@@ -619,19 +656,23 @@ class PlotPanel(QWidget):
     # Plot facade
     # ----------------------------------------------------------------
 
-    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int,
+                      kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create a plot widget at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
             plot_id_i: id of the plot in the model.
+            kind_str: TIME_PLOT_KIND_STR or FREQUENCY_PLOT_KIND_STR
+                (LLFR-00256).
         Outputs: none.
         """
         # LLFR-00019, LLFR-00069: the new plot goes below the others.
         page = self.page_dict.get(tab_id_i)
         if page is None or plot_id_i in self.plot_widget_dict:
             return
-        plot_widget = PlotWidget(plot_id_i)
+        # LLFR-00256: a time plot or a frequency plot.
+        plot_widget = PlotWidget(plot_id_i, kind_str=kind_str)
         plot_widget.setObjectName(f"plot_widget_{plot_id_i}")
         # LLFR-00042, LLFR-00078, LLFR-00081: the new plot starts with no
         # tool; MainWindow.add_plot_view applies the active plot tool.
@@ -649,6 +690,9 @@ class PlotPanel(QWidget):
             self.relay_marker_drag, plot_id_i))
         plot_widget.marker_preview_changed.connect(partial(
             self.relay_marker_preview, plot_id_i))
+        # LLFR-00310: so does an area that is moved or resized.
+        plot_widget.area_drag_moved.connect(partial(
+            self.relay_area_drag, plot_id_i))
         self.plot_widget_dict[plot_id_i] = plot_widget
         page.add_plot_widget(plot_widget)
 
@@ -714,14 +758,45 @@ class PlotPanel(QWidget):
         """Draw the shared vertical markers on every plot of every tab.
 
         Inputs:
-            marker_data_list: tuples (marker_id_i, name_str, time_s), in
-                placing order.
+            marker_data_list: tuples (marker_id_i, name_str, time_s,
+                color_str), in placing order.
         Outputs: none.
         """
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112, LLFR-00205: the
         # same markers on every plot; hidden plots draw them when shown.
         for plot_widget in self.plot_widget_dict.values():
             plot_widget.set_markers(marker_data_list)
+
+    def set_areas(self, area_data_list: list) -> None:
+        """Draw the shared areas on every time plot of every tab.
+
+        Inputs:
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s,
+                color_str), in creation order.
+        Outputs: none.
+        """
+        # LLFR-00304, LLFR-00312, LLFR-00315, LLFR-00316, LLFR-00310: the
+        # same areas on every plot; hidden plots draw them when shown;
+        # LLFR-00311: a frequency plot leaves them out by itself.
+        for plot_widget in self.plot_widget_dict.values():
+            plot_widget.set_areas(area_data_list)
+
+    def relay_area_drag(self, plot_id_i: int, area_id_i: int,
+                        start_s: float, end_s: float) -> None:
+        """Show an area dragged on one plot at its span on the others.
+
+        Inputs:
+            plot_id_i: id of the plot where the area is dragged.
+            area_id_i: id of the dragged area.
+            start_s: the start it is shown at, in seconds.
+            end_s: the end it is shown at, in seconds.
+        Outputs: none.
+        """
+        # LLFR-00310: while dragged, the area follows the pointer on every
+        # time plot of the current tab; the plots of the other tabs get
+        # the new span when the button is released (controller).
+        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+            plot_widget.follow_area_drag(area_id_i, start_s, end_s)
 
     def relay_marker_drag(self, plot_id_i: int, marker_id_i: int,
                           time_s: float) -> None:

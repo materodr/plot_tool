@@ -7,19 +7,30 @@ name: macOS build
 # loaders, and the warm launch under 10 s. It also checks that the
 # bundle carries the app icon (LLFR-00182): Contents/Resources holds
 # plot_tool.icns, Info.plist names it in CFBundleIconFile, and iconutil
-# can read every image of it. The main test workflow
+# can read every image of it. It also checks that the build copied the
+# sample files next to the app (COR-00020): bin/user_tests/good and
+# bin/user_tests/bad hold the same files as tests/user_tests, with at
+# least one good sample of every format of HLFR-00005 (PCR-00032).
+# The main test workflow
 # (tests.yml) is not changed.
 #
 # Startup checks of the built app (issue #75), from a cold first launch
 # with an empty matplotlib cache and then warm launches:
-# - LLFR-00184: on every launch, the cold one included, the splash
-#   screen is on screen within 2 s, before matplotlib, numpy, pandas or
-#   the plot views are imported;
+# - LLFR-00184: the median time to the splash screen of the warm
+#   launches is within 2 s (the cold launch is reported only), and on
+#   every launch the splash is shown before matplotlib, numpy, pandas
+#   or the plot views are imported;
 # - LLFR-00186: the splash screen is closed when the window is shown;
 # - LLFR-00188: every warm launch shows the window within 5 s (and the
 #   last launch within the older 10 s guard);
 # - LLFR-00189: the font list that matplotlib writes on the first
 #   launch is not written again by the later launches.
+# - LLFR-00406: for every file dialog (Open file, Save layout, Load
+#   layout, Save all tabs as PDF, Save signals), the median time from
+#   the request to the dialog over the warm launches, the first request
+#   after the start included, is within 0.65 s
+#   (PLOT_TOOL_DIALOG_PROBE=1); on every launch no file dialog is shown
+#   before a request (issue #165).
 on:
   pull_request:
     paths:
@@ -30,6 +41,7 @@ on:
       - src/view/splash_screen.py
       - src/view/theme.py
       - src/view/startup_probe.py
+      - src/view/file_dialogs.py
       - src/view/matplotlib_cache.py
       - src/model/file_loader.py
       - src/view/icons.py
@@ -91,6 +103,24 @@ jobs:
           echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
           exit $failed
 
+      # COR-00020, PCR-00032: the sample files are copied next to the
+      # app, one good sample at least for every format of HLFR-00005.
+      - name: Check the sample files next to the app
+        run: |
+          failed=0
+          fail() { echo "::error title=Sample files::$1"; failed=1; }
+          ls -la bin/user_tests bin/user_tests/good bin/user_tests/bad || true
+          for folder in good bad; do
+            [ -d "bin/user_tests/$folder" ] || fail "no bin/user_tests/$folder"
+            diff -r "tests/user_tests/$folder" "bin/user_tests/$folder" || fail "bin/user_tests/$folder differs from tests/user_tests/$folder"
+          done
+          for extension in csv xlsx mat h5; do
+            count=$(find bin/user_tests/good -maxdepth 1 -type f -name "*.$extension" | wc -l | tr -d ' ')
+            [ "$count" -gt 0 ] || fail "no .$extension sample in bin/user_tests/good"
+          done
+          [ -z "$(git status --porcelain --ignored=no bin)" ] || fail "bin/ has files that git would commit"
+          exit $failed
+
       # LLFR-00182: the bundle icon replaces PyInstaller's default one.
       - name: Check the app icon
         run: |
@@ -123,7 +153,10 @@ jobs:
       # PYTHONFAULTHANDLER prints where Python was if a launch crashes.
       # The matplotlib cache is emptied first, so run 1 is the real
       # first launch that builds the font list (LLFR-00184, LLFR-00188,
-      # LLFR-00189).
+      # LLFR-00189). The splash time is judged by the median of the
+      # warm launches (LLFR-00184, note); the cold one is reported only.
+      # These launches do not ask for any dialog, so that no system
+      # panel work of a launch slows the next one (issue #165).
       - name: Measure the startup time
         env:
           PYTHONFAULTHANDLER: "1"
@@ -132,6 +165,24 @@ jobs:
             --limit-s 10 --warm-limit-s 5 --splash-limit-s 2 \
             --font-cache-folder "$HOME/Library/Caches/plot_tool/matplotlib" \
             --clear-font-cache --probe-good-files -- \
+            bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      # LLFR-00406: each launch asks for every file dialog twice, as a
+      # click would, and closes it once it is shown. Launch 1 is
+      # reported only; for each dialog, the median of its times over
+      # launches 2 to 5 must be within 0.65 s (LLFR-00406, note). Every
+      # time and the slowest one are printed. No launch may show a
+      # dialog by itself, and while the dialogs are prepared after the
+      # window is shown, no event-loop turn of launches 2 to 5 may take
+      # more than 2 s (measured: about 1 s for the warm-up of the open
+      # panel).
+      - name: Measure the file dialog opening time
+        timeout-minutes: 15
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          python tests/user_tests/measure_startup.py --runs 5 \
+            --limit-s 1000 --dialog-limit-s 0.65 --turn-limit-s 2 -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
 
       - name: Show the kept matplotlib cache

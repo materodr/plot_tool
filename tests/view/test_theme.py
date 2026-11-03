@@ -4,7 +4,7 @@ The theme only changes how the interface looks. These tests protect the
 looks that requirements fix: active and normal button colors
 (LLFR-00001 to LLFR-00003), the paler disabled Undo button (LLFR-00141),
 the "+" button styled like an unselected tab (LLFR-00107), the curve
-palette and the dashed magenta markers (LLFR-00144, LLFR-00083,
+palette and the dashed orange markers (LLFR-00144, LLFR-00083,
 LLFR-00143), legend and tip colors (LLFR-00037, LLFR-00151). They also
 check that the style lives in one place: the application style sheet is
 set once, and no view file other than theme.py holds a color literal.
@@ -185,7 +185,7 @@ class ThemeTokenTestCase(unittest.TestCase):
             if name_str.endswith("_COLOR_STR")}
         self.assertNotIn(MARKER_COLOR_STR.lower(), theme_color_set)
         self.assertEqual(PALETTE_COLOR_TUPLE[:3],
-                         ("#1f77b4", "#000000", "#d62728"))
+                         ("#1f77b4", "#000000", "#b2182b"))
 
 
 @requires_qt
@@ -236,7 +236,7 @@ class ThemeWidgetTestCase(unittest.TestCase):
                              plot_panel.TAB_BAR_OBJECT_NAME_STR,
                              plot_panel.ADD_BUTTON_OBJECT_NAME_STR))
 
-    @covers("LLFR-00001", "LLFR-00079")
+    @covers("LLFR-00001", "LLFR-00079", "LLFR-00366")
     def test_joined_tool_buttons_show_the_active_color(self) -> None:
         """Each joined plot tool button paints the active color.
 
@@ -252,9 +252,10 @@ class ThemeWidgetTestCase(unittest.TestCase):
         self.application.processEvents()
         segment_list = [button.segment_position_str for button in
                         top_panel.plot_tool_button_dict.values()]
-        # LLFR-00079: Tip, Zoom, Vertical marker, Delta X and Delta Y.
+        # LLFR-00079, LLFR-00347: Tip, Zoom, Pan, Vertical marker,
+        # Delta X, Delta Y, Area, Text and Arrow.
         self.assertEqual(segment_list, [theme.SEGMENT_FIRST_STR]
-                         + [theme.SEGMENT_MIDDLE_STR] * 3
+                         + [theme.SEGMENT_MIDDLE_STR] * 7
                          + [theme.SEGMENT_LAST_STR])
         for button in top_panel.plot_tool_button_dict.values():
             with self.subTest(button=button_name(button)):
@@ -297,7 +298,7 @@ class ThemeWidgetTestCase(unittest.TestCase):
             (name_str, time_array, time_array * index_i,
              PALETTE_COLOR_TUPLE[index_i], 1)
             for index_i, name_str in enumerate(name_list)])
-        plot_widget.set_markers([(1, "Marker 1", 0.5)])
+        plot_widget.set_markers([(1, "Flag 1", 0.5)])
         plot_widget.set_pinned_tips([("second", 0.5, 0.5)])
         plot_widget.canvas.draw()
         line_color_list = [to_hex(plot_widget.curve_line_dict[name_str]

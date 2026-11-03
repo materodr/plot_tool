@@ -170,3 +170,15 @@ class UndoHistory:
         # and no redo history.
         self.snapshot_list = []
         self.redo_snapshot_list = []
+
+    def saved_snapshot_list(self) -> list:
+        """Return every saved state, for undo and for redo.
+
+        Inputs: none.
+        Outputs: a new list with the undo states, oldest first, then the
+            redo states, oldest first. The states themselves are the
+            saved objects, so a caller may update them in place.
+        """
+        # LLFR-00266: renaming a synthetic signal is not undoable and
+        # keeps the history, so the saved states are renamed in place.
+        return list(self.snapshot_list) + list(self.redo_snapshot_list)

@@ -7,7 +7,8 @@ undo GUI tests). Dialogs are patched, so no modal window is left open.
 import unittest
 from unittest import mock
 
-from tests.support import button_name, covers, requires_qt
+from tests.support import (
+    button_name, button_tip_line_list, covers, requires_qt)
 from tests.view.test_undo import UndoWindowTestCase
 
 
@@ -74,12 +75,11 @@ class RedoButtonTest(RedoWindowTestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QPushButton
-        from view import theme
         from view.undo_button import UndoButton
         self.assertIsInstance(self.redo_button, QPushButton)
         self.assertIsInstance(self.redo_button, UndoButton)
         self.assertEqual(button_name(self.redo_button), "Redo")
-        self.assertEqual(self.redo_button.toolTip(), "Redo")
+        self.assertEqual(button_tip_line_list(self.redo_button)[0], "Redo")
         self.assertEqual(self.redo_button.accessibleName(), "Redo")
         self.assertEqual(self.redo_button.text(), "")
         self.assertFalse(self.redo_button.icon().isNull())
@@ -92,9 +92,8 @@ class RedoButtonTest(RedoWindowTestCase):
         self.assertIs(button_list[undo_index_i + 1], self.redo_button)
         undo_right_i = (self.top_panel.undo_button.x()
                         + self.top_panel.undo_button.width())
-        self.assertGreater(self.redo_button.x(), undo_right_i - 1)
-        self.assertLessEqual(self.redo_button.x() - undo_right_i,
-                             theme.TOOLBAR_BUTTON_GAP_I)
+        # LLFR-00348: joined to the Undo button, with no gap.
+        self.assertEqual(self.redo_button.x(), undo_right_i)
         self.assertEqual(self.redo_button.y(),
                          self.top_panel.undo_button.y())
         self.assertEqual(self.redo_button.size(),

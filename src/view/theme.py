@@ -50,10 +50,26 @@ CONTROL_BORDER_COLOR_STR = "#c3cbd3"
 # Rows of the signal list and items of the menus.
 ROW_HOVER_COLOR_STR = "#f0f3f6"
 ROW_SELECTED_COLOR_STR = "#e1e7ed"
+# LLFR-00332: the time signal name in the signal list. Its contrast is
+# at least 4.5:1 against the list background (SURFACE_COLOR_STR), a
+# hovered row (ROW_HOVER_COLOR_STR) and a selected row
+# (ROW_SELECTED_COLOR_STR).
+TIME_SIGNAL_TEXT_COLOR_STR = "#137333"
 # Keyboard focus of the search box and the signal list.
 FOCUS_COLOR_STR = "#4b7aa8"
-# The handle between the plot and signal list panels while hovered.
-SPLITTER_HOVER_COLOR_STR = "#c9d1d9"
+# LLFR-00280: the blue line drawn on the border between the plot and
+# signal list panels while the pointer is over it or it is dragged. It
+# is the accent blue of the chrome (the keyboard focus color), not the
+# blue curve color of LLFR-00144, so that it is never taken for a curve.
+RESIZE_BORDER_COLOR_STR = FOCUS_COLOR_STR
+RESIZE_BORDER_WIDTH_I = 2
+# LLFR-00213, LLFR-00214: the paler color of the lines below the name
+# in a button tip; still readable on the tip background.
+TOOLTIP_DETAIL_COLOR_STR = MUTED_TEXT_COLOR_STR
+# LLFR-00245, LLFR-00269, LLFR-00272: the reason shown in a parameter
+# dialog when a typed value is not allowed; a dark red, readable on the
+# dialog surface.
+DIALOG_ERROR_TEXT_COLOR_STR = "#b3261e"
 
 # ----------------------------------------------------------------------
 # Buttons of the top panel (HLFR-00003)
@@ -76,8 +92,10 @@ DISABLED_BORDER_COLOR_STR = "#dfe4e9"
 BUTTON_RADIUS_I = 6
 BUTTON_VERTICAL_PADDING_I = 6
 BUTTON_HORIZONTAL_PADDING_I = 12
-# Position of a button in a segmented group (the plot tools, which are
-# exclusive, HLFR-00032, are drawn joined): single, first, middle, last.
+# LLFR-00348: position of a button in a joined group of buttons
+# (LLFR-00347): single, first, middle, last. Only the outer side of the
+# first and last buttons is rounded, and joined buttons share one
+# border line: the right border of the button on its left.
 SEGMENT_SINGLE_STR = "single"
 SEGMENT_FIRST_STR = "first"
 SEGMENT_MIDDLE_STR = "middle"
@@ -136,8 +154,16 @@ SPLASH_MESSAGE_FONT_SIZE_I = 13
 WINDOW_MARGIN_I = 12
 WINDOW_TOP_MARGIN_I = 10
 PANEL_SPACING_I = 10
-TOOLBAR_BUTTON_GAP_I = 4
+# LLFR-00348, LLFR-00349: the buttons of a group touch; 16 px separate
+# one group from the next.
 TOOLBAR_GROUP_GAP_I = 16
+# LLFR-00364: the credit text at the right end of the top panel, paler
+# than the panel's normal text (TEXT_COLOR_STR) and than the muted text,
+# so that it never competes with the buttons; it is hidden when it would
+# come closer to the last button than CREDIT_MINIMUM_GAP_I.
+CREDIT_TEXT_COLOR_STR = "#8d98a3"
+CREDIT_FONT_SIZE_I = 11
+CREDIT_MINIMUM_GAP_I = TOOLBAR_GROUP_GAP_I
 SIGNAL_PANEL_SPACING_I = 8
 SPLITTER_HANDLE_WIDTH_I = 8
 PLOT_SPACING_I = 6
@@ -234,6 +260,17 @@ MARKER_TEXT_BOX_DICT = {"boxstyle": "round,pad=0.2,rounding_size=0.25",
                         "facecolor": PLOT_BACKGROUND_COLOR_STR,
                         "edgecolor": "none", "alpha": 0.92}
 
+# LLFR-00336: a text note is its text on a white rounded box with a
+# border, like a pinned data tip (PINNED_TIP_BOX_DICT), with no other
+# fill color. The text and border colors of each note are its own
+# (model.workspace.TextNote); new notes use the app's text color.
+TEXT_NOTE_TEXT_COLOR_STR = TEXT_COLOR_STR
+TEXT_NOTE_BACKGROUND_COLOR_STR = PLOT_BACKGROUND_COLOR_STR
+TEXT_NOTE_BORDER_COLOR_STR = TEXT_COLOR_STR
+TEXT_NOTE_BOX_DICT = dict(PINNED_TIP_BOX_DICT,
+                          facecolor=TEXT_NOTE_BACKGROUND_COLOR_STR,
+                          edgecolor=TEXT_NOTE_BORDER_COLOR_STR)
+
 
 def segment_corner_rule(segment_str: str) -> str:
     """Return the border and corner declarations of a button segment.
@@ -244,7 +281,9 @@ def segment_corner_rule(segment_str: str) -> str:
     Outputs: Qt style sheet declarations for the corner radii and the
         left border; joined segments share one border line.
     """
-    # LLFR-00001: the plot tool buttons form one joined group.
+    # LLFR-00348: the buttons of a group are joined; a middle or last
+    # button has no left border, so the right border of its left
+    # neighbour is the one line they share.
     radius_str = f"{BUTTON_RADIUS_I}px"
     if segment_str == SEGMENT_FIRST_STR:
         return (f"border-top-left-radius: {radius_str}; "
@@ -260,6 +299,25 @@ def segment_corner_rule(segment_str: str) -> str:
                 "border-bottom-left-radius: 0px; "
                 "border-left-width: 0px;")
     return f"border-radius: {radius_str};"
+
+
+def shared_border_rule(segment_str: str) -> str:
+    """Return the color of the line a button shares with its right
+    neighbour while the button is disabled.
+
+    Inputs:
+        segment_str: the button's place in a joined group.
+    Outputs: a declaration that keeps the right border, which the next
+        button of the group uses as its left edge, in the normal border
+        color; "" for a last or single button, which shares no line.
+    """
+    # LLFR-00350: a disabled button must not make its enabled right
+    # neighbour look paler, so the shared line keeps the normal color;
+    # the disabled button still shows its state by its paler
+    # background, icon and outer borders (LLFR-00141).
+    if segment_str in (SEGMENT_FIRST_STR, SEGMENT_MIDDLE_STR):
+        return f"border-right-color: {BUTTON_BORDER_COLOR_STR};"
+    return ""
 
 
 def toggle_button_style_sheet(object_name_str: str, active_b: bool,
@@ -318,7 +376,8 @@ def toggle_button_style_sheet(object_name_str: str, active_b: bool,
             f"background-color: {DISABLED_COLOR_STR}; "
             f"color: {DISABLED_TEXT_COLOR_STR}; "
             f"border: 1px solid {DISABLED_BORDER_COLOR_STR}; "
-            f"{segment_corner_rule(segment_str)} }}")
+            f"{segment_corner_rule(segment_str)} "
+            f"{shared_border_rule(segment_str)} }}")
     return "\n".join(rule_list)
 
 
@@ -407,6 +466,21 @@ def splash_style_sheet(card_name_str: str, name_label_name_str: str,
     ])
 
 
+def credit_label_style_sheet(label_name_str: str) -> str:
+    """Return the style sheet of the credit text of the top panel.
+
+    Inputs:
+        label_name_str: objectName of the QLabel of the credit text.
+    Outputs: a Qt style sheet with the pale CREDIT_TEXT_COLOR_STR, a
+        small font, no background and no border, and no hover rule, so
+        that the text never reacts to the mouse.
+    """
+    # LLFR-00364: paler than the panel's normal text; not a button.
+    return (f"QLabel#{label_name_str} {{ color: {CREDIT_TEXT_COLOR_STR}; "
+            f"font-size: {CREDIT_FONT_SIZE_I}px; background: transparent; "
+            "border: none; padding: 0px; margin: 0px; }")
+
+
 def application_style_sheet() -> str:
     """Return the style sheet set once on the whole application.
 
@@ -438,8 +512,11 @@ def application_style_sheet() -> str:
         "border-radius: 4px; border: none; }",
         f"QListWidget#signal_list_widget::item:hover {{ background: "
         f"{ROW_HOVER_COLOR_STR}; }}",
+        # LLFR-00332: no text color here, so that a selected row keeps
+        # the color of its name (the green of the time signal); the
+        # list's item delegate draws a selected name in its own color.
         f"QListWidget#signal_list_widget::item:selected {{ background: "
-        f"{ROW_SELECTED_COLOR_STR}; color: {TEXT_COLOR_STR}; }}",
+        f"{ROW_SELECTED_COLOR_STR}; }}",
         f"QLabel#no_match_label {{ color: {MUTED_TEXT_COLOR_STR}; "
         "padding-top: 16px; }",
         f"QLineEdit {{ background: {SURFACE_COLOR_STR}; "
@@ -448,10 +525,9 @@ def application_style_sheet() -> str:
         f"padding: 5px 8px; selection-background-color: "
         f"{ROW_SELECTED_COLOR_STR}; selection-color: {TEXT_COLOR_STR}; }}",
         f"QLineEdit:focus {{ border-color: {FOCUS_COLOR_STR}; }}",
-        # Splitter between the plot and signal list panels (LLFR-00073).
+        # Splitter between the plot and signal list panels (LLFR-00073);
+        # its handle draws its own blue line (LLFR-00280).
         "QSplitter::handle { background: transparent; }",
-        f"QSplitter::handle:hover {{ background: "
-        f"{SPLITTER_HOVER_COLOR_STR}; border-radius: 2px; }}",
         # Menus: tab, curve, plot, marker, tip and Export menus.
         f"QMenu {{ background: {SURFACE_COLOR_STR}; color: "
         f"{TEXT_COLOR_STR}; border: 1px solid {HAIRLINE_COLOR_STR}; "
@@ -462,7 +538,8 @@ def application_style_sheet() -> str:
         f"QMenu::item:disabled {{ color: {DISABLED_TEXT_COLOR_STR}; }}",
         f"QMenu::separator {{ height: 1px; background: "
         f"{HAIRLINE_COLOR_STR}; margin: 4px 6px; }}",
-        # LLFR-00181: the name of a top panel button shown on hover.
+        # LLFR-00181: the name of a top panel button shown on hover;
+        # LLFR-00213, LLFR-00214: its paler lines are in the tip text.
         f"QToolTip {{ background: {SURFACE_COLOR_STR}; color: "
         f"{TEXT_COLOR_STR}; border: 1px solid {CONTROL_BORDER_COLOR_STR}; "
         f"border-radius: {TOOLTIP_RADIUS_I}px; padding: 3px 7px; }}",

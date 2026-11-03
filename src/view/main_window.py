@@ -1,22 +1,30 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeySequence, QShortcut
+import sys
+
+from PyQt6.QtCore import QEventLoop, Qt, QUrl
+from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
     QLineEdit, QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout,
     QWidget)
 
 from controller.plot_tools import (
-    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
-    TIP_TOOL_STR)
-from view import icons, message_boxes, plot_export, theme
+    ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
+    MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
+from model import file_writer
+from model.workspace import TIME_PLOT_KIND_STR
+from view import (
+    color_picker, file_dialogs, file_writing, icons, message_boxes,
+    plot_export, synthetic_dialogs, theme)
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.signal_list_panel import SignalListPanel
 from view.tip_key_filter import (
-    DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I, RESET_ZOOM_KEY_I, TIP_KEY_I,
-    ToolKeyFilter)
+    ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, ESCAPE_KEY_I,
+    MARKER_KEY_I,
+    RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ToolKeyFilter)
+from view import top_panel
 from view.top_panel import TopPanel
 
 
@@ -26,15 +34,37 @@ from view.top_panel import TopPanel
 OPEN_FILE_DIALOG_TITLE_STR = "Open file"
 OPEN_FILE_FILTER_STR = ("Time series files (*.csv *.xlsx *.mat *.h5 *.hdf5)"
                         ";;All files (*)")
-# LLFR-00088: title and label of the marker rename dialog.
-RENAME_MARKER_DIALOG_TITLE_STR = "Rename marker"
-RENAME_MARKER_DIALOG_LABEL_STR = "New marker name:"
+# LLFR-00088: title and label of the flag rename dialog.
+RENAME_MARKER_DIALOG_TITLE_STR = "Rename flag"
+RENAME_MARKER_DIALOG_LABEL_STR = "New flag name:"
+# LLFR-00315: the dialog that renames an area.
+RENAME_AREA_DIALOG_TITLE_STR = "Rename area"
+RENAME_AREA_DIALOG_LABEL_STR = "New area name:"
+# LLFR-00266: title and label of the synthetic signal rename dialog.
+RENAME_SIGNAL_DIALOG_TITLE_STR = "Rename signal"
+RENAME_SIGNAL_DIALOG_LABEL_STR = "New signal name:"
 # LLFR-00128: title and filter of the PDF save file dialog.
 SAVE_PDF_DIALOG_TITLE_STR = "Save all tabs as PDF"
 SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
 # LLFR-00128: added by the dialog to a name typed without an extension,
 # so that its overwrite question names the file really written.
 SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
+# LLFR-00219, LLFR-00221: titles and filter of the layout dialogs.
+SAVE_LAYOUT_DIALOG_TITLE_STR = "Save layout"
+LOAD_LAYOUT_DIALOG_TITLE_STR = "Load layout"
+LAYOUT_FILTER_STR = "Layout files (*.json)"
+# LLFR-00219: added by the dialog to a name typed without an extension,
+# so that its overwrite question (LLFR-00223) names the file written.
+LAYOUT_DEFAULT_SUFFIX_STR = "json"
+# LLFR-00396: title and format filters of the Save signals dialog, one
+# filter per format of HLFR-00005.
+SAVE_SIGNALS_DIALOG_TITLE_STR = "Save signals"
+SIGNALS_FILTER_DICT = {
+    file_writer.CSV_FORMAT_STR: "CSV files (*.csv)",
+    file_writer.EXCEL_FORMAT_STR: "Excel files (*.xlsx)",
+    file_writer.MAT_FORMAT_STR: "MAT files (*.mat)",
+    file_writer.HDF5_FORMAT_STR: "HDF5 files (*.h5 *.hdf5)",
+}
 # LLFR-00196, LLFR-00195: widgets whose own Ctrl+Z (Cmd+Z) and Ctrl+Y
 # (Cmd+Y) act on the typed text, so the workspace undo and redo must not
 # run while one of them has the focus.
@@ -42,8 +72,16 @@ TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
                            QAbstractSpinBox)
 # LLFR-00191: the Redo shortcut. "Ctrl" is the Command key on macOS in a
 # portable key sequence, so this is Ctrl+Y on Windows and Cmd+Y on
-# macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS).
-REDO_SHORTCUT_STR = "Ctrl+Y"
+# macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS). It is kept
+# with the button tip texts in view.top_panel, so that the shortcut and
+# its button tip change together (LLFR-00215).
+REDO_SHORTCUT_STR = top_panel.REDO_SHORTCUT_STR
+# LLFR-00406: the names of the file dialogs kept by the dialog pool.
+OPEN_FILE_DIALOG_KEY_STR = "open_file"
+SAVE_LAYOUT_DIALOG_KEY_STR = "save_layout"
+LOAD_LAYOUT_DIALOG_KEY_STR = "load_layout"
+SAVE_PDF_DIALOG_KEY_STR = "save_pdf"
+SAVE_SIGNALS_DIALOG_KEY_STR = "save_signals"
 
 
 class MainWindow(QMainWindow):
@@ -64,11 +102,12 @@ class MainWindow(QMainWindow):
     WINDOW_TITLE_STR = "plot_tool"
     INITIAL_WIDTH_I = 1200
     INITIAL_HEIGHT_I = 800
-    # LLFR-00072: the signal list panel starts at 25% of the width and
-    # keeps that share (3:1) when the window grows or shrinks.
-    PLOT_PANEL_STRETCH_I = 3
+    # LLFR-00072: the signal list panel starts at 20% of the width, the
+    # plot panel at 80%, and they keep that share (4:1) when the window
+    # grows or shrinks.
+    PLOT_PANEL_STRETCH_I = 4
     SIGNAL_LIST_STRETCH_I = 1
-    SIGNAL_LIST_WIDTH_FRACTION_F = 0.25
+    SIGNAL_LIST_WIDTH_FRACTION_F = 0.20
 
     def __init__(self) -> None:
         """Create the panels and arrange them in the window.
@@ -92,6 +131,8 @@ class MainWindow(QMainWindow):
         self.top_panel = TopPanel()
         self.plot_panel = PlotPanel()
         self.signal_list_panel = SignalListPanel()
+        # LLFR-00418: whether the busy pointer of a file read is shown.
+        self.loading_cursor_shown_b = False
 
         # LLFR-00058: the signal list panel is to the right of the plot
         # panel. LLFR-00073: the user can drag the border between them.
@@ -115,6 +156,24 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)
 
+        # LLFR-00406: every file dialog is built once, prepared after
+        # the window is shown (prepare_file_dialogs), and reused.
+        self.file_dialog_pool = file_dialogs.FileDialogPool()
+        self.file_dialog_pool.register(
+            OPEN_FILE_DIALOG_KEY_STR, lambda: self.build_open_file_dialog(""))
+        self.file_dialog_pool.register(
+            SAVE_LAYOUT_DIALOG_KEY_STR,
+            lambda: self.build_layout_save_dialog(""))
+        self.file_dialog_pool.register(
+            LOAD_LAYOUT_DIALOG_KEY_STR,
+            lambda: self.build_layout_load_dialog(""))
+        self.file_dialog_pool.register(SAVE_PDF_DIALOG_KEY_STR,
+                                       self.build_pdf_save_dialog)
+        self.file_dialog_pool.register(
+            SAVE_SIGNALS_DIALOG_KEY_STR,
+            lambda: self.build_signals_save_dialog(
+                "", "", file_writer.CSV_FORMAT_STR))
+
         # LLFR-00005: handlers set by the controllers.
         self.open_file_handler = None
         self.signal_double_click_handler = None
@@ -127,10 +186,32 @@ class MainWindow(QMainWindow):
         self.top_panel.plot_tool_changed.connect(self._on_plot_tool_changed)
         self.signal_list_panel.signal_double_clicked.connect(
             self._on_signal_double_clicked)
+        # LLFR-00295: Enter in the signal list plots the selection.
+        self.selected_signals_plot_handler = None
+        self.signal_list_panel.selected_signals_plot_requested.connect(
+            self._on_selected_signals_plot_requested)
         # LLFR-00095: the search text goes to the signal list controller.
         self.search_text_handler = None
         self.signal_list_panel.search_text_changed.connect(
             self._on_search_text_changed)
+        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278:
+        # the options of the signal menu go to the synthetic controller.
+        self.signal_menu_handler_dict = {}
+        self.signal_list_panel.synthetic_operation_requested.connect(
+            lambda name_str, operation_str: self._run_signal_menu_handler(
+                "create", name_str, operation_str))
+        self.signal_list_panel.copy_name_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "copy_name", name_str))
+        self.signal_list_panel.rename_signal_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "rename", name_str))
+        self.signal_list_panel.delete_signal_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "delete", name_str))
+        self.signal_list_panel.copy_equation_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "copy_equation", name_str))
         # LLFR-00115: the Reset zoom button goes to the plot controller.
         self.reset_zoom_handler = None
         self.top_panel.reset_zoom_button.triggered.connect(
@@ -154,20 +235,32 @@ class MainWindow(QMainWindow):
         # LLFR-00148 to LLFR-00150: holding the Tip key keeps the Tip
         # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
         # Vertical marker tool active; LLFR-00197 to LLFR-00202: holding
-        # X or Y keeps the Delta X or Delta Y tool active; LLFR-00207: Z
-        # alone resets the zoom; LLFR-00157: none of them in text fields.
+        # X or Y keeps the Delta X or Delta Y tool active; LLFR-00287,
+        # LLFR-00321: holding A or T keeps the Area or Text tool active;
+        # LLFR-00367: holding R keeps the Arrow tool active;
+        # LLFR-00207: Z alone resets the zoom; LLFR-00370: Esc alone
+        # switches off the active plot tool; LLFR-00157: none of them
+        # in text fields (any QLineEdit, QTextEdit, QPlainTextEdit or
+        # spin box, so also the search boxes of dialogs and windows and
+        # the fields of names and text notes).
         # The filter sees the keys of every widget and dialog of the
         # application, and consumes none.
         self.tip_key_changing_tool_b = False
         self.tool_key_filter = ToolKeyFilter(
             {TIP_KEY_I: TIP_TOOL_STR, MARKER_KEY_I: MARKER_TOOL_STR,
              DELTA_X_KEY_I: DELTA_X_TOOL_STR,
-             DELTA_Y_KEY_I: DELTA_Y_TOOL_STR},
+             DELTA_Y_KEY_I: DELTA_Y_TOOL_STR,
+             AREA_KEY_I: AREA_TOOL_STR, TEXT_KEY_I: TEXT_TOOL_STR,
+             ARROW_KEY_I: ARROW_TOOL_STR},
             self.on_tool_key_activate, self.on_tool_key_release,
             TEXT_INPUT_WIDGET_TUPLE, self,
-            {RESET_ZOOM_KEY_I: self.on_reset_zoom_key})
+            {RESET_ZOOM_KEY_I: self.on_reset_zoom_key,
+             ESCAPE_KEY_I: self.on_escape_key})
         # LLFR-00148: the name used before the Shift key was added.
         self.tip_key_filter = self.tool_key_filter
+        # LLFR-00302: over the signal list, Cmd/Ctrl and Shift select.
+        self.tool_key_filter.set_selection_area_function(
+            self.is_pointer_over_signal_list)
         application = QApplication.instance()
         if application is not None:
             application.installEventFilter(self.tool_key_filter)
@@ -177,7 +270,7 @@ class MainWindow(QMainWindow):
         self.undo_handler = None
         self.top_panel.undo_button.triggered.connect(
             self._on_undo_triggered)
-        self.undo_shortcut = QShortcut(QKeySequence.StandardKey.Undo, self)
+        self.undo_shortcut = QShortcut(top_panel.UNDO_STANDARD_KEY, self)
         self.undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.undo_shortcut.activated.connect(self._on_undo_shortcut)
         # LLFR-00190, LLFR-00192: the Redo button goes to the plot
@@ -188,6 +281,24 @@ class MainWindow(QMainWindow):
         self.redo_shortcut = QShortcut(QKeySequence(REDO_SHORTCUT_STR), self)
         self.redo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.redo_shortcut.activated.connect(self._on_redo_shortcut)
+        # LLFR-00216, LLFR-00217: the layout buttons go to the layout
+        # controller.
+        self.save_layout_handler = None
+        self.load_layout_handler = None
+        self.top_panel.save_layout_requested.connect(
+            self._on_save_layout_requested)
+        self.top_panel.load_layout_requested.connect(
+            self._on_load_layout_requested)
+        # LLFR-00394: the Save signals button goes to the save signals
+        # controller.
+        self.save_signals_handler = None
+        self.top_panel.save_signals_requested.connect(
+            self._on_save_signals_requested)
+        # LLFR-00359: the Report a bug button opens the page of a new
+        # issue; it needs no controller, since it changes nothing in the
+        # model (no file, plot or undo history is touched).
+        self.top_panel.report_bug_requested.connect(
+            self._on_report_bug_requested)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -212,10 +323,63 @@ class MainWindow(QMainWindow):
         # LLFR-00005: show the file selection dialog.
         # LLFR-00007: an empty path means the dialog was cancelled.
         # LLFR-00204: the folder is chosen by the file controller.
-        path_str, _ = QFileDialog.getOpenFileName(
-            self, OPEN_FILE_DIALOG_TITLE_STR, start_folder_str,
-            OPEN_FILE_FILTER_STR)
-        return path_str or ""
+        # LLFR-00406: the dialog built once, shown again.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            OPEN_FILE_DIALOG_KEY_STR, start_folder_str)
+        return self.run_open_file_dialog(dialog) or ""
+
+    def build_open_file_dialog(self, start_folder_str: str) -> QFileDialog:
+        """Build the file selection dialog of the Open file button.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows; "" lets Qt
+                choose.
+        Outputs: a QFileDialog, not shown, that selects one existing
+            file, with the time series filter first and "All files".
+        """
+        # LLFR-00005, LLFR-00011: the same dialog as QFileDialog's
+        # getOpenFileName, with its filters.
+        dialog = QFileDialog(self, OPEN_FILE_DIALOG_TITLE_STR,
+                             start_folder_str, OPEN_FILE_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        return dialog
+
+    def run_open_file_dialog(self, dialog) -> str:
+        """Run the Open file dialog modally and return the chosen path.
+
+        Inputs:
+            dialog: the QFileDialog of build_open_file_dialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00005, LLFR-00007: the modal dialog.
+        return file_dialogs.run_file_dialog(dialog)
+
+    def prepare_file_dialogs(self) -> None:
+        """Build every file dialog at once, so the first click is fast.
+
+        Inputs: none.
+        Outputs: none. No dialog is shown.
+        """
+        # LLFR-00406: the same steps as schedule_file_dialog_preparation,
+        # without waiting.
+        self.file_dialog_pool.prepare_all()
+
+    def schedule_file_dialog_preparation(
+            self, start_delay_ms_i: int =
+            file_dialogs.PREPARE_START_DELAY_MS_I) -> None:
+        """Prepare the file dialogs in steps, once the window is shown.
+
+        Inputs:
+            start_delay_ms_i: milliseconds before the first step.
+        Outputs: none. The steps run one per event-loop turn; none of
+            them shows a dialog (issue #165).
+        """
+        # LLFR-00406, LLFR-00188: after the window is shown, so that
+        # preparing the dialogs neither delays the window nor keeps it
+        # from answering the user.
+        self.file_dialog_pool.schedule_preparation(self, start_delay_ms_i)
 
     def finish_open_file_button(self) -> None:
         """Return the Open file button to its normal color.
@@ -236,6 +400,41 @@ class MainWindow(QMainWindow):
         # LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012: notify the
         # error (HLFR-00002).
         message_boxes.show_file_open_error(self, message_str)
+
+    def show_loading_indication(self, text_str: str) -> None:
+        """Show the busy pointer and the loading text while a file is read.
+
+        Inputs:
+            text_str: the text of the status line ("Loading...").
+        Outputs: none. The window is repainted before this returns, so
+            the indication is seen while the file is read.
+        """
+        # LLFR-00418: the busy pointer over the app window. It is set
+        # only once, so that hide_loading_indication restores it fully.
+        if not self.loading_cursor_shown_b:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            self.loading_cursor_shown_b = True
+        # LLFR-00418: "Loading..." in the status line below the search
+        # box.
+        self.signal_list_panel.show_status_text(text_str)
+        # LLFR-00418: repaint now; the file is read in this same event
+        # handler, so without this the text would appear only after the
+        # read. User input waits, so no other action starts meanwhile.
+        QApplication.processEvents(
+            QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
+
+    def hide_loading_indication(self) -> None:
+        """Restore the normal pointer and empty the status line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00418: reading ended; the indication goes away before any
+        # File Open Error box or the time signal window.
+        if self.loading_cursor_shown_b:
+            QApplication.restoreOverrideCursor()
+            self.loading_cursor_shown_b = False
+        self.signal_list_panel.show_status_text("")
 
     def ask_replace_file(self) -> bool:
         """Ask whether to close the open file and open the selected one.
@@ -287,6 +486,235 @@ class MainWindow(QMainWindow):
         # LLFR-00104: the search is cleared when the file is replaced.
         self.signal_list_panel.clear_search()
 
+    # ----------------------------------------------------------------
+    # Signal menu facade, used by the synthetic controller
+    # ----------------------------------------------------------------
+
+    def set_synthetic_operation_groups(self, group_list: list) -> None:
+        """Set the operations listed by "Create synthetic signal".
+
+        Inputs:
+            group_list: list of (group label, list of (operation id,
+                operation label)), in menu order.
+        Outputs: none.
+        """
+        # LLFR-00268: the groups and operations of the menu.
+        self.signal_list_panel.set_operation_groups(group_list)
+
+    def set_signal_kinds(self, synthetic_name_set: set,
+                         fft_name_set: set) -> None:
+        """Tell the signal list which names are synthetic or FFT signals.
+
+        Inputs:
+            synthetic_name_set: the synthetic signal names.
+            fft_name_set: the FFT signal names among them.
+        Outputs: none.
+        """
+        # LLFR-00242: italics; LLFR-00251, LLFR-00254, LLFR-00265,
+        # LLFR-00278: the options of their menu.
+        self.signal_list_panel.set_signal_kinds(synthetic_name_set,
+                                                fft_name_set)
+
+    def set_signal_menu_handlers(self, create_handler, copy_name_handler,
+                                 rename_handler, delete_handler,
+                                 copy_equation_handler) -> None:
+        """Set the functions called by the options of the signal menu.
+
+        Inputs:
+            create_handler: function taking (signal name, operation id).
+            copy_name_handler: function taking a signal name.
+            rename_handler: function taking a signal name.
+            delete_handler: function taking a signal name.
+            copy_equation_handler: function taking a signal name.
+        Outputs: none.
+        """
+        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278.
+        self.signal_menu_handler_dict = {
+            "create": create_handler, "copy_name": copy_name_handler,
+            "rename": rename_handler, "delete": delete_handler,
+            "copy_equation": copy_equation_handler}
+
+    def _run_signal_menu_handler(self, key_str: str, *argument_tuple):
+        """Pass a signal menu request to its handler.
+
+        Inputs:
+            key_str: which option was chosen.
+            argument_tuple: the signal name, and the operation id for a
+                creation.
+        Outputs: none. Ignored when no handler is set.
+        """
+        # LLFR-00239: the controller runs the chosen option.
+        handler = self.signal_menu_handler_dict.get(key_str)
+        if handler is not None:
+            handler(*argument_tuple)
+
+    def run_modal_dialog(self, dialog) -> bool:
+        """Run a synthetic signal dialog modally.
+
+        Inputs:
+            dialog: a dialog of view.synthetic_dialogs.
+        Outputs: True when it was closed with OK. Tests replace this
+            method to fill in the dialog without a modal loop.
+        """
+        # LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00275: the dialog.
+        return synthetic_dialogs.run_dialog(dialog)
+
+    def ask_synthetic_parameter(self, title_str: str, prompt_str: str,
+                                field_list: list, check_function,
+                                choice_tuple: tuple = ()):
+        """Ask for the numbers an operation needs.
+
+        Inputs:
+            title_str: the window title (the operation's label).
+            prompt_str: the question, with the allowed ranges.
+            field_list: (label_str, starting text) per field.
+            check_function: value list -> reason ("" when allowed);
+                the dialog stays open and shows the reason while there
+                is one.
+            choice_tuple: () or (label, [(id, label)], id at first),
+                for example how a filter starts (LLFR-00245).
+        Outputs: the accepted texts, one per field, then the chosen id
+            when there is a choice; None when the user cancelled.
+        """
+        # LLFR-00245, LLFR-00269, LLFR-00272: the parameter dialog.
+        dialog = synthetic_dialogs.build_parameter_dialog(
+            self, title_str, prompt_str, field_list, check_function,
+            choice_tuple)
+        try:
+            if not self.run_modal_dialog(dialog):
+                return None
+            return dialog.value_list()
+        finally:
+            dialog.deleteLater()
+
+    def ask_second_signal(self, title_str: str, prompt_str: str,
+                          name_list: list, selected_name_str: str,
+                          search_function=None,
+                          no_match_text_str: str = ""):
+        """Ask for the second signal of a product.
+
+        Inputs:
+            title_str: the window title.
+            prompt_str: the question.
+            name_list: the names to choose from.
+            selected_name_str: the name selected at first.
+            search_function: text -> the names of name_list that match
+                it, in the order to show them; None shows every name.
+            no_match_text_str: the text shown when no name matches.
+        Outputs: the chosen name, or None when the user cancelled.
+        """
+        # LLFR-00275, LLFR-00285: the second signal dialog, with its
+        # search box.
+        dialog = synthetic_dialogs.build_second_signal_dialog(
+            self, title_str, prompt_str, name_list, selected_name_str,
+            search_function, no_match_text_str)
+        try:
+            if not self.run_modal_dialog(dialog):
+                return None
+            return dialog.chosen_name()
+        finally:
+            dialog.deleteLater()
+
+    def ask_time_signal_name(self, prompt_str: str, name_list: list,
+                             search_function, no_match_text_str: str,
+                             check_function):
+        """Ask the user for the signal that goes on the x-axis.
+
+        Inputs:
+            prompt_str: the text of the window.
+            name_list: every signal of the file, in the file's order.
+            search_function: text -> the names of name_list that match
+                it, in the order to show them.
+            no_match_text_str: the text shown when no name matches.
+            check_function: name -> the reason it can't be the time
+                signal, or "" when it can.
+        Outputs: the confirmed name, or None when the user cancelled.
+        """
+        # LLFR-00325, LLFR-00329: the time signal window.
+        dialog = synthetic_dialogs.build_time_signal_dialog(
+            self, prompt_str, name_list, search_function,
+            no_match_text_str, check_function)
+        try:
+            if not self.run_modal_dialog(dialog):
+                # LLFR-00327: cancelled.
+                return None
+            return dialog.chosen_name()
+        finally:
+            dialog.deleteLater()
+
+    def show_file_name(self, file_name_str: str) -> None:
+        """Show the name of the opened data file above the signal list.
+
+        Inputs:
+            file_name_str: the file name with its extension, without
+                its folder.
+        Outputs: none.
+        """
+        # LLFR-00362, LLFR-00363: the file name line.
+        self.signal_list_panel.show_file_name(file_name_str)
+
+    def set_time_signal_name(self, name_str: str) -> None:
+        """Tell the signal list which signal is the time signal.
+
+        Inputs:
+            name_str: the time signal of the opened file.
+        Outputs: none. Used by the next show_signal_names.
+        """
+        # LLFR-00332: the time signal name is shown in green.
+        self.signal_list_panel.set_time_signal_name(name_str)
+
+    def ask_delete_synthetic_signal(self, name_str: str,
+                                    dependent_name_list: list) -> bool:
+        """Ask whether to delete a synthetic signal and its dependents.
+
+        Inputs:
+            name_str: the synthetic signal name.
+            dependent_name_list: the synthetic signals computed from it.
+        Outputs: True when the user proceeds.
+        """
+        # LLFR-00255: the question names the dependents.
+        return message_boxes.ask_delete_synthetic_signal(
+            self, name_str, dependent_name_list)
+
+    def ask_synthetic_signal_name(self, current_name_str: str):
+        """Let the user type a new name for a synthetic signal.
+
+        Inputs:
+            current_name_str: the signal's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when cancelled.
+        """
+        # LLFR-00266: the dialog starts from the current name.
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, RENAME_SIGNAL_DIALOG_TITLE_STR,
+            RENAME_SIGNAL_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
+            current_name_str)
+        if not accepted_b:
+            return None
+        return str(new_name_str)
+
+    def show_signal_information(self, title_str: str,
+                                message_str: str) -> None:
+        """Show an information box of the synthetic signals.
+
+        Inputs:
+            title_str: the window title.
+            message_str: the sentence that says why.
+        Outputs: none.
+        """
+        # LLFR-00247, LLFR-00250, LLFR-00267: an information box.
+        message_boxes.build_signal_information_box(
+            self, title_str, message_str).exec()
+
+    def copy_text_to_clipboard(self, text_str: str) -> None:
+        """Put a text on the system clipboard.
+
+        Inputs:
+            text_str: the text.
+        Outputs: none.
+        """
+        # LLFR-00277, LLFR-00279: the name or the equation, as text.
+        QApplication.clipboard().setText(str(text_str))
+
     def set_signal_double_click_handler(self, handler) -> None:
         """Set the function called when a signal name is double-clicked.
 
@@ -296,6 +724,51 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00019: the plot controller creates a plot through it.
         self.signal_double_click_handler = handler
+
+    def set_selected_signals_plot_handler(self, handler) -> None:
+        """Set the function called when Enter plots the selection.
+
+        Inputs:
+            handler: a function taking the selected names (list of str),
+                in list order.
+        Outputs: none.
+        """
+        # LLFR-00295: the plot controller creates one plot through it.
+        self.selected_signals_plot_handler = handler
+
+    def rename_shown_signal(self, old_name_str: str,
+                            new_name_str: str) -> None:
+        """Give a signal of the signal list its new name.
+
+        Inputs:
+            old_name_str: the name shown now.
+            new_name_str: the new name.
+        Outputs: none.
+        """
+        # LLFR-00266, LLFR-00292: a renamed signal stays selected.
+        self.signal_list_panel.rename_shown_signal(old_name_str,
+                                                   new_name_str)
+
+    def clear_signal_selection(self) -> None:
+        """Deselect every signal of the signal list.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00292: no signal of a previous file stays selected.
+        self.signal_list_panel.clear_signal_selection()
+
+    def is_pointer_over_signal_list(self) -> bool:
+        """Tell whether the mouse pointer is over the signal list panel.
+
+        Inputs: none.
+        Outputs: True while the pointer is inside the shown panel, as
+            Qt's enter and leave events tell (QWidget.underMouse, which
+            is also true while the pointer is over a child of it).
+        """
+        # LLFR-00302: there the Tip key and Shift select signals.
+        panel = self.signal_list_panel
+        return panel.isVisible() and panel.underMouse()
 
     def set_plot_tool_handler(self, handler) -> None:
         """Set the function called when the active plot tool changes.
@@ -340,13 +813,14 @@ class MainWindow(QMainWindow):
         Inputs:
             tool_str: TIP_TOOL_STR for the Tip key, MARKER_TOOL_STR for
                 the Shift key, DELTA_X_TOOL_STR for X, DELTA_Y_TOOL_STR
-                for Y.
+                for Y, AREA_TOOL_STR for A, TEXT_TOOL_STR for T and
+                ARROW_TOOL_STR for R.
         Outputs: none. The tool change goes the same way as a click on
             the tool's button, so the controller is told of it.
         """
-        # LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200: the tool's
-        # button becomes active and the other tool buttons are
-        # deactivated as in LLFR-00079.
+        # LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00287,
+        # LLFR-00321, LLFR-00367: the tool's button becomes active and
+        # the other tool buttons are deactivated as in LLFR-00079.
         self.tip_key_changing_tool_b = True
         try:
             self.top_panel.plot_tool_button_dict[tool_str].setChecked(True)
@@ -362,7 +836,8 @@ class MainWindow(QMainWindow):
             click on the active tool button.
         """
         # LLFR-00149, LLFR-00150, LLFR-00155, LLFR-00156, LLFR-00157,
-        # LLFR-00198, LLFR-00199, LLFR-00201, LLFR-00202: no plot tool is
+        # LLFR-00198, LLFR-00199, LLFR-00201, LLFR-00202, LLFR-00288,
+        # LLFR-00289, LLFR-00322, LLFR-00323: no plot tool is
         # active afterwards, whatever tool was active before the tool key
         # was pressed. LLFR-00167: leaving a delta tool discards its
         # first point, as for a click on its button.
@@ -402,6 +877,36 @@ class MainWindow(QMainWindow):
         # LLFR-00207, LLFR-00115, LLFR-00116: exactly as a click on the
         # Reset zoom button, with its active color for at least 0.3 s.
         self.top_panel.reset_zoom_button.click()
+
+    def on_escape_key(self) -> None:
+        """Switch off the active plot tool because Esc was pressed alone.
+
+        Inputs: none.
+        Outputs: none. Nothing happens while no plot tool is active,
+            during a mouse drag, while a modal dialog or a menu of the
+            application is open, or while another window of the
+            application is the active one.
+        """
+        # LLFR-00370: with no tool active, Esc does nothing and shows
+        # nothing.
+        if self.current_plot_tool() == NO_TOOL_STR:
+            return
+        # LLFR-00370, LLFR-00207: during a mouse drag, Esc does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
+        # LLFR-00370: in a menu or a dialog Esc keeps its own meaning
+        # (it closes them) and leaves the plot tool alone. A text field
+        # (LLFR-00157) is already left out by the key filter.
+        if (QApplication.activeModalWidget() is not None
+                or QApplication.activePopupWidget() is not None):
+            return
+        active_window = QApplication.activeWindow()
+        if active_window is not None and active_window is not self:
+            return
+        # LLFR-00370, LLFR-00002: as a second click on the active tool
+        # button: every tool button normal, no plot tool active.
+        self.top_panel.show_plot_tool(NO_TOOL_STR)
+        self.top_panel.deactivate_plot_tools()
 
     def set_reset_zoom_handler(self, handler) -> None:
         """Set the function called when Reset zoom is clicked.
@@ -653,16 +1158,20 @@ class MainWindow(QMainWindow):
         # LLFR-00066: the last tab cannot be deleted.
         self.plot_panel.set_tab_delete_enabled(enabled_b)
 
-    def add_plot_view(self, tab_id_i: int, plot_id_i: int) -> None:
+    def add_plot_view(self, tab_id_i: int, plot_id_i: int,
+                      kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create a plot at the bottom of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
             plot_id_i: id of the plot in the model.
+            kind_str: TIME_PLOT_KIND_STR for a time plot or
+                FREQUENCY_PLOT_KIND_STR for a frequency plot (LLFR-00256).
         Outputs: none.
         """
         # LLFR-00019, LLFR-00069: the new plot goes below the others.
-        self.plot_panel.add_plot_view(tab_id_i, plot_id_i)
+        # LLFR-00256: with frequency or time on its x-axis.
+        self.plot_panel.add_plot_view(tab_id_i, plot_id_i, kind_str)
         # LLFR-00042, LLFR-00078: a new plot starts with the active tool.
         plot_widget = self.plot_panel.plot_view(plot_id_i)
         if plot_widget is not None:
@@ -701,8 +1210,9 @@ class MainWindow(QMainWindow):
                 value_array, color_str, width_i).
             pinned_tip_list: tuples (signal_name_str, time_s, value_f,
                 label_offset_tuple); see PlotWidget.set_pinned_tips.
-            marker_data_list: tuples (marker_id_i, name_str, time_s), the
-                vertical markers shared by every plot (LLFR-00205).
+            marker_data_list: tuples (marker_id_i, name_str, time_s,
+                color_str), the vertical markers shared by every plot
+                (LLFR-00205).
             delta_marker_data_list: tuples (delta_marker_id_i, kind_str,
                 first_point_tuple, second_point_tuple, delta_f); see
                 PlotWidget.set_delta_markers.
@@ -720,17 +1230,93 @@ class MainWindow(QMainWindow):
         # LLFR-00168, LLFR-00170, LLFR-00176: draw the delta markers.
         plot_widget.set_delta_markers(delta_marker_data_list)
 
+    def set_text_notes(self, plot_id_i: int,
+                       text_note_data_list: list) -> None:
+        """Draw the text notes of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            text_note_data_list: tuples (text_str, time_s, value_f,
+                size_i, border_color_str, text_color_str); see
+                PlotWidget.set_text_notes.
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00337, LLFR-00340: the notes are shown only on their plot.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_text_notes(text_note_data_list)
+
+    def set_arrows(self, plot_id_i: int, arrow_data_list: list) -> None:
+        """Draw the arrows of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            arrow_data_list: tuples (start_time_s, start_value_f,
+                end_time_s, end_value_f, color_str); see
+                PlotWidget.set_arrows.
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00375: the arrows are shown only on their plot.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_arrows(arrow_data_list)
+
     def set_markers(self, marker_data_list: list) -> None:
         """Draw the shared vertical markers on every plot of every tab.
 
         Inputs:
-            marker_data_list: tuples (marker_id_i, name_str, time_s), in
-                placing order.
+            marker_data_list: tuples (marker_id_i, name_str, time_s,
+                color_str), in placing order.
         Outputs: none. Only the markers are drawn again.
         """
         # LLFR-00205: every marker on every plot, after it was placed,
         # moved, renamed or deleted on any of them.
         self.plot_panel.set_markers(marker_data_list)
+
+    def set_areas(self, area_data_list: list) -> None:
+        """Draw the shared areas on every time plot of every tab.
+
+        Inputs:
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s,
+                color_str), in creation order.
+        Outputs: none. Only the areas are drawn again.
+        """
+        # LLFR-00310: every area on every time plot, after it was
+        # created, moved, resized, renamed or deleted on any of them.
+        self.plot_panel.set_areas(area_data_list)
+
+    def set_plot_areas(self, plot_id_i: int, area_data_list: list) -> None:
+        """Draw the areas of one plot, after the plot was drawn.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            area_data_list: tuples (area_id_i, name_str, start_s, end_s,
+                color_str); empty for a frequency plot (LLFR-00311).
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-00310: a time plot created after the areas shows them too.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_areas(area_data_list)
+
+    def ask_area_name(self, current_name_str: str):
+        """Let the user type a new name for an area.
+
+        Inputs:
+            current_name_str: the area's name, shown in the dialog.
+        Outputs: the typed text (not stripped), or None when the user
+            cancelled the dialog.
+        """
+        # LLFR-00315: the dialog starts from the current name; a blank
+        # answer is returned as typed, and the controller keeps the old
+        # name without a message.
+        new_name_str, accepted_b = QInputDialog.getText(
+            self, RENAME_AREA_DIALOG_TITLE_STR,
+            RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
+            current_name_str)
+        if not accepted_b:
+            return None
+        return str(new_name_str)
 
     def set_delta_first_point(self, plot_id_i: int,
                               point_tuple: tuple) -> None:
@@ -776,6 +1362,19 @@ class MainWindow(QMainWindow):
             return ()
         return plot_widget.time_range_tuple()
 
+    def ask_color(self, current_color_str: str):
+        """Let the user choose a color in the shared color picker.
+
+        Inputs:
+            current_color_str: the item's current color, "#rrggbb", shown
+                as chosen when the picker opens (LLFR-00389).
+        Outputs: the confirmed color as "#rrggbb" in lowercase, or None
+            when the user cancelled the picker (LLFR-00390).
+        """
+        # LLFR-00388: the flags, areas, text notes (and arrows) all use
+        # this one picker window.
+        return color_picker.pick_color(self, current_color_str)
+
     def ask_marker_name(self, current_name_str: str):
         """Let the user type a new name for a vertical marker.
 
@@ -803,6 +1402,16 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00032: the tab is full; add a tab or delete a plot.
         message_boxes.show_full_tab_notification(self)
+
+    def show_plot_kind_mismatch_notification(self) -> None:
+        """Show the box saying FFT and time signals need separate plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00257: an FFT signal dropped on a time plot, or another
+        # signal dropped on a frequency plot, is not drawn.
+        message_boxes.show_plot_kind_mismatch_notification(self)
 
     def show_tab_name_taken_notification(self, name_str: str) -> None:
         """Show the Tab Name Taken box.
@@ -860,11 +1469,10 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00128: a save file dialog for a .pdf file.
         # LLFR-00130: an empty path means the dialog was cancelled.
-        dialog = self.build_pdf_save_dialog()
-        try:
-            return self.run_pdf_save_dialog(dialog) or ""
-        finally:
-            dialog.deleteLater()
+        # LLFR-00406: the dialog built once, shown again.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            SAVE_PDF_DIALOG_KEY_STR)
+        return self.run_pdf_save_dialog(dialog) or ""
 
     def build_pdf_save_dialog(self) -> QFileDialog:
         """Build the save file dialog of the PDF export, not shown.
@@ -892,12 +1500,7 @@ class MainWindow(QMainWindow):
             replace this method to answer without a modal dialog.
         """
         # LLFR-00128, LLFR-00130: the modal dialog.
-        if dialog.exec() != QDialog.DialogCode.Accepted.value:
-            return ""
-        selected_file_list = dialog.selectedFiles()
-        if not selected_file_list:
-            return ""
-        return str(selected_file_list[0])
+        return file_dialogs.run_file_dialog(dialog)
 
     def ask_replace_existing_file(self, path_str: str) -> bool:
         """Ask whether to replace an existing file.
@@ -987,6 +1590,408 @@ class MainWindow(QMainWindow):
         # LLFR-00003: the copy has finished.
         self.top_panel.copy_button.finish()
 
+    # ----------------------------------------------------------------
+    # Layout facade, used by the layout controller (plain types only)
+    # ----------------------------------------------------------------
+
+    def set_layout_handlers(self, save_handler, load_handler) -> None:
+        """Set the functions called by the Save and Load layout buttons.
+
+        Inputs:
+            save_handler: function without arguments, Save layout.
+            load_handler: function without arguments, Load layout.
+        Outputs: none.
+        """
+        # LLFR-00219, LLFR-00221: the controller runs the flows.
+        self.save_layout_handler = save_handler
+        self.load_layout_handler = load_handler
+
+    def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
+        """Enable the two layout buttons, or disable them and show them
+        paler.
+
+        Inputs:
+            enabled_b: True once a data file is open.
+        Outputs: none.
+        """
+        # LLFR-00218: disabled, paler and doing nothing without a file.
+        self.top_panel.save_layout_button.setEnabled(bool(enabled_b))
+        self.top_panel.load_layout_button.setEnabled(bool(enabled_b))
+
+    def build_layout_save_dialog(self, start_folder_str: str) -> QFileDialog:
+        """Build the save file dialog of a layout file, not shown.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: a QFileDialog in save mode for .json files that adds
+            ".json" to a name typed without an extension and asks before
+            replacing the resulting file (LLFR-00223).
+        """
+        # LLFR-00219, LLFR-00220: the user chooses the folder and types
+        # the name; Qt asks before overwriting the file it returns.
+        dialog = QFileDialog(self, SAVE_LAYOUT_DIALOG_TITLE_STR,
+                             start_folder_str, LAYOUT_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setDefaultSuffix(LAYOUT_DEFAULT_SUFFIX_STR)
+        return dialog
+
+    def build_layout_load_dialog(self, start_folder_str: str) -> QFileDialog:
+        """Build the file selection dialog of a layout file, not shown.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: a QFileDialog in open mode that lists the .json files.
+        """
+        # LLFR-00221, LLFR-00220: the user chooses an existing .json file.
+        dialog = QFileDialog(self, LOAD_LAYOUT_DIALOG_TITLE_STR,
+                             start_folder_str, LAYOUT_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        return dialog
+
+    def run_layout_dialog(self, dialog) -> str:
+        """Run a layout file dialog modally and return the chosen path.
+
+        Inputs:
+            dialog: a QFileDialog built by build_layout_save_dialog or
+                build_layout_load_dialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00222: a cancelled dialog returns "".
+        return file_dialogs.run_file_dialog(dialog)
+
+    def ask_layout_save_path(self, start_folder_str: str = "") -> str:
+        """Show the save file dialog of a layout file.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-00219, LLFR-00222, LLFR-00223. LLFR-00406: the dialog
+        # built once, shown again in the folder of LLFR-00220.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            SAVE_LAYOUT_DIALOG_KEY_STR, start_folder_str)
+        return self.run_layout_dialog(dialog) or ""
+
+    def ask_layout_load_path(self, start_folder_str: str = "") -> str:
+        """Show the file selection dialog of a layout file.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-00221, LLFR-00222. LLFR-00406: the dialog built once,
+        # shown again in the folder of LLFR-00220.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            LOAD_LAYOUT_DIALOG_KEY_STR, start_folder_str)
+        return self.run_layout_dialog(dialog) or ""
+
+    def save_layout_bytes(self, path_str: str,
+                          content_bytes: bytes) -> tuple:
+        """Write a layout file without risking a file already there.
+
+        Inputs:
+            path_str: the path of the layout file.
+            content_bytes: its UTF-8 content.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-00224: written to a temporary file that then replaces the
+        # target, so a failed save never damages an existing file.
+        return file_writing.write_file_safely(path_str, content_bytes)
+
+    def panel_width_tuple(self) -> tuple:
+        """Return the widths of the plot and signal list panels.
+
+        Inputs: none.
+        Outputs: (plot panel width, signal list panel width) in pixels.
+        """
+        # LLFR-00225 item 9: the widths the user dragged to (LLFR-00073).
+        size_list = list(self.lower_splitter.sizes())
+        if len(size_list) < 2:
+            return ()
+        return (int(size_list[0]), int(size_list[1]))
+
+    def set_panel_widths(self, plot_width_i: int, list_width_i: int) -> None:
+        """Give the plot and signal list panels new widths.
+
+        Inputs:
+            plot_width_i: width of the plot panel, in pixels.
+            list_width_i: width of the signal list panel, in pixels.
+        Outputs: none. Qt scales the two widths to the room there is and
+            keeps each panel at least at its minimum width.
+        """
+        # LLFR-00230: the panel widths of a loaded layout; the start
+        # widths of LLFR-00072 must not be applied over them later.
+        self.lower_splitter.initial_sizes_set_b = True
+        self.lower_splitter.setSizes([int(plot_width_i), int(list_width_i)])
+
+    def show_layout_save_error(self, reason_str: str) -> None:
+        """Show the error box saying that the layout file was not saved.
+
+        Inputs:
+            reason_str: why the file could not be written.
+        Outputs: none.
+        """
+        # LLFR-00224: an error box (HLFR-00002).
+        message_boxes.build_layout_save_error_box(self, reason_str).exec()
+
+    def show_layout_load_error(self, message_str: str) -> None:
+        """Show the error box saying that the file is not a layout file.
+
+        Inputs:
+            message_str: the text of the box.
+        Outputs: none.
+        """
+        # LLFR-00236: an error box (HLFR-00002).
+        message_boxes.build_layout_load_error_box(self, message_str).exec()
+
+    def show_layout_report(self, report_text_str: str) -> None:
+        """Show the information box of the layout load report.
+
+        Inputs:
+            report_text_str: what was not rebuilt or was changed.
+        Outputs: none.
+        """
+        # LLFR-00237: one information box, scrollable when long.
+        dialog = message_boxes.build_layout_report_box(self,
+                                                       report_text_str)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+
+    def finish_save_layout_button(self) -> None:
+        """Return the Save layout button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the save has finished.
+        self.top_panel.save_layout_button.finish()
+
+    def finish_load_layout_button(self) -> None:
+        """Return the Load layout button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the load has finished.
+        self.top_panel.load_layout_button.finish()
+
+    def _on_save_layout_requested(self) -> None:
+        """Run the save layout handler after the button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00219: the controller shows the save dialog.
+        if self.save_layout_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_save_layout_button()
+            return
+        self.save_layout_handler()
+
+    def _on_load_layout_requested(self) -> None:
+        """Run the load layout handler after the button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00221: the controller shows the file selection dialog.
+        if self.load_layout_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_load_layout_button()
+            return
+        self.load_layout_handler()
+
+    # ----------------------------------------------------------------
+    # Save signals facade, used by the save signals controller
+    # ----------------------------------------------------------------
+
+    def set_save_signals_handler(self, handler) -> None:
+        """Set the function called by the Save signals button.
+
+        Inputs:
+            handler: function without arguments.
+        Outputs: none.
+        """
+        # LLFR-00396: the controller runs the flow.
+        self.save_signals_handler = handler
+
+    def set_save_signals_button_enabled(self, enabled_b: bool) -> None:
+        """Enable the Save signals button, or disable it and show it
+        paler.
+
+        Inputs:
+            enabled_b: True once a data file is open.
+        Outputs: none.
+        """
+        # LLFR-00395: disabled, paler and doing nothing without a file.
+        self.top_panel.save_signals_button.setEnabled(bool(enabled_b))
+
+    def build_signals_save_dialog(self, start_folder_str: str,
+                                  file_name_str: str,
+                                  format_str: str) -> QFileDialog:
+        """Build the save file dialog of the Save signals button, not
+        shown.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+            file_name_str: the name proposed in the dialog.
+            format_str: the format chosen when the dialog opens.
+        Outputs: a QFileDialog in save mode with one filter per format
+            (SIGNALS_FILTER_DICT). The dialog does not ask before
+            replacing a file, where Qt allows it, so that the app asks
+            once (LLFR-00397).
+        """
+        # LLFR-00396: the folder, the name and the format of the data
+        # file; the user may choose any of the four formats.
+        dialog = QFileDialog(self, SAVE_SIGNALS_DIALOG_TITLE_STR,
+                             start_folder_str,
+                             ";;".join(SIGNALS_FILTER_DICT.values()))
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        # LLFR-00397: the app asks about an existing file itself, and
+        # never about the opened data file.
+        dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
+        self.propose_signals_file(dialog, file_name_str, format_str)
+        return dialog
+
+    def propose_signals_file(self, dialog, file_name_str: str,
+                             format_str: str) -> None:
+        """Choose the proposed format and name in the Save signals dialog.
+
+        Inputs:
+            dialog: a QFileDialog built by build_signals_save_dialog.
+            file_name_str: the name proposed in the dialog; "" for none.
+            format_str: the format chosen when the dialog opens.
+        Outputs: none.
+        """
+        # LLFR-00396: the format and the name of the opened data file,
+        # set again on every use of the reused dialog (LLFR-00406).
+        dialog.selectNameFilter(SIGNALS_FILTER_DICT.get(
+            format_str, SIGNALS_FILTER_DICT[file_writer.CSV_FORMAT_STR]))
+        if file_name_str:
+            dialog.selectFile(file_name_str)
+
+    def run_signals_save_dialog(self, dialog) -> tuple:
+        """Run the Save signals dialog modally.
+
+        Inputs:
+            dialog: a QFileDialog built by build_signals_save_dialog.
+        Outputs: a tuple (path_str, filter_str): the chosen path and the
+            chosen filter, or ("", "") when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-00398: a cancelled dialog returns "".
+        if dialog.exec() != QDialog.DialogCode.Accepted.value:
+            return ("", "")
+        selected_file_list = dialog.selectedFiles()
+        if not selected_file_list:
+            return ("", "")
+        return (str(selected_file_list[0]), str(dialog.selectedNameFilter()))
+
+    def signals_dialog_confirms_overwrite(self, dialog) -> bool:
+        """Tell whether the system's dialog asks before replacing a file.
+
+        Inputs:
+            dialog: a QFileDialog built by build_signals_save_dialog.
+        Outputs: True for the native dialog of macOS, which always asks
+            (Qt can't turn its question off), even for the opened data
+            file, which the app then refuses without asking again
+            (LLFR-00397 Note); False otherwise.
+        """
+        # LLFR-00397: the app must not ask a second time.
+        return (sys.platform == "darwin" and not dialog.testOption(
+            QFileDialog.Option.DontUseNativeDialog))
+
+    def ask_signals_save_path(self, start_folder_str: str,
+                              file_name_str: str, format_str: str) -> tuple:
+        """Show the save file dialog of the Save signals button.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+            file_name_str: the name proposed in the dialog.
+            format_str: the format chosen when the dialog opens.
+        Outputs: a tuple (path_str, format_str, confirmed_b): the chosen
+            path ("" when cancelled), the chosen format, and True when
+            the dialog itself asked before replacing an existing file.
+        """
+        # LLFR-00396, LLFR-00397, LLFR-00398. LLFR-00406: the dialog
+        # built once, shown again in the folder of the data file.
+        dialog = self.file_dialog_pool.prepared_dialog(
+            SAVE_SIGNALS_DIALOG_KEY_STR, start_folder_str)
+        self.propose_signals_file(dialog, file_name_str, format_str)
+        path_str, filter_str = self.run_signals_save_dialog(dialog)
+        confirmed_b = self.signals_dialog_confirms_overwrite(dialog)
+        chosen_format_str = format_str
+        for candidate_str, candidate_filter_str in (
+                SIGNALS_FILTER_DICT.items()):
+            if candidate_filter_str == filter_str:
+                chosen_format_str = candidate_str
+        return (path_str or "", chosen_format_str, confirmed_b)
+
+    def save_signal_bytes(self, path_str: str,
+                          content_bytes: bytes) -> tuple:
+        """Write the saved signals without risking a file already there.
+
+        Inputs:
+            path_str: the path of the new data file.
+            content_bytes: its content.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-00399: written to a temporary file that then replaces the
+        # target, so a failed save never damages an existing file.
+        return file_writing.write_file_safely(path_str, content_bytes)
+
+    def show_signals_save_error(self, message_str: str) -> None:
+        """Show the error box of the Save signals button.
+
+        Inputs:
+            message_str: the text of the box.
+        Outputs: none.
+        """
+        # LLFR-00397, LLFR-00399, LLFR-00400: an error box (HLFR-00002).
+        message_boxes.build_signals_save_error_box(self, message_str).exec()
+
+    def show_changed_signal_names(self, text_str: str) -> None:
+        """Show the information box that lists the changed names.
+
+        Inputs:
+            text_str: one "<old name> → <new name>" per line.
+        Outputs: none.
+        """
+        # LLFR-00404: one information box, scrollable when long.
+        dialog = message_boxes.build_changed_names_box(self, text_str)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+
+    def finish_save_signals_button(self) -> None:
+        """Return the Save signals button to its normal color.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00003: the save has finished.
+        self.top_panel.save_signals_button.finish()
+
+    def _on_save_signals_requested(self) -> None:
+        """Run the save signals handler after the button is clicked.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00396: the controller shows the save dialog.
+        if self.save_signals_handler is None:
+            # LLFR-00003: nothing to run, so the function is finished.
+            self.finish_save_signals_button()
+            return
+        self.save_signals_handler()
+
     def _on_pdf_export_requested(self) -> None:
         """Run the PDF export handler after the menu choice.
 
@@ -1012,6 +2017,44 @@ class MainWindow(QMainWindow):
             self.finish_copy_button()
             return
         self.copy_handler()
+
+    def open_web_page(self, url_str: str) -> bool:
+        """Ask the system's default web browser to open a page.
+
+        Inputs:
+            url_str: the address of the page.
+        Outputs: True when the request was made, False when the browser
+            could not be opened.
+        """
+        # LLFR-00359: the default browser of the system, through Qt.
+        return bool(QDesktopServices.openUrl(QUrl(url_str)))
+
+    def show_report_bug_error(self, url_str: str) -> None:
+        """Show the error box saying that the page could not be opened.
+
+        Inputs:
+            url_str: the address of the page.
+        Outputs: none.
+        """
+        # LLFR-00361: an error box with the page's address (HLFR-00002).
+        message_boxes.build_report_bug_error_box(self, url_str).exec()
+
+    def _on_report_bug_requested(self) -> None:
+        """Open the page of a new issue after Report a bug is clicked.
+
+        Inputs: none.
+        Outputs: none. Shows the Report a Bug Error box when the browser
+            could not be opened.
+        """
+        # LLFR-00359: the "New issue" page of the repository; nothing
+        # else changes.
+        opened_b = self.open_web_page(top_panel.REPORT_BUG_URL_STR)
+        # LLFR-00360, LLFR-00003: the request is made, so the button
+        # turns normal once it has been active for at least 0.3 s.
+        self.top_panel.report_bug_button.finish()
+        if not opened_b:
+            # LLFR-00361: say so, with the address.
+            self.show_report_bug_error(top_panel.REPORT_BUG_URL_STR)
 
     def _on_open_file_activated(self) -> None:
         """Run the open-file handler after the Open file button is clicked.
@@ -1154,6 +2197,18 @@ class MainWindow(QMainWindow):
         # LLFR-00095: every change re-filters the signal list.
         if self.search_text_handler is not None:
             self.search_text_handler(text_str)
+
+    def _on_selected_signals_plot_requested(self,
+                                            signal_name_list: list) -> None:
+        """Pass the selected signal names to their handler.
+
+        Inputs:
+            signal_name_list: the selected names, in list order.
+        Outputs: none.
+        """
+        # LLFR-00295: the handler creates one plot with every signal.
+        if self.selected_signals_plot_handler is not None:
+            self.selected_signals_plot_handler(list(signal_name_list))
 
     def _on_signal_double_clicked(self, signal_name_str: str) -> None:
         """Pass a double-clicked signal name to its handler.

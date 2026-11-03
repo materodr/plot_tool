@@ -182,6 +182,168 @@ class StartupProbeTest(unittest.TestCase):
                 self.assertEqual(application.exit_code_list, [exit_code_i])
         self.assertIn("plot_tool probe file: FAILED bad.txt", output_str)
 
+    @covers("LLFR-00406")
+    def test_dialog_probe_switch_and_line(self) -> None:
+        """The dialog probe is off by default; its line is parsable.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        probe = self.startup_probe
+        self.assertFalse(probe.dialog_probe_enabled({}))
+        self.assertFalse(probe.dialog_probe_enabled(
+            {"PLOT_TOOL_DIALOG_PROBE": "0"}))
+        self.assertTrue(probe.dialog_probe_enabled(
+            {"PLOT_TOOL_DIALOG_PROBE": "1"}))
+        pool = mock.Mock(prepared_b=True, step_count_i=3,
+                         prepare_duration_s=0.4, longest_step_s=0.25,
+                         step_duration_list=[0.25, 0.1, 0.05])
+        pool.panel_state_str.return_value = "warmed,warmed"
+        self.assertEqual(
+            probe.prepare_line_str(pool, 0.5, 0.26, False),
+            "plot_tool prepare: prepared=yes waited_s=0.500 steps=3 "
+            "prepare_s=0.400 longest_step_s=0.250 longest_turn_s=0.260 "
+            "step_s=0.250,0.100,0.050 panels=warmed,warmed "
+            "dialog_seen=no")
+        pool.step_duration_list = []
+        self.assertIn("step_s=none panels=warmed,warmed dialog_seen=yes",
+                      probe.prepare_line_str(pool, 0.5, 0.16, True))
+        line_str = probe.dialog_line_str("save_pdf", 2, 0.0456, True,
+                                         False, 0.25)
+        self.assertEqual(line_str, "plot_tool dialog: name=save_pdf "
+                         "click=2 shown_s=0.046 visible=yes prepared=no "
+                         "prepare_s=0.250")
+        self.assertEqual([entry[1] for entry in probe.PROBE_DIALOG_TUPLE],
+                         ["open_file", "save_layout", "load_layout",
+                          "save_pdf", "save_signals"])
+
+    @covers("LLFR-00406")
+    def test_report_measures_each_dialog_twice(self) -> None:
+        """With the dialog probe on, each dialog is shown twice.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.main_controller import MainController
+        from view.main_window import MainWindow
+        main_window = MainWindow()
+        controller = MainController(main_window)
+        controller.start()
+        main_window.schedule_file_dialog_preparation()
+        pool = main_window.file_dialog_pool
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QFileDialog
+        call_list = []
+        for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
+            dialog = pool.dialog(key_str)
+            # Shown as a standalone, non-modal window, as exec shows it.
+            dialog.show = (lambda key_str=key_str, dialog=dialog: (
+                call_list.append((key_str, dialog.windowModality())),
+                QFileDialog.show(dialog)))
+        pool.dialog("save_pdf").setWindowModality(
+            Qt.WindowModality.ApplicationModal)
+        output_stream = io.StringIO()
+        fake_application = FakeApplication()
+        fake_application.processEvents = self.application.processEvents
+        pause_patch = mock.patch.object(self.startup_probe,
+                                        "PROBE_PAUSE_S", 0.01)
+        pause_patch.start()
+        self.addCleanup(pause_patch.stop)
+        try:
+            self.startup_probe.report_startup(
+                fake_application, 0.0, True, mock.Mock(),
+                {"PLOT_TOOL_DIALOG_PROBE": "1"}, output_stream,
+                main_window=main_window)
+            dialog_line_list = [
+                line_str
+                for line_str in output_stream.getvalue().splitlines()
+                if line_str.startswith("plot_tool dialog:")]
+            self.assertEqual(len(dialog_line_list), 10)
+            non_modal = Qt.WindowModality.NonModal
+            self.assertEqual(call_list, [
+                (key_str, non_modal) for key_str in (
+                    "open_file", "open_file", "save_layout", "save_layout",
+                    "load_layout", "load_layout", "save_pdf", "save_pdf",
+                    "save_signals", "save_signals")])
+            # The modality the dialog had is given back.
+            self.assertEqual(pool.dialog("save_pdf").windowModality(),
+                             Qt.WindowModality.ApplicationModal)
+            self.assertEqual(pool.dialog("open_file").windowModality(),
+                             non_modal)
+            for line_str in dialog_line_list:
+                self.assertIn("visible=yes prepared=yes", line_str)
+            # LLFR-00406, issue #165: the preparation line comes first,
+            # with no dialog seen before the first request.
+            output_str = output_stream.getvalue()
+            self.assertLess(output_str.index("plot_tool prepare:"),
+                            output_str.index("plot_tool dialog:"))
+            prepare_dict = measure_startup.parse_prepare_line(output_str)
+            self.assertTrue(prepare_dict["prepared_b"])
+            self.assertFalse(prepare_dict["dialog_seen_b"])
+            self.assertEqual(prepare_dict["step_count_i"], 5)
+            self.assertEqual(measure_startup.dialog_failure_list(
+                output_str, True), [])
+            # Every dialog is closed again.
+            for _, key_str in self.startup_probe.PROBE_DIALOG_TUPLE:
+                self.assertFalse(pool.dialog(key_str).isVisible())
+            self.assertEqual(fake_application.exit_code_list, [0])
+            # Without the variable, no dialog is shown.
+            call_list.clear()
+            self.startup_probe.report_startup(
+                FakeApplication(), 0.0, True, mock.Mock(), {},
+                io.StringIO(), main_window=main_window)
+            self.assertEqual(call_list, [])
+        finally:
+            main_window.close()
+            main_window.deleteLater()
+            self.application.processEvents()
+
+    @covers("LLFR-00406", "HLFR-00091")
+    def test_main_shows_every_dialog_quickly(self) -> None:
+        """src/main.py: every file dialog appears within 0.6 s.
+
+        The app is started as the user starts it; the probe shows each
+        dialog twice, the first time right after the dialogs were
+        prepared, as the first click after the start would.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        environment_dict = dict(os.environ)
+        environment_dict["PLOT_TOOL_STARTUP_PROBE"] = "1"
+        environment_dict["PLOT_TOOL_DIALOG_PROBE"] = "1"
+        environment_dict.setdefault("QT_QPA_PLATFORM", "offscreen")
+        environment_dict.pop("PLOT_TOOL_PROBE_FILES", None)
+        process = subprocess.Popen(
+            [sys.executable, os.path.join(SOURCE_FOLDER_STR, "main.py")],
+            env=environment_dict, cwd=REPOSITORY_ROOT_STR,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            output_str, error_str = process.communicate(timeout=120)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+            self.fail("the app did not quit with the dialog probe")
+        self.assertEqual(process.returncode, 0, error_str)
+        dialog_line_list = [
+            line_str for line_str in output_str.splitlines()
+            if line_str.startswith("plot_tool dialog:")]
+        self.assertEqual(len(dialog_line_list), 10, output_str + error_str)
+        name_list = []
+        for line_str in dialog_line_list:
+            field_dict = dict(part.split("=", 1)
+                              for part in line_str.split()[2:])
+            name_list.append((field_dict["name"], field_dict["click"]))
+            with self.subTest(line_str=line_str):
+                self.assertEqual(field_dict["visible"], "yes")
+                self.assertEqual(field_dict["prepared"], "yes")
+                self.assertLessEqual(float(field_dict["shown_s"]), 0.6)
+        self.assertEqual(name_list, [
+            (name_str, click_str)
+            for name_str in ("open_file", "save_layout", "load_layout",
+                             "save_pdf", "save_signals")
+            for click_str in ("1", "2")])
+
     @covers("LLFR-00058")
     def test_main_reports_the_shown_window_and_quits(self) -> None:
         """src/main.py with the probe shows the window, reports, quits.
