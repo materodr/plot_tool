@@ -582,8 +582,7 @@ class DeltaPreviewHiddenTest(DeltaPreviewWidgetTestCase):
             self.plot_widget.set_plot_tool(NO_TOOL_STR)
             self.assert_no_delta_preview()
 
-    @covers("LLFR-00354", "LLFR-00352", "LLFR-00353", "LLFR-00751",
-            "LLFR-00752")
+    @covers("LLFR-00354", "LLFR-00352", "LLFR-00353", "LLFR-00752")
     def test_following_the_pointer_never_redraws_the_canvas(self) -> None:
         """Moves only blit the preview: no full draw of the canvas.
 

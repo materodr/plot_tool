@@ -792,7 +792,7 @@ class TimeSignalChoiceTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.make_file().choose_time_signal("Missing")
 
-    @covers("LLFR-00331", "HLFR-00072")
+    @covers("LLFR-00331", "LLFR-00515", "HLFR-00072")
     def test_time_signal_cannot_change(self) -> None:
         """Once set, the time signal can't be chosen again.
 

@@ -551,7 +551,7 @@ class DeleteAllEndToEndTest(EndToEndTestCase):
     """Each "Delete all" option in a real window, undo and redo."""
 
     @covers("LLFR-00413", "LLFR-00046", "LLFR-00140", "LLFR-00138",
-            "LLFR-00192", "LLFR-00828")
+            "LLFR-00192", "LLFR-00828", "LLFR-00878")
     def test_all_tips_from_the_menu(self) -> None:
         """"Delete all data tips in all plots", chosen on the tip of the
         shown tab, removes the tip of the hidden tab too.
@@ -570,8 +570,9 @@ class DeleteAllEndToEndTest(EndToEndTestCase):
              [(2, 2), (2, 2)]))
 
     @covers("LLFR-00412", "LLFR-00414", "LLFR-00415", "LLFR-00416",
-            "LLFR-00417", "LLFR-00140", "LLFR-00827", "LLFR-00831",
-            "LLFR-00833", "LLFR-00834", "LLFR-00835")
+            "LLFR-00417", "LLFR-00140", "LLFR-00827", "LLFR-00877",
+            "LLFR-00831", "LLFR-00879", "LLFR-00833", "LLFR-00880",
+            "LLFR-00834", "LLFR-00881", "LLFR-00835", "LLFR-00882")
     def test_every_request_reaches_the_controller(self) -> None:
         """Each "Delete all" request of a plot widget runs its action on
         the model and on every plot widget, as one undoable action.

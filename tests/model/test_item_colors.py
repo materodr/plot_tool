@@ -153,8 +153,7 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
                           self.note.text_color_str),
                          (12, "#ff8000", "#24303b"))
 
-    @covers("LLFR-00385", "LLFR-00386", "LLFR-00140", "LLFR-00802",
-            "LLFR-00806")
+    @covers("LLFR-00385", "LLFR-00386", "LLFR-00140")
     def test_size_only_from_the_presets(self) -> None:
         """Each preset size is kept as chosen; another value, the same
         size or an unknown note changes nothing.

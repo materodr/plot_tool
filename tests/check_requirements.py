@@ -6,7 +6,7 @@ Usage:
 The script reads the four requirement files in docs/requirements and
 checks that:
 - each ID is valid, used once, and the IDs of a prefix have no gaps
-  (PCR-00027);
+  (PCR-00045);
 - each ID named anywhere in the files exists;
 - each active LLFR has one Parent line that names existing HLFRs
   (PCR-00031), and each active HLFR has at least one child LLFR;
@@ -78,7 +78,7 @@ def read_requirement_file(path_str: str) -> list:
 
 
 def is_deleted(entry_dict: dict) -> bool:
-    """Tell whether a requirement is a deleted one (PCR-00027).
+    """Tell whether a requirement is a deleted one (PCR-00043).
 
     Inputs:
         entry_dict: a requirement from read_requirement_file.
@@ -104,7 +104,7 @@ def statement_text(entry_dict: dict) -> str:
 
 
 def check_identifiers(prefix_str: str, entry_list: list) -> list:
-    """Check the IDs of one file (PCR-00027).
+    """Check the IDs of one file (PCR-00044, PCR-00045).
 
     Inputs:
         prefix_str: the prefix that the file must use.

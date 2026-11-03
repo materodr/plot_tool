@@ -200,7 +200,7 @@ When the user clicks the open file button (LLFR-00004), the app must show a file
 *Parent: HLFR-00004*
 
 ### LLFR-00204 File dialog starting folder
-The first time the user clicks the Open file button after the app starts, the file selection dialog (LLFR-00005) must show the folder that contains the standalone executable (COR-00007): the folder that holds `plot_tool.app` on macOS, or the folder that holds the executable on Windows.
+The first time the user clicks the Open file button after the app starts, the file selection dialog (LLFR-00005) must show the folder that contains the standalone executable (COR-00007): the folder that holds `plot_tool.app` on macOS, or the folder that holds the executable on Windows, except as in LLFR-00446.
 
 *Parent: HLFR-00004*
 
@@ -250,7 +250,7 @@ If the file fails the check in HLFR-00008 or HLFR-00009, the app must show the F
 *Parent: HLFR-00008, HLFR-00009, HLFR-00002*
 
 ### LLFR-00013 Replace file accepted
-If the user proceeds in the confirmation of HLFR-00010, the app must close the current file and open the selected one only when the selected file can be opened (LLFR-00448).
+If the user proceeds in the confirmation of HLFR-00010, the app must close the current file and open the selected one when, and only when, the selected file can be opened (LLFR-00448).
 
 *Parent: HLFR-00010, HLFR-00101*
 
@@ -327,7 +327,7 @@ In MAT files, the app must read each top-level variable that holds a one-dimensi
 ### LLFR-00063 Other MAT variables
 In MAT files, the app must ignore top-level variables that do not hold a one-dimensional numeric array.
 
-*Parent: HLFR-00005, HLFR-00008, HLFR-00009*
+*Parent: HLFR-00005*
 
 ### LLFR-00452 Checks on the MAT signals read
 In MAT files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read (LLFR-00062).
@@ -460,7 +460,7 @@ In HDF5 files, the app must list the members of each group in the order they wer
 ### LLFR-00135 Other HDF5 datasets
 In HDF5 files, the app must ignore datasets that do not hold a one-dimensional numeric array.
 
-*Parent: HLFR-00005, HLFR-00008, HLFR-00009*
+*Parent: HLFR-00005*
 
 ### LLFR-00456 Checks on the HDF5 signals read
 In HDF5 files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read (LLFR-00134).
@@ -741,7 +741,7 @@ The first time after the app starts that the user clicks the Save layout or Load
 *Parent: HLFR-00049, HLFR-00050*
 
 ### LLFR-00468 Layout dialog folder of the last layout file
-After the first time after the app starts that the user clicks the Save layout or Load layout button (LLFR-00220), the dialog (LLFR-00219, LLFR-00221) must show the folder of the last layout file that the app saved or loaded successfully.
+After the first click on the Save layout or Load layout button since the app started (LLFR-00220), the dialog (LLFR-00219, LLFR-00221) must show the folder of the last layout file that the app saved or loaded successfully.
 
 *Parent: HLFR-00049, HLFR-00050*
 
@@ -761,7 +761,7 @@ If the user cancels the dialog of LLFR-00219 or LLFR-00221, the app must keep th
 *Parent: HLFR-00049, HLFR-00050*
 
 ### LLFR-00223 Replace an existing layout file
-If the user chooses the name of a file that already exists in the dialog of LLFR-00219, the app must ask the user whether to replace it.
+If the user chooses the name of a file that already exists in the dialog of LLFR-00219, after LLFR-00467 is applied, the app must ask the user whether to replace it.
 
 *Parent: HLFR-00049*
 
@@ -836,7 +836,7 @@ When the user loads a layout file (LLFR-00221) and the current tabs hold at leas
 *Parent: HLFR-00050*
 
 ### LLFR-00475 Layout tabs replace tabs with no plot
-When the user loads a layout file (LLFR-00221) and no current tab holds a plot, the app must replace the current tabs with the tabs of the layout file of LLFR-00229.
+When the user loads a layout file (LLFR-00221) and no current tab holds a plot, the app must replace the current tabs with the tabs of the layout file of LLFR-00229, except as in LLFR-00476.
 
 *Parent: HLFR-00050*
 
@@ -918,7 +918,7 @@ When loading a layout, the app must rebuild a flag only if its time is within th
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00234 Time range in a layout
-When loading a layout, the app must limit the saved x-axis range to the time range of the opened data file (LLFR-00119).
+When loading a layout, the app must limit the saved x-axis range to the time range of the opened data file (LLFR-00119), except as in LLFR-00487.
 
 *Parent: HLFR-00050, HLFR-00052*
 
@@ -960,7 +960,7 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 *Parent: HLFR-00050*
 
 ### LLFR-00237 Layout load report
-After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00262, LLFR-00496, LLFR-00282, LLFR-00499, LLFR-00283, LLFR-00502, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00817, LLFR-00410, LLFR-00824), the app must show one information box that lists: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use (LLFR-00489, LLFR-00499), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, flag, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced.
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00262, LLFR-00496, LLFR-00282, LLFR-00499, LLFR-00283, LLFR-00502, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00817, LLFR-00410, LLFR-00824), the app must show one information box that lists, except as in LLFR-00492: the signals that are not in the data file, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use (LLFR-00489, LLFR-00499), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, flag, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long list must be scrollable.
 
@@ -1193,8 +1193,8 @@ The app must not offer any button, menu option or other control that changes the
 
 *Parent: HLFR-00072*
 
-### LLFR-00515 Reopen the file for another time signal
-To use another time signal, the user must open the file again.
+### LLFR-00515 Time signal changed only by reopening the file
+The app must not change the time signal of an opened file except when the file is opened again.
 
 Note: Reopening a file that has a signal matching the time signal name does not show the window of LLFR-00325 (HLFR-00070).
 
@@ -1396,7 +1396,7 @@ If the name typed in the dialog of LLFR-00396 does not end with an extension of 
 ### LLFR-00397 Opened data file not replaced
 If the file chosen in the dialog of LLFR-00396 is the opened data file, the app must not save any file.
 
-*Parent: HLFR-00090, HLFR-00002, HLFR-00105*
+*Parent: HLFR-00090, HLFR-00105*
 
 ### LLFR-00534 Error box for the opened data file
 If the file chosen in the dialog of LLFR-00396 is the opened data file, the app must show an error box saying that the opened data file cannot be replaced (LLFR-00253).
@@ -1411,7 +1411,7 @@ Note: On a system whose own save file dialog always asks before replacing an exi
 *Parent: HLFR-00090, HLFR-00105*
 
 ### LLFR-00536 Replace an existing signals file
-If the file chosen in the dialog of LLFR-00396 is not the opened data file and the user chooses the name of a file that already exists, the app must ask the user whether to replace it.
+If the file chosen in the dialog of LLFR-00396, after LLFR-00533 is applied, is not the opened data file and is the name of a file that already exists, the app must ask the user whether to replace it.
 
 *Parent: HLFR-00090*
 
@@ -1443,7 +1443,7 @@ If the file cannot be written, the app must show an error box saying that the fi
 ### LLFR-00400 Too many signals or samples for Excel
 If the signals to save (LLFR-00401) do not fit in one Excel sheet, which holds at most 16384 columns and 1048576 rows, so at most 16384 signals of at most 1048575 samples below the row of names, the app must not write the file.
 
-*Parent: HLFR-00090, HLFR-00002*
+*Parent: HLFR-00090*
 
 ### LLFR-00540 Error box for too many signals or samples for Excel
 If the signals to save (LLFR-00401) do not fit in one Excel sheet (LLFR-00400), the app must show an error box saying that the signals have too many samples or are too many for an Excel file.
@@ -1583,7 +1583,7 @@ When the time signal's name is not exactly `Time`, its change to `Time` (LLFR-00
 ### LLFR-00408 Signals with values that are not numbers
 If any signal to save (LLFR-00401) has a sample that is not a finite number (infinite or NaN), for example a synthetic signal whose values overflowed, the app must not write the file, because no data file the app opens can hold such values (LLFR-00065).
 
-*Parent: HLFR-00090, HLFR-00002*
+*Parent: HLFR-00090*
 
 ### LLFR-00559 Error box for values that are not numbers
 If any signal to save (LLFR-00401) has a sample that is not a finite number (LLFR-00408), the app must show an error box saying that the signals could not be saved because these signals have values that are not finite numbers, naming each of them.
@@ -1932,12 +1932,12 @@ The app must compute the sampling rate as 1 divided by the mean time step of the
 *Parent: HLFR-00053*
 
 ### LLFR-00590 Evenly spaced time samples
-If any time step differs from the mean time step (LLFR-00247) by more than 1%, the app must not create a Low-pass filter, High-pass filter or FFT signal.
+When the user chooses "Low-pass filter", "High-pass filter" or "FFT" and any time step differs from the mean time step (LLFR-00247) by more than 1%, the app must not create the signal.
 
 *Parent: HLFR-00053*
 
 ### LLFR-00591 Uneven time samples message
-If any time step differs from the mean time step (LLFR-00247) by more than 1%, the app must show an information box saying that the operation needs evenly spaced time samples.
+When the user chooses "Low-pass filter", "High-pass filter" or "FFT" and any time step differs from the mean time step (LLFR-00247) by more than 1%, the app must show an information box saying that the operation needs evenly spaced time samples.
 
 *Parent: HLFR-00053*
 
@@ -1962,12 +1962,12 @@ The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-0
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00250 Too few samples for an FFT
-If fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must not create the FFT signal.
+When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must not create the FFT signal.
 
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00594 Too few samples message
-If fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must show an information box saying that the time range holds too few samples.
+When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must show an information box saying that the time range holds too few samples.
 
 *Parent: HLFR-00053, HLFR-00057*
 
@@ -1988,7 +1988,7 @@ The app must never write synthetic signals, or anything else, to the data file.
 
 Note: The Save signals button writes them to a new file, never to the data file (LLFR-00397, LLFR-00401).
 
-*Parent: HLFR-00055, HLFR-00105*
+*Parent: HLFR-00105*
 
 ### LLFR-00595 Synthetic signals only in memory
 Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255, LLFR-00597), the data file is replaced (LLFR-00252) or the app is closed.
@@ -2261,7 +2261,7 @@ When the user chooses "Copy equation" (LLFR-00278), the app must put on the syst
 *Parent: HLFR-00062, HLFR-00056*
 
 ### LLFR-00290 Select signals with the mouse
-In the signal list, a click on a signal must select only that signal.
+In the signal list, a click on a signal must select only that signal, except as in LLFR-00625 and LLFR-00626.
 
 *Parent: HLFR-00063*
 
@@ -2306,7 +2306,7 @@ A double-click on a signal (LLFR-00019, LLFR-00020) must draw only the double-cl
 *Parent: HLFR-00063, HLFR-00012*
 
 ### LLFR-00295 Enter key plots the selection
-When the keyboard focus is in the signal list, at least one signal is selected and the user presses the Enter key, the app must create one new plot in the current tab.
+When the keyboard focus is in the signal list, at least one signal is selected and the user presses the Enter key, the app must create one new plot in the current tab, except as in LLFR-00630 and LLFR-00635.
 
 Note: On a keyboard with both keys, Return and Enter act the same.
 
@@ -2476,7 +2476,7 @@ The file name row (LLFR-00362) must show the new name when a file is opened or r
 
 *Parent: HLFR-00079, HLFR-00010*
 
-### LLFR-00651 File name row kept on a failed open
+### LLFR-00651 File name row kept when no file is opened
 The file name row (LLFR-00362) must not change when opening a file fails, is cancelled or is declined (LLFR-00007, LLFR-00010, LLFR-00014, LLFR-00327).
 
 *Parent: HLFR-00079, HLFR-00010*
@@ -2487,7 +2487,7 @@ The bottom edge of the search box (LLFR-00094) must be at the same height as the
 *Parent: HLFR-00095*
 
 ### LLFR-00652 Search box bottom edge with no plot
-When the current tab holds no plot, the bottom edge of the search box (LLFR-00094) must be at the height where the bottom edge of a plot would be (LLFR-00424).
+When the current tab holds no plot, the bottom edge of the search box (LLFR-00094) must be at the height where the bottom edge of a plot would be (LLFR-00424), at any window size.
 
 *Parent: HLFR-00095*
 
@@ -2943,7 +2943,7 @@ While the Zoom button (LLFR-00077) is active and the user presses the left mouse
 *Parent: HLFR-00027*
 
 ### LLFR-00209 Zoom to the selected span
-When the user releases the left mouse button after LLFR-00208, the app must set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every time plot (LLFR-00070). On a frequency plot, the span zoom changes only that plot (LLFR-00693) and is limited as in LLFR-00694.
+When the user releases the left mouse button after LLFR-00208, the app must set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every time plot (LLFR-00070). On a frequency plot, the span zoom changes only that plot (LLFR-00693).
 
 Note: A release less than 5 pixels from the press is a click (LLFR-00078).
 
@@ -3119,7 +3119,7 @@ A Delta X marker must show the text "Δt = <value> s" next to the middle point o
 *Parent: HLFR-00043, HLFR-00007*
 
 ### LLFR-00170 Delta Y marker
-A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle point pointing right, away from the points.
+A Delta Y marker must mark its two points with dots and draw a dashed vertical curly bracket whose two ends are at the y-axis values of the two points, placed just to the right of the later of the two points, with its middle point pointing right, away from the points, except as in LLFR-00685.
 
 *Parent: HLFR-00044*
 
@@ -3233,7 +3233,7 @@ A new frequency plot must show the frequencies from 0 Hz up to the highest frequ
 *Parent: HLFR-00058*
 
 ### LLFR-00693 Zoom and pan on one frequency plot
-Mouse wheel zoom (LLFR-00074, LLFR-00659), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345, LLFR-00356) must change only the frequency plot they are used on.
+On a frequency plot, mouse wheel zoom (LLFR-00074, LLFR-00659), click zoom (LLFR-00078), span zoom (LLFR-00209) and pan (LLFR-00117, LLFR-00345, LLFR-00356) must change only that frequency plot.
 
 *Parent: HLFR-00058, HLFR-00027, HLFR-00036*
 
@@ -3268,7 +3268,7 @@ A Delta X marker on a frequency plot must show the text "Δf = <value> Hz", wher
 *Parent: HLFR-00058, HLFR-00043*
 
 ### LLFR-00303 Area preview while dragging
-While the Area button (LLFR-00286) is active and the user presses the left mouse button on a time plot's drawing area, outside any area and more than 5 pixels from its edges, and moves the pointer 5 pixels or more from where the button was pressed, the app must show on that plot a preview of the area, from the time of the press to the time under the pointer.
+While the Area button (LLFR-00286) is active and the user presses the left mouse button on a time plot's drawing area, outside any area and more than 5 pixels from its edges, and moves the pointer 5 pixels or more from where the button was pressed, the app must show on that plot a preview of the area, from the time of the press to the time under the pointer, except as in LLFR-00697.
 
 *Parent: HLFR-00066*
 
@@ -3278,7 +3278,7 @@ The area preview (LLFR-00303) must stop at the edge of the nearest existing area
 *Parent: HLFR-00066*
 
 ### LLFR-00304 Create an area
-When the user releases the left mouse button after LLFR-00303, the app must create an area between the two times, on every time plot (LLFR-00310).
+When the user releases the left mouse button after LLFR-00303, the app must create an area between the two times, on every time plot (LLFR-00310), except as in LLFR-00700 and LLFR-00702.
 
 *Parent: HLFR-00066*
 
@@ -3345,7 +3345,7 @@ While the user moves or resizes an area (LLFR-00312, LLFR-00313), the app must u
 *Parent: HLFR-00067, HLFR-00106*
 
 ### LLFR-00309 Default area name
-The app must name each new area "Area N", where N is 1 for the first area created after a file is opened and grows by 1 for each new area.
+The app must name each new area "Area N", where N is 1 for the first area created after a file is opened and grows by 1 for each new area, except as in LLFR-00707.
 
 *Parent: HLFR-00066*
 
@@ -3399,7 +3399,7 @@ A drag on a frequency plot (HLFR-00058) while the Area button is active must not
 *Parent: HLFR-00066, HLFR-00058*
 
 ### LLFR-00312 Move an area
-While the Area button (LLFR-00286) is active or no plot tool is active (LLFR-00790), and the user presses the left mouse button inside an area, more than 5 pixels from both of its edges, and drags, the app must move the area along the x-axis with the mouse pointer, keeping its width, and leave it where the button is released.
+While the Area button (LLFR-00286) is active or no plot tool is active (LLFR-00790), and the user presses the left mouse button inside an area, more than 5 pixels from both of its edges, and drags, the app must move the area along the x-axis with the mouse pointer, keeping its width, and leave it where the button is released, except as in LLFR-00713 and LLFR-00714.
 
 *Parent: HLFR-00067*
 
@@ -3414,7 +3414,7 @@ While the user moves an area (LLFR-00312), the area must stop at the edge of the
 *Parent: HLFR-00067*
 
 ### LLFR-00313 Resize an area
-While the Area button (LLFR-00286) is active or no plot tool is active (LLFR-00790), and the user presses the left mouse button within 5 pixels of an edge of an area and drags, the app must move that edge along the x-axis with the mouse pointer, and leave it where the button is released, while the other edge stays in place.
+While the Area button (LLFR-00286) is active or no plot tool is active (LLFR-00790), and the user presses the left mouse button within 5 pixels of an edge of an area and drags, the app must move that edge along the x-axis with the mouse pointer, and leave it where the button is released, while the other edge stays in place, except as in LLFR-00715, LLFR-00716 and LLFR-00717.
 
 *Parent: HLFR-00106*
 
@@ -3446,7 +3446,7 @@ When the user chooses "Rename" in the area menu (LLFR-00314), the app must let t
 *Parent: HLFR-00068*
 
 ### LLFR-00718 Renamed area label
-After the user types a new area name (LLFR-00315), the app must show it in the area's label (LLFR-00307).
+After the user types a new area name (LLFR-00315), the app must show it in the area's label (LLFR-00307), except as in LLFR-00719.
 
 *Parent: HLFR-00068*
 
@@ -3671,7 +3671,7 @@ If the user enters a new text (LLFR-00342) that is empty or made only of spaces,
 *Parent: HLFR-00075*
 
 ### LLFR-00748 Editing keeps size and colors
-Editing the text of a text note (LLFR-00342) must not change the text note's size or colors (LLFR-00385, LLFR-00387).
+Editing the text of a text note (LLFR-00342) must not change the text note's size or colors (LLFR-00385, LLFR-00802, LLFR-00387, LLFR-00808).
 
 *Parent: HLFR-00075*
 
@@ -3975,7 +3975,7 @@ When the user chooses "Delete" in the arrow menu (LLFR-00378), the app must remo
 *Parent: HLFR-00084*
 
 ### LLFR-00381 Menus over an arrow
-When the user right-clicks a point on an arrow (LLFR-00373) where a curve, a flag, a delta marker or an area is also drawn, the app must show the arrow menu (LLFR-00378) and not the menu of that item.
+When the user right-clicks a point on an arrow (LLFR-00373) where a curve, a flag, a delta marker or an area is also drawn, the app must show the arrow menu (LLFR-00378) and not the menu of that item, except as in LLFR-00789.
 
 *Parent: HLFR-00084, HLFR-00088*
 
@@ -4022,7 +4022,7 @@ While no plot tool is active, a left mouse button press and drag on the rest of 
 ### LLFR-00796 No message on a drag elsewhere with no plot tool active
 While no plot tool is active, a left mouse button press and drag on the rest of a delta marker, on a curve or on a part of a plot where none of the objects of LLFR-00382, LLFR-00790, LLFR-00791, LLFR-00792, LLFR-00793 and LLFR-00794 is drawn must not show any message.
 
-*Parent: HLFR-00085*
+*Parent: HLFR-00085, HLFR-00099*
 
 ### LLFR-00383 Order of the objects at one point
 When the user presses the left mouse button at a point where several objects that react to the press are drawn (LLFR-00382, LLFR-00790, LLFR-00791, LLFR-00792, LLFR-00793, LLFR-00794, LLFR-00384, LLFR-00800, LLFR-00801), the app must act only on the first of them in this order: text note, pinned data tip, arrow, flag, area.
@@ -4040,7 +4040,7 @@ While a plot tool is active, a press on a flag, an area or an arrow must edit th
 *Parent: HLFR-00085, HLFR-00032*
 
 ### LLFR-00798 Other plot tools act as where no object is drawn
-While a plot tool is active, with any plot tool other than the own tool of LLFR-00384, a press on a flag, an area or an arrow must act as the active tool does where no object is drawn; for example, with the Zoom button active, a press on a flag zooms (LLFR-00318, LLFR-00722, LLFR-00761).
+While a plot tool is active, with any plot tool other than the own tool of LLFR-00384, a press on a flag, an area or an arrow must act as the active tool does where no object is drawn; for example, with the Zoom button active, a press on a flag zooms (LLFR-00318, LLFR-00761).
 
 *Parent: HLFR-00085, HLFR-00032*
 
@@ -4254,7 +4254,12 @@ When the user chooses "Delete all data tips in this plot" (LLFR-00412), the pinn
 *Parent: HLFR-00093, HLFR-00025*
 
 ### LLFR-00827 No confirmation for "Delete all data tips in this plot"
-When the user chooses "Delete all data tips in this plot" (LLFR-00412), the app must not ask for confirmation or show any message.
+When the user chooses "Delete all data tips in this plot" (LLFR-00412), the app must not ask for confirmation.
+
+*Parent: HLFR-00093, HLFR-00025*
+
+### LLFR-00877 No message for "Delete all data tips in this plot"
+When the user chooses "Delete all data tips in this plot" (LLFR-00412), the app must not show any message.
 
 *Parent: HLFR-00093, HLFR-00025*
 
@@ -4264,7 +4269,12 @@ When the user chooses "Delete all data tips in all plots" in the pinned data tip
 *Parent: HLFR-00093, HLFR-00025*
 
 ### LLFR-00828 No confirmation for "Delete all data tips in all plots"
-When the user chooses "Delete all data tips in all plots" (LLFR-00413), the app must not ask for confirmation or show any message.
+When the user chooses "Delete all data tips in all plots" (LLFR-00413), the app must not ask for confirmation.
+
+*Parent: HLFR-00093, HLFR-00025*
+
+### LLFR-00878 No message for "Delete all data tips in all plots"
+When the user chooses "Delete all data tips in all plots" (LLFR-00413), the app must not show any message.
 
 *Parent: HLFR-00093, HLFR-00025*
 
@@ -4284,7 +4294,12 @@ When the user chooses "Delete all delta markers in this plot" (LLFR-00414), a fi
 *Parent: HLFR-00093, HLFR-00043, HLFR-00044*
 
 ### LLFR-00831 No confirmation for "Delete all delta markers in this plot"
-When the user chooses "Delete all delta markers in this plot" (LLFR-00414), the app must not ask for confirmation or show any message.
+When the user chooses "Delete all delta markers in this plot" (LLFR-00414), the app must not ask for confirmation.
+
+*Parent: HLFR-00093, HLFR-00043, HLFR-00044*
+
+### LLFR-00879 No message for "Delete all delta markers in this plot"
+When the user chooses "Delete all delta markers in this plot" (LLFR-00414), the app must not show any message.
 
 *Parent: HLFR-00093, HLFR-00043, HLFR-00044*
 
@@ -4299,7 +4314,12 @@ When the user chooses "Delete all delta markers in all plots" (LLFR-00415), a fi
 *Parent: HLFR-00093, HLFR-00043, HLFR-00044*
 
 ### LLFR-00833 No confirmation for "Delete all delta markers in all plots"
-When the user chooses "Delete all delta markers in all plots" (LLFR-00415), the app must not ask for confirmation or show any message.
+When the user chooses "Delete all delta markers in all plots" (LLFR-00415), the app must not ask for confirmation.
+
+*Parent: HLFR-00093, HLFR-00043, HLFR-00044*
+
+### LLFR-00880 No message for "Delete all delta markers in all plots"
+When the user chooses "Delete all delta markers in all plots" (LLFR-00415), the app must not show any message.
 
 *Parent: HLFR-00093, HLFR-00043, HLFR-00044*
 
@@ -4309,7 +4329,12 @@ When the user chooses "Delete all flags" in the flag menu (LLFR-00090), the app 
 *Parent: HLFR-00093, HLFR-00031*
 
 ### LLFR-00834 No confirmation for "Delete all flags"
-When the user chooses "Delete all flags" (LLFR-00416), the app must not ask for confirmation or show any message.
+When the user chooses "Delete all flags" (LLFR-00416), the app must not ask for confirmation.
+
+*Parent: HLFR-00093, HLFR-00031*
+
+### LLFR-00881 No message for "Delete all flags"
+When the user chooses "Delete all flags" (LLFR-00416), the app must not show any message.
 
 *Parent: HLFR-00093, HLFR-00031*
 
@@ -4319,7 +4344,12 @@ When the user chooses "Delete all areas" in the area menu (LLFR-00314), the app 
 *Parent: HLFR-00093, HLFR-00069*
 
 ### LLFR-00835 No confirmation for "Delete all areas"
-When the user chooses "Delete all areas" (LLFR-00417), the app must not ask for confirmation or show any message.
+When the user chooses "Delete all areas" (LLFR-00417), the app must not ask for confirmation.
+
+*Parent: HLFR-00093, HLFR-00069*
+
+### LLFR-00882 No message for "Delete all areas"
+When the user chooses "Delete all areas" (LLFR-00417), the app must not show any message.
 
 *Parent: HLFR-00093, HLFR-00069*
 
@@ -4363,7 +4393,7 @@ While the list of LLFR-00419 is empty, for example at the first launch or when t
 *Parent: HLFR-00088*
 
 ### LLFR-00420 Double-click a label
-When the user double-clicks with the left mouse button the name in the label of a flag (LLFR-00084), of an area (LLFR-00307), of a delta marker (LLFR-00427) or of an arrow (LLFR-00436), whether a plot tool is active or not, the app must act as when the user chooses "Rename" in the menu of that object (LLFR-00088, LLFR-00315, LLFR-00718, LLFR-00719, LLFR-00720, LLFR-00429, LLFR-00439).
+When the user double-clicks with the left mouse button the name in the label of a flag (LLFR-00084), of an area (LLFR-00307), of a delta marker (LLFR-00427) or of an arrow (LLFR-00436), whether a plot tool is active or not, the app must act as when the user chooses "Rename" in the menu of that object (LLFR-00088, LLFR-00315, LLFR-00718, LLFR-00719, LLFR-00720, LLFR-00429, LLFR-00853, LLFR-00854, LLFR-00855, LLFR-00856, LLFR-00439, LLFR-00873, LLFR-00874, LLFR-00875, LLFR-00876).
 
 *Parent: HLFR-00094*
 
@@ -4413,7 +4443,7 @@ The title of LLFR-00425 must be drawn in bold and in a paler color than the opti
 *Parent: HLFR-00096, HLFR-00108*
 
 ### LLFR-00847 Clicking the menu title does nothing
-The title of LLFR-00425 is not an option: clicking it must do nothing.
+Clicking the title of LLFR-00425 must do nothing.
 
 *Parent: HLFR-00096, HLFR-00109*
 
@@ -4446,14 +4476,14 @@ When the title of LLFR-00426 has more than 40 characters, the app must shorten i
 *Parent: HLFR-00096*
 
 ### LLFR-00427 Delta marker label
-The app must show the name of a delta marker in a label directly above its value (LLFR-00169, LLFR-00171, LLFR-00261), in the delta marker's color (LLFR-00172, LLFR-00409).
+The app must show the name of a delta marker in a label directly above its value (LLFR-00169, LLFR-00171, LLFR-00261), in the delta marker's color (LLFR-00172, LLFR-00818).
 
 Note: The label appears wherever the delta marker appears, including the PDF export (LLFR-00129) and the copied image (LLFR-00133).
 
 *Parent: HLFR-00097*
 
 ### LLFR-00428 Default delta marker name
-The app must name each new Delta X marker "Delta X N" and each new Delta Y marker "Delta Y N", where N is 1 for the first marker of that kind placed after a file is opened and grows by 1 for each new marker of that kind.
+The app must name each new Delta X marker "Delta X N" and each new Delta Y marker "Delta Y N", where N is 1 for the first marker of that kind placed after a file is opened and grows by 1 for each new marker of that kind, except as in LLFR-00852.
 
 *Parent: HLFR-00097*
 
@@ -4473,7 +4503,7 @@ When the user chooses "Rename" in the delta marker menu (LLFR-00175), the app mu
 *Parent: HLFR-00110*
 
 ### LLFR-00853 Renamed delta marker label
-After the user types a new delta marker name (LLFR-00429), the app must show it in the delta marker's label (LLFR-00427).
+After the user types a new delta marker name (LLFR-00429), the app must show it in the delta marker's label (LLFR-00427), except as in LLFR-00854.
 
 *Parent: HLFR-00097, HLFR-00110*
 
@@ -4599,9 +4629,9 @@ The text of the label of LLFR-00436 must never be shown upside down, whatever th
 *Parent: HLFR-00100*
 
 ### LLFR-00437 Arrow label follows the arrow
-Whenever the position, angle or length of an arrow changes (LLFR-00376, LLFR-00377), or the plot's x-axis or y-axis range or size changes (LLFR-00374), the app must draw the label of LLFR-00436 again next to the middle of the part of the line that is shown, parallel to it, moved along the line by the shortest distance needed to keep the whole label inside the plot's drawing area.
+Whenever the position, angle or length of an arrow changes (LLFR-00376, LLFR-00377), or the plot's x-axis or y-axis range or size changes (LLFR-00374), the app must draw the label of LLFR-00436 again next to the middle of the part of the line that is shown, parallel to it, moved along the line by the shortest distance needed to keep the whole label inside the plot's drawing area, except as in LLFR-00871.
 
-*Parent: HLFR-00112*
+*Parent: HLFR-00100, HLFR-00112*
 
 ### LLFR-00870 Arrow label follows the preview
 While the user moves, rotates or stretches an arrow (LLFR-00376, LLFR-00377), the label of LLFR-00436 must follow the preview (LLFR-00779, LLFR-00782).
@@ -4629,7 +4659,7 @@ When the user chooses "Rename" in the arrow menu (LLFR-00378), the app must let 
 *Parent: HLFR-00111*
 
 ### LLFR-00873 Renamed arrow label
-After the user types a new arrow name (LLFR-00439), the app must show it in the arrow's label (LLFR-00436).
+After the user types a new arrow name (LLFR-00439), the app must show it in the arrow's label (LLFR-00436), except as in LLFR-00874.
 
 *Parent: HLFR-00100, HLFR-00111*
 

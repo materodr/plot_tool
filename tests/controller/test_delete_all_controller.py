@@ -191,7 +191,8 @@ class DeleteAllDataTipsTest(DeleteAllTestCase):
     """The two "Delete all data tips" options (LLFR-00412, LLFR-00413)."""
 
     @covers("LLFR-00412", "LLFR-00140", "LLFR-00138", "LLFR-00192",
-            "LLFR-00826", "LLFR-00827")
+            "LLFR-00826", "LLFR-00827",
+            "LLFR-00877")
     def test_delete_all_tips_in_this_plot(self) -> None:
         """Every tip of the chosen plot goes, in one undoable action; the
         tips of the other plots, and every other item, stay.
@@ -219,7 +220,7 @@ class DeleteAllDataTipsTest(DeleteAllTestCase):
         self.assert_no_message()
 
     @covers("LLFR-00413", "LLFR-00140", "LLFR-00138", "LLFR-00192",
-            "LLFR-00828")
+            "LLFR-00828", "LLFR-00878")
     def test_delete_all_tips_in_all_plots(self) -> None:
         """Every tip of every plot of every tab goes, also in the hidden
         tab, in one undoable action.
@@ -270,7 +271,8 @@ class DeleteAllDeltaMarkersTest(DeleteAllTestCase):
     LLFR-00415)."""
 
     @covers("LLFR-00414", "LLFR-00140", "LLFR-00138", "LLFR-00192",
-            "LLFR-00829", "LLFR-00830", "LLFR-00831")
+            "LLFR-00829", "LLFR-00830", "LLFR-00831",
+            "LLFR-00879")
     def test_delete_all_delta_markers_in_this_plot(self) -> None:
         """Every Delta X and Delta Y marker of the chosen plot goes, in
         one undoable action; the other plots keep theirs, and a first
@@ -337,7 +339,7 @@ class DeleteAllDeltaMarkersTest(DeleteAllTestCase):
         self.assertEqual(self.delta_kind_list()[0], [DELTA_Y_KIND_STR])
 
     @covers("LLFR-00415", "LLFR-00140", "LLFR-00138", "LLFR-00192",
-            "LLFR-00832", "LLFR-00833")
+            "LLFR-00832", "LLFR-00833", "LLFR-00880")
     def test_delete_all_delta_markers_in_all_plots(self) -> None:
         """Every delta marker of every plot of every tab goes, in one
         undoable action; a picked first point stays.
@@ -402,7 +404,8 @@ class DeleteAllFlagsAndAreasTest(DeleteAllTestCase):
     LLFR-00417)."""
 
     @covers("LLFR-00416", "LLFR-00205", "LLFR-00140", "LLFR-00138",
-            "LLFR-00192", "LLFR-00111", "LLFR-00834")
+            "LLFR-00192", "LLFR-00111", "LLFR-00834",
+            "LLFR-00881")
     def test_delete_all_flags(self) -> None:
         """Every flag leaves every time plot of every tab, in one
         undoable action; the flag numbers are not reused.
@@ -437,7 +440,8 @@ class DeleteAllFlagsAndAreasTest(DeleteAllTestCase):
         self.assertEqual(self.workspace.marker_list[0].name_str, "Flag 4")
 
     @covers("LLFR-00417", "LLFR-00310", "LLFR-00140", "LLFR-00138",
-            "LLFR-00192", "LLFR-00309", "LLFR-00706", "LLFR-00835")
+            "LLFR-00192", "LLFR-00309", "LLFR-00706", "LLFR-00835",
+            "LLFR-00882")
     def test_delete_all_areas(self) -> None:
         """Every area leaves every time plot of every tab, in one
         undoable action; the area numbers are not reused.

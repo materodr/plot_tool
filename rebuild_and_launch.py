@@ -187,7 +187,8 @@ def clear_bin_folder(bin_folder_str: str) -> None:
         bin_folder_str: the absolute path of the bin folder.
     Outputs: none.
     """
-    # COR-00007: bin/ holds only build outputs, which are not committed.
+    # COR-00007, COR-00021: bin/ holds only build outputs, which are not
+    # committed.
     for entry in os.scandir(bin_folder_str):
         if entry.name == KEPT_BIN_FILE_STR:
             continue
