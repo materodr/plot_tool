@@ -40,11 +40,10 @@ HLFR-00149 #205: a plot can't be moved to the slot of another plot yet (step 2).
 HLFR-00150 #205: a tab has no plot matrix yet; its fixed limit of 5 stacked plots matches the default 5 x 1 matrix (step 2).
 HLFR-00151 #205: the layout file does not save the plot matrix of a tab yet (step 2).
 HLFR-00018 #205: the limit is fixed at 5 plots (MAXIMUM_PLOTS_PER_TAB_I in src/model/workspace.py) instead of the slots of the plot matrix, and the Full Tab Notification box still says to delete a plot (step 2).
-#
-# Not listed, but #205 changes child LLFRs that the code doesn't follow yet
-# (the code comes with steps 2 and 3; their tests still pass on the old
-# behaviour): HLFR-00035 (LLFR-00207, LLFR-00454: the 0 key in place of Z),
-# HLFR-00042 (LLFR-00215, LLFR-00463: Zoom "Hold Z", Reset zoom "0"),
-# HLFR-00019, HLFR-00068, HLFR-00069 and HLFR-00093 (LLFR-00314: "Position"
-# in the area menu), HLFR-00040 (LLFR-00140: a panel border drag is
-# undoable).
+HLFR-00035 #205: LLFR-00207 and LLFR-00454 now reset the zoom with the 0 key, but the code still uses the Z key (step 2).
+HLFR-00042 #205: LLFR-00215 and LLFR-00463 now give the Zoom button tip "Hold Z" and the Reset zoom tip "0", but the code still shows no Zoom shortcut and "Z" for Reset zoom (step 2).
+HLFR-00019 #205: LLFR-00314 now puts "Position" in the area menu, before "Delete plot", but the code's area menu has no "Position" option (step 2).
+HLFR-00068 #205: LLFR-00314 now puts "Position" in the area menu, before "Delete plot", but the code's area menu has no "Position" option (step 2).
+HLFR-00069 #205: LLFR-00314 now puts "Position" in the area menu, before "Delete plot", but the code's area menu has no "Position" option (step 2).
+HLFR-00093 #205: LLFR-00314 now puts "Position" in the area menu, before "Delete plot", but the code's area menu has no "Position" option (step 2).
+HLFR-00040 #205: LLFR-00140 now makes these undoable, but the code doesn't: moving a tab, changing a plot matrix and moving a plot (step 2); undocking, docking, closing an undocked window, hiding or showing its signal list panel and dragging a panel border (step 3).
