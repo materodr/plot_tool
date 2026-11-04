@@ -909,7 +909,7 @@ When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a s
 *Parent: HLFR-00038*
 
 ### LLFR-01139 PDF shortcut
-The app must run "Save all tabs as PDF" (LLFR-00128) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01177), after leaving that field as in LLFR-01178 and LLFR-01179 or that dialog as in LLFR-01177, except as in LLFR-01172 and LLFR-01181.
+The app must run "Save all tabs as PDF" (LLFR-00128) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01177), after leaving that field as in LLFR-01178, LLFR-01182 and LLFR-01179 or that dialog as in LLFR-01177, except as in LLFR-01172 and LLFR-01181.
 
 Note: Text fields give Ctrl+P no meaning of their own. The boxes and the dialog of the export are shown over the main window, as for the Export button. For example, a tab being renamed takes the name typed so far, and then the PDF dialog opens (the owner's answer of 2026-11-04, 21b).
 
@@ -924,14 +924,19 @@ Note: As the 0 key (LLFR-00454) and the Esc key (LLFR-00530), so that no dialog 
 *Parent: HLFR-00038*
 
 ### LLFR-01177 Shortcuts in a name dialog
-When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) in a name dialog, which is the dialog in which the user types a new name for a tab, a flag, an area, a delta marker, an arrow or a synthetic signal (LLFR-00030, LLFR-00088, LLFR-00315, LLFR-00429, LLFR-00439, LLFR-00266), the app must close the dialog with the name typed so far accepted, as its OK button does, and then run the action of LLFR-01139 or LLFR-01140 for the window the dialog was shown over.
+When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) in a name dialog, which is the dialog in which the user types a new name for a tab, a flag, an area, a delta marker, an arrow or a synthetic signal (LLFR-00030, LLFR-00088, LLFR-00315, LLFR-00429, LLFR-00439, LLFR-00266), the app must close the dialog with the name typed so far accepted, as its OK button does, before it runs the action of LLFR-01139 or LLFR-01140.
 
-Note: The rename is applied first, with its usual checks (for example LLFR-00067 and LLFR-00211), and then the PDF dialog opens or the focus goes to the search box.
+Note: The rename is applied first, with its usual checks (for example LLFR-00067 and LLFR-00211), and then the PDF dialog opens or the focus goes to the search box of the window the dialog was shown over (LLFR-01140).
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
 ### LLFR-01178 Text field left by a shortcut
-When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) while the keyboard focus is in a text field of a window (LLFR-00157), such as a search box or the field of a text note (LLFR-00333), the app must clear the field's selection and take the keyboard focus out of the field before it runs the action of LLFR-01139 or LLFR-01140, except as in LLFR-01180.
+When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) while the keyboard focus is in a text field of a window (LLFR-00157), such as a search box or the field of a text note (LLFR-00333), the app must take the keyboard focus out of the field before it runs the action of LLFR-01139 or LLFR-01140, except as in LLFR-01180.
+
+*Parent: HLFR-00038, HLFR-00033, HLFR-00138*
+
+### LLFR-01182 Selection cleared by a shortcut
+When the app takes the keyboard focus out of a text field for a shortcut (LLFR-01178), it must first clear the field's selection.
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
@@ -943,7 +948,7 @@ Note: The search box has nothing to accept: its text is applied while it is type
 *Parent: HLFR-00073, HLFR-00075, HLFR-00038, HLFR-00033*
 
 ### LLFR-01180 Search shortcut in the search box
-When the user presses Ctrl+F (Cmd+F on macOS) while the keyboard focus is already in the search box of the signal list panel of that window, the app must keep the keyboard focus in that search box and select its whole text.
+When the user presses Ctrl+F (Cmd+F on macOS) while the keyboard focus is already in the search box of the signal list panel of that window, the app must keep the keyboard focus in that search box while it selects the whole search text (LLFR-01140).
 
 Note: A second Ctrl+F therefore lets the user type a new search over the old one.
 
@@ -2625,7 +2630,7 @@ When the app opens an undocked window, the search box of its signal list panel m
 *Parent: HLFR-00129*
 
 ### LLFR-01140 Search shortcut
-When the user presses Ctrl+F (Cmd+F on macOS) in a window, the app must put the keyboard focus in the search box of that window's signal list panel, with the whole search text selected, also while the keyboard focus is in another text field of the window (LLFR-00157) or in a name dialog shown over the window (LLFR-01177), after leaving that field as in LLFR-01178 and LLFR-01179 or that dialog as in LLFR-01177, except as in LLFR-01174 and LLFR-01181.
+When the user presses Ctrl+F (Cmd+F on macOS) in a window, the app must put the keyboard focus in the search box of that window's signal list panel, with the whole search text selected, also while the keyboard focus is in another text field of the window (LLFR-00157) or in a name dialog shown over the window (LLFR-01177), after leaving that field as in LLFR-01178, LLFR-01182 and LLFR-01179 or that dialog as in LLFR-01177, except as in LLFR-01174 and LLFR-01181.
 
 Note: With the focus already in that search box, the focus stays there (LLFR-01180).
 

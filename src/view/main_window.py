@@ -3250,8 +3250,8 @@ class MainWindow(QMainWindow):
         # LLFR-01172: during a mouse drag, Ctrl+P does nothing.
         if self.is_mouse_drag_in_progress():
             return
-        # LLFR-01178, LLFR-01179: a text field is left first, its
-        # selection cleared and its typed text accepted.
+        # LLFR-01178, LLFR-01182, LLFR-01179: a text field is left
+        # first, its selection cleared and its typed text accepted.
         self.leave_text_field()
         # LLFR-01139: as the Export menu option, from any window, also
         # in a text field (which gives Ctrl+P no meaning of its own).
@@ -3269,7 +3269,7 @@ class MainWindow(QMainWindow):
         if self.is_mouse_drag_in_progress():
             return
         # LLFR-01180: in the window's own search box, the focus stays
-        # there; LLFR-01178, LLFR-01179: another text field is left
+        # there; LLFR-01178, LLFR-01182, LLFR-01179: another field is left
         # first, its selection cleared and its typed text accepted.
         if QApplication.focusWidget() is not self.search_box_of_window(
                 window_id_i):
@@ -3322,7 +3322,7 @@ class MainWindow(QMainWindow):
         focus_widget = QApplication.focusWidget()
         if not isinstance(focus_widget, TEXT_INPUT_WIDGET_TUPLE):
             return
-        # LLFR-01178: the selection is cleared.
+        # LLFR-01182: the selection is cleared first.
         if isinstance(focus_widget, QLineEdit):
             focus_widget.deselect()
         elif isinstance(focus_widget, (QTextEdit, QPlainTextEdit)):

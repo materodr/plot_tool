@@ -3,8 +3,8 @@
 A real MainWindow and MainController are used (the setup of
 test_undocked_windows_view). They check that the PDF and search
 shortcuts leave a text field first, clearing its selection and taking
-its typed text (LLFR-01178, LLFR-01179), that they close a name dialog
-with the typed name and then run (LLFR-01177), that Ctrl+F in the
+its typed text (LLFR-01178, LLFR-01182, LLFR-01179), that they close a
+name dialog with the typed name and then run (LLFR-01177), that Ctrl+F in the
 window's own search box selects its text (LLFR-01180), and that the
 dialogs that create a signal are left alone (LLFR-01181).
 
@@ -217,7 +217,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
 class TextFieldShortcutTest(UndockedWindowTestCase):
     """Ctrl+P and Ctrl+F leave a text field of a window first."""
 
-    @covers("LLFR-01178", "LLFR-01139", "HLFR-00038")
+    @covers("LLFR-01178", "LLFR-01182", "LLFR-01139", "HLFR-00038")
     def test_pdf_shortcut_leaves_the_search_box(self) -> None:
         """Ctrl+P with the focus in the search box clears its selection,
         takes the focus out of it, keeps its text, then runs the export.
@@ -243,8 +243,9 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         self.assertEqual(order_list, [("left", None), ("export", False)])
         self.assertEqual(box.text(), "speed")
 
-    @covers("LLFR-01179", "LLFR-01178", "LLFR-01139", "LLFR-01140",
-            "LLFR-00334", "HLFR-00073", "HLFR-00038", "HLFR-00033")
+    @covers("LLFR-01179", "LLFR-01178", "LLFR-01182", "LLFR-01139",
+            "LLFR-01140", "LLFR-00334", "HLFR-00073", "HLFR-00038",
+            "HLFR-00033")
     def test_shortcuts_write_the_text_note_first(self) -> None:
         """Ctrl+P and Ctrl+F in the field of a text note confirm it, as
         Enter does, before the export runs or the focus goes to the
@@ -279,7 +280,8 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         self.assertIs(window.focusWidget(),
                       window.signal_list_panel.search_box)
 
-    @covers("LLFR-01178", "LLFR-01140", "HLFR-00033", "HLFR-00138")
+    @covers("LLFR-01178", "LLFR-01182", "LLFR-01140", "HLFR-00033",
+            "HLFR-00138")
     def test_search_shortcut_leaves_another_search_box(self) -> None:
         """Ctrl+F in an undocked window, with the focus in the main
         window's search box, clears that box's selection and leaves it,
