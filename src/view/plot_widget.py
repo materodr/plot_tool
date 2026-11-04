@@ -5510,8 +5510,9 @@ class PlotWidget(QWidget):
         if not self.inside_axes_b(display_x_px, display_y_px):
             return
         # LLFR-00356, LLFR-00118 to LLFR-00120: the wheel button pan code,
-        # driven by the left button. LLFR-00357: a press and release
-        # without a move shifts nothing and shows nothing. LLFR-00207:
+        # driven by the left button. LLFR-00357, LLFR-00763: a press and
+        # release without a move shifts nothing; LLFR-00764: and shows no
+        # message, since the pan code never asks the user. LLFR-00207:
         # panning_b makes the Z key do nothing until the release.
         self.pan_press_at(widget_point, Qt.MouseButton.LeftButton)
 
@@ -6283,7 +6284,8 @@ class PlotWidget(QWidget):
         patch.set_facecolor(pale_str)
         patch.set_edgecolor(pale_str)
         # LLFR-00870: the name of the arrow being moved, turned or
-        # stretched, in the same pale color; a new arrow has no label yet.
+        # stretched, in the same pale color; LLFR-00774: a new arrow
+        # (the drawing preview of LLFR-00371) has no label yet.
         if self.arrow_preview_label is not None:
             name_str = ""
             if (self.arrow_drag_mode_str != ARROW_DRAG_CREATE_STR
@@ -6546,7 +6548,8 @@ class PlotWidget(QWidget):
         Outputs: (x, y) of the nearest point of the drawing area.
         """
         # LLFR-00372, LLFR-00376, LLFR-00377: a release outside the
-        # drawing area counts at its nearest point.
+        # drawing area counts at its nearest point; LLFR-00767 for a new
+        # arrow, LLFR-00780 for a moved one.
         x_px, y_px = self.widget_to_display_tuple(widget_point)
         box = self.axes.bbox
         left_px, right_px = sorted((float(box.x0), float(box.x1)))
@@ -6676,7 +6679,8 @@ class PlotWidget(QWidget):
             when the release was lost.
         """
         # LLFR-00372, LLFR-00376, LLFR-00377: a release less than 5
-        # pixels from the press creates or changes nothing, silently.
+        # pixels from the press creates or changes nothing (LLFR-00768,
+        # LLFR-00781); LLFR-00769: silently, with no message.
         if self.arrow_drag_mode_str == ARROW_DRAG_NONE_STR:
             return
         release_point = QPoint(self.arrow_last_point)

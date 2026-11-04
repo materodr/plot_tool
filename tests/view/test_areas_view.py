@@ -9,6 +9,7 @@ with the real controllers. No modal dialog or menu is ever opened.
 """
 
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -1057,6 +1058,120 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         self.controller.plot_controller.on_redo()
         self.application.processEvents()
         assert_color("#2f7dff")
+
+    def model_span(self) -> tuple:
+        """Return the (start, end) of the first area of the model.
+
+        Inputs: none.
+        Outputs: a tuple (start_s, end_s).
+        """
+        return tuple(self.area_list()[0][1:])
+
+    @covers("LLFR-00710", "LLFR-00312", "LLFR-00313", "LLFR-00310",
+            "LLFR-00709", "HLFR-00067", "HLFR-00106")
+    def test_dragged_area_is_moved_in_the_other_tabs(self) -> None:
+        """An area moved, then resized, on a plot of the first tab is,
+        once the button is released, at its new place on the time plot
+        of a second tab, which was not shown during the drag.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.top_panel.plot_tool_button_dict[AREA_TOOL_STR].click()
+        self.application.processEvents()
+        self.drag_area(self.plot_widgets()[0], 1.0, 2.0)
+        area_id_i = (self.controller.plot_controller.workspace
+                     .area_list[0].area_id_i)
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        self.main_window.signal_double_click_handler("speed")
+        self.application.processEvents()
+        second_tab_id_i = self.main_window.current_tab_id()
+        (other_tab_widget,) = self.plot_widgets()
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.application.processEvents()
+        first_widget = self.plot_widgets()[0]
+        first_widget.canvas.draw()
+        start_s, end_s = self.model_span()
+        middle_s = (start_s + end_s) / 2.0
+        # LLFR-00312: a move from the middle of the area.
+        self.drag_area(first_widget, middle_s, middle_s + 0.4)
+        moved_tuple = self.model_span()
+        self.assertAlmostEqual(moved_tuple[0], start_s + 0.4, delta=0.03)
+        self.assertAlmostEqual(moved_tuple[1] - moved_tuple[0],
+                               end_s - start_s)
+        # LLFR-00710: the plot of the other tab has the new place as soon
+        # as the button is released, before the tab is shown.
+        for drawn_s, model_s in zip(
+                other_tab_widget.area_drawn_span_tuple(area_id_i),
+                moved_tuple):
+            self.assertAlmostEqual(drawn_s, model_s)
+        # LLFR-00313: a resize from the end edge.
+        first_widget.canvas.draw()
+        self.drag_area(first_widget, moved_tuple[1], moved_tuple[1] + 0.5)
+        resized_tuple = self.model_span()
+        self.assertAlmostEqual(resized_tuple[0], moved_tuple[0])
+        self.assertAlmostEqual(resized_tuple[1], moved_tuple[1] + 0.5,
+                               delta=0.03)
+        for drawn_s, model_s in zip(
+                other_tab_widget.area_drawn_span_tuple(area_id_i),
+                resized_tuple):
+            self.assertAlmostEqual(drawn_s, model_s)
+        # Shown, the other tab draws the area there too.
+        self.main_window.set_current_tab(second_tab_id_i)
+        self.application.processEvents()
+        other_tab_widget.canvas.draw()
+        for drawn_s, model_s in zip(
+                other_tab_widget.area_drawn_span_tuple(area_id_i),
+                resized_tuple):
+            self.assertAlmostEqual(drawn_s, model_s)
+
+    @covers("LLFR-00720", "LLFR-00315", "LLFR-00314", "HLFR-00068")
+    def test_empty_area_name_shows_no_message(self) -> None:
+        """Renaming an area to an empty name or to spaces, through its
+        menu and the real rename dialog function, keeps the name, records
+        no undo step and shows no message box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QDialog, QInputDialog, QMessageBox
+        self.top_panel.plot_tool_button_dict[AREA_TOOL_STR].click()
+        self.application.processEvents()
+        first_widget = self.plot_widgets()[0]
+        self.drag_area(first_widget, 1.0, 2.0)
+        first_widget.canvas.draw()
+        undo_history = self.controller.plot_controller.undo_history
+        depth_i = undo_history.depth()
+        bottom_f, top_f = first_widget.axes.get_ylim()
+        point = first_widget.data_to_widget_point(
+            1.5, bottom_f + 0.8 * (top_f - bottom_f))
+        shown_box_list = []
+        for answer_str in ("", "   ", " \t "):
+            with self.subTest(answer=answer_str), \
+                    mock.patch.object(QInputDialog, "getText",
+                                      return_value=(answer_str, True)
+                                      ) as dialog_mock, \
+                    mock.patch.object(
+                        QMessageBox, "exec",
+                        new=lambda box: shown_box_list.append(box) or 0), \
+                    mock.patch.object(
+                        QDialog, "exec",
+                        new=lambda dialog: shown_box_list.append(dialog)
+                        or 0):
+                menu, request_list = first_widget.context_menu_and_requests(
+                    point)
+                rename_action = next(action for action in menu.actions()
+                                     if action.text() == "Rename")
+                request_list[rename_action.data()]()
+                self.application.processEvents()
+                self.assertEqual(dialog_mock.call_count, 1)
+            self.assertEqual(self.area_list()[0][0], "Area 1")
+            self.assertEqual(first_widget.area_label_text(
+                self.controller.plot_controller.workspace.area_list[0]
+                .area_id_i), "Area 1")
+        self.assertEqual(shown_box_list, [])
+        self.assertEqual(undo_history.depth(), depth_i)
 
     @covers("LLFR-00129", "LLFR-00305")
     def test_export_draws_the_areas(self) -> None:
