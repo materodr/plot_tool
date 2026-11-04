@@ -1565,7 +1565,7 @@ When the user clicks the Save signals button, the app must show a save file dial
 *Parent: HLFR-00090*
 
 ### LLFR-00942 Different time signals
-When the user clicks the Save signals button (LLFR-00394) and the time signals of the open data files are not all identical (LLFR-00977), the app must show, in place of the save file dialog (LLFR-00396), an error box saying that the files need the same time signals to be saved together.
+When the user clicks the Save signals button (LLFR-00394) and the time signals of the open data files are not all identical (LLFR-00977), the app must show, in place of the save file dialog (LLFR-00396), an error box saying that the files need the same time signals, within the tolerance of LLFR-00977, to be saved together.
 
 Note: With one data file open, the check always passes.
 

@@ -667,6 +667,11 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.assertEqual(self.view.dialog_call_list, [])
         self.assertEqual(len(self.view.error_list), 1)
         self.assertIn("need the same time signals", self.view.error_list[0])
+        # LLFR-00942: the text mentions the tolerance of LLFR-00977.
+        self.assertIn("at most 1e-8", self.view.error_list[0])
+        self.assertNotIn("exactly", self.view.error_list[0])
+        self.assertNotIn("same value at every sample",
+                         self.view.error_list[0])
         self.assertEqual(self.view.written_path_list, [])
         self.assertEqual(sorted(os.listdir(self.folder_str)), [])
         self.assertEqual(self.view.finished_count_i, 1)

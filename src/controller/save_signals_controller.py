@@ -44,13 +44,16 @@ DATA_FILE_REFUSED_STR = (
     "signals.")
 # LLFR-00399, LLFR-00400: the start of the error box text.
 SAVE_FAILED_STR = "The signals could not be saved to '{name}'."
-# LLFR-00942: the error box shown in place of the save file dialog.
+# LLFR-00942, LLFR-00977: the error box shown in place of the save file
+# dialog, which states the time tolerance.
 DIFFERENT_TIME_SIGNALS_STR = (
     "The signals of the open data files cannot be saved together: the "
-    "files need the same time signals, with the same number of samples "
-    "and the same value at every sample, to be saved in one file. Close "
-    "the files whose time signal is different, then save the signals "
-    "again.")
+    "files need the same time signals, within a tolerance, to be saved in "
+    "one file. The time signals must have the same number of samples, and "
+    "the samples at the same position must differ by at most 1e-8 times "
+    "the larger value, or by at most 1e-8 s when both are below 1 s. "
+    "Close the files whose time signal is different, then save the "
+    "signals again.")
 
 
 def same_file(first_path_str: str, second_path_str: str) -> bool:
