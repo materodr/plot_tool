@@ -97,7 +97,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from model import synthetic_operations as operations
-from model.data_files import file_prefix, prefix_number, without_prefix
+from model.data_files import (
+    file_prefix, identical_time_signals_b, prefix_number, without_prefix)
 from model.errors import (
     EmptySyntheticNameError, SyntheticEntryError, SyntheticNameInUseError,
     SyntheticSignalError, SyntheticSourceError)
@@ -601,12 +602,11 @@ class SyntheticSignalStore:
         if callable(time_array):
             time_function = time_array
             time_array = time_function(source_name_list[0])
-            # LLFR-00496, LLFR-00275: the signals of a product must have
-            # exactly the same time signal.
+            # LLFR-00496, LLFR-00275, LLFR-00977, LLFR-00978: the signals
+            # of a product must have identical time signals.
             for source_name_str in source_name_list[1:]:
-                if not np.array_equal(
-                        np.asarray(time_function(source_name_str)),
-                        np.asarray(time_array)):
+                if not identical_time_signals_b(
+                        time_function(source_name_str), time_array):
                     raise SyntheticSourceError(
                         f'The signals "{source_name_list[0]}" and '
                         f'"{source_name_str}" belong to data files whose '
