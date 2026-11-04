@@ -52,8 +52,6 @@ class ParameterDialog(QDialog):
             (choice id, choice label), id chosen at first): one radio
             button per choice, for example how a filter starts.
     Attributes:
-        file_label: the label that names the file of the time signal
-            window (LLFR-00953), hidden without a file name.
         prompt_label: the label with the question.
         field_label_list: the label of each field.
         value_edit_list: the QLineEdit of each field, in order.
@@ -85,17 +83,6 @@ class ParameterDialog(QDialog):
         self.setMinimumWidth(MINIMUM_DIALOG_WIDTH_I)
         self.check_function = check_function
         dialog_layout = QVBoxLayout(self)
-        # LLFR-00953: the name of the file, with its extension and
-        # without its folder, above the question.
-        self.file_label = QLabel(TIME_SIGNAL_FILE_FORMAT_STR.format(
-            name=file_name_str))
-        self.file_label.setObjectName("time_signal_file_label")
-        self.file_label.setTextFormat(Qt.TextFormat.PlainText)
-        self.file_label.setWordWrap(True)
-        file_label_font = self.file_label.font()
-        file_label_font.setBold(True)
-        self.file_label.setFont(file_label_font)
-        self.file_label.setVisible(bool(file_name_str))
         self.prompt_label = QLabel(prompt_str)
         self.prompt_label.setObjectName("parameter_prompt_label")
         self.prompt_label.setWordWrap(True)
@@ -283,6 +270,8 @@ class SecondSignalDialog(QDialog):
             can't be accepted, or "" when it can; None accepts every
             name (LLFR-00329).
     Attributes:
+        file_label: the label that names the file of the time signal
+            window (LLFR-00953), hidden without a file name.
         prompt_label: the label with the question.
         search_box: the QLineEdit above the list, with the keyboard
             focus when the dialog opens.
@@ -323,6 +312,17 @@ class SecondSignalDialog(QDialog):
         # LLFR-00329: the check of the confirmed name, if any.
         self.check_function = check_function
         dialog_layout = QVBoxLayout(self)
+        # LLFR-00953: the name of the file, with its extension and
+        # without its folder, above the question.
+        self.file_label = QLabel(TIME_SIGNAL_FILE_FORMAT_STR.format(
+            name=file_name_str))
+        self.file_label.setObjectName("time_signal_file_label")
+        self.file_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.file_label.setWordWrap(True)
+        file_label_font = self.file_label.font()
+        file_label_font.setBold(True)
+        self.file_label.setFont(file_label_font)
+        self.file_label.setVisible(bool(file_name_str))
         self.prompt_label = QLabel(prompt_str)
         self.prompt_label.setObjectName("second_signal_prompt_label")
         self.prompt_label.setWordWrap(True)
