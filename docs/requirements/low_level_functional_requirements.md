@@ -265,7 +265,16 @@ When the app runs from source, the first time the user clicks the Open file butt
 ### LLFR-00447 File dialog folder of the last opened file
 After the first time the user clicks the Open file button after the app starts (LLFR-00204, LLFR-00446), the file selection dialog (LLFR-00005) must show the folder of the last file the app opened successfully.
 
+Note: This holds whatever folder or file the user chose in the dialog at an earlier click, also in the system's own dialog of macOS.
+
 *Parent: HLFR-00004*
+
+### LLFR-00977 Dialog folder after several files at once
+When the user has selected several files at once (LLFR-00951), the next file selection dialog (LLFR-00005) must show the folder of the last of those files, in the order of LLFR-00952, that the app opened successfully, as in LLFR-00447.
+
+Note: A selected file that fails to open, is refused or whose time signal window is cancelled (LLFR-00953) does not change the folder.
+
+*Parent: HLFR-00004, HLFR-00122*
 
 ### LLFR-00006 Open the selected file
 When the user selects one or more files in the file selection dialog (LLFR-00005, LLFR-00951), the app must try to open each selected file in the steps of LLFR-00328, one file after the other in the order of LLFR-00952.

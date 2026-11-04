@@ -298,6 +298,73 @@ class StartupProbeTest(unittest.TestCase):
             main_window.deleteLater()
             self.application.processEvents()
 
+    @covers("LLFR-00447", "LLFR-00468")
+    def test_folder_probe_reports_each_reused_dialog(self) -> None:
+        """With the folder probe on, three folder lines, all ok here.
+
+        On Linux the folder is read from Qt's own dialog (source
+        "dialog"); the macOS build check reads the system panel.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.main_controller import MainController
+        from view.main_window import MainWindow
+        probe = self.startup_probe
+        self.assertFalse(probe.folder_probe_enabled({}))
+        self.assertTrue(probe.folder_probe_enabled(
+            {"PLOT_TOOL_FOLDER_PROBE": "1"}))
+        self.assertEqual(probe.visible_panel_folder_str("linux"), "")
+        self.assertTrue(probe.same_folder("/a/../b", "/b"))
+        self.assertFalse(probe.same_folder("", ""))
+        main_window = MainWindow()
+        controller = MainController(main_window)
+        controller.start()
+        pool = main_window.file_dialog_pool
+        from PyQt6.QtWidgets import QFileDialog
+        for key_str in probe.FOLDER_PROBE_KEY_TUPLE:
+            pool.dialog(key_str).setOption(
+                QFileDialog.Option.DontUseNativeDialog, True)
+        output_stream = io.StringIO()
+        fake_application = FakeApplication()
+        fake_application.processEvents = self.application.processEvents
+        pause_patch = mock.patch.object(probe, "PROBE_PAUSE_S", 0.01)
+        pause_patch.start()
+        self.addCleanup(pause_patch.stop)
+        try:
+            probe.report_startup(
+                fake_application, 0.0, True, mock.Mock(),
+                {"PLOT_TOOL_FOLDER_PROBE": "1"}, output_stream,
+                main_window=main_window)
+            line_list = [
+                line_str
+                for line_str in output_stream.getvalue().splitlines()
+                if line_str.startswith("plot_tool folder:")]
+            self.assertEqual(len(line_list), 3, output_stream.getvalue())
+            for key_str, line_str in zip(probe.FOLDER_PROBE_KEY_TUPLE,
+                                         line_list):
+                field_dict = dict(part.split("=", 1)
+                                  for part in line_str.split()[2:])
+                self.assertEqual(field_dict["name"], key_str)
+                self.assertEqual(field_dict["ok"], "yes", line_str)
+                self.assertEqual(field_dict["source"], "dialog")
+                self.assertTrue(field_dict["expected"].endswith("second"))
+                self.assertFalse(pool.dialog(key_str).isVisible())
+            self.assertEqual(fake_application.exit_code_list, [0])
+            # A folder that is not the one asked for fails the run.
+            with mock.patch.object(probe, "same_folder",
+                                   return_value=False):
+                fake_application.exit_code_list.clear()
+                probe.report_startup(
+                    fake_application, 0.0, True, mock.Mock(),
+                    {"PLOT_TOOL_FOLDER_PROBE": "1"}, io.StringIO(),
+                    main_window=main_window)
+            self.assertEqual(fake_application.exit_code_list, [1])
+        finally:
+            main_window.close()
+            main_window.deleteLater()
+            self.application.processEvents()
+
     @covers("LLFR-00406", "HLFR-00091")
     def test_main_shows_every_dialog_quickly(self) -> None:
         """src/main.py: every file dialog appears within 0.6 s.

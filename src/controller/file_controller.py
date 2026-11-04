@@ -408,6 +408,8 @@ class FileController:
         # is added, with the next number.
         data_file = self.data_files.add(signal_file, path_str)
         # LLFR-00447: only a successful open moves the dialog folder.
+        # LLFR-00977: with several files selected, they open in the order
+        # of LLFR-00952, so the last one that opens sets the folder.
         self.dialog_folder_str = os.path.dirname(os.path.abspath(path_str))
         # LLFR-00921, LLFR-00650: the listeners add the new file and
         # keep everything else.

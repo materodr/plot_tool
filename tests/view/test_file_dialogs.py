@@ -619,5 +619,278 @@ class FileDialogTimingTest(unittest.TestCase):
         self.assertEqual(file_dialogs.KEPT_PANEL_LIST, [])
 
 
+class FakeSystemPanelDialog:
+    """Stand-in for a reused QFileDialog shown as the macOS panel.
+
+    It keeps the options as Qt 6 keeps them for its macOS helper
+    (qfiledialog.cpp, helperPrepareShow; qcocoafiledialoghelper.mm,
+    createNSOpenSavePanelDelegate): before each show, the "initially
+    selected files" become the files selected at the earlier use when
+    that list is empty, and are then never replaced except by
+    selectFile; the panel opens in the folder of the first of them (the
+    path itself when it is a folder), or else in the folder of
+    setDirectory.
+
+    Inputs:
+        native_b: False when DontUseNativeDialog is set.
+    """
+
+    def __init__(self, native_b: bool = True) -> None:
+        """Start as a dialog never shown.
+
+        Inputs:
+            native_b: whether the system panel may be used.
+        Outputs: none.
+        """
+        self.native_b = native_b
+        self.directory_str = ""
+        self.initially_selected_list = []
+        self.user_selected_list = []
+        self.shown_folder_list = []
+        self.select_file_list = []
+
+    def testOption(self, option) -> bool:
+        """Answer the DontUseNativeDialog option.
+
+        Inputs:
+            option: a QFileDialog.Option.
+        Outputs: True when the system panel is not used.
+        """
+        return not self.native_b
+
+    def setDirectory(self, folder_str: str) -> None:
+        """Keep the folder of setDirectory.
+
+        Inputs:
+            folder_str: the folder.
+        Outputs: none.
+        """
+        self.directory_str = folder_str
+
+    def selectFile(self, path_str: str) -> None:
+        """Replace the initially selected files, as Qt does natively.
+
+        Inputs:
+            path_str: an absolute path; "" is ignored, as by Qt.
+        Outputs: none.
+        """
+        self.select_file_list.append(path_str)
+        if path_str:
+            self.initially_selected_list = [path_str]
+
+    def nameFilters(self) -> list:
+        """Return no name filter.
+
+        Inputs: none.
+        Outputs: an empty list.
+        """
+        return []
+
+    def findChild(self, *argument_tuple):
+        """Return no widget: a system panel has no Qt widgets.
+
+        Inputs:
+            argument_tuple: the type and name looked for.
+        Outputs: None.
+        """
+        return None
+
+    def show_panel(self, chosen_list: list) -> list:
+        """Show the panel, note its folder and choose files in it.
+
+        Inputs:
+            chosen_list: the paths the user selects ([] for a cancel).
+        Outputs: chosen_list.
+        """
+        if not self.initially_selected_list:
+            self.initially_selected_list = list(self.user_selected_list)
+        if self.initially_selected_list:
+            first_str = self.initially_selected_list[0]
+            folder_str = (first_str if os.path.isdir(first_str)
+                          else os.path.dirname(first_str))
+        else:
+            folder_str = self.directory_str
+        self.shown_folder_list.append(os.path.realpath(folder_str))
+        self.user_selected_list = list(chosen_list)
+        return list(chosen_list)
+
+
+@requires_qt
+class ReusedDialogFolderTest(unittest.TestCase):
+    """A reused dialog shows the folder asked for (issue #232)."""
+
+    def setUp(self) -> None:
+        """Make three folders, each with a data file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+        self.temporary_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_folder.cleanup)
+        root_str = os.path.realpath(self.temporary_folder.name)
+        self.folder_dict = {}
+        self.path_dict = {}
+        for name_str in ("start", "a", "b", "c"):
+            folder_str = os.path.join(root_str, name_str)
+            os.makedirs(folder_str)
+            self.folder_dict[name_str] = folder_str
+            for file_name_str in (f"{name_str}1.csv", f"{name_str}2.csv"):
+                path_str = os.path.join(folder_str, file_name_str)
+                with open(path_str, "w", encoding="utf-8") as data_file:
+                    data_file.write(FILE_TEXT_STR)
+                self.path_dict[file_name_str] = path_str
+
+    @covers("LLFR-00447", "LLFR-00468", "LLFR-00204", "LLFR-00406")
+    def test_macos_panel_follows_the_folder_asked_for(self) -> None:
+        """The panel opens in each new folder, not the first chosen one.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import file_dialogs
+        pool = file_dialogs.FileDialogPool(
+            "darwin", lambda panel_tuple, platform_str: "skipped")
+        dialog = FakeSystemPanelDialog()
+        pool.register("open_file", lambda: dialog)
+        folder_dict, path_dict = self.folder_dict, self.path_dict
+        for folder_str, chosen_list in (
+                (folder_dict["start"], [path_dict["a1.csv"]]),
+                (folder_dict["a"], [path_dict["b1.csv"]]),
+                (folder_dict["b"], [path_dict["c1.csv"]]),
+                (folder_dict["c"], [])):
+            pool.prepared_dialog("open_file", folder_str).show_panel(
+                chosen_list)
+        # Before the fix: start, a, a, a (the folder of the first file
+        # chosen in the dialog).
+        self.assertEqual(dialog.shown_folder_list, [
+            folder_dict["start"], folder_dict["a"], folder_dict["b"],
+            folder_dict["c"]])
+        # "" keeps the panel as it is (the PDF dialog).
+        selected_count_i = len(dialog.select_file_list)
+        pool.prepared_dialog("open_file", "")
+        self.assertEqual(len(dialog.select_file_list), selected_count_i)
+
+    @covers("LLFR-00447", "LLFR-00204", "LLFR-00406")
+    def test_folder_selected_only_on_the_macos_panel(self) -> None:
+        """Qt's own dialog and other systems only get setDirectory.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import file_dialogs
+        folder_str = self.folder_dict["a"]
+        for platform_str, native_b, selected_list in (
+                ("darwin", True, [folder_str]), ("darwin", False, []),
+                ("linux", True, []), ("win32", True, [])):
+            with self.subTest(platform_str=platform_str, native_b=native_b):
+                dialog = FakeSystemPanelDialog(native_b)
+                self.assertEqual(file_dialogs.uses_system_panel(
+                    dialog, platform_str), bool(selected_list))
+                file_dialogs.reset_for_new_use(dialog, folder_str,
+                                               platform_str)
+                self.assertEqual(dialog.select_file_list, selected_list)
+                self.assertEqual(dialog.directory_str, folder_str)
+        # A real dialog of Qt's own kind keeps working as before.
+        from PyQt6.QtWidgets import QFileDialog
+        dialog = QFileDialog(None, "Open", "", "Data files (*.csv)")
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        self.assertFalse(file_dialogs.uses_system_panel(dialog, "darwin"))
+        for name_str in ("a", "b"):
+            file_dialogs.reset_for_new_use(dialog, self.folder_dict[name_str],
+                                           "darwin")
+            self.assertEqual(
+                os.path.realpath(dialog.directory().absolutePath()),
+                self.folder_dict[name_str])
+        dialog.deleteLater()
+
+    @covers("LLFR-00447", "LLFR-00468", "LLFR-00220", "LLFR-00951",
+            "LLFR-00952", "LLFR-00006", "HLFR-00122", "LLFR-00406")
+    def test_app_dialogs_follow_the_last_file(self) -> None:
+        """Open file, several files at once, then the layout dialogs.
+
+        The app's dialogs are replaced by the macOS panel stand-in and
+        each click goes through the controllers, as the user's would.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.main_controller import MainController
+        from view.main_window import (
+            LOAD_LAYOUT_DIALOG_KEY_STR, OPEN_FILE_DIALOG_KEY_STR,
+            SAVE_LAYOUT_DIALOG_KEY_STR, MainWindow)
+        main_window = MainWindow()
+        self.addCleanup(main_window.deleteLater)
+        self.addCleanup(main_window.close)
+        controller = MainController(main_window)
+        controller.start()
+        controller.file_controller.dialog_folder_str = (
+            self.folder_dict["start"])
+        pool = main_window.file_dialog_pool
+        pool.platform_str = "darwin"
+        dialog_dict = {}
+        for key_str in (OPEN_FILE_DIALOG_KEY_STR, SAVE_LAYOUT_DIALOG_KEY_STR,
+                        LOAD_LAYOUT_DIALOG_KEY_STR):
+            dialog_dict[key_str] = FakeSystemPanelDialog()
+            pool.dialog_dict[key_str] = dialog_dict[key_str]
+        pool.is_built = lambda key_str: key_str in pool.dialog_dict
+        answer_list = []
+        main_window.run_open_file_dialog = (
+            lambda dialog: dialog.show_panel(answer_list.pop(0)))
+        main_window.run_layout_dialog = (
+            lambda dialog: (dialog.show_panel(answer_list.pop(0)) or [""])[0])
+        main_window.show_layout_report = lambda *argument_tuple: None
+        folder_dict, path_dict = self.folder_dict, self.path_dict
+        # Open file: a1.csv, then b2.csv and b1.csv in one go (opened as
+        # b1, b2), then the two files of c with c2.csv gone, so that c1
+        # is the last file opened, then a cancel.
+        os.remove(path_dict["c2.csv"])
+        with mock.patch.object(main_window, "show_file_open_error"), \
+                mock.patch.object(main_window,
+                                  "show_refused_files_notification",
+                                  create=True):
+            for chosen_list in ([path_dict["a1.csv"]],
+                                [path_dict["b2.csv"], path_dict["b1.csv"]],
+                                [path_dict["c1.csv"], path_dict["c2.csv"]],
+                                []):
+                answer_list.append(chosen_list)
+                controller.file_controller.open_file_requested()
+                self.application.processEvents()
+        open_dialog = dialog_dict[OPEN_FILE_DIALOG_KEY_STR]
+        self.assertEqual(open_dialog.shown_folder_list, [
+            folder_dict["start"], folder_dict["a"], folder_dict["b"],
+            folder_dict["c"]])
+        self.assertEqual(
+            [os.path.basename(path_str) for path_str in
+             controller.file_controller.data_files.path_list],
+            ["a1.csv", "b1.csv", "b2.csv", "c1.csv"])
+        # Save layout: first in the Open file folder (LLFR-00220), saved
+        # to a; Load layout then in a, loaded from b; Save layout then
+        # in b (LLFR-00468), cancelled.
+        main_window.signal_double_click_handler("file1_speed")
+        self.application.processEvents()
+        layout_a_str = os.path.join(folder_dict["a"], "view.json")
+        layout_b_str = os.path.join(folder_dict["b"], "view.json")
+        answer_list.append([layout_a_str])
+        controller.layout_controller.on_save_layout_requested()
+        self.assertTrue(os.path.exists(layout_a_str))
+        with open(layout_a_str, "rb") as source_file, \
+                open(layout_b_str, "wb") as target_file:
+            target_file.write(source_file.read())
+        answer_list.append([layout_b_str])
+        controller.layout_controller.on_load_layout_requested()
+        answer_list.append([])
+        controller.layout_controller.on_save_layout_requested()
+        answer_list.append([])
+        controller.layout_controller.on_load_layout_requested()
+        self.assertEqual(answer_list, [])
+        self.assertEqual(
+            dialog_dict[SAVE_LAYOUT_DIALOG_KEY_STR].shown_folder_list,
+            [folder_dict["c"], folder_dict["b"]])
+        self.assertEqual(
+            dialog_dict[LOAD_LAYOUT_DIALOG_KEY_STR].shown_folder_list,
+            [folder_dict["a"], folder_dict["b"]])
+
+
 if __name__ == "__main__":
     unittest.main()
