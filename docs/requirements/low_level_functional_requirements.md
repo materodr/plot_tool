@@ -340,9 +340,9 @@ Note: As in LLFR-00188, the time is measured from the second launch onward, on t
 *Parent: HLFR-00091*
 
 ### LLFR-01180 No file name from an earlier use
-Each time the app shows the file selection dialog of the Open file button (LLFR-00005), the save file dialog of "Save all tabs as PDF" (LLFR-00128) or a dialog of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the dialog must open with its file name field empty and with no file selected, whatever file the user chose or typed in it at an earlier use, on macOS and on Windows.
+Each time the app shows the file selection dialog of the Open file button (LLFR-00005), the save file dialog of "Save all tabs as PDF" (LLFR-00128) or a dialog of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the dialog must open without the file name that the user chose or typed in it at an earlier use, on macOS and on Windows.
 
-Note: The app builds each dialog once and shows it again (LLFR-00406), and the system's dialogs would otherwise fill in the file chosen the last time. The Save signals dialog proposes a name on purpose (LLFR-00532).
+Note: In a save dialog, the file name field is then empty; in an open dialog, no file of the earlier use is selected. The app builds each dialog once and shows it again (LLFR-00406), and the system's dialogs would otherwise fill in the file chosen the last time. The Save signals dialog proposes a name on purpose (LLFR-00532).
 
 *Parent: HLFR-00004, HLFR-00038, HLFR-00049, HLFR-00050*
 
