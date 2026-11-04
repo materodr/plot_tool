@@ -2,7 +2,7 @@
 
 import sys
 
-from PyQt6.QtCore import QEventLoop, Qt, QUrl
+from PyQt6.QtCore import QEvent, QEventLoop, QObject, QPoint, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
@@ -14,6 +14,7 @@ from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
     ZOOM_TOOL_STR)
 from model import file_writer
+from model.window_placement import new_window_tuple, placed_window_tuple
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     color_picker, file_dialogs, file_writing, icons, message_boxes,
@@ -28,6 +29,7 @@ from view.tip_key_filter import (
     ToolKeyFilter)
 from view import top_panel
 from view.top_panel import TopPanel
+from view.undocked_window import UndockedWindow
 
 
 # LLFR-00005: title and filter of the file selection dialog. "All files"
@@ -90,6 +92,43 @@ SAVE_LAYOUT_DIALOG_KEY_STR = "save_layout"
 LOAD_LAYOUT_DIALOG_KEY_STR = "load_layout"
 SAVE_PDF_DIALOG_KEY_STR = "save_pdf"
 SAVE_SIGNALS_DIALOG_KEY_STR = "save_signals"
+
+
+class QuitFilter(QObject):
+    """Application event filter that sees the app being quit.
+
+    Inputs:
+        quit_function: function without arguments, called when the
+            application receives the Quit event (Cmd+Q, the Dock's Quit,
+            a logout, QCoreApplication.quit()).
+        parent: the QObject that owns the filter (the main window).
+    """
+
+    def __init__(self, quit_function, parent=None) -> None:
+        """Store the function.
+
+        Inputs: see the class docstring.
+        Outputs: none.
+        """
+        super().__init__(parent)
+        # LLFR-00989: what the main window does on a quit.
+        self.quit_function = quit_function
+
+    def eventFilter(self, watched, event) -> bool:
+        """Close the undocked windows before Qt closes every window.
+
+        Inputs:
+            watched: the object the event is sent to.
+            event: the QEvent.
+        Outputs: False, so the quit goes on.
+        """
+        # LLFR-00989, LLFR-01038: Qt closes the windows in no set order,
+        # so the undocked windows are closed by the app first, and none
+        # of them takes the quit for the user's close of its tab.
+        if (event.type() == QEvent.Type.Quit
+                and watched is QApplication.instance()):
+            self.quit_function()
+        return False
 
 
 class MainWindow(QMainWindow):
@@ -173,6 +212,23 @@ class MainWindow(QMainWindow):
         # follows the bottom edge of the lowest plot of the current tab.
         self.search_box_aligner = SearchBoxAligner(
             self.plot_panel, self.signal_list_panel, self)
+        # HLFR-00123: tab id -> UndockedWindow of each undocked tab, and
+        # the undocked tabs in tab order (LLFR-01056).
+        self.undocked_window_dict = {}
+        self.undocked_order_list = []
+        # LLFR-00980, LLFR-00993, LLFR-01038, LLFR-01012, LLFR-01020:
+        # the handlers of the windows, set by the plot controller.
+        self.window_handler_dict = {}
+        self.plot_panel.undock_handler = (
+            lambda tab_id_i: self._run_window_handler("undock_handler",
+                                                      tab_id_i))
+        # LLFR-01020: a drag of the main window's panel border.
+        self.lower_splitter.drag_finished_handler = (
+            lambda start_i, end_i: self._run_window_handler(
+                "panel_width_handler", -1, start_i, end_i))
+        # LLFR-01001, LLFR-01008: what every signal list panel shows,
+        # kept so that a new window's panel shows the same.
+        self.signal_list_state_dict = {}
 
         # LLFR-00406: every file dialog is built once, prepared after
         # the window is shown (prepare_file_dialogs), and reused.
@@ -202,41 +258,16 @@ class MainWindow(QMainWindow):
             self._on_open_file_activated)
         # LLFR-00079, LLFR-00002: the top panel reports the active tool.
         self.top_panel.plot_tool_changed.connect(self._on_plot_tool_changed)
-        self.signal_list_panel.signal_double_clicked.connect(
-            self._on_signal_double_clicked)
         # LLFR-00295: Enter in the signal list plots the selection.
         self.selected_signals_plot_handler = None
-        self.signal_list_panel.selected_signals_plot_requested.connect(
-            self._on_selected_signals_plot_requested)
         # LLFR-00095: the search text goes to the signal list controller.
         self.search_text_handler = None
-        self.signal_list_panel.search_text_changed.connect(
-            self._on_search_text_changed)
         # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278:
         # the options of the signal menu go to the synthetic controller.
         self.signal_menu_handler_dict = {}
-        self.signal_list_panel.synthetic_operation_requested.connect(
-            lambda name_str, operation_str: self._run_signal_menu_handler(
-                "create", name_str, operation_str))
-        self.signal_list_panel.copy_name_requested.connect(
-            lambda name_str: self._run_signal_menu_handler(
-                "copy_name", name_str))
-        self.signal_list_panel.rename_signal_requested.connect(
-            lambda name_str: self._run_signal_menu_handler(
-                "rename", name_str))
-        self.signal_list_panel.delete_signal_requested.connect(
-            lambda name_str: self._run_signal_menu_handler(
-                "delete", name_str))
-        self.signal_list_panel.copy_equation_requested.connect(
-            lambda name_str: self._run_signal_menu_handler(
-                "copy_equation", name_str))
-        # LLFR-00923: the options of the file menu go to the file
-        # controller.
-        self.signal_list_panel.close_file_requested.connect(
-            lambda number_i: self._run_signal_menu_handler(
-                "close_file", number_i))
-        self.signal_list_panel.close_all_files_requested.connect(
-            lambda: self._run_signal_menu_handler("close_all_files"))
+        # LLFR-00019, LLFR-00295, LLFR-00095, LLFR-00239, LLFR-00923:
+        # the requests of the main window's panel (tab id -1).
+        self.connect_signal_list_panel(self.signal_list_panel, -1)
         # LLFR-00115: the Reset zoom button goes to the plot controller.
         self.reset_zoom_handler = None
         self.top_panel.reset_zoom_button.triggered.connect(
@@ -295,6 +326,11 @@ class MainWindow(QMainWindow):
         application = QApplication.instance()
         if application is not None:
             application.installEventFilter(self.tool_key_filter)
+        # LLFR-00989: a quit closes every undocked window and keeps their
+        # tabs.
+        self.quit_filter = QuitFilter(self.close_all_undocked_windows, self)
+        if application is not None:
+            application.installEventFilter(self.quit_filter)
         # LLFR-00136, LLFR-00138: the Undo button goes to the plot
         # controller. LLFR-00137: so does Ctrl+Z (Cmd+Z on macOS, which
         # QKeySequence.StandardKey.Undo maps to), in this window.
@@ -330,6 +366,406 @@ class MainWindow(QMainWindow):
         # model (no file, plot or undo history is touched).
         self.top_panel.report_bug_requested.connect(
             self._on_report_bug_requested)
+
+    def connect_signal_list_panel(self, panel, tab_id_i: int) -> None:
+        """Connect the requests of a signal list panel to the handlers.
+
+        Inputs:
+            panel: a SignalListPanel.
+            tab_id_i: the tab of the undocked window of the panel, or -1
+                for the main window.
+        Outputs: none.
+        """
+        # LLFR-01002: every panel works as the main window's.
+        # LLFR-00019, LLFR-01003: a double-click plots in the tab of the
+        # panel's window.
+        panel.signal_double_clicked.connect(
+            lambda name_str: self._on_signal_double_clicked(name_str,
+                                                            tab_id_i))
+        # LLFR-00295, LLFR-01003, LLFR-01005: Enter plots the panel's own
+        # selection in the tab of its window.
+        panel.selected_signals_plot_requested.connect(
+            lambda name_list: self._on_selected_signals_plot_requested(
+                name_list, tab_id_i))
+        # LLFR-00095, LLFR-01006: the search text, shared by every panel.
+        panel.search_text_changed.connect(
+            lambda text_str: self._on_search_text_changed(text_str, panel))
+        panel.synthetic_operation_requested.connect(
+            lambda name_str, operation_str: self._run_signal_menu_handler(
+                "create", name_str, operation_str))
+        panel.copy_name_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "copy_name", name_str))
+        panel.rename_signal_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "rename", name_str))
+        panel.delete_signal_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "delete", name_str))
+        panel.copy_equation_requested.connect(
+            lambda name_str: self._run_signal_menu_handler(
+                "copy_equation", name_str))
+        # LLFR-00923: the options of the file menu.
+        panel.close_file_requested.connect(
+            lambda number_i: self._run_signal_menu_handler(
+                "close_file", number_i))
+        panel.close_all_files_requested.connect(
+            lambda: self._run_signal_menu_handler("close_all_files"))
+
+    def signal_list_panel_list(self) -> list:
+        """Return every signal list panel, the main window's first.
+
+        Inputs: none.
+        Outputs: a list of SignalListPanel.
+        """
+        # LLFR-01001: the panels that show the same signal list.
+        return [self.signal_list_panel] + [
+            window.signal_list_panel
+            for window in self.undocked_window_dict.values()]
+
+    def broadcast_signal_list(self, method_name_str: str,
+                              *argument_tuple) -> None:
+        """Call a method of every signal list panel and keep the call.
+
+        Inputs:
+            method_name_str: the name of a SignalListPanel method.
+            argument_tuple: its arguments.
+        Outputs: none. The last call of each method is kept, so that the
+            panel of a window opened later shows the same.
+        """
+        # LLFR-01001: the same file rows, signals, synthetic signals,
+        # letters and colors in every panel, at every moment.
+        self.signal_list_state_dict[method_name_str] = argument_tuple
+        for panel in self.signal_list_panel_list():
+            getattr(panel, method_name_str)(*argument_tuple)
+
+    def fill_signal_list_panel(self, panel) -> None:
+        """Give a new panel what the other panels show.
+
+        Inputs:
+            panel: the SignalListPanel of a new undocked window.
+        Outputs: none.
+        """
+        # LLFR-01001: the kinds, the operations and the time signals
+        # first, then the list that uses them.
+        for method_name_str in ("set_operation_groups", "set_signal_kinds",
+                                "set_time_signal_name",
+                                "set_time_signal_names"):
+            if method_name_str in self.signal_list_state_dict:
+                getattr(panel, method_name_str)(
+                    *self.signal_list_state_dict[method_name_str])
+        # LLFR-01008: the shared search text, with no new filtering.
+        panel.search_box.blockSignals(True)
+        panel.search_box.setText(self.signal_list_panel.search_text())
+        panel.search_box.blockSignals(False)
+        list_call_tuple = self.signal_list_state_dict.get("signal_list")
+        if list_call_tuple is not None:
+            getattr(panel, list_call_tuple[0])(*list_call_tuple[1])
+
+    def dialog_parent(self):
+        """Return the window that boxes of a plot action are shown over.
+
+        Inputs: none.
+        Outputs: the active undocked window, or this main window.
+        """
+        # LLFR-00988: over the undocked window of the action; the boxes
+        # of the top panel stay over the main window.
+        active_window = QApplication.activeWindow()
+        if active_window in self.undocked_window_dict.values():
+            return active_window
+        return self
+
+    # ----------------------------------------------------------------
+    # Undocked windows (HLFR-00123 to HLFR-00138)
+    # ----------------------------------------------------------------
+
+    def set_window_handlers(self, **handler_dict) -> None:
+        """Set the functions called for the undocked windows.
+
+        Inputs:
+            handler_dict: undock_handler, dock_handler,
+                window_close_handler and panel_toggle_handler, each
+                taking a tab id, and panel_width_handler, taking a tab id
+                (-1 for the main window) and the panel widths at the
+                press and at the release of a border drag.
+        Outputs: none.
+        """
+        # LLFR-00980, LLFR-00993, LLFR-01038, LLFR-01012, LLFR-01013,
+        # LLFR-01020: the plot controller decides.
+        self.window_handler_dict.update(handler_dict)
+
+    def _run_window_handler(self, key_str: str, *argument_tuple) -> None:
+        """Call a window handler, if it is set.
+
+        Inputs:
+            key_str: the handler name.
+            argument_tuple: its arguments.
+        Outputs: none.
+        """
+        # LLFR-00980, LLFR-00993, LLFR-01038, LLFR-01020.
+        handler = self.window_handler_dict.get(key_str)
+        if handler is not None:
+            handler(*argument_tuple)
+
+    def screen_area_list(self) -> list:
+        """Return the available area of every screen.
+
+        Inputs: none.
+        Outputs: a list of (x, y, width, height) in desktop pixels.
+        """
+        # LLFR-01048, LLFR-01049: where a window can be placed.
+        area_list = []
+        for screen in QApplication.screens():
+            geometry = screen.availableGeometry()
+            area_list.append((geometry.x(), geometry.y(), geometry.width(),
+                              geometry.height()))
+        return area_list
+
+    def main_screen_area(self) -> tuple:
+        """Return the available area of the screen of the main window.
+
+        Inputs: none.
+        Outputs: (x, y, width, height), or () when unknown.
+        """
+        # LLFR-01048: a window off-screen goes onto this screen.
+        screen = self.screen()
+        if screen is None:
+            return ()
+        geometry = screen.availableGeometry()
+        return (geometry.x(), geometry.y(), geometry.width(),
+                geometry.height())
+
+    def new_window_tuple(self) -> tuple:
+        """Return the window that an undock opens.
+
+        Inputs: none.
+        Outputs: (x, y, width, height): the plot panel's size, at its
+            position moved 30 pixels right and down, in desktop pixels.
+        """
+        # LLFR-00981, LLFR-01093: from the main window's plot panel.
+        top_left = self.plot_panel.mapToGlobal(QPoint(0, 0))
+        return new_window_tuple((top_left.x(), top_left.y(),
+                                 self.plot_panel.width(),
+                                 self.plot_panel.height()))
+
+    def main_panel_width(self) -> int:
+        """Return the width of the main window's signal list panel.
+
+        Inputs: none.
+        Outputs: the width in pixels.
+        """
+        # LLFR-01016, LLFR-01020: the main window's panel.
+        return self.lower_splitter.last_widget_width()
+
+    def window_state_dict(self) -> dict:
+        """Return the windows and panel widths as shown now.
+
+        Inputs: none.
+        Outputs: {"main_panel_width": width of the main window's panel,
+            "windows": {tab id: (x, y, width, height, panel width)}}.
+        """
+        # LLFR-01021, LLFR-01024, LLFR-00225 items 9, 13 and 14.
+        return {"main_panel_width": self.main_panel_width(),
+                "windows": {tab_id_i: window.window_tuple()
+                            + (window.panel_width(),)
+                            for tab_id_i, window
+                            in self.undocked_window_dict.items()}}
+
+    def build_undocked_window(self, tab_id_i: int, name_str: str):
+        """Create the window of an undocked tab, with its connections.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            name_str: its name.
+        Outputs: the UndockedWindow, not shown yet.
+        """
+        window = UndockedWindow(tab_id_i, name_str, self.plot_panel)
+        window.close_handler = (
+            lambda window_tab_id_i: self._run_window_handler(
+                "window_close_handler", window_tab_id_i))
+        window.dock_handler = (
+            lambda window_tab_id_i: self._run_window_handler(
+                "dock_handler", window_tab_id_i))
+        window.panel_toggle_handler = (
+            lambda window_tab_id_i: self._run_window_handler(
+                "panel_toggle_handler", window_tab_id_i))
+        window.panel_width_handler = (
+            lambda window_tab_id_i, start_i, end_i: self._run_window_handler(
+                "panel_width_handler", window_tab_id_i, start_i, end_i))
+        window.main_panel_width_function = self.main_panel_width
+        # LLFR-01036: the Undo and Redo shortcuts in the window too.
+        undo_shortcut = QShortcut(top_panel.UNDO_STANDARD_KEY, window)
+        undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        undo_shortcut.activated.connect(self._on_undo_shortcut)
+        redo_shortcut = QShortcut(QKeySequence(REDO_SHORTCUT_STR), window)
+        redo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        redo_shortcut.activated.connect(self._on_redo_shortcut)
+        window.undo_shortcut = undo_shortcut
+        window.redo_shortcut = redo_shortcut
+        # LLFR-01000, LLFR-01001, LLFR-01002: its own panel, the same
+        # list, the same requests.
+        self.connect_signal_list_panel(window.signal_list_panel, tab_id_i)
+        self.fill_signal_list_panel(window.signal_list_panel)
+        return window
+
+    def undock_tab_view(self, tab_id_i: int, window_tuple: tuple,
+                        panel_shown_b: bool, panel_width_i: int) -> None:
+        """Show a tab in an undocked window of its own.
+
+        Inputs:
+            tab_id_i: id of the tab, already added with add_tab_view.
+            window_tuple: (x, y, width, height) for a window that is not
+                open yet, or () for the window of an undock.
+            panel_shown_b: whether its signal list panel is shown.
+            panel_width_i: the panel width, 0 for the first width.
+        Outputs: none. A window that is open already keeps its position
+            and size.
+        """
+        page = self.plot_panel.detach_page(tab_id_i)
+        if page is None:
+            return
+        window = self.undocked_window_dict.get(tab_id_i)
+        if window is None:
+            # LLFR-00980: a new window with the tab.
+            window = self.build_undocked_window(tab_id_i, page.name_str)
+            self.undocked_window_dict[tab_id_i] = window
+            if len(window_tuple) != 4:
+                window_tuple = self.new_window_tuple()
+            # LLFR-01048, LLFR-01049: kept on a screen.
+            window.set_window_tuple(placed_window_tuple(
+                window_tuple, self.screen_area_list(),
+                self.main_screen_area()))
+            window.set_page(page)
+            window.show()
+        else:
+            # LLFR-00996: the window keeps showing its own tab.
+            window.set_page(page)
+        # LLFR-01026: the title is the tab's name.
+        window.set_tab_name(page.name_str)
+        # LLFR-01015, LLFR-01043, LLFR-01094: the panel as saved.
+        window.set_panel(panel_shown_b, panel_width_i)
+
+    def dock_tab_view(self, tab_id_i: int) -> None:
+        """Put the tab of an undocked window back into the main window.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        window = self.undocked_window_dict.pop(tab_id_i, None)
+        if window is None:
+            return
+        # LLFR-00993: the last docked tab; LLFR-00994: the window closes.
+        window.take_page()
+        self.plot_panel.attach_page(tab_id_i)
+        window.close_by_app()
+
+    def set_undocked_tabs(self, tab_id_list: list) -> None:
+        """Close the windows of the tabs that are not undocked any more.
+
+        Inputs:
+            tab_id_list: the undocked tabs, in tab order (LLFR-01056).
+        Outputs: none.
+        """
+        # LLFR-01025, LLFR-01045, LLFR-00998, LLFR-01033: a window whose
+        # tab is docked or gone closes.
+        for tab_id_i in list(self.undocked_window_dict):
+            if tab_id_i not in tab_id_list:
+                self.close_window_of(tab_id_i)
+        self.undocked_order_list = [tab_id_i for tab_id_i in tab_id_list
+                                    if tab_id_i in self.undocked_window_dict]
+
+    def close_window_of(self, tab_id_i: int) -> None:
+        """Close the window of a tab without deleting the tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        # LLFR-00994, LLFR-01045: closed by the app.
+        window = self.undocked_window_dict.pop(tab_id_i, None)
+        if window is None:
+            return
+        page = window.page()
+        if page is not None and self.plot_panel.page_dict.get(
+                tab_id_i) is page:
+            # The tab is still shown: it goes back to the main window.
+            window.take_page()
+            self.plot_panel.attach_page(tab_id_i)
+        window.close_by_app()
+
+    def close_all_undocked_windows(self) -> None:
+        """Close every undocked window, keeping their tabs.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00989: the main window closes them all; each page goes
+        # back to the plot panel, which still keeps it.
+        for tab_id_i in list(self.undocked_window_dict):
+            self.close_window_of(tab_id_i)
+        self.undocked_order_list = []
+
+    def undocked_window(self, tab_id_i: int):
+        """Return the undocked window of a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: the UndockedWindow, or None.
+        """
+        # HLFR-00123, LLFR-00996: one window per undocked tab.
+        return self.undocked_window_dict.get(tab_id_i)
+
+    def set_window_panel(self, tab_id_i: int, shown_b: bool,
+                         width_i: int) -> None:
+        """Show or hide the signal list panel of an undocked window.
+
+        Inputs:
+            tab_id_i: id of the tab of the window.
+            shown_b: True to show it.
+            width_i: its width in pixels.
+        Outputs: none.
+        """
+        # LLFR-01012, LLFR-01013.
+        window = self.undocked_window_dict.get(tab_id_i)
+        if window is not None:
+            window.set_panel(shown_b, width_i)
+
+    def set_main_panel_width(self, width_i: int) -> None:
+        """Give the main window's signal list panel a width.
+
+        Inputs:
+            width_i: the width in pixels.
+        Outputs: none. The plot panel takes the rest.
+        """
+        # LLFR-01020, LLFR-00138: an undo of a border drag.
+        total_i = sum(self.lower_splitter.sizes())
+        width_i = max(int(width_i), 1)
+        if total_i <= width_i:
+            return
+        self.lower_splitter.initial_sizes_set_b = True
+        self.lower_splitter.setSizes([total_i - width_i, width_i])
+
+    def set_undock_enabled(self, enabled_b: bool) -> None:
+        """Enable or disable the undock buttons of the docked tabs.
+
+        Inputs:
+            enabled_b: False while the main window holds one docked tab.
+        Outputs: none.
+        """
+        # LLFR-00983, LLFR-00984.
+        self.plot_panel.set_undock_enabled(enabled_b)
+
+    def closeEvent(self, event) -> None:
+        """Close every undocked window when the main window closes.
+
+        Inputs:
+            event: the QCloseEvent.
+        Outputs: none. With no visible window left, Qt quits the app.
+        """
+        # LLFR-00989: every undocked window closes, and the app quits.
+        self.close_all_undocked_windows()
+        super().closeEvent(event)
 
     def set_open_file_handler(self, handler) -> None:
         """Set the function called when the Open file button is clicked.
@@ -503,8 +939,12 @@ class MainWindow(QMainWindow):
             signal_name_list: the signal names, in their order.
         Outputs: none.
         """
-        # LLFR-00054, LLFR-00939: the names in their order.
-        self.signal_list_panel.show_signal_names(signal_name_list)
+        # LLFR-00054, LLFR-00939: the names in their order; LLFR-01001:
+        # in every panel.
+        self.signal_list_state_dict["signal_list"] = (
+            "show_signal_names", (signal_name_list,))
+        for panel in self.signal_list_panel_list():
+            panel.show_signal_names(signal_name_list)
 
     def show_signal_groups(self, group_list: list) -> None:
         """Show the file name rows and the signals of the open files.
@@ -516,8 +956,11 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00362, LLFR-00938, LLFR-00939, LLFR-00097: the groups of
-        # the signal list.
-        self.signal_list_panel.show_signal_groups(group_list)
+        # the signal list; LLFR-01001: in every panel.
+        self.signal_list_state_dict["signal_list"] = (
+            "show_signal_groups", (group_list,))
+        for panel in self.signal_list_panel_list():
+            panel.show_signal_groups(group_list)
 
     def set_search_text_handler(self, handler) -> None:
         """Set the function called when the search box text changes.
@@ -535,7 +978,8 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00104: the search is cleared when a file is opened.
+        # LLFR-00104: the search is cleared when a file is opened; the
+        # change reaches every panel (LLFR-01006).
         self.signal_list_panel.clear_search()
 
     # ----------------------------------------------------------------
@@ -551,7 +995,7 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00268: the groups and operations of the menu.
-        self.signal_list_panel.set_operation_groups(group_list)
+        self.broadcast_signal_list("set_operation_groups", group_list)
 
     def set_signal_kinds(self, synthetic_name_set: set,
                          fft_name_set: set) -> None:
@@ -564,8 +1008,8 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00242: italics; LLFR-00251, LLFR-00254, LLFR-00265,
         # LLFR-00278: the options of their menu.
-        self.signal_list_panel.set_signal_kinds(synthetic_name_set,
-                                                fft_name_set)
+        self.broadcast_signal_list("set_signal_kinds", synthetic_name_set,
+                                   fft_name_set)
 
     def set_signal_menu_handlers(self, create_handler, copy_name_handler,
                                  rename_handler, delete_handler,
@@ -609,7 +1053,7 @@ class MainWindow(QMainWindow):
         Outputs: True when the user proceeds.
         """
         # LLFR-00924, LLFR-00925: only Yes closes the file.
-        return message_boxes.ask_close_file(self, question_str)
+        return message_boxes.ask_close_file(self.dialog_parent(), question_str)
 
     def ask_close_all_files(self, question_str: str) -> bool:
         """Ask once whether to close every data file.
@@ -619,7 +1063,8 @@ class MainWindow(QMainWindow):
         Outputs: True when the user proceeds.
         """
         # LLFR-00934, LLFR-00935: only Yes closes the files.
-        return message_boxes.ask_close_all_files(self, question_str)
+        return message_boxes.ask_close_all_files(self.dialog_parent(),
+                                                 question_str)
 
     def _run_signal_menu_handler(self, key_str: str, *argument_tuple):
         """Pass a signal menu request to its handler.
@@ -665,7 +1110,8 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00245, LLFR-00269, LLFR-00272: the parameter dialog.
         dialog = synthetic_dialogs.build_parameter_dialog(
-            self, title_str, prompt_str, field_list, check_function,
+            self.dialog_parent(), title_str, prompt_str, field_list,
+            check_function,
             choice_tuple)
         try:
             if not self.run_modal_dialog(dialog):
@@ -693,7 +1139,8 @@ class MainWindow(QMainWindow):
         # LLFR-00275, LLFR-00285: the second signal dialog, with its
         # search box.
         dialog = synthetic_dialogs.build_second_signal_dialog(
-            self, title_str, prompt_str, name_list, selected_name_str,
+            self.dialog_parent(), title_str, prompt_str, name_list,
+            selected_name_str,
             search_function, no_match_text_str)
         try:
             if not self.run_modal_dialog(dialog):
@@ -740,7 +1187,7 @@ class MainWindow(QMainWindow):
         Outputs: none. Used by the next show_signal_names.
         """
         # LLFR-00332: the time signal of each open data file in green.
-        self.signal_list_panel.set_time_signal_names(name_list)
+        self.broadcast_signal_list("set_time_signal_names", name_list)
 
     def set_files_time_range(self, range_tuple: tuple) -> None:
         """Tell every time plot the time range of the open data files.
@@ -761,7 +1208,7 @@ class MainWindow(QMainWindow):
         Outputs: none. Used by the next show_signal_names.
         """
         # LLFR-00332: the time signal name is shown in green.
-        self.signal_list_panel.set_time_signal_name(name_str)
+        self.broadcast_signal_list("set_time_signal_name", name_str)
 
     def ask_delete_synthetic_signal(self, name_str: str,
                                     dependent_name_list: list) -> bool:
@@ -774,7 +1221,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00255: the question names the dependents.
         return message_boxes.ask_delete_synthetic_signal(
-            self, name_str, dependent_name_list)
+            self.dialog_parent(), name_str, dependent_name_list)
 
     def ask_synthetic_signal_name(self, current_name_str: str):
         """Let the user type a new name for a synthetic signal.
@@ -788,7 +1235,7 @@ class MainWindow(QMainWindow):
         # LLFR-00266, LLFR-00959: the dialog starts from the current
         # name without its prefix.
         new_name_str, accepted_b = QInputDialog.getText(
-            self, RENAME_SIGNAL_DIALOG_TITLE_STR,
+            self.dialog_parent(), RENAME_SIGNAL_DIALOG_TITLE_STR,
             RENAME_SIGNAL_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
             current_name_str)
         if not accepted_b:
@@ -806,7 +1253,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00247, LLFR-00250, LLFR-00267: an information box.
         message_boxes.build_signal_information_box(
-            self, title_str, message_str).exec()
+            self.dialog_parent(), title_str, message_str).exec()
 
     def copy_text_to_clipboard(self, text_str: str) -> None:
         """Put a text on the system clipboard.
@@ -849,8 +1296,8 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00266, LLFR-00292: a renamed signal stays selected.
-        self.signal_list_panel.rename_shown_signal(old_name_str,
-                                                   new_name_str)
+        for panel in self.signal_list_panel_list():
+            panel.rename_shown_signal(old_name_str, new_name_str)
 
     def clear_signal_selection(self) -> None:
         """Deselect every signal of the signal list.
@@ -859,7 +1306,8 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00292: no signal of a previous file stays selected.
-        self.signal_list_panel.clear_signal_selection()
+        for panel in self.signal_list_panel_list():
+            panel.clear_signal_selection()
 
     def is_pointer_over_signal_list(self) -> bool:
         """Tell whether the mouse pointer is over the signal list panel.
@@ -869,9 +1317,10 @@ class MainWindow(QMainWindow):
             Qt's enter and leave events tell (QWidget.underMouse, which
             is also true while the pointer is over a child of it).
         """
-        # LLFR-00302: there the Tip key and Shift select signals.
-        panel = self.signal_list_panel
-        return panel.isVisible() and panel.underMouse()
+        # LLFR-00302: there the Tip key and Shift select signals, in any
+        # window (LLFR-01036).
+        return any(panel.isVisible() and panel.underMouse()
+                   for panel in self.signal_list_panel_list())
 
     def set_plot_tool_handler(self, handler) -> None:
         """Set the function called when the active plot tool changes.
@@ -1004,8 +1453,10 @@ class MainWindow(QMainWindow):
         if (QApplication.activeModalWidget() is not None
                 or QApplication.activePopupWidget() is not None):
             return
+        # LLFR-01036: in the main window and in every undocked window.
         active_window = QApplication.activeWindow()
-        if active_window is not None and active_window is not self:
+        if (active_window is not None and active_window is not self
+                and active_window not in self.undocked_window_dict.values()):
             return
         # LLFR-00370, LLFR-00002: as a second click on the active tool
         # button: every tool button normal, no plot tool active.
@@ -1252,7 +1703,12 @@ class MainWindow(QMainWindow):
             tab_id_i: id of the tab.
         Outputs: none.
         """
-        # LLFR-00028: remove the tab.
+        # LLFR-00028: remove the tab; LLFR-01033, LLFR-00998: with its
+        # undocked window.
+        window = self.undocked_window_dict.pop(tab_id_i, None)
+        if window is not None:
+            window.take_page()
+            window.close_by_app()
         self.plot_panel.remove_tab_view(tab_id_i)
 
     def rename_tab_view(self, tab_id_i: int, name_str: str) -> None:
@@ -1263,8 +1719,12 @@ class MainWindow(QMainWindow):
             name_str: the new name.
         Outputs: none.
         """
-        # LLFR-00030: show the name chosen by the user.
+        # LLFR-00030: show the name chosen by the user; LLFR-01027: in
+        # the title of its window too.
         self.plot_panel.rename_tab_view(tab_id_i, name_str)
+        window = self.undocked_window_dict.get(tab_id_i)
+        if window is not None:
+            window.set_tab_name(name_str)
 
     def clear_tab_views(self) -> None:
         """Remove every tab and plot.
@@ -1273,6 +1733,8 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00024, LLFR-00138: the tabs are shown again from the model.
+        # LLFR-01024: the windows stay open; undock_tab_view gives them
+        # their new page, and set_undocked_tabs closes the others.
         self.plot_panel.clear_tab_views()
 
     def set_current_tab(self, tab_id_i: int) -> None:
@@ -1466,7 +1928,7 @@ class MainWindow(QMainWindow):
         # answer is returned as typed, and the controller keeps the old
         # name without a message.
         new_name_str, accepted_b = QInputDialog.getText(
-            self, RENAME_AREA_DIALOG_TITLE_STR,
+            self.dialog_parent(), RENAME_AREA_DIALOG_TITLE_STR,
             RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
             current_name_str)
         if not accepted_b:
@@ -1515,7 +1977,8 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00429, LLFR-00439: the same dialog as for flags and areas.
         new_name_str, accepted_b = QInputDialog.getText(
-            self, title_str, label_str, QLineEdit.EchoMode.Normal,
+            self.dialog_parent(), title_str, label_str,
+            QLineEdit.EchoMode.Normal,
             current_name_str)
         if not accepted_b:
             return None
@@ -1576,7 +2039,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00388: the flags, areas, text notes (and arrows) all use
         # this one picker window.
-        return color_picker.pick_color(self, current_color_str)
+        return color_picker.pick_color(self.dialog_parent(), current_color_str)
 
     def ask_marker_name(self, current_name_str: str):
         """Let the user type a new name for a vertical marker.
@@ -1590,7 +2053,7 @@ class MainWindow(QMainWindow):
         # LLFR-00089: a blank answer is returned as typed; the
         # controller keeps the old name without a message.
         new_name_str, accepted_b = QInputDialog.getText(
-            self, RENAME_MARKER_DIALOG_TITLE_STR,
+            self.dialog_parent(), RENAME_MARKER_DIALOG_TITLE_STR,
             RENAME_MARKER_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
             current_name_str)
         if not accepted_b:
@@ -1608,7 +2071,8 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00032, LLFR-01092: the tab is full; use a new tab or,
         # below 10 x 10, a larger plot matrix.
-        message_boxes.show_full_tab_notification(self, row_count_i,
+        message_boxes.show_full_tab_notification(self.dialog_parent(),
+                                                 row_count_i,
                                                  column_count_i)
 
     def show_plot_kind_mismatch_notification(self) -> None:
@@ -1619,7 +2083,8 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00257: an FFT signal dropped on a time plot, or another
         # signal dropped on a frequency plot, is not drawn.
-        message_boxes.show_plot_kind_mismatch_notification(self)
+        message_boxes.show_plot_kind_mismatch_notification(
+            self.dialog_parent())
 
     def show_tab_name_taken_notification(self, name_str: str) -> None:
         """Show the Tab Name Taken box.
@@ -1629,7 +2094,8 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00211: another tab already has the typed name.
-        message_boxes.show_tab_name_taken_notification(self, name_str)
+        message_boxes.show_tab_name_taken_notification(
+            self.dialog_parent(), name_str)
 
     # ----------------------------------------------------------------
     # Export facade, used by the export controller (plain types only)
@@ -1658,7 +2124,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00129, LLFR-00145: the tabs that get a PDF page.
         return len(plot_export.exportable_page_list(
-            self.plot_panel.tab_widget))
+            self.plot_panel.tab_widget, self.undocked_page_list()))
 
     def current_tab_plot_count(self) -> int:
         """Return the number of plots in the current tab.
@@ -1733,8 +2199,28 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00129, LLFR-00131, LLFR-00971: one page per tab with a
         # plot, with the data files below the tab's name.
+        # LLFR-01056: the docked tabs, then the undocked ones.
         return plot_export.save_tabs_pdf(self.plot_panel.tab_widget,
-                                         path_str, description_str)
+                                         path_str, description_str,
+                                         self.undocked_page_list())
+
+    def undocked_page_list(self) -> list:
+        """Return the tab pages of the undocked windows, in tab order.
+
+        Inputs: none.
+        Outputs: a list of TabPage (LLFR-01056).
+        """
+        # LLFR-00129, LLFR-01056: after the docked tabs, in tab order.
+        order_list = [tab_id_i for tab_id_i in self.undocked_order_list
+                      if tab_id_i in self.undocked_window_dict]
+        order_list += [tab_id_i for tab_id_i in self.undocked_window_dict
+                       if tab_id_i not in order_list]
+        page_list = []
+        for tab_id_i in order_list:
+            page = self.undocked_window_dict[tab_id_i].page()
+            if page is not None:
+                page_list.append(page)
+        return page_list
 
     def copy_current_tab_image(self, description_str: str = "") -> tuple:
         """Put an image of the current tab's plots on the clipboard.
@@ -2402,36 +2888,64 @@ class MainWindow(QMainWindow):
             return
         self.grid_handler(shown_b)
 
-    def _on_search_text_changed(self, text_str: str) -> None:
-        """Pass the new search box text to its handler.
+    def _on_search_text_changed(self, text_str: str,
+                                source_panel=None) -> None:
+        """Share a new search text and pass it to its handler.
 
         Inputs:
             text_str: the text now in the search box.
+            source_panel: the SignalListPanel the text was typed in;
+                None for the main window's.
         Outputs: none.
         """
+        # LLFR-01006: the same text in every other search box;
+        # LLFR-01007: the focus and the cursor stay where the user types;
+        # LLFR-01017: hidden panels get it too.
+        for panel in self.signal_list_panel_list():
+            if panel is source_panel or panel.search_text() == text_str:
+                continue
+            panel.search_box.blockSignals(True)
+            panel.search_box.setText(text_str)
+            panel.search_box.blockSignals(False)
         # LLFR-00095: every change re-filters the signal list.
         if self.search_text_handler is not None:
             self.search_text_handler(text_str)
 
-    def _on_selected_signals_plot_requested(self,
-                                            signal_name_list: list) -> None:
+    def _on_selected_signals_plot_requested(self, signal_name_list: list,
+                                            tab_id_i: int = -1) -> None:
         """Pass the selected signal names to their handler.
 
         Inputs:
             signal_name_list: the selected names, in list order.
+            tab_id_i: the tab of the undocked window of the panel, or -1
+                for the main window.
         Outputs: none.
         """
-        # LLFR-00295: the handler creates one plot with every signal.
-        if self.selected_signals_plot_handler is not None:
+        # LLFR-00295: the handler creates one plot with every signal;
+        # LLFR-01003: in the tab of the panel's window.
+        if self.selected_signals_plot_handler is None:
+            return
+        if tab_id_i < 0:
             self.selected_signals_plot_handler(list(signal_name_list))
+        else:
+            self.selected_signals_plot_handler(list(signal_name_list),
+                                               tab_id_i)
 
-    def _on_signal_double_clicked(self, signal_name_str: str) -> None:
+    def _on_signal_double_clicked(self, signal_name_str: str,
+                                  tab_id_i: int = -1) -> None:
         """Pass a double-clicked signal name to its handler.
 
         Inputs:
             signal_name_str: the name that was double-clicked.
+            tab_id_i: the tab of the undocked window of the panel, or -1
+                for the main window.
         Outputs: none.
         """
-        # LLFR-00019: the handler creates a plot with the signal.
-        if self.signal_double_click_handler is not None:
+        # LLFR-00019: the handler creates a plot with the signal;
+        # LLFR-01003: in the tab of the panel's window.
+        if self.signal_double_click_handler is None:
+            return
+        if tab_id_i < 0:
             self.signal_double_click_handler(signal_name_str)
+        else:
+            self.signal_double_click_handler(signal_name_str, tab_id_i)

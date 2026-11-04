@@ -79,7 +79,7 @@ While the mouse pointer is over the part of the border of LLFR-00280, and while 
 *Parent: HLFR-00026*
 
 ### LLFR-00138 Undo action
-When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, with the position and size of each undocked window and the shown state and width of its signal list panel), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes and arrows to the state they were in before that action.
+When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, with the position and size of each undocked window that the undo opens again (LLFR-01024) and the shown state and width of the signal list panel of each undocked window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes and arrows to the state they were in before that action.
 
 *Parent: HLFR-00040*
 
@@ -187,7 +187,7 @@ Note: Closing a data file clears them (LLFR-00930).
 *Parent: HLFR-00040, HLFR-00048, HLFR-00117*
 
 ### LLFR-00192 Redo action
-When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, with the position and size of each undocked window and the shown state and width of its signal list panel), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes and arrows to the state they were in after that action.
+When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, with the position and size of each undocked window that the redo opens again (LLFR-01024) and the shown state and width of the signal list panel of each undocked window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes and arrows to the state they were in after that action.
 
 Note: The user can redo, one by one, every action undone since the last new undoable action, so at most 30 (LLFR-00139).
 
@@ -1340,7 +1340,7 @@ The load report (LLFR-00237) must list each value replaced as in LLFR-01046 as a
 ### LLFR-01048 Window moved onto a screen
 When the top edge of an undocked window, at its saved position (LLFR-01041), would lie on a screen over less than 100 pixels of its width, the app must move the window onto the screen that shows the main window, to the nearest position where the whole window is on that screen.
 
-Note: The same rule applies when the app opens a window by an undock (LLFR-01093) or by an undo or a redo (LLFR-01024).
+Note: The same rule applies when the app opens a window by an undock (LLFR-01093) or by an undo or a redo (LLFR-01024). For a window narrower than 100 pixels, the part of the top edge that must lie on a screen is its whole width, so that such a window is moved only when part of its top edge is off every screen. A window that stays open keeps the place the user gave it after an undo or a redo (LLFR-01021).
 
 *Parent: HLFR-00141*
 

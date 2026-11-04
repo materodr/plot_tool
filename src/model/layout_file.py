@@ -90,9 +90,10 @@ from model.curve_colors import hex_color_or_none, is_far_from_marker_color
 from model.workspace import (
     AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_AREA_COLOR_STR,
     DEFAULT_DELTA_MARKER_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
+    DEFAULT_MATRIX_COLUMNS_I, DEFAULT_MATRIX_ROWS_I,
     DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
-    DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
-    delta_value_zero_b, spans_overlap_b)
+    DELTA_Y_KIND_STR, PRESET_WIDTH_TUPLE, delta_value_zero_b,
+    first_panel_width_i, is_matrix_size, spans_overlap_b)
 
 # LLFR-00228, LLFR-00471: the identification of a layout file; the
 # version is 3, whose signal names carry the file prefix (LLFR-00948).
@@ -134,6 +135,17 @@ FLAGS_KEY_STR = "flags"
 # COLOR_KEY_STR, LLFR-00351). A file without it has no area.
 AREAS_KEY_STR = "areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
+# LLFR-00225 items 12 to 15, LLFR-01040: the keys of the undocked state,
+# the window, its signal list panel and the plot matrix of a tab.
+UNDOCKED_KEY_STR = "undocked"
+WINDOW_KEY_STR = "window"
+X_KEY_STR = "x"
+Y_KEY_STR = "y"
+HEIGHT_KEY_STR = "height"
+SHOWN_KEY_STR = "shown"
+PLOT_MATRIX_KEY_STR = "plot_matrix"
+ROWS_KEY_STR = "rows"
+COLUMNS_KEY_STR = "columns"
 TABS_KEY_STR = "tabs"
 NAME_KEY_STR = "name"
 PLOTS_KEY_STR = "plots"
@@ -625,11 +637,57 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     # plots from top to bottom; LLFR-00283: no frequency plot, but a tab
     # of only frequency plots is still saved.
     layout_dict[TABS_KEY_STR] = [
-        {NAME_KEY_STR: tab.name_str,
-         PLOTS_KEY_STR: [plot_entry(plot) for plot in tab.plot_list
-                         if not plot.is_frequency_plot()]}
+        tab_entry(tab, workspace.main_panel_width_i)
         for tab in workspace.tab_list]
     return layout_dict
+
+
+def tab_entry(tab, main_panel_width_i: int = 0) -> dict:
+    """Return the file entry of a tab.
+
+    Inputs:
+        tab: a model Tab.
+        main_panel_width_i: width of the main window's signal list
+            panel, in pixels, used as the first width of a panel that
+            was never shown (LLFR-01016).
+    Outputs: a dict with its name, whether it is undocked, its plot
+        matrix and its time plots, and, for an undocked tab, its window
+        and the window's signal list panel.
+    """
+    # LLFR-00225 items 1 and 2: the name and the time plots, in fill
+    # order; LLFR-00283: no frequency plot.
+    entry_dict = {NAME_KEY_STR: tab.name_str,
+                  # LLFR-00225 item 12: whether the tab is undocked.
+                  UNDOCKED_KEY_STR: bool(tab.undocked_b),
+                  # LLFR-00225 item 15: the plot matrix of the tab.
+                  PLOT_MATRIX_KEY_STR: {
+                      ROWS_KEY_STR: int(tab.row_count_i),
+                      COLUMNS_KEY_STR: int(tab.column_count_i)}}
+    if tab.undocked_b:
+        # LLFR-00225 item 13, LLFR-01040: the window's position and size
+        # in whole desktop pixels.
+        if len(tab.window_tuple) == 4:
+            x_i, y_i, width_i, height_i = (int(value_i) for value_i
+                                           in tab.window_tuple)
+            entry_dict[WINDOW_KEY_STR] = {
+                X_KEY_STR: x_i, Y_KEY_STR: y_i, WIDTH_KEY_STR: width_i,
+                HEIGHT_KEY_STR: height_i}
+        else:
+            entry_dict[WINDOW_KEY_STR] = None
+        # LLFR-00225 item 14: whether its panel is shown, and its width;
+        # a panel never shown gets the width it would first get.
+        panel_width_i = int(tab.panel_width_i)
+        if panel_width_i < 1:
+            window_width_i = (int(tab.window_tuple[2])
+                              if len(tab.window_tuple) == 4 else 0)
+            panel_width_i = first_panel_width_i(main_panel_width_i,
+                                                window_width_i)
+        entry_dict[SIGNAL_LIST_PANEL_KEY_STR] = {
+            SHOWN_KEY_STR: bool(tab.panel_shown_b),
+            WIDTH_KEY_STR: panel_width_i}
+    entry_dict[PLOTS_KEY_STR] = [plot_entry(plot) for plot in tab.plot_list
+                                 if not plot.is_frequency_plot()]
+    return entry_dict
 
 
 def layout_text(layout_dict: dict) -> str:
@@ -835,12 +893,15 @@ class LayoutBuilder:
             signal of that signal's data file (LLFR-00912).
         files_range_tuple: the time range of the open data files
             (LLFR-00916); None takes the range of time_array.
+        new_window_tuple: (x, y, width, height) that an undock would
+            give a new window (LLFR-00981, LLFR-01093), used for an
+            unusable saved window (LLFR-01046); () when unknown.
     Attributes:
         report: the LayoutReport being filled.
     """
 
     def __init__(self, workspace, signal_dict: dict, time_array,
-                 files_range_tuple=None) -> None:
+                 files_range_tuple=None, new_window_tuple=()) -> None:
         """Store the workspace and the signals.
 
         Inputs: see the class docstring.
@@ -870,6 +931,9 @@ class LayoutBuilder:
             self.file_range_tuple = file_time_range(self.time_array)
         else:
             self.file_range_tuple = ()
+        # LLFR-01046: the values of an undock, for unusable values.
+        self.new_window_tuple = tuple(int(value_i)
+                                      for value_i in new_window_tuple)
         self.report = LayoutReport()
 
     def time_of(self, signal_name_str: str):
@@ -1297,11 +1361,13 @@ class LayoutBuilder:
             self.report_lost_items(plot_entry_value, owner_str, reason_str)
             return False
         if tab.is_full():
-            # LLFR-00235, HLFR-00018: at most 5 plots in a tab.
+            # LLFR-00488, HLFR-00018: no plot beyond the slots of the
+            # tab's plot matrix.
             self.report.add_not_rebuilt(
                 f"{owner_str[0].upper()}{owner_str[1:]}: not created, "
-                f"because a tab holds at most {MAXIMUM_PLOTS_PER_TAB_I} "
-                f"plots.")
+                f"because the {tab.row_count_i} \u00d7 "
+                f"{tab.column_count_i} plot matrix of the tab holds at "
+                f"most {tab.slot_count()} plots.")
             self.report_lost_items(
                 plot_entry_value, owner_str,
                 "its plot was not created, because the tab is full")
@@ -1439,15 +1505,145 @@ class LayoutBuilder:
                 tab = self.workspace.add_named_tab(name_str)
             else:
                 tab = self.workspace.add_tab()
-            if first_tab_id_i < 0:
+            # LLFR-01088 to LLFR-01091: the saved plot matrix, before the
+            # plots, so that it limits them (LLFR-00488).
+            self.apply_plot_matrix(tab, tab_entry)
+            # LLFR-01041, LLFR-01042: docked or undocked, with its window.
+            self.apply_window(tab, tab_entry)
+            if first_tab_id_i < 0 and not tab.undocked_b:
+                # LLFR-00477: the first docked tab added is shown.
                 first_tab_id_i = tab.tab_id_i
-            # LLFR-00230: the plots from top to bottom.
+            # LLFR-00230: the plots in the fill order.
             for plot_index_i, plot_entry_value in enumerate(
                     list_entry(tab_entry, PLOTS_KEY_STR)):
                 owner_str = (f"plot {plot_index_i + 1} of tab "
                              f"\"{tab.name_str}\"")
                 self.rebuild_plot(tab, plot_entry_value, owner_str)
         return first_tab_id_i
+
+    def apply_plot_matrix(self, tab, tab_entry) -> None:
+        """Give a created tab its saved plot matrix.
+
+        Inputs:
+            tab: the new model Tab.
+            tab_entry: its entry of the file.
+        Outputs: none. A missing matrix gives the default with no report
+            (LLFR-01089); an unusable one gives the default and is
+            reported (LLFR-01090, LLFR-01091).
+        """
+        if not isinstance(tab_entry, dict) or (
+                PLOT_MATRIX_KEY_STR not in tab_entry):
+            # LLFR-01089: an older file; the default 5 x 1 matrix.
+            return
+        matrix_value = tab_entry[PLOT_MATRIX_KEY_STR]
+        if isinstance(matrix_value, dict):
+            row_value = matrix_value.get(ROWS_KEY_STR)
+            column_value = matrix_value.get(COLUMNS_KEY_STR)
+            if is_matrix_size(row_value) and is_matrix_size(column_value):
+                # LLFR-01088: the saved matrix.
+                tab.row_count_i = int(row_value)
+                tab.column_count_i = int(column_value)
+                return
+        # LLFR-01090, LLFR-01091: the default, as a replaced value.
+        tab.row_count_i = DEFAULT_MATRIX_ROWS_I
+        tab.column_count_i = DEFAULT_MATRIX_COLUMNS_I
+        self.report.add_replaced(
+            f"Plot matrix {describe_value(matrix_value)} of tab "
+            f"\"{tab.name_str}\" is not a number of rows and a number of "
+            f"columns, each a whole number from 1 to 10; replaced by "
+            f"{DEFAULT_MATRIX_ROWS_I} \u00d7 {DEFAULT_MATRIX_COLUMNS_I}.")
+
+    def report_window_value(self, tab, what_str: str, value,
+                            replacement_str: str) -> None:
+        """Report an unusable window value of an undocked tab.
+
+        Inputs:
+            tab: the model Tab.
+            what_str: what the value is, for example "Window position".
+            value: the saved value.
+            replacement_str: what replaced it.
+        Outputs: none.
+        """
+        # LLFR-01047: listed as a replaced value.
+        self.report.add_replaced(
+            f"{what_str} {describe_value(value)} of tab \"{tab.name_str}\" "
+            f"cannot be used; replaced by {replacement_str}.")
+
+    def apply_window(self, tab, tab_entry) -> None:
+        """Make a created tab docked or undocked, as the file saved it.
+
+        Inputs:
+            tab: the new model Tab, docked.
+            tab_entry: its entry of the file.
+        Outputs: none. An undocked tab gets the saved window and panel,
+            each unusable value replaced as an undock would set it
+            (LLFR-01046) and reported (LLFR-01047).
+        """
+        if not isinstance(tab_entry, dict):
+            return
+        undocked_value = tab_entry.get(UNDOCKED_KEY_STR)
+        # LLFR-01042: a tab saved as docked, or with no entry, is docked.
+        if undocked_value is None or undocked_value is False:
+            return
+        if undocked_value is not True:
+            # LLFR-00235: neither true nor false; the tab stays docked.
+            self.report.add_replaced(
+                f"Undocked value {describe_value(undocked_value)} of tab "
+                f"\"{tab.name_str}\" is neither true nor false; the tab "
+                f"was docked.")
+            return
+        default_tuple = self.new_window_tuple
+        window_value = tab_entry.get(WINDOW_KEY_STR)
+        window_dict = window_value if isinstance(window_value, dict) else {}
+        # LLFR-01040, LLFR-01046: whole numbers, sizes of 1 pixel or more.
+        position_list = [window_dict.get(X_KEY_STR),
+                         window_dict.get(Y_KEY_STR)]
+        size_list = [window_dict.get(WIDTH_KEY_STR),
+                     window_dict.get(HEIGHT_KEY_STR)]
+        if all(is_whole_number(value) for value in position_list):
+            position_tuple = tuple(int(value) for value in position_list)
+        else:
+            position_tuple = tuple(default_tuple[:2])
+            self.report_window_value(
+                tab, "Window position", window_value,
+                "the position of a new undocked window")
+        if all(is_whole_number(value) and value >= 1
+               for value in size_list):
+            size_tuple = tuple(int(value) for value in size_list)
+        else:
+            size_tuple = tuple(default_tuple[2:])
+            self.report_window_value(
+                tab, "Window size", window_value,
+                "the size of a new undocked window")
+        window_tuple = position_tuple + size_tuple
+        if len(window_tuple) != 4:
+            window_tuple = ()
+        panel_value = tab_entry.get(SIGNAL_LIST_PANEL_KEY_STR)
+        panel_dict = panel_value if isinstance(panel_value, dict) else {}
+        shown_value = panel_dict.get(SHOWN_KEY_STR)
+        width_value = panel_dict.get(WIDTH_KEY_STR)
+        if isinstance(shown_value, bool):
+            shown_b = shown_value
+        else:
+            # LLFR-01046, LLFR-01015: hidden, as after an undock.
+            shown_b = False
+            self.report_window_value(tab, "Signal list panel state",
+                                     shown_value, "hidden")
+        if is_whole_number(width_value) and width_value >= 1:
+            width_i = int(width_value)
+        else:
+            # LLFR-01046, LLFR-01016: the first width of a new panel.
+            width_i = 0
+            self.report_window_value(
+                tab, "Signal list panel width", width_value,
+                "the width a new panel gets when it is first shown")
+        # LLFR-01041: the tab goes into an undocked window of its own.
+        self.workspace.tab_list.remove(tab)
+        self.workspace.tab_list.append(tab)
+        tab.undocked_b = True
+        tab.window_tuple = window_tuple
+        tab.panel_shown_b = shown_b
+        tab.panel_width_i = width_i
 
     # Markers, range, grid and widths ------------------------------------
 
@@ -1782,9 +1978,18 @@ class LayoutBuilder:
                     for tab_entry in tab_entry_list))
         # LLFR-00229: kept tabs keep their plots as they are, with their
         # text notes, which a layout file never holds (LLFR-00226).
+        kept_docked_tab = None
         if tabs_replaced_b:
+            # LLFR-01044: the first current docked tab, kept if every tab
+            # of the file turns out to be undocked.
+            kept_docked_tab = self.workspace.docked_tab_list()[0]
             self.workspace.remove_all_tabs()
         first_tab_id_i = self.rebuild_tabs(tab_entry_list)
+        if kept_docked_tab is not None and not (
+                self.workspace.docked_tab_list()):
+            # LLFR-01044: the main window keeps a docked tab, with no
+            # plot; LLFR-01045: the windows of the other tabs close.
+            self.workspace.tab_list.insert(0, kept_docked_tab)
         # LLFR-00230, LLFR-00233: the flags of the file; LLFR-00228: only
         # under "flags", also in a file of an earlier version.
         self.rebuild_flags(list_entry(layout_dict, FLAGS_KEY_STR))
@@ -1807,9 +2012,20 @@ class LayoutBuilder:
                             tabs_replaced_b)
 
 
+def is_whole_number(value) -> bool:
+    """Tell whether a value of the file is a whole number.
+
+    Inputs:
+        value: a value read from the JSON text.
+    Outputs: True for an int that is not a bool (LLFR-01040).
+    """
+    # LLFR-01046: a value that is not a whole number cannot be used.
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
                    time_array, synthetic_signal_builder=None,
-                   files_range_tuple=None):
+                   files_range_tuple=None, new_window_tuple=()):
     """Rebuild the layout of a file in a workspace.
 
     Inputs:
@@ -1822,9 +2038,10 @@ def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
             rebuild for the synthetic signals (LLFR-00262).
         files_range_tuple: the time range of the open data files, or
             None for the range of time_array (LLFR-00916).
+        new_window_tuple: the window an undock would open (LLFR-01046).
     Outputs: the LayoutResult.
     """
     # LLFR-00229 to LLFR-00235: see LayoutBuilder.
     return LayoutBuilder(workspace, signal_dict, time_array,
-                         files_range_tuple).rebuild(
+                         files_range_tuple, new_window_tuple).rebuild(
         layout_dict, synthetic_signal_builder)

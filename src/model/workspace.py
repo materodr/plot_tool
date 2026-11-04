@@ -1322,6 +1322,18 @@ class Tab:
             (LLFR-01073).
         row_count_i: number of rows of the plot matrix (HLFR-00145).
         column_count_i: number of columns of the plot matrix.
+        undocked_b: True while the tab is in an undocked window of its
+            own (HLFR-00123), False while it is a docked tab of the
+            main window.
+        window_tuple: (x, y, width, height) of its undocked window, in
+            desktop pixels, with the position of the window's top-left
+            corner (LLFR-01040); () when unknown.
+        panel_shown_b: True while the signal list panel of its undocked
+            window is shown (LLFR-01012, LLFR-01013).
+        panel_width_i: width of that panel, in pixels, also while it is
+            hidden (the width it gets back, LLFR-01013); 0 while it was
+            never shown, so that its first width is chosen when it is
+            shown (LLFR-01016).
     """
 
     def __init__(self, tab_id_i: int, name_str: str) -> None:
@@ -1340,6 +1352,16 @@ class Tab:
         # LLFR-01087: every new tab gets the 5 x 1 plot matrix.
         self.row_count_i = DEFAULT_MATRIX_ROWS_I
         self.column_count_i = DEFAULT_MATRIX_COLUMNS_I
+        # LLFR-00025, LLFR-00977: a new tab is a docked tab of the main
+        # window.
+        self.undocked_b = False
+        # LLFR-01040, LLFR-01024: the window an undo or a layout opens
+        # again; set by an undock.
+        self.window_tuple = ()
+        # LLFR-01015, LLFR-01016: the panel of a new undocked window is
+        # hidden and was never shown.
+        self.panel_shown_b = False
+        self.panel_width_i = 0
 
     def slot_count(self) -> int:
         """Return the number of slots of the tab's plot matrix.
@@ -1389,6 +1411,37 @@ class Tab:
             if plot.plot_id_i == plot_id_i:
                 return plot
         return None
+
+    def window_state_tuple(self) -> tuple:
+        """Return what an undo or a redo restores of the tab's window.
+
+        Inputs: none.
+        Outputs: (undocked_b, panel_shown_b, panel_width_i). The window
+            position and size are not part of it: moving or resizing a
+            window is not an undoable action (LLFR-01021, LLFR-00140).
+        """
+        # LLFR-01025: undocking and docking are undoable; LLFR-01018:
+        # hiding and showing the panel; LLFR-01020: a panel width drag.
+        return (bool(self.undocked_b), bool(self.panel_shown_b),
+                int(self.panel_width_i))
+
+
+def first_panel_width_i(main_panel_width_i: int, window_width_i: int) -> int:
+    """Return the width of a panel shown for the first time.
+
+    Inputs:
+        main_panel_width_i: width of the signal list panel of the main
+            window, in pixels (0 when unknown).
+        window_width_i: width of the undocked window, in pixels (0 when
+            unknown).
+    Outputs: the main panel's width, limited to half the window's width,
+        and at least 1 pixel.
+    """
+    # LLFR-01016: the main window's panel width, at most half the window.
+    width_i = max(int(main_panel_width_i), 1)
+    if int(window_width_i) > 1:
+        width_i = min(width_i, int(window_width_i) // 2)
+    return max(width_i, 1)
 
 
 def arrow_end_tuple(arrow) -> tuple:
@@ -1461,16 +1514,19 @@ def plot_state_tuple(plot) -> tuple:
 
 
 def tabs_state_tuple(tab_list: list, marker_list: list,
-                     area_list=()) -> tuple:
+                     area_list=(), main_panel_width_i: int = 0) -> tuple:
     """Return tabs, vertical markers and areas as plain values.
 
     Inputs:
         tab_list: the Tab objects, in tab order.
         marker_list: the VerticalMarker objects, in placing order.
         area_list: the Area objects, in creation order.
-    Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
-        (tab_id_i, name_str, plot state tuples, row_count_i,
-        column_count_i) per tab, in tab order, one entry
+        main_panel_width_i: width of the signal list panel of the main
+            window, in pixels, 0 when unknown.
+    Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
+        width): one entry (tab_id_i, name_str, plot state tuples,
+        row_count_i, column_count_i, window state tuple) per tab, in
+        tab order, one entry
         (marker_id_i, name_str, time_s, color_str) per marker and one
         entry (area_id_i, name_str, start_s, end_s, color_str) per area;
         two states with equal tuples show the same thing (LLFR-00140).
@@ -1481,7 +1537,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
     tab_tuple = tuple(
         (tab.tab_id_i, tab.name_str,
          tuple(plot_state_tuple(plot) for plot in tab.plot_list),
-         tab.row_count_i, tab.column_count_i)
+         tab.row_count_i, tab.column_count_i,
+         # LLFR-01025, LLFR-01018, LLFR-01020: docked or undocked, and
+         # the shown state and width of the window's panel.
+         tab.window_state_tuple())
         for tab in tab_list)
     # LLFR-00392, LLFR-00140: changing a flag's color is undoable.
     marker_tuple = tuple((marker.marker_id_i, marker.name_str, marker.time_s,
@@ -1493,7 +1552,8 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
     area_tuple = tuple((area.area_id_i, area.name_str, area.start_s,
                         area.end_s, area.color_str)
                        for area in area_list)
-    return (tab_tuple, marker_tuple, area_tuple)
+    # LLFR-01020: a drag of the main window's panel border is undoable.
+    return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i))
 
 
 def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
@@ -1561,11 +1621,13 @@ class WorkspaceSnapshot:
             (LLFR-00205), in placing order.
         area_list: copy of the workspace's areas (LLFR-00310), in
             creation order.
+        main_panel_width_i: width of the main window's signal list
+            panel, in pixels, 0 when unknown (LLFR-01020).
     """
 
     def __init__(self, tab_list: list, state_tuple: tuple,
                  current_tab_id_i: int = -1, marker_list=(),
-                 area_list=()) -> None:
+                 area_list=(), main_panel_width_i: int = 0) -> None:
         """Store the saved state.
 
         Inputs:
@@ -1584,6 +1646,8 @@ class WorkspaceSnapshot:
         self.marker_list = list(marker_list)
         # LLFR-00310, LLFR-00138: the shared areas are part of it too.
         self.area_list = list(area_list)
+        # LLFR-01020, LLFR-00138: and the main window's panel width.
+        self.main_panel_width_i = int(main_panel_width_i)
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
         """Rename a signal in the saved state.
@@ -1600,7 +1664,8 @@ class WorkspaceSnapshot:
         rename_signal_in_tabs(self.tab_list, old_name_str, new_name_str)
         self.state_tuple = tabs_state_tuple(self.tab_list,
                                             self.marker_list,
-                                            self.area_list)
+                                            self.area_list,
+                                            self.main_panel_width_i)
 
 
 class Workspace:
@@ -1652,6 +1717,9 @@ class Workspace:
         # LLFR-00438, LLFR-00872: number of the next "Arrow N", shared
         # by all plots; the same rules.
         self.next_arrow_number_i = 1
+        # LLFR-01020: width of the main window's signal list panel, in
+        # pixels, as the view last reported it; 0 while unknown.
+        self.main_panel_width_i = 0
         # LLFR-00024: the app starts with one tab.
         self.reset()
 
@@ -1743,8 +1811,136 @@ class Workspace:
         # the tab is deleted or its creation undone (restore() never rolls
         # the counter back).
         self.next_tab_number_i = tab_number_i + 1
-        self.tab_list.append(tab)
+        # LLFR-00993, LLFR-01056: the new tab is the last docked tab,
+        # before the undocked tabs.
+        self.insert_docked_tab(tab)
         return tab
+
+    def insert_docked_tab(self, tab) -> None:
+        """Put a docked tab after the last docked tab.
+
+        Inputs:
+            tab: the Tab, not in the tab list yet.
+        Outputs: none. The tab order stays: the docked tabs, then the
+            undocked tabs (LLFR-01056).
+        """
+        # LLFR-01056: docked tabs first, in their order in the main
+        # window; LLFR-00025: a new tab goes right of the last one.
+        self.tab_list.insert(len(self.docked_tab_list()), tab)
+
+    def docked_tab_list(self) -> list:
+        """Return the docked tabs, in their order in the main window.
+
+        Inputs: none.
+        Outputs: a list of Tab.
+        """
+        # LLFR-01056: the docked tabs come first in the tab order.
+        return [tab for tab in self.tab_list if not tab.undocked_b]
+
+    def undocked_tab_list(self) -> list:
+        """Return the undocked tabs, in the order they were undocked.
+
+        Inputs: none.
+        Outputs: a list of Tab.
+        """
+        # LLFR-01056: after the docked tabs, in the order of the undocks.
+        return [tab for tab in self.tab_list if tab.undocked_b]
+
+    def can_undock_tab(self, tab_id_i: int) -> bool:
+        """Tell whether a tab may be undocked.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: True for a docked tab when the main window holds at
+            least one other docked tab (LLFR-00983, LLFR-00984).
+        """
+        # LLFR-00999: whatever the number of undocked windows.
+        tab = self.find_tab(tab_id_i)
+        return (tab is not None and not tab.undocked_b
+                and len(self.docked_tab_list()) > 1)
+
+    def undock_tab(self, tab_id_i: int, window_tuple: tuple = ()) -> bool:
+        """Move a docked tab into an undocked window of its own.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            window_tuple: (x, y, width, height) of the new window
+                (LLFR-00981, LLFR-01093), or () when unknown.
+        Outputs: True when the tab was undocked; False when it is the
+            last docked tab, already undocked or unknown.
+        """
+        # LLFR-00983, LLFR-00984: the last docked tab stays.
+        if not self.can_undock_tab(tab_id_i):
+            return False
+        tab = self.find_tab(tab_id_i)
+        # LLFR-00980, LLFR-00985: the tab moves with everything it holds.
+        tab.undocked_b = True
+        tab.window_tuple = tuple(int(value_i) for value_i in window_tuple)
+        # LLFR-01015, LLFR-01016: its panel starts hidden, never shown.
+        tab.panel_shown_b = False
+        tab.panel_width_i = 0
+        # LLFR-01056: the undocked tabs follow the docked ones, in the
+        # order they were undocked.
+        self.tab_list.remove(tab)
+        self.tab_list.append(tab)
+        return True
+
+    def dock_tab(self, tab_id_i: int) -> bool:
+        """Put an undocked tab back into the main window.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: True when the tab was docked; False when it is not an
+            undocked tab.
+        """
+        tab = self.find_tab(tab_id_i)
+        if tab is None or not tab.undocked_b:
+            return False
+        # LLFR-00993, LLFR-00985: the last docked tab, unchanged.
+        self.tab_list.remove(tab)
+        tab.undocked_b = False
+        self.insert_docked_tab(tab)
+        return True
+
+    def set_window_panel(self, tab_id_i: int, shown_b: bool,
+                         width_i: int) -> bool:
+        """Show or hide the signal list panel of an undocked window.
+
+        Inputs:
+            tab_id_i: id of the undocked tab.
+            shown_b: True to show the panel.
+            width_i: the panel width, in pixels (kept while hidden).
+        Outputs: True when something changed.
+        """
+        # LLFR-01012, LLFR-01013, LLFR-01018.
+        tab = self.find_tab(tab_id_i)
+        if tab is None or not tab.undocked_b:
+            return False
+        before_tuple = tab.window_state_tuple()
+        tab.panel_shown_b = bool(shown_b)
+        tab.panel_width_i = max(int(width_i), 0)
+        return tab.window_state_tuple() != before_tuple
+
+    def set_panel_width(self, tab_id_i: int, width_i: int) -> bool:
+        """Set the width of the signal list panel of a window.
+
+        Inputs:
+            tab_id_i: id of the undocked tab, or -1 for the main window.
+            width_i: the width, in pixels.
+        Outputs: True when the width changed.
+        """
+        # LLFR-01020: a drag of the panel border of any window.
+        width_i = max(int(width_i), 0)
+        if tab_id_i < 0:
+            changed_b = self.main_panel_width_i != width_i
+            self.main_panel_width_i = width_i
+            return changed_b
+        tab = self.find_tab(tab_id_i)
+        if tab is None or not tab.undocked_b:
+            return False
+        changed_b = tab.panel_width_i != width_i
+        tab.panel_width_i = width_i
+        return changed_b
 
     def add_named_tab(self, name_str: str) -> Tab:
         """Add a new empty tab with a given name after the last one.
@@ -1760,7 +1956,8 @@ class Workspace:
         # LLFR-00230: a tab of a layout file keeps its saved name.
         tab = Tab(self.next_tab_id_i, str(name_str).strip())
         self.next_tab_id_i += 1
-        self.tab_list.append(tab)
+        # LLFR-01042, LLFR-01056: a docked tab, after the docked ones.
+        self.insert_docked_tab(tab)
         return tab
 
     def remove_all_tabs(self) -> None:
@@ -1790,14 +1987,22 @@ class Workspace:
                 return tab
         return None
 
-    def can_delete_tab(self) -> bool:
+    def can_delete_tab(self, tab_id_i: int = -1) -> bool:
         """Tell whether a tab may be deleted.
 
-        Inputs: none.
-        Outputs: False when only one tab is left (LLFR-00066).
+        Inputs:
+            tab_id_i: id of the tab, or -1 to ask about the docked tabs.
+        Outputs: True for an undocked tab (LLFR-01034); for a docked tab,
+            or with -1, True only when the main window holds more than
+            one docked tab (LLFR-00066).
         """
-        # LLFR-00066: the last tab cannot be deleted.
-        return len(self.tab_list) > 1
+        # LLFR-01034: deleting an undocked tab never deletes the last
+        # tab, because the main window keeps a docked tab.
+        tab = self.find_tab(tab_id_i)
+        if tab is not None and tab.undocked_b:
+            return True
+        # LLFR-00066: the main window always keeps a docked tab.
+        return len(self.docked_tab_list()) > 1
 
     def delete_tab(self, tab_id_i: int) -> bool:
         """Delete a tab and all its plots.
@@ -1809,7 +2014,7 @@ class Workspace:
         """
         # LLFR-00066: refuse to delete the last tab.
         tab = self.find_tab(tab_id_i)
-        if tab is None or not self.can_delete_tab():
+        if tab is None or not self.can_delete_tab(tab_id_i):
             return False
         # LLFR-00028: remove the tab.
         self.tab_list.remove(tab)
@@ -1853,9 +2058,12 @@ class Workspace:
         # LLFR-01052: the tab is left where it is dropped, between the
         # tabs on either side of it.
         tab = self.find_tab(tab_id_i)
-        if tab is None:
+        # LLFR-01032: an undocked tab is not moved by a drag.
+        if tab is None or tab.undocked_b:
             return False
-        new_index_i = max(0, min(int(new_index_i), len(self.tab_list) - 1))
+        # LLFR-01056: a docked tab moves among the docked tabs.
+        new_index_i = max(0, min(int(new_index_i),
+                                 len(self.docked_tab_list()) - 1))
         # LLFR-01055: a drag back to its place changes nothing.
         if self.tab_list.index(tab) == new_index_i:
             return False
@@ -2280,7 +2488,7 @@ class Workspace:
         # and the marker and area numbering are not part of it, since
         # they only grow (LLFR-00111, LLFR-00309).
         return tabs_state_tuple(self.tab_list, self.marker_list,
-                                self.area_list)
+                                self.area_list, self.main_panel_width_i)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -2315,7 +2523,8 @@ class Workspace:
         return WorkspaceSnapshot(self.copy_tab_list(self.tab_list),
                                  self.state_tuple(), int(current_tab_id_i),
                                  copy.deepcopy(self.marker_list),
-                                 copy.deepcopy(self.area_list))
+                                 copy.deepcopy(self.area_list),
+                                 self.main_panel_width_i)
 
     def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
         """Tell whether the workspace still holds a saved state.
@@ -2347,6 +2556,9 @@ class Workspace:
         # numbering is kept, so an undone creation does not free its
         # number.
         self.area_list = copy.deepcopy(snapshot.area_list)
+        # LLFR-01020, LLFR-00138: the main window's panel width.
+        self.main_panel_width_i = int(getattr(snapshot,
+                                              "main_panel_width_i", 0))
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.
         highest_tab_id_i = max((tab.tab_id_i for tab in self.tab_list),
                                default=0)
@@ -2424,19 +2636,24 @@ class Workspace:
                             if tab.tab_id_i in tab_with_plots_id_set
                             and not tab.plot_list]
         closed_tab_list = list(emptied_tab_list)
-        if len(closed_tab_list) == len(self.tab_list):
-            # LLFR-00961: at least one tab stays, the first of those, in
-            # tab order, with no plot.
-            closed_tab_list = closed_tab_list[1:]
+        docked_list = self.docked_tab_list()
+        closed_docked_list = [tab for tab in closed_tab_list
+                              if not tab.undocked_b]
+        if len(closed_docked_list) == len(docked_list):
+            # LLFR-00961: the main window keeps a docked tab, the first
+            # of those, in tab order, with no plot. LLFR-00998: the
+            # emptied undocked tabs are closed with their windows.
+            closed_tab_list.remove(closed_docked_list[0])
         closed_tab_id_list = [tab.tab_id_i for tab in closed_tab_list]
         shown_index_i = next(
-            (index_i for index_i, tab in enumerate(self.tab_list)
+            (index_i for index_i, tab in enumerate(docked_list)
              if tab.tab_id_i == shown_tab_id_i), 0)
+        # LLFR-00962: the nearest docked tab left of the main window.
         kept_before_list = [
-            tab for tab in self.tab_list[:shown_index_i]
+            tab for tab in docked_list[:shown_index_i]
             if tab.tab_id_i not in closed_tab_id_list]
         kept_after_list = [
-            tab for tab in self.tab_list[shown_index_i:]
+            tab for tab in docked_list[shown_index_i:]
             if tab.tab_id_i not in closed_tab_id_list]
         self.tab_list = [tab for tab in self.tab_list
                          if tab.tab_id_i not in closed_tab_id_list]
@@ -2447,8 +2664,9 @@ class Workspace:
                 shown_tab_id_i = kept_before_list[-1].tab_id_i
             elif kept_after_list:
                 shown_tab_id_i = kept_after_list[0].tab_id_i
-        if self.find_tab(shown_tab_id_i) is None and self.tab_list:
-            shown_tab_id_i = self.tab_list[0].tab_id_i
+        shown_tab = self.find_tab(shown_tab_id_i)
+        if (shown_tab is None or shown_tab.undocked_b) and self.tab_list:
+            shown_tab_id_i = self.docked_tab_list()[0].tab_id_i
         # LLFR-00933, LLFR-00950: with a plot left, the flags and the
         # areas outside the time range of the files left are deleted.
         if self.has_plots() and files_range_tuple:

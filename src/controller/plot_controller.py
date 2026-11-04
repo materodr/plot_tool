@@ -42,6 +42,14 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   colors list itself;
 - grid: ``set_grid_shown``;
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
+- undocked windows (HLFR-00123 to HLFR-00138): ``set_window_handlers``,
+  ``new_window_tuple()`` (the window an undock opens, LLFR-00981,
+  LLFR-01093), ``window_state_dict()`` (the position, size and panel
+  width of each window as shown now), ``undock_tab_view(tab_id_i,
+  window_tuple, panel_shown_b, panel_width_i)``, ``dock_tab_view``,
+  ``set_undocked_tabs(tab_id_list)`` (the windows that stay open, in
+  tab order), ``set_window_panel(tab_id_i, shown_b, width_i)``,
+  ``set_main_panel_width`` and ``set_undock_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
   ``set_selected_signals_plot_handler``, ``set_plot_tool_handler``,
   ``set_tab_handlers``, ``set_tab_arrangement_handlers``,
@@ -174,7 +182,7 @@ from model.undo_history import UndoHistory
 from model.workspace import (
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
     TIME_PLOT_KIND_STR, WHOLE_FREQUENCY_RANGE_TUPLE, Workspace,
-    delta_value_zero_b)
+    delta_value_zero_b, first_panel_width_i)
 
 
 class PlotController:
@@ -335,6 +343,16 @@ class PlotController:
         view.set_undo_handler(self.on_undo)
         # LLFR-00190, LLFR-00191: the Redo button and its shortcut.
         view.set_redo_handler(self.on_redo)
+        # LLFR-00980, LLFR-00993, LLFR-01038, LLFR-01012, LLFR-01013,
+        # LLFR-01020: the undock and dock buttons, the system close of an
+        # undocked window, its signal list button and the drags of the
+        # panel borders.
+        view.set_window_handlers(
+            undock_handler=self.on_undock_tab,
+            dock_handler=self.on_dock_tab,
+            window_close_handler=self.on_window_closed,
+            panel_toggle_handler=self.on_panel_toggled,
+            panel_width_handler=self.on_panel_width_changed)
         # LLFR-00024: show the tabs of the model (one empty tab).
         self.rebuild_tab_views()
         # LLFR-00141, LLFR-00194: nothing to undo or redo at start.
@@ -389,8 +407,10 @@ class PlotController:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00066: the last tab cannot be deleted.
+        # LLFR-00066: the last docked tab cannot be deleted.
         self.view.set_tab_delete_enabled(self.workspace.can_delete_tab())
+        # LLFR-00983, LLFR-00984: nor undocked.
+        self.view.set_undock_enabled(self.workspace.can_delete_tab())
 
     def update_undo_enabled(self) -> None:
         """Enable the Undo and Redo buttons only while they can act.
@@ -409,8 +429,34 @@ class PlotController:
         Inputs: none.
         Outputs: a WorkspaceSnapshot, with the selected tab.
         """
-        # LLFR-00140: taken before an undoable action changes the model.
+        # LLFR-00140: taken before an undoable action changes the model;
+        # LLFR-01024: with the windows where they are now.
+        self.sync_window_state()
         return self.workspace.snapshot(self.view.current_tab_id())
+
+    def sync_window_state(self) -> None:
+        """Copy the windows and panel widths shown now into the model.
+
+        Inputs: none.
+        Outputs: none. Moving or resizing a window is not undoable
+            (LLFR-01021), so the model only learns the window positions
+            and sizes, and the panel widths they changed, when it needs
+            them: before a snapshot, a layout save or a rebuild.
+        """
+        # LLFR-01021, LLFR-01024, LLFR-00225 items 9, 13 and 14.
+        state_dict = self.view.window_state_dict()
+        main_width_i = int(state_dict.get("main_panel_width", 0))
+        if main_width_i > 0:
+            self.workspace.main_panel_width_i = main_width_i
+        for tab_id_i, window_tuple in state_dict.get("windows",
+                                                     {}).items():
+            tab = self.workspace.find_tab(tab_id_i)
+            if tab is None or not tab.undocked_b or len(window_tuple) != 5:
+                continue
+            tab.window_tuple = tuple(int(value_i)
+                                     for value_i in window_tuple[:4])
+            if int(window_tuple[4]) > 0:
+                tab.panel_width_i = int(window_tuple[4])
 
     def record_undo(self, snapshot) -> None:
         """Keep a snapshot for undo when the action changed the model.
@@ -894,17 +940,34 @@ class PlotController:
     # Signal list
     # ----------------------------------------------------------------
 
-    def on_signal_double_clicked(self, signal_name_str: str) -> None:
-        """Create a plot in the current tab that draws the signal.
+    def window_tab(self, tab_id_i: int):
+        """Return the tab shown by the window of a signal list panel.
+
+        Inputs:
+            tab_id_i: the tab of an undocked window, or -1 for the main
+                window.
+        Outputs: the Tab, or None.
+        """
+        # LLFR-01003: the tab that the window of the panel shows.
+        if tab_id_i < 0:
+            tab_id_i = self.view.current_tab_id()
+        return self.workspace.find_tab(tab_id_i)
+
+    def on_signal_double_clicked(self, signal_name_str: str,
+                                 tab_id_i: int = -1) -> None:
+        """Create a plot in the tab of the window that draws the signal.
 
         Inputs:
             signal_name_str: the double-clicked signal name.
+            tab_id_i: the tab of the undocked window whose panel was
+                double-clicked, or -1 for the main window.
         Outputs: none.
         """
         # LLFR-00019, LLFR-00055: any signal of the open file, Time too.
         if not self.has_signal(signal_name_str):
             return
-        tab = self.workspace.find_tab(self.view.current_tab_id())
+        # LLFR-01003: in the tab that the window of the panel shows.
+        tab = self.window_tab(tab_id_i)
         if tab is None:
             return
         # LLFR-00140: creating a plot is undoable, a frequency plot too.
@@ -945,19 +1008,23 @@ class PlotController:
                 plottable_list.append(signal_name_str)
         return plottable_list
 
-    def on_selected_signals_plotted(self, signal_name_list: list) -> None:
-        """Create one plot in the current tab that draws every signal.
+    def on_selected_signals_plotted(self, signal_name_list: list,
+                                    tab_id_i: int = -1) -> None:
+        """Create one plot in the tab of the window for every signal.
 
         Inputs:
             signal_name_list: the selected signal names, in the order
                 of the signal list (Enter key).
+            tab_id_i: the tab of the undocked window whose panel has the
+                focus, or -1 for the main window.
         Outputs: none.
         """
         # LLFR-00296: nothing selected, nothing plotted, no message.
         plottable_list = self.plottable_signal_list(signal_name_list)
         if not plottable_list:
             return
-        tab = self.workspace.find_tab(self.view.current_tab_id())
+        # LLFR-01003, LLFR-01005: the tab of the window of the panel.
+        tab = self.window_tab(tab_id_i)
         if tab is None:
             return
         # LLFR-00300: FFT signals and other signals cannot share a plot;
@@ -1819,8 +1886,10 @@ class PlotController:
         self.record_undo(snapshot)
         # LLFR-00167: a first point in a deleted plot is discarded.
         self.discard_pending_delta_if_gone()
-        # LLFR-00028: remove the tab and its plots from the view.
+        # LLFR-00028: remove the tab and its plots from the view;
+        # LLFR-01033: an undocked tab's window closes with it.
         self.view.remove_tab_view(tab_id_i)
+        self.view.set_undocked_tabs(self.undocked_tab_id_list())
         # LLFR-00180: its plots may have been the last ones.
         self.forget_range_without_plots()
         self.update_tab_delete_enabled()
@@ -1920,6 +1989,160 @@ class PlotController:
         tab = self.workspace.tab_of_plot(plot_id_i)
         self.view.set_plot_order_view(
             tab.tab_id_i, [plot.plot_id_i for plot in tab.plot_list])
+
+    # ----------------------------------------------------------------
+    # Undocked windows (HLFR-00123 to HLFR-00138)
+    # ----------------------------------------------------------------
+
+    def undocked_tab_id_list(self) -> list:
+        """Return the ids of the undocked tabs, in tab order.
+
+        Inputs: none.
+        Outputs: a list of int.
+        """
+        # LLFR-01056: the order of the undocks.
+        return [tab.tab_id_i for tab in self.workspace.undocked_tab_list()]
+
+    def nearest_docked_tab_id(self, tab_id_i: int) -> int:
+        """Return the docked tab shown when a docked tab leaves.
+
+        Inputs:
+            tab_id_i: id of the docked tab that is undocked.
+        Outputs: the id of the nearest other docked tab to its left, or,
+            when there is none, to its right; -1 when there is none.
+        """
+        # LLFR-00982: the nearest docked tab to the left, else right.
+        docked_id_list = [tab.tab_id_i
+                          for tab in self.workspace.docked_tab_list()]
+        if tab_id_i not in docked_id_list:
+            return -1
+        index_i = docked_id_list.index(tab_id_i)
+        if index_i > 0:
+            return docked_id_list[index_i - 1]
+        if len(docked_id_list) > 1:
+            return docked_id_list[1]
+        return -1
+
+    def show_undocked_tab(self, tab) -> None:
+        """Show an undocked tab of the model in its window.
+
+        Inputs:
+            tab: the undocked Tab, already shown in the view.
+        Outputs: none.
+        """
+        # LLFR-00980, LLFR-01024, LLFR-01094, LLFR-01041, LLFR-01043.
+        self.view.undock_tab_view(tab.tab_id_i, tuple(tab.window_tuple),
+                                  tab.panel_shown_b, tab.panel_width_i)
+
+    def on_undock_tab(self, tab_id_i: int) -> None:
+        """Move a docked tab into a new undocked window.
+
+        Inputs:
+            tab_id_i: id of the tab whose undock button was clicked.
+        Outputs: none.
+        """
+        # LLFR-00983, LLFR-00984: the last docked tab is not undocked.
+        if not self.workspace.can_undock_tab(tab_id_i):
+            return
+        # LLFR-01025: an undock is one undoable action.
+        snapshot = self.take_snapshot()
+        shown_tab_id_i = self.view.current_tab_id()
+        next_shown_id_i = self.nearest_docked_tab_id(tab_id_i)
+        # LLFR-00981, LLFR-01093: the size of the plot panel, moved by
+        # 30 pixels; LLFR-01015: the panel hidden.
+        self.workspace.undock_tab(tab_id_i, self.view.new_window_tuple())
+        self.record_undo(snapshot)
+        # LLFR-00980, LLFR-00985: the tab moves with all it holds.
+        self.show_undocked_tab(self.workspace.find_tab(tab_id_i))
+        self.view.set_undocked_tabs(self.undocked_tab_id_list())
+        # LLFR-00982: the main window shows the nearest docked tab.
+        if shown_tab_id_i == tab_id_i and next_shown_id_i >= 0:
+            self.view.set_current_tab(next_shown_id_i)
+        self.update_tab_delete_enabled()
+
+    def on_dock_tab(self, tab_id_i: int) -> None:
+        """Put the tab of an undocked window back into the main window.
+
+        Inputs:
+            tab_id_i: id of the tab whose dock button was clicked.
+        Outputs: none.
+        """
+        # LLFR-01025: a dock is one undoable action.
+        snapshot = self.take_snapshot()
+        # LLFR-00993: the last docked tab, left of the "+" button.
+        if not self.workspace.dock_tab(tab_id_i):
+            return
+        self.record_undo(snapshot)
+        # LLFR-00994: its window closes; LLFR-00985: the tab is unchanged.
+        self.view.dock_tab_view(tab_id_i)
+        self.view.set_undocked_tabs(self.undocked_tab_id_list())
+        # LLFR-00995: the main window shows it.
+        self.view.set_current_tab(tab_id_i)
+        self.update_tab_delete_enabled()
+
+    def on_window_closed(self, tab_id_i: int) -> None:
+        """Delete the tab of an undocked window closed by the user.
+
+        Inputs:
+            tab_id_i: id of the tab of the closed window.
+        Outputs: none.
+        """
+        # LLFR-01038, LLFR-01039: as "Delete" in the tab menu, with no
+        # question, as one undoable action.
+        self.on_delete_tab(tab_id_i)
+
+    def on_panel_toggled(self, tab_id_i: int) -> None:
+        """Hide or show the signal list panel of an undocked window.
+
+        Inputs:
+            tab_id_i: id of the tab of the window whose signal list
+                button was clicked.
+        Outputs: none.
+        """
+        tab = self.workspace.find_tab(tab_id_i)
+        if tab is None or not tab.undocked_b:
+            return
+        # LLFR-01018: one undoable action; the snapshot holds the width.
+        snapshot = self.take_snapshot()
+        shown_b = not tab.panel_shown_b
+        width_i = tab.panel_width_i
+        if shown_b and width_i < 1:
+            # LLFR-01016: the main window's panel width, at most half the
+            # window.
+            window_width_i = (tab.window_tuple[2]
+                              if len(tab.window_tuple) == 4 else 0)
+            width_i = first_panel_width_i(self.workspace.main_panel_width_i,
+                                          window_width_i)
+        # LLFR-01012, LLFR-01013: hidden, or shown at its width.
+        if not self.workspace.set_window_panel(tab_id_i, shown_b, width_i):
+            return
+        self.record_undo(snapshot)
+        self.view.set_window_panel(tab_id_i, shown_b, width_i)
+
+    def on_panel_width_changed(self, tab_id_i: int, start_width_i: int,
+                               end_width_i: int) -> None:
+        """Keep a drag of a panel border as one undoable action.
+
+        Inputs:
+            tab_id_i: the tab of the undocked window, or -1 for the main
+                window.
+            start_width_i: the signal list panel width at the press.
+            end_width_i: its width at the release.
+        Outputs: none. A drag back to the starting width records nothing.
+        """
+        # LLFR-01020: only a drag that changes the width.
+        if int(start_width_i) == int(end_width_i):
+            return
+        tab = self.workspace.find_tab(tab_id_i)
+        if tab_id_i >= 0 and (tab is None or not tab.undocked_b):
+            return
+        # LLFR-01020, LLFR-00138: the state before the drag, with the
+        # width at the press, and after it.
+        self.sync_window_state()
+        self.workspace.set_panel_width(tab_id_i, start_width_i)
+        snapshot = self.workspace.snapshot(self.view.current_tab_id())
+        self.workspace.set_panel_width(tab_id_i, end_width_i)
+        self.record_undo(snapshot)
 
     # ----------------------------------------------------------------
     # Vertical markers
@@ -2675,6 +2898,10 @@ class PlotController:
         # is kept; LLFR-00180: with no plot left, it is the whole range.
         self.forget_range_without_plots()
         self.rebuild_all_views(current_tab_id_i)
+        # LLFR-00138, LLFR-00192, LLFR-01020: the main window's panel
+        # width of that state.
+        if self.workspace.main_panel_width_i > 0:
+            self.view.set_main_panel_width(self.workspace.main_panel_width_i)
 
     def rebuild_all_views(self, current_tab_id_i: int) -> None:
         """Show every tab, plot, curve, tip and marker of the workspace.
@@ -2699,9 +2926,17 @@ class PlotController:
                 # LLFR-00068: time on the x-axis; LLFR-00070,
                 # LLFR-00180: then the range shared by all plots.
                 self.redraw_plot(plot)
-        # LLFR-00138: select the tab of the state before the action.
-        if self.workspace.find_tab(current_tab_id_i) is None:
-            current_tab_id_i = self.workspace.tab_list[0].tab_id_i
+        # LLFR-01024, LLFR-01094, LLFR-01041, LLFR-01043: each undocked
+        # tab in its window; LLFR-01025, LLFR-01045, LLFR-00998: the
+        # windows of the other tabs close.
+        for tab in self.workspace.undocked_tab_list():
+            self.show_undocked_tab(tab)
+        self.view.set_undocked_tabs(self.undocked_tab_id_list())
+        # LLFR-00138: select the tab of the state before the action, a
+        # docked tab of the main window.
+        current_tab = self.workspace.find_tab(current_tab_id_i)
+        if current_tab is None or current_tab.undocked_b:
+            current_tab_id_i = self.workspace.docked_tab_list()[0].tab_id_i
         self.view.set_current_tab(current_tab_id_i)
         # LLFR-00066: "Delete" only when more than one tab is left.
         self.update_tab_delete_enabled()
@@ -2790,6 +3025,8 @@ class PlotController:
             cleared.
         """
         files_range_tuple = self.file_time_range_tuple()
+        # LLFR-00998: the windows that stay open keep their panels.
+        self.sync_window_state()
         # LLFR-00927, LLFR-00928, LLFR-00932, LLFR-00960, LLFR-00961,
         # LLFR-00962, LLFR-00933, LLFR-00950: the model removes the
         # curves, plots, tabs, flags and areas, and chooses the tab.
@@ -2869,6 +3106,8 @@ class PlotController:
         # LLFR-00225: tabs, shown tab, plots, curves, range, grid,
         # markers, data tips, delta markers and panel widths.
         # LLFR-00226: no file name, history, plot tool or search text.
+        # LLFR-00225 items 12 to 14: the windows as shown now.
+        self.sync_window_state()
         return build_layout_dict(
             self.workspace, self.view.current_tab_id(),
             self.layout_time_range_tuple(), self.grid_shown_b,
@@ -2906,7 +3145,9 @@ class PlotController:
             result = rebuild_layout(
                 self.workspace, layout_dict, self.signal_file.signal_dict,
                 self.time_array_for_signal, synthetic_signal_builder,
-                self.file_time_range_tuple())
+                self.file_time_range_tuple(),
+                # LLFR-01046: what an undock would open.
+                tuple(self.view.new_window_tuple()))
         except Exception:
             # LLFR-00236: the synthetic signals come back before the
             # views are redrawn, so the old curves find their samples.
