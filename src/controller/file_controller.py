@@ -45,7 +45,7 @@ TIME_SIGNAL_PROMPT_STR = "Choose the signal that goes on the x-axis"
 # PCR-00025: start of the message shown when the loader fails in an
 # unexpected way, so the app reports it instead of crashing.
 UNEXPECTED_ERROR_MESSAGE_STR = (
-    "The file '{path}' could not be read because of an unexpected "
+    "The file '{name}' could not be read because of an unexpected "
     "error: {error}")
 # LLFR-00892: the box shown in place of the dialog with 10 files open.
 OPEN_FILES_LIMIT_MESSAGE_STR = (
@@ -152,6 +152,8 @@ class FileController:
         self.dialog_folder_str = start_folder_str
         self.file_opened_listener_list = []
         self.files_closed_listener_list = []
+        # LLFR-00071: the listener errors of the selection being opened.
+        self.listener_error_list = []
 
     @property
     def current_file(self):
@@ -252,6 +254,8 @@ class FileController:
         error_message_list = []
         refused_line_list = []
         added_file_list = []
+        # LLFR-00071: an error of a listener, after the file was added.
+        self.listener_error_list = []
         for path_str in selection_order_list(path_list):
             # LLFR-00949: whatever happens to one file, the next one is
             # taken.
@@ -262,8 +266,8 @@ class FileController:
                 # LLFR-00969: an unexpected error is a reading error of
                 # that file, listed with a description of the error.
                 error_message_list.append(
-                    UNEXPECTED_ERROR_MESSAGE_STR.format(path=path_str,
-                                                        error=error))
+                    UNEXPECTED_ERROR_MESSAGE_STR.format(
+                        name=os.path.basename(path_str), error=error))
                 continue
             if data_file is not None:
                 added_file_list.append(data_file)
@@ -275,6 +279,11 @@ class FileController:
         if refused_line_list:
             self.view.show_refused_files_notification(
                 "\n".join(refused_line_list))
+        # LLFR-00071: a listener that failed after its file was added is
+        # an unexpected error of the app, not a reading error of the
+        # file, which stays open; it reaches the unexpected error box.
+        if self.listener_error_list:
+            raise self.listener_error_list[0]
         return added_file_list
 
     def open_one_path(self, path_str: str, error_message_list: list,
@@ -326,7 +335,12 @@ class FileController:
         # LLFR-00917, LLFR-00650: the listeners add the new file and
         # keep everything else.
         for listener in list(self.file_opened_listener_list):
-            listener(self.data_files, data_file)
+            try:
+                listener(self.data_files, data_file)
+            except Exception as error:
+                # LLFR-00071: the file is open; the error is raised after
+                # the boxes of the selection (open_paths).
+                getattr(self, "listener_error_list", []).append(error)
         return data_file
 
     def _read_file(self, path_str: str) -> tuple:
@@ -353,7 +367,7 @@ class FileController:
             # LLFR-00969: an unexpected failure is reported as a reading
             # error of the file instead of crashing (PCR-00025).
             return None, UNEXPECTED_ERROR_MESSAGE_STR.format(
-                path=path_str, error=error)
+                name=os.path.basename(path_str), error=error)
         finally:
             # LLFR-00561, LLFR-00562: reading ended, whatever the result;
             # remove the indication before any box or window is shown.

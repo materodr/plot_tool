@@ -438,7 +438,9 @@ class OpenFileTest(FileControllerTestCase):
         message_str = view.error_message_list[0]
         self.assertIn("could not be read", message_str)
         self.assertIn("strange failure", message_str)
-        self.assertIn(SECOND_PATH_STR, message_str)
+        # LLFR-00951: the file by its name, without its folder.
+        self.assertIn("second.csv", message_str)
+        self.assertNotIn("/data/", message_str)
         self.assert_first_file_kept(controller, view)
 
     @covers("LLFR-00969", "LLFR-00949", "LLFR-00951")
@@ -647,6 +649,7 @@ class OpenFileTest(FileControllerTestCase):
         self.assertIn("a_broken.csv is broken.", error_str)
         self.assertIn("boom", error_str)
         self.assertLess(error_str.index("a_broken"), error_str.index("boom"))
+        self.assertNotIn("/d/", error_str)
         self.assertEqual(view.refused_message_list,
                          ["first.csv: already open as file1."])
         # LLFR-00951, LLFR-00952: one box of each kind, after the last
@@ -703,16 +706,19 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(controller.close_all_files(), [])
         self.assertEqual(len(self.closed_call_list), 1)
 
-    @covers("LLFR-00003")
-    def test_button_finished_when_a_listener_raises(self) -> None:
-        """The button is finished even if a listener raises.
+    @covers("LLFR-00003", "LLFR-00071", "LLFR-00441")
+    def test_listener_error_is_an_unexpected_error(self) -> None:
+        """A listener that raises after the file was added: the file
+        stays open, the other files are taken, no File Open Error box,
+        and the error goes on to the unexpected error box.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([FIRST_PATH_STR])
+        view = FakeView([[FIRST_PATH_STR, SECOND_PATH_STR]])
         controller = self.build_controller(
-            view, {FIRST_PATH_STR: self.first_file})
+            view, {FIRST_PATH_STR: self.first_file,
+                   SECOND_PATH_STR: self.second_file})
 
         def failing_listener(data_files, data_file) -> None:
             """Raise as a broken listener would.
@@ -725,10 +731,12 @@ class OpenFileTest(FileControllerTestCase):
             raise RuntimeError("listener failure")
 
         controller.add_file_opened_listener(failing_listener)
-        controller.open_file_requested()
+        with self.assertRaisesRegex(RuntimeError, "listener failure"):
+            controller.open_file_requested()
         self.assertEqual(view.call_list[-1], "finish_open_file_button")
-        # LLFR-00969: the error is listed for the file.
-        self.assertIn("listener failure", view.error_message_list[0])
+        self.assertEqual(view.error_message_list, [])
+        self.assertEqual(self.numbers(controller), [1, 2])
+        self.assertEqual(len(self.listener_call_list), 2)
 
     @covers("LLFR-00916")
     def test_every_listener_is_notified_in_order(self) -> None:
