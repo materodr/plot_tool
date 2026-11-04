@@ -2000,7 +2000,17 @@ Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `fil
 ### LLFR-00955 Prefix kept on a rename
 When the user renames a synthetic signal (LLFR-00266), the app must show in the field where the user types the new name only the part of the current name after the prefix of its data file (LLFR-00936), and keep that prefix in front of the name the user types.
 
-Note: For example, typing `my` for a synthetic signal of file 1 gives `file1_my`. The empty-name check of LLFR-00267 and LLFR-00607 applies to the typed part; the name-in-use check of LLFR-00267 and LLFR-00606 applies to the whole name.
+Note: For example, typing `my` for a synthetic signal of file 1 gives `file1_my`.
+
+*Parent: HLFR-00115, HLFR-00060*
+
+### LLFR-00971 Empty-name check on the typed part
+When the user renames a synthetic signal (LLFR-00955), the app must apply the empty-name check of LLFR-00267 and LLFR-00607 to the part that the user types, without the prefix of its data file.
+
+*Parent: HLFR-00115, HLFR-00060*
+
+### LLFR-00972 Name-in-use check on the whole name
+When the user renames a synthetic signal (LLFR-00955), the app must apply the name-in-use check of LLFR-00267 and LLFR-00606 to the whole new name, with the prefix of its data file in front of the part that the user types.
 
 *Parent: HLFR-00115, HLFR-00060*
 
