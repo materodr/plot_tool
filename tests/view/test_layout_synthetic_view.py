@@ -273,11 +273,13 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         top_panel = self.main_window.top_panel
         plot_controller = self.controller.plot_controller
         self.choose("file1_Speed", "Integral (int)")
+        # LLFR-00592: the FFT is created while a time plot exists.
+        self.panel.signal_double_clicked.emit("file1_int_Speed")
+        self.application.processEvents()
         self.choose("file1_Speed", "FFT (fft)")
         store = self.controller.synthetic_controller.store
         fft_name_str = [name_str for name_str in store.names()
                         if store.is_fft(name_str)][0]
-        self.panel.signal_double_clicked.emit("file1_int_Speed")
         plot_controller.on_add_tab()
         self.panel.signal_double_clicked.emit(fft_name_str)
         self.application.processEvents()

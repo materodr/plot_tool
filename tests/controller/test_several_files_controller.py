@@ -313,11 +313,12 @@ class CloseFileTest(SeveralFilesTestCase):
         """
         self.open(make_time_file("a.csv", 0.0, 10.0))
         self.open(make_time_file("b.csv", 0.0, 10.0))
+        # LLFR-00592: an FFT needs a time plot.
+        time_plot_id_i = self.plot("file2_Speed")
         self.view.signal_menu_handler_dict["create"]("file1_Speed", "fft")
         fft_name_str = self.main_controller.synthetic_controller.store.names(
             )[0]
         frequency_plot_id_i = self.plot(fft_name_str)
-        time_plot_id_i = self.plot("file2_Speed")
         self.file_controller.close_file(1)
         self.assertIsNone(self.workspace.find_plot(frequency_plot_id_i))
         self.assertIsNotNone(self.workspace.find_plot(time_plot_id_i))

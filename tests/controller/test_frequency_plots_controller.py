@@ -16,6 +16,8 @@ from tests.controller.test_synthetic_controller import (
     SyntheticControllerTestCase)
 
 from controller.plot_tools import DELTA_X_TOOL_STR, MARKER_TOOL_STR
+from controller.synthetic_controller import (
+    CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)
 from model.curve_colors import PALETTE_COLOR_TUPLE
 from model.workspace import (
     FREQUENCY_PLOT_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, TIME_PLOT_KIND_STR)
@@ -424,9 +426,12 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.plot_time_range(self.last_plot_id()),
                          (0.0, 9.9))
 
-    @covers("LLFR-00248", "LLFR-00258", "HLFR-00057", "LLFR-00592")
+    @covers("LLFR-00248", "LLFR-00258", "HLFR-00057", "LLFR-00592",
+            "LLFR-00979")
     def test_fft_range_uses_only_the_time_plots(self) -> None:
-        """An FFT made while only frequency plots exist uses the file.
+        """The FFT range comes from the time plots only: a zoom of a
+        frequency plot is not a time range, and while only frequency
+        plots exist no FFT is created.
 
         Inputs: none.
         Outputs: none.
@@ -445,8 +450,13 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
         self.assertEqual(self.plot_controller.time_plot_range_tuple(),
                          (0.0, 9.9))
-        self.assertEqual(self.create_fft("file1_Torque"),
-                         "file1_fft_0s_to_9p9s_Torque")
+        # LLFR-00592, LLFR-00979: only a frequency plot is left, so no
+        # FFT is created, and the box asks for a time plot.
+        name_list = self.store_names()
+        self.create("file1_Torque", "fft", time_plot_b=False)
+        self.assertEqual(self.store_names(), name_list)
+        self.assertEqual(self.view.information_list[-1],
+                         (CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR))
 
 
 class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
