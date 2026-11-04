@@ -213,10 +213,6 @@ class MainControllerStartTest(unittest.TestCase):
                           export_controller.on_copy_requested))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class MainControllerFilesTest(unittest.TestCase):
     """The file menu and the description of the data files are wired."""
 
@@ -254,3 +250,7 @@ class MainControllerFilesTest(unittest.TestCase):
         controller.file_controller.data_files.add(signal_file)
         self.assertEqual(export_controller.files_description(),
                          "file1 = run_A.csv")
+
+
+if __name__ == "__main__":
+    unittest.main()

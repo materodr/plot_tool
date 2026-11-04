@@ -282,7 +282,8 @@ class SyntheticSignal:
             (LLFR-00941).
         """
         # LLFR-00941: a renamed signal keeps the typed text; a signal
-        # made without a plain name loses the prefix it starts with.
+        # made without a plain name is saved under its editable name,
+        # which leaves out only the prefix of its own data file.
         return self.plain_name_str or self.editable_name_str
 
     @property
@@ -619,7 +620,7 @@ class SyntheticSignalStore:
             operation_str, time_array, source_array_list, parameter)
         # LLFR-00904, LLFR-00936, LLFR-00954: the prefix of the file of
         # the first source, then the names without their prefix.
-        file_number, default_name_str, plain_str = self.default_names(
+        file_number_i, default_name_str, plain_str = self.default_names(
             operation_str, source_name_list, parameter)
         if not name_str:
             # LLFR-00240, LLFR-00241: unique among all signal names.
@@ -637,7 +638,7 @@ class SyntheticSignalStore:
         signal = SyntheticSignal(name_str, operation_str,
                                  list(source_name_list), parameter,
                                  value_array, frequency_array,
-                                 file_number, plain_str)
+                                 file_number_i, plain_str)
         self.signal_list.append(signal)
         return signal
 
@@ -943,22 +944,23 @@ def unique_name(base_name_str: str, used_name_set: set) -> str:
     return name_str
 
 
-def own_prefix_name(name_str: str, file_number) -> str:
+def own_prefix_name(name_str: str, file_number_i) -> str:
     """Return a saved name with the prefix of its own data file.
 
     Inputs:
         name_str: the saved name of a synthetic signal of a layout file.
-        file_number: the number of its data file (LLFR-00936), or None.
+        file_number_i: the number of its data file (LLFR-00936), or
+            None.
     Outputs: the name itself when it starts with ``file<N>_`` of its
-        file or when file_number is None; else the name with that
+        file or when file_number_i is None; else the name with that
         prefix in place of the prefix of another file, or in front of
         the name when it has no prefix (LLFR-00966).
     """
     # LLFR-00966: for example `my_int` of file 2 becomes `file2_my_int`
     # and `file1_x` of file 2 becomes `file2_x`.
-    if file_number is None:
+    if file_number_i is None:
         return name_str
-    prefix_str = file_prefix(file_number)
+    prefix_str = file_prefix(file_number_i)
     if name_str.startswith(prefix_str):
         return name_str
     return prefix_str + without_prefix(name_str)

@@ -928,7 +928,7 @@ class CreateTest(SyntheticControllerTestCase):
         Inputs: none.
         Outputs: none.
         """
-        from model.signal_search import search_signals
+        from model.signal_search import search_prefixed_signals
         self.create("file1_Speed", "fft")
         self.create("file1_Speed", "integral")
         self.create("file1_Torque", "integral")
@@ -949,7 +949,8 @@ class CreateTest(SyntheticControllerTestCase):
             with self.subTest(text=text_str):
                 # LLFR-00285: the same result and order as the panel.
                 self.assertEqual(search_function(text_str),
-                                 search_signals(name_list, text_str))
+                                 search_prefixed_signals(name_list,
+                                                         text_str))
         self.assertEqual(search_function("speed"), ["file1_Speed",
                                                     "file1_int_Speed"])
         self.assertEqual(search_function("int tor"), ["file1_int_Torque"])
@@ -961,6 +962,39 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.store_names(), [
             "file1_fft_0s_to_9p9s_Speed", "file1_int_Speed",
             "file1_int_Torque"])
+
+    @covers("LLFR-00285", "LLFR-00102", "LLFR-00618")
+    def test_second_signal_dialog_ranks_without_the_prefix(self) -> None:
+        """The "starts with" group leaves the file prefix out.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_signals
+        time_array = np.arange(SAMPLE_COUNT_I) * 0.1
+        # A new app, so that the file is file 1 (file numbers are not
+        # reused after a close).
+        self.view = FakeSyntheticWindow()
+        self.main_controller = MainController(self.view)
+        self.file_controller = self.main_controller.file_controller
+        self.controller = self.main_controller.synthetic_controller
+        self.open_file(SignalFile("test.csv", {
+            "Time": time_array,
+            "MaxSpeed": np.cos(time_array),
+            "Speed": np.sin(time_array)}))
+        self.view.second_signal_answer_list = [None]
+        self.create("file1_Speed", "product")
+        search_function, _ = self.view.second_signal_search_list[-1]
+        name_list = self.view.second_signal_question_list[-1][2]
+        self.assertEqual(name_list, ["file1_Time", "file1_MaxSpeed",
+                                     "file1_Speed"])
+        # LLFR-00102: "file1_Speed" starts with "speed" once its prefix
+        # is left out, so it comes before "file1_MaxSpeed".
+        self.assertEqual(search_function("speed"),
+                         ["file1_Speed", "file1_MaxSpeed"])
+        # The ranking without that rule keeps the file order.
+        self.assertEqual(search_signals(name_list, "speed"),
+                         ["file1_MaxSpeed", "file1_Speed"])
 
     @covers("LLFR-00248", "LLFR-00240", "LLFR-00249", "LLFR-00592")
     def test_fft_uses_the_whole_file_without_time_plots(self) -> None:

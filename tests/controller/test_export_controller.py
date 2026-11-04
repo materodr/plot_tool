@@ -371,10 +371,6 @@ class CopyFlowTest(unittest.TestCase):
         self.assertEqual(self.view.call_list[-1], "finish_copy_button")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class FilesDescriptionTest(unittest.TestCase):
     """The PDF and the copied image describe the open data files."""
 
@@ -440,3 +436,7 @@ class FilesDescriptionTest(unittest.TestCase):
         self.assertEqual(controller.files_description(), "")
         controller.on_export_requested()
         self.assertEqual(self.view.description_list, [""])
+
+
+if __name__ == "__main__":
+    unittest.main()

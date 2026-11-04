@@ -151,8 +151,9 @@ def question_text(question_str: str, point_list: list) -> str:
     Outputs: the question, an empty line and one "- " line per point.
     """
     # LLFR-00920, LLFR-00930: the consequences, one per line.
-    point_text_str = "\n".join(QUESTION_POINT_FORMAT_STR.format(point=point)
-                               for point in point_list)
+    point_text_str = "\n".join(
+        QUESTION_POINT_FORMAT_STR.format(point=point_str)
+        for point_str in point_list)
     return f"{question_str}\n\n{point_text_str}"
 
 

@@ -33,7 +33,6 @@ already there (LLFR-00131).
 """
 
 import io
-
 import math
 
 from PyQt6.QtCore import (

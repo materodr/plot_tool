@@ -383,10 +383,6 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertLess(elapsed_s, 0.5)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PrefixedSearchTest(unittest.TestCase):
     """The "starts with" group leaves the file prefix out (LLFR-00102)."""
 
@@ -447,3 +443,7 @@ class PrefixedSearchTest(unittest.TestCase):
                          ["Speed", "MaxSpeed"])
         self.assertEqual(search_prefixed_signals(name_list, "  "),
                          name_list)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -196,10 +196,6 @@ class SelectionOrderTest(unittest.TestCase):
              "/z/run2.csv"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class DescriptionTest(unittest.TestCase):
     """The description of the open files (LLFR-00967, LLFR-00968)."""
 
@@ -226,3 +222,7 @@ class DescriptionTest(unittest.TestCase):
                          "file1 = run_A.csv, file3 = run C.h5")
         data_files.remove_all()
         self.assertEqual(data_files.description_str, "")
+
+
+if __name__ == "__main__":
+    unittest.main()

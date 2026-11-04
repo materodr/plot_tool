@@ -493,10 +493,6 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
                           self.workspace.area_list], [(7.0, 10.0)])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class CloseQuestionTest(SeveralFilesTestCase):
     """The questions of the file menu (LLFR-00919, LLFR-00920)."""
 
@@ -668,3 +664,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertEqual(self.file_controller.close_all_files_requested(),
                          [])
         self.assertEqual(len(self.question_list), 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

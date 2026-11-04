@@ -1010,10 +1010,6 @@ class ExportBoxTest(unittest.TestCase):
         copy_box.deleteLater()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 @requires_qt
 class DescriptionDrawingTest(unittest.TestCase):
     """The drawing of the description, on images (LLFR-00967/00968)."""
@@ -1101,3 +1097,7 @@ class DescriptionDrawingTest(unittest.TestCase):
                             for x_i in range(600) for y_i in range(10, 40)))
         self.assertTrue(all(QColor(image.pixel(x_i, 5)).lightness() > 250
                             for x_i in range(600)))
+
+
+if __name__ == "__main__":
+    unittest.main()

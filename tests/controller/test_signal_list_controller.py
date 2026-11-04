@@ -903,10 +903,6 @@ class FileNameLineTest(unittest.TestCase):
                                  expected_str)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class SearchPerFileTest(unittest.TestCase):
     """The search is done file by file, below each file name row."""
 
@@ -1023,3 +1019,7 @@ class SearchPerFileTest(unittest.TestCase):
                          ["file1_a.csv", "file3_c.csv"])
         self.file_controller.close_all_files()
         self.assertEqual(self.view.group_list, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
