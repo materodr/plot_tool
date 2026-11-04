@@ -192,6 +192,9 @@ class FileRowPanelTestCase(unittest.TestCase):
         point = self.widget.visualItemRect(self.item_of(text_str)).center()
         modifier = getattr(Qt.KeyboardModifier, modifier_name_str)
         if double_b:
+            # As a user does: a click, then the double-click.
+            QTest.mouseClick(self.widget.viewport(),
+                             Qt.MouseButton.LeftButton, modifier, point)
             QTest.mouseDClick(self.widget.viewport(),
                               Qt.MouseButton.LeftButton, modifier, point)
         else:
@@ -410,6 +413,8 @@ class FileRowMouseTest(FileRowPanelTestCase):
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_Pressure", "file2_Time", "file2_Force"])
         self.assertEqual(len(self.widget.selectedItems()), 3)
+        # A range from the last plain click, upwards across the row.
+        self.click("file2_Force")
         self.click("file1_Time", "ShiftModifier")
         self.assertEqual(self.panel.selected_signal_names(),
                          FIRST_SIGNAL_LIST + SECOND_SIGNAL_LIST)
@@ -473,6 +478,7 @@ class FileRowMouseTest(FileRowPanelTestCase):
         self.assertIsNone(self.widget.pressed_item)
         self.assertEqual(self.panel.selected_signal_names(), [])
         self.assertTrue(all(item is None for item in drag_list))
+        self.assertFalse(self.widget.press_on_other_row_b)
 
 
 @requires_qt

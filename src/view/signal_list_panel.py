@@ -209,6 +209,10 @@ class SignalListWidget(QListWidget):
         # LLFR-00298: what the last left press was on.
         self.pressed_item = None
         self.pressed_item_was_selected_b = False
+        # LLFR-00643, LLFR-00645: True from a press on a row that is not
+        # a signal until its release, so that the moves of that press
+        # neither select nor drag.
+        self.press_on_other_row_b = False
         # LLFR-00021: names can be dragged out, never dropped in or
         # reordered.
         self.setDragEnabled(True)
@@ -303,8 +307,10 @@ class SignalListWidget(QListWidget):
             if event.button() == Qt.MouseButton.LeftButton:
                 self.pressed_item = None
                 self.pressed_item_was_selected_b = False
+            self.press_on_other_row_b = True
             event.accept()
             return
+        self.press_on_other_row_b = False
         if event.button() == Qt.MouseButton.LeftButton:
             self.pressed_item = clicked_item
             self.pressed_item_was_selected_b = (
@@ -313,6 +319,35 @@ class SignalListWidget(QListWidget):
         # the rows that are not signals are not selectable either, so
         # no Shift range selects them (LLFR-00644).
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        """Ignore the moves of a press on a row that is not a signal.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00643, LLFR-00645: a press on a file name row followed by
+        # a move neither selects a range nor starts a drag.
+        if self.press_on_other_row_b and event.buttons() != (
+                Qt.MouseButton.NoButton):
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        """End a press on a row that is not a signal.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00643: the release of such a press changes nothing.
+        if self.press_on_other_row_b:
+            self.press_on_other_row_b = False
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:
         """Ignore a double-click on a row that is not a signal.
@@ -325,6 +360,7 @@ class SignalListWidget(QListWidget):
         # and selects nothing.
         clicked_item = self.itemAt(event.position().toPoint())
         if clicked_item is not None and not is_signal_row(clicked_item):
+            self.press_on_other_row_b = True
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
@@ -366,7 +402,7 @@ class SignalListWidget(QListWidget):
         Outputs: none.
         """
         # LLFR-00645: a drag from a file name row drags nothing.
-        if self.pressed_item is None:
+        if self.press_on_other_row_b:
             return
         # LLFR-00297, LLFR-00298: drag the selection, or the pressed
         # signal alone when it was not selected.
