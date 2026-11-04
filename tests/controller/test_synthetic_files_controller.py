@@ -806,10 +806,10 @@ class SaveSeveralFilesTest(unittest.TestCase):
                          (self.folder_str, "run1_signals.csv"))
         # LLFR-00404: the removal of the prefix alone is not listed.
         self.assertEqual(self.view.changed_names_list, [
-            "file1_Speed → Speed_1\n"
-            "file1_int_Speed → int_Speed_1\n"
-            "file2_Speed → Speed_2\n"
-            "file2_int_Speed → int_Speed_2"])
+            "1. file1_Speed → Speed_1\n\n"
+            "2. file1_int_Speed → int_Speed_1\n\n"
+            "3. file2_Speed → Speed_2\n\n"
+            "4. file2_int_Speed → int_Speed_2"])
 
     @covers("LLFR-00965", "LLFR-00946", "LLFR-00241", "HLFR-00121")
     def test_name_still_shared_after_the_number(self) -> None:
