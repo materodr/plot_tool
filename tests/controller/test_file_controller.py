@@ -18,8 +18,8 @@ from tests.support import REPOSITORY_ROOT_STR, covers
 
 from controller.file_controller import (
     ALREADY_OPEN_REASON_STR, LIMIT_REASON_STR, OPEN_FILES_LIMIT_MESSAGE_STR,
-    REPOSITORY_FOLDER_STR, TIME_SIGNAL_PROMPT_STR, FileController,
-    first_start_folder_str)
+    REPOSITORY_FOLDER_STR, TIME_SIGNAL_PROMPT_STR,
+    UNEXPECTED_ERROR_MESSAGE_STR, FileController, first_start_folder_str)
 from model.data_files import MAXIMUM_DATA_FILES_I
 from model.errors import (
     SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
@@ -589,9 +589,11 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(len(controller.data_files), 10)
         self.assertEqual(controller.data_files.file_list[-1].path_str,
                          "/data/b1.csv")
-        self.assertEqual(view.refused_message_list, ["\n".join([
-            "a0.csv: already open as file1.",
-            LIMIT_REASON_STR.format(name="b2.csv")])])
+        # LLFR-00980, LLFR-00982: two refused files, numbered, with a
+        # blank line between them.
+        self.assertEqual(view.refused_message_list, ["\n\n".join([
+            "1. a0.csv: already open as file1.",
+            "2. " + LIMIT_REASON_STR.format(name="b2.csv")])])
         self.assertIn("10 files are already open",
                       view.refused_message_list[0])
         self.assertNotIn("/data/b2.csv", self.loader.loaded_path_list)
@@ -662,6 +664,57 @@ class OpenFileTest(FileControllerTestCase):
             "show_file_open_error", "show_refused_files_notification",
             "finish_open_file_button"])
         self.assertEqual(view.call_list.count("ask_time_signal_name"), 1)
+
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00984",
+            "LLFR-00955", "LLFR-00956")
+    def test_boxes_of_a_selection_number_their_files(self) -> None:
+        """Two failed files are numbered, one blank line apart; one
+        refused file alone has no number.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([FIRST_PATH_STR, [
+            "/d/a_broken.csv", FIRST_PATH_STR, "/d/c_crash.csv"]])
+        controller = self.open_first_file(view, {
+            "/d/a_broken.csv": FileReadError("a_broken.csv is broken."),
+            "/d/c_crash.csv": RuntimeError("boom")})
+        controller.open_file_requested()
+        # LLFR-00980, LLFR-00982: "1." and "2.", a blank line between.
+        self.assertEqual(view.error_message_list, [
+            "1. a_broken.csv is broken.\n\n"
+            "2. " + UNEXPECTED_ERROR_MESSAGE_STR.format(
+                name="c_crash.csv", error="boom")])
+        # LLFR-00984: the one refused file has no number.
+        self.assertEqual(view.refused_message_list,
+                         ["first.csv: already open as file1."])
+
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00984",
+            "LLFR-00956")
+    def test_refused_box_numbers_every_file(self) -> None:
+        """Two refused files are numbered 1 and 2, one blank line apart;
+        one failed file alone has no number.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR,
+                         [SECOND_PATH_STR, "/d/a_broken.csv",
+                          FIRST_PATH_STR]])
+        controller = self.open_first_file(view, {
+            SECOND_PATH_STR: self.second_file,
+            "/d/a_broken.csv": FileReadError("a_broken.csv is broken.")})
+        controller.open_file_requested()
+        controller.open_file_requested()
+        # LLFR-00984: one failed file, no number.
+        self.assertEqual(view.error_message_list,
+                         ["a_broken.csv is broken."])
+        # LLFR-00980, LLFR-00982: in the order of the file names.
+        self.assertEqual(view.refused_message_list, [
+            "1. " + ALREADY_OPEN_REASON_STR.format(name="first.csv",
+                                                   number=1)
+            + "\n\n2. " + ALREADY_OPEN_REASON_STR.format(
+                name="second.csv", number=2)])
 
     @covers("LLFR-00900", "LLFR-00901", "LLFR-00902", "LLFR-00904",
             "LLFR-00931", "HLFR-00114", "HLFR-00118", "HLFR-00119")
