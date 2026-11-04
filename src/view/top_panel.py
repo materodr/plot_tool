@@ -8,9 +8,10 @@ tip shows the button's keyboard shortcut (LLFR-00213) or how its tool
 is used with the mouse (LLFR-00214), in a paler color, with the texts
 of LLFR-00215, built from BUTTON_TIP_SHORTCUT_DICT.
 
-At its right end the panel shows the credit text "designed by
-materodr" (LLFR-00364), which is not a button: it lets every mouse
-event through and is hidden when it does not fit beside the buttons.
+At its right end the panel shows the credit text "Designed by
+materodr" (LLFR-00364), with only "materodr" underlined (LLFR-00889),
+which is not a button: it lets every mouse event through and is hidden
+when it does not fit beside the buttons.
 """
 
 import html
@@ -70,7 +71,12 @@ REPORT_BUG_TEXT_STR = "Report a bug"
 # LLFR-00359: the page of the repository's "New issue" button.
 REPORT_BUG_URL_STR = "https://github.com/materodr/plot_tool/issues/new/choose"
 # LLFR-00364: the credit text and the objectName of its label.
-CREDIT_TEXT_STR = "Designed by materodr"
+CREDIT_LEAD_TEXT_STR = "Designed by "
+CREDIT_NAME_TEXT_STR = "materodr"
+CREDIT_TEXT_STR = CREDIT_LEAD_TEXT_STR + CREDIT_NAME_TEXT_STR
+# LLFR-00889: the same text as rich text, with only the name underlined.
+CREDIT_RICH_TEXT_STR = (html.escape(CREDIT_LEAD_TEXT_STR)
+                        + "<u>" + html.escape(CREDIT_NAME_TEXT_STR) + "</u>")
 CREDIT_LABEL_NAME_STR = "credit_label"
 # LLFR-00159: the icon of each button, by button name.
 BUTTON_ICON_DICT = {
@@ -489,7 +495,11 @@ class TopPanel(QWidget):
         # lets every mouse event through, takes no focus, has no tip and
         # its style sheet has no hover rule, so it never reacts to the
         # mouse.
-        self.credit_label = QLabel(CREDIT_TEXT_STR, self)
+        # LLFR-00889: the text is rich text so that only the name is
+        # underlined; the style sheet color applies to all of it.
+        self.credit_label = QLabel(self)
+        self.credit_label.setTextFormat(Qt.TextFormat.RichText)
+        self.credit_label.setText(CREDIT_RICH_TEXT_STR)
         self.credit_label.setObjectName(CREDIT_LABEL_NAME_STR)
         self.credit_label.setStyleSheet(
             theme.credit_label_style_sheet(CREDIT_LABEL_NAME_STR))
