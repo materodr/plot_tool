@@ -553,6 +553,47 @@ class TabDragTest(PlotMatrixViewTestCase):
             self.controller.plot_controller.undo_history.depth(),
             undo_depth_i)
 
+    @covers("LLFR-01053", "LLFR-01051", "HLFR-00142")
+    def test_tab_dragged_out_of_the_row_stays_in_it(self) -> None:
+        """Real mouse events on the tab bar that drag a tab far below the
+        tab row leave every tab in the tab row of the main window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
+        from PyQt6.QtGui import QMouseEvent
+        self.add_tabs()
+        tab_bar = self.panel.tab_widget.tabBar()
+        start = tab_bar.tabRect(0).center()
+        far_point_list = [QPoint(start.x() + 40, start.y() + 300),
+                          QPoint(start.x() + 400, start.y() + 600)]
+        event_list = [(QEvent.Type.MouseButtonPress, start,
+                       Qt.MouseButton.LeftButton,
+                       Qt.MouseButton.LeftButton)]
+        for point in far_point_list:
+            event_list.append((QEvent.Type.MouseMove, point,
+                               Qt.MouseButton.NoButton,
+                               Qt.MouseButton.LeftButton))
+        event_list.append((QEvent.Type.MouseButtonRelease,
+                           far_point_list[-1], Qt.MouseButton.LeftButton,
+                           Qt.MouseButton.NoButton))
+        for event_type, point, button, buttons in event_list:
+            self.application.sendEvent(tab_bar, QMouseEvent(
+                event_type, QPointF(point),
+                QPointF(tab_bar.mapToGlobal(point)), button, buttons,
+                Qt.KeyboardModifier.NoModifier))
+            self.process_events()
+        self.process_events()
+        self.assertFalse(self.panel.is_tab_drag_in_progress())
+        self.assertEqual(self.panel.tab_widget.count(), 3)
+        self.assertEqual(sorted(self.main_window.tab_name_list()),
+                         ["Tab 1", "Tab 2", "Tab 3"])
+        # The view and the model keep the same order.
+        self.assertEqual(self.main_window.tab_name_list(), self.tab_names())
+        for page in self.panel.page_dict.values():
+            self.assertIs(page.window(), self.main_window)
+
     @covers("LLFR-01052", "LLFR-01073", "HLFR-00142")
     def test_moved_tab_keeps_its_plots_and_matrix(self) -> None:
         """A moved tab keeps its plots and its plot matrix.
