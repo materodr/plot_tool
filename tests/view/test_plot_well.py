@@ -2,8 +2,8 @@
 
 Covers LLFR-00893: the container that holds the plots below the tab row
 (the plot well, the pane of the tab widget) has the rounded corners,
-border width and border color of the signal list, with its top-left
-corner square where the first tab joins it; and LLFR-00894: the top edge
+border width and border color of the signal list on all four corners,
+with the first tab still sitting on its top edge; and LLFR-00894: the top edge
 of the signal list is at the height of the top edge of that container,
 at any window size and panel widths. The checks read the pixels of a
 real, shown MainWindow with the real controllers. No modal dialog or
@@ -45,8 +45,8 @@ class PlotWellStyleTest(unittest.TestCase):
 
     @covers("LLFR-00893", "LLFR-00107")
     def test_well_rule_uses_the_signal_list_tokens(self) -> None:
-        """The pane rule holds the signal list's border and radius on
-        three corners, a square top-left corner, and the tab and "+"
+        """The pane rule holds the signal list's border and its radius
+        on all four corners, no corner is square, and the tab and "+"
         rules keep their shared shape block.
 
         Inputs: none.
@@ -67,12 +67,13 @@ class PlotWellStyleTest(unittest.TestCase):
         for value_str in (
                 f"border: {theme.SIGNAL_LIST_BORDER_WIDTH_I}px solid "
                 f"{theme.SIGNAL_LIST_BORDER_COLOR_STR}",
-                "border-top-left-radius: 0px",
-                f"border-top-right-radius: {radius_str}",
-                f"border-bottom-left-radius: {radius_str}",
-                f"border-bottom-right-radius: {radius_str}"):
+                f"border-radius: {radius_str}"):
             with self.subTest(value_str=value_str):
                 self.assertIn(value_str, rule_str)
+        # No corner is set apart from the others.
+        self.assertNotIn("-radius: 0px", rule_str)
+        self.assertNotIn("left-radius", rule_str)
+        self.assertNotIn("right-radius", rule_str)
         for selector_str in ("QTabBar#bar::tab:!selected",
                              "QToolButton#plus"):
             with self.subTest(selector_str=selector_str):
@@ -172,9 +173,10 @@ class PlotWellViewTest(unittest.TestCase):
 
     @covers("LLFR-00893", "HLFR-00001")
     def test_corner_pixels_of_the_well(self) -> None:
-        """Top-right, bottom-left and bottom-right corners are cut away
-        over the signal list radius and show the window; the top-left
-        corner is square; the edges have the signal list's border.
+        """All four corners are cut away over the signal list radius and
+        show the window; at the top-left corner, the first tab still
+        starts at the well's left edge and covers its top row; the edges
+        have the signal list's border.
 
         Inputs: none.
         Outputs: none.
@@ -207,12 +209,32 @@ class PlotWellViewTest(unittest.TestCase):
                     pixel_name(*beside_tuple), window_str))
                 self.assertTrue(colors_close_b(
                     pixel_name(*border_tuple), border_str))
-        # Square top-left corner, under the first tab: the left border
-        # starts right below the tab row.
-        for offset_i in (1, 2):
-            with self.subTest(top_left_offset_i=offset_i):
-                self.assertTrue(colors_close_b(
-                    pixel_name(left_i, top_i + offset_i), border_str))
+        # Rounded top-left corner, under the first tab. The tab bar
+        # covers the well's top row (the pane's 1 px overlap), so the
+        # rounding is checked from the row below it: outside the
+        # rounding is the window, past the radius the left border.
+        self.assertTrue(colors_close_b(
+            pixel_name(left_i, top_i + 1), window_str))
+        self.assertTrue(colors_close_b(
+            pixel_name(left_i, top_i + radius_i + 1), border_str))
+        # LLFR-00106: the first tab still starts at the well's left edge
+        # and its bottom edge is on the well's top row, so the tab sits
+        # on the rounded corner with no gap between them.
+        tab_bar = self.main_window.plot_panel.tab_widget.tabBar()
+        first_tab_rect = tab_bar.tabRect(0).translated(
+            tab_bar.mapTo(self.main_window, tab_bar.rect().topLeft()))
+        self.assertEqual(first_tab_rect.left(), left_i)
+        self.assertLessEqual(abs(first_tab_rect.bottom() - top_i), 1)
+        self.assertFalse(colors_close_b(
+            pixel_name(left_i, first_tab_rect.bottom() - 1), window_str))
+        # Past the rounding, no row of window color is left between the
+        # tab and the well.
+        past_corner_x_i = left_i + radius_i + 2
+        for row_y_i in range(min(first_tab_rect.bottom(), top_i),
+                             top_i + 2):
+            with self.subTest(row_y_i=row_y_i):
+                self.assertFalse(colors_close_b(
+                    pixel_name(past_corner_x_i, row_y_i), window_str))
         # The middle of each edge has the 1 pixel border of the signal
         # list, with the plot well right inside it.
         self.assertEqual(theme.PLOT_WELL_BORDER_WIDTH_I, 1)
