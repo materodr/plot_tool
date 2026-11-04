@@ -137,3 +137,21 @@ def button_tip_line_list(button) -> list:
     document = QTextDocument()
     document.setHtml(tip_str)
     return document.toPlainText().split("\n")
+
+
+def expand_all_files(controller) -> None:
+    """Show the signals of every open data file in the signal list.
+
+    Opening a file shows every file name row collapsed (LLFR-01001).
+    Tests of other features that read or click the shown signals expand
+    the files first, as clicks on each [+] icon would (LLFR-00998).
+
+    Inputs:
+        controller: a MainController, or its SignalListController.
+    Outputs: none.
+    """
+    signal_list_controller = getattr(controller, "signal_list_controller",
+                                     controller)
+    signal_list_controller.collapsed_number_set.clear()
+    signal_list_controller.search_collapsed_number_set.clear()
+    signal_list_controller.show_filtered_names()

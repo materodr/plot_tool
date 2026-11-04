@@ -20,6 +20,15 @@ row that is too wide is shortened in the middle with "..." and has the
 whole text as its tip (LLFR-00648, LLFR-00649). The "No matching
 signals" row is not a signal either.
 
+Each file name row starts with a small icon, ``[-]`` while the signals
+of its file are shown and ``[+]`` while they are hidden, like a folder of
+a folder tree (HLFR-00123, LLFR-00994 to LLFR-00996). A click on the
+icon, or Left and Right while the row is the current row, asks the
+controller to hide or show the signals (LLFR-00997, LLFR-00998,
+LLFR-01006, LLFR-01007); it selects nothing and starts no drag
+(LLFR-00999, LLFR-01000). The controller gives the collapsed files with
+``set_collapsed_file_numbers`` before it shows the groups.
+
 A right-click on a signal name opens the signal menu (LLFR-00239):
 "Create synthetic signal" with the operations given by the controller,
 in groups (LLFR-00268), disabled for an FFT signal (LLFR-00251); "Copy
@@ -42,9 +51,11 @@ from a selected signal carries every selected name, in list order
 import json
 
 from PyQt6.QtCore import (
-    QByteArray, QItemSelectionModel, QMimeData, QPoint, Qt, QTimer,
-    pyqtSignal)
-from PyQt6.QtGui import QBrush, QColor, QFontMetrics, QPalette
+    QByteArray, QItemSelectionModel, QMimeData, QPoint, QPointF, QSize, Qt,
+    QTimer, pyqtSignal)
+from PyQt6.QtGui import (
+    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPalette, QPen,
+    QPixmap, QPolygonF)
 from PyQt6.QtWidgets import (
     QAbstractItemView, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMenu, QStyledItemDelegate, QVBoxLayout, QWidget)
@@ -83,10 +94,32 @@ FILE_NUMBER_ROLE_I = ROW_KIND_ROLE_I + 1
 SIGNAL_ROW_STR = "signal"
 FILE_ROW_STR = "file"
 NO_MATCH_ROW_STR = "no_match"
+# LLFR-00994, LLFR-00995: the icon of a file name row, kept as text in
+# the item's data, and its size, in pixels.
+EXPAND_ICON_ROLE_I = FILE_NUMBER_ROLE_I + 1
+EXPANDED_ICON_TEXT_STR = "[-]"
+COLLAPSED_ICON_TEXT_STR = "[+]"
+EXPAND_ICON_SIZE_I = 11
+# LLFR-00996: the drawing of the icon: thin lines in the muted text color
+# of the panel, drawn at twice the size so they stay sharp on Retina
+# screens.
+EXPAND_ICON_PEN_WIDTH_F = 1.2
+EXPAND_ICON_PIXEL_RATIO_F = 2.0
+# LLFR-00997, LLFR-00998: a press this close to the left edge of a file
+# name row is on its icon: the padding of the row (8 pixels), the icon
+# and a few pixels of room for an easy click.
+EXPAND_ICON_HIT_WIDTH_I = 24
 # LLFR-00648: the room the text of a row leaves on its sides: the
 # padding of the theme ("padding: 4px 8px") and the text margin of the
-# style, on the left and on the right.
-ROW_TEXT_MARGIN_I = 24
+# style, on the left and on the right, and the icon of a file name row
+# with the space after it (LLFR-00994).
+ROW_TEXT_MARGIN_I = 24 + EXPAND_ICON_SIZE_I + 6
+# LLFR-01006, LLFR-01007: the keys that collapse and expand the current
+# file name row.
+COLLAPSE_KEY = Qt.Key.Key_Left
+EXPAND_KEY = Qt.Key.Key_Right
+# LLFR-00994 to LLFR-00996: the two icons, drawn once.
+EXPAND_ICON_CACHE_DICT = {}
 
 
 def row_kind(item) -> str:
@@ -115,6 +148,64 @@ def is_signal_row(item) -> bool:
     """
     # LLFR-00642, LLFR-00643, LLFR-00645, LLFR-00646.
     return row_kind(item) == SIGNAL_ROW_STR
+
+
+def expand_icon_pixmap(collapsed_b: bool) -> QPixmap:
+    """Draw the icon of a file name row.
+
+    Inputs:
+        collapsed_b: True for ``[+]`` (signals hidden), False for
+            ``[-]`` (signals shown).
+    Outputs: a transparent QPixmap of EXPAND_ICON_SIZE_I pixels (drawn
+        at EXPAND_ICON_PIXEL_RATIO_F) with two square brackets and a
+        minus or plus sign between them.
+    """
+    # LLFR-00994, LLFR-00995: a minus or a plus sign inside square
+    # brackets; LLFR-00996: thin lines in the panel's muted text color.
+    size_f = float(EXPAND_ICON_SIZE_I)
+    pixmap = QPixmap(int(size_f * EXPAND_ICON_PIXEL_RATIO_F),
+                     int(size_f * EXPAND_ICON_PIXEL_RATIO_F))
+    pixmap.setDevicePixelRatio(EXPAND_ICON_PIXEL_RATIO_F)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(theme.MUTED_TEXT_COLOR_STR))
+    pen.setWidthF(EXPAND_ICON_PEN_WIDTH_F)
+    pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+    painter.setPen(pen)
+    top_f = 1.0
+    bottom_f = size_f - 1.0
+    middle_f = size_f / 2.0
+    # The left bracket and, mirrored, the right bracket.
+    painter.drawPolyline(QPolygonF([
+        QPointF(3.5, top_f), QPointF(1.0, top_f),
+        QPointF(1.0, bottom_f), QPointF(3.5, bottom_f)]))
+    painter.drawPolyline(QPolygonF([
+        QPointF(size_f - 3.5, top_f), QPointF(size_f - 1.0, top_f),
+        QPointF(size_f - 1.0, bottom_f), QPointF(size_f - 3.5, bottom_f)]))
+    # The minus sign, and the vertical bar of the plus sign.
+    painter.drawLine(QPointF(3.0, middle_f), QPointF(size_f - 3.0,
+                                                     middle_f))
+    if collapsed_b:
+        painter.drawLine(QPointF(middle_f, 3.0), QPointF(middle_f,
+                                                         size_f - 3.0))
+    painter.end()
+    return pixmap
+
+
+def expand_icon(collapsed_b: bool) -> QIcon:
+    """Return the icon of a file name row, drawn once.
+
+    Inputs:
+        collapsed_b: True for ``[+]``, False for ``[-]``.
+    Outputs: a QIcon.
+    """
+    # LLFR-00994, LLFR-00995: the same two icons for every row.
+    if collapsed_b not in EXPAND_ICON_CACHE_DICT:
+        EXPAND_ICON_CACHE_DICT[collapsed_b] = QIcon(
+            expand_icon_pixmap(collapsed_b))
+    return EXPAND_ICON_CACHE_DICT[collapsed_b]
 
 
 def file_row_shown_text(whole_text_str: str, row_width_i: int,
@@ -189,9 +280,13 @@ class SignalListWidget(QListWidget):
     Signals:
         plot_selection_requested(): the Enter key was pressed while the
             list has the keyboard focus (LLFR-00295).
+        file_toggle_requested(int): the number of the file whose icon
+            was clicked, or whose row got Left or Right (LLFR-00997,
+            LLFR-00998, LLFR-01006, LLFR-01007).
     """
 
     plot_selection_requested = pyqtSignal()
+    file_toggle_requested = pyqtSignal(int)
 
     def __init__(self, parent=None) -> None:
         """Create a multi-selection, drag-only list.
@@ -224,6 +319,35 @@ class SignalListWidget(QListWidget):
         # LLFR-00332: the names keep their colors while selected;
         # LLFR-00648: file name rows are shortened in the middle.
         self.setItemDelegate(SignalItemDelegate(self))
+        # LLFR-00994, LLFR-00995: the small icon of the file name rows.
+        self.setIconSize(QSize(EXPAND_ICON_SIZE_I, EXPAND_ICON_SIZE_I))
+
+    def is_on_expand_icon(self, item, point) -> bool:
+        """Tell whether a point of the viewport is on a row's icon.
+
+        Inputs:
+            item: the QListWidgetItem under the point, or None.
+            point: a QPoint in the viewport's coordinates.
+        Outputs: True when the item is a file name row of an open file
+            and the point is on the left part of the row with its icon.
+        """
+        # LLFR-00997, LLFR-00998: only the icon hides or shows signals.
+        if row_kind(item) != FILE_ROW_STR:
+            return False
+        if item.data(FILE_NUMBER_ROLE_I) is None:
+            return False
+        row_rect = self.visualItemRect(item)
+        return 0 <= point.x() - row_rect.left() < EXPAND_ICON_HIT_WIDTH_I
+
+    def request_file_toggle(self, item) -> None:
+        """Ask to hide or show the signals of a file name row.
+
+        Inputs:
+            item: a file name row of an open file.
+        Outputs: none. file_toggle_requested is emitted with its number.
+        """
+        # LLFR-00997, LLFR-00998, LLFR-01006, LLFR-01007.
+        self.file_toggle_requested.emit(int(item.data(FILE_NUMBER_ROLE_I)))
 
     def row_items(self, kind_str: str = "") -> list:
         """Return the rows of the list, from top to bottom.
@@ -309,6 +433,14 @@ class SignalListWidget(QListWidget):
                 self.pressed_item_was_selected_b = False
             self.press_on_other_row_b = True
             event.accept()
+            # LLFR-00997, LLFR-00998: a left click on the icon hides or
+            # shows the signals of the file; LLFR-00999, LLFR-01000: like
+            # any press on the row, it selects nothing and starts no
+            # drag. The list may be rebuilt, so nothing follows.
+            if (event.button() == Qt.MouseButton.LeftButton
+                    and self.is_on_expand_icon(
+                        clicked_item, event.position().toPoint())):
+                self.request_file_toggle(clicked_item)
             return
         self.press_on_other_row_b = False
         if event.button() == Qt.MouseButton.LeftButton:
@@ -362,6 +494,12 @@ class SignalListWidget(QListWidget):
         if clicked_item is not None and not is_signal_row(clicked_item):
             self.press_on_other_row_b = True
             event.accept()
+            # LLFR-00997, LLFR-00998: the second click of a quick double
+            # click on the icon toggles the file again, as a click does.
+            if (event.button() == Qt.MouseButton.LeftButton
+                    and self.is_on_expand_icon(
+                        clicked_item, event.position().toPoint())):
+                self.request_file_toggle(clicked_item)
             return
         super().mouseDoubleClickEvent(event)
 
@@ -426,6 +564,21 @@ class SignalListWidget(QListWidget):
             event.accept()
             if not event.isAutoRepeat():
                 self.plot_selection_requested.emit()
+            return
+        # LLFR-01006, LLFR-01007: Left collapses and Right expands the
+        # current file name row; on a signal row the keys keep their
+        # usual meaning.
+        current_item = self.currentItem()
+        plain_key_b = (event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
+                       ) == Qt.KeyboardModifier.NoModifier
+        if (event.key() in (COLLAPSE_KEY, EXPAND_KEY) and plain_key_b
+                and row_kind(current_item) == FILE_ROW_STR
+                and current_item.data(FILE_NUMBER_ROLE_I) is not None):
+            event.accept()
+            collapsed_b = (current_item.data(EXPAND_ICON_ROLE_I)
+                           == COLLAPSED_ICON_TEXT_STR)
+            if collapsed_b == (event.key() == EXPAND_KEY):
+                self.request_file_toggle(current_item)
             return
         super().keyPressEvent(event)
 
@@ -496,6 +649,9 @@ class SignalListPanel(QWidget):
     Signals:
         signal_double_clicked(str): emitted with the name of a signal
             the user double-clicked (LLFR-00019).
+        file_expand_toggled(int): the number of the file whose signals
+            the user asked to hide or show again (LLFR-00997,
+            LLFR-00998, LLFR-01006, LLFR-01007).
         selected_signals_plot_requested(list): emitted with the
             selected names, in list order, when the user presses Enter
             in the list and at least one signal is selected
@@ -530,6 +686,8 @@ class SignalListPanel(QWidget):
     # LLFR-00923: the options of the file menu.
     close_file_requested = pyqtSignal(int)
     close_all_files_requested = pyqtSignal()
+    # LLFR-00997, LLFR-00998: the icon of a file name row.
+    file_expand_toggled = pyqtSignal(int)
 
     def __init__(self) -> None:
         """Create the panel with its title and an empty signal list.
@@ -573,6 +731,11 @@ class SignalListPanel(QWidget):
         # LLFR-00295: Enter in the list plots the selection.
         self.signal_list_widget.plot_selection_requested.connect(
             self.request_selection_plot)
+        # LLFR-00997, LLFR-00998: the icons of the file name rows.
+        self.signal_list_widget.file_toggle_requested.connect(
+            self.file_expand_toggled.emit)
+        # LLFR-00995: the numbers of the files shown collapsed.
+        self.collapsed_number_set = set()
         # LLFR-00095: every change of the text is passed on.
         self.search_box.textChanged.connect(self.search_text_changed.emit)
         # LLFR-00268: the operation groups given by the controller, as
@@ -624,6 +787,11 @@ class SignalListPanel(QWidget):
         current_name_str = ""
         if is_signal_row(current_item):
             current_name_str = current_item.text()
+        # LLFR-01006, LLFR-01007: a current file name row stays current,
+        # so that Left and Right can be pressed again.
+        current_file_number = None
+        if row_kind(current_item) == FILE_ROW_STR:
+            current_file_number = current_item.data(FILE_NUMBER_ROLE_I)
         self.signal_list_widget.clear()
         for number_value, row_str, name_list, no_match_str in group_list:
             # LLFR-00362, LLFR-00650: the file name row of each open
@@ -653,6 +821,12 @@ class SignalListPanel(QWidget):
                 self.signal_list_widget.setCurrentItem(
                     item, QItemSelectionModel.SelectionFlag.NoUpdate)
                 break
+        if current_file_number is not None:
+            for item in self.signal_list_widget.row_items(FILE_ROW_STR):
+                if item.data(FILE_NUMBER_ROLE_I) == current_file_number:
+                    self.signal_list_widget.setCurrentItem(
+                        item, QItemSelectionModel.SelectionFlag.NoUpdate)
+                    break
         # LLFR-00649: the tips of the file name rows that are shortened.
         self.signal_list_widget.refresh_file_row_tips()
 
@@ -700,7 +874,40 @@ class SignalListPanel(QWidget):
         # selectable nor draggable, so no click, Shift range or drag
         # takes it.
         item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        # LLFR-00994, LLFR-00995: [-] while the signals are shown, [+]
+        # while they are hidden, at the left of the text.
+        collapsed_b = (number_value is not None
+                       and int(number_value) in self.collapsed_number_set)
+        item.setIcon(expand_icon(collapsed_b))
+        item.setData(EXPAND_ICON_ROLE_I, COLLAPSED_ICON_TEXT_STR
+                     if collapsed_b else EXPANDED_ICON_TEXT_STR)
         return item
+
+    def set_collapsed_file_numbers(self, number_set: set) -> None:
+        """Keep which files are shown collapsed.
+
+        Inputs:
+            number_set: the numbers of the files whose signals are
+                hidden (LLFR-00997, LLFR-01001).
+        Outputs: none. Used by the next show_signal_groups.
+        """
+        # LLFR-00995: these rows show the [+] icon.
+        self.collapsed_number_set = {int(number_i)
+                                     for number_i in number_set}
+
+    def file_row_icon_text(self, row_str: str) -> str:
+        """Return which icon a file name row shows.
+
+        Inputs:
+            row_str: the whole text of the row, ``file<N>_<name>``.
+        Outputs: EXPANDED_ICON_TEXT_STR ("[-]"), COLLAPSED_ICON_TEXT_STR
+            ("[+]"), or "" when no such row is shown.
+        """
+        # LLFR-00994, LLFR-00995: the icon at the left of the row.
+        for item in self.signal_list_widget.row_items(FILE_ROW_STR):
+            if item.text() == row_str:
+                return str(item.data(EXPAND_ICON_ROLE_I) or "")
+        return ""
 
     def build_no_match_row(self, text_str: str) -> QListWidgetItem:
         """Build the "No matching signals" row of one data file.

@@ -14,6 +14,7 @@ from model.data_files import (
     selection_order_list)
 from model.file_loader import load_signal_file
 from model.signal_file import SignalFile
+from model.synthetic_signals import ordered_signal_names
 
 # The sample files of PCR-00032.
 GOOD_FOLDER_STR = os.path.join(
@@ -350,6 +351,38 @@ class TimeToleranceTest(unittest.TestCase):
         data_files.add(SignalFile("later.csv", {
             "Time": later_array, "Speed": later_array}))
         self.assertFalse(data_files.same_time_signals_b())
+
+
+class TimeSignalFirstTest(unittest.TestCase):
+    """The time signal is the first signal of its file (LLFR-01009)."""
+
+    @covers("LLFR-01009", "LLFR-00939", "HLFR-00011")
+    def test_listed_names_start_with_the_time_signal(self) -> None:
+        """The time signal comes first, then the file's order.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = np.linspace(0.0, 2.0, 3)
+        data_files = DataFileSet()
+        first_file = data_files.add(SignalFile("a.csv", {
+            "Speed": time_array, "Time": time_array, "Force": time_array}))
+        second_file = data_files.add(SignalFile("b.csv", {
+            "x": time_array, "t_s": time_array}, "t_s"))
+        self.assertEqual(first_file.listed_signal_name_list,
+                         ["file1_Time", "file1_Speed", "file1_Force"])
+        self.assertEqual(second_file.listed_signal_name_list,
+                         ["file2_t_s", "file2_x"])
+        # The file's own order is kept by signal_name_list.
+        self.assertEqual(first_file.signal_name_list,
+                         ["file1_Speed", "file1_Time", "file1_Force"])
+        # The order of the signal list, with the synthetic signals
+        # after their own file's signals.
+        self.assertEqual(
+            ordered_signal_names(data_files, ["file1_int_Speed"],
+                                 {"file1_int_Speed": 1}),
+            ["file1_Time", "file1_Speed", "file1_Force", "file1_int_Speed",
+             "file2_t_s", "file2_x"])
 
 
 if __name__ == "__main__":
