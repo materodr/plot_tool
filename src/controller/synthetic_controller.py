@@ -45,8 +45,10 @@ must offer:
 import numpy as np
 
 from model import synthetic_operations as operations
+from model.data_files import identical_time_signals_b
 from model.errors import (
-    EmptySyntheticNameError, SyntheticNameInUseError, SyntheticSignalError)
+    EmptySyntheticNameError, NoTimePlotError, SyntheticNameInUseError,
+    SyntheticSignalError)
 from model.number_format import format_signal_value
 from model.layout_file import RENAMED_SIGNAL_LINE_STR
 from model.signal_search import NO_MATCH_TEXT_STR, search_prefixed_signals
@@ -89,6 +91,11 @@ FFT_RANGE_TOO_FEW_STR = (
     "samples of '{name}' to compute an FFT: it holds {count} of them, "
     "and an FFT needs at least {minimum}. Move the x-axis to a range "
     "where the signal has samples, then choose FFT again.")
+# LLFR-00979: the information box of an FFT chosen with no time plot.
+FFT_NEEDS_TIME_PLOT_STR = (
+    "The FFT is computed only over the time range shown on the x-axis "
+    "of the time plots. Plot a signal in a time plot and zoom to the "
+    "time range you want, then create the FFT again.")
 
 
 def parse_number_text(text_str: str):
@@ -390,7 +397,7 @@ class SyntheticController:
             return ([source_name_str, second_name_str], None)
         if kind_str == operations.TIME_RANGE_PARAMETER_STR:
             # LLFR-00968, LLFR-00592: the part of the shown range within
-            # the signal's file, or the whole file with no time plot.
+            # the signal's file; no FFT with no time plot.
             return ([source_name_str], self.fft_range(source_name_str))
         # LLFR-00245, LLFR-00269, LLFR-00272: a dialog with a number.
         parameter = self.ask_number(operation, source_name_str)
@@ -403,23 +410,26 @@ class SyntheticController:
 
         Inputs:
             source_name_str: the right-clicked signal name.
-        Outputs: (start_s, end_s): with a time plot, the part of the
-            x-axis range shared by the time plots that lies within the
-            time range of the signal's data file (LLFR-00968); with no
-            time plot, the whole time range of that file (LLFR-00592).
-        Raises: TooFewSamplesError, with the text of LLFR-00969, when a
-            time plot exists and that part holds fewer than 8 samples of
-            the signal or does not exist.
+        Outputs: (start_s, end_s): the part of the x-axis range shared
+            by the time plots that lies within the time range of the
+            signal's data file (LLFR-00968).
+        Raises: NoTimePlotError, with the text of LLFR-00979, when no
+            time plot exists, whatever the number of samples
+            (LLFR-00592); TooFewSamplesError, with the text of
+            LLFR-00969, when that part holds fewer than 8 samples of the
+            signal or does not exist.
         """
+        # LLFR-00592, LLFR-00979: no FFT with no time plot, whatever the
+        # number of samples, and one information box that asks for a
+        # time plot.
+        if not self.plot_controller.time_plot_list():
+            raise NoTimePlotError(FFT_NEEDS_TIME_PLOT_STR)
         # LLFR-00940, LLFR-00941: the time of the signal's own file.
         time_array = np.asarray(self.source_time_array(source_name_str),
                                 dtype=float)
         finite_array = time_array[np.isfinite(time_array)]
         file_start_s = float(np.min(finite_array))
         file_end_s = float(np.max(finite_array))
-        # LLFR-00592: with no time plot, all the samples.
-        if not self.plot_controller.time_plot_list():
-            return (file_start_s, file_end_s)
         shown_start_s, shown_end_s = (
             self.plot_controller.time_plot_range_tuple())
         # LLFR-00968: the part of the shown range within the file.
@@ -562,8 +572,8 @@ class SyntheticController:
         Outputs: the chosen name, or None when cancelled.
         """
         # LLFR-00275: every signal of the list except the FFT signals,
-        # including the right-clicked one, whose data file has exactly
-        # the same time signal as the right-clicked signal's.
+        # including the right-clicked one, whose data file has a time
+        # signal identical to the right-clicked signal's (LLFR-00977).
         source_time_array = self.source_time_array(source_name_str)
         name_list = [name_str for name_str in self.signal_list_name_list()
                      if not self.store.is_fft(name_str)
@@ -592,22 +602,21 @@ class SyntheticController:
         return str(chosen_name_str)
 
     def same_time_b(self, signal_name_str: str, time_array) -> bool:
-        """Tell whether a signal has exactly a given time signal.
+        """Tell whether a signal has a time signal identical to another.
 
         Inputs:
             signal_name_str: a signal of the signal list.
             time_array: a time signal, in seconds.
-        Outputs: True when the signal's data file has a time signal with
-            the same number of samples and the same value at each one.
+        Outputs: True when the time signal of the signal's data file is
+            identical to time_array (LLFR-00977, LLFR-00978).
         """
-        # LLFR-00275: the same number of samples and exactly the same
-        # value at every sample.
+        # LLFR-00275, LLFR-00977, LLFR-00978: identical time signals,
+        # within the time tolerance.
         try:
             signal_time_array = self.source_time_array(signal_name_str)
         except KeyError:
             return False
-        return bool(np.array_equal(np.asarray(signal_time_array),
-                                   np.asarray(time_array)))
+        return identical_time_signals_b(signal_time_array, time_array)
 
     # ----------------------------------------------------------------
     # Copy
