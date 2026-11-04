@@ -34,6 +34,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication
 
 from view.file_writing import write_file_safely
+from view.rounded_canvas import square_corners
 from view.tab_page import TabPage
 
 # LLFR-00129: page size, orientation, margins and resolution of the PDF.
@@ -104,7 +105,12 @@ def grab_page_image(page):
         # LLFR-00354: nor are the delta marker previews.
         plot_widget.hide_delta_preview()
         plot_widget.canvas.draw()
-    return page.grab().toImage()
+    # LLFR-00133, LLFR-00890: the copied image keeps the square plots it
+    # had before the plots got rounded corners on screen.
+    canvas_list = [plot_widget.canvas
+                   for plot_widget in page.plot_widget_list]
+    with square_corners(canvas_list):
+        return page.grab().toImage()
 
 
 def lay_out_page_like(page, reference_size) -> None:
