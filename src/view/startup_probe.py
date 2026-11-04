@@ -49,16 +49,31 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
 
    (all on one line; dialog_seen tells whether a file dialog was
    visible before the first request, which must never happen);
-5. the app quits, with exit code 0, or 1 when a probe file failed.
+5. if ``PLOT_TOOL_FOLDER_PROBE`` is ``"1"``, the Open file, Save
+   layout and Load layout dialogs are each shown twice, as by two
+   clicks (folder_line_list): first in a folder ``first`` with a file of
+   it selected, as after a user chose that file, then in a folder
+   ``second``; the folder the second dialog really shows (on macOS the
+   folder of the system panel on screen) is compared with ``second``
+   (LLFR-00447, LLFR-00468, issue #232) and a line is printed::
 
-Code traced to LLFR-00058, LLFR-00184, LLFR-00186, LLFR-00188 and
-LLFR-00406: the probe only watches the splash screen, the main window
-with its three panels and the file dialogs being shown; it is a build
-check, not a function.
+       plot_tool folder: name=<dialog> expected=<second folder>
+       shown=<folder shown> source=<panel|dialog> ok=<yes|no>
+
+   (all on one line);
+6. the app quits, with exit code 0, or 1 when a probe file failed or a
+   folder line is not ok.
+
+Code traced to LLFR-00058, LLFR-00184, LLFR-00186, LLFR-00188,
+LLFR-00406, LLFR-00447 and LLFR-00468: the probe only watches the
+splash screen, the main window with its three panels and the file
+dialogs being shown; it is a build check, not a function.
 """
 
+import ctypes
 import os
 import sys
+import tempfile
 import time
 import traceback
 
@@ -89,6 +104,17 @@ PROBE_DIALOG_TUPLE = (
 PROBE_CLICK_COUNT_I = 2
 # LLFR-00406: the time between two requests, as between two clicks.
 PROBE_PAUSE_S = 0.5
+# LLFR-00447, LLFR-00468: the folder part of the probe (issue #232):
+# the dialogs that show the folder chosen by the controllers.
+FOLDER_PROBE_VARIABLE_STR = "PLOT_TOOL_FOLDER_PROBE"
+FOLDER_LINE_PREFIX_STR = "plot_tool folder:"
+FOLDER_PROBE_KEY_TUPLE = ("open_file", "save_layout", "load_layout")
+FIRST_FOLDER_NAME_STR = "first"
+SECOND_FOLDER_NAME_STR = "second"
+EARLIER_FILE_NAME_STR = "earlier.csv"
+# LLFR-00447: how long the probe waits for the system panel to appear.
+PANEL_TIMEOUT_S = 5.0
+MACOS_PLATFORM_STR = "darwin"
 # LLFR-00058: how often the probe checks the window, and how long it
 # waits for it to be exposed before reporting anyway.
 POLL_INTERVAL_MS_I = 10
@@ -451,6 +477,201 @@ def dialog_line_list(main_window, application, output_stream=None) -> list:
     return line_list
 
 
+def folder_probe_enabled(environment_dict: dict) -> bool:
+    """Tell whether the folder part of the probe is switched on.
+
+    Inputs:
+        environment_dict: the environment variables (os.environ).
+    Outputs: True only when PLOT_TOOL_FOLDER_PROBE is "1".
+    """
+    # LLFR-00447, LLFR-00468: off by default.
+    return environment_dict.get(FOLDER_PROBE_VARIABLE_STR, "") == "1"
+
+
+def message_functions() -> tuple:
+    """Prepare the Objective-C calls that read the panels on screen.
+
+    Inputs: none.
+    Outputs: a tuple (runtime library, function of a selector name
+        giving the selector, and a dict of objc_msgSend set up for each
+        kind of call: "object", "index", "flag", "kind", "count",
+        "text").
+    """
+    # LLFR-00447: objc_msgSend is called through one prototype per
+    # kind of message, as Apple asks for arm64; ctypes is part of
+    # Python (COR-00011).
+    from view import file_dialogs
+    runtime, send_message = file_dialogs.objective_c_runtime()
+    address_i = ctypes.cast(runtime.objc_msgSend, ctypes.c_void_p).value
+    pointer_type = ctypes.c_void_p
+    prototype_dict = {
+        "index": (pointer_type, pointer_type, pointer_type,
+                  ctypes.c_ulong),
+        "flag": (ctypes.c_bool, pointer_type, pointer_type),
+        "kind": (ctypes.c_bool, pointer_type, pointer_type, pointer_type),
+        "count": (ctypes.c_ulong, pointer_type, pointer_type),
+        "text": (ctypes.c_char_p, pointer_type, pointer_type),
+    }
+    function_dict = {"object": send_message}
+    for name_str, type_tuple in prototype_dict.items():
+        function_dict[name_str] = ctypes.CFUNCTYPE(*type_tuple)(address_i)
+    return runtime, runtime.sel_registerName, function_dict
+
+
+def visible_panel_folder_str(platform_str: str = sys.platform) -> str:
+    """Return the folder of the system file panel shown on screen.
+
+    Inputs:
+        platform_str: the platform name, as sys.platform.
+    Outputs: the path of the folder shown by the visible open or save
+        panel of macOS, or "" when none is shown, on other systems, or
+        when the system could not be asked.
+    """
+    # LLFR-00447, LLFR-00468: the folder the user really sees, read
+    # from the panel itself ([NSSavePanel directoryURL]; an open panel
+    # is a save panel too), not from Qt.
+    if platform_str != MACOS_PLATFORM_STR:
+        return ""
+    try:
+        runtime, selector, function_dict = message_functions()
+        send_object = function_dict["object"]
+        application_i = send_object(runtime.objc_getClass(b"NSApplication"),
+                                    selector(b"sharedApplication"))
+        window_array_i = send_object(application_i, selector(b"windows"))
+        panel_class_i = runtime.objc_getClass(b"NSSavePanel")
+        window_count_i = function_dict["count"](window_array_i,
+                                                selector(b"count"))
+        for index_i in range(window_count_i):
+            window_i = function_dict["index"](
+                window_array_i, selector(b"objectAtIndex:"), index_i)
+            if not function_dict["kind"](window_i, selector(b"isKindOfClass:"),
+                                         panel_class_i):
+                continue
+            if not function_dict["flag"](window_i, selector(b"isVisible")):
+                continue
+            url_i = send_object(window_i, selector(b"directoryURL"))
+            if not url_i:
+                continue
+            path_i = send_object(url_i, selector(b"path"))
+            path_bytes = function_dict["text"](path_i, selector(b"UTF8String"))
+            if path_bytes:
+                return path_bytes.decode("utf-8")
+    except (OSError, AttributeError, ValueError, TypeError):
+        return ""
+    return ""
+
+
+def shown_folder_tuple(main_window, application, key_str: str,
+                       folder_str: str, selected_path_str: str = "",
+                       platform_str: str = sys.platform) -> tuple:
+    """Show a pooled dialog in a folder, read its folder, then close it.
+
+    Inputs:
+        main_window: the app's MainWindow.
+        application: the QApplication, to let the dialog be drawn.
+        key_str: the key of the dialog in main_window.file_dialog_pool.
+        folder_str: the folder the controller asks for.
+        selected_path_str: a file selected in the dialog before it is
+            shown, as the file a user chose at an earlier use; "" for
+            none.
+        platform_str: the platform name, as sys.platform.
+    Outputs: a tuple (the folder shown, "panel" when it was read from
+        the macOS panel on screen or "dialog" when read from Qt).
+    """
+    # LLFR-00447, LLFR-00468: shown as measure_dialog shows it, so that
+    # the probe never waits in a modal loop.
+    pause_until_s = time.perf_counter() + PROBE_PAUSE_S
+    while time.perf_counter() < pause_until_s:
+        application.processEvents()
+        time.sleep(POLL_INTERVAL_MS_I / 1000.0)
+    dialog = main_window.file_dialog_pool.prepared_dialog(key_str,
+                                                          folder_str)
+    if selected_path_str:
+        dialog.selectFile(selected_path_str)
+    modality = dialog.windowModality()
+    dialog.setWindowModality(Qt.WindowModality.NonModal)
+    dialog.show()
+    shown_str = ""
+    source_str = "dialog"
+    deadline_s = time.perf_counter() + PANEL_TIMEOUT_S
+    while True:
+        application.processEvents()
+        shown_str = visible_panel_folder_str(platform_str)
+        if shown_str or platform_str != MACOS_PLATFORM_STR:
+            break
+        if time.perf_counter() > deadline_s:
+            break
+        time.sleep(POLL_INTERVAL_MS_I / 1000.0)
+    if shown_str:
+        source_str = "panel"
+    else:
+        shown_str = dialog.directory().absolutePath()
+    dialog.reject()
+    dialog.setWindowModality(modality)
+    application.processEvents()
+    return shown_str, source_str
+
+
+def same_folder(first_str: str, second_str: str) -> bool:
+    """Tell whether two paths name the same folder.
+
+    Inputs:
+        first_str, second_str: the paths.
+    Outputs: True when they are the same once links are resolved
+        (macOS shows /var as /private/var).
+    """
+    # LLFR-00447: compared as the user sees them.
+    return (bool(first_str) and bool(second_str)
+            and os.path.realpath(first_str) == os.path.realpath(second_str))
+
+
+def folder_line_list(main_window, application, output_stream=None,
+                     platform_str: str = sys.platform) -> tuple:
+    """Check that reused dialogs show the folder the controller asks for.
+
+    Inputs:
+        main_window: the app's MainWindow, shown.
+        application: the QApplication.
+        output_stream: where to print each line, or None.
+        platform_str: the platform name, as sys.platform.
+    Outputs: a tuple (the report lines, True when every line is ok).
+    """
+    # LLFR-00447, LLFR-00468, issue #232: a dialog shown again must
+    # show the new folder, even when a file of another folder was
+    # chosen in it at its earlier use.
+    line_list = []
+    all_ok_b = True
+    with tempfile.TemporaryDirectory() as root_folder_str:
+        first_folder_str = os.path.join(root_folder_str,
+                                        FIRST_FOLDER_NAME_STR)
+        second_folder_str = os.path.join(root_folder_str,
+                                         SECOND_FOLDER_NAME_STR)
+        os.makedirs(first_folder_str)
+        os.makedirs(second_folder_str)
+        earlier_path_str = os.path.join(first_folder_str,
+                                        EARLIER_FILE_NAME_STR)
+        with open(earlier_path_str, "w", encoding="utf-8") as earlier_file:
+            earlier_file.write("Time,a\n0,1\n1,2\n")
+        for key_str in FOLDER_PROBE_KEY_TUPLE:
+            shown_folder_tuple(main_window, application, key_str,
+                               first_folder_str, earlier_path_str,
+                               platform_str)
+            shown_str, source_str = shown_folder_tuple(
+                main_window, application, key_str, second_folder_str,
+                "", platform_str)
+            ok_b = same_folder(shown_str, second_folder_str)
+            all_ok_b = all_ok_b and ok_b
+            line_str = (f"{FOLDER_LINE_PREFIX_STR} name={key_str} "
+                        f"expected={os.path.realpath(second_folder_str)} "
+                        f"shown={shown_str or '-'} source={source_str} "
+                        f"ok={yes_no_str(ok_b)}")
+            line_list.append(line_str)
+            if output_stream is not None:
+                print(line_str, file=output_stream)
+                output_stream.flush()
+    return line_list, all_ok_b
+
+
 def report_startup(application, main_start_s: float, exposed_b: bool,
                    load_file, environment_dict: dict,
                    output_stream=None,
@@ -469,7 +690,8 @@ def report_startup(application, main_start_s: float, exposed_b: bool,
         main_window: the app's MainWindow, for the dialog part of the
             probe (LLFR-00406); None skips it.
     Outputs: none. Ends the event loop with exit code 0, or 1 when a
-        probe file could not be opened.
+        probe file could not be opened or a reused dialog did not show
+        the folder asked for (folder_line_list).
     """
     # LLFR-00058: report the shown window first, so that opening the
     # probe files doesn't add to the measured time.
@@ -484,7 +706,11 @@ def report_startup(application, main_start_s: float, exposed_b: bool,
     # LLFR-00406: how fast each file dialog appears.
     if main_window is not None and dialog_probe_enabled(environment_dict):
         dialog_line_list(main_window, application, stream)
-    application.exit(0 if all_opened_b else 1)
+    # LLFR-00447, LLFR-00468: which folder a reused dialog shows.
+    folders_ok_b = True
+    if main_window is not None and folder_probe_enabled(environment_dict):
+        _, folders_ok_b = folder_line_list(main_window, application, stream)
+    application.exit(0 if all_opened_b and folders_ok_b else 1)
 
 
 def install_startup_probe(application, main_window, main_start_s: float,

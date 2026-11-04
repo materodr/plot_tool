@@ -35,6 +35,7 @@ from model.file_writer import (
     non_finite_name_list, non_finite_reason, numbered_plain_name_list,
     proposed_file_name, saved_name_list, signal_file_bytes,
     CSV_FORMAT_STR, EXCEL_FORMAT_STR)
+from model.data_files import TIME_TOLERANCE_F
 from model.synthetic_signals import ordered_signal_names
 
 # LLFR-00397: the text of the error box shown for the opened data file.
@@ -44,13 +45,18 @@ DATA_FILE_REFUSED_STR = (
     "signals.")
 # LLFR-00399, LLFR-00400: the start of the error box text.
 SAVE_FAILED_STR = "The signals could not be saved to '{name}'."
-# LLFR-00942: the error box shown in place of the save file dialog.
+# LLFR-00942, LLFR-00977: the error box shown in place of the save file
+# dialog, which states the time tolerance, built from TIME_TOLERANCE_F so
+# that the text always matches the comparison.
 DIFFERENT_TIME_SIGNALS_STR = (
     "The signals of the open data files cannot be saved together: the "
-    "files need the same time signals, with the same number of samples "
-    "and the same value at every sample, to be saved in one file. Close "
-    "the files whose time signal is different, then save the signals "
-    "again.")
+    "files need the same time signals, within a tolerance, to be saved in "
+    "one file. The time signals must have the same number of samples, and "
+    "the samples at the same position must differ by at most "
+    f"{TIME_TOLERANCE_F:g} times the larger of their absolute values, or "
+    f"by at most {TIME_TOLERANCE_F:g} s when both are smaller than 1 s in "
+    "absolute value. Close the files whose time signal is different, then "
+    "save the signals again.")
 
 
 def same_file(first_path_str: str, second_path_str: str) -> bool:

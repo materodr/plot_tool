@@ -1452,6 +1452,43 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
             second_id_i).is_panel_shown())
 
 
+class HiddenSignalsInEveryPanelTest(UndockedWindowTestCase):
+    """The [-] and [+] state of the data files is shared by the panels."""
+
+    @covers("LLFR-01175", "LLFR-01036", "LLFR-00997", "LLFR-00995",
+            "HLFR-00128", "HLFR-00123")
+    def test_hidden_files_in_every_panel(self) -> None:
+        """An icon click in a window's panel goes to the same handler as
+        in the main panel; the collapsed files are shown with [+] in
+        every panel, also in a window opened afterwards.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, _, window = self.two_tabs_one_undocked()
+        toggled_list = []
+        self.main_window.set_file_toggle_handler(toggled_list.append)
+        window.signal_list_panel.file_expand_toggled.emit(2)
+        self.main_window.signal_list_panel.file_expand_toggled.emit(1)
+        self.assertEqual(toggled_list, [2, 1])
+        group_list = [(1, "file1_a.csv", ["file1_Time"], ""),
+                      (2, "file2_b.csv", [], "")]
+        self.main_window.set_collapsed_file_numbers({2})
+        self.main_window.show_signal_groups(group_list)
+        self.process_events()
+        third_id_i = self.add_tab()
+        later_window = self.undock(third_id_i)
+        for panel in (self.main_window.signal_list_panel,
+                      window.signal_list_panel,
+                      later_window.signal_list_panel):
+            self.assertEqual(panel.file_row_texts(),
+                             ["file1_a.csv", "file2_b.csv"])
+            self.assertEqual(panel.file_row_icon_text("file1_a.csv"),
+                             "[-]")
+            self.assertEqual(panel.file_row_icon_text("file2_b.csv"),
+                             "[+]")
+
+
 class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
     """Ctrl+P, Ctrl+C and Ctrl+F do nothing during a mouse drag."""
 

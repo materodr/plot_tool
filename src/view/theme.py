@@ -181,9 +181,9 @@ SIGNAL_LIST_BORDER_WIDTH_I = 1
 SIGNAL_LIST_BORDER_COLOR_STR = HAIRLINE_COLOR_STR
 # LLFR-00893: the plot well, the pane of the tab widget that holds the
 # plots below the tab row, has the radius, border width and border color
-# of the signal list. Its top-left corner stays square: the first tab
-# starts at the panel's left edge (LLFR-00106), so its left border runs
-# straight down into the well's left border. The padding keeps the
+# of the signal list, on all four corners. The first tab still starts at
+# the panel's left edge (LLFR-00106) and sits on the well's top edge; the
+# tabs keep their own border color (LLFR-00107). The padding keeps the
 # rounded plots (LLFR-00890) off the well's rounded corners: with a
 # radius of 6 px and a 1 px border, the inner edge of a corner reaches
 # about 2.5 px in from the outer corner, so 2 px of padding (3 px with
@@ -452,15 +452,12 @@ def tab_style_sheet(tab_widget_name_str: str, tab_bar_name_str: str,
     button_str = f"QToolButton#{add_button_name_str}"
     rule_list = [
         f"{tab_widget_str}::tab-bar {{ alignment: left; left: 0px; }}",
-        # LLFR-00893: the plot well has the signal list's corners and
-        # border, except its square top-left corner under the first tab.
+        # LLFR-00893: the plot well has the signal list's four rounded
+        # corners and its border.
         f"{tab_widget_str}::pane {{ background: {PLOT_WELL_COLOR_STR}; "
         f"border: {PLOT_WELL_BORDER_WIDTH_I}px solid "
         f"{PLOT_WELL_BORDER_COLOR_STR}; "
-        "border-top-left-radius: 0px; "
-        f"border-top-right-radius: {PLOT_WELL_RADIUS_I}px; "
-        f"border-bottom-left-radius: {PLOT_WELL_RADIUS_I}px; "
-        f"border-bottom-right-radius: {PLOT_WELL_RADIUS_I}px; "
+        f"border-radius: {PLOT_WELL_RADIUS_I}px; "
         f"padding: {PLOT_WELL_PADDING_I}px; "
         f"top: -{TAB_BORDER_WIDTH_I}px; }}",
         # LLFR-00107: size of every tab; the "+" gets the tab height

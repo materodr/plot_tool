@@ -35,6 +35,54 @@ FILE_PREFIX_PATTERN = re.compile(r"file([0-9]+)_")
 # the copied image, and the separator between two of them.
 FILE_DESCRIPTION_FORMAT_STR = "file{number} = {name}"
 FILE_DESCRIPTION_SEPARATOR_STR = ", "
+# LLFR-00977: the tolerance of two time samples that count as the same,
+# relative to the larger absolute value, or absolute when both are
+# smaller than 1 in absolute value.
+TIME_TOLERANCE_F = 1e-8
+
+
+def identical_time_signals_b(first_time_array,
+                             second_time_array) -> bool:
+    """Tell whether two time signals count as identical.
+
+    Inputs:
+        first_time_array: a time signal, in seconds.
+        second_time_array: another time signal, in seconds.
+    Outputs: True when both have the same number of samples and each
+        pair of samples at the same position differs by at most
+        TIME_TOLERANCE_F times the larger of their absolute values, or by
+        at most TIME_TOLERANCE_F when both are smaller than 1 in absolute
+        value (LLFR-00977); a NaN matches only a NaN (LLFR-00978).
+    """
+    # LLFR-00977: the same number of samples.
+    first_array = np.asarray(first_time_array, dtype=np.float64).ravel()
+    second_array = np.asarray(second_time_array, dtype=np.float64).ravel()
+    if first_array.size != second_array.size:
+        return False
+    # LLFR-00978: a NaN at the same position in both matches; a NaN
+    # against a number never matches.
+    first_nan_array = np.isnan(first_array)
+    second_nan_array = np.isnan(second_array)
+    if not np.array_equal(first_nan_array, second_nan_array):
+        return False
+    number_mask_array = ~first_nan_array
+    first_array = first_array[number_mask_array]
+    second_array = second_array[number_mask_array]
+    # LLFR-00977: equal samples, infinities included, always match.
+    equal_array = np.equal(first_array, second_array)
+    with np.errstate(invalid="ignore", over="ignore"):
+        difference_array = np.abs(first_array - second_array)
+        larger_array = np.maximum(np.abs(first_array),
+                                  np.abs(second_array))
+    # LLFR-00977: relative to the larger absolute value, or absolute when
+    # both are smaller than 1 in absolute value.
+    allowed_array = np.where(larger_array < 1.0, TIME_TOLERANCE_F,
+                             TIME_TOLERANCE_F * larger_array)
+    # LLFR-00977: an infinite difference (an infinity against another
+    # value) never matches.
+    close_array = (np.isfinite(difference_array)
+                   & (difference_array <= allowed_array))
+    return bool(np.all(equal_array | close_array))
 
 
 def prefix_number(name_str: str):
@@ -222,6 +270,20 @@ class DataFile:
         """
         # LLFR-00054, LLFR-00939: every signal, in the file's order.
         return list(self.signal_dict)
+
+    @property
+    def listed_signal_name_list(self) -> list:
+        """Return the prefixed names in the order of the signal list.
+
+        Inputs: none.
+        Outputs: the time signal first, then the other signals in the
+            file's order (LLFR-01009).
+        """
+        # LLFR-01009: the time signal, found by its name or chosen by
+        # the user, is the first signal below the file name row.
+        time_name_str = self.time_signal_name_str
+        return [time_name_str] + [name_str for name_str in self.signal_dict
+                                  if name_str != time_name_str]
 
     @property
     def time_array(self):
@@ -524,16 +586,17 @@ class DataFileSet:
         """Tell whether every open data file has the same time signal.
 
         Inputs: none.
-        Outputs: True when the time signals of all the open data files
-            have the same number of samples and exactly the same value
-            at every sample; always True with one file or none.
+        Outputs: True when the time signal of every open data file is
+            identical (LLFR-00977, LLFR-00978) to that of the first one;
+            always True with one file or none.
         """
-        # LLFR-00942: the same number of samples and the same values.
+        # LLFR-00942, LLFR-00977, LLFR-00978: identical time signals,
+        # within the time tolerance.
         if len(self.file_list) < 2:
             return True
         first_array = np.asarray(self.file_list[0].time_array)
-        return all(np.array_equal(first_array,
-                                  np.asarray(data_file.time_array))
+        return all(identical_time_signals_b(first_array,
+                                            data_file.time_array)
                    for data_file in self.file_list[1:])
 
     # The lowest-numbered file, for the Save signals flow ------------

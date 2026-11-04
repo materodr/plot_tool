@@ -14,6 +14,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_synthetic_signals_view import find_action
@@ -131,6 +132,9 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
                         return_value=self.data_path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
+        # LLFR-01001: the files are collapsed after an open; these
+        # tests read the shown signals.
+        expand_all_files(self.controller)
 
     def choose(self, name_str: str, option_str: str) -> None:
         """Right-click a signal name and choose an option of its menu.
@@ -258,9 +262,11 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.report_list), 1)
         self.assertIn("Synthetic signals not created:",
                       self.report_list[0])
-        self.assertIn("  - file1_int_Speed: The signal \"Pressure\"",
-                      self.report_list[0])
-        self.assertIn("  - file1_int_Speed\n", self.report_list[0] + "\n")
+        # LLFR-00980, LLFR-00987: numbered items under the headings.
+        self.assertRegex(self.report_list[0],
+                         r"\n\d+\. file1_int_Speed: The signal \"Pressure\"")
+        self.assertRegex(self.report_list[0] + "\n",
+                         r"\n\d+\. file1_int_Speed\n")
 
     @covers("LLFR-00283", "LLFR-00231", "LLFR-00229", "LLFR-00484")
     def test_fft_and_frequency_plots_are_not_saved(self) -> None:
@@ -269,11 +275,13 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         top_panel = self.main_window.top_panel
         plot_controller = self.controller.plot_controller
         self.choose("file1_Speed", "Integral (int)")
+        # LLFR-00592: the FFT is created while a time plot exists.
+        self.panel.signal_double_clicked.emit("file1_int_Speed")
+        self.application.processEvents()
         self.choose("file1_Speed", "FFT (fft)")
         store = self.controller.synthetic_controller.store
         fft_name_str = [name_str for name_str in store.names()
                         if store.is_fft(name_str)][0]
-        self.panel.signal_double_clicked.emit("file1_int_Speed")
         plot_controller.on_add_tab()
         self.panel.signal_double_clicked.emit(fft_name_str)
         self.application.processEvents()

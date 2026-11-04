@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
@@ -102,6 +103,9 @@ class PlottingEndToEndTest(unittest.TestCase):
             QTest.mouseClick(self.main_window.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()
+            # LLFR-01001: the files are collapsed after an open; these
+            # tests read the shown signals.
+            expand_all_files(self.controller)
 
     def double_click_signal(self, signal_name_str: str) -> None:
         """Double-click a name in the signal list.

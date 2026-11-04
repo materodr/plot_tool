@@ -2679,7 +2679,9 @@ class PlotController:
             self.workspace.set_area_span(int(area_id_i), *span_tuple)
         self.record_undo(snapshot)
         # LLFR-00308, LLFR-00310: every plot, the other tabs included,
-        # shows the area and its times where the model keeps it.
+        # shows the area and its times where the model keeps it;
+        # LLFR-00710: so the time plots of the other tabs have the area
+        # at its new position when the button is released.
         self.show_areas()
 
     def on_area_rename(self, plot_id_i: int, area_id_i: int) -> None:
@@ -2704,7 +2706,8 @@ class PlotController:
         # LLFR-00140: renaming an area is undoable; the snapshot is taken
         # after the dialog, so it holds the state just before.
         snapshot = self.take_snapshot()
-        # LLFR-00315: a blank name keeps the old one, with no message.
+        # LLFR-00315: a blank name keeps the old one; LLFR-00720: with
+        # no message.
         if not self.workspace.rename_area(int(area_id_i), str(new_name_str)):
             return
         self.record_undo(snapshot)

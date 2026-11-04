@@ -85,7 +85,7 @@ TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
 # portable key sequence, so this is Ctrl+Y on Windows and Cmd+Y on
 # macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS). It is kept
 # with the button tip texts in view.top_panel, so that the shortcut and
-# its button tip change together (LLFR-00215).
+# its button tip change together (LLFR-00215, LLFR-00883).
 REDO_SHORTCUT_STR = top_panel.REDO_SHORTCUT_STR
 # LLFR-00406: the names of the file dialogs kept by the dialog pool.
 OPEN_FILE_DIALOG_KEY_STR = "open_file"
@@ -430,6 +430,12 @@ class MainWindow(QMainWindow):
                 "close_file", number_i))
         panel.close_all_files_requested.connect(
             lambda: self._run_signal_menu_handler("close_all_files"))
+        # LLFR-00997, LLFR-00998: the icons of the file name rows go to
+        # the signal list controller; LLFR-01036: a file hidden in one
+        # panel is hidden in every panel.
+        panel.file_expand_toggled.connect(
+            lambda number_i: self._run_signal_menu_handler(
+                "toggle_file", number_i))
 
     def signal_list_panel_list(self) -> list:
         """Return every signal list panel, the main window's first.
@@ -469,7 +475,8 @@ class MainWindow(QMainWindow):
         # first, then the list that uses them.
         for method_name_str in ("set_operation_groups", "set_signal_kinds",
                                 "set_time_signal_name",
-                                "set_time_signal_names"):
+                                "set_time_signal_names",
+                                "set_collapsed_file_numbers"):
             if method_name_str in self.signal_list_state_dict:
                 getattr(panel, method_name_str)(
                     *self.signal_list_state_dict[method_name_str])
@@ -1232,6 +1239,29 @@ class MainWindow(QMainWindow):
             "show_signal_groups", (group_list,))
         for panel in self.signal_list_panel_list():
             panel.show_signal_groups(group_list)
+
+    def set_collapsed_file_numbers(self, number_set: set) -> None:
+        """Tell the signal list which files are shown collapsed.
+
+        Inputs:
+            number_set: the numbers of the files whose signals are
+                hidden.
+        Outputs: none. Used by the next show_signal_groups.
+        """
+        # LLFR-00994, LLFR-00995: [-] or [+] on each file name row;
+        # LLFR-01036: the same in every panel.
+        self.broadcast_signal_list("set_collapsed_file_numbers",
+                                   set(number_set))
+
+    def set_file_toggle_handler(self, handler) -> None:
+        """Set the function called by the icons of the file name rows.
+
+        Inputs:
+            handler: function taking a file number.
+        Outputs: none.
+        """
+        # LLFR-00997, LLFR-00998: hide or show the signals of a file.
+        self.signal_menu_handler_dict["toggle_file"] = handler
 
     def set_search_text_handler(self, handler) -> None:
         """Set the function called when the search box text changes.
@@ -2201,7 +2231,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00315: the dialog starts from the current name; a blank
         # answer is returned as typed, and the controller keeps the old
-        # name without a message.
+        # name without a message (LLFR-00720).
         new_name_str, accepted_b = QInputDialog.getText(
             self.dialog_parent(), RENAME_AREA_DIALOG_TITLE_STR,
             RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,

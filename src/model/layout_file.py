@@ -87,6 +87,7 @@ import re
 import numpy as np
 
 from model.curve_colors import hex_color_or_none, is_far_from_marker_color
+from model.message_lists import sections_text
 from model.workspace import (
     AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_AREA_COLOR_STR,
     DEFAULT_DELTA_MARKER_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
@@ -203,7 +204,6 @@ MISSING_HEADING_STR = "Signals not in the data file:"
 NOT_REBUILT_HEADING_STR = "Not rebuilt:"
 TIME_RANGE_HEADING_STR = "Time range:"
 REPLACED_HEADING_STR = "Values replaced:"
-REPORT_ITEM_PREFIX_STR = "  - "
 
 
 class LayoutFileError(Exception):
@@ -346,20 +346,15 @@ class LayoutReport:
         """Return the report as the text of the information box.
 
         Inputs: none.
-        Outputs: the text, one entry per line under its heading; "" when
-            the report is empty.
+        Outputs: the text, each heading followed by its entries, numbered
+            when the report holds two or more entries (LLFR-00987,
+            LLFR-00988); "" when the report is empty.
         """
-        # LLFR-00237: one box that lists everything.
+        # LLFR-00237: one box that lists everything; LLFR-00980 to
+        # LLFR-00989: in the shared format of the boxes with a list.
         if self.is_empty():
             return ""
-        line_list = []
-        for heading_str, entry_list in self.section_list():
-            if line_list:
-                line_list.append("")
-            line_list.append(heading_str)
-            line_list += [REPORT_ITEM_PREFIX_STR + entry_str
-                          for entry_str in entry_list]
-        return "\n".join(line_list)
+        return sections_text(self.section_list())
 
 
 class LayoutResult:

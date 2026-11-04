@@ -11,6 +11,7 @@ from unittest import mock
 
 import numpy as np
 
+from tests.support import expand_all_files
 from tests.support import button_name, covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
@@ -425,6 +426,9 @@ class UndoEndToEndTest(unittest.TestCase):
         with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
                         return_value=self.path_str):
             self.click(self.main_window.top_panel.open_file_button)
+            # LLFR-01001: the files are collapsed after an open; these
+            # tests read the shown signals.
+            expand_all_files(self.controller)
 
     def double_click_signal(self, signal_name_str: str) -> None:
         """Double-click a name in the signal list.

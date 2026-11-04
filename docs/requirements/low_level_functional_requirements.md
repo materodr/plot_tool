@@ -44,6 +44,70 @@ If an unexpected error occurs while the app handles a user action, the app must 
 
 *Parent: HLFR-00002*
 
+### LLFR-00980 Numbered items in a list box
+When a box of LLFR-00981 lists two or more items, the app must number them `1.`, `2.` and so on, in the order of the list, each number at the start of its item.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00981 Boxes that list items
+The boxes whose items are shown as in LLFR-00980 to LLFR-00990 must be these boxes, with these items:
+1. the File Open Error box of LLFR-00955: one item for each file that could not be opened, with its reason;
+2. the box of the refused files of LLFR-00956: one item for each refused file, with its reason;
+3. the load report of LLFR-00237: one item for each entry under each of its headings;
+4. the box of the changed names of LLFR-00404: one item for each changed name;
+5. the error box of LLFR-00559: one item for each signal with values that are not finite numbers;
+6. the question of LLFR-00255: one item for each synthetic signal computed from the signal to delete;
+7. the questions of LLFR-00924 and LLFR-00934: one item for each consequence of the close.
+
+Note: The owner asked on 2026-11-04 for long boxes that are easier to read: "Number each piece of message and skip a line between messages."
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00982 Blank line between items
+When a box of LLFR-00981 lists two or more items, the app must leave one blank line between one item and the next.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00983 Sentence above the list
+When a box of LLFR-00981 has a sentence that introduces its list, such as the question of LLFR-00924 or the heading "Renamed:" of LLFR-00237, the app must show that sentence above the list, followed by one blank line.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00984 One item without a number
+When a box of LLFR-00981 lists only one item, the app must show that item without a number.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00985 Lines of an item kept under its number
+When an item of a box of LLFR-00981 holds more than one line, the app must show the lines after the first one below it, each indented by the width of the number of LLFR-00980, so that they start where the text of the first line starts.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00986 Aligned item numbers
+The app must pad each number of LLFR-00980 on its left to the width of the largest number of its list, so that the numbers end at the same place and the text of every item of the list starts at the same distance from the left edge, also when the list holds 10 items or more.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00987 Numbering under each heading of the load report
+In the load report of LLFR-00237, the app must number the items under each heading as a list of their own, starting at 1 under each heading.
+
+*Parent: HLFR-00052*
+
+### LLFR-00988 Count of the items of the load report
+The app must decide between LLFR-00980 and LLFR-00984 for the load report of LLFR-00237 by the number of items under all its headings together, so that, when the report lists two or more items in all, a heading with only one item shows that item as `1.`.
+
+*Parent: HLFR-00052*
+
+### LLFR-00989 Blank line between the headings of the load report
+In the load report of LLFR-00237, the app must leave one blank line between the last item under one heading and the next heading.
+
+*Parent: HLFR-00052*
+
+### LLFR-00990 Wrapped lines in the scrollable boxes
+In the scrollable boxes of LLFR-00884 and LLFR-00885, the app must wrap each line that is wider than the box at the width of the box, also inside a long name, so that the user reads every item without scrolling to the side.
+
+*Parent: HLFR-00052, HLFR-00090*
+
 ### LLFR-00072 Initial signal list width
 When the app starts, the signal list panel of the main window must take 20% of the main window's width.
 
@@ -91,7 +155,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 ### LLFR-00140 Undoable actions
 The app must treat these actions as undoable: adding a tab, deleting a tab, including deleting all the tabs of an undocked window by closing it (LLFR-01073), renaming a tab, moving a tab by a drag (LLFR-01089), moving a tab into an undocked window (LLFR-01153), moving a tab of an undocked window into a new undocked window (LLFR-01169), changing a tab's plot matrix (LLFR-01103), showing or hiding the grid with the Grid button (LLFR-01132), undocking a tab, docking a tab (LLFR-01060), changing the width of a signal list panel by dragging its border (LLFR-01055), hiding or showing the signal list panel of an undocked window (LLFR-01053), creating a plot, deleting a plot, moving a plot to another slot (LLFR-01120), adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
 
-Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. The grid shown at app start (LLFR-00147) is not an action, and the grid setting of a loaded layout file (LLFR-00481) is part of the layout load. Opening a file, closing a file or all files (LLFR-00924, LLFR-00934), zooming, panning, resetting the zoom, exporting, copying, searching, and moving or resizing a window (LLFR-01056) are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
+Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. The grid shown at app start (LLFR-00147) is not an action, and the grid setting of a loaded layout file (LLFR-00481) is part of the layout load. Opening a file, closing a file or all files (LLFR-00924, LLFR-00934), hiding or showing the signals of a data file in a signal list (LLFR-01008), zooming, panning, resetting the zoom, exporting, copying, searching, and moving or resizing a window (LLFR-01056) are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
 
 *Parent: HLFR-00040*
 
@@ -274,6 +338,18 @@ The file selection dialog of the Open file button (LLFR-00005), the dialogs of t
 Note: As in LLFR-00188, the time is measured from the second launch onward, on the computer the app is tested on, so that work done only once on the first launch does not count. The limit is checked against the median time of each dialog over the launches from the second one onward.
 
 *Parent: HLFR-00091*
+
+### LLFR-00977 Identical time signals
+The app must treat two time signals as identical when they have the same number of samples and each pair of samples at the same position differs by at most 1e-8 times the larger of their absolute values, or by at most 1e-8 when both are smaller than 1 in absolute value.
+
+Note: This is the comparison of the time signals of several data files, for example in the second signal dialog of Product with signal (LLFR-00275) and before Save signals saves several files to one (LLFR-00942). Files of different formats can store the same times with tiny rounding differences, for example `signals.xlsx` and `signals.mat` of `tests/user_tests/good`, which are identical.
+
+*Parent: HLFR-00120, HLFR-00113*
+
+### LLFR-00978 NaN samples of identical time signals
+In the comparison of LLFR-00977, the app must count a pair of samples at the same position that are both NaN as matching, and a pair in which only one sample is NaN as not matching.
+
+*Parent: HLFR-00120, HLFR-00113*
 
 
 ### LLFR-01012 Undock button on each tab
@@ -520,7 +596,16 @@ When the app runs from source, the first time the user clicks the Open file butt
 ### LLFR-00447 File dialog folder of the last opened file
 After the first time the user clicks the Open file button after the app starts (LLFR-00204, LLFR-00446), the file selection dialog (LLFR-00005) must show the folder of the last file the app opened successfully.
 
+Note: This holds whatever folder or file the user chose in the dialog at an earlier click, also in the system's own dialog of macOS.
+
 *Parent: HLFR-00004*
+
+### LLFR-01011 Dialog folder after several files at once
+When the user has selected several files at once (LLFR-00951), the next file selection dialog (LLFR-00005) must show the folder of the last of those files, in the order of LLFR-00952, that the app opened successfully, as in LLFR-00447.
+
+Note: A selected file that fails to open, is refused or whose time signal window is cancelled (LLFR-00953) does not change the folder.
+
+*Parent: HLFR-00004, HLFR-00122*
 
 ### LLFR-00006 Open the selected file
 When the user selects one or more files in the file selection dialog (LLFR-00005, LLFR-00951), the app must try to open each selected file in the steps of LLFR-00328, one file after the other in the order of LLFR-00952.
@@ -687,13 +772,32 @@ In MAT files, the app must read each top-level variable that holds a one-dimensi
 
 *Parent: HLFR-00005*
 
+### LLFR-00991 MAT structure fields
+In MAT files, the app must read as one signal each field that holds a one-dimensional numeric array (1×N or N×1) in a scalar (1×1) structure held by a top-level variable, or by a field of such a structure at any depth, named after the field's path: the name of the variable and the names of the fields, separated by `/`, as for HDF5 (LLFR-00134), for example `engine/speed` or `car/engine/speed`.
+
+*Parent: HLFR-00005*
+
+### LLFR-00992 Order of the MAT signals
+In MAT files, the app must list the signals in the order of the top-level variables in the file, with the signals of a structure (LLFR-00991) at the place of the variable or field that holds it, in the order of the structure's fields.
+
+*Parent: HLFR-00005*
+
+### LLFR-00993 Time signal in a MAT structure
+In MAT files, only a top-level variable must match the time signal name (LLFR-00053), so that a structure field such as `engine/Time` is an ordinary signal and is not found automatically. The user can still choose it in the window of LLFR-00325.
+
+Note: This is the same rule as for HDF5 groups (LLFR-00330).
+
+*Parent: HLFR-00006, HLFR-00005*
+
 ### LLFR-00063 Other MAT variables
-In MAT files, the app must ignore top-level variables that do not hold a one-dimensional numeric array.
+In MAT files, the app must ignore, at any level, each top-level variable and each structure field that holds neither a one-dimensional numeric array nor a scalar (1×1) structure, together with everything it holds, for example a struct array, a cell array, a matrix or a text.
+
+Note: So a signal is never read from inside a struct array or a cell array (LLFR-00991).
 
 *Parent: HLFR-00005*
 
 ### LLFR-00452 Checks on the MAT signals read
-In MAT files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read (LLFR-00062).
+In MAT files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read (LLFR-00062, LLFR-00991).
 
 *Parent: HLFR-00005, HLFR-00008, HLFR-00009*
 
@@ -1249,9 +1353,9 @@ The layout file must hold:
 *Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097, HLFR-00140, HLFR-00152, HLFR-00126*
 
 ### LLFR-00226 Not in the layout file
-The layout file must not hold the names or the paths of the data files, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, or the position and size of the main window.
+The layout file must not hold the names or the paths of the data files, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, which data files have their signals hidden in a signal list (LLFR-00997), or the position and size of the main window.
 
-*Parent: HLFR-00049*
+*Parent: HLFR-00049, HLFR-00123*
 
 ### LLFR-00948 Prefixed names in the layout file
 The layout file must hold the name of each signal with its prefix of LLFR-00905, for example `file1_Speed` or `file1_int_Speed`, in its curves, pinned data tips, delta markers and synthetic signals (LLFR-00225).
@@ -1610,7 +1714,7 @@ When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
 ### LLFR-00496 Synthetic signals not created from a layout
-When the app loads a layout file (LLFR-00262), a synthetic signal of the file must not be created when it is an FFT signal (LLFR-00502), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when the signals it is computed from belong to different data files whose time signals are not the same (LLFR-00275, LLFR-00940), when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00613), or when the operation cannot be done (LLFR-00590).
+When the app loads a layout file (LLFR-00262), a synthetic signal of the file must not be created when it is an FFT signal (LLFR-00502), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when the signals it is computed from belong to different data files whose time signals are not identical (LLFR-00275, LLFR-00940, LLFR-00977), when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00613), or when the operation cannot be done (LLFR-00590).
 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
@@ -1625,7 +1729,7 @@ When a synthetic signal of the layout file is not created (LLFR-00496), the load
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
 ### LLFR-00282 Synthetic signal names on layout load
-When a synthetic signal of the layout file (LLFR-00262) has the name of a signal of the signal list, which is a current synthetic signal, one created earlier in the same load or a signal of an open data file, and that signal, or a synthetic signal whose name is made from that name as in LLFR-00241 (for example by an earlier load), has the same operation, the same signals it is computed from (after the renames of LLFR-00499) and the same parameter, the app must create nothing and use that signal.
+When a synthetic signal of the layout file (LLFR-00262) has a corrected name, which is its saved name with the prefix of LLFR-00970, that is the name of a signal of the signal list, which is a current synthetic signal, one created earlier in the same load or a signal of an open data file, and that signal, or a synthetic signal whose name is made from that corrected name as in LLFR-00241 (for example by an earlier load), has the same operation, the same signals it is computed from (after the renames of LLFR-00499) and the same parameter, the app must create nothing and use that signal.
 
 Note: Loading the same layout twice therefore adds nothing to the signal list the second time.
 
@@ -2003,7 +2107,7 @@ When the user clicks the Save signals button, the app must show a save file dial
 *Parent: HLFR-00090*
 
 ### LLFR-00942 Different time signals
-When the user clicks the Save signals button (LLFR-00394) and the time signals of the open data files do not all have the same number of samples and exactly the same value at every sample, the app must show, in place of the save file dialog (LLFR-00396), an error box saying that the files need the same time signals to be saved together.
+When the user clicks the Save signals button (LLFR-00394) and the time signals of the open data files are not all identical (LLFR-00977), the app must show, in place of the save file dialog (LLFR-00396), an error box saying that the files need the same time signals, within the tolerance of LLFR-00977, to be saved together.
 
 Note: With one data file open, the check always passes.
 
@@ -2015,14 +2119,14 @@ In the case of LLFR-00942, the app must leave every file on disk as it was.
 *Parent: HLFR-00120, HLFR-00090*
 
 ### LLFR-00944 One time signal in the saved file
-When the time signals of the open data files are the same (LLFR-00942), the saved file must hold, once and in place of the time signals of all the open data files, the time signal of the open data file with the lowest number, at its place in the signal list, under the name of LLFR-00407.
+When the time signals of the open data files are identical (LLFR-00942, LLFR-00977), the saved file must hold, once and in place of the time signals of all the open data files, the time signal of the open data file with the lowest number, at its place in the signal list, under the name of LLFR-00407.
 
 *Parent: HLFR-00120, HLFR-00090*
 
 ### LLFR-00945 Plain names in the saved file
 The app must save each signal under its plain name, which is its name with every prefix of LLFR-00905 removed that the app put into it (LLFR-00905, LLFR-00908, LLFR-00958, LLFR-00959), keeping the text that the user typed when renaming a synthetic signal (LLFR-00266) as it was typed.
 
-Note: For example, `file1_Speed` is saved as `Speed`, `file1_int_Speed` as `int_Speed`, `file1_lpf_2Hz_order2_Speed` as `lpf_2Hz_order2_Speed`, `file1_Speed_prod_Torque` and `file1_Speed_prod_file2_Torque` as `Speed_prod_Torque`, and a synthetic signal renamed `file1_my` (LLFR-00959) as `my`.
+Note: For example, `file1_Speed` is saved as `Speed`, `file1_int_Speed` as `int_Speed`, `file1_lpf_2Hz_order2_Speed` as `lpf_2Hz_order2_Speed`, `file1_Speed_prod_file1_Torque` and `file1_Speed_prod_file2_Torque` as `Speed_prod_Torque`, and a synthetic signal renamed `file1_my` (LLFR-00959) as `my`.
 
 *Parent: HLFR-00121, HLFR-00090*
 
@@ -2145,6 +2249,8 @@ The app must change each signal name that the chosen format cannot store into a 
 
 ### LLFR-00543 Characters of a MAT name
 When the chosen format is MAT, every character of a signal name that is not an English letter, a digit or `_` must be replaced by `_`.
+
+Note: For example, a signal read from a MAT structure or an HDF5 group (LLFR-00991, LLFR-00134), such as `engine/speed`, is saved as the top-level variable `engine_speed` (LLFR-00402).
 
 *Parent: HLFR-00090*
 
@@ -2295,10 +2401,17 @@ Each undocked window must have a signal list panel placed to the right of its pl
 ### LLFR-01036 Same signal list in every panel
 Every signal list panel must show, at every moment, the same file name rows, signals and synthetic signals as the signal list panel of the main window, in the same order and with the same names, letters and colors (LLFR-00242, LLFR-00332, LLFR-00362, LLFR-00938, LLFR-00939).
 
-Note: Opening or closing a data file, or creating, renaming or deleting a synthetic signal, from any panel or from the top panel, therefore changes every panel at once. What depends on the panel's width, such as a shortened file name (LLFR-00648), and the scroll position stay those of each panel.
+Note: Opening or closing a data file, or creating, renaming or deleting a synthetic signal, from any panel or from the top panel, therefore changes every panel at once, and so does hiding or showing the signals of a data file (LLFR-01175). What depends on the panel's width, such as a shortened file name (LLFR-00648), and the scroll position stay those of each panel.
 
 *Parent: HLFR-00128, HLFR-00011*
 
+
+### LLFR-01175 Hidden signals in every panel
+When the user hides or shows again the signals of a data file in the signal list panel of one window (LLFR-00997, LLFR-00998, LLFR-01003, LLFR-01006, LLFR-01007), the app must hide or show them, with the same icon (LLFR-00994, LLFR-00995), in the signal list panel of every window, including the panel of an undocked window opened later.
+
+Note: The panels share one state of the data files, as they share the search text (LLFR-01041).
+
+*Parent: HLFR-00128, HLFR-00123*
 ### LLFR-01037 Signal list used from any panel
 The user must be able to use the signal list panel of any window in the same ways as the signal list panel of the main window: plotting by double-click, the Enter key or a drag (LLFR-00019, LLFR-00295, LLFR-00297), the signal menu (LLFR-00239), the file menu (LLFR-00923), the selection (LLFR-00290) and the search (LLFR-00095), except as in LLFR-01038, LLFR-01039 and LLFR-01040.
 
@@ -2347,7 +2460,7 @@ If the user drops a signal name anywhere other than on a plot, the app must not 
 *Parent: HLFR-00013*
 
 ### LLFR-00054 Time signal in the signal list
-The signal list panel must include the time signal of each open data file (HLFR-00006) among the signal names it shows.
+The signal list panel must include the time signal of each open data file (HLFR-00006) among the signal names it shows, except while the signals of that file are hidden as in LLFR-00997, LLFR-01001 and LLFR-01003.
 
 *Parent: HLFR-00011, HLFR-00006*
 
@@ -2377,12 +2490,12 @@ Each time the text in the search box changes, the app must show in the signal li
 *Parent: HLFR-00033*
 
 ### LLFR-00096 Empty search
-When the search box is empty or contains only spaces, the signal list must show all the signals of the open data files, with their synthetic signals.
+When the search box is empty or contains only spaces, the signal list must show all the signals of the open data files, with their synthetic signals, except the signals hidden as in LLFR-00997 and LLFR-01001.
 
 *Parent: HLFR-00033*
 
 ### LLFR-00097 No matching signals
-When no signal of an open data file matches the text in the search box, the signal list must show the text "No matching signals" below the file name row of that file (LLFR-00362).
+When no signal of an open data file matches the text in the search box, the signal list must show the text "No matching signals" below the file name row of that file (LLFR-00362), except while the user has hidden that file as in LLFR-01003.
 
 *Parent: HLFR-00033*
 
@@ -2421,7 +2534,7 @@ Note: For example, `presure` finds `Pressure`, and `sine_2hz` finds `Sine_3Hz`.
 *Parent: HLFR-00034*
 
 ### LLFR-00102 Order of search results
-Below the file name row of each open data file, the app must list the matching signals of that file, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105, LLFR-00567), in three groups in this order, keeping the order of the signal list (LLFR-00939) within each group:
+Below the file name row of each open data file, the app must list the matching signals of that file, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105, LLFR-00567), in three groups in this order, keeping the order of the signal list (LLFR-00939) within each group, except as in LLFR-01010:
 1. the signals that match every search word without LLFR-00101 and whose name, after LLFR-00098, LLFR-00100 and LLFR-00566 are applied, starts with the first search word, once its prefix of LLFR-00905 is left out;
 2. the other signals that match every search word without LLFR-00101;
 3. the signals that need LLFR-00101 for at least one search word.
@@ -2591,10 +2704,10 @@ Note: For example, the Integral of `file1_Speed` is `file1_int_Speed`, a Low-pas
 
 *Parent: HLFR-00115, HLFR-00054, HLFR-00104*
 
-### LLFR-00958 Second signal of another file in a product name
-When the second signal of a Product with signal (LLFR-00275) belongs to another data file than the right-clicked signal, the app must write the name of the second signal in the product's name (LLFR-00240) with its own prefix (LLFR-00905).
+### LLFR-00958 Prefix of the second signal in a product name
+The app must write the name of the second signal of a Product with signal (LLFR-00275) in the product's name (LLFR-00240) with the prefix of the second signal's own data file (LLFR-00905), also when that file is the data file of the right-clicked signal.
 
-Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
+Note: For example, `file1_Speed_prod_file1_Torque` for two signals of file 1, `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2, and `file1_Speed_prod_file1_int_Torque` when the second signal is the synthetic signal `file1_int_Torque`. A layout file saved before this rule may hold a product named in the older form, such as `file1_Speed_prod_Torque`: the app creates it under that saved name (LLFR-00262).
 
 *Parent: HLFR-00115, HLFR-00104*
 
@@ -2655,9 +2768,9 @@ After the prefix of its data file (LLFR-00908), the app must name a synthetic si
 | Low-pass filter, High-pass filter | `<abbreviation>_<cutoff>Hz_order<order>_<signal>` | `file1_lpf_0p5Hz_order2_Speed` |
 | Moving average | `mavg_<window>samples_<signal>` | `file1_mavg_10samples_Speed` |
 | FFT | `fft_<start>s_to_<end>s_<signal>` | `file1_fft_1p5s_to_3s_Speed` |
-| Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `file1_Speed_prod_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` (LLFR-00958) |
+| Product with signal | `<right-clicked signal>_prod_<second signal with its prefix>` (LLFR-00275, LLFR-00958) | `file1_Speed_prod_file1_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` |
 
-The FFT times are the time range of LLFR-00968 and LLFR-00592, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
+The FFT times are the time range of LLFR-00968, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
 
 *Parent: HLFR-00054, HLFR-00104, HLFR-00115*
 
@@ -2719,14 +2832,14 @@ Note: This happens, for example, when the same signal is filtered twice with the
 *Parent: HLFR-00054*
 
 ### LLFR-00242 Synthetic signals in the signal list
-The signal list panel must show the synthetic signals of each data file (LLFR-00940) after the signals of that file, in the order they were created, in italic letters.
+The signal list panel must show the synthetic signals of each data file (LLFR-00940) after the signals of that file, in the order they were created, in italic letters, except while the signals of that file are hidden as in LLFR-00997, LLFR-01001 and LLFR-01003.
 
 *Parent: HLFR-00053, HLFR-00011, HLFR-00113*
 
 ### LLFR-00940 File of a synthetic signal
 Each synthetic signal must belong to the data file of the signal it was computed from, which for a Product with signal is the data file of the right-clicked signal.
 
-Note: The second signal of a Product with signal can belong to another data file only when its time signal is exactly the same (LLFR-00275), so the product is computed on that one time signal. Closing either file removes the product, because it is computed from a signal of that file (LLFR-00926).
+Note: The second signal of a Product with signal can belong to another data file only when its time signal is identical (LLFR-00275, LLFR-00977), so the product is computed on the time signal of the right-clicked signal's data file. Closing either file removes the product, because it is computed from a signal of that file (LLFR-00926).
 
 *Parent: HLFR-00053, HLFR-00113*
 
@@ -2738,7 +2851,7 @@ The app must compute each synthetic signal with the time signal of its file (LLF
 ### LLFR-00968 FFT time range of a signal
 When at least one time plot exists when the user chooses "FFT", the app must take as the time range of the FFT the part of the x-axis range shared by the time plots (LLFR-00070) that lies within the time range of the signal's data file (LLFR-00940).
 
-Note: The FFT name shows this range (LLFR-00240). With no time plot, the FFT uses all the samples (LLFR-00592).
+Note: The FFT name shows this range (LLFR-00240). With no time plot, no FFT is created (LLFR-00592, LLFR-00979).
 
 *Parent: HLFR-00057, HLFR-00113*
 
@@ -2854,32 +2967,43 @@ When the user chooses "Low-pass filter", "High-pass filter" or "FFT" and any tim
 *Parent: HLFR-00053*
 
 ### LLFR-00248 FFT time range
-When at least one time plot exists, the FFT must use only the samples of the signal whose time is within the time range of LLFR-00968, taken when the FFT is created.
+The FFT must use only the samples of the signal whose time is within the time range of LLFR-00968, taken when the FFT is created.
+
+Note: With no time plot, no FFT is created (LLFR-00592).
 
 *Parent: HLFR-00057, HLFR-00113*
 
 ### LLFR-00592 FFT without a time plot
-When no time plot exists when the FFT is created, the FFT must use all samples of the signal.
+When the user chooses "FFT" and no time plot exists, the app must not create the FFT signal, whatever the number of samples of the signal.
+
+Note: A frequency plot is not a time plot (HLFR-00058).
 
 *Parent: HLFR-00057*
 
+### LLFR-00979 FFT without a time plot message
+When the user chooses "FFT" and no time plot exists, the app must show an information box with the text "The FFT is computed only over the time range shown on the x-axis of the time plots. Plot a signal in a time plot and zoom to the time range you want, then create the FFT again.", except as in LLFR-00591.
+
+Note: The FFT is then not created (LLFR-00592). When the time samples are not evenly spaced, only the box of LLFR-00591 is shown.
+
+*Parent: HLFR-00057, HLFR-00053*
+
 ### LLFR-00593 FFT fixed after creation
-A change of the time range after an FFT signal is created (LLFR-00248, LLFR-00592) must not change the FFT signal.
+A change of the time range after an FFT signal is created (LLFR-00248) must not change the FFT signal.
 
 *Parent: HLFR-00057*
 
 ### LLFR-00249 FFT result
-The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-00248 and LLFR-00592, from 0 Hz up to half the sampling rate (LLFR-00247), computed with a Hann window and scaled so that a sine wave of amplitude A over the whole time range gives a peak of height close to A.
+The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-00248, from 0 Hz up to half the sampling rate (LLFR-00247), computed with a Hann window and scaled so that a sine wave of amplitude A over the whole time range gives a peak of height close to A.
 
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00250 Too few samples for an FFT
-When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must not create the FFT signal.
+When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248, the app must not create the FFT signal.
 
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00594 Too few samples message
-When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must show an information box saying that the time range holds too few samples, except as in LLFR-00969.
+When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248, the app must show an information box saying that the time range holds too few samples, except as in LLFR-00969.
 
 *Parent: HLFR-00053, HLFR-00057*
 
@@ -3090,7 +3214,7 @@ An "Add constant", "Subtract constant", "Multiply by constant" or "Divide by con
 *Parent: HLFR-00053*
 
 ### LLFR-00275 Second signal dialog
-When the user chooses "Product with signal", the app must show a dialog that lists every signal and every synthetic signal (LLFR-00940) of the right-clicked signal's data file and of every other open data file whose time signal has the same number of samples and exactly the same value at every sample, except the FFT signals, including the right-clicked signal, in one list (LLFR-00967), in which the user chooses the second signal.
+When the user chooses "Product with signal", the app must show a dialog that lists every signal and every synthetic signal (LLFR-00940) of the right-clicked signal's data file and of every other open data file whose time signal is identical to that of the right-clicked signal's data file (LLFR-00977), except the FFT signals, including the right-clicked signal, in one list (LLFR-00967), in which the user chooses the second signal.
 
 *Parent: HLFR-00053, HLFR-00113*
 
@@ -3327,7 +3451,7 @@ The signal list must show the open data files in the order of their numbers (LLF
 *Parent: HLFR-00079, HLFR-00011, HLFR-00113*
 
 ### LLFR-00939 Signals below their file name row
-The signal list must show the signals of each data file directly below its file name row, in the file's order, followed by the synthetic signals of that file (LLFR-00242).
+The signal list must show the signals of each data file directly below its file name row, in the file's order, followed by the synthetic signals of that file (LLFR-00242), except as in LLFR-00997, LLFR-01001 and LLFR-01009.
 
 *Parent: HLFR-00079, HLFR-00011, HLFR-00113*
 
@@ -3523,6 +3647,97 @@ If the user proceeds in the question of LLFR-00934, the app must close every ope
 After the app closes every data file (LLFR-00936), the signal list panel must show the same content as when the app starts with no data file open: no file name row and no signal.
 
 *Parent: HLFR-00119, HLFR-00011*
+
+### LLFR-00994 Icon of a file with its signals shown
+While the signals of a data file are shown in the signal list, its file name row (LLFR-00362) must show at its left, before its text, a small `[-]` icon: a minus sign inside square brackets.
+
+*Parent: HLFR-00123, HLFR-00079*
+
+### LLFR-00995 Icon of a file with its signals hidden
+While the signals of a data file are hidden in the signal list (LLFR-00997, LLFR-01001, LLFR-01003), its file name row (LLFR-00362) must show, in place of the icon of LLFR-00994, a small `[+]` icon: a plus sign inside square brackets.
+
+*Parent: HLFR-00123, HLFR-00079*
+
+### LLFR-00996 Look of the file icons
+The app must draw the icons of LLFR-00994 and LLFR-00995 as thin lines in the muted text color of the signal list panel, the same color as the text "No matching signals" (LLFR-00097), centered vertically on the text of the file name row, on a transparent background.
+
+*Parent: HLFR-00123*
+
+### LLFR-00997 Hide the signals of a file
+When the user clicks the `[-]` icon of a file name row (LLFR-00994) while the search box is empty or contains only spaces, the app must hide from the signal list every signal and every synthetic signal of that data file, keeping its file name row in its place (LLFR-00938).
+
+*Parent: HLFR-00123*
+
+### LLFR-00998 Show again the signals of a file
+When the user clicks the `[+]` icon of a file name row (LLFR-00995) while the search box is empty or contains only spaces, the app must show again the signals and synthetic signals of that data file below its file name row, as in LLFR-00939.
+
+*Parent: HLFR-00123*
+
+### LLFR-00999 Icon click keeps the selection
+A click on the icon of a file name row (LLFR-00994, LLFR-00995) must change the selection of the signal list only as in LLFR-01005.
+
+Note: The click selects nothing, like any click on a file name row (LLFR-00643).
+
+*Parent: HLFR-00123, HLFR-00063*
+
+### LLFR-01000 Icon press starts no drag
+A press of the left mouse button on the icon of a file name row (LLFR-00994, LLFR-00995) must start no drag, also when the mouse moves before the button is released, as in LLFR-00645.
+
+*Parent: HLFR-00123, HLFR-00079*
+
+### LLFR-01001 Files collapsed on file open
+Each time the app opens data files (LLFR-00920), including several files selected at once (LLFR-00951), it must show the file name row of every open data file, the new ones and the ones already open, with the `[+]` icon (LLFR-00995) and none of their signals or synthetic signals.
+
+*Parent: HLFR-00123, HLFR-00117, HLFR-00122*
+
+### LLFR-01002 Files expanded during a search
+While the search box holds text other than spaces, the app must show every file name row with the `[-]` icon (LLFR-00994) and, below it, the matches of that file (LLFR-00102) or the text "No matching signals" (LLFR-00097), whatever the file's state before the search, except as in LLFR-01003.
+
+*Parent: HLFR-00123, HLFR-00033*
+
+### LLFR-01003 File icon during a search
+While the search box holds text other than spaces, a click on the icon of a file name row must hide the matches of that file and its text "No matching signals", or show them again, as in LLFR-00997 and LLFR-00998, for as long as the search box holds text other than spaces.
+
+Note: The click does not change the state that the file gets back when the search is cleared (LLFR-01004).
+
+*Parent: HLFR-00123, HLFR-00033*
+
+### LLFR-01004 File states back after a search
+When the search box becomes empty or holds only spaces again, the app must show each data file with the signals shown or hidden as they were just before the search box got its text, as set by LLFR-00997, LLFR-00998 and LLFR-01001.
+
+*Parent: HLFR-00123, HLFR-00033*
+
+### LLFR-01005 Hidden signals deselected
+When the app hides the signals of a data file (LLFR-00997, LLFR-01001, LLFR-01003), it must deselect them, as for the signals that are no longer shown in LLFR-00292, so that they stay unselected when they are shown again (LLFR-00627).
+
+*Parent: HLFR-00123, HLFR-00063*
+
+### LLFR-01006 Left key hides the signals of a file
+When the keyboard focus is in the signal list, the current row is a file name row (LLFR-00362) with the `[-]` icon and the user presses the Left arrow key alone, the app must hide the signals of that file as a click on the icon does (LLFR-00997, LLFR-01003).
+
+*Parent: HLFR-00123*
+
+### LLFR-01007 Right key shows the signals of a file
+When the keyboard focus is in the signal list, the current row is a file name row (LLFR-00362) with the `[+]` icon and the user presses the Right arrow key alone, the app must show again the signals of that file as a click on the icon does (LLFR-00998, LLFR-01003).
+
+*Parent: HLFR-00123*
+
+### LLFR-01008 Hiding signals is not undoable
+Hiding and showing again the signals of a data file (LLFR-00997, LLFR-00998, LLFR-01001 to LLFR-01007) must leave the undo and redo history unchanged.
+
+*Parent: HLFR-00123, HLFR-00040, HLFR-00048*
+
+### LLFR-01009 Time signal first below its file
+The signal list must show the time signal of each data file (HLFR-00006), whether found by its name (LLFR-00053) or chosen by the user (LLFR-00326), as the first signal directly below the file name row of that file, before the other signals of the file in the file's order and before its synthetic signals (LLFR-00939, LLFR-00242).
+
+Note: The time signal keeps its green color (LLFR-00332). The order of the signal list is also the order of the second signal dialog (LLFR-00967) and of the saved file of the Save signals button (LLFR-00401, LLFR-00944).
+
+*Parent: HLFR-00011, HLFR-00079, HLFR-00006*
+
+### LLFR-01010 Time signal first among the matches
+When the time signal of a data file matches the text in the search box, the app must show it as the first match below the file name row of that file, before the groups of LLFR-00102.
+
+*Parent: HLFR-00033, HLFR-00079, HLFR-00006*
 
 ### LLFR-00424 Search box bottom edge
 In each window, the bottom edge of the search box (LLFR-00094) must be at the same height as the bottom edge of the plots of the last shown row (LLFR-01110) of the tab that the window shows, including their x-axis numbers and labels, at any window size.
@@ -3948,9 +4163,7 @@ Note: Only the corners and the border are added: the rounding changes nothing el
 *Parent: HLFR-00039*
 
 ### LLFR-00893 Rounded plot container corners
-In each window, the container of the plot panel that holds the plots of the tab the window shows, below the tab row, must be shown with its top-right, bottom-left and bottom-right corners rounded with the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
-
-Note: The top-left corner stays square because the first tab starts at the left edge of the plot panel (LLFR-00106) and joins the container there, so the left border of the first tab runs straight down into the left border of the container. The look of the tabs and of the "+" button is unchanged (LLFR-00107).
+In each window, the container of the plot panel that holds the plots of the tab the window shows, below the tab row, must be shown with a border along its four edges and its four corners rounded, with the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
 
 *Parent: HLFR-00001, HLFR-00136*
 

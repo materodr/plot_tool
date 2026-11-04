@@ -31,6 +31,9 @@ name: macOS build
 #   after the start included, is within 0.65 s
 #   (PLOT_TOOL_DIALOG_PROBE=1); on every launch no file dialog is shown
 #   before a request (issue #165).
+# - LLFR-00447, LLFR-00468: a reused Open file, Save layout or Load
+#   layout dialog shows the folder the app asks for, read from the
+#   system panel on screen (PLOT_TOOL_FOLDER_PROBE=1, issue #232).
 on:
   pull_request:
     paths:
@@ -184,6 +187,31 @@ jobs:
           python tests/user_tests/measure_startup.py --runs 5 \
             --limit-s 1000 --dialog-limit-s 0.65 --turn-limit-s 2 -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      # LLFR-00447, LLFR-00468 (issue #232): the Open file, Save layout
+      # and Load layout dialogs are each shown again in a new folder
+      # after a file of another folder was selected in them; the folder
+      # of the system panel on screen must be the new one.
+      - name: Check the folder of reused file dialogs
+        timeout-minutes: 5
+        env:
+          PYTHONFAULTHANDLER: "1"
+          PLOT_TOOL_STARTUP_PROBE: "1"
+          PLOT_TOOL_FOLDER_PROBE: "1"
+        run: |
+          set +e
+          bin/plot_tool.app/Contents/MacOS/plot_tool > folder_output.txt 2>&1
+          exit_code=$?
+          set -e
+          cat folder_output.txt
+          failed=0
+          fail() { echo "::error title=Dialog folder::$1"; failed=1; }
+          count=$(grep -c '^plot_tool folder:' folder_output.txt || true)
+          [ "$count" -eq 3 ] || fail "$count folder lines instead of 3"
+          grep '^plot_tool folder:' folder_output.txt | grep -v 'source=panel' && fail "a folder was not read from the system panel"
+          grep '^plot_tool folder:' folder_output.txt | grep 'ok=no' && fail "a reused dialog showed another folder"
+          [ "$exit_code" -eq 0 ] || fail "the app exited with $exit_code"
+          exit $failed
 
       - name: Show the kept matplotlib cache
         if: always()

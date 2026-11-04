@@ -10,7 +10,7 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 
 from controller.main_controller import MainController
 from controller.plot_tools import (
@@ -62,6 +62,9 @@ class SeveralFilesTestCase(unittest.TestCase):
         self.file_controller.load_function = lambda path_str: signal_file
         self.view.open_path_str = signal_file.path_str
         self.file_controller.open_file_requested()
+        # LLFR-01001: the files are collapsed after an open; these tests
+        # read the shown signals.
+        expand_all_files(self.main_controller)
 
     def plot(self, *name_tuple: str) -> int:
         """Create a plot in the current tab with some signals.
@@ -310,11 +313,12 @@ class CloseFileTest(SeveralFilesTestCase):
         """
         self.open(make_time_file("a.csv", 0.0, 10.0))
         self.open(make_time_file("b.csv", 0.0, 10.0))
+        # LLFR-00592: an FFT needs a time plot.
+        time_plot_id_i = self.plot("file2_Speed")
         self.view.signal_menu_handler_dict["create"]("file1_Speed", "fft")
         fft_name_str = self.main_controller.synthetic_controller.store.names(
             )[0]
         frequency_plot_id_i = self.plot(fft_name_str)
-        time_plot_id_i = self.plot("file2_Speed")
         self.file_controller.close_file(1)
         self.assertIsNone(self.workspace.find_plot(frequency_plot_id_i))
         self.assertIsNotNone(self.workspace.find_plot(time_plot_id_i))
@@ -531,6 +535,34 @@ class CloseQuestionTest(SeveralFilesTestCase):
         """
         return self.plot_controller.undo_history.depth()
 
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00983",
+            "LLFR-00924", "LLFR-00934")
+    def test_close_questions_number_their_points(self) -> None:
+        """The two close questions: the question, a blank line and the
+        numbered points, one blank line apart.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.file_controller import (
+            CLOSE_ALL_FILES_POINT_STR, CLOSE_ALL_FILES_QUESTION_STR,
+            CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_HISTORY_POINT_STR,
+            CLOSE_LAST_FILE_MARKERS_POINT_STR, CLOSE_TABS_POINT_STR,
+            close_all_files_question, close_file_question)
+        self.assertEqual(
+            close_file_question("file1_run.csv", True),
+            "Do you want to close file1_run.csv?\n\n"
+            f"1. {CLOSE_FILE_SIGNALS_POINT_STR}\n\n"
+            f"2. {CLOSE_TABS_POINT_STR}\n\n"
+            f"3. {CLOSE_LAST_FILE_MARKERS_POINT_STR}\n\n"
+            f"4. {CLOSE_HISTORY_POINT_STR}")
+        all_str = close_all_files_question()
+        self.assertTrue(all_str.startswith(
+            f"{CLOSE_ALL_FILES_QUESTION_STR}\n\n"
+            f"1. {CLOSE_ALL_FILES_POINT_STR}\n\n2. "))
+        self.assertTrue(all_str.endswith(
+            f"\n\n5. {CLOSE_HISTORY_POINT_STR}"))
+
     @covers("LLFR-00924", "HLFR-00118")
     def test_close_file_question_names_the_file_and_says_why(self) -> None:
         """The question names the row and the four consequences.
@@ -547,10 +579,13 @@ class CloseQuestionTest(SeveralFilesTestCase):
         question_str = self.question_list[0]
         self.assertTrue(question_str.startswith(
             "Do you want to close file2_run_B.mat?"))
-        for point_str in (CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,
-                          CLOSE_FILE_MARKERS_POINT_STR,
-                          CLOSE_HISTORY_POINT_STR):
-            self.assertIn("- " + point_str, question_str)
+        # LLFR-00980, LLFR-00982, LLFR-00983: the points are numbered,
+        # below the question and a blank line, one blank line apart.
+        for number_i, point_str in enumerate(
+                (CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,
+                 CLOSE_FILE_MARKERS_POINT_STR, CLOSE_HISTORY_POINT_STR),
+                start=1):
+            self.assertIn(f"\n\n{number_i}. {point_str}", question_str)
         self.assertNotIn(CLOSE_LAST_FILE_MARKERS_POINT_STR, question_str)
         self.assertIn("synthetic signals computed from them", question_str)
         self.assertIn("removed from the signal list and from the plots",
@@ -664,6 +699,36 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertEqual(self.file_controller.close_all_files_requested(),
                          [])
         self.assertEqual(len(self.question_list), 2)
+
+
+class FileCollapseHistoryTest(SeveralFilesTestCase):
+    """Hiding the signals of a file is not undoable (LLFR-01008)."""
+
+    @covers("LLFR-01008", "LLFR-00140", "HLFR-00123", "HLFR-00040",
+            "HLFR-00048")
+    def test_toggle_keeps_the_undo_and_redo_history(self) -> None:
+        """Collapsing and expanding leave both histories as they were.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open(make_time_file("a.csv", 0.0, 10.0))
+        self.open(make_time_file("b.csv", 0.0, 10.0))
+        self.plot("file1_Speed")
+        self.plot("file2_Speed")
+        self.plot_controller.on_undo()
+        history = self.plot_controller.undo_history
+        depth_tuple = (history.depth(), history.redo_depth())
+        self.assertEqual(depth_tuple, (1, 1))
+        signal_list_controller = self.main_controller.signal_list_controller
+        for number_i in (1, 2, 1, 2, 2):
+            signal_list_controller.toggle_file(number_i)
+        self.assertEqual((history.depth(), history.redo_depth()),
+                         depth_tuple)
+        self.assertTrue(self.view.undo_enabled_b)
+        self.assertTrue(self.view.redo_enabled_b)
+        # The curves are not touched by a collapse.
+        self.assertEqual(len(self.workspace.tab_list[0].plot_list), 1)
 
 
 if __name__ == "__main__":
