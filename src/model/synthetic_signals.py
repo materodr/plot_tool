@@ -10,8 +10,8 @@ Each synthetic signal belongs to the data file of the signal it was
 computed from, the right-clicked signal of a product (LLFR-00940), and
 its name starts with the prefix ``file<N>_`` of that file, followed by
 the name of LLFR-00240 built from the names of its sources without
-their prefix (LLFR-00908); the second signal of a product of another
-file keeps its own prefix (LLFR-00958). The signal also keeps its plain
+their prefix (LLFR-00908); the second signal of a product always
+keeps its own prefix (LLFR-00958). The signal also keeps its plain
 name, without any prefix the app put into it, for the Save signals
 button (LLFR-00945). ``ordered_signal_names`` gives the order of the
 signal list: file after file, each file's synthetic signals after its
@@ -97,7 +97,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from model import synthetic_operations as operations
-from model.data_files import file_prefix, prefix_number, without_prefix
+from model.data_files import (
+    file_prefix, identical_time_signals_b, prefix_number, without_prefix)
 from model.errors import (
     EmptySyntheticNameError, SyntheticEntryError, SyntheticNameInUseError,
     SyntheticSignalError, SyntheticSourceError)
@@ -521,10 +522,9 @@ class SyntheticSignalStore:
         shown_list = []
         for index_i, source_str in enumerate(source_name_list):
             source_number_i = self.file_number_of(source_str)
-            if (index_i > 0 and source_number_i is not None
-                    and source_number_i != file_number_i):
-                # LLFR-00958: a second signal of another file keeps its
-                # own prefix.
+            if index_i > 0 and source_number_i is not None:
+                # LLFR-00958: the second signal of a product keeps the
+                # prefix of its own file, of this file or of another.
                 shown_list.append(file_prefix(source_number_i)
                                   + self.name_without_prefix(source_str))
             else:
@@ -601,12 +601,11 @@ class SyntheticSignalStore:
         if callable(time_array):
             time_function = time_array
             time_array = time_function(source_name_list[0])
-            # LLFR-00496, LLFR-00275: the signals of a product must have
-            # exactly the same time signal.
+            # LLFR-00496, LLFR-00275, LLFR-00977, LLFR-00978: the signals
+            # of a product must have identical time signals.
             for source_name_str in source_name_list[1:]:
-                if not np.array_equal(
-                        np.asarray(time_function(source_name_str)),
-                        np.asarray(time_array)):
+                if not identical_time_signals_b(
+                        time_function(source_name_str), time_array):
                     raise SyntheticSourceError(
                         f'The signals "{source_name_list[0]}" and '
                         f'"{source_name_str}" belong to data files whose '
@@ -619,7 +618,8 @@ class SyntheticSignalStore:
         value_array, frequency_array = operations.compute(
             operation_str, time_array, source_array_list, parameter)
         # LLFR-00908, LLFR-00940, LLFR-00958: the prefix of the file of
-        # the first source, then the names without their prefix.
+        # the first source, then the names without their prefix, except
+        # the second signal of a product, which keeps its own.
         file_number_i, default_name_str, plain_str = self.default_names(
             operation_str, source_name_list, parameter)
         if not name_str:

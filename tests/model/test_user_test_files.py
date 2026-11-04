@@ -9,6 +9,8 @@ written by tests/user_tests/make_user_test_files.py.
 import os
 import unittest
 
+import pandas as pd
+
 from tests.support import REPOSITORY_ROOT_STR, covers, requires_h5py
 
 from model.errors import FileReadError
@@ -81,6 +83,26 @@ class SampleFileTest(unittest.TestCase):
             for extension_str in extension_tuple]
         self.assertEqual(sorted(extension_list),
                          sorted(SUPPORTED_EXTENSION_TUPLE))
+
+    @covers("PCR-00032", "HLFR-00116")
+    def test_run_files_have_other_signals_over_the_same_time(self) -> None:
+        """The two run files share only Time with each other and signals.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        file_df_list = [
+            pd.read_csv(os.path.join(GOOD_FOLDER_STR, file_name_str))
+            for file_name_str in ("signals_comma.csv", "vehicle_run.csv",
+                                  "solar_inverter_run.csv")]
+        for index_i, first_df in enumerate(file_df_list):
+            for second_df in file_df_list[index_i + 1:]:
+                self.assertEqual(
+                    set(first_df.columns) & set(second_df.columns), {"Time"})
+                self.assertTrue(first_df["Time"].equals(second_df["Time"]))
+        # Both run files hold the same number of signals.
+        self.assertEqual(len(file_df_list[1].columns),
+                         len(file_df_list[2].columns))
 
     @covers("PCR-00032", "HLFR-00005", "LLFR-00059", "LLFR-00061")
     def test_csv_sample_files_open(self) -> None:
