@@ -178,12 +178,15 @@ SIGNAL_LIST_BORDER_COLOR_STR = HAIRLINE_COLOR_STR
 # of the signal list. Its top-left corner stays square: the first tab
 # starts at the panel's left edge (LLFR-00106), so its left border runs
 # straight down into the well's left border. The padding keeps the
-# rounded plots (LLFR-00890) off the well's border and corners, with the
-# same gap of plot well around them as between them (PLOT_SPACING_I).
+# rounded plots (LLFR-00890) off the well's rounded corners: with a
+# radius of 6 px and a 1 px border, the inner edge of a corner reaches
+# about 2.5 px in from the outer corner, so 2 px of padding (3 px with
+# the border) keep each plot's cut corner inside the rounding. It is
+# kept that small so that the plots lose as little height as possible.
 PLOT_WELL_RADIUS_I = SIGNAL_LIST_RADIUS_I
 PLOT_WELL_BORDER_WIDTH_I = SIGNAL_LIST_BORDER_WIDTH_I
 PLOT_WELL_BORDER_COLOR_STR = SIGNAL_LIST_BORDER_COLOR_STR
-PLOT_WELL_PADDING_I = PLOT_SPACING_I
+PLOT_WELL_PADDING_I = 2
 MENU_RADIUS_I = 6
 TOOLTIP_RADIUS_I = 4
 
