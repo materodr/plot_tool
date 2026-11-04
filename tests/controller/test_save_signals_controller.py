@@ -338,7 +338,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
             (self.target("out.mat"), MAT_FORMAT_STR, False)]
         self.view.handler()
         self.assertEqual(self.view.changed_names_list, [
-            "time → Time\nspeed.x2 → speed_x2"])
+            "1. time → Time\n\n2. speed.x2 → speed_x2"])
         saved_file = load_signal_file(self.target("out.mat"))
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "speed_x2", "int_speed"])

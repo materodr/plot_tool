@@ -565,8 +565,10 @@ class LayoutTabsTest(LayoutRebuildTestCase):
         # replaced, and the rename is the only line of the report.
         self.assertEqual(result.report.renamed_line_list,
                          ['Tab "Tab 1" \u2192 "Tab 2"'])
+        # LLFR-00983, LLFR-00984: one entry, below its heading and a
+        # blank line, with no number.
         self.assertEqual(result.report.text(),
-                         'Renamed:\n  - Tab "Tab 1" \u2192 "Tab 2"')
+                         'Renamed:\n\nTab "Tab 1" \u2192 "Tab 2"')
 
     @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00212",
             "LLFR-00474", "LLFR-00489", "LLFR-00490")
@@ -691,8 +693,9 @@ class LayoutMissingSignalTest(LayoutRebuildTestCase):
         self.assertEqual(plot.curve_list[0].color_str, "#000000")
         self.assertEqual(result.report.missing_signal_list, ["Gone", "Lost"])
         report_text_str = result.report.text()
-        self.assertEqual(report_text_str.count("  - Gone\n"), 1)
-        self.assertEqual(report_text_str.count("  - Lost\n"), 1)
+        # LLFR-00987: numbered under the heading of the missing signals.
+        self.assertEqual(report_text_str.count("1. Gone\n"), 1)
+        self.assertEqual(report_text_str.count("2. Lost\n"), 1)
         self.assertIn("Data tip at 1 s", report_text_str)
         self.assertIn("not created", report_text_str)
         # LLFR-00237: the plots of the tab not created are reported, but
@@ -1294,7 +1297,9 @@ class LayoutReportTest(unittest.TestCase):
                       for heading_str in heading_list]
         self.assertEqual(index_list, sorted(index_list))
         self.assertEqual(text_str.count("Speed"), 2)
-        self.assertIn("  - Speed\n", text_str)
+        # LLFR-00987, LLFR-00988: each entry is "1." under its heading.
+        self.assertIn(layout_file.MISSING_HEADING_STR + "\n\n1. Speed\n",
+                      text_str)
 
     @covers("LLFR-00237", "LLFR-00230")
     def test_synthetic_signal_hook(self) -> None:

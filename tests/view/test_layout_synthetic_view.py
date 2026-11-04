@@ -258,9 +258,11 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.report_list), 1)
         self.assertIn("Synthetic signals not created:",
                       self.report_list[0])
-        self.assertIn("  - file1_int_Speed: The signal \"Pressure\"",
-                      self.report_list[0])
-        self.assertIn("  - file1_int_Speed\n", self.report_list[0] + "\n")
+        # LLFR-00980, LLFR-00987: numbered items under the headings.
+        self.assertRegex(self.report_list[0],
+                         r"\n\d+\. file1_int_Speed: The signal \"Pressure\"")
+        self.assertRegex(self.report_list[0] + "\n",
+                         r"\n\d+\. file1_int_Speed\n")
 
     @covers("LLFR-00283", "LLFR-00231", "LLFR-00229", "LLFR-00484")
     def test_fft_and_frequency_plots_are_not_saved(self) -> None:
