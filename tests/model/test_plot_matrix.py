@@ -27,6 +27,17 @@ def new_workspace() -> Workspace:
     return Workspace(random.Random(205))
 
 
+def slot_of(tab, plot) -> tuple:
+    """Return the slot of a plot of a tab in its fill order.
+
+    Inputs:
+        tab: the Tab.
+        plot: a Plot of the tab.
+    Outputs: (row_index_i, column_index_i), counted from 0.
+    """
+    return matrix_slot_tuple(tab.plot_list.index(plot), tab.column_count_i)
+
+
 def add_plots(workspace: Workspace, tab, count_i: int) -> list:
     """Add plots, each with one curve, to a tab.
 
@@ -106,10 +117,11 @@ class PlotLimitTest(unittest.TestCase):
         """
         workspace = new_workspace()
         tab = workspace.tab_list[0]
-        self.assertFalse(tab.has_largest_matrix())
+        self.assertNotEqual((tab.row_count_i, tab.column_count_i),
+                            (MAXIMUM_MATRIX_SIZE_I, MAXIMUM_MATRIX_SIZE_I))
         self.assertTrue(workspace.set_plot_matrix(
             tab.tab_id_i, MAXIMUM_MATRIX_SIZE_I, MAXIMUM_MATRIX_SIZE_I))
-        self.assertTrue(tab.has_largest_matrix())
+        self.assertEqual((tab.row_count_i, tab.column_count_i), (10, 10))
         add_plots(workspace, tab, 100)
         self.assertTrue(tab.is_full())
         self.assertIsNone(workspace.add_plot(tab.tab_id_i))
@@ -235,9 +247,8 @@ class FillOrderTest(unittest.TestCase):
         workspace.set_plot_matrix(tab.tab_id_i, 2, 3)
         plot_list = add_plots(workspace, tab, 4)
         self.assertEqual(
-            [tab.plot_slot_tuple(plot.plot_id_i) for plot in plot_list],
+            [slot_of(tab, plot) for plot in plot_list],
             [(0, 0), (0, 1), (0, 2), (1, 0)])
-        self.assertEqual(tab.plot_slot_tuple(999), ())
         self.assertEqual(matrix_slot_tuple(7, 3), (2, 1))
 
     @covers("LLFR-01075", "LLFR-01076", "HLFR-00148")
@@ -265,12 +276,12 @@ class FillOrderTest(unittest.TestCase):
         workspace.set_plot_matrix(tab.tab_id_i, 2, 2)
         plot_list = add_plots(workspace, tab, 3)
         workspace.delete_plot(plot_list[0].plot_id_i)
-        self.assertEqual(tab.plot_slot_tuple(plot_list[1].plot_id_i),
+        self.assertEqual(slot_of(tab, plot_list[1]),
                          (0, 0))
-        self.assertEqual(tab.plot_slot_tuple(plot_list[2].plot_id_i),
+        self.assertEqual(slot_of(tab, plot_list[2]),
                          (0, 1))
         new_plot = workspace.add_plot(tab.tab_id_i)
-        self.assertEqual(tab.plot_slot_tuple(new_plot.plot_id_i), (1, 0))
+        self.assertEqual(slot_of(tab, new_plot), (1, 0))
 
 
 class SwapTest(unittest.TestCase):

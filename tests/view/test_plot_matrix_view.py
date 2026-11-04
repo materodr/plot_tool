@@ -205,6 +205,56 @@ class MatrixLayoutTest(PlotMatrixViewTestCase):
 class MatrixPickerTest(PlotMatrixViewTestCase):
     """The matrix picker of the tab menu (HLFR-00145, HLFR-00146)."""
 
+    def highlighted_set(self, picker) -> set:
+        """Return the highlighted squares of a picker.
+
+        Inputs:
+            picker: the MatrixPicker.
+        Outputs: a set of (row_i, column_i), from 1.
+        """
+        return {(row_i, column_i)
+                for row_i in range(1, picker.row_count_i + 1)
+                for column_i in range(1, picker.column_count_i + 1)
+                if picker.is_square_highlighted(row_i, column_i)}
+
+    @covers("LLFR-01064", "LLFR-01071", "HLFR-00145")
+    def test_current_matrix_mark_stays_visible_over_pale_squares(
+            self) -> None:
+        """With 5 plots in the 5 x 1 matrix, rows 1 to 4 of column 1 are
+        pale and still marked: the mark is a border drawn on top of the
+        pale fill.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QColor
+        from view.matrix_picker import (
+            MARKED_COLOR_STR, PALE_COLOR_STR, SQUARE_BORDER_COLOR_STR)
+        self.add_plots(5)
+        picker = self.panel.build_matrix_picker(self.panel.current_tab_id())
+        image = picker.grab().toImage()
+        for row_i in range(1, 6):
+            with self.subTest(row_i=row_i):
+                self.assertTrue(picker.is_square_marked(row_i, 1))
+                self.assertEqual(picker.square_border_color_str(row_i, 1),
+                                 MARKED_COLOR_STR)
+                rect = picker.square_rect(row_i, 1)
+                ratio_f = max(image.devicePixelRatio(), 1.0)
+                border_color = image.pixelColor(
+                    int((rect.left() + 1) * ratio_f),
+                    int(rect.center().y() * ratio_f))
+                self.assertEqual(border_color.name(),
+                                 QColor(MARKED_COLOR_STR).name())
+        # LLFR-01071: rows 1 to 4 are pale under the mark.
+        for row_i in range(1, 5):
+            self.assertFalse(picker.is_square_enabled(row_i, 1))
+            self.assertEqual(picker.square_fill_color_str(row_i, 1),
+                             PALE_COLOR_STR)
+        self.assertFalse(picker.is_square_marked(1, 2))
+        self.assertEqual(picker.square_border_color_str(1, 6),
+                         SQUARE_BORDER_COLOR_STR)
+        picker.deleteLater()
+
     def open_picker_from_menu(self):
         """Choose "Plot matrix" in the tab menu, with show_picker patched.
 
@@ -294,7 +344,8 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         self.assertEqual((page.row_count_i, page.column_count_i), (5, 1))
         self.assertEqual(len(page.plot_widget_list), 2)
 
-    @covers("LLFR-01071", "LLFR-01072", "HLFR-00146")
+    @covers("LLFR-01071", "LLFR-01072", "LLFR-01063", "LLFR-01096",
+            "HLFR-00146")
     def test_pale_squares_do_nothing(self) -> None:
         """With 5 plots, the squares of fewer than 5 slots are pale and a
         click on one leaves the picker open and the matrix unchanged.
@@ -310,8 +361,18 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         self.assertTrue(picker.is_square_enabled(3, 2))
         picker.show()
         self.process_events()
+        # LLFR-01071: a hovered pale size is not highlighted and its size
+        # is not shown; the text keeps the current matrix.
         self.send_picker_mouse(picker, "MouseMove", 2, 2)
-        self.assertEqual(picker.size_text(), "2 \u00d7 2")
+        self.assertEqual(picker.hover_tuple, (2, 2))
+        self.assertEqual(self.highlighted_set(picker), set())
+        self.assertEqual(picker.size_text(), "5 \u00d7 1")
+        # LLFR-01063: an enabled size still highlights its rectangle.
+        self.send_picker_mouse(picker, "MouseMove", 3, 2)
+        self.assertEqual(self.highlighted_set(picker),
+                         {(row_i, column_i) for row_i in (1, 2, 3)
+                          for column_i in (1, 2)})
+        self.assertEqual(picker.size_text(), "3 \u00d7 2")
         self.send_picker_mouse(picker, "MouseButtonRelease", 2, 2)
         self.assertTrue(picker.isVisible())
         self.assertEqual(picker.chosen_tuple, ())
@@ -518,14 +579,16 @@ class TabDragTest(PlotMatrixViewTestCase):
         tab_bar = self.panel.tab_widget.tabBar()
         self.assertTrue(tab_bar.isMovable())
         self.add_tabs()
-        self.send_tab_bar_mouse("MouseButtonPress", 0, True)
-        self.send_tab_bar_mouse("MouseMove", 0, True)
-        self.assertTrue(self.main_window.is_mouse_drag_in_progress())
-        # Qt moves the tab during the drag.
-        tab_bar.moveTab(0, 2)
-        self.send_tab_bar_mouse("MouseButtonRelease", 2, False)
-        self.process_events()
-        self.assertFalse(self.main_window.is_mouse_drag_in_progress())
+        with mock.patch.object(self.panel, "left_button_down",
+                               return_value=True):
+            self.send_tab_bar_mouse("MouseButtonPress", 0, True)
+            self.send_tab_bar_mouse("MouseMove", 0, True)
+            self.assertTrue(self.main_window.is_mouse_drag_in_progress())
+            # Qt moves the tab during the drag.
+            tab_bar.moveTab(0, 2)
+            self.send_tab_bar_mouse("MouseButtonRelease", 2, False)
+            self.process_events()
+            self.assertFalse(self.main_window.is_mouse_drag_in_progress())
         self.assertEqual(self.tab_names(), ["Tab 2", "Tab 3", "Tab 1"])
         self.assertEqual(self.main_window.tab_name_list(),
                          ["Tab 2", "Tab 3", "Tab 1"])
@@ -615,6 +678,27 @@ class TabDragTest(PlotMatrixViewTestCase):
         page = self.panel.page_dict[first_tab_id_i]
         self.assertEqual(page.plot_widget_list, plot_widget_list)
         self.assertEqual((page.row_count_i, page.column_count_i), (2, 2))
+
+
+class LostReleaseTest(PlotMatrixViewTestCase):
+    """A tab drag whose release was never seen (LLFR-00454)."""
+
+    @covers("LLFR-00454", "LLFR-00207", "HLFR-00144")
+    def test_drag_ends_when_the_left_button_is_up(self) -> None:
+        """A tab drag left on by a lost release ends once the left button
+        is up, so the 0 key resets the zoom again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.panel.tab_drag_in_progress_b = True
+        with mock.patch.object(self.panel, "left_button_down",
+                               return_value=True):
+            self.assertTrue(self.main_window.is_mouse_drag_in_progress())
+        with mock.patch.object(self.panel, "left_button_down",
+                               return_value=False):
+            self.assertFalse(self.main_window.is_mouse_drag_in_progress())
+        self.assertFalse(self.panel.tab_drag_in_progress_b)
 
 
 class MatrixExportTest(PlotMatrixViewTestCase):

@@ -4,7 +4,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from model.workspace import (
-    DEFAULT_MATRIX_COLUMNS_I, DEFAULT_MATRIX_ROWS_I, matrix_row_list)
+    DEFAULT_MATRIX_COLUMNS_I, DEFAULT_MATRIX_ROWS_I, matrix_row_list,
+    matrix_slot_tuple)
 from view import theme
 
 # LLFR-01075, LLFR-01076: every shown row gets the same share of the
@@ -144,8 +145,8 @@ class TabPage(QWidget):
         # LLFR-01073, LLFR-01082: the slot follows the fill order.
         if plot_widget not in self.plot_widget_list:
             return ()
-        return divmod(self.plot_widget_list.index(plot_widget),
-                      max(self.column_count_i, 1))
+        return matrix_slot_tuple(self.plot_widget_list.index(plot_widget),
+                                 self.column_count_i)
 
     def plot_widget_at_slot(self, row_index_i: int, column_index_i: int):
         """Return the plot widget in a slot of the plot matrix.
