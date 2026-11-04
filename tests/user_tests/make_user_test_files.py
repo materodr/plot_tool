@@ -69,13 +69,119 @@ def sample_signals() -> dict:
     return signal_dict
 
 
+def vehicle_signals(time_array) -> dict:
+    """Build the signals of a short vehicle run, for vehicle_run.csv.
+
+    Inputs:
+        time_array: the "Time" samples of sample_signals, in seconds.
+    Outputs: a dict from signal name to a numpy array with one sample per
+        time sample. It holds "Time" and 11 other signals, none of them
+        with the name of a signal of sample_signals (HLFR-00116), so that
+        the file can be opened together with the other good files.
+    """
+    random_generator = np.random.default_rng(RANDOM_SEED_I + 1)
+    # The driver's inputs: two accelerations, each ended by a braking.
+    throttle_array = np.interp(
+        time_array, [0.0, 0.5, 3.0, 4.0, 4.2, 5.5, 6.0, 8.0, 8.2, 10.0],
+        [0.0, 80.0, 90.0, 40.0, 0.0, 0.0, 70.0, 85.0, 0.0, 0.0])
+    brake_array = (((time_array >= 4.3) & (time_array < 5.3))
+                   | ((time_array >= 8.3) & (time_array < 9.3))).astype(float)
+    # The speed follows the inputs, with a drag that grows with the speed.
+    time_step_s = float(time_array[1] - time_array[0])
+    speed_list = [0.0]
+    for sample_index_i in range(1, len(time_array)):
+        speed_m_per_s = speed_list[-1]
+        acceleration_f = (0.1 * throttle_array[sample_index_i]
+                          - 8.0 * brake_array[sample_index_i]
+                          - 0.05 * speed_m_per_s)
+        speed_list.append(max(0.0, speed_m_per_s
+                              + acceleration_f * time_step_s))
+    speed_array = np.array(speed_list)
+    speed_kmh_array = 3.6 * speed_array
+    # The gear, and the engine speed that follows from it.
+    gear_array = np.digitize(speed_kmh_array, [25.0, 50.0, 75.0]) + 1
+    rpm_per_kmh_array = np.array([130.0, 75.0, 50.0, 38.0])[gear_array - 1]
+    engine_speed_array = 800.0 + rpm_per_kmh_array * speed_kmh_array
+    current_array = (2.0 * throttle_array
+                     + random_generator.normal(0.0, 3.0, len(time_array)))
+    signal_dict = {
+        "Time": time_array,
+        "Vehicle_Speed_kmh": speed_kmh_array,
+        "Engine_Speed_rpm": engine_speed_array,
+        "Gear": gear_array.astype(float),
+        "Throttle_pct": throttle_array,
+        "Brake_Active": brake_array,
+        "Longitudinal_Accel_mps2": np.gradient(speed_array, time_array),
+        "Oil_Pressure_bar": 1.5 + 0.0007 * engine_speed_array,
+        "Coolant_Temp_C": 82.0 + 1.2 * time_array / time_array[-1],
+        "Battery_Voltage_V": 13.8 - 0.004 * current_array,
+        "Motor_Current_A": current_array,
+        "Wheel_Vibration_g": (
+            (0.02 + 0.002 * speed_kmh_array)
+            * np.sin(2 * np.pi * 40.0 * time_array)),
+    }
+    return signal_dict
+
+
+def solar_inverter_signals(time_array) -> dict:
+    """Build the signals of a solar inverter, for solar_inverter_run.csv.
+
+    Inputs:
+        time_array: the "Time" samples of sample_signals, in seconds.
+    Outputs: a dict from signal name to a numpy array with one sample per
+        time sample. It holds "Time" and 11 other signals, none of them
+        with the name of a signal of sample_signals or vehicle_signals
+        (HLFR-00116).
+    """
+    random_generator = np.random.default_rng(RANDOM_SEED_I + 2)
+    time_step_s = float(time_array[1] - time_array[0])
+    # A passing cloud around 4.5 s and a short grid fault at 7.5 s.
+    cloud_array = 0.55 * np.exp(-((time_array - 4.5) / 0.9) ** 2)
+    fault_array = ((time_array >= 7.5) & (time_array < 7.8)).astype(float)
+    irradiance_array = (950 * (1 - cloud_array)
+                        + random_generator.normal(0, 4, time_array.size))
+    panel_temperature_array = 45 + 0.0015 * time_step_s * np.cumsum(
+        irradiance_array - 700)
+    dc_power_array = (0.05 * irradiance_array
+                      * (1 - 0.004 * (panel_temperature_array - 25)))
+    efficiency_array = (97 - 2.5 * np.exp(-dc_power_array / 15)
+                        - 40 * fault_array)
+    active_power_array = dc_power_array * efficiency_array / 100
+    frequency_array = (50 + 0.02 * np.sin(2 * np.pi * 0.3 * time_array)
+                       - 0.4 * fault_array)
+    # The voltage and the current are sine waves at the grid frequency.
+    rms_voltage_array = 230 * (1 - 0.35 * fault_array)
+    phase_array = 2 * np.pi * time_step_s * np.cumsum(frequency_array)
+    rms_current_array = 1000 * active_power_array / (3 * rms_voltage_array)
+    signal_dict = {
+        "Time": time_array,
+        "Grid_Voltage_V": (np.sqrt(2) * rms_voltage_array
+                           * np.sin(phase_array)),
+        "Grid_Current_A": (np.sqrt(2) * rms_current_array
+                           * np.sin(phase_array - 0.15)),
+        "Grid_Frequency_Hz": frequency_array,
+        "Active_Power_kW": active_power_array,
+        "Reactive_Power_kvar": 0.15 * active_power_array + 6 * fault_array,
+        "DC_Bus_Voltage_V": (720 - 0.6 * (dc_power_array - 40)
+                             + 45 * fault_array),
+        "Irradiance_Wm2": irradiance_array,
+        "Panel_Temp_C": panel_temperature_array,
+        "Inverter_Efficiency_pct": efficiency_array,
+        "Harmonic_Distortion_pct": (
+            1.8 + 0.08 * (47 - np.minimum(active_power_array, 47))
+            + 6 * fault_array),
+        "Fault_Flag": fault_array,
+    }
+    return signal_dict
+
+
 def write_good_files(folder_str: str, signal_dict: dict) -> None:
     """Write one file per supported format, each of which must open.
 
     Inputs:
         folder_str: the folder to write into; it must exist.
         signal_dict: the signals returned by sample_signals.
-    Outputs: none. Writes eight files into folder_str.
+    Outputs: none. Writes ten files into folder_str.
     """
     signal_df = pd.DataFrame(signal_dict)
     # HLFR-00005, LLFR-00059, LLFR-00061: CSV with "," and "." decimals.
@@ -112,6 +218,12 @@ def write_good_files(folder_str: str, signal_dict: dict) -> None:
     # increase, the other signals are refused.
     signal_df.rename(columns={"Time": "t_s"}).to_csv(
         os.path.join(folder_str, "time_signal_to_choose.csv"), index=False)
+    # HLFR-00116: other signals over the same time, to plot together with
+    # the signals of the other good files.
+    pd.DataFrame(vehicle_signals(signal_dict["Time"])).to_csv(
+        os.path.join(folder_str, "vehicle_run.csv"), index=False)
+    pd.DataFrame(solar_inverter_signals(signal_dict["Time"])).to_csv(
+        os.path.join(folder_str, "solar_inverter_run.csv"), index=False)
 
 
 def nested_mat_variables(signal_dict: dict) -> dict:
