@@ -1,3 +1,4 @@
+
 # Low-Level Functional Requirements
 
 Prefix: `LLFR`. Format rules: see [README.md](README.md).
@@ -207,9 +208,14 @@ The file selection dialog of LLFR-00005 must let the user select several files a
 *Parent: HLFR-00122, HLFR-00004*
 
 ### LLFR-00947 Order of the selected files
-When the user selects several files in the dialog of LLFR-00005, the app must take them one after the other, in character order of their file names without their folders, ignoring the difference between uppercase and lowercase letters, so that the files that open get their numbers (LLFR-00895) in that order.
+When the user selects several files in the dialog of LLFR-00005, the app must take them one after the other, in character order of their file names without their folders, ignoring the difference between uppercase and lowercase letters except as in LLFR-00969, so that the files that open get their numbers (LLFR-00895) in that order.
 
-Note: The order compares characters, not numbers, so `run10.csv` comes before `run2.csv`. Two names that differ only in uppercase and lowercase letters are taken in the order of an exact comparison.
+Note: The order compares characters, not numbers, so `run10.csv` comes before `run2.csv`.
+
+*Parent: HLFR-00122, HLFR-00114*
+
+### LLFR-00969 Selected names that differ only in case
+When two selected file names (LLFR-00947) differ only in uppercase and lowercase letters, the app must take them in the order of an exact comparison of their characters.
 
 *Parent: HLFR-00122, HLFR-00114*
 
@@ -228,7 +234,7 @@ When 10 data files are open while selected files of LLFR-00947 are still left to
 ### LLFR-00950 One File Open Error box for a selection
 After the app has taken all the selected files (LLFR-00947), if any of them could not be opened at the reading step of LLFR-00328 or met an unexpected error (LLFR-00968), the app must show one File Open Error box that lists each such file by its name, without its folder, with the reason of its error (LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064, LLFR-00065, LLFR-00968).
 
-Note: With one file selected, the box lists that one file. The File Open Error box that LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064 and LLFR-00065 name is this one box; the text each one gives is the reason listed for that file.
+Note: With one file selected, the box lists that one file.
 
 *Parent: HLFR-00122, HLFR-00002, HLFR-00004*
 
@@ -343,12 +349,12 @@ If the user cancels the file selection dialog (LLFR-00005), the app must keep th
 *Parent: HLFR-00004*
 
 ### LLFR-00008 Unreadable file
-If the file cannot be read or parsed (for example, it is corrupt or its content does not match its format), the app must show the File Open Error box saying that the file could not be read.
+If the file cannot be read or parsed (for example, it is corrupt or its content does not match its format), the app must list the file in the File Open Error box of LLFR-00950 with the reason that the file could not be read.
 
 *Parent: HLFR-00004, HLFR-00002*
 
 ### LLFR-00009 File access error
-If the file does not exist or the app has no permission to read it, the app must show the File Open Error box saying that the file could not be accessed.
+If the file does not exist or the app has no permission to read it, the app must list the file in the File Open Error box of LLFR-00950 with the reason that the file could not be accessed.
 
 *Parent: HLFR-00004, HLFR-00002*
 
@@ -358,12 +364,12 @@ When opening a selected file fails, is cancelled after the user selected it, or 
 *Parent: HLFR-00004, HLFR-00101*
 
 ### LLFR-00011 Unsupported file format
-If the user selects a file whose format is not listed in HLFR-00005, the app must show the File Open Error box saying that the file format is not supported.
+If the user selects a file whose format is not listed in HLFR-00005, the app must list the file in the File Open Error box of LLFR-00950 with the reason that the file format is not supported.
 
 *Parent: HLFR-00005, HLFR-00002*
 
 ### LLFR-00012 Failed content check message
-If the file fails the check in HLFR-00008 or HLFR-00009, the app must show the File Open Error box saying that the file cannot be opened and which check failed.
+If the file fails the check in HLFR-00008 or HLFR-00009, the app must list the file in the File Open Error box of LLFR-00950 with the reason that the file cannot be opened, naming the check that failed.
 
 *Parent: HLFR-00008, HLFR-00009, HLFR-00002*
 
@@ -437,14 +443,14 @@ In MAT files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to
 *Parent: HLFR-00005, HLFR-00008, HLFR-00009*
 
 ### LLFR-00064 MAT v7.3 files
-If a MAT file was saved in the MATLAB v7.3 format, the app must show the File Open Error box saying that the file could not be read.
+If a MAT file was saved in the MATLAB v7.3 format, the app must list the file in the File Open Error box of LLFR-00950 with the reason that the file could not be read.
 
 Note: Support for v7.3 files needs an extra library and may be added later (COR-00011).
 
 *Parent: HLFR-00005, HLFR-00002*
 
 ### LLFR-00065 Missing or non-numeric values
-If a sample of any signal in a CSV or Excel file is empty or is not a number, the app must show the File Open Error box saying that the file could not be read.
+If a sample of any signal in a CSV or Excel file is empty or is not a number, the app must list the file in the File Open Error box of LLFR-00950 with the reason that the file could not be read.
 
 *Parent: HLFR-00004, HLFR-00002*
 
@@ -1992,7 +1998,7 @@ Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `fil
 *Parent: HLFR-00115, HLFR-00104*
 
 ### LLFR-00954 Prefix kept on a rename
-When the user renames a synthetic signal (LLFR-00266), the app must keep the prefix of its data file (LLFR-00935) in front of the name the user types, so that the user types only the part after the prefix.
+When the user renames a synthetic signal (LLFR-00266), the app must show in the field where the user types the new name only the part of the current name after the prefix of its data file (LLFR-00935), and keep that prefix in front of the name the user types.
 
 Note: For example, typing `my` for a synthetic signal of file 1 gives `file1_my`. The empty-name check of LLFR-00267 and LLFR-00607 applies to the typed part; the name-in-use check of LLFR-00267 and LLFR-00606 applies to the whole name.
 
