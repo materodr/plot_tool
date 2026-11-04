@@ -753,6 +753,9 @@ class ReusedDialogFolderTest(unittest.TestCase):
             "darwin", lambda panel_tuple, platform_str: "skipped")
         dialog = FakeSystemPanelDialog()
         pool.register("open_file", lambda: dialog)
+        # The stand-in is not a Qt object, so sip can't tell whether it
+        # was deleted: it is built once and kept.
+        pool.is_built = lambda key_str: key_str in pool.dialog_dict
         folder_dict, path_dict = self.folder_dict, self.path_dict
         for folder_str, chosen_list in (
                 (folder_dict["start"], [path_dict["a1.csv"]]),
