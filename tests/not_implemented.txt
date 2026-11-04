@@ -5,36 +5,3 @@
 # request into develop may affect them with no test (PCR-00068). A pull
 # request from develop to main must list none (PCR-00069). Remove an HLFR
 # from this list when its implementation is done (PCR-00067).
-#
-# #205 (undockable tab windows, tab reordering, plot matrix, new zoom keys).
-# Step 1 added the requirements. Step 2 (feature/205-matrix) did the
-# plot matrix, the plot swap, the tab drag and the Z and 0 keys. Step 3
-# (feature/205-undock) does the undocked windows and the layout file
-# additions (the plot matrix and the windows).
-HLFR-00123 #205: there are no undocked windows yet, and the tabs have no undock button (step 3).
-HLFR-00124 #205: there is no dock button, because there are no undocked windows yet (step 3).
-HLFR-00125 #205: there are no undocked windows yet, so none holds a tab (step 3).
-HLFR-00126 #205: there are no undocked windows yet (step 3).
-HLFR-00127 #205: only the main window has a signal list panel (step 3).
-HLFR-00128 #205: there is one search box, so nothing shares its text (step 3).
-HLFR-00129 #205: there is no signal list button to hide the panel of an undocked window (step 3).
-HLFR-00130 #205: the main window already keeps its panel (its splitter can't collapse), but LLFR-01019 has no test yet; it comes with the signal list button of the undocked windows (step 3).
-HLFR-00131 #205: a drag of the panel border is not an undoable action yet (step 3).
-HLFR-00132 #205: the one undo history does not cover undocked windows yet, because there are none (step 3).
-HLFR-00133 #205: undocking and docking don't exist yet, so they can't be undone (step 3).
-HLFR-00134 #205: there are no undocked windows yet to give a title (step 3).
-HLFR-00135 #205: there is no undocked window yet to show a tab button (step 3).
-HLFR-00136 #205: there are no undocked windows yet (step 3).
-HLFR-00137 #205: the keyboard shortcuts work only in the main window (step 3).
-HLFR-00138 #205: there are no undocked windows yet to close (step 3).
-HLFR-00139 #205: the layout file does not save undocked tabs or their windows yet (step 3).
-HLFR-00140 #205: loading a layout file opens no undocked windows yet (step 3).
-HLFR-00141 #205: loading a layout file opens no undocked windows yet, so none is moved onto a screen (step 3).
-HLFR-00142 #205: the tab reorder works in the main window, but LLFR-01032 (a drag of the tab button of an undocked window changes nothing) comes with the undocked windows (step 3).
-HLFR-00145 #205: the plot matrix works in the main window, but LLFR-01029 (the tab menu on the tab button of an undocked window) comes with the undocked windows (step 3).
-HLFR-00150 #205: new tabs get 5 x 1, but LLFR-01089 (a layout tab with no plot matrix entry) has no test until the layout file reads plot matrices (step 3).
-HLFR-00151 #205: the layout file does not save the plot matrix of a tab yet, and a loaded tab always gets the default 5 x 1 matrix (step 3, with the other layout file additions).
-HLFR-00040 #205: LLFR-00140 now makes these undoable, but the code doesn't yet: undocking, docking, closing an undocked window, hiding or showing its signal list panel and dragging a panel border (step 3). Moving a tab, changing a plot matrix and moving a plot are undoable since step 2.
-HLFR-00049 #205: LLFR-00225 now saves, for each tab, whether it is undocked, its window, its signal list panel and its plot matrix, but the layout file has no such entries yet (step 3).
-HLFR-00050 #205: LLFR-00488, LLFR-01088 and LLFR-00230 now rebuild each tab with its saved plot matrix and as docked or undocked, but the code gives every loaded tab the default 5 x 1 matrix and docks every tab (step 3).
-HLFR-00052 #205: LLFR-00237 now reports unusable window and plot matrix values (LLFR-01046, LLFR-01090), but the code reads no such values yet (step 3).
