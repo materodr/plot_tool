@@ -1572,7 +1572,7 @@ When the time signals of the open data files are the same (LLFR-00942), the save
 ### LLFR-00945 Plain names in the saved file
 The app must save each signal under its plain name, which is its name with every prefix of LLFR-00905 removed that the app put into it (LLFR-00905, LLFR-00908, LLFR-00958, LLFR-00959), keeping the text that the user typed when renaming a synthetic signal (LLFR-00266) as it was typed.
 
-Note: For example, `file1_Speed` is saved as `Speed`, `file1_int_Speed` as `int_Speed`, `file1_lpf_2Hz_order2_Speed` as `lpf_2Hz_order2_Speed`, `file1_Speed_prod_Torque` and `file1_Speed_prod_file2_Torque` as `Speed_prod_Torque`, and a synthetic signal renamed `file1_my` (LLFR-00959) as `my`.
+Note: For example, `file1_Speed` is saved as `Speed`, `file1_int_Speed` as `int_Speed`, `file1_lpf_2Hz_order2_Speed` as `lpf_2Hz_order2_Speed`, `file1_Speed_prod_file1_Torque` and `file1_Speed_prod_file2_Torque` as `Speed_prod_Torque`, and a synthetic signal renamed `file1_my` (LLFR-00959) as `my`.
 
 *Parent: HLFR-00121, HLFR-00090*
 
@@ -1990,10 +1990,10 @@ Note: For example, the Integral of `file1_Speed` is `file1_int_Speed`, a Low-pas
 
 *Parent: HLFR-00115, HLFR-00054, HLFR-00104*
 
-### LLFR-00958 Second signal of another file in a product name
-When the second signal of a Product with signal (LLFR-00275) belongs to another data file than the right-clicked signal, the app must write the name of the second signal in the product's name (LLFR-00240) with its own prefix (LLFR-00905).
+### LLFR-00958 Prefix of the second signal in a product name
+The app must write the name of the second signal of a Product with signal (LLFR-00275) in the product's name (LLFR-00240) with the prefix of the second signal's own data file (LLFR-00905), also when that file is the data file of the right-clicked signal.
 
-Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
+Note: For example, `file1_Speed_prod_file1_Torque` for two signals of file 1, `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2, and `file1_Speed_prod_file1_int_Torque` when the second signal is the synthetic signal `file1_int_Torque`. A layout file saved before this rule may hold a product named in the older form, such as `file1_Speed_prod_Torque`: the app creates it under that saved name (LLFR-00262).
 
 *Parent: HLFR-00115, HLFR-00104*
 
@@ -2054,7 +2054,7 @@ After the prefix of its data file (LLFR-00908), the app must name a synthetic si
 | Low-pass filter, High-pass filter | `<abbreviation>_<cutoff>Hz_order<order>_<signal>` | `file1_lpf_0p5Hz_order2_Speed` |
 | Moving average | `mavg_<window>samples_<signal>` | `file1_mavg_10samples_Speed` |
 | FFT | `fft_<start>s_to_<end>s_<signal>` | `file1_fft_1p5s_to_3s_Speed` |
-| Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `file1_Speed_prod_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` (LLFR-00958) |
+| Product with signal | `<right-clicked signal>_prod_<second signal with its prefix>` (LLFR-00275, LLFR-00958) | `file1_Speed_prod_file1_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` |
 
 The FFT times are the time range of LLFR-00968 and LLFR-00592, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
 

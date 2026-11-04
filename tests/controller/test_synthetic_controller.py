@@ -859,12 +859,12 @@ class CreateTest(SyntheticControllerTestCase):
         self.create("file1_Speed", "product")
         self.create("file1_Speed", "product")
         self.assertEqual(self.store_names()[-2:],
-                         ["file1_Speed_prod_Torque",
-                          "file1_Speed_prod_Speed"])
+                         ["file1_Speed_prod_file1_Torque",
+                          "file1_Speed_prod_file1_Speed"])
         speed_array = make_signal_file().signal_array("Speed")
         np.testing.assert_allclose(
             self.controller.store.get(
-                "file1_Speed_prod_Torque").value_array,
+                "file1_Speed_prod_file1_Torque").value_array,
             speed_array * make_signal_file().signal_array("Torque"))
 
     @covers("LLFR-00284", "LLFR-00272", "LLFR-00240", "LLFR-00264",
@@ -900,22 +900,22 @@ class CreateTest(SyntheticControllerTestCase):
 
     @covers("LLFR-00240", "LLFR-00241", "LLFR-00275")
     def test_product_names_and_the_name_collision(self) -> None:
-        """Products are <first>_prod_<second>; a collision gets _2.
+        """Products are <first>_prod_<prefixed second>; a collision gets _2.
 
         Inputs: none.
         Outputs: none.
         """
         self.view.second_signal_answer_list = ["file1_Torque", "file1_Torque"]
         self.create("file1_Speed", "product")
-        self.create("file1_Speed_prod_Torque", "integral")
+        self.create("file1_Speed_prod_file1_Torque", "integral")
         self.create("file1_Speed", "integral")
         self.create("file1_int_Speed", "product")
         self.assertEqual(self.store_names(), [
-            "file1_Speed_prod_Torque",
-            "file1_int_Speed_prod_Torque", "file1_int_Speed",
-            "file1_int_Speed_prod_Torque_2"])
+            "file1_Speed_prod_file1_Torque",
+            "file1_int_Speed_prod_file1_Torque", "file1_int_Speed",
+            "file1_int_Speed_prod_file1_Torque_2"])
         self.assertEqual(self.controller.store.get(
-            "file1_int_Speed_prod_Torque_2").source_name_list,
+            "file1_int_Speed_prod_file1_Torque_2").source_name_list,
             ["file1_int_Speed", "file1_Torque"])
 
     @covers("LLFR-00285", "LLFR-00275", "LLFR-00095", "LLFR-00096",

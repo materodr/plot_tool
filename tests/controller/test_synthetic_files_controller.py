@@ -173,9 +173,9 @@ class SyntheticNameTest(SeveralFilesTestCase):
     @covers("LLFR-00958", "LLFR-00940", "HLFR-00104", "LLFR-00276",
             "LLFR-00240")
     def test_product_names_within_and_across_files(self) -> None:
-        """A product of one file has no second prefix; a product across
-        files keeps the prefix of the second signal and belongs to the
-        file of the right-clicked signal.
+        """The second signal of a product keeps its prefix, of the same
+        file or of another, and the product belongs to the file of the
+        right-clicked signal.
 
         Inputs: none.
         Outputs: none.
@@ -185,7 +185,7 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.create("file1_Speed", "product")
         self.create("file1_Speed", "product")
         self.assertEqual(self.store.names(), [
-            "file1_Speed_prod_Torque", "file1_Speed_prod_file2_Torque"])
+            "file1_Speed_prod_file1_Torque", "file1_Speed_prod_file2_Torque"])
         across = self.store.get("file1_Speed_prod_file2_Torque")
         self.assertEqual(across.file_number_i, 1)
         data_files = self.controller.signal_file
@@ -196,7 +196,7 @@ class SyntheticNameTest(SeveralFilesTestCase):
         # LLFR-00945: both are saved as Speed_prod_Torque.
         self.assertEqual(across.saved_name_str, "Speed_prod_Torque")
         self.assertEqual(
-            self.store.get("file1_Speed_prod_Torque").saved_name_str,
+            self.store.get("file1_Speed_prod_file1_Torque").saved_name_str,
             "Speed_prod_Torque")
         # LLFR-00958: a synthetic second signal of another file keeps
         # its own prefix too.
@@ -208,6 +208,53 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.assertEqual(self.store.get(
             "file1_Torque_prod_file2_int_Speed").saved_name_str,
             "Torque_prod_int_Speed")
+
+    @covers("LLFR-00958", "LLFR-00240", "HLFR-00104", "LLFR-00945",
+            "LLFR-00959", "LLFR-00279", "LLFR-00241")
+    def test_product_of_one_file_keeps_the_second_prefix(self) -> None:
+        """A synthetic second signal of the same file keeps its prefix;
+        rename, Copy equation, Save signals and LLFR-00241 use the new
+        name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.create("file1_Torque", "integral")
+        self.view.second_signal_answer_list = ["file1_int_Torque",
+                                               "file1_int_Torque"]
+        self.create("file1_Speed", "product")
+        self.create("file1_Speed", "product")
+        self.assertEqual(self.store.names(), [
+            "file1_int_Torque", "file1_Speed_prod_file1_int_Torque",
+            "file1_Speed_prod_file1_int_Torque_2"])
+        product = self.store.get("file1_Speed_prod_file1_int_Torque")
+        self.assertEqual(product.file_number_i, 1)
+        # LLFR-00945: every prefix the app put into the name is removed.
+        self.assertEqual(product.saved_name_str, "Speed_prod_int_Torque")
+        self.assertEqual(self.store.get(
+            "file1_Speed_prod_file1_int_Torque_2").saved_name_str,
+            "Speed_prod_int_Torque_2")
+        # LLFR-00279: the equation holds the new name.
+        self.view.signal_menu_handler_dict["copy_equation"](
+            "file1_Speed_prod_file1_int_Torque")
+        equation_list = json.loads(self.view.clipboard_text_list[-1])
+        self.assertEqual([entry["name"] for entry in equation_list], [
+            "file1_int_Torque", "file1_Speed_prod_file1_int_Torque"])
+        self.assertEqual(equation_list[1]["signals"],
+                         ["file1_Speed", "file1_int_Torque"])
+        # LLFR-00959: the rename field shows the part after the prefix
+        # of its own file, the second prefix included.
+        self.view.name_answer_list = ["Power"]
+        self.view.signal_menu_handler_dict["rename"](
+            "file1_Speed_prod_file1_int_Torque")
+        self.assertEqual(self.view.name_question_list[-1],
+                         "Speed_prod_file1_int_Torque")
+        self.assertIn("file1_Power", self.store.names())
+        # LLFR-00958: a product of the renamed signal uses its new name.
+        self.view.second_signal_answer_list = ["file1_Power"]
+        self.create("file1_Torque", "product")
+        self.assertEqual(self.store.names()[-1],
+                         "file1_Torque_prod_file1_Power")
 
     @covers("LLFR-00939", "LLFR-00242", "LLFR-00940", "LLFR-00938")
     def test_synthetic_signals_listed_after_their_own_file(self) -> None:
@@ -734,6 +781,49 @@ class LayoutSeveralFilesTest(SeveralFilesTestCase):
         self.assertEqual(self.curve_names(), [[
             "file2_int_Speed", "file1_Speed_prod_file2_Torque",
             "file1_Torque"]])
+
+    @covers("LLFR-00262", "LLFR-00958", "LLFR-00945", "LLFR-00237",
+            "LLFR-00282", "HLFR-00104", "HLFR-00050")
+    def test_older_product_name_still_loads(self) -> None:
+        """A layout file saved before LLFR-00958 kept the second prefix
+        loads its product under the saved name, with no report.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.second_signal_answer_list = ["file1_Torque"]
+        self.create("file1_Speed", "product")
+        self.view.handler_dict["double_click"](
+            "file1_Speed_prod_file1_Torque")
+        layout_dict = read_layout_file(self.save("layout.json"))
+        # The older form: no prefix on a second signal of the same file.
+        layout_dict[LAYOUT_KEY_STR][0]["name"] = "file1_Speed_prod_Torque"
+        layout_dict["tabs"][0]["plots"][0]["curves"][0]["signal"] = (
+            "file1_Speed_prod_Torque")
+        old_path_str = self.write_layout("old.json", layout_dict)
+        self.start_app()
+        self.open_file(make_file(), "a.csv")
+        self.open_file(make_file(offset_f=1.0), "b.csv")
+        self.load(old_path_str)
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual(self.store.names(), ["file1_Speed_prod_Torque"])
+        self.assertEqual(self.curve_names(), [["file1_Speed_prod_Torque"]])
+        old_product = self.store.get("file1_Speed_prod_Torque")
+        data_files = self.controller.signal_file
+        np.testing.assert_allclose(
+            old_product.value_array,
+            data_files.signal_array("file1_Speed")
+            * data_files.signal_array("file1_Torque"))
+        # LLFR-00945: it is saved as Speed_prod_Torque, as before.
+        self.assertEqual(old_product.saved_name_str, "Speed_prod_Torque")
+        # LLFR-00282: loading it again adds nothing.
+        self.load(old_path_str)
+        self.assertEqual(self.store.names(), ["file1_Speed_prod_Torque"])
+        # LLFR-00958: a product created now gets the new name.
+        self.view.second_signal_answer_list = ["file1_Torque"]
+        self.create("file1_Speed", "product")
+        self.assertEqual(self.store.names(), [
+            "file1_Speed_prod_Torque", "file1_Speed_prod_file1_Torque"])
 
     @covers("LLFR-00949", "LLFR-00231", "LLFR-00237", "HLFR-00050",
             "HLFR-00052")
