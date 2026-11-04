@@ -1,17 +1,17 @@
 """The data files open at the same time (HLFR-00113 to HLFR-00117).
 
 Each file opened with the Open file button is a data file (HLFR-00049).
-Up to 10 can be open at once (LLFR-00891). Each one gets a number when
+Up to 10 can be open at once (LLFR-00895). Each one gets a number when
 it is opened: 1 more than the highest number given since the app started
-(LLFR-00896); a closed file's number is never given again (LLFR-00898),
-and a file that is not opened takes no number (LLFR-00899).
+(LLFR-00900); a closed file's number is never given again (LLFR-00902),
+and a file that is not opened takes no number (LLFR-00903).
 
 Every signal of a data file is named, everywhere in the app, with the
-prefix ``file<N>_`` in front of its name in the file (LLFR-00901,
-LLFR-00902), for example ``file1_Speed``. The time signal of each file
+prefix ``file<N>_`` in front of its name in the file (LLFR-00905,
+LLFR-00906), for example ``file1_Speed``. The time signal of each file
 is found by its name in the file, before the prefix is added
-(LLFR-00905), and each signal is drawn against the time signal of its
-own file (LLFR-00908).
+(LLFR-00909), and each signal is drawn against the time signal of its
+own file (LLFR-00912).
 
 ``DataFileSet`` offers the same reading methods as one SignalFile
 (``signal_dict``, ``signal_name_list``, ``signal_array``,
@@ -25,13 +25,13 @@ import re
 
 import numpy as np
 
-# LLFR-00891: the most data files open at the same time.
+# LLFR-00895: the most data files open at the same time.
 MAXIMUM_DATA_FILES_I = 10
-# LLFR-00901: the prefix of every signal name of data file N.
+# LLFR-00905: the prefix of every signal name of data file N.
 FILE_PREFIX_FORMAT_STR = "file{number}_"
-# LLFR-00901, LLFR-00945, LLFR-00966: a name that starts with a prefix.
+# LLFR-00905, LLFR-00949, LLFR-00970: a name that starts with a prefix.
 FILE_PREFIX_PATTERN = re.compile(r"file([0-9]+)_")
-# LLFR-00967: one data file in the description of the PDF pages and of
+# LLFR-00971: one data file in the description of the PDF pages and of
 # the copied image, and the separator between two of them.
 FILE_DESCRIPTION_FORMAT_STR = "file{number} = {name}"
 FILE_DESCRIPTION_SEPARATOR_STR = ", "
@@ -42,10 +42,10 @@ def prefix_number(name_str: str):
 
     Inputs:
         name_str: a signal name.
-    Outputs: N when the name starts with ``file<N>_`` (LLFR-00901), or
+    Outputs: N when the name starts with ``file<N>_`` (LLFR-00905), or
         None when it starts with no prefix.
     """
-    # LLFR-00901, LLFR-00945: `file`, a number and `_` at the start.
+    # LLFR-00905, LLFR-00949: `file`, a number and `_` at the start.
     match = FILE_PREFIX_PATTERN.match(str(name_str))
     if match is None:
         return None
@@ -60,7 +60,7 @@ def without_prefix(name_str: str) -> str:
     Outputs: the name after its ``file<N>_`` prefix, or the name itself
         when it starts with no prefix.
     """
-    # LLFR-00904, LLFR-00941, LLFR-00966: the part after the prefix.
+    # LLFR-00908, LLFR-00945, LLFR-00970: the part after the prefix.
     match = FILE_PREFIX_PATTERN.match(str(name_str))
     if match is None:
         return str(name_str)
@@ -71,10 +71,10 @@ def file_prefix(number_i: int) -> str:
     """Return the prefix of the signal names of a data file.
 
     Inputs:
-        number_i: the number of the data file (LLFR-00896).
+        number_i: the number of the data file (LLFR-00900).
     Outputs: ``file<N>_``, for example "file1_".
     """
-    # LLFR-00901: `file`, the file's number and `_`.
+    # LLFR-00905: `file`, the file's number and `_`.
     return FILE_PREFIX_FORMAT_STR.format(number=int(number_i))
 
 
@@ -86,7 +86,7 @@ def prefixed_name(number_i: int, name_str: str) -> str:
         name_str: the signal's name in the file.
     Outputs: the prefixed name, for example "file1_Speed".
     """
-    # LLFR-00901, LLFR-00902: also while only one file is open.
+    # LLFR-00905, LLFR-00906: also while only one file is open.
     return file_prefix(number_i) + str(name_str)
 
 
@@ -100,7 +100,7 @@ def same_file_b(first_path_str: str, second_path_str: str) -> bool:
         a symbolic link; for a path that does not exist, when both give
         the same absolute path once links are followed.
     """
-    # LLFR-00894 Note: two paths name the same file when they lead to
+    # LLFR-00898 Note: two paths name the same file when they lead to
     # the same file on disk.
     try:
         return os.path.samefile(first_path_str, second_path_str)
@@ -120,7 +120,7 @@ def finite_range_tuple(time_array) -> tuple:
         time_array: the time samples, in seconds.
     Outputs: (lowest_s, highest_s), or () when no sample is finite.
     """
-    # LLFR-00912: from the first to the last time sample of a file.
+    # LLFR-00916: from the first to the last time sample of a file.
     sample_array = np.asarray(time_array, dtype=float)
     sample_array = sample_array[np.isfinite(sample_array)]
     if sample_array.size == 0:
@@ -135,11 +135,11 @@ def selection_order_list(path_list: list) -> list:
         path_list: the paths selected in the file selection dialog.
     Outputs: the paths sorted by their file names without the folders,
         in character order that ignores uppercase and lowercase letters
-        (LLFR-00948); names that differ only in case keep the order of
-        an exact comparison (LLFR-00970).
+        (LLFR-00952); names that differ only in case keep the order of
+        an exact comparison (LLFR-00974).
     """
-    # LLFR-00948: characters, not numbers, so run10 comes before run2.
-    # LLFR-00970: the exact comparison breaks the tie of a case-only
+    # LLFR-00952: characters, not numbers, so run10 comes before run2.
+    # LLFR-00974: the exact comparison breaks the tie of a case-only
     # difference.
     return sorted(
         (str(path_str) for path_str in path_list),
@@ -151,13 +151,13 @@ class DataFile:
     """One open data file with its number (HLFR-00114).
 
     Inputs:
-        number_i: the number given when it was opened (LLFR-00896).
+        number_i: the number given when it was opened (LLFR-00900).
         signal_file: the SignalFile read from the file, with the names
             of the file and its time signal set.
         path_str: the path the file was selected with; None takes the
             path of signal_file.
     Attributes:
-        number_i: the file number, kept while it is open (LLFR-00897).
+        number_i: the file number, kept while it is open (LLFR-00901).
         signal_file: the SignalFile with the names in the file.
         prefix_str: ``file<N>_``.
         path_str: the path of the file.
@@ -172,19 +172,19 @@ class DataFile:
         Inputs: see the class docstring.
         Outputs: none. Raises KeyError when the file has no time signal.
         """
-        # LLFR-00896, LLFR-00897: the number given at the open.
+        # LLFR-00900, LLFR-00901: the number given at the open.
         self.number_i = int(number_i)
         self.signal_file = signal_file
         self.prefix_str = file_prefix(self.number_i)
         if path_str is None:
             path_str = signal_file.path_str
         self.path_str = str(path_str)
-        # LLFR-00901, LLFR-00903: the prefixed names are the names of the
+        # LLFR-00905, LLFR-00907: the prefixed names are the names of the
         # signals everywhere in the app, in the file's order.
         self.signal_dict = {
             self.prefix_str + str(name_str): value_array
             for name_str, value_array in signal_file.signal_dict.items()}
-        # LLFR-00905: the time signal was found by its name in the file
+        # LLFR-00909: the time signal was found by its name in the file
         # (or chosen, LLFR-00326); it keeps the prefix in the app.
         if signal_file.time_signal_name_str is None:
             raise KeyError("no time signal")
@@ -220,7 +220,7 @@ class DataFile:
         Outputs: the names in the file's order, the time signal included
             (LLFR-00054).
         """
-        # LLFR-00054, LLFR-00935: every signal, in the file's order.
+        # LLFR-00054, LLFR-00939: every signal, in the file's order.
         return list(self.signal_dict)
 
     @property
@@ -230,7 +230,7 @@ class DataFile:
         Inputs: none.
         Outputs: the numpy array of its times, in seconds.
         """
-        # HLFR-00006, HLFR-00007, LLFR-00908: the times of this file.
+        # HLFR-00006, HLFR-00007, LLFR-00912: the times of this file.
         return self.signal_dict[self.time_signal_name_str]
 
     def time_range_tuple(self) -> tuple:
@@ -239,7 +239,7 @@ class DataFile:
         Inputs: none.
         Outputs: (first time, last time) in seconds, or ().
         """
-        # LLFR-00912: from the first to the last time sample.
+        # LLFR-00916: from the first to the last time sample.
         return finite_range_tuple(self.time_array)
 
     def plain_name(self, signal_name_str: str) -> str:
@@ -250,7 +250,7 @@ class DataFile:
         Outputs: the name in the file; the name itself when it does not
             start with this file's prefix.
         """
-        # LLFR-00906: the name in the file, before the prefix is added.
+        # LLFR-00910: the name in the file, before the prefix is added.
         if str(signal_name_str).startswith(self.prefix_str):
             return str(signal_name_str)[len(self.prefix_str):]
         return str(signal_name_str)
@@ -262,9 +262,9 @@ class DataFileSet:
     Inputs: none.
     Attributes:
         file_list: the open DataFile objects, in the order of their
-            numbers (LLFR-00934).
+            numbers (LLFR-00938).
         highest_number_i: the highest number given since the app
-            started, 0 before the first file (LLFR-00896, LLFR-00898).
+            started, 0 before the first file (LLFR-00900, LLFR-00902).
     """
 
     def __init__(self) -> None:
@@ -273,7 +273,7 @@ class DataFileSet:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00896: the first data file opened gets the number 1.
+        # LLFR-00900: the first data file opened gets the number 1.
         self.file_list = []
         self.highest_number_i = 0
 
@@ -285,7 +285,7 @@ class DataFileSet:
         Inputs: none.
         Outputs: the count, from 0 to MAXIMUM_DATA_FILES_I.
         """
-        # LLFR-00891: up to 10 files.
+        # LLFR-00895: up to 10 files.
         return len(self.file_list)
 
     @property
@@ -293,9 +293,9 @@ class DataFileSet:
         """Tell whether no other data file can be opened.
 
         Inputs: none.
-        Outputs: True while 10 data files are open (LLFR-00892).
+        Outputs: True while 10 data files are open (LLFR-00896).
         """
-        # LLFR-00891, LLFR-00892, LLFR-00950: the limit of 10 files.
+        # LLFR-00895, LLFR-00896, LLFR-00954: the limit of 10 files.
         return len(self.file_list) >= MAXIMUM_DATA_FILES_I
 
     @property
@@ -305,7 +305,7 @@ class DataFileSet:
         Inputs: none.
         Outputs: 1 more than the highest number given since the start.
         """
-        # LLFR-00896, LLFR-00898, LLFR-00900: never a used-up number.
+        # LLFR-00900, LLFR-00902, LLFR-00904: never a used-up number.
         return self.highest_number_i + 1
 
     def add(self, signal_file, path_str: str = None) -> DataFile:
@@ -319,14 +319,14 @@ class DataFileSet:
         Outputs: the new DataFile. Raises ValueError while 10 data files
             are open, and KeyError when the file has no time signal.
         """
-        # LLFR-00891: never more than 10 files.
+        # LLFR-00895: never more than 10 files.
         if self.is_full_b:
             raise ValueError("10 data files are already open")
-        # LLFR-00896, LLFR-00916: the next number; LLFR-00899: it is
+        # LLFR-00900, LLFR-00920: the next number; LLFR-00903: it is
         # used up only now, when the file is really opened.
         data_file = DataFile(self.next_number_i, signal_file, path_str)
         self.highest_number_i = data_file.number_i
-        # LLFR-00917, LLFR-00934: the files already open are kept, and
+        # LLFR-00921, LLFR-00938: the files already open are kept, and
         # the new one comes last, since its number is the highest.
         self.file_list.append(data_file)
         return data_file
@@ -338,7 +338,7 @@ class DataFileSet:
             number_i: a file number.
         Outputs: the DataFile, or None when no open file has it.
         """
-        # LLFR-00897: the number of an open file does not change.
+        # LLFR-00901: the number of an open file does not change.
         for data_file in self.file_list:
             if data_file.number_i == number_i:
                 return data_file
@@ -350,9 +350,9 @@ class DataFileSet:
         Inputs:
             number_i: the number of an open data file.
         Outputs: the closed DataFile, or None when no open file has the
-            number. The number stays used up (LLFR-00898).
+            number. The number stays used up (LLFR-00902).
         """
-        # LLFR-00922, LLFR-00927: only that file goes; the others keep
+        # LLFR-00926, LLFR-00931: only that file goes; the others keep
         # their numbers.
         data_file = self.find(number_i)
         if data_file is not None:
@@ -364,9 +364,9 @@ class DataFileSet:
 
         Inputs: none.
         Outputs: the closed DataFile objects, in number order. The
-            numbering goes on after the highest number (LLFR-00900).
+            numbering goes on after the highest number (LLFR-00904).
         """
-        # LLFR-00932: every file; LLFR-00900: the numbers stay used up.
+        # LLFR-00936: every file; LLFR-00904: the numbers stay used up.
         closed_file_list = list(self.file_list)
         self.file_list = []
         return closed_file_list
@@ -377,9 +377,9 @@ class DataFileSet:
         Inputs:
             path_str: the path of a selected file.
         Outputs: the number of the open data file that is the same file
-            on disk (LLFR-00894), or None when it is not open.
+            on disk (LLFR-00898), or None when it is not open.
         """
-        # LLFR-00894: the same file on disk, also through a link.
+        # LLFR-00898: the same file on disk, also through a link.
         for data_file in self.file_list:
             if same_file_b(path_str, data_file.path_str):
                 return data_file.number_i
@@ -417,7 +417,7 @@ class DataFileSet:
             "file1 = run_A.csv, file2 = run_B.mat"; "" while no file is
             open.
         """
-        # LLFR-00967, LLFR-00968: every open data file, with its file
+        # LLFR-00971, LLFR-00972: every open data file, with its file
         # name, its extension and no folder.
         return FILE_DESCRIPTION_SEPARATOR_STR.join(
             FILE_DESCRIPTION_FORMAT_STR.format(
@@ -433,7 +433,7 @@ class DataFileSet:
             signal_name_str: a prefixed signal name.
         Outputs: the DataFile, or None for a name of no open file.
         """
-        # LLFR-00908: each signal belongs to one data file.
+        # LLFR-00912: each signal belongs to one data file.
         for data_file in self.file_list:
             if signal_name_str in data_file.signal_dict:
                 return data_file
@@ -445,9 +445,9 @@ class DataFileSet:
 
         Inputs: none.
         Outputs: prefixed name -> samples, file after file in number
-            order, each in the file's order (LLFR-00934, LLFR-00935).
+            order, each in the file's order (LLFR-00938, LLFR-00939).
         """
-        # LLFR-00903: the prefixed names are unique across the files.
+        # LLFR-00907: the prefixed names are unique across the files.
         combined_dict = {}
         for data_file in self.file_list:
             combined_dict.update(data_file.signal_dict)
@@ -460,7 +460,7 @@ class DataFileSet:
         Inputs: none.
         Outputs: the names, file after file in number order.
         """
-        # LLFR-00934, LLFR-00935, LLFR-00054: every signal, Time too.
+        # LLFR-00938, LLFR-00939, LLFR-00054: every signal, Time too.
         return [name_str for data_file in self.file_list
                 for name_str in data_file.signal_dict]
 
@@ -494,9 +494,9 @@ class DataFileSet:
         Inputs:
             signal_name_str: a prefixed signal name.
         Outputs: the time signal of the signal's own data file
-            (LLFR-00908). Raises KeyError for an unknown name.
+            (LLFR-00912). Raises KeyError for an unknown name.
         """
-        # LLFR-00908, LLFR-00910, LLFR-00911: the times of its own file.
+        # LLFR-00912, LLFR-00914, LLFR-00915: the times of its own file.
         data_file = self.file_of_signal(signal_name_str)
         if data_file is None:
             raise KeyError(signal_name_str)
@@ -509,7 +509,7 @@ class DataFileSet:
         Outputs: (earliest first time, latest last time) of all the open
             data files, in seconds, or () while no file is open.
         """
-        # LLFR-00912, LLFR-00909: the times as stored, with the same
+        # LLFR-00916, LLFR-00913: the times as stored, with the same
         # origin for every file.
         range_list = [data_file.time_range_tuple()
                       for data_file in self.file_list]
@@ -528,7 +528,7 @@ class DataFileSet:
             have the same number of samples and exactly the same value
             at every sample; always True with one file or none.
         """
-        # LLFR-00938: the same number of samples and the same values.
+        # LLFR-00942: the same number of samples and the same values.
         if len(self.file_list) < 2:
             return True
         first_array = np.asarray(self.file_list[0].time_array)
@@ -545,7 +545,7 @@ class DataFileSet:
         Inputs: none.
         Outputs: its prefixed name, or None while no file is open.
         """
-        # LLFR-00940: the saved file holds that file's time signal.
+        # LLFR-00944: the saved file holds that file's time signal.
         if not self.file_list:
             return None
         return self.file_list[0].time_signal_name_str
@@ -557,7 +557,7 @@ class DataFileSet:
         Inputs: none.
         Outputs: its numpy array. Raises KeyError while no file is open.
         """
-        # LLFR-00940: the one time signal of a saved file.
+        # LLFR-00944: the one time signal of a saved file.
         if not self.file_list:
             raise KeyError("no time signal")
         return self.file_list[0].time_array

@@ -95,10 +95,10 @@ from model.workspace import (
     delta_value_zero_b, spans_overlap_b)
 
 # LLFR-00228, LLFR-00471: the identification of a layout file; the
-# version is 3, whose signal names carry the file prefix (LLFR-00944).
+# version is 3, whose signal names carry the file prefix (LLFR-00948).
 LAYOUT_FORMAT_STR = "plot_tool layout"
 LAYOUT_VERSION_I = 3
-# LLFR-00959: the first version whose names carry the file prefix, and
+# LLFR-00963: the first version whose names carry the file prefix, and
 # the prefix that the names of an older file are read with.
 PREFIXED_NAMES_VERSION_I = 3
 OLDER_LAYOUT_PREFIX_STR = "file1_"
@@ -704,7 +704,7 @@ def parse_layout_text(text_str: str, path_str: str = "") -> dict:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NEWER_VERSION_REASON_STR.format(
                 version=version_i, supported=LAYOUT_VERSION_I)))
-    # LLFR-00959, LLFR-00472: the names of an older file mean file 1.
+    # LLFR-00963, LLFR-00472: the names of an older file mean file 1.
     if version_i < PREFIXED_NAMES_VERSION_I:
         prefix_older_names(layout_dict)
     return layout_dict
@@ -715,11 +715,11 @@ def prefixed_older_name(name_value):
 
     Inputs:
         name_value: a value saved as a signal name.
-    Outputs: ``file1_`` followed by the name for a text (LLFR-00959);
+    Outputs: ``file1_`` followed by the name for a text (LLFR-00963);
         any other value unchanged, so that the load report names it as
         it would without this reading.
     """
-    # LLFR-00959: `Speed` means `file1_Speed`.
+    # LLFR-00963: `Speed` means `file1_Speed`.
     if isinstance(name_value, str):
         return OLDER_LAYOUT_PREFIX_STR + name_value
     return name_value
@@ -733,7 +733,7 @@ def prefix_older_point(entry) -> None:
             read by json; any value is accepted.
     Outputs: none; the "signal" value of a dict is changed in place.
     """
-    # LLFR-00959: the names of the pinned data tips and delta markers.
+    # LLFR-00963: the names of the pinned data tips and delta markers.
     if isinstance(entry, dict) and SIGNAL_KEY_STR in entry:
         entry[SIGNAL_KEY_STR] = prefixed_older_name(entry[SIGNAL_KEY_STR])
 
@@ -747,11 +747,11 @@ def prefix_older_names(layout_dict: dict) -> None:
     Outputs: none; every signal name of its curves, pinned data tips,
         delta markers and synthetic signal entries (the names of the
         synthetic signals and of the signals they are computed from) is
-        given the prefix ``file1_`` in place (LLFR-00959). The names are
+        given the prefix ``file1_`` in place (LLFR-00963). The names are
         then used as if they had been saved so, so the load report does
-        not list them (LLFR-00960).
+        not list them (LLFR-00964).
     """
-    # LLFR-00959: the curves, data tips and delta markers of each plot.
+    # LLFR-00963: the curves, data tips and delta markers of each plot.
     for tab_entry in list_entry(layout_dict, TABS_KEY_STR):
         for plot_entry_value in list_entry(tab_entry, PLOTS_KEY_STR):
             for curve_entry in list_entry(plot_entry_value, CURVES_KEY_STR):
@@ -764,7 +764,7 @@ def prefix_older_names(layout_dict: dict) -> None:
                 if isinstance(delta_entry, dict):
                     prefix_older_point(delta_entry.get(FIRST_POINT_KEY_STR))
                     prefix_older_point(delta_entry.get(SECOND_POINT_KEY_STR))
-    # LLFR-00959: the synthetic signals and the signals they come from.
+    # LLFR-00963: the synthetic signals and the signals they come from.
     for signal_entry in list_entry(layout_dict, SYNTHETIC_SIGNALS_KEY_STR):
         if not isinstance(signal_entry, dict):
             continue
@@ -832,9 +832,9 @@ class LayoutBuilder:
             file can draw (LLFR-00230, LLFR-00262).
         time_array: the values of the time signal, in seconds, or a
             function that takes a signal name and returns the time
-            signal of that signal's data file (LLFR-00908).
+            signal of that signal's data file (LLFR-00912).
         files_range_tuple: the time range of the open data files
-            (LLFR-00912); None takes the range of time_array.
+            (LLFR-00916); None takes the range of time_array.
     Attributes:
         report: the LayoutReport being filled.
     """
@@ -855,14 +855,14 @@ class LayoutBuilder:
         # LLFR-00282: signal name of the file -> (name drawn, samples),
         # or None for a synthetic signal of the file not created.
         self.synthetic_name_dict = {}
-        # LLFR-00908: each signal has the time signal of its own file.
+        # LLFR-00912: each signal has the time signal of its own file.
         if callable(time_array):
             self.time_function = time_array
             self.time_array = None
         else:
             self.time_array = np.asarray(time_array, dtype=float)
             self.time_function = None
-        # LLFR-00912, LLFR-00233, LLFR-00234: the time range of the open
+        # LLFR-00916, LLFR-00233, LLFR-00234: the time range of the open
         # data files.
         if files_range_tuple is not None:
             self.file_range_tuple = tuple(files_range_tuple)
@@ -880,7 +880,7 @@ class LayoutBuilder:
         Outputs: a numpy float array of times, in seconds; empty when
             the time of the signal is not known.
         """
-        # LLFR-00908, LLFR-00232: the times of the signal's own file.
+        # LLFR-00912, LLFR-00232: the times of the signal's own file.
         if self.time_function is None:
             return self.time_array
         try:
@@ -1821,7 +1821,7 @@ def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
         synthetic_signal_builder: optional function of LayoutBuilder.
             rebuild for the synthetic signals (LLFR-00262).
         files_range_tuple: the time range of the open data files, or
-            None for the range of time_array (LLFR-00912).
+            None for the range of time_array (LLFR-00916).
     Outputs: the LayoutResult.
     """
     # LLFR-00229 to LLFR-00235: see LayoutBuilder.

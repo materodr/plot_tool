@@ -90,7 +90,7 @@ DELETED
 ### HLFR-00117 Opening adds a file
 When the user opens a file while other data files are open, the app must add it to the open data files, with no question, keeping the data files already open.
 
-Note: Opening a file never asks to close the data files already open (LLFR-00918).
+Note: Opening a file never asks to close the data files already open (LLFR-00922).
 
 ### HLFR-00101 Failed open keeps the open files
 If a selected file cannot be opened, the app must keep the data files already open unchanged.

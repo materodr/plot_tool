@@ -477,8 +477,8 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.undo()
         self.assertEqual(len(self.workspace.area_list), 2)
 
-    @covers("LLFR-00310", "LLFR-00309", "LLFR-00926", "LLFR-00706",
-            "LLFR-00711", "LLFR-00932")
+    @covers("LLFR-00310", "LLFR-00309", "LLFR-00930", "LLFR-00706",
+            "LLFR-00711", "LLFR-00936")
     def test_close_all_files_deletes_areas_but_not_their_numbers(
             self) -> None:
         """Closing every file removes every area and clears the history;

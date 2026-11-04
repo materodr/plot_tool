@@ -20,7 +20,7 @@ FIRST_FILE_TEXT_STR = (
     "0,10,1,0,5,6\n0.5,20,2,1,5,6\n1,30,3,0,5,6\n")
 SECOND_NAME_LIST = ["Time", "voltage", "current"]
 SECOND_FILE_TEXT_STR = "Time,voltage,current\n0,1,2\n1,2,3\n"
-# LLFR-00901: the names shown in the app have the prefix of their file.
+# LLFR-00905: the names shown in the app have the prefix of their file.
 FIRST_SHOWN_LIST = ["file1_" + name_str for name_str in FIRST_NAME_LIST]
 SECOND_SHOWN_LIST = ["file2_" + name_str for name_str in SECOND_NAME_LIST]
 
@@ -302,7 +302,7 @@ class SearchEndToEndTest(unittest.TestCase):
                           "file1_mateus_soares_rodrigues 2025"])
         self.assertEqual(len(self.current_plot_widgets()), 1)
 
-    @covers("LLFR-00104", "LLFR-00916", "LLFR-00918", "HLFR-00117")
+    @covers("LLFR-00104", "LLFR-00920", "LLFR-00922", "HLFR-00117")
     def test_open_clears_search(self) -> None:
         """Opening a second file clears the box, with no question.
 

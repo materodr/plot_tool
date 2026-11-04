@@ -46,7 +46,7 @@ class MainController:
         self.file_controller = FileController(main_window)
         main_window.set_open_file_handler(
             self.file_controller.open_file_requested)
-        # LLFR-00916, LLFR-00019, LLFR-00026, LLFR-00042: the plot
+        # LLFR-00920, LLFR-00019, LLFR-00026, LLFR-00042: the plot
         # controller listens to opened files and to the plot panel.
         self.plot_controller = PlotController(main_window,
                                               self.file_controller)
@@ -59,7 +59,7 @@ class MainController:
         # the FileController has shown all names of a new file.
         self.signal_list_controller = SignalListController(
             main_window, self.file_controller)
-        # LLFR-00239, LLFR-00922: the signal list menu and the synthetic
+        # LLFR-00239, LLFR-00926: the signal list menu and the synthetic
         # signals, removed with the data file they come from.
         self.synthetic_controller = SyntheticController(
             main_window, self.file_controller, self.plot_controller,
@@ -76,7 +76,7 @@ class MainController:
         # signals of the signal list, enabled once a data file is open.
         self.save_signals_controller = SaveSignalsController(
             main_window, self.file_controller, self.synthetic_controller)
-        # LLFR-00922 to LLFR-00933: closing data files. The synthetic
+        # LLFR-00926 to LLFR-00937: closing data files. The synthetic
         # controller goes first: it removes the synthetic signals of the
         # closed files and has the plot controller remove their curves;
         # then the signal list and the buttons follow.
@@ -90,7 +90,7 @@ class MainController:
             self.save_signals_controller.on_files_closed)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
-        # LLFR-00967, LLFR-00968: the pages and the image describe the
+        # LLFR-00971, LLFR-00972: the pages and the image describe the
         # open data files.
         self.export_controller = ExportController(
             main_window,
@@ -99,7 +99,7 @@ class MainController:
             self.export_controller.on_export_requested,
             self.export_controller.on_copy_requested)
 
-        # LLFR-00919: the file menu of the file name rows.
+        # LLFR-00923: the file menu of the file name rows.
         main_window.set_file_menu_handlers(
             self.file_controller.close_file_requested,
             self.file_controller.close_all_files_requested)

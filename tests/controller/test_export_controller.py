@@ -371,10 +371,6 @@ class CopyFlowTest(unittest.TestCase):
         self.assertEqual(self.view.call_list[-1], "finish_copy_button")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class FilesDescriptionTest(unittest.TestCase):
     """The PDF and the copied image describe the open data files."""
 
@@ -389,7 +385,7 @@ class FilesDescriptionTest(unittest.TestCase):
         self.controller = ExportController(
             self.view, lambda: self.description_str)
 
-    @covers("LLFR-00967", "LLFR-00129", "HLFR-00038", "HLFR-00113")
+    @covers("LLFR-00971", "LLFR-00129", "HLFR-00038", "HLFR-00113")
     def test_pdf_gets_the_description_of_all_files(self) -> None:
         """The view saves the PDF with the description at that moment.
 
@@ -405,7 +401,7 @@ class FilesDescriptionTest(unittest.TestCase):
         self.assertEqual(self.view.description_list[-1],
                          "file2 = run_B.mat")
 
-    @covers("LLFR-00968", "LLFR-00133", "HLFR-00039", "HLFR-00113")
+    @covers("LLFR-00972", "LLFR-00133", "HLFR-00039", "HLFR-00113")
     def test_copy_gets_the_description_of_all_files(self) -> None:
         """The view copies the image with the same description.
 
@@ -416,7 +412,7 @@ class FilesDescriptionTest(unittest.TestCase):
         self.assertEqual(self.view.description_list,
                          ["file1 = run_A.csv, file2 = run_B.mat"])
 
-    @covers("LLFR-00968", "LLFR-00146", "LLFR-00460")
+    @covers("LLFR-00972", "LLFR-00146", "LLFR-00460")
     def test_nothing_to_copy_needs_no_description(self) -> None:
         """With no plot, nothing is copied, so there is no strip.
 
@@ -429,7 +425,7 @@ class FilesDescriptionTest(unittest.TestCase):
         self.assertNotIn("copy_current_tab_image",
                          self.view.called_names_list())
 
-    @covers("LLFR-00967")
+    @covers("LLFR-00971")
     def test_no_description_function_gives_empty_text(self) -> None:
         """Without a function the description is empty.
 
@@ -440,3 +436,7 @@ class FilesDescriptionTest(unittest.TestCase):
         self.assertEqual(controller.files_description(), "")
         controller.on_export_requested()
         self.assertEqual(self.view.description_list, [""])
+
+
+if __name__ == "__main__":
+    unittest.main()

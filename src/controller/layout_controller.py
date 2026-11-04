@@ -113,7 +113,7 @@ class LayoutController:
             closed_file_list: the closed DataFile objects.
         Outputs: none.
         """
-        # LLFR-00218, LLFR-00932: disabled while no data file is open.
+        # LLFR-00218, LLFR-00936: disabled while no data file is open.
         self.data_file_open_b = len(data_files) > 0
         self.view.set_layout_buttons_enabled(self.data_file_open_b)
 

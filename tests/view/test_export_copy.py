@@ -819,7 +819,7 @@ class ExportCopyTest(unittest.TestCase):
         self.assertFalse(image.isNull())
         page_size = self.main_window.plot_panel.tab_widget \
             .currentWidget().size()
-        # LLFR-00968: the strip of the data files is above the plots.
+        # LLFR-00972: the strip of the data files is above the plots.
         strip_i = plot_export.strip_height_px(
             "file1 = data.csv", float(page_size.width()))
         pixel_ratio_f = image.width() / page_size.width()
@@ -847,7 +847,7 @@ class ExportCopyTest(unittest.TestCase):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
 
-    @covers("LLFR-00967", "LLFR-00129", "HLFR-00038", "HLFR-00113")
+    @covers("LLFR-00971", "LLFR-00129", "HLFR-00038", "HLFR-00113")
     def test_pages_describe_every_open_file(self) -> None:
         """Each page has the description of all files below the name.
 
@@ -886,7 +886,7 @@ class ExportCopyTest(unittest.TestCase):
             self.assertGreater(plots_top_i, description_top_i)
         self.assertEqual(self.box_record_list, [])
 
-    @covers("LLFR-00968", "LLFR-00133", "HLFR-00039", "HLFR-00113")
+    @covers("LLFR-00972", "LLFR-00133", "HLFR-00039", "HLFR-00113")
     def test_copied_image_has_its_own_strip(self) -> None:
         """The strip is added above the plots and covers none of them.
 
@@ -1010,13 +1010,9 @@ class ExportBoxTest(unittest.TestCase):
         copy_box.deleteLater()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 @requires_qt
 class DescriptionDrawingTest(unittest.TestCase):
-    """The drawing of the description, on images (LLFR-00967/00968)."""
+    """The drawing of the description, on images (LLFR-00971/00972)."""
 
     def setUp(self) -> None:
         """Start Qt.
@@ -1026,7 +1022,7 @@ class DescriptionDrawingTest(unittest.TestCase):
         """
         self.application = get_qt_application()
 
-    @covers("LLFR-00968", "LLFR-00133")
+    @covers("LLFR-00972", "LLFR-00133")
     def test_strip_is_added_above_the_image(self) -> None:
         """A red image keeps its pixels below a strip of the background.
 
@@ -1057,7 +1053,7 @@ class DescriptionDrawingTest(unittest.TestCase):
             image, "", white, black), image)
         self.assertEqual(plot_export.strip_height_px("", 200.0), 0)
 
-    @covers("LLFR-00968", "LLFR-00967")
+    @covers("LLFR-00972", "LLFR-00971")
     def test_long_description_wraps_into_a_higher_strip(self) -> None:
         """Ten files in a narrow image take several lines, none cut.
 
@@ -1071,7 +1067,7 @@ class DescriptionDrawingTest(unittest.TestCase):
                            2 * plot_export.strip_height_px("file1 = a.csv",
                                                            300.0))
 
-    @covers("LLFR-00967", "LLFR-00129")
+    @covers("LLFR-00971", "LLFR-00129")
     def test_page_description_height(self) -> None:
         """The description takes room on a page, more when it wraps.
 
@@ -1101,3 +1097,7 @@ class DescriptionDrawingTest(unittest.TestCase):
                             for x_i in range(600) for y_i in range(10, 40)))
         self.assertTrue(all(QColor(image.pixel(x_i, 5)).lightness() > 250
                             for x_i in range(600)))
+
+
+if __name__ == "__main__":
+    unittest.main()

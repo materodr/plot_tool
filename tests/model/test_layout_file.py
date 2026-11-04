@@ -993,7 +993,7 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
             self.assertIn("replaced by \"#ff8000\"", replaced_str)
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
-    @covers("LLFR-00228", "LLFR-00233", "LLFR-00472", "LLFR-00959")
+    @covers("LLFR-00228", "LLFR-00233", "LLFR-00472", "LLFR-00963")
     def test_older_file_without_flags_loads_without_flags(self) -> None:
         """A version 1 file with "vertical_markers" loads, with no flag.
 
@@ -1006,7 +1006,7 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         layout_dict["vertical_markers"] = [{"name": "Marker 1",
                                             "time": 1.0}]
         layout_dict = parse_layout_text(json.dumps(layout_dict))
-        # LLFR-00959: the names of an older file mean file 1.
+        # LLFR-00963: the names of an older file mean file 1.
         signal_dict = {("file1_" + name_str if name_str != "Time"
                         else name_str): value_array
                        for name_str, value_array in self.signal_dict.items()}

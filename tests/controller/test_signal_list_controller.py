@@ -276,7 +276,7 @@ class FakeFileView(FakeSignalListView):
         self.time_signal_name_str = name_str
 
     def show_refused_files_notification(self, message_str: str) -> None:
-        """Record the box of the refused files (LLFR-00952).
+        """Record the box of the refused files (LLFR-00956).
 
         Inputs:
             message_str: the lines of the refused files.
@@ -285,7 +285,7 @@ class FakeFileView(FakeSignalListView):
         self.call_list.append("show_refused_files_notification")
 
     def show_open_files_limit_notification(self, message_str: str) -> None:
-        """Record the box shown with 10 files open (LLFR-00892).
+        """Record the box shown with 10 files open (LLFR-00896).
 
         Inputs:
             message_str: the sentence of the box.
@@ -541,7 +541,7 @@ class FilterTest(SignalListControllerTestCase):
 
 
 class FileOpenedTest(SignalListControllerTestCase):
-    """Check the list after a file is opened (LLFR-00104, LLFR-00917)."""
+    """Check the list after a file is opened (LLFR-00104, LLFR-00921)."""
 
     @covers("LLFR-00054", "LLFR-00096")
     def test_first_open_shows_all_names(self) -> None:
@@ -580,7 +580,7 @@ class FileOpenedTest(SignalListControllerTestCase):
         self.assertEqual(self.view.shown_name_list, [])
         self.assertTrue(self.view.no_match_shown())
 
-    @covers("LLFR-00104", "LLFR-00054", "LLFR-00917")
+    @covers("LLFR-00104", "LLFR-00054", "LLFR-00921")
     def test_open_clears_box_and_keeps_the_names(self) -> None:
         """An open empties the box; the files already open are kept.
 
@@ -635,8 +635,8 @@ class WithFileControllerTest(unittest.TestCase):
         self.view.path_str = path_str
         self.file_controller.open_file_requested()
 
-    @covers("LLFR-00095", "LLFR-00104", "LLFR-00901", "LLFR-00903",
-            "LLFR-00934", "LLFR-00935")
+    @covers("LLFR-00095", "LLFR-00104", "LLFR-00905", "LLFR-00907",
+            "LLFR-00938", "LLFR-00939")
     def test_names_of_every_file_with_their_prefix(self) -> None:
         """The list shows the prefixed names, file after file.
 
@@ -651,7 +651,7 @@ class WithFileControllerTest(unittest.TestCase):
             "file1_" + name_str for name_str in FIRST_NAME_LIST] + [
             "file2_" + name_str for name_str in SECOND_NAME_LIST])
         self.assertEqual(self.view.call_list[-1], "show_signal_groups")
-        # LLFR-00934, LLFR-00935: one group per file, in number order,
+        # LLFR-00938, LLFR-00939: one group per file, in number order,
         # each starting with its file name row.
         self.assertEqual([group[:2] for group in self.view.group_list],
                          [(1, "file1_first.csv"), (2, "file2_second.csv")])
@@ -660,7 +660,7 @@ class WithFileControllerTest(unittest.TestCase):
         self.assertEqual(self.view.time_signal_name_list,
                          ["file1_Time", "file2_Time"])
 
-    @covers("LLFR-00104", "LLFR-00916")
+    @covers("LLFR-00104", "LLFR-00920")
     def test_open_clears_search(self) -> None:
         """Opening another file clears the box.
 
@@ -676,7 +676,7 @@ class WithFileControllerTest(unittest.TestCase):
         self.assertEqual(len(self.view.shown_name_list),
                          len(FIRST_NAME_LIST) + len(SECOND_NAME_LIST))
 
-    @covers("LLFR-00010", "LLFR-00894", "LLFR-00895")
+    @covers("LLFR-00010", "LLFR-00898", "LLFR-00899")
     def test_failed_or_refused_open_keeps_search(self) -> None:
         """A failed or refused open keeps the text and the list.
 
@@ -692,7 +692,7 @@ class WithFileControllerTest(unittest.TestCase):
         self.assertEqual(self.view.search_text_str, "speed")
         self.assertEqual(self.view.shown_name_list, ["file1_Engine_Speed"])
 
-    @covers("LLFR-00922", "LLFR-00933", "LLFR-00292", "HLFR-00118",
+    @covers("LLFR-00926", "LLFR-00937", "LLFR-00292", "HLFR-00118",
             "HLFR-00119")
     def test_closed_files_leave_the_list(self) -> None:
         """Closing a file removes its names; closing all empties it.
@@ -792,7 +792,7 @@ class FileNameLineTest(unittest.TestCase):
         self.assertEqual(self.view.file_name_call_count_i, 0)
 
     @covers("LLFR-00362", "LLFR-00363", "HLFR-00079", "LLFR-00650",
-            "LLFR-00934")
+            "LLFR-00938")
     def test_rows_after_each_open(self) -> None:
         """The row shows file<N>_ and the name with its extension.
 
@@ -832,7 +832,7 @@ class FileNameLineTest(unittest.TestCase):
         self.assertEqual(self.view.file_name_str, "file1_first_run.csv")
         self.assertEqual(self.view.file_name_call_count_i, 1)
 
-    @covers("LLFR-00363", "LLFR-00894", "LLFR-00651")
+    @covers("LLFR-00363", "LLFR-00898", "LLFR-00651")
     def test_unchanged_after_refused_open(self) -> None:
         """A file that is already open adds no row.
 
@@ -858,7 +858,7 @@ class FileNameLineTest(unittest.TestCase):
         self.assertEqual(self.view.file_name_str, "file1_first_run.csv")
         self.assertEqual(self.view.file_name_call_count_i, 1)
         # Choosing a time signal opens the file and shows its row; the
-        # cancelled open used no number (LLFR-00899).
+        # cancelled open used no number (LLFR-00903).
         self.view.time_signal_answer_str = "speed"
         self.open_path(self.no_time_path_str)
         self.assertEqual(self.view.file_name_str,
@@ -903,10 +903,6 @@ class FileNameLineTest(unittest.TestCase):
                                  expected_str)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class SearchPerFileTest(unittest.TestCase):
     """The search is done file by file, below each file name row."""
 
@@ -930,7 +926,7 @@ class SearchPerFileTest(unittest.TestCase):
             self.view.path_str = path_str
             self.file_controller.open_file_requested()
 
-    @covers("LLFR-00362", "LLFR-00934", "LLFR-00935", "LLFR-00650",
+    @covers("LLFR-00362", "LLFR-00938", "LLFR-00939", "LLFR-00650",
             "HLFR-00079", "HLFR-00114", "HLFR-00117")
     def test_one_group_per_file_in_number_order(self) -> None:
         """Each file has its number, its row and its signals.
@@ -974,7 +970,7 @@ class SearchPerFileTest(unittest.TestCase):
         self.view.type_text("   ")
         self.assertEqual(self.view.no_match_row_list, [])
 
-    @covers("LLFR-00104", "LLFR-00916", "HLFR-00117")
+    @covers("LLFR-00104", "LLFR-00920", "HLFR-00117")
     def test_search_cleared_on_every_open(self) -> None:
         """Opening a file empties the box and shows every file again.
 
@@ -990,7 +986,7 @@ class SearchPerFileTest(unittest.TestCase):
             "file1_a.csv", "file2_b.csv", "file3_c.csv", "file4_d.csv"])
         self.assertEqual(self.view.no_match_row_list, [])
 
-    @covers("LLFR-00242", "LLFR-00935", "LLFR-00936")
+    @covers("LLFR-00242", "LLFR-00939", "LLFR-00940")
     def test_synthetic_signals_in_the_group_of_their_file(self) -> None:
         """A synthetic signal is listed at the end of its own file.
 
@@ -1008,7 +1004,7 @@ class SearchPerFileTest(unittest.TestCase):
         self.assertEqual(self.view.shown_name_list,
                          ["file1_int_Speed", "file2_int_voltage"])
 
-    @covers("LLFR-00922", "LLFR-00933", "LLFR-00363")
+    @covers("LLFR-00926", "LLFR-00937", "LLFR-00363")
     def test_closed_file_leaves_its_group(self) -> None:
         """Close file removes the group; Close all files removes all.
 
@@ -1023,3 +1019,7 @@ class SearchPerFileTest(unittest.TestCase):
                          ["file1_a.csv", "file3_c.csv"])
         self.file_controller.close_all_files()
         self.assertEqual(self.view.group_list, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

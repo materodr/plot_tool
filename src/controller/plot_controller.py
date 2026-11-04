@@ -56,26 +56,26 @@ Redo (HLFR-00048): an undo keeps the state it leaves on a redo stack,
 and redo returns to it through the same rebuild as undo (LLFR-00192).
 A new undoable action empties the redo stack (LLFR-00193). Opening a
 data file keeps both (LLFR-00142); closing data files empties both
-(LLFR-00926).
+(LLFR-00930).
 
 Shared time axis (LLFR-00070, LLFR-00180): all time plots in all tabs
 show one x-axis range, kept here in ``shared_time_range_tuple``. A
 range change in any time plot is applied to every other time plot of
 every tab, hidden tabs included, so that switching tabs and the PDF
 export (LLFR-00129) show it too. The empty tuple stands for the whole
-time range of the open data files (LLFR-00912): it is used at start,
+time range of the open data files (LLFR-00916): it is used at start,
 after a zoom reset (LLFR-00115) and when the last time plot of the
 workspace disappears, so that the next time plot starts at the whole
 range (LLFR-00688). Opening a data file keeps the range the time plots
-show (LLFR-00913); closing data files limits it to the files left
-(LLFR-00914, LLFR-00915).
+show (LLFR-00917); closing data files limits it to the files left
+(LLFR-00918, LLFR-00919).
 
 Several data files (HLFR-00113, HLFR-00116): ``signal_file`` is the
 model.data_files.DataFileSet of the open data files (or one SignalFile
 in some tests), which gives each signal the time signal of its own file
-(LLFR-00908); a synthetic signal is drawn against the time signal of the
+(LLFR-00912); a synthetic signal is drawn against the time signal of the
 file of the signal it was computed from. Every time plot shares one
-x-axis, with the same time origin for every file (LLFR-00909).
+x-axis, with the same time origin for every file (LLFR-00913).
 
 Frequency plots (HLFR-00058): a double-click on an FFT signal creates a
 frequency plot (``Plot.kind_str`` is FREQUENCY_PLOT_KIND_STR), which
@@ -181,7 +181,7 @@ class PlotController:
         grid_shown_b: True while the grid is shown on the plots.
         shared_time_range_tuple: the (start_s, end_s) range shown by
             every time plot, or () for the whole time range of the open
-            data files (LLFR-00912).
+            data files (LLFR-00916).
         undo_history: the UndoHistory of the saved workspace states.
         pending_delta_tuple: the first point of a delta marker being
             placed, as (plot_id_i, (signal_name_str, time_s, value_f)),
@@ -217,7 +217,7 @@ class PlotController:
         # LLFR-00242: the synthetic signals that can be plotted like the
         # data file signals; set by the SyntheticController.
         self.synthetic_store = None
-        # LLFR-00916, LLFR-00917: every opened file is added, and the
+        # LLFR-00920, LLFR-00921: every opened file is added, and the
         # tabs and plots are kept.
         file_controller.add_file_opened_listener(self.on_file_opened)
         # LLFR-00019: signal list requests.
@@ -439,7 +439,7 @@ class PlotController:
             signals of the open data files or a synthetic signal (FFT
             signals included).
         """
-        # LLFR-00020, LLFR-00021, LLFR-00055, LLFR-00907: the signals of
+        # LLFR-00020, LLFR-00021, LLFR-00055, LLFR-00911: the signals of
         # every open data file, Time included, can be drawn.
         if self.signal_file is None:
             return False
@@ -476,7 +476,7 @@ class PlotController:
         # LLFR-00256: an FFT signal is drawn against its frequencies.
         if self.is_fft_signal(signal_name_str):
             return self.synthetic_store.get(signal_name_str).frequency_array
-        # LLFR-00068, LLFR-00908: every other signal against the time
+        # LLFR-00068, LLFR-00912: every other signal against the time
         # signal of its own file.
         return self.time_array_for_signal(signal_name_str)
 
@@ -491,7 +491,7 @@ class PlotController:
             from (the right-clicked signal of a product).
         Raises: KeyError for an unknown name.
         """
-        # LLFR-00908, LLFR-00937: each signal uses the time of its file;
+        # LLFR-00912, LLFR-00941: each signal uses the time of its file;
         # a synthetic signal follows its first source, back to a signal
         # of a data file. The guard stops a loop of names.
         checked_name_set = set()
@@ -824,7 +824,7 @@ class PlotController:
             added_file: the DataFile just added; not used.
         Outputs: none.
         """
-        # LLFR-00913: with time plots shown, the x-axis range they show
+        # LLFR-00917: with time plots shown, the x-axis range they show
         # is kept; a whole range ("()") is fixed to what they show now,
         # so that it does not grow with the new file.
         time_plot_list = self.time_plot_list()
@@ -833,14 +833,14 @@ class PlotController:
                 time_plot_list[0].plot_id_i))
             if len(shown_range_tuple) == 2:
                 self.shared_time_range_tuple = shown_range_tuple
-        # LLFR-00916: the signals of every open file can be plotted.
+        # LLFR-00920: the signals of every open file can be plotted.
         self.signal_file = signal_file
-        # LLFR-00917: the tabs, plots, curves, pinned data tips, flags,
+        # LLFR-00921: the tabs, plots, curves, pinned data tips, flags,
         # delta markers, areas, text notes and arrows are kept, and so is
         # a first point of a delta marker. LLFR-00142: the undo and redo
         # history is kept too. LLFR-00654, LLFR-00085, LLFR-00309,
         # LLFR-00428, LLFR-00438: no numbering restarts.
-        # LLFR-00119, LLFR-00912: zooms and pans may now reach the times
+        # LLFR-00119, LLFR-00916: zooms and pans may now reach the times
         # of every open file.
         self.show_files_time_range()
 
@@ -1117,7 +1117,7 @@ class PlotController:
             sample to the latest last time sample of all the open data
             files, or () when no file is open or none has a finite time.
         """
-        # LLFR-00912, LLFR-00115: the range of the time signals of every
+        # LLFR-00916, LLFR-00115: the range of the time signals of every
         # open data file (HLFR-00006).
         if self.signal_file is None:
             return ()
@@ -1130,7 +1130,7 @@ class PlotController:
         Outputs: none. The view limits the zooms and pans of the time
             plots to it (LLFR-00119, LLFR-00676).
         """
-        # LLFR-00119, LLFR-00676, LLFR-00912: the limits of the time
+        # LLFR-00119, LLFR-00676, LLFR-00916: the limits of the time
         # plots come from every open data file, not only from the curves
         # of one plot.
         self.view.set_files_time_range(self.file_time_range_tuple())
@@ -2662,7 +2662,7 @@ class PlotController:
 
         Inputs:
             signal_name_list: the signals of the closed files and the
-                synthetic signals computed from them (LLFR-00922).
+                synthetic signals computed from them (LLFR-00926).
         Outputs: none. The plots left with no curve are deleted, the
             tabs emptied by the close are closed, the flags and areas
             outside the files left are deleted, the x-axis range is
@@ -2670,27 +2670,27 @@ class PlotController:
             cleared.
         """
         files_range_tuple = self.file_time_range_tuple()
-        # LLFR-00923, LLFR-00924, LLFR-00928, LLFR-00956, LLFR-00957,
-        # LLFR-00958, LLFR-00929, LLFR-00946: the model removes the
+        # LLFR-00927, LLFR-00928, LLFR-00932, LLFR-00960, LLFR-00961,
+        # LLFR-00962, LLFR-00933, LLFR-00950: the model removes the
         # curves, plots, tabs, flags and areas, and chooses the tab.
         _, _, shown_tab_id_i = self.workspace.close_signals(
             set(signal_name_list), files_range_tuple,
             self.view.current_tab_id())
-        # LLFR-00925: a first point on a removed curve is discarded.
+        # LLFR-00929: a first point on a removed curve is discarded.
         self.discard_pending_delta_if_gone()
-        # LLFR-00926: the undo and redo history is cleared; closing a
+        # LLFR-00930: the undo and redo history is cleared; closing a
         # data file is not undoable (LLFR-00140).
         self.undo_history.clear()
         self.update_undo_enabled()
-        # LLFR-00914, LLFR-00915: the shared range is limited to the
+        # LLFR-00918, LLFR-00919: the shared range is limited to the
         # files left, or is their whole range when it is outside them.
         self.shared_time_range_tuple = self.limited_shared_range_tuple(
             files_range_tuple)
         self.forget_range_without_plots()
-        # LLFR-00119, LLFR-00912: zooms and pans stay within the files
+        # LLFR-00119, LLFR-00916: zooms and pans stay within the files
         # left.
         self.show_files_time_range()
-        # LLFR-00050, LLFR-00958: every tab and plot left is shown again,
+        # LLFR-00050, LLFR-00962: every tab and plot left is shown again,
         # with the chosen tab.
         self.rebuild_all_views(shown_tab_id_i)
 
@@ -2702,14 +2702,14 @@ class PlotController:
                 () when no file is open.
         Outputs: the shared range cut to the files' range; () for their
             whole range, also when the shared range does not overlap
-            them (LLFR-00915) or no file is left.
+            them (LLFR-00919) or no file is left.
         """
-        # LLFR-00914: limited to the time range of the files left.
+        # LLFR-00918: limited to the time range of the files left.
         if not self.shared_time_range_tuple or not files_range_tuple:
             return ()
         start_s, end_s = self.shared_time_range_tuple
         files_start_s, files_end_s = files_range_tuple
-        # LLFR-00915: no overlap, the whole time range of those files.
+        # LLFR-00919: no overlap, the whole time range of those files.
         if end_s <= files_start_s or start_s >= files_end_s:
             return ()
         start_s = max(start_s, files_start_s)
@@ -2781,7 +2781,7 @@ class PlotController:
         snapshot = self.take_snapshot()
         try:
             # LLFR-00229 to LLFR-00235: rebuild the file's layout.
-            # LLFR-00945, LLFR-00912: the signals of every open data
+            # LLFR-00949, LLFR-00916: the signals of every open data
             # file, each with the time signal of its own file.
             result = rebuild_layout(
                 self.workspace, layout_dict, self.signal_file.signal_dict,

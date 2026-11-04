@@ -672,7 +672,7 @@ class PlotControllerTestCase(unittest.TestCase):
 
         Inputs: none.
         Outputs: none. The controller then has no open data file, as
-            after LLFR-00932.
+            after LLFR-00936.
         """
         closed_name_list = list(self.controller.signal_file.signal_name_list)
         self.controller.signal_file = DataFileSet()
@@ -732,7 +732,7 @@ class StartAndFileTest(PlotControllerTestCase):
         self.assertEqual(view.current_tab_id_i, next(iter(view.tab_dict)))
         self.assertFalse(view.delete_enabled_b)
 
-    @covers("LLFR-00917", "LLFR-00916", "HLFR-00117")
+    @covers("LLFR-00921", "LLFR-00920", "HLFR-00117")
     def test_new_file_keeps_tabs_and_plots(self) -> None:
         """An added file keeps every tab and plot.
 
@@ -753,7 +753,7 @@ class StartAndFileTest(PlotControllerTestCase):
         self.assertEqual(self.workspace.state_tuple(), state_tuple)
         self.assertIs(self.controller.signal_file, new_file)
 
-    @covers("LLFR-00917", "LLFR-00021")
+    @covers("LLFR-00921", "LLFR-00021")
     def test_plots_still_answer_after_a_file_is_opened(self) -> None:
         """A plot shown before a file is added still takes drops.
 
@@ -988,7 +988,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(
             self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00913", "LLFR-00917")
+    @covers("LLFR-00180", "LLFR-00917", "LLFR-00921")
     def test_opening_a_file_keeps_the_shared_range(self) -> None:
         """An added file keeps the x-axis range of the time plots.
 

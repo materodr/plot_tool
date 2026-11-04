@@ -161,8 +161,8 @@ def run_file_dialog_paths(dialog) -> list:
     Outputs: the selected paths, in the order the dialog gives them, or
         [] when the user cancelled (LLFR-00007).
     """
-    # LLFR-00947: the Open file dialog may return several files; the
-    # file controller takes them in the order of LLFR-00948.
+    # LLFR-00951: the Open file dialog may return several files; the
+    # file controller takes them in the order of LLFR-00952.
     if dialog.exec() != QDialog.DialogCode.Accepted.value:
         return []
     return [str(path_str) for path_str in dialog.selectedFiles()

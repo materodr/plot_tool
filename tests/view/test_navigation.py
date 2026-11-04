@@ -1230,7 +1230,7 @@ class NavigationEndToEndTest(unittest.TestCase):
             self.assertTrue(plot_widget.grid_shown())
             self.assertEqual(plot_widget.plot_tool_str, MARKER_TOOL_STR)
 
-    @covers("LLFR-00147", "LLFR-00125", "LLFR-00678", "LLFR-00917")
+    @covers("LLFR-00147", "LLFR-00125", "LLFR-00678", "LLFR-00921")
     def test_grid_choice_is_kept_on_file_open(self) -> None:
         """An added file keeps the grid hidden after the user hid it;
         a new app start shows it again.

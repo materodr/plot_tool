@@ -362,21 +362,24 @@ class SyntheticDialogTest(unittest.TestCase):
         self.assertEqual(dialog.chosen_name(), "file1_Torque")
         dialog.deleteLater()
 
-    def build_search_dialog(self):
+    def build_search_dialog(self, name_list: list = None):
         """Build a second signal dialog that searches with the model.
 
-        Inputs: none.
+        Inputs:
+            name_list: the dialog's signals; a default list when None.
         Outputs: the SecondSignalDialog, not shown, and its names.
         """
-        from model.signal_search import NO_MATCH_TEXT_STR, search_signals
+        from model.signal_search import (NO_MATCH_TEXT_STR,
+                                         search_prefixed_signals)
         from view.synthetic_dialogs import build_second_signal_dialog
-        name_list = ["file1_Time", "file1_Speed", "file1_Torque",
-                     "file1_int_Speed",
-                     "file1_Engine_Speed"]
+        if name_list is None:
+            name_list = ["file1_Time", "file1_Speed", "file1_Torque",
+                         "file1_int_Speed",
+                         "file1_Engine_Speed"]
         dialog = build_second_signal_dialog(
             None, "Product with signal", "Multiply 'file1_Speed' by:",
             name_list, "file1_Speed",
-            lambda text_str: search_signals(name_list, text_str),
+            lambda text_str: search_prefixed_signals(name_list, text_str),
             NO_MATCH_TEXT_STR)
         return dialog, name_list
 
@@ -418,7 +421,7 @@ class SyntheticDialogTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from model.signal_search import search_signals
+        from model.signal_search import search_prefixed_signals
         dialog, name_list = self.build_search_dialog()
         self.assertEqual(dialog.name_list(), name_list)
         self.assertEqual(dialog.no_match_text(), "")
@@ -430,7 +433,7 @@ class SyntheticDialogTest(unittest.TestCase):
         for text_str in ("ENGINESPEED", "sped", "int sp", "e", "Tork"):
             dialog.set_search_text(text_str)
             self.assertEqual(dialog.name_list(),
-                             search_signals(name_list, text_str))
+                             search_prefixed_signals(name_list, text_str))
         dialog.set_search_text("zzz")
         self.assertEqual(dialog.name_list(), [])
         self.assertEqual(dialog.no_match_text(), "No matching signals")
@@ -438,6 +441,14 @@ class SyntheticDialogTest(unittest.TestCase):
         dialog.set_search_text("   ")
         self.assertEqual(dialog.name_list(), name_list)
         self.assertEqual(dialog.no_match_text(), "")
+        dialog.deleteLater()
+        # LLFR-00102: the prefix is left out of the "starts with" group,
+        # so "file1_Speed" comes before "file1_MaxSpeed".
+        dialog, _ = self.build_search_dialog(
+            ["file1_Time", "file1_MaxSpeed", "file1_Speed"])
+        dialog.set_search_text("speed")
+        self.assertEqual(dialog.name_list(),
+                         ["file1_Speed", "file1_MaxSpeed"])
         dialog.deleteLater()
 
     @covers("LLFR-00285", "LLFR-00275", "LLFR-00617")
@@ -709,7 +720,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.assertFalse(self.main_window.is_undo_enabled())
 
     @covers("LLFR-00266", "LLFR-00267", "LLFR-00277", "LLFR-00279",
-            "LLFR-00603", "LLFR-00623", "LLFR-00955", "LLFR-00972")
+            "LLFR-00603", "LLFR-00623", "LLFR-00959", "LLFR-00976")
     def test_rename_and_clipboard(self) -> None:
         """Rename updates the legend; names and equations are copied.
 
@@ -724,7 +735,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
                                return_value=(" Distance ", True)
                                ) as get_text:
             self.choose("file1_int_Speed", "Rename")
-        # LLFR-00955: the field starts with the part after the prefix,
+        # LLFR-00959: the field starts with the part after the prefix,
         # and the prefix stays in front of the typed name.
         self.assertEqual(get_text.call_args[0][4], "int_Speed")
         self.assertEqual(self.panel.signal_name_list()[-1], "file1_Distance")
@@ -744,7 +755,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
             {"name": "file1_Distance", "operation": "integral",
              "signals": ["file1_Speed"], "parameter": None}])
 
-    @covers("LLFR-00275", "LLFR-00272", "LLFR-00922", "LLFR-00933")
+    @covers("LLFR-00275", "LLFR-00272", "LLFR-00926", "LLFR-00937")
     def test_product_constant_and_file_close(self) -> None:
         """Product and constant dialogs work; closing the file removes
         the synthetic signals.

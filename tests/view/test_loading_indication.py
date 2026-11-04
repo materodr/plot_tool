@@ -283,7 +283,7 @@ class LoadingEndToEndTest(unittest.TestCase):
         self.assertEqual(self.panel.signal_name_list(), ["file1_Time",
                                                          "file1_speed"])
 
-    @covers("LLFR-00418", "LLFR-00328", "LLFR-00010", "LLFR-00918",
+    @covers("LLFR-00418", "LLFR-00328", "LLFR-00010", "LLFR-00922",
             "LLFR-00008", "LLFR-00363", "HLFR-00101", "LLFR-00510",
             "LLFR-00561", "LLFR-00562", "LLFR-00651", "LLFR-00560",
             "LLFR-00563")
@@ -319,8 +319,8 @@ class LoadingEndToEndTest(unittest.TestCase):
         self.assertEqual(self.controller.file_controller.current_file
                          .path_str, self.good_path_str)
 
-    @covers("LLFR-00418", "LLFR-00894", "LLFR-00328", "LLFR-00563",
-            "LLFR-00952")
+    @covers("LLFR-00418", "LLFR-00898", "LLFR-00328", "LLFR-00563",
+            "LLFR-00956")
     def test_file_already_open_is_not_read(self) -> None:
         """The same file again: no read, no indication, one box.
 

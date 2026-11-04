@@ -729,7 +729,7 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         plot_widget = self.plot_widgets()[0]
         self.assertEqual(self.model_names(plot_widget), ["file1_force"])
 
-    @covers("LLFR-00292", "LLFR-00922", "HLFR-00063", "LLFR-00627")
+    @covers("LLFR-00292", "LLFR-00926", "HLFR-00063", "LLFR-00627")
     def test_closing_the_file_clears_the_selection(self) -> None:
         """After a close no signal of the closed file stays selected.
 

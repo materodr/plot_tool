@@ -147,7 +147,7 @@ class FakeView:
             no_match_text_str: the text shown when nothing matches.
             check_function: name -> reason ("" when accepted).
             file_name_str: the name of the file the window is for
-                (LLFR-00953).
+                (LLFR-00957).
         Outputs: the first scripted name that check_function accepts,
             or None (cancel) when none is.
         """
@@ -339,8 +339,8 @@ class OpenFileTest(FileControllerTestCase):
     """Opening data files (HLFR-00004, HLFR-00113, HLFR-00117)."""
 
     @covers("LLFR-00005", "LLFR-00006", "LLFR-00003", "LLFR-00328",
-            "LLFR-00418", "LLFR-00896", "LLFR-00901", "LLFR-00902",
-            "LLFR-00916", "HLFR-00114", "HLFR-00115")
+            "LLFR-00418", "LLFR-00900", "LLFR-00905", "LLFR-00906",
+            "LLFR-00920", "HLFR-00114", "HLFR-00115")
     def test_first_file_is_opened_as_file_1(self) -> None:
         """The first valid file opens as file 1, with prefixed names.
 
@@ -363,8 +363,8 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(self.listener_call_list, [
             (1, self.first_file, ["file1_Time", "file1_a", "file1_b"])])
 
-    @covers("LLFR-00918", "LLFR-00916", "LLFR-00917", "LLFR-00896",
-            "LLFR-00897", "LLFR-00891", "HLFR-00117", "HLFR-00113")
+    @covers("LLFR-00922", "LLFR-00920", "LLFR-00921", "LLFR-00900",
+            "LLFR-00901", "LLFR-00895", "HLFR-00117", "HLFR-00113")
     def test_second_file_is_added_with_no_question(self) -> None:
         """A second file is read at once and added as file 2.
 
@@ -403,8 +403,8 @@ class OpenFileTest(FileControllerTestCase):
             "ask_open_file_path", "finish_open_file_button"] * 2)
 
     @covers("LLFR-00008", "LLFR-00009", "LLFR-00011", "LLFR-00012",
-            "LLFR-00010", "LLFR-00510", "LLFR-00511", "LLFR-00951",
-            "LLFR-00899", "LLFR-00651", "HLFR-00101", "LLFR-00418")
+            "LLFR-00010", "LLFR-00510", "LLFR-00511", "LLFR-00955",
+            "LLFR-00903", "LLFR-00651", "HLFR-00101", "LLFR-00418")
     def test_each_error_shows_its_message_and_keeps_the_files(
             self) -> None:
         """Every FileOpenError shows its reason; nothing else changes.
@@ -427,7 +427,7 @@ class OpenFileTest(FileControllerTestCase):
                     "show_file_open_error", "finish_open_file_button"])
                 self.assert_first_file_kept(controller, view)
 
-    @covers("LLFR-00969", "LLFR-00008", "LLFR-00010", "LLFR-00003")
+    @covers("LLFR-00973", "LLFR-00008", "LLFR-00010", "LLFR-00003")
     def test_unexpected_error_is_reported_not_raised(self) -> None:
         """An unexpected loader exception is a reading error of the file.
 
@@ -442,12 +442,12 @@ class OpenFileTest(FileControllerTestCase):
         message_str = view.error_message_list[0]
         self.assertIn("could not be read", message_str)
         self.assertIn("strange failure", message_str)
-        # LLFR-00951: the file by its name, without its folder.
+        # LLFR-00955: the file by its name, without its folder.
         self.assertIn("second.csv", message_str)
         self.assertNotIn("/data/", message_str)
         self.assert_first_file_kept(controller, view)
 
-    @covers("LLFR-00969", "LLFR-00949", "LLFR-00951")
+    @covers("LLFR-00973", "LLFR-00953", "LLFR-00955")
     def test_unexpected_error_after_the_read_goes_on(self) -> None:
         """An error in the time signal window is listed; the next file
         of the selection is still opened.
@@ -478,7 +478,7 @@ class OpenFileTest(FileControllerTestCase):
         self.assertIn("window failure", view.error_message_list[0])
         self.assertIn("second.csv", view.error_message_list[0])
 
-    @covers("LLFR-00894", "LLFR-00895", "LLFR-00952", "LLFR-00899",
+    @covers("LLFR-00898", "LLFR-00899", "LLFR-00956", "LLFR-00903",
             "LLFR-00010", "LLFR-00651", "HLFR-00113")
     def test_file_already_open_is_refused_before_it_is_read(self) -> None:
         """The same file again is listed as already open, and not read.
@@ -500,7 +500,7 @@ class OpenFileTest(FileControllerTestCase):
             "finish_open_file_button"])
         self.assert_first_file_kept(controller, view)
 
-    @covers("LLFR-00894", "LLFR-00895")
+    @covers("LLFR-00898", "LLFR-00899")
     def test_link_to_an_open_file_is_refused(self) -> None:
         """A symbolic link to an open file names the same file.
 
@@ -524,7 +524,7 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(view.refused_message_list,
                          ["link.csv: already open as file1."])
 
-    @covers("LLFR-00892", "LLFR-00893", "LLFR-00891", "LLFR-00005",
+    @covers("LLFR-00896", "LLFR-00897", "LLFR-00895", "LLFR-00005",
             "LLFR-00003", "HLFR-00113")
     def test_ten_open_files_show_the_limit_box(self) -> None:
         """With 10 files open, a click shows a box in place of the dialog.
@@ -554,7 +554,7 @@ class OpenFileTest(FileControllerTestCase):
         self.assertIn("Close one of them", OPEN_FILES_LIMIT_MESSAGE_STR)
         self.assertEqual(self.numbers(controller), list(range(1, 11)))
         self.assertEqual(self.listener_call_list, [])
-        # LLFR-00891: a closed file makes room for another one.
+        # LLFR-00895: a closed file makes room for another one.
         controller.close_file(4)
         view.path_list = ["/data/extra.csv"]
         self.loader.result_dict["/data/extra.csv"] = build_signal_file(
@@ -563,8 +563,8 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(self.numbers(controller)[-1], 11)
         self.assertEqual(len(controller.data_files), 10)
 
-    @covers("LLFR-00950", "LLFR-00952", "LLFR-00894", "LLFR-00949",
-            "LLFR-00899", "HLFR-00122")
+    @covers("LLFR-00954", "LLFR-00956", "LLFR-00898", "LLFR-00953",
+            "LLFR-00903", "HLFR-00122")
     def test_selected_files_beyond_ten_are_refused(self) -> None:
         """The limit is checked first, then whether a file is open.
 
@@ -584,7 +584,7 @@ class OpenFileTest(FileControllerTestCase):
         controller.open_file_requested()
         view.call_list.clear()
         controller.open_file_requested()
-        # LLFR-00948: a0 comes first; it is already open and refused for
+        # LLFR-00952: a0 comes first; it is already open and refused for
         # that; b1 opens as the tenth file; b2 is refused for the limit.
         self.assertEqual(len(controller.data_files), 10)
         self.assertEqual(controller.data_files.file_list[-1].path_str,
@@ -597,13 +597,13 @@ class OpenFileTest(FileControllerTestCase):
         self.assertNotIn("/data/b2.csv", self.loader.loaded_path_list)
         self.assertEqual(view.call_list[-2:], [
             "show_refused_files_notification", "finish_open_file_button"])
-        # LLFR-00894 Note: with 10 files open, an open file is refused
+        # LLFR-00898 Note: with 10 files open, an open file is refused
         # for the limit.
         controller.open_paths(["/data/a1.csv"])
         self.assertEqual(view.refused_message_list[-1],
                          LIMIT_REASON_STR.format(name="a1.csv"))
 
-    @covers("LLFR-00948", "LLFR-00970", "LLFR-00006", "LLFR-00896",
+    @covers("LLFR-00952", "LLFR-00974", "LLFR-00006", "LLFR-00900",
             "HLFR-00122")
     def test_selected_files_open_in_the_order_of_their_names(self) -> None:
         """Characters, not numbers, and case only to break a tie.
@@ -626,7 +626,7 @@ class OpenFileTest(FileControllerTestCase):
         # LLFR-00447: the folder of the last file opened.
         self.assertEqual(controller.dialog_folder_str, "/z")
 
-    @covers("LLFR-00949", "LLFR-00951", "LLFR-00952", "LLFR-00899",
+    @covers("LLFR-00953", "LLFR-00955", "LLFR-00956", "LLFR-00903",
             "LLFR-00327", "LLFR-00509", "HLFR-00122")
     def test_selection_goes_on_and_shows_one_box_of_each_kind(
             self) -> None:
@@ -644,7 +644,7 @@ class OpenFileTest(FileControllerTestCase):
             "/d/c_crash.csv": RuntimeError("boom"),
             SECOND_PATH_STR: self.second_file})
         controller.open_file_requested()
-        # LLFR-00899: the cancelled and failed files used no number.
+        # LLFR-00903: the cancelled and failed files used no number.
         self.assertEqual(self.numbers(controller), [1, 2])
         self.assertIs(controller.data_files.file_list[1].signal_file,
                       self.second_file)
@@ -656,15 +656,15 @@ class OpenFileTest(FileControllerTestCase):
         self.assertNotIn("/d/", error_str)
         self.assertEqual(view.refused_message_list,
                          ["first.csv: already open as file1."])
-        # LLFR-00951, LLFR-00952: one box of each kind, after the last
+        # LLFR-00955, LLFR-00956: one box of each kind, after the last
         # file, the errors first.
         self.assertEqual(view.call_list[-3:], [
             "show_file_open_error", "show_refused_files_notification",
             "finish_open_file_button"])
         self.assertEqual(view.call_list.count("ask_time_signal_name"), 1)
 
-    @covers("LLFR-00896", "LLFR-00897", "LLFR-00898", "LLFR-00900",
-            "LLFR-00927", "HLFR-00114", "HLFR-00118", "HLFR-00119")
+    @covers("LLFR-00900", "LLFR-00901", "LLFR-00902", "LLFR-00904",
+            "LLFR-00931", "HLFR-00114", "HLFR-00118", "HLFR-00119")
     def test_numbers_are_never_given_again(self) -> None:
         """Closed numbers stay used up, also after Close all files.
 
@@ -686,7 +686,7 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(self.closed_call_list, [([2], [1, 3])])
         controller.open_file_requested()
         self.assertEqual(self.numbers(controller), [1, 3, 4])
-        # LLFR-00900: after Close all files, numbering goes on.
+        # LLFR-00904: after Close all files, numbering goes on.
         self.assertEqual(
             [data_file.number_i
              for data_file in controller.close_all_files()], [1, 3, 4])
@@ -695,7 +695,7 @@ class OpenFileTest(FileControllerTestCase):
         controller.open_file_requested()
         self.assertEqual(self.numbers(controller), [5])
 
-    @covers("LLFR-00922", "LLFR-00932")
+    @covers("LLFR-00926", "LLFR-00936")
     def test_closing_nothing_tells_nobody(self) -> None:
         """An unknown number, or no file open, closes nothing.
 
@@ -742,7 +742,7 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(self.numbers(controller), [1, 2])
         self.assertEqual(len(self.listener_call_list), 2)
 
-    @covers("LLFR-00916")
+    @covers("LLFR-00920")
     def test_every_listener_is_notified_in_order(self) -> None:
         """All registered listeners receive the added file in order.
 
@@ -839,7 +839,7 @@ class StartFolderTest(unittest.TestCase):
                          first_start_folder_str())
 
     @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010",
-            "LLFR-00447", "LLFR-00894")
+            "LLFR-00447", "LLFR-00898")
     def test_folder_follows_only_successful_opens(self) -> None:
         """Cancel, failed and refused opens keep the folder.
 
@@ -905,8 +905,8 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         return path_str
 
     @covers("LLFR-00006", "LLFR-00054", "LLFR-00008", "LLFR-00009",
-            "LLFR-00010", "LLFR-00011", "LLFR-00012", "LLFR-00951",
-            "LLFR-00905", "LLFR-00916", "HLFR-00101", "HLFR-00122")
+            "LLFR-00010", "LLFR-00011", "LLFR-00012", "LLFR-00955",
+            "LLFR-00909", "LLFR-00920", "HLFR-00101", "HLFR-00122")
     def test_real_messages_reach_the_view_in_one_box(self) -> None:
         """Real files open, or fail with the loader's messages, listed
         in one box for one selection.
@@ -927,11 +927,11 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         self.assertIn("abc", error_str)
         self.assertIn("not supported", error_str)
         self.assertIn("could not be accessed", error_str)
-        # LLFR-00948: other.csv comes before valid.csv.
+        # LLFR-00952: other.csv comes before valid.csv.
         self.assertEqual(controller.data_files.signal_name_list, [
             "file1_Time", "file1_pressure", "file2_Time", "file2_speed",
             "file2_force"])
-        # LLFR-00905: "Time" was found by its name in each file.
+        # LLFR-00909: "Time" was found by its name in each file.
         self.assertEqual(controller.data_files.time_signal_name_list,
                          ["file1_Time", "file2_Time"])
         self.assertEqual(view.call_list.count("finish_open_file_button"),
@@ -940,7 +940,7 @@ class FileControllerRealLoaderTest(unittest.TestCase):
 
     @covers("LLFR-00325", "LLFR-00326", "LLFR-00328", "LLFR-00329",
             "LLFR-00068", "HLFR-00070", "HLFR-00007", "LLFR-00507",
-            "LLFR-00906")
+            "LLFR-00910")
     def test_real_file_without_time_asks_for_it(self) -> None:
         """A real CSV whose x column is "t_s" opens after the choice.
 
@@ -955,7 +955,7 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         self.assertEqual(view.call_list, [
             "ask_open_file_path", *LOADING_CALL_LIST,
             "ask_time_signal_name", "finish_open_file_button"])
-        # LLFR-00906: the window lists the names in the file.
+        # LLFR-00910: the window lists the names in the file.
         self.assertEqual(view.time_window_list[0][1],
                          ["speed", "t_s", "force"])
         self.assertEqual(len(view.time_reason_list), 2)
@@ -1068,7 +1068,7 @@ class OpeningOrderTest(FileControllerTestCase):
         self.assertFalse(view.loading_shown_b)
         self.assertEqual(self.numbers(controller), [1])
 
-    @covers("LLFR-00418", "LLFR-00560", "LLFR-00918", "LLFR-00328",
+    @covers("LLFR-00418", "LLFR-00560", "LLFR-00922", "LLFR-00328",
             "HLFR-00117")
     def test_added_file_read_under_the_indication(self) -> None:
         """With a file open, the next one is read at once, with the
@@ -1089,7 +1089,7 @@ class OpeningOrderTest(FileControllerTestCase):
 
     @covers("LLFR-00008", "LLFR-00009", "LLFR-00011", "LLFR-00012",
             "LLFR-00010", "LLFR-00328", "LLFR-00418", "LLFR-00510",
-            "LLFR-00511", "LLFR-00561", "LLFR-00562", "LLFR-00969")
+            "LLFR-00511", "LLFR-00561", "LLFR-00562", "LLFR-00973")
     def test_error_box_after_the_indication(self) -> None:
         """Every File Open Error is shown after the indication is gone.
 
@@ -1097,7 +1097,7 @@ class OpeningOrderTest(FileControllerTestCase):
         Outputs: none.
         """
         for requirement_str, error in ERROR_CASE_LIST + [
-                ("LLFR-00969", RuntimeError("boom"))]:
+                ("LLFR-00973", RuntimeError("boom"))]:
             with self.subTest(requirement_str=requirement_str,
                               error=str(error)):
                 view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR])
@@ -1146,7 +1146,7 @@ class OpeningOrderTest(FileControllerTestCase):
 
     @covers("LLFR-00327", "LLFR-00328", "LLFR-00418", "LLFR-00010",
             "LLFR-00325", "LLFR-00508", "LLFR-00509", "LLFR-00512",
-            "LLFR-00513", "LLFR-00562", "LLFR-00899")
+            "LLFR-00513", "LLFR-00562", "LLFR-00903")
     def test_time_window_cancelled(self) -> None:
         """Read under the indication, window without it, cancel.
 
@@ -1164,7 +1164,7 @@ class OpeningOrderTest(FileControllerTestCase):
         self.assert_first_file_kept(controller, view)
 
     @covers("LLFR-00326", "LLFR-00328", "LLFR-00418", "LLFR-00507",
-            "LLFR-00916")
+            "LLFR-00920")
     def test_time_window_confirmed(self) -> None:
         """Read, window, then only now the file is added.
 
@@ -1225,7 +1225,7 @@ class TimeSignalWindowTest(FileControllerTestCase):
         self.no_time_file = build_no_time_file(SECOND_PATH_STR)
 
     @covers("LLFR-00325", "LLFR-00326", "HLFR-00070", "LLFR-00054",
-            "LLFR-00906", "LLFR-00953")
+            "LLFR-00910", "LLFR-00957")
     def test_window_shown_when_no_time_signal(self) -> None:
         """The window lists every signal; the choice is the time signal.
 
@@ -1251,7 +1251,7 @@ class TimeSignalWindowTest(FileControllerTestCase):
                          ["file1_Down", "file1_t_s", "file1_Flat"])
         self.assertEqual(controller.data_files.time_signal_name_list,
                          ["file1_t_s"])
-        # LLFR-00953: the window names its file, without its folder.
+        # LLFR-00957: the window names its file, without its folder.
         self.assertEqual(view.time_window_file_name_list,
                          [os.path.basename(SECOND_PATH_STR)])
         self.assertNotIn(os.sep, view.time_window_file_name_list[0])
@@ -1294,7 +1294,7 @@ class TimeSignalWindowTest(FileControllerTestCase):
         self.assertEqual(controller.data_files.time_signal_name_list,
                          ["file1_t_s"])
 
-    @covers("LLFR-00329", "LLFR-00899")
+    @covers("LLFR-00329", "LLFR-00903")
     def test_unchecked_bad_answer_never_becomes_time(self) -> None:
         """A window that returns a refused name opens nothing.
 
@@ -1313,7 +1313,7 @@ class TimeSignalWindowTest(FileControllerTestCase):
 
     @covers("LLFR-00327", "HLFR-00070", "LLFR-00003", "LLFR-00010",
             "LLFR-00328", "LLFR-00418", "LLFR-00508", "LLFR-00512",
-            "LLFR-00651", "LLFR-00918")
+            "LLFR-00651", "LLFR-00922")
     def test_cancel_keeps_the_open_files(self) -> None:
         """Read with no question, then a cancelled window opens nothing.
 
@@ -1347,7 +1347,7 @@ class TimeSignalWindowTest(FileControllerTestCase):
             "show_file_open_error", "finish_open_file_button"])
 
     @covers("LLFR-00331", "LLFR-00324", "HLFR-00072", "HLFR-00070",
-            "LLFR-00505", "LLFR-00515", "LLFR-00905")
+            "LLFR-00505", "LLFR-00515", "LLFR-00909")
     def test_file_with_time_never_shows_the_window(self) -> None:
         """Opening, closing and opening again a file with a Time match
         asks nothing.

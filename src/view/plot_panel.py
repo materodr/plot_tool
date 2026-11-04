@@ -17,8 +17,9 @@ from functools import partial
 
 from PyQt6.QtCore import QEvent, QTimer, Qt
 from PyQt6.QtWidgets import (
-    QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
-    QToolButton, QVBoxLayout, QWidget)
+    QApplication, QInputDialog, QLineEdit, QMenu, QStyle,
+    QStyleOptionTabWidgetFrame, QTabBar, QTabWidget, QToolButton,
+    QVBoxLayout, QWidget)
 
 from model.workspace import TIME_PLOT_KIND_STR
 from view import theme
@@ -241,6 +242,21 @@ class PlotTabWidget(QTabWidget):
                                         button_width_i, height_i)
         self.add_tab_button.raise_()
 
+    def pane_rect(self):
+        """Return the rectangle of the plot well, below the tab row.
+
+        Inputs: none.
+        Outputs: a QRect, in this widget's coordinates, of the pane that
+            Qt paints with the plot well style (LLFR-00893): its border
+            included, its top edge under the tab row.
+        """
+        # LLFR-00893, LLFR-00894: the same rectangle Qt lays out and
+        # paints the pane in, with the style sheet's offsets applied.
+        option = QStyleOptionTabWidgetFrame()
+        self.initStyleOption(option)
+        return self.style().subElementRect(
+            QStyle.SubElement.SE_TabWidgetTabPane, option, self)
+
     def limit_tab_bar_width(self) -> None:
         """Keep the tab bar narrow enough to leave room for the button.
 
@@ -370,7 +386,7 @@ class PlotPanel(QWidget):
         self.add_tab_button = self.tab_widget.add_tab_button
         self.page_dict = {}
         self.plot_widget_dict = {}
-        # LLFR-00119, LLFR-00912: the time range of the open data files,
+        # LLFR-00119, LLFR-00916: the time range of the open data files,
         # given to every plot, the new ones too.
         self.files_time_range_tuple = ()
         self.tab_delete_enabled_b = False
@@ -700,7 +716,7 @@ class PlotPanel(QWidget):
             range_tuple: (start_s, end_s), or () while no file is open.
         Outputs: none.
         """
-        # LLFR-00119, LLFR-00676, LLFR-00912: the limits of the zooms and
+        # LLFR-00119, LLFR-00676, LLFR-00916: the limits of the zooms and
         # pans of every time plot, the plots created later too.
         self.files_time_range_tuple = tuple(range_tuple)
         for plot_widget in self.plot_widget_dict.values():
@@ -724,7 +740,7 @@ class PlotPanel(QWidget):
         # LLFR-00256: a time plot or a frequency plot.
         plot_widget = PlotWidget(plot_id_i, kind_str=kind_str)
         plot_widget.setObjectName(f"plot_widget_{plot_id_i}")
-        # LLFR-00119, LLFR-00912: zooms and pans within every open file.
+        # LLFR-00119, LLFR-00916: zooms and pans within every open file.
         plot_widget.set_files_time_range(self.files_time_range_tuple)
         # LLFR-00042, LLFR-00078, LLFR-00081: the new plot starts with no
         # tool; MainWindow.add_plot_view applies the active plot tool.

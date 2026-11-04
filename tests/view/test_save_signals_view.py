@@ -216,7 +216,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertEqual(os.path.basename(dialog.selectedFiles()[0]),
                          "run1_signals.csv")
         saved_file = load_signal_file(target_str + ".xlsx")
-        # LLFR-00941: the names are saved without the prefix.
+        # LLFR-00945: the names are saved without the prefix.
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "force"])
         # LLFR-00404, LLFR-00558: the name in the app, then the new one.

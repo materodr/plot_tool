@@ -2231,31 +2231,31 @@ class Workspace:
 
         Inputs:
             signal_name_set: the signals of the closed files and the
-                synthetic signals computed from them (LLFR-00922).
+                synthetic signals computed from them (LLFR-00926).
             files_range_tuple: (start_s, end_s), the time range of the
-                open data files that are left (LLFR-00912), or () when
+                open data files that are left (LLFR-00916), or () when
                 no file is left.
             shown_tab_id_i: the id of the tab shown before the close.
         Outputs: a tuple (deleted_plot_id_list, closed_tab_id_list,
             shown_tab_id_i): the plots deleted because they were left
             with no curve, the tabs closed, and the tab to show.
         """
-        # LLFR-00956: the tabs that held a plot before the close; only
+        # LLFR-00960: the tabs that held a plot before the close; only
         # those can be closed.
         tab_with_plots_id_set = {tab.tab_id_i for tab in self.tab_list
                                  if tab.plot_list}
-        # LLFR-00923, LLFR-00924: the curves go, with their pinned data
+        # LLFR-00927, LLFR-00928: the curves go, with their pinned data
         # tips and delta markers, and a plot left with no curve is
         # deleted with its text notes and arrows. LLFR-00667: with no
         # plot left, every flag and area is deleted.
         deleted_plot_id_list = self.remove_signal_curves(signal_name_set)
-        # LLFR-00928: a tab emptied by the close is closed.
+        # LLFR-00932: a tab emptied by the close is closed.
         emptied_tab_list = [tab for tab in self.tab_list
                             if tab.tab_id_i in tab_with_plots_id_set
                             and not tab.plot_list]
         closed_tab_list = list(emptied_tab_list)
         if len(closed_tab_list) == len(self.tab_list):
-            # LLFR-00957: at least one tab stays, the first of those, in
+            # LLFR-00961: at least one tab stays, the first of those, in
             # tab order, with no plot.
             closed_tab_list = closed_tab_list[1:]
         closed_tab_id_list = [tab.tab_id_i for tab in closed_tab_list]
@@ -2270,7 +2270,7 @@ class Workspace:
             if tab.tab_id_i not in closed_tab_id_list]
         self.tab_list = [tab for tab in self.tab_list
                          if tab.tab_id_i not in closed_tab_id_list]
-        # LLFR-00958: the shown tab stays shown; when it was closed, the
+        # LLFR-00962: the shown tab stays shown; when it was closed, the
         # nearest tab left to its left, or else to its right.
         if shown_tab_id_i in closed_tab_id_list:
             if kept_before_list:
@@ -2279,12 +2279,12 @@ class Workspace:
                 shown_tab_id_i = kept_after_list[0].tab_id_i
         if self.find_tab(shown_tab_id_i) is None and self.tab_list:
             shown_tab_id_i = self.tab_list[0].tab_id_i
-        # LLFR-00929, LLFR-00946: with a plot left, the flags and the
+        # LLFR-00933, LLFR-00950: with a plot left, the flags and the
         # areas outside the time range of the files left are deleted.
         if self.has_plots() and files_range_tuple:
             self.remove_outside_range(*files_range_tuple)
         elif not files_range_tuple:
-            # LLFR-00920: every flag and area when no file is left.
+            # LLFR-00924: every flag and area when no file is left.
             self.marker_list = []
             self.area_list = []
         return (deleted_plot_id_list, closed_tab_id_list, shown_tab_id_i)
@@ -2298,10 +2298,10 @@ class Workspace:
         Outputs: none. A flag on an end of the range is kept, and so is
             an area that is partly inside the range or touches an end.
         """
-        # LLFR-00929: a flag outside the range goes; one on an end stays.
+        # LLFR-00933: a flag outside the range goes; one on an end stays.
         self.marker_list = [marker for marker in self.marker_list
                             if start_s <= marker.time_s <= end_s]
-        # LLFR-00946: an area entirely outside the range goes; one partly
+        # LLFR-00950: an area entirely outside the range goes; one partly
         # inside or touching an end stays.
         self.area_list = [area for area in self.area_list
                           if area.end_s >= start_s and area.start_s <= end_s]

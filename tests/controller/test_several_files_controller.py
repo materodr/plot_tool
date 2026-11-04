@@ -108,8 +108,8 @@ class SeveralFilesTestCase(unittest.TestCase):
 class SignalsOfSeveralFilesTest(SeveralFilesTestCase):
     """Curves of several files (HLFR-00116)."""
 
-    @covers("LLFR-00907", "LLFR-00908", "LLFR-00909", "LLFR-00910",
-            "LLFR-00068", "LLFR-00901", "LLFR-00903", "HLFR-00116")
+    @covers("LLFR-00911", "LLFR-00912", "LLFR-00913", "LLFR-00914",
+            "LLFR-00068", "LLFR-00905", "LLFR-00907", "HLFR-00116")
     def test_each_curve_on_the_time_of_its_file(self) -> None:
         """One plot draws curves of two files, each on its own times.
 
@@ -129,7 +129,7 @@ class SignalsOfSeveralFilesTest(SeveralFilesTestCase):
         np.testing.assert_array_equal(curve_list[1][2],
                                       np.linspace(21.0, 31.0, 11))
 
-    @covers("LLFR-00911", "LLFR-00164", "HLFR-00116")
+    @covers("LLFR-00915", "LLFR-00164", "HLFR-00116")
     def test_delta_marker_between_two_files(self) -> None:
         """A Delta X marker can have its points on curves of two files.
 
@@ -152,10 +152,10 @@ class SignalsOfSeveralFilesTest(SeveralFilesTestCase):
 
 
 class TimeRangeTest(SeveralFilesTestCase):
-    """The time range of the open data files (LLFR-00912)."""
+    """The time range of the open data files (LLFR-00916)."""
 
-    @covers("LLFR-00912", "LLFR-00115", "LLFR-00119", "LLFR-00676",
-            "LLFR-00913", "HLFR-00035", "HLFR-00113")
+    @covers("LLFR-00916", "LLFR-00115", "LLFR-00119", "LLFR-00676",
+            "LLFR-00917", "HLFR-00035", "HLFR-00113")
     def test_range_of_every_open_file(self) -> None:
         """Reset zoom and the view limits use every open file; opening a
         file keeps the range the plots show.
@@ -168,7 +168,7 @@ class TimeRangeTest(SeveralFilesTestCase):
         plot_id_i = self.plot("file1_Speed")
         self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
         self.open(make_time_file("b.csv", 20.0, 30.0, 11))
-        # LLFR-00913: the time plot keeps its range.
+        # LLFR-00917: the time plot keeps its range.
         self.assertEqual(self.plot_controller.shared_time_range_tuple,
                          (0.0, 10.0))
         second_plot_id_i = self.plot("file2_Speed")
@@ -185,7 +185,7 @@ class TimeRangeTest(SeveralFilesTestCase):
         self.assertEqual(self.plot_controller.time_plot_range_tuple(),
                          (0.0, 30.0))
 
-    @covers("LLFR-00688", "LLFR-00912")
+    @covers("LLFR-00688", "LLFR-00916")
     def test_first_time_plot_shows_every_open_file(self) -> None:
         """With no time plot, a new plot has the whole range of files.
 
@@ -199,7 +199,7 @@ class TimeRangeTest(SeveralFilesTestCase):
                          (-5.0, 10.0))
         self.assertEqual(self.view.files_time_range_tuple, (-5.0, 10.0))
 
-    @covers("LLFR-00914", "LLFR-00912", "HLFR-00118")
+    @covers("LLFR-00918", "LLFR-00916", "HLFR-00118")
     def test_close_limits_the_range_to_the_files_left(self) -> None:
         """A range that goes beyond the files left is cut to them.
 
@@ -217,7 +217,7 @@ class TimeRangeTest(SeveralFilesTestCase):
         self.assertEqual(self.view.range_dict[plot_id_i], (5.0, 10.0))
         self.assertEqual(self.view.files_time_range_tuple, (0.0, 10.0))
 
-    @covers("LLFR-00915", "LLFR-00912", "HLFR-00118")
+    @covers("LLFR-00919", "LLFR-00916", "HLFR-00118")
     def test_range_outside_the_files_left_shows_their_range(self) -> None:
         """A range with no overlap shows the whole range of the files.
 
@@ -237,8 +237,8 @@ class TimeRangeTest(SeveralFilesTestCase):
 class CloseFileTest(SeveralFilesTestCase):
     """Closing one data file (HLFR-00118)."""
 
-    @covers("LLFR-00922", "LLFR-00923", "LLFR-00924", "LLFR-00926",
-            "LLFR-00927", "LLFR-00178", "LLFR-00911", "HLFR-00118")
+    @covers("LLFR-00926", "LLFR-00927", "LLFR-00928", "LLFR-00930",
+            "LLFR-00931", "LLFR-00178", "LLFR-00915", "HLFR-00118")
     def test_close_removes_the_file_and_what_it_drew(self) -> None:
         """Its curves, tips, delta markers and emptied plots go; the
         other file's stay, and the history is cleared.
@@ -274,16 +274,16 @@ class CloseFileTest(SeveralFilesTestCase):
         self.assertEqual(len(shared_plot.delta_marker_list), 1)
         self.assertEqual(shared_plot.delta_marker_list[0]
                          .first_point_tuple[0], "file2_Speed")
-        # LLFR-00924: the plot of file 1 only is deleted, its note too.
+        # LLFR-00928: the plot of file 1 only is deleted, its note too.
         self.assertIsNone(self.workspace.find_plot(lone_plot_id_i))
         self.assertNotIn(lone_plot_id_i, self.view.plot_tab_dict)
-        # LLFR-00926: the history is cleared.
+        # LLFR-00930: the history is cleared.
         self.assertFalse(self.view.undo_enabled_b)
         self.assertFalse(self.view.redo_enabled_b)
         self.assertEqual(self.view.shown_name_list,
                          ["file2_Time", "file2_Speed", "file2_Torque"])
 
-    @covers("LLFR-00925", "LLFR-00163")
+    @covers("LLFR-00929", "LLFR-00163")
     def test_first_point_on_a_closed_curve_is_discarded(self) -> None:
         """A first point picked on a curve of the closed file goes.
 
@@ -301,7 +301,7 @@ class CloseFileTest(SeveralFilesTestCase):
         self.file_controller.close_file(2)
         self.assertEqual(self.plot_controller.pending_delta_tuple, ())
 
-    @covers("LLFR-00924", "LLFR-00922", "HLFR-00058")
+    @covers("LLFR-00928", "LLFR-00926", "HLFR-00058")
     def test_frequency_plot_of_a_closed_file_is_deleted(self) -> None:
         """An FFT of a closed file goes with its frequency plot.
 
@@ -323,7 +323,7 @@ class CloseFileTest(SeveralFilesTestCase):
 
 
 class TabsAfterCloseTest(SeveralFilesTestCase):
-    """The tabs emptied by a close (LLFR-00928, LLFR-00956 to 00958)."""
+    """The tabs emptied by a close (LLFR-00932, LLFR-00960 to 00962)."""
 
     def setUp(self) -> None:
         """Open two files from 0 s to 10 s.
@@ -335,7 +335,7 @@ class TabsAfterCloseTest(SeveralFilesTestCase):
         self.open(make_time_file("a.csv", 0.0, 10.0))
         self.open(make_time_file("b.csv", 0.0, 10.0))
 
-    @covers("LLFR-00928", "LLFR-00956", "LLFR-00958", "HLFR-00118")
+    @covers("LLFR-00932", "LLFR-00960", "LLFR-00962", "HLFR-00118")
     def test_emptied_tabs_close_and_empty_tabs_stay(self) -> None:
         """Tabs left with no plot close; a tab empty before stays; the
         shown tab moves to the nearest tab on its left.
@@ -356,13 +356,13 @@ class TabsAfterCloseTest(SeveralFilesTestCase):
         self.assertEqual(self.tab_names(), ["Tab 1", "Tab 2"])
         self.assertEqual(list(self.view.tab_dict.values()),
                          ["Tab 1", "Tab 2"])
-        # LLFR-00958: Tab 4 was shown; Tab 2 is the nearest on its left.
+        # LLFR-00962: Tab 4 was shown; Tab 2 is the nearest on its left.
         self.assertEqual(self.view.current_tab_id(),
                          self.workspace.tab_list[1].tab_id_i)
         self.assertEqual(self.workspace.tab_list[0].tab_id_i,
                          first_tab_id_i)
 
-    @covers("LLFR-00958")
+    @covers("LLFR-00962")
     def test_shown_first_tab_moves_to_the_right(self) -> None:
         """With no tab left on its left, the nearest on its right.
 
@@ -378,7 +378,7 @@ class TabsAfterCloseTest(SeveralFilesTestCase):
         self.assertEqual(self.tab_names(), ["Tab 2"])
         self.assertEqual(self.view.current_tab_id(), second_tab_id_i)
 
-    @covers("LLFR-00957", "LLFR-00654", "LLFR-00066", "LLFR-00932",
+    @covers("LLFR-00961", "LLFR-00654", "LLFR-00066", "LLFR-00936",
             "HLFR-00119")
     def test_one_tab_always_left(self) -> None:
         """When every tab would close, the first one stays, empty.
@@ -403,7 +403,7 @@ class TabsAfterCloseTest(SeveralFilesTestCase):
 
 
 class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
-    """Flags and areas outside the files left (LLFR-00929, LLFR-00946)."""
+    """Flags and areas outside the files left (LLFR-00933, LLFR-00950)."""
 
     def setUp(self) -> None:
         """Open a file from 0 s to 10 s and one from 20 s to 30 s.
@@ -417,7 +417,7 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
         self.first_plot_id_i = self.plot("file1_Speed")
         self.second_plot_id_i = self.plot("file2_Speed")
 
-    @covers("LLFR-00929", "LLFR-00946", "HLFR-00118", "HLFR-00031",
+    @covers("LLFR-00933", "LLFR-00950", "HLFR-00118", "HLFR-00031",
             "HLFR-00069")
     def test_flags_and_areas_outside_are_deleted(self) -> None:
         """A flag on an end and an area touching an end stay.
@@ -443,7 +443,7 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
         self.assertEqual(self.view.marker_drawn_dict[
             self.second_plot_id_i][0][2], 20.0)
 
-    @covers("LLFR-00667", "LLFR-00711", "LLFR-00932", "LLFR-00933",
+    @covers("LLFR-00667", "LLFR-00711", "LLFR-00936", "LLFR-00937",
             "LLFR-00218", "LLFR-00395", "HLFR-00119")
     def test_close_all_files_deletes_every_flag_and_area(self) -> None:
         """No file left: no plot, flag, area or signal is left.
@@ -464,7 +464,7 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
         self.assertEqual(self.workspace.marker_list, [])
         self.assertEqual(self.workspace.area_list, [])
         self.assertEqual(self.view.shown_name_list, [])
-        # LLFR-00933: no file name row is left.
+        # LLFR-00937: no file name row is left.
         self.assertEqual(self.view.file_row_list, [])
         self.assertEqual(self.view.plot_tab_dict, {})
         self.assertFalse(self.view.layout_buttons_enabled_b)
@@ -472,7 +472,7 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
         self.assertEqual(self.view.files_time_range_tuple, ())
         self.assertEqual(self.plot_controller.shared_time_range_tuple, ())
 
-    @covers("LLFR-00962", "LLFR-00946", "LLFR-00715", "HLFR-00106")
+    @covers("LLFR-00966", "LLFR-00950", "LLFR-00715", "HLFR-00106")
     def test_area_partly_outside_is_limited_when_resized(self) -> None:
         """An area that a close left partly outside the files is cut to
         their range when it is resized.
@@ -493,12 +493,8 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
                           self.workspace.area_list], [(7.0, 10.0)])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class CloseQuestionTest(SeveralFilesTestCase):
-    """The questions of the file menu (LLFR-00919, LLFR-00920)."""
+    """The questions of the file menu (LLFR-00923, LLFR-00924)."""
 
     def setUp(self) -> None:
         """Open two files, plot from both, and script the answers.
@@ -535,7 +531,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
         """
         return self.plot_controller.undo_history.depth()
 
-    @covers("LLFR-00920", "HLFR-00118")
+    @covers("LLFR-00924", "HLFR-00118")
     def test_close_file_question_names_the_file_and_says_why(self) -> None:
         """The question names the row and the four consequences.
 
@@ -563,7 +559,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
                       question_str)
         self.assertIn("undo and redo history will be cleared", question_str)
 
-    @covers("LLFR-00920", "HLFR-00118")
+    @covers("LLFR-00924", "HLFR-00118")
     def test_last_file_question_says_every_flag_and_area(self) -> None:
         """With one file left, every flag and area will be deleted.
 
@@ -579,7 +575,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
                       self.question_list[0])
         self.assertNotIn(CLOSE_FILE_MARKERS_POINT_STR, self.question_list[0])
 
-    @covers("LLFR-00920")
+    @covers("LLFR-00924")
     def test_asked_when_no_signal_of_the_file_is_drawn(self) -> None:
         """The question is asked for a file with no curve too.
 
@@ -592,7 +588,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertEqual(len(self.question_list), 1)
         self.assertIn("file3_run_C.csv", self.question_list[0])
 
-    @covers("LLFR-00921", "LLFR-00920", "HLFR-00118")
+    @covers("LLFR-00925", "LLFR-00924", "HLFR-00118")
     def test_declined_close_changes_nothing(self) -> None:
         """No keeps the files, the list, the plots and the history.
 
@@ -611,8 +607,8 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertGreater(undo_count_i, 0)
         self.assertEqual(len(self.tab_names()), 2)
 
-    @covers("LLFR-00922", "LLFR-00923", "LLFR-00926", "LLFR-00927",
-            "LLFR-00928", "HLFR-00118")
+    @covers("LLFR-00926", "LLFR-00927", "LLFR-00930", "LLFR-00931",
+            "LLFR-00932", "HLFR-00118")
     def test_proceeding_closes_the_file(self) -> None:
         """Yes removes the file, its curves and the history.
 
@@ -630,8 +626,8 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertFalse(self.file_controller.close_file_requested(2))
         self.assertEqual(len(self.question_list), 1)
 
-    @covers("LLFR-00930", "LLFR-00931", "LLFR-00932", "LLFR-00933",
-            "LLFR-00900", "HLFR-00119")
+    @covers("LLFR-00934", "LLFR-00935", "LLFR-00936", "LLFR-00937",
+            "LLFR-00904", "HLFR-00119")
     def test_close_all_files_asks_once(self) -> None:
         """One question with the five points; No keeps, Yes closes all.
 
@@ -660,7 +656,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertEqual(len(self.question_list), 2)
         self.assertEqual(self.view.file_row_list, [])
         self.assertEqual(self.view.shown_name_list, [])
-        # LLFR-00900: the next file is file 3.
+        # LLFR-00904: the next file is file 3.
         self.open(make_time_file("/data/run_C.csv", 0.0, 1.0))
         self.assertEqual(self.view.file_row_list, ["file3_run_C.csv"])
         # With no file open, nothing is asked.
@@ -668,3 +664,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertEqual(self.file_controller.close_all_files_requested(),
                          [])
         self.assertEqual(len(self.question_list), 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

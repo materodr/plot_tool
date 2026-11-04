@@ -337,8 +337,8 @@ class PlottingEndToEndTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(self.current_plot_widgets(), [second])
 
-    @covers("LLFR-00917", "LLFR-00918", "LLFR-00907", "LLFR-00908",
-            "LLFR-00922", "LLFR-00923", "LLFR-00928", "LLFR-00958",
+    @covers("LLFR-00921", "LLFR-00922", "LLFR-00911", "LLFR-00912",
+            "LLFR-00926", "LLFR-00927", "LLFR-00932", "LLFR-00962",
             "HLFR-00116", "HLFR-00117", "HLFR-00118")
     def test_second_file_is_added_then_the_first_is_closed(self) -> None:
         """A second file keeps the tabs and shares a plot; closing the
@@ -353,14 +353,14 @@ class PlottingEndToEndTest(unittest.TestCase):
         self.assertEqual(self.main_window.tab_name_list(),
                          ["Tab 1", "Tab 2"])
         self.click_open_file(self.second_path_str)
-        # LLFR-00918: no question; LLFR-00917: the tabs and plots stay.
+        # LLFR-00922: no question; LLFR-00921: the tabs and plots stay.
         self.assertEqual(self.box_record_list, [])
         self.assertEqual(self.main_window.tab_name_list(),
                          ["Tab 1", "Tab 2"])
         self.assertEqual(len(self.main_window.plot_panel.plot_widget_dict),
                          2)
         plot_widget = self.current_plot_widgets()[0]
-        # LLFR-00907, LLFR-00908: a curve of file 2 in the same plot, on
+        # LLFR-00911, LLFR-00912: a curve of file 2 in the same plot, on
         # the time of file 2.
         self.drop_signal(plot_widget, "file2_pressure")
         self.assertEqual(self.legend_names(plot_widget),
@@ -370,7 +370,7 @@ class PlottingEndToEndTest(unittest.TestCase):
         self.assertEqual(time_dict["file2_pressure"], [0.0, 1.0])
         self.assertEqual(time_dict["file1_force"],
                          [0.0, 0.5, 1.0, 1.5, 2.0])
-        # LLFR-00922 to LLFR-00928: closing file 1 removes its curves
+        # LLFR-00926 to LLFR-00932: closing file 1 removes its curves
         # and closes Tab 1, left with no plot; Tab 2 stays shown.
         self.controller.file_controller.close_file(1)
         self.application.processEvents()

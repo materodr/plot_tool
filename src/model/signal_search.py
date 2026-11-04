@@ -257,7 +257,7 @@ def search_prefixed_signals(signal_name_list: list, text_str: str) -> list:
     """Search names that carry the prefix of their data file.
 
     Inputs:
-        signal_name_list: prefixed signal names (LLFR-00901), in the
+        signal_name_list: prefixed signal names (LLFR-00905), in the
             order of the signal list.
         text_str: the text typed in the search box.
     Outputs: the matching names as search_signals returns them, where
@@ -266,5 +266,5 @@ def search_prefixed_signals(signal_name_list: list, text_str: str) -> list:
         whole name, prefix included (LLFR-00102).
     """
     # LLFR-00102: "starts with the first search word, once its prefix of
-    # LLFR-00901 is left out"; matching (LLFR-00099) uses the full name.
+    # LLFR-00905 is left out"; matching (LLFR-00099) uses the full name.
     return search_signals(signal_name_list, text_str, without_prefix)

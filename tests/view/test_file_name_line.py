@@ -3,8 +3,8 @@
 The shortening itself (view.elided_text) needs no Qt and is tested on
 its own; the panel tests need PyQt6 and run in CI. Each open data file
 has its own file name row, followed by its signals (LLFR-00362,
-LLFR-00934, LLFR-00935), and a right-click on a row opens the file menu
-(LLFR-00647, LLFR-00919).
+LLFR-00938, LLFR-00939), and a right-click on a row opens the file menu
+(LLFR-00647, LLFR-00923).
 """
 
 import os
@@ -219,7 +219,7 @@ class FileRowPanelTestCase(unittest.TestCase):
 class FileRowsTest(FileRowPanelTestCase):
     """One bold file name row per file, above its signals."""
 
-    @covers("LLFR-00363", "LLFR-00933", "HLFR-00079")
+    @covers("LLFR-00363", "LLFR-00937", "HLFR-00079")
     def test_no_row_without_a_file(self) -> None:
         """With no group, the list has no row at all.
 
@@ -231,7 +231,7 @@ class FileRowsTest(FileRowPanelTestCase):
         self.assertEqual(self.panel.file_row_texts(), [])
         self.assertEqual(self.panel.signal_name_list(), [])
 
-    @covers("LLFR-00362", "LLFR-00934", "LLFR-00935", "LLFR-00639",
+    @covers("LLFR-00362", "LLFR-00938", "LLFR-00939", "LLFR-00639",
             "LLFR-00242", "HLFR-00079", "HLFR-00114", "HLFR-00113",
             "HLFR-00011")
     def test_rows_in_number_order_with_their_signals(self) -> None:
@@ -483,9 +483,9 @@ class FileRowMouseTest(FileRowPanelTestCase):
 
 @requires_qt
 class FileMenuTest(FileRowPanelTestCase):
-    """A right-click on a row opens the file menu (LLFR-00919)."""
+    """A right-click on a row opens the file menu (LLFR-00923)."""
 
-    @covers("LLFR-00647", "LLFR-00919", "LLFR-00239", "HLFR-00118",
+    @covers("LLFR-00647", "LLFR-00923", "LLFR-00239", "HLFR-00118",
             "HLFR-00119")
     def test_row_opens_the_file_menu(self) -> None:
         """The file menu, not the signal menu, with its two options.
@@ -514,7 +514,7 @@ class FileMenuTest(FileRowPanelTestCase):
         self.right_click("No matching signals")
         self.assertEqual(len(self.menu_list), 2)
 
-    @covers("LLFR-00919", "LLFR-00920", "HLFR-00118")
+    @covers("LLFR-00923", "LLFR-00924", "HLFR-00118")
     def test_close_file_asks_for_that_file(self) -> None:
         """"Close file" on the row of file 2 requests file 2.
 
@@ -528,7 +528,7 @@ class FileMenuTest(FileRowPanelTestCase):
         self.assertEqual(self.close_file_list, [2, 1])
         self.assertEqual(self.close_all_count_list, [])
 
-    @covers("LLFR-00919", "LLFR-00930", "HLFR-00119")
+    @covers("LLFR-00923", "LLFR-00934", "HLFR-00119")
     def test_close_all_files_from_any_row(self) -> None:
         """"Close all files" is requested once.
 
@@ -540,7 +540,7 @@ class FileMenuTest(FileRowPanelTestCase):
         self.assertEqual(self.close_all_count_list, [1])
         self.assertEqual(self.close_file_list, [])
 
-    @covers("LLFR-00919")
+    @covers("LLFR-00923")
     def test_built_menu_emits_its_requests(self) -> None:
         """The menu built for tests triggers the same requests.
 
@@ -671,8 +671,8 @@ class FileRowsWindowTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00362", "LLFR-00363", "HLFR-00079", "LLFR-00010",
-            "LLFR-00650", "LLFR-00651", "LLFR-00894", "LLFR-00933",
-            "HLFR-00114", "HLFR-00117", "LLFR-00934")
+            "LLFR-00650", "LLFR-00651", "LLFR-00898", "LLFR-00937",
+            "HLFR-00114", "HLFR-00117", "LLFR-00938")
     def test_open_files_show_their_rows(self) -> None:
         """Opening real CSV files through the app shows their rows.
 
@@ -696,7 +696,7 @@ class FileRowsWindowTest(unittest.TestCase):
         self.assertEqual(len(error_list), 1)
         self.assertEqual(self.panel.file_row_texts(),
                          ["file1_bench run.csv"])
-        # A file already open adds no row (LLFR-00894).
+        # A file already open adds no row (LLFR-00898).
         refused_list = []
         self.window.show_refused_files_notification = refused_list.append
         self.open_paths(self.path_dict["bench run.csv"])
@@ -709,14 +709,14 @@ class FileRowsWindowTest(unittest.TestCase):
                          ["file1_bench run.csv", "file2_other.csv"])
         self.assertEqual(self.panel.signal_name_list(), [
             "file1_Time", "file1_Speed", "file2_Time", "file2_Force"])
-        # LLFR-00933: with no file left, no row is shown.
+        # LLFR-00937: with no file left, no row is shown.
         self.controller.file_controller.close_all_files()
         self.application.processEvents()
         self.assertEqual(self.panel.file_row_texts(), [])
         self.assertEqual(self.panel.row_list(), [])
 
-    @covers("LLFR-00947", "LLFR-00948", "LLFR-00970", "LLFR-00006",
-            "HLFR-00122", "LLFR-00934")
+    @covers("LLFR-00951", "LLFR-00952", "LLFR-00974", "LLFR-00006",
+            "HLFR-00122", "LLFR-00938")
     def test_several_selected_files_in_name_order(self) -> None:
         """Files selected together open in the order of their names.
 
@@ -729,8 +729,8 @@ class FileRowsWindowTest(unittest.TestCase):
         self.assertEqual(self.panel.file_row_texts(), [
             "file1_bench run.csv", "file2_other.csv", "file3_third.csv"])
 
-    @covers("LLFR-00919", "LLFR-00920", "LLFR-00921", "LLFR-00922",
-            "LLFR-00927", "HLFR-00118", "LLFR-00898")
+    @covers("LLFR-00923", "LLFR-00924", "LLFR-00925", "LLFR-00926",
+            "LLFR-00931", "HLFR-00118", "LLFR-00902")
     def test_close_file_from_its_row(self) -> None:
         """The question names the file; No keeps it, Yes closes it.
 
@@ -751,13 +751,13 @@ class FileRowsWindowTest(unittest.TestCase):
                          ["file1_bench run.csv"])
         self.assertEqual(self.panel.signal_name_list(),
                          ["file1_Time", "file1_Speed"])
-        # The next file gets the next number (LLFR-00898).
+        # The next file gets the next number (LLFR-00902).
         self.open_paths(self.path_dict["third.csv"])
         self.assertEqual(self.panel.file_row_texts(),
                          ["file1_bench run.csv", "file3_third.csv"])
 
-    @covers("LLFR-00919", "LLFR-00930", "LLFR-00931", "LLFR-00932",
-            "LLFR-00933", "HLFR-00119")
+    @covers("LLFR-00923", "LLFR-00934", "LLFR-00935", "LLFR-00936",
+            "LLFR-00937", "HLFR-00119")
     def test_close_all_files_from_a_row(self) -> None:
         """One question; No keeps every file, Yes closes them all.
 

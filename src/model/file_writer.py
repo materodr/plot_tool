@@ -305,18 +305,18 @@ def numbered_plain_name_list(plain_name_list: list, number_list: list,
 
     Inputs:
         plain_name_list: the plain names of the signals to save, in the
-            order of the signal list (LLFR-00941).
+            order of the signal list (LLFR-00945).
         number_list: the number of the data file of each signal
-            (LLFR-00936), or None.
-        time_index_i: the index of the one time signal (LLFR-00940), or
+            (LLFR-00940), or None.
+        time_index_i: the index of the one time signal (LLFR-00944), or
             -1; it keeps its name.
     Outputs: the names, where a plain name of two or more signals other
         than the time signal gets ``_<file number>`` on each of them
-        (LLFR-00942), and a name still taken by an earlier signal gets
-        ``_2``, ``_3``... (LLFR-00961), all different apart from the
+        (LLFR-00946), and a name still taken by an earlier signal gets
+        ``_2``, ``_3``... (LLFR-00965), all different apart from the
         time signal.
     """
-    # LLFR-00942: every signal of a shared plain name gets the number of
+    # LLFR-00946: every signal of a shared plain name gets the number of
     # its own data file.
     count_dict = {}
     for index_i, plain_str in enumerate(plain_name_list):
@@ -330,7 +330,7 @@ def numbered_plain_name_list(plain_name_list: list, number_list: list,
             name_list.append(f"{plain_str}_{int(number_i)}")
         else:
             name_list.append(plain_str)
-    # LLFR-00961: the later of two signals that still share a name gets
+    # LLFR-00965: the later of two signals that still share a name gets
     # the smallest number from 2 up that makes it unique.
     taken_set = {name_str for index_i, name_str in enumerate(name_list)
                  if index_i != time_index_i}

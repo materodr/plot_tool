@@ -200,7 +200,7 @@ class FakeSyntheticWindow(FakePlotView):
         raise AssertionError(message_str)
 
     def show_signal_groups(self, group_list: list) -> None:
-        """Record the shown file name rows and names (LLFR-00934).
+        """Record the shown file name rows and names (LLFR-00938).
 
         Inputs:
             group_list: (file number, row text, names, no-match text)
@@ -337,7 +337,7 @@ class FakeSyntheticWindow(FakePlotView):
 
     def set_file_menu_handlers(self, close_file_handler,
                                close_all_files_handler) -> None:
-        """Record the handlers of the file menu (LLFR-00919).
+        """Record the handlers of the file menu (LLFR-00923).
 
         Inputs:
             close_file_handler: function (file number).
@@ -928,7 +928,7 @@ class CreateTest(SyntheticControllerTestCase):
         Inputs: none.
         Outputs: none.
         """
-        from model.signal_search import search_signals
+        from model.signal_search import search_prefixed_signals
         self.create("file1_Speed", "fft")
         self.create("file1_Speed", "integral")
         self.create("file1_Torque", "integral")
@@ -949,7 +949,8 @@ class CreateTest(SyntheticControllerTestCase):
             with self.subTest(text=text_str):
                 # LLFR-00285: the same result and order as the panel.
                 self.assertEqual(search_function(text_str),
-                                 search_signals(name_list, text_str))
+                                 search_prefixed_signals(name_list,
+                                                         text_str))
         self.assertEqual(search_function("speed"), ["file1_Speed",
                                                     "file1_int_Speed"])
         self.assertEqual(search_function("int tor"), ["file1_int_Torque"])
@@ -961,6 +962,39 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.store_names(), [
             "file1_fft_0s_to_9p9s_Speed", "file1_int_Speed",
             "file1_int_Torque"])
+
+    @covers("LLFR-00285", "LLFR-00102", "LLFR-00618")
+    def test_second_signal_dialog_ranks_without_the_prefix(self) -> None:
+        """The "starts with" group leaves the file prefix out.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_signals
+        time_array = np.arange(SAMPLE_COUNT_I) * 0.1
+        # A new app, so that the file is file 1 (file numbers are not
+        # reused after a close).
+        self.view = FakeSyntheticWindow()
+        self.main_controller = MainController(self.view)
+        self.file_controller = self.main_controller.file_controller
+        self.controller = self.main_controller.synthetic_controller
+        self.open_file(SignalFile("test.csv", {
+            "Time": time_array,
+            "MaxSpeed": np.cos(time_array),
+            "Speed": np.sin(time_array)}))
+        self.view.second_signal_answer_list = [None]
+        self.create("file1_Speed", "product")
+        search_function, _ = self.view.second_signal_search_list[-1]
+        name_list = self.view.second_signal_question_list[-1][2]
+        self.assertEqual(name_list, ["file1_Time", "file1_MaxSpeed",
+                                     "file1_Speed"])
+        # LLFR-00102: "file1_Speed" starts with "speed" once its prefix
+        # is left out, so it comes before "file1_MaxSpeed".
+        self.assertEqual(search_function("speed"),
+                         ["file1_Speed", "file1_MaxSpeed"])
+        # The ranking without that rule keeps the file order.
+        self.assertEqual(search_signals(name_list, "speed"),
+                         ["file1_MaxSpeed", "file1_Speed"])
 
     @covers("LLFR-00248", "LLFR-00240", "LLFR-00249", "LLFR-00592")
     def test_fft_uses_the_whole_file_without_time_plots(self) -> None:
@@ -1003,7 +1037,7 @@ class CreateTest(SyntheticControllerTestCase):
             "file1_fft_1p5s_to_3s_Torque", "file1_fft_1p5s_to_3s_Torque_2",
             "file1_fft_0s_to_9p9s_Torque"])
 
-    @covers("LLFR-00250", "LLFR-00965", "LLFR-00964")
+    @covers("LLFR-00250", "LLFR-00969", "LLFR-00968")
     def test_fft_with_too_few_samples_shows_a_box(self) -> None:
         """A shown range with fewer than 8 samples creates no FFT.
 
@@ -1016,7 +1050,7 @@ class CreateTest(SyntheticControllerTestCase):
         self.create("file1_Speed", "fft")
         self.assertEqual(self.store_names(), [])
         self.assertEqual(len(self.view.information_list), 1)
-        # LLFR-00965: the box asks to move the x-axis.
+        # LLFR-00969: the box asks to move the x-axis.
         self.assertIn("does not hold enough samples",
                       self.view.information_list[0][1])
         self.assertIn("Move the x-axis", self.view.information_list[0][1])
@@ -1313,7 +1347,7 @@ class RenameTest(SyntheticControllerTestCase):
     """Check "Rename" of a synthetic signal."""
 
     @covers("LLFR-00266", "LLFR-00602", "LLFR-00603", "LLFR-00604",
-            "LLFR-00605", "LLFR-00955")
+            "LLFR-00605", "LLFR-00959")
     def test_rename_updates_list_legends_and_later_names(self) -> None:
         """The list and the legends show the new name.
 
@@ -1330,7 +1364,7 @@ class RenameTest(SyntheticControllerTestCase):
                                                   0.5)
         self.view.name_answer_list = ["  Distance  "]
         self.menu("rename", "file1_int_Speed")
-        # LLFR-00955: the field shows only the part after the prefix.
+        # LLFR-00959: the field shows only the part after the prefix.
         self.assertEqual(self.view.name_question_list, ["int_Speed"])
         self.assertEqual(self.store_names(),
                          ["file1_Distance", "file1_der_int_Speed"])
@@ -1415,8 +1449,8 @@ class RenameTest(SyntheticControllerTestCase):
         self.assertEqual(plot.delta_marker_list[0].first_point_tuple[0],
                          "file1_Distance")
 
-    @covers("LLFR-00267", "LLFR-00606", "LLFR-00607", "LLFR-00971",
-            "LLFR-00972")
+    @covers("LLFR-00267", "LLFR-00606", "LLFR-00607", "LLFR-00975",
+            "LLFR-00976")
     def test_invalid_names_keep_the_previous_name(self) -> None:
         """Empty names are silent; names in use show a box.
 
@@ -1425,7 +1459,7 @@ class RenameTest(SyntheticControllerTestCase):
         """
         self.create("file1_Speed", "integral")
         self.create("file1_Torque", "integral")
-        # LLFR-00955, LLFR-00971, LLFR-00972: the typed part follows the
+        # LLFR-00959, LLFR-00975, LLFR-00976: the typed part follows the
         # prefix of the file, and the whole name is checked.
         self.view.name_answer_list = ["   ", "", "Speed", " Torque ",
                                       "int_Torque", None, " int_Speed "]
@@ -1458,7 +1492,7 @@ class RenameTest(SyntheticControllerTestCase):
 class FileTest(SyntheticControllerTestCase):
     """Check the synthetic signals when a data file is opened."""
 
-    @covers("LLFR-00922", "LLFR-00923", "LLFR-00595", "LLFR-00926",
+    @covers("LLFR-00926", "LLFR-00927", "LLFR-00595", "LLFR-00930",
             "HLFR-00118")
     def test_closing_the_file_removes_synthetic_signals(self) -> None:
         """Closing a data file removes the synthetic signals it gave.
@@ -1484,7 +1518,7 @@ class FileTest(SyntheticControllerTestCase):
         self.create("file2_Speed", "integral")
         self.assertEqual(self.store_names(), ["file2_int_Speed"])
 
-    @covers("LLFR-00917", "LLFR-00142", "LLFR-00927", "HLFR-00117",
+    @covers("LLFR-00921", "LLFR-00142", "LLFR-00931", "HLFR-00117",
             "HLFR-00113")
     def test_opening_another_file_keeps_synthetic_signals(self) -> None:
         """A second data file keeps the synthetic signals of the first.
@@ -1497,19 +1531,19 @@ class FileTest(SyntheticControllerTestCase):
         plot_id_list = self.plot_id_list()
         self.open_file(make_signal_file(), "second.csv", keep_open_b=True)
         self.assertEqual(self.store_names(), ["file1_int_Speed"])
-        # LLFR-00935, LLFR-00936: the synthetic signal of file 1 is
+        # LLFR-00939, LLFR-00940: the synthetic signal of file 1 is
         # listed after the signals of file 1.
         self.assertEqual(self.view.shown_name_list, [
             "file1_Time", "file1_Speed", "file1_Torque", "file1_int_Speed",
             "file2_Time", "file2_Speed", "file2_Torque"])
         self.assertEqual(self.plot_id_list(), plot_id_list)
         self.assertTrue(self.view.undo_enabled_b)
-        # LLFR-00927: closing the second file keeps the first file's.
+        # LLFR-00931: closing the second file keeps the first file's.
         self.file_controller.close_file(2)
         self.assertEqual(self.store_names(), ["file1_int_Speed"])
         self.assertEqual(self.plot_id_list(), plot_id_list)
 
-    @covers("LLFR-00922", "LLFR-00936", "HLFR-00118")
+    @covers("LLFR-00926", "LLFR-00940", "HLFR-00118")
     def test_product_of_two_files_goes_with_either_file(self) -> None:
         """A product of signals of two files goes with the second file.
 
@@ -1525,7 +1559,7 @@ class FileTest(SyntheticControllerTestCase):
         self.file_controller.close_file(2)
         self.assertEqual(self.store_names(), ["file1_int_Speed"])
 
-    @covers("LLFR-00275", "LLFR-00937", "LLFR-00908")
+    @covers("LLFR-00275", "LLFR-00941", "LLFR-00912")
     def test_product_lists_only_files_with_the_same_time(self) -> None:
         """The second signal dialog leaves out files of other times.
 
@@ -1541,7 +1575,7 @@ class FileTest(SyntheticControllerTestCase):
         self.assertNotIn("file2_Torque", name_list)
         self.assertIn("file3_Torque", name_list)
         self.assertIn("file1_Torque", name_list)
-        # LLFR-00937: an integral of file 2 uses the time of file 2.
+        # LLFR-00941: an integral of file 2 uses the time of file 2.
         self.create("file2_Speed", "integral")
         slow_file = make_signal_file(np.arange(SAMPLE_COUNT_I) * 0.2)
         from model import synthetic_operations

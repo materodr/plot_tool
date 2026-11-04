@@ -507,7 +507,7 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         delete_handler(self.plot_id_i, 999)
         self.assertEqual(self.draw_count(), draw_count_i)
 
-    @covers("LLFR-00091", "LLFR-00667", "LLFR-00932", "LLFR-00924")
+    @covers("LLFR-00091", "LLFR-00667", "LLFR-00936", "LLFR-00928")
     def test_markers_are_deleted_by_close_all_files(self) -> None:
         """Closing every file deletes the plots and their flags.
 
@@ -747,7 +747,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
                          saved_list)
 
     @covers("LLFR-00205", "LLFR-00085", "LLFR-00111", "LLFR-00667",
-            "LLFR-00926", "LLFR-00917", "LLFR-00142")
+            "LLFR-00930", "LLFR-00921", "LLFR-00142")
     def test_files_keep_the_flag_numbering(self) -> None:
         """An open keeps the flags; a close deletes them, not the count.
 
@@ -756,12 +756,12 @@ class SharedMarkersTest(MarkerControllerTestCase):
         """
         self.place(1.0)
         self.place(2.0)
-        # LLFR-00917, LLFR-00142: an added file keeps the flags and the
+        # LLFR-00921, LLFR-00142: an added file keeps the flags and the
         # history.
         self.file_controller.open(self.signal_file, None)
         self.assertEqual(len(self.workspace.marker_list), 2)
         self.assertTrue(self.controller.undo_history.can_undo())
-        # LLFR-00667, LLFR-00926: closing every file deletes the flags,
+        # LLFR-00667, LLFR-00930: closing every file deletes the flags,
         # and the history is cleared.
         self.close_all_files()
         self.assertEqual(self.workspace.marker_list, [])
