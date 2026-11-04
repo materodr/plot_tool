@@ -385,6 +385,5 @@ class TimeSignalFirstTest(unittest.TestCase):
              "file2_t_s", "file2_x"])
 
 
-
 if __name__ == "__main__":
     unittest.main()
