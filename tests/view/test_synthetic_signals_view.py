@@ -770,7 +770,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.dialog_attempts_list = [[["file1_Torque"]], [["x"], ["0"]]]
         self.choose("file1_Speed", "Product with signal (prod)")
         self.assertEqual(self.panel.signal_name_list()[-1],
-                         "file1_Speed_prod_Torque")
+                         "file1_Speed_prod_file1_Torque")
         # "x" and 0 are refused and the dialog is cancelled after them.
         self.choose("file1_Speed", "Divide by constant (div)")
         self.assertEqual(len(self.panel.signal_name_list()), 4)
