@@ -269,7 +269,8 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
                               if isinstance(action, QWidgetAction)]
         self.assertEqual(len(widget_action_list), 1)
         picker = widget_action_list[0].defaultWidget()
-        self.addCleanup(menu.deleteLater)
+        # The menu, a child of the panel, goes with the panel.
+        self.picker_menu = menu
         return picker
 
     @covers("LLFR-01061", "LLFR-01062", "LLFR-01064", "HLFR-00145")
