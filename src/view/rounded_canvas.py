@@ -17,7 +17,7 @@ background color of the grabbed tab page (``corners_in_color``), so they
 match the image around the plots. The PDF export (LLFR-00891) draws each
 plot's matplotlib image, which Qt never paints, and then paints the same
 corners and border over it as vector paths with ``paint_rounded_frame``,
-scaled to the page.
+scaled to the page, with the corners in the paper color.
 """
 
 from contextlib import contextmanager

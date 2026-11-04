@@ -2736,12 +2736,12 @@ The plots in a tab must be stacked vertically, one below the other.
 ### LLFR-00890 Rounded plot corners
 Each plot must be shown with rounded corners that have the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
 
-Note: The corners outside the rounding show the background of the plot panel behind the plots. The rounding changes only how the plot looks: what the plot draws, and its size and position, are as before. The PDF export and the copied image show the plots with the same rounded corners (LLFR-00891, LLFR-00892).
+Note: The corners outside the rounding show the background of the plot panel behind the plots. The rounding changes only how the plot looks: what the plot draws, and its size and position, are as before. The PDF export and the copied image show the plots with rounded corners too (LLFR-00891, LLFR-00892).
 
 *Parent: HLFR-00001*
 
 ### LLFR-00891 Rounded plot corners in the PDF
-On each page of the PDF export (LLFR-00129), each plot must have the rounded corners of LLFR-00890, with the radius, border width and border color of the screen, the radius and border width scaled from the screen to the page in the same proportion as the plot, and the corners outside the rounding in the color of the page background around the plots.
+On each page of the PDF export (LLFR-00129), each plot must have the rounded corners of LLFR-00890, with the radius, border width and border color of the screen, the radius and border width scaled from the screen to the page in the same proportion as the plot, and the corners outside the rounding in the color of the PDF paper, white.
 
 Note: Only the corners and the border are added: what the page shows, its tab name, its layout and the size of the plots are as before.
 

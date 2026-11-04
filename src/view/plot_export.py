@@ -25,8 +25,9 @@ corners and the border they have on screen (LLFR-00890). The page is
 grabbed with the corners painted in the page's background color, so in
 the copied image they match the background around the plots. On a PDF
 page, the same corners and border are painted over each sharp plot as
-vector paths, scaled from screen pixels to the page, in that background
-color.
+vector paths, scaled from screen pixels to the page, with the corners in
+the color of the paper (PDF_PAPER_COLOR_STR): every plot corner touches
+the paper on its left or right, since the tab image has no margins.
 
 The PDF is made in memory and then written with
 ``file_writing.write_file_safely``, which never damages a file that was
@@ -41,7 +42,6 @@ from PyQt6.QtGui import (
     QFont, QImage, QPageLayout, QPageSize, QPainter, QPalette, QPdfWriter)
 from PyQt6.QtWidgets import QApplication
 
-from view import theme
 from view.file_writing import write_file_safely
 from view.rounded_canvas import corners_in_color, paint_rounded_frame
 from view.tab_page import TabPage
@@ -50,6 +50,8 @@ from view.tab_page import TabPage
 PAGE_MARGIN_MM_F = 10.0
 PDF_RESOLUTION_I = 300
 PDF_TITLE_STR = "plot_tool plots"
+# LLFR-00891: the color of the PDF paper, which the plot corners show.
+PDF_PAPER_COLOR_STR = "#ffffff"
 TITLE_FONT_POINT_SIZE_F = 14.0
 # LLFR-00129: space between the tab name and the plots, in title line
 # heights.
@@ -106,8 +108,8 @@ def page_background_color_str(page) -> str:
     Outputs: the "#rrggbb" name of the page's window color, with which
         QWidget.grab fills the parts of the page that no plot covers.
     """
-    # LLFR-00891, LLFR-00892: the corners outside the rounding show the
-    # background around the plots.
+    # LLFR-00892: the corners outside the rounding show the background
+    # of the copied image around the plots.
     return page.palette().color(QPalette.ColorRole.Window).name()
 
 
@@ -236,8 +238,7 @@ def grab_exportable_images(tab_widget) -> list:
     Inputs:
         tab_widget: the QTabWidget of the plot panel.
     Outputs: a list of tuples (tab name str, QImage of the page, list of
-        plot images as returned by plot_image_list, page background
-        color str), in tab order.
+        plot images as returned by plot_image_list), in tab order.
     """
     # LLFR-00129: one page per tab with a plot, in tab order.
     current_page = tab_widget.currentWidget()
@@ -251,8 +252,7 @@ def grab_exportable_images(tab_widget) -> list:
                 lay_out_page_like(page, reference_size)
             page_image = grab_page_image(page)
             snapshot_list.append(
-                (page.name_str, page_image, plot_image_list(page),
-                 page_background_color_str(page)))
+                (page.name_str, page_image, plot_image_list(page)))
     finally:
         # LLFR-00129: the user keeps the tab that was shown.
         if current_page is not None:
@@ -310,8 +310,7 @@ def draw_page_title(painter, name_str: str, page_width_i: int) -> int:
 
 def draw_page_image(painter, image, top_i: int, page_width_i: int,
                     page_height_i: int, plot_entry_list=(),
-                    corner_color_str: str = theme.PLOT_CORNER_COLOR_STR
-                    ) -> list:
+                    corner_color_str: str = PDF_PAPER_COLOR_STR) -> list:
     """Draw a tab image below the title, scaled to fit the page.
 
     Inputs:
@@ -323,8 +322,7 @@ def draw_page_image(painter, image, top_i: int, page_width_i: int,
         plot_entry_list: tuples (QRectF in the page's logical pixels,
             QImage of the figure) drawn over the grab.
         corner_color_str: color of the corners outside the rounding of
-            each plot, the background of the page image around the
-            plots.
+            each plot; the PDF paper by default.
     Outputs: a list of tuples (QRectF on the PDF page in device pixels,
         QImage) of the plot images drawn.
     """
@@ -349,7 +347,8 @@ def draw_page_image(painter, image, top_i: int, page_width_i: int,
                              canvas_rect.height() * scale_f)
         painter.drawImage(target_rect, plot_image)
         # LLFR-00891: the plot's rounded corners and border, scaled from
-        # screen pixels to the page, drawn as vector paths.
+        # screen pixels to the page, drawn as vector paths, with the
+        # corners in the paper color.
         paint_rounded_frame(painter, target_rect, scale_f, corner_color_str)
         drawn_list.append((target_rect, plot_image))
     return drawn_list
@@ -362,18 +361,19 @@ def paint_pdf_page(painter, snapshot_tuple: tuple, page_width_i: int,
     Inputs:
         painter: the QPainter drawing on the PDF writer (or, in a test,
             on an image of the page's size).
-        snapshot_tuple: (tab name str, page QImage, plot image list,
-            page background color str) from grab_exportable_images.
+        snapshot_tuple: (tab name str, page QImage, plot image list)
+            from grab_exportable_images.
         page_width_i: width of the paintable area, in device pixels.
         page_height_i: height of the paintable area, in device pixels.
     Outputs: the list returned by draw_page_image.
     """
     # LLFR-00129: the tab's name at the top, its plots below it.
-    # LLFR-00891: the plots with their rounded corners.
-    name_str, image, plot_entry_list, corner_color_str = snapshot_tuple
+    # LLFR-00891: the plots with their rounded corners on the paper.
+    name_str, image, plot_entry_list = snapshot_tuple
     top_i = draw_page_title(painter, name_str, page_width_i)
     return draw_page_image(painter, image, top_i, page_width_i,
-                           page_height_i, plot_entry_list, corner_color_str)
+                           page_height_i, plot_entry_list,
+                           PDF_PAPER_COLOR_STR)
 
 
 def build_pdf_bytes(snapshot_list: list) -> bytes:
@@ -381,8 +381,7 @@ def build_pdf_bytes(snapshot_list: list) -> bytes:
 
     Inputs:
         snapshot_list: tuples (tab name str, page QImage, plot image
-            list, page background color str) from
-            grab_exportable_images, in page order.
+            list) from grab_exportable_images, in page order.
     Outputs: the bytes of the PDF document.
     Raises:
         OSError: when Qt cannot create the document.

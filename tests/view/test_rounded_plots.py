@@ -221,6 +221,8 @@ class RoundedPlotTest(unittest.TestCase):
 
 # A PDF image object is "/Subtype /Image".
 IMAGE_OBJECT_PATTERN_BYTES = rb"/Subtype\s*/Image"
+# The window color of a dark system theme.
+DARK_WINDOW_COLOR_STR = "#202124"
 
 
 @requires_qt
@@ -294,13 +296,26 @@ class RoundedExportTest(unittest.TestCase):
         self.assertTrue(copied_b, reason_str)
         return QApplication.clipboard().image()
 
-    @covers("LLFR-00892", "LLFR-00133")
-    def test_copied_corners_show_the_image_background(self) -> None:
-        """In the copied image, the four corner pixels of each plot have
-        the color of the image background between the two plots.
+    def use_dark_page_palette(self) -> None:
+        """Give the tab page a dark window color, as in a dark system
+        theme, and repaint it.
 
         Inputs: none.
         Outputs: none.
+        """
+        from PyQt6.QtGui import QColor, QPalette
+        palette = self.page.palette()
+        palette.setColor(QPalette.ColorRole.Window,
+                         QColor(DARK_WINDOW_COLOR_STR))
+        self.page.setPalette(palette)
+        self.application.processEvents()
+
+    def assert_copied_corners_match_the_gap(self) -> str:
+        """Copy the tab and check that the four corner pixels of each plot
+        have the color of the image background between the two plots.
+
+        Inputs: none.
+        Outputs: the "#rrggbb" color of the gap.
         """
         image = self.copied_image()
         ratio_f = image.width() / max(self.page.width(), 1)
@@ -318,6 +333,30 @@ class RoundedExportTest(unittest.TestCase):
                 with self.subTest(x=x_i, y=y_i):
                     self.assertTrue(colors_close_b(
                         pixel_name(image, x_i, y_i), background_str))
+        return background_str
+
+    @covers("LLFR-00892", "LLFR-00133")
+    def test_copied_corners_show_the_image_background(self) -> None:
+        """In the copied image, the four corner pixels of each plot have
+        the color of the image background between the two plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assert_copied_corners_match_the_gap()
+
+    @covers("LLFR-00892", "LLFR-00133")
+    def test_copied_corners_with_a_dark_palette(self) -> None:
+        """With a dark window color, the corners of the copied plots are
+        dark like the image background between the plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.use_dark_page_palette()
+        background_str = self.assert_copied_corners_match_the_gap()
+        self.assertTrue(colors_close_b(background_str,
+                                       DARK_WINDOW_COLOR_STR))
 
     @covers("LLFR-00892", "LLFR-00133")
     def test_copied_plots_have_the_screen_border(self) -> None:
@@ -387,21 +426,23 @@ class RoundedExportTest(unittest.TestCase):
             painter.end()
         return (page_image, drawn_list)
 
-    @covers("LLFR-00891", "LLFR-00129")
-    def test_pdf_corners_show_the_page_background(self) -> None:
-        """On the PDF page, the corners of each plot have the color of
-        the page background between the two plots.
+    def assert_pdf_corners_show_the_paper(self) -> str:
+        """Paint the PDF page and check that the four corners of each plot
+        have the color of the paper just above the first plot, in the gap
+        below the tab name.
 
         Inputs: none.
-        Outputs: none.
+        Outputs: the "#rrggbb" color of the page between the two plots.
         """
+        from view import plot_export
         page_image, drawn_list = self.rendered_pdf_page()
         self.assertEqual(len(drawn_list), 2)
         first_rect = drawn_list[0][0]
         second_rect = drawn_list[1][0]
-        gap_y_f = (first_rect.bottom() + second_rect.top()) / 2.0
-        background_str = pixel_name(page_image, int(first_rect.center().x()),
-                                    int(gap_y_f))
+        paper_str = pixel_name(page_image, int(first_rect.left()) + 2,
+                               int(first_rect.top()) - 3)
+        self.assertTrue(colors_close_b(paper_str,
+                                       plot_export.PDF_PAPER_COLOR_STR))
         for target_rect, _ in drawn_list:
             first_x_i = int(target_rect.left()) + 2
             first_y_i = int(target_rect.top()) + 2
@@ -411,7 +452,33 @@ class RoundedExportTest(unittest.TestCase):
                              (first_x_i, last_y_i), (last_x_i, last_y_i)):
                 with self.subTest(x=x_i, y=y_i):
                     self.assertTrue(colors_close_b(
-                        pixel_name(page_image, x_i, y_i), background_str))
+                        pixel_name(page_image, x_i, y_i), paper_str))
+        gap_y_f = (first_rect.bottom() + second_rect.top()) / 2.0
+        return pixel_name(page_image, int(first_rect.center().x()),
+                          int(gap_y_f))
+
+    @covers("LLFR-00891", "LLFR-00129")
+    def test_pdf_corners_show_the_page_background(self) -> None:
+        """On the PDF page, the corners of each plot have the color of the
+        white paper next to the plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assert_pdf_corners_show_the_paper()
+
+    @covers("LLFR-00891", "LLFR-00129")
+    def test_pdf_corners_with_a_dark_palette(self) -> None:
+        """With a dark window color, the gap between the plots on the PDF
+        page is dark, and the corners of the plots are still the white
+        paper.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.use_dark_page_palette()
+        gap_str = self.assert_pdf_corners_show_the_paper()
+        self.assertTrue(colors_close_b(gap_str, DARK_WINDOW_COLOR_STR))
 
     @covers("LLFR-00891", "LLFR-00129")
     def test_pdf_border_is_scaled_to_the_page(self) -> None:
