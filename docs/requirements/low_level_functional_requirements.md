@@ -44,6 +44,70 @@ If an unexpected error occurs while the app handles a user action, the app must 
 
 *Parent: HLFR-00002*
 
+### LLFR-00977 Numbered items in a list box
+When a box of LLFR-00978 lists two or more items, the app must number them `1.`, `2.` and so on, in the order of the list, each number at the start of its item.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00978 Boxes that list items
+The boxes whose items are shown as in LLFR-00977 to LLFR-00987 must be these boxes, with these items:
+1. the File Open Error box of LLFR-00955: one item for each file that could not be opened, with its reason;
+2. the box of the refused files of LLFR-00956: one item for each refused file, with its reason;
+3. the load report of LLFR-00237: one item for each entry under each of its headings;
+4. the box of the changed names of LLFR-00404: one item for each changed name;
+5. the error box of LLFR-00559: one item for each signal with values that are not finite numbers;
+6. the question of LLFR-00255: one item for each synthetic signal computed from the signal to delete;
+7. the questions of LLFR-00924 and LLFR-00934: one item for each consequence of the close.
+
+Note: The owner asked on 2026-11-04 for long boxes that are easier to read: "Number each piece of message and skip a line between messages."
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00979 Blank line between items
+When a box of LLFR-00978 lists two or more items, the app must leave one blank line between one item and the next.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00980 Sentence above the list
+When a box of LLFR-00978 has a sentence that introduces its list, such as the question of LLFR-00924 or the heading "Renamed:" of LLFR-00237, the app must show that sentence above the list, followed by one blank line.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00981 One item without a number
+When a box of LLFR-00978 lists only one item, the app must show that item without a number.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00982 Lines of an item kept under its number
+When an item of a box of LLFR-00978 holds more than one line, the app must show the lines after the first one below it, each indented by the width of the number of LLFR-00977, so that they start where the text of the first line starts.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00983 Aligned item numbers
+The app must pad each number of LLFR-00977 on its left to the width of the largest number of its list, so that the numbers end at the same place and the text of every item of the list starts at the same distance from the left edge, also when the list holds 10 items or more.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-00984 Numbering under each heading of the load report
+In the load report of LLFR-00237, the app must number the items under each heading as a list of their own, starting at 1 under each heading.
+
+*Parent: HLFR-00052*
+
+### LLFR-00985 Count of the items of the load report
+The app must decide between LLFR-00977 and LLFR-00981 for the load report of LLFR-00237 by the number of items under all its headings together, so that, when the report lists two or more items in all, a heading with only one item shows that item as `1.`.
+
+*Parent: HLFR-00052*
+
+### LLFR-00986 Blank line between the headings of the load report
+In the load report of LLFR-00237, the app must leave one blank line between the last item under one heading and the next heading.
+
+*Parent: HLFR-00052*
+
+### LLFR-00987 Wrapped lines in the scrollable boxes
+In the scrollable boxes of LLFR-00884 and LLFR-00885, the app must wrap each line that is wider than the box at the width of the box, also inside a long name, so that the user reads every item without scrolling to the side.
+
+*Parent: HLFR-00052, HLFR-00090*
+
 ### LLFR-00072 Initial signal list width
 When the app starts, the signal list panel must take 20% of the app window's width.
 

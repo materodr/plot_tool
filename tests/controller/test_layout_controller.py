@@ -638,8 +638,8 @@ class LoadLayoutTest(LayoutControllerTestCase):
                          self.workspace.tab_list[2].tab_id_i)
         # LLFR-00237: one box with the two renames, nothing else.
         self.assertEqual(self.view.report_list, [
-            'Renamed:\n  - Tab "Tab 1" \u2192 "Tab 3"\n'
-            '  - Tab "Tab 2" \u2192 "Tab 4"'])
+            'Renamed:\n\n1. Tab "Tab 1" \u2192 "Tab 3"\n\n'
+            '2. Tab "Tab 2" \u2192 "Tab 4"'])
         self.assertEqual(self.view.load_error_list, [])
 
     @covers("LLFR-00231", "LLFR-00232", "LLFR-00237")
@@ -660,9 +660,10 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(first_plot_tuple[2], ())
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
-        self.assertIn("Signals not in the data file:\n  - Torque",
+        # LLFR-00984, LLFR-00985: numbered under its own heading.
+        self.assertIn("Signals not in the data file:\n\n1. Torque\n",
                       report_str)
-        self.assertEqual(report_str.count("  - Torque"), 1)
+        self.assertEqual(report_str.count("1. Torque\n"), 1)
         self.assertIn("Delta X marker between 1 s and 3 s", report_str)
 
     @covers("LLFR-00233", "LLFR-00234", "LLFR-00237")

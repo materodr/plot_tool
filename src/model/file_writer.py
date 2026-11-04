@@ -18,6 +18,7 @@ import re
 import numpy as np
 
 from model.file_loader import hdf5_library
+from model.message_lists import list_body_text, list_text
 from model.signal_file import TIME_SIGNAL_NAME_STR, is_time_signal_name
 
 # LLFR-00396: the formats of the save dialog (HLFR-00005), each with its
@@ -61,7 +62,7 @@ TABLE_EMPTY_NAME_STR = "signal"
 # finite numbers.
 NON_FINITE_REASON_STR = (
     "These signals have values that are not finite numbers (infinite or "
-    "NaN), which a data file cannot hold: {names}.")
+    "NaN), which a data file cannot hold:")
 # LLFR-00241, LLFR-00403: the first number added to a name in use.
 FIRST_SUFFIX_NUMBER_I = 2
 # LLFR-00399: the reason given when h5py is not installed.
@@ -445,11 +446,12 @@ def non_finite_reason(name_list: list) -> str:
 
     Inputs:
         name_list: the names of the signals with non-finite values.
-    Outputs: the sentence that names them.
+    Outputs: the sentence followed by the list of the signals.
     """
-    # LLFR-00408: each signal is named.
-    return NON_FINITE_REASON_STR.format(
-        names=", ".join(f"'{name_str}'" for name_str in name_list))
+    # LLFR-00408, LLFR-00559: each signal is named, as one item of the
+    # list below the sentence (LLFR-00977, LLFR-00980).
+    return list_text([f"'{name_str}'" for name_str in name_list],
+                     NON_FINITE_REASON_STR)
 
 
 def changed_name_list(name_list: list, new_name_list: list) -> list:
@@ -471,11 +473,13 @@ def changed_names_text(change_list: list) -> str:
 
     Inputs:
         change_list: (old name, new name) tuples.
-    Outputs: one line "<old name> → <new name>" per change.
+    Outputs: one item "<old name> → <new name>" per change, numbered
+        and separated by blank lines when there are two or more
+        (LLFR-00977, LLFR-00979).
     """
     # LLFR-00404: each changed name as "<old name> → <new name>".
-    return "\n".join(f"{old_str} → {new_str}"
-                     for old_str, new_str in change_list)
+    return list_body_text([f"{old_str} → {new_str}"
+                           for old_str, new_str in change_list])
 
 
 # ----------------------------------------------------------------------

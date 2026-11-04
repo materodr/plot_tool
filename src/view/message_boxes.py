@@ -37,9 +37,12 @@ build the box and run it.
 """
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QTextOption
 from PyQt6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
     QPlainTextEdit, QStyle, QVBoxLayout)
+
+from model.message_lists import list_text
 
 FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
 FULL_TAB_TITLE_STR = "Full Tab"
@@ -487,11 +490,12 @@ def delete_synthetic_signal_text(name_str: str,
     text_str = DELETE_SYNTHETIC_MESSAGE_STR.format(name=name_str)
     if not dependent_name_list:
         return f"{text_str}\n\n{DELETE_ONE_CONSEQUENCE_MESSAGE_STR}"
-    dependent_text_str = "\n".join(
-        f"  - {dependent_name_str}"
-        for dependent_name_str in dependent_name_list)
-    return (f"{text_str}\n\n{DELETE_DEPENDENTS_MESSAGE_STR}\n"
-            f"{dependent_text_str}\n\n{DELETE_CONSEQUENCE_MESSAGE_STR}")
+    # LLFR-00977 to LLFR-00981: the dependents as the items of a list
+    # below the sentence that introduces them.
+    dependent_text_str = list_text(dependent_name_list,
+                                   DELETE_DEPENDENTS_MESSAGE_STR)
+    return (f"{text_str}\n\n{dependent_text_str}\n\n"
+            f"{DELETE_CONSEQUENCE_MESSAGE_STR}")
 
 
 def build_delete_synthetic_signal_box(parent, name_str: str,
@@ -629,6 +633,12 @@ def build_layout_report_box(
     report_field = QPlainTextEdit(dialog)
     report_field.setObjectName(text_object_name_str)
     report_field.setReadOnly(True)
+    # LLFR-00987: each line is wrapped at the width of the field, also
+    # inside a long signal name, so that nothing needs a horizontal
+    # scroll.
+    report_field.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+    report_field.setWordWrapMode(
+        QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
     report_field.setPlainText(report_text_str)
     dialog_layout.addWidget(report_field, 1)
     button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok,
