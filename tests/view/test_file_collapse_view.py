@@ -458,7 +458,21 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click(self.icon_point(FIRST_ROW_STR))
+        from PyQt6.QtCore import QEvent, QPointF, Qt
+        from PyQt6.QtGui import QMouseEvent
+        # As Qt reports a user's double-click: a click (press and
+        # release), then a double-click event in place of the second
+        # press.
+        point = self.icon_point(FIRST_ROW_STR)
+        self.click(point)
+        self.assertEqual(self.icons(), ["[-]", "[+]"])
+        local_point = QPointF(point)
+        self.widget.mouseDoubleClickEvent(QMouseEvent(
+            QEvent.Type.MouseButtonDblClick, local_point,
+            QPointF(self.widget.viewport().mapToGlobal(point)),
+            Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier))
+        self.application.processEvents()
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.signal_name_list(), [])
 

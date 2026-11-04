@@ -809,10 +809,11 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_speed", "file1_force", "file1_temperature"])
 
-    @covers("LLFR-00290", "LLFR-00292", "LLFR-00242", "HLFR-00063",
-            "LLFR-00626")
+    @covers("LLFR-00290", "LLFR-00242", "HLFR-00063", "LLFR-00626",
+            "LLFR-01179")
     def test_shift_click_after_a_synthetic_signal_is_created(self) -> None:
-        """Creating a synthetic signal between the clicks keeps the start.
+        """A new synthetic signal is selected alone (LLFR-01179) and is
+        the start of the next Shift + click range.
 
         Inputs: none.
         Outputs: none.
@@ -822,7 +823,9 @@ class MultiSelectMainWindowTest(unittest.TestCase):
                                                       "integral")
         self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list()[-1], "file1_int_speed")
-        self.click_name("file1_int_speed", "ShiftModifier")
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["file1_int_speed"])
+        self.click_name("file1_force", "ShiftModifier")
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_force", "file1_temperature",
                           "file1_int_speed"])
