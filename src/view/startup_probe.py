@@ -56,8 +56,9 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
    that file, then in a folder ``second``; the folder the second dialog
    really shows (on macOS the folder of the system panel on screen) is
    compared with ``second`` (LLFR-00447, LLFR-00468, LLFR-01177,
-   LLFR-01179, issue #232), its file name field must be empty
-   (LLFR-01180, issue #243), and a line is printed::
+   LLFR-01179, issue #232), its file name field must be empty in a save
+   dialog and must not hold the earlier file in an open dialog
+   (LLFR-01180, issue #243, name_is_clean), and a line is printed::
 
        plot_tool folder: name=<dialog> expected=<second folder>
        shown=<folder shown> source=<panel|dialog> ok=<yes|no>
@@ -682,6 +683,27 @@ def same_folder(first_str: str, second_str: str) -> bool:
             and os.path.realpath(first_str) == os.path.realpath(second_str))
 
 
+def name_is_clean(main_window, key_str: str, name_str: str) -> bool:
+    """Tell whether a reused dialog shows no name of its earlier use.
+
+    Inputs:
+        main_window: the app's MainWindow.
+        key_str: the key of the dialog in main_window.file_dialog_pool.
+        name_str: the text of its name field when it was shown again.
+    Outputs: True when a save dialog's name field is empty, or when an
+        open dialog's (hidden) name field holds anything but the name
+        of the file selected at the earlier use; macOS keeps "Untitled"
+        in the hidden name field of its open panel.
+    """
+    # LLFR-01180: the user types a name only in a save dialog; an open
+    # dialog must not bring back the file chosen before.
+    from PyQt6.QtWidgets import QFileDialog
+    dialog = main_window.file_dialog_pool.dialog(key_str)
+    if dialog.acceptMode() == QFileDialog.AcceptMode.AcceptSave:
+        return not name_str
+    return name_str != EARLIER_FILE_NAME_STR
+
+
 def folder_line_list(main_window, application, output_stream=None,
                      platform_str: str = sys.platform) -> tuple:
     """Check that reused dialogs show the folder the controller asks for.
@@ -718,7 +740,7 @@ def folder_line_list(main_window, application, output_stream=None,
                 main_window, application, key_str, second_folder_str,
                 "", platform_str)
             ok_b = same_folder(shown_str, second_folder_str)
-            name_ok_b = not name_str
+            name_ok_b = name_is_clean(main_window, key_str, name_str)
             all_ok_b = all_ok_b and ok_b and name_ok_b
             # LLFR-01180: a name with spaces is shown as one field.
             shown_name_str = name_str.replace(" ", "_") or "-"

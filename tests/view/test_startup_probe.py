@@ -380,6 +380,16 @@ class StartupProbeTest(unittest.TestCase):
             self.assertIn("file_name=earlier_copy.csv name_ok=no",
                           output_stream.getvalue())
             self.assertEqual(probe.visible_panel_name_str("linux"), "")
+            # LLFR-01180: the hidden name field of the macOS open panel
+            # says "Untitled"; only the earlier file's name fails there.
+            self.assertTrue(probe.name_is_clean(main_window, "open_file",
+                                                "Untitled"))
+            self.assertFalse(probe.name_is_clean(main_window, "load_layout",
+                                                 "earlier.csv"))
+            self.assertFalse(probe.name_is_clean(main_window, "save_pdf",
+                                                 "Untitled"))
+            self.assertTrue(probe.name_is_clean(main_window, "save_signals",
+                                                ""))
         finally:
             main_window.close()
             main_window.deleteLater()
