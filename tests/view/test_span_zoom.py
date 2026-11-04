@@ -570,7 +570,7 @@ class SpanInteractionTest(SpanWidgetTestCase):
     @covers("LLFR-00208", "LLFR-00207", "LLFR-00454")
     def test_drag_flag_is_set_from_press_to_release(self) -> None:
         """is_mouse_drag_in_progress is True from the Zoom press to the
-        release, and False again after it (the Z key is ignored then).
+        release, and False again after it (the 0 key is ignored then).
 
         Inputs: none.
         Outputs: none.
@@ -583,7 +583,7 @@ class SpanInteractionTest(SpanWidgetTestCase):
         self.assertTrue(self.plot_widget.is_mouse_drag_in_progress())
         self.left_release(self.point_at(6.0, 0.0))
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
-        # LLFR-00207: a removed plot never blocks the Z key.
+        # LLFR-00207: a removed plot never blocks the 0 key.
         self.left_press(self.point_at(2.0, 0.0))
         self.move_to(self.point_at(3.0, 0.0))
         self.plot_widget.retire()
@@ -912,7 +912,7 @@ class SpanZoomWindowTest(XyzKeyWindowTestCase):
             "LLFR-00076", "LLFR-00454", "LLFR-00674")
     def test_span_zooms_every_plot_and_z_waits_for_the_release(
             self) -> None:
-        """A span drag on one plot zooms every plot of both tabs; the Z
+        """A span drag on one plot zooms every plot of both tabs; the 0
         key does nothing during the drag and resets after it.
 
         Inputs: none.
@@ -928,8 +928,8 @@ class SpanZoomWindowTest(XyzKeyWindowTestCase):
         self.send_left(plot_widget, "MouseMove", 2.0, "LeftButton")
         self.send_left(plot_widget, "MouseMove", 3.0, "LeftButton", 25)
         self.assertTrue(plot_widget.time_span_line_shown())
-        self.press_key("Key_Z", plot_widget.canvas)
-        self.release_key("Key_Z", plot_widget.canvas)
+        self.press_key("Key_0", plot_widget.canvas)
+        self.release_key("Key_0", plot_widget.canvas)
         self.assert_every_range((0.0, 4.0))
         self.assertTrue(plot_widget.time_span_line_shown())
         self.send_left(plot_widget, "MouseButtonRelease", 3.0, "NoButton",
@@ -945,8 +945,8 @@ class SpanZoomWindowTest(XyzKeyWindowTestCase):
                          .shared_time_range_tuple, span_tuple)
         # Not undoable (LLFR-00140): nothing was recorded.
         self.assertEqual(len(undo_history.snapshot_list), history_length_i)
-        self.press_key("Key_Z")
-        self.release_key("Key_Z")
+        self.press_key("Key_0")
+        self.release_key("Key_0")
         self.assert_every_range((0.0, 4.0))
 
     @covers("LLFR-00208", "LLFR-00148", "LLFR-00149")

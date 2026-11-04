@@ -739,10 +739,11 @@ class AreaMenuTest(AreaWidgetTestCase):
         return shown_list
 
     @covers("LLFR-00314", "LLFR-00315", "LLFR-00316", "LLFR-00317",
-            "LLFR-00721")
+            "LLFR-00721", "LLFR-01078", "HLFR-00149")
     def test_area_menu_and_its_requests(self) -> None:
         """Inside the area, away from every other item, the menu has
-        Rename, Color, Delete and Delete plot, each emitting its request,
+        Rename, Color, Delete, Position and Delete plot, each emitting
+        its request,
         with any tool.
 
         Inputs: none.
@@ -758,9 +759,13 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.menu_texts(self.at(4.0), "Rename")
         self.menu_texts(self.at(4.0), "Delete")
         self.menu_texts(self.at(4.0), "Delete plot")
+        # LLFR-01078: "Position" asks for the position picker.
+        position_list = recorder(self.plot_widget.plot_position_requested)
+        self.menu_texts(self.at(4.0), "Position")
         self.assertEqual(rename_list, [(1,)])
         self.assertEqual(delete_list, [(1,)])
         self.assertEqual(plot_delete_list, [()])
+        self.assertEqual(position_list, [()])
 
     @covers("LLFR-00351", "LLFR-00314", "LLFR-00388", "LLFR-00809")
     def test_color_option_asks_for_the_picker(self) -> None:
@@ -822,7 +827,8 @@ class AreaMenuTest(AreaWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.assertEqual(self.menu_texts(self.at(8.0)), ["Delete plot"])
+        self.assertEqual(self.menu_texts(self.at(8.0)),
+                         ["Position", "Delete plot"])
         self.assertEqual(self.plot_widget.area_at(self.at(8.0)), -1)
         self.assertEqual(self.plot_widget.area_at(self.at(4.0)), 1)
 
@@ -934,7 +940,7 @@ class AreaWindowTest(XyzKeyWindowTestCase):
             "LLFR-00454", "LLFR-00708", "LLFR-00709")
     def test_move_follows_on_the_tab_and_z_waits(self) -> None:
         """Moving an area shows it moving on the other plot of the tab
-        before the release; the Z key does nothing during the drag; the
+        before the release; the 0 key does nothing during the drag; the
         move is one undoable action.
 
         Inputs: none.
@@ -953,7 +959,7 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         middle_s = (start_s + end_s) / 2.0
 
         def check_during_drag() -> None:
-            """Check the other plot and the Z key mid-drag.
+            """Check the other plot and the 0 key mid-drag.
 
             Inputs: none.
             Outputs: none.
@@ -963,8 +969,8 @@ class AreaWindowTest(XyzKeyWindowTestCase):
                 area_id_i)[0]
             self.assertAlmostEqual(drawn_start_s, start_s + 0.3,
                                    delta=0.03)
-            self.press_key("Key_Z", first_widget.canvas)
-            self.release_key("Key_Z", first_widget.canvas)
+            self.press_key("Key_0", first_widget.canvas)
+            self.release_key("Key_0", first_widget.canvas)
             self.assert_every_range(self.zoomed_range())
 
         self.drag_area(first_widget, middle_s, middle_s + 0.3,

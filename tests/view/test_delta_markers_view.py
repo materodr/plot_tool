@@ -655,7 +655,8 @@ class DeltaMenuTest(DeltaWidgetTestCase):
                     self.assertEqual(self.menu_texts_at(*data_tuple),
                                      DELTA_MENU_TEXT_LIST)
         # LLFR-00048: an empty area still offers "Delete plot".
-        self.assertEqual(self.menu_texts_at(9.0, -0.5), ["Delete plot"])
+        self.assertEqual(self.menu_texts_at(9.0, -0.5),
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00176")
     def test_delete_requests_the_marker_id_last(self) -> None:

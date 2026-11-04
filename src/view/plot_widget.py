@@ -242,6 +242,8 @@ PICK_TOLERANCE_PIXELS_I = 6
 TIME_AXIS_LABEL_STR = "Time (s)"
 # LLFR-00426: the title of the menu of a plot.
 PLOT_MENU_TITLE_STR = "Plot"
+# LLFR-01077, LLFR-01078: the option that opens the position picker.
+POSITION_TEXT_STR = "Position"
 # LLFR-00420: the kinds of objects whose name label a double-click
 # renames.
 LABEL_KIND_FLAG_STR = "flag"
@@ -871,6 +873,8 @@ class PlotWidget(QWidget):
         curve_delete_requested(str): "Delete signal" chosen for a curve.
         curve_width_requested(str, int): a preset width 1..5 chosen.
         plot_delete_requested(): "Delete plot" chosen.
+        plot_position_requested(): "Position" chosen (LLFR-01077,
+            LLFR-01078); the plot panel opens the position picker.
         signals_dropped(list): signal names were dropped on the plot,
             in the order of the signal list (LLFR-00021, LLFR-00297).
         tip_pin_requested(str, float, float): the shown hover tip
@@ -969,6 +973,7 @@ class PlotWidget(QWidget):
     curve_delete_requested = pyqtSignal(str)
     curve_width_requested = pyqtSignal(str, int)
     plot_delete_requested = pyqtSignal()
+    plot_position_requested = pyqtSignal()
     signals_dropped = pyqtSignal(list)
     tip_pin_requested = pyqtSignal(str, float, float)
     pinned_tip_delete_requested = pyqtSignal(int)
@@ -1124,9 +1129,9 @@ class PlotWidget(QWidget):
         # SWIPE_PAN_STR, SWIPE_ZOOM_STR, or NO_SWIPE_CHOICE_STR until its
         # first event that moves.
         self.swipe_choice_str = NO_SWIPE_CHOICE_STR
-        # LLFR-00207, LLFR-00208: True while a time span is selected with
+        # LLFR-00454, LLFR-00208: True while a time span is selected with
         # the mouse; the time span selection sets it on this instance, so
-        # that the Z key does nothing during its drag.
+        # that the 0 key does nothing during its drag.
         self.time_span_drag_b = False
         # LLFR-00078, LLFR-00208: where the left button was pressed with
         # the Zoom tool (widget point, time, display y); whether the
@@ -3567,7 +3572,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00339, LLFR-00207: no text note is being moved.
+        # LLFR-00339, LLFR-00454: no text note is being moved.
         self.drag_note_index_i = NO_TEXT_NOTE_INDEX_I
         self.note_drag_place_tuple = ()
         self.note_drag_moved_b = False
@@ -4328,6 +4333,9 @@ class PlotWidget(QWidget):
             add_request_action(
                 menu, DELETE_ALL_AREAS_TEXT_STR,
                 lambda: self.all_areas_delete_requested.emit())
+            # LLFR-01078: "Position", directly above "Delete plot".
+            add_request_action(menu, POSITION_TEXT_STR,
+                               lambda: self.plot_position_requested.emit())
             # LLFR-00314 Note: a plot covered by an area can be deleted.
             add_request_action(menu, "Delete plot",
                                lambda: self.plot_delete_requested.emit())
@@ -4336,6 +4344,9 @@ class PlotWidget(QWidget):
         # vertical marker, delta marker, area or text note under the
         # mouse). LLFR-00425, LLFR-00426: the title is "Plot".
         add_menu_title(menu, PLOT_MENU_TITLE_STR)
+        # LLFR-01077: "Position", directly above "Delete plot".
+        add_request_action(menu, POSITION_TEXT_STR,
+                           lambda: self.plot_position_requested.emit())
         add_request_action(menu, "Delete plot",
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
@@ -4374,11 +4385,11 @@ class PlotWidget(QWidget):
             all flags"; on a delta marker "Rename", "Color", "Delete" and
             "Delete
             all delta markers in this plot" and "... in all plots"; on
-            an area "Rename", "Color", "Delete", "Delete all areas" and
-            "Delete plot"; every color option is a submenu of the
-            recent colors and "Other color..."; on a
+            an area "Rename", "Color", "Delete", "Delete all areas",
+            "Position" and "Delete plot"; every color option is a
+            submenu of the recent colors and "Other color..."; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
-            elsewhere "Delete plot".
+            elsewhere "Position" and "Delete plot".
         """
         # LLFR-00038, LLFR-00040, LLFR-00046, LLFR-00048.
         menu, request_list = self.context_menu_and_requests(widget_point)
@@ -5074,9 +5085,9 @@ class PlotWidget(QWidget):
             selection (LLFR-00208, flag time_span_drag_b), from the
             press to the release.
         """
-        # LLFR-00207: the Z key does nothing while one of these drags is
+        # LLFR-00454: the 0 key does nothing while one of these drags is
         # in progress. A new kind of drag only has to be added here.
-        # LLFR-00207: and an area drag, from the press of the Area tool to
+        # LLFR-00454: and an area drag, from the press of the Area tool to
         # the release.
         return (self.panning_b
                 or self.drag_marker_id_i != NO_MARKER_ID_I
@@ -5084,7 +5095,7 @@ class PlotWidget(QWidget):
                 or self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I
                 or self.time_span_drag_b
                 or self.area_drag_mode_str != AREA_DRAG_NONE_STR
-                # LLFR-00207: and the drawing or the drag of an arrow.
+                # LLFR-00454: and the drawing or the drag of an arrow.
                 or self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR
                 # LLFR-00454: and the drag of a delta marker point.
                 or self.delta_drag_id_i != NO_DELTA_MARKER_ID_I)
@@ -5119,8 +5130,8 @@ class PlotWidget(QWidget):
         # LLFR-00354: nor any delta preview.
         self.delta_preview_point_tuple = ()
         self.delta_preview_widget_point = None
-        # LLFR-00207, LLFR-00208: a time span selection stops too, so a
-        # removed plot never blocks the Z key; its line is not drawn
+        # LLFR-00454, LLFR-00208: a time span selection stops too, so a
+        # removed plot never blocks the 0 key; its line is not drawn
         # again.
         self.time_span_drag_b = False
         self.time_span_shown_b = False
@@ -5180,7 +5191,7 @@ class PlotWidget(QWidget):
             widget_point)
         if not self.inside_axes_b(display_x_px, display_y_px):
             return
-        # LLFR-00207: from the press to the release, the Z key does
+        # LLFR-00454: from the press to the release, the 0 key does
         # nothing (is_mouse_drag_in_progress).
         self.time_span_drag_b = True
         self.time_span_shown_b = False
@@ -5511,8 +5522,8 @@ class PlotWidget(QWidget):
             return
         # LLFR-00356, LLFR-00118 to LLFR-00120: the wheel button pan code,
         # driven by the left button. LLFR-00357: a press and release
-        # without a move shifts nothing and shows nothing. LLFR-00207:
-        # panning_b makes the Z key do nothing until the release.
+        # without a move shifts nothing and shows nothing. LLFR-00454:
+        # panning_b makes the 0 key do nothing until the release.
         self.pan_press_at(widget_point, Qt.MouseButton.LeftButton)
 
     def is_tool_pan_b(self) -> bool:
@@ -5857,7 +5868,7 @@ class PlotWidget(QWidget):
             mode_str = AREA_DRAG_CREATE_STR
             self.area_limit_tuple = (lowest_s, highest_s)
             self.area_drag_span_tuple = (press_time_s, press_time_s)
-        # LLFR-00207: from the press to the release, the Z key does
+        # LLFR-00454: from the press to the release, the 0 key does
         # nothing (is_mouse_drag_in_progress).
         self.area_drag_mode_str = mode_str
         self.area_drag_id_i = area_id_i
@@ -6479,7 +6490,7 @@ class PlotWidget(QWidget):
         Outputs: none. Nothing is shown until the pointer is 5 pixels
             from the press.
         """
-        # LLFR-00207: from the press to the release, the Z key does
+        # LLFR-00454: from the press to the release, the 0 key does
         # nothing (is_mouse_drag_in_progress).
         self.arrow_drag_mode_str = mode_str
         self.arrow_drag_index_i = arrow_index_i
@@ -6727,7 +6738,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00207: no arrow is being drawn or dragged.
+        # LLFR-00454: no arrow is being drawn or dragged.
         self.arrow_drag_mode_str = ARROW_DRAG_NONE_STR
         self.arrow_drag_index_i = NO_ARROW_INDEX_I
         self.arrow_drag_moved_b = False

@@ -175,16 +175,18 @@ class TabTest(PlotPanelTestCase):
         self.assertEqual(self.panel.tab_widget.count(), 2)
         self.assert_button_beside_last_tab()
 
-    @covers("LLFR-00027", "LLFR-00029", "LLFR-00066", "HLFR-00016")
+    @covers("LLFR-00027", "LLFR-00029", "LLFR-00066", "HLFR-00016",
+            "LLFR-01061", "HLFR-00145")
     def test_tab_menu_options_and_last_tab(self) -> None:
-        """The tab menu has Delete and Rename; Delete is off on one tab.
+        """The tab menu is Delete, Rename, Plot matrix; Delete is off on
+        one tab.
 
         Inputs: none.
         Outputs: none.
         """
         menu = self.panel.build_tab_menu(0)
         self.assertEqual([action.text() for action in menu.actions()],
-                         ["Delete", "Rename"])
+                         ["Delete", "Rename", "Plot matrix"])
         self.assertFalse(self.menu_action(menu, "Delete").isEnabled())
         self.assertTrue(self.menu_action(menu, "Rename").isEnabled())
         self.menu_action(menu, "Delete").trigger()

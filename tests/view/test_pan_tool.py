@@ -3,7 +3,7 @@
 Covers LLFR-00355 (the Pan button), LLFR-00356 (pan by left drag),
 LLFR-00357 (what a press does with the Pan button active), with the
 limits and y-axis fits of LLFR-00118 to LLFR-00120, the frequency plots
-of LLFR-00258, the Z key of LLFR-00207 and the button rules of
+of LLFR-00258, the 0 key of LLFR-00207 and the button rules of
 LLFR-00079, LLFR-00109, LLFR-00159, LLFR-00214 and LLFR-00215. No modal
 dialog or menu is ever opened.
 """
@@ -357,7 +357,7 @@ class PanToolWidgetTest(NavigationWidgetTestCase):
     @covers("LLFR-00207", "LLFR-00356", "LLFR-00454")
     def test_pan_is_a_drag_in_progress(self) -> None:
         """From the left press to the release the plot reports a mouse
-        drag, so the Z key does nothing.
+        drag, so the 0 key does nothing.
 
         Inputs: none.
         Outputs: none.
@@ -731,7 +731,7 @@ class PanEndToEndTest(unittest.TestCase):
 
     @covers("LLFR-00207", "LLFR-00356", "LLFR-00454")
     def test_z_key_does_nothing_during_a_pan(self) -> None:
-        """While the left button pans, the Z key resets nothing; after
+        """While the left button pans, the 0 key resets nothing; after
         the release it resets the zoom again.
 
         Inputs: none.
@@ -748,7 +748,7 @@ class PanEndToEndTest(unittest.TestCase):
         reset_list = []
 
         def press_z_during_drag() -> None:
-            """Press Z while the button is held.
+            """Press 0 while the button is held.
 
             Inputs: none.
             Outputs: none.
