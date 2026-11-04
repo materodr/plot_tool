@@ -2296,8 +2296,9 @@ class Workspace:
         Inputs: none.
         Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
             (tab_id_i, name_str, plot state tuples, row_count_i,
-            column_count_i) per tab, in tab order, the vertical markers (marker_state_tuple) and the
-            areas (area_state_tuple); two workspaces with equal tuples
+            column_count_i) per tab, in tab order, the vertical
+            markers (marker_state_tuple) and the areas
+            (area_state_tuple); two workspaces with equal tuples
             show the same thing (LLFR-00140).
         """
         # LLFR-00138, LLFR-00140: what an undo restores; the id counters

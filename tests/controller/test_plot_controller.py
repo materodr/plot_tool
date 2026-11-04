@@ -138,6 +138,12 @@ class FakePlotView:
         self.delta_name_question_list = []
         self.arrow_name_answer_list = []
         self.arrow_name_question_list = []
+        # LLFR-00032, LLFR-01092: the matrix each Full Tab box named.
+        self.full_tab_matrix_list = []
+        # LLFR-01065: tab id -> (rows, columns) shown.
+        self.tab_matrix_dict = {}
+        # LLFR-01083: tab id -> plot ids in fill order, after a swap.
+        self.plot_order_dict = {}
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -266,6 +272,7 @@ class FakePlotView:
         """
         self.call_list.append(("clear_tab_views",))
         self.tab_dict = {}
+        self.tab_matrix_dict = {}
         self.plot_tab_dict = {}
         self.drawn_dict = {}
         self.range_dict = {}
@@ -538,14 +545,73 @@ class FakePlotView:
                                tuple(point_tuple)))
         self.delta_first_point_dict[plot_id_i] = tuple(point_tuple)
 
-    def show_full_tab_notification(self) -> None:
-        """Count a Full Tab box.
+    def show_full_tab_notification(self, row_count_i: int = 5,
+                                   column_count_i: int = 1) -> None:
+        """Count a Full Tab box and record the matrix it names.
 
-        Inputs: none.
+        Inputs:
+            row_count_i: rows of the full tab's plot matrix.
+            column_count_i: columns of the full tab's plot matrix.
         Outputs: none.
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+        self.full_tab_matrix_list.append((row_count_i, column_count_i))
+
+    def set_tab_arrangement_handlers(self, move_tab_handler,
+                                     plot_matrix_handler) -> None:
+        """Record the tab move and plot matrix handlers.
+
+        Inputs:
+            move_tab_handler: function taking a tab id and a place.
+            plot_matrix_handler: function taking a tab id, rows and
+                columns.
+        Outputs: none.
+        """
+        self.handler_dict["move_tab"] = move_tab_handler
+        self.handler_dict["plot_matrix"] = plot_matrix_handler
+
+    def set_tab_matrix_view(self, tab_id_i: int, row_count_i: int,
+                            column_count_i: int) -> None:
+        """Record the plot matrix shown for a tab.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            row_count_i: number of rows.
+            column_count_i: number of columns.
+        Outputs: none.
+        """
+        self.tab_matrix_dict[tab_id_i] = (row_count_i, column_count_i)
+
+    def set_plot_order_view(self, tab_id_i: int,
+                            plot_id_list: list) -> None:
+        """Record the fill order of the plots of a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            plot_id_list: the plot ids in fill order.
+        Outputs: none.
+        """
+        self.call_list.append(("set_plot_order_view", tab_id_i,
+                               list(plot_id_list)))
+        self.plot_order_dict[tab_id_i] = list(plot_id_list)
+
+    def move_tab_view(self, tab_id_i: int, index_i: int) -> None:
+        """Move a shown tab to a place in the tab row.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            index_i: its new place, from 0.
+        Outputs: none.
+        """
+        self.call_list.append(("move_tab_view", tab_id_i, index_i))
+        item_list = [item for item in self.tab_dict.items()
+                     if item[0] != tab_id_i]
+        item_list.insert(index_i, (tab_id_i, self.tab_dict[tab_id_i]))
+        self.tab_dict = dict(item_list)
 
     def show_plot_kind_mismatch_notification(self) -> None:
         """Count a box of LLFR-00257 (FFT and time signals mixed).

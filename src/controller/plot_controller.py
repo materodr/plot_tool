@@ -12,7 +12,11 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 
 - tabs: ``add_tab_view``, ``remove_tab_view``, ``rename_tab_view``,
   ``clear_tab_views``, ``set_current_tab``, ``current_tab_id``,
-  ``set_tab_delete_enabled``;
+  ``set_tab_delete_enabled``, ``move_tab_view(tab_id_i, index_i)``
+  (LLFR-01052) and ``set_tab_matrix_view(tab_id_i, row_count_i,
+  column_count_i)`` (LLFR-01065);
+- the order of the plots of a tab: ``set_plot_order_view(tab_id_i,
+  plot_id_list)``, the fill order after a swap (LLFR-01083);
 - plots: ``add_plot_view(tab_id_i, plot_id_i, kind_str)``,
   ``remove_plot_view``, ``draw_plot``, ``set_plot_time_range``,
   ``plot_time_range``, ``set_plot_tool``, ``set_delta_first_point``;
@@ -24,7 +28,8 @@ names, numbers, numpy arrays), so it can be tested with a fake view
   (LLFR-00351), drawn on every time plot of
   every tab) and ``set_plot_areas(plot_id_i, area_data_list)`` (the
   areas of one plot, after it was drawn);
-- boxes: ``show_full_tab_notification``,
+- boxes: ``show_full_tab_notification(row_count_i, column_count_i)``
+  (LLFR-00032, LLFR-01092),
   ``show_tab_name_taken_notification``,
   ``show_plot_kind_mismatch_notification``, ``ask_marker_name``,
   ``ask_area_name``, ``ask_delta_marker_name``, ``ask_arrow_name``
@@ -39,7 +44,7 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - handler setters: ``set_signal_double_click_handler``,
   ``set_selected_signals_plot_handler``, ``set_plot_tool_handler``,
-  ``set_tab_handlers``,
+  ``set_tab_handlers``, ``set_tab_arrangement_handlers``,
   ``set_plot_handlers``, ``set_reset_zoom_handler``,
   ``set_grid_handler``, ``set_undo_handler`` and ``set_redo_handler``.
 
@@ -144,6 +149,15 @@ applies its time range and grid, clears the undo and redo history
 (LLFR-00238) and shows every tab and plot again. The layout controller
 runs the dialogs and the boxes.
 
+Plot matrix (HLFR-00145 to HLFR-00150): each tab of the model has its
+own plot matrix, 5 x 1 for a new tab, and its plot list is the fill
+order of that matrix. A matrix change, a swap of two plots (HLFR-00149)
+and the move of a tab by a drag (HLFR-00142) are each one undoable
+action; choosing the same matrix, the plot's own slot or the tab's own
+place records nothing (LLFR-01069, LLFR-01086, LLFR-01055). The view
+moves a dragged tab by itself and reports the tab's new place when the
+mouse button is released.
+
 Every handler validates the ids it gets from the view and ignores
 unknown ones, so a stale request never raises (PCR-00025).
 """
@@ -230,6 +244,13 @@ class PlotController:
         # LLFR-00026, LLFR-00028, LLFR-00030: tab menu and "+" button.
         view.set_tab_handlers(self.on_add_tab, self.on_delete_tab,
                               self.on_rename_tab)
+        # LLFR-01052, LLFR-01065: a tab dragged to another place, and
+        # "Plot matrix" in the tab menu.
+        view.set_tab_arrangement_handlers(
+            move_tab_handler=self.on_move_tab,
+            plot_matrix_handler=self.on_plot_matrix)
+        # LLFR-01083: a slot chosen in the position picker of a plot.
+        view.set_plot_handlers(plot_swap_handler=self.on_plot_swap)
         # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,
         # LLFR-00049, LLFR-00070: requests made on a plot.
         # LLFR-00081, LLFR-00086, LLFR-00088, LLFR-00091: requests made
@@ -333,9 +354,34 @@ class PlotController:
         # start).
         self.view.clear_tab_views()
         for tab in self.workspace.tab_list:
-            self.view.add_tab_view(tab.tab_id_i, tab.name_str)
+            self.show_tab_view(tab)
         self.view.set_current_tab(self.workspace.tab_list[0].tab_id_i)
         self.update_tab_delete_enabled()
+
+    def show_tab_view(self, tab) -> None:
+        """Show a tab of the model with its plot matrix.
+
+        Inputs:
+            tab: the Tab of the workspace.
+        Outputs: none. The tab is added after the last shown tab.
+        """
+        # LLFR-00024, LLFR-00026: the view shows the tab.
+        self.view.add_tab_view(tab.tab_id_i, tab.name_str)
+        # LLFR-01087, LLFR-01066: with its own plot matrix.
+        self.view.set_tab_matrix_view(tab.tab_id_i, tab.row_count_i,
+                                      tab.column_count_i)
+
+    def show_full_tab_notification(self, tab) -> None:
+        """Show the Full Tab Notification box for a full tab.
+
+        Inputs:
+            tab: the full Tab.
+        Outputs: none.
+        """
+        # LLFR-00032: use a new tab or choose a larger plot matrix;
+        # LLFR-01092: only a new tab when the matrix is already 10 x 10.
+        self.view.show_full_tab_notification(tab.row_count_i,
+                                             tab.column_count_i)
 
     def update_tab_delete_enabled(self) -> None:
         """Enable the tab menu's "Delete" only when a tab may be deleted.
@@ -868,10 +914,11 @@ class PlotController:
         plot = self.workspace.add_plot(
             tab.tab_id_i, self.plot_kind_for_signal(signal_name_str))
         if plot is None:
-            # LLFR-00032: tell the user to add a tab or delete a plot.
-            self.view.show_full_tab_notification()
+            # LLFR-00032: tell the user to use a new tab or a larger
+            # plot matrix.
+            self.show_full_tab_notification(tab)
             return
-        # LLFR-00019, LLFR-00069: the new plot goes below the others.
+        # LLFR-00019, LLFR-01074: the new plot takes the next slot.
         self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i, plot.kind_str)
         # LLFR-00020, LLFR-00052: draw the signal with width 1.
         plot.add_curve(signal_name_str)
@@ -928,10 +975,11 @@ class PlotController:
         # (LLFR-00256).
         plot = self.workspace.add_plot(tab.tab_id_i, kind_set.pop())
         if plot is None:
-            # LLFR-00032: tell the user to add a tab or delete a plot.
-            self.view.show_full_tab_notification()
+            # LLFR-00032, LLFR-00630: tell the user to use a new tab or
+            # a larger plot matrix.
+            self.show_full_tab_notification(tab)
             return
-        # LLFR-00069: the new plot goes below the others.
+        # LLFR-01074: the new plot takes the next slot.
         self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i, plot.kind_str)
         # LLFR-00295, LLFR-00033, LLFR-00034: every signal in list order,
         # so the curves get the palette colors in that order.
@@ -1748,7 +1796,8 @@ class PlotController:
         # LLFR-00026: the "+" button adds a new tab.
         tab = self.workspace.add_tab()
         self.record_undo(snapshot)
-        self.view.add_tab_view(tab.tab_id_i, tab.name_str)
+        # LLFR-01087: the new tab has the default 5 x 1 plot matrix.
+        self.show_tab_view(tab)
         self.view.set_current_tab(tab.tab_id_i)
         # LLFR-00066: with two tabs or more, "Delete" is enabled.
         self.update_tab_delete_enabled()
@@ -1802,6 +1851,75 @@ class PlotController:
         # LLFR-00030: show the new name (without surrounding spaces).
         tab = self.workspace.find_tab(tab_id_i)
         self.view.rename_tab_view(tab_id_i, tab.name_str)
+
+    def on_move_tab(self, tab_id_i: int, new_index_i: int) -> None:
+        """Keep a tab at the place where the user dropped it.
+
+        Inputs:
+            tab_id_i: id of the dragged tab.
+            new_index_i: its place in the tab row when the mouse button
+                was released, from 0.
+        Outputs: none.
+        """
+        # LLFR-01054: a tab move is one undoable action.
+        snapshot = self.take_snapshot()
+        # LLFR-01052: the tab stays between the tabs on either side of
+        # it; LLFR-01055: back at its place, nothing changes and nothing
+        # is recorded.
+        if not self.workspace.move_tab(tab_id_i, new_index_i):
+            return
+        self.record_undo(snapshot)
+        # LLFR-01052, LLFR-01056: the view has the tab order of the
+        # model (it already moved the tab during the drag).
+        self.view.move_tab_view(
+            tab_id_i, self.workspace.tab_list.index(
+                self.workspace.find_tab(tab_id_i)))
+
+    def on_plot_matrix(self, tab_id_i: int, row_count_i: int,
+                       column_count_i: int) -> None:
+        """Give a tab the plot matrix chosen in the matrix picker.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            row_count_i: chosen number of rows, 1 to 10.
+            column_count_i: chosen number of columns, 1 to 10.
+        Outputs: none.
+        """
+        # LLFR-01068: a matrix change is one undoable action.
+        snapshot = self.take_snapshot()
+        # LLFR-01065, LLFR-01066: only this tab changes; LLFR-01069: its
+        # current matrix changes nothing; LLFR-01072: a matrix with
+        # fewer slots than the tab's plots is refused.
+        if not self.workspace.set_plot_matrix(tab_id_i, row_count_i,
+                                              column_count_i):
+            return
+        self.record_undo(snapshot)
+        # LLFR-01067, LLFR-01073 to LLFR-01076: the plots are laid out
+        # again in the new matrix, in the same fill order.
+        tab = self.workspace.find_tab(tab_id_i)
+        self.view.set_tab_matrix_view(tab_id_i, tab.row_count_i,
+                                      tab.column_count_i)
+
+    def on_plot_swap(self, plot_id_i: int, other_plot_id_i: int) -> None:
+        """Swap a plot with the plot of the slot chosen in its picker.
+
+        Inputs:
+            plot_id_i: id of the plot whose "Position" was chosen.
+            other_plot_id_i: id of the plot in the chosen slot.
+        Outputs: none.
+        """
+        # LLFR-01085: a swap is one undoable action.
+        snapshot = self.take_snapshot()
+        # LLFR-01083, LLFR-01084: each plot takes the slot of the other,
+        # with everything it holds; LLFR-01086: its own slot changes
+        # nothing.
+        if not self.workspace.swap_plots(plot_id_i, other_plot_id_i):
+            return
+        self.record_undo(snapshot)
+        # LLFR-01083: the view lays the plots out in the new fill order.
+        tab = self.workspace.tab_of_plot(plot_id_i)
+        self.view.set_plot_order_view(
+            tab.tab_id_i, [plot.plot_id_i for plot in tab.plot_list])
 
     # ----------------------------------------------------------------
     # Vertical markers
@@ -2568,11 +2686,13 @@ class PlotController:
         """
         # LLFR-00138: the view shows the restored model, from scratch.
         self.view.clear_tab_views()
+        # LLFR-00138: the tabs in their order (LLFR-01054), each with
+        # its plot matrix (LLFR-01068).
         for tab in self.workspace.tab_list:
-            self.view.add_tab_view(tab.tab_id_i, tab.name_str)
+            self.show_tab_view(tab)
         for tab in self.workspace.tab_list:
             for plot in tab.plot_list:
-                # LLFR-00069: the plots in their order, top to bottom;
+                # LLFR-01073: the plots in their fill order (LLFR-01085);
                 # LLFR-00256: each with its kind.
                 self.view.add_plot_view(tab.tab_id_i, plot.plot_id_i,
                                         plot.kind_str)
