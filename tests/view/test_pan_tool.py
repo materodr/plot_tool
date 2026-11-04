@@ -522,7 +522,7 @@ class PanFrequencyPlotTest(unittest.TestCase):
         plot_widget.show()
         application.processEvents()
         frequency_array = np.linspace(0.0, 25.0, 251)
-        plot_widget.set_curves([("fft_file1_Speed", frequency_array,
+        plot_widget.set_curves([("file1_fft_Speed", frequency_array,
                                  np.exp(-(frequency_array - 2.0) ** 2),
                                  "#0000ff", 1)])
         plot_widget.set_plot_tool(PAN_TOOL_STR)

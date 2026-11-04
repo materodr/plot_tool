@@ -18,7 +18,7 @@ An example of a layout file::
 
     {
       "format": "plot_tool layout",
-      "version": 2,
+      "version": 3,
       "shown_tab": 0,
       "time_range": {"start": 0.5, "end": 2.25},
       "grid": true,
@@ -94,9 +94,18 @@ from model.workspace import (
     DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
     delta_value_zero_b, spans_overlap_b)
 
-# LLFR-00228: the identification of a layout file; the version is 2.
+# LLFR-00228, LLFR-00471: the identification of a layout file; the
+# version is 3, whose signal names carry the file prefix (LLFR-00944).
 LAYOUT_FORMAT_STR = "plot_tool layout"
-LAYOUT_VERSION_I = 2
+LAYOUT_VERSION_I = 3
+# LLFR-00959: the first version whose names carry the file prefix, and
+# the prefix that the names of an older file are read with.
+PREFIXED_NAMES_VERSION_I = 3
+OLDER_LAYOUT_PREFIX_STR = "file1_"
+# LLFR-00225 item 10: the keys of the name and the sources of a
+# synthetic signal entry (model.synthetic_signals).
+SYNTHETIC_NAME_KEY_STR = "name"
+SYNTHETIC_SOURCES_KEY_STR = "signals"
 # LLFR-00219, LLFR-00221: the extension of a layout file.
 LAYOUT_SUFFIX_STR = ".json"
 # LLFR-00227: the JSON text is indented by 2 spaces.
@@ -695,7 +704,78 @@ def parse_layout_text(text_str: str, path_str: str = "") -> dict:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NEWER_VERSION_REASON_STR.format(
                 version=version_i, supported=LAYOUT_VERSION_I)))
+    # LLFR-00959, LLFR-00472: the names of an older file mean file 1.
+    if version_i < PREFIXED_NAMES_VERSION_I:
+        prefix_older_names(layout_dict)
     return layout_dict
+
+
+def prefixed_older_name(name_value):
+    """Return a signal name of an older layout file as read now.
+
+    Inputs:
+        name_value: a value saved as a signal name.
+    Outputs: ``file1_`` followed by the name for a text (LLFR-00959);
+        any other value unchanged, so that the load report names it as
+        it would without this reading.
+    """
+    # LLFR-00959: `Speed` means `file1_Speed`.
+    if isinstance(name_value, str):
+        return OLDER_LAYOUT_PREFIX_STR + name_value
+    return name_value
+
+
+def prefix_older_point(entry) -> None:
+    """Prefix the signal name of a data tip or delta marker point.
+
+    Inputs:
+        entry: a data tip entry or a point entry of a delta marker, as
+            read by json; any value is accepted.
+    Outputs: none; the "signal" value of a dict is changed in place.
+    """
+    # LLFR-00959: the names of the pinned data tips and delta markers.
+    if isinstance(entry, dict) and SIGNAL_KEY_STR in entry:
+        entry[SIGNAL_KEY_STR] = prefixed_older_name(entry[SIGNAL_KEY_STR])
+
+
+def prefix_older_names(layout_dict: dict) -> None:
+    """Read the signal names of an older layout file as names of file 1.
+
+    Inputs:
+        layout_dict: the content of a layout file whose version is lower
+            than 3 (LLFR-00471); hand-edited values are accepted.
+    Outputs: none; every signal name of its curves, pinned data tips,
+        delta markers and synthetic signal entries (the names of the
+        synthetic signals and of the signals they are computed from) is
+        given the prefix ``file1_`` in place (LLFR-00959). The names are
+        then used as if they had been saved so, so the load report does
+        not list them (LLFR-00960).
+    """
+    # LLFR-00959: the curves, data tips and delta markers of each plot.
+    for tab_entry in list_entry(layout_dict, TABS_KEY_STR):
+        for plot_entry_value in list_entry(tab_entry, PLOTS_KEY_STR):
+            for curve_entry in list_entry(plot_entry_value, CURVES_KEY_STR):
+                prefix_older_point(curve_entry)
+            for tip_entry in list_entry(plot_entry_value,
+                                        DATA_TIPS_KEY_STR):
+                prefix_older_point(tip_entry)
+            for delta_entry in list_entry(plot_entry_value,
+                                          DELTA_MARKERS_KEY_STR):
+                if isinstance(delta_entry, dict):
+                    prefix_older_point(delta_entry.get(FIRST_POINT_KEY_STR))
+                    prefix_older_point(delta_entry.get(SECOND_POINT_KEY_STR))
+    # LLFR-00959: the synthetic signals and the signals they come from.
+    for signal_entry in list_entry(layout_dict, SYNTHETIC_SIGNALS_KEY_STR):
+        if not isinstance(signal_entry, dict):
+            continue
+        if SYNTHETIC_NAME_KEY_STR in signal_entry:
+            signal_entry[SYNTHETIC_NAME_KEY_STR] = prefixed_older_name(
+                signal_entry[SYNTHETIC_NAME_KEY_STR])
+        source_value = signal_entry.get(SYNTHETIC_SOURCES_KEY_STR)
+        if isinstance(source_value, list):
+            signal_entry[SYNTHETIC_SOURCES_KEY_STR] = [
+                prefixed_older_name(name_value)
+                for name_value in source_value]
 
 
 def read_layout_file(path_str: str) -> dict:

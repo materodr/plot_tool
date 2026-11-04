@@ -339,7 +339,7 @@ class SelectionPanelTest(unittest.TestCase):
         """
         self.click(2)
         # The list is refilled (a search, a synthetic signal created).
-        self.panel.show_signal_names(NAME_LIST + ["int_file1_speed"])
+        self.panel.show_signal_names(NAME_LIST + ["file1_int_speed"])
         self.widget.doItemsLayout()
         self.application.processEvents()
         self.assertEqual(self.widget.currentItem().text(), "file1_force")
@@ -363,9 +363,9 @@ class SelectionPanelTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.panel.show_signal_names(NAME_LIST + ["int_file1_speed"])
-        self.select(["file1_force", "int_file1_speed"])
-        self.panel.rename_shown_signal("int_file1_speed", "distance")
+        self.panel.show_signal_names(NAME_LIST + ["file1_int_speed"])
+        self.select(["file1_force", "file1_int_speed"])
+        self.panel.rename_shown_signal("file1_int_speed", "distance")
         self.panel.rename_shown_signal("missing", "other")
         self.panel.show_signal_names(NAME_LIST + ["distance"])
         self.assertEqual(self.selected(), ["file1_force", "distance"])
@@ -814,11 +814,11 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         self.panel.synthetic_operation_requested.emit("file1_speed",
                                                       "integral")
         self.application.processEvents()
-        self.assertEqual(self.panel.signal_name_list()[-1], "int_file1_speed")
-        self.click_name("int_file1_speed", "ShiftModifier")
+        self.assertEqual(self.panel.signal_name_list()[-1], "file1_int_speed")
+        self.click_name("file1_int_speed", "ShiftModifier")
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_force", "file1_temperature",
-                          "int_file1_speed"])
+                          "file1_int_speed"])
 
     @covers("LLFR-00292", "LLFR-00266", "HLFR-00063", "HLFR-00060")
     def test_renamed_synthetic_signal_stays_selected(self) -> None:
@@ -831,10 +831,10 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         self.panel.synthetic_operation_requested.emit("file1_speed",
                                                       "integral")
         self.application.processEvents()
-        self.select(["file1_force", "int_file1_speed"])
+        self.select(["file1_force", "file1_int_speed"])
         with mock.patch.object(QInputDialog, "getText",
                                return_value=("distance", True)):
-            self.panel.rename_signal_requested.emit("int_file1_speed")
+            self.panel.rename_signal_requested.emit("file1_int_speed")
             self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list()[-1], "distance")
         self.assertEqual(self.panel.selected_signal_names(),

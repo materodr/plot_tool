@@ -20,7 +20,7 @@ from controller.layout_controller import LayoutController
 from controller.plot_controller import PlotController
 from controller.plot_tools import DELTA_X_TOOL_STR, MARKER_TOOL_STR
 from model.data_files import DataFileSet
-from model.layout_file import LAYOUT_FORMAT_STR
+from model.layout_file import LAYOUT_FORMAT_STR, LAYOUT_VERSION_I
 from model.signal_file import SignalFile
 from model.workspace import Workspace
 from tests.controller.test_plot_controller import (
@@ -718,7 +718,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         plot_list.append({"curves": [{"signal": "Power",
                                       "color": "#1f77b4", "width": 1}]})
         path_str = self.write_json("full.json", {
-            "format": LAYOUT_FORMAT_STR, "version": 1,
+            "format": LAYOUT_FORMAT_STR, "version": LAYOUT_VERSION_I,
             "tabs": [{"name": "", "plots": plot_list}]})
         self.load(path_str)
         tab = self.workspace.tab_list[0]

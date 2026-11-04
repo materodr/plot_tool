@@ -299,21 +299,75 @@ def move_out_of_time_group(name_list: list, time_index_i: int) -> list:
             for index_i, name_str in enumerate(name_list)]
 
 
+def numbered_plain_name_list(plain_name_list: list, number_list: list,
+                             time_index_i: int) -> list:
+    """Give the file number to the plain names that several signals share.
+
+    Inputs:
+        plain_name_list: the plain names of the signals to save, in the
+            order of the signal list (LLFR-00941).
+        number_list: the number of the data file of each signal
+            (LLFR-00936), or None.
+        time_index_i: the index of the one time signal (LLFR-00940), or
+            -1; it keeps its name.
+    Outputs: the names, where a plain name of two or more signals other
+        than the time signal gets ``_<file number>`` on each of them
+        (LLFR-00942), and a name still taken by an earlier signal gets
+        ``_2``, ``_3``... (LLFR-00961), all different apart from the
+        time signal.
+    """
+    # LLFR-00942: every signal of a shared plain name gets the number of
+    # its own data file.
+    count_dict = {}
+    for index_i, plain_str in enumerate(plain_name_list):
+        if index_i != time_index_i:
+            count_dict[plain_str] = count_dict.get(plain_str, 0) + 1
+    name_list = []
+    for index_i, plain_str in enumerate(plain_name_list):
+        number = number_list[index_i]
+        if (index_i != time_index_i and count_dict[plain_str] > 1
+                and number is not None):
+            name_list.append(f"{plain_str}_{int(number)}")
+        else:
+            name_list.append(plain_str)
+    # LLFR-00961: the later of two signals that still share a name gets
+    # the smallest number from 2 up that makes it unique.
+    taken_set = {name_str for index_i, name_str in enumerate(name_list)
+                 if index_i != time_index_i}
+    seen_set = set()
+    result_list = list(name_list)
+    for index_i, name_str in enumerate(name_list):
+        if index_i == time_index_i:
+            continue
+        if name_str in seen_set:
+            suffix_i = FIRST_SUFFIX_NUMBER_I
+            while f"{name_str}_{suffix_i}" in taken_set:
+                suffix_i += 1
+            name_str = f"{name_str}_{suffix_i}"
+            taken_set.add(name_str)
+        seen_set.add(name_str)
+        result_list[index_i] = name_str
+    return result_list
+
+
 def saved_name_list(name_list: list, time_name_str: str,
-                    format_str: str) -> list:
+                    format_str: str, time_index_i: int = None) -> list:
     """Return the names under which the signals are saved.
 
     Inputs:
         name_list: the names of the signals to save, in list order; they
-            are unique.
+            are unique, apart from the time signal.
         time_name_str: the name of the time signal (HLFR-00006).
         format_str: one of FORMAT_ORDER_TUPLE.
+        time_index_i: the index of the time signal in name_list; None
+            finds it by time_name_str.
     Outputs: a list of saved names, one per name of name_list, in the
         same order and all different.
     """
     # LLFR-00407: the time signal is always saved as "Time".
-    time_index_i = (name_list.index(time_name_str)
-                    if time_name_str in name_list else -1)
+    if time_index_i is None:
+        time_index_i = (name_list.index(time_name_str)
+                        if time_name_str in name_list else -1)
     # LLFR-00403 items 1 and 2: the names the format can store.
     wanted_list = [TIME_SIGNAL_NAME_STR if index_i == time_index_i
                    else format_name(name_str, format_str)

@@ -21,6 +21,7 @@ one file or several.
 """
 
 import os
+import re
 
 import numpy as np
 
@@ -28,6 +29,38 @@ import numpy as np
 MAXIMUM_DATA_FILES_I = 10
 # LLFR-00901: the prefix of every signal name of data file N.
 FILE_PREFIX_FORMAT_STR = "file{number}_"
+# LLFR-00901, LLFR-00945, LLFR-00966: a name that starts with a prefix.
+FILE_PREFIX_PATTERN = re.compile(r"file([0-9]+)_")
+
+
+def prefix_number(name_str: str):
+    """Return the file number of the prefix a name starts with.
+
+    Inputs:
+        name_str: a signal name.
+    Outputs: N when the name starts with ``file<N>_`` (LLFR-00901), or
+        None when it starts with no prefix.
+    """
+    # LLFR-00901, LLFR-00945: `file`, a number and `_` at the start.
+    match = FILE_PREFIX_PATTERN.match(str(name_str))
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def without_prefix(name_str: str) -> str:
+    """Return a name without the prefix it starts with.
+
+    Inputs:
+        name_str: a signal name.
+    Outputs: the name after its ``file<N>_`` prefix, or the name itself
+        when it starts with no prefix.
+    """
+    # LLFR-00904, LLFR-00941, LLFR-00966: the part after the prefix.
+    match = FILE_PREFIX_PATTERN.match(str(name_str))
+    if match is None:
+        return str(name_str)
+    return str(name_str)[match.end():]
 
 
 def file_prefix(number_i: int) -> str:
@@ -465,6 +498,22 @@ class DataFileSet:
             return ()
         return (min(range_tuple[0] for range_tuple in range_list),
                 max(range_tuple[1] for range_tuple in range_list))
+
+    def same_time_signals_b(self) -> bool:
+        """Tell whether every open data file has the same time signal.
+
+        Inputs: none.
+        Outputs: True when the time signals of all the open data files
+            have the same number of samples and exactly the same value
+            at every sample; always True with one file or none.
+        """
+        # LLFR-00938: the same number of samples and the same values.
+        if len(self.file_list) < 2:
+            return True
+        first_array = np.asarray(self.file_list[0].time_array)
+        return all(np.array_equal(first_array,
+                                  np.asarray(data_file.time_array))
+                   for data_file in self.file_list[1:])
 
     # The lowest-numbered file, for the Save signals flow ------------
 

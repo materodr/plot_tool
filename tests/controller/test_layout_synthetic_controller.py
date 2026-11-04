@@ -348,20 +348,20 @@ class LoadTest(LayoutSyntheticTestCase):
         self.build_synthetic_layout()
         layout_dict = read_layout_file(self.save("layout.json"))
         layout_dict[LAYOUT_KEY_STR].append({
-            "name": "fft_file1_Speed_1s_to_8s", "operation": "fft",
+            "name": "file1_fft_Speed_1s_to_8s", "operation": "fft",
             "signals": ["file1_Speed"], "parameter": {"start": 1.0,
                                                       "end": 8.0}})
         layout_dict["tabs"][0]["plots"][0]["curves"].append(
-            {"signal": "fft_file1_Speed_1s_to_8s", "color": "#00aa00",
+            {"signal": "file1_fft_Speed_1s_to_8s", "color": "#00aa00",
              "width": 1})
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
-        self.assertNotIn("fft_file1_Speed_1s_to_8s", self.store.names())
+        self.assertNotIn("file1_fft_Speed_1s_to_8s", self.store.names())
         report_str = self.view.report_list[0]
-        self.assertIn("  - fft_file1_Speed_1s_to_8s: FFT signals are not "
+        self.assertIn("  - file1_fft_Speed_1s_to_8s: FFT signals are not "
                       "loaded from layout files.", report_str)
         self.assertIn("Signals not in the data file:\n"
-                      "  - fft_file1_Speed_1s_to_8s", report_str)
+                      "  - file1_fft_Speed_1s_to_8s", report_str)
 
     @covers("LLFR-00278", "LLFR-00279", "LLFR-00283")
     def test_no_equation_for_an_fft_signal(self) -> None:
@@ -387,19 +387,19 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
 
     # LLFR-00240: the names build_synthetic_layout gives its signals.
     NEW_NAME_LIST = [
-        "lpf_1Hz_order2_file1_Speed",
-        "hpf_2Hz_order3_lpf_1Hz_order2_file1_Speed",
-        "mavg_4samples_hpf_2Hz_order3_lpf_1Hz_order2_file1_Speed",
-        "ge_3_file1_Torque",
-        "lpf_1Hz_order2_file1_Speed_prod_file1_Torque"]
+        "file1_lpf_1Hz_order2_Speed",
+        "file1_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
+        "file1_mavg_4samples_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
+        "file1_ge_3_Torque",
+        "file1_lpf_1Hz_order2_Speed_prod_Torque"]
     # The names the same signals had before the abbreviations, as an
     # older layout file holds them.
     OLD_NAME_LIST = [
-        "lowpass_file1_Speed",
-        "highpass_lowpass_file1_Speed",
-        "movingaverage_highpass_lowpass_file1_Speed",
-        "greaterorequal_file1_Torque",
-        "product_lowpass_file1_Speed_file1_Torque"]
+        "file1_lowpass_Speed",
+        "file1_highpass_lowpass_Speed",
+        "file1_movingaverage_highpass_lowpass_Speed",
+        "file1_greaterorequal_Torque",
+        "file1_product_lowpass_Speed_Torque"]
 
     @covers("LLFR-00240", "LLFR-00225", "LLFR-00262", "LLFR-00230")
     def test_round_trip_with_the_new_names(self) -> None:
@@ -414,7 +414,7 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
                          ["lowpass", "highpass", "movingaverage",
                           "greaterorequal", "product"])
         self.assertEqual(entry_list[4]["signals"],
-                         ["lpf_1Hz_order2_file1_Speed", "file1_Torque"])
+                         ["file1_lpf_1Hz_order2_Speed", "file1_Torque"])
         curve_list = self.curve_names()
         self.open_file()
         self.load(path_str)
@@ -453,25 +453,25 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
                 self.store.get(old_name_str).value_array,
                 value_dict[new_name_str])
         self.assertEqual(self.curve_names(), [("Tab 1", [
-            ["lowpass_file1_Speed", "file1_Speed"],
-            ["movingaverage_highpass_lowpass_file1_Speed",
-             "product_lowpass_file1_Speed_file1_Torque"]])])
+            ["file1_lowpass_Speed", "file1_Speed"],
+            ["file1_movingaverage_highpass_lowpass_Speed",
+             "file1_product_lowpass_Speed_Torque"]])])
         plot_list = self.workspace.tab_list[0].plot_list
         self.assertEqual(len(plot_list[0].pinned_tip_list), 1)
         self.assertEqual(len(plot_list[1].delta_marker_list), 1)
         # LLFR-00240: a signal created now gets the new name, and the
         # chains of an old name build up from it.
-        self.assertEqual(self.create("integral", ["lowpass_file1_Speed"]),
-                         "int_lowpass_file1_Speed")
+        self.assertEqual(self.create("integral", ["file1_lowpass_Speed"]),
+                         "file1_int_lowpass_Speed")
         self.assertEqual(self.create("lowpass", ["file1_Speed"],
                                      (1.0, 2, "zero")),
-                         "lpf_1Hz_order2_file1_Speed")
+                         "file1_lpf_1Hz_order2_Speed")
         # The older names are saved as they are.
         entry_list = read_layout_file(self.save("again.json"))[
             LAYOUT_KEY_STR]
         self.assertEqual([entry["name"] for entry in entry_list],
-                         self.OLD_NAME_LIST + ["int_lowpass_file1_Speed",
-                                               "lpf_1Hz_order2_file1_Speed"])
+                         self.OLD_NAME_LIST + ["file1_int_lowpass_Speed",
+                                               "file1_lpf_1Hz_order2_Speed"])
         # LLFR-00282: loading the older file again adds nothing.
         names_before_list = self.store.names()
         self.load(old_path_str)

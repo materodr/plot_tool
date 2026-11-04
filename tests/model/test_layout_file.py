@@ -241,7 +241,7 @@ class LayoutWriteTest(unittest.TestCase):
         line_list = text_str.splitlines()
         self.assertEqual(line_list[0], "{")
         self.assertEqual(line_list[1], '  "format": "plot_tool layout",')
-        self.assertEqual(line_list[2], '  "version": 2,')
+        self.assertEqual(line_list[2], '  "version": 3,')
         self.assertEqual(list(json.loads(text_str))[:2],
                          ["format", "version"])
         # LLFR-00227: each value on its own line, indented by 2 spaces.
@@ -355,7 +355,7 @@ class LayoutReadTest(unittest.TestCase):
                     self.assertIn(word_str, str(context.exception))
                     self.assertIn(path_str, str(context.exception))
 
-    @covers("LLFR-00236", "LLFR-00228")
+    @covers("LLFR-00236", "LLFR-00228", "LLFR-00471")
     def test_other_json_files_are_refused(self) -> None:
         """JSON without the right format and version is not a layout.
 
@@ -367,11 +367,14 @@ class LayoutReadTest(unittest.TestCase):
                          '{"format": "plot_tool layout"}',
                          '{"format": "plot_tool layout", "version": "1"}',
                          '{"format": "plot_tool layout", "version": true}',
-                         '{"format": "plot_tool layout", "version": 3}'):
+                         '{"format": "plot_tool layout", "version": 4}'):
             with self.subTest(text=text_str):
                 with self.assertRaises(LayoutFileError):
                     parse_layout_text(text_str, "x.json")
-        # LLFR-00228: version 2 and the lower version 1 are both read.
+        # LLFR-00228, LLFR-00471: version 3 and the lower versions 2
+        # and 1 are all read.
+        self.assertEqual(parse_layout_text(
+            '{"format": "plot_tool layout", "version": 3}')["version"], 3)
         self.assertEqual(parse_layout_text(
             '{"format": "plot_tool layout", "version": 2}')["version"], 2)
         self.assertEqual(parse_layout_text(
@@ -379,13 +382,14 @@ class LayoutReadTest(unittest.TestCase):
         # LLFR-00228: any lower version is read, 0 included.
         self.assertEqual(parse_layout_text(
             '{"format": "plot_tool layout", "version": 0}')["version"], 0)
-        # LLFR-00228: a hand-edited 2.0 is version 2; 3.0 is too new.
+        # LLFR-00228: a hand-edited 2.0 is version 2; 4.0 is too new.
+        parse_layout_text('{"format": "plot_tool layout", "version": 3.0}')
         parse_layout_text('{"format": "plot_tool layout", "version": 2.0}')
         parse_layout_text('{"format": "plot_tool layout", "version": 1.0}')
         with self.assertRaises(LayoutFileError) as context:
             parse_layout_text(
-                '{"format": "plot_tool layout", "version": 3.0}')
-        self.assertIn("version 3", str(context.exception))
+                '{"format": "plot_tool layout", "version": 4.0}')
+        self.assertIn("version 4", str(context.exception))
         with self.assertRaises(LayoutFileError):
             parse_layout_text(
                 '{"format": "plot_tool layout", "version": 1.5}')
@@ -941,7 +945,7 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         layout_dict = json.loads(layout_text(build_layout_dict(
             self.workspace, -1, (), False)))
         self.assertNotIn("vertical_markers", layout_dict)
-        self.assertEqual(layout_dict["version"], 2)
+        self.assertEqual(layout_dict["version"], 3)
         flag_list = layout_dict["flags"]
         self.assertEqual([(flag_dict["name"], flag_dict["time"])
                           for flag_dict in flag_list],
@@ -989,7 +993,7 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
             self.assertIn("replaced by \"#ff8000\"", replaced_str)
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
-    @covers("LLFR-00228", "LLFR-00233", "LLFR-00472")
+    @covers("LLFR-00228", "LLFR-00233", "LLFR-00472", "LLFR-00959")
     def test_older_file_without_flags_loads_without_flags(self) -> None:
         """A version 1 file with "vertical_markers" loads, with no flag.
 
@@ -1002,7 +1006,11 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
         layout_dict["vertical_markers"] = [{"name": "Marker 1",
                                             "time": 1.0}]
         layout_dict = parse_layout_text(json.dumps(layout_dict))
-        result = self.rebuild(layout_dict)
+        # LLFR-00959: the names of an older file mean file 1.
+        signal_dict = {("file1_" + name_str if name_str != "Time"
+                        else name_str): value_array
+                       for name_str, value_array in self.signal_dict.items()}
+        result = self.rebuild(layout_dict, signal_dict)
         self.assertEqual(self.workspace.marker_list, [])
         self.assertEqual(len(self.only_plot().curve_list), 1)
         # LLFR-00228: no special support, so nothing about them is

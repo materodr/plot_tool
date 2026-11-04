@@ -404,15 +404,15 @@ class RenameSelectionTest(FrequencyPlotTestCase):
         """
         self.create("file1_Speed", "integral")
         self.view.name_answer_list = ["Distance"]
-        self.menu("rename", "int_file1_Speed")
+        self.menu("rename", "file1_int_Speed")
         self.assertEqual(self.view.renamed_shown_list,
-                         [("int_file1_Speed", "Distance")])
-        self.assertEqual(self.view.shown_name_list[-1], "Distance")
+                         [("file1_int_Speed", "file1_Distance")])
+        self.assertEqual(self.view.shown_name_list[-1], "file1_Distance")
         # A rejected rename tells the view nothing.
         self.view.name_answer_list = ["   "]
-        self.menu("rename", "Distance")
+        self.menu("rename", "file1_Distance")
         self.assertEqual(self.view.renamed_shown_list,
-                         [("int_file1_Speed", "Distance")])
+                         [("file1_int_Speed", "file1_Distance")])
 
 
 class SelectionOnFileOpenTest(unittest.TestCase):
