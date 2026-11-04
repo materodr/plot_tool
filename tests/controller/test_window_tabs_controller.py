@@ -137,6 +137,96 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
                          [second_id_i, third_id_i])
 
 
+class NewWindowDropControllerTest(WindowTabsControllerTestCase):
+    """A tab of an undocked window dropped outside the app."""
+
+    def drop_outside(self, tab_id_i: int, x_i: int = 1500,
+                     y_i: int = 70) -> None:
+        """Drop a tab outside every app window, as the view reports it.
+
+        Inputs:
+            tab_id_i: id of the dragged tab.
+            x_i, y_i: the point of the drop.
+        Outputs: none.
+        """
+        self.view.handler_dict["new_window_drop_handler"](tab_id_i, x_i,
+                                                          y_i)
+
+    @covers("LLFR-01132", "LLFR-01133", "LLFR-01134", "LLFR-01015",
+            "LLFR-00985", "LLFR-01024", "HLFR-00125", "HLFR-00040",
+            "HLFR-00048", "HLFR-00132")
+    def test_last_tab_of_a_window_dropped_outside(self) -> None:
+        """The only tab of a window moves into a new window at the drop
+        point, with the plot panel's size and a hidden panel; the old
+        window closes; it is one undoable action, redone by one redo.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        second_id_i = self.add_tab()
+        self.double_click("s1")
+        self.undock(second_id_i)
+        old_window_id_i = self.window_of(second_id_i)
+        self.view.handler_dict["panel_toggle_handler"](old_window_id_i)
+        depth_i = self.controller.undo_history.depth()
+        self.drop_outside(second_id_i, 1500, 70)
+        new_window_id_i = self.window_of(second_id_i)
+        self.assertNotEqual(new_window_id_i, old_window_id_i)
+        self.assertNotIn(old_window_id_i, self.view.window_tabs_dict)
+        self.assertEqual(self.window_tabs(new_window_id_i), [second_id_i])
+        self.assertEqual(self.view.window_dict[second_id_i],
+                         [(1500, 70, 900, 600), False, 0])
+        self.assertEqual(
+            len(self.workspace.find_tab(second_id_i).plot_list), 1)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 1)
+        self.undo()
+        self.assertEqual(self.window_of(second_id_i), old_window_id_i)
+        self.assertEqual(self.window_tabs(old_window_id_i), [second_id_i])
+        self.assertNotIn(new_window_id_i, self.view.window_tabs_dict)
+        self.assertTrue(self.workspace.find_tab(second_id_i).panel_shown_b)
+        self.redo()
+        self.assertEqual(self.window_of(second_id_i), new_window_id_i)
+        self.assertNotIn(old_window_id_i, self.view.window_tabs_dict)
+
+    @covers("LLFR-01132", "LLFR-01133", "LLFR-01121", "HLFR-00125",
+            "HLFR-00126")
+    def test_one_of_two_tabs_dropped_outside(self) -> None:
+        """One tab of a window with two tabs gets a window of its own;
+        the old window keeps the other tab and shows it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, third_id_i, window_id_i = (
+            self.three_tabs_two_in_a_window())
+        self.assertEqual(self.view.window_shown_dict[window_id_i],
+                         third_id_i)
+        self.drop_outside(third_id_i)
+        new_window_id_i = self.window_of(third_id_i)
+        self.assertNotEqual(new_window_id_i, window_id_i)
+        self.assertEqual(self.window_tabs(window_id_i), [second_id_i])
+        self.assertEqual(self.view.window_shown_dict[window_id_i],
+                         second_id_i)
+        self.assertEqual(self.window_tabs(new_window_id_i), [third_id_i])
+        self.assertEqual(self.workspace.window_id_list(),
+                         [window_id_i, new_window_id_i])
+
+    @covers("LLFR-01132", "HLFR-00125")
+    def test_docked_tab_is_not_moved(self) -> None:
+        """The handler changes nothing for a docked tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i = self.first_tab_id()
+        self.add_tab()
+        depth_i = self.controller.undo_history.depth()
+        self.drop_outside(first_id_i)
+        self.assertFalse(self.workspace.find_tab(first_id_i).undocked_b)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i)
+
+
 class WindowTabsActionTest(WindowTabsControllerTestCase):
     """Reordering, docking, deleting and closing in a window."""
 

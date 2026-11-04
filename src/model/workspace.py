@@ -2120,6 +2120,38 @@ class Workspace:
         self.order_window_tabs()
         return True
 
+    def move_tab_to_new_window(self, tab_id_i: int,
+                               window_tuple: tuple = ()) -> bool:
+        """Move a tab of an undocked window into a new undocked window.
+
+        Inputs:
+            tab_id_i: id of the undocked tab.
+            window_tuple: (x, y, width, height) of the new window
+                (LLFR-01132), or () when unknown.
+        Outputs: True when the tab moved; False when it is docked or
+            unknown. The window it leaves is gone when it was its last
+            tab (LLFR-01133).
+        """
+        # LLFR-01132: only a tab of an undocked window.
+        tab = self.find_tab(tab_id_i)
+        if tab is None or not tab.undocked_b:
+            return False
+        # LLFR-01132, LLFR-00985: the tab keeps all it holds, in a window
+        # of a new id, at the drop point, with the size of LLFR-00981.
+        tab.window_id_i = self.next_window_id_i
+        self.next_window_id_i += 1
+        tab.window_shown_b = True
+        tab.window_tuple = tuple(int(value_i) for value_i in window_tuple)
+        # LLFR-01015: its panel starts hidden, never shown.
+        tab.panel_shown_b = False
+        tab.panel_width_i = 0
+        # LLFR-01056: the new window follows the other windows;
+        # LLFR-01133: a window left with no tab is gone.
+        self.tab_list.remove(tab)
+        self.tab_list.append(tab)
+        self.order_window_tabs()
+        return True
+
     def move_tab_in_window(self, tab_id_i: int, index_i: int) -> bool:
         """Move an undocked tab to another place in its window.
 

@@ -47,10 +47,10 @@ The windows in which the user chooses a file to open or to save must appear quic
 ### HLFR-00123 Undock a tab
 The user must be able to move a tab of the main window into a window of its own, which the user can move and resize independently of the main window.
 
-Note: The **main window** is the app window that has the top panel. A window that holds a tab moved out of the main window is an **undocked window**, and its tab is an **undocked tab**. A tab in the main window is a **docked tab**. The undock button is like the one of MATLAB's docked figures.
+Note: The **main window** is the app window that has the top panel. A window that holds tabs moved out of the main window is an **undocked window**, and each of its tabs is an **undocked tab**. A tab in the main window is a **docked tab**. The undock button is like the one of MATLAB's docked figures.
 
 ### HLFR-00124 Dock a tab
-The user must be able to put the tab of an undocked window back into the main window.
+The user must be able to put a tab of an undocked window back into the main window.
 
 ### HLFR-00152 Undock and dock a tab by dragging it
 The user must be able to undock a tab by dragging it out of the main window's tab row and dropping it outside the main window's plot panel, and to dock an undocked tab by dragging its tab button onto the main window's tab row.

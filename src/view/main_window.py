@@ -770,7 +770,32 @@ class MainWindow(QMainWindow):
             self._run_window_handler(
                 "window_drop_handler", tab_id_i, target_window.window_id_i,
                 target_window.tab_index_at(x_i, y_i))
+        elif target_window is None and self.is_point_outside_app_windows(
+                x_i, y_i):
+            # LLFR-01132: outside every window of the app, into a new
+            # undocked window at the drop point.
+            self._run_window_handler("new_window_drop_handler", tab_id_i,
+                                     x_i, y_i)
         # LLFR-01032: anywhere else, nothing changes.
+
+    def is_point_outside_app_windows(self, x_i: int, y_i: int) -> bool:
+        """Tell whether a desktop point is outside every window of the app.
+
+        Inputs:
+            x_i, y_i: the point, in desktop pixels.
+        Outputs: True when the point is on neither the main window, while
+            it is shown, nor any shown undocked window.
+        """
+        # LLFR-01132: a drop outside the app opens a new window;
+        # LLFR-01032: a drop on a window of the app, off a tab row, does
+        # nothing.
+        point = QPoint(int(x_i), int(y_i))
+        window_list = [self] + list(self.undocked_window_dict.values())
+        for window in window_list:
+            if (window.isVisible() and not window.isMinimized()
+                    and window.frameGeometry().contains(point)):
+                return False
+        return True
 
     def restore_dragged_tab(self, window, index_i: int,
                             start_index_i: int) -> None:
@@ -3172,6 +3197,9 @@ class MainWindow(QMainWindow):
             if hasattr(focus_widget, "copy"):
                 focus_widget.copy()
             return
+        # LLFR-01138: during a mouse drag, no image and no box.
+        if self.is_mouse_drag_in_progress():
+            return
         # LLFR-01101: the image of the tab shown in that window.
         if self.copy_shortcut_handler is not None:
             self.copy_shortcut_handler(self.window_shown_tab_id(window_id_i))
@@ -3182,6 +3210,9 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
+        # LLFR-01137: during a mouse drag, Ctrl+P does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
         # LLFR-01104: as the Export menu option, from any window, also
         # in a text field (which gives Ctrl+P no meaning of its own).
         self._on_pdf_export_requested()
@@ -3192,8 +3223,11 @@ class MainWindow(QMainWindow):
         Inputs:
             window_id_i: id of the undocked window, -1 for the main
                 window.
-        Outputs: none.
+        Outputs: none. Nothing happens during a mouse drag.
         """
+        # LLFR-01139: during a mouse drag, Ctrl+F does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
         if window_id_i >= 0:
             window = self.undocked_window_dict.get(window_id_i)
             if window is None:

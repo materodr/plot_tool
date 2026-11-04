@@ -179,6 +179,61 @@ class MoveIntoWindowTest(WindowTabsTestCase):
             window_id_i).tab_id_i, third_i)
 
 
+class MoveIntoNewWindowTest(WindowTabsTestCase):
+    """A tab of an undocked window moved into a new undocked window."""
+
+    @covers("LLFR-01132", "LLFR-01133", "LLFR-01015", "LLFR-00985",
+            "LLFR-01056", "HLFR-00125", "HLFR-00126")
+    def test_tab_gets_a_new_window(self) -> None:
+        """The tab gets a new window id, the drop's window tuple, a
+        hidden panel and keeps its plot; the old window keeps its other
+        tab; a window left empty is gone.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_i, second_i, third_i, fourth_i = self.id_list
+        self.workspace.undock_tab(second_i)
+        window_a_i = self.window_of(second_i)
+        self.workspace.move_tab_to_window(third_i, window_a_i)
+        self.workspace.set_window_panel(window_a_i, True, 200)
+        self.assertTrue(self.workspace.move_tab_to_new_window(
+            second_i, (1500, 70, 900, 600)))
+        window_b_i = self.window_of(second_i)
+        self.assertNotIn(window_b_i, (0, window_a_i))
+        tab = self.workspace.find_tab(second_i)
+        self.assertEqual(tab.window_tuple, (1500, 70, 900, 600))
+        self.assertFalse(tab.panel_shown_b)
+        self.assertEqual(tab.panel_width_i, 0)
+        self.assertEqual(len(tab.plot_list), 1)
+        self.assertEqual(self.workspace.window_id_list(),
+                         [window_a_i, window_b_i])
+        self.assertEqual(self.order(), [first_i, fourth_i, third_i,
+                                        second_i])
+        # LLFR-01133: the last tab of window A leaves; A is gone.
+        self.assertTrue(self.workspace.move_tab_to_new_window(
+            third_i, (10, 20, 300, 200)))
+        window_c_i = self.window_of(third_i)
+        self.assertEqual(self.workspace.window_id_list(),
+                         [window_b_i, window_c_i])
+
+    @covers("LLFR-01132", "HLFR-00125")
+    def test_docked_or_unknown_tab_is_not_moved(self) -> None:
+        """A docked tab or an unknown id changes nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_i = self.id_list[0]
+        before_list = self.order()
+        self.assertFalse(self.workspace.move_tab_to_new_window(
+            first_i, (1, 2, 3, 4)))
+        self.assertFalse(self.workspace.move_tab_to_new_window(
+            999, (1, 2, 3, 4)))
+        self.assertEqual(self.order(), before_list)
+        self.assertEqual(self.workspace.window_id_list(), [])
+
+
 class WindowTabOrderTest(WindowTabsTestCase):
     """Reordering, docking, closing and undoing in windows."""
 

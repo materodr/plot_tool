@@ -29,7 +29,9 @@ width, and the tab row keeps room at its right end for the button
 A tab can be dragged along the tab row to reorder the window's tabs
 (LLFR-01122), onto the tab row of the main window to dock it there
 (LLFR-01108), or onto another undocked window to move it there
-(LLFR-01117); a drop anywhere else changes nothing (LLFR-01032).
+(LLFR-01117). A drop outside every window of the app opens a new
+undocked window for the tab at the drop point (LLFR-01132); a drop
+anywhere else changes nothing (LLFR-01032).
 MainWindow decides from the drop point.
 
 There is no top panel (HLFR-00136): the main window keeps the plot tool
@@ -776,7 +778,8 @@ class UndockedWindow(QWidget):
         Outputs: none.
         """
         shown_b = self.is_panel_shown()
-        # LLFR-01014: active while the panel is shown.
+        # LLFR-01014: active while the panel is shown; LLFR-01136: no
+        # highlight while it is hidden.
         self.signal_list_button.setChecked(shown_b)
         # LLFR-00997: while the panel is hidden, the tab row keeps room
         # for the button at its right end; while it is shown, the button

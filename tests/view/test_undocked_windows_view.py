@@ -936,7 +936,8 @@ class SignalListButtonPlaceTest(UndockedWindowTestCase):
         self.assertLessEqual(
             abs(window.search_box_aligner.list_top_offset_px()), 2)
 
-    @covers("LLFR-01014", "LLFR-01010", "HLFR-00129", "HLFR-00003")
+    @covers("LLFR-01014", "LLFR-01136", "LLFR-01010", "HLFR-00129",
+            "HLFR-00003")
     def test_round_pale_highlight_while_shown(self) -> None:
         """Checked with a round, pale highlight and a dark icon while
         the panel is shown; no highlight while it is hidden.
@@ -1104,8 +1105,8 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
                          [self.tab(second_id_i).window_id_i])
         self.assertEqual(self.plot_controller.undo_history.depth(), depth_i)
 
-    @covers("LLFR-01108", "LLFR-00994", "LLFR-00995", "LLFR-01025",
-            "HLFR-00152", "HLFR-00124")
+    @covers("LLFR-01108", "LLFR-01135", "LLFR-00994", "LLFR-00995",
+            "LLFR-01025", "HLFR-00152", "HLFR-00124")
     def test_tab_button_dropped_on_the_tab_row_docks_there(self) -> None:
         """Dragging a window's tab button onto the left half of the first
         docked tab docks it first, closes the window and shows it;
@@ -1135,7 +1136,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.process_events()
         self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
-    @covers("LLFR-01108", "HLFR-00152")
+    @covers("LLFR-01108", "LLFR-01135", "HLFR-00152")
     def test_drop_index_between_the_tabs(self) -> None:
         """Right of the middle of the last tab, or on the "+" button and
         the empty row, is after the last docked tab.
@@ -1164,8 +1165,9 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
 
     @covers("LLFR-01032", "HLFR-00135", "HLFR-00152")
     def test_tab_button_dropped_elsewhere_changes_nothing(self) -> None:
-        """A drop on the plots of the main window, or outside it, leaves
-        the tab, its window and the history unchanged.
+        """A drop on the plots of the main window, or on the plots of
+        its own window, leaves the tab, its window and the history
+        unchanged.
 
         Inputs: none.
         Outputs: none.
@@ -1175,9 +1177,11 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         depth_i = self.plot_controller.undo_history.depth()
         start_point = window.tab_bar.mapToGlobal(
             window.tab_bar.tabRect(0).center())
+        pane = window.pane_widget
         for drop_point in (self.panel.mapToGlobal(QPoint(
                 self.panel.width() // 2, self.panel.height() // 2)),
-                self.outside_point()):
+                pane.mapToGlobal(QPoint(pane.width() // 2,
+                                        pane.height() // 2))):
             drag(window.tab_bar, start_point, drop_point)
             self.process_events()
             self.assertIs(self.main_window.window_of_tab(second_id_i),
@@ -1185,6 +1189,129 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
             self.assertTrue(self.tab(second_id_i).undocked_b)
             self.assertEqual(self.plot_controller.undo_history.depth(),
                              depth_i)
+
+
+class DropOutsideTheAppTest(UndockedWindowTestCase):
+    """A tab of an undocked window dropped outside every app window."""
+
+    def point_outside_the_app(self):
+        """Return a desktop point right of every window of the app.
+
+        Inputs: none.
+        Outputs: a QPoint on no window of the app.
+        """
+        from PyQt6.QtCore import QPoint
+        frame_list = [self.main_window.frameGeometry()] + [
+            window.frameGeometry()
+            for window in self.main_window.undocked_window_dict.values()]
+        right_i = max(frame.right() for frame in frame_list)
+        top_i = min(frame.top() for frame in frame_list)
+        return QPoint(right_i + 60, top_i + 40)
+
+    def drop_outside(self, window, tab_id_i: int):
+        """Drop a tab of a window outside the app, as a drag ends.
+
+        Inputs:
+            window: the UndockedWindow the tab is dragged from.
+            tab_id_i: id of the tab.
+        Outputs: the QPoint of the drop.
+        """
+        drop_point = self.point_outside_the_app()
+        self.assertTrue(self.main_window.is_point_outside_app_windows(
+            drop_point.x(), drop_point.y()))
+        index_i = window.tab_id_list().index(tab_id_i)
+        with mock.patch.object(self.main_window, "window_at_point",
+                               return_value=None):
+            self.main_window.request_window_tab_drop(
+                window, tab_id_i, index_i, drop_point.x(), drop_point.y())
+        self.process_events()
+        return drop_point
+
+    @covers("LLFR-01132", "LLFR-01133", "LLFR-01134", "LLFR-01015",
+            "LLFR-00985", "LLFR-01024", "HLFR-00125", "HLFR-00126",
+            "HLFR-00040", "HLFR-00048")
+    def test_last_tab_dropped_outside_moves_to_a_new_window(self) -> None:
+        """The only tab of a window dropped outside the app opens in a new
+        window at the drop point, with a hidden panel and its plot; the
+        old window closes; one undo brings the old window back, one redo
+        the new one.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.window_placement import placed_window_tuple
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        old_window_id_i = window.window_id_i
+        depth_i = self.plot_controller.undo_history.depth()
+        drop_point = self.point_outside_the_app()
+        expected_tuple = placed_window_tuple(
+            self.main_window.dropped_window_tuple(drop_point.x(),
+                                                  drop_point.y()),
+            self.main_window.screen_area_list(),
+            self.main_window.main_screen_area())
+        self.drop_outside(window, second_id_i)
+        new_window = self.main_window.window_of_tab(second_id_i)
+        self.assertIsNotNone(new_window)
+        self.assertNotEqual(new_window.window_id_i, old_window_id_i)
+        self.assertEqual(list(self.main_window.undocked_window_dict),
+                         [new_window.window_id_i])
+        self.assertFalse(new_window.is_panel_shown())
+        self.assertEqual(new_window.window_tuple(), tuple(expected_tuple))
+        self.assertEqual(len(self.tab(second_id_i).plot_list), 1)
+        self.assertEqual(self.plot_controller.undo_history.depth(),
+                         depth_i + 1)
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertEqual(self.tab(second_id_i).window_id_i,
+                         old_window_id_i)
+        self.assertEqual(list(self.main_window.undocked_window_dict),
+                         [old_window_id_i])
+        self.plot_controller.on_redo()
+        self.process_events()
+        self.assertNotEqual(self.tab(second_id_i).window_id_i,
+                            old_window_id_i)
+        self.assertEqual(len(self.main_window.undocked_window_dict), 1)
+
+    @covers("LLFR-01132", "LLFR-01133", "LLFR-01121", "HLFR-00125")
+    def test_tab_dropped_outside_leaves_the_other_tabs(self) -> None:
+        """One of two tabs of a window dropped outside the app gets a
+        window of its own; the old window stays open with the other tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        third_id_i = self.add_tab()
+        self.plot_controller.on_window_drop(third_id_i, window.window_id_i,
+                                            -1)
+        self.process_events()
+        self.assertEqual(window.tab_id_list(), [second_id_i, third_id_i])
+        self.drop_outside(window, third_id_i)
+        self.assertIs(self.main_window.window_of_tab(second_id_i), window)
+        self.assertEqual(window.tab_id_list(), [second_id_i])
+        self.assertEqual(window.shown_tab_id(), second_id_i)
+        new_window = self.main_window.window_of_tab(third_id_i)
+        self.assertIsNotNone(new_window)
+        self.assertIsNot(new_window, window)
+        self.assertEqual(len(self.main_window.undocked_window_dict), 2)
+
+    @covers("LLFR-01132", "LLFR-01032", "HLFR-00125")
+    def test_point_on_an_app_window_is_not_outside(self) -> None:
+        """A point on the main window or on an undocked window is not
+        outside the app; a point right of them all is.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, _, window = self.two_tabs_one_undocked()
+        for frame in (self.main_window.frameGeometry(),
+                      window.frameGeometry()):
+            center = frame.center()
+            self.assertFalse(self.main_window.is_point_outside_app_windows(
+                center.x(), center.y()))
+        point = self.point_outside_the_app()
+        self.assertTrue(self.main_window.is_point_outside_app_windows(
+            point.x(), point.y()))
 
 
 class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
@@ -1323,6 +1450,81 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         self.process_events()
         self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
+
+
+class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
+    """Ctrl+P, Ctrl+C and Ctrl+F do nothing during a mouse drag."""
+
+    @covers("LLFR-01137", "HLFR-00038")
+    def test_pdf_shortcut_ignored_while_dragging(self) -> None:
+        """Ctrl+P in any window runs no export while the mouse is
+        dragged, and runs it again once the drag is over.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, _, window = self.two_tabs_one_undocked()
+        handler = mock.Mock()
+        self.main_window.pdf_export_handler = handler
+        with mock.patch.object(self.main_window,
+                               "is_mouse_drag_in_progress",
+                               return_value=True):
+            for owner in (self.main_window, window):
+                owner.pdf_shortcut.activated.emit()
+        self.assertEqual(handler.call_count, 0)
+        window.pdf_shortcut.activated.emit()
+        self.assertEqual(handler.call_count, 1)
+
+    @covers("LLFR-01138", "LLFR-01102", "HLFR-00039")
+    def test_copy_shortcut_ignored_while_dragging(self) -> None:
+        """Ctrl+C copies no image during a drag, while a text field
+        still copies its own text.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QApplication
+        _, _, window = self.two_tabs_one_undocked()
+        copied_list = []
+        self.main_window.copy_shortcut_handler = copied_list.append
+        box = self.main_window.signal_list_panel.search_box
+        with mock.patch.object(self.main_window,
+                               "is_mouse_drag_in_progress",
+                               return_value=True):
+            for owner in (self.main_window, window):
+                owner.copy_shortcut.activated.emit()
+            with mock.patch.object(QApplication, "focusWidget",
+                                   return_value=box), \
+                    mock.patch.object(box, "copy") as box_copy:
+                window.copy_shortcut.activated.emit()
+        self.assertEqual(copied_list, [])
+        box_copy.assert_called_once_with()
+        window.copy_shortcut.activated.emit()
+        self.assertEqual(len(copied_list), 1)
+
+    @covers("LLFR-01139", "HLFR-00033", "HLFR-00127")
+    def test_search_shortcut_ignored_while_dragging(self) -> None:
+        """Ctrl+F during a drag shows no hidden panel, records no undo
+        and moves no focus.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        depth_i = self.plot_controller.undo_history.depth()
+        with mock.patch.object(self.main_window,
+                               "is_mouse_drag_in_progress",
+                               return_value=True):
+            window.search_shortcut.activated.emit()
+            self.process_events()
+        window = self.main_window.window_of_tab(second_id_i)
+        self.assertFalse(window.is_panel_shown())
+        self.assertEqual(self.plot_controller.undo_history.depth(),
+                         depth_i)
+        window.search_shortcut.activated.emit()
+        self.process_events()
+        window = self.main_window.window_of_tab(second_id_i)
+        self.assertTrue(window.is_panel_shown())
 
 
 class LiveDragInEveryWindowTest(UndockedWindowTestCase):

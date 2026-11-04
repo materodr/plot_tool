@@ -363,6 +363,9 @@ class PlotController:
             # LLFR-01115, LLFR-01117: a tab dropped on an undocked
             # window; LLFR-01122: a tab dragged in its window's tab row.
             window_drop_handler=self.on_window_drop,
+            # LLFR-01132: a tab of an undocked window dropped outside the
+            # app.
+            new_window_drop_handler=self.on_new_window_drop,
             window_tab_move_handler=self.on_window_tab_move,
             # LLFR-01106: Ctrl+F (Cmd+F) shows a hidden panel first.
             panel_show_handler=self.on_panel_show_requested)
@@ -2197,6 +2200,32 @@ class PlotController:
         # LLFR-00982: a docked tab that the main window showed leaves it.
         if docked_b and shown_tab_id_i == tab_id_i and next_shown_id_i >= 0:
             self.view.set_current_tab(next_shown_id_i)
+        self.update_tab_delete_enabled()
+
+    def on_new_window_drop(self, tab_id_i: int, x_i: int, y_i: int) -> None:
+        """Move a tab of an undocked window dropped outside the app into a
+        new undocked window.
+
+        Inputs:
+            tab_id_i: id of the dragged undocked tab.
+            x_i, y_i: the point of the drop, in desktop pixels.
+        Outputs: none. A docked or unknown tab changes nothing.
+        """
+        tab = self.workspace.find_tab(tab_id_i)
+        if tab is None or not tab.undocked_b:
+            return
+        # LLFR-01134: the move, with the close of LLFR-01133, is one
+        # undoable action.
+        memory_tuple = self.window_memory_tuple()
+        snapshot = self.workspace.snapshot(self.view.current_tab_id())
+        # LLFR-01132: a window whose top-left corner is at the drop, with
+        # the size of LLFR-00981; the view keeps it on a screen.
+        self.workspace.move_tab_to_new_window(
+            tab_id_i, tuple(self.view.dropped_window_tuple(x_i, y_i)))
+        self.record_undo(snapshot)
+        # LLFR-01133: a window left with no tab closes; LLFR-01121: one
+        # that keeps tabs shows the nearest one.
+        self.show_windows(memory_tuple)
         self.update_tab_delete_enabled()
 
     def on_window_tab_move(self, tab_id_i: int, index_i: int) -> None:

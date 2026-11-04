@@ -648,6 +648,8 @@ class PlotPanel(QWidget):
             return -1
         if not self.tab_row_rect().contains(QPoint(int(x_i), int(y_i))):
             return -1
+        # LLFR-01135: before the first docked tab whose middle is right
+        # of the pointer, else after the last one.
         tab_bar = self.tab_widget.tabBar()
         for index_i in range(tab_bar.count()):
             middle_x_i = tab_bar.mapToGlobal(
