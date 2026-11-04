@@ -45,6 +45,15 @@ class UndockControllerTestCase(PlotControllerTestCase):
         """
         self.view.handler_dict["dock_handler"](tab_id_i)
 
+    def window_of(self, tab_id_i: int) -> int:
+        """Return the id of the undocked window of a tab.
+
+        Inputs:
+            tab_id_i: id of an undocked tab.
+        Outputs: its window id (0 for a docked tab).
+        """
+        return self.workspace.find_tab(tab_id_i).window_id_i
+
     def undo(self) -> None:
         """Run Undo.
 
@@ -255,7 +264,7 @@ class UndockUndoTest(UndockControllerTestCase):
         self.add_tab()
         first_id_i = self.first_tab_id()
         self.undock(first_id_i)
-        self.view.handler_dict["panel_toggle_handler"](first_id_i)
+        self.view.handler_dict["panel_toggle_handler"](self.window_of(first_id_i))
         self.view.window_dict[first_id_i][0] = (40, 50, 800, 400)
         self.dock(first_id_i)
         self.assertEqual(self.view.window_dict, {})
@@ -276,7 +285,7 @@ class UndockUndoTest(UndockControllerTestCase):
         self.double_click("s3")
         self.undock(second_id_i)
         self.view.window_dict[second_id_i][0] = (11, 22, 640, 480)
-        self.view.handler_dict["window_close_handler"](second_id_i)
+        self.view.handler_dict["window_close_handler"](self.window_of(second_id_i))
         self.assertIsNone(self.workspace.find_tab(second_id_i))
         self.assertEqual(self.view.window_dict, {})
         self.undo()
@@ -338,13 +347,13 @@ class WindowPanelTest(UndockControllerTestCase):
         self.view.new_window_answer_tuple = (0, 0, 400, 300)
         self.undock(first_id_i)
         toggle = self.view.handler_dict["panel_toggle_handler"]
-        toggle(first_id_i)
+        toggle(self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][1:], [True, 100])
         self.view.window_dict[first_id_i][2] = 150
-        toggle(first_id_i)
+        toggle(self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][1:],
                          [False, 150])
-        toggle(first_id_i)
+        toggle(self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][1:], [True, 150])
         self.undo()
         self.assertEqual(self.view.window_dict[first_id_i][1:],
@@ -363,7 +372,7 @@ class WindowPanelTest(UndockControllerTestCase):
         first_id_i = self.first_tab_id()
         self.add_tab()
         self.undock(first_id_i)
-        self.view.handler_dict["panel_toggle_handler"](first_id_i)
+        self.view.handler_dict["panel_toggle_handler"](self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][2], 225)
 
     @covers("LLFR-01020", "LLFR-00138", "HLFR-00131", "HLFR-00026")
@@ -392,9 +401,9 @@ class WindowPanelTest(UndockControllerTestCase):
         first_id_i = self.first_tab_id()
         self.add_tab()
         self.undock(first_id_i)
-        self.view.handler_dict["panel_toggle_handler"](first_id_i)
+        self.view.handler_dict["panel_toggle_handler"](self.window_of(first_id_i))
         self.view.window_dict[first_id_i][2] = 300
-        self.view.handler_dict["panel_width_handler"](first_id_i, 240, 300)
+        self.view.handler_dict["panel_width_handler"](self.window_of(first_id_i), 240, 300)
         self.undo()
         self.assertEqual(self.view.window_dict[first_id_i][1:], [True, 240])
 
@@ -541,7 +550,7 @@ class DragUndockDockTest(UndockControllerTestCase):
         self.assertEqual(self.undocked_ids(), [second_id_i])
         self.assertFalse(self.workspace.find_tab(first_id_i).undocked_b)
         self.assertFalse(self.controller.undo_history.can_undo())
-        self.assertNotIn("undock_tab_view", self.view.method_names())
+        self.assertNotIn("set_window_tabs", self.view.method_names())
 
     @covers("LLFR-01108", "LLFR-00994", "LLFR-00995", "LLFR-01025",
             "LLFR-01056", "HLFR-00152", "HLFR-00124")
@@ -625,11 +634,11 @@ class SearchShortcutPanelTest(UndockControllerTestCase):
         self.undock(first_id_i)
         self.controller.undo_history.clear()
         show = self.view.handler_dict["panel_show_handler"]
-        show(first_id_i)
+        show(self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][1:],
                          [True, 225])
         self.assertEqual(self.controller.undo_history.depth(), 1)
-        show(first_id_i)
+        show(self.window_of(first_id_i))
         show(-1)
         self.assertEqual(self.controller.undo_history.depth(), 1)
         self.assertTrue(self.view.window_dict[first_id_i][1])

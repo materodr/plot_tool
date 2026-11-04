@@ -147,8 +147,13 @@ class FakePlotView:
         # LLFR-00980: tab id -> [window_tuple, panel_shown_b,
         # panel_width_i] of each open undocked window.
         self.window_dict = {}
-        # LLFR-01056: the open windows, in the order last given.
+        # LLFR-01056: the undocked tabs, window by window.
         self.undocked_order_list = []
+        # LLFR-01028: window id -> [window_tuple, panel_shown_b,
+        # panel_width_i], its tabs in order and the tab it shows.
+        self.window_entry_dict = {}
+        self.window_tabs_dict = {}
+        self.window_shown_dict = {}
         # LLFR-00981, LLFR-01093: what new_window_tuple returns.
         self.new_window_answer_tuple = (130, 160, 900, 600)
         # LLFR-01020: the main panel width the view reports.
@@ -308,7 +313,10 @@ class FakePlotView:
         """
         self.call_list.append(("remove_tab_view", tab_id_i))
         del self.tab_dict[tab_id_i]
-        self.window_dict.pop(tab_id_i, None)
+        for tab_id_list in self.window_tabs_dict.values():
+            if tab_id_i in tab_id_list:
+                tab_id_list.remove(tab_id_i)
+        self.refresh_window_dict()
         for plot_id_i in [plot_id_i for plot_id_i, owner_i
                           in self.plot_tab_dict.items()
                           if owner_i == tab_id_i]:
@@ -739,30 +747,59 @@ class FakePlotView:
         Outputs: the dict of MainWindow.window_state_dict.
         """
         return {"main_panel_width": self.main_panel_width_i,
-                "windows": {tab_id_i: tuple(entry_list[0])
+                "windows": {window_id_i: tuple(entry_list[0])
                             + (entry_list[2],)
-                            for tab_id_i, entry_list
-                            in self.window_dict.items()
-                            if len(entry_list[0]) == 4}}
+                            for window_id_i, entry_list
+                            in self.window_entry_dict.items()
+                            if len(entry_list[0]) == 4},
+                "shown": dict(self.window_shown_dict)}
 
-    def undock_tab_view(self, tab_id_i: int, window_tuple: tuple,
-                        panel_shown_b: bool, panel_width_i: int) -> None:
-        """Show a tab in an undocked window.
+    def refresh_window_dict(self) -> None:
+        """Rebuild window_dict and undocked_order_list from the windows.
+
+        Inputs: none.
+        Outputs: none. Each undocked tab maps to the entry list of its
+            window, the same list object for the tabs of one window.
+        """
+        self.window_dict = {}
+        self.undocked_order_list = []
+        for window_id_i, tab_id_list in self.window_tabs_dict.items():
+            for tab_id_i in tab_id_list:
+                self.window_dict[tab_id_i] = self.window_entry_dict[
+                    window_id_i]
+                self.undocked_order_list.append(tab_id_i)
+
+    def set_window_tabs(self, window_id_i: int, tab_id_list: list,
+                        window_tuple: tuple, panel_shown_b: bool,
+                        panel_width_i: int, shown_tab_id_i: int) -> None:
+        """Show an undocked window with its tabs.
 
         Inputs:
-            tab_id_i: id of the tab.
+            window_id_i: id of the window.
+            tab_id_list: its tabs, in order.
             window_tuple: (x, y, width, height) for a new window.
             panel_shown_b: whether its panel is shown.
             panel_width_i: the panel width.
+            shown_tab_id_i: the tab it shows.
         Outputs: none. An open window keeps its position and size.
         """
-        self.call_list.append(("undock_tab_view", tab_id_i, window_tuple,
-                               panel_shown_b, panel_width_i))
-        if tab_id_i in self.window_dict:
-            window_tuple = self.window_dict[tab_id_i][0]
-        self.window_dict[tab_id_i] = [tuple(window_tuple),
-                                      bool(panel_shown_b),
-                                      int(panel_width_i)]
+        self.call_list.append(("set_window_tabs", window_id_i,
+                               list(tab_id_list), tuple(window_tuple),
+                               panel_shown_b, panel_width_i,
+                               shown_tab_id_i))
+        if window_id_i in self.window_entry_dict:
+            window_tuple = self.window_entry_dict[window_id_i][0]
+        self.window_entry_dict[window_id_i] = [tuple(window_tuple),
+                                               bool(panel_shown_b),
+                                               int(panel_width_i)]
+        for other_id_i, other_list in self.window_tabs_dict.items():
+            if other_id_i != window_id_i:
+                self.window_tabs_dict[other_id_i] = [
+                    tab_id_i for tab_id_i in other_list
+                    if tab_id_i not in tab_id_list]
+        self.window_tabs_dict[window_id_i] = list(tab_id_list)
+        self.window_shown_dict[window_id_i] = shown_tab_id_i
+        self.refresh_window_dict()
 
     def dock_tab_view(self, tab_id_i: int) -> None:
         """Put a tab back into the main window.
@@ -772,35 +809,45 @@ class FakePlotView:
         Outputs: none.
         """
         self.call_list.append(("dock_tab_view", tab_id_i))
-        self.window_dict.pop(tab_id_i, None)
+        for window_id_i, tab_id_list in self.window_tabs_dict.items():
+            if tab_id_i in tab_id_list:
+                tab_id_list.remove(tab_id_i)
+        self.refresh_window_dict()
 
-    def set_undocked_tabs(self, tab_id_list: list) -> None:
-        """Close the windows of the tabs that are not undocked.
+    def set_undocked_windows(self, window_id_list: list) -> None:
+        """Close the windows that are not open in the model.
 
         Inputs:
-            tab_id_list: the undocked tabs, in tab order.
+            window_id_list: the open windows, in tab order.
         Outputs: none.
         """
-        self.call_list.append(("set_undocked_tabs", list(tab_id_list)))
-        for tab_id_i in list(self.window_dict):
-            if tab_id_i not in tab_id_list:
-                del self.window_dict[tab_id_i]
-        self.undocked_order_list = list(tab_id_list)
+        self.call_list.append(("set_undocked_windows", list(window_id_list)))
+        for window_id_i in list(self.window_tabs_dict):
+            if window_id_i not in window_id_list:
+                del self.window_tabs_dict[window_id_i]
+                self.window_entry_dict.pop(window_id_i, None)
+                self.window_shown_dict.pop(window_id_i, None)
+        self.window_tabs_dict = {
+            window_id_i: self.window_tabs_dict[window_id_i]
+            for window_id_i in window_id_list
+            if window_id_i in self.window_tabs_dict}
+        self.refresh_window_dict()
 
-    def set_window_panel(self, tab_id_i: int, shown_b: bool,
+    def set_window_panel(self, window_id_i: int, shown_b: bool,
                          width_i: int) -> None:
         """Show or hide the panel of a window.
 
         Inputs:
-            tab_id_i: id of the tab.
+            window_id_i: id of the window.
             shown_b: whether the panel is shown.
             width_i: its width.
         Outputs: none.
         """
-        self.call_list.append(("set_window_panel", tab_id_i, shown_b,
+        self.call_list.append(("set_window_panel", window_id_i, shown_b,
                                width_i))
-        if tab_id_i in self.window_dict:
-            self.window_dict[tab_id_i][1:] = [bool(shown_b), int(width_i)]
+        if window_id_i in self.window_entry_dict:
+            self.window_entry_dict[window_id_i][1:] = [bool(shown_b),
+                                                       int(width_i)]
 
     def set_main_panel_width(self, width_i: int) -> None:
         """Set the main window's panel width.
