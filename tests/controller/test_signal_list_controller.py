@@ -643,8 +643,8 @@ class WithFileControllerTest(unittest.TestCase):
         self.view.path_str = path_str
         self.file_controller.open_file_requested()
 
-    @covers("LLFR-00095", "LLFR-00104", "LLFR-00901", "LLFR-00934",
-            "LLFR-00935")
+    @covers("LLFR-00095", "LLFR-00104", "LLFR-00901", "LLFR-00903",
+            "LLFR-00934", "LLFR-00935")
     def test_names_of_every_file_with_their_prefix(self) -> None:
         """The list shows the prefixed names, file after file.
 

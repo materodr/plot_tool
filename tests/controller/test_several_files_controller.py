@@ -109,7 +109,7 @@ class SignalsOfSeveralFilesTest(SeveralFilesTestCase):
     """Curves of several files (HLFR-00116)."""
 
     @covers("LLFR-00907", "LLFR-00908", "LLFR-00909", "LLFR-00910",
-            "LLFR-00068", "LLFR-00901", "HLFR-00116")
+            "LLFR-00068", "LLFR-00901", "LLFR-00903", "HLFR-00116")
     def test_each_curve_on_the_time_of_its_file(self) -> None:
         """One plot draws curves of two files, each on its own times.
 
