@@ -729,6 +729,82 @@ class PanEndToEndTest(unittest.TestCase):
         self.assertTrue(self.top_panel.pan_button.is_active())
         self.assertEqual(self.box_record_list, [])
 
+    def left_click(self, plot_widget, point_tuple: tuple,
+                   double_click_b: bool = False) -> None:
+        """Press and release the left button at one data point.
+
+        Inputs:
+            plot_widget: the PlotWidget.
+            point_tuple: (x value, y value) of the click.
+            double_click_b: True for the second press of a double-click.
+        Outputs: none.
+        """
+        from matplotlib.backend_bases import MouseButton, MouseEvent
+        canvas = plot_widget.canvas
+        point_px = plot_widget.axes.transData.transform(point_tuple)
+        for name_str in ("button_press_event", "button_release_event"):
+            canvas.callbacks.process(name_str, MouseEvent(
+                name_str, canvas, float(point_px[0]), float(point_px[1]),
+                button=MouseButton.LEFT,
+                dblclick=(double_click_b
+                          and name_str == "button_press_event")))
+        self.application.processEvents()
+
+    @covers("LLFR-00764", "LLFR-00763", "LLFR-00355", "HLFR-00036")
+    def test_click_with_the_pan_button_shows_no_message(self) -> None:
+        """With the Pan button active and the real controllers, left
+        clicks that do not move the pointer, on a curve, between the
+        curves, on a zoomed and on an unzoomed plot and as a
+        double-click, open no message box or dialog and change nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QDialog, QInputDialog
+        dialog_list = []
+        dialog_patch = mock.patch.object(
+            QDialog, "exec",
+            new=lambda dialog: dialog_list.append(dialog) or 0)
+        text_patch = mock.patch.object(
+            QInputDialog, "getText",
+            side_effect=lambda *arguments: dialog_list.append(arguments)
+            or ("", False))
+        for patch in (dialog_patch, text_patch):
+            patch.start()
+            self.addCleanup(patch.stop)
+        time_widget = self.double_click("file1_Torque")
+        self.top_panel.pan_button.click()
+        self.application.processEvents()
+        self.assertTrue(self.top_panel.pan_button.is_active())
+        undo_history = self.controller.plot_controller.undo_history
+        depth_i = undo_history.depth()
+        for zoomed_b in (False, True):
+            if zoomed_b:
+                time_widget.wheel_at(
+                    time_widget.data_to_widget_point(5.0, 0.0), 10.0)
+                self.application.processEvents()
+            time_widget.canvas.draw()
+            range_tuple = time_widget.time_range_tuple()
+            bottom_f, top_f = time_widget.axes.get_ylim()
+            middle_s = sum(range_tuple) / 2.0
+            # Torque is the sample index, so it is 50 * time.
+            for point_tuple in ((middle_s, middle_s * SAMPLE_RATE_HZ),
+                                (middle_s, bottom_f + 0.9 * (top_f
+                                                             - bottom_f))):
+                for double_click_b in (False, True):
+                    with self.subTest(zoomed=zoomed_b, point=point_tuple,
+                                      double_click=double_click_b):
+                        self.left_click(time_widget, point_tuple,
+                                        double_click_b)
+                        self.assertEqual(time_widget.time_range_tuple(),
+                                         range_tuple)
+                        self.assertFalse(time_widget.panning_b)
+        self.assertEqual(self.box_record_list, [])
+        self.assertEqual(dialog_list, [])
+        self.assertEqual(undo_history.depth(), depth_i)
+        self.assertEqual(time_widget.pinned_tip_count(), 0)
+        self.assertTrue(self.top_panel.pan_button.is_active())
+
     @covers("LLFR-00207", "LLFR-00356", "LLFR-00454")
     def test_z_key_does_nothing_during_a_pan(self) -> None:
         """While the left button pans, the Z key resets nothing; after

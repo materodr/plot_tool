@@ -861,8 +861,9 @@ class PlotPanel(QWidget):
         Outputs: none.
         """
         # LLFR-00310: while dragged, the area follows the pointer on every
-        # time plot of the current tab; the plots of the other tabs get
-        # the new span when the button is released (controller).
+        # time plot of the current tab; LLFR-00710: the plots of the
+        # other tabs get the new span when the button is released
+        # (controller).
         for plot_widget in self.sibling_plot_widget_list(plot_id_i):
             plot_widget.follow_area_drag(area_id_i, start_s, end_s)
 
