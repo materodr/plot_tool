@@ -194,7 +194,8 @@ class WindowPartsTest(UndockedWindowTestCase):
             second_id_i).windowTitle(), name_str)
 
     @covers("LLFR-00997", "LLFR-00990", "LLFR-01009", "LLFR-00992",
-            "LLFR-01035", "LLFR-01000", "LLFR-00440", "HLFR-00136")
+            "LLFR-01035", "LLFR-01000", "LLFR-00440", "LLFR-00996",
+            "HLFR-00136", "HLFR-00125")
     def test_tab_row_and_panels(self) -> None:
         """Tab button left, signal list and dock buttons right, then the
         plot well and the signal list panel side by side, no top panel.
@@ -505,6 +506,7 @@ class WindowSignalListTest(UndockedWindowTestCase):
         Outputs: none.
         """
         first_id_i, second_id_i, window = self.two_tabs_one_undocked()
+        self.main_window.show_signal_names(["Time", "speed", "force"])
         window.signal_list_panel.signal_double_clicked.emit("force")
         window.signal_list_panel.selected_signals_plot_requested.emit(
             ["angle", "speed"])
@@ -532,7 +534,10 @@ class WindowSignalListTest(UndockedWindowTestCase):
                             "show_full_tab_notification") as box:
                 self.main_window.show_full_tab_notification(5, 1)
             self.assertIs(box.call_args[0][0], window)
-        self.assertIs(self.main_window.dialog_parent(), self.main_window)
+        with mock.patch.object(QApplication, "activeWindow",
+                               return_value=self.main_window):
+            self.assertIs(self.main_window.dialog_parent(),
+                          self.main_window)
 
 
 class WindowShortcutTest(UndockedWindowTestCase):
@@ -667,6 +672,73 @@ class PanelWidthUndoTest(UndockedWindowTestCase):
         self.process_events()
         self.assertAlmostEqual(self.main_window.undocked_window(
             second_id_i).panel_width(), start_i, delta=2)
+
+
+class WindowPlotActionTest(UndockedWindowTestCase):
+    """Plot actions and drops on the plots of a window."""
+
+    @covers("LLFR-01004", "LLFR-00987", "LLFR-00021", "HLFR-00127",
+            "HLFR-00013", "HLFR-00123")
+    def test_drop_and_delete_on_a_plot_of_a_window(self) -> None:
+        """A drop on a window's plot adds the curves; its plot menu
+        deletes it; both are undone like in the main window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        plot_widget = window.page().plot_widget_list[0]
+        plot_widget.signals_dropped.emit(["force", "angle"])
+        self.process_events()
+        plot = self.tab(second_id_i).plot_list[0]
+        self.assertEqual([curve.signal_name_str
+                          for curve in plot.curve_list],
+                         ["speed", "force", "angle"])
+        plot_widget.plot_delete_requested.emit()
+        self.process_events()
+        self.assertEqual(self.tab(second_id_i).plot_list, [])
+        self.assertEqual(window.page().plot_widget_list, [])
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertEqual(len(self.main_window.undocked_window(
+            second_id_i).page().plot_widget_list), 1)
+
+
+class WindowIconShapeTest(unittest.TestCase):
+    """The pictures of the window buttons (no Qt needed)."""
+
+    @covers("LLFR-00978", "LLFR-00991", "LLFR-01010", "HLFR-00123",
+            "HLFR-00124", "HLFR-00129")
+    def test_undock_dock_and_signal_list_pictures(self) -> None:
+        """A square with an arrow out to the top right (undock) or in to
+        the bottom left (dock); a rectangle with its right third filled.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import icon_shapes
+        undock_list = icon_shapes.icon_layer_list(
+            icon_shapes.UNDOCK_ICON_STR)
+        dock_list = icon_shapes.icon_layer_list(icon_shapes.DOCK_ICON_STR)
+        self.assertEqual(undock_list[0], dock_list[0])
+        # The undock arrow ends top right, the dock arrow bottom left.
+        undock_head_list = undock_list[2][0]
+        self.assertEqual(undock_head_list[1][1:], (20.5, 3.5))
+        dock_head_list = dock_list[2][0]
+        self.assertEqual(dock_head_list[1][1:], (11.0, 13.0))
+        list_layer_list = icon_shapes.icon_layer_list(
+            icon_shapes.SIGNAL_LIST_ICON_STR)
+        fill_command = list_layer_list[0][0][0]
+        outline_command = list_layer_list[1][0][0]
+        self.assertEqual(list_layer_list[0][2], icon_shapes.INK_ROLE_STR)
+        # The filled part is the right third of the rectangle.
+        self.assertAlmostEqual(fill_command[3] / outline_command[3], 1 / 3,
+                               delta=0.06)
+        self.assertGreaterEqual(fill_command[1] + fill_command[3],
+                                outline_command[1] + outline_command[3]
+                                - 1.0)
+        for icon_name_str in icon_shapes.WINDOW_ICON_SHAPE_FUNCTION_DICT:
+            self.assertNotIn(icon_name_str, icon_shapes.ICON_NAME_TUPLE)
 
 
 class UndockedExportTest(UndockedWindowTestCase):

@@ -65,8 +65,10 @@ class UndoWindowTestCase(unittest.TestCase):
         """Return the plain-value state of the workspace.
 
         Inputs: none.
-        Outputs: the Workspace.state_tuple().
+        Outputs: the Workspace.state_tuple(), with the panel widths
+            shown now (LLFR-01020): the model learns them from the view.
         """
+        self.plot_controller.sync_window_state()
         return self.plot_controller.workspace.state_tuple()
 
     def current_plot_ids(self) -> list:

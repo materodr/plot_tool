@@ -391,6 +391,28 @@ class LayoutWindowsTest(unittest.TestCase):
                          "Signal list panel width"):
             self.assertIn(what_str, report_str)
 
+    @covers("LLFR-01050", "LLFR-01041", "HLFR-00141", "HLFR-00052")
+    def test_off_screen_window_is_not_reported(self) -> None:
+        """A window saved far off-screen loads with no report; the view
+        moves it onto a screen when it opens it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        result = self.rebuild(layout_with_tabs(
+            [{"name": "Docked", "plots": [plot_entry("file1_Speed")]},
+             {"name": "W", "undocked": True,
+              "window": {"x": 90000, "y": -90000, "width": 5000,
+                         "height": 4000},
+              "signal_list_panel": {"shown": True, "width": 150},
+              "plots": [plot_entry("file1_Torque")]}]))
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        self.assertEqual(self.workspace.undocked_tab_list()[0].window_tuple,
+                         (90000, -90000, 5000, 4000))
+        self.assertEqual(placed_window_tuple(
+            (90000, -90000, 5000, 4000), [MAIN_SCREEN_TUPLE],
+            MAIN_SCREEN_TUPLE), MAIN_SCREEN_TUPLE)
+
     @covers("LLFR-01044", "LLFR-00475", "LLFR-01045", "HLFR-00140")
     def test_main_window_keeps_a_docked_tab(self) -> None:
         """With no plot anywhere and only undocked tabs in the file, the

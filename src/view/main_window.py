@@ -658,10 +658,10 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00989: the main window closes them all.
+        # LLFR-00989: the main window closes them all; each page goes
+        # back to the plot panel, which still keeps it.
         for tab_id_i in list(self.undocked_window_dict):
-            window = self.undocked_window_dict.pop(tab_id_i)
-            window.close_by_app()
+            self.close_window_of(tab_id_i)
         self.undocked_order_list = []
 
     def undocked_window(self, tab_id_i: int):
