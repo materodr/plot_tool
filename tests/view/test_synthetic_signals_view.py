@@ -578,7 +578,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
                         return_value=self.path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
-        # LLFR-00987: the files are collapsed after an open; these
+        # LLFR-01001: the files are collapsed after an open; these
         # tests read the shown signals.
         expand_all_files(self.controller)
 

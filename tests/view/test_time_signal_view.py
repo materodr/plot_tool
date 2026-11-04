@@ -400,7 +400,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
             QTest.mouseClick(self.main_window.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()
-            # LLFR-00987: the files are collapsed after an open; these
+            # LLFR-01001: the files are collapsed after an open; these
             # tests read the shown signals.
             expand_all_files(self.controller)
 
@@ -484,7 +484,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
 
     @covers("LLFR-00325", "LLFR-00326", "LLFR-00329", "LLFR-00068",
             "LLFR-00055", "LLFR-00054", "HLFR-00070", "HLFR-00007",
-            "HLFR-00006", "LLFR-00507", "LLFR-00995")
+            "HLFR-00006", "LLFR-00507", "LLFR-01009")
     def test_choose_t_s_and_plot_against_it(self) -> None:
         """Choosing "t_s" opens the file and puts it on the x-axis.
 
@@ -506,7 +506,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
         # LLFR-00910: the window had the names in the file; the signal
         # list has them with the prefix (LLFR-00905), the chosen time
-        # signal first (LLFR-00995).
+        # signal first (LLFR-01009).
         self.assertEqual(self.panel.signal_name_list(),
                          ["file1_t_s", "file1_speed", "file1_force"])
         self.double_click_signal("file1_force")
@@ -541,13 +541,13 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.window_record_list), 1)
         # LLFR-00327, LLFR-00922: no question and no other message.
         self.assertEqual(self.box_record_list, [])
-        # LLFR-00995: the time signal is the first signal of its file.
+        # LLFR-01009: the time signal is the first signal of its file.
         self.assertEqual(self.panel.signal_name_list(),
                          ["file1_TIME", "file1_a", "file1_b"])
         self.assertEqual(len(self.plot_widgets()), 1)
 
     @covers("LLFR-00957", "LLFR-00910", "LLFR-00920", "HLFR-00070",
-            "LLFR-00995")
+            "LLFR-01009")
     def test_window_of_an_added_file(self) -> None:
         """With a file open, the window of the next file lists its names
         in the file, and the file opens as file 2.
@@ -562,7 +562,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
                          ["speed", "t_s", "force"])
         # LLFR-00957: the window names its file, without its folder.
         self.assertEqual(self.window_file_list, ["File: x_axis.csv"])
-        # LLFR-00995: each time signal first below its file name row.
+        # LLFR-01009: each time signal first below its file name row.
         self.assertEqual(self.panel.signal_name_list(), [
             "file1_TIME", "file1_a", "file1_b", "file2_t_s", "file2_speed",
             "file2_force"])
@@ -583,7 +583,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
                                       other_path_str]):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
-        # LLFR-00987: the files are collapsed after an open; these
+        # LLFR-01001: the files are collapsed after an open; these
         # tests read the shown signals.
         expand_all_files(self.controller)
         # LLFR-00952: b_other.csv comes before x_axis.csv.
@@ -620,7 +620,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
             self.assertNotIn("x-axis", text_str)
         menu.deleteLater()
 
-    @covers("LLFR-00332", "HLFR-00071", "LLFR-00638", "LLFR-00995")
+    @covers("LLFR-00332", "HLFR-00071", "LLFR-00638", "LLFR-01009")
     def test_time_signal_name_is_green(self) -> None:
         """The time signal is green; other names are not, in every case.
 
@@ -672,7 +672,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         item.setSelected(True)
         other_item.setSelected(True)
         self.application.processEvents()
-        # LLFR-00995: the chosen time signal is first in the list.
+        # LLFR-01009: the chosen time signal is first in the list.
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_t_s", "file1_speed"])
         self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
@@ -685,7 +685,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.application.processEvents()
         self.panel.search_box.setText("")
         self.application.processEvents()
-        # LLFR-00995: the chosen time signal is first in the list.
+        # LLFR-01009: the chosen time signal is first in the list.
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_t_s", "file1_speed"])
         self.assertEqual(self.panel.name_color_str("file1_t_s"), green_str)

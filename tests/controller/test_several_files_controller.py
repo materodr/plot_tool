@@ -62,7 +62,7 @@ class SeveralFilesTestCase(unittest.TestCase):
         self.file_controller.load_function = lambda path_str: signal_file
         self.view.open_path_str = signal_file.path_str
         self.file_controller.open_file_requested()
-        # LLFR-00987: the files are collapsed after an open; these tests
+        # LLFR-01001: the files are collapsed after an open; these tests
         # read the shown signals.
         expand_all_files(self.main_controller)
 
@@ -671,9 +671,9 @@ class CloseQuestionTest(SeveralFilesTestCase):
 
 
 class FileCollapseHistoryTest(SeveralFilesTestCase):
-    """Hiding the signals of a file is not undoable (LLFR-00994)."""
+    """Hiding the signals of a file is not undoable (LLFR-01008)."""
 
-    @covers("LLFR-00994", "LLFR-00140", "HLFR-00123", "HLFR-00040",
+    @covers("LLFR-01008", "LLFR-00140", "HLFR-00123", "HLFR-00040",
             "HLFR-00048")
     def test_toggle_keeps_the_undo_and_redo_history(self) -> None:
         """Collapsing and expanding leave both histories as they were.

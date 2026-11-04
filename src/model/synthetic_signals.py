@@ -1236,7 +1236,7 @@ def ordered_signal_names(data_files, synthetic_name_list: list,
             file (LLFR-00940); a missing name or None puts the signal
             after every file.
     Outputs: the files in the order of their numbers, each with its
-        time signal first (LLFR-00995), then its other signals in the
+        time signal first (LLFR-01009), then its other signals in the
         file's order, followed by its synthetic signals in creation
         order (LLFR-00938, LLFR-00939, LLFR-00242).
     """
@@ -1250,7 +1250,7 @@ def ordered_signal_names(data_files, synthetic_name_list: list,
     name_list = []
     placed_name_set = set()
     for data_file in file_list:
-        # LLFR-00995: the time signal is the first signal of its file.
+        # LLFR-01009: the time signal is the first signal of its file.
         name_list.extend(data_file.listed_signal_name_list)
         for name_str in synthetic_name_list:
             if file_number_dict.get(name_str) == data_file.number_i:

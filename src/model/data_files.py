@@ -277,9 +277,9 @@ class DataFile:
 
         Inputs: none.
         Outputs: the time signal first, then the other signals in the
-            file's order (LLFR-00995).
+            file's order (LLFR-01009).
         """
-        # LLFR-00995: the time signal, found by its name or chosen by
+        # LLFR-01009: the time signal, found by its name or chosen by
         # the user, is the first signal below the file name row.
         time_name_str = self.time_signal_name_str
         return [time_name_str] + [name_str for name_str in self.signal_dict

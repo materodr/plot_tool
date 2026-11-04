@@ -132,7 +132,7 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
                         return_value=self.data_path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
-        # LLFR-00987: the files are collapsed after an open; these
+        # LLFR-01001: the files are collapsed after an open; these
         # tests read the shown signals.
         expand_all_files(self.controller)
 
