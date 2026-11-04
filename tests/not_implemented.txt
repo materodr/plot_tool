@@ -6,6 +6,8 @@
 # request from develop to main must list none (PCR-00069). Remove an HLFR
 # from this list when its implementation is done (PCR-00067).
 HLFR-00113 Implementation is planned in step 4 of #190 on feature/190-multiple-files. The file of each synthetic signal, its place after its file in the model order, the second signal dialog and the FFT range of the signal's file are done (step 3); the signal list groups with one file name row per file, the search per file and the data file description in the PDF and the copied image (LLFR-00934, LLFR-00935, LLFR-00102, LLFR-00967, LLFR-00968) are not.
+HLFR-00114 Implementation is planned in step 4 of #190 on feature/190-multiple-files. The signal list shows one row with the rows of all the open files, not one file name row per file (LLFR-00362).
+HLFR-00117 Implementation is planned in step 4 of #190 on feature/190-multiple-files. The file name row of an added file and its signals are not yet shown in their place in the signal list (LLFR-00650, LLFR-00328 step 5, LLFR-00934, LLFR-00935).
 HLFR-00118 Implementation is planned in step 4 of #190 on feature/190-multiple-files. The model and controller of Close file are done; the file menu and the Close file question (LLFR-00919, LLFR-00920, LLFR-00921, LLFR-00647) are not.
 HLFR-00119 Implementation is planned in step 4 of #190 on feature/190-multiple-files. The model and controller of Close all files are done; the file menu and its question (LLFR-00919, LLFR-00930, LLFR-00931) are not.
 HLFR-00122 Implementation is planned in step 4 of #190 on feature/190-multiple-files. The controller takes a list of selected paths in the order of LLFR-00948; the dialog still selects one file (LLFR-00947), and the time signal window does not name its file yet (LLFR-00953).
