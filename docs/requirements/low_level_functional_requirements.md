@@ -1454,6 +1454,11 @@ When the window is too narrow for the buttons and the credit text of LLFR-00364,
 
 *Parent: HLFR-00080*
 
+### LLFR-00889 Author name underlined in the credit text
+In the credit text of LLFR-00364, only the word "materodr" must be underlined.
+
+*Parent: HLFR-00080*
+
 ### LLFR-00365 Curve palette against the marker color
 Every color of the palette of LLFR-00033 must be at a distance of at least 70 from the reserved marker color (LLFR-00083), measured as the Euclidean distance between their red, green and blue values from 0 to 255.
 
