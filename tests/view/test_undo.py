@@ -385,7 +385,7 @@ class UndoEndToEndTest(unittest.TestCase):
         with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
                         return_value=self.path_str):
             self.click(self.main_window.top_panel.open_file_button)
-            # LLFR-00984: the files are collapsed after an open; these
+            # LLFR-00987: the files are collapsed after an open; these
             # tests read the shown signals.
             expand_all_files(self.controller)
 

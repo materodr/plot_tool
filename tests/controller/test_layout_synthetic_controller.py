@@ -75,7 +75,7 @@ class LayoutSyntheticTestCase(unittest.TestCase):
             lambda path_str: make_signal_file())
         self.view.open_path_str = "test.csv"
         file_controller.open_file_requested()
-        # LLFR-00984: the file is collapsed after the open; these tests
+        # LLFR-00987: the file is collapsed after the open; these tests
         # read the shown signals.
         expand_all_files(self.main_controller)
 

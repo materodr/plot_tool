@@ -226,9 +226,9 @@ class DescriptionTest(unittest.TestCase):
 
 
 class TimeSignalFirstTest(unittest.TestCase):
-    """The time signal is the first signal of its file (LLFR-00992)."""
+    """The time signal is the first signal of its file (LLFR-00995)."""
 
-    @covers("LLFR-00992", "LLFR-00939", "HLFR-00011")
+    @covers("LLFR-00995", "LLFR-00939", "HLFR-00011")
     def test_listed_names_start_with_the_time_signal(self) -> None:
         """The time signal comes first, then the file's order.
 

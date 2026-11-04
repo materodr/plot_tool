@@ -236,7 +236,7 @@ class MainWindow(QMainWindow):
                 "close_file", number_i))
         self.signal_list_panel.close_all_files_requested.connect(
             lambda: self._run_signal_menu_handler("close_all_files"))
-        # LLFR-00980, LLFR-00981: the icons of the file name rows go to
+        # LLFR-00983, LLFR-00984: the icons of the file name rows go to
         # the signal list controller.
         self.signal_list_panel.file_expand_toggled.connect(
             lambda number_i: self._run_signal_menu_handler(
@@ -529,7 +529,7 @@ class MainWindow(QMainWindow):
                 hidden.
         Outputs: none. Used by the next show_signal_groups.
         """
-        # LLFR-00977, LLFR-00978: [-] or [+] on each file name row.
+        # LLFR-00980, LLFR-00981: [-] or [+] on each file name row.
         self.signal_list_panel.set_collapsed_file_numbers(number_set)
 
     def set_file_toggle_handler(self, handler) -> None:
@@ -539,7 +539,7 @@ class MainWindow(QMainWindow):
             handler: function taking a file number.
         Outputs: none.
         """
-        # LLFR-00980, LLFR-00981: hide or show the signals of a file.
+        # LLFR-00983, LLFR-00984: hide or show the signals of a file.
         self.signal_menu_handler_dict["toggle_file"] = handler
 
     def set_search_text_handler(self, handler) -> None:

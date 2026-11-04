@@ -17,7 +17,7 @@ from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 FIRST_ROW_STR = "file1_a.csv"
 SECOND_ROW_STR = "file2_b.csv"
-# The time signal of a.csv is not its first column (LLFR-00992).
+# The time signal of a.csv is not its first column (LLFR-00995).
 FIRST_TEXT_STR = "Speed,Time,Torque\n0,0,5\n1,1,6\n2,2,7\n"
 SECOND_TEXT_STR = "Time,Force\n0,3\n1,4\n2,5\n"
 FIRST_SIGNAL_LIST = ["file1_Time", "file1_Speed", "file1_Torque"]
@@ -26,7 +26,7 @@ SECOND_SIGNAL_LIST = ["file2_Time", "file2_Force"]
 
 @requires_qt
 class ExpandIconPictureTest(unittest.TestCase):
-    """The drawing of the [-] and [+] icons (LLFR-00979)."""
+    """The drawing of the [-] and [+] icons (LLFR-00982)."""
 
     def setUp(self) -> None:
         """Start the Qt application.
@@ -47,7 +47,7 @@ class ExpandIconPictureTest(unittest.TestCase):
                 for y_i in range(image.height())
                 if image.pixelColor(x_i, y_i).alpha() > 0}
 
-    @covers("LLFR-00979", "LLFR-00977", "LLFR-00978", "HLFR-00123")
+    @covers("LLFR-00982", "LLFR-00980", "LLFR-00981", "HLFR-00123")
     def test_icons_are_brackets_with_a_sign_in_muted_color(self) -> None:
         """Both icons share the brackets and the minus line; [+] adds a
         vertical bar; the lines are in the muted text color.
@@ -230,7 +230,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         return [self.panel.file_row_icon_text(row_str)
                 for row_str in self.panel.file_row_texts()]
 
-    @covers("LLFR-00984", "LLFR-00978", "HLFR-00123", "HLFR-00122")
+    @covers("LLFR-00987", "LLFR-00981", "HLFR-00123", "HLFR-00122")
     def test_files_opened_together_are_collapsed(self) -> None:
         """Both rows show [+] and no signal row is shown.
 
@@ -245,8 +245,8 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         for row_str in (FIRST_ROW_STR, SECOND_ROW_STR):
             self.assertFalse(self.item_of(row_str).icon().isNull())
 
-    @covers("LLFR-00980", "LLFR-00981", "LLFR-00977", "LLFR-00978",
-            "LLFR-00992", "LLFR-00332", "HLFR-00123", "HLFR-00071")
+    @covers("LLFR-00983", "LLFR-00984", "LLFR-00980", "LLFR-00981",
+            "LLFR-00995", "LLFR-00332", "HLFR-00123", "HLFR-00071")
     def test_icon_click_shows_and_hides_the_signals(self) -> None:
         """[+] shows the signals, the time signal first and green; [-]
         hides them again; the other file is not changed.
@@ -273,7 +273,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.panel.file_row_texts(),
                          [FIRST_ROW_STR, SECOND_ROW_STR])
 
-    @covers("LLFR-00980", "LLFR-00981", "LLFR-00646", "HLFR-00123")
+    @covers("LLFR-00983", "LLFR-00984", "LLFR-00646", "HLFR-00123")
     def test_click_on_the_row_text_changes_nothing(self) -> None:
         """Only the icon hides or shows the signals.
 
@@ -284,7 +284,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.signal_name_list(), [])
 
-    @covers("LLFR-00982", "LLFR-00988", "LLFR-00627", "LLFR-00292",
+    @covers("LLFR-00985", "LLFR-00991", "LLFR-00627", "LLFR-00292",
             "HLFR-00123", "HLFR-00063")
     def test_selection_with_the_icons(self) -> None:
         """An icon click selects nothing; hidden signals leave the
@@ -297,14 +297,14 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.click(self.text_point("file1_Speed"))
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_Speed"])
-        # LLFR-00982: opening the other file keeps the selection.
+        # LLFR-00985: opening the other file keeps the selection.
         self.click_icon(SECOND_ROW_STR)
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_Speed"])
         self.click(self.text_point("file2_Force"), "ControlModifier")
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_Speed", "file2_Force"])
-        # LLFR-00988: the hidden signal leaves the selection.
+        # LLFR-00991: the hidden signal leaves the selection.
         self.click_icon(FIRST_ROW_STR)
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file2_Force"])
@@ -314,7 +314,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
                          ["file2_Force"])
         self.assertIn("file1_Speed", self.panel.signal_name_list())
 
-    @covers("LLFR-00983", "LLFR-00645", "HLFR-00123")
+    @covers("LLFR-00986", "LLFR-00645", "HLFR-00123")
     def test_press_on_the_icon_starts_no_drag(self) -> None:
         """A press on the icon followed by moves drags nothing.
 
@@ -343,7 +343,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         # The press was a click on the icon.
         self.assertEqual(self.icons(), ["[-]", "[+]"])
 
-    @covers("LLFR-00985", "LLFR-00986", "LLFR-00987", "LLFR-00993",
+    @covers("LLFR-00988", "LLFR-00989", "LLFR-00990", "LLFR-00996",
             "HLFR-00123", "HLFR-00033")
     def test_search_expands_the_files_until_it_is_cleared(self) -> None:
         """A search shows every file with its matches; an icon click
@@ -356,7 +356,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.panel.search_box.setText("e")
         self.application.processEvents()
         self.assertEqual(self.icons(), ["[-]", "[-]"])
-        # LLFR-00993: the matching time signal is first below its row.
+        # LLFR-00996: the matching time signal is first below its row.
         self.assertEqual(self.panel.signal_name_list()[0], "file1_Time")
         self.assertIn("file2_Force", self.panel.signal_name_list())
         self.panel.search_box.setText("torq")
@@ -364,20 +364,20 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.panel.signal_name_list(), ["file1_Torque"])
         self.assertEqual(self.panel.no_match_message(),
                          "No matching signals")
-        # LLFR-00986: hide the matches of file 1 and the no-match text
+        # LLFR-00989: hide the matches of file 1 and the no-match text
         # of file 2 during the search.
         self.click_icon(FIRST_ROW_STR)
         self.click_icon(SECOND_ROW_STR)
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.signal_name_list(), [])
         self.assertEqual(self.panel.no_match_message(), "")
-        # LLFR-00987: file 1 collapsed and file 2 expanded, as before.
+        # LLFR-00990: file 1 collapsed and file 2 expanded, as before.
         self.panel.search_box.setText("")
         self.application.processEvents()
         self.assertEqual(self.icons(), ["[+]", "[-]"])
         self.assertEqual(self.panel.signal_name_list(), SECOND_SIGNAL_LIST)
 
-    @covers("LLFR-00989", "LLFR-00990", "HLFR-00123")
+    @covers("LLFR-00992", "LLFR-00993", "HLFR-00123")
     def test_left_and_right_keys_on_a_file_row(self) -> None:
         """Right expands and Left collapses the current file name row.
 
@@ -408,7 +408,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.selected_signal_names(), [])
 
-    @covers("LLFR-00647", "LLFR-00923", "LLFR-00991", "HLFR-00123",
+    @covers("LLFR-00647", "LLFR-00923", "LLFR-00994", "HLFR-00123",
             "HLFR-00118")
     def test_file_menu_and_history_with_collapsed_rows(self) -> None:
         """A collapsed row still opens the file menu; the icons leave
@@ -435,7 +435,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.panel.request_signal_menu(self.text_point(SECOND_ROW_STR))
         self.application.processEvents()
         self.assertEqual(menu_text_list, [["Close file", "Close all files"]])
-        # LLFR-00991: an undoable action, then the icons.
+        # LLFR-00994: an undoable action, then the icons.
         self.panel.signal_double_clicked.emit("file2_Force")
         self.application.processEvents()
         undo_button = self.main_window.top_panel.undo_button

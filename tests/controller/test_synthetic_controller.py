@@ -485,7 +485,7 @@ class SyntheticControllerTestCase(unittest.TestCase):
         self.file_controller.load_function = lambda path_str: signal_file
         self.view.open_path_str = path_str
         self.file_controller.open_file_requested()
-        # LLFR-00984: the files are collapsed after an open; these tests
+        # LLFR-00987: the files are collapsed after an open; these tests
         # read the shown signals.
         expand_all_files(self.main_controller)
 

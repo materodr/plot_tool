@@ -142,9 +142,9 @@ def button_tip_line_list(button) -> list:
 def expand_all_files(controller) -> None:
     """Show the signals of every open data file in the signal list.
 
-    Opening a file shows every file name row collapsed (LLFR-00984).
+    Opening a file shows every file name row collapsed (LLFR-00987).
     Tests of other features that read or click the shown signals expand
-    the files first, as clicks on each [+] icon would (LLFR-00981).
+    the files first, as clicks on each [+] icon would (LLFR-00984).
 
     Inputs:
         controller: a MainController, or its SignalListController.

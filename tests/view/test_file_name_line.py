@@ -620,7 +620,7 @@ class FileRowsWindowTest(unittest.TestCase):
         self.window.ask_open_file_path = lambda start_folder_str: path_value
         self.controller.file_controller.open_file_requested()
         self.application.processEvents()
-        # LLFR-00984: the files are collapsed after an open; these
+        # LLFR-00987: the files are collapsed after an open; these
         # tests read the shown signals.
         expand_all_files(self.controller)
 

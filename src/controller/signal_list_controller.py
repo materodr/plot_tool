@@ -31,18 +31,18 @@ Each file name row can hide and show again the signals of its file, like
 a folder of a folder tree (HLFR-00123): before each
 ``show_signal_groups``, ``set_collapsed_file_numbers`` (when the view
 offers it) gives the numbers of the collapsed files, whose rows show the
-``[+]`` icon and no signal below them (LLFR-00977 to LLFR-00981).
-Every open file is collapsed each time a file is opened (LLFR-00984).
+``[+]`` icon and no signal below them (LLFR-00980 to LLFR-00984).
+Every open file is collapsed each time a file is opened (LLFR-00987).
 While the search box holds text, every file is expanded to show its
 matches, and a click on an icon then hides or shows the matches only
 until the search is cleared, when each file goes back to the state it
-had before the search (LLFR-00985 to LLFR-00987). This state is kept
+had before the search (LLFR-00988 to LLFR-00990). This state is kept
 only here: it is not part of a layout file (LLFR-00226) or of the undo
-history (LLFR-00991).
+history (LLFR-00994).
 
 The time signal of each file is its first signal, right below its file
-name row, also among the matches of a search (LLFR-00992,
-LLFR-00993).
+name row, also among the matches of a search (LLFR-00995,
+LLFR-00996).
 """
 
 import os
@@ -72,7 +72,7 @@ def is_blank_text(text_str: str) -> bool:
         text_str: the text of the search box.
     Outputs: True when nothing but spaces is typed (LLFR-00096).
     """
-    # LLFR-00096, LLFR-00985: such a text is no search.
+    # LLFR-00096, LLFR-00988: such a text is no search.
     return str(text_str).strip() == ""
 
 
@@ -114,15 +114,15 @@ class SignalListController:
         self.synthetic_file_dict = {}
         self.signal_file = None
         self.search_text_str = ""
-        # LLFR-00980, LLFR-00984: the numbers of the files whose signals
+        # LLFR-00983, LLFR-00987: the numbers of the files whose signals
         # are hidden while the search box is empty.
         self.collapsed_number_set = set()
-        # LLFR-00986: the numbers of the files whose matches the user
+        # LLFR-00989: the numbers of the files whose matches the user
         # hid during the current search; emptied when the search starts
-        # and ends (LLFR-00987).
+        # and ends (LLFR-00990).
         self.search_collapsed_number_set = set()
         view.set_search_text_handler(self.on_search_text_changed)
-        # LLFR-00980, LLFR-00981: a click on the icon of a file name row
+        # LLFR-00983, LLFR-00984: a click on the icon of a file name row
         # hides or shows the signals of that file.
         set_toggle_handler = getattr(view, "set_file_toggle_handler", None)
         if set_toggle_handler is not None:
@@ -138,7 +138,7 @@ class SignalListController:
         Outputs: none.
         """
         # LLFR-00095: every change of the text filters the list again.
-        # LLFR-00985, LLFR-00987: a search that starts or ends forgets
+        # LLFR-00988, LLFR-00990: a search that starts or ends forgets
         # the icon clicks of the search, so that the files are expanded
         # during the search and then back in their earlier state.
         if is_blank_text(text_str) != is_blank_text(self.search_text_str):
@@ -152,7 +152,7 @@ class SignalListController:
         Inputs: none.
         Outputs: True while a search filters the list (LLFR-00096).
         """
-        # LLFR-00985: the search expands the files.
+        # LLFR-00988: the search expands the files.
         return not is_blank_text(self.search_text_str)
 
     def active_collapsed_set(self) -> set:
@@ -160,10 +160,10 @@ class SignalListController:
 
         Inputs: none.
         Outputs: a set of int: during a search, the files whose matches
-            the user hid (LLFR-00986); otherwise the collapsed files
-            (LLFR-00980, LLFR-00984).
+            the user hid (LLFR-00989); otherwise the collapsed files
+            (LLFR-00983, LLFR-00987).
         """
-        # LLFR-00985: during a search, every file is expanded except the
+        # LLFR-00988: during a search, every file is expanded except the
         # ones the user collapsed with the icon during that search.
         if self.is_searching():
             return self.search_collapsed_number_set
@@ -174,9 +174,9 @@ class SignalListController:
 
         Inputs:
             number_i: the number of an open data file (LLFR-00900).
-        Outputs: True while its row shows the [+] icon (LLFR-00978).
+        Outputs: True while its row shows the [+] icon (LLFR-00981).
         """
-        # LLFR-00977, LLFR-00978: the icon follows this state.
+        # LLFR-00980, LLFR-00981: the icon follows this state.
         return int(number_i) in self.active_collapsed_set()
 
     def toggle_file(self, number_i: int) -> None:
@@ -188,11 +188,11 @@ class SignalListController:
         Inputs:
             number_i: the number of the file of the row (LLFR-00900).
         Outputs: none. The list is shown again; a signal that this hides
-            is no longer selected (LLFR-00988). The undo and redo history
-            is left unchanged (LLFR-00991).
+            is no longer selected (LLFR-00991). The undo and redo history
+            is left unchanged (LLFR-00994).
         """
-        # LLFR-00980, LLFR-00981: [-] hides the signals, [+] shows them;
-        # LLFR-00986: during a search, only for that search.
+        # LLFR-00983, LLFR-00984: [-] hides the signals, [+] shows them;
+        # LLFR-00989: during a search, only for that search.
         number_i = int(number_i)
         collapsed_set = self.active_collapsed_set()
         if number_i in collapsed_set:
@@ -266,7 +266,7 @@ class SignalListController:
         # back already filters the new names.
         self.search_text_str = ""
         self.search_collapsed_number_set = set()
-        # LLFR-00984: every open file, the new one and the ones already
+        # LLFR-00987: every open file, the new one and the ones already
         # open, is shown collapsed, with no signal row.
         self.collapsed_number_set = {
             int(data_file.number_i) for data_file
@@ -287,7 +287,7 @@ class SignalListController:
             synthetic signals of the closed files.
         """
         # LLFR-00926, LLFR-00937: the closed files' signals leave the
-        # list; LLFR-00292: so they are no longer selected. LLFR-00980:
+        # list; LLFR-00292: so they are no longer selected. LLFR-00983:
         # the files left keep their expanded or collapsed state.
         closed_number_set = {int(data_file.number_i)
                              for data_file in closed_file_list}
@@ -346,7 +346,7 @@ class SignalListController:
                 if self.synthetic_file_dict.get(name_str)
                 == data_file.number_i]
             placed_name_set.update(own_synthetic_list)
-            # LLFR-00992: the time signal first, below the file name row.
+            # LLFR-00995: the time signal first, below the file name row.
             group_list.append((
                 data_file.number_i, data_file.file_name_row_str,
                 list(data_file.listed_signal_name_list)
@@ -366,7 +366,7 @@ class SignalListController:
             number_value: the number of the file, or None.
         Outputs: its prefixed name, or "" when there is no such file.
         """
-        # LLFR-00992, LLFR-00993: the row kept first below the file row.
+        # LLFR-00995, LLFR-00996: the row kept first below the file row.
         for data_file in getattr(self.signal_file, "file_list", []):
             if data_file.number_i == number_value:
                 return str(data_file.time_signal_name_str)
@@ -382,9 +382,9 @@ class SignalListController:
         blank_text_b = is_blank_text(self.search_text_str)
         shown_group_list = []
         for number_i, row_str, name_list, file_b in self.signal_groups():
-            # LLFR-00980, LLFR-00984, LLFR-00986: a collapsed file shows
+            # LLFR-00983, LLFR-00987, LLFR-00989: a collapsed file shows
             # its row with the [+] icon and nothing below it, so that its
-            # signals are no longer selected (LLFR-00988).
+            # signals are no longer selected (LLFR-00991).
             if row_str and number_i is not None and (
                     self.is_file_collapsed(number_i)):
                 shown_group_list.append((number_i, row_str, [], ""))
@@ -395,7 +395,7 @@ class SignalListController:
             # the others.
             shown_name_list = list(self.search_function(
                 name_list, self.search_text_str))
-            # LLFR-00993: a matching time signal stays the first signal
+            # LLFR-00996: a matching time signal stays the first signal
             # of its file, whatever group of LLFR-00102 it is in.
             time_name_str = self.time_name_of_file(number_i)
             if time_name_str in shown_name_list:
@@ -409,14 +409,14 @@ class SignalListController:
             if not row_str and not shown_name_list and not no_match_str:
                 # A group with no row shows nothing when nothing matches.
                 continue
-            # LLFR-00977, LLFR-00985: an expanded file, with the [-] icon.
+            # LLFR-00980, LLFR-00988: an expanded file, with the [-] icon.
             shown_group_list.append(
                 (number_i, row_str, shown_name_list, no_match_str))
         # LLFR-00242, LLFR-00251: which names are synthetic (italics)
         # and which are FFT signals, before the names are shown.
         self.view.set_signal_kinds(set(self.synthetic_name_list),
                                    set(self.fft_name_set))
-        # LLFR-00977, LLFR-00978: which file name rows show [+]; fake
+        # LLFR-00980, LLFR-00981: which file name rows show [+]; fake
         # views of tests that don't draw the icons may leave it out.
         set_collapsed = getattr(self.view, "set_collapsed_file_numbers",
                                 None)

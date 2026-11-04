@@ -595,7 +595,7 @@ class PanEndToEndTest(unittest.TestCase):
                         return_value=path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
-        # LLFR-00984: the files are collapsed after an open; these
+        # LLFR-00987: the files are collapsed after an open; these
         # tests read the shown signals.
         expand_all_files(self.controller)
 
