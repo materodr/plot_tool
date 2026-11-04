@@ -1,7 +1,10 @@
-"""Tests for the file name row of the signal list (HLFR-00079).
+"""Tests for the file name rows of the signal list (HLFR-00079).
 
 The shortening itself (view.elided_text) needs no Qt and is tested on
-its own; the panel tests need PyQt6 and run in CI.
+its own; the panel tests need PyQt6 and run in CI. Each open data file
+has its own file name row, followed by its signals (LLFR-00362,
+LLFR-00938, LLFR-00939), and a right-click on a row opens the file menu
+(LLFR-00647, LLFR-00923).
 """
 
 import os
@@ -95,12 +98,19 @@ class MiddleElidedTextTest(unittest.TestCase):
                                  ELLIPSIS_TEXT_STR)
 
 
-@requires_qt
-class FileNameLinePanelTest(unittest.TestCase):
-    """The list's first row shows the file name (LLFR-00362/00363)."""
+FIRST_ROW_STR = "file1_bench.csv"
+SECOND_ROW_STR = "file2_other.mat"
+FIRST_SIGNAL_LIST = ["file1_Time", "file1_Engine_Speed", "file1_Pressure"]
+SECOND_SIGNAL_LIST = ["file2_Time", "file2_Force"]
+GROUP_LIST = [(1, FIRST_ROW_STR, FIRST_SIGNAL_LIST, ""),
+              (2, SECOND_ROW_STR, SECOND_SIGNAL_LIST, "")]
+
+
+class FileRowPanelTestCase(unittest.TestCase):
+    """A shown signal list panel with the rows of two data files."""
 
     def setUp(self) -> None:
-        """Create and show a signal list panel with signal names.
+        """Create and show a panel with two file groups.
 
         Inputs: none.
         Outputs: none.
@@ -110,231 +120,9 @@ class FileNameLinePanelTest(unittest.TestCase):
         self.panel = SignalListPanel()
         self.panel.resize(250, 400)
         self.panel.show()
-        self.panel.show_signal_names(NAME_LIST)
-        self.application.processEvents()
-
-    def tearDown(self) -> None:
-        """Close and delete the panel.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.panel.close()
-        self.panel.deleteLater()
-        self.application.processEvents()
-
-    def resize_panel(self, width_i: int) -> None:
-        """Give the panel a new width and let Qt lay it out.
-
-        Inputs:
-            width_i: the new width of the panel, in pixels.
-        Outputs: none.
-        """
-        self.panel.resize(width_i, 400)
-        self.application.processEvents()
-
-    @covers("LLFR-00363", "HLFR-00079")
-    def test_hidden_before_any_file(self) -> None:
-        """No row is shown while no file is open; the list starts at top.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from PyQt6.QtWidgets import QLabel
-        label = self.panel.file_name_label
-        list_widget = self.panel.signal_list_widget
-        self.assertIs(self.panel.findChild(QLabel, "file_name_label"),
-                      label)
-        self.assertFalse(label.isVisible())
-        self.assertEqual(label.text(), "")
-        self.assertEqual(label.toolTip(), "")
-        self.assertEqual(self.panel.file_name(), "")
-        # The first signal row is at the top of the list area.
-        self.assertEqual(list_widget.viewportMargins().top(), 0)
-        self.assertEqual(list_widget.visualItemRect(
-            list_widget.item(0)).top(), 0)
-        # An empty name hides the row again.
-        self.panel.show_file_name("run.csv")
-        self.assertTrue(label.isVisible())
-        self.panel.show_file_name("")
-        self.application.processEvents()
-        self.assertFalse(label.isVisible())
-        self.assertEqual(list_widget.viewportMargins().top(), 0)
-
-    @covers("LLFR-00362", "HLFR-00079")
-    def test_first_row_of_the_list(self) -> None:
-        """The row is in the list, above the first signal, in bold.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from PyQt6.QtCore import QPoint
-        self.panel.show_file_name("bench.csv")
-        self.application.processEvents()
-        label = self.panel.file_name_label
-        list_widget = self.panel.signal_list_widget
-        viewport = list_widget.viewport()
-        self.assertTrue(label.isVisible())
-        self.assertIs(label.parentWidget(), list_widget)
-        self.assertTrue(label.font().bold())
-        self.assertFalse(list_widget.item(0).font().bold())
-        # Inside the list's frame, directly above the signal rows and
-        # as wide as them.
-        self.assertGreaterEqual(label.geometry().top(), 0)
-        self.assertEqual(label.geometry().bottom() + 1,
-                         viewport.geometry().top())
-        self.assertEqual(label.geometry().left(),
-                         viewport.geometry().left())
-        self.assertEqual(label.width(), viewport.width())
-        self.assertGreaterEqual(label.height(),
-                                label.fontMetrics().height())
-        first_row_top_i = viewport.mapTo(
-            list_widget, QPoint(0, list_widget.visualItemRect(
-                list_widget.item(0)).top())).y()
-        self.assertGreaterEqual(first_row_top_i, label.geometry().bottom())
-        # The list is still placed between the title and the search box,
-        # with nothing between the list and the search box (LLFR-00094).
-        layout = self.panel.panel_layout
-        self.assertEqual(layout.indexOf(self.panel.search_box),
-                         layout.indexOf(list_widget) + 1)
-        self.assertEqual(layout.indexOf(label), -1)
-
-    @covers("LLFR-00362", "LLFR-00363", "LLFR-00649", "LLFR-00650")
-    def test_shows_and_replaces_the_name(self) -> None:
-        """A short name is shown whole, without a tip, and replaced.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.panel.show_file_name("signals.csv")
-        label = self.panel.file_name_label
-        self.assertEqual(label.text(), "signals.csv")
-        self.assertEqual(label.toolTip(), "")
-        self.assertEqual(self.panel.file_name(), "signals.csv")
-        self.panel.show_file_name("signals.h5")
-        self.assertEqual(label.text(), "signals.h5")
-        self.assertEqual(self.panel.file_name(), "signals.h5")
-
-    @covers("LLFR-00362", "LLFR-00648", "LLFR-00649")
-    def test_long_name_is_shortened_with_tip(self) -> None:
-        """A name wider than the panel is shortened and has a tip.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        label = self.panel.file_name_label
-        self.panel.show_file_name(LONG_NAME_STR)
-        self.application.processEvents()
-        shown_str = label.text()
-        self.assertNotEqual(shown_str, LONG_NAME_STR)
-        self.assertIn("...", shown_str)
-        start_str, end_str = shown_str.split("...")
-        self.assertTrue(LONG_NAME_STR.startswith(start_str))
-        self.assertTrue(LONG_NAME_STR.endswith(end_str))
-        self.assertTrue(end_str.endswith(".xlsx"))
-        self.assertLessEqual(
-            label.fontMetrics().horizontalAdvance(shown_str),
-            label.contentsRect().width())
-        self.assertEqual(label.toolTip(), LONG_NAME_STR)
-        # The long name does not widen the panel.
-        self.assertLessEqual(self.panel.width(), 250)
-        self.assertEqual(self.panel.file_name(), LONG_NAME_STR)
-
-    @covers("LLFR-00362", "LLFR-00648")
-    def test_shortening_follows_the_width(self) -> None:
-        """Widening shows the whole name; narrowing shortens it again.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        label = self.panel.file_name_label
-        self.panel.show_file_name(LONG_NAME_STR)
-        self.resize_panel(150)
-        narrow_str = label.text()
-        self.assertIn("...", narrow_str)
-        self.resize_panel(2000)
-        self.assertEqual(label.text(), LONG_NAME_STR)
-        self.assertEqual(label.toolTip(), "")
-        self.resize_panel(300)
-        wider_str = label.text()
-        self.assertIn("...", wider_str)
-        self.assertGreater(len(wider_str), len(narrow_str))
-        self.assertEqual(label.toolTip(), LONG_NAME_STR)
-
-    @covers("LLFR-00362", "LLFR-00095", "LLFR-00642", "LLFR-00643",
-            "LLFR-00645")
-    def test_row_is_not_a_signal(self) -> None:
-        """The name is not an item: not listed, selected or dragged.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from PyQt6.QtCore import Qt
-        self.panel.show_file_name("Engine.csv")
-        label = self.panel.file_name_label
-        list_widget = self.panel.signal_list_widget
-        self.assertEqual(self.panel.signal_name_list(), NAME_LIST)
-        self.assertEqual(list_widget.count(), len(NAME_LIST))
-        list_widget.selectAll()
-        self.assertEqual(self.panel.selected_signal_names(), NAME_LIST)
-        self.assertNotIn("Engine.csv", self.panel.selected_signal_names())
-        # The row can't be selected, edited, focused or dropped on.
-        self.assertEqual(label.textInteractionFlags(),
-                         Qt.TextInteractionFlag.NoTextInteraction)
-        self.assertEqual(label.focusPolicy(), Qt.FocusPolicy.NoFocus)
-        self.assertFalse(label.acceptDrops())
-        # A drag from the list never carries the file name.
-        mime_data = list_widget.mimeData(list_widget.selectedItems())
-        self.assertNotIn("Engine.csv", mime_data.text())
-        # The search filters the signals only; the row keeps its name.
-        self.panel.show_signal_names(["Engine_Speed"])
-        self.assertEqual(label.text(), "Engine.csv")
-        self.assertTrue(label.isVisible())
-
-    @covers("LLFR-00362", "LLFR-00647")
-    def test_line_has_no_menu(self) -> None:
-        """A right-click on the line opens no menu.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from PyQt6.QtCore import QPoint, Qt
-        from PyQt6.QtGui import QContextMenuEvent
-        label = self.panel.file_name_label
-        self.panel.show_file_name("signals.csv")
-        self.assertEqual(label.contextMenuPolicy(),
-                         Qt.ContextMenuPolicy.PreventContextMenu)
-        shown_menu_list = []
-        self.panel.execute_menu = (
-            lambda menu, point: shown_menu_list.append(menu))
-        event = QContextMenuEvent(QContextMenuEvent.Reason.Mouse,
-                                  QPoint(5, 5))
-        self.application.sendEvent(label, event)
-        self.application.processEvents()
-        self.assertEqual(shown_menu_list, [])
-        self.assertEqual(self.panel.pending_menu_tuple, ())
-
-
-@requires_qt
-class FileNameRowMouseTest(unittest.TestCase):
-    """The file name row is not a signal (LLFR-00362, HLFR-00063)."""
-
-    def setUp(self) -> None:
-        """Show a panel with a file name and signals; record requests.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.application = get_qt_application()
-        from view.signal_list_panel import SignalListPanel
-        self.panel = SignalListPanel()
-        self.panel.resize(250, 400)
-        self.panel.show()
-        self.panel.set_time_signal_name("Time")
-        self.panel.show_signal_names(NAME_LIST)
-        self.panel.show_file_name("bench.csv")
+        self.panel.set_time_signal_names(["file1_Time", "file2_Time"])
+        self.panel.show_signal_groups(GROUP_LIST)
         self.widget = self.panel.signal_list_widget
-        self.label = self.panel.file_name_label
         self.widget.doItemsLayout()
         self.application.processEvents()
         self.plot_request_list = []
@@ -344,8 +132,13 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.panel.signal_double_clicked.connect(
             self.double_clicked_list.append)
         self.menu_list = []
-        self.panel.execute_menu = (
-            lambda menu, point: self.menu_list.append(menu))
+        self.chosen_text_str = ""
+        self.panel.execute_menu = self.record_menu
+        self.close_file_list = []
+        self.close_all_count_list = []
+        self.panel.close_file_requested.connect(self.close_file_list.append)
+        self.panel.close_all_files_requested.connect(
+            lambda: self.close_all_count_list.append(1))
 
     def tearDown(self) -> None:
         """Close and delete the panel.
@@ -357,117 +150,307 @@ class FileNameRowMouseTest(unittest.TestCase):
         self.panel.deleteLater()
         self.application.processEvents()
 
-    def click_row(self, row_i: int, modifier_name_str: str = "NoModifier"):
-        """Left-click a signal row, with an optional modifier.
+    def record_menu(self, menu, global_point):
+        """Record a menu and choose the option of chosen_text_str.
 
         Inputs:
-            row_i: the row of the signal (0 is the first signal).
+            menu: the QMenu that would be shown.
+            global_point: where it would be shown.
+        Outputs: the action whose text is chosen_text_str, or None.
+        """
+        self.menu_list.append([action.text() for action in menu.actions()
+                               if not action.isSeparator()])
+        for action in menu.actions():
+            if action.text() == self.chosen_text_str:
+                return action
+        return None
+
+    def item_of(self, text_str: str):
+        """Return the row of the list with a text.
+
+        Inputs:
+            text_str: the text of the row.
+        Outputs: the QListWidgetItem.
+        """
+        for item in self.widget.row_items():
+            if item.text() == text_str:
+                return item
+        raise AssertionError(text_str)
+
+    def click(self, text_str: str, modifier_name_str: str = "NoModifier",
+              double_b: bool = False) -> None:
+        """Left-click (or double-click) a row, with an optional modifier.
+
+        Inputs:
+            text_str: the text of the row.
             modifier_name_str: name of a Qt.KeyboardModifier.
+            double_b: True for a double-click.
         Outputs: none.
         """
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
-        point = self.widget.visualItemRect(self.widget.item(row_i)).center()
-        QTest.mouseClick(self.widget.viewport(), Qt.MouseButton.LeftButton,
-                         getattr(Qt.KeyboardModifier, modifier_name_str),
-                         point)
+        point = self.widget.visualItemRect(self.item_of(text_str)).center()
+        modifier = getattr(Qt.KeyboardModifier, modifier_name_str)
+        if double_b:
+            # As a user does: a click, then the double-click.
+            QTest.mouseClick(self.widget.viewport(),
+                             Qt.MouseButton.LeftButton, modifier, point)
+            QTest.mouseDClick(self.widget.viewport(),
+                              Qt.MouseButton.LeftButton, modifier, point)
+        else:
+            QTest.mouseClick(self.widget.viewport(),
+                             Qt.MouseButton.LeftButton, modifier, point)
         self.application.processEvents()
 
-    def click_file_name(self, modifier_name_str: str = "NoModifier"):
-        """Left-click the file name row, with an optional modifier.
+    def right_click(self, text_str: str) -> None:
+        """Right-click a row and let the pending menu be shown.
 
         Inputs:
-            modifier_name_str: name of a Qt.KeyboardModifier.
+            text_str: the text of the row.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        point = self.widget.visualItemRect(self.item_of(text_str)).center()
+        self.panel.request_signal_menu(QPoint(point))
+        self.application.processEvents()
+
+
+@requires_qt
+class FileRowsTest(FileRowPanelTestCase):
+    """One bold file name row per file, above its signals."""
+
+    @covers("LLFR-00363", "LLFR-00937", "HLFR-00079")
+    def test_no_row_without_a_file(self) -> None:
+        """With no group, the list has no row at all.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.panel.show_signal_groups([])
+        self.assertEqual(self.panel.row_list(), [])
+        self.assertEqual(self.panel.file_row_texts(), [])
+        self.assertEqual(self.panel.signal_name_list(), [])
+
+    @covers("LLFR-00362", "LLFR-00938", "LLFR-00939", "LLFR-00639",
+            "LLFR-00242", "HLFR-00079", "HLFR-00114", "HLFR-00113",
+            "HLFR-00011")
+    def test_rows_in_number_order_with_their_signals(self) -> None:
+        """Each file's bold row comes first, then its signals.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view.signal_list_panel import FILE_ROW_STR, SIGNAL_ROW_STR
+        self.panel.set_signal_kinds({"file1_int_Pressure"}, set())
+        self.panel.show_signal_groups(
+            [(1, FIRST_ROW_STR, FIRST_SIGNAL_LIST + ["file1_int_Pressure"],
+              ""), (2, SECOND_ROW_STR, SECOND_SIGNAL_LIST, "")])
+        expected_list = ([(FILE_ROW_STR, FIRST_ROW_STR)]
+                         + [(SIGNAL_ROW_STR, name_str) for name_str
+                            in FIRST_SIGNAL_LIST + ["file1_int_Pressure"]]
+                         + [(FILE_ROW_STR, SECOND_ROW_STR)]
+                         + [(SIGNAL_ROW_STR, name_str)
+                            for name_str in SECOND_SIGNAL_LIST])
+        self.assertEqual(self.panel.row_list(), expected_list)
+        self.assertEqual(self.panel.file_row_texts(),
+                         [FIRST_ROW_STR, SECOND_ROW_STR])
+        self.assertTrue(self.item_of(FIRST_ROW_STR).font().bold())
+        self.assertTrue(self.item_of(SECOND_ROW_STR).font().bold())
+        self.assertFalse(self.item_of("file1_Time").font().bold())
+        # LLFR-00242: the synthetic signal of file 1 is in italics, in
+        # the group of its file.
+        self.assertTrue(self.panel.is_name_italic("file1_int_Pressure"))
+        # Rows are laid out from top to bottom in this order.
+        top_list = [self.widget.visualItemRect(item).top()
+                    for item in self.widget.row_items()]
+        self.assertEqual(top_list, sorted(top_list))
+
+    @covers("LLFR-00642", "LLFR-00643", "LLFR-00645", "LLFR-00095",
+            "LLFR-00362")
+    def test_row_is_not_a_signal(self) -> None:
+        """A row is neither selectable, nor dragged, nor listed.
+
+        Inputs: none.
         Outputs: none.
         """
         from PyQt6.QtCore import Qt
-        from PyQt6.QtTest import QTest
-        QTest.mouseClick(self.label, Qt.MouseButton.LeftButton,
-                         getattr(Qt.KeyboardModifier, modifier_name_str),
-                         self.label.rect().center())
-        self.application.processEvents()
+        row_item = self.item_of(FIRST_ROW_STR)
+        self.assertFalse(row_item.flags() & Qt.ItemFlag.ItemIsSelectable)
+        self.assertFalse(row_item.flags() & Qt.ItemFlag.ItemIsDragEnabled)
+        self.assertTrue(row_item.flags() & Qt.ItemFlag.ItemIsEnabled)
+        self.assertEqual(self.panel.signal_name_list(),
+                         FIRST_SIGNAL_LIST + SECOND_SIGNAL_LIST)
+        self.widget.selectAll()
+        self.assertEqual(self.panel.selected_signal_names(),
+                         FIRST_SIGNAL_LIST + SECOND_SIGNAL_LIST)
+        self.assertFalse(row_item.isSelected())
+        mime_data = self.widget.mimeData(self.widget.row_items())
+        self.assertNotIn(FIRST_ROW_STR, mime_data.text())
+        self.assertEqual(mime_data.text().split("\n"),
+                         FIRST_SIGNAL_LIST + SECOND_SIGNAL_LIST)
+        self.assertEqual(self.widget.mimeData([row_item]).text(), "")
 
-    @covers("LLFR-00362", "LLFR-00290", "LLFR-00643", "LLFR-00644")
+    @covers("LLFR-00648", "LLFR-00649", "LLFR-00362")
+    def test_long_row_is_shortened_with_tip(self) -> None:
+        """A row wider than the list is shortened and has a tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QRect
+        from PyQt6.QtWidgets import QStyleOptionViewItem
+        long_row_str = "file1_" + LONG_NAME_STR
+        self.panel.show_signal_groups([(1, long_row_str, ["file1_Time"],
+                                        "")])
+        self.panel.resize(180, 400)
+        self.application.processEvents()
+        row_item = self.item_of(long_row_str)
+        shown_str = self.widget.file_row_text(row_item)
+        self.assertIn("...", shown_str)
+        start_str, end_str = shown_str.split("...")
+        self.assertTrue(start_str.startswith("file1_"))
+        self.assertTrue(long_row_str.startswith(start_str))
+        self.assertTrue(end_str.endswith(".xlsx"))
+        self.assertEqual(row_item.toolTip(), long_row_str)
+        # The delegate draws the same shortened text.
+        option = QStyleOptionViewItem()
+        option.rect = QRect(0, 0, self.widget.viewport().width(), 20)
+        self.widget.itemDelegate().initStyleOption(
+            option, self.widget.indexFromItem(row_item))
+        self.assertEqual(option.text, shown_str)
+        # A wide list shows the whole text, without a tip.
+        self.panel.resize(2000, 400)
+        self.application.processEvents()
+        self.assertEqual(self.widget.file_row_text(row_item), long_row_str)
+        self.assertEqual(row_item.toolTip(), "")
+        # A short row has no tip.
+        self.panel.resize(250, 400)
+        self.panel.show_signal_groups(GROUP_LIST)
+        self.assertEqual(self.item_of(FIRST_ROW_STR).toolTip(), "")
+        self.assertEqual(
+            self.widget.file_row_text(self.item_of(FIRST_ROW_STR)),
+            FIRST_ROW_STR)
+
+    @covers("LLFR-00097", "LLFR-00639", "LLFR-00640", "LLFR-00641",
+            "LLFR-00565", "LLFR-00102", "HLFR-00033")
+    def test_rows_stay_during_any_search(self) -> None:
+        """Filtered or no-match groups keep each row in its place.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view.signal_list_panel import (
+            FILE_ROW_STR, NO_MATCH_ROW_STR, SIGNAL_ROW_STR)
+        self.panel.show_signal_groups(
+            [(1, FIRST_ROW_STR, [], "No matching signals"),
+             (2, SECOND_ROW_STR, ["file2_Force"], "")])
+        self.assertEqual(self.panel.row_list(), [
+            (FILE_ROW_STR, FIRST_ROW_STR),
+            (NO_MATCH_ROW_STR, "No matching signals"),
+            (FILE_ROW_STR, SECOND_ROW_STR),
+            (SIGNAL_ROW_STR, "file2_Force")])
+        self.panel.show_signal_groups(
+            [(1, FIRST_ROW_STR, [], "No matching signals"),
+             (2, SECOND_ROW_STR, [], "No matching signals")])
+        self.assertEqual(self.panel.file_row_texts(),
+                         [FIRST_ROW_STR, SECOND_ROW_STR])
+        self.assertEqual(self.panel.signal_name_list(), [])
+        self.assertEqual(
+            [kind_str for kind_str, _ in self.panel.row_list()],
+            [FILE_ROW_STR, NO_MATCH_ROW_STR, FILE_ROW_STR,
+             NO_MATCH_ROW_STR])
+
+    @covers("LLFR-00332", "LLFR-00638", "LLFR-00291")
+    def test_green_time_signals_of_each_file(self) -> None:
+        """The time signal of each file is green; a row is not.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import theme
+        green_str = theme.TIME_SIGNAL_TEXT_COLOR_STR.lower()
+        self.assertEqual(self.panel.name_color_str("file1_Time"), green_str)
+        self.assertEqual(self.panel.name_color_str("file2_Time"), green_str)
+        self.assertNotEqual(self.panel.name_color_str("file2_Force"),
+                            green_str)
+        # A file name row is not a signal, so it has no signal color.
+        self.assertEqual(self.panel.name_color_str(FIRST_ROW_STR), "")
+        self.click("file2_Time")
+        self.assertEqual(self.panel.name_color_str("file2_Time"), green_str)
+
+
+@requires_qt
+class FileRowMouseTest(FileRowPanelTestCase):
+    """The mouse never selects, drags or plots a file name row."""
+
+    @covers("LLFR-00643", "LLFR-00644", "LLFR-00290", "LLFR-00362")
     def test_clicks_never_select_the_row(self) -> None:
         """A click, Cmd/Ctrl + click or Shift + click on it selects none.
 
         Inputs: none.
         Outputs: none.
         """
-        self.click_row(1)
-        self.assertEqual(self.panel.selected_signal_names(), ["Engine_Speed"])
+        self.click("file1_Engine_Speed")
+        current_item = self.widget.currentItem()
         for modifier_name_str in ("NoModifier", "ControlModifier",
                                   "ShiftModifier"):
             with self.subTest(modifier_name_str=modifier_name_str):
-                self.click_file_name(modifier_name_str)
-                # The selection of the signals is unchanged.
+                self.click(SECOND_ROW_STR, modifier_name_str)
                 self.assertEqual(self.panel.selected_signal_names(),
-                                 ["Engine_Speed"])
-                self.assertIs(self.widget.currentItem(),
-                              self.widget.item(1))
+                                 ["file1_Engine_Speed"])
+                self.assertIs(self.widget.currentItem(), current_item)
+                self.assertFalse(self.item_of(SECOND_ROW_STR).isSelected())
 
-    @covers("LLFR-00362", "LLFR-00290", "LLFR-00291", "LLFR-00626",
-            "LLFR-00644")
-    def test_shift_range_starts_at_the_first_signal(self) -> None:
-        """A Shift + click range from the top holds only signals.
+    @covers("LLFR-00644", "LLFR-00626", "LLFR-00625", "LLFR-00290")
+    def test_shift_range_over_two_files_skips_the_row(self) -> None:
+        """A Shift range across files holds only signals.
 
         Inputs: none.
         Outputs: none.
         """
-        self.click_row(2)
-        self.click_row(0, "ShiftModifier")
-        self.assertEqual(self.panel.selected_signal_names(), NAME_LIST)
-        self.assertEqual(len(self.widget.selectedItems()), len(NAME_LIST))
-        self.click_row(0)
-        self.click_row(2, "ShiftModifier")
-        self.assertEqual(self.panel.selected_signal_names(), NAME_LIST)
-        # Cmd/Ctrl + click still toggles a signal.
-        self.click_row(1, "ControlModifier")
+        self.click("file1_Pressure")
+        self.click("file2_Force", "ShiftModifier")
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["Time", "Pressure"])
+                         ["file1_Pressure", "file2_Time", "file2_Force"])
+        self.assertEqual(len(self.widget.selectedItems()), 3)
+        # A range from the last plain click, upwards across the row.
+        self.click("file2_Force")
+        self.click("file1_Time", "ShiftModifier")
+        self.assertEqual(self.panel.selected_signal_names(),
+                         FIRST_SIGNAL_LIST + SECOND_SIGNAL_LIST)
+        self.assertFalse(self.item_of(SECOND_ROW_STR).isSelected())
+        # Cmd/Ctrl + click still toggles a signal.
+        self.click("file2_Time", "ControlModifier")
+        self.assertNotIn("file2_Time", self.panel.selected_signal_names())
 
-    @covers("LLFR-00362", "LLFR-00019", "LLFR-00295", "LLFR-00296",
-            "LLFR-00646")
+    @covers("LLFR-00646", "LLFR-00019", "LLFR-00295", "LLFR-00296")
     def test_double_click_and_enter_ignore_the_row(self) -> None:
-        """A double-click on the row plots nothing; Enter plots signals.
+        """A double-click on a row plots nothing; Enter plots signals.
 
         Inputs: none.
         Outputs: none.
         """
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
-        QTest.mouseDClick(self.label, Qt.MouseButton.LeftButton,
-                          Qt.KeyboardModifier.NoModifier,
-                          self.label.rect().center())
-        self.application.processEvents()
+        self.click(FIRST_ROW_STR, double_b=True)
         self.assertEqual(self.double_clicked_list, [])
         self.assertEqual(self.panel.selected_signal_names(), [])
-        # Enter with only the row clicked: nothing is selected.
-        self.click_file_name()
+        self.panel._emit_signal_double_clicked(self.item_of(FIRST_ROW_STR))
+        self.assertEqual(self.double_clicked_list, [])
         self.widget.setFocus()
         QTest.keyClick(self.widget, Qt.Key.Key_Return)
         self.assertEqual(self.plot_request_list, [])
-        # Enter with every signal selected plots the signals only.
         self.widget.selectAll()
         QTest.keyClick(self.widget, Qt.Key.Key_Return)
-        self.assertEqual(self.plot_request_list, [NAME_LIST])
-        # The row is outside the list's viewport: no item is under it,
-        # so no click on it can reach an item.
-        from PyQt6.QtCore import QPoint
-        viewport = self.widget.viewport()
-        for point in (self.label.rect().topLeft(),
-                      self.label.rect().center(),
-                      self.label.rect().bottomRight()):
-            viewport_point = viewport.mapFrom(self.label, QPoint(point))
-            self.assertLess(viewport_point.y(), 0)
-            self.assertIsNone(self.widget.itemAt(viewport_point))
-        # A double-click on a signal still plots it (LLFR-00019).
-        self.widget.itemDoubleClicked.emit(self.widget.item(2))
-        self.assertEqual(self.double_clicked_list, ["Pressure"])
+        self.assertEqual(self.plot_request_list,
+                         [FIRST_SIGNAL_LIST + SECOND_SIGNAL_LIST])
+        # A double-click on a signal still plots it.
+        self.click("file2_Force", double_b=True)
+        self.assertEqual(self.double_clicked_list, ["file2_Force"])
 
-    @covers("LLFR-00362", "LLFR-00021", "LLFR-00645")
+    @covers("LLFR-00645", "LLFR-00021")
     def test_row_is_not_dragged(self) -> None:
-        """A press and move on the row starts no drag.
+        """A press and move on a row starts no drag.
 
         Inputs: none.
         Outputs: none.
@@ -475,198 +458,322 @@ class FileNameRowMouseTest(unittest.TestCase):
         from PyQt6.QtCore import QPoint, Qt
         from PyQt6.QtTest import QTest
         drag_list = []
+        original_start_drag = self.widget.startDrag
         self.widget.startDrag = (
-            lambda supported_actions: drag_list.append(supported_actions))
-        start_point = self.label.rect().center()
-        QTest.mousePress(self.label, Qt.MouseButton.LeftButton,
+            lambda supported_actions: drag_list.append(
+                self.widget.pressed_item) or original_start_drag(
+                    supported_actions))
+        viewport = self.widget.viewport()
+        start_point = self.widget.visualItemRect(
+            self.item_of(FIRST_ROW_STR)).center()
+        QTest.mousePress(viewport, Qt.MouseButton.LeftButton,
                          Qt.KeyboardModifier.NoModifier, start_point)
         for step_i in range(1, 6):
-            QTest.mouseMove(self.label,
-                            start_point + QPoint(0, 10 * step_i))
+            QTest.mouseMove(viewport, start_point + QPoint(0, 10 * step_i))
             self.application.processEvents()
-        QTest.mouseRelease(self.label, Qt.MouseButton.LeftButton,
+        QTest.mouseRelease(viewport, Qt.MouseButton.LeftButton,
                            Qt.KeyboardModifier.NoModifier,
                            start_point + QPoint(0, 50))
         self.application.processEvents()
-        self.assertEqual(drag_list, [])
+        self.assertIsNone(self.widget.pressed_item)
         self.assertEqual(self.panel.selected_signal_names(), [])
-
-    @covers("LLFR-00362", "LLFR-00239", "LLFR-00647")
-    def test_row_has_no_menu(self) -> None:
-        """A right-click on the row opens no menu; a signal still has one.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from PyQt6.QtCore import QPoint, Qt
-        from PyQt6.QtGui import QContextMenuEvent
-        event = QContextMenuEvent(QContextMenuEvent.Reason.Mouse,
-                                  self.label.rect().center(),
-                                  self.label.mapToGlobal(
-                                      self.label.rect().center()))
-        self.application.sendEvent(self.label, event)
-        self.application.processEvents()
-        self.assertEqual(self.menu_list, [])
-        self.assertEqual(self.panel.pending_menu_tuple, ())
-        self.assertEqual(self.label.contextMenuPolicy(),
-                         Qt.ContextMenuPolicy.PreventContextMenu)
-        # The menu of a signal is unchanged.
-        point = self.widget.visualItemRect(self.widget.item(1)).center()
-        self.panel.request_signal_menu(QPoint(point))
-        self.application.processEvents()
-        self.assertEqual(len(self.menu_list), 1)
-
-    @covers("LLFR-00362", "LLFR-00097", "LLFR-00095", "LLFR-00096",
-            "LLFR-00565", "LLFR-00639", "LLFR-00640", "LLFR-00641")
-    def test_row_stays_first_during_any_search(self) -> None:
-        """Filtered, empty or no-match lists keep the row on top.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from PyQt6.QtCore import QPoint
-        viewport = self.widget.viewport()
-        for shown_name_list in (["Pressure"], ["Pressure", "Time"], [],
-                                NAME_LIST):
-            with self.subTest(shown_name_list=shown_name_list):
-                self.panel.show_signal_names(shown_name_list)
-                no_match_b = not shown_name_list
-                self.panel.show_no_match_message(no_match_b,
-                                                 "No matching signals")
-                self.widget.doItemsLayout()
-                self.application.processEvents()
-                self.assertTrue(self.label.isVisible())
-                self.assertEqual(self.label.text(), "bench.csv")
-                self.assertEqual(self.panel.signal_name_list(),
-                                 shown_name_list)
-                self.assertEqual(self.label.geometry().bottom() + 1,
-                                 viewport.geometry().top())
-                if shown_name_list:
-                    first_top_i = viewport.mapTo(self.widget, QPoint(
-                        0, self.widget.visualItemRect(
-                            self.widget.item(0)).top())).y()
-                    self.assertGreater(first_top_i,
-                                       self.label.geometry().bottom())
-                else:
-                    # LLFR-00097: the text is below the row.
-                    no_match_label = self.widget.no_match_label
-                    self.assertEqual(self.panel.no_match_message(),
-                                     "No matching signals")
-                    no_match_top_i = no_match_label.mapTo(
-                        self.widget, QPoint(0, 0)).y()
-                    self.assertGreater(no_match_top_i,
-                                       self.label.geometry().bottom())
-
-    @covers("LLFR-00362", "LLFR-00332", "LLFR-00291")
-    def test_green_time_signal_and_selection_kept(self) -> None:
-        """The time signal stays green and the signals selectable.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from view import theme
-        self.assertEqual(self.panel.name_color_str("Time"),
-                         theme.TIME_SIGNAL_TEXT_COLOR_STR.lower())
-        self.assertNotEqual(self.panel.name_color_str("Pressure"),
-                            theme.TIME_SIGNAL_TEXT_COLOR_STR.lower())
-        self.click_row(0)
-        self.assertEqual(self.panel.selected_signal_names(), ["Time"])
-        self.assertTrue(self.widget.item(0).isSelected())
-        self.assertEqual(self.panel.name_color_str("Time"),
-                         theme.TIME_SIGNAL_TEXT_COLOR_STR.lower())
-
-    @covers("LLFR-00362", "LLFR-00648", "LLFR-00649")
-    def test_long_name_in_a_narrow_list(self) -> None:
-        """A long name is shortened to the row's width, with a tip.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.panel.show_file_name(LONG_NAME_STR)
-        self.panel.resize(180, 400)
-        self.application.processEvents()
-        shown_str = self.label.text()
-        self.assertIn("...", shown_str)
-        self.assertTrue(shown_str.endswith("xlsx"))
-        self.assertLessEqual(
-            self.label.fontMetrics().horizontalAdvance(shown_str),
-            self.label.contentsRect().width())
-        self.assertEqual(self.label.toolTip(), LONG_NAME_STR)
-        self.assertEqual(self.label.width(),
-                         self.widget.viewport().width())
+        self.assertTrue(all(item is None for item in drag_list))
+        self.assertFalse(self.widget.press_on_other_row_b)
 
 
 @requires_qt
-class FileNameLineWindowTest(unittest.TestCase):
-    """The main window passes the opened file's name to the line."""
+class FileMenuTest(FileRowPanelTestCase):
+    """A right-click on a row opens the file menu (LLFR-00923)."""
 
-    @covers("LLFR-00362", "LLFR-00363", "HLFR-00079", "LLFR-00010",
-            "LLFR-00013", "LLFR-00014", "LLFR-00650", "LLFR-00651")
-    def test_open_file_shows_its_name(self) -> None:
-        """Opening a real CSV file through the app shows its name.
+    @covers("LLFR-00647", "LLFR-00923", "LLFR-00239", "HLFR-00118",
+            "HLFR-00119")
+    def test_row_opens_the_file_menu(self) -> None:
+        """The file menu, not the signal menu, with its two options.
 
         Inputs: none.
         Outputs: none.
         """
-        application = get_qt_application()
+        self.click("file1_Pressure")
+        self.right_click(SECOND_ROW_STR)
+        self.assertEqual(self.menu_list, [["Close file", "Close all files"]])
+        self.assertEqual(self.panel.pending_menu_tuple, ())
+        self.assertEqual(self.panel.pending_file_menu_tuple, ())
+        # The selection is kept and nothing is requested.
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["file1_Pressure"])
+        self.assertEqual(self.close_file_list, [])
+        self.assertEqual(self.close_all_count_list, [])
+        # A signal still opens the signal menu.
+        self.right_click("file2_Force")
+        self.assertEqual(len(self.menu_list), 2)
+        self.assertIn("Copy name", self.menu_list[1])
+        self.assertNotIn("Close file", self.menu_list[1])
+        # The no-match row has no menu.
+        self.panel.show_signal_groups(
+            [(1, FIRST_ROW_STR, [], "No matching signals")])
+        self.right_click("No matching signals")
+        self.assertEqual(len(self.menu_list), 2)
+
+    @covers("LLFR-00923", "LLFR-00924", "HLFR-00118")
+    def test_close_file_asks_for_that_file(self) -> None:
+        """"Close file" on the row of file 2 requests file 2.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.chosen_text_str = "Close file"
+        self.right_click(SECOND_ROW_STR)
+        self.assertEqual(self.close_file_list, [2])
+        self.right_click(FIRST_ROW_STR)
+        self.assertEqual(self.close_file_list, [2, 1])
+        self.assertEqual(self.close_all_count_list, [])
+
+    @covers("LLFR-00923", "LLFR-00934", "HLFR-00119")
+    def test_close_all_files_from_any_row(self) -> None:
+        """"Close all files" is requested once.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.chosen_text_str = "Close all files"
+        self.right_click(FIRST_ROW_STR)
+        self.assertEqual(self.close_all_count_list, [1])
+        self.assertEqual(self.close_file_list, [])
+
+    @covers("LLFR-00923")
+    def test_built_menu_emits_its_requests(self) -> None:
+        """The menu built for tests triggers the same requests.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        menu = self.panel.build_file_menu(3)
+        self.assertEqual([action.text() for action in menu.actions()],
+                         ["Close file", "Close all files"])
+        menu.actions()[0].trigger()
+        menu.actions()[1].trigger()
+        self.assertEqual(self.close_file_list, [3])
+        self.assertEqual(self.close_all_count_list, [1])
+        menu.deleteLater()
+
+
+def write_csv(path_str: str, text_str: str) -> None:
+    """Write a CSV data file.
+
+    Inputs:
+        path_str: the path.
+        text_str: the content.
+    Outputs: none.
+    """
+    with open(path_str, "w", encoding="utf-8") as csv_file:
+        csv_file.write(text_str)
+
+
+@requires_qt
+class FileRowsWindowTest(unittest.TestCase):
+    """The app shows one row per open file and closes them by menu."""
+
+    def setUp(self) -> None:
+        """Start the app and write three data files.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
         from controller.main_controller import MainController
         from view.main_window import MainWindow
-        window = MainWindow()
-        controller = MainController(window)
-        controller.start()
-        application.processEvents()
-        with tempfile.TemporaryDirectory() as folder_str:
-            path_str = os.path.join(folder_str, "bench run.csv")
-            with open(path_str, "w", encoding="utf-8") as csv_file:
-                csv_file.write("Time,Speed\n0,1\n1,2\n2,3\n")
-            self.assertEqual(window.signal_list_panel.file_name(), "")
-            window.ask_open_file_path = lambda start_folder_str: path_str
-            controller.file_controller.open_file_requested()
-            application.processEvents()
-            self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
-            self.assertTrue(
-                window.signal_list_panel.file_name_label.isVisible())
-            # A cancelled dialog keeps the name.
-            window.ask_open_file_path = lambda start_folder_str: ""
-            controller.file_controller.open_file_requested()
-            self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
-            # A file that fails to open keeps the name (LLFR-00010).
-            broken_path_str = os.path.join(folder_str, "broken.csv")
-            with open(broken_path_str, "w", encoding="utf-8") as csv_file:
-                csv_file.write("Time,Speed\n0,1\n1,abc\n")
-            error_list = []
-            window.show_file_open_error = error_list.append
-            # HLFR-00010: the question comes before the read.
-            window.ask_replace_file = lambda: True
-            window.ask_open_file_path = (
-                lambda start_folder_str: broken_path_str)
-            controller.file_controller.open_file_requested()
-            self.assertEqual(len(error_list), 1)
-            self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
-            # A declined replacement keeps the name (LLFR-00014).
-            other_path_str = os.path.join(folder_str, "other.csv")
-            with open(other_path_str, "w", encoding="utf-8") as csv_file:
-                csv_file.write("Time,Force\n0,1\n1,2\n")
-            window.ask_replace_file = lambda: False
-            window.ask_open_file_path = (
-                lambda start_folder_str: other_path_str)
-            controller.file_controller.open_file_requested()
-            self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
-            # An accepted replacement shows the new name (LLFR-00013).
-            window.ask_replace_file = lambda: True
-            controller.file_controller.open_file_requested()
-            application.processEvents()
-            self.assertEqual(window.signal_list_panel.file_name(),
-                             "other.csv")
-            self.assertEqual(window.signal_list_panel.file_name_label.text(),
-                             "other.csv")
-        window.close()
-        window.deleteLater()
-        application.processEvents()
+        self.window = MainWindow()
+        self.controller = MainController(self.window)
+        self.controller.start()
+        self.application.processEvents()
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.path_dict = {}
+        for name_str, text_str in (
+                ("bench run.csv", "Time,Speed\n0,1\n1,2\n2,3\n"),
+                ("other.csv", "Time,Force\n0,1\n1,2\n"),
+                ("third.csv", "Time,Torque\n0,5\n1,6\n")):
+            path_str = os.path.join(self.folder.name, name_str)
+            write_csv(path_str, text_str)
+            self.path_dict[name_str] = path_str
+        self.panel = self.window.signal_list_panel
+        self.question_list = []
+
+    def tearDown(self) -> None:
+        """Close the window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.window.close()
+        self.window.deleteLater()
+        self.application.processEvents()
+
+    def open_paths(self, path_value) -> None:
+        """Answer the Open file dialog with paths.
+
+        Inputs:
+            path_value: a path, a list of paths, or "" to cancel.
+        Outputs: none.
+        """
+        self.window.ask_open_file_path = lambda start_folder_str: path_value
+        self.controller.file_controller.open_file_requested()
+        self.application.processEvents()
+
+    def answer_questions(self, answer_b: bool) -> None:
+        """Answer the close questions with answer_b and record them.
+
+        Inputs:
+            answer_b: True to proceed.
+        Outputs: none.
+        """
+        def answer(question_str: str) -> bool:
+            """Record the question and answer it.
+
+            Inputs:
+                question_str: the question.
+            Outputs: answer_b.
+            """
+            self.question_list.append(question_str)
+            return answer_b
+        self.window.ask_close_file = answer
+        self.window.ask_close_all_files = answer
+
+    def choose_file_menu(self, row_str: str, option_str: str) -> None:
+        """Right-click a file name row and choose an option.
+
+        Inputs:
+            row_str: the text of the row.
+            option_str: "Close file" or "Close all files".
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+
+        def choose(menu, global_point):
+            """Return the option of option_str.
+
+            Inputs:
+                menu: the file menu.
+                global_point: ignored.
+            Outputs: the chosen QAction.
+            """
+            for action in menu.actions():
+                if action.text() == option_str:
+                    return action
+            return None
+        self.panel.execute_menu = choose
+        widget = self.panel.signal_list_widget
+        widget.doItemsLayout()
+        item = [item for item in widget.row_items()
+                if item.text() == row_str][0]
+        self.panel.request_signal_menu(
+            QPoint(widget.visualItemRect(item).center()))
+        self.application.processEvents()
+
+    @covers("LLFR-00362", "LLFR-00363", "HLFR-00079", "LLFR-00010",
+            "LLFR-00650", "LLFR-00651", "LLFR-00898", "LLFR-00937",
+            "HLFR-00114", "HLFR-00117", "LLFR-00938")
+    def test_open_files_show_their_rows(self) -> None:
+        """Opening real CSV files through the app shows their rows.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.panel.file_row_texts(), [])
+        self.open_paths(self.path_dict["bench run.csv"])
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv"])
+        # A cancelled dialog keeps the row.
+        self.open_paths("")
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv"])
+        # A file that fails to open adds no row (LLFR-00010).
+        broken_path_str = os.path.join(self.folder.name, "broken.csv")
+        write_csv(broken_path_str, "Time,Speed\n0,1\n1,abc\n")
+        error_list = []
+        self.window.show_file_open_error = error_list.append
+        self.open_paths(broken_path_str)
+        self.assertEqual(len(error_list), 1)
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv"])
+        # A file already open adds no row (LLFR-00898).
+        refused_list = []
+        self.window.show_refused_files_notification = refused_list.append
+        self.open_paths(self.path_dict["bench run.csv"])
+        self.assertEqual(len(refused_list), 1)
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv"])
+        # Another file adds its row, in its place, with its signals.
+        self.open_paths(self.path_dict["other.csv"])
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv", "file2_other.csv"])
+        self.assertEqual(self.panel.signal_name_list(), [
+            "file1_Time", "file1_Speed", "file2_Time", "file2_Force"])
+        # LLFR-00937: with no file left, no row is shown.
+        self.controller.file_controller.close_all_files()
+        self.application.processEvents()
+        self.assertEqual(self.panel.file_row_texts(), [])
+        self.assertEqual(self.panel.row_list(), [])
+
+    @covers("LLFR-00951", "LLFR-00952", "LLFR-00974", "LLFR-00006",
+            "HLFR-00122", "LLFR-00938")
+    def test_several_selected_files_in_name_order(self) -> None:
+        """Files selected together open in the order of their names.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_paths([self.path_dict["third.csv"],
+                         self.path_dict["bench run.csv"],
+                         self.path_dict["other.csv"]])
+        self.assertEqual(self.panel.file_row_texts(), [
+            "file1_bench run.csv", "file2_other.csv", "file3_third.csv"])
+
+    @covers("LLFR-00923", "LLFR-00924", "LLFR-00925", "LLFR-00926",
+            "LLFR-00931", "HLFR-00118", "LLFR-00902")
+    def test_close_file_from_its_row(self) -> None:
+        """The question names the file; No keeps it, Yes closes it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_paths([self.path_dict["bench run.csv"],
+                         self.path_dict["other.csv"]])
+        self.answer_questions(False)
+        self.choose_file_menu("file2_other.csv", "Close file")
+        self.assertEqual(len(self.question_list), 1)
+        self.assertIn("file2_other.csv", self.question_list[0])
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv", "file2_other.csv"])
+        self.answer_questions(True)
+        self.choose_file_menu("file2_other.csv", "Close file")
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv"])
+        self.assertEqual(self.panel.signal_name_list(),
+                         ["file1_Time", "file1_Speed"])
+        # The next file gets the next number (LLFR-00902).
+        self.open_paths(self.path_dict["third.csv"])
+        self.assertEqual(self.panel.file_row_texts(),
+                         ["file1_bench run.csv", "file3_third.csv"])
+
+    @covers("LLFR-00923", "LLFR-00934", "LLFR-00935", "LLFR-00936",
+            "LLFR-00937", "HLFR-00119")
+    def test_close_all_files_from_a_row(self) -> None:
+        """One question; No keeps every file, Yes closes them all.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_paths([self.path_dict["bench run.csv"],
+                         self.path_dict["other.csv"]])
+        self.answer_questions(False)
+        self.choose_file_menu("file1_bench run.csv", "Close all files")
+        self.assertEqual(len(self.question_list), 1)
+        self.assertEqual(len(self.panel.file_row_texts()), 2)
+        self.answer_questions(True)
+        self.choose_file_menu("file1_bench run.csv", "Close all files")
+        self.assertEqual(len(self.question_list), 2)
+        self.assertEqual(self.panel.row_list(), [])
 
 
 if __name__ == "__main__":

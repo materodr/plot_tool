@@ -1535,7 +1535,7 @@ class Workspace:
         self.next_tab_id_i = 1
         self.next_plot_id_i = 1
         # LLFR-00210: number of the next default tab name; it only
-        # grows, and only reset() (a file opened) restarts it.
+        # grows, and restarts only when the app starts (LLFR-00654).
         self.next_tab_number_i = 1
         # LLFR-00081: marker ids are unique across all plots and keep
         # counting up after reset().
@@ -1545,17 +1545,17 @@ class Workspace:
         # tab, in the order they were placed.
         self.marker_list = []
         # LLFR-00085, LLFR-00111: number of the next "Flag N"; it only
-        # grows, also on undo, until a file is opened (reset).
+        # grows, also on undo, while the app runs.
         self.next_marker_number_i = 1
         # LLFR-00310: the areas, shared by every time plot of every tab,
         # in the order they were created.
         self.area_list = []
         # LLFR-00309: number of the next "Area N"; it only grows, also on
-        # undo, until a file is opened (reset).
+        # undo, while the app runs.
         self.next_area_number_i = 1
         # LLFR-00428, LLFR-00851: number of the next "Delta X N" and
         # "Delta Y N", one for each kind; they only grow, also on undo,
-        # until a file is opened (reset).
+        # while the app runs.
         self.next_delta_number_dict = {kind_str: 1
                                        for kind_str in DELTA_KIND_TUPLE}
         # LLFR-00438, LLFR-00872: number of the next "Arrow N", shared
@@ -1565,28 +1565,28 @@ class Workspace:
         self.reset()
 
     def reset(self) -> None:
-        """Close all tabs and plots and leave one empty tab "Tab 1".
+        """Start the workspace with one empty tab "Tab 1".
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00015: close all tabs and plots of the previous file.
+        # LLFR-00024: no tab and no plot before the first tab.
         self.tab_list = []
         # LLFR-00205: with no plot left, no marker is left either.
-        # LLFR-00085, LLFR-00111: a new file numbers from "Flag 1".
+        # LLFR-00085, LLFR-00111: the app starts at "Flag 1".
         self.marker_list = []
         self.next_marker_number_i = 1
         # LLFR-00310, LLFR-00309: the same for the areas.
         self.area_list = []
         self.next_area_number_i = 1
-        # LLFR-00428, LLFR-00851, LLFR-00438, LLFR-00872: a new file
-        # numbers from "Delta X 1", "Delta Y 1" and "Arrow 1".
+        # LLFR-00428, LLFR-00851, LLFR-00438, LLFR-00872: the app
+        # starts at "Delta X 1", "Delta Y 1" and "Arrow 1".
         self.next_delta_number_dict = {kind_str: 1
                                        for kind_str in DELTA_KIND_TUPLE}
         self.next_arrow_number_i = 1
-        # LLFR-00210, LLFR-00016: tab numbering restarts with "Tab 1".
+        # LLFR-00210, LLFR-00654: tab numbering starts with "Tab 1".
         self.next_tab_number_i = 1
-        # LLFR-00016: one tab with no plots; ids keep counting up.
+        # LLFR-00024: one tab with no plots; ids keep counting up.
         self.add_tab()
 
     def next_tab_number(self) -> int:
@@ -1851,7 +1851,7 @@ class Workspace:
 
         Inputs: none.
         Outputs: none. The marker and area numbering is not restarted
-            (LLFR-00111, LLFR-00309): only opening a file restarts it.
+            (LLFR-00111, LLFR-00309): it restarts only when the app starts.
         """
         # LLFR-00205: no plot left in any tab, no marker left.
         # LLFR-00310: and no area, in the same way.
@@ -2224,6 +2224,87 @@ class Workspace:
         # LLFR-00205: with no plot left, no vertical marker is left.
         self.clear_markers_without_plots()
         return deleted_plot_id_list
+
+    def close_signals(self, signal_name_set: set, files_range_tuple: tuple,
+                      shown_tab_id_i: int) -> tuple:
+        """Remove what belonged to closed data files.
+
+        Inputs:
+            signal_name_set: the signals of the closed files and the
+                synthetic signals computed from them (LLFR-00926).
+            files_range_tuple: (start_s, end_s), the time range of the
+                open data files that are left (LLFR-00916), or () when
+                no file is left.
+            shown_tab_id_i: the id of the tab shown before the close.
+        Outputs: a tuple (deleted_plot_id_list, closed_tab_id_list,
+            shown_tab_id_i): the plots deleted because they were left
+            with no curve, the tabs closed, and the tab to show.
+        """
+        # LLFR-00960: the tabs that held a plot before the close; only
+        # those can be closed.
+        tab_with_plots_id_set = {tab.tab_id_i for tab in self.tab_list
+                                 if tab.plot_list}
+        # LLFR-00927, LLFR-00928: the curves go, with their pinned data
+        # tips and delta markers, and a plot left with no curve is
+        # deleted with its text notes and arrows. LLFR-00667: with no
+        # plot left, every flag and area is deleted.
+        deleted_plot_id_list = self.remove_signal_curves(signal_name_set)
+        # LLFR-00932: a tab emptied by the close is closed.
+        emptied_tab_list = [tab for tab in self.tab_list
+                            if tab.tab_id_i in tab_with_plots_id_set
+                            and not tab.plot_list]
+        closed_tab_list = list(emptied_tab_list)
+        if len(closed_tab_list) == len(self.tab_list):
+            # LLFR-00961: at least one tab stays, the first of those, in
+            # tab order, with no plot.
+            closed_tab_list = closed_tab_list[1:]
+        closed_tab_id_list = [tab.tab_id_i for tab in closed_tab_list]
+        shown_index_i = next(
+            (index_i for index_i, tab in enumerate(self.tab_list)
+             if tab.tab_id_i == shown_tab_id_i), 0)
+        kept_before_list = [
+            tab for tab in self.tab_list[:shown_index_i]
+            if tab.tab_id_i not in closed_tab_id_list]
+        kept_after_list = [
+            tab for tab in self.tab_list[shown_index_i:]
+            if tab.tab_id_i not in closed_tab_id_list]
+        self.tab_list = [tab for tab in self.tab_list
+                         if tab.tab_id_i not in closed_tab_id_list]
+        # LLFR-00962: the shown tab stays shown; when it was closed, the
+        # nearest tab left to its left, or else to its right.
+        if shown_tab_id_i in closed_tab_id_list:
+            if kept_before_list:
+                shown_tab_id_i = kept_before_list[-1].tab_id_i
+            elif kept_after_list:
+                shown_tab_id_i = kept_after_list[0].tab_id_i
+        if self.find_tab(shown_tab_id_i) is None and self.tab_list:
+            shown_tab_id_i = self.tab_list[0].tab_id_i
+        # LLFR-00933, LLFR-00950: with a plot left, the flags and the
+        # areas outside the time range of the files left are deleted.
+        if self.has_plots() and files_range_tuple:
+            self.remove_outside_range(*files_range_tuple)
+        elif not files_range_tuple:
+            # LLFR-00924: every flag and area when no file is left.
+            self.marker_list = []
+            self.area_list = []
+        return (deleted_plot_id_list, closed_tab_id_list, shown_tab_id_i)
+
+    def remove_outside_range(self, start_s: float, end_s: float) -> None:
+        """Delete the flags and areas outside a time range.
+
+        Inputs:
+            start_s: the first time of the range, in seconds.
+            end_s: the last time of the range, in seconds.
+        Outputs: none. A flag on an end of the range is kept, and so is
+            an area that is partly inside the range or touches an end.
+        """
+        # LLFR-00933: a flag outside the range goes; one on an end stays.
+        self.marker_list = [marker for marker in self.marker_list
+                            if start_s <= marker.time_s <= end_s]
+        # LLFR-00950: an area entirely outside the range goes; one partly
+        # inside or touching an end stays.
+        self.area_list = [area for area in self.area_list
+                          if area.end_s >= start_s and area.start_s <= end_s]
 
     # ----------------------------------------------------------------
     # Areas (HLFR-00066 to HLFR-00069)

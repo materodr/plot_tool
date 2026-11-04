@@ -44,20 +44,43 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
             for index_i in range(100):
                 data_file.write(
                     f"{index_i * 0.1:.1f},{index_i % 7},{index_i}\n")
-        self.main_window = MainWindow()
-        self.controller = MainController(self.main_window)
-        self.controller.start()
-        self.application.processEvents()
         self.box_record_list = []
         box_patch = mock.patch.object(
             QMessageBox, "exec", new=lambda box: self.fake_exec(box))
         box_patch.start()
         self.addCleanup(box_patch.stop)
+        self.start_app()
+        self.open_data_file()
+
+    def start_app(self) -> None:
+        """Create the window and the controllers, as at an app start.
+
+        Inputs: none.
+        Outputs: none. The next data file opened is file 1.
+        """
+        from controller.main_controller import MainController
+        from view.main_window import MainWindow
+        self.main_window = MainWindow()
+        self.controller = MainController(self.main_window)
+        self.controller.start()
+        self.application.processEvents()
         self.report_list = []
         self.main_window.show_layout_report = self.report_list.append
         self.dialog_text_list = []
         self.main_window.run_modal_dialog = self.fake_run_dialog
         self.panel = self.main_window.signal_list_panel
+
+    def start_again_and_open(self) -> None:
+        """Close the app, start it again and open the data file.
+
+        Inputs: none.
+        Outputs: none. The data file is file 1 again, with no synthetic
+            signal, so a layout saved before finds its names.
+        """
+        self.main_window.close()
+        self.main_window.deleteLater()
+        self.application.processEvents()
+        self.start_app()
         self.open_data_file()
 
     def tearDown(self) -> None:
@@ -152,53 +175,58 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
                     plot_panel.current_tab_id())]
 
     @covers("LLFR-00225", "LLFR-00262", "LLFR-00230", "LLFR-00242",
-            "LLFR-00252")
-    def test_save_reopen_and_load_synthetic_signals(self) -> None:
+            "LLFR-00595")
+    def test_save_start_again_and_load_synthetic_signals(self) -> None:
         """The synthetic signals and their curves come back."""
         top_panel = self.main_window.top_panel
-        self.choose("Speed", "Integral (int)")
+        self.choose("file1_Speed", "Integral (int)")
         self.dialog_text_list = [["2", "3", "zero"]]
-        self.choose("int_Speed", "Low-pass filter (lpf)")
+        self.choose("file1_int_Speed", "Low-pass filter (lpf)")
         self.dialog_text_list = [["5"]]
-        self.choose("Torque", "Moving average (mavg)")
-        name_list = ["int_Speed", "lpf_2Hz_order3_int_Speed",
-                     "mavg_5samples_Torque"]
+        self.choose("file1_Torque", "Moving average (mavg)")
+        name_list = ["file1_int_Speed", "file1_lpf_2Hz_order3_int_Speed",
+                     "file1_mavg_5samples_Torque"]
         store = self.controller.synthetic_controller.store
         self.assertEqual(store.names(), name_list)
-        self.panel.signal_double_clicked.emit("lpf_2Hz_order3_int_Speed")
-        self.panel.signal_double_clicked.emit("Torque")
+        self.panel.signal_double_clicked.emit("file1_lpf_2Hz_order3_int_Speed")
+        self.panel.signal_double_clicked.emit("file1_Torque")
         self.application.processEvents()
         plot_list = self.controller.plot_controller.workspace.tab_list[
             0].plot_list
         self.controller.plot_controller.on_signal_dropped(
-            plot_list[1].plot_id_i, "mavg_5samples_Torque")
+            plot_list[1].plot_id_i, "file1_mavg_5samples_Torque")
         self.application.processEvents()
         legend_list = self.legend_names_of_tab()
         layout_path_str = os.path.join(self.folder_str, "synthetic.json")
-        self.click_with_dialog_answer(top_panel.save_layout_button,
-                                      layout_path_str)
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.save_layout_button,
+            layout_path_str)
         with open(layout_path_str, encoding="utf-8") as layout_file:
             entry_list = json.load(layout_file)["synthetic_signals"]
         self.assertEqual([entry["name"] for entry in entry_list],
                          name_list)
         self.assertEqual(entry_list[1]["parameter"],
                          {"cutoff": 2.0, "order": 3, "start": "zero"})
-        # LLFR-00252: reopening the data file removes them.
-        self.open_data_file()
+        # LLFR-00595: they exist only in memory, so a new start of the
+        # app has none of them.
+        self.start_again_and_open()
         self.assertEqual(self.panel.signal_name_list(),
-                         ["Time", "Speed", "Torque"])
-        self.click_with_dialog_answer(top_panel.load_layout_button,
-                                      layout_path_str)
+                         ["file1_Time", "file1_Speed", "file1_Torque"])
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.load_layout_button,
+            layout_path_str)
         self.assertEqual(self.report_list, [])
         # LLFR-00242: listed after the data signals, in italics.
         self.assertEqual(self.panel.signal_name_list(),
-                         ["Time", "Speed", "Torque"] + name_list)
+                         ["file1_Time", "file1_Speed",
+                          "file1_Torque"] + name_list)
         for name_str in name_list:
             self.assertTrue(self.panel.is_name_italic(name_str))
-        self.assertFalse(self.panel.is_name_italic("Speed"))
+        self.assertFalse(self.panel.is_name_italic("file1_Speed"))
         # LLFR-00230: the curves of synthetic signals are drawn again.
         self.assertEqual(self.legend_names_of_tab(), legend_list)
-        self.assertEqual(store.get("lpf_2Hz_order3_int_Speed").parameter,
+        store = self.controller.synthetic_controller.store
+        self.assertEqual(store.get("file1_lpf_2Hz_order3_int_Speed").parameter,
                          (2.0, 3, "zero"))
 
     @covers("LLFR-00262", "LLFR-00237", "LLFR-00231", "LLFR-00496",
@@ -207,30 +235,32 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         """A hand-edited entry that cannot be created is in the report,
         and its curve is not drawn."""
         top_panel = self.main_window.top_panel
-        self.choose("Speed", "Integral (int)")
-        self.panel.signal_double_clicked.emit("int_Speed")
-        self.panel.signal_double_clicked.emit("Torque")
+        self.choose("file1_Speed", "Integral (int)")
+        self.panel.signal_double_clicked.emit("file1_int_Speed")
+        self.panel.signal_double_clicked.emit("file1_Torque")
         self.application.processEvents()
         layout_path_str = os.path.join(self.folder_str, "edited.json")
-        self.click_with_dialog_answer(top_panel.save_layout_button,
-                                      layout_path_str)
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.save_layout_button,
+            layout_path_str)
         with open(layout_path_str, encoding="utf-8") as layout_file:
             layout_dict = json.load(layout_file)
         layout_dict["synthetic_signals"][0]["signals"] = ["Pressure"]
         with open(layout_path_str, "w", encoding="utf-8") as layout_file:
             json.dump(layout_dict, layout_file, indent=2)
-        self.open_data_file()
-        self.click_with_dialog_answer(top_panel.load_layout_button,
-                                      layout_path_str)
+        self.start_again_and_open()
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.load_layout_button,
+            layout_path_str)
         self.assertEqual(self.panel.signal_name_list(),
-                         ["Time", "Speed", "Torque"])
-        self.assertEqual(self.legend_names_of_tab(), [["Torque"]])
+                         ["file1_Time", "file1_Speed", "file1_Torque"])
+        self.assertEqual(self.legend_names_of_tab(), [["file1_Torque"]])
         self.assertEqual(len(self.report_list), 1)
         self.assertIn("Synthetic signals not created:",
                       self.report_list[0])
-        self.assertIn("  - int_Speed: The signal \"Pressure\"",
+        self.assertIn("  - file1_int_Speed: The signal \"Pressure\"",
                       self.report_list[0])
-        self.assertIn("  - int_Speed\n", self.report_list[0] + "\n")
+        self.assertIn("  - file1_int_Speed\n", self.report_list[0] + "\n")
 
     @covers("LLFR-00283", "LLFR-00231", "LLFR-00229", "LLFR-00484")
     def test_fft_and_frequency_plots_are_not_saved(self) -> None:
@@ -238,12 +268,12 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         tab of only frequency plots does not come back."""
         top_panel = self.main_window.top_panel
         plot_controller = self.controller.plot_controller
-        self.choose("Speed", "Integral (int)")
-        self.choose("Speed", "FFT (fft)")
+        self.choose("file1_Speed", "Integral (int)")
+        self.choose("file1_Speed", "FFT (fft)")
         store = self.controller.synthetic_controller.store
         fft_name_str = [name_str for name_str in store.names()
                         if store.is_fft(name_str)][0]
-        self.panel.signal_double_clicked.emit("int_Speed")
+        self.panel.signal_double_clicked.emit("file1_int_Speed")
         plot_controller.on_add_tab()
         self.panel.signal_double_clicked.emit(fft_name_str)
         self.application.processEvents()
@@ -251,22 +281,25 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertTrue(workspace.tab_list[1].plot_list[0]
                         .is_frequency_plot())
         layout_path_str = os.path.join(self.folder_str, "fft.json")
-        self.click_with_dialog_answer(top_panel.save_layout_button,
-                                      layout_path_str)
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.save_layout_button,
+            layout_path_str)
         with open(layout_path_str, encoding="utf-8") as layout_file:
             text_str = layout_file.read()
         self.assertNotIn(fft_name_str, text_str)
         self.assertEqual(
             [entry["name"] for entry in
-             json.loads(text_str)["synthetic_signals"]], ["int_Speed"])
-        self.open_data_file()
-        self.click_with_dialog_answer(top_panel.load_layout_button,
-                                      layout_path_str)
+             json.loads(text_str)["synthetic_signals"]], ["file1_int_Speed"])
+        self.start_again_and_open()
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.load_layout_button,
+            layout_path_str)
         self.assertEqual(self.report_list, [])
         self.assertEqual(self.panel.signal_name_list(),
-                         ["Time", "Speed", "Torque", "int_Speed"])
+                         ["file1_Time", "file1_Speed", "file1_Torque",
+                          "file1_int_Speed"])
         self.assertEqual(self.main_window.tab_name_list(), ["Tab 1"])
-        self.assertEqual(self.legend_names_of_tab(), [["int_Speed"]])
+        self.assertEqual(self.legend_names_of_tab(), [["file1_int_Speed"]])
 
 
 if __name__ == "__main__":

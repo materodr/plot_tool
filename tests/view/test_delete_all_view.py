@@ -408,13 +408,14 @@ class EndToEndTestCase(unittest.TestCase):
             self.process_events()
         self.plot_controller = self.controller.plot_controller
         self.workspace = self.plot_controller.workspace
-        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("file1_speed")
         self.plot_controller.on_add_tab()
-        self.main_window.signal_double_click_handler("force")
+        self.main_window.signal_double_click_handler("file1_force")
         self.process_events()
         self.plot_list = [tab.plot_list[0] for tab in self.workspace.tab_list]
         self.assertEqual(len(self.plot_list), 2)
-        for plot, signal_name_str in zip(self.plot_list, ("speed", "force")):
+        for plot, signal_name_str in zip(self.plot_list, ("file1_speed",
+                                                          "file1_force")):
             values_array = self.plot_controller.signal_values(
                 signal_name_str)
             self.plot_controller.on_tip_pin(plot.plot_id_i, signal_name_str,

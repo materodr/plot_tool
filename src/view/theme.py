@@ -557,8 +557,6 @@ def application_style_sheet() -> str:
         # list's item delegate draws a selected name in its own color.
         f"QListWidget#signal_list_widget::item:selected {{ background: "
         f"{ROW_SELECTED_COLOR_STR}; }}",
-        f"QLabel#no_match_label {{ color: {MUTED_TEXT_COLOR_STR}; "
-        "padding-top: 16px; }",
         f"QLineEdit {{ background: {SURFACE_COLOR_STR}; "
         f"color: {TEXT_COLOR_STR}; border: 1px solid "
         f"{CONTROL_BORDER_COLOR_STR}; border-radius: {radius_str}; "

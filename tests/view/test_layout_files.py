@@ -290,7 +290,8 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
 
 @requires_qt
 class LayoutEndToEndTest(unittest.TestCase):
-    """Open a CSV, build a layout, save it, replace the file, load it."""
+    """Open a CSV, build a layout, save it, open another file in a new
+    start of the app, load it."""
 
     def setUp(self) -> None:
         """Create the files, the window and the controller; open a file.
@@ -311,18 +312,28 @@ class LayoutEndToEndTest(unittest.TestCase):
                                               FIRST_FILE_TEXT_STR)
         self.second_path_str = self.write_file("second.csv",
                                                SECOND_FILE_TEXT_STR)
-        self.main_window = MainWindow()
-        self.controller = MainController(self.main_window)
-        self.controller.start()
-        self.application.processEvents()
         self.box_record_list = []
         box_patch = mock.patch.object(
             QMessageBox, "exec", new=lambda box: self.fake_exec(box))
         box_patch.start()
         self.addCleanup(box_patch.stop)
+        self.start_app()
+        self.open_data_file(self.first_path_str)
+
+    def start_app(self) -> None:
+        """Create the window and the controllers, as at an app start.
+
+        Inputs: none.
+        Outputs: none. The first data file opened gets number 1.
+        """
+        from controller.main_controller import MainController
+        from view.main_window import MainWindow
+        self.main_window = MainWindow()
+        self.controller = MainController(self.main_window)
+        self.controller.start()
+        self.application.processEvents()
         self.report_list = []
         self.main_window.show_layout_report = self.report_list.append
-        self.open_data_file(self.first_path_str)
 
     def tearDown(self) -> None:
         """Close the main window.
@@ -397,20 +408,20 @@ class LayoutEndToEndTest(unittest.TestCase):
         workspace = plot_controller.workspace
         plot_controller.on_rename_tab(workspace.tab_list[0].tab_id_i,
                                       "Drive")
-        plot_controller.on_signal_double_clicked("speed")
+        plot_controller.on_signal_double_clicked("file1_speed")
         plot_id_i = workspace.tab_list[0].plot_list[0].plot_id_i
-        plot_controller.on_signal_dropped(plot_id_i, "force")
-        plot_controller.on_curve_width(plot_id_i, "speed", 3)
-        plot_controller.on_tip_pin(plot_id_i, "force", 1.0, -1.0)
-        plot_controller.on_tip_pin(plot_id_i, "speed", 1.5, 3.0)
+        plot_controller.on_signal_dropped(plot_id_i, "file1_force")
+        plot_controller.on_curve_width(plot_id_i, "file1_speed", 3)
+        plot_controller.on_tip_pin(plot_id_i, "file1_force", 1.0, -1.0)
+        plot_controller.on_tip_pin(plot_id_i, "file1_speed", 1.5, 3.0)
         plot_controller.on_plot_tool_changed(DELTA_Y_TOOL_STR)
-        plot_controller.on_delta_point_pick(plot_id_i, "speed", 0.5, 1.0)
-        plot_controller.on_delta_point_pick(plot_id_i, "speed", 2.0, 4.0)
+        plot_controller.on_delta_point_pick(plot_id_i, "file1_speed", 0.5, 1.0)
+        plot_controller.on_delta_point_pick(plot_id_i, "file1_speed", 2.0, 4.0)
         plot_controller.on_plot_tool_changed(MARKER_TOOL_STR)
         plot_controller.on_marker_place(plot_id_i, 1.0)
-        plot_controller.on_signal_double_clicked("power")
+        plot_controller.on_signal_double_clicked("file1_power")
         plot_controller.on_add_tab()
-        plot_controller.on_signal_double_clicked("force")
+        plot_controller.on_signal_double_clicked("file1_force")
         plot_controller.on_grid_toggled(True)
         plot_controller.on_time_range_changed(plot_id_i, 0.5, 1.5)
         self.application.processEvents()
@@ -418,9 +429,9 @@ class LayoutEndToEndTest(unittest.TestCase):
     @covers("LLFR-00219", "LLFR-00225", "LLFR-00227", "LLFR-00228",
             "LLFR-00230", "LLFR-00231", "LLFR-00232", "LLFR-00237",
             "LLFR-00238", "LLFR-00229", "LLFR-00221", "LLFR-00003")
-    def test_save_replace_file_and_load(self) -> None:
-        """The saved layout is rebuilt with the second file; the missing
-        signal is reported in one box.
+    def test_save_start_again_and_load(self) -> None:
+        """The saved layout is rebuilt with the second file in a new
+        start of the app; the missing signal is reported in one box.
 
         Inputs: none.
         Outputs: none.
@@ -444,7 +455,12 @@ class LayoutEndToEndTest(unittest.TestCase):
         self.assertEqual(layout_dict["time_range"],
                          {"start": 0.5, "end": 1.5})
         self.assertNotIn("first.csv", json.dumps(layout_dict))
-        # Replace the data file: "force" is missing in the new one.
+        # Start the app again and open the second file as file 1:
+        # "force" is missing in it.
+        self.main_window.close()
+        self.main_window.deleteLater()
+        self.start_app()
+        top_panel = self.main_window.top_panel
         self.open_data_file(self.second_path_str)
         self.assertEqual(self.main_window.tab_name_list(), ["Tab 1"])
         self.click_with_dialog_answer(top_panel.load_layout_button,
@@ -457,15 +473,15 @@ class LayoutEndToEndTest(unittest.TestCase):
         self.assertEqual(len(workspace.tab_list[0].plot_list), 2)
         first_plot = workspace.tab_list[0].plot_list[0]
         self.assertEqual([curve.signal_name_str
-                          for curve in first_plot.curve_list], ["speed"])
+                          for curve in first_plot.curve_list], ["file1_speed"])
         self.assertEqual(first_plot.curve_list[0].width_i, 3)
         self.assertEqual([(tip.signal_name_str, tip.time_s)
                           for tip in first_plot.pinned_tip_list],
-                         [("speed", 1.5)])
+                         [("file1_speed", 1.5)])
         self.assertEqual(len(first_plot.delta_marker_list), 1)
         # The view shows them, with the saved range and the grid.
         plot_widget = self.main_window.plot_view(first_plot.plot_id_i)
-        self.assertEqual(list(plot_widget.curve_line_dict), ["speed"])
+        self.assertEqual(list(plot_widget.curve_line_dict), ["file1_speed"])
         start_s, end_s = self.main_window.plot_time_range(
             first_plot.plot_id_i)
         self.assertAlmostEqual(start_s, 0.5)
@@ -478,9 +494,8 @@ class LayoutEndToEndTest(unittest.TestCase):
                           workspace.marker_list], ["Flag 1"])
         # LLFR-00237: one report naming "force" once and the lost tip.
         self.assertEqual(len(self.report_list), 1)
-        self.assertEqual(self.report_list[0].count("  - force\n"), 1)
+        self.assertEqual(self.report_list[0].count("  - file1_force\n"), 1)
         self.assertIn("Data tip at 1 s", self.report_list[0])
-        self.assertEqual(self.box_record_list[-1][0], "Replace File")
         # LLFR-00238: nothing to undo or redo after the load.
         self.assertFalse(top_panel.undo_button.isEnabled())
         self.assertFalse(top_panel.redo_button.isEnabled())

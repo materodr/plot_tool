@@ -20,6 +20,9 @@ FIRST_FILE_TEXT_STR = (
     "0,10,1,0,5,6\n0.5,20,2,1,5,6\n1,30,3,0,5,6\n")
 SECOND_NAME_LIST = ["Time", "voltage", "current"]
 SECOND_FILE_TEXT_STR = "Time,voltage,current\n0,1,2\n1,2,3\n"
+# LLFR-00905: the names shown in the app have the prefix of their file.
+FIRST_SHOWN_LIST = ["file1_" + name_str for name_str in FIRST_NAME_LIST]
+SECOND_SHOWN_LIST = ["file2_" + name_str for name_str in SECOND_NAME_LIST]
 
 
 @requires_qt
@@ -122,14 +125,13 @@ class SearchEndToEndTest(unittest.TestCase):
         self.application.processEvents()
 
     def shown_items(self) -> list:
-        """Return the list items shown, from top to bottom.
+        """Return the signal items shown, from top to bottom.
 
         Inputs: none.
-        Outputs: a list of QListWidgetItem.
+        Outputs: a list of QListWidgetItem, without the file name rows.
         """
-        list_widget = self.panel.signal_list_widget
-        return [list_widget.item(row_i)
-                for row_i in range(list_widget.count())]
+        from view.signal_list_panel import SIGNAL_ROW_STR
+        return self.panel.signal_list_widget.row_items(SIGNAL_ROW_STR)
 
     def current_plot_widgets(self) -> list:
         """Return the plot widgets of the current tab, top to bottom.
@@ -186,7 +188,7 @@ class SearchEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         self.assertEqual(self.panel.search_box.text(), "")
-        self.assertEqual(self.panel.signal_name_list(), FIRST_NAME_LIST)
+        self.assertEqual(self.panel.signal_name_list(), FIRST_SHOWN_LIST)
         self.assertEqual(self.panel.no_match_message(), "")
         self.assertEqual(self.box_record_list, [])
 
@@ -200,12 +202,12 @@ class SearchEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         expected_dict = {
-            "enginespeed": ["Engine_Speed"],
-            "PRESSURE": ["Pressure"],
-            "presure": ["Pressure"],
-            "sine_2hz": ["Sine_3Hz"],
-            "mate so 25": ["mateus_soares_rodrigues 2025"],
-            "speed": ["Engine_Speed"],
+            "enginespeed": ["file1_Engine_Speed"],
+            "PRESSURE": ["file1_Pressure"],
+            "presure": ["file1_Pressure"],
+            "sine_2hz": ["file1_Sine_3Hz"],
+            "mate so 25": ["file1_mateus_soares_rodrigues 2025"],
+            "speed": ["file1_Engine_Speed"],
         }
         for text_str, expected_list in expected_dict.items():
             with self.subTest(text_str=text_str):
@@ -223,27 +225,30 @@ class SearchEndToEndTest(unittest.TestCase):
         """
         self.type_search("speed")
         self.type_search("   ")
-        self.assertEqual(self.panel.signal_name_list(), FIRST_NAME_LIST)
+        self.assertEqual(self.panel.signal_name_list(), FIRST_SHOWN_LIST)
         self.type_search("speed")
         self.panel.search_box.clear()
         self.application.processEvents()
-        self.assertEqual(self.panel.signal_name_list(), FIRST_NAME_LIST)
+        self.assertEqual(self.panel.signal_name_list(), FIRST_SHOWN_LIST)
 
-    @covers("LLFR-00097", "LLFR-00565")
+    @covers("LLFR-00097", "LLFR-00565", "LLFR-00640", "LLFR-00641")
     def test_no_match_message(self) -> None:
-        """No match empties the list and shows "No matching signals".
+        """No match shows "No matching signals" below the file's row.
 
         Inputs: none.
         Outputs: none.
         """
-        label = self.panel.signal_list_widget.no_match_label
+        from view.signal_list_panel import FILE_ROW_STR, NO_MATCH_ROW_STR
         self.type_search("xyzw")
         self.assertEqual(self.panel.signal_name_list(), [])
-        self.assertTrue(label.isVisible())
-        self.assertEqual(label.text(), "No matching signals")
+        self.assertEqual(self.panel.no_match_message(),
+                         "No matching signals")
+        self.assertEqual(self.panel.row_list(), [
+            (FILE_ROW_STR, self.panel.file_row_texts()[0]),
+            (NO_MATCH_ROW_STR, "No matching signals")])
         self.type_search("pressure")
-        self.assertFalse(label.isVisible())
-        self.assertEqual(self.panel.signal_name_list(), ["Pressure"])
+        self.assertEqual(self.panel.no_match_message(), "")
+        self.assertEqual(self.panel.signal_name_list(), ["file1_Pressure"])
         self.assertEqual(self.box_record_list, [])
 
     @covers("LLFR-00103", "LLFR-00019", "LLFR-00020", "HLFR-00012")
@@ -257,7 +262,8 @@ class SearchEndToEndTest(unittest.TestCase):
         from PyQt6.QtTest import QTest
         self.type_search("presure")
         item_list = self.shown_items()
-        self.assertEqual([item.text() for item in item_list], ["Pressure"])
+        self.assertEqual([item.text() for item in item_list],
+                         ["file1_Pressure"])
         list_widget = self.panel.signal_list_widget
         list_widget.doItemsLayout()
         self.application.processEvents()
@@ -270,7 +276,7 @@ class SearchEndToEndTest(unittest.TestCase):
         plot_widget_list = self.current_plot_widgets()
         self.assertEqual(len(plot_widget_list), 1)
         self.assertEqual(self.legend_names(plot_widget_list[0]),
-                         ["Pressure"])
+                         ["file1_Pressure"])
         # The search stays as typed after plotting.
         self.assertEqual(self.panel.search_box.text(), "presure")
 
@@ -289,29 +295,29 @@ class SearchEndToEndTest(unittest.TestCase):
         self.type_search("mate so 25")
         item_list = self.shown_items()
         self.assertEqual([item.text() for item in item_list],
-                         ["mateus_soares_rodrigues 2025"])
+                         ["file1_mateus_soares_rodrigues 2025"])
         self.drop_item(plot_widget, item_list[0])
         self.assertEqual(self.legend_names(plot_widget),
-                         ["Pressure", "mateus_soares_rodrigues 2025"])
+                         ["file1_Pressure",
+                          "file1_mateus_soares_rodrigues 2025"])
         self.assertEqual(len(self.current_plot_widgets()), 1)
 
-    @covers("LLFR-00104", "LLFR-00017", "LLFR-00013", "HLFR-00010")
-    def test_replace_clears_search(self) -> None:
-        """Opening a second file with Yes clears the box.
+    @covers("LLFR-00104", "LLFR-00920", "LLFR-00922", "HLFR-00117")
+    def test_open_clears_search(self) -> None:
+        """Opening a second file clears the box, with no question.
 
         Inputs: none.
         Outputs: none.
         """
         self.type_search("xyzw")
         self.click_open_file(self.second_path_str)
-        self.assertEqual(len(self.box_record_list), 1)
-        self.assertEqual(self.box_record_list[0][1],
-                         self.message_box_class.Icon.Question)
+        self.assertEqual(self.box_record_list, [])
         self.assertEqual(self.panel.search_box.text(), "")
-        self.assertEqual(self.panel.signal_name_list(), SECOND_NAME_LIST)
+        self.assertEqual(self.panel.signal_name_list(),
+                         FIRST_SHOWN_LIST + SECOND_SHOWN_LIST)
         self.assertEqual(self.panel.no_match_message(), "")
         self.type_search("volt")
-        self.assertEqual(self.panel.signal_name_list(), ["voltage"])
+        self.assertEqual(self.panel.signal_name_list(), ["file2_voltage"])
 
 
 if __name__ == "__main__":

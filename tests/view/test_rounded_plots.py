@@ -282,17 +282,19 @@ class RoundedExportTest(unittest.TestCase):
                               canvas.height()))
         return rect_list
 
-    def copied_image(self):
+    def copied_image(self, description_str: str = ""):
         """Copy the current tab as the Copy button does and read the
         image back from the clipboard.
 
-        Inputs: none.
+        Inputs:
+            description_str: the description of the data files, shown
+                in a strip above the plots (LLFR-00972); "" for none.
         Outputs: the QImage on the clipboard.
         """
         from PyQt6.QtWidgets import QApplication
         from view import plot_export
         copied_b, reason_str = plot_export.copy_current_tab_image(
-            self.tab_widget)
+            self.tab_widget, description_str)
         self.assertTrue(copied_b, reason_str)
         return QApplication.clipboard().image()
 
@@ -310,24 +312,35 @@ class RoundedExportTest(unittest.TestCase):
         self.page.setPalette(palette)
         self.application.processEvents()
 
-    def assert_copied_corners_match_the_gap(self) -> str:
+    def assert_copied_corners_match_the_gap(
+            self, description_str: str = "") -> str:
         """Copy the tab and check that the four corner pixels of each plot
         have the color of the image background between the two plots.
 
-        Inputs: none.
+        Inputs:
+            description_str: the description of the data files of the
+                strip above the plots (LLFR-00972); "" for no strip.
         Outputs: the "#rrggbb" color of the gap.
         """
-        image = self.copied_image()
+        image = self.copied_image(description_str)
         ratio_f = image.width() / max(self.page.width(), 1)
+        # LLFR-00972: the strip, when there is one, is added above the
+        # plots, so they all start lower by its height.
+        strip_i = 0
+        if description_str:
+            strip_i = image.height() - int(round(self.page.height()
+                                                 * ratio_f))
+            self.assertGreater(strip_i, 0)
         first_rect, second_rect = self.canvas_rect_list()
         gap_y_f = (first_rect[1] + first_rect[3] + second_rect[1]) / 2.0
         background_str = pixel_name(
-            image, int(image.width() / 2), int(gap_y_f * ratio_f))
+            image, int(image.width() / 2), int(gap_y_f * ratio_f) + strip_i)
         for left_i, top_i, width_i, height_i in (first_rect, second_rect):
             first_x_i = int(round(left_i * ratio_f))
-            first_y_i = int(round(top_i * ratio_f))
+            first_y_i = int(round(top_i * ratio_f)) + strip_i
             last_x_i = int(round((left_i + width_i) * ratio_f)) - 1
-            last_y_i = int(round((top_i + height_i) * ratio_f)) - 1
+            last_y_i = (int(round((top_i + height_i) * ratio_f)) - 1
+                        + strip_i)
             for x_i, y_i in ((first_x_i, first_y_i), (last_x_i, first_y_i),
                              (first_x_i, last_y_i), (last_x_i, last_y_i)):
                 with self.subTest(x=x_i, y=y_i):
@@ -357,6 +370,18 @@ class RoundedExportTest(unittest.TestCase):
         background_str = self.assert_copied_corners_match_the_gap()
         self.assertTrue(colors_close_b(background_str,
                                        DARK_WINDOW_COLOR_STR))
+
+    @covers("LLFR-00892", "LLFR-00972", "LLFR-00133")
+    def test_copied_corners_below_the_description_strip(self) -> None:
+        """With the strip of the data files above the plots, each plot
+        keeps its rounded corners, in the image background color, below
+        the strip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assert_copied_corners_match_the_gap(
+            "file1 = run_A.csv, file2 = run_B.mat")
 
     @covers("LLFR-00892", "LLFR-00133")
     def test_copied_plots_have_the_screen_border(self) -> None:

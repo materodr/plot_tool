@@ -22,14 +22,14 @@ from model.workspace import (
 
 # The FFT of the whole test file: 100 samples every 0.1 s, so its
 # frequencies go from 0 Hz to 5 Hz.
-WHOLE_FFT_NAME_STR = "fft_0s_to_9p9s_Speed"
+WHOLE_FFT_NAME_STR = "file1_fft_0s_to_9p9s_Speed"
 WHOLE_FFT_HIGHEST_HZ = 5.0
 
 
 class FrequencyPlotTestCase(SyntheticControllerTestCase):
     """Shared helpers: create FFT signals and find plots."""
 
-    def create_fft(self, signal_name_str: str = "Speed") -> str:
+    def create_fft(self, signal_name_str: str = "file1_Speed") -> str:
         """Create an FFT signal of a signal over the plots' time range.
 
         Inputs:
@@ -133,9 +133,9 @@ class FrequencyPlotCreationTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.create("Speed", "integral")
-        self.double_click("Speed")
-        self.double_click("int_Speed")
+        self.create("file1_Speed", "integral")
+        self.double_click("file1_Speed")
+        self.double_click("file1_int_Speed")
         for plot_id_i in self.plot_id_list():
             self.assertEqual(self.plot(plot_id_i).kind_str,
                              TIME_PLOT_KIND_STR)
@@ -154,7 +154,7 @@ class FrequencyPlotCreationTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         for _ in range(MAXIMUM_PLOTS_PER_TAB_I - 1):
             self.double_click(fft_name_str)
         self.assertEqual(len(self.plot_id_list()), MAXIMUM_PLOTS_PER_TAB_I)
@@ -162,7 +162,7 @@ class FrequencyPlotCreationTest(FrequencyPlotTestCase):
         # A sixth plot, of either kind, is refused with the Full Tab box.
         self.double_click(fft_name_str)
         self.assertEqual(self.view.full_tab_count_i, 1)
-        self.double_click("Torque")
+        self.double_click("file1_Torque")
         self.assertEqual(self.view.full_tab_count_i, 2)
         self.assertEqual(len(self.plot_id_list()), MAXIMUM_PLOTS_PER_TAB_I)
         # LLFR-00140: a refused plot records no undo step.
@@ -184,13 +184,13 @@ class FrequencyPlotDropTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         plot_id_i = self.last_plot_id()
         snapshot_count_i = len(
             self.plot_controller.undo_history.saved_snapshot_list())
         self.drop(plot_id_i, fft_name_str)
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
-        self.assertEqual(self.view.drawn_names(plot_id_i), ["Speed"])
+        self.assertEqual(self.view.drawn_names(plot_id_i), ["file1_Speed"])
         self.assertFalse(self.plot(plot_id_i).has_signal(fft_name_str))
         self.assertEqual(len(
             self.plot_controller.undo_history.saved_snapshot_list()),
@@ -204,10 +204,10 @@ class FrequencyPlotDropTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.create("Speed", "integral")
+        self.create("file1_Speed", "integral")
         self.double_click(fft_name_str)
         plot_id_i = self.last_plot_id()
-        for name_str in ("Torque", "Time", "int_Speed"):
+        for name_str in ("file1_Torque", "file1_Time", "file1_int_Speed"):
             self.drop(plot_id_i, name_str)
         self.assertEqual(self.view.kind_mismatch_count_i, 3)
         self.assertEqual(self.view.drawn_names(plot_id_i), [fft_name_str])
@@ -223,8 +223,8 @@ class FrequencyPlotDropTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: none.
         """
-        speed_fft_str = self.create_fft("Speed")
-        torque_fft_str = self.create_fft("Torque")
+        speed_fft_str = self.create_fft("file1_Speed")
+        torque_fft_str = self.create_fft("file1_Torque")
         self.double_click(speed_fft_str)
         plot_id_i = self.last_plot_id()
         self.drop(plot_id_i, torque_fft_str)
@@ -253,7 +253,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.set_range(time_plot_id_i, 2.0, 4.0)
         self.double_click(fft_name_str)
@@ -266,7 +266,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.plot_time_range(frequency_plot_id_i),
                          (0.0, WHOLE_FFT_HIGHEST_HZ))
         # LLFR-00180: a new time plot still takes the shared range.
-        self.double_click("Torque")
+        self.double_click("file1_Torque")
         self.assertEqual(self.view.plot_time_range(self.last_plot_id()),
                          (2.0, 4.0))
 
@@ -279,13 +279,13 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.double_click(fft_name_str)
         first_frequency_id_i = self.last_plot_id()
         self.double_click(fft_name_str)
         second_frequency_id_i = self.last_plot_id()
-        self.double_click("Torque")
+        self.double_click("file1_Torque")
         other_time_plot_id_i = self.last_plot_id()
         self.view.call_list = []
         # A zoom of a time plot: every time plot, no frequency plot.
@@ -306,7 +306,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.assertEqual(self.plot_controller.shared_time_range_tuple,
                          (1.0, 2.0))
         # A redraw of the frequency plot keeps its own range.
-        self.drop(first_frequency_id_i, self.create_fft("Torque"))
+        self.drop(first_frequency_id_i, self.create_fft("file1_Torque"))
         self.assertEqual(self.view.plot_time_range(first_frequency_id_i),
                          (1.0, 3.0))
 
@@ -319,7 +319,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.double_click(fft_name_str)
         frequency_plot_id_i = self.last_plot_id()
@@ -343,12 +343,12 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         # An FFT of 9 samples (0 s to 0.8 s) ends below 5 Hz.
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.set_range(time_plot_id_i, 0.0, 0.8)
-        short_fft_str = self.create_fft("Speed")
+        short_fft_str = self.create_fft("file1_Speed")
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
-        whole_fft_str = self.create_fft("Torque")
+        whole_fft_str = self.create_fft("file1_Torque")
         short_highest_hz = float(np.max(
             self.controller.store.get(short_fft_str).frequency_array))
         self.assertLess(short_highest_hz, WHOLE_FFT_HIGHEST_HZ)
@@ -376,12 +376,12 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.set_range(time_plot_id_i, 0.0, 0.8)
-        short_fft_str = self.create_fft("Speed")
+        short_fft_str = self.create_fft("file1_Speed")
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
-        whole_fft_str = self.create_fft("Torque")
+        whole_fft_str = self.create_fft("file1_Torque")
         self.double_click(short_fft_str)
         plot_id_i = self.last_plot_id()
         self.drop(plot_id_i, whole_fft_str)
@@ -413,14 +413,14 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.double_click(fft_name_str)
         self.set_range(time_plot_id_i, 2.0, 4.0)
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
         self.assertEqual(self.plot_controller.shared_time_range_tuple, ())
         # LLFR-00180: no other time plot, so the whole time range.
-        self.double_click("Torque")
+        self.double_click("file1_Torque")
         self.assertEqual(self.view.plot_time_range(self.last_plot_id()),
                          (0.0, 9.9))
 
@@ -431,11 +431,11 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.set_range(time_plot_id_i, 1.5, 3.0)
-        fft_name_str = self.create_fft("Torque")
-        self.assertEqual(fft_name_str, "fft_1p5s_to_3s_Torque")
+        fft_name_str = self.create_fft("file1_Torque")
+        self.assertEqual(fft_name_str, "file1_fft_1p5s_to_3s_Torque")
         self.double_click(fft_name_str)
         frequency_plot_id_i = self.last_plot_id()
         # A zoom of the frequency plot is not a time range.
@@ -445,7 +445,8 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
         self.assertEqual(self.plot_controller.time_plot_range_tuple(),
                          (0.0, 9.9))
-        self.assertEqual(self.create_fft("Torque"), "fft_0s_to_9p9s_Torque")
+        self.assertEqual(self.create_fft("file1_Torque"),
+                         "file1_fft_0s_to_9p9s_Torque")
 
 
 class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
@@ -471,7 +472,7 @@ class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.double_click(fft_name_str)
         frequency_plot_id_i = self.last_plot_id()
@@ -482,14 +483,14 @@ class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
         self.assertEqual(len(marker_list), 1)
         # LLFR-00205: the time plot shows it; a frequency plot drawn
         # afterwards (or again) gets no marker data.
-        self.drop(frequency_plot_id_i, self.create_fft("Torque"))
+        self.drop(frequency_plot_id_i, self.create_fft("file1_Torque"))
         self.assertEqual(self.view.marker_drawn_dict[frequency_plot_id_i],
                          [])
         self.double_click(fft_name_str)
         self.assertEqual(self.view.marker_drawn_dict[self.last_plot_id()],
                          [])
         self.view.handler_dict["curve_delete_handler"](time_plot_id_i,
-                                                       "Speed")
+                                                       "file1_Speed")
         # A move reported by a frequency plot is ignored too.
         self.view.handler_dict["marker_move_handler"](
             frequency_plot_id_i, marker_list[0].marker_id_i, 3.0)
@@ -503,7 +504,7 @@ class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         time_plot_id_i = self.last_plot_id()
         self.double_click(fft_name_str)
         frequency_plot_id_i = self.last_plot_id()
@@ -511,7 +512,7 @@ class FrequencyPlotMarkerTest(FrequencyPlotTestCase):
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
         self.assertEqual(len(self.plot_controller.workspace.marker_list), 1)
         # A new time plot shows the kept marker.
-        self.double_click("Torque")
+        self.double_click("file1_Torque")
         self.assertEqual(len(self.view.marker_drawn_dict[
             self.last_plot_id()]), 1)
         # With no plot of any kind left, the markers go.
@@ -578,7 +579,7 @@ class FrequencyPlotUndoTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        torque_fft_str = self.create_fft("Torque")
+        torque_fft_str = self.create_fft("file1_Torque")
         self.double_click(fft_name_str)
         plot_id_i = self.last_plot_id()
         self.drop(plot_id_i, torque_fft_str)

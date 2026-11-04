@@ -816,7 +816,7 @@ class MarkerEndToEndTest(unittest.TestCase):
             QTest.mouseClick(self.main_window.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.process_events()
-        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("file1_speed")
         self.process_events()
         self.plot_widget = self.only_plot_widget()
 

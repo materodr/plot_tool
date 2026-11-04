@@ -272,10 +272,10 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         state_list = []
 
         def answer_dialog(dialog) -> str:
@@ -334,8 +334,8 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         plot_widget_list = [
             self.main_window.plot_view(plot_id_i) for plot_id_i in
             self.main_window.plot_panel.plot_id_list(
@@ -384,11 +384,11 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         first_tab_id_i = self.main_window.current_tab_id()
         second_tab_id_i = self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         self.main_window.set_current_tab(first_tab_id_i)
         self.application.processEvents()
         path_str = os.path.join(self.folder_str, "drawn.pdf")
@@ -411,7 +411,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from matplotlib.figure import Figure
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         plot_widget_list = self.tab_plot_widget_list(
             self.main_window.current_tab_id())
         original_savefig = Figure.savefig
@@ -445,11 +445,11 @@ class ExportCopyTest(unittest.TestCase):
         from PyQt6.QtCore import Qt
         from PyQt6.QtGui import qGray
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         plot_id_i = self.main_window.plot_panel.plot_id_list(
             self.main_window.current_tab_id())[0]
         plot_controller = self.controller.plot_controller
-        plot_controller.on_tip_pin(plot_id_i, "speed", 1.0, 2.0)
+        plot_controller.on_tip_pin(plot_id_i, "file1_speed", 1.0, 2.0)
         plot_controller.on_pinned_tip_move(plot_id_i, 0, 60.0, -40.0)
         plot_controller.on_marker_place(plot_id_i, 1.5)
         self.application.processEvents()
@@ -507,10 +507,10 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         first_tab_id_i = self.main_window.current_tab_id()
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         self.main_window.set_current_tab(first_tab_id_i)
         self.application.processEvents()
         original_grab = plot_export.grab_page_image
@@ -544,7 +544,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         self.add_tab(SECOND_TAB_NAME_STR)
         path_str = os.path.join(self.folder_str, "one.pdf")
         self.export_to(path_str)
@@ -558,10 +558,10 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         self.add_tab("Empty tab")
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         with mock.patch.object(plot_export, "draw_page_title",
                                wraps=plot_export.draw_page_title) as title:
             self.export_to(os.path.join(self.folder_str, "named.pdf"))
@@ -576,11 +576,11 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         first_tab_id_i = self.main_window.current_tab_id()
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
-        self.plot_signal("speed")
+        self.plot_signal("file1_force")
+        self.plot_signal("file1_speed")
         # The first tab was never shown at its current size with plots.
         self.main_window.set_current_tab(first_tab_id_i)
         self.application.processEvents()
@@ -609,12 +609,12 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         first_tab_id_i = self.main_window.current_tab_id()
         hidden_plot_id_i = self.main_window.plot_panel.plot_id_list(
             first_tab_id_i)[0]
         second_tab_id_i = self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         shown_plot_id_i = self.main_window.plot_panel.plot_id_list(
             second_tab_id_i)[0]
         shown_widget = self.main_window.plot_view(shown_plot_id_i)
@@ -661,7 +661,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         with mock.patch.object(plot_export, "draw_page_image",
                                wraps=plot_export.draw_page_image) as draw:
             self.export_to(os.path.join(self.folder_str, "look.pdf"))
@@ -681,7 +681,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         before_list = sorted(os.listdir(self.folder_str))
         dialog_mock = self.export_to("")
         dialog_mock.assert_called_once()
@@ -713,7 +713,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         path_str = os.path.join(self.folder_str, "missing", "plots.pdf")
         self.export_to(path_str)
         self.assertEqual(len(self.box_record_list), 1)
@@ -732,7 +732,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         folder_path_str = os.path.join(self.folder_str, "taken.pdf")
         os.mkdir(folder_path_str)
         self.export_to(folder_path_str)
@@ -748,7 +748,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         path_str = os.path.join(self.folder_str, "report.pdf")
         with open(path_str, "wb") as existing_file:
             existing_file.write(b"old report")
@@ -772,7 +772,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         path_str = os.path.join(self.folder_str, "broken.pdf")
         with mock.patch.object(plot_export, "build_pdf_bytes",
                                side_effect=OSError("no document")):
@@ -794,8 +794,8 @@ class ExportCopyTest(unittest.TestCase):
         """
         from PyQt6.QtWidgets import QApplication
         from view import plot_export
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         clipboard = QApplication.clipboard()
         clipboard.setText("before")
         state_list = []
@@ -819,7 +819,12 @@ class ExportCopyTest(unittest.TestCase):
         self.assertFalse(image.isNull())
         page_size = self.main_window.plot_panel.tab_widget \
             .currentWidget().size()
-        self.assertAlmostEqual(image.width() / image.height(),
+        # LLFR-00972: the strip of the data files is above the plots.
+        strip_i = plot_export.strip_height_px(
+            "file1 = data.csv", float(page_size.width()))
+        pixel_ratio_f = image.width() / page_size.width()
+        plots_height_f = image.height() - strip_i * pixel_ratio_f
+        self.assertAlmostEqual(image.width() / plots_height_f,
                                page_size.width() / page_size.height(),
                                delta=0.02)
         self.assertEqual(self.box_record_list, [])
@@ -827,6 +832,115 @@ class ExportCopyTest(unittest.TestCase):
         # The copied plots are still drawn on screen.
         self.assert_plots_still_drawn(self.tab_plot_widget_list(
             self.main_window.current_tab_id()))
+
+    def open_second_file(self) -> None:
+        """Open a second data file, run_B.csv, as file 2.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        second_path_str = os.path.join(self.folder_str, "run_B.csv")
+        with open(second_path_str, "w", encoding="utf-8") as data_file:
+            data_file.write("Time,pressure\n0,1\n1,2\n2,3\n")
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=second_path_str):
+            self.controller.file_controller.open_file_requested()
+        self.application.processEvents()
+
+    @covers("LLFR-00971", "LLFR-00129", "HLFR-00038", "HLFR-00113")
+    def test_pages_describe_every_open_file(self) -> None:
+        """Each page has the description of all files below the name.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import plot_export
+        self.open_second_file()
+        self.plot_signal("file1_speed")
+        self.add_tab(SECOND_TAB_NAME_STR)
+        self.plot_signal("file2_pressure")
+        with mock.patch.object(
+                plot_export, "draw_page_title",
+                wraps=plot_export.draw_page_title) as title_mock, \
+                mock.patch.object(
+                    plot_export, "draw_page_description",
+                    wraps=plot_export.draw_page_description) as text_mock, \
+                mock.patch.object(
+                    plot_export, "draw_page_image",
+                    wraps=plot_export.draw_page_image) as image_mock:
+            path_str = os.path.join(self.folder_str, "files.pdf")
+            self.export_to(path_str)
+        self.assertEqual(pdf_page_count(path_str), 2)
+        # The description of ALL the open files on every page, even on
+        # a page whose plots use only one of them.
+        self.assertEqual([call.args[1] for call in text_mock.call_args_list],
+                         ["file1 = data.csv, file2 = run_B.csv"] * 2)
+        self.assertEqual(len(title_mock.call_args_list), 2)
+        for page_index_i in range(2):
+            # Directly below the tab's name: it starts where the name
+            # ends, and the plots start below it.
+            description_top_i = text_mock.call_args_list[
+                page_index_i].args[2]
+            self.assertGreater(description_top_i, 0)
+            plots_top_i = image_mock.call_args_list[page_index_i].args[2]
+            self.assertGreater(plots_top_i, description_top_i)
+        self.assertEqual(self.box_record_list, [])
+
+    @covers("LLFR-00972", "LLFR-00133", "HLFR-00039", "HLFR-00113")
+    def test_copied_image_has_its_own_strip(self) -> None:
+        """The strip is added above the plots and covers none of them.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QColor
+        from PyQt6.QtWidgets import QApplication
+        from view import plot_export
+        self.open_second_file()
+        self.plot_signal("file1_speed")
+        grab_list = []
+        original_grab = plot_export.grab_page_image
+
+        def recording_grab(page):
+            """Grab the page and keep the image.
+
+            Inputs:
+                page: the TabPage.
+            Outputs: the QImage.
+            """
+            grab_list.append(original_grab(page))
+            return grab_list[-1]
+
+        with mock.patch.object(plot_export, "grab_page_image",
+                               side_effect=recording_grab), \
+                mock.patch.object(
+                    plot_export, "image_with_description_strip",
+                    wraps=plot_export.image_with_description_strip) as strip:
+            self.click(self.top_panel.copy_button)
+        self.assertEqual(strip.call_args.args[1],
+                         "file1 = data.csv, file2 = run_B.csv")
+        grabbed = grab_list[0]
+        copied = QApplication.clipboard().image()
+        self.assertEqual(copied.width(), grabbed.width())
+        strip_device_i = copied.height() - grabbed.height()
+        self.assertGreater(strip_device_i, 0)
+        # The plots are whole below the strip: same pixels.
+        for x_i in range(0, grabbed.width(), max(grabbed.width() // 15, 1)):
+            for y_i in range(0, grabbed.height(),
+                             max(grabbed.height() // 15, 1)):
+                self.assertEqual(
+                    QColor(copied.pixel(x_i, y_i + strip_device_i)).rgb(),
+                    QColor(grabbed.pixel(x_i, y_i)).rgb())
+        # The strip has the page's background at its corner and text.
+        background_color, _ = plot_export.strip_colors(
+            self.main_window.plot_panel.tab_widget.currentWidget())
+        self.assertEqual(QColor(copied.pixel(1, 1)).rgb(),
+                         background_color.rgb())
+        strip_color_set = {
+            QColor(copied.pixel(x_i, y_i)).rgb()
+            for x_i in range(0, copied.width(), 2)
+            for y_i in range(0, strip_device_i, 2)}
+        self.assertGreater(len(strip_color_set), 1)
 
     @covers("LLFR-00146", "LLFR-00003", "LLFR-00460")
     def test_copy_without_plots_keeps_clipboard(self) -> None:
@@ -836,7 +950,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QApplication
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         self.add_tab(SECOND_TAB_NAME_STR)
         clipboard = QApplication.clipboard()
         clipboard.setText("keep me")
@@ -894,6 +1008,95 @@ class ExportBoxTest(unittest.TestCase):
         self.assertEqual(copy_box.text(), "There are no plots to copy.")
         export_box.deleteLater()
         copy_box.deleteLater()
+
+
+@requires_qt
+class DescriptionDrawingTest(unittest.TestCase):
+    """The drawing of the description, on images (LLFR-00971/00972)."""
+
+    def setUp(self) -> None:
+        """Start Qt.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+
+    @covers("LLFR-00972", "LLFR-00133")
+    def test_strip_is_added_above_the_image(self) -> None:
+        """A red image keeps its pixels below a strip of the background.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QColor, QImage
+        from view import plot_export
+        image = QImage(200, 60, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(QColor("#ff0000"))
+        white, black = QColor("#ffffff"), QColor("#000000")
+        result = plot_export.image_with_description_strip(
+            image, "file1 = run_A.csv, file2 = run_B.mat", white, black)
+        strip_i = plot_export.strip_height_px(
+            "file1 = run_A.csv, file2 = run_B.mat", 200.0)
+        self.assertEqual(result.width(), 200)
+        self.assertEqual(result.height(), 60 + strip_i)
+        self.assertEqual(QColor(result.pixel(0, 0)).rgb(), white.rgb())
+        for y_i in (strip_i, strip_i + 30, strip_i + 59):
+            self.assertEqual(QColor(result.pixel(100, y_i)).rgb(),
+                             QColor("#ff0000").rgb())
+        dark_found_b = any(
+            QColor(result.pixel(x_i, y_i)).lightness() < 128
+            for x_i in range(200) for y_i in range(strip_i))
+        self.assertTrue(dark_found_b)
+        # No description, no strip.
+        self.assertIs(plot_export.image_with_description_strip(
+            image, "", white, black), image)
+        self.assertEqual(plot_export.strip_height_px("", 200.0), 0)
+
+    @covers("LLFR-00972", "LLFR-00971")
+    def test_long_description_wraps_into_a_higher_strip(self) -> None:
+        """Ten files in a narrow image take several lines, none cut.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import plot_export
+        long_str = ", ".join(f"file{number_i} = measurement_{number_i}.csv"
+                             for number_i in range(1, 11))
+        self.assertGreater(plot_export.strip_height_px(long_str, 300.0),
+                           2 * plot_export.strip_height_px("file1 = a.csv",
+                                                           300.0))
+
+    @covers("LLFR-00971", "LLFR-00129")
+    def test_page_description_height(self) -> None:
+        """The description takes room on a page, more when it wraps.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QColor, QImage, QPainter
+        from view import plot_export
+        image = QImage(600, 400, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(QColor("#ffffff"))
+        painter = QPainter(image)
+        try:
+            self.assertEqual(plot_export.draw_page_description(
+                painter, "", 10, 600), 0)
+            short_i = plot_export.draw_page_description(
+                painter, "file1 = run_A.csv", 10, 600)
+            long_str = ", ".join(f"file{number_i} = run_{number_i}.csv"
+                                 for number_i in range(1, 11))
+            long_i = plot_export.draw_page_description(
+                painter, long_str, 100, 200)
+        finally:
+            painter.end()
+        self.assertGreater(short_i, 0)
+        self.assertGreater(long_i, short_i)
+        # The text was drawn below the given top.
+        self.assertTrue(any(QColor(image.pixel(x_i, y_i)).lightness() < 128
+                            for x_i in range(600) for y_i in range(10, 40)))
+        self.assertTrue(all(QColor(image.pixel(x_i, 5)).lightness() > 250
+                            for x_i in range(600)))
 
 
 if __name__ == "__main__":

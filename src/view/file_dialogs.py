@@ -152,6 +152,23 @@ def run_file_dialog(dialog) -> str:
     return str(selected_file_list[0])
 
 
+def run_file_dialog_paths(dialog) -> list:
+    """Show a file dialog modally and return every chosen path.
+
+    Inputs:
+        dialog: a QFileDialog, for example one that selects several
+            existing files.
+    Outputs: the selected paths, in the order the dialog gives them, or
+        [] when the user cancelled (LLFR-00007).
+    """
+    # LLFR-00951: the Open file dialog may return several files; the
+    # file controller takes them in the order of LLFR-00952.
+    if dialog.exec() != QDialog.DialogCode.Accepted.value:
+        return []
+    return [str(path_str) for path_str in dialog.selectedFiles()
+            if path_str]
+
+
 def reset_for_new_use(dialog, start_folder_str: str) -> None:
     """Make a dialog shown before look as a newly built one.
 

@@ -216,9 +216,11 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertEqual(os.path.basename(dialog.selectedFiles()[0]),
                          "run1_signals.csv")
         saved_file = load_signal_file(target_str + ".xlsx")
+        # LLFR-00945: the names are saved without the prefix.
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "force"])
-        self.assertEqual(self.changed_names_list, ["time → Time"])
+        # LLFR-00404, LLFR-00558: the name in the app, then the new one.
+        self.assertEqual(self.changed_names_list, ["file1_time → Time"])
         # LLFR-00003: normal again once the save is done and the minimum
         # active time of an action button has passed.
         from PyQt6.QtTest import QTest
@@ -262,15 +264,15 @@ class SaveSignalsViewTest(unittest.TestCase):
         from model.synthetic_signals import SyntheticSignal
         self.open_data_file()
         self.controller.synthetic_controller.store.signal_list.append(
-            SyntheticSignal("mul_1e308_speed", operations.MULTIPLY_STR,
-                            ["speed"], 1e308,
+            SyntheticSignal("file1_mul_1e308_speed", operations.MULTIPLY_STR,
+                            ["file1_speed"], 1e308,
                             np.array([0.0, np.inf, np.inf, np.inf, np.inf])))
         target_str = os.path.join(self.folder_str, "bad.xlsx")
         self.click_with_dialog_answer((target_str, "Excel files (*.xlsx)"))
         self.assertEqual(len(self.box_record_list), 1)
         self.assertEqual(self.box_record_list[0][1],
                          self.message_box_class.Icon.Critical)
-        self.assertIn("mul_1e308_speed", self.box_record_list[0][2])
+        self.assertIn("file1_mul_1e308_speed", self.box_record_list[0][2])
         self.assertFalse(os.path.exists(target_str))
         self.assertEqual(self.changed_names_list, [])
 
@@ -310,8 +312,8 @@ class SaveSignalsViewTest(unittest.TestCase):
         """
         self.open_data_file()
         plot_controller = self.controller.plot_controller
-        plot_controller.on_signal_double_clicked("speed")
-        plot_controller.on_signal_double_clicked("force")
+        plot_controller.on_signal_double_clicked("file1_speed")
+        plot_controller.on_signal_double_clicked("file1_force")
         plot_controller.on_undo()
         self.application.processEvents()
         undo_depth_i = plot_controller.undo_history.depth()
@@ -335,7 +337,7 @@ class SaveSignalsViewTest(unittest.TestCase):
                          redo_enabled_b)
         self.assertEqual(
             self.controller.synthetic_controller.signal_list_name_list(),
-            ["time", "speed", "force"])
+            ["file1_time", "file1_speed", "file1_force"])
 
 
 if __name__ == "__main__":

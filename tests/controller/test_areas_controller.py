@@ -477,23 +477,26 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.undo()
         self.assertEqual(len(self.workspace.area_list), 2)
 
-    @covers("LLFR-00310", "LLFR-00309", "LLFR-00015", "LLFR-00142",
-            "LLFR-00706", "LLFR-00711")
-    def test_file_replace_deletes_areas_and_restarts_numbering(
+    @covers("LLFR-00310", "LLFR-00309", "LLFR-00930", "LLFR-00706",
+            "LLFR-00711", "LLFR-00936")
+    def test_close_all_files_deletes_areas_but_not_their_numbers(
             self) -> None:
-        """Opening a file removes every area, clears the history and the
-        next area is "Area 1" again.
+        """Closing every file removes every area and clears the history;
+        the next area keeps counting.
 
         Inputs: none.
         Outputs: none.
         """
-        self.file_controller.open(self.signal_file, True)
+        area_count_i = self.workspace.next_area_number_i
+        self.close_all_files()
         self.assertEqual(self.workspace.area_list, [])
         self.assertFalse(self.controller.undo_history.can_undo())
+        self.file_controller.open(self.signal_file, None)
         self.double_click("s1")
         self.plot_id_i = self.current_plot_ids()[0]
         self.create(1.0, 2.0)
-        self.assertEqual(self.area_tuple_list(), [("Area 1", 1.0, 2.0)])
+        self.assertEqual(self.area_tuple_list(),
+                         [(f"Area {area_count_i}", 1.0, 2.0)])
 
 
 class LayoutAreaControllerTest(AreaControllerTestCase):

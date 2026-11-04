@@ -6,8 +6,11 @@
   holds the maximum number of plots (LLFR-00032).
 - Tab Name Taken box: information box shown when the user renames a
   tab to the name of another tab (LLFR-00211).
-- Replace File box: question asked before an open file is replaced
-  (HLFR-00010).
+- Open Files Limit box: information box shown in place of the file
+  selection dialog while 10 data files are open (LLFR-00896).
+- Refused Files box: information box that lists the selected files that
+  were not opened because they are already open or because 10 files are
+  open (LLFR-00956).
 - Unexpected Error box: error box shown when an unexpected error
   reaches the event loop, instead of letting the app abort
   (HLFR-00002, PCR-00025).
@@ -55,11 +58,10 @@ PLOT_KIND_MISMATCH_TITLE_STR = "Frequency Plot"
 PLOT_KIND_MISMATCH_MESSAGE_STR = (
     "FFT signals and time signals cannot be drawn in the same plot. "
     "Double-click the signal to draw it in a new plot.")
-REPLACE_FILE_TITLE_STR = "Replace File"
-REPLACE_FILE_MESSAGE_STR = (
-    "Another file is already open. Proceeding will close the current "
-    "file and all its plots. Do you want to proceed?"
-)
+# LLFR-00896, LLFR-00956: the titles of the information boxes of the
+# open-file flow.
+OPEN_FILES_LIMIT_TITLE_STR = "Open file"
+REFUSED_FILES_TITLE_STR = "Files not opened"
 UNEXPECTED_ERROR_TITLE_STR = "Error"
 UNEXPECTED_ERROR_INTRO_STR = (
     "An unexpected error occurred. The app keeps running, but the last "
@@ -118,6 +120,11 @@ DELETE_CONSEQUENCE_MESSAGE_STR = (
 DELETE_ONE_CONSEQUENCE_MESSAGE_STR = (
     "Its curves are removed from every plot, and the undo and redo "
     "history is cleared. This cannot be undone.")
+
+
+# LLFR-00924, LLFR-00934: the titles of the questions of the file menu.
+CLOSE_FILE_TITLE_STR = "Close file"
+CLOSE_ALL_FILES_TITLE_STR = "Close all files"
 
 
 def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
@@ -202,28 +209,6 @@ def build_plot_kind_mismatch_box(parent) -> QMessageBox:
     return box
 
 
-def build_replace_file_box(parent) -> QMessageBox:
-    """Build the Replace File confirmation box.
-
-    Inputs:
-        parent: parent widget of the box, or None.
-    Outputs: a QMessageBox with the question icon, the title
-        REPLACE_FILE_TITLE_STR, the text REPLACE_FILE_MESSAGE_STR and the
-        buttons Yes and No, where No is the default and escape button.
-    """
-    # LLFR-00013, LLFR-00014: ask whether to proceed, stating that
-    # proceeding closes the current file (HLFR-00010).
-    box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Icon.Question)
-    box.setWindowTitle(REPLACE_FILE_TITLE_STR)
-    box.setText(REPLACE_FILE_MESSAGE_STR)
-    box.setStandardButtons(QMessageBox.StandardButton.Yes
-                           | QMessageBox.StandardButton.No)
-    box.setDefaultButton(QMessageBox.StandardButton.No)
-    box.setEscapeButton(QMessageBox.StandardButton.No)
-    return box
-
-
 def show_file_open_error(parent, message_str: str) -> None:
     """Show the File Open Error box and wait until the user closes it.
 
@@ -270,23 +255,32 @@ def show_plot_kind_mismatch_notification(parent) -> None:
     build_plot_kind_mismatch_box(parent).exec()
 
 
-def ask_replace_file(parent) -> bool:
-    """Ask the user whether to replace the open file.
+def build_open_files_limit_box(parent, message_str: str) -> QMessageBox:
+    """Build the box shown at the Open file click with 10 files open.
 
     Inputs:
         parent: parent widget of the box, or None.
-    Outputs: True when the user chose Yes, False otherwise (No, or the
-        box closed without choosing).
+        message_str: the sentence of the box (from the controller).
+    Outputs: a QMessageBox with the information icon (not an error box)
+        and an OK button.
     """
-    # LLFR-00013: Yes means the user proceeds.
-    # LLFR-00014: any other answer keeps the current file open.
-    result = build_replace_file_box(parent).exec()
-    # exec() returns an int in PyQt6; accept a StandardButton as well.
-    if isinstance(result, QMessageBox.StandardButton):
-        result_value_i = int(result.value)
-    else:
-        result_value_i = int(result)
-    return result_value_i == QMessageBox.StandardButton.Yes.value
+    # LLFR-00896: an information box in place of the dialog.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             OPEN_FILES_LIMIT_TITLE_STR, message_str)
+
+
+def build_refused_files_box(parent, message_str: str) -> QMessageBox:
+    """Build the box that lists the selected files that were refused.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: one line per refused file, with its reason.
+    Outputs: a QMessageBox with the information icon (not an error box)
+        and an OK button.
+    """
+    # LLFR-00956: one information box for the refused files.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             REFUSED_FILES_TITLE_STR, message_str)
 
 
 def build_unexpected_error_box(parent, message_str: str) -> QMessageBox:
@@ -676,3 +670,92 @@ def build_changed_names_box(parent, changed_names_text_str: str) -> QDialog:
     return build_layout_report_box(
         parent, changed_names_text_str, CHANGED_NAMES_TITLE_STR,
         CHANGED_NAMES_INTRO_STR, CHANGED_NAMES_TEXT_OBJECT_NAME_STR)
+
+
+def build_question_box(parent, title_str: str,
+                       question_str: str) -> QMessageBox:
+    """Build a question box with the buttons Yes and No.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        title_str: the window title.
+        question_str: the question and what proceeding does.
+    Outputs: a QMessageBox with the question icon and the buttons Yes
+        and No, where No is the default and escape button.
+    """
+    # LLFR-00924, LLFR-00934: the user decides whether to proceed.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(title_str)
+    box.setText(question_str)
+    box.setStandardButtons(QMessageBox.StandardButton.Yes
+                           | QMessageBox.StandardButton.No)
+    box.setDefaultButton(QMessageBox.StandardButton.No)
+    box.setEscapeButton(QMessageBox.StandardButton.No)
+    return box
+
+
+def build_close_file_box(parent, question_str: str) -> QMessageBox:
+    """Build the question asked before one data file is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller, which names
+            the file as its file name row shows it.
+    Outputs: the question box, titled CLOSE_FILE_TITLE_STR.
+    """
+    # LLFR-00924: Yes closes the file, No keeps everything (LLFR-00925).
+    return build_question_box(parent, CLOSE_FILE_TITLE_STR, question_str)
+
+
+def build_close_all_files_box(parent, question_str: str) -> QMessageBox:
+    """Build the question asked once before every data file is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: the question box, titled CLOSE_ALL_FILES_TITLE_STR.
+    """
+    # LLFR-00934: one question for all the files (LLFR-00935).
+    return build_question_box(parent, CLOSE_ALL_FILES_TITLE_STR,
+                              question_str)
+
+
+def answered_yes(box) -> bool:
+    """Run a question box modally and tell whether Yes was chosen.
+
+    Inputs:
+        box: a QMessageBox with the buttons Yes and No.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00925, LLFR-00935: anything but Yes declines.
+    result = box.exec()
+    if isinstance(result, QMessageBox.StandardButton):
+        result_value_i = int(result.value)
+    else:
+        result_value_i = int(result)
+    return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def ask_close_file(parent, question_str: str) -> bool:
+    """Ask whether to close one data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00924: only Yes closes the file.
+    return answered_yes(build_close_file_box(parent, question_str))
+
+
+def ask_close_all_files(parent, question_str: str) -> bool:
+    """Ask once whether to close every data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00934: only Yes closes the files.
+    return answered_yes(build_close_all_files_box(parent, question_str))

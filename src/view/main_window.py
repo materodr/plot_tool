@@ -229,6 +229,13 @@ class MainWindow(QMainWindow):
         self.signal_list_panel.copy_equation_requested.connect(
             lambda name_str: self._run_signal_menu_handler(
                 "copy_equation", name_str))
+        # LLFR-00923: the options of the file menu go to the file
+        # controller.
+        self.signal_list_panel.close_file_requested.connect(
+            lambda number_i: self._run_signal_menu_handler(
+                "close_file", number_i))
+        self.signal_list_panel.close_all_files_requested.connect(
+            lambda: self._run_signal_menu_handler("close_all_files"))
         # LLFR-00115: the Reset zoom button goes to the plot controller.
         self.reset_zoom_handler = None
         self.top_panel.reset_zoom_button.triggered.connect(
@@ -332,14 +339,14 @@ class MainWindow(QMainWindow):
         # LLFR-00005: the controller shows the dialog through ``handler``.
         self.open_file_handler = handler
 
-    def ask_open_file_path(self, start_folder_str: str = "") -> str:
-        """Show the file selection dialog and return the chosen path.
+    def ask_open_file_path(self, start_folder_str: str = "") -> list:
+        """Show the file selection dialog and return the chosen paths.
 
         Inputs:
             start_folder_str: folder the dialog shows when it opens; ""
                 lets Qt choose.
-        Outputs: the path of the selected file, or "" when the user
-            cancelled the dialog.
+        Outputs: the paths of the selected files (LLFR-00951), or []
+            when the user cancelled the dialog.
         """
         # LLFR-00005: show the file selection dialog.
         # LLFR-00007: an empty path means the dialog was cancelled.
@@ -347,7 +354,12 @@ class MainWindow(QMainWindow):
         # LLFR-00406: the dialog built once, shown again.
         dialog = self.file_dialog_pool.prepared_dialog(
             OPEN_FILE_DIALOG_KEY_STR, start_folder_str)
-        return self.run_open_file_dialog(dialog) or ""
+        path_value = self.run_open_file_dialog(dialog)
+        # LLFR-00951: one or several paths; the controller takes them in
+        # the order of LLFR-00952.
+        if isinstance(path_value, (list, tuple)):
+            return [str(path_str) for path_str in path_value if path_str]
+        return [str(path_value)] if path_value else []
 
     def build_open_file_dialog(self, start_folder_str: str) -> QFileDialog:
         """Build the file selection dialog of the Open file button.
@@ -355,27 +367,30 @@ class MainWindow(QMainWindow):
         Inputs:
             start_folder_str: the folder the dialog shows; "" lets Qt
                 choose.
-        Outputs: a QFileDialog, not shown, that selects one existing
-            file, with the time series filter first and "All files".
+        Outputs: a QFileDialog, not shown, that selects one or several
+            existing files, with the time series filter first and "All
+            files".
         """
         # LLFR-00005, LLFR-00011: the same dialog as QFileDialog's
-        # getOpenFileName, with its filters.
+        # getOpenFileNames, with its filters; LLFR-00951: several files
+        # can be selected at once.
         dialog = QFileDialog(self, OPEN_FILE_DIALOG_TITLE_STR,
                              start_folder_str, OPEN_FILE_FILTER_STR)
         dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
-        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
         return dialog
 
-    def run_open_file_dialog(self, dialog) -> str:
-        """Run the Open file dialog modally and return the chosen path.
+    def run_open_file_dialog(self, dialog) -> list:
+        """Run the Open file dialog modally and return the chosen paths.
 
         Inputs:
             dialog: the QFileDialog of build_open_file_dialog.
-        Outputs: the chosen path, or "" when the user cancelled. Tests
-            replace this method to answer without a modal dialog.
+        Outputs: the chosen paths, or [] when the user cancelled. Tests
+            replace this method to answer without a modal dialog (with
+            a path or a list of paths).
         """
-        # LLFR-00005, LLFR-00007: the modal dialog.
-        return file_dialogs.run_file_dialog(dialog)
+        # LLFR-00005, LLFR-00007, LLFR-00951: the modal dialog.
+        return file_dialogs.run_file_dialog_paths(dialog)
 
     def prepare_file_dialogs(self) -> None:
         """Build every file dialog at once, so the first click is fast.
@@ -458,24 +473,48 @@ class MainWindow(QMainWindow):
         # or window is shown.
         self.setWindowTitle(self.WINDOW_TITLE_STR)
 
-    def ask_replace_file(self) -> bool:
-        """Ask whether to close the open file and open the selected one.
-
-        Inputs: none.
-        Outputs: True when the user chose to proceed.
-        """
-        # LLFR-00013, LLFR-00014: the confirmation of HLFR-00010.
-        return message_boxes.ask_replace_file(self)
-
-    def show_signal_names(self, signal_name_list: list) -> None:
-        """Show the signal names of the opened file in the signal list.
+    def show_open_files_limit_notification(self, message_str: str) -> None:
+        """Show the box of an Open file click with 10 files open.
 
         Inputs:
-            signal_name_list: the signal names, in file order.
+            message_str: the sentence of the box.
         Outputs: none.
         """
-        # LLFR-00017, LLFR-00054: replace the shown names.
+        # LLFR-00896: shown in place of the file selection dialog.
+        message_boxes.build_open_files_limit_box(self, message_str).exec()
+
+    def show_refused_files_notification(self, message_str: str) -> None:
+        """Show the box that lists the refused selected files.
+
+        Inputs:
+            message_str: one line per refused file, with its reason.
+        Outputs: none.
+        """
+        # LLFR-00956: after the File Open Error box, if any.
+        message_boxes.build_refused_files_box(self, message_str).exec()
+
+    def show_signal_names(self, signal_name_list: list) -> None:
+        """Show signal names in the list, with no file name row.
+
+        Inputs:
+            signal_name_list: the signal names, in their order.
+        Outputs: none.
+        """
+        # LLFR-00054, LLFR-00939: the names in their order.
         self.signal_list_panel.show_signal_names(signal_name_list)
+
+    def show_signal_groups(self, group_list: list) -> None:
+        """Show the file name rows and the signals of the open files.
+
+        Inputs:
+            group_list: one tuple (file number, file name row text,
+                shown signal names, no-match text or "") per open data
+                file, in the order of the numbers.
+        Outputs: none.
+        """
+        # LLFR-00362, LLFR-00938, LLFR-00939, LLFR-00097: the groups of
+        # the signal list.
+        self.signal_list_panel.show_signal_groups(group_list)
 
     def set_search_text_handler(self, handler) -> None:
         """Set the function called when the search box text changes.
@@ -487,25 +526,13 @@ class MainWindow(QMainWindow):
         # LLFR-00095: the signal list controller filters the list.
         self.search_text_handler = handler
 
-    def show_no_match_message(self, visible_b: bool,
-                              message_str: str) -> None:
-        """Show or hide the no-match text in the signal list.
-
-        Inputs:
-            visible_b: True when no signal matches the search.
-            message_str: the text to show ("No matching signals").
-        Outputs: none.
-        """
-        # LLFR-00097: tell the user that no signal matches.
-        self.signal_list_panel.show_no_match_message(visible_b, message_str)
-
     def clear_search(self) -> None:
         """Empty the search box of the signal list panel.
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00104: the search is cleared when the file is replaced.
+        # LLFR-00104: the search is cleared when a file is opened.
         self.signal_list_panel.clear_search()
 
     # ----------------------------------------------------------------
@@ -550,11 +577,46 @@ class MainWindow(QMainWindow):
             copy_equation_handler: function taking a signal name.
         Outputs: none.
         """
-        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278.
-        self.signal_menu_handler_dict = {
+        # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278;
+        # the handlers of the file menu are kept (LLFR-00923).
+        self.signal_menu_handler_dict.update({
             "create": create_handler, "copy_name": copy_name_handler,
             "rename": rename_handler, "delete": delete_handler,
-            "copy_equation": copy_equation_handler}
+            "copy_equation": copy_equation_handler})
+
+    def set_file_menu_handlers(self, close_file_handler,
+                               close_all_files_handler) -> None:
+        """Set the functions called by the options of the file menu.
+
+        Inputs:
+            close_file_handler: function taking a file number.
+            close_all_files_handler: function without arguments.
+        Outputs: none.
+        """
+        # LLFR-00923: "Close file" and "Close all files".
+        self.signal_menu_handler_dict["close_file"] = close_file_handler
+        self.signal_menu_handler_dict["close_all_files"] = (
+            close_all_files_handler)
+
+    def ask_close_file(self, question_str: str) -> bool:
+        """Ask whether to close one data file.
+
+        Inputs:
+            question_str: the question, with what the close does.
+        Outputs: True when the user proceeds.
+        """
+        # LLFR-00924, LLFR-00925: only Yes closes the file.
+        return message_boxes.ask_close_file(self, question_str)
+
+    def ask_close_all_files(self, question_str: str) -> bool:
+        """Ask once whether to close every data file.
+
+        Inputs:
+            question_str: the question, with what the close does.
+        Outputs: True when the user proceeds.
+        """
+        # LLFR-00934, LLFR-00935: only Yes closes the files.
+        return message_boxes.ask_close_all_files(self, question_str)
 
     def _run_signal_menu_handler(self, key_str: str, *argument_tuple):
         """Pass a signal menu request to its handler.
@@ -639,7 +701,7 @@ class MainWindow(QMainWindow):
 
     def ask_time_signal_name(self, prompt_str: str, name_list: list,
                              search_function, no_match_text_str: str,
-                             check_function):
+                             check_function, file_name_str: str = ""):
         """Ask the user for the signal that goes on the x-axis.
 
         Inputs:
@@ -650,12 +712,15 @@ class MainWindow(QMainWindow):
             no_match_text_str: the text shown when no name matches.
             check_function: name -> the reason it can't be the time
                 signal, or "" when it can.
+            file_name_str: the name of the file the window is for, with
+                its extension and without its folder (LLFR-00957).
         Outputs: the confirmed name, or None when the user cancelled.
         """
         # LLFR-00325, LLFR-00329: the time signal window.
+        # LLFR-00957: the window names its file.
         dialog = synthetic_dialogs.build_time_signal_dialog(
             self, prompt_str, name_list, search_function,
-            no_match_text_str, check_function)
+            no_match_text_str, check_function, file_name_str)
         try:
             if not self.run_modal_dialog(dialog):
                 # LLFR-00327: cancelled.
@@ -664,16 +729,26 @@ class MainWindow(QMainWindow):
         finally:
             dialog.deleteLater()
 
-    def show_file_name(self, file_name_str: str) -> None:
-        """Show the name of the opened data file above the signal list.
+    def set_time_signal_names(self, name_list: list) -> None:
+        """Tell the signal list which signals are time signals.
 
         Inputs:
-            file_name_str: the file name with its extension, without
-                its folder.
-        Outputs: none.
+            name_list: the time signal of each open data file.
+        Outputs: none. Used by the next show_signal_names.
         """
-        # LLFR-00362, LLFR-00363: the file name line.
-        self.signal_list_panel.show_file_name(file_name_str)
+        # LLFR-00332: the time signal of each open data file in green.
+        self.signal_list_panel.set_time_signal_names(name_list)
+
+    def set_files_time_range(self, range_tuple: tuple) -> None:
+        """Tell every time plot the time range of the open data files.
+
+        Inputs:
+            range_tuple: (start_s, end_s), or () while no file is open.
+        Outputs: none. Zooms and pans of the time plots stay within it.
+        """
+        # LLFR-00119, LLFR-00676, LLFR-00916: kept for the plots created
+        # later too.
+        self.plot_panel.set_files_time_range(tuple(range_tuple))
 
     def set_time_signal_name(self, name_str: str) -> None:
         """Tell the signal list which signal is the time signal.
@@ -702,10 +777,13 @@ class MainWindow(QMainWindow):
         """Let the user type a new name for a synthetic signal.
 
         Inputs:
-            current_name_str: the signal's name, shown in the dialog.
+            current_name_str: the part of the signal's name after the
+                prefix of its data file, shown in the dialog
+                (LLFR-00959).
         Outputs: the typed text (not stripped), or None when cancelled.
         """
-        # LLFR-00266: the dialog starts from the current name.
+        # LLFR-00266, LLFR-00959: the dialog starts from the current
+        # name without its prefix.
         new_name_str, accepted_b = QInputDialog.getText(
             self, RENAME_SIGNAL_DIALOG_TITLE_STR,
             RENAME_SIGNAL_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
@@ -1139,7 +1217,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00015: close all tabs and plots of the previous file.
+        # LLFR-00024, LLFR-00138: the tabs are shown again from the model.
         self.plot_panel.clear_tab_views()
 
     def set_current_tab(self, tab_id_i: int) -> None:
@@ -1583,26 +1661,33 @@ class MainWindow(QMainWindow):
         # the resulting file already exists.
         return message_boxes.ask_replace_existing_file(self, path_str)
 
-    def save_tabs_pdf(self, path_str: str) -> tuple:
+    def save_tabs_pdf(self, path_str: str,
+                      description_str: str = "") -> tuple:
         """Save the plots of every tab that holds a plot to a PDF file.
 
         Inputs:
             path_str: the path of the .pdf file.
+            description_str: the description of the open data files,
+                written below each tab's name (LLFR-00971).
         Outputs: a tuple (saved_b, reason_str).
         """
-        # LLFR-00129, LLFR-00131: one page per tab with a plot.
+        # LLFR-00129, LLFR-00131, LLFR-00971: one page per tab with a
+        # plot, with the data files below the tab's name.
         return plot_export.save_tabs_pdf(self.plot_panel.tab_widget,
-                                         path_str)
+                                         path_str, description_str)
 
-    def copy_current_tab_image(self) -> tuple:
+    def copy_current_tab_image(self, description_str: str = "") -> tuple:
         """Put an image of the current tab's plots on the clipboard.
 
-        Inputs: none.
+        Inputs:
+            description_str: the description of the open data files,
+                in a strip above the plots (LLFR-00972).
         Outputs: a tuple (copied_b, reason_str).
         """
-        # LLFR-00133: the plots of the current tab, as on screen.
+        # LLFR-00133, LLFR-00972: the plots of the current tab, as on
+        # screen, below the strip with the data files.
         return plot_export.copy_current_tab_image(
-            self.plot_panel.tab_widget)
+            self.plot_panel.tab_widget, description_str)
 
     def show_nothing_to_export(self) -> None:
         """Show the box saying that there are no plots to export.

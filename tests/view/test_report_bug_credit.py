@@ -438,7 +438,7 @@ class ReportBugWindowTest(unittest.TestCase):
         """
         self.open_file()
         self.main_window.signal_list_panel.signal_double_clicked.emit(
-            "Speed")
+            "file1_Speed")
         self.application.processEvents()
         self.assertTrue(self.top_panel.report_bug_button.isEnabled())
         plot_panel = self.main_window.plot_panel

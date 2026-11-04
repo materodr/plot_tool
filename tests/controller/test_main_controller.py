@@ -109,6 +109,18 @@ class FakeMainWindow(FakePlotView):
         """
         self.save_signals_button_enabled_b = bool(enabled_b)
 
+    def set_file_menu_handlers(self, close_file_handler,
+                               close_all_files_handler) -> None:
+        """Record the handlers of the file menu (LLFR-00923).
+
+        Inputs:
+            close_file_handler: function taking a file number.
+            close_all_files_handler: function without arguments.
+        Outputs: none.
+        """
+        self.file_menu_handler_tuple = (close_file_handler,
+                                        close_all_files_handler)
+
     def show(self) -> None:
         """Record that the window was shown.
 
@@ -145,7 +157,7 @@ class MainControllerStartTest(unittest.TestCase):
                          controller.file_controller.open_file_requested)
         self.assertIs(controller.file_controller.view, fake_window)
 
-    @covers("LLFR-00015", "LLFR-00019", "LLFR-00024")
+    @covers("LLFR-00920", "LLFR-00019", "LLFR-00024")
     def test_plot_controller_is_wired(self) -> None:
         """The plot controller listens to files and to the view.
 
@@ -179,7 +191,7 @@ class MainControllerStartTest(unittest.TestCase):
                          signal_list_controller.on_search_text_changed)
         listener_list = controller.file_controller.file_opened_listener_list
         self.assertIn(signal_list_controller.on_file_opened, listener_list)
-        # LLFR-00017: the search listener runs after the plot listener,
+        # LLFR-00938: the search listener runs after the plot listener,
         # so it gives the final signal list of a new file.
         self.assertGreater(
             listener_list.index(signal_list_controller.on_file_opened),
@@ -199,6 +211,45 @@ class MainControllerStartTest(unittest.TestCase):
         self.assertEqual(fake_window.export_handler_tuple,
                          (export_controller.on_export_requested,
                           export_controller.on_copy_requested))
+
+
+class MainControllerFilesTest(unittest.TestCase):
+    """The file menu and the description of the data files are wired."""
+
+    @covers("LLFR-00923", "LLFR-00924", "LLFR-00934", "HLFR-00118",
+            "HLFR-00119")
+    def test_file_menu_runs_the_file_controller(self) -> None:
+        """Close file and Close all files ask the file controller.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        fake_window = FakeMainWindow()
+        controller = MainController(fake_window)
+        self.assertEqual(
+            fake_window.file_menu_handler_tuple,
+            (controller.file_controller.close_file_requested,
+             controller.file_controller.close_all_files_requested))
+
+    @covers("LLFR-00971", "LLFR-00972", "HLFR-00038", "HLFR-00039")
+    def test_export_describes_the_open_files(self) -> None:
+        """The export controller describes the files of the controller.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_file import SignalFile
+        import numpy as np
+        fake_window = FakeMainWindow()
+        controller = MainController(fake_window)
+        export_controller = controller.export_controller
+        self.assertEqual(export_controller.files_description(), "")
+        signal_file = SignalFile(
+            "/data/run_A.csv", {"Time": np.array([0.0, 1.0]),
+                                "Speed": np.array([1.0, 2.0])})
+        controller.file_controller.data_files.add(signal_file)
+        self.assertEqual(export_controller.files_description(),
+                         "file1 = run_A.csv")
 
 
 if __name__ == "__main__":

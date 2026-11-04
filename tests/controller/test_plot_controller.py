@@ -13,6 +13,7 @@ from tests.support import covers
 
 from controller.plot_controller import PlotController
 from model.curve_colors import PALETTE_COLOR_TUPLE
+from model.data_files import DataFileSet
 from model.signal_file import SignalFile
 from model.workspace import DEFAULT_WIDTH_I, Workspace
 
@@ -481,6 +482,15 @@ class FakePlotView:
             return None
         return self.area_name_answer_list.pop(0)
 
+    def set_files_time_range(self, range_tuple: tuple) -> None:
+        """Record the time range of the open data files.
+
+        Inputs:
+            range_tuple: (start_s, end_s), or ().
+        Outputs: none. Not added to call_list.
+        """
+        self.files_time_range_tuple = tuple(range_tuple)
+
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:
         """Set the time range of a plot.
@@ -657,6 +667,17 @@ class PlotControllerTestCase(unittest.TestCase):
         self.signal_file = make_signal_file(10)
         self.file_controller.open(self.signal_file, False)
 
+    def close_all_files(self) -> None:
+        """Close the open data file as "Close all files" does.
+
+        Inputs: none.
+        Outputs: none. The controller then has no open data file, as
+            after LLFR-00936.
+        """
+        closed_name_list = list(self.controller.signal_file.signal_name_list)
+        self.controller.signal_file = DataFileSet()
+        self.controller.close_signals(closed_name_list)
+
     def first_tab_id(self) -> int:
         """Return the id of the first tab of the workspace.
 
@@ -711,9 +732,9 @@ class StartAndFileTest(PlotControllerTestCase):
         self.assertEqual(view.current_tab_id_i, next(iter(view.tab_dict)))
         self.assertFalse(view.delete_enabled_b)
 
-    @covers("LLFR-00015", "LLFR-00016", "HLFR-00010")
-    def test_new_file_closes_tabs_and_plots(self) -> None:
-        """A replaced file leaves one empty tab and no plots.
+    @covers("LLFR-00921", "LLFR-00920", "HLFR-00117")
+    def test_new_file_keeps_tabs_and_plots(self) -> None:
+        """An added file keeps every tab and plot.
 
         Inputs: none.
         Outputs: none.
@@ -723,32 +744,30 @@ class StartAndFileTest(PlotControllerTestCase):
         self.double_click("s2")
         self.view.handler_dict["rename_tab"](self.view.current_tab_id(),
                                              "Mine")
-        self.assertEqual(len(self.view.plot_tab_dict), 2)
+        state_tuple = self.workspace.state_tuple()
         new_file = make_signal_file(1)
-        self.file_controller.open(new_file, True)
-        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
-        self.assertEqual(self.view.plot_tab_dict, {})
-        self.assertEqual(len(self.workspace.tab_list), 1)
-        self.assertEqual(self.workspace.tab_list[0].plot_list, [])
-        self.assertFalse(self.view.delete_enabled_b)
+        self.file_controller.open(new_file, None)
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Mine"])
+        self.assertEqual(len(self.view.plot_tab_dict), 2)
+        self.assertEqual(self.workspace.state_tuple(), state_tuple)
         self.assertIs(self.controller.signal_file, new_file)
-        self.assertIn(self.view.current_tab_id(), self.view.tab_dict)
 
-    @covers("LLFR-00015", "LLFR-00016")
-    def test_old_plot_ids_are_ignored_after_replace(self) -> None:
-        """Requests for plots of the previous file do nothing.
+    @covers("LLFR-00921", "LLFR-00021")
+    def test_plots_still_answer_after_a_file_is_opened(self) -> None:
+        """A plot shown before a file is added still takes drops.
 
         Inputs: none.
         Outputs: none.
         """
         self.double_click("s1")
         old_plot_id_i = self.current_plot_ids()[0]
-        self.file_controller.open(make_signal_file(2), True)
-        call_count_i = len(self.view.call_list)
+        self.file_controller.open(make_signal_file(2), None)
         self.drop(old_plot_id_i, "s2")
-        self.view.handler_dict["curve_delete_handler"](old_plot_id_i, "s1")
-        self.view.handler_dict["plot_delete_handler"](old_plot_id_i)
-        self.assertEqual(len(self.view.call_list), call_count_i)
+        self.assertEqual(
+            [curve.signal_name_str for curve in
+             self.workspace.find_plot(old_plot_id_i).curve_list],
+            ["s1", "s2"])
 
     @covers("LLFR-00019")
     def test_double_click_without_file_does_nothing(self) -> None:
@@ -969,9 +988,9 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(
             self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00015", "LLFR-00688")
-    def test_file_replace_resets_the_shared_range(self) -> None:
-        """A newly opened file starts with the whole time range.
+    @covers("LLFR-00180", "LLFR-00917", "LLFR-00921")
+    def test_opening_a_file_keeps_the_shared_range(self) -> None:
+        """An added file keeps the x-axis range of the time plots.
 
         Inputs: none.
         Outputs: none.
@@ -979,13 +998,11 @@ class DoubleClickTest(PlotControllerTestCase):
         self.double_click("s1")
         plot_id_i = self.current_plot_ids()[0]
         self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 3.0)
-        self.file_controller.open(make_signal_file(3), True)
-        self.assertEqual(self.controller.shared_time_range_tuple, ())
-        self.view.call_list.clear()
-        self.double_click("s1")
-        self.assertNotIn("set_plot_time_range", self.view.method_names())
+        self.file_controller.open(make_signal_file(3), None)
+        self.assertEqual(self.controller.shared_time_range_tuple, (2.0, 3.0))
+        self.double_click("s2")
         self.assertEqual(
-            self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
+            self.view.range_dict[self.current_plot_ids()[1]], (2.0, 3.0))
 
 
 class DropTest(PlotControllerTestCase):
@@ -1397,9 +1414,9 @@ class TabActionTest(PlotControllerTestCase):
         self.assertTrue(self.view.delete_enabled_b)
 
     @covers("LLFR-00210", "LLFR-00026", "LLFR-00028", "LLFR-00138",
-            "LLFR-00016", "HLFR-00015", "LLFR-00653", "LLFR-00654")
-    def test_tab_numbers_not_reused_until_a_file_opens(self) -> None:
-        """Deleted and undone tab numbers stay used; a file restarts them.
+            "HLFR-00015", "LLFR-00653", "LLFR-00654")
+    def test_tab_numbers_not_reused_while_the_app_runs(self) -> None:
+        """Deleted and undone tab numbers stay used; files change nothing.
 
         Inputs: none.
         Outputs: none.
@@ -1418,12 +1435,13 @@ class TabActionTest(PlotControllerTestCase):
         self.view.handler_dict["add_tab"]()
         self.assertEqual(list(self.view.tab_dict.values()),
                          ["Tab 1", "Tab 3", "Tab 5"])
-        # LLFR-00210, LLFR-00016: a replaced file restarts at Tab 1.
-        self.file_controller.open(make_signal_file(2), True)
-        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
+        # LLFR-00654: opening a file never restarts the numbering.
+        self.file_controller.open(make_signal_file(2), None)
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 5"])
         self.view.handler_dict["add_tab"]()
         self.assertEqual(list(self.view.tab_dict.values()),
-                         ["Tab 1", "Tab 2"])
+                         ["Tab 1", "Tab 3", "Tab 5", "Tab 6"])
 
     @covers("LLFR-00028", "LLFR-00066", "HLFR-00016")
     def test_delete_tab_removes_it_but_never_the_last(self) -> None:

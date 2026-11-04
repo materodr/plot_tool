@@ -1230,9 +1230,9 @@ class NavigationEndToEndTest(unittest.TestCase):
             self.assertTrue(plot_widget.grid_shown())
             self.assertEqual(plot_widget.plot_tool_str, MARKER_TOOL_STR)
 
-    @covers("LLFR-00147", "LLFR-00125", "LLFR-00678")
-    def test_grid_choice_is_kept_on_file_replace(self) -> None:
-        """A replaced file keeps the grid hidden after the user hid it;
+    @covers("LLFR-00147", "LLFR-00125", "LLFR-00678", "LLFR-00921")
+    def test_grid_choice_is_kept_on_file_open(self) -> None:
+        """An added file keeps the grid hidden after the user hid it;
         a new app start shows it again.
 
         Inputs: none.
@@ -1240,12 +1240,14 @@ class NavigationEndToEndTest(unittest.TestCase):
         """
         self.click(self.top_panel.grid_button)
         self.assertFalse(self.top_panel.grid_button.is_active())
-        self.plot_controller.on_file_opened(self.make_file(8.0), True)
+        plot_count_i = len(self.all_plot_widgets())
+        self.plot_controller.on_file_opened(self.make_file(8.0), None)
         self.main_window.signal_double_click_handler("speed")
         self.process_events()
         self.assertFalse(self.top_panel.grid_button.is_active())
-        self.assertEqual(len(self.all_plot_widgets()), 1)
-        self.assertFalse(self.all_plot_widgets()[0].grid_shown())
+        self.assertEqual(len(self.all_plot_widgets()), plot_count_i + 1)
+        for plot_widget in self.all_plot_widgets():
+            self.assertFalse(plot_widget.grid_shown())
         # LLFR-00147: a new app start (window and controllers) shows it
         # again, whatever the user chose before.
         from controller.main_controller import MainController

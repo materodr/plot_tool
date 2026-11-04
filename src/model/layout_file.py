@@ -18,7 +18,7 @@ An example of a layout file::
 
     {
       "format": "plot_tool layout",
-      "version": 2,
+      "version": 3,
       "shown_tab": 0,
       "time_range": {"start": 0.5, "end": 2.25},
       "grid": true,
@@ -94,9 +94,18 @@ from model.workspace import (
     DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
     delta_value_zero_b, spans_overlap_b)
 
-# LLFR-00228: the identification of a layout file; the version is 2.
+# LLFR-00228, LLFR-00471: the identification of a layout file; the
+# version is 3, whose signal names carry the file prefix (LLFR-00948).
 LAYOUT_FORMAT_STR = "plot_tool layout"
-LAYOUT_VERSION_I = 2
+LAYOUT_VERSION_I = 3
+# LLFR-00963: the first version whose names carry the file prefix, and
+# the prefix that the names of an older file are read with.
+PREFIXED_NAMES_VERSION_I = 3
+OLDER_LAYOUT_PREFIX_STR = "file1_"
+# LLFR-00225 item 10: the keys of the name and the sources of a
+# synthetic signal entry (model.synthetic_signals).
+SYNTHETIC_NAME_KEY_STR = "name"
+SYNTHETIC_SOURCES_KEY_STR = "signals"
 # LLFR-00219, LLFR-00221: the extension of a layout file.
 LAYOUT_SUFFIX_STR = ".json"
 # LLFR-00227: the JSON text is indented by 2 spaces.
@@ -695,7 +704,78 @@ def parse_layout_text(text_str: str, path_str: str = "") -> dict:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NEWER_VERSION_REASON_STR.format(
                 version=version_i, supported=LAYOUT_VERSION_I)))
+    # LLFR-00963, LLFR-00472: the names of an older file mean file 1.
+    if version_i < PREFIXED_NAMES_VERSION_I:
+        prefix_older_names(layout_dict)
     return layout_dict
+
+
+def prefixed_older_name(name_value):
+    """Return a signal name of an older layout file as read now.
+
+    Inputs:
+        name_value: a value saved as a signal name.
+    Outputs: ``file1_`` followed by the name for a text (LLFR-00963);
+        any other value unchanged, so that the load report names it as
+        it would without this reading.
+    """
+    # LLFR-00963: `Speed` means `file1_Speed`.
+    if isinstance(name_value, str):
+        return OLDER_LAYOUT_PREFIX_STR + name_value
+    return name_value
+
+
+def prefix_older_point(entry) -> None:
+    """Prefix the signal name of a data tip or delta marker point.
+
+    Inputs:
+        entry: a data tip entry or a point entry of a delta marker, as
+            read by json; any value is accepted.
+    Outputs: none; the "signal" value of a dict is changed in place.
+    """
+    # LLFR-00963: the names of the pinned data tips and delta markers.
+    if isinstance(entry, dict) and SIGNAL_KEY_STR in entry:
+        entry[SIGNAL_KEY_STR] = prefixed_older_name(entry[SIGNAL_KEY_STR])
+
+
+def prefix_older_names(layout_dict: dict) -> None:
+    """Read the signal names of an older layout file as names of file 1.
+
+    Inputs:
+        layout_dict: the content of a layout file whose version is lower
+            than 3 (LLFR-00471); hand-edited values are accepted.
+    Outputs: none; every signal name of its curves, pinned data tips,
+        delta markers and synthetic signal entries (the names of the
+        synthetic signals and of the signals they are computed from) is
+        given the prefix ``file1_`` in place (LLFR-00963). The names are
+        then used as if they had been saved so, so the load report does
+        not list them (LLFR-00964).
+    """
+    # LLFR-00963: the curves, data tips and delta markers of each plot.
+    for tab_entry in list_entry(layout_dict, TABS_KEY_STR):
+        for plot_entry_value in list_entry(tab_entry, PLOTS_KEY_STR):
+            for curve_entry in list_entry(plot_entry_value, CURVES_KEY_STR):
+                prefix_older_point(curve_entry)
+            for tip_entry in list_entry(plot_entry_value,
+                                        DATA_TIPS_KEY_STR):
+                prefix_older_point(tip_entry)
+            for delta_entry in list_entry(plot_entry_value,
+                                          DELTA_MARKERS_KEY_STR):
+                if isinstance(delta_entry, dict):
+                    prefix_older_point(delta_entry.get(FIRST_POINT_KEY_STR))
+                    prefix_older_point(delta_entry.get(SECOND_POINT_KEY_STR))
+    # LLFR-00963: the synthetic signals and the signals they come from.
+    for signal_entry in list_entry(layout_dict, SYNTHETIC_SIGNALS_KEY_STR):
+        if not isinstance(signal_entry, dict):
+            continue
+        if SYNTHETIC_NAME_KEY_STR in signal_entry:
+            signal_entry[SYNTHETIC_NAME_KEY_STR] = prefixed_older_name(
+                signal_entry[SYNTHETIC_NAME_KEY_STR])
+        source_value = signal_entry.get(SYNTHETIC_SOURCES_KEY_STR)
+        if isinstance(source_value, list):
+            signal_entry[SYNTHETIC_SOURCES_KEY_STR] = [
+                prefixed_older_name(name_value)
+                for name_value in source_value]
 
 
 def read_layout_file(path_str: str) -> dict:
@@ -750,12 +830,17 @@ class LayoutBuilder:
         signal_dict: signal name -> numpy array of the open data file;
             the builder copies it and adds the synthetic signals the
             file can draw (LLFR-00230, LLFR-00262).
-        time_array: the values of the time signal, in seconds.
+        time_array: the values of the time signal, in seconds, or a
+            function that takes a signal name and returns the time
+            signal of that signal's data file (LLFR-00912).
+        files_range_tuple: the time range of the open data files
+            (LLFR-00916); None takes the range of time_array.
     Attributes:
         report: the LayoutReport being filled.
     """
 
-    def __init__(self, workspace, signal_dict: dict, time_array) -> None:
+    def __init__(self, workspace, signal_dict: dict, time_array,
+                 files_range_tuple=None) -> None:
         """Store the workspace and the signals.
 
         Inputs: see the class docstring.
@@ -770,9 +855,39 @@ class LayoutBuilder:
         # LLFR-00282: signal name of the file -> (name drawn, samples),
         # or None for a synthetic signal of the file not created.
         self.synthetic_name_dict = {}
-        self.time_array = np.asarray(time_array, dtype=float)
-        self.file_range_tuple = file_time_range(self.time_array)
+        # LLFR-00912: each signal has the time signal of its own file.
+        if callable(time_array):
+            self.time_function = time_array
+            self.time_array = None
+        else:
+            self.time_array = np.asarray(time_array, dtype=float)
+            self.time_function = None
+        # LLFR-00916, LLFR-00233, LLFR-00234: the time range of the open
+        # data files.
+        if files_range_tuple is not None:
+            self.file_range_tuple = tuple(files_range_tuple)
+        elif self.time_array is not None:
+            self.file_range_tuple = file_time_range(self.time_array)
+        else:
+            self.file_range_tuple = ()
         self.report = LayoutReport()
+
+    def time_of(self, signal_name_str: str):
+        """Return the time signal a signal is drawn against.
+
+        Inputs:
+            signal_name_str: a signal name of the signal list.
+        Outputs: a numpy float array of times, in seconds; empty when
+            the time of the signal is not known.
+        """
+        # LLFR-00912, LLFR-00232: the times of the signal's own file.
+        if self.time_function is None:
+            return self.time_array
+        try:
+            return np.asarray(self.time_function(signal_name_str),
+                              dtype=float)
+        except KeyError:
+            return np.asarray([], dtype=float)
 
     # Signals and points ---------------------------------------------
 
@@ -845,7 +960,8 @@ class LayoutBuilder:
         if not plot.has_signal(signal_value):
             return ((), time_s,
                     f"the signal {signal_value} is not drawn in its plot")
-        difference_array = np.abs(self.time_array - time_s)
+        signal_time_array = self.time_of(signal_value)
+        difference_array = np.abs(signal_time_array - time_s)
         if not np.any(np.isfinite(difference_array)):
             return ((), time_s, "the data file has no valid time")
         sample_index_i = int(np.nanargmin(difference_array))
@@ -853,7 +969,7 @@ class LayoutBuilder:
             return ((), time_s,
                     f"the signal {signal_value} has no sample within 1 "
                     f"microsecond of this time")
-        sample_time_s = float(self.time_array[sample_index_i])
+        sample_time_s = float(signal_time_array[sample_index_i])
         value_array = np.asarray(self.signal_dict[signal_value],
                                  dtype=float)
         if sample_index_i >= value_array.size:
@@ -1692,18 +1808,23 @@ class LayoutBuilder:
 
 
 def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
-                   time_array, synthetic_signal_builder=None):
+                   time_array, synthetic_signal_builder=None,
+                   files_range_tuple=None):
     """Rebuild the layout of a file in a workspace.
 
     Inputs:
         workspace: the Workspace to add the layout to.
         layout_dict: the content of the file (parse_layout_text).
         signal_dict: signal name -> numpy array of the open data file.
-        time_array: the values of the time signal, in seconds.
+        time_array: the values of the time signal, in seconds, or a
+            function signal name -> time signal of its file.
         synthetic_signal_builder: optional function of LayoutBuilder.
             rebuild for the synthetic signals (LLFR-00262).
+        files_range_tuple: the time range of the open data files, or
+            None for the range of time_array (LLFR-00916).
     Outputs: the LayoutResult.
     """
     # LLFR-00229 to LLFR-00235: see LayoutBuilder.
-    return LayoutBuilder(workspace, signal_dict, time_array).rebuild(
+    return LayoutBuilder(workspace, signal_dict, time_array,
+                         files_range_tuple).rebuild(
         layout_dict, synthetic_signal_builder)
