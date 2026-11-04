@@ -1,10 +1,10 @@
 """Tests for the signals read from structures in MAT files.
 
 A field of a scalar (1x1) structure that holds a one-dimensional numeric
-array is a signal named by its path, at any depth (LLFR-00977, in the
-order of LLFR-00978). Struct arrays, cell arrays, matrices, text and
+array is a signal named by its path, at any depth (LLFR-00980, in the
+order of LLFR-00981). Struct arrays, cell arrays, matrices, text and
 other types are ignored with everything they hold (LLFR-00063), the
-time signal is only a top-level variable (LLFR-00979), and the checks
+time signal is only a top-level variable (LLFR-00982), and the checks
 of HLFR-00008 and HLFR-00009 apply only to the signals read
 (LLFR-00452). Every file is written inside a temporary folder; no Qt is
 needed.
@@ -90,7 +90,7 @@ class MatStructureTest(unittest.TestCase):
 class NestedStructureTest(MatStructureTest):
     """Fields of scalar structures are signals named by their path."""
 
-    @covers("LLFR-00977", "LLFR-00978", "LLFR-00062", "HLFR-00005")
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00062", "HLFR-00005")
     def test_nested_fields_named_by_path_in_file_order(self) -> None:
         """Fields at every depth are read, named and ordered by path.
 
@@ -117,7 +117,7 @@ class NestedStructureTest(MatStructureTest):
             signal_file.signal_array("engine/speed"), time_array * 3)
         self.assertEqual(signal_file.time_signal_name_str, "Time")
 
-    @covers("LLFR-00977")
+    @covers("LLFR-00980")
     def test_row_column_and_integer_fields(self) -> None:
         """1xN, Nx1 and integer fields are float64 1-D signals.
 
@@ -139,7 +139,7 @@ class NestedStructureTest(MatStructureTest):
             self.assertEqual(signal_array.shape, (3,))
             np.testing.assert_array_equal(signal_array, expected_list)
 
-    @covers("LLFR-00977", "LLFR-00008")
+    @covers("LLFR-00980", "LLFR-00008")
     def test_non_finite_field_names_its_path(self) -> None:
         """A NaN in a field gives a read error naming the field's path.
 
@@ -157,7 +157,7 @@ class NestedStructureTest(MatStructureTest):
 class IgnoredTypeTest(MatStructureTest):
     """Only scalar structures are walked (LLFR-00063)."""
 
-    @covers("LLFR-00063", "LLFR-00977")
+    @covers("LLFR-00063", "LLFR-00980")
     def test_other_types_ignored_at_every_level(self) -> None:
         """Struct arrays, cells, matrices and text are ignored anywhere.
 
@@ -185,7 +185,7 @@ class IgnoredTypeTest(MatStructureTest):
         self.assertEqual(signal_file.signal_name_list,
                          ["Time", "car/speed", "car/engine/rpm"])
 
-    @covers("LLFR-00063", "LLFR-00977")
+    @covers("LLFR-00063", "LLFR-00980")
     def test_struct_array_of_one_element_is_a_structure(self) -> None:
         """A 1x1 struct array is a scalar structure; a 1x1 cell is not.
 
@@ -200,7 +200,7 @@ class IgnoredTypeTest(MatStructureTest):
         self.assertEqual(load_signal_file(path_str).signal_name_list,
                          ["Time", "single/speed"])
 
-    @covers("LLFR-00063", "LLFR-00977")
+    @covers("LLFR-00063", "LLFR-00980")
     def test_both_scipy_structure_forms(self) -> None:
         """Record arrays and mat_struct objects give the same signals.
 
@@ -225,7 +225,7 @@ class IgnoredTypeTest(MatStructureTest):
                         collect_mat_signals("data.mat", name_str, value,
                                             signal_dict)
                 self.assertEqual(list(signal_dict), expected_list)
-        # LLFR-00977: squeezed forms (a single record or mat_struct) are
+        # LLFR-00980: squeezed forms (a single record or mat_struct) are
         # structures too.
         for option_bool in (True, False):
             with self.subTest(struct_as_record=option_bool):
@@ -241,7 +241,7 @@ class IgnoredTypeTest(MatStructureTest):
 class StructureTimeSignalTest(MatStructureTest):
     """A Time field inside a structure is an ordinary signal."""
 
-    @covers("LLFR-00979", "LLFR-00053", "HLFR-00006")
+    @covers("LLFR-00982", "LLFR-00053", "HLFR-00006")
     def test_time_field_is_an_ordinary_signal(self) -> None:
         """The top-level Time wins; engine/Time is just another signal.
 
@@ -258,7 +258,7 @@ class StructureTimeSignalTest(MatStructureTest):
         self.assertEqual(signal_file.signal_name_list,
                          ["engine/Time", "engine/time", "Time"])
 
-    @covers("LLFR-00979", "LLFR-00325", "HLFR-00070")
+    @covers("LLFR-00982", "LLFR-00325", "HLFR-00070")
     def test_only_time_inside_structure_asks_for_it(self) -> None:
         """With Time only in a structure, the user chooses the time.
 
@@ -272,7 +272,7 @@ class StructureTimeSignalTest(MatStructureTest):
         self.assertEqual(signal_file.choose_time_signal("run/Time"), "")
         self.assertEqual(signal_file.time_signal_name_str, "run/Time")
 
-    @covers("LLFR-00979", "LLFR-00977", "LLFR-00325")
+    @covers("LLFR-00982", "LLFR-00980", "LLFR-00325")
     def test_structure_variable_named_time(self) -> None:
         """A top-level structure named Time is not the time signal.
 
@@ -305,7 +305,7 @@ class StructureContentCheckTest(MatStructureTest):
         self.assertEqual(load_signal_file(path_str).signal_name_list,
                          ["Time", "car/speed"])
 
-    @covers("LLFR-00452", "LLFR-00977", "LLFR-00012", "HLFR-00009")
+    @covers("LLFR-00452", "LLFR-00980", "LLFR-00012", "HLFR-00009")
     def test_field_of_another_length_fails(self) -> None:
         """A field of another sample count fails HLFR-00009 by path.
 
@@ -337,7 +337,7 @@ class StructureContentCheckTest(MatStructureTest):
         self.assertEqual(context.exception.failed_check_str,
                          SIGNAL_COUNT_CHECK_STR)
 
-    @covers("LLFR-00452", "LLFR-00977", "HLFR-00008")
+    @covers("LLFR-00452", "LLFR-00980", "HLFR-00008")
     def test_structure_fields_meet_the_signal_count(self) -> None:
         """Time and one structure field are enough to open the file.
 
@@ -366,7 +366,7 @@ class StructureNameUseTest(MatStructureTest):
         data_files.add(load_signal_file(path_str), path_str)
         return data_files
 
-    @covers("LLFR-00977", "LLFR-00905", "LLFR-00099")
+    @covers("LLFR-00980", "LLFR-00905", "LLFR-00099")
     def test_prefix_and_search(self) -> None:
         """The path gets the file prefix and is found by the search.
 
@@ -386,7 +386,7 @@ class StructureNameUseTest(MatStructureTest):
         self.assertEqual(search_prefixed_signals(name_list, "car/eng"),
                          ["file1_car/engine/speed"])
 
-    @covers("LLFR-00977", "LLFR-00240")
+    @covers("LLFR-00980", "LLFR-00240")
     def test_synthetic_signal_name(self) -> None:
         """A synthetic signal of a field keeps the path in its name.
 
@@ -399,7 +399,7 @@ class StructureNameUseTest(MatStructureTest):
                                 None),
             (1, "file1_int_car/engine/speed", "int_car/engine/speed"))
 
-    @covers("LLFR-00977", "LLFR-00543", "LLFR-00403")
+    @covers("LLFR-00980", "LLFR-00543", "LLFR-00403")
     def test_save_signals_as_mat_flattens_the_path(self) -> None:
         """Save signals writes engine/speed as the variable engine_speed.
 

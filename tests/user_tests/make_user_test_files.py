@@ -94,7 +94,7 @@ def write_good_files(folder_str: str, signal_dict: dict) -> None:
     mat_variable_dict["matrix_2d"] = np.ones((3, 3))
     scipy.io.savemat(os.path.join(folder_str, "signals.mat"),
                      mat_variable_dict)
-    # LLFR-00977, LLFR-00978, LLFR-00979, LLFR-00063: signals in nested
+    # LLFR-00980, LLFR-00981, LLFR-00982, LLFR-00063: signals in nested
     # scalar structures, named by their path ("car/engine/speed"); a
     # "Time" field inside a structure is an ordinary signal; a struct
     # array, a cell array and a matrix inside the structures are ignored.
@@ -132,7 +132,7 @@ def nested_mat_variables(signal_dict: dict) -> dict:
     cell_array = np.empty((1, 2), dtype=object)
     cell_array[0, 0] = signal_dict["Noise"]
     cell_array[0, 1] = {"hidden": signal_dict["Noise"]}
-    # LLFR-00977: "Ramp" as a 1xN row and "Pressure" as an Nx1 column.
+    # LLFR-00980: "Ramp" as a 1xN row and "Pressure" as an Nx1 column.
     return {
         "Time": signal_dict["Time"],
         "Sine_1Hz": signal_dict["Sine_1Hz"],

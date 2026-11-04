@@ -109,7 +109,7 @@ class SampleFileTest(unittest.TestCase):
         """
         self.assert_format_has_good_file("MATLAB")
 
-    @covers("LLFR-00977", "LLFR-00978", "LLFR-00979", "LLFR-00063")
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00063")
     def test_nested_structures_sample_content(self) -> None:
         """nested_structures.mat has its fields named by their path.
 

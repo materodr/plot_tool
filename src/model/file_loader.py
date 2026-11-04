@@ -409,7 +409,7 @@ def read_mat_signals(path_str: str) -> dict:
     # LLFR-00062: scipy.io is imported on the first MAT file.
     import scipy.io
     try:
-        # LLFR-00977: squeeze_me stays off, because squeezing makes a
+        # LLFR-00980: squeeze_me stays off, because squeezing makes a
         # 1x1 cell array that holds a structure look like the structure
         # itself, and cell arrays must be ignored (LLFR-00063).
         variable_dict = scipy.io.loadmat(path_str, squeeze_me=False,
@@ -429,7 +429,7 @@ def read_mat_signals(path_str: str) -> dict:
         # LLFR-00063: skip the file header entries.
         if name_str.startswith("__"):
             continue
-        # LLFR-00062, LLFR-00977, LLFR-00978: the variable, or the
+        # LLFR-00062, LLFR-00980, LLFR-00981: the variable, or the
         # fields of its structure, in the file's order.
         collect_mat_signals(file_name_str, name_str, value, signal_dict)
     return signal_dict
@@ -453,7 +453,7 @@ def collect_mat_signals(file_name_str: str, path_str: str, value: object,
     Outputs: none. Adds to signal_dict. Raises FileReadError for NaN or
         infinite samples.
     """
-    # LLFR-00062, LLFR-00977: a 1xN or Nx1 numeric array is one signal.
+    # LLFR-00062, LLFR-00980: a 1xN or Nx1 numeric array is one signal.
     if is_mat_signal(value):
         signal_dict[path_str] = finite_signal_array(file_name_str,
                                                     path_str, value)
@@ -463,7 +463,7 @@ def collect_mat_signals(file_name_str: str, path_str: str, value: object,
     field_list = mat_structure_field_list(value)
     if field_list is None:
         return
-    # LLFR-00977, LLFR-00978: the fields in the structure's order, each
+    # LLFR-00980, LLFR-00981: the fields in the structure's order, each
     # named by its path, so that "car/engine/speed" is the field "speed"
     # of the structure "engine" of the variable "car".
     for field_name_str, field_value in field_list:
@@ -486,9 +486,9 @@ def mat_structure_field_list(value: object):
         (1x1) structure, for example a struct array, a cell array, a
         matrix, a text or a MATLAB object.
     """
-    # LLFR-00977: scipy.io is already imported by read_mat_signals.
+    # LLFR-00980: scipy.io is already imported by read_mat_signals.
     from scipy.io.matlab import mat_struct
-    # LLFR-00977: a squeezed structure is a single record or mat_struct.
+    # LLFR-00980: a squeezed structure is a single record or mat_struct.
     if isinstance(value, mat_struct):
         return [(name_str, getattr(value, name_str))
                 for name_str in value._fieldnames]
@@ -501,11 +501,11 @@ def mat_structure_field_list(value: object):
     if type(value) is not np.ndarray or value.size != 1:
         return None
     element = value.reshape(-1)[0]
-    # LLFR-00977: a 1x1 record array (struct_as_record=True).
+    # LLFR-00980: a 1x1 record array (struct_as_record=True).
     if value.dtype.names is not None:
         return [(name_str, element[name_str])
                 for name_str in value.dtype.names]
-    # LLFR-00977: a 1x1 object array that holds a mat_struct; a 1x1 cell
+    # LLFR-00980: a 1x1 object array that holds a mat_struct; a 1x1 cell
     # array holds an array instead and is ignored (LLFR-00063).
     if value.dtype.kind == "O" and isinstance(element, mat_struct):
         return [(name_str, getattr(element, name_str))
@@ -546,7 +546,7 @@ def is_mat_signal(value: object) -> bool:
         (N,), (1, N) or (N, 1); False for anything else (matrices, text,
         structs, cells, complex or boolean values).
     """
-    # LLFR-00062, LLFR-00063, LLFR-00977: only 1-D numeric arrays are
+    # LLFR-00062, LLFR-00063, LLFR-00980: only 1-D numeric arrays are
     # signals.
     if not isinstance(value, np.ndarray) or value.dtype.kind not in "iuf":
         return False
