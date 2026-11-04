@@ -298,9 +298,10 @@ class StartupProbeTest(unittest.TestCase):
             main_window.deleteLater()
             self.application.processEvents()
 
-    @covers("LLFR-00447", "LLFR-00468")
+    @covers("LLFR-00447", "LLFR-00468", "LLFR-01177", "LLFR-01179",
+            "LLFR-01180")
     def test_folder_probe_reports_each_reused_dialog(self) -> None:
-        """With the folder probe on, three folder lines, all ok here.
+        """With the folder probe on, five folder lines, all ok here.
 
         On Linux the folder is read from Qt's own dialog (source
         "dialog"); the macOS build check reads the system panel.
@@ -340,13 +341,19 @@ class StartupProbeTest(unittest.TestCase):
                 line_str
                 for line_str in output_stream.getvalue().splitlines()
                 if line_str.startswith("plot_tool folder:")]
-            self.assertEqual(len(line_list), 3, output_stream.getvalue())
+            self.assertEqual(probe.FOLDER_PROBE_KEY_TUPLE, (
+                "open_file", "save_layout", "load_layout", "save_pdf",
+                "save_signals"))
+            self.assertEqual(len(line_list), 5, output_stream.getvalue())
             for key_str, line_str in zip(probe.FOLDER_PROBE_KEY_TUPLE,
                                          line_list):
                 field_dict = dict(part.split("=", 1)
                                   for part in line_str.split()[2:])
                 self.assertEqual(field_dict["name"], key_str)
                 self.assertEqual(field_dict["ok"], "yes", line_str)
+                # LLFR-01180: the name chosen at the first show is gone.
+                self.assertEqual(field_dict["file_name"], "-", line_str)
+                self.assertEqual(field_dict["name_ok"], "yes", line_str)
                 self.assertEqual(field_dict["source"], "dialog")
                 self.assertTrue(field_dict["expected"].endswith("second"))
                 self.assertFalse(pool.dialog(key_str).isVisible())
@@ -360,6 +367,19 @@ class StartupProbeTest(unittest.TestCase):
                     {"PLOT_TOOL_FOLDER_PROBE": "1"}, io.StringIO(),
                     main_window=main_window)
             self.assertEqual(fake_application.exit_code_list, [1])
+            # LLFR-01180: a name left from the earlier use fails the run.
+            with mock.patch.object(probe, "dialog_name_str",
+                                   return_value="earlier copy.csv"):
+                output_stream = io.StringIO()
+                fake_application.exit_code_list.clear()
+                probe.report_startup(
+                    fake_application, 0.0, True, mock.Mock(),
+                    {"PLOT_TOOL_FOLDER_PROBE": "1"}, output_stream,
+                    main_window=main_window)
+            self.assertEqual(fake_application.exit_code_list, [1])
+            self.assertIn("file_name=earlier_copy.csv name_ok=no",
+                          output_stream.getvalue())
+            self.assertEqual(probe.visible_panel_name_str("linux"), "")
         finally:
             main_window.close()
             main_window.deleteLater()

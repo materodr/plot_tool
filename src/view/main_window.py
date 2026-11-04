@@ -2445,17 +2445,21 @@ class MainWindow(QMainWindow):
         # LLFR-00146: a tab without plots has nothing to copy.
         return len(self.plot_panel.plot_id_list(self.current_tab_id()))
 
-    def ask_pdf_save_path(self) -> str:
+    def ask_pdf_save_path(self, start_folder_str: str = "") -> str:
         """Show the save file dialog for a .pdf file.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: the folder the dialog shows; "" keeps the
+                folder it shows now.
         Outputs: the chosen path, or "" when the user cancelled.
         """
         # LLFR-00128: a save file dialog for a .pdf file.
         # LLFR-00130: an empty path means the dialog was cancelled.
-        # LLFR-00406: the dialog built once, shown again.
+        # LLFR-00406: the dialog built once, shown again, in the folder
+        # of LLFR-01176 and LLFR-01177, with no file name of an earlier
+        # use (LLFR-01180).
         dialog = self.file_dialog_pool.prepared_dialog(
-            SAVE_PDF_DIALOG_KEY_STR)
+            SAVE_PDF_DIALOG_KEY_STR, start_folder_str)
         return self.run_pdf_save_dialog(dialog) or ""
 
     def build_pdf_save_dialog(self) -> QFileDialog:
@@ -2748,7 +2752,8 @@ class MainWindow(QMainWindow):
         Outputs: the chosen path, or "" when the user cancelled.
         """
         # LLFR-00219, LLFR-00222, LLFR-00223. LLFR-00406: the dialog
-        # built once, shown again in the folder of LLFR-00220.
+        # built once, shown again in the folder of LLFR-00220 and
+        # LLFR-00468, with no file name of an earlier use (LLFR-01180).
         dialog = self.file_dialog_pool.prepared_dialog(
             SAVE_LAYOUT_DIALOG_KEY_STR, start_folder_str)
         return self.run_layout_dialog(dialog) or ""
@@ -2761,7 +2766,8 @@ class MainWindow(QMainWindow):
         Outputs: the chosen path, or "" when the user cancelled.
         """
         # LLFR-00221, LLFR-00222. LLFR-00406: the dialog built once,
-        # shown again in the folder of LLFR-00220.
+        # shown again in the folder of LLFR-00220 and LLFR-00468, with
+        # no file selected at an earlier use (LLFR-01180).
         dialog = self.file_dialog_pool.prepared_dialog(
             LOAD_LAYOUT_DIALOG_KEY_STR, start_folder_str)
         return self.run_layout_dialog(dialog) or ""
@@ -2998,7 +3004,9 @@ class MainWindow(QMainWindow):
             the dialog itself asked before replacing an existing file.
         """
         # LLFR-00396, LLFR-00397, LLFR-00398. LLFR-00406: the dialog
-        # built once, shown again in the folder of the data file.
+        # built once, shown again in the folder of LLFR-01178 and
+        # LLFR-01179; the name of LLFR-00532 is proposed after the reset
+        # that clears the name of an earlier use (LLFR-01180).
         dialog = self.file_dialog_pool.prepared_dialog(
             SAVE_SIGNALS_DIALOG_KEY_STR, start_folder_str)
         self.propose_signals_file(dialog, file_name_str, format_str)

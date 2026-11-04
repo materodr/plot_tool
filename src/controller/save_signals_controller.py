@@ -90,6 +90,10 @@ class SaveSignalsController:
             and store hold the signals of the signal list.
     Attributes:
         data_file_open_b: True once a data file is open.
+        file_controller: the FileController, whose dialog folder is the
+            first folder of the dialog (LLFR-01178).
+        signals_folder_str: folder of the last signals file saved
+            successfully, "" before the first one (LLFR-01179).
     """
 
     def __init__(self, view, file_controller, synthetic_controller) -> None:
@@ -105,6 +109,9 @@ class SaveSignalsController:
         self.view = view
         self.synthetic_controller = synthetic_controller
         self.data_file_open_b = False
+        # LLFR-01178, LLFR-01179: the folders of the dialog.
+        self.file_controller = file_controller
+        self.signals_folder_str = ""
         view.set_save_signals_handler(self.on_save_signals_requested)
         # LLFR-00395: disabled while no data file is open.
         view.set_save_signals_button_enabled(False)
@@ -134,6 +141,28 @@ class SaveSignalsController:
         # LLFR-00395, LLFR-00936: disabled while no data file is open.
         self.data_file_open_b = len(data_files) > 0
         self.view.set_save_signals_button_enabled(self.data_file_open_b)
+
+    def dialog_folder(self, data_path_str: str) -> str:
+        """Return the folder the next Save signals dialog shows.
+
+        Inputs:
+            data_path_str: the path of the open data file with the
+                lowest number, used only when the file controller gives
+                no folder.
+        Outputs: the folder of the last signals file saved
+            successfully, or else the folder the Open file dialog would
+            show now.
+        """
+        # LLFR-01179: after a save, the folder of the last saved file.
+        if self.signals_folder_str:
+            return self.signals_folder_str
+        # LLFR-01178: before, the folder of the last data file opened
+        # (LLFR-00447, LLFR-01011), as the Open file dialog would show.
+        open_folder_str = str(getattr(self.file_controller,
+                                      "dialog_folder_str", "") or "")
+        if open_folder_str:
+            return open_folder_str
+        return os.path.dirname(os.path.abspath(data_path_str))
 
     def on_save_signals_requested(self) -> None:
         """Save the signals to a file chosen by the user.
@@ -204,12 +233,13 @@ class SaveSignalsController:
         if same_time_function is not None and not same_time_function():
             self.view.show_signals_save_error(DIFFERENT_TIME_SIGNALS_STR)
             return
-        # LLFR-00396: the dialog opens in the folder of the data file,
-        # with "<name>_signals.<extension>" and its format chosen.
+        # LLFR-01178, LLFR-01179: the folder of the dialog. LLFR-00532:
+        # "<name>_signals.<extension>" of the lowest-numbered data file,
+        # with its format chosen.
         data_path_str = signal_file.path_str
         data_format_str = format_of_path(data_path_str) or CSV_FORMAT_STR
         path_str, format_str, confirmed_b = self.view.ask_signals_save_path(
-            os.path.dirname(os.path.abspath(data_path_str)),
+            self.dialog_folder(data_path_str),
             proposed_file_name(data_path_str), data_format_str)
         # LLFR-00398: a cancelled dialog saves nothing and says nothing.
         if not path_str:
@@ -282,6 +312,9 @@ class SaveSignalsController:
                 f"{failed_str}\n\n{reason_str}" if reason_str
                 else failed_str)
             return
+        # LLFR-01179: only a successful save moves the dialog folder.
+        self.signals_folder_str = os.path.dirname(
+            os.path.abspath(save_path_str))
         # LLFR-00404: one box with the changed names, none otherwise;
         # the removal of the prefix alone is not a change (LLFR-00945).
         change_list = [

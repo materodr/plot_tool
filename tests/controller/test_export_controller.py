@@ -37,6 +37,8 @@ class FakeExportView:
         self.replace_answer_b = False
         self.call_list = []
         self.description_list = []
+        # LLFR-01176, LLFR-01177: the folder of every PDF dialog.
+        self.folder_list = []
         # LLFR-01136: the plot count of the tab shown in each window.
         self.window_plot_count_dict = {}
 
@@ -68,13 +70,15 @@ class FakeExportView:
         self.call_list.append("current_tab_plot_count")
         return self.current_plot_count_i
 
-    def ask_pdf_save_path(self) -> str:
+    def ask_pdf_save_path(self, start_folder_str: str = "") -> str:
         """Record the dialog and return the prepared answer.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: the folder the dialog would show.
         Outputs: answer_path_str.
         """
         self.call_list.append("ask_pdf_save_path")
+        self.folder_list.append(start_folder_str)
         return self.answer_path_str
 
     def save_tabs_pdf(self, path_str: str,
@@ -211,6 +215,77 @@ class EnsurePdfSuffixTest(unittest.TestCase):
                          "/a/plots.txt.pdf")
         self.assertEqual(ensure_pdf_suffix("/a/plots.pdf"), "/a/plots.pdf")
         self.assertEqual(ensure_pdf_suffix("/a/plots.PDF"), "/a/plots.PDF")
+
+
+class PdfDialogFolderTest(unittest.TestCase):
+    """The folder the PDF save dialog shows (LLFR-01176, LLFR-01177)."""
+
+    def setUp(self) -> None:
+        """Create the controller with a fake view and an Open file folder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportView()
+        self.open_folder_str = "/data/start"
+        self.controller = ExportController(
+            self.view, lambda: "", lambda: self.open_folder_str)
+
+    def export_to(self, path_str: str, saved_b: bool = True) -> None:
+        """Run one export that answers the dialog with a path.
+
+        Inputs:
+            path_str: the answer of the dialog, "" for a cancel.
+            saved_b: False when the PDF file cannot be written.
+        Outputs: none.
+        """
+        self.view.answer_path_str = path_str
+        self.view.save_result_tuple = (saved_b, "" if saved_b else "full")
+        self.controller.on_export_requested()
+
+    @covers("LLFR-01176", "LLFR-01177", "LLFR-00130", "LLFR-00131")
+    def test_folder_sequence(self) -> None:
+        """The Open file folder until a PDF is saved, then the folder of
+        the last PDF saved; cancels and failures change nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01176: a cancel and a failed save keep the first folder,
+        # which follows the Open file dialog (a data file opened from
+        # another folder meanwhile).
+        self.export_to("")
+        self.export_to("/broken/a.pdf", saved_b=False)
+        self.open_folder_str = "/data/opened"
+        # LLFR-01177: the folder of the saved PDF, also when ".pdf" was
+        # added to the typed name.
+        self.export_to("/pdf/first/report")
+        self.export_to("")
+        self.export_to("/broken/b.pdf", saved_b=False)
+        self.open_folder_str = "/data/other"
+        self.export_to("/pdf/second/plots.pdf")
+        self.export_to("")
+        self.assertEqual(self.view.folder_list, [
+            "/data/start", "/data/start", "/data/opened",
+            "/pdf/first", "/pdf/first", "/pdf/first", "/pdf/second"])
+        self.assertEqual(self.controller.pdf_folder_str,
+                         os.path.abspath("/pdf/second"))
+
+    @covers("LLFR-01176", "LLFR-00145")
+    def test_no_dialog_no_folder_change(self) -> None:
+        """Without plots no dialog is shown; without an Open file folder
+        function the dialog keeps its own folder ("").
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.exportable_tab_count_i = 0
+        self.export_to("/pdf/x.pdf")
+        self.assertEqual(self.view.folder_list, [])
+        self.assertEqual(self.controller.pdf_folder_str, "")
+        plain_view = FakeExportView()
+        ExportController(plain_view).on_export_requested()
+        self.assertEqual(plain_view.folder_list, [""])
 
 
 class ExportFlowTest(unittest.TestCase):
