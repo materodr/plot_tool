@@ -26,14 +26,14 @@ def is_time_signal_name(signal_name_str: str) -> bool:
     signal is named after its dataset path (LLFR-00134), so a dataset in
     a group, such as ``engine/time``, never matches (LLFR-00330). The
     same holds for a field of a MAT structure, such as ``engine/Time``
-    (LLFR-00980, LLFR-00982).
+    (LLFR-00991, LLFR-00993).
 
     Inputs:
         signal_name_str: a signal name.
     Outputs: True when the name is "Time", "time", "TIME" and so on.
     """
     # LLFR-00053: ignore the difference between uppercase and lowercase.
-    # LLFR-00330, LLFR-00982: the path of a dataset in a group, or of a
+    # LLFR-00330, LLFR-00993: the path of a dataset in a group, or of a
     # field of a MAT structure, has a "/" and so is never "time".
     return (str(signal_name_str).casefold()
             == TIME_SIGNAL_NAME_STR.casefold())
