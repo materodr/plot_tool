@@ -227,8 +227,9 @@ class PlotController:
         self.signal_file = None
         self.plot_tool_str = NO_TOOL_STR
         # LLFR-00147: the grid is shown at every start; no choice of an
-        # earlier run is kept.
-        self.grid_shown_b = True
+        # earlier run is kept. LLFR-01097: it is kept by the workspace,
+        # so that a click on the Grid button can be undone.
+        self.workspace.grid_shown_b = True
         # LLFR-00070, LLFR-00180: no plot yet, so the whole range.
         self.shared_time_range_tuple = ()
         # LLFR-00139: the 30 most recent undoable actions;
@@ -1293,18 +1294,42 @@ class PlotController:
                 self.view.set_plot_time_range(plot.plot_id_i,
                                               *limit_tuple)
 
+    @property
+    def grid_shown_b(self) -> bool:
+        """Tell whether the grid is shown on the plots.
+
+        Inputs: none.
+        Outputs: the grid state kept by the workspace (LLFR-01097).
+        """
+        # LLFR-00122, LLFR-00123, LLFR-01097: one state for every plot.
+        return bool(self.workspace.grid_shown_b)
+
     def on_grid_toggled(self, shown_b: bool) -> None:
         """Show or hide the grid on every plot of every tab.
 
         Inputs:
             shown_b: True when the Grid button asks to show the grid.
+        Outputs: none. A click that changes the grid is one undoable
+            action.
+        """
+        # LLFR-01097: each click that shows or hides the grid is one
+        # undoable action; a click that changes nothing records nothing.
+        snapshot = self.take_snapshot()
+        self.apply_grid_shown(shown_b)
+        self.record_undo(snapshot)
+
+    def apply_grid_shown(self, shown_b: bool) -> None:
+        """Show or hide the grid, with no undo record.
+
+        Inputs:
+            shown_b: True to show the grid.
         Outputs: none.
         """
         # LLFR-00122, LLFR-00123: all plots, all tabs; LLFR-00125: the
         # view applies the state to new plots too. LLFR-00124: the view
         # shows the Grid button to match. The state is kept when a file
         # replaces another one.
-        self.grid_shown_b = bool(shown_b)
+        self.workspace.grid_shown_b = bool(shown_b)
         self.view.set_grid_shown(self.grid_shown_b)
 
     # ----------------------------------------------------------------
@@ -2898,6 +2923,9 @@ class PlotController:
         # is kept; LLFR-00180: with no plot left, it is the whole range.
         self.forget_range_without_plots()
         self.rebuild_all_views(current_tab_id_i)
+        # LLFR-01097, LLFR-00124: the grid of that state, on every plot
+        # and on the Grid button.
+        self.view.set_grid_shown(self.grid_shown_b)
         # LLFR-00138, LLFR-00192, LLFR-01020: the main window's panel
         # width of that state.
         if self.workspace.main_panel_width_i > 0:
@@ -3162,7 +3190,7 @@ class PlotController:
         self.forget_range_without_plots()
         # LLFR-00230, LLFR-00122, LLFR-00123: the file's grid setting.
         if result.grid_shown_b is not None:
-            self.on_grid_toggled(result.grid_shown_b)
+            self.apply_grid_shown(result.grid_shown_b)
         # LLFR-00238: loading clears the undo and redo history and is not
         # itself undoable.
         self.undo_history.clear()

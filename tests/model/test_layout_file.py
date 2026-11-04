@@ -1247,6 +1247,34 @@ class LayoutValueTest(LayoutRebuildTestCase):
                 self.assertEqual(result.panel_width_tuple, ())
                 self.assertEqual(len(result.report.replaced_line_list), 2)
 
+    @covers("LLFR-01111", "LLFR-00237", "HLFR-00050", "HLFR-00052")
+    def test_panel_widths_qt_cannot_take(self) -> None:
+        """Main window panel widths above 16777215 pixels (for example
+        above 2**31 - 1) keep the current widths and are reported; the
+        largest width Qt can take is used.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for widths_value in (
+                {"plot_panel": 900, "signal_list_panel": 2 ** 31},
+                {"plot_panel": 2 ** 40, "signal_list_panel": 300},
+                {"plot_panel": 900, "signal_list_panel": 16777216}):
+            with self.subTest(widths=widths_value):
+                self.setUp()
+                result = self.rebuild(minimal_layout(
+                    [], panel_widths=widths_value))
+                self.assertEqual(result.panel_width_tuple, ())
+                self.assertEqual(len(result.report.replaced_line_list), 1)
+                self.assertIn("16777215",
+                              result.report.replaced_line_list[0])
+        self.setUp()
+        result = self.rebuild(minimal_layout(
+            [], panel_widths={"plot_panel": 16777215,
+                              "signal_list_panel": 1}))
+        self.assertEqual(result.panel_width_tuple, (16777215, 1))
+        self.assertTrue(result.report.is_empty(), result.report.text())
+
     @covers("LLFR-00235", "LLFR-00231")
     def test_never_raises_on_wrong_types(self) -> None:
         """A layout full of wrong types is rebuilt without an exception.

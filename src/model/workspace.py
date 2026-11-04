@@ -1426,22 +1426,29 @@ class Tab:
                 int(self.panel_width_i))
 
 
+# LLFR-01016: the share of an undocked window that its signal list
+# panel takes the first time it is shown.
+FIRST_PANEL_WIDTH_FRACTION_F = 0.25
+
+
 def first_panel_width_i(main_panel_width_i: int, window_width_i: int) -> int:
     """Return the width of a panel shown for the first time.
 
     Inputs:
         main_panel_width_i: width of the signal list panel of the main
-            window, in pixels (0 when unknown).
+            window, in pixels (0 when unknown), used only when the
+            window's width is unknown.
         window_width_i: width of the undocked window, in pixels (0 when
             unknown).
-    Outputs: the main panel's width, limited to half the window's width,
-        and at least 1 pixel.
+    Outputs: 25% of the window's width, rounded to whole pixels, or the
+        main panel's width when the window's width is unknown; at least
+        1 pixel.
     """
-    # LLFR-01016: the main window's panel width, at most half the window.
-    width_i = max(int(main_panel_width_i), 1)
+    # LLFR-01016: a quarter of the undocked window's width.
     if int(window_width_i) > 1:
-        width_i = min(width_i, int(window_width_i) // 2)
-    return max(width_i, 1)
+        return max(int(round(int(window_width_i)
+                             * FIRST_PANEL_WIDTH_FRACTION_F)), 1)
+    return max(int(main_panel_width_i), 1)
 
 
 def arrow_end_tuple(arrow) -> tuple:
@@ -1514,7 +1521,8 @@ def plot_state_tuple(plot) -> tuple:
 
 
 def tabs_state_tuple(tab_list: list, marker_list: list,
-                     area_list=(), main_panel_width_i: int = 0) -> tuple:
+                     area_list=(), main_panel_width_i: int = 0,
+                     grid_shown_b: bool = True) -> tuple:
     """Return tabs, vertical markers and areas as plain values.
 
     Inputs:
@@ -1523,8 +1531,9 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
         area_list: the Area objects, in creation order.
         main_panel_width_i: width of the signal list panel of the main
             window, in pixels, 0 when unknown.
+        grid_shown_b: True while the grid is shown (LLFR-01097).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
-        width): one entry (tab_id_i, name_str, plot state tuples,
+        width, grid shown): one entry (tab_id_i, name_str, plot state tuples,
         row_count_i, column_count_i, window state tuple) per tab, in
         tab order, one entry
         (marker_id_i, name_str, time_s, color_str) per marker and one
@@ -1552,8 +1561,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
     area_tuple = tuple((area.area_id_i, area.name_str, area.start_s,
                         area.end_s, area.color_str)
                        for area in area_list)
-    # LLFR-01020: a drag of the main window's panel border is undoable.
-    return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i))
+    # LLFR-01020: a drag of the main window's panel border is undoable;
+    # LLFR-01097: and so is a click on the Grid button.
+    return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i),
+            bool(grid_shown_b))
 
 
 def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
@@ -1623,11 +1634,13 @@ class WorkspaceSnapshot:
             creation order.
         main_panel_width_i: width of the main window's signal list
             panel, in pixels, 0 when unknown (LLFR-01020).
+        grid_shown_b: True when the grid was shown (LLFR-01097).
     """
 
     def __init__(self, tab_list: list, state_tuple: tuple,
                  current_tab_id_i: int = -1, marker_list=(),
-                 area_list=(), main_panel_width_i: int = 0) -> None:
+                 area_list=(), main_panel_width_i: int = 0,
+                 grid_shown_b: bool = True) -> None:
         """Store the saved state.
 
         Inputs:
@@ -1648,6 +1661,8 @@ class WorkspaceSnapshot:
         self.area_list = list(area_list)
         # LLFR-01020, LLFR-00138: and the main window's panel width.
         self.main_panel_width_i = int(main_panel_width_i)
+        # LLFR-01097, LLFR-00138: and whether the grid was shown.
+        self.grid_shown_b = bool(grid_shown_b)
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
         """Rename a signal in the saved state.
@@ -1665,7 +1680,8 @@ class WorkspaceSnapshot:
         self.state_tuple = tabs_state_tuple(self.tab_list,
                                             self.marker_list,
                                             self.area_list,
-                                            self.main_panel_width_i)
+                                            self.main_panel_width_i,
+                                            self.grid_shown_b)
 
 
 class Workspace:
@@ -1720,6 +1736,10 @@ class Workspace:
         # LLFR-01020: width of the main window's signal list panel, in
         # pixels, as the view last reported it; 0 while unknown.
         self.main_panel_width_i = 0
+        # LLFR-00147: the grid is shown at start; LLFR-01097: whether it
+        # is shown is part of the state an undo restores. A file opened
+        # or replaced keeps it.
+        self.grid_shown_b = True
         # LLFR-00024: the app starts with one tab.
         self.reset()
 
@@ -2488,7 +2508,8 @@ class Workspace:
         # and the marker and area numbering are not part of it, since
         # they only grow (LLFR-00111, LLFR-00309).
         return tabs_state_tuple(self.tab_list, self.marker_list,
-                                self.area_list, self.main_panel_width_i)
+                                self.area_list, self.main_panel_width_i,
+                                self.grid_shown_b)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -2524,7 +2545,8 @@ class Workspace:
                                  self.state_tuple(), int(current_tab_id_i),
                                  copy.deepcopy(self.marker_list),
                                  copy.deepcopy(self.area_list),
-                                 self.main_panel_width_i)
+                                 self.main_panel_width_i,
+                                 self.grid_shown_b)
 
     def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
         """Tell whether the workspace still holds a saved state.
@@ -2559,6 +2581,8 @@ class Workspace:
         # LLFR-01020, LLFR-00138: the main window's panel width.
         self.main_panel_width_i = int(getattr(snapshot,
                                               "main_panel_width_i", 0))
+        # LLFR-01097, LLFR-00138: the grid of that state.
+        self.grid_shown_b = bool(getattr(snapshot, "grid_shown_b", True))
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.
         highest_tab_id_i = max((tab.tab_id_i for tab in self.tab_list),
                                default=0)
