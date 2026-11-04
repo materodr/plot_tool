@@ -135,7 +135,10 @@ ZOOM_MOUSE_LINE_TUPLE = ("Click or drag to zoom in",
 # LLFR-00215). The Pan tool has no hold key.
 PAN_MOUSE_LINE_TUPLE = ("Drag on a plot to pan",)
 # LLFR-00213 to LLFR-00215: the shortcut or mouse use of each button,
-# next to the keys the app really uses (view.tip_key_filter and the
+# LLFR-00883: the one table the tips are built from, made from the
+# same key constants and shortcuts as the window, so that a changed
+# shortcut changes its button tip with it; next to the keys the app
+# really uses (view.tip_key_filter and the
 # shortcuts above), as (kind, value). A button that is not listed (Open
 # file, Grid, Export, Copy, Save signals, Save layout, Load layout,
 # Report a bug)
@@ -219,7 +222,8 @@ def button_tip_detail_list(name_str: str, macos_b: bool) -> list:
         a button that shows only its name (LLFR-00215), and the mouse
         use line of the Pan button.
     """
-    # LLFR-00215: every text comes from BUTTON_TIP_SHORTCUT_DICT.
+    # LLFR-00215, LLFR-00883: every text comes from
+    # BUTTON_TIP_SHORTCUT_DICT, never from a copy of it.
     if name_str not in BUTTON_TIP_SHORTCUT_DICT:
         return []
     kind_str, value = BUTTON_TIP_SHORTCUT_DICT[name_str]
