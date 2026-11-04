@@ -15,9 +15,9 @@ import unittest
 from unittest import mock
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.test_frequency_plots_view import (
-    FrequencyPlotEndToEndTest, FrequencyPlotWidgetTest)
-from tests.view.test_navigation import NavigationEndToEndTest
+# The modules, not their test classes, are imported, so that unittest
+# does not find those classes here and run their tests a second time.
+from tests.view import test_frequency_plots_view, test_navigation
 from tests.view.test_plot_tools import ALL_TOOL_TUPLE, PlotWidgetToolTestCase
 
 from controller.plot_tools import MARKER_TOOL_STR, NO_TOOL_STR
@@ -589,7 +589,8 @@ class SwipePanWidgetTest(PlotWidgetToolTestCase):
 
 
 @requires_qt
-class SwipeFrequencyWidgetTest(FrequencyPlotWidgetTest):
+class SwipeFrequencyWidgetTest(
+        test_frequency_plots_view.FrequencyPlotWidgetTest):
     """Swipes on a frequency plot (0 Hz to 25 Hz) on its own."""
 
     def setUp(self) -> None:
@@ -638,7 +639,8 @@ class SwipeEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        window_test = NavigationEndToEndTest("zoom_current_tab")
+        window_test = test_navigation.NavigationEndToEndTest(
+            "zoom_current_tab")
         window_test.setUp()
         self.addCleanup(window_test.tearDown)
         window_test.zoom_current_tab()
@@ -666,7 +668,8 @@ class SwipeEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        window_test = FrequencyPlotEndToEndTest("create_fft")
+        window_test = test_frequency_plots_view.FrequencyPlotEndToEndTest(
+            "create_fft")
         window_test.setUp()
         self.addCleanup(window_test.tearDown)
         application = get_qt_application()
