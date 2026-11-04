@@ -110,7 +110,7 @@ BUTTON_ICON_DICT = {
 # QShortcut from this constant, so the shortcut and its tip text change
 # together (LLFR-00215 Note).
 REDO_SHORTCUT_STR = "Ctrl+Y"
-# LLFR-01101, LLFR-01104, LLFR-01105: the Copy, PDF and search
+# LLFR-01136, LLFR-01139, LLFR-01140: the Copy, PDF and search
 # shortcuts, Ctrl on Windows and Cmd on macOS, kept here with the button
 # tip texts so that a shortcut and its tip change together (LLFR-00215).
 COPY_SHORTCUT_STR = "Ctrl+C"
@@ -150,7 +150,7 @@ PAN_MOUSE_LINE_TUPLE = ("Drag on a plot to pan",)
 BUTTON_TIP_SHORTCUT_DICT = {
     UNDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, UNDO_STANDARD_KEY),
     REDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, REDO_SHORTCUT_STR),
-    # LLFR-00215, LLFR-01101: "Cmd+C" or "Ctrl+C"; LLFR-01104: the
+    # LLFR-00215, LLFR-01136: "Cmd+C" or "Ctrl+C"; LLFR-01139: the
     # Export button's "Save all tabs as PDF" has "Cmd+P" or "Ctrl+P".
     COPY_TEXT_STR: (SHORTCUT_SEQUENCE_STR, COPY_SHORTCUT_STR),
     EXPORT_TEXT_STR: (SHORTCUT_SEQUENCE_STR, PDF_SHORTCUT_STR),
@@ -165,7 +165,7 @@ BUTTON_TIP_SHORTCUT_DICT = {
     ARROW_TEXT_STR: (SHORTCUT_HOLD_STR, ARROW_KEY_I),
     # LLFR-00215, LLFR-00207: "0".
     RESET_ZOOM_TEXT_STR: (SHORTCUT_PRESS_STR, RESET_ZOOM_KEY_I),
-    # LLFR-00463, LLFR-01057: "Hold Z", then the two mouse lines.
+    # LLFR-00463, LLFR-01092: "Hold Z", then the two mouse lines.
     ZOOM_TEXT_STR: (SHORTCUT_HOLD_AND_MOUSE_STR,
                     (ZOOM_KEY_I, ZOOM_MOUSE_LINE_TUPLE)),
     PAN_TEXT_STR: (MOUSE_USE_STR, PAN_MOUSE_LINE_TUPLE),
@@ -199,7 +199,7 @@ def key_name_str(key_i: int, macos_b: bool) -> str:
         return MACOS_COMMAND_NAME_STR if macos_b else CONTROL_NAME_STR
     if key_i == MARKER_KEY_I:
         return SHIFT_NAME_STR
-    # LLFR-00197, LLFR-00200, LLFR-01057: Qt's letter keys have the
+    # LLFR-00197, LLFR-00200, LLFR-01092: Qt's letter keys have the
     # code of the capital letter (Qt.Key.Key_X is ord("X")); LLFR-00207:
     # and its digit keys the code of the digit (Qt.Key.Key_0 is ord("0")).
     return chr(key_i)

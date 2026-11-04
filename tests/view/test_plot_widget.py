@@ -553,7 +553,7 @@ class ContextMenuTest(PlotWidgetTestCase):
         self.assertGreater(self.plot_widget.curve_line_width("Sine"),
                            WIDTH_PIXELS_DICT[1])
 
-    @covers("LLFR-00048", "LLFR-00049", "LLFR-01077", "HLFR-00149")
+    @covers("LLFR-00048", "LLFR-00049", "LLFR-01112", "HLFR-00150")
     def test_empty_area_menu_delete_plot(self) -> None:
         """"Delete plot" on an empty area emits plot_delete_requested.
 
@@ -568,7 +568,7 @@ class ContextMenuTest(PlotWidgetTestCase):
                          ["Position", "Delete plot"])
         find_action(menu, "Delete plot").trigger()
         self.assertEqual(record_list, [()])
-        # LLFR-01077: "Position" asks for the position picker.
+        # LLFR-01112: "Position" asks for the position picker.
         position_list = self.recorder(
             self.plot_widget.plot_position_requested)
         menu = self.plot_widget.build_context_menu(self.empty_point())

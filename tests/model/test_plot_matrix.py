@@ -1,7 +1,7 @@
 """Tests for the plot matrix of a tab, the plot swap and the tab order.
 
-They check the model of HLFR-00145 to HLFR-00150, HLFR-00018 as
-changed by #205, HLFR-00149 and HLFR-00142: the default 5 x 1 matrix,
+They check the model of HLFR-00146 to HLFR-00151, HLFR-00018 as
+changed by #205, HLFR-00150 and HLFR-00143: the default 5 x 1 matrix,
 the limit of rows times columns, the fill order, the matrices that are
 too small, the swap of two plots and the move of a tab, and that each
 of these is part of the state that an undo restores.
@@ -56,9 +56,9 @@ def add_plots(workspace: Workspace, tab, count_i: int) -> list:
 
 
 class DefaultMatrixTest(unittest.TestCase):
-    """The default plot matrix of a new tab (HLFR-00150)."""
+    """The default plot matrix of a new tab (HLFR-00151)."""
 
-    @covers("LLFR-01087", "HLFR-00150", "LLFR-00024", "LLFR-00026")
+    @covers("LLFR-01122", "HLFR-00151", "LLFR-00024", "LLFR-00026")
     def test_every_new_tab_is_five_by_one(self) -> None:
         """The tab at start and each added tab have a 5 x 1 matrix.
 
@@ -76,7 +76,7 @@ class DefaultMatrixTest(unittest.TestCase):
             self.assertEqual(tab.slot_count(), 5)
         self.assertEqual(MAXIMUM_PLOTS_PER_TAB_I, 5)
 
-    @covers("LLFR-01087", "HLFR-00150")
+    @covers("LLFR-01122", "HLFR-00151")
     def test_reset_gives_the_default_matrix_again(self) -> None:
         """After a reset the first tab has the 5 x 1 matrix again.
 
@@ -93,7 +93,7 @@ class DefaultMatrixTest(unittest.TestCase):
 class PlotLimitTest(unittest.TestCase):
     """The plots per tab are limited to rows times columns (HLFR-00018)."""
 
-    @covers("LLFR-00031", "HLFR-00018", "HLFR-00145")
+    @covers("LLFR-00031", "HLFR-00018", "HLFR-00146")
     def test_limit_follows_the_matrix(self) -> None:
         """A 2 x 3 tab takes 6 plots and refuses the 7th.
 
@@ -108,7 +108,7 @@ class PlotLimitTest(unittest.TestCase):
         self.assertIsNone(workspace.add_plot(tab.tab_id_i))
         self.assertEqual(len(tab.plot_list), 6)
 
-    @covers("LLFR-00031", "HLFR-00018", "LLFR-01092")
+    @covers("LLFR-00031", "HLFR-00018", "LLFR-01127")
     def test_ten_by_ten_holds_a_hundred_plots(self) -> None:
         """The largest matrix holds 100 plots and is the largest one.
 
@@ -126,7 +126,7 @@ class PlotLimitTest(unittest.TestCase):
         self.assertTrue(tab.is_full())
         self.assertIsNone(workspace.add_plot(tab.tab_id_i))
 
-    @covers("LLFR-00031", "LLFR-01066")
+    @covers("LLFR-00031", "LLFR-01101")
     def test_full_tab_frees_after_a_larger_matrix(self) -> None:
         """A full 5 x 1 tab takes a 6th plot once its matrix is 3 x 2.
 
@@ -141,15 +141,15 @@ class PlotLimitTest(unittest.TestCase):
         self.assertTrue(workspace.set_plot_matrix(tab.tab_id_i, 3, 2))
         self.assertFalse(tab.is_full())
         self.assertIsNotNone(workspace.add_plot(tab.tab_id_i))
-        # LLFR-01066: the other tab keeps its own matrix.
+        # LLFR-01101: the other tab keeps its own matrix.
         self.assertEqual((other_tab.row_count_i, other_tab.column_count_i),
                          (5, 1))
 
 
 class MatrixChangeTest(unittest.TestCase):
-    """Choosing a plot matrix (HLFR-00145, HLFR-00146)."""
+    """Choosing a plot matrix (HLFR-00146, HLFR-00147)."""
 
-    @covers("LLFR-01065", "LLFR-01067", "HLFR-00145")
+    @covers("LLFR-01100", "LLFR-01102", "HLFR-00146")
     def test_change_keeps_the_plots_in_order(self) -> None:
         """A new matrix keeps every plot, with its curves, in order.
 
@@ -167,7 +167,7 @@ class MatrixChangeTest(unittest.TestCase):
         self.assertEqual(plot_list[2].curve_list[0].signal_name_str,
                          "Signal 2")
 
-    @covers("LLFR-01069")
+    @covers("LLFR-01104")
     def test_same_matrix_changes_nothing(self) -> None:
         """The tab's current matrix is refused as no change.
 
@@ -180,7 +180,7 @@ class MatrixChangeTest(unittest.TestCase):
         self.assertFalse(workspace.set_plot_matrix(tab.tab_id_i, 5, 1))
         self.assertEqual(workspace.state_tuple(), state_tuple)
 
-    @covers("LLFR-01071", "LLFR-01072", "HLFR-00146")
+    @covers("LLFR-01106", "LLFR-01107", "HLFR-00147")
     def test_matrix_too_small_is_refused(self) -> None:
         """With 5 plots, 2 x 2 is refused and 1 x 5 is accepted.
 
@@ -196,7 +196,7 @@ class MatrixChangeTest(unittest.TestCase):
         self.assertTrue(tab.can_take_matrix(1, 5))
         self.assertTrue(workspace.set_plot_matrix(tab.tab_id_i, 1, 5))
 
-    @covers("LLFR-01062", "HLFR-00145")
+    @covers("LLFR-01097", "HLFR-00146")
     def test_sizes_outside_one_to_ten_are_refused(self) -> None:
         """Rows or columns of 0, 11, a float or a bool are refused.
 
@@ -214,7 +214,7 @@ class MatrixChangeTest(unittest.TestCase):
         self.assertTrue(is_matrix_size(10))
         self.assertFalse(is_matrix_size(11))
 
-    @covers("LLFR-01068", "LLFR-00140")
+    @covers("LLFR-01103", "LLFR-00140")
     def test_matrix_is_part_of_the_undo_state(self) -> None:
         """A snapshot restores the matrix that the tab had.
 
@@ -233,9 +233,9 @@ class MatrixChangeTest(unittest.TestCase):
 
 
 class FillOrderTest(unittest.TestCase):
-    """The fill order of the plots (HLFR-00147, HLFR-00148)."""
+    """The fill order of the plots (HLFR-00148, HLFR-00149)."""
 
-    @covers("LLFR-01073", "HLFR-00147")
+    @covers("LLFR-01108", "HLFR-00148")
     def test_slots_fill_rows_from_left_to_right(self) -> None:
         """4 plots in a 2 x 3 matrix: row 1 holds 3, row 2 holds 1.
 
@@ -251,7 +251,7 @@ class FillOrderTest(unittest.TestCase):
             [(0, 0), (0, 1), (0, 2), (1, 0)])
         self.assertEqual(matrix_slot_tuple(7, 3), (2, 1))
 
-    @covers("LLFR-01075", "LLFR-01076", "HLFR-00148")
+    @covers("LLFR-01110", "LLFR-01111", "HLFR-00149")
     def test_rows_in_use(self) -> None:
         """Only the rows that hold a plot are rows of the result.
 
@@ -264,7 +264,7 @@ class FillOrderTest(unittest.TestCase):
         self.assertEqual(matrix_row_list([1, 2], 1), [[1], [2]])
         self.assertEqual(matrix_row_list([], 3), [])
 
-    @covers("LLFR-01074", "LLFR-00050")
+    @covers("LLFR-01109", "LLFR-00050")
     def test_new_plot_takes_the_next_slot(self) -> None:
         """A new plot goes after the last one; a deletion closes the gap.
 
@@ -285,9 +285,9 @@ class FillOrderTest(unittest.TestCase):
 
 
 class SwapTest(unittest.TestCase):
-    """Moving a plot by swapping it with another (HLFR-00149)."""
+    """Moving a plot by swapping it with another (HLFR-00150)."""
 
-    @covers("LLFR-01083", "LLFR-01084", "HLFR-00149")
+    @covers("LLFR-01118", "LLFR-01119", "HLFR-00150")
     def test_swap_exchanges_two_slots(self) -> None:
         """Plots 1 and 3 change slots; plot 2 keeps its slot.
 
@@ -304,7 +304,7 @@ class SwapTest(unittest.TestCase):
         self.assertEqual(len(third.pinned_tip_list), 1)
         self.assertEqual(third.curve_list[0].signal_name_str, "Signal 2")
 
-    @covers("LLFR-01086")
+    @covers("LLFR-01121")
     def test_own_slot_changes_nothing(self) -> None:
         """A swap with itself is refused.
 
@@ -318,7 +318,7 @@ class SwapTest(unittest.TestCase):
                                               first.plot_id_i))
         self.assertEqual(tab.plot_list, [first, second])
 
-    @covers("LLFR-01083", "HLFR-00149")
+    @covers("LLFR-01118", "HLFR-00150")
     def test_swap_needs_two_plots_of_one_tab(self) -> None:
         """Plots of different tabs and unknown plots are not swapped.
 
@@ -335,7 +335,7 @@ class SwapTest(unittest.TestCase):
         self.assertFalse(workspace.swap_plots(first.plot_id_i, 999))
         self.assertFalse(workspace.swap_plots(999, first.plot_id_i))
 
-    @covers("LLFR-01085", "LLFR-00140")
+    @covers("LLFR-01120", "LLFR-00140")
     def test_swap_is_part_of_the_undo_state(self) -> None:
         """A snapshot from before a swap gives the old order back.
 
@@ -355,9 +355,9 @@ class SwapTest(unittest.TestCase):
 
 
 class TabMoveTest(unittest.TestCase):
-    """Moving a tab to another place (HLFR-00142)."""
+    """Moving a tab to another place (HLFR-00143)."""
 
-    @covers("LLFR-01052", "LLFR-01056", "HLFR-00142")
+    @covers("LLFR-01087", "LLFR-01091", "HLFR-00143")
     def test_move_puts_the_tab_between_its_neighbors(self) -> None:
         """Tab 1 moved to index 2 goes after Tab 3.
 
@@ -376,7 +376,7 @@ class TabMoveTest(unittest.TestCase):
         self.assertTrue(workspace.move_tab(first_id_i, 99))
         self.assertEqual(workspace.tab_list[-1].tab_id_i, first_id_i)
 
-    @covers("LLFR-01055")
+    @covers("LLFR-01090")
     def test_move_to_its_own_place_changes_nothing(self) -> None:
         """A tab left at its place, or an unknown tab, is not moved.
 
@@ -391,7 +391,7 @@ class TabMoveTest(unittest.TestCase):
         self.assertFalse(workspace.move_tab(999, 0))
         self.assertEqual(workspace.state_tuple(), state_tuple)
 
-    @covers("LLFR-01054", "LLFR-00140")
+    @covers("LLFR-01089", "LLFR-00140")
     def test_tab_order_is_part_of_the_undo_state(self) -> None:
         """A snapshot from before a move gives the old order back.
 

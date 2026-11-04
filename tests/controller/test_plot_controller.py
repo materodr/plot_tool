@@ -138,25 +138,25 @@ class FakePlotView:
         self.delta_name_question_list = []
         self.arrow_name_answer_list = []
         self.arrow_name_question_list = []
-        # LLFR-00032, LLFR-01092: the matrix each Full Tab box named.
+        # LLFR-00032, LLFR-01127: the matrix each Full Tab box named.
         self.full_tab_matrix_list = []
-        # LLFR-01065: tab id -> (rows, columns) shown.
+        # LLFR-01100: tab id -> (rows, columns) shown.
         self.tab_matrix_dict = {}
-        # LLFR-01083: tab id -> plot ids in fill order, after a swap.
+        # LLFR-01118: tab id -> plot ids in fill order, after a swap.
         self.plot_order_dict = {}
-        # LLFR-00980: tab id -> [window_tuple, panel_shown_b,
+        # LLFR-01015: tab id -> [window_tuple, panel_shown_b,
         # panel_width_i] of each open undocked window.
         self.window_dict = {}
-        # LLFR-01056: the undocked tabs, window by window.
+        # LLFR-01091: the undocked tabs, window by window.
         self.undocked_order_list = []
-        # LLFR-01028: window id -> [window_tuple, panel_shown_b,
+        # LLFR-01063: window id -> [window_tuple, panel_shown_b,
         # panel_width_i], its tabs in order and the tab it shows.
         self.window_entry_dict = {}
         self.window_tabs_dict = {}
         self.window_shown_dict = {}
-        # LLFR-00981, LLFR-01093: what new_window_tuple returns.
+        # LLFR-01016, LLFR-01128: what new_window_tuple returns.
         self.new_window_answer_tuple = (130, 160, 900, 600)
-        # LLFR-01020: the main panel width the view reports.
+        # LLFR-01055: the main panel width the view reports.
         self.main_panel_width_i = 240
         self.undock_enabled_b = None
 
@@ -1068,7 +1068,7 @@ class DoubleClickTest(PlotControllerTestCase):
             plot_id_i][0][0]
         np.testing.assert_array_equal(time_array, value_array)
 
-    @covers("LLFR-00019", "LLFR-01074")
+    @covers("LLFR-00019", "LLFR-01109")
     def test_plots_go_in_order_into_current_tab(self) -> None:
         """Each double-click adds a plot below, in the current tab.
 

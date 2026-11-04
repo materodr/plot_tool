@@ -49,7 +49,7 @@ FULL_TAB_TITLE_STR = "Full Tab"
 FULL_TAB_MESSAGE_STR = (
     "This tab is full ({rows} \u00d7 {columns} matrix). Use a new tab, "
     "or a larger matrix from the tab's menu.")
-# LLFR-01092: a full tab whose plot matrix is already 10 x 10.
+# LLFR-01127: a full tab whose plot matrix is already 10 x 10.
 FULL_LARGEST_MATRIX_MESSAGE_STR = (
     "This tab is full (10 \u00d7 10 matrix). Use a new tab.")
 
@@ -163,7 +163,7 @@ def full_tab_message_str(row_count_i: int = 5,
     Outputs: FULL_TAB_MESSAGE_STR with the matrix filled in, or
         FULL_LARGEST_MATRIX_MESSAGE_STR for a 10 x 10 matrix.
     """
-    # LLFR-01092: with a 10 x 10 matrix, only "use a new tab".
+    # LLFR-01127: with a 10 x 10 matrix, only "use a new tab".
     if (row_count_i >= MAXIMUM_MATRIX_SIZE_I
             and column_count_i >= MAXIMUM_MATRIX_SIZE_I):
         return FULL_LARGEST_MATRIX_MESSAGE_STR
@@ -184,7 +184,7 @@ def build_full_tab_box(parent, row_count_i: int = 5,
         box), the title FULL_TAB_TITLE_STR, the text of
         full_tab_message_str and an OK button.
     """
-    # LLFR-00032, LLFR-01092: information message telling the user to
+    # LLFR-00032, LLFR-01127: information message telling the user to
     # use a new tab or, below 10 x 10, a larger plot matrix.
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
@@ -259,7 +259,7 @@ def show_full_tab_notification(parent, row_count_i: int = 5,
         column_count_i: columns of the full tab's plot matrix.
     Outputs: none.
     """
-    # LLFR-00032, LLFR-01092: notify that the tab is full.
+    # LLFR-00032, LLFR-01127: notify that the tab is full.
     build_full_tab_box(parent, row_count_i, column_count_i).exec()
 
 

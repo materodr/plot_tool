@@ -196,8 +196,8 @@ class TipKeyFilterTest(unittest.TestCase):
         self.release("Key_Control")
         self.assertEqual(self.call_list, ["activate", "release"])
 
-    @covers("LLFR-00150", "LLFR-00149", "LLFR-01101", "LLFR-01104",
-            "LLFR-01105")
+    @covers("LLFR-00150", "LLFR-00149", "LLFR-01136", "LLFR-01139",
+            "LLFR-01140")
     def test_copy_pdf_and_search_keys_end_the_activation(self) -> None:
         """Ctrl (Cmd) then C, P or F ends the activation at once, as any
         other key does.

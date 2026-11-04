@@ -739,7 +739,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         return shown_list
 
     @covers("LLFR-00314", "LLFR-00315", "LLFR-00316", "LLFR-00317",
-            "LLFR-00721", "LLFR-01078", "HLFR-00149")
+            "LLFR-00721", "LLFR-01113", "HLFR-00150")
     def test_area_menu_and_its_requests(self) -> None:
         """Inside the area, away from every other item, the menu has
         Rename, Color, Delete, Position and Delete plot, each emitting
@@ -759,7 +759,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.menu_texts(self.at(4.0), "Rename")
         self.menu_texts(self.at(4.0), "Delete")
         self.menu_texts(self.at(4.0), "Delete plot")
-        # LLFR-01078: "Position" asks for the position picker.
+        # LLFR-01113: "Position" asks for the position picker.
         position_list = recorder(self.plot_widget.plot_position_requested)
         self.menu_texts(self.at(4.0), "Position")
         self.assertEqual(rename_list, [(1,)])

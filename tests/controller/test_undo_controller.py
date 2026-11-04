@@ -502,7 +502,7 @@ class UndoNotRecordedTest(UndoControllerTestCase):
     @covers("LLFR-00140", "LLFR-00070", "LLFR-00115", "LLFR-00079")
     def test_view_only_actions_are_not_undoable(self) -> None:
         """Zoom and pan, reset zoom and plot tools are not recorded (a
-        Grid click is, LLFR-01097).
+        Grid click is, LLFR-01132).
 
         Inputs: none.
         Outputs: none.
@@ -727,7 +727,7 @@ class UndoViewStateTest(UndoControllerTestCase):
         self.assertEqual(self.view.plot_tool_str, MARKER_TOOL_STR)
         self.assertTrue(self.controller.grid_shown_b)
 
-    @covers("LLFR-01097", "LLFR-00140", "LLFR-00138", "LLFR-00192",
+    @covers("LLFR-01132", "LLFR-00140", "LLFR-00138", "LLFR-00192",
             "LLFR-00124", "HLFR-00040", "HLFR-00048", "HLFR-00037")
     def test_grid_click_is_undone_and_redone(self) -> None:
         """Each Grid click that changes the grid is one undoable action:
@@ -754,7 +754,7 @@ class UndoViewStateTest(UndoControllerTestCase):
         self.assertTrue(self.controller.grid_shown_b)
         self.assertIs(self.view.grid_shown_b, True)
 
-    @covers("LLFR-01097", "LLFR-00140", "HLFR-00040")
+    @covers("LLFR-01132", "LLFR-00140", "HLFR-00040")
     def test_grid_click_that_changes_nothing_is_not_recorded(self) -> None:
         """A click that asks for the grid state already shown, and the
         grid shown at start, are no undoable action.
@@ -767,7 +767,7 @@ class UndoViewStateTest(UndoControllerTestCase):
         self.assertEqual(self.depth(), 0)
         self.assertFalse(self.controller.undo_history.can_undo())
 
-    @covers("LLFR-01097", "LLFR-00138", "LLFR-00193", "HLFR-00040")
+    @covers("LLFR-01132", "LLFR-00138", "LLFR-00193", "HLFR-00040")
     def test_grid_undo_keeps_the_other_actions(self) -> None:
         """A grid click between two other actions is undone on its own,
         and a new action after an undo drops the grid redo.

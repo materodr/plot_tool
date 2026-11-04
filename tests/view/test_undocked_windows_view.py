@@ -2,12 +2,12 @@
 
 A real MainWindow and MainController are used (the setup of
 test_plot_panel). They check the undock button of each tab
-(HLFR-00123), the parts of an undocked window (HLFR-00125, HLFR-00134 to
-HLFR-00136), docking (HLFR-00124), closing a window (HLFR-00138), the
-signal list panels of the windows (HLFR-00127 to HLFR-00130), the
-shortcuts in a window (HLFR-00137), the one undo history (HLFR-00132,
-HLFR-00133, HLFR-00131), the export of undocked tabs (HLFR-00038) and
-the windows of a layout file (HLFR-00139 to HLFR-00141).
+(HLFR-00124), the parts of an undocked window (HLFR-00126, HLFR-00135 to
+HLFR-00137), docking (HLFR-00125), closing a window (HLFR-00139), the
+signal list panels of the windows (HLFR-00128 to HLFR-00131), the
+shortcuts in a window (HLFR-00138), the one undo history (HLFR-00133,
+HLFR-00134, HLFR-00132), the export of undocked tabs (HLFR-00038) and
+the windows of a layout file (HLFR-00140 to HLFR-00142).
 
 Every window is closed in tearDown. No test moves the shared mouse
 pointer: mouse and key events are sent to the widgets directly.
@@ -104,9 +104,9 @@ class UndockedWindowTestCase(PlotPanelTestCase):
 
 
 class UndockButtonTest(UndockedWindowTestCase):
-    """The undock button of the tabs (HLFR-00123)."""
+    """The undock button of the tabs (HLFR-00124)."""
 
-    @covers("LLFR-00977", "LLFR-00979", "LLFR-00978", "HLFR-00123")
+    @covers("LLFR-01012", "LLFR-01014", "LLFR-01013", "HLFR-00124")
     def test_each_docked_tab_has_an_undock_button(self) -> None:
         """An undock button right of the name, with the tip "Undock".
 
@@ -124,8 +124,8 @@ class UndockButtonTest(UndockedWindowTestCase):
             self.assertEqual(button.toolTip(), "Undock")
             self.assertFalse(button.icon().isNull())
 
-    @covers("LLFR-00983", "LLFR-00984", "LLFR-00999", "LLFR-01120",
-            "HLFR-00126")
+    @covers("LLFR-01018", "LLFR-01019", "LLFR-01034", "LLFR-01155",
+            "HLFR-00127")
     def test_last_docked_tab_cannot_be_undocked(self) -> None:
         """No undock button at all with one docked tab, and no room for
         one; any number of windows else.
@@ -146,7 +146,7 @@ class UndockButtonTest(UndockedWindowTestCase):
         id_list = [self.add_tab() for _ in range(3)]
         self.assertIs(tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide),
                       self.panel.undock_button_of(first_id_i))
-        # LLFR-01120: the tab grows to make room for its button.
+        # LLFR-01155: the tab grows to make room for its button.
         self.assertGreater(tab_bar.tabRect(0).width(), alone_width_i)
         for tab_id_i in id_list:
             self.assertIsNotNone(self.undock(tab_id_i))
@@ -154,8 +154,8 @@ class UndockButtonTest(UndockedWindowTestCase):
         self.assertIsNone(tab_bar.tabButton(
             0, QTabBar.ButtonPosition.RightSide))
 
-    @covers("LLFR-00980", "LLFR-00985", "LLFR-00981", "LLFR-01093",
-            "LLFR-01048", "LLFR-01049", "HLFR-00123", "HLFR-00125")
+    @covers("LLFR-01015", "LLFR-01020", "LLFR-01016", "LLFR-01128",
+            "LLFR-01083", "LLFR-01084", "HLFR-00124", "HLFR-00126")
     def test_undock_moves_the_tab_into_a_window(self) -> None:
         """The tab with its plot is in the new window, which has the size
         and place of the plot panel, kept on the screen.
@@ -179,7 +179,7 @@ class UndockButtonTest(UndockedWindowTestCase):
         self.assertEqual(window.size().height(), expected_tuple[3])
         self.assertTrue(self.tab(second_id_i).undocked_b)
 
-    @covers("LLFR-00982")
+    @covers("LLFR-01017")
     def test_main_window_shows_the_nearest_docked_tab(self) -> None:
         """After the shown tab is undocked, the tab to its left is shown.
 
@@ -193,8 +193,8 @@ class UndockButtonTest(UndockedWindowTestCase):
 class WindowPartsTest(UndockedWindowTestCase):
     """The parts of an undocked window."""
 
-    @covers("LLFR-01026", "LLFR-01027", "LLFR-01028", "LLFR-01031",
-            "LLFR-01095", "LLFR-00990", "HLFR-00134", "HLFR-00135")
+    @covers("LLFR-01061", "LLFR-01062", "LLFR-01063", "LLFR-01066",
+            "LLFR-01130", "LLFR-01025", "HLFR-00135", "HLFR-00136")
     def test_title_and_tab_button(self) -> None:
         """Titled with the tab name, which follows a rename; a tab row
         of one tab, selected, with its dock button inside it.
@@ -242,9 +242,9 @@ class WindowPartsTest(UndockedWindowTestCase):
         from PyQt6.QtCore import QPoint
         return widget.mapTo(window, QPoint(0, 0)).y()
 
-    @covers("LLFR-00997", "LLFR-00990", "LLFR-01009", "LLFR-00992",
-            "LLFR-00991", "LLFR-01035", "LLFR-01000", "LLFR-00440",
-            "LLFR-00996", "HLFR-00136", "HLFR-00125")
+    @covers("LLFR-01032", "LLFR-01025", "LLFR-01044", "LLFR-01027",
+            "LLFR-01026", "LLFR-01070", "LLFR-01035", "LLFR-00440",
+            "LLFR-01031", "HLFR-00137", "HLFR-00126")
     def test_tab_row_and_panels(self) -> None:
         """The tab with its dock button inside it in the plot panel's tab
         row, the signal list button at the window's top right; the plot
@@ -262,19 +262,19 @@ class WindowPartsTest(UndockedWindowTestCase):
         dock_button = window.dock_button_of(second_id_i)
         self.assertEqual(dock_button.toolTip(), "Dock")
         self.assertFalse(dock_button.icon().isNull())
-        # LLFR-00990: inside the tab, never in the tab row beside it.
+        # LLFR-01025: inside the tab, never in the tab row beside it.
         self.assertIs(dock_button.parentWidget(), window.tab_bar)
         list_x_i = self.x_in_window(window, window.signal_list_button)
         tab_x_i = self.x_in_window(window, window.tab_bar)
         self.assertLess(tab_x_i, list_x_i)
-        # LLFR-01009: the signal list button at the top-right corner.
+        # LLFR-01044: the signal list button at the top-right corner.
         self.assertEqual(list_x_i + window.signal_list_button.width(),
                          window.width() - theme.WINDOW_MARGIN_I)
         self.assertLess(self.y_in_window(window, window.signal_list_button),
                         self.y_in_window(window, window.pane_widget))
         self.assertIs(window.tab_bar.parentWidget(), window.tab_row)
         self.assertIs(window.signal_list_button.parentWidget(), window)
-        # LLFR-01035: the plot panel (tab row above the well) and the
+        # LLFR-01070: the plot panel (tab row above the well) and the
         # signal list panel side by side, level at their tops.
         self.assertIs(window.splitter.widget(0), window.plot_column)
         self.assertIs(window.splitter.widget(1), window.signal_list_panel)
@@ -285,12 +285,12 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertEqual(self.y_in_window(window, window.tab_row),
                          self.y_in_window(window, window.signal_list_panel))
         self.assertEqual(window.findChildren(TopPanel), [])
-        # LLFR-01122: the tabs can be dragged to reorder them.
+        # LLFR-01157: the tabs can be dragged to reorder them.
         self.assertTrue(window.tab_bar.isMovable())
         self.assertEqual(window.pane_widget.count(), 1)
 
-    @covers("LLFR-01015", "LLFR-01012", "LLFR-01013", "LLFR-01014",
-            "LLFR-01011", "LLFR-01016", "LLFR-01018", "HLFR-00129")
+    @covers("LLFR-01050", "LLFR-01047", "LLFR-01048", "LLFR-01049",
+            "LLFR-01046", "LLFR-01051", "LLFR-01053", "HLFR-00130")
     def test_signal_list_button_hides_and_shows_the_panel(self) -> None:
         """Hidden at start; the button shows it at 25% of the window's
         width, hides it, and both are undone.
@@ -327,7 +327,7 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
 
-    @covers("LLFR-01019", "HLFR-00130")
+    @covers("LLFR-01054", "HLFR-00131")
     def test_main_window_keeps_its_panel(self) -> None:
         """The main window's panel cannot be collapsed or hidden.
 
@@ -369,10 +369,10 @@ class WindowPartsTest(UndockedWindowTestCase):
 
 
 class TabButtonMenuTest(UndockedWindowTestCase):
-    """The tab button of a window works as a tab (HLFR-00135)."""
+    """The tab button of a window works as a tab (HLFR-00136)."""
 
-    @covers("LLFR-01029", "LLFR-01034", "LLFR-01033", "LLFR-01110",
-            "HLFR-00135", "HLFR-00016")
+    @covers("LLFR-01064", "LLFR-01069", "LLFR-01068", "LLFR-01145",
+            "HLFR-00136", "HLFR-00016")
     def test_tab_menu_with_delete_enabled(self) -> None:
         """The menu of an undocked tab has Delete enabled; Delete deletes
         the tab and closes the window, undoably.
@@ -394,7 +394,7 @@ class TabButtonMenuTest(UndockedWindowTestCase):
         self.process_events()
         self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
-    @covers("LLFR-01030", "LLFR-01032", "HLFR-00135", "HLFR-00017")
+    @covers("LLFR-01065", "LLFR-01067", "HLFR-00136", "HLFR-00017")
     def test_double_click_renames(self) -> None:
         """A left double-click on the tab button asks for a new name.
 
@@ -419,8 +419,8 @@ class TabButtonMenuTest(UndockedWindowTestCase):
 class DockAndCloseTest(UndockedWindowTestCase):
     """Docking and closing a window."""
 
-    @covers("LLFR-00993", "LLFR-00994", "LLFR-00995", "LLFR-00985",
-            "HLFR-00124")
+    @covers("LLFR-01028", "LLFR-01029", "LLFR-01030", "LLFR-01020",
+            "HLFR-00125")
     def test_dock_button_puts_the_tab_back(self) -> None:
         """The tab is the last docked tab, shown, and its window closes.
 
@@ -441,8 +441,8 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.process_events()
         self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
-    @covers("LLFR-01038", "LLFR-01039", "LLFR-01024", "LLFR-01094",
-            "HLFR-00138", "HLFR-00133")
+    @covers("LLFR-01073", "LLFR-01074", "LLFR-01059", "LLFR-01129",
+            "HLFR-00139", "HLFR-00134")
     def test_system_close_deletes_the_tab(self) -> None:
         """Closing the window deletes the tab; undo opens it again where
         it was, with its panel as it was.
@@ -465,7 +465,7 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.assertTrue(window.is_panel_shown())
         self.assertEqual(len(window.page().plot_widget_list), 1)
 
-    @covers("LLFR-00989", "LLFR-01038", "HLFR-00138", "HLFR-00123")
+    @covers("LLFR-01024", "LLFR-01073", "HLFR-00139", "HLFR-00124")
     def test_quit_closes_the_windows_and_keeps_the_tabs(self) -> None:
         """A quit closes every undocked window first, keeps their tabs
         and the undo history, and lets the quit go on.
@@ -490,7 +490,7 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.assertEqual((history.depth(), history.redo_depth()),
                          depth_tuple)
 
-    @covers("LLFR-00989", "LLFR-01038")
+    @covers("LLFR-01024", "LLFR-01073")
     def test_close_not_by_the_user_keeps_the_tab(self) -> None:
         """A close that the window system did not send (as Qt's close of
         every window on a quit) closes the window and keeps the tab.
@@ -508,7 +508,7 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.assertIsNotNone(self.tab(second_id_i))
         self.assertTrue(self.plot_controller.undo_history.depth() > 0)
 
-    @covers("LLFR-01038")
+    @covers("LLFR-01073")
     def test_close_shortcut_closes_the_window(self) -> None:
         """The system close shortcut of the window closes it.
 
@@ -523,7 +523,7 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.process_events()
         self.assertIsNone(self.tab(second_id_i))
 
-    @covers("LLFR-00989", "LLFR-00986", "HLFR-00123")
+    @covers("LLFR-01024", "LLFR-01021", "HLFR-00124")
     def test_main_window_close_closes_every_window(self) -> None:
         """The windows are top-level and close with the main window.
 
@@ -537,7 +537,7 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.process_events()
         self.assertEqual(self.main_window.undocked_window_dict, {})
 
-    @covers("LLFR-00998", "HLFR-00125", "HLFR-00118")
+    @covers("LLFR-01033", "HLFR-00126", "HLFR-00118")
     def test_file_close_that_empties_the_tab_closes_the_window(self) -> None:
         """Closing the data file closes the emptied undocked tab.
 
@@ -555,9 +555,9 @@ class DockAndCloseTest(UndockedWindowTestCase):
 
 
 class WindowSignalListTest(UndockedWindowTestCase):
-    """The signal list panels of the windows (HLFR-00127, HLFR-00128)."""
+    """The signal list panels of the windows (HLFR-00128, HLFR-00129)."""
 
-    @covers("LLFR-01001", "LLFR-01008", "HLFR-00127", "HLFR-00011")
+    @covers("LLFR-01036", "LLFR-01043", "HLFR-00128", "HLFR-00011")
     def test_same_list_in_every_panel(self) -> None:
         """A window's panel shows the main panel's rows, now and after
         the list changes.
@@ -573,8 +573,8 @@ class WindowSignalListTest(UndockedWindowTestCase):
         self.assertEqual(window.signal_list_panel.signal_name_list(),
                          ["a", "b"])
 
-    @covers("LLFR-01006", "LLFR-01007", "LLFR-01017", "LLFR-01008",
-            "HLFR-00128")
+    @covers("LLFR-01041", "LLFR-01042", "LLFR-01052", "LLFR-01043",
+            "HLFR-00129")
     def test_search_text_in_every_search_box(self) -> None:
         """Typing in one box puts the text in the others, hidden panels
         included, and leaves the cursor in the typed box.
@@ -611,8 +611,8 @@ class WindowSignalListTest(UndockedWindowTestCase):
         new_window = self.undock(third_id_i)
         self.assertEqual(new_window.signal_list_panel.search_text(), "for")
 
-    @covers("LLFR-01003", "LLFR-01002", "LLFR-00019", "LLFR-00295",
-            "LLFR-01005", "HLFR-00127", "HLFR-00012", "HLFR-00064")
+    @covers("LLFR-01038", "LLFR-01037", "LLFR-00019", "LLFR-00295",
+            "LLFR-01040", "HLFR-00128", "HLFR-00012", "HLFR-00064")
     def test_plots_from_a_window_panel_go_into_its_tab(self) -> None:
         """A double-click and Enter in the window's panel plot in the
         window's tab; each panel has its own selection.
@@ -633,7 +633,7 @@ class WindowSignalListTest(UndockedWindowTestCase):
         window_list.item(1).setSelected(True)
         self.assertEqual(main_list.selectedItems(), [])
 
-    @covers("LLFR-00988", "HLFR-00123", "HLFR-00002")
+    @covers("LLFR-01023", "HLFR-00124", "HLFR-00002")
     def test_boxes_over_the_window_of_the_action(self) -> None:
         """Boxes of an action in a window have that window as parent.
 
@@ -656,10 +656,10 @@ class WindowSignalListTest(UndockedWindowTestCase):
 
 
 class WindowShortcutTest(UndockedWindowTestCase):
-    """The shortcuts and the plot tool in a window (HLFR-00137)."""
+    """The shortcuts and the plot tool in a window (HLFR-00138)."""
 
-    @covers("LLFR-01036", "LLFR-01023", "LLFR-01022", "HLFR-00137",
-            "HLFR-00132")
+    @covers("LLFR-01071", "LLFR-01058", "LLFR-01057", "HLFR-00138",
+            "HLFR-00133")
     def test_undo_and_redo_shortcuts_in_a_window(self) -> None:
         """The window's Undo and Redo shortcuts use the one history.
 
@@ -679,7 +679,7 @@ class WindowShortcutTest(UndockedWindowTestCase):
         window_redo = self.main_window.undocked_window_dict
         self.assertEqual(window_redo, {})
 
-    @covers("LLFR-01036", "LLFR-01037", "HLFR-00137", "HLFR-00032")
+    @covers("LLFR-01071", "LLFR-01072", "HLFR-00138", "HLFR-00032")
     def test_held_tool_key_in_a_window(self) -> None:
         """Holding X in a window activates Delta X for every plot.
 
@@ -700,7 +700,7 @@ class WindowShortcutTest(UndockedWindowTestCase):
         self.process_events()
         self.assertEqual(self.main_window.current_plot_tool(), NO_TOOL_STR)
 
-    @covers("LLFR-01036", "LLFR-00370", "HLFR-00137")
+    @covers("LLFR-01071", "LLFR-00370", "HLFR-00138")
     def test_escape_in_a_window(self) -> None:
         """Esc switches off the plot tool while a window is active.
 
@@ -718,7 +718,7 @@ class WindowShortcutTest(UndockedWindowTestCase):
             self.main_window.on_escape_key()
         self.assertEqual(self.main_window.current_plot_tool(), NO_TOOL_STR)
 
-    @covers("LLFR-01036", "LLFR-00207", "HLFR-00137")
+    @covers("LLFR-01071", "LLFR-00207", "HLFR-00138")
     def test_zero_key_in_a_window(self) -> None:
         """The 0 key pressed in a window resets the zoom.
 
@@ -736,9 +736,9 @@ class WindowShortcutTest(UndockedWindowTestCase):
 
 
 class PanelWidthUndoTest(UndockedWindowTestCase):
-    """Undo of a panel border drag (HLFR-00131)."""
+    """Undo of a panel border drag (HLFR-00132)."""
 
-    @covers("LLFR-01020", "LLFR-00073", "HLFR-00131", "HLFR-00026")
+    @covers("LLFR-01055", "LLFR-00073", "HLFR-00132", "HLFR-00026")
     def test_main_window_border_drag_is_undone(self) -> None:
         """A drag of the main border is one undoable action.
 
@@ -760,7 +760,7 @@ class PanelWidthUndoTest(UndockedWindowTestCase):
         self.assertAlmostEqual(splitter.last_widget_width(), start_i,
                                delta=2)
 
-    @covers("LLFR-01020", "LLFR-01021", "HLFR-00131")
+    @covers("LLFR-01055", "LLFR-01056", "HLFR-00132")
     def test_window_border_drag_and_resize(self) -> None:
         """A window border drag is undoable; a window resize is not.
 
@@ -792,8 +792,8 @@ class PanelWidthUndoTest(UndockedWindowTestCase):
 class WindowPlotActionTest(UndockedWindowTestCase):
     """Plot actions and drops on the plots of a window."""
 
-    @covers("LLFR-01004", "LLFR-00987", "LLFR-00021", "HLFR-00127",
-            "HLFR-00013", "HLFR-00123")
+    @covers("LLFR-01039", "LLFR-01022", "LLFR-00021", "HLFR-00128",
+            "HLFR-00013", "HLFR-00124")
     def test_drop_and_delete_on_a_plot_of_a_window(self) -> None:
         """A drop on a window's plot adds the curves; its plot menu
         deletes it; both are undone like in the main window.
@@ -876,7 +876,7 @@ class SignalListButtonPlaceTest(UndockedWindowTestCase):
         button = window.signal_list_button
         return QRect(button.mapToGlobal(QPoint(0, 0)), button.size())
 
-    @covers("LLFR-01099", "LLFR-01009", "HLFR-00129")
+    @covers("LLFR-01134", "LLFR-01044", "HLFR-00130")
     def test_button_never_moves(self) -> None:
         """Hiding and showing the panel, by the button or by undo, leave
         the button at the same place on the screen.
@@ -901,8 +901,8 @@ class SignalListButtonPlaceTest(UndockedWindowTestCase):
         self.assertTrue(window.is_panel_shown())
         self.assertEqual(self.button_rect(window), hidden_rect)
 
-    @covers("LLFR-01098", "LLFR-01100", "LLFR-00894", "HLFR-00129",
-            "HLFR-00127")
+    @covers("LLFR-01133", "LLFR-01135", "LLFR-00894", "HLFR-00130",
+            "HLFR-00128")
     def test_button_in_the_title_row_level_with_signals(self) -> None:
         """While shown, the button is at the right end of the "Signals"
         row, level with the word, which is at least as high as the
@@ -936,7 +936,7 @@ class SignalListButtonPlaceTest(UndockedWindowTestCase):
         self.assertLessEqual(
             abs(window.search_box_aligner.list_top_offset_px()), 2)
 
-    @covers("LLFR-01014", "LLFR-01136", "LLFR-01010", "HLFR-00129",
+    @covers("LLFR-01049", "LLFR-01171", "LLFR-01045", "HLFR-00130",
             "HLFR-00003")
     def test_round_pale_highlight_while_shown(self) -> None:
         """Checked with a round, pale highlight and a dark icon while
@@ -975,7 +975,7 @@ class SignalListButtonPlaceTest(UndockedWindowTestCase):
         self.assertNotEqual(top_middle.name(),
                             theme.SIDEBAR_BUTTON_ACTIVE_COLOR_STR)
 
-    @covers("LLFR-00997", "LLFR-00990", "HLFR-00125")
+    @covers("LLFR-01032", "LLFR-01025", "HLFR-00126")
     def test_room_for_the_button_while_hidden(self) -> None:
         """While hidden, the tab row keeps room for the signal list
         button at its right end; while shown, the tab row ends at the
@@ -1025,8 +1025,8 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         tab_bar = self.panel.tab_widget.tabBar()
         return tab_bar.mapToGlobal(tab_bar.tabRect(index_i).center())
 
-    @covers("LLFR-01107", "LLFR-01015", "LLFR-01048", "LLFR-01025",
-            "HLFR-00152", "HLFR-00123")
+    @covers("LLFR-01142", "LLFR-01050", "LLFR-01083", "LLFR-01060",
+            "HLFR-00153", "HLFR-00124")
     def test_drop_outside_the_main_window_undocks(self) -> None:
         """A tab dragged out of the tab row and dropped outside the main
         window opens in a window at the drop point (kept on a screen),
@@ -1064,8 +1064,8 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
                           for index_i in range(3)],
                          [first_id_i, second_id_i, third_id_i])
 
-    @covers("LLFR-01107", "LLFR-01053", "LLFR-01052", "HLFR-00152",
-            "HLFR-00142")
+    @covers("LLFR-01142", "LLFR-01088", "LLFR-01087", "HLFR-00153",
+            "HLFR-00143")
     def test_drop_inside_the_main_window_does_not_undock(self) -> None:
         """A drop inside the main window, off the tab row, only moves the
         tab in the row.
@@ -1086,7 +1086,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.assertEqual(self.main_window.undocked_window_dict, {})
         self.assertFalse(self.tab(tab_id_i).undocked_b)
 
-    @covers("LLFR-01109", "HLFR-00152")
+    @covers("LLFR-01144", "HLFR-00153")
     def test_last_docked_tab_stays(self) -> None:
         """The last docked tab dropped outside stays docked, with no
         undo record.
@@ -1105,8 +1105,8 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
                          [self.tab(second_id_i).window_id_i])
         self.assertEqual(self.plot_controller.undo_history.depth(), depth_i)
 
-    @covers("LLFR-01108", "LLFR-01135", "LLFR-00994", "LLFR-00995",
-            "LLFR-01025", "HLFR-00152", "HLFR-00124")
+    @covers("LLFR-01143", "LLFR-01170", "LLFR-01029", "LLFR-01030",
+            "LLFR-01060", "HLFR-00153", "HLFR-00125")
     def test_tab_button_dropped_on_the_tab_row_docks_there(self) -> None:
         """Dragging a window's tab button onto the left half of the first
         docked tab docks it first, closes the window and shows it;
@@ -1136,7 +1136,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.process_events()
         self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
-    @covers("LLFR-01108", "LLFR-01135", "HLFR-00152")
+    @covers("LLFR-01143", "LLFR-01170", "HLFR-00153")
     def test_drop_index_between_the_tabs(self) -> None:
         """Right of the middle of the last tab, or on the "+" button and
         the empty row, is after the last docked tab.
@@ -1163,7 +1163,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.assertEqual(self.panel.docked_drop_index(point.x(),
                                                       point.y()), 2)
 
-    @covers("LLFR-01032", "HLFR-00135", "HLFR-00152")
+    @covers("LLFR-01067", "HLFR-00136", "HLFR-00153")
     def test_tab_button_dropped_elsewhere_changes_nothing(self) -> None:
         """A drop on the plots of the main window, or on the plots of
         its own window, leaves the tab, its window and the history
@@ -1227,8 +1227,8 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
         self.process_events()
         return drop_point
 
-    @covers("LLFR-01132", "LLFR-01133", "LLFR-01134", "LLFR-01015",
-            "LLFR-00985", "LLFR-01024", "HLFR-00125", "HLFR-00126",
+    @covers("LLFR-01167", "LLFR-01168", "LLFR-01169", "LLFR-01050",
+            "LLFR-01020", "LLFR-01059", "HLFR-00126", "HLFR-00127",
             "HLFR-00040", "HLFR-00048")
     def test_last_tab_dropped_outside_moves_to_a_new_window(self) -> None:
         """The only tab of a window dropped outside the app opens in a new
@@ -1272,7 +1272,7 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
                             old_window_id_i)
         self.assertEqual(len(self.main_window.undocked_window_dict), 1)
 
-    @covers("LLFR-01132", "LLFR-01133", "LLFR-01121", "HLFR-00125")
+    @covers("LLFR-01167", "LLFR-01168", "LLFR-01156", "HLFR-00126")
     def test_tab_dropped_outside_leaves_the_other_tabs(self) -> None:
         """One of two tabs of a window dropped outside the app gets a
         window of its own; the old window stays open with the other tab.
@@ -1295,7 +1295,7 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
         self.assertIsNot(new_window, window)
         self.assertEqual(len(self.main_window.undocked_window_dict), 2)
 
-    @covers("LLFR-01132", "LLFR-01032", "HLFR-00125")
+    @covers("LLFR-01167", "LLFR-01067", "HLFR-00126")
     def test_point_on_an_app_window_is_not_outside(self) -> None:
         """A point on the main window or on an undocked window is not
         outside the app; a point right of them all is.
@@ -1317,7 +1317,7 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
 class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
     """Ctrl+C, Ctrl+P and Ctrl+F (Cmd on macOS) in every window."""
 
-    @covers("LLFR-01101", "LLFR-01036", "HLFR-00039", "HLFR-00137")
+    @covers("LLFR-01136", "LLFR-01071", "HLFR-00039", "HLFR-00138")
     def test_copy_shortcut_copies_the_tab_of_its_window(self) -> None:
         """Ctrl+C copies the tab shown in the window where it is pressed;
         the Copy button copies the main window's tab.
@@ -1345,7 +1345,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
             self.assertIs(copy.call_args[0][0], self.panel.tab_widget)
             self.assertEqual(copy.call_count, 3)
 
-    @covers("LLFR-01103", "LLFR-00146", "HLFR-00039")
+    @covers("LLFR-01138", "LLFR-00146", "HLFR-00039")
     def test_copy_shortcut_with_no_plot_shows_box_over_window(self) -> None:
         """A window whose tab has no plot shows the box over itself.
 
@@ -1364,7 +1364,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         self.assertIs(box.call_args[0][0], window)
         copy.assert_not_called()
 
-    @covers("LLFR-01102", "HLFR-00039")
+    @covers("LLFR-01137", "HLFR-00039")
     def test_copy_shortcut_in_a_text_field_copies_text(self) -> None:
         """With the focus in a text field, its selected text is copied,
         not an image.
@@ -1387,7 +1387,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         copy.assert_not_called()
         self.assertEqual(QApplication.clipboard().text(), "speed")
 
-    @covers("LLFR-01104", "LLFR-01036", "HLFR-00038", "HLFR-00137")
+    @covers("LLFR-01139", "LLFR-01071", "HLFR-00038", "HLFR-00138")
     def test_pdf_shortcut_in_every_window(self) -> None:
         """Ctrl+P runs "Save all tabs as PDF" from every window, also
         with the focus in a text field.
@@ -1410,8 +1410,8 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
             window.pdf_shortcut.activated.emit()
         self.assertEqual(handler.call_count, 3)
 
-    @covers("LLFR-01105", "LLFR-01106", "LLFR-01018", "LLFR-01036",
-            "HLFR-00033", "HLFR-00129", "HLFR-00137")
+    @covers("LLFR-01140", "LLFR-01141", "LLFR-01053", "LLFR-01071",
+            "HLFR-00033", "HLFR-00130", "HLFR-00138")
     def test_search_shortcut_focuses_the_window_search_box(self) -> None:
         """Ctrl+F in a window with a hidden panel shows it (undoably)
         and puts the focus in its search box with the text selected; in
@@ -1455,7 +1455,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
 class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
     """Ctrl+P, Ctrl+C and Ctrl+F do nothing during a mouse drag."""
 
-    @covers("LLFR-01137", "HLFR-00038")
+    @covers("LLFR-01172", "HLFR-00038")
     def test_pdf_shortcut_ignored_while_dragging(self) -> None:
         """Ctrl+P in any window runs no export while the mouse is
         dragged, and runs it again once the drag is over.
@@ -1475,7 +1475,7 @@ class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
         window.pdf_shortcut.activated.emit()
         self.assertEqual(handler.call_count, 1)
 
-    @covers("LLFR-01138", "LLFR-01102", "HLFR-00039")
+    @covers("LLFR-01173", "LLFR-01137", "HLFR-00039")
     def test_copy_shortcut_ignored_while_dragging(self) -> None:
         """Ctrl+C copies no image during a drag, while a text field
         still copies its own text.
@@ -1502,7 +1502,7 @@ class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
         window.copy_shortcut.activated.emit()
         self.assertEqual(len(copied_list), 1)
 
-    @covers("LLFR-01139", "HLFR-00033", "HLFR-00127")
+    @covers("LLFR-01174", "HLFR-00033", "HLFR-00128")
     def test_search_shortcut_ignored_while_dragging(self) -> None:
         """Ctrl+F during a drag shows no hidden panel, records no undo
         and moves no focus.
@@ -1598,8 +1598,8 @@ class LiveDragInEveryWindowTest(UndockedWindowTestCase):
 class WindowIconShapeTest(unittest.TestCase):
     """The pictures of the window buttons (no Qt needed)."""
 
-    @covers("LLFR-00978", "LLFR-00991", "LLFR-01010", "HLFR-00123",
-            "HLFR-00124", "HLFR-00129")
+    @covers("LLFR-01013", "LLFR-01026", "LLFR-01045", "HLFR-00124",
+            "HLFR-00125", "HLFR-00130")
     def test_undock_dock_and_signal_list_pictures(self) -> None:
         """A square with an arrow out to the top right (undock) or in to
         the bottom left (dock); a rounded rectangle with its right part
@@ -1645,7 +1645,7 @@ class WindowIconShapeTest(unittest.TestCase):
 class UndockedExportTest(UndockedWindowTestCase):
     """The PDF holds the undocked tabs after the docked ones."""
 
-    @covers("LLFR-00129", "LLFR-01056", "HLFR-00038")
+    @covers("LLFR-00129", "LLFR-01091", "HLFR-00038")
     def test_export_order(self) -> None:
         """The pages follow the tab order: docked, then undocked.
 
@@ -1670,10 +1670,10 @@ class UndockedExportTest(UndockedWindowTestCase):
 
 
 class LayoutWindowsViewTest(UndockedWindowTestCase):
-    """The windows of a layout file (HLFR-00139 to HLFR-00141)."""
+    """The windows of a layout file (HLFR-00140 to HLFR-00142)."""
 
-    @covers("LLFR-01041", "LLFR-01043", "LLFR-01048", "HLFR-00140",
-            "HLFR-00141", "HLFR-00139", "HLFR-00050", "HLFR-00049")
+    @covers("LLFR-01076", "LLFR-01078", "LLFR-01083", "HLFR-00141",
+            "HLFR-00142", "HLFR-00140", "HLFR-00050", "HLFR-00049")
     def test_saved_layout_opens_its_windows(self) -> None:
         """Saving and loading opens the undocked tab in a window; a
         window saved off-screen comes back on the screen.

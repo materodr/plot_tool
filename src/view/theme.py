@@ -107,7 +107,7 @@ SEGMENT_LAST_STR = "last"
 # LLFR-00158: the buttons are squares that show only their icon.
 ICON_BUTTON_SIZE_I = 32
 ICON_SIZE_I = 20
-# LLFR-01009, LLFR-01014: the signal list button of an undocked window,
+# LLFR-01044, LLFR-01049: the signal list button of an undocked window,
 # like the sidebar button of Firefox: a round button with a pale round
 # highlight while its panel is shown (active), and a paler one on hover.
 SIDEBAR_BUTTON_SIZE_I = 28
@@ -216,7 +216,7 @@ TAB_HORIZONTAL_PADDING_I = 14
 TAB_VERTICAL_PADDING_I = 5
 TAB_SPACING_I = 3
 ADD_BUTTON_WIDTH_I = 30
-# LLFR-01113: the pale rounded highlight behind the icon of an undock or
+# LLFR-01148: the pale rounded highlight behind the icon of an undock or
 # dock button under the pointer, a little darker than a hovered tab, and
 # darker still while pressed.
 TAB_BUTTON_HOVER_COLOR_STR = "#c9d0d7"

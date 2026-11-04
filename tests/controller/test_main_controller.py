@@ -200,7 +200,7 @@ class MainControllerStartTest(unittest.TestCase):
             listener_list.index(signal_list_controller.on_file_opened),
             listener_list.index(controller.plot_controller.on_file_opened))
 
-    @covers("LLFR-00128", "LLFR-00133", "LLFR-01101")
+    @covers("LLFR-00128", "LLFR-00133", "LLFR-01136")
     def test_export_controller_is_wired(self) -> None:
         """The Export menu, the Copy button and the Copy shortcut run the
         export controller.

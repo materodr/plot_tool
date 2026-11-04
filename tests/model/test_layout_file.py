@@ -1247,7 +1247,7 @@ class LayoutValueTest(LayoutRebuildTestCase):
                 self.assertEqual(result.panel_width_tuple, ())
                 self.assertEqual(len(result.report.replaced_line_list), 2)
 
-    @covers("LLFR-01111", "LLFR-00237", "HLFR-00050", "HLFR-00052")
+    @covers("LLFR-01146", "LLFR-00237", "HLFR-00050", "HLFR-00052")
     def test_panel_widths_qt_cannot_take(self) -> None:
         """Main window panel widths above 16777215 pixels (for example
         above 2**31 - 1) keep the current widths and are reported; the

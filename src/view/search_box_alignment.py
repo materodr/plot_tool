@@ -166,7 +166,7 @@ class SearchBoxAligner(QObject):
         if page is None:
             return None
         self.watch_page(page)
-        # LLFR-00424, LLFR-01075: the plots of the last shown row of the
+        # LLFR-00424, LLFR-01110: the plots of the last shown row of the
         # plot matrix (LLFR-00069) end lowest on the screen.
         plot_widget_list = [
             plot_widget for plot_widget

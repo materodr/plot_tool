@@ -37,7 +37,7 @@ class FakeExportView:
         self.replace_answer_b = False
         self.call_list = []
         self.description_list = []
-        # LLFR-01101: the plot count of the tab shown in each window.
+        # LLFR-01136: the plot count of the tab shown in each window.
         self.window_plot_count_dict = {}
 
     def ask_replace_existing_file(self, path_str: str) -> bool:
@@ -418,7 +418,7 @@ class CopyShortcutTest(unittest.TestCase):
         self.view = FakeExportView()
         self.controller = ExportController(self.view, lambda: "file1 = a")
 
-    @covers("LLFR-01101", "LLFR-00972", "HLFR-00039")
+    @covers("LLFR-01136", "LLFR-00972", "HLFR-00039")
     def test_shortcut_copies_the_tab_of_its_window(self) -> None:
         """The image is of the tab shown in the window of the key, with
         the data files strip, and the Copy button is not touched.
@@ -436,7 +436,7 @@ class CopyShortcutTest(unittest.TestCase):
         self.assertNotIn("finish_copy_button",
                          self.view.called_names_list())
 
-    @covers("LLFR-01103", "LLFR-00146", "HLFR-00039")
+    @covers("LLFR-01138", "LLFR-00146", "HLFR-00039")
     def test_shortcut_with_no_plot_shows_box_over_its_window(self) -> None:
         """A tab with no plot shows the box over that window and copies
         nothing.
@@ -450,7 +450,7 @@ class CopyShortcutTest(unittest.TestCase):
                          [("window_tab_plot_count", 7),
                           ("show_nothing_to_copy_in", 7)])
 
-    @covers("LLFR-01101", "LLFR-00133")
+    @covers("LLFR-01136", "LLFR-00133")
     def test_shortcut_copy_failure_is_reported(self) -> None:
         """A failed copy shows the copy error box.
 

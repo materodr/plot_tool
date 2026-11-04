@@ -466,7 +466,7 @@ class TabRowTest(LayoutTestCase):
         self.assertEqual(tab_widget.count(), tab_count_i + 1)
         self.assert_button_in_tab_row()
         # A wide window fits the tabs again: back beside the last tab.
-        # The tabs carry their undock buttons (LLFR-00977), so the window
+        # The tabs carry their undock buttons (LLFR-01012), so the window
         # is wide enough for 26 of them.
         self.main_window.resize(6000, 600)
         self.process_events()

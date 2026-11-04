@@ -8,7 +8,7 @@ from model.workspace import (
     matrix_slot_tuple)
 from view import theme
 
-# LLFR-01075, LLFR-01076: every shown row gets the same share of the
+# LLFR-01110, LLFR-01111: every shown row gets the same share of the
 # height, and every plot of a row the same share of its width.
 PLOT_STRETCH_I = 1
 
@@ -16,15 +16,15 @@ PLOT_STRETCH_I = 1
 class TabPage(QWidget):
     """Page of one tab of the plot panel (HLFR-00014).
 
-    The plots are laid out in the tab's plot matrix (HLFR-00145): they
-    fill row 1 from left to right, then row 2, and so on (LLFR-01073).
+    The plots are laid out in the tab's plot matrix (HLFR-00146): they
+    fill row 1 from left to right, then row 2, and so on (LLFR-01108).
     Only the rows that hold a plot are shown, one below the other, each
-    with the same share of the page height (LLFR-01075), and the plots of
-    a row share its whole width (LLFR-01076), so a partly filled row
+    with the same share of the page height (LLFR-01110), and the plots of
+    a row share its whole width (LLFR-01111), so a partly filled row
     stretches its plots. With the default 5 x 1 matrix the plots are
     stacked vertically (LLFR-00069). The page lays its plots out again
     whenever a plot is added or removed (LLFR-00050), the matrix changes
-    (LLFR-01065) or two plots swap (LLFR-01083). The page itself accepts
+    (LLFR-01100) or two plots swap (LLFR-01118). The page itself accepts
     no drops: a signal dropped on it, outside a plot, creates nothing and
     shows nothing (LLFR-00022, LLFR-00023).
 
@@ -63,7 +63,7 @@ class TabPage(QWidget):
         self.page_layout.setSpacing(theme.PLOT_SPACING_I)
         self.row_layout_list = []
         self.plot_widget_list = []
-        # LLFR-01087: the 5 x 1 matrix until the controller says more.
+        # LLFR-01122: the 5 x 1 matrix until the controller says more.
         self.row_count_i = DEFAULT_MATRIX_ROWS_I
         self.column_count_i = DEFAULT_MATRIX_COLUMNS_I
         # LLFR-00022, LLFR-00023: drops outside a plot are not accepted.
@@ -79,7 +79,7 @@ class TabPage(QWidget):
         Outputs: none. The row layouts are made again from the fill
             order; the plot widgets stay children of the page.
         """
-        # LLFR-01073 to LLFR-01076: take every plot out of its row, then
+        # LLFR-01108 to LLFR-01111: take every plot out of its row, then
         # put the plots back row by row.
         for row_layout in self.row_layout_list:
             while row_layout.count():
@@ -91,12 +91,12 @@ class TabPage(QWidget):
                                                self.column_count_i):
             row_layout = QHBoxLayout()
             row_layout.setContentsMargins(0, 0, 0, 0)
-            # LLFR-01076: the same gap between the plots of a row as
+            # LLFR-01111: the same gap between the plots of a row as
             # between the rows.
             row_layout.setSpacing(theme.PLOT_SPACING_I)
             for plot_widget in row_widget_list:
                 row_layout.addWidget(plot_widget, PLOT_STRETCH_I)
-            # LLFR-01075: each shown row gets an equal share.
+            # LLFR-01110: each shown row gets an equal share.
             self.page_layout.addLayout(row_layout, PLOT_STRETCH_I)
             self.row_layout_list.append(row_layout)
         # LLFR-00050: the plots fill the free space at once.
@@ -110,7 +110,7 @@ class TabPage(QWidget):
             column_count_i: number of columns, 1 to 10.
         Outputs: none.
         """
-        # LLFR-01065, LLFR-01067: the plots keep their fill order.
+        # LLFR-01100, LLFR-01102: the plots keep their fill order.
         self.row_count_i = int(row_count_i)
         self.column_count_i = int(column_count_i)
         self.relayout()
@@ -125,7 +125,7 @@ class TabPage(QWidget):
                 place at the end.
         Outputs: none.
         """
-        # LLFR-01083: after a swap, each plot is in the other's slot.
+        # LLFR-01118: after a swap, each plot is in the other's slot.
         ordered_list = [plot_widget for plot_widget in plot_widget_list
                         if plot_widget in self.plot_widget_list]
         ordered_list.extend(plot_widget
@@ -142,7 +142,7 @@ class TabPage(QWidget):
         Outputs: (row_index_i, column_index_i), counted from 0, or ()
             when the widget is not on this page.
         """
-        # LLFR-01073, LLFR-01082: the slot follows the fill order.
+        # LLFR-01108, LLFR-01117: the slot follows the fill order.
         if plot_widget not in self.plot_widget_list:
             return ()
         return matrix_slot_tuple(self.plot_widget_list.index(plot_widget),
@@ -156,7 +156,7 @@ class TabPage(QWidget):
             column_index_i: column of the slot, from 0.
         Outputs: the PlotWidget, or None when the slot holds no plot.
         """
-        # LLFR-01080, LLFR-01083: only an occupied slot has a plot.
+        # LLFR-01115, LLFR-01118: only an occupied slot has a plot.
         if not (0 <= column_index_i < self.column_count_i
                 and 0 <= row_index_i < self.row_count_i):
             return None
@@ -172,7 +172,7 @@ class TabPage(QWidget):
             plot_widget: the PlotWidget to add.
         Outputs: none.
         """
-        # LLFR-01074: the new plot goes after the last one.
+        # LLFR-01109: the new plot goes after the last one.
         plot_widget.setParent(self)
         self.plot_widget_list.append(plot_widget)
         self.relayout()

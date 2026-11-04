@@ -2,11 +2,11 @@
 
 A real MainWindow and MainController are used (the setup of
 test_plot_panel). They check the flat undock and dock buttons inside the
-tabs (HLFR-00123, HLFR-00124), undocked windows with several tabs
-(HLFR-00125, HLFR-00134, HLFR-00135), moving a tab into an undocked
-window (HLFR-00153), the drops outside the plot panel (HLFR-00152), the
+tabs (HLFR-00124, HLFR-00125), undocked windows with several tabs
+(HLFR-00126, HLFR-00135, HLFR-00136), moving a tab into an undocked
+window (HLFR-00154), the drops outside the plot panel (HLFR-00153), the
 previews shown in every window (HLFR-00027, HLFR-00028, HLFR-00066) and
-the pickers opened as submenus (HLFR-00145, HLFR-00149).
+the pickers opened as submenus (HLFR-00146, HLFR-00150).
 
 Every window is closed in tearDown. No test moves the shared mouse
 pointer: events are sent to the widgets directly, and the window under a
@@ -100,7 +100,7 @@ class WindowTabsViewTestCase(UndockedWindowTestCase):
         button_rect = self.button_rect_on_desktop(tab_button)
         self.assertTrue(inner_rect.contains(button_rect),
                         f"{button_rect} not inside {inner_rect}")
-        # LLFR-01120: the name fits beside the button.
+        # LLFR-01155: the name fits beside the button.
         text_width_i = tab_bar.fontMetrics().horizontalAdvance(
             tab_bar.tabText(index_i))
         self.assertGreaterEqual(button_rect.left() - tab_rect.left(),
@@ -110,8 +110,8 @@ class WindowTabsViewTestCase(UndockedWindowTestCase):
 class TabButtonLookTest(WindowTabsViewTestCase):
     """The undock and dock buttons are part of their tab."""
 
-    @covers("LLFR-01112", "LLFR-01113", "LLFR-01119", "LLFR-01120",
-            "LLFR-00977", "HLFR-00123")
+    @covers("LLFR-01147", "LLFR-01148", "LLFR-01154", "LLFR-01155",
+            "LLFR-01012", "HLFR-00124")
     def test_undock_button_flat_inside_the_tab(self) -> None:
         """The undock button has no border or background of its own, a
         rounded highlight on hover, its icon in the tab's text color,
@@ -137,7 +137,7 @@ class TabButtonLookTest(WindowTabsViewTestCase):
             self.assertIn(":hover", style_str)
             self.assertIn(theme.TAB_BUTTON_HOVER_COLOR_STR, style_str)
             self.assertIn("border-radius", style_str)
-        # LLFR-01112: the icon of the selected tab is in its darker text
+        # LLFR-01147: the icon of the selected tab is in its darker text
         # color, the other one in the muted color.
         selected_button = self.panel.undock_button_of(
             self.panel.current_tab_id())
@@ -151,8 +151,8 @@ class TabButtonLookTest(WindowTabsViewTestCase):
         self.assertEqual(other_button.icon_color_str(),
                          theme.TAB_SELECTED_TEXT_COLOR_STR)
 
-    @covers("LLFR-01112", "LLFR-01119", "LLFR-01120", "LLFR-00990",
-            "LLFR-01031", "HLFR-00124")
+    @covers("LLFR-01147", "LLFR-01154", "LLFR-01155", "LLFR-01025",
+            "LLFR-01066", "HLFR-00125")
     def test_dock_buttons_inside_each_tab_of_a_window(self) -> None:
         """Each tab of a window has its own flat dock button inside it.
 
@@ -179,9 +179,9 @@ class TabButtonLookTest(WindowTabsViewTestCase):
 class SeveralTabsWindowTest(WindowTabsViewTestCase):
     """An undocked window with several tabs."""
 
-    @covers("LLFR-01028", "LLFR-01095", "LLFR-01114", "LLFR-01026",
-            "LLFR-01027", "LLFR-01123", "HLFR-00125", "HLFR-00134",
-            "HLFR-00135", "HLFR-00153")
+    @covers("LLFR-01063", "LLFR-01130", "LLFR-01149", "LLFR-01061",
+            "LLFR-01062", "LLFR-01158", "HLFR-00126", "HLFR-00135",
+            "HLFR-00136", "HLFR-00154")
     def test_tab_row_switch_and_title(self) -> None:
         """Two tabs in the tab row, the moved one shown; a click on the
         other shows it and the title follows.
@@ -206,7 +206,7 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
         self.assertEqual(window.windowTitle(), "Engine")
         self.assertEqual(window.tab_bar.tabText(0), "Engine")
 
-    @covers("LLFR-01029", "LLFR-01030", "LLFR-01034", "HLFR-00135")
+    @covers("LLFR-01064", "LLFR-01065", "LLFR-01069", "HLFR-00136")
     def test_tab_menu_of_the_second_tab(self) -> None:
         """The tab menu acts on the right-clicked tab of the window, and
         its Delete keeps the window with the other tab.
@@ -226,7 +226,7 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
         self.assertIs(self.main_window.window_of_tab(second_id_i), window)
         self.assertEqual(window.tab_id_list(), [second_id_i])
 
-    @covers("LLFR-01122", "LLFR-01131", "LLFR-01054", "HLFR-00142")
+    @covers("LLFR-01157", "LLFR-01166", "LLFR-01089", "HLFR-00143")
     def test_drag_in_the_window_tab_row_reorders(self) -> None:
         """A tab moved in the window's tab row and dropped there keeps
         its new place, as one undoable action.
@@ -254,7 +254,7 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
         window = self.main_window.window_of_tab(second_id_i)
         self.assertEqual(window.tab_id_list(), [second_id_i, third_id_i])
 
-    @covers("LLFR-01038", "LLFR-01039", "LLFR-01024", "HLFR-00138")
+    @covers("LLFR-01073", "LLFR-01074", "LLFR-01059", "HLFR-00139")
     def test_window_close_deletes_both_tabs(self) -> None:
         """The system close deletes both tabs; one undo opens the window
         again with both.
@@ -275,7 +275,7 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
         self.assertEqual(window.tab_id_list(), [second_id_i, third_id_i])
         self.assertEqual(self.panel.current_tab_id(), first_id_i)
 
-    @covers("LLFR-00129", "LLFR-01056", "HLFR-00038", "HLFR-00125")
+    @covers("LLFR-00129", "LLFR-01091", "HLFR-00038", "HLFR-00126")
     def test_pdf_order_window_by_window(self) -> None:
         """Docked tabs first, then each window's tabs in its order.
 
@@ -290,7 +290,7 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
                           in self.main_window.undocked_page_list()],
                          [second_id_i, third_id_i, fourth_id_i])
 
-    @covers("LLFR-01101", "LLFR-01003", "HLFR-00039", "HLFR-00127")
+    @covers("LLFR-01136", "LLFR-01038", "HLFR-00039", "HLFR-00128")
     def test_current_tab_rules_use_the_shown_tab(self) -> None:
         """The Copy shortcut and the double-click of a window's panel
         use the tab the window shows.
@@ -316,7 +316,7 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
 class DropOnWindowViewTest(WindowTabsViewTestCase):
     """Dropping a dragged tab on a window or outside the plot panel."""
 
-    @covers("LLFR-01115", "LLFR-01116", "LLFR-01123", "HLFR-00153")
+    @covers("LLFR-01150", "LLFR-01151", "LLFR-01158", "HLFR-00154")
     def test_docked_tab_dropped_on_a_window(self) -> None:
         """A docked tab dropped on a window's tab row joins it there and
         is shown.
@@ -344,7 +344,7 @@ class DropOnWindowViewTest(WindowTabsViewTestCase):
         self.assertEqual(window.shown_tab_id(), third_id_i)
         self.assertEqual(self.panel.current_tab_id(), first_id_i)
 
-    @covers("LLFR-01117", "LLFR-00996", "HLFR-00153")
+    @covers("LLFR-01152", "LLFR-01031", "HLFR-00154")
     def test_window_tab_dropped_on_another_window(self) -> None:
         """A window's only tab dropped on another window moves there and
         its own window closes.
@@ -371,7 +371,7 @@ class DropOnWindowViewTest(WindowTabsViewTestCase):
                          [third_id_i, second_id_i])
         self.assertEqual(len(self.main_window.undocked_window_dict), 1)
 
-    @covers("LLFR-01107", "HLFR-00152")
+    @covers("LLFR-01142", "HLFR-00153")
     def test_drop_on_the_signal_list_panel_undocks(self) -> None:
         """A tab dropped on the main window's signal list panel, outside
         the plot panel, opens a new window.
@@ -436,7 +436,7 @@ class PreviewsInEveryWindowTest(WindowTabsViewTestCase):
         shown_preview.assert_called_once_with(1.25)
         hidden_preview.assert_not_called()
 
-    @covers("LLFR-01127", "LLFR-00303", "HLFR-00066")
+    @covers("LLFR-01162", "LLFR-00303", "HLFR-00066")
     def test_area_preview_in_every_shown_window(self) -> None:
         """The preview of a new area is shown on the other shown time
         plots, and hidden from every plot afterwards.
@@ -454,7 +454,7 @@ class PreviewsInEveryWindowTest(WindowTabsViewTestCase):
         self.shown_plot.area_preview_changed.emit(math.nan, math.nan)
         self.assertEqual(self.main_plot.mirror_area_preview_tuple(), ())
 
-    @covers("LLFR-01128", "LLFR-00208", "HLFR-00027")
+    @covers("LLFR-01163", "LLFR-00208", "HLFR-00027")
     def test_span_selection_in_every_shown_window(self) -> None:
         """A time span selected on the main plot is shown on the plot of
         the window, and hidden afterwards.
@@ -469,7 +469,7 @@ class PreviewsInEveryWindowTest(WindowTabsViewTestCase):
         self.main_plot.span_preview_changed.emit(math.nan, math.nan)
         self.assertEqual(self.shown_plot.mirror_span_preview_tuple(), ())
 
-    @covers("LLFR-01129", "LLFR-01128", "LLFR-01127", "HLFR-00038",
+    @covers("LLFR-01164", "LLFR-01163", "LLFR-01162", "HLFR-00038",
             "HLFR-00039")
     def test_mirror_previews_left_out_of_the_copy(self) -> None:
         """The previews of other plots are drawn by blitting only, so a
@@ -485,7 +485,7 @@ class PreviewsInEveryWindowTest(WindowTabsViewTestCase):
                        self.shown_plot.area_preview_band):
             self.assertNotIn(artist, axes.get_children())
 
-    @covers("LLFR-01128", "LLFR-00693", "HLFR-00058")
+    @covers("LLFR-01163", "LLFR-00693", "HLFR-00058")
     def test_frequency_plot_shows_no_mirror(self) -> None:
         """A frequency plot never shows the previews of other plots.
 
@@ -525,7 +525,7 @@ class PickerSubmenuTest(WindowTabsViewTestCase):
         self.assertEqual(len(widget_list), 1)
         return widget_list[0]
 
-    @covers("LLFR-01062", "LLFR-01065", "LLFR-01061", "HLFR-00145")
+    @covers("LLFR-01097", "LLFR-01100", "LLFR-01096", "HLFR-00146")
     def test_plot_matrix_submenu_chooses_and_closes(self) -> None:
         """The picker is in the submenu of "Plot matrix"; a click on a
         square gives the tab that matrix and closes the menus.
@@ -547,7 +547,7 @@ class PickerSubmenuTest(WindowTabsViewTestCase):
         self.assertEqual((tab.row_count_i, tab.column_count_i), (2, 3))
         menu.deleteLater()
 
-    @covers("LLFR-01079", "LLFR-01083", "LLFR-01077", "HLFR-00149")
+    @covers("LLFR-01114", "LLFR-01118", "LLFR-01112", "HLFR-00150")
     def test_position_submenu_swaps_and_closes(self) -> None:
         """The plot menu's "Position" holds the position picker; a click
         on the other plot's slot swaps the two plots.

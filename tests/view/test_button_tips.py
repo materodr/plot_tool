@@ -38,9 +38,9 @@ EXPECTED_TIP_DICT = {
                      "Wheel or two-finger swipe to zoom in or out"]),
     "open_file_button": ("Open file", [], []),
     "grid_button": ("Grid", [], []),
-    # LLFR-00215, LLFR-01104: the PDF shortcut of the Export menu.
+    # LLFR-00215, LLFR-01139: the PDF shortcut of the Export menu.
     "export_button": ("Export", ["Cmd+P"], ["Ctrl+P"]),
-    # LLFR-00215, LLFR-01101: the Copy shortcut.
+    # LLFR-00215, LLFR-01136: the Copy shortcut.
     "copy_button": ("Copy", ["Cmd+C"], ["Ctrl+C"]),
     # LLFR-00356, LLFR-00214: the Pan tool is used with the mouse.
     "pan_button": ("Pan", ["Drag on a plot to pan"],
@@ -143,8 +143,8 @@ class ButtonTipTest(unittest.TestCase):
         return color_list
 
     @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181",
-            "LLFR-00463", "LLFR-00464", "LLFR-00465", "LLFR-01101",
-            "LLFR-01104", "HLFR-00042", "HLFR-00143", "HLFR-00144")
+            "LLFR-00463", "LLFR-00464", "LLFR-00465", "LLFR-01136",
+            "LLFR-01139", "HLFR-00042", "HLFR-00144", "HLFR-00145")
     def test_tip_texts_on_macos_and_windows(self) -> None:
         """Each button tip has the lines of the table, on both systems.
 
@@ -302,7 +302,7 @@ class ButtonTipTest(unittest.TestCase):
 
     @covers("LLFR-00215", "LLFR-00148", "LLFR-00154", "LLFR-00197",
             "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321",
-            "LLFR-01057", "LLFR-00883", "HLFR-00143", "HLFR-00144")
+            "LLFR-01092", "LLFR-00883", "HLFR-00144", "HLFR-00145")
     def test_key_names_follow_the_tool_keys(self) -> None:
         """The held and pressed keys are named from the filter's keys.
 

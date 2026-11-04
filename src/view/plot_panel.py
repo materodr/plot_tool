@@ -6,21 +6,21 @@ button sits directly beside the last tab (LLFR-00025), or at the right
 end of the tab row when the tabs overflow and the tab bar scrolls, and
 it is styled like an unselected tab, only narrower (LLFR-00107). A
 right-click on a tab opens a menu with "Delete", "Rename" and "Plot
-matrix" (LLFR-00027, LLFR-00029, LLFR-01061); "Plot matrix" opens the
-matrix picker of view.matrix_picker (LLFR-01062). "Position" in the
+matrix" (LLFR-00027, LLFR-00029, LLFR-01096); "Plot matrix" opens the
+matrix picker of view.matrix_picker (LLFR-01097). "Position" in the
 plot menu and the area menu of a plot opens the position picker of its
-tab (LLFR-01079), and the chosen slot goes to the controller as a swap
-(LLFR-01083).
+tab (LLFR-01114), and the chosen slot goes to the controller as a swap
+(LLFR-01118).
 
-The tabs can be dragged along the tab row (LLFR-01051): Qt's movable
+The tabs can be dragged along the tab row (LLFR-01086): Qt's movable
 tab bar moves the tab with the pointer, the others making room, and
-keeps it in the row when the pointer leaves it (LLFR-01053). When the
+keeps it in the row when the pointer leaves it (LLFR-01088). When the
 left button is released, the tab's new place goes to the controller,
-which keeps it as one undoable action (LLFR-01052, LLFR-01054); a tab
-released at its starting place reports nothing (LLFR-01055). A tab
+which keeps it as one undoable action (LLFR-01087, LLFR-01089); a tab
+released at its starting place reports nothing (LLFR-01090). A tab
 released outside the main window goes back to its starting place and
-is undocked at the drop point instead, like a browser tab (LLFR-01107),
-unless it is the last docked tab (LLFR-01109).
+is undocked at the drop point instead, like a browser tab (LLFR-01142),
+unless it is the last docked tab (LLFR-01144).
 
 It offers a plain-Python facade (ids of the model, names, bools; no Qt
 types), used through MainWindow by the plot controller (COR-00009).
@@ -46,7 +46,7 @@ from view.window_buttons import (
     DOCK_BUTTON_OBJECT_NAME_STR, UNDOCK_BUTTON_OBJECT_NAME_STR,
     build_undock_button)
 
-# LLFR-00977, LLFR-00990: the object names of the buttons inside tabs.
+# LLFR-01012, LLFR-01025: the object names of the buttons inside tabs.
 TAB_ICON_BUTTON_NAME_TUPLE = (UNDOCK_BUTTON_OBJECT_NAME_STR,
                               DOCK_BUTTON_OBJECT_NAME_STR)
 
@@ -54,9 +54,9 @@ ADD_TAB_TEXT_STR = "+"
 ADD_TAB_TOOL_TIP_STR = "Add a new tab"
 DELETE_TAB_TEXT_STR = "Delete"
 RENAME_TAB_TEXT_STR = "Rename"
-# LLFR-01061: the option of the tab menu that opens the matrix picker.
+# LLFR-01096: the option of the tab menu that opens the matrix picker.
 PLOT_MATRIX_TEXT_STR = "Plot matrix"
-# LLFR-01051: no tab is pressed for a drag.
+# LLFR-01086: no tab is pressed for a drag.
 NO_TAB_ID_I = -1
 RENAME_DIALOG_TITLE_STR = "Rename tab"
 RENAME_DIALOG_LABEL_STR = "New tab name:"
@@ -208,7 +208,7 @@ class PlotTabWidget(QTabWidget):
         tab_bar.setUsesScrollButtons(True)
         tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
         tab_bar.setDrawBase(False)
-        # LLFR-01051, LLFR-01053: a tab is dragged along the tab row, the
+        # LLFR-01086, LLFR-01088: a tab is dragged along the tab row, the
         # other tabs moving aside; Qt keeps it in the row.
         tab_bar.setMovable(True)
         self.setTabBar(tab_bar)
@@ -308,7 +308,7 @@ class PlotTabWidget(QTabWidget):
         Outputs: True when the tab bar shows its scroll buttons.
         """
         # LLFR-00025: the scroll buttons are tool buttons of the tab bar;
-        # LLFR-00977, LLFR-00990: the undock and dock buttons of the tabs
+        # LLFR-01012, LLFR-01025: the undock and dock buttons of the tabs
         # are not.
         tab_bar = self.tabBar()
         return any(not scroll_button.isHidden()
@@ -428,32 +428,32 @@ class PlotPanel(QWidget):
         self.add_tab_handler = None
         self.delete_tab_handler = None
         self.rename_tab_handler = None
-        # LLFR-01052, LLFR-01065: the tab move and the matrix choice.
+        # LLFR-01087, LLFR-01100: the tab move and the matrix choice.
         self.move_tab_handler = None
         self.plot_matrix_handler = None
-        # LLFR-01051: the tab pressed for a drag, its place at the press
+        # LLFR-01086: the tab pressed for a drag, its place at the press
         # and whether the pointer moved with the button held.
         self.pressed_tab_id_i = NO_TAB_ID_I
         self.pressed_tab_index_i = -1
         self.tab_drag_in_progress_b = False
-        # LLFR-01062, LLFR-01079: the picker that is open, if any.
+        # LLFR-01097, LLFR-01114: the picker that is open, if any.
         self.open_picker = None
-        # LLFR-00980: the undock button of each docked tab, and the
+        # LLFR-01015: the undock button of each docked tab, and the
         # function called with the tab id when one is clicked.
         self.undock_button_dict = {}
         self.undock_handler = None
-        # LLFR-01107: the function called with the tab id and the x and
+        # LLFR-01142: the function called with the tab id and the x and
         # y of the drop point when a tab is dropped outside the plot
         # panel.
         self.undock_drop_handler = None
-        # LLFR-01115: the function called with the tab id and the x and
+        # LLFR-01150: the function called with the tab id and the x and
         # y of the drop point, which returns True when the point is over
         # an undocked window and the drop went to it; set by MainWindow.
         self.window_drop_function = None
         # LLFR-00203, LLFR-00665: the function that returns the pages
         # the undocked windows show; set by MainWindow.
         self.undocked_shown_page_function = None
-        # LLFR-00983: whether the undock buttons are enabled.
+        # LLFR-01018: whether the undock buttons are enabled.
         self.undock_enabled_b = False
         self.plot_handler_dict = {}
         # LLFR-00026: the "+" button asks for a new tab.
@@ -462,7 +462,7 @@ class PlotPanel(QWidget):
         tab_bar = self.tab_widget.tabBar()
         tab_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tab_bar.customContextMenuRequested.connect(self.show_tab_menu)
-        # LLFR-01112: the icon of each tab button has its tab's text
+        # LLFR-01147: the icon of each tab button has its tab's text
         # color, so it follows the selection.
         self.tab_widget.currentChanged.connect(
             lambda *_: self.refresh_undock_button_looks())
@@ -488,7 +488,7 @@ class PlotPanel(QWidget):
                 and watched in (self.tab_widget.tabBar(),
                                 self.add_tab_button)):
             self.setFocus(Qt.FocusReason.MouseFocusReason)
-        # LLFR-01051 to LLFR-01055: follow a drag of a tab.
+        # LLFR-01086 to LLFR-01090: follow a drag of a tab.
         if watched is self.tab_widget.tabBar():
             self.follow_tab_drag_event(event)
         # LLFR-00421: a left double-click on a tab acts as "Rename" in
@@ -510,7 +510,7 @@ class PlotPanel(QWidget):
         event_type = event.type()
         if (event_type == QEvent.Type.MouseButtonPress
                 and event.button() == Qt.MouseButton.LeftButton):
-            # LLFR-01051: the press on a tab starts a possible drag.
+            # LLFR-01086: the press on a tab starts a possible drag.
             tab_index_i = self.tab_widget.tabBar().tabAt(
                 event.position().toPoint())
             self.pressed_tab_id_i = self.tab_id_at_index(tab_index_i)
@@ -524,13 +524,13 @@ class PlotPanel(QWidget):
         elif (event_type == QEvent.Type.MouseButtonRelease
               and event.button() == Qt.MouseButton.LeftButton
               and self.pressed_tab_id_i != NO_TAB_ID_I):
-            # LLFR-01107: where a dragged tab was dropped, in desktop
+            # LLFR-01142: where a dragged tab was dropped, in desktop
             # pixels; a click is no drop.
             release_tuple = ()
             if self.tab_drag_in_progress_b:
                 release_point = event.globalPosition().toPoint()
                 release_tuple = (release_point.x(), release_point.y())
-            # LLFR-01052: the place is read once Qt has handled the
+            # LLFR-01087: the place is read once Qt has handled the
             # release.
             QTimer.singleShot(0, partial(
                 self.finish_tab_drag, self.pressed_tab_id_i,
@@ -548,10 +548,10 @@ class PlotPanel(QWidget):
             release_tuple: (x, y) of the release in desktop pixels, or
                 () for a release that ends no drag.
         Outputs: none. Nothing is reported when the tab is back at its
-            starting place (LLFR-01055) or is gone. A tab dropped
-            outside the main window is undocked there (LLFR-01107).
+            starting place (LLFR-01090) or is gone. A tab dropped
+            outside the main window is undocked there (LLFR-01142).
         """
-        # LLFR-01052, LLFR-01054: a tab left at another place.
+        # LLFR-01087, LLFR-01089: a tab left at another place.
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return
@@ -559,18 +559,18 @@ class PlotPanel(QWidget):
         if len(release_tuple) == 2 and self.undock_enabled_b and (
                 self.is_window_drop(*release_tuple)
                 or not self.is_point_in_plot_panel(*release_tuple)):
-            # LLFR-01107, LLFR-01115: the tab leaves from its place in the
+            # LLFR-01142, LLFR-01150: the tab leaves from its place in the
             # tab order, so the move Qt made during the drag is taken
-            # back first; LLFR-01109: the last docked tab (undock
+            # back first; LLFR-01144: the last docked tab (undock
             # disabled) is kept.
             if index_i >= 0 and index_i != start_index_i:
                 self.tab_widget.tabBar().moveTab(index_i, start_index_i)
-            # LLFR-01115: on an undocked window, into that window.
+            # LLFR-01150: on an undocked window, into that window.
             if (self.window_drop_function is not None
                     and self.window_drop_function(tab_id_i,
                                                   *release_tuple)):
                 return
-            # LLFR-01107: anywhere else outside the plot panel, into a
+            # LLFR-01142: anywhere else outside the plot panel, into a
             # new undocked window at the drop point.
             if self.undock_drop_handler is not None:
                 self.undock_drop_handler(tab_id_i, *release_tuple)
@@ -587,7 +587,7 @@ class PlotPanel(QWidget):
             x_i, y_i: the point, in desktop pixels.
         Outputs: True when MainWindow finds an undocked window there.
         """
-        # LLFR-01115: a drop on an undocked window moves the tab there.
+        # LLFR-01150: a drop on an undocked window moves the tab there.
         is_over_function = getattr(self, "window_at_point_function", None)
         return is_over_function is not None and is_over_function(
             x_i, y_i) is not None
@@ -599,8 +599,8 @@ class PlotPanel(QWidget):
             x_i, y_i: the point, in desktop pixels.
         Outputs: True when the point is inside the panel's rectangle.
         """
-        # LLFR-01107: a drop outside the plot panel undocks the tab;
-        # LLFR-01053: a drop inside it, off the tab row, does not.
+        # LLFR-01142: a drop outside the plot panel undocks the tab;
+        # LLFR-01088: a drop inside it, off the tab row, does not.
         top_left = self.mapToGlobal(QPoint(0, 0))
         return QRect(top_left.x(), top_left.y(), self.width(),
                      self.height()).contains(QPoint(int(x_i), int(y_i)))
@@ -613,8 +613,8 @@ class PlotPanel(QWidget):
         Outputs: True when the point is inside the frame of the window
             that holds this panel.
         """
-        # LLFR-01107: a drop outside the main window undocks the tab;
-        # LLFR-01053: a drop inside it, off the tab row, does not.
+        # LLFR-01142: a drop outside the main window undocks the tab;
+        # LLFR-01088: a drop inside it, off the tab row, does not.
         return self.window().frameGeometry().contains(QPoint(int(x_i),
                                                              int(y_i)))
 
@@ -625,7 +625,7 @@ class PlotPanel(QWidget):
         Outputs: a QRect in desktop pixels, across the whole width of the
             tab widget, from its top to the bottom of the tab bar.
         """
-        # LLFR-01108: the row of the docked tabs and the "+" button.
+        # LLFR-01143: the row of the docked tabs and the "+" button.
         tab_widget = self.tab_widget
         tab_bar = tab_widget.tabBar()
         top_left = tab_widget.mapToGlobal(QPoint(0, 0))
@@ -643,12 +643,12 @@ class PlotPanel(QWidget):
             after the last one; -1 when the point is not on the tab row
             of the main window, which is then not shown.
         """
-        # LLFR-01108, LLFR-01032: only a drop on the main tab row.
+        # LLFR-01143, LLFR-01067: only a drop on the main tab row.
         if not self.window().isVisible() or self.window().isMinimized():
             return -1
         if not self.tab_row_rect().contains(QPoint(int(x_i), int(y_i))):
             return -1
-        # LLFR-01135: before the first docked tab whose middle is right
+        # LLFR-01170: before the first docked tab whose middle is right
         # of the pointer, else after the last one.
         tab_bar = self.tab_widget.tabBar()
         for index_i in range(tab_bar.count()):
@@ -730,12 +730,12 @@ class PlotPanel(QWidget):
 
         Inputs:
             move_tab_handler: function taking a tab id and its new place,
-                from 0 (LLFR-01052).
+                from 0 (LLFR-01087).
             plot_matrix_handler: function taking a tab id, a number of
-                rows and a number of columns (LLFR-01065).
+                rows and a number of columns (LLFR-01100).
         Outputs: none.
         """
-        # LLFR-01052, LLFR-01065: the controller decides.
+        # LLFR-01087, LLFR-01100: the controller decides.
         self.move_tab_handler = move_tab_handler
         self.plot_matrix_handler = plot_matrix_handler
 
@@ -801,7 +801,7 @@ class PlotPanel(QWidget):
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return
-        # LLFR-00988: over the window that shows the tab.
+        # LLFR-01023: over the window that shows the tab.
         new_name_str, accepted_b = QInputDialog.getText(
             page.window(), RENAME_DIALOG_TITLE_STR, RENAME_DIALOG_LABEL_STR,
             QLineEdit.EchoMode.Normal, page.name_str)
@@ -836,7 +836,7 @@ class PlotPanel(QWidget):
         Outputs: a QMenu with "Delete" (disabled when the panel has only
             one tab), "Rename" and "Plot matrix".
         """
-        # LLFR-00027, LLFR-00029, LLFR-01061: the menu of a docked tab.
+        # LLFR-00027, LLFR-00029, LLFR-01096: the menu of a docked tab.
         return self.build_tab_menu_of(self.tab_id_at_index(tab_index_i),
                                       False)
 
@@ -852,7 +852,7 @@ class PlotPanel(QWidget):
         """
         menu = QMenu(self if parent is None else parent)
         # LLFR-00027, LLFR-00066: "Delete", disabled on the last docked
-        # tab; LLFR-01034: always enabled on an undocked tab.
+        # tab; LLFR-01069: always enabled on an undocked tab.
         delete_action = menu.addAction(DELETE_TAB_TEXT_STR)
         delete_action.setEnabled(undocked_b or (
             self.tab_delete_enabled_b and self.tab_widget.count() > 1))
@@ -862,7 +862,7 @@ class PlotPanel(QWidget):
         rename_action = menu.addAction(RENAME_TAB_TEXT_STR)
         rename_action.triggered.connect(
             lambda *_: self.request_rename_tab(tab_id_i))
-        # LLFR-01061: "Plot matrix", directly below "Rename"; LLFR-01062:
+        # LLFR-01096: "Plot matrix", directly below "Rename"; LLFR-01097:
         # its picker opens beside the menu as a submenu, with no click.
         add_picker_submenu(menu, PLOT_MATRIX_TEXT_STR, partial(
             self.build_matrix_picker, tab_id_i, embedded_b=True))
@@ -894,8 +894,8 @@ class PlotPanel(QWidget):
             undocked_b: True for the tab button of an undocked window.
         Outputs: none.
         """
-        # LLFR-01029: the tab menu on the tab button of a window, over
-        # that window (LLFR-00988).
+        # LLFR-01064: the tab menu on the tab button of a window, over
+        # that window (LLFR-01023).
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return
@@ -917,14 +917,14 @@ class PlotPanel(QWidget):
         Outputs: none. Tests replace this method to work with the picker
             without showing it.
         """
-        # LLFR-01062, LLFR-01079: one picker at a time; the one shown
+        # LLFR-01097, LLFR-01114: one picker at a time; the one shown
         # before is deleted.
         if self.open_picker is not None and self.open_picker is not picker:
             try:
                 self.open_picker.close()
                 self.open_picker.deleteLater()
             except RuntimeError:
-                # LLFR-00988: it was deleted with its undocked window.
+                # LLFR-01023: it was deleted with its undocked window.
                 pass
         self.open_picker = picker
         picker.show_at(global_point)
@@ -938,11 +938,11 @@ class PlotPanel(QWidget):
             parent: the parent of the picker; None for the window that
                 shows the tab.
             embedded_b: True for the picker of the "Plot matrix" submenu
-                (LLFR-01062).
+                (LLFR-01097).
         Outputs: a MatrixPicker, or None for an unknown tab.
         """
-        # LLFR-00988: over the window that shows the tab.
-        # LLFR-01062, LLFR-01064, LLFR-01071: the tab's current matrix
+        # LLFR-01023: over the window that shows the tab.
+        # LLFR-01097, LLFR-01099, LLFR-01106: the tab's current matrix
         # and its number of plots.
         page = self.page_dict.get(tab_id_i)
         if page is None:
@@ -963,7 +963,7 @@ class PlotPanel(QWidget):
                 opens, or None for the pointer position.
         Outputs: none.
         """
-        # LLFR-01062: "Plot matrix" in the tab menu.
+        # LLFR-01097: "Plot matrix" in the tab menu.
         picker = self.build_matrix_picker(tab_id_i)
         if picker is None:
             return
@@ -981,7 +981,7 @@ class PlotPanel(QWidget):
             column_count_i: columns of the chosen square.
         Outputs: none.
         """
-        # LLFR-01065: the controller gives the tab the plot matrix.
+        # LLFR-01100: the controller gives the tab the plot matrix.
         if self.plot_matrix_handler is not None:
             self.plot_matrix_handler(tab_id_i, row_count_i, column_count_i)
 
@@ -992,7 +992,7 @@ class PlotPanel(QWidget):
             plot_id_i: id of the plot.
         Outputs: the TabPage, or None for an unknown plot.
         """
-        # LLFR-01079: the picker has the matrix of the plot's tab.
+        # LLFR-01114: the picker has the matrix of the plot's tab.
         plot_widget = self.plot_widget_dict.get(plot_id_i)
         for page in self.page_dict.values():
             if plot_widget is not None and plot_widget in (
@@ -1009,11 +1009,11 @@ class PlotPanel(QWidget):
             parent: the parent of the picker; None for the window that
                 shows the tab.
             embedded_b: True for the picker of the "Position" submenu
-                (LLFR-01079).
+                (LLFR-01114).
         Outputs: a PositionPicker, or None for an unknown plot.
         """
-        # LLFR-00988: over the window that shows the tab.
-        # LLFR-01079 to LLFR-01082: the tab's matrix, its occupied slots
+        # LLFR-01023: over the window that shows the tab.
+        # LLFR-01114 to LLFR-01117: the tab's matrix, its occupied slots
         # and the plot's own slot.
         page = self.page_of_plot(plot_id_i)
         if page is None:
@@ -1034,7 +1034,7 @@ class PlotPanel(QWidget):
             plot_id_i: id of the plot whose "Position" was chosen.
         Outputs: none.
         """
-        # LLFR-01077, LLFR-01078, LLFR-01079.
+        # LLFR-01112, LLFR-01113, LLFR-01114.
         picker = self.build_position_picker(plot_id_i)
         if picker is None:
             return
@@ -1048,8 +1048,8 @@ class PlotPanel(QWidget):
             plot_id_i: id of the plot the picker was opened from.
             row_i: row of the chosen slot, from 1.
             column_i: column of the chosen slot, from 1.
-        Outputs: none. The controller swaps the two plots (LLFR-01083);
-            for the plot's own slot it changes nothing (LLFR-01086).
+        Outputs: none. The controller swaps the two plots (LLFR-01118);
+            for the plot's own slot it changes nothing (LLFR-01121).
         """
         page = self.page_of_plot(plot_id_i)
         if page is None:
@@ -1057,7 +1057,7 @@ class PlotPanel(QWidget):
         other_widget = page.plot_widget_at_slot(row_i - 1, column_i - 1)
         if other_widget is None:
             return
-        # LLFR-01083: swap with the plot of the chosen slot.
+        # LLFR-01118: swap with the plot of the chosen slot.
         handler = self.plot_handler_dict.get("plot_swap_handler")
         if handler is not None:
             handler(plot_id_i, other_widget.plot_id_i)
@@ -1088,11 +1088,11 @@ class PlotPanel(QWidget):
             page: the TabPage.
         Outputs: none.
         """
-        # LLFR-00025, LLFR-00993: after the last docked tab.
+        # LLFR-00025, LLFR-01028: after the last docked tab.
         index_i = self.tab_widget.addTab(page, escape_tab_text(
             page.name_str))
-        # LLFR-00977: the undock button inside the tab, right of the
-        # tab's name; LLFR-00983: none on the last docked tab.
+        # LLFR-01012: the undock button inside the tab, right of the
+        # tab's name; LLFR-01018: none on the last docked tab.
         undock_button = build_undock_button()
         undock_button.button.clicked.connect(partial(self.request_undock,
                                                      page.tab_id_i))
@@ -1109,11 +1109,11 @@ class PlotPanel(QWidget):
             undock_button: its TabIconButton.
         Outputs: none. While the main window holds one docked tab, the
             tab shows no button at all, and its width has no room for
-            one (LLFR-00983, LLFR-01120).
+            one (LLFR-01018, LLFR-01155).
         """
         tab_bar = self.tab_widget.tabBar()
         if self.undock_enabled_b:
-            # LLFR-00977: inside the tab, right of its name.
+            # LLFR-01012: inside the tab, right of its name.
             if tab_bar.tabButton(index_i, QTabBar.ButtonPosition.RightSide
                                  ) is not undock_button:
                 tab_bar.setTabButton(index_i,
@@ -1121,7 +1121,7 @@ class PlotPanel(QWidget):
                                      undock_button)
             undock_button.show()
             return
-        # LLFR-00983: no undock button on the last docked tab.
+        # LLFR-01018: no undock button on the last docked tab.
         if tab_bar.tabButton(index_i,
                              QTabBar.ButtonPosition.RightSide) is not None:
             tab_bar.setTabButton(index_i, QTabBar.ButtonPosition.RightSide,
@@ -1134,7 +1134,7 @@ class PlotPanel(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01112: the selected tab has darker text than the others.
+        # LLFR-01147: the selected tab has darker text than the others.
         current_page = self.tab_widget.currentWidget()
         for tab_id_i, undock_button in self.undock_button_dict.items():
             try:
@@ -1151,7 +1151,7 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab whose undock button was clicked.
         Outputs: none.
         """
-        # LLFR-00980: the undock button; LLFR-00984: a disabled button
+        # LLFR-01015: the undock button; LLFR-01019: a disabled button
         # sends no click.
         if self.undock_handler is not None:
             self.undock_handler(tab_id_i)
@@ -1163,7 +1163,7 @@ class PlotPanel(QWidget):
             enabled_b: False while the main window holds one docked tab.
         Outputs: none.
         """
-        # LLFR-00983: no undock button on the last docked tab.
+        # LLFR-01018: no undock button on the last docked tab.
         self.undock_enabled_b = bool(enabled_b)
         for tab_id_i, undock_button in self.undock_button_dict.items():
             index_i = self.tab_widget.indexOf(self.page_dict.get(tab_id_i))
@@ -1178,7 +1178,7 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab.
         Outputs: the QToolButton, or None for an undocked or unknown tab.
         """
-        # LLFR-00977: each docked tab has one.
+        # LLFR-01012: each docked tab has one.
         return self.undock_button_dict.get(tab_id_i)
 
     def detach_page(self, tab_id_i: int):
@@ -1188,14 +1188,14 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab.
         Outputs: the TabPage, kept in page_dict with its plots, or None.
         """
-        # LLFR-00980, LLFR-00985: the page moves with all it holds.
+        # LLFR-01015, LLFR-01020: the page moves with all it holds.
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return None
         index_i = self.tab_widget.indexOf(page)
         if index_i >= 0:
             self.tab_widget.removeTab(index_i)
-        # LLFR-01031: an undocked tab has no undock button.
+        # LLFR-01066: an undocked tab has no undock button.
         undock_button = self.undock_button_dict.pop(tab_id_i, None)
         if undock_button is not None:
             undock_button.deleteLater()
@@ -1209,7 +1209,7 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab.
         Outputs: none.
         """
-        # LLFR-00993: directly left of the "+" button.
+        # LLFR-01028: directly left of the "+" button.
         page = self.page_dict.get(tab_id_i)
         if page is None or self.tab_widget.indexOf(page) >= 0:
             return
@@ -1222,7 +1222,7 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab.
         Outputs: True for a docked tab.
         """
-        # LLFR-00977: the docked tabs of the main window.
+        # LLFR-01012: the docked tabs of the main window.
         page = self.page_dict.get(tab_id_i)
         return page is not None and self.tab_widget.indexOf(page) >= 0
 
@@ -1287,7 +1287,7 @@ class PlotPanel(QWidget):
         """
         # LLFR-00026: a new tab becomes the current one.
         page = self.page_dict.get(tab_id_i)
-        # LLFR-00982, LLFR-00995: only a docked tab is shown in the main
+        # LLFR-01017, LLFR-01030: only a docked tab is shown in the main
         # window.
         if page is not None and self.tab_widget.indexOf(page) >= 0:
             self.tab_widget.setCurrentWidget(page)
@@ -1311,9 +1311,9 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab.
             index_i: its new place, from 0.
         Outputs: none. Nothing moves when the tab is already there, as
-            after a drag (LLFR-01052).
+            after a drag (LLFR-01087).
         """
-        # LLFR-01052, LLFR-01056: the order of the model.
+        # LLFR-01087, LLFR-01091: the order of the model.
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return
@@ -1335,7 +1335,7 @@ class PlotPanel(QWidget):
             column_count_i: number of columns.
         Outputs: none.
         """
-        # LLFR-01065, LLFR-01067, LLFR-01073 to LLFR-01076.
+        # LLFR-01100, LLFR-01102, LLFR-01108 to LLFR-01111.
         page = self.page_dict.get(tab_id_i)
         if page is not None:
             page.set_plot_matrix(row_count_i, column_count_i)
@@ -1349,7 +1349,7 @@ class PlotPanel(QWidget):
             plot_id_list: the plot ids in fill order.
         Outputs: none.
         """
-        # LLFR-01083, LLFR-01084: the same widgets, in other slots.
+        # LLFR-01118, LLFR-01119: the same widgets, in other slots.
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return
@@ -1405,7 +1405,7 @@ class PlotPanel(QWidget):
                 (LLFR-00256).
         Outputs: none.
         """
-        # LLFR-00019, LLFR-01074: the new plot takes the next slot.
+        # LLFR-00019, LLFR-01109: the new plot takes the next slot.
         page = self.page_dict.get(tab_id_i)
         if page is None or plot_id_i in self.plot_widget_dict:
             return
@@ -1430,7 +1430,7 @@ class PlotPanel(QWidget):
             self.relay_marker_drag, plot_id_i))
         plot_widget.marker_preview_changed.connect(partial(
             self.relay_marker_preview, plot_id_i))
-        # LLFR-01127, LLFR-01128: and the previews of a new area and of
+        # LLFR-01162, LLFR-01163: and the previews of a new area and of
         # a time span selection.
         plot_widget.area_preview_changed.connect(partial(
             self.relay_area_preview, plot_id_i))
@@ -1439,11 +1439,11 @@ class PlotPanel(QWidget):
         # LLFR-00310: so does an area that is moved or resized.
         plot_widget.area_drag_moved.connect(partial(
             self.relay_area_drag, plot_id_i))
-        # LLFR-01077, LLFR-01078: "Position" opens the position picker,
+        # LLFR-01112, LLFR-01113: "Position" opens the position picker,
         # which stays in the view; only the chosen slot goes on.
         plot_widget.plot_position_requested.connect(partial(
             self.request_plot_position, plot_id_i))
-        # LLFR-01079: the "Position" option of its menus opens the
+        # LLFR-01114: the "Position" option of its menus opens the
         # picker beside the menu as a submenu.
         plot_widget.position_picker_factory = (
             lambda parent, chosen_id_i=plot_id_i: self.build_position_picker(
@@ -1639,7 +1639,7 @@ class PlotPanel(QWidget):
             every other plot when it is hidden, so that no plot keeps it
             after the shown tabs changed.
         """
-        # LLFR-01127, LLFR-01128: shown in the shown tabs only.
+        # LLFR-01162, LLFR-01163: shown in the shown tabs only.
         if start_s == start_s and end_s == end_s:
             return self.shown_plot_widget_list(plot_id_i)
         source_widget = self.plot_widget_dict.get(plot_id_i)
@@ -1656,7 +1656,7 @@ class PlotPanel(QWidget):
                 hide it.
         Outputs: none.
         """
-        # LLFR-01127: the same preview on every other time plot of every
+        # LLFR-01162: the same preview on every other time plot of every
         # shown tab; LLFR-00311: a frequency plot leaves it out itself.
         for plot_widget in self.mirror_target_list(plot_id_i, start_s,
                                                    end_s):
@@ -1672,7 +1672,7 @@ class PlotPanel(QWidget):
                 hide it.
         Outputs: none.
         """
-        # LLFR-01128: the same span on every other time plot of every
+        # LLFR-01163: the same span on every other time plot of every
         # shown tab; a frequency plot leaves it out itself.
         for plot_widget in self.mirror_target_list(plot_id_i, start_s,
                                                    end_s):
@@ -1709,7 +1709,7 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab.
         Outputs: a list of int (empty for an unknown tab).
         """
-        # LLFR-01073: the fill order of the plot matrix.
+        # LLFR-01108: the fill order of the plot matrix.
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return []

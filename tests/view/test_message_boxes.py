@@ -122,7 +122,7 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(shown_box.icon(),
                          self.message_box_class.Icon.Critical)
 
-    @covers("LLFR-00032", "HLFR-00018", "HLFR-00145")
+    @covers("LLFR-00032", "HLFR-00018", "HLFR-00146")
     def test_full_tab_box_content(self) -> None:
         """The full tab box is information and tells to use a new tab
         or a larger plot matrix, naming the tab's matrix.
@@ -150,7 +150,7 @@ class MessageBoxesTest(unittest.TestCase):
             "This tab is full (2 \u00d7 3 matrix). Use a new tab, or a "
             "larger matrix from the tab's menu.")
 
-    @covers("LLFR-01092", "LLFR-00032", "HLFR-00018")
+    @covers("LLFR-01127", "LLFR-00032", "HLFR-00018")
     def test_full_ten_by_ten_box_says_only_new_tab(self) -> None:
         """With a 10 x 10 matrix the box says only to use a new tab.
 

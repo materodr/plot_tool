@@ -1,10 +1,10 @@
 """Controller tests for undocked windows with several tabs (#205, step 5).
 
 They run the plot controller with the fake view of test_plot_controller:
-moving a tab into an undocked window (HLFR-00153), reordering, docking
-and deleting the tabs of a window (HLFR-00125, HLFR-00142), closing a
-window with all its tabs (HLFR-00138), the tab each window shows
-(HLFR-00134) and the one undo history (HLFR-00132).
+moving a tab into an undocked window (HLFR-00154), reordering, docking
+and deleting the tabs of a window (HLFR-00126, HLFR-00143), closing a
+window with all its tabs (HLFR-00139), the tab each window shows
+(HLFR-00135) and the one undo history (HLFR-00133).
 """
 
 import unittest
@@ -56,8 +56,8 @@ class WindowTabsControllerTestCase(UndockControllerTestCase):
 class WindowDropControllerTest(WindowTabsControllerTestCase):
     """A docked tab dropped on an undocked window."""
 
-    @covers("LLFR-01115", "LLFR-01123", "LLFR-01118", "LLFR-00982",
-            "LLFR-01024", "HLFR-00153", "HLFR-00125", "HLFR-00132")
+    @covers("LLFR-01150", "LLFR-01158", "LLFR-01153", "LLFR-01017",
+            "LLFR-01059", "HLFR-00154", "HLFR-00126", "HLFR-00133")
     def test_docked_tab_dropped_on_a_window(self) -> None:
         """The tab joins the window after its last tab and is shown
         there; the main window shows the nearest docked tab; one undo
@@ -85,7 +85,7 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
         self.assertEqual(self.window_tabs(window_id_i),
                          [second_id_i, third_id_i])
 
-    @covers("LLFR-01116", "HLFR-00153")
+    @covers("LLFR-01151", "HLFR-00154")
     def test_drop_on_the_tab_row_place(self) -> None:
         """A drop at place 0 puts the tab first in the window.
 
@@ -99,7 +99,7 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
         self.assertEqual(self.window_tabs(window_id_i),
                          [fourth_id_i, second_id_i, third_id_i])
 
-    @covers("LLFR-01109", "HLFR-00153")
+    @covers("LLFR-01144", "HLFR-00154")
     def test_last_docked_tab_is_not_moved(self) -> None:
         """The last docked tab dropped on a window stays docked, with no
         undo record.
@@ -113,8 +113,8 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
         self.assertFalse(self.workspace.find_tab(first_id_i).undocked_b)
         self.assertEqual(self.controller.undo_history.depth(), depth_i)
 
-    @covers("LLFR-01117", "LLFR-00996", "LLFR-01118", "LLFR-01024",
-            "HLFR-00153")
+    @covers("LLFR-01152", "LLFR-01031", "LLFR-01153", "LLFR-01059",
+            "HLFR-00154")
     def test_tab_moved_from_window_to_window(self) -> None:
         """The last tab of a window dropped on another window closes its
         window; one undo opens it again with its tab.
@@ -152,9 +152,9 @@ class NewWindowDropControllerTest(WindowTabsControllerTestCase):
         self.view.handler_dict["new_window_drop_handler"](tab_id_i, x_i,
                                                           y_i)
 
-    @covers("LLFR-01132", "LLFR-01133", "LLFR-01134", "LLFR-01015",
-            "LLFR-00985", "LLFR-01024", "HLFR-00125", "HLFR-00040",
-            "HLFR-00048", "HLFR-00132")
+    @covers("LLFR-01167", "LLFR-01168", "LLFR-01169", "LLFR-01050",
+            "LLFR-01020", "LLFR-01059", "HLFR-00126", "HLFR-00040",
+            "HLFR-00048", "HLFR-00133")
     def test_last_tab_of_a_window_dropped_outside(self) -> None:
         """The only tab of a window moves into a new window at the drop
         point, with the plot panel's size and a hidden panel; the old
@@ -189,8 +189,8 @@ class NewWindowDropControllerTest(WindowTabsControllerTestCase):
         self.assertEqual(self.window_of(second_id_i), new_window_id_i)
         self.assertNotIn(old_window_id_i, self.view.window_tabs_dict)
 
-    @covers("LLFR-01132", "LLFR-01133", "LLFR-01121", "HLFR-00125",
-            "HLFR-00126")
+    @covers("LLFR-01167", "LLFR-01168", "LLFR-01156", "HLFR-00126",
+            "HLFR-00127")
     def test_one_of_two_tabs_dropped_outside(self) -> None:
         """One tab of a window with two tabs gets a window of its own;
         the old window keeps the other tab and shows it.
@@ -212,7 +212,7 @@ class NewWindowDropControllerTest(WindowTabsControllerTestCase):
         self.assertEqual(self.workspace.window_id_list(),
                          [window_id_i, new_window_id_i])
 
-    @covers("LLFR-01132", "HLFR-00125")
+    @covers("LLFR-01167", "HLFR-00126")
     def test_docked_tab_is_not_moved(self) -> None:
         """The handler changes nothing for a docked tab.
 
@@ -230,8 +230,8 @@ class NewWindowDropControllerTest(WindowTabsControllerTestCase):
 class WindowTabsActionTest(WindowTabsControllerTestCase):
     """Reordering, docking, deleting and closing in a window."""
 
-    @covers("LLFR-01122", "LLFR-01131", "LLFR-01054", "LLFR-01055",
-            "HLFR-00142")
+    @covers("LLFR-01157", "LLFR-01166", "LLFR-01089", "LLFR-01090",
+            "HLFR-00143")
     def test_reorder_in_the_window_is_undoable(self) -> None:
         """A drag in the window's tab row is one undoable action; a drag
         back to the place records nothing.
@@ -253,8 +253,8 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
         self.assertEqual(self.window_tabs(window_id_i),
                          [second_id_i, third_id_i])
 
-    @covers("LLFR-00993", "LLFR-00994", "LLFR-01121", "LLFR-00995",
-            "HLFR-00124", "HLFR-00125")
+    @covers("LLFR-01028", "LLFR-01029", "LLFR-01156", "LLFR-01030",
+            "HLFR-00125", "HLFR-00126")
     def test_dock_one_tab_keeps_the_window(self) -> None:
         """Docking the shown tab of a window of two keeps the window with
         the other tab, shown; docking that one closes the window.
@@ -272,7 +272,7 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
         self.dock(second_id_i)
         self.assertEqual(self.view.window_tabs_dict, {})
 
-    @covers("LLFR-01033", "LLFR-01110", "LLFR-01121", "HLFR-00135")
+    @covers("LLFR-01068", "LLFR-01145", "LLFR-01156", "HLFR-00136")
     def test_delete_one_tab_keeps_the_window(self) -> None:
         """Deleting the shown tab of a window of two keeps the window
         with the other tab shown.
@@ -287,8 +287,8 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
         self.assertEqual(self.view.window_shown_dict[window_id_i],
                          second_id_i)
 
-    @covers("LLFR-01038", "LLFR-01039", "LLFR-01024", "HLFR-00138",
-            "HLFR-00125")
+    @covers("LLFR-01073", "LLFR-01074", "LLFR-01059", "HLFR-00139",
+            "HLFR-00126")
     def test_window_close_deletes_all_its_tabs(self) -> None:
         """Closing a window of two tabs deletes both as one action; one
         undo opens the window again with both, in order.
@@ -310,7 +310,7 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
         self.assertEqual(self.view.window_entry_dict[window_id_i][0],
                          (7, 8, 600, 400))
 
-    @covers("LLFR-00998", "LLFR-00932", "LLFR-01121", "HLFR-00125",
+    @covers("LLFR-01033", "LLFR-00932", "LLFR-01156", "HLFR-00126",
             "HLFR-00118")
     def test_file_close_closes_only_the_emptied_tab(self) -> None:
         """A close that empties one tab of a window of two keeps the
@@ -335,7 +335,7 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
         self.assertEqual(self.view.window_shown_dict[window_id_i],
                          second_id_i)
 
-    @covers("LLFR-01003", "LLFR-01121", "HLFR-00127")
+    @covers("LLFR-01038", "LLFR-01156", "HLFR-00128")
     def test_shown_tab_follows_the_view(self) -> None:
         """The tab a window shows in the view is kept by the model before
         an action, so a later action keeps showing it.
@@ -351,7 +351,7 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
             window_id_i).tab_id_i, second_id_i)
         self.assertNotEqual(fourth_id_i, second_id_i)
 
-    @covers("LLFR-01012", "LLFR-01018", "HLFR-00129")
+    @covers("LLFR-01047", "LLFR-01053", "HLFR-00130")
     def test_panel_toggle_acts_on_the_whole_window(self) -> None:
         """The signal list button of a window of two tabs shows the one
         panel of the window, kept by both tabs.

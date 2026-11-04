@@ -1,10 +1,10 @@
 """Model tests for the undocked windows and their layout entries (#205).
 
 They check the rules that need no Qt: where a window is opened
-(model.window_placement, HLFR-00123, HLFR-00141), the docked and
-undocked tabs of the Workspace (HLFR-00124 to HLFR-00126, HLFR-00133)
+(model.window_placement, HLFR-00124, HLFR-00142), the docked and
+undocked tabs of the Workspace (HLFR-00125 to HLFR-00127, HLFR-00134)
 and the layout file entries of the windows and the plot matrices
-(HLFR-00139, HLFR-00140, HLFR-00151, HLFR-00049, HLFR-00050,
+(HLFR-00140, HLFR-00141, HLFR-00152, HLFR-00049, HLFR-00050,
 HLFR-00052).
 """
 
@@ -29,7 +29,7 @@ SECOND_SCREEN_TUPLE = (1920, -200, 1280, 1000)
 class WindowPlacementTest(unittest.TestCase):
     """Where an undocked window opens."""
 
-    @covers("LLFR-00981", "LLFR-01093", "HLFR-00123")
+    @covers("LLFR-01016", "LLFR-01128", "HLFR-00124")
     def test_new_window_is_the_plot_panel_moved_by_thirty(self) -> None:
         """The plot panel's size, 30 pixels right and down.
 
@@ -39,7 +39,7 @@ class WindowPlacementTest(unittest.TestCase):
         self.assertEqual(new_window_tuple((12, 90, 950, 640)),
                          (42, 120, 950, 640))
 
-    @covers("LLFR-01048", "HLFR-00141")
+    @covers("LLFR-01083", "HLFR-00142")
     def test_window_on_a_screen_is_left_where_it_is(self) -> None:
         """A window whose top edge is on a screen does not move.
 
@@ -55,7 +55,7 @@ class WindowPlacementTest(unittest.TestCase):
         self.assertEqual(placed_window_tuple(
             edge_tuple, [MAIN_SCREEN_TUPLE], MAIN_SCREEN_TUPLE), edge_tuple)
 
-    @covers("LLFR-01048", "HLFR-00141")
+    @covers("LLFR-01083", "HLFR-00142")
     def test_window_off_screen_moves_onto_the_main_screen(self) -> None:
         """A window of a missing screen moves to the nearest place on the
         screen of the main window.
@@ -76,7 +76,7 @@ class WindowPlacementTest(unittest.TestCase):
             (300, -50, 800, 600), [MAIN_SCREEN_TUPLE], MAIN_SCREEN_TUPLE),
             (300, 0, 800, 600))
 
-    @covers("LLFR-01049", "HLFR-00141")
+    @covers("LLFR-01084", "HLFR-00142")
     def test_window_larger_than_the_screen_is_reduced(self) -> None:
         """The width or height, or both, fit the available area.
 
@@ -90,7 +90,7 @@ class WindowPlacementTest(unittest.TestCase):
             (5000, 5000, 2500, 1400), [MAIN_SCREEN_TUPLE],
             MAIN_SCREEN_TUPLE), (0, 0, 1920, 1050))
 
-    @covers("LLFR-01016")
+    @covers("LLFR-01051")
     def test_first_panel_width(self) -> None:
         """25% of the window's width, whatever the main panel's width.
 
@@ -129,7 +129,7 @@ class WorkspaceDockTest(unittest.TestCase):
         """
         return [tab.tab_id_i for tab in self.workspace.tab_list]
 
-    @covers("LLFR-01056", "LLFR-00025", "HLFR-00142")
+    @covers("LLFR-01091", "LLFR-00025", "HLFR-00143")
     def test_tab_order_docked_then_undocked(self) -> None:
         """New tabs go after the last docked tab, before undocked ones.
 
@@ -144,7 +144,7 @@ class WorkspaceDockTest(unittest.TestCase):
         self.assertTrue(self.workspace.dock_tab(self.id_list[0]))
         self.assertEqual(self.tab_ids()[-1], self.id_list[0])
 
-    @covers("LLFR-00983", "LLFR-01034", "LLFR-00066")
+    @covers("LLFR-01018", "LLFR-01069", "LLFR-00066")
     def test_delete_and_undock_rules(self) -> None:
         """An undocked tab can always be deleted; the last docked tab can
         be neither deleted nor undocked.
@@ -160,7 +160,7 @@ class WorkspaceDockTest(unittest.TestCase):
         self.assertTrue(self.workspace.can_delete_tab(self.id_list[0]))
         self.assertTrue(self.workspace.delete_tab(self.id_list[0]))
 
-    @covers("LLFR-01025", "LLFR-01018", "LLFR-01020", "LLFR-00140")
+    @covers("LLFR-01060", "LLFR-01053", "LLFR-01055", "LLFR-00140")
     def test_window_state_is_undoable_but_not_its_place(self) -> None:
         """Docking, the panel and the widths change the undo state; the
         window position and size do not.
@@ -242,8 +242,8 @@ class LayoutWindowsTest(unittest.TestCase):
                               self.signal_dict["file1_Time"], None, None,
                               (30, 40, 900, 700))
 
-    @covers("LLFR-00225", "LLFR-01040", "LLFR-00227", "HLFR-00139",
-            "HLFR-00151", "HLFR-00049")
+    @covers("LLFR-00225", "LLFR-01075", "LLFR-00227", "HLFR-00140",
+            "HLFR-00152", "HLFR-00049")
     def test_saved_entries_of_tabs_and_windows(self) -> None:
         """Every tab saves undocked and plot_matrix; an undocked tab its
         window and panel, in whole pixels.
@@ -275,7 +275,7 @@ class LayoutWindowsTest(unittest.TestCase):
                          {"shown": True, "width": 210})
         self.assertIn('\n        "x": -5,\n', text_str)
 
-    @covers("LLFR-00225", "LLFR-01016")
+    @covers("LLFR-00225", "LLFR-01051")
     def test_panel_never_shown_saves_its_first_width(self) -> None:
         """A hidden panel that was never shown saves its first width,
         25% of the window's width.
@@ -292,8 +292,8 @@ class LayoutWindowsTest(unittest.TestCase):
         self.assertEqual(entry_dict["signal_list_panel"],
                          {"shown": False, "width": 100})
 
-    @covers("LLFR-01041", "LLFR-01042", "LLFR-01043", "LLFR-01088",
-            "LLFR-00477", "HLFR-00140", "HLFR-00050", "HLFR-00151")
+    @covers("LLFR-01076", "LLFR-01077", "LLFR-01078", "LLFR-01123",
+            "LLFR-00477", "HLFR-00141", "HLFR-00050", "HLFR-00152")
     def test_round_trip_rebuilds_windows_and_matrices(self) -> None:
         """A saved layout comes back with the same windows and matrices,
         with nothing in the report.
@@ -325,7 +325,7 @@ class LayoutWindowsTest(unittest.TestCase):
         self.assertEqual((window_tab.row_count_i, window_tab.column_count_i),
                          (1, 2))
 
-    @covers("LLFR-01089", "LLFR-01042")
+    @covers("LLFR-01124", "LLFR-01077")
     def test_older_file_gives_docked_tabs_and_default_matrix(self) -> None:
         """No undocked or plot_matrix entry: docked, 5 x 1, no report.
 
@@ -339,7 +339,7 @@ class LayoutWindowsTest(unittest.TestCase):
         self.assertFalse(tab.undocked_b)
         self.assertEqual((tab.row_count_i, tab.column_count_i), (5, 1))
 
-    @covers("LLFR-01090", "LLFR-01091", "HLFR-00052")
+    @covers("LLFR-01125", "LLFR-01126", "HLFR-00052")
     def test_unusable_matrix_is_replaced_and_reported(self) -> None:
         """A matrix that is not 1 to 10 by 1 to 10 becomes 5 x 1.
 
@@ -359,7 +359,7 @@ class LayoutWindowsTest(unittest.TestCase):
                                  (5, 1))
                 self.assertIn("Plot matrix", result.report.text())
 
-    @covers("LLFR-00488", "LLFR-00237", "HLFR-00052", "HLFR-00151")
+    @covers("LLFR-00488", "LLFR-00237", "HLFR-00052", "HLFR-00152")
     def test_plots_beyond_the_saved_matrix_are_reported(self) -> None:
         """A 1 x 2 matrix keeps two plots; the third is reported.
 
@@ -374,7 +374,7 @@ class LayoutWindowsTest(unittest.TestCase):
         self.assertIn("Plot 3 of tab \"A\"", result.report.text())
         self.assertIn("1 × 2 plot matrix", result.report.text())
 
-    @covers("LLFR-01046", "LLFR-01047", "HLFR-00140", "HLFR-00052")
+    @covers("LLFR-01081", "LLFR-01082", "HLFR-00141", "HLFR-00052")
     def test_unusable_window_values_take_undock_values(self) -> None:
         """Bad window and panel values become those of an undock and are
         listed as replaced.
@@ -397,8 +397,8 @@ class LayoutWindowsTest(unittest.TestCase):
                          "Signal list panel width"):
             self.assertIn(what_str, report_str)
 
-    @covers("LLFR-01046", "LLFR-01047", "LLFR-00235", "LLFR-00237",
-            "HLFR-00140", "HLFR-00052")
+    @covers("LLFR-01081", "LLFR-01082", "LLFR-00235", "LLFR-00237",
+            "HLFR-00141", "HLFR-00052")
     def test_window_values_qt_cannot_take_are_replaced(self) -> None:
         """A panel width, a window size or a position that Qt can't take
         (above 2**31 - 1, or beyond 16777215 pixels) is replaced by the
@@ -448,7 +448,7 @@ class LayoutWindowsTest(unittest.TestCase):
                     self.assertEqual(tab.panel_width_i, 0)
                     self.assertTrue(tab.panel_shown_b)
 
-    @covers("LLFR-01046", "HLFR-00140")
+    @covers("LLFR-01081", "HLFR-00141")
     def test_largest_window_values_qt_takes_are_kept(self) -> None:
         """The limits themselves (16777215 pixels) are kept, unreported.
 
@@ -468,7 +468,7 @@ class LayoutWindowsTest(unittest.TestCase):
                          (-16777215, 16777215, 16777215, 1))
         self.assertEqual(tab.panel_width_i, 16777215)
 
-    @covers("LLFR-01050", "LLFR-01041", "HLFR-00141", "HLFR-00052")
+    @covers("LLFR-01085", "LLFR-01076", "HLFR-00142", "HLFR-00052")
     def test_off_screen_window_is_not_reported(self) -> None:
         """A window saved far off-screen loads with no report; the view
         moves it onto a screen when it opens it.
@@ -490,7 +490,7 @@ class LayoutWindowsTest(unittest.TestCase):
             (90000, -90000, 5000, 4000), [MAIN_SCREEN_TUPLE],
             MAIN_SCREEN_TUPLE), MAIN_SCREEN_TUPLE)
 
-    @covers("LLFR-01044", "LLFR-00475", "LLFR-01045", "HLFR-00140")
+    @covers("LLFR-01079", "LLFR-00475", "LLFR-01080", "HLFR-00141")
     def test_main_window_keeps_a_docked_tab(self) -> None:
         """With no plot anywhere and only undocked tabs in the file, the
         first docked tab stays in the main window.

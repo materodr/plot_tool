@@ -1,11 +1,11 @@
 """Tests for the undocked windows in the plot controller (#205, step 3).
 
 They run the plot controller with the fake view of test_plot_controller:
-undocking and docking a tab (HLFR-00123, HLFR-00124), the tabs of a window (one
-or more) and any number of windows (HLFR-00125, HLFR-00126), closing a window
-(HLFR-00138), the signal list panel of a window (HLFR-00129) and the panel
-width drags (HLFR-00131), all in one undo history (HLFR-00132, HLFR-00133), and
-the plots made from the panel of a window (HLFR-00127).
+undocking and docking a tab (HLFR-00124, HLFR-00125), the tabs of a window (one
+or more) and any number of windows (HLFR-00126, HLFR-00127), closing a window
+(HLFR-00139), the signal list panel of a window (HLFR-00130) and the panel
+width drags (HLFR-00132), all in one undo history (HLFR-00133, HLFR-00134), and
+the plots made from the panel of a window (HLFR-00128).
 """
 
 import unittest
@@ -90,8 +90,8 @@ class UndockControllerTestCase(PlotControllerTestCase):
 class UndockDockTest(UndockControllerTestCase):
     """Undocking and docking a tab."""
 
-    @covers("LLFR-00980", "LLFR-00981", "LLFR-01093", "LLFR-01015",
-            "LLFR-00985", "HLFR-00123", "HLFR-00125")
+    @covers("LLFR-01015", "LLFR-01016", "LLFR-01128", "LLFR-01050",
+            "LLFR-01020", "HLFR-00124", "HLFR-00126")
     def test_undock_opens_a_window_with_the_tab(self) -> None:
         """The undocked tab keeps its plots, gets the window the view
         offers and a hidden panel.
@@ -115,7 +115,7 @@ class UndockDockTest(UndockControllerTestCase):
         # The tab order: docked tabs, then undocked ones.
         self.assertEqual(self.tab_ids(), [second_id_i, first_id_i])
 
-    @covers("LLFR-00982", "HLFR-00014")
+    @covers("LLFR-01017", "HLFR-00014")
     def test_shown_tab_undocked_shows_nearest_docked_tab(self) -> None:
         """The main window shows the docked tab to the left, else right.
 
@@ -132,7 +132,7 @@ class UndockDockTest(UndockControllerTestCase):
         self.undock(first_id_i)
         self.assertEqual(self.view.current_tab_id(), third_id_i)
 
-    @covers("LLFR-00983", "LLFR-00984", "LLFR-00066", "HLFR-00126")
+    @covers("LLFR-01018", "LLFR-01019", "LLFR-00066", "HLFR-00127")
     def test_last_docked_tab_cannot_be_undocked(self) -> None:
         """With one docked tab, the undock button is disabled and does
         nothing; Delete is disabled too.
@@ -151,7 +151,7 @@ class UndockDockTest(UndockControllerTestCase):
         self.assertFalse(self.view.undock_enabled_b)
         self.assertFalse(self.view.delete_enabled_b)
 
-    @covers("LLFR-00999", "LLFR-01056", "HLFR-00126", "HLFR-00125")
+    @covers("LLFR-01034", "LLFR-01091", "HLFR-00127", "HLFR-00126")
     def test_any_number_of_windows_in_undock_order(self) -> None:
         """Every undock opens one more window, one tab each.
 
@@ -169,8 +169,8 @@ class UndockDockTest(UndockControllerTestCase):
                          [id_list[2], id_list[5], id_list[3], id_list[1],
                           id_list[4], id_list[0]])
 
-    @covers("LLFR-00993", "LLFR-00994", "LLFR-00995", "LLFR-00985",
-            "HLFR-00124")
+    @covers("LLFR-01028", "LLFR-01029", "LLFR-01030", "LLFR-01020",
+            "HLFR-00125")
     def test_dock_puts_the_tab_last_and_shows_it(self) -> None:
         """A docked tab is the last docked tab and is shown.
 
@@ -192,7 +192,7 @@ class UndockDockTest(UndockControllerTestCase):
         self.assertEqual(len(self.workspace.find_tab(first_id_i).plot_list),
                          1)
 
-    @covers("LLFR-01032")
+    @covers("LLFR-01067")
     def test_undocked_tab_is_not_moved_by_a_drag(self) -> None:
         """A tab drag never moves an undocked tab.
 
@@ -210,8 +210,8 @@ class UndockDockTest(UndockControllerTestCase):
 class UndockUndoTest(UndockControllerTestCase):
     """Undock, dock and close in the one undo history."""
 
-    @covers("LLFR-01025", "LLFR-00138", "LLFR-00192", "LLFR-01024",
-            "HLFR-00133", "HLFR-00040", "HLFR-00048")
+    @covers("LLFR-01060", "LLFR-00138", "LLFR-00192", "LLFR-01059",
+            "HLFR-00134", "HLFR-00040", "HLFR-00048")
     def test_undock_undo_and_redo(self) -> None:
         """Undo puts the tab back at its place; redo opens the window at
         the position it had.
@@ -234,7 +234,7 @@ class UndockUndoTest(UndockControllerTestCase):
                          (5, 6, 700, 500))
         self.assertEqual(self.view.current_tab_id(), third_id_i)
 
-    @covers("LLFR-00138", "LLFR-00192", "LLFR-01021", "HLFR-00040")
+    @covers("LLFR-00138", "LLFR-00192", "LLFR-01056", "HLFR-00040")
     def test_open_window_keeps_its_place_on_undo(self) -> None:
         """An undo or a redo leaves a window that stays open where the
         user moved it.
@@ -254,7 +254,7 @@ class UndockUndoTest(UndockControllerTestCase):
         self.assertEqual(self.view.window_dict[second_id_i][0],
                          (300, 200, 640, 480))
 
-    @covers("LLFR-01025", "LLFR-01024", "LLFR-01094", "HLFR-00133")
+    @covers("LLFR-01060", "LLFR-01059", "LLFR-01129", "HLFR-00134")
     def test_dock_undo_opens_the_window_again(self) -> None:
         """Undoing a dock opens the window with its panel as it was.
 
@@ -273,8 +273,8 @@ class UndockUndoTest(UndockControllerTestCase):
         self.assertEqual(self.view.window_dict[first_id_i],
                          [(40, 50, 800, 400), True, 225])
 
-    @covers("LLFR-01038", "LLFR-01039", "LLFR-01033", "LLFR-01034",
-            "LLFR-01110", "HLFR-00138", "HLFR-00016")
+    @covers("LLFR-01073", "LLFR-01074", "LLFR-01068", "LLFR-01069",
+            "LLFR-01145", "HLFR-00139", "HLFR-00016")
     def test_window_close_deletes_the_tab_and_undo_brings_it(self) -> None:
         """Closing a window deletes all its tabs, undoably.
 
@@ -304,7 +304,7 @@ class UndockUndoTest(UndockControllerTestCase):
         self.undo()
         self.assertIn(second_id_i, self.view.window_dict)
 
-    @covers("LLFR-01022", "LLFR-01023", "HLFR-00132")
+    @covers("LLFR-01057", "LLFR-01058", "HLFR-00133")
     def test_one_history_for_every_window(self) -> None:
         """Actions in the main window and in a window undo in order.
 
@@ -335,8 +335,8 @@ class UndockUndoTest(UndockControllerTestCase):
 class WindowPanelTest(UndockControllerTestCase):
     """The signal list panel of a window and the panel widths."""
 
-    @covers("LLFR-01012", "LLFR-01013", "LLFR-01016", "LLFR-01018",
-            "HLFR-00129")
+    @covers("LLFR-01047", "LLFR-01048", "LLFR-01051", "LLFR-01053",
+            "HLFR-00130")
     def test_show_and_hide_with_first_width(self) -> None:
         """The first show gives 25% of the window's width; hiding and
         showing keep the width and are undoable.
@@ -363,7 +363,7 @@ class WindowPanelTest(UndockControllerTestCase):
         self.undo()
         self.assertTrue(self.view.window_dict[first_id_i][1])
 
-    @covers("LLFR-01016")
+    @covers("LLFR-01051")
     def test_first_width_is_a_quarter_of_the_window(self) -> None:
         """A 900 pixel wide window gets a 225 pixel panel, whatever the
         main panel's width (240).
@@ -378,7 +378,7 @@ class WindowPanelTest(UndockControllerTestCase):
             self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][2], 225)
 
-    @covers("LLFR-01020", "LLFR-00138", "HLFR-00131", "HLFR-00026")
+    @covers("LLFR-01055", "LLFR-00138", "HLFR-00132", "HLFR-00026")
     def test_main_panel_drag_is_undoable(self) -> None:
         """A drag of the main window's border is undone and redone.
 
@@ -394,7 +394,7 @@ class WindowPanelTest(UndockControllerTestCase):
         self.redo()
         self.assertEqual(self.view.main_panel_width_i, 320)
 
-    @covers("LLFR-01020", "HLFR-00131")
+    @covers("LLFR-01055", "HLFR-00132")
     def test_window_panel_drag_is_undoable(self) -> None:
         """A drag of a window's border is undone to its start width.
 
@@ -412,7 +412,7 @@ class WindowPanelTest(UndockControllerTestCase):
         self.undo()
         self.assertEqual(self.view.window_dict[first_id_i][1:], [True, 240])
 
-    @covers("LLFR-01020", "LLFR-01021", "HLFR-00131")
+    @covers("LLFR-01055", "LLFR-01056", "HLFR-00132")
     def test_no_step_without_a_change_or_for_a_resize(self) -> None:
         """A drag back to the start width and a window resize record
         nothing.
@@ -433,7 +433,7 @@ class WindowPanelTest(UndockControllerTestCase):
 class WindowSignalListTest(UndockControllerTestCase):
     """Plots made from the signal list panel of a window."""
 
-    @covers("LLFR-01003", "LLFR-00019", "LLFR-01002", "HLFR-00127",
+    @covers("LLFR-01038", "LLFR-00019", "LLFR-01037", "HLFR-00128",
             "HLFR-00012")
     def test_double_click_plots_in_the_tab_of_the_window(self) -> None:
         """A double-click in a window's panel plots in its tab.
@@ -450,7 +450,7 @@ class WindowSignalListTest(UndockControllerTestCase):
         self.assertEqual(len(self.workspace.find_tab(first_id_i).plot_list),
                          0)
 
-    @covers("LLFR-01003", "LLFR-00295", "LLFR-01005", "HLFR-00064")
+    @covers("LLFR-01038", "LLFR-00295", "LLFR-01040", "HLFR-00064")
     def test_enter_plots_in_the_tab_of_the_window(self) -> None:
         """Enter in a window's panel plots its selection in its tab.
 
@@ -468,7 +468,7 @@ class WindowSignalListTest(UndockControllerTestCase):
 class WindowFileCloseTest(UndockControllerTestCase):
     """A file close that empties an undocked tab."""
 
-    @covers("LLFR-00998", "LLFR-00961", "LLFR-00932", "HLFR-00125",
+    @covers("LLFR-01033", "LLFR-00961", "LLFR-00932", "HLFR-00126",
             "HLFR-00118")
     def test_emptied_undocked_tab_closes_with_its_window(self) -> None:
         """The undocked tab and its window close; a docked tab stays.
@@ -510,10 +510,10 @@ class WindowFileCloseTest(UndockControllerTestCase):
 
 
 class DragUndockDockTest(UndockControllerTestCase):
-    """Undocking and docking a tab by dragging it (HLFR-00152)."""
+    """Undocking and docking a tab by dragging it (HLFR-00153)."""
 
-    @covers("LLFR-01107", "LLFR-00981", "LLFR-01015", "LLFR-00985",
-            "LLFR-01025", "HLFR-00152", "HLFR-00123")
+    @covers("LLFR-01142", "LLFR-01016", "LLFR-01050", "LLFR-01020",
+            "LLFR-01060", "HLFR-00153", "HLFR-00124")
     def test_drop_outside_undocks_at_the_drop_point(self) -> None:
         """A tab dropped outside the main window opens a window whose
         top-left corner is at the drop, with a hidden panel; one
@@ -539,7 +539,7 @@ class DragUndockDockTest(UndockControllerTestCase):
         self.redo()
         self.assertEqual(self.undocked_ids(), [first_id_i])
 
-    @covers("LLFR-01109", "HLFR-00152")
+    @covers("LLFR-01144", "HLFR-00153")
     def test_last_docked_tab_stays_docked(self) -> None:
         """Dropping the last docked tab outside changes nothing.
 
@@ -557,8 +557,8 @@ class DragUndockDockTest(UndockControllerTestCase):
         self.assertFalse(self.controller.undo_history.can_undo())
         self.assertNotIn("set_window_tabs", self.view.method_names())
 
-    @covers("LLFR-01108", "LLFR-00994", "LLFR-00995", "LLFR-01025",
-            "LLFR-01056", "HLFR-00152", "HLFR-00124")
+    @covers("LLFR-01143", "LLFR-01029", "LLFR-01030", "LLFR-01060",
+            "LLFR-01091", "HLFR-00153", "HLFR-00125")
     def test_drop_on_tab_row_docks_at_the_place(self) -> None:
         """A tab button dropped on the main tab row docks the tab at the
         drop place, closes its window, shows it; undo and redo.
@@ -586,7 +586,7 @@ class DragUndockDockTest(UndockControllerTestCase):
         self.assertEqual(self.tab_ids(),
                          [first_id_i, third_id_i, second_id_i])
 
-    @covers("LLFR-01108", "HLFR-00152")
+    @covers("LLFR-01143", "HLFR-00153")
     def test_drop_places_first_and_last(self) -> None:
         """A drop before the first tab docks it first; a place past the
         last docked tab docks it last, before the undocked tabs.
@@ -607,7 +607,7 @@ class DragUndockDockTest(UndockControllerTestCase):
                          [third_id_i, first_id_i, second_id_i])
         self.assertEqual(self.undocked_ids(), [])
 
-    @covers("LLFR-00993", "LLFR-01108")
+    @covers("LLFR-01028", "LLFR-01143")
     def test_dock_button_still_docks_last(self) -> None:
         """The dock button docks the tab as the last docked tab.
 
@@ -624,9 +624,9 @@ class DragUndockDockTest(UndockControllerTestCase):
 
 
 class SearchShortcutPanelTest(UndockControllerTestCase):
-    """Ctrl+F (Cmd+F) shows a hidden panel first (LLFR-01106)."""
+    """Ctrl+F (Cmd+F) shows a hidden panel first (LLFR-01141)."""
 
-    @covers("LLFR-01106", "LLFR-01018", "LLFR-01016", "HLFR-00129")
+    @covers("LLFR-01141", "LLFR-01053", "LLFR-01051", "HLFR-00130")
     def test_hidden_panel_is_shown_as_one_undoable_action(self) -> None:
         """The hidden panel is shown at its first width and the show is
         undoable; a shown panel and the main window change nothing.
