@@ -920,6 +920,39 @@ class StartFolderTest(unittest.TestCase):
         self.assertEqual(controller.data_files.path_list,
                          ["/data/a/first.csv", "/data/b/second.csv"])
 
+    @covers("LLFR-00447", "LLFR-01011", "LLFR-00951", "LLFR-00952",
+            "LLFR-00953", "HLFR-00122")
+    def test_folder_after_several_files_at_once(self) -> None:
+        """The last selected file that opened, in the opening order.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        loader = ScriptedLoader({
+            "/data/x/a_first.csv": build_signal_file(
+                "/data/x/a_first.csv", ["a"]),
+            "/data/y/b_second.csv": build_signal_file(
+                "/data/y/b_second.csv", ["b"]),
+            "/data/z/c_broken.csv": FileReadError("could not be read"),
+            "/data/w/d_fourth.csv": build_signal_file(
+                "/data/w/d_fourth.csv", ["d"]),
+            "/data/v/e_broken.csv": FileReadError("could not be read"),
+        })
+        # The dialog gives the files in another order than their names
+        # (LLFR-00952); the last name that opens decides the folder.
+        view = FakeView([
+            ["/data/y/b_second.csv", "/data/z/c_broken.csv",
+             "/data/x/a_first.csv"],
+            ["/data/v/e_broken.csv", "/data/w/d_fourth.csv"],
+            ["/data/v/e_broken.csv"],
+            ""])
+        controller = FileController(view, loader, "/start")
+        for _ in range(4):
+            controller.open_file_requested()
+        self.assertEqual(view.start_folder_list, [
+            "/start", "/data/y", "/data/w", "/data/w"])
+        self.assertEqual(controller.dialog_folder_str, "/data/w")
+
 
 class FileControllerRealLoaderTest(unittest.TestCase):
     """Check the flow with the real load_signal_file on temp files."""
