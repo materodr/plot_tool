@@ -721,7 +721,7 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
                                       "Text color", "Delete"])
         # Away from the note, the plot's own menus come back.
         self.assertEqual(self.choose_menu(self.display_of(1.0, 1.5), ""),
-                         ["Delete plot"])
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00343")
     def test_delete_asks_for_the_note(self) -> None:

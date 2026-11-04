@@ -107,6 +107,12 @@ SEGMENT_LAST_STR = "last"
 # LLFR-00158: the buttons are squares that show only their icon.
 ICON_BUTTON_SIZE_I = 32
 ICON_SIZE_I = 20
+# LLFR-01044, LLFR-01049: the signal list button of an undocked window,
+# like the sidebar button of Firefox: a round button with a pale round
+# highlight while its panel is shown (active), and a paler one on hover.
+SIDEBAR_BUTTON_SIZE_I = 28
+SIDEBAR_BUTTON_ACTIVE_COLOR_STR = "#d8dde2"
+SIDEBAR_BUTTON_HOVER_COLOR_STR = "#e4e8ec"
 # LLFR-00160: the icon is drawn in the button's text color in each
 # state: dark ink on the light normal button, white on the dark active
 # button, and a paler grey on the disabled button that still keeps a
@@ -210,6 +216,11 @@ TAB_HORIZONTAL_PADDING_I = 14
 TAB_VERTICAL_PADDING_I = 5
 TAB_SPACING_I = 3
 ADD_BUTTON_WIDTH_I = 30
+# LLFR-01148: the pale rounded highlight behind the icon of an undock or
+# dock button under the pointer, a little darker than a hovered tab, and
+# darker still while pressed.
+TAB_BUTTON_HOVER_COLOR_STR = "#c9d0d7"
+TAB_BUTTON_PRESSED_COLOR_STR = "#bcc4cc"
 
 # ----------------------------------------------------------------------
 # Plots (matplotlib)

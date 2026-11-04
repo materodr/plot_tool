@@ -138,6 +138,27 @@ class FakePlotView:
         self.delta_name_question_list = []
         self.arrow_name_answer_list = []
         self.arrow_name_question_list = []
+        # LLFR-00032, LLFR-01127: the matrix each Full Tab box named.
+        self.full_tab_matrix_list = []
+        # LLFR-01100: tab id -> (rows, columns) shown.
+        self.tab_matrix_dict = {}
+        # LLFR-01118: tab id -> plot ids in fill order, after a swap.
+        self.plot_order_dict = {}
+        # LLFR-01015: tab id -> [window_tuple, panel_shown_b,
+        # panel_width_i] of each open undocked window.
+        self.window_dict = {}
+        # LLFR-01091: the undocked tabs, window by window.
+        self.undocked_order_list = []
+        # LLFR-01063: window id -> [window_tuple, panel_shown_b,
+        # panel_width_i], its tabs in order and the tab it shows.
+        self.window_entry_dict = {}
+        self.window_tabs_dict = {}
+        self.window_shown_dict = {}
+        # LLFR-01016, LLFR-01128: what new_window_tuple returns.
+        self.new_window_answer_tuple = (130, 160, 900, 600)
+        # LLFR-01055: the main panel width the view reports.
+        self.main_panel_width_i = 240
+        self.undock_enabled_b = None
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -266,6 +287,7 @@ class FakePlotView:
         """
         self.call_list.append(("clear_tab_views",))
         self.tab_dict = {}
+        self.tab_matrix_dict = {}
         self.plot_tab_dict = {}
         self.drawn_dict = {}
         self.range_dict = {}
@@ -291,6 +313,10 @@ class FakePlotView:
         """
         self.call_list.append(("remove_tab_view", tab_id_i))
         del self.tab_dict[tab_id_i]
+        for tab_id_list in self.window_tabs_dict.values():
+            if tab_id_i in tab_id_list:
+                tab_id_list.remove(tab_id_i)
+        self.refresh_window_dict()
         for plot_id_i in [plot_id_i for plot_id_i, owner_i
                           in self.plot_tab_dict.items()
                           if owner_i == tab_id_i]:
@@ -538,14 +564,73 @@ class FakePlotView:
                                tuple(point_tuple)))
         self.delta_first_point_dict[plot_id_i] = tuple(point_tuple)
 
-    def show_full_tab_notification(self) -> None:
-        """Count a Full Tab box.
+    def show_full_tab_notification(self, row_count_i: int = 5,
+                                   column_count_i: int = 1) -> None:
+        """Count a Full Tab box and record the matrix it names.
 
-        Inputs: none.
+        Inputs:
+            row_count_i: rows of the full tab's plot matrix.
+            column_count_i: columns of the full tab's plot matrix.
         Outputs: none.
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+        self.full_tab_matrix_list.append((row_count_i, column_count_i))
+
+    def set_tab_arrangement_handlers(self, move_tab_handler,
+                                     plot_matrix_handler) -> None:
+        """Record the tab move and plot matrix handlers.
+
+        Inputs:
+            move_tab_handler: function taking a tab id and a place.
+            plot_matrix_handler: function taking a tab id, rows and
+                columns.
+        Outputs: none.
+        """
+        self.handler_dict["move_tab"] = move_tab_handler
+        self.handler_dict["plot_matrix"] = plot_matrix_handler
+
+    def set_tab_matrix_view(self, tab_id_i: int, row_count_i: int,
+                            column_count_i: int) -> None:
+        """Record the plot matrix shown for a tab.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            row_count_i: number of rows.
+            column_count_i: number of columns.
+        Outputs: none.
+        """
+        self.tab_matrix_dict[tab_id_i] = (row_count_i, column_count_i)
+
+    def set_plot_order_view(self, tab_id_i: int,
+                            plot_id_list: list) -> None:
+        """Record the fill order of the plots of a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            plot_id_list: the plot ids in fill order.
+        Outputs: none.
+        """
+        self.call_list.append(("set_plot_order_view", tab_id_i,
+                               list(plot_id_list)))
+        self.plot_order_dict[tab_id_i] = list(plot_id_list)
+
+    def move_tab_view(self, tab_id_i: int, index_i: int) -> None:
+        """Move a shown tab to a place in the tab row.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            index_i: its new place, from 0.
+        Outputs: none.
+        """
+        self.call_list.append(("move_tab_view", tab_id_i, index_i))
+        item_list = [item for item in self.tab_dict.items()
+                     if item[0] != tab_id_i]
+        item_list.insert(index_i, (tab_id_i, self.tab_dict[tab_id_i]))
+        self.tab_dict = dict(item_list)
 
     def show_plot_kind_mismatch_notification(self) -> None:
         """Count a box of LLFR-00257 (FFT and time signals mixed).
@@ -626,6 +711,162 @@ class FakePlotView:
         """
         return [curve_tuple[0]
                 for curve_tuple in self.drawn_dict[plot_id_i][0]]
+
+    def set_window_handlers(self, **handler_dict) -> None:
+        """Record the handlers of the undocked windows.
+
+        Inputs:
+            handler_dict: handler name -> function.
+        Outputs: none.
+        """
+        self.handler_dict.update(handler_dict)
+
+    def new_window_tuple(self) -> tuple:
+        """Return the window an undock opens.
+
+        Inputs: none.
+        Outputs: new_window_answer_tuple.
+        """
+        return tuple(self.new_window_answer_tuple)
+
+    def dropped_window_tuple(self, x_i: int, y_i: int) -> tuple:
+        """Return the window a drop outside the main window opens.
+
+        Inputs:
+            x_i, y_i: the point of the drop.
+        Outputs: (x_i, y_i) with the size of new_window_answer_tuple.
+        """
+        self.call_list.append(("dropped_window_tuple", x_i, y_i))
+        return (int(x_i), int(y_i)) + tuple(
+            self.new_window_answer_tuple[2:])
+
+    def window_state_dict(self) -> dict:
+        """Return the windows as the fake shows them.
+
+        Inputs: none.
+        Outputs: the dict of MainWindow.window_state_dict.
+        """
+        return {"main_panel_width": self.main_panel_width_i,
+                "windows": {window_id_i: tuple(entry_list[0])
+                            + (entry_list[2],)
+                            for window_id_i, entry_list
+                            in self.window_entry_dict.items()
+                            if len(entry_list[0]) == 4},
+                "shown": dict(self.window_shown_dict)}
+
+    def refresh_window_dict(self) -> None:
+        """Rebuild window_dict and undocked_order_list from the windows.
+
+        Inputs: none.
+        Outputs: none. Each undocked tab maps to the entry list of its
+            window, the same list object for the tabs of one window.
+        """
+        self.window_dict = {}
+        self.undocked_order_list = []
+        for window_id_i, tab_id_list in self.window_tabs_dict.items():
+            for tab_id_i in tab_id_list:
+                self.window_dict[tab_id_i] = self.window_entry_dict[
+                    window_id_i]
+                self.undocked_order_list.append(tab_id_i)
+
+    def set_window_tabs(self, window_id_i: int, tab_id_list: list,
+                        window_tuple: tuple, panel_shown_b: bool,
+                        panel_width_i: int, shown_tab_id_i: int) -> None:
+        """Show an undocked window with its tabs.
+
+        Inputs:
+            window_id_i: id of the window.
+            tab_id_list: its tabs, in order.
+            window_tuple: (x, y, width, height) for a new window.
+            panel_shown_b: whether its panel is shown.
+            panel_width_i: the panel width.
+            shown_tab_id_i: the tab it shows.
+        Outputs: none. An open window keeps its position and size.
+        """
+        self.call_list.append(("set_window_tabs", window_id_i,
+                               list(tab_id_list), tuple(window_tuple),
+                               panel_shown_b, panel_width_i,
+                               shown_tab_id_i))
+        if window_id_i in self.window_entry_dict:
+            window_tuple = self.window_entry_dict[window_id_i][0]
+        self.window_entry_dict[window_id_i] = [tuple(window_tuple),
+                                               bool(panel_shown_b),
+                                               int(panel_width_i)]
+        for other_id_i, other_list in self.window_tabs_dict.items():
+            if other_id_i != window_id_i:
+                self.window_tabs_dict[other_id_i] = [
+                    tab_id_i for tab_id_i in other_list
+                    if tab_id_i not in tab_id_list]
+        self.window_tabs_dict[window_id_i] = list(tab_id_list)
+        self.window_shown_dict[window_id_i] = shown_tab_id_i
+        self.refresh_window_dict()
+
+    def dock_tab_view(self, tab_id_i: int) -> None:
+        """Put a tab back into the main window.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        self.call_list.append(("dock_tab_view", tab_id_i))
+        for window_id_i, tab_id_list in self.window_tabs_dict.items():
+            if tab_id_i in tab_id_list:
+                tab_id_list.remove(tab_id_i)
+        self.refresh_window_dict()
+
+    def set_undocked_windows(self, window_id_list: list) -> None:
+        """Close the windows that are not open in the model.
+
+        Inputs:
+            window_id_list: the open windows, in tab order.
+        Outputs: none.
+        """
+        self.call_list.append(("set_undocked_windows", list(window_id_list)))
+        for window_id_i in list(self.window_tabs_dict):
+            if window_id_i not in window_id_list:
+                del self.window_tabs_dict[window_id_i]
+                self.window_entry_dict.pop(window_id_i, None)
+                self.window_shown_dict.pop(window_id_i, None)
+        self.window_tabs_dict = {
+            window_id_i: self.window_tabs_dict[window_id_i]
+            for window_id_i in window_id_list
+            if window_id_i in self.window_tabs_dict}
+        self.refresh_window_dict()
+
+    def set_window_panel(self, window_id_i: int, shown_b: bool,
+                         width_i: int) -> None:
+        """Show or hide the panel of a window.
+
+        Inputs:
+            window_id_i: id of the window.
+            shown_b: whether the panel is shown.
+            width_i: its width.
+        Outputs: none.
+        """
+        self.call_list.append(("set_window_panel", window_id_i, shown_b,
+                               width_i))
+        if window_id_i in self.window_entry_dict:
+            self.window_entry_dict[window_id_i][1:] = [bool(shown_b),
+                                                       int(width_i)]
+
+    def set_main_panel_width(self, width_i: int) -> None:
+        """Set the main window's panel width.
+
+        Inputs:
+            width_i: the width.
+        Outputs: none.
+        """
+        self.call_list.append(("set_main_panel_width", width_i))
+        self.main_panel_width_i = int(width_i)
+
+    def set_undock_enabled(self, enabled_b: bool) -> None:
+        """Record whether the undock buttons are enabled.
+
+        Inputs:
+            enabled_b: the new state.
+        Outputs: none.
+        """
+        self.undock_enabled_b = enabled_b
 
     def method_names(self) -> list:
         """Return the names of the recorded calls.
@@ -827,7 +1068,7 @@ class DoubleClickTest(PlotControllerTestCase):
             plot_id_i][0][0]
         np.testing.assert_array_equal(time_array, value_array)
 
-    @covers("LLFR-00019", "LLFR-00069")
+    @covers("LLFR-00019", "LLFR-01109")
     def test_plots_go_in_order_into_current_tab(self) -> None:
         """Each double-click adds a plot below, in the current tab.
 

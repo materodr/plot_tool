@@ -704,7 +704,8 @@ class MarkerMenuTest(MarkerWidgetTestCase):
                     self.assertEqual(text_list, FLAG_MENU_TEXT_LIST)
                     self.assertNotIn("Delete plot", text_list)
         # An empty area away from the marker still offers "Delete plot".
-        self.assertEqual(self.menu_texts_at(8.0, 2.0), ["Delete plot"])
+        self.assertEqual(self.menu_texts_at(8.0, 2.0),
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00048", "LLFR-00087")
     def test_label_shows_marker_menu(self) -> None:

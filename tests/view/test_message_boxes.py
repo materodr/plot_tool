@@ -122,9 +122,10 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(shown_box.icon(),
                          self.message_box_class.Icon.Critical)
 
-    @covers("LLFR-00032")
+    @covers("LLFR-00032", "HLFR-00018", "HLFR-00146")
     def test_full_tab_box_content(self) -> None:
-        """The full tab box is information and tells what to do.
+        """The full tab box is information and tells to use a new tab
+        or a larger plot matrix, naming the tab's matrix.
 
         Inputs: none.
         Outputs: none.
@@ -135,12 +136,33 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertNotEqual(box.icon(),
                             self.message_box_class.Icon.Critical)
         self.assertEqual(box.windowTitle(), "Full Tab")
-        text_str = box.text().lower()
-        self.assertIn("add a new tab", text_str)
-        self.assertIn("delete a plot", text_str)
-        self.assertIn("5", text_str)
+        self.assertEqual(
+            box.text(),
+            "This tab is full (5 \u00d7 1 matrix). Use a new tab, or a "
+            "larger matrix from the tab's menu.")
+        self.assertNotIn("delete a plot", box.text().lower())
         self.assertEqual(self.button_value_set(box),
                          {self.message_box_class.StandardButton.Ok.value})
+        box = self.message_module.build_full_tab_box(self.parent_widget, 2,
+                                                     3)
+        self.assertEqual(
+            box.text(),
+            "This tab is full (2 \u00d7 3 matrix). Use a new tab, or a "
+            "larger matrix from the tab's menu.")
+
+    @covers("LLFR-01127", "LLFR-00032", "HLFR-00018")
+    def test_full_ten_by_ten_box_says_only_new_tab(self) -> None:
+        """With a 10 x 10 matrix the box says only to use a new tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        box = self.message_module.build_full_tab_box(self.parent_widget,
+                                                     10, 10)
+        self.assertEqual(
+            box.text(),
+            "This tab is full (10 \u00d7 10 matrix). Use a new tab.")
+        self.assertNotIn("larger", box.text().lower())
 
     @covers("LLFR-00032")
     def test_show_full_tab_notification_runs_box(self) -> None:
@@ -158,7 +180,7 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(shown_box.icon(),
                          self.message_box_class.Icon.Information)
         self.assertEqual(shown_box.text(),
-                         self.message_module.FULL_TAB_MESSAGE_STR)
+                         self.message_module.full_tab_message_str(5, 1))
 
     @covers("LLFR-00211", "LLFR-00657")
     def test_tab_name_taken_box_content(self) -> None:

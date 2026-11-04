@@ -24,16 +24,19 @@ class FakeMainWindow(FakePlotView):
         self.search_text_handler = None
         self.export_handler_tuple = ()
 
-    def set_export_handlers(self, pdf_export_handler,
-                            copy_handler) -> None:
+    def set_export_handlers(self, pdf_export_handler, copy_handler,
+                            copy_shortcut_handler=None) -> None:
         """Record the handlers of the Export menu and the Copy button.
 
         Inputs:
             pdf_export_handler: called for "Save all tabs as PDF".
             copy_handler: called when Copy is clicked.
+            copy_shortcut_handler: called with a window's tab id for
+                Ctrl+C (Cmd+C).
         Outputs: none.
         """
-        self.export_handler_tuple = (pdf_export_handler, copy_handler)
+        self.export_handler_tuple = (pdf_export_handler, copy_handler,
+                                     copy_shortcut_handler)
 
     def set_open_file_handler(self, handler) -> None:
         """Record the handler of the Open file button.
@@ -197,9 +200,10 @@ class MainControllerStartTest(unittest.TestCase):
             listener_list.index(signal_list_controller.on_file_opened),
             listener_list.index(controller.plot_controller.on_file_opened))
 
-    @covers("LLFR-00128", "LLFR-00133")
+    @covers("LLFR-00128", "LLFR-00133", "LLFR-01136")
     def test_export_controller_is_wired(self) -> None:
-        """The Export menu and Copy button run the export controller.
+        """The Export menu, the Copy button and the Copy shortcut run the
+        export controller.
 
         Inputs: none.
         Outputs: none.
@@ -210,7 +214,8 @@ class MainControllerStartTest(unittest.TestCase):
         self.assertIs(export_controller.view, fake_window)
         self.assertEqual(fake_window.export_handler_tuple,
                          (export_controller.on_export_requested,
-                          export_controller.on_copy_requested))
+                          export_controller.on_copy_requested,
+                          export_controller.on_copy_shortcut))
 
 
 class MainControllerFilesTest(unittest.TestCase):

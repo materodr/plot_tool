@@ -1,7 +1,7 @@
 """One-line text field in which the user writes a text note.
 
 The field is a QLineEdit, so the window treats it as a text field: while
-it has the keyboard focus, the plot tool keys, the Z key, Undo and Redo
+it has the keyboard focus, the plot tool keys, the 0 key, Undo and Redo
 do not act on the workspace (LLFR-00157, LLFR-00195, LLFR-00196). The
 plot widget shows it at the clicked point (LLFR-00333) and decides what
 the text becomes; the field only reports how the typing ended.

@@ -30,7 +30,7 @@ from view import icon_shapes, theme
 from view.action_button import ActionButton
 from view.tip_key_filter import (
     ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I,
-    RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I)
+    RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ZOOM_KEY_I)
 from view.text_note_editor import KEEPS_TEXT_NOTE_OPEN_PROPERTY_STR
 from view.toggle_button import ToggleButton
 from view.undo_button import UndoButton
@@ -110,6 +110,12 @@ BUTTON_ICON_DICT = {
 # QShortcut from this constant, so the shortcut and its tip text change
 # together (LLFR-00215 Note).
 REDO_SHORTCUT_STR = "Ctrl+Y"
+# LLFR-01136, LLFR-01139, LLFR-01140: the Copy, PDF and search
+# shortcuts, Ctrl on Windows and Cmd on macOS, kept here with the button
+# tip texts so that a shortcut and its tip change together (LLFR-00215).
+COPY_SHORTCUT_STR = "Ctrl+C"
+PDF_SHORTCUT_STR = "Ctrl+P"
+SEARCH_SHORTCUT_STR = "Ctrl+F"
 # LLFR-00137: the Undo shortcut is Qt's standard Undo key (Ctrl+Z, or
 # Cmd+Z on macOS); MainWindow builds its QShortcut from it.
 UNDO_STANDARD_KEY = QKeySequence.StandardKey.Undo
@@ -118,6 +124,8 @@ SHORTCUT_SEQUENCE_STR = "sequence"
 SHORTCUT_HOLD_STR = "hold"
 SHORTCUT_PRESS_STR = "press"
 MOUSE_USE_STR = "mouse"
+# LLFR-00463: a held key followed by the lines of its mouse use.
+SHORTCUT_HOLD_AND_MOUSE_STR = "hold and mouse"
 # LLFR-00215: the word "Hold" before a held key (LLFR-00148, LLFR-00154,
 # LLFR-00197, LLFR-00200, LLFR-00287, LLFR-00321, LLFR-00367).
 HOLD_PREFIX_STR = "Hold "
@@ -140,12 +148,15 @@ PAN_MOUSE_LINE_TUPLE = ("Drag on a plot to pan",)
 # shortcut changes its button tip with it; next to the keys the app
 # really uses (view.tip_key_filter and the
 # shortcuts above), as (kind, value). A button that is not listed (Open
-# file, Grid, Export, Copy, Save signals, Save layout, Load layout,
-# Report a bug)
-# shows only its name.
+# file, Grid, Save signals, Save layout, Load layout, Report a bug)
+# shows only its name (LLFR-00465).
 BUTTON_TIP_SHORTCUT_DICT = {
     UNDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, UNDO_STANDARD_KEY),
     REDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, REDO_SHORTCUT_STR),
+    # LLFR-00215, LLFR-01136: "Cmd+C" or "Ctrl+C"; LLFR-01139: the
+    # Export button's "Save all tabs as PDF" has "Cmd+P" or "Ctrl+P".
+    COPY_TEXT_STR: (SHORTCUT_SEQUENCE_STR, COPY_SHORTCUT_STR),
+    EXPORT_TEXT_STR: (SHORTCUT_SEQUENCE_STR, PDF_SHORTCUT_STR),
     TIP_TEXT_STR: (SHORTCUT_HOLD_STR, TIP_KEY_I),
     MARKER_TEXT_STR: (SHORTCUT_HOLD_STR, MARKER_KEY_I),
     DELTA_X_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_X_KEY_I),
@@ -155,8 +166,11 @@ BUTTON_TIP_SHORTCUT_DICT = {
     TEXT_TEXT_STR: (SHORTCUT_HOLD_STR, TEXT_KEY_I),
     # LLFR-00367: "Hold R".
     ARROW_TEXT_STR: (SHORTCUT_HOLD_STR, ARROW_KEY_I),
+    # LLFR-00215, LLFR-00207: "0".
     RESET_ZOOM_TEXT_STR: (SHORTCUT_PRESS_STR, RESET_ZOOM_KEY_I),
-    ZOOM_TEXT_STR: (MOUSE_USE_STR, ZOOM_MOUSE_LINE_TUPLE),
+    # LLFR-00463, LLFR-01092: "Hold Z", then the two mouse lines.
+    ZOOM_TEXT_STR: (SHORTCUT_HOLD_AND_MOUSE_STR,
+                    (ZOOM_KEY_I, ZOOM_MOUSE_LINE_TUPLE)),
     PAN_TEXT_STR: (MOUSE_USE_STR, PAN_MOUSE_LINE_TUPLE),
 }
 
@@ -180,15 +194,17 @@ def key_name_str(key_i: int, macos_b: bool) -> str:
         key_i: a Qt.Key value, e.g. TIP_KEY_I.
         macos_b: True for the macOS names.
     Outputs: "Cmd" or "Ctrl" for the Data tip key, "Shift" for Shift,
-        and the capital letter for a letter key, e.g. "X".
+        the capital letter for a letter key, e.g. "X", and the digit
+        for a digit key, e.g. "0".
     """
     # LLFR-00215: the names of the table, derived from the key values.
     if key_i == TIP_KEY_I:
         return MACOS_COMMAND_NAME_STR if macos_b else CONTROL_NAME_STR
     if key_i == MARKER_KEY_I:
         return SHIFT_NAME_STR
-    # LLFR-00197, LLFR-00200, LLFR-00207: Qt's letter keys have the
-    # code of the capital letter (Qt.Key.Key_X is ord("X")).
+    # LLFR-00197, LLFR-00200, LLFR-01092: Qt's letter keys have the
+    # code of the capital letter (Qt.Key.Key_X is ord("X")); LLFR-00207:
+    # and its digit keys the code of the digit (Qt.Key.Key_0 is ord("0")).
     return chr(key_i)
 
 
@@ -217,10 +233,11 @@ def button_tip_detail_list(name_str: str, macos_b: bool) -> list:
     Inputs:
         name_str: the button's name, e.g. "Undo".
         macos_b: True for the macOS texts, False for the Windows texts.
-    Outputs: a list of str: one shortcut line (LLFR-00213), the mouse
-        use lines of the Zoom button (LLFR-00214), or an empty list for
-        a button that shows only its name (LLFR-00215), and the mouse
-        use line of the Pan button.
+    Outputs: a list of str: one shortcut line (LLFR-00213), the
+        shortcut and the two mouse use lines of the Zoom button
+        (LLFR-00463), the mouse use line of the Pan button (LLFR-00464),
+        or an empty list for a button that shows only its name
+        (LLFR-00465).
     """
     # LLFR-00215, LLFR-00883: every text comes from
     # BUTTON_TIP_SHORTCUT_DICT, never from a copy of it.
@@ -233,6 +250,12 @@ def button_tip_detail_list(name_str: str, macos_b: bool) -> list:
         return [HOLD_PREFIX_STR + key_name_str(value, macos_b)]
     if kind_str == SHORTCUT_PRESS_STR:
         return [key_name_str(value, macos_b)]
+    if kind_str == SHORTCUT_HOLD_AND_MOUSE_STR:
+        # LLFR-00463: the Zoom button has both a held key and a mouse
+        # use.
+        key_i, mouse_line_tuple = value
+        return ([HOLD_PREFIX_STR + key_name_str(key_i, macos_b)]
+                + list(mouse_line_tuple))
     # LLFR-00214: the Zoom and Pan tools are used with the mouse.
     return list(value)
 

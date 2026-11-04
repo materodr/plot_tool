@@ -196,6 +196,26 @@ class TipKeyFilterTest(unittest.TestCase):
         self.release("Key_Control")
         self.assertEqual(self.call_list, ["activate", "release"])
 
+    @covers("LLFR-00150", "LLFR-00149", "LLFR-01136", "LLFR-01139",
+            "LLFR-01140")
+    def test_copy_pdf_and_search_keys_end_the_activation(self) -> None:
+        """Ctrl (Cmd) then C, P or F ends the activation at once, as any
+        other key does.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for key_name_str in ("Key_C", "Key_P", "Key_F"):
+            with self.subTest(key=key_name_str):
+                self.call_list.clear()
+                self.press("Key_Control")
+                self.press(key_name_str, "ControlModifier")
+                self.assertEqual(self.call_list, ["activate", "release"])
+                self.assertFalse(self.tip_key_filter.is_activation_on())
+                self.release(key_name_str, "ControlModifier")
+                self.release("Key_Control")
+                self.assertEqual(self.call_list, ["activate", "release"])
+
     @covers("LLFR-00148")
     def test_tip_key_not_alone_does_not_activate(self) -> None:
         """Ctrl pressed while another key or modifier is held does nothing.

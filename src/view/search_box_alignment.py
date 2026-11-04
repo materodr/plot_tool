@@ -71,18 +71,25 @@ class SearchBoxAligner(QObject):
         watched_page_list: the tab pages whose events are watched.
     """
 
-    def __init__(self, plot_panel, signal_list_panel, parent=None) -> None:
+    def __init__(self, plot_panel, signal_list_panel, parent=None,
+                 tab_widget=None) -> None:
         """Watch both panels and align once the event loop runs.
 
         Inputs:
-            plot_panel: the PlotPanel.
-            signal_list_panel: the SignalListPanel.
+            plot_panel: the PlotPanel, or the plot area of an undocked
+                window.
+            signal_list_panel: the SignalListPanel of the same window.
             parent: the QObject that owns the aligner.
+            tab_widget: the tab widget whose shown tab the search box
+                follows; None for the tab widget of plot_panel.
         Outputs: none.
         """
         super().__init__(parent)
-        # LLFR-00424, LLFR-00652: the two panels to keep level.
+        # LLFR-00424, LLFR-00652: the two panels to keep level, in each
+        # window (HLFR-00095).
         self.plot_panel = plot_panel
+        self.tab_widget = (plot_panel.tab_widget if tab_widget is None
+                           else tab_widget)
         self.signal_list_panel = signal_list_panel
         self.watched_page_list = []
         # LLFR-00424: a child timer, so a pending alignment never runs
@@ -91,11 +98,10 @@ class SearchBoxAligner(QObject):
         self.align_timer.setSingleShot(True)
         self.align_timer.setInterval(0)
         self.align_timer.timeout.connect(self.align)
-        for widget in (plot_panel, plot_panel.tab_widget,
-                       signal_list_panel):
+        for widget in (plot_panel, self.tab_widget, signal_list_panel):
             widget.installEventFilter(self)
         # LLFR-00424: another tab may have another lowest plot.
-        plot_panel.tab_widget.currentChanged.connect(self.schedule_align)
+        self.tab_widget.currentChanged.connect(self.schedule_align)
         self.schedule_align()
 
     def schedule_align(self, *_ignored_tuple) -> None:
@@ -156,12 +162,12 @@ class SearchBoxAligner(QObject):
             (LLFR-00424), or the current tab page when it holds no plot
             (LLFR-00652), or None when there is no tab page.
         """
-        page = self.plot_panel.tab_widget.currentWidget()
+        page = self.tab_widget.currentWidget()
         if page is None:
             return None
         self.watch_page(page)
-        # LLFR-00424: the plots are stacked from top to bottom
-        # (LLFR-00069), so the lowest one ends lowest on the screen.
+        # LLFR-00424, LLFR-01110: the plots of the last shown row of the
+        # plot matrix (LLFR-00069) end lowest on the screen.
         plot_widget_list = [
             plot_widget for plot_widget
             in getattr(page, "plot_widget_list", [])
@@ -210,7 +216,7 @@ class SearchBoxAligner(QObject):
             higher, negative when it starts lower, 0 when level.
         """
         # LLFR-00894: the pane rectangle Qt paints the plot well in.
-        tab_widget = self.plot_panel.tab_widget
+        tab_widget = self.tab_widget
         well_top_i = top_edge_global_y(tab_widget,
                                        tab_widget.pane_rect().top())
         list_top_i = top_edge_global_y(

@@ -7,7 +7,7 @@ stretching it with previews (LLFR-00376, LLFR-00377), with the Arrow
 tool or with no tool and not with the other tools (LLFR-00382,
 LLFR-00384), the order of the objects at a point (LLFR-00383), its menu
 (LLFR-00378, LLFR-00381), arrows in the exported image (LLFR-00129,
-LLFR-00133), frequency plots, the mouse drag rule of the Z key
+LLFR-00133), frequency plots, the mouse drag rule of the 0 key
 (LLFR-00207), and, through MainWindow and the real controllers, the
 Arrow button (LLFR-00366, LLFR-00347, LLFR-00159, LLFR-00215), the R
 key (LLFR-00367 to LLFR-00369, LLFR-00157), arrows on one plot only
@@ -980,7 +980,7 @@ class ArrowMenuTest(ArrowWidgetTestCase):
         self.choose_menu(self.display_of(4.0, 2.0), "Delete")
         self.assertEqual(self.delete_list, [(0,)])
         self.assertEqual(self.choose_menu(self.display_of(8.0, 2.0), ""),
-                         ["Delete plot"])
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00381", "LLFR-00341", "LLFR-00046", "LLFR-00789")
     def test_note_and_tip_menus_over_an_arrow(self) -> None:
@@ -1416,7 +1416,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.assertEqual(shown_list, [])
 
     @covers("LLFR-00207", "LLFR-00371", "LLFR-00376", "LLFR-00454")
-    def test_z_does_nothing_during_an_arrow_drag(self) -> None:
+    def test_zero_does_nothing_during_an_arrow_drag(self) -> None:
         """Z while an arrow is drawn or dragged does nothing; after the
         release it resets.
 
@@ -1432,8 +1432,8 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.send_mouse(plot_widget, "MouseMove", 1.8, "NoButton",
                         "LeftButton")
         self.assertTrue(self.main_window.is_mouse_drag_in_progress())
-        self.press_key("Key_Z", plot_widget.canvas)
-        self.release_key("Key_Z", plot_widget.canvas)
+        self.press_key("Key_0", plot_widget.canvas)
+        self.release_key("Key_0", plot_widget.canvas)
         self.assert_every_range(ZOOMED_RANGE_TUPLE)
         self.send_mouse(plot_widget, "MouseButtonRelease", 1.8,
                         "LeftButton", "NoButton")
@@ -1449,15 +1449,15 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.send_mouse(plot_widget, "MouseMove", 2.0, "NoButton",
                         "LeftButton")
         self.assertTrue(self.main_window.is_mouse_drag_in_progress())
-        self.press_key("Key_Z", plot_widget.canvas)
-        self.release_key("Key_Z", plot_widget.canvas)
+        self.press_key("Key_0", plot_widget.canvas)
+        self.release_key("Key_0", plot_widget.canvas)
         self.assert_every_range(ZOOMED_RANGE_TUPLE)
         self.send_mouse(plot_widget, "MouseButtonRelease", 2.0,
                         "LeftButton", "NoButton")
         arrow_list = self.model_arrows()
         self.assertAlmostEqual(arrow_list[0][0], 1.6, delta=0.05)
-        self.press_key("Key_Z")
-        self.release_key("Key_Z")
+        self.press_key("Key_0")
+        self.release_key("Key_0")
         self.assert_every_range(FULL_RANGE_TUPLE)
 
     @covers("LLFR-00370", "LLFR-00366", "LLFR-00530")

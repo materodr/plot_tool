@@ -28,16 +28,20 @@ EXPECTED_TIP_DICT = {
     "area_button": ("Area", ["Hold A"], ["Hold A"]),
     "text_button": ("Text", ["Hold T"], ["Hold T"]),
     "arrow_button": ("Arrow", ["Hold R"], ["Hold R"]),
-    "reset_zoom_button": ("Reset zoom", ["Z"], ["Z"]),
+    # LLFR-00215, LLFR-00207: "0".
+    "reset_zoom_button": ("Reset zoom", ["0"], ["0"]),
+    # LLFR-00463: "Hold Z", then the two mouse lines.
     "zoom_button": ("Zoom",
-                    ["Click or drag to zoom in",
+                    ["Hold Z", "Click or drag to zoom in",
                      "Wheel or two-finger swipe to zoom in or out"],
-                    ["Click or drag to zoom in",
+                    ["Hold Z", "Click or drag to zoom in",
                      "Wheel or two-finger swipe to zoom in or out"]),
     "open_file_button": ("Open file", [], []),
     "grid_button": ("Grid", [], []),
-    "export_button": ("Export", [], []),
-    "copy_button": ("Copy", [], []),
+    # LLFR-00215, LLFR-01139: the PDF shortcut of the Export menu.
+    "export_button": ("Export", ["Cmd+P"], ["Ctrl+P"]),
+    # LLFR-00215, LLFR-01136: the Copy shortcut.
+    "copy_button": ("Copy", ["Cmd+C"], ["Ctrl+C"]),
     # LLFR-00356, LLFR-00214: the Pan tool is used with the mouse.
     "pan_button": ("Pan", ["Drag on a plot to pan"],
                    ["Drag on a plot to pan"]),
@@ -48,7 +52,6 @@ EXPECTED_TIP_DICT = {
 }
 # LLFR-00215: the buttons whose tip shows only the name.
 NAME_ONLY_ATTRIBUTE_TUPLE = ("open_file_button", "grid_button",
-                             "export_button", "copy_button",
                              "report_bug_button", "save_signals_button")
 # LLFR-00213: minimum WCAG contrast of the paler line on the tip
 # background, so that it stays readable.
@@ -140,7 +143,8 @@ class ButtonTipTest(unittest.TestCase):
         return color_list
 
     @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181",
-            "LLFR-00463", "LLFR-00464", "LLFR-00465")
+            "LLFR-00463", "LLFR-00464", "LLFR-00465", "LLFR-01136",
+            "LLFR-01139", "HLFR-00042", "HLFR-00144", "HLFR-00145")
     def test_tip_texts_on_macos_and_windows(self) -> None:
         """Each button tip has the lines of the table, on both systems.
 
@@ -158,7 +162,8 @@ class ButtonTipTest(unittest.TestCase):
 
     @covers("LLFR-00215", "LLFR-00181", "LLFR-00465")
     def test_name_only_buttons(self) -> None:
-        """Open file, Grid, Export and Copy show only their plain name.
+        """Open file, Grid, Report a bug and Save signals show only their
+        plain name.
 
         Inputs: none.
         Outputs: none.
@@ -296,7 +301,8 @@ class ButtonTipTest(unittest.TestCase):
             self.application.processEvents()
 
     @covers("LLFR-00215", "LLFR-00148", "LLFR-00154", "LLFR-00197",
-            "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321")
+            "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321",
+            "LLFR-01092", "LLFR-00883", "HLFR-00144", "HLFR-00145")
     def test_key_names_follow_the_tool_keys(self) -> None:
         """The held and pressed keys are named from the filter's keys.
 
@@ -313,7 +319,8 @@ class ButtonTipTest(unittest.TestCase):
                 (tip_key_filter.AREA_KEY_I, "A", "A"),
                 (tip_key_filter.TEXT_KEY_I, "T", "T"),
                 (tip_key_filter.ARROW_KEY_I, "R", "R"),
-                (tip_key_filter.RESET_ZOOM_KEY_I, "Z", "Z")):
+                (tip_key_filter.ZOOM_KEY_I, "Z", "Z"),
+                (tip_key_filter.RESET_ZOOM_KEY_I, "0", "0")):
             with self.subTest(key_i=key_i):
                 self.assertEqual(key_name_str(key_i, True), macos_str)
                 self.assertEqual(key_name_str(key_i, False), windows_str)
@@ -408,6 +415,7 @@ class ButtonTipSourceTest(unittest.TestCase):
         Outputs: a dict from button name to its list of lines below the
             name.
         """
+        from view import top_panel as top_panel_module
         from view.top_panel import key_name_str
         top_panel = self.main_window.top_panel
         tool_key_filter = self.main_window.tool_key_filter
@@ -428,9 +436,22 @@ class ButtonTipSourceTest(unittest.TestCase):
             self.shortcut_line_str(self.main_window.undo_shortcut, macos_b)]
         expected_dict[button_name(top_panel.redo_button)] = [
             self.shortcut_line_str(self.main_window.redo_shortcut, macos_b)]
+        # LLFR-01136, LLFR-01139: the window shortcuts of Copy and of
+        # the Export button's "Save all tabs as PDF".
+        expected_dict[button_name(top_panel.copy_button)] = [
+            self.shortcut_line_str(self.main_window.copy_shortcut, macos_b)]
+        expected_dict[button_name(top_panel.export_button)] = [
+            self.shortcut_line_str(self.main_window.pdf_shortcut, macos_b)]
+        # LLFR-00463: the Zoom tool has a held key and, below it, the
+        # two lines of its mouse use.
+        zoom_name_str = button_name(top_panel.zoom_button)
+        if zoom_name_str in expected_dict:
+            expected_dict[zoom_name_str] = expected_dict[zoom_name_str] + (
+                list(top_panel_module.ZOOM_MOUSE_LINE_TUPLE))
         return expected_dict
 
-    @covers("LLFR-00883", "LLFR-00213", "LLFR-00214", "LLFR-00215")
+    @covers("LLFR-00883", "LLFR-00213", "LLFR-00214", "LLFR-00215",
+            "LLFR-00463", "LLFR-01136", "LLFR-01139")
     def test_every_tip_line_names_what_the_app_uses(self) -> None:
         """On both systems, the line below the name of each button with
         a keyboard shortcut is the key or shortcut that the window's key

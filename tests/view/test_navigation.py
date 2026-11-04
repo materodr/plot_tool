@@ -7,6 +7,7 @@ toggle button, in a plot widget and through MainWindow with the real
 controllers. No modal dialog or menu is ever opened.
 """
 
+import gc
 import time
 import unittest
 
@@ -1043,6 +1044,12 @@ class NavigationEndToEndTest(unittest.TestCase):
         from view.toggle_button import ACTIVE_COLOR_STR, NORMAL_COLOR_STR
         reset_button = self.top_panel.reset_zoom_button
         self.zoom_current_tab()
+        # A full garbage collection of the objects left by earlier tests
+        # can pause the event loop for seconds on a slow runner, so it
+        # is done now and kept out of the timed part of the test.
+        gc.collect()
+        gc.disable()
+        self.addCleanup(gc.enable)
         click_s = time.monotonic()
         self.click(reset_button)
         # The reset has already run, and the button is still active.

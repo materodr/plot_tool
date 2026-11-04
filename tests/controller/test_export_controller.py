@@ -37,6 +37,8 @@ class FakeExportView:
         self.replace_answer_b = False
         self.call_list = []
         self.description_list = []
+        # LLFR-01136: the plot count of the tab shown in each window.
+        self.window_plot_count_dict = {}
 
     def ask_replace_existing_file(self, path_str: str) -> bool:
         """Record the question and return the prepared answer.
@@ -100,6 +102,39 @@ class FakeExportView:
         self.call_list.append("copy_current_tab_image")
         self.description_list.append(description_str)
         return self.copy_result_tuple
+
+    def window_tab_plot_count(self, tab_id_i: int) -> int:
+        """Return the number of plots of the tab shown in a window.
+
+        Inputs:
+            tab_id_i: the tab of the undocked window, -1 for the main
+                window.
+        Outputs: window_plot_count_dict.get(tab_id_i, 1).
+        """
+        self.call_list.append(("window_tab_plot_count", tab_id_i))
+        return self.window_plot_count_dict.get(tab_id_i, 1)
+
+    def copy_window_tab_image(self, description_str: str,
+                              tab_id_i: int) -> tuple:
+        """Record the copy of a window's tab and return the result.
+
+        Inputs:
+            description_str: the description of the data files.
+            tab_id_i: the tab of the window, -1 for the main window.
+        Outputs: copy_result_tuple.
+        """
+        self.call_list.append(("copy_window_tab_image", tab_id_i))
+        self.description_list.append(description_str)
+        return self.copy_result_tuple
+
+    def show_nothing_to_copy_in(self, tab_id_i: int) -> None:
+        """Record the information box over a window.
+
+        Inputs:
+            tab_id_i: the tab of the window, -1 for the main window.
+        Outputs: none.
+        """
+        self.call_list.append(("show_nothing_to_copy_in", tab_id_i))
 
     def show_nothing_to_export(self) -> None:
         """Record the information box.
@@ -369,6 +404,63 @@ class CopyFlowTest(unittest.TestCase):
         self.controller.on_copy_requested()
         self.assertIn(("show_copy_error", "no image"), self.view.call_list)
         self.assertEqual(self.view.call_list[-1], "finish_copy_button")
+
+
+class CopyShortcutTest(unittest.TestCase):
+    """Check Ctrl+C (Cmd+C): the tab shown in the window of the key."""
+
+    def setUp(self) -> None:
+        """Create the controller with a fake view.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportView()
+        self.controller = ExportController(self.view, lambda: "file1 = a")
+
+    @covers("LLFR-01136", "LLFR-00972", "HLFR-00039")
+    def test_shortcut_copies_the_tab_of_its_window(self) -> None:
+        """The image is of the tab shown in the window of the key, with
+        the data files strip, and the Copy button is not touched.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for tab_id_i in (-1, 7):
+            self.view.call_list.clear()
+            self.controller.on_copy_shortcut(tab_id_i)
+            self.assertEqual(self.view.call_list,
+                             [("window_tab_plot_count", tab_id_i),
+                              ("copy_window_tab_image", tab_id_i)])
+        self.assertEqual(self.view.description_list[-1], "file1 = a")
+        self.assertNotIn("finish_copy_button",
+                         self.view.called_names_list())
+
+    @covers("LLFR-01138", "LLFR-00146", "HLFR-00039")
+    def test_shortcut_with_no_plot_shows_box_over_its_window(self) -> None:
+        """A tab with no plot shows the box over that window and copies
+        nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.window_plot_count_dict[7] = 0
+        self.controller.on_copy_shortcut(7)
+        self.assertEqual(self.view.call_list,
+                         [("window_tab_plot_count", 7),
+                          ("show_nothing_to_copy_in", 7)])
+
+    @covers("LLFR-01136", "LLFR-00133")
+    def test_shortcut_copy_failure_is_reported(self) -> None:
+        """A failed copy shows the copy error box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.copy_result_tuple = (False, "no clipboard")
+        self.controller.on_copy_shortcut(-1)
+        self.assertEqual(self.view.call_list[-1],
+                         ("show_copy_error", "no clipboard"))
 
 
 class FilesDescriptionTest(unittest.TestCase):

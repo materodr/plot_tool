@@ -317,7 +317,7 @@ class TabTest(unittest.TestCase):
 class PlotInTabTest(unittest.TestCase):
     """Check adding and deleting plots in a tab."""
 
-    @covers("LLFR-00031", "HLFR-00018", "LLFR-00069")
+    @covers("LLFR-00031", "HLFR-00018", "LLFR-01109", "LLFR-01122")
     def test_sixth_plot_is_refused(self) -> None:
         """A tab takes 5 plots in order; the 6th is refused.
 

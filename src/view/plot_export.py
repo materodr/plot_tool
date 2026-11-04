@@ -108,15 +108,19 @@ def tab_page_list(tab_widget) -> list:
     return page_list
 
 
-def exportable_page_list(tab_widget) -> list:
+def exportable_page_list(tab_widget, undocked_page_list=()) -> list:
     """Return the tab pages that hold at least one plot, in tab order.
 
     Inputs:
         tab_widget: the QTabWidget of the plot panel.
-    Outputs: a list of TabPage.
+        undocked_page_list: the TabPage of each undocked window, in tab
+            order (LLFR-01091).
+    Outputs: a list of TabPage: the docked ones, then the undocked ones.
     """
-    # LLFR-00129, LLFR-00145: only tabs with a plot get a PDF page.
-    return [page for page in tab_page_list(tab_widget)
+    # LLFR-00129, LLFR-00145: only tabs with a plot get a PDF page,
+    # docked or undocked, in tab order (LLFR-01091).
+    return [page for page in (tab_page_list(tab_widget)
+                              + list(undocked_page_list))
             if page.plot_widget_list]
 
 
@@ -249,7 +253,7 @@ def plot_image_list(page) -> list:
     return entry_list
 
 
-def grab_exportable_images(tab_widget) -> list:
+def grab_exportable_images(tab_widget, undocked_page_list=()) -> list:
     """Return the name and images of every tab that holds a plot.
 
     The tabs are shown one after the other; the tab that was current is
@@ -257,6 +261,8 @@ def grab_exportable_images(tab_widget) -> list:
 
     Inputs:
         tab_widget: the QTabWidget of the plot panel.
+        undocked_page_list: the pages of the undocked windows, in tab
+            order; each is shown in its window, at its own size.
     Outputs: a list of tuples (tab name str, QImage of the page, list of
         plot images as returned by plot_image_list), in tab order.
     """
@@ -266,8 +272,12 @@ def grab_exportable_images(tab_widget) -> list:
                       else tab_widget.size())
     snapshot_list = []
     try:
-        for page in exportable_page_list(tab_widget):
-            if page is not tab_widget.currentWidget():
+        for page in exportable_page_list(tab_widget, undocked_page_list):
+            # LLFR-00129: an undocked tab is grabbed as its window shows
+            # it.
+            if tab_widget.indexOf(page) < 0:
+                QApplication.processEvents()
+            elif page is not tab_widget.currentWidget():
                 tab_widget.setCurrentWidget(page)
                 lay_out_page_like(page, reference_size)
             page_image = grab_page_image(page)
@@ -566,8 +576,8 @@ def describe_os_error(error) -> str:
     return reason_str
 
 
-def save_tabs_pdf(tab_widget, path_str: str,
-                  description_str: str = "") -> tuple:
+def save_tabs_pdf(tab_widget, path_str: str, description_str: str = "",
+                  undocked_page_list=()) -> tuple:
     """Save the plots of every tab that holds a plot to a PDF file.
 
     Inputs:
@@ -575,11 +585,13 @@ def save_tabs_pdf(tab_widget, path_str: str,
         path_str: the path of the .pdf file.
         description_str: the description of the open data files
             (LLFR-00971).
+        undocked_page_list: the pages of the undocked windows, in tab
+            order (LLFR-01091).
     Outputs: a tuple (saved_b, reason_str); reason_str says why the file
         was not saved, "" when it was.
     """
     # LLFR-00129: grab the tabs, then lay them out on PDF pages.
-    snapshot_list = grab_exportable_images(tab_widget)
+    snapshot_list = grab_exportable_images(tab_widget, undocked_page_list)
     try:
         content_bytes = build_pdf_bytes(snapshot_list, description_str)
     except OSError as error:

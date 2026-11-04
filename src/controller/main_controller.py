@@ -95,9 +95,11 @@ class MainController:
         self.export_controller = ExportController(
             main_window,
             lambda: self.file_controller.data_files.description_str)
+        # LLFR-01136: Ctrl+C (Cmd+C) copies the tab of its window.
         main_window.set_export_handlers(
             self.export_controller.on_export_requested,
-            self.export_controller.on_copy_requested)
+            self.export_controller.on_copy_requested,
+            self.export_controller.on_copy_shortcut)
 
         # LLFR-00923: the file menu of the file name rows.
         main_window.set_file_menu_handlers(
