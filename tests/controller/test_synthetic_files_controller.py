@@ -23,14 +23,25 @@ from tests.controller.test_synthetic_controller import SAMPLE_COUNT_I
 
 from controller.main_controller import MainController
 from controller.save_signals_controller import SaveSignalsController
+from controller.synthetic_controller import (
+    CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)
 from model import synthetic_operations as operations
-from model.data_files import DataFileSet
+from model.data_files import DataFileSet, prefix_number
+from model.errors import SyntheticSourceError
 from model.file_loader import load_signal_file
 from model.file_writer import CSV_FORMAT_STR
 from model.layout_file import (
     LAYOUT_FORMAT_STR, LAYOUT_VERSION_I, read_layout_file)
 from model.signal_file import SignalFile
 from model.synthetic_signals import LAYOUT_KEY_STR, ordered_signal_names
+
+# The sample files of PCR-00032 whose time signals differ only by
+# rounding (LLFR-00977).
+GOOD_FOLDER_STR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "user_tests", "good")
+GOOD_EXCEL_PATH_STR = os.path.join(GOOD_FOLDER_STR, "signals.xlsx")
+GOOD_MAT_PATH_STR = os.path.join(GOOD_FOLDER_STR, "signals.mat")
 
 
 def make_file(time_array=None, offset_f: float = 0.0,
@@ -309,6 +320,107 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.assertEqual(signal.saved_name_str, "file2_x")
 
 
+class TimeToleranceProductTest(SeveralFilesTestCase):
+    """Product with signal across files whose times match within the
+    tolerance (LLFR-00977, LLFR-00978)."""
+
+    def setUp(self) -> None:
+        """Open signals.xlsx and signals.mat of tests/user_tests/good.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().setUp()
+        self.open_file(load_signal_file(GOOD_EXCEL_PATH_STR), "a.xlsx")
+        self.open_file(load_signal_file(GOOD_MAT_PATH_STR), "b.mat")
+
+    @covers("LLFR-00275", "LLFR-00977", "HLFR-00113", "HLFR-00053")
+    def test_dialog_lists_the_file_with_the_rounded_times(self) -> None:
+        """The second signal dialog of file 1 lists the signals of file
+        2, whose times differ only by rounding, and the product is
+        created.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        data_files = self.controller.signal_file
+        self.assertFalse(np.array_equal(
+            data_files.time_array_for_signal("file1_Ramp"),
+            data_files.time_array_for_signal("file2_Ramp")))
+        self.view.second_signal_answer_list = ["file2_Ramp"]
+        self.create("file1_Ramp", "product")
+        name_list = self.view.second_signal_question_list[-1][2]
+        self.assertIn("file2_Ramp", name_list)
+        self.assertIn("file1_Ramp", name_list)
+        self.assertEqual(self.store.names(), ["file1_Ramp_prod_file2_Ramp"])
+        np.testing.assert_allclose(
+            self.store.get("file1_Ramp_prod_file2_Ramp").value_array,
+            data_files.signal_array("file1_Ramp")
+            * data_files.signal_array("file2_Ramp"))
+
+    @covers("LLFR-00275", "LLFR-00977", "LLFR-00978", "HLFR-00113")
+    def test_dialog_leaves_out_a_time_beyond_the_tolerance(self) -> None:
+        """A third file whose time signal has a NaN where the others have
+        a number, or one time 1e-6 s later, is not listed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        mat_file = load_signal_file(GOOD_MAT_PATH_STR)
+        nan_array = np.array(mat_file.time_array, dtype=float)
+        nan_array[10] = float("nan")
+        later_array = np.array(mat_file.time_array, dtype=float)
+        later_array[10] += 1e-6
+        self.open_file(SignalFile("c.csv", {
+            "Time": nan_array, "Speed": later_array}), "c.csv")
+        self.open_file(SignalFile("d.csv", {
+            "Time": later_array, "Speed": later_array}), "d.csv")
+        self.view.second_signal_answer_list = [None, None]
+        self.create("file1_Ramp", "product")
+        self.create("file3_Speed", "product")
+        listed_set = {prefix_number(name_str) for name_str
+                      in self.view.second_signal_question_list[0][2]}
+        self.assertEqual(listed_set, {1, 2})
+        self.assertEqual(self.view.second_signal_question_list[1][2],
+                         ["file3_Time", "file3_Speed"])
+        self.assertEqual(self.store.names(), [])
+
+    @covers("LLFR-00496", "LLFR-00977", "LLFR-00262", "HLFR-00056")
+    def test_layout_product_across_the_rounded_times(self) -> None:
+        """A product of a layout file across the two files is created,
+        because their time signals are identical within the tolerance.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        data_files = self.controller.signal_file
+
+        def lookup(name_str: str):
+            """Return the samples of a data file signal.
+
+            Inputs:
+                name_str: a prefixed signal name.
+            Outputs: its samples.
+            """
+            return data_files.signal_array(name_str)
+
+        signal = self.store.create(
+            "product", ["file1_Ramp", "file2_Ramp"], None, lookup,
+            data_files.time_array_for_signal,
+            set(data_files.signal_name_list))
+        self.assertEqual(signal.name_str, "file1_Ramp_prod_file2_Ramp")
+        later_array = np.array(data_files.time_array_for_signal(
+            "file2_Ramp"), dtype=float)
+        later_array[10] += 1e-6
+        self.open_file(SignalFile("c.csv", {
+            "Time": later_array, "Speed": later_array}), "c.csv")
+        with self.assertRaises(SyntheticSourceError):
+            self.store.create(
+                "product", ["file1_Ramp", "file3_Speed"], None, lookup,
+                data_files.time_array_for_signal,
+                set(data_files.signal_name_list))
+
+
 class FftRangeTest(SeveralFilesTestCase):
     """The FFT range of a signal's own file (HLFR-00057)."""
 
@@ -337,13 +449,31 @@ class FftRangeTest(SeveralFilesTestCase):
         self.view.handler_dict["time_range_handler"](plot_id_i, start_s,
                                                      end_s)
 
-    @covers("LLFR-00592", "LLFR-00968", "LLFR-00240", "HLFR-00057")
-    def test_no_time_plot_uses_the_whole_file(self) -> None:
-        """With no time plot, each FFT uses all the samples of its file.
+    @covers("LLFR-00592", "LLFR-00979", "HLFR-00057", "HLFR-00113")
+    def test_no_time_plot_creates_no_fft(self) -> None:
+        """With no time plot, no FFT is created for any file, and each
+        try shows the box that asks for a time plot.
 
         Inputs: none.
         Outputs: none.
         """
+        self.create("file1_Speed", "fft")
+        self.create("file2_Speed", "fft")
+        self.assertEqual(self.store.names(), [])
+        self.assertEqual(self.view.information_list, [
+            (CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR),
+            (CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
+
+    @covers("LLFR-00968", "LLFR-00248", "LLFR-00240", "HLFR-00057",
+            "HLFR-00113")
+    def test_whole_shown_range_gives_each_file_its_range(self) -> None:
+        """A time plot that shows both files gives each FFT the whole
+        time range of its own file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.show_range(0.0, 29.9)
         self.create("file1_Speed", "fft")
         self.create("file2_Speed", "fft")
         self.assertEqual(self.store.names(), [
@@ -398,10 +528,10 @@ class FftRangeTest(SeveralFilesTestCase):
         self.create("file2_Speed", "fft")
         self.assertEqual(self.store.names(), ["file2_fft_20s_to_20p7s_Speed"])
 
-    @covers("LLFR-00594", "LLFR-00250", "LLFR-00592")
+    @covers("LLFR-00592", "LLFR-00979", "LLFR-00594")
     def test_short_file_without_time_plot(self) -> None:
-        """With no time plot, a file of 7 samples shows the box of too
-        few samples in the time range.
+        """With no time plot, a file of 7 samples shows the box that asks
+        for a time plot, not the box of too few samples.
 
         Inputs: none.
         Outputs: none.
@@ -409,7 +539,23 @@ class FftRangeTest(SeveralFilesTestCase):
         self.open_file(make_file(np.arange(7) * 0.1), "c.csv")
         self.create("file3_Speed", "fft")
         self.assertEqual(self.store.names(), [])
-        self.assertIn("too few samples", self.view.information_list[0][1])
+        self.assertEqual(self.view.information_list,
+                         [(CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
+
+    @covers("LLFR-00594", "LLFR-00250", "LLFR-00248")
+    def test_short_file_with_a_time_plot(self) -> None:
+        """With a time plot, a file of 7 samples shows the box of too few
+        samples in the time range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_file(make_file(np.arange(7) * 0.1), "c.csv")
+        self.view.handler_dict["double_click"]("file3_Speed")
+        self.create("file3_Speed", "fft")
+        self.assertEqual(self.store.names(), [])
+        self.assertEqual(len(self.view.information_list), 1)
+        self.assertIn("holds 7 of them", self.view.information_list[0][1])
 
 
 class SaveSeveralFilesTest(unittest.TestCase):
@@ -498,7 +644,8 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.view.handler()
         return dict(load_signal_file(path_str).signal_dict)
 
-    @covers("LLFR-00942", "LLFR-00943", "HLFR-00120", "LLFR-00396")
+    @covers("LLFR-00942", "LLFR-00943", "HLFR-00120", "LLFR-00396",
+            "LLFR-00977")
     def test_different_time_signals_show_an_error_first(self) -> None:
         """Different time signals show an error box in place of the
         dialog, and nothing is written.
@@ -508,9 +655,10 @@ class SaveSeveralFilesTest(unittest.TestCase):
         """
         time_array = np.arange(5) * 0.5
         self.add_file("a.csv", {"Time": time_array, "Speed": time_array})
-        # Same number of samples, one value different.
+        # Same number of samples, one value different by more than the
+        # tolerance of LLFR-00977 (1e-8 times 1.5 s).
         other_array = time_array.copy()
-        other_array[3] += 1e-9
+        other_array[3] += 1e-6
         self.add_file("b.csv", {"Time": other_array, "Speed": time_array})
         self.view.dialog_answer_list.append(
             (os.path.join(self.folder_str, "out.csv"), CSV_FORMAT_STR,
@@ -522,6 +670,48 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.assertEqual(self.view.written_path_list, [])
         self.assertEqual(sorted(os.listdir(self.folder_str)), [])
         self.assertEqual(self.view.finished_count_i, 1)
+
+    @covers("LLFR-00942", "LLFR-00944", "LLFR-00977", "HLFR-00120")
+    def test_excel_and_mat_files_are_saved_together(self) -> None:
+        """signals.xlsx and signals.mat, whose times differ only by
+        rounding, are saved to one file with the time of file 1.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for name_str, path_str in (("a.xlsx", GOOD_EXCEL_PATH_STR),
+                                   ("b.mat", GOOD_MAT_PATH_STR)):
+            signal_file = load_signal_file(path_str)
+            self.add_file(name_str, signal_file.signal_dict)
+        saved_dict = self.save()
+        self.assertEqual(self.view.error_list, [])
+        self.assertEqual(list(saved_dict).count("Time"), 1)
+        self.assertIn("Ramp_1", saved_dict)
+        self.assertIn("Ramp_2", saved_dict)
+        np.testing.assert_allclose(
+            saved_dict["Time"],
+            self.data_files.file_list[0].time_array, rtol=1e-12)
+
+    @covers("LLFR-00942", "LLFR-00978", "HLFR-00120")
+    def test_nan_times_at_the_same_place_save_together(self) -> None:
+        """A NaN time at the same place in both files does not stop the
+        save; a NaN against a number does.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = np.arange(5) * 0.5
+        time_array[2] = float("nan")
+        self.add_file("a.csv", {"Time": time_array, "Speed": time_array})
+        self.add_file("b.csv", {"Time": time_array.copy(),
+                                "Speed": time_array})
+        self.assertTrue(self.data_files.same_time_signals_b())
+        number_array = np.arange(5) * 0.5
+        self.add_file("c.csv", {"Time": number_array,
+                                "Speed": number_array})
+        self.view.handler()
+        self.assertEqual(self.view.dialog_call_list, [])
+        self.assertEqual(len(self.view.error_list), 1)
 
     @covers("LLFR-00942", "HLFR-00120")
     def test_different_sample_counts_show_an_error(self) -> None:

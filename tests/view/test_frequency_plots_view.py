@@ -427,10 +427,20 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
     def create_fft(self) -> str:
         """Create the FFT of Speed through the signal list menu.
 
+        An FFT needs a time plot (LLFR-00592): with none, the time signal
+        is first plotted, which shows the whole file, and that plot is
+        undone after the FFT, so that the plots are as before.
+
         Inputs: none.
         Outputs: the name of the FFT signal.
         """
+        if self.plot_controller.time_plot_list():
+            self.choose("file1_Speed", "FFT (fft)")
+            return self.panel.signal_name_list()[-1]
+        self.double_click("file1_Time")
         self.choose("file1_Speed", "FFT (fft)")
+        self.plot_controller.on_undo()
+        self.application.processEvents()
         return self.panel.signal_name_list()[-1]
 
     @covers("LLFR-00256", "LLFR-00249", "LLFR-00019", "HLFR-00058",
@@ -616,6 +626,25 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         copied_b, reason_str = self.main_window.copy_current_tab_image()
         self.assertTrue(copied_b, reason_str)
         self.assertFalse(QApplication.clipboard().image().isNull())
+
+    @covers("LLFR-00592", "LLFR-00979", "HLFR-00057")
+    def test_fft_without_a_time_plot_shows_a_box(self) -> None:
+        """With no time plot, choosing FFT creates nothing and shows an
+        information box with the text of LLFR-00979.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = self.panel.signal_name_list()
+        self.choose("file1_Speed", "FFT (fft)")
+        self.assertEqual(self.panel.signal_name_list(), name_list)
+        self.assertEqual(self.controller.synthetic_controller.store.names(),
+                         [])
+        self.assertEqual(self.box_record_list, [(
+            "Create synthetic signal", self.message_box_class.Icon.Information,
+            "The FFT is computed only over the time range shown on the "
+            "x-axis of the time plots. Plot a signal in a time plot and "
+            "zoom to the time range you want, then create the FFT again.")])
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00192", "LLFR-00039",
             "LLFR-00051")
