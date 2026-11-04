@@ -256,22 +256,21 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         picker.deleteLater()
 
     def open_picker_from_menu(self):
-        """Choose "Plot matrix" in the tab menu, with show_picker patched.
+        """Return the picker of the "Plot matrix" submenu of the tab menu.
 
         Inputs: none.
-        Outputs: the MatrixPicker that would have been shown.
+        Outputs: the MatrixPicker the submenu holds.
         """
-        shown_list = []
-        with mock.patch.object(
-                self.panel, "show_picker",
-                side_effect=lambda picker, point: shown_list.append(
-                    picker)):
-            menu = self.panel.build_tab_menu(0)
-            self.menu_action(menu, "Plot matrix").trigger()
-            self.process_events()
-            menu.deleteLater()
-        self.assertEqual(len(shown_list), 1)
-        return shown_list[0]
+        from PyQt6.QtWidgets import QWidgetAction
+        menu = self.panel.build_tab_menu(0)
+        submenu = self.menu_action(menu, "Plot matrix").menu()
+        self.assertIsNotNone(submenu)
+        widget_action_list = [action for action in submenu.actions()
+                              if isinstance(action, QWidgetAction)]
+        self.assertEqual(len(widget_action_list), 1)
+        picker = widget_action_list[0].defaultWidget()
+        self.addCleanup(menu.deleteLater)
+        return picker
 
     @covers("LLFR-01061", "LLFR-01062", "LLFR-01064", "HLFR-00145")
     def test_menu_opens_a_ten_by_ten_picker_with_the_current_matrix(

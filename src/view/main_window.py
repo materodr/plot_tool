@@ -228,7 +228,8 @@ class MainWindow(QMainWindow):
             lambda tab_id_i, x_i, y_i: self._run_window_handler(
                 "undock_drop_handler", tab_id_i, x_i, y_i))
         # LLFR-01115, LLFR-01116: a tab dropped on an undocked window.
-        self.plot_panel.window_at_point_function = self.window_at_point
+        self.plot_panel.window_at_point_function = (
+            lambda x_i, y_i: self.window_at_point(x_i, y_i))
         self.plot_panel.window_drop_function = (
             self.request_docked_tab_window_drop)
         # LLFR-00203, LLFR-00665, LLFR-00709: the tabs the undocked

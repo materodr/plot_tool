@@ -264,7 +264,8 @@ class UndockUndoTest(UndockControllerTestCase):
         self.add_tab()
         first_id_i = self.first_tab_id()
         self.undock(first_id_i)
-        self.view.handler_dict["panel_toggle_handler"](self.window_of(first_id_i))
+        self.view.handler_dict["panel_toggle_handler"](
+            self.window_of(first_id_i))
         self.view.window_dict[first_id_i][0] = (40, 50, 800, 400)
         self.dock(first_id_i)
         self.assertEqual(self.view.window_dict, {})
@@ -285,7 +286,8 @@ class UndockUndoTest(UndockControllerTestCase):
         self.double_click("s3")
         self.undock(second_id_i)
         self.view.window_dict[second_id_i][0] = (11, 22, 640, 480)
-        self.view.handler_dict["window_close_handler"](self.window_of(second_id_i))
+        self.view.handler_dict["window_close_handler"](
+            self.window_of(second_id_i))
         self.assertIsNone(self.workspace.find_tab(second_id_i))
         self.assertEqual(self.view.window_dict, {})
         self.undo()
@@ -372,7 +374,8 @@ class WindowPanelTest(UndockControllerTestCase):
         first_id_i = self.first_tab_id()
         self.add_tab()
         self.undock(first_id_i)
-        self.view.handler_dict["panel_toggle_handler"](self.window_of(first_id_i))
+        self.view.handler_dict["panel_toggle_handler"](
+            self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][2], 225)
 
     @covers("LLFR-01020", "LLFR-00138", "HLFR-00131", "HLFR-00026")
@@ -401,9 +404,11 @@ class WindowPanelTest(UndockControllerTestCase):
         first_id_i = self.first_tab_id()
         self.add_tab()
         self.undock(first_id_i)
-        self.view.handler_dict["panel_toggle_handler"](self.window_of(first_id_i))
+        self.view.handler_dict["panel_toggle_handler"](
+            self.window_of(first_id_i))
         self.view.window_dict[first_id_i][2] = 300
-        self.view.handler_dict["panel_width_handler"](self.window_of(first_id_i), 240, 300)
+        self.view.handler_dict["panel_width_handler"](
+            self.window_of(first_id_i), 240, 300)
         self.undo()
         self.assertEqual(self.view.window_dict[first_id_i][1:], [True, 240])
 
