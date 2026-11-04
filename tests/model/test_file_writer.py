@@ -367,7 +367,8 @@ class WriterRequestTest(unittest.TestCase):
             with self.subTest(format=format_str):
                 with self.assertRaises(SignalWriteError) as context:
                     signal_file_bytes(name_list, array_list, format_str)
-                self.assertIn("'big', 'gap'", str(context.exception))
+                self.assertIn("\n\n1. 'big'\n\n2. 'gap'",
+                              str(context.exception))
                 self.assertIn("not finite numbers", str(context.exception))
         self.assertEqual(file_writer.non_finite_name_list(
             name_list[:2], array_list[:2]), [])
@@ -516,7 +517,7 @@ class NameRuleTest(unittest.TestCase):
         change_list = changed_name_list(name_list, new_name_list)
         self.assertEqual(change_list, [("time", "Time"), ("a.b", "a_b")])
         self.assertEqual(changed_names_text(change_list),
-                         "time → Time\na.b → a_b")
+                         "1. time → Time\n\n2. a.b → a_b")
         self.assertEqual(changed_name_list(["Time", "c"], ["Time", "c"]),
                          [])
 
