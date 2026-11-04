@@ -385,3 +385,65 @@ class SearchSignalsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PrefixedSearchTest(unittest.TestCase):
+    """The "starts with" group leaves the file prefix out (LLFR-00102)."""
+
+    @covers("LLFR-00102", "HLFR-00034", "HLFR-00113")
+    def test_starts_with_ignores_the_prefix(self) -> None:
+        """`speed` ranks `file1_Speed` before `file1_MaxSpeed`.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_prefixed_signals
+        name_list = ["file1_MaxSpeed", "file1_Speed", "file1_Time"]
+        self.assertEqual(search_prefixed_signals(name_list, "speed"),
+                         ["file1_Speed", "file1_MaxSpeed"])
+        # The plain search compares the whole name, prefix included, so
+        # no name starts with "speed" there and the list order is kept.
+        self.assertEqual(search_signals(name_list, "speed"),
+                         ["file1_MaxSpeed", "file1_Speed"])
+
+    @covers("LLFR-00102", "LLFR-00099", "LLFR-00567", "HLFR-00034")
+    def test_matching_still_uses_the_whole_name(self) -> None:
+        """The prefix can still be searched for; only ranking skips it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_prefixed_signals
+        name_list = ["file1_Speed", "file2_Speed", "file2_file1_x"]
+        # file1_Speed comes last: "file1" is one typo away (LLFR-00101).
+        self.assertEqual(search_prefixed_signals(name_list, "file2"),
+                         ["file2_Speed", "file2_file1_x", "file1_Speed"])
+        self.assertEqual(search_prefixed_signals(name_list, "file2 speed"),
+                         ["file2_Speed", "file1_Speed"])
+        # Words shorter than 4 characters match exactly only.
+        self.assertEqual(search_prefixed_signals(name_list, "e2 sp"),
+                         ["file2_Speed"])
+        # "file1" starts the plain part of file2_file1_x only.
+        self.assertEqual(search_prefixed_signals(name_list, "file1"),
+                         ["file2_file1_x", "file1_Speed", "file2_Speed"])
+
+    @covers("LLFR-00102", "LLFR-00101", "HLFR-00034")
+    def test_three_groups_with_prefixed_names(self) -> None:
+        """Starts-with, other exact matches, then typo matches.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_prefixed_signals
+        name_list = ["file3_Inlet_Pressure", "file3_Presure_raw",
+                     "file3_Pressure", "file3_int_Pressure"]
+        self.assertEqual(
+            search_prefixed_signals(name_list, "pressure"),
+            ["file3_Pressure", "file3_Inlet_Pressure",
+             "file3_int_Pressure", "file3_Presure_raw"])
+        # A name with no prefix is compared whole.
+        self.assertEqual(search_prefixed_signals(["Speed", "MaxSpeed"],
+                                                 "speed"),
+                         ["Speed", "MaxSpeed"])
+        self.assertEqual(search_prefixed_signals(name_list, "  "),
+                         name_list)

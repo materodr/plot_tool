@@ -283,7 +283,7 @@ class SyntheticSignal:
         """
         # LLFR-00941: a renamed signal keeps the typed text; a signal
         # made without a plain name loses the prefix it starts with.
-        return self.plain_name_str or without_prefix(self.editable_name_str)
+        return self.plain_name_str or self.editable_name_str
 
     @property
     def is_fft_b(self) -> bool:
@@ -516,28 +516,28 @@ class SyntheticSignalStore:
             plain name before LLFR-00241).
         """
         # LLFR-00936: the file of the (right-clicked) first source.
-        file_number = self.file_number_of(source_name_list[0])
+        file_number_i = self.file_number_of(source_name_list[0])
         shown_list = []
         for index_i, source_str in enumerate(source_name_list):
-            source_number = self.file_number_of(source_str)
-            if (index_i > 0 and source_number is not None
-                    and source_number != file_number):
+            source_number_i = self.file_number_of(source_str)
+            if (index_i > 0 and source_number_i is not None
+                    and source_number_i != file_number_i):
                 # LLFR-00954: a second signal of another file keeps its
                 # own prefix.
-                shown_list.append(file_prefix(source_number)
+                shown_list.append(file_prefix(source_number_i)
                                   + self.name_without_prefix(source_str))
             else:
                 # LLFR-00240, LLFR-00904: the name without its prefix.
                 shown_list.append(self.name_without_prefix(source_str))
-        prefix_str = "" if file_number is None else file_prefix(
-            file_number)
+        prefix_str = "" if file_number_i is None else file_prefix(
+            file_number_i)
         name_str = prefix_str + base_synthetic_name(
             operation_str, shown_list, parameter)
         # LLFR-00941: the plain name holds no prefix at all.
         plain_str = base_synthetic_name(
             operation_str, [self.plain_name_of(source_str)
                             for source_str in source_name_list], parameter)
-        return file_number, name_str, plain_str
+        return file_number_i, name_str, plain_str
 
     def check_sources(self, operation_str: str, source_name_list: list,
                       data_name_set: set) -> None:

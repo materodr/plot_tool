@@ -324,10 +324,10 @@ def numbered_plain_name_list(plain_name_list: list, number_list: list,
             count_dict[plain_str] = count_dict.get(plain_str, 0) + 1
     name_list = []
     for index_i, plain_str in enumerate(plain_name_list):
-        number = number_list[index_i]
+        number_i = number_list[index_i]
         if (index_i != time_index_i and count_dict[plain_str] > 1
-                and number is not None):
-            name_list.append(f"{plain_str}_{int(number)}")
+                and number_i is not None):
+            name_list.append(f"{plain_str}_{int(number_i)}")
         else:
             name_list.append(plain_str)
     # LLFR-00961: the later of two signals that still share a name gets

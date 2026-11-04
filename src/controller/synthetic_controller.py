@@ -49,7 +49,7 @@ from model.errors import (
     EmptySyntheticNameError, SyntheticNameInUseError, SyntheticSignalError)
 from model.number_format import format_signal_value
 from model.layout_file import RENAMED_SIGNAL_LINE_STR
-from model.signal_search import NO_MATCH_TEXT_STR, search_signals
+from model.signal_search import NO_MATCH_TEXT_STR, search_prefixed_signals
 from model.synthetic_signals import (
     LayoutSignalLoader, SyntheticSignalStore, ordered_signal_names)
 
@@ -577,9 +577,11 @@ class SyntheticController:
             Outputs: the matching names of name_list, in the order of
                 the search of the signal list panel.
             """
-            # LLFR-00285: the same search, rules and order as the signal
-            # list panel (LLFR-00095 to LLFR-00102, LLFR-00105).
-            return search_signals(name_list, str(text_str))
+            # LLFR-00285, LLFR-00618: the same search, rules and order
+            # as the signal list panel (LLFR-00095 to LLFR-00102,
+            # LLFR-00105), with the three groups formed over the whole
+            # list and the prefix left out of the "starts with" group.
+            return search_prefixed_signals(name_list, str(text_str))
 
         chosen_name_str = self.view.ask_second_signal(
             operation.label_str,

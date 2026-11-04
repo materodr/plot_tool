@@ -464,7 +464,8 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
         self.assertEqual(self.workspace.marker_list, [])
         self.assertEqual(self.workspace.area_list, [])
         self.assertEqual(self.view.shown_name_list, [])
-        self.assertEqual(self.view.file_name_str, "")
+        # LLFR-00933: no file name row is left.
+        self.assertEqual(self.view.file_row_list, [])
         self.assertEqual(self.view.plot_tab_dict, {})
         self.assertFalse(self.view.layout_buttons_enabled_b)
         self.assertFalse(self.view.save_signals_enabled_b)
@@ -494,3 +495,176 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CloseQuestionTest(SeveralFilesTestCase):
+    """The questions of the file menu (LLFR-00919, LLFR-00920)."""
+
+    def setUp(self) -> None:
+        """Open two files, plot from both, and script the answers.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().setUp()
+        self.open(make_time_file("/data/run_A.csv", 0.0, 10.0))
+        self.open(make_time_file("/data/run_B.mat", 20.0, 30.0))
+        self.plot_id_i = self.plot("file1_Speed", "file2_Speed")
+        self.plot_controller.on_add_tab()
+        self.question_list = []
+        self.answer_list = []
+        self.view.ask_close_file = self.answer
+        self.view.ask_close_all_files = self.answer
+        self.plot_controller.on_plot_tool_changed("")
+
+    def answer(self, question_str: str) -> bool:
+        """Record a question and give the next scripted answer.
+
+        Inputs:
+            question_str: the question.
+        Outputs: the answer.
+        """
+        self.question_list.append(question_str)
+        return self.answer_list.pop(0)
+
+    def undo_count(self) -> int:
+        """Return how many actions can be undone.
+
+        Inputs: none.
+        Outputs: the depth of the undo history.
+        """
+        return self.plot_controller.undo_history.depth()
+
+    @covers("LLFR-00920", "HLFR-00118")
+    def test_close_file_question_names_the_file_and_says_why(self) -> None:
+        """The question names the row and the four consequences.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.file_controller import (
+            CLOSE_FILE_MARKERS_POINT_STR, CLOSE_FILE_SIGNALS_POINT_STR,
+            CLOSE_HISTORY_POINT_STR, CLOSE_LAST_FILE_MARKERS_POINT_STR,
+            CLOSE_TABS_POINT_STR)
+        self.answer_list = [False]
+        self.file_controller.close_file_requested(2)
+        question_str = self.question_list[0]
+        self.assertTrue(question_str.startswith(
+            "Do you want to close file2_run_B.mat?"))
+        for point_str in (CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,
+                          CLOSE_FILE_MARKERS_POINT_STR,
+                          CLOSE_HISTORY_POINT_STR):
+            self.assertIn("- " + point_str, question_str)
+        self.assertNotIn(CLOSE_LAST_FILE_MARKERS_POINT_STR, question_str)
+        self.assertIn("synthetic signals computed from them", question_str)
+        self.assertIn("removed from the signal list and from the plots",
+                      question_str)
+        self.assertIn("outside the time range of the files left",
+                      question_str)
+        self.assertIn("undo and redo history will be cleared", question_str)
+
+    @covers("LLFR-00920", "HLFR-00118")
+    def test_last_file_question_says_every_flag_and_area(self) -> None:
+        """With one file left, every flag and area will be deleted.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.file_controller import (
+            CLOSE_FILE_MARKERS_POINT_STR, CLOSE_LAST_FILE_MARKERS_POINT_STR)
+        self.file_controller.close_file(2)
+        self.answer_list = [False]
+        self.file_controller.close_file_requested(1)
+        self.assertIn(CLOSE_LAST_FILE_MARKERS_POINT_STR,
+                      self.question_list[0])
+        self.assertNotIn(CLOSE_FILE_MARKERS_POINT_STR, self.question_list[0])
+
+    @covers("LLFR-00920")
+    def test_asked_when_no_signal_of_the_file_is_drawn(self) -> None:
+        """The question is asked for a file with no curve too.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open(make_time_file("/data/run_C.csv", 0.0, 1.0))
+        self.answer_list = [False]
+        self.file_controller.close_file_requested(3)
+        self.assertEqual(len(self.question_list), 1)
+        self.assertIn("file3_run_C.csv", self.question_list[0])
+
+    @covers("LLFR-00921", "LLFR-00920", "HLFR-00118")
+    def test_declined_close_changes_nothing(self) -> None:
+        """No keeps the files, the list, the plots and the history.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        undo_count_i = self.undo_count()
+        shown_list = list(self.view.shown_name_list)
+        self.answer_list = [False]
+        self.assertFalse(self.file_controller.close_file_requested(1))
+        self.assertEqual(len(self.file_controller.data_files), 2)
+        self.assertEqual(self.view.shown_name_list, shown_list)
+        self.assertEqual(self.curve_names(self.plot_id_i),
+                         ["file1_Speed", "file2_Speed"])
+        self.assertEqual(self.undo_count(), undo_count_i)
+        self.assertGreater(undo_count_i, 0)
+        self.assertEqual(len(self.tab_names()), 2)
+
+    @covers("LLFR-00922", "LLFR-00923", "LLFR-00926", "LLFR-00927",
+            "LLFR-00928", "HLFR-00118")
+    def test_proceeding_closes_the_file(self) -> None:
+        """Yes removes the file, its curves and the history.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.answer_list = [True]
+        self.assertTrue(self.file_controller.close_file_requested(2))
+        self.assertEqual([data_file.number_i for data_file
+                          in self.file_controller.data_files.file_list], [1])
+        self.assertEqual(self.curve_names(self.plot_id_i), ["file1_Speed"])
+        self.assertEqual(self.view.file_row_list, ["file1_run_A.csv"])
+        self.assertEqual(self.undo_count(), 0)
+        # A number that is not open asks nothing.
+        self.assertFalse(self.file_controller.close_file_requested(2))
+        self.assertEqual(len(self.question_list), 1)
+
+    @covers("LLFR-00930", "LLFR-00931", "LLFR-00932", "LLFR-00933",
+            "LLFR-00900", "HLFR-00119")
+    def test_close_all_files_asks_once(self) -> None:
+        """One question with the five points; No keeps, Yes closes all.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.file_controller import close_all_files_question
+        self.answer_list = [False]
+        self.assertEqual(self.file_controller.close_all_files_requested(),
+                         [])
+        self.assertEqual(self.question_list, [close_all_files_question()])
+        self.assertEqual(len(self.file_controller.data_files), 2)
+        question_str = self.question_list[0]
+        for part_str in ("All the open data files will be closed",
+                         "Their signals and synthetic signals will be "
+                         "removed from the signal list and from the plots",
+                         "The tabs left with no plot will be closed",
+                         "Every flag and every area will be deleted, "
+                         "because no file is left",
+                         "The undo and redo history will be cleared"):
+            self.assertIn(part_str, question_str)
+        self.answer_list = [True]
+        closed_list = self.file_controller.close_all_files_requested()
+        self.assertEqual([data_file.number_i for data_file in closed_list],
+                         [1, 2])
+        self.assertEqual(len(self.question_list), 2)
+        self.assertEqual(self.view.file_row_list, [])
+        self.assertEqual(self.view.shown_name_list, [])
+        # LLFR-00900: the next file is file 3.
+        self.open(make_time_file("/data/run_C.csv", 0.0, 1.0))
+        self.assertEqual(self.view.file_row_list, ["file3_run_C.csv"])
+        # With no file open, nothing is asked.
+        self.file_controller.close_all_files()
+        self.assertEqual(self.file_controller.close_all_files_requested(),
+                         [])
+        self.assertEqual(len(self.question_list), 2)

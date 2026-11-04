@@ -1,30 +1,34 @@
-"""Signal list panel: shows the signals of the opened file.
+"""Signal list panel: shows the signals of the open data files.
 
 Below the list there is a search box (HLFR-00033) whose text is passed
 to the signal list controller, which decides which names are shown and
 gives the text shown when nothing matches (the view does not import the
 model, COR-00009).
 
+The list is made of groups, one per open data file, in the order of the
+file numbers (LLFR-00934). Each group starts with the file name row of
+its file (LLFR-00362), ``file<N>_<file name>`` in bold, followed by the
+shown signals of that file and its synthetic signals (LLFR-00935,
+LLFR-00242), or by the text "No matching signals" when none of them
+matches the search (LLFR-00097, LLFR-00641). A file name row is an item
+of the list that is not a signal (LLFR-00642): it can't be selected,
+also not by a Shift + click range (LLFR-00643, LLFR-00644), dragged
+(LLFR-00645), plotted with a double-click or Enter (LLFR-00646), and a
+right-click on it opens the file menu, "Close file" and "Close all
+files" (LLFR-00647, LLFR-00919), instead of the signal menu. A file name
+row that is too wide is shortened in the middle with "..." and has the
+whole text as its tip (LLFR-00648, LLFR-00649). The "No matching
+signals" row is not a signal either.
+
 A right-click on a signal name opens the signal menu (LLFR-00239):
 "Create synthetic signal" with the operations given by the controller,
 in groups (LLFR-00268), disabled for an FFT signal (LLFR-00251); "Copy
 name" (LLFR-00277); and, for a synthetic signal, "Copy equation"
 (LLFR-00278), "Rename" (LLFR-00265) and "Delete signal" (LLFR-00254).
-Synthetic signals are shown in italics (LLFR-00242) and the time signal
-in green, also while it is selected (LLFR-00332). The menu is shown
-once the right-click has been handled, and its request is emitted after
-the menu is closed, so a request may change the list safely.
-
-The first row of the signal list is the file name row (LLFR-00362):
-the name of the opened data file, in bold, shortened in the middle with
-"..." when it is too wide, and the whole name in a tip while it is
-shortened. It is drawn inside the list's frame, above the rows of the
-signals, in a strip kept free for it at the top of the list
-(QAbstractScrollArea's viewport margins), so it is not an item of the
-list: it can't be selected, also not by a Shift + click range, dragged,
-double-clicked, plotted with Enter or right-clicked, and the search
-never hides it; the "No matching signals" text is shown below it. It is
-hidden while no file is open (LLFR-00363).
+Synthetic signals are shown in italics (LLFR-00242) and the time signals
+in green, also while selected (LLFR-00332). A menu is shown once the
+right-click has been handled, and its request is emitted after the menu
+is closed, so a request may change the list safely.
 
 Several signals can be selected (HLFR-00063): a click selects one, a
 click with the Data tip key (Cmd on macOS, which Qt reports as the
@@ -38,12 +42,12 @@ from a selected signal carries every selected name, in list order
 import json
 
 from PyQt6.QtCore import (
-    QByteArray, QEvent, QItemSelectionModel, QMimeData, QPoint, Qt, QTimer,
+    QByteArray, QItemSelectionModel, QMimeData, QPoint, Qt, QTimer,
     pyqtSignal)
-from PyQt6.QtGui import QBrush, QColor, QPalette
+from PyQt6.QtGui import QBrush, QColor, QFontMetrics, QPalette
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QLabel, QLineEdit, QListWidget, QMenu,
-    QSizePolicy, QStyledItemDelegate, QVBoxLayout, QWidget)
+    QAbstractItemView, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QMenu, QStyledItemDelegate, QVBoxLayout, QWidget)
 
 from view import theme
 from view.elided_text import is_elided, middle_elided_text
@@ -69,158 +73,76 @@ COPY_NAME_TEXT_STR = "Copy name"
 COPY_EQUATION_TEXT_STR = "Copy equation"
 RENAME_SIGNAL_TEXT_STR = "Rename"
 DELETE_SIGNAL_TEXT_STR = "Delete signal"
-# LLFR-00362: left, top, right and bottom margins of the file name row,
-# the padding of a signal row in the theme.
-FILE_NAME_ROW_MARGIN_TUPLE = (8, 4, 8, 4)
+# LLFR-00919: the options of the file menu, in this order.
+CLOSE_FILE_TEXT_STR = "Close file"
+CLOSE_ALL_FILES_TEXT_STR = "Close all files"
+# LLFR-00362, LLFR-00642, LLFR-00097: the kind of each row of the list,
+# kept in the item's data, and the number of the file of a file row.
+ROW_KIND_ROLE_I = Qt.ItemDataRole.UserRole.value
+FILE_NUMBER_ROLE_I = ROW_KIND_ROLE_I + 1
+SIGNAL_ROW_STR = "signal"
+FILE_ROW_STR = "file"
+NO_MATCH_ROW_STR = "no_match"
+# LLFR-00648: the room the text of a row leaves on its sides: the
+# padding of the theme ("padding: 4px 8px") and the text margin of the
+# style, on the left and on the right.
+ROW_TEXT_MARGIN_I = 24
 
 
-class FileNameLabel(QLabel):
-    """The file name row at the top of the signal list (LLFR-00362).
-
-    It shows the whole file name, in bold, when it fits in the label's
-    width, and otherwise the name shortened in the middle with "...",
-    with the whole name as its tip. It cannot be selected, dragged or
-    plotted, and has no menu.
+def row_kind(item) -> str:
+    """Return what a row of the signal list is.
 
     Inputs:
-        parent: optional parent widget.
-    Attributes:
-        file_name_str: the whole file name ("" while no file is open).
+        item: a QListWidgetItem of the signal list, or None.
+    Outputs: SIGNAL_ROW_STR, FILE_ROW_STR or NO_MATCH_ROW_STR; "" for
+        None.
     """
+    # LLFR-00642: a file name row and the no-match row are not signals.
+    if item is None:
+        return ""
+    kind_str = item.data(ROW_KIND_ROLE_I)
+    if kind_str is None:
+        return SIGNAL_ROW_STR
+    return str(kind_str)
 
-    def __init__(self, parent=None) -> None:
-        """Create an empty file name line.
 
-        Inputs:
-            parent: optional parent widget.
-        Outputs: none.
-        """
-        super().__init__("", parent)
-        # LLFR-00363: empty while no data file is open.
-        self.file_name_str = ""
-        # LLFR-00362: plain text that cannot be selected or edited.
-        self.setTextFormat(Qt.TextFormat.PlainText)
-        self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        # LLFR-00362: no menu, also not the menu of the panel below it.
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
-        self.setAcceptDrops(False)
-        # LLFR-00362: a long name never widens the panel; it is
-        # shortened to the width the panel gives instead.
-        self.setSizePolicy(QSizePolicy.Policy.Ignored,
-                           QSizePolicy.Policy.Preferred)
-        self.setMinimumWidth(1)
-        # LLFR-00362: bold letters, with the padding of a signal row
-        # (theme: "padding: 4px 8px"), so it lines up with the names.
-        bold_font = self.font()
-        bold_font.setBold(True)
-        self.setFont(bold_font)
-        self.setContentsMargins(*FILE_NAME_ROW_MARGIN_TUPLE)
-        self.setAlignment(Qt.AlignmentFlag.AlignLeft
-                          | Qt.AlignmentFlag.AlignVCenter)
-        self.setObjectName("file_name_label")
+def is_signal_row(item) -> bool:
+    """Tell whether a row of the signal list is a signal.
 
-    def row_height(self) -> int:
-        """Return the height of the row, in pixels.
+    Inputs:
+        item: a QListWidgetItem, or None.
+    Outputs: True for a signal row.
+    """
+    # LLFR-00642, LLFR-00643, LLFR-00645, LLFR-00646.
+    return row_kind(item) == SIGNAL_ROW_STR
 
-        Inputs: none.
-        Outputs: one line of bold text with the row's top and bottom
-            margins.
-        """
-        # LLFR-00362: as high as a signal row.
-        margins = self.contentsMargins()
-        return (self.fontMetrics().height() + margins.top()
-                + margins.bottom())
 
-    def mousePressEvent(self, event) -> None:
-        """Take a click on the row, so that it never reaches the list.
+def file_row_shown_text(whole_text_str: str, row_width_i: int,
+                        font) -> str:
+    """Return the text a file name row shows in a given width.
 
-        Inputs:
-            event: the QMouseEvent.
-        Outputs: none. The row is not a signal: a click (also with the
-            Data tip key or Shift) selects nothing.
-        """
-        # LLFR-00362: not selected, not part of a Shift + click range.
-        event.accept()
-
-    def mouseDoubleClickEvent(self, event) -> None:
-        """Take a double-click on the row, which plots nothing.
-
-        Inputs:
-            event: the QMouseEvent.
-        Outputs: none.
-        """
-        # LLFR-00362: a double-click on the row is ignored (LLFR-00019).
-        event.accept()
-
-    def mouseMoveEvent(self, event) -> None:
-        """Take a drag from the row, which drags nothing.
-
-        Inputs:
-            event: the QMouseEvent.
-        Outputs: none.
-        """
-        # LLFR-00362: the row is not dragged.
-        event.accept()
-
-    def set_file_name(self, file_name_str: str) -> None:
-        """Show a new file name, shortened when it does not fit.
-
-        Inputs:
-            file_name_str: the file name with its extension, without
-                its folder, or "" for no file.
-        Outputs: none.
-        """
-        # LLFR-00362, LLFR-00363: the name of the opened data file.
-        self.file_name_str = str(file_name_str)
-        self.refresh_shown_text()
-
-    def available_width(self) -> int:
-        """Return the width the name may take, in pixels.
-
-        Inputs: none.
-        Outputs: the width of the label's contents, at least 0.
-        """
-        # LLFR-00362: the name is shortened to the panel's width.
-        return max(0, self.contentsRect().width())
-
-    def refresh_shown_text(self) -> None:
-        """Shorten the name to the current width and set its tip.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        # LLFR-00362: "..." in the middle when the name is too wide.
-        font_metrics = self.fontMetrics()
-        shown_text_str = middle_elided_text(
-            self.file_name_str, self.available_width(),
-            font_metrics.horizontalAdvance)
-        if not self.file_name_str:
-            shown_text_str = ""
-        self.setText(shown_text_str)
-        # LLFR-00362: the whole name in a tip while it is shortened.
-        if is_elided(shown_text_str, self.file_name_str):
-            self.setToolTip(self.file_name_str)
-        else:
-            self.setToolTip("")
-
-    def resizeEvent(self, event) -> None:
-        """Shorten the name again when the label's width changes.
-
-        Inputs:
-            event: the QResizeEvent.
-        Outputs: none.
-        """
-        # LLFR-00362: the shortening follows the panel's width.
-        super().resizeEvent(event)
-        self.refresh_shown_text()
+    Inputs:
+        whole_text_str: the whole text of the row, ``file<N>_<name>``.
+        row_width_i: the width of the row, in pixels.
+        font: the QFont of the row (bold).
+    Outputs: the whole text when it fits, otherwise the text shortened
+        in the middle with "..." (LLFR-00648).
+    """
+    # LLFR-00648: "..." in the middle when the text does not fit.
+    font_metrics = QFontMetrics(font)
+    return middle_elided_text(str(whole_text_str),
+                              max(0, int(row_width_i) - ROW_TEXT_MARGIN_I),
+                              font_metrics.horizontalAdvance)
 
 
 class SignalItemDelegate(QStyledItemDelegate):
-    """Draws each signal name in its own color, selected or not.
+    """Draws each row of the signal list.
 
     Qt draws the name of a selected row in the palette's highlighted
     text color, which would hide the green of the time signal. This
     delegate gives the highlighted text the color of the row's name.
+    It also shortens the text of a file name row in the middle
+    (LLFR-00648).
 
     Inputs:
         parent: the list widget.
@@ -234,7 +156,7 @@ class SignalItemDelegate(QStyledItemDelegate):
             option: the QStyleOptionViewItem to fill.
             index: the model index of the row.
         Outputs: none. The highlighted text color becomes the text
-            color of the row.
+            color of the row; a file name row gets its shortened text.
         """
         super().initStyleOption(option, index)
         # LLFR-00332: a selected row keeps the color of its name.
@@ -245,6 +167,13 @@ class SignalItemDelegate(QStyledItemDelegate):
             palette.setBrush(group, QPalette.ColorRole.HighlightedText,
                              palette.brush(group, QPalette.ColorRole.Text))
         option.palette = palette
+        # LLFR-00648: a file name row that is too wide is shortened in
+        # the middle, so that its number and its extension stay seen.
+        if index.data(ROW_KIND_ROLE_I) == FILE_ROW_STR:
+            option.text = file_row_shown_text(
+                str(index.data(Qt.ItemDataRole.DisplayRole) or ""),
+                option.rect.width(), option.font)
+            option.textElideMode = Qt.TextElideMode.ElideNone
 
 
 class SignalListWidget(QListWidget):
@@ -253,12 +182,8 @@ class SignalListWidget(QListWidget):
     Inputs:
         parent: optional parent widget.
     Attributes:
-        file_name_label: the FileNameLabel of the file name row, at the
-            top of the list, above the viewport (LLFR-00362); hidden
-            while no file is open (LLFR-00363).
-        no_match_label: label shown inside the list area when no signal
-            matches the search (LLFR-00097); hidden by default.
-        pressed_item: the item under the last left press, or None.
+        pressed_item: the signal item under the last left press, or None
+            (also for a press on a row that is not a signal).
         pressed_item_was_selected_b: True when that item was already
             selected before the press (LLFR-00298).
     Signals:
@@ -284,6 +209,10 @@ class SignalListWidget(QListWidget):
         # LLFR-00298: what the last left press was on.
         self.pressed_item = None
         self.pressed_item_was_selected_b = False
+        # LLFR-00643, LLFR-00645: True from a press on a row that is not
+        # a signal until its release, so that the moves of that press
+        # neither select nor drag.
+        self.press_on_other_row_b = False
         # LLFR-00021: names can be dragged out, never dropped in or
         # reordered.
         self.setDragEnabled(True)
@@ -292,83 +221,64 @@ class SignalListWidget(QListWidget):
         # LLFR-00021, LLFR-00154: a drag only copies the name, also with
         # Shift or Cmd held, so that Qt never removes the dragged row.
         self.setDefaultDropAction(Qt.DropAction.CopyAction)
-        # LLFR-00332: the names keep their colors while selected.
+        # LLFR-00332: the names keep their colors while selected;
+        # LLFR-00648: file name rows are shortened in the middle.
         self.setItemDelegate(SignalItemDelegate(self))
-        # LLFR-00097: text shown inside the list area when no signal
-        # matches the search. It is a label, not an item, so it can
-        # never be double-clicked or dragged as a signal.
-        self.no_match_label = QLabel("", self.viewport())
-        self.no_match_label.setObjectName("no_match_label")
-        self.no_match_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.no_match_label.setAttribute(
-            Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        no_match_layout = QVBoxLayout(self.viewport())
-        no_match_layout.addWidget(self.no_match_label, 0,
-                                  Qt.AlignmentFlag.AlignTop)
-        self.no_match_label.hide()
-        # LLFR-00362: the file name row is a child of the list itself,
-        # not of its viewport, placed in the strip above the viewport,
-        # so the rows of the signals start below it and it never
-        # scrolls away; LLFR-00363: hidden until a file is opened.
-        self.file_name_label = FileNameLabel(self)
-        self.file_name_label.hide()
 
-    def show_file_name_row(self, file_name_str: str) -> None:
-        """Show the file name row, or hide it for no file.
+    def row_items(self, kind_str: str = "") -> list:
+        """Return the rows of the list, from top to bottom.
 
         Inputs:
-            file_name_str: the name of the opened data file, or "" while
-                no file is open.
-        Outputs: none.
+            kind_str: SIGNAL_ROW_STR, FILE_ROW_STR or NO_MATCH_ROW_STR to
+                keep only the rows of that kind; "" keeps every row.
+        Outputs: a list of QListWidgetItem.
         """
-        # LLFR-00362, LLFR-00363: the first row follows the opened file.
-        self.file_name_label.set_file_name(file_name_str)
-        shown_b = bool(self.file_name_label.file_name_str)
-        top_margin_i = self.file_name_label.row_height() if shown_b else 0
-        # LLFR-00362: the signal rows (and the "No matching signals"
-        # text, LLFR-00097) start below the row.
-        self.setViewportMargins(0, top_margin_i, 0, 0)
-        self.file_name_label.setVisible(shown_b)
-        self.place_file_name_row()
+        # LLFR-00934, LLFR-00935: the rows in the order of the list.
+        item_list = [self.item(row_i) for row_i in range(self.count())]
+        if not kind_str:
+            return item_list
+        return [item for item in item_list if row_kind(item) == kind_str]
 
-    def place_file_name_row(self) -> None:
-        """Put the file name row in the strip above the viewport.
+    def refresh_file_row_tips(self) -> None:
+        """Give each shortened file name row its whole text as a tip.
 
         Inputs: none.
-        Outputs: none. The row is as wide as the viewport, so it never
-            covers the scroll bar.
+        Outputs: none. A file name row that fits has no tip.
         """
-        # LLFR-00362: the first row of the list, across its width.
-        viewport_rectangle = self.viewport().geometry()
-        row_height_i = self.file_name_label.row_height()
-        self.file_name_label.setGeometry(
-            viewport_rectangle.x(), viewport_rectangle.y() - row_height_i,
-            viewport_rectangle.width(), row_height_i)
+        # LLFR-00649: the whole text in a tip while it is shortened.
+        row_width_i = self.viewport().width()
+        for item in self.row_items(FILE_ROW_STR):
+            whole_text_str = item.text()
+            shown_text_str = file_row_shown_text(whole_text_str,
+                                                 row_width_i, item.font())
+            if is_elided(shown_text_str, whole_text_str):
+                item.setToolTip(whole_text_str)
+            else:
+                item.setToolTip("")
+
+    def file_row_text(self, item) -> str:
+        """Return the text a file name row shows at the list's width.
+
+        Inputs:
+            item: a file name row of this list.
+        Outputs: the whole text, or the text shortened in the middle
+            (LLFR-00648), as the delegate draws it.
+        """
+        # LLFR-00648: the same shortening as SignalItemDelegate.
+        return file_row_shown_text(item.text(), self.viewport().width(),
+                                   item.font())
 
     def resizeEvent(self, event) -> None:
-        """Keep the file name row in place when the list is resized.
+        """Shorten the file name rows again when the list is resized.
 
         Inputs:
             event: the QResizeEvent.
         Outputs: none.
         """
-        # LLFR-00362: the row follows the width of the panel, and its
-        # name is shortened again (FileNameLabel.resizeEvent).
+        # LLFR-00648, LLFR-00649: the shortening and the tips follow the
+        # width of the panel.
         super().resizeEvent(event)
-        self.place_file_name_row()
-
-    def viewportEvent(self, event) -> bool:
-        """Keep the row in place when the viewport changes size.
-
-        Inputs:
-            event: an event of the viewport.
-        Outputs: what QListWidget.viewportEvent returns.
-        """
-        # LLFR-00362: a scroll bar that appears or goes narrows or
-        # widens the viewport, and the row with it.
-        if event.type() == QEvent.Type.Resize:
-            self.place_file_name_row()
-        return super().viewportEvent(event)
+        self.refresh_file_row_tips()
 
     def supportedDropActions(self):
         """Return the drop actions a drag from this list may end with.
@@ -389,13 +299,71 @@ class SignalListWidget(QListWidget):
         """
         # LLFR-00298: whether the pressed signal was selected before the
         # press decides what a drag that starts here carries.
+        clicked_item = self.itemAt(event.position().toPoint())
+        if clicked_item is not None and not is_signal_row(clicked_item):
+            # LLFR-00643, LLFR-00644, LLFR-00645: a press on a file name
+            # row (or the no-match row) selects nothing, changes nothing
+            # in the selection and starts no drag.
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.pressed_item = None
+                self.pressed_item_was_selected_b = False
+            self.press_on_other_row_b = True
+            event.accept()
+            return
+        self.press_on_other_row_b = False
         if event.button() == Qt.MouseButton.LeftButton:
-            self.pressed_item = self.itemAt(event.position().toPoint())
+            self.pressed_item = clicked_item
             self.pressed_item_was_selected_b = (
-                self.pressed_item is not None
-                and self.pressed_item.isSelected())
-        # LLFR-00290: Qt's extended selection handles the modifiers.
+                clicked_item is not None and clicked_item.isSelected())
+        # LLFR-00290: Qt's extended selection handles the modifiers;
+        # the rows that are not signals are not selectable either, so
+        # no Shift range selects them (LLFR-00644).
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        """Ignore the moves of a press on a row that is not a signal.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00643, LLFR-00645: a press on a file name row followed by
+        # a move neither selects a range nor starts a drag.
+        if self.press_on_other_row_b and event.buttons() != (
+                Qt.MouseButton.NoButton):
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        """End a press on a row that is not a signal.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00643: the release of such a press changes nothing.
+        if self.press_on_other_row_b:
+            self.press_on_other_row_b = False
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        """Ignore a double-click on a row that is not a signal.
+
+        Inputs:
+            event: the QMouseEvent.
+        Outputs: none.
+        """
+        # LLFR-00646: a double-click on a file name row plots nothing
+        # and selects nothing.
+        clicked_item = self.itemAt(event.position().toPoint())
+        if clicked_item is not None and not is_signal_row(clicked_item):
+            self.press_on_other_row_b = True
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
     def select_only(self, item) -> None:
         """Select one item and deselect every other one.
@@ -433,6 +401,9 @@ class SignalListWidget(QListWidget):
                 are replaced by CopyAction.
         Outputs: none.
         """
+        # LLFR-00645: a drag from a file name row drags nothing.
+        if self.press_on_other_row_b:
+            return
         # LLFR-00297, LLFR-00298: drag the selection, or the pressed
         # signal alone when it was not selected.
         self.drag_selection_check()
@@ -464,9 +435,10 @@ class SignalListWidget(QListWidget):
         Inputs: none.
         Outputs: a list of str, from top to bottom.
         """
-        # LLFR-00295, LLFR-00297: the order of the signal list.
-        return [self.item(row_i).text() for row_i in range(self.count())
-                if self.item(row_i).isSelected()]
+        # LLFR-00295, LLFR-00297: the order of the signal list;
+        # LLFR-00643, LLFR-00646: never a file name row.
+        return [item.text() for item in self.row_items(SIGNAL_ROW_STR)
+                if item.isSelected()]
 
     def mimeTypes(self) -> list:
         """Return the MIME types used by a drag from this list.
@@ -486,14 +458,18 @@ class SignalListWidget(QListWidget):
         Inputs:
             item_list: the dragged QListWidgetItem objects, in any
                 order.
-        Outputs: a QMimeData carrying every name, in list order, as a
-            JSON list in SIGNAL_LIST_MIME_TYPE_STR, the first name as
-            SIGNAL_MIME_TYPE_STR, and the names as text, one per line.
+        Outputs: a QMimeData carrying every signal name, in list order,
+            as a JSON list in SIGNAL_LIST_MIME_TYPE_STR, the first name
+            as SIGNAL_MIME_TYPE_STR, and the names as text, one per
+            line.
         """
         # LLFR-00021, LLFR-00297: the drop target reads the signal names
-        # from here, in the order of the signal list.
+        # from here, in the order of the signal list; LLFR-00645: never
+        # a file name row.
         mime_data = QMimeData()
-        sorted_item_list = sorted(item_list, key=self.row)
+        sorted_item_list = sorted(
+            (item for item in item_list if is_signal_row(item)),
+            key=self.row)
         name_list = [item.text() for item in sorted_item_list]
         if not name_list:
             return mime_data
@@ -513,8 +489,6 @@ class SignalListPanel(QWidget):
     Inputs: none.
     Attributes:
         panel_layout: vertical layout that holds the panel's content.
-        file_name_label: the FileNameLabel of the file name row, the
-            first row of the signal list (LLFR-00362).
         title_label: the "Signals" title.
         signal_list_widget: the SignalListWidget with the signal names.
         search_box: the QLineEdit directly below the list, the last row
@@ -535,6 +509,11 @@ class SignalListPanel(QWidget):
         rename_signal_requested(str), delete_signal_requested(str): the
             signal name of the chosen menu option (LLFR-00277,
             LLFR-00279, LLFR-00266, LLFR-00255).
+        close_file_requested(int): the number of the file whose file
+            name row's menu was used to choose "Close file"
+            (LLFR-00919).
+        close_all_files_requested(): "Close all files" was chosen in
+            the file menu (LLFR-00919).
     """
 
     signal_double_clicked = pyqtSignal(str)
@@ -548,6 +527,9 @@ class SignalListPanel(QWidget):
     copy_equation_requested = pyqtSignal(str)
     rename_signal_requested = pyqtSignal(str)
     delete_signal_requested = pyqtSignal(str)
+    # LLFR-00919: the options of the file menu.
+    close_file_requested = pyqtSignal(int)
+    close_all_files_requested = pyqtSignal()
 
     def __init__(self) -> None:
         """Create the panel with its title and an empty signal list.
@@ -569,9 +551,6 @@ class SignalListPanel(QWidget):
         self.title_label.setObjectName("signal_list_title")
         self.signal_list_widget = SignalListWidget()
         self.signal_list_widget.setObjectName("signal_list_widget")
-        # LLFR-00362: the file name row is the first row of the signal
-        # list; it is a label in the list's frame, not a list item.
-        self.file_name_label = self.signal_list_widget.file_name_label
         self.panel_layout.addWidget(self.title_label)
         self.panel_layout.addWidget(self.signal_list_widget, 1)
         # LLFR-00094: the search box directly below the list, with
@@ -601,17 +580,34 @@ class SignalListPanel(QWidget):
         self.time_signal_name_set = set()
         # LLFR-00239: the signal and screen point of a pending menu.
         self.pending_menu_tuple = ()
+        # LLFR-00919: the file number and screen point of a pending file
+        # menu.
+        self.pending_file_menu_tuple = ()
         self.signal_list_widget.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu)
         self.signal_list_widget.customContextMenuRequested.connect(
             self.request_signal_menu)
 
     def show_signal_names(self, signal_name_list: list) -> None:
-        """Replace the shown names with the given ones, in their order.
+        """Show names in one group with no file name row.
 
         Inputs:
-            signal_name_list: the signal names of the opened file,
-                including the time signal.
+            signal_name_list: the signal names, in their order.
+        Outputs: none. Used while no file name row is needed, for
+            example by tests of the selection.
+        """
+        # LLFR-00054, LLFR-00935: the names in their order.
+        self.show_signal_groups([(None, "", list(signal_name_list), "")])
+
+    def show_signal_groups(self, group_list: list) -> None:
+        """Replace the rows of the list with the given groups.
+
+        Inputs:
+            group_list: one tuple (file number or None, file name row
+                text or "", shown signal names, no-match text or "") per
+                group, in list order (LLFR-00934). A group with a row
+                text starts with its file name row; a group with a
+                no-match text ends with that text.
         Outputs: none.
         """
         # LLFR-00292: the signals still shown stay selected; the others
@@ -621,57 +617,124 @@ class SignalListPanel(QWidget):
         # click range starts, is kept too while it is shown.
         current_item = self.signal_list_widget.currentItem()
         current_name_str = ""
-        if current_item is not None:
+        if is_signal_row(current_item):
             current_name_str = current_item.text()
-        # LLFR-00934, LLFR-00935: the names of the open files.
-        # LLFR-00054: the time signal is shown like any other name.
         self.signal_list_widget.clear()
-        self.signal_list_widget.addItems(
-            [str(name_str) for name_str in signal_name_list])
-        for row_i in range(self.signal_list_widget.count()):
-            item = self.signal_list_widget.item(row_i)
+        for number_value, row_str, name_list, no_match_str in group_list:
+            # LLFR-00362, LLFR-00650: the file name row of each open
+            # file, in the place of LLFR-00934.
+            if row_str:
+                self.signal_list_widget.addItem(
+                    self.build_file_row(str(row_str), number_value))
+            # LLFR-00935, LLFR-00639: its shown signals directly below.
+            # LLFR-00054: the time signal is shown like any other name.
+            for name_str in name_list:
+                self.signal_list_widget.addItem(
+                    self.build_signal_row(str(name_str)))
+            # LLFR-00097, LLFR-00641: "No matching signals" below the
+            # row of a file with no match.
+            if no_match_str:
+                self.signal_list_widget.addItem(
+                    self.build_no_match_row(str(no_match_str)))
+        signal_item_list = self.signal_list_widget.row_items(
+            SIGNAL_ROW_STR)
+        for item in signal_item_list:
             if item.text() in kept_selection_set:
                 item.setSelected(True)
-        for row_i in range(self.signal_list_widget.count()):
-            item = self.signal_list_widget.item(row_i)
+        for item in signal_item_list:
             if current_name_str and item.text() == current_name_str:
                 # LLFR-00290: the current item, without changing the
                 # selection, so that Shift + click starts from it.
                 self.signal_list_widget.setCurrentItem(
                     item, QItemSelectionModel.SelectionFlag.NoUpdate)
                 break
-        # LLFR-00242: synthetic signals are shown in italic letters.
-        for row_i in range(self.signal_list_widget.count()):
-            item = self.signal_list_widget.item(row_i)
-            if item.text() in self.synthetic_name_set:
-                item_font = item.font()
-                item_font.setItalic(True)
-                item.setFont(item_font)
-            # LLFR-00332: the time signal name in green, also among
-            # search results.
-            if item.text() in self.time_signal_name_set:
-                item.setForeground(QBrush(QColor(
-                    theme.TIME_SIGNAL_TEXT_COLOR_STR)))
+        # LLFR-00649: the tips of the file name rows that are shortened.
+        self.signal_list_widget.refresh_file_row_tips()
 
-    def show_file_name(self, file_name_str: str) -> None:
-        """Show the name of the opened data file in the first row.
+    def build_signal_row(self, name_str: str) -> QListWidgetItem:
+        """Build the row of one signal.
 
         Inputs:
-            file_name_str: the file name with its extension, without
-                its folder; "" hides the row.
-        Outputs: none.
+            name_str: the signal name.
+        Outputs: a selectable, draggable QListWidgetItem, in italics for
+            a synthetic signal and in green for a time signal.
         """
-        # LLFR-00362, LLFR-00363: the row follows the opened file.
-        self.signal_list_widget.show_file_name_row(file_name_str)
+        # LLFR-00290, LLFR-00297: a signal can be selected and dragged.
+        item = QListWidgetItem(name_str)
+        item.setData(ROW_KIND_ROLE_I, SIGNAL_ROW_STR)
+        # LLFR-00242: synthetic signals are shown in italic letters.
+        if name_str in self.synthetic_name_set:
+            item_font = item.font()
+            item_font.setItalic(True)
+            item.setFont(item_font)
+        # LLFR-00332: the time signal names in green, also among search
+        # results.
+        if name_str in self.time_signal_name_set:
+            item.setForeground(QBrush(QColor(
+                theme.TIME_SIGNAL_TEXT_COLOR_STR)))
+        return item
 
-    def file_name(self) -> str:
-        """Return the whole file name of the first row.
+    def build_file_row(self, row_str: str, number_value) -> QListWidgetItem:
+        """Build the file name row of one data file.
+
+        Inputs:
+            row_str: ``file<N>_<file name>`` (LLFR-00362).
+            number_value: the number of the file (LLFR-00896), or None.
+        Outputs: a QListWidgetItem in bold that can't be selected or
+            dragged (LLFR-00642 to LLFR-00645).
+        """
+        # LLFR-00362: bold letters.
+        item = QListWidgetItem(row_str)
+        item.setData(ROW_KIND_ROLE_I, FILE_ROW_STR)
+        item.setData(FILE_NUMBER_ROLE_I,
+                     None if number_value is None else int(number_value))
+        item_font = item.font()
+        item_font.setBold(True)
+        item.setFont(item_font)
+        # LLFR-00643, LLFR-00644, LLFR-00645: shown, but neither
+        # selectable nor draggable, so no click, Shift range or drag
+        # takes it.
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        return item
+
+    def build_no_match_row(self, text_str: str) -> QListWidgetItem:
+        """Build the "No matching signals" row of one data file.
+
+        Inputs:
+            text_str: the text, "No matching signals".
+        Outputs: a QListWidgetItem in a muted color that can't be
+            selected or dragged.
+        """
+        # LLFR-00097, LLFR-00641: the text below the file name row.
+        item = QListWidgetItem(text_str)
+        item.setData(ROW_KIND_ROLE_I, NO_MATCH_ROW_STR)
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        item.setForeground(QBrush(QColor(theme.MUTED_TEXT_COLOR_STR)))
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        return item
+
+    def file_row_texts(self) -> list:
+        """Return the texts of the file name rows, from top to bottom.
 
         Inputs: none.
-        Outputs: the name, or "" while no data file is open.
+        Outputs: a list of str, ``file<N>_<file name>``; [] while no
+            file is open (LLFR-00363).
         """
-        # LLFR-00363: empty before any file is opened.
-        return self.file_name_label.file_name_str
+        # LLFR-00362, LLFR-00934: one row per open file, in number order.
+        return [item.text() for item
+                in self.signal_list_widget.row_items(FILE_ROW_STR)]
+
+    def row_list(self) -> list:
+        """Return every row of the list, from top to bottom.
+
+        Inputs: none.
+        Outputs: a list of tuples (kind, text), where kind is
+            SIGNAL_ROW_STR, FILE_ROW_STR or NO_MATCH_ROW_STR.
+        """
+        # LLFR-00934, LLFR-00935, LLFR-00639, LLFR-00641: the order of
+        # the rows.
+        return [(row_kind(item), item.text())
+                for item in self.signal_list_widget.row_items()]
 
     def set_time_signal_name(self, name_str: str) -> None:
         """Keep which name is the time signal.
@@ -705,8 +768,7 @@ class SignalListPanel(QWidget):
             shown.
         """
         # LLFR-00332: green for the time signal, other colors otherwise.
-        for row_i in range(self.signal_list_widget.count()):
-            item = self.signal_list_widget.item(row_i)
+        for item in self.signal_list_widget.row_items(SIGNAL_ROW_STR):
             if item.text() != name_str:
                 continue
             brush = item.foreground()
@@ -716,31 +778,19 @@ class SignalListPanel(QWidget):
             return brush.color().name()
         return ""
 
-    def show_no_match_message(self, visible_b: bool,
-                              message_str: str) -> None:
-        """Show or hide the no-match text inside the list area.
-
-        Inputs:
-            visible_b: True to show the text, False to hide it.
-            message_str: the text to show ("No matching signals").
-        Outputs: none.
-        """
-        # LLFR-00097: the text is shown when no signal matches.
-        no_match_label = self.signal_list_widget.no_match_label
-        no_match_label.setText(message_str)
-        no_match_label.setVisible(visible_b)
-
     def no_match_message(self) -> str:
         """Return the no-match text when it is shown.
 
         Inputs: none.
-        Outputs: the shown text, or "" when it is hidden.
+        Outputs: the text of the first "No matching signals" row, or ""
+            when no such row is shown.
         """
-        # LLFR-00097: what the list area says when nothing matches.
-        no_match_label = self.signal_list_widget.no_match_label
-        if no_match_label.isHidden():
+        # LLFR-00097: what the list says below a file with no match.
+        no_match_item_list = self.signal_list_widget.row_items(
+            NO_MATCH_ROW_STR)
+        if not no_match_item_list:
             return ""
-        return no_match_label.text()
+        return no_match_item_list[0].text()
 
     def set_search_box_bottom_margin(self, bottom_margin_i: int) -> None:
         """Leave room below the search box, so its bottom edge is higher.
@@ -791,9 +841,10 @@ class SignalListPanel(QWidget):
         Inputs: none.
         Outputs: a list of str.
         """
-        # LLFR-00054, LLFR-00935: the names currently shown.
-        return [self.signal_list_widget.item(row_i).text()
-                for row_i in range(self.signal_list_widget.count())]
+        # LLFR-00054, LLFR-00935: the names currently shown;
+        # LLFR-00642: the file name rows are not signals.
+        return [item.text() for item
+                in self.signal_list_widget.row_items(SIGNAL_ROW_STR)]
 
     def selected_signal_names(self) -> list:
         """Return the selected signal names, from top to bottom.
@@ -816,8 +867,7 @@ class SignalListPanel(QWidget):
         """
         # LLFR-00266, LLFR-00292: a renamed synthetic signal is still
         # shown, so it stays selected.
-        for row_i in range(self.signal_list_widget.count()):
-            item = self.signal_list_widget.item(row_i)
+        for item in self.signal_list_widget.row_items(SIGNAL_ROW_STR):
             if item.text() == old_name_str:
                 item.setText(new_name_str)
                 return
@@ -850,6 +900,9 @@ class SignalListPanel(QWidget):
             item: the QListWidgetItem that was double-clicked.
         Outputs: none.
         """
+        # LLFR-00646: a double-click on a file name row plots nothing.
+        if not is_signal_row(item):
+            return
         # LLFR-00019, LLFR-00294: only the double-clicked signal, whatever
         # other signals are selected.
         self.signal_double_clicked.emit(item.text())
@@ -894,8 +947,7 @@ class SignalListPanel(QWidget):
         Outputs: True when its row uses an italic font.
         """
         # LLFR-00242: synthetic signals in italics.
-        for row_i in range(self.signal_list_widget.count()):
-            item = self.signal_list_widget.item(row_i)
+        for item in self.signal_list_widget.row_items(SIGNAL_ROW_STR):
             if item.text() == name_str:
                 return item.font().italic()
         return False
@@ -999,11 +1051,23 @@ class SignalListPanel(QWidget):
         item = self.signal_list_widget.itemAt(widget_point)
         if item is None:
             return
+        global_point = self.signal_list_widget.viewport().mapToGlobal(
+            QPoint(widget_point))
+        # LLFR-00647: a file name row opens the file menu instead; the
+        # selection is kept (LLFR-00643).
+        if row_kind(item) == FILE_ROW_STR:
+            number_value = item.data(FILE_NUMBER_ROLE_I)
+            if number_value is None:
+                return
+            self.pending_file_menu_tuple = (int(number_value), global_point)
+            QTimer.singleShot(0, self.show_pending_file_menu)
+            return
+        if not is_signal_row(item):
+            # LLFR-00097: the "No matching signals" row has no menu.
+            return
         # LLFR-00293: only the right-clicked signal is selected before
         # the menu is shown, and the menu acts on it.
         self.signal_list_widget.select_only(item)
-        global_point = self.signal_list_widget.viewport().mapToGlobal(
-            QPoint(widget_point))
         self.pending_menu_tuple = (item.text(), global_point)
         QTimer.singleShot(0, self.show_pending_signal_menu)
 
@@ -1045,6 +1109,82 @@ class SignalListPanel(QWidget):
         """
         # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278.
         menu, request_list = self.signal_menu_and_requests(name_str)
+        chosen_action = self.execute_menu(menu, global_point)
+        request_index = None
+        if chosen_action is not None:
+            request_index = chosen_action.data()
+        menu.deleteLater()
+        if isinstance(request_index, int) and (
+                0 <= request_index < len(request_list)):
+            request_list[request_index]()
+
+    # ----------------------------------------------------------------
+    # The file menu
+    # ----------------------------------------------------------------
+
+    def file_menu_and_requests(self, number_i: int) -> tuple:
+        """Build the file menu of a file name row and its requests.
+
+        Inputs:
+            number_i: the number of the file of the right-clicked row.
+        Outputs: a tuple (menu, request_list): a QMenu (not shown) with
+            "Close file" and "Close all files", in this order, whose
+            actions hold, as data, the index of their request in
+            request_list, a list of functions without arguments.
+        """
+        # LLFR-00919: the two options, in this order.
+        menu = QMenu(self)
+        menu.setObjectName("file_menu")
+        request_list = [
+            lambda: self.close_file_requested.emit(int(number_i)),
+            self.close_all_files_requested.emit]
+        for index_i, text_str in enumerate((CLOSE_FILE_TEXT_STR,
+                                            CLOSE_ALL_FILES_TEXT_STR)):
+            action = menu.addAction(text_str)
+            action.setData(index_i)
+        return menu, request_list
+
+    def build_file_menu(self, number_i: int) -> QMenu:
+        """Build the file menu of a file name row, not shown.
+
+        Inputs:
+            number_i: the number of the file of the row.
+        Outputs: a QMenu whose actions emit their request when
+            triggered, so tests can choose an option without a modal
+            menu.
+        """
+        # LLFR-00919: Close file and Close all files.
+        menu, request_list = self.file_menu_and_requests(number_i)
+        for action in menu.actions():
+            action.triggered.connect(
+                lambda checked_b=False,
+                request=request_list[action.data()]: request())
+        return menu
+
+    def show_pending_file_menu(self) -> None:
+        """Show the file menu asked for by request_signal_menu.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00647: the file menu of the right-clicked file name row.
+        if not self.pending_file_menu_tuple:
+            return
+        number_i, global_point = self.pending_file_menu_tuple
+        self.pending_file_menu_tuple = ()
+        self.show_file_menu(number_i, global_point)
+
+    def show_file_menu(self, number_i: int, global_point) -> None:
+        """Show the file menu and emit the chosen option's request.
+
+        Inputs:
+            number_i: the number of the file of the row.
+            global_point: QPoint in screen coordinates.
+        Outputs: none. The request is emitted after the menu has been
+            closed and deleted, so the receiver may change the list.
+        """
+        # LLFR-00919: the user chooses Close file or Close all files.
+        menu, request_list = self.file_menu_and_requests(number_i)
         chosen_action = self.execute_menu(menu, global_point)
         request_index = None
         if chosen_action is not None:

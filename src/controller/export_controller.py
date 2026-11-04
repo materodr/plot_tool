@@ -9,8 +9,12 @@ method calls (no Qt code), so it can be tested with a fake view
 - ``current_tab_plot_count()``: number of plots in the current tab;
 - ``ask_pdf_save_path()``: the chosen path, "" when cancelled;
 - ``ask_replace_existing_file(path_str)``: True to replace the file;
-- ``save_tabs_pdf(path_str)``: a tuple (saved_b, reason_str);
-- ``copy_current_tab_image()``: a tuple (copied_b, reason_str);
+- ``save_tabs_pdf(path_str, description_str)``: a tuple (saved_b,
+  reason_str); each page shows description_str below the tab's name
+  (LLFR-00967);
+- ``copy_current_tab_image(description_str)``: a tuple (copied_b,
+  reason_str); the image has a strip with description_str above the
+  plots (LLFR-00968);
 - ``show_nothing_to_export()``, ``show_nothing_to_copy()``;
 - ``show_export_error(reason_str)``, ``show_copy_error(reason_str)``;
 - ``finish_export_button()``, ``finish_copy_button()``.
@@ -41,20 +45,38 @@ class ExportController:
 
     Inputs:
         view: the view facade described in the module docstring.
+        description_function: function without arguments that returns
+            the description of the open data files, ``file1 = a.csv,
+            file2 = b.mat`` (LLFR-00967); None gives "".
     Attributes:
         view: the view facade.
+        description_function: the function of the description.
     """
 
-    def __init__(self, view) -> None:
-        """Store the view.
+    def __init__(self, view, description_function=None) -> None:
+        """Store the view and the description of the data files.
 
         Inputs:
             view: the view facade.
+            description_function: see the class docstring.
         Outputs: none.
         """
         # LLFR-00127, LLFR-00132: the view calls this controller when
         # the menu option or the Copy button is chosen.
         self.view = view
+        # LLFR-00967, LLFR-00968: the open data files, at export time.
+        self.description_function = description_function
+
+    def files_description(self) -> str:
+        """Return the description of the open data files.
+
+        Inputs: none.
+        Outputs: the text of LLFR-00967, or "" without a function.
+        """
+        # LLFR-00967: all the open data files, in number order.
+        if self.description_function is None:
+            return ""
+        return str(self.description_function() or "")
 
     def on_export_requested(self) -> None:
         """Save the plots of all tabs to a PDF file chosen by the user.
@@ -107,7 +129,9 @@ class ExportController:
                 and not self.view.ask_replace_existing_file(pdf_path_str)):
             return
         # LLFR-00129: one page per tab that holds a plot.
-        saved_b, reason_str = self.view.save_tabs_pdf(pdf_path_str)
+        # LLFR-00967: the open data files below each tab's name.
+        saved_b, reason_str = self.view.save_tabs_pdf(
+            pdf_path_str, self.files_description())
         # LLFR-00131: the user is told when the file was not written.
         if not saved_b:
             self.view.show_export_error(reason_str)
@@ -124,7 +148,9 @@ class ExportController:
             self.view.show_nothing_to_copy()
             return
         # LLFR-00133: copy the plots of the current tab as shown.
-        copied_b, reason_str = self.view.copy_current_tab_image()
+        # LLFR-00968: the strip with the open data files above them.
+        copied_b, reason_str = self.view.copy_current_tab_image(
+            self.files_description())
         if not copied_b:
             # LLFR-00133: a failed copy is reported (HLFR-00002).
             self.view.show_copy_error(reason_str)

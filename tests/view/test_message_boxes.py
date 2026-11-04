@@ -245,5 +245,103 @@ class MessageBoxesTest(unittest.TestCase):
                 widget.reject()
 
 
+@requires_qt
+class CloseFilesBoxTest(unittest.TestCase):
+    """The questions of the file menu (LLFR-00920, LLFR-00930)."""
+
+    def setUp(self) -> None:
+        """Start Qt.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+
+    @covers("LLFR-00920", "LLFR-00921", "HLFR-00118")
+    def test_close_file_box(self) -> None:
+        """The question of the file controller, with Yes and No.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QMessageBox
+        from controller.file_controller import close_file_question
+        from view import message_boxes
+        question_str = close_file_question("file2_run_B.mat", False)
+        box = message_boxes.build_close_file_box(None, question_str)
+        self.assertEqual(box.windowTitle(), "Close file")
+        self.assertEqual(box.text(), question_str)
+        self.assertIn("file2_run_B.mat", box.text())
+        self.assertEqual(box.icon(), QMessageBox.Icon.Question)
+        self.assertEqual(box.standardButtons(),
+                         QMessageBox.StandardButton.Yes
+                         | QMessageBox.StandardButton.No)
+        self.assertIs(box.defaultButton(),
+                      box.button(QMessageBox.StandardButton.No))
+        box.deleteLater()
+        for answer, expected_b in (
+                (QMessageBox.StandardButton.Yes.value, True),
+                (QMessageBox.StandardButton.No.value, False)):
+            with self.subTest(expected_b=expected_b), mock.patch.object(
+                    QMessageBox, "exec", return_value=answer):
+                self.assertIs(message_boxes.ask_close_file(
+                    None, question_str), expected_b)
+
+    @covers("LLFR-00930", "LLFR-00931", "HLFR-00119")
+    def test_close_all_files_box(self) -> None:
+        """One question for every file, with Yes and No.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QMessageBox
+        from controller.file_controller import close_all_files_question
+        from view import message_boxes
+        question_str = close_all_files_question()
+        box = message_boxes.build_close_all_files_box(None, question_str)
+        self.assertEqual(box.windowTitle(), "Close all files")
+        self.assertEqual(box.text(), question_str)
+        self.assertIn("Every flag and every area will be deleted",
+                      box.text())
+        box.deleteLater()
+        with mock.patch.object(QMessageBox, "exec",
+                               return_value=QMessageBox.StandardButton.No):
+            self.assertFalse(message_boxes.ask_close_all_files(
+                None, question_str))
+        with mock.patch.object(QMessageBox, "exec",
+                               return_value=QMessageBox.StandardButton.Yes):
+            self.assertTrue(message_boxes.ask_close_all_files(
+                None, question_str))
+
+    @covers("LLFR-00920", "LLFR-00930")
+    def test_main_window_asks_with_the_boxes(self) -> None:
+        """The main window facade returns the user's answer.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QMessageBox
+        from view.main_window import MainWindow
+        window = MainWindow()
+        self.addCleanup(window.deleteLater)
+        record_list = []
+
+        def fake_exec(box) -> int:
+            """Record the box and answer Yes.
+
+            Inputs:
+                box: the QMessageBox.
+            Outputs: Yes.
+            """
+            record_list.append((box.windowTitle(), box.text()))
+            return QMessageBox.StandardButton.Yes.value
+
+        with mock.patch.object(QMessageBox, "exec", new=fake_exec):
+            self.assertTrue(window.ask_close_file("Close file1_a.csv?"))
+            self.assertTrue(window.ask_close_all_files("Close all?"))
+        self.assertEqual(record_list, [("Close file", "Close file1_a.csv?"),
+                                       ("Close all files", "Close all?")])
+
+
 if __name__ == "__main__":
     unittest.main()

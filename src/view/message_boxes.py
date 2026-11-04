@@ -122,6 +122,11 @@ DELETE_ONE_CONSEQUENCE_MESSAGE_STR = (
     "history is cleared. This cannot be undone.")
 
 
+# LLFR-00920, LLFR-00930: the titles of the questions of the file menu.
+CLOSE_FILE_TITLE_STR = "Close file"
+CLOSE_ALL_FILES_TITLE_STR = "Close all files"
+
+
 def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
     """Build the File Open Error box.
 
@@ -665,3 +670,92 @@ def build_changed_names_box(parent, changed_names_text_str: str) -> QDialog:
     return build_layout_report_box(
         parent, changed_names_text_str, CHANGED_NAMES_TITLE_STR,
         CHANGED_NAMES_INTRO_STR, CHANGED_NAMES_TEXT_OBJECT_NAME_STR)
+
+
+def build_question_box(parent, title_str: str,
+                       question_str: str) -> QMessageBox:
+    """Build a question box with the buttons Yes and No.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        title_str: the window title.
+        question_str: the question and what proceeding does.
+    Outputs: a QMessageBox with the question icon and the buttons Yes
+        and No, where No is the default and escape button.
+    """
+    # LLFR-00920, LLFR-00930: the user decides whether to proceed.
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(title_str)
+    box.setText(question_str)
+    box.setStandardButtons(QMessageBox.StandardButton.Yes
+                           | QMessageBox.StandardButton.No)
+    box.setDefaultButton(QMessageBox.StandardButton.No)
+    box.setEscapeButton(QMessageBox.StandardButton.No)
+    return box
+
+
+def build_close_file_box(parent, question_str: str) -> QMessageBox:
+    """Build the question asked before one data file is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller, which names
+            the file as its file name row shows it.
+    Outputs: the question box, titled CLOSE_FILE_TITLE_STR.
+    """
+    # LLFR-00920: Yes closes the file, No keeps everything (LLFR-00921).
+    return build_question_box(parent, CLOSE_FILE_TITLE_STR, question_str)
+
+
+def build_close_all_files_box(parent, question_str: str) -> QMessageBox:
+    """Build the question asked once before every data file is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: the question box, titled CLOSE_ALL_FILES_TITLE_STR.
+    """
+    # LLFR-00930: one question for all the files (LLFR-00931).
+    return build_question_box(parent, CLOSE_ALL_FILES_TITLE_STR,
+                              question_str)
+
+
+def answered_yes(box) -> bool:
+    """Run a question box modally and tell whether Yes was chosen.
+
+    Inputs:
+        box: a QMessageBox with the buttons Yes and No.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00921, LLFR-00931: anything but Yes declines.
+    result = box.exec()
+    if isinstance(result, QMessageBox.StandardButton):
+        result_value_i = int(result.value)
+    else:
+        result_value_i = int(result)
+    return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def ask_close_file(parent, question_str: str) -> bool:
+    """Ask whether to close one data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00920: only Yes closes the file.
+    return answered_yes(build_close_file_box(parent, question_str))
+
+
+def ask_close_all_files(parent, question_str: str) -> bool:
+    """Ask once whether to close every data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00930: only Yes closes the files.
+    return answered_yes(build_close_all_files_box(parent, question_str))

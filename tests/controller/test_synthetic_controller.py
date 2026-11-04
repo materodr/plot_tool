@@ -199,23 +199,20 @@ class FakeSyntheticWindow(FakePlotView):
         """
         raise AssertionError(message_str)
 
-    def show_file_name(self, file_name_str: str) -> None:
-        """Record the name of the file name line (LLFR-00362).
+    def show_signal_groups(self, group_list: list) -> None:
+        """Record the shown file name rows and names (LLFR-00934).
 
         Inputs:
-            file_name_str: the opened file's name, without its folder.
-        Outputs: none.
+            group_list: (file number, row text, names, no-match text)
+                per file, in list order.
+        Outputs: none. shown_name_list holds every shown name, file
+            after file; file_row_list the texts of the rows.
         """
-        self.file_name_str = file_name_str
-
-    def show_signal_names(self, signal_name_list: list) -> None:
-        """Record the shown names.
-
-        Inputs:
-            signal_name_list: the names, in list order.
-        Outputs: none.
-        """
-        self.shown_name_list = list(signal_name_list)
+        self.group_list = [tuple(group) for group in group_list]
+        self.file_row_list = [row_str for _, row_str, _, _ in group_list
+                              if row_str]
+        self.shown_name_list = [name_str for _, _, name_list, _
+                                in group_list for name_str in name_list]
 
     def set_signal_kinds(self, synthetic_name_set: set,
                          fft_name_set: set) -> None:
@@ -237,16 +234,6 @@ class FakeSyntheticWindow(FakePlotView):
         Outputs: none.
         """
         self.search_text_handler = handler
-
-    def show_no_match_message(self, visible_b: bool,
-                              message_str: str) -> None:
-        """Do nothing.
-
-        Inputs:
-            visible_b: ignored.
-            message_str: ignored.
-        Outputs: none.
-        """
 
     def clear_search(self) -> None:
         """Empty the search box, reporting it like a QLineEdit.
@@ -347,6 +334,18 @@ class FakeSyntheticWindow(FakePlotView):
             "create": create_handler, "copy_name": copy_name_handler,
             "rename": rename_handler, "delete": delete_handler,
             "copy_equation": copy_equation_handler}
+
+    def set_file_menu_handlers(self, close_file_handler,
+                               close_all_files_handler) -> None:
+        """Record the handlers of the file menu (LLFR-00919).
+
+        Inputs:
+            close_file_handler: function (file number).
+            close_all_files_handler: function without arguments.
+        Outputs: none.
+        """
+        self.file_menu_handler_tuple = (close_file_handler,
+                                        close_all_files_handler)
 
     def ask_synthetic_parameter(self, title_str: str, prompt_str: str,
                                 field_list: list, check_function,
