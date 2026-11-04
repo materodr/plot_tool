@@ -171,18 +171,22 @@ class ButtonIconEngine(QIconEngine):
         icon_name_str: a name of icon_shapes.ICON_NAME_TUPLE.
         normal_color_str: the color in the normal state; None for
             theme.ICON_COLOR_STR.
+        active_color_str: the color in the active (checked) state; None
+            for theme.ICON_ACTIVE_COLOR_STR.
     Attributes:
         icon_name_str: the icon name.
         normal_color_str: the color of the normal, inactive state.
+        active_color_str: the color of the active state, or None.
     """
 
-    def __init__(self, icon_name_str: str,
-                 normal_color_str: str = None) -> None:
+    def __init__(self, icon_name_str: str, normal_color_str: str = None,
+                 active_color_str: str = None) -> None:
         """Store the icon name and its normal color.
 
         Inputs:
             icon_name_str: the icon name; raises KeyError if unknown.
             normal_color_str: the normal color, or None for the theme's.
+            active_color_str: the active color, or None for the theme's.
         Outputs: none.
         """
         super().__init__()
@@ -191,6 +195,9 @@ class ButtonIconEngine(QIconEngine):
         icon_shapes.icon_layer_list(icon_name_str)
         self.icon_name_str = icon_name_str
         self.normal_color_str = normal_color_str or theme.ICON_COLOR_STR
+        # LLFR-01014: a button with a pale active highlight keeps a dark
+        # icon while active.
+        self.active_color_str = active_color_str
 
     def color_str(self, mode, state) -> str:
         """Return the color used for one mode and state.
@@ -204,6 +211,10 @@ class ButtonIconEngine(QIconEngine):
         color_str = icon_state_color_str(mode, state)
         if color_str == theme.ICON_COLOR_STR:
             return self.normal_color_str
+        if (color_str == theme.ICON_ACTIVE_COLOR_STR
+                and self.active_color_str is not None):
+            # LLFR-01014: the icon of a pale active highlight.
+            return self.active_color_str
         return color_str
 
     def paint(self, painter, rect, mode, state) -> None:
@@ -250,7 +261,8 @@ class ButtonIconEngine(QIconEngine):
         Outputs: a new ButtonIconEngine with the same icon and color.
         """
         # LLFR-00159: Qt copies the engine when it copies the icon.
-        return ButtonIconEngine(self.icon_name_str, self.normal_color_str)
+        return ButtonIconEngine(self.icon_name_str, self.normal_color_str,
+                                self.active_color_str)
 
     def isNull(self) -> bool:
         """Tell Qt that the icon is never empty.
@@ -262,18 +274,22 @@ class ButtonIconEngine(QIconEngine):
         return False
 
 
-def icon_for(icon_name_str: str, color_str: str = None) -> QIcon:
+def icon_for(icon_name_str: str, color_str: str = None,
+             active_color_str: str = None) -> QIcon:
     """Return the QIcon of a top panel button.
 
     Inputs:
         icon_name_str: a name of icon_shapes.ICON_NAME_TUPLE.
         color_str: the icon color in the normal state; None for
-            theme.ICON_COLOR_STR. The active and disabled colors always
-            come from the theme (LLFR-00160).
+            theme.ICON_COLOR_STR. The disabled color always comes from
+            the theme (LLFR-00160).
+        active_color_str: the icon color in the active state; None for
+            theme.ICON_ACTIVE_COLOR_STR.
     Outputs: the QIcon. Raises KeyError for an unknown name.
     """
     # LLFR-00158, LLFR-00159: the picture shown on the button.
-    return QIcon(ButtonIconEngine(icon_name_str, color_str))
+    return QIcon(ButtonIconEngine(icon_name_str, color_str,
+                                  active_color_str))
 
 
 def app_icon_brush_dict() -> dict:

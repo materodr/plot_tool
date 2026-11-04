@@ -252,6 +252,45 @@ class UndoButtonTest(UndoWindowTestCase):
         self.assertTrue(self.top_panel.zoom_button.is_active())
         self.assertTrue(self.top_panel.grid_button.is_active())
 
+    @covers("LLFR-01097", "LLFR-00138", "LLFR-00192", "LLFR-00124",
+            "LLFR-00122", "LLFR-00123", "HLFR-00040", "HLFR-00048",
+            "HLFR-00037")
+    def test_grid_click_is_undone_and_redone(self) -> None:
+        """A Grid click is undone and redone: the grid of every plot and
+        the Grid button follow.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("force")
+        self.application.processEvents()
+        grid_button = self.top_panel.grid_button
+        self.assertTrue(grid_button.is_active())
+        grid_button.click()
+        self.application.processEvents()
+        self.assertFalse(grid_button.is_active())
+        self.assertTrue(self.main_window.is_undo_enabled())
+
+        def plot_grids() -> list:
+            """Return whether each plot of the tab shows the grid.
+
+            Inputs: none.
+            Outputs: a list of bool.
+            """
+            return [self.plot_panel.plot_view(plot_id_i).grid_shown_b
+                    for plot_id_i in self.current_plot_ids()]
+
+        self.assertEqual(plot_grids(), [False, False])
+        self.undo_button.click()
+        self.application.processEvents()
+        self.assertTrue(grid_button.is_active())
+        self.assertEqual(plot_grids(), [True, True])
+        self.top_panel.redo_button.click()
+        self.application.processEvents()
+        self.assertFalse(grid_button.is_active())
+        self.assertEqual(plot_grids(), [False, False])
+
     @covers("LLFR-00138", "LLFR-00070")
     def test_zoomed_range_is_kept(self) -> None:
         """A plot recreated by undo takes the zoomed range of its tab.

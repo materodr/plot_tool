@@ -1,15 +1,29 @@
 """Undocked windows: one tab in a window of its own (HLFR-00123).
 
-An UndockedWindow holds, from top to bottom (LLFR-01035):
-- its tab row (LLFR-00997): the button of its one tab at the left end
+An UndockedWindow holds, side by side (LLFR-01035):
+- its plot panel: the tab row (LLFR-00997) above the tab page, which is
+  in a plot well of the same look as the main window's (LLFR-00893).
+  The tab row holds the button of its one tab at the left end
   (LLFR-01028), styled as the selected tab of the main window
-  (LLFR-01095) and with no undock button (LLFR-01031), and at the right
-  end the signal list button (LLFR-01009) and the dock button
-  (LLFR-00990);
-- below it, the plot panel with the tab page, in a plot well of the
-  same look as the main window's (LLFR-00893), and the signal list panel
-  to its right (LLFR-01000), with a border that can be dragged
-  (LLFR-00073).
+  (LLFR-01095) and with no undock button (LLFR-01031), and at its right
+  end the dock button (LLFR-00990);
+- to its right, the signal list panel (LLFR-01000), with a border that
+  can be dragged (LLFR-00073). Its "Signals" title row is level with
+  the tab row.
+
+The signal list button (LLFR-01009) works like the sidebar button of
+Firefox, mirrored to the right side. It is not in a layout: it floats at
+the window's top-right corner, always at the same place (LLFR-01099).
+While the panel is shown, that place is the right end of the panel's
+title row, level with the word "Signals" (LLFR-01098), and the button
+shows a round, pale highlight (LLFR-01014). While the panel is hidden,
+the plot panel takes the whole width, and the tab row keeps room at its
+right end for the button, right of the dock button (LLFR-00997). The
+title row is at least as high as the button (LLFR-01100).
+
+The tab button can be dragged onto the tab row of the main window to
+dock the tab there (LLFR-01108); a drop anywhere else changes nothing
+(LLFR-01032).
 
 There is no top panel (HLFR-00136): the main window keeps the plot tool
 buttons, and the keyboard shortcuts of the main window are given to
@@ -25,10 +39,12 @@ The tab page itself is created and kept by the PlotPanel, the registry
 of every tab and plot; the window only shows it.
 """
 
-from PyQt6.QtCore import QEvent, Qt, QTimer
+from functools import partial
+
+from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QTabBar, QVBoxLayout, QWidget)
+    QApplication, QHBoxLayout, QTabBar, QToolButton, QVBoxLayout, QWidget)
 
 from model.workspace import first_panel_width_i
 from view import icon_shapes, icons, theme
@@ -38,8 +54,8 @@ from view.plot_panel import (
     escape_tab_text)
 from view.search_box_alignment import SearchBoxAligner
 from view.signal_list_panel import SignalListPanel
-from view.toggle_button import ToggleButton
-from view.window_buttons import DOCK_TIP_STR, build_window_icon_button
+from view.window_buttons import (
+    DOCK_TIP_STR, WINDOW_BUTTON_ICON_SIZE_I, build_window_icon_button)
 
 # LLFR-01011: the texts of the signal list button tip.
 HIDE_SIGNAL_LIST_TIP_STR = "Hide signal list"
@@ -48,6 +64,58 @@ SHOW_SIGNAL_LIST_TIP_STR = "Show signal list"
 WINDOW_TAB_ROW_OBJECT_NAME_STR = "window_tab_row"
 DOCK_BUTTON_OBJECT_NAME_STR = "dock_button"
 SIGNAL_LIST_BUTTON_OBJECT_NAME_STR = "signal_list_button"
+WINDOW_PLOT_COLUMN_OBJECT_NAME_STR = "window_plot_column"
+# LLFR-01100: the tab row, and so the "Signals" title row level with it,
+# is at least as high as the signal list button plus the space between
+# the title row and the list.
+TAB_ROW_MINIMUM_HEIGHT_I = (theme.SIDEBAR_BUTTON_SIZE_I
+                            + theme.SIGNAL_PANEL_SPACING_I)
+
+
+def signal_list_button_style_sheet() -> str:
+    """Return the style sheet of the signal list button.
+
+    Inputs: none.
+    Outputs: a style sheet that draws the button as a circle with no
+        border: transparent in its normal state, a paler circle on
+        hover and a pale circle while active (LLFR-01014).
+    """
+    # LLFR-01014: the round, pale highlight of Firefox's sidebar button.
+    radius_i = theme.SIDEBAR_BUTTON_SIZE_I // 2
+    selector_str = f"QToolButton#{SIGNAL_LIST_BUTTON_OBJECT_NAME_STR}"
+    return (f"{selector_str} {{ border: none; padding: 0px; "
+            f"border-radius: {radius_i}px; "
+            f"background-color: transparent; }}\n"
+            f"{selector_str}:hover {{ background-color: "
+            f"{theme.SIDEBAR_BUTTON_HOVER_COLOR_STR}; }}\n"
+            f"{selector_str}:checked {{ background-color: "
+            f"{theme.SIDEBAR_BUTTON_ACTIVE_COLOR_STR}; }}\n")
+
+
+def build_signal_list_button(parent=None):
+    """Return the signal list button of an undocked window.
+
+    Inputs:
+        parent: the parent widget, the window.
+    Outputs: a round, checkable QToolButton with the signal list icon,
+        whose icon stays dark while checked.
+    """
+    # LLFR-01009, LLFR-01010: the button and its picture; LLFR-01014:
+    # checked (active) while the panel is shown, with a pale highlight,
+    # so the icon keeps its normal dark color.
+    button = QToolButton(parent)
+    button.setObjectName(SIGNAL_LIST_BUTTON_OBJECT_NAME_STR)
+    button.setCheckable(True)
+    button.setIcon(icons.icon_for(icon_shapes.SIGNAL_LIST_ICON_STR,
+                                  active_color_str=theme.ICON_COLOR_STR))
+    button.setIconSize(QSize(WINDOW_BUTTON_ICON_SIZE_I,
+                             WINDOW_BUTTON_ICON_SIZE_I))
+    button.setFixedSize(theme.SIDEBAR_BUTTON_SIZE_I,
+                        theme.SIDEBAR_BUTTON_SIZE_I)
+    button.setStyleSheet(signal_list_button_style_sheet())
+    # LLFR-00137: a click does not take the focus from the plots.
+    button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+    return button
 
 
 class WindowPaneWidget(PlotTabWidget):
@@ -100,9 +168,14 @@ class UndockedWindow(QWidget):
     Attributes:
         tab_id_i: id of its tab.
         tab_bar: the QTabBar with the one tab button (LLFR-01028).
-        signal_list_button: the ToggleButton that hides and shows the
-            signal list panel (LLFR-01009), active while it is shown.
+        signal_list_button: the round QToolButton that hides and shows
+            the signal list panel (LLFR-01009), checked while it is
+            shown; a child of the window outside every layout.
         dock_button: the dock button (LLFR-00990).
+        tab_row: the row of the tab button and the dock button.
+        button_space: the room kept at the right end of the tab row for
+            the signal list button while the panel is hidden.
+        plot_column: the plot panel: the tab row above the well.
         pane_widget: the WindowPaneWidget that holds the tab page.
         signal_list_panel: the window's own SignalListPanel (LLFR-01000).
         splitter: the PanelSplitter between the well and the panel.
@@ -115,6 +188,13 @@ class UndockedWindow(QWidget):
             closes the window (LLFR-01038).
         dock_handler, panel_toggle_handler: functions taking the tab
             id, for the dock and signal list buttons.
+        dock_drop_handler: function taking the tab id and the x and y of
+            the screen point where the tab button was dropped after a
+            drag (LLFR-01108).
+        drag_start_point: the screen QPoint of a left press on the tab
+            button, or None.
+        tab_button_drag_b: True once the pointer moved far enough with
+            the button held for the press to be a drag.
         panel_width_handler: function taking the tab id and the panel
             widths at the press and the release of a border drag.
     """
@@ -138,6 +218,11 @@ class UndockedWindow(QWidget):
         self.dock_handler = None
         self.panel_toggle_handler = None
         self.panel_width_handler = None
+        # LLFR-01108: a drag of the tab button, dropped on the main
+        # window's tab row, docks the tab there.
+        self.dock_drop_handler = None
+        self.drag_start_point = None
+        self.tab_button_drag_b = False
         # LLFR-01016: the width of the main window's panel, for a panel
         # shown with no width of its own.
         self.main_panel_width_function = None
@@ -162,38 +247,54 @@ class UndockedWindow(QWidget):
         self.tab_bar.customContextMenuRequested.connect(self.show_tab_menu)
         # LLFR-01030: a left double-click renames, as in LLFR-00421.
         self.tab_bar.installEventFilter(self)
-        # LLFR-01009, LLFR-01010, LLFR-01014: the signal list button,
-        # active while the panel is shown.
-        self.signal_list_button = ToggleButton(
-            SHOW_SIGNAL_LIST_TIP_STR, None, icon_shapes.SIGNAL_LIST_ICON_STR)
-        self.signal_list_button.setObjectName(
-            SIGNAL_LIST_BUTTON_OBJECT_NAME_STR)
-        self.signal_list_button.clicked.connect(self.request_panel_toggle)
         # LLFR-00990, LLFR-00991, LLFR-00992: the dock button.
         self.dock_button = build_window_icon_button(
             icon_shapes.DOCK_ICON_STR, DOCK_TIP_STR,
             DOCK_BUTTON_OBJECT_NAME_STR)
-        self.dock_button.setFixedSize(theme.ICON_BUTTON_SIZE_I,
-                                      theme.ICON_BUTTON_SIZE_I)
+        self.dock_button.setFixedSize(theme.SIDEBAR_BUTTON_SIZE_I,
+                                      theme.SIDEBAR_BUTTON_SIZE_I)
         self.dock_button.clicked.connect(self.request_dock)
-        tab_row = QWidget()
-        tab_row.setObjectName(WINDOW_TAB_ROW_OBJECT_NAME_STR)
-        row_layout = QHBoxLayout(tab_row)
+        self.tab_row = QWidget()
+        self.tab_row.setObjectName(WINDOW_TAB_ROW_OBJECT_NAME_STR)
+        # LLFR-01100: high enough for the title row level with it.
+        self.tab_row.setMinimumHeight(TAB_ROW_MINIMUM_HEIGHT_I)
+        row_layout = QHBoxLayout(self.tab_row)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(theme.TAB_SPACING_I)
         # LLFR-01028: the tab button at the left end, from the left edge.
         row_layout.addWidget(self.tab_bar, 0,
                              Qt.AlignmentFlag.AlignBottom)
         row_layout.addStretch(1)
-        # LLFR-01009, LLFR-00990: the signal list button directly left
-        # of the dock button, at the right end of the row.
-        row_layout.addWidget(self.signal_list_button)
-        row_layout.addWidget(self.dock_button)
-        # LLFR-01035: the plot panel and the signal list panel below.
+        # LLFR-00990, LLFR-00997: the dock button at the right end, then,
+        # while the panel is hidden, the room of the signal list button.
+        row_layout.addWidget(self.dock_button, 0,
+                             Qt.AlignmentFlag.AlignVCenter)
+        self.button_space = QWidget()
+        self.button_space.setFixedSize(theme.SIDEBAR_BUTTON_SIZE_I, 1)
+        row_layout.addWidget(self.button_space)
+        # LLFR-01035: the plot panel, the tab row above the well.
         self.pane_widget = WindowPaneWidget()
+        self.plot_column = QWidget()
+        self.plot_column.setObjectName(WINDOW_PLOT_COLUMN_OBJECT_NAME_STR)
+        column_layout = QVBoxLayout(self.plot_column)
+        column_layout.setContentsMargins(0, 0, 0, 0)
+        # LLFR-01028, LLFR-00893: the tab button joins the well below.
+        column_layout.setSpacing(0)
+        column_layout.addWidget(self.tab_row)
+        column_layout.addWidget(self.pane_widget, 1)
         self.signal_list_panel = SignalListPanel()
+        # LLFR-01098, LLFR-01100: the word "Signals" is centred on the
+        # height of the tab row, where the signal list button is: the
+        # title row is the tab row less the space above the list, so the
+        # text is pushed down by that space; on the right it leaves room
+        # for the button.
+        self.signal_list_panel.title_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.signal_list_panel.title_label.setContentsMargins(
+            0, theme.SIGNAL_PANEL_SPACING_I,
+            theme.SIDEBAR_BUTTON_SIZE_I + theme.TAB_SPACING_I, 0)
         self.splitter = PanelSplitter()
-        self.splitter.addWidget(self.pane_widget)
+        self.splitter.addWidget(self.plot_column)
         self.splitter.addWidget(self.signal_list_panel)
         # LLFR-01021: a window resize gives the room to the plots, so
         # the panel keeps the width the user chose.
@@ -209,10 +310,16 @@ class UndockedWindow(QWidget):
         window_layout.setContentsMargins(
             theme.WINDOW_MARGIN_I, theme.WINDOW_TOP_MARGIN_I,
             theme.WINDOW_MARGIN_I, theme.WINDOW_MARGIN_I)
-        # LLFR-01028, LLFR-00893: the tab button joins the well below.
         window_layout.setSpacing(0)
-        window_layout.addWidget(tab_row)
+        # LLFR-01035: the title row of the panel starts at the top of
+        # the tab row, both at the top of the splitter.
         window_layout.addWidget(self.splitter, 1)
+        # LLFR-01009, LLFR-01010, LLFR-01014: the signal list button,
+        # checked while the panel is shown; LLFR-01099: placed by the
+        # window at its top-right corner, outside every layout.
+        self.signal_list_button = build_signal_list_button(self)
+        self.signal_list_button.clicked.connect(self.request_panel_toggle)
+        self.tab_row.installEventFilter(self)
         # LLFR-00424, LLFR-00652, LLFR-00894: the search box and the list
         # level with the plots of this window's tab.
         self.search_box_aligner = SearchBoxAligner(
@@ -221,6 +328,7 @@ class UndockedWindow(QWidget):
         # LLFR-01015: the panel starts hidden.
         self.signal_list_panel.hide()
         self.update_signal_list_button()
+        self.place_signal_list_button()
         self.set_tab_name(name_str)
         # LLFR-01038: the system's close shortcut (Cmd+W on macOS, Ctrl+W
         # or Ctrl+F4 on Windows; Alt+F4 is the system's own close).
@@ -303,7 +411,7 @@ class UndockedWindow(QWidget):
             self.tab_id_i, self.tab_bar.mapToGlobal(position), True)
 
     def eventFilter(self, watched, event) -> bool:
-        """Rename the tab on a left double-click on its button.
+        """Follow the tab button and the tab row.
 
         Inputs:
             watched: the object that received the event.
@@ -318,7 +426,106 @@ class UndockedWindow(QWidget):
                 and self.tab_bar.tabAt(event.position().toPoint()) >= 0):
             QTimer.singleShot(0, lambda: self.plot_panel.request_rename_tab(
                 self.tab_id_i))
+        # LLFR-01108, LLFR-01032: a drag of the tab button.
+        if watched is self.tab_bar:
+            self.follow_tab_button_drag(event)
+        # LLFR-01099: the button stays centred on the tab row.
+        if (watched is getattr(self, "tab_row", None)
+                and event.type() == QEvent.Type.Resize):
+            self.place_signal_list_button()
         return super().eventFilter(watched, event)
+
+    def follow_tab_button_drag(self, event) -> None:
+        """Keep track of a drag of the tab button, press to release.
+
+        Inputs:
+            event: an event of the tab bar.
+        Outputs: none. A drag released anywhere is passed to the
+            dock_drop_handler once control is back in Qt, which docks
+            the tab only for a drop on the main window's tab row
+            (LLFR-01108); a click is no drag.
+        """
+        event_type = event.type()
+        if (event_type == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton):
+            # LLFR-01108: a press on the tab button may start a drag.
+            self.drag_start_point = event.globalPosition().toPoint()
+            self.tab_button_drag_b = False
+        elif (event_type == QEvent.Type.MouseMove
+              and self.drag_start_point is not None
+              and event.buttons() & Qt.MouseButton.LeftButton):
+            moved_i = (event.globalPosition().toPoint()
+                       - self.drag_start_point).manhattanLength()
+            if (not self.tab_button_drag_b
+                    and moved_i >= QApplication.startDragDistance()):
+                # LLFR-01108: the press is a drag; the pointer shows it.
+                self.tab_button_drag_b = True
+                self.tab_bar.setCursor(Qt.CursorShape.ClosedHandCursor)
+        elif (event_type == QEvent.Type.MouseButtonRelease
+              and event.button() == Qt.MouseButton.LeftButton
+              and self.drag_start_point is not None):
+            dragged_b = self.tab_button_drag_b
+            self.drag_start_point = None
+            self.tab_button_drag_b = False
+            self.tab_bar.unsetCursor()
+            if dragged_b and self.dock_drop_handler is not None:
+                # LLFR-01108: decided once control is back in Qt, so the
+                # window is not closed inside its own mouse event.
+                drop_point = event.globalPosition().toPoint()
+                QTimer.singleShot(0, partial(
+                    self.dock_drop_handler, self.tab_id_i, drop_point.x(),
+                    drop_point.y()))
+
+    def signal_list_button_point(self):
+        """Return where the signal list button goes in the window.
+
+        Inputs: none.
+        Outputs: the QPoint of its top-left corner: at the window's
+            right margin, centred on the height of the tab row. It does
+            not depend on whether the panel is shown (LLFR-01099).
+        """
+        # LLFR-01009, LLFR-01099: the top-right corner of the window;
+        # LLFR-01098: the right end of the title row, level with it.
+        margins = self.layout().contentsMargins()
+        size_i = theme.SIDEBAR_BUTTON_SIZE_I
+        row_height_i = max(self.tab_row.height(),
+                           self.tab_row.minimumHeight())
+        return QPoint(self.width() - margins.right() - size_i,
+                      margins.top() + (row_height_i - size_i) // 2)
+
+    def place_signal_list_button(self) -> None:
+        """Move the signal list button to its place, above the panels.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01099: the same place whether the panel is shown or not.
+        if getattr(self, "signal_list_button", None) is None:
+            return
+        self.signal_list_button.move(self.signal_list_button_point())
+        self.signal_list_button.raise_()
+
+    def resizeEvent(self, event) -> None:
+        """Keep the signal list button at the window's top-right corner.
+
+        Inputs:
+            event: the QResizeEvent.
+        Outputs: none.
+        """
+        # LLFR-01009, LLFR-01099.
+        super().resizeEvent(event)
+        self.place_signal_list_button()
+
+    def showEvent(self, event) -> None:
+        """Place the signal list button once the window is laid out.
+
+        Inputs:
+            event: the QShowEvent.
+        Outputs: none.
+        """
+        # LLFR-01009, LLFR-01099.
+        super().showEvent(event)
+        self.place_signal_list_button()
 
     # ----------------------------------------------------------------
     # Buttons
@@ -355,6 +562,11 @@ class UndockedWindow(QWidget):
         shown_b = self.is_panel_shown()
         # LLFR-01014: active while the panel is shown.
         self.signal_list_button.setChecked(shown_b)
+        # LLFR-00997: while the panel is hidden, the tab row keeps room
+        # for the button right of the dock button; while it is shown,
+        # the button is in the panel's title row (LLFR-01098).
+        self.button_space.setVisible(not shown_b)
+        self.place_signal_list_button()
         # LLFR-01011: "Hide signal list" or "Show signal list".
         tip_str = (HIDE_SIGNAL_LIST_TIP_STR if shown_b
                    else SHOW_SIGNAL_LIST_TIP_STR)
@@ -407,7 +619,7 @@ class UndockedWindow(QWidget):
             self.update_signal_list_button()
             return
         if width_i < 1:
-            # LLFR-01016: the main panel's width, at most half the window.
+            # LLFR-01016: a quarter of the window's width.
             main_width_i = (self.main_panel_width_function()
                             if self.main_panel_width_function is not None
                             else 0)

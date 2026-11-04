@@ -1919,7 +1919,7 @@ class PlotController:
         # LLFR-00167: a first point in a deleted plot is discarded.
         self.discard_pending_delta_if_gone()
         # LLFR-00028: remove the tab and its plots from the view;
-        # LLFR-01033: an undocked tab's window closes with it.
+        # LLFR-01033, LLFR-01110: an undocked tab's window closes with it.
         self.view.remove_tab_view(tab_id_i)
         self.view.set_undocked_tabs(self.undocked_tab_id_list())
         # LLFR-00180: its plots may have been the last ones.

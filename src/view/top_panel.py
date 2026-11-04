@@ -110,6 +110,12 @@ BUTTON_ICON_DICT = {
 # QShortcut from this constant, so the shortcut and its tip text change
 # together (LLFR-00215 Note).
 REDO_SHORTCUT_STR = "Ctrl+Y"
+# LLFR-01101, LLFR-01104, LLFR-01105: the Copy, PDF and search
+# shortcuts, Ctrl on Windows and Cmd on macOS, kept here with the button
+# tip texts so that a shortcut and its tip change together (LLFR-00215).
+COPY_SHORTCUT_STR = "Ctrl+C"
+PDF_SHORTCUT_STR = "Ctrl+P"
+SEARCH_SHORTCUT_STR = "Ctrl+F"
 # LLFR-00137: the Undo shortcut is Qt's standard Undo key (Ctrl+Z, or
 # Cmd+Z on macOS); MainWindow builds its QShortcut from it.
 UNDO_STANDARD_KEY = QKeySequence.StandardKey.Undo
@@ -139,12 +145,15 @@ PAN_MOUSE_LINE_TUPLE = ("Drag on a plot to pan",)
 # LLFR-00213 to LLFR-00215: the shortcut or mouse use of each button,
 # next to the keys the app really uses (view.tip_key_filter and the
 # shortcuts above), as (kind, value). A button that is not listed (Open
-# file, Grid, Export, Copy, Save signals, Save layout, Load layout,
-# Report a bug)
-# shows only its name.
+# file, Grid, Save signals, Save layout, Load layout, Report a bug)
+# shows only its name (LLFR-00465).
 BUTTON_TIP_SHORTCUT_DICT = {
     UNDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, UNDO_STANDARD_KEY),
     REDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, REDO_SHORTCUT_STR),
+    # LLFR-00215, LLFR-01101: "Cmd+C" or "Ctrl+C"; LLFR-01104: the
+    # Export button's "Save all tabs as PDF" has "Cmd+P" or "Ctrl+P".
+    COPY_TEXT_STR: (SHORTCUT_SEQUENCE_STR, COPY_SHORTCUT_STR),
+    EXPORT_TEXT_STR: (SHORTCUT_SEQUENCE_STR, PDF_SHORTCUT_STR),
     TIP_TEXT_STR: (SHORTCUT_HOLD_STR, TIP_KEY_I),
     MARKER_TEXT_STR: (SHORTCUT_HOLD_STR, MARKER_KEY_I),
     DELTA_X_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_X_KEY_I),

@@ -264,7 +264,7 @@ class UndockUndoTest(UndockControllerTestCase):
                          [(40, 50, 800, 400), True, 225])
 
     @covers("LLFR-01038", "LLFR-01039", "LLFR-01033", "LLFR-01034",
-            "HLFR-00138", "HLFR-00016")
+            "LLFR-01110", "HLFR-00138", "HLFR-00016")
     def test_window_close_deletes_the_tab_and_undo_brings_it(self) -> None:
         """Closing a window deletes its tab, with its window, undoably.
 
@@ -285,9 +285,13 @@ class UndockUndoTest(UndockControllerTestCase):
         self.assertEqual(len(tab.plot_list), 1)
         self.assertEqual(self.view.window_dict[second_id_i][0],
                          (11, 22, 640, 480))
-        # Delete of the tab menu works on an undocked tab too.
+        # Delete of the tab menu works on an undocked tab too, and closes
+        # its window as part of the same undoable action.
         self.view.handler_dict["delete_tab"](second_id_i)
         self.assertIsNone(self.workspace.find_tab(second_id_i))
+        self.assertEqual(self.view.window_dict, {})
+        self.undo()
+        self.assertIn(second_id_i, self.view.window_dict)
 
     @covers("LLFR-01022", "LLFR-01023", "HLFR-00132")
     def test_one_history_for_every_window(self) -> None:
