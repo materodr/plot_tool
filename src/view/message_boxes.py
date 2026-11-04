@@ -47,14 +47,11 @@ FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
 FULL_TAB_TITLE_STR = "Full Tab"
 # LLFR-00032: a full tab whose plot matrix can still grow.
 FULL_TAB_MESSAGE_STR = (
-    "This tab is full: its {rows} \u00d7 {columns} plot matrix holds "
-    "{slots} plots, so no new plot was created. Use a new tab, or choose "
-    "a larger plot matrix for this tab with \"Plot matrix\" in the menu "
-    "of the tab.")
+    "This tab is full ({rows} \u00d7 {columns} matrix). Use a new tab, "
+    "or a larger matrix from the tab's menu.")
 # LLFR-01092: a full tab whose plot matrix is already 10 x 10.
 FULL_LARGEST_MATRIX_MESSAGE_STR = (
-    "This tab is full: its 10 \u00d7 10 plot matrix holds 100 plots, so "
-    "no new plot was created. Use a new tab.")
+    "This tab is full (10 \u00d7 10 matrix). Use a new tab.")
 
 # LLFR-00211: the information box of a rename to another tab's name.
 TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
@@ -171,9 +168,8 @@ def full_tab_message_str(row_count_i: int = 5,
             and column_count_i >= MAXIMUM_MATRIX_SIZE_I):
         return FULL_LARGEST_MATRIX_MESSAGE_STR
     # LLFR-00032: use a new tab or choose a larger plot matrix.
-    return FULL_TAB_MESSAGE_STR.format(
-        rows=int(row_count_i), columns=int(column_count_i),
-        slots=int(row_count_i) * int(column_count_i))
+    return FULL_TAB_MESSAGE_STR.format(rows=int(row_count_i),
+                                       columns=int(column_count_i))
 
 
 def build_full_tab_box(parent, row_count_i: int = 5,
