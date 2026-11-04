@@ -17,7 +17,10 @@ tab bar moves the tab with the pointer, the others making room, and
 keeps it in the row when the pointer leaves it (LLFR-01053). When the
 left button is released, the tab's new place goes to the controller,
 which keeps it as one undoable action (LLFR-01052, LLFR-01054); a tab
-released at its starting place reports nothing (LLFR-01055).
+released at its starting place reports nothing (LLFR-01055). A tab
+released outside the main window goes back to its starting place and
+is undocked at the drop point instead, like a browser tab (LLFR-01107),
+unless it is the last docked tab (LLFR-01109).
 
 It offers a plain-Python facade (ids of the model, names, bools; no Qt
 types), used through MainWindow by the plot controller (COR-00009).
@@ -26,7 +29,7 @@ Tabs and plots are always found by id, never by index.
 
 from functools import partial
 
-from PyQt6.QtCore import QEvent, QPoint, QTimer, Qt
+from PyQt6.QtCore import QEvent, QPoint, QRect, QTimer, Qt
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
     QApplication, QInputDialog, QLineEdit, QMenu, QStyle,
@@ -432,6 +435,9 @@ class PlotPanel(QWidget):
         # function called with the tab id when one is clicked.
         self.undock_button_dict = {}
         self.undock_handler = None
+        # LLFR-01107: the function called with the tab id and the x and
+        # y of the drop point when a tab is dropped outside the window.
+        self.undock_drop_handler = None
         # LLFR-00983: whether the undock buttons are enabled.
         self.undock_enabled_b = False
         self.plot_handler_dict = {}
@@ -499,32 +505,103 @@ class PlotPanel(QWidget):
         elif (event_type == QEvent.Type.MouseButtonRelease
               and event.button() == Qt.MouseButton.LeftButton
               and self.pressed_tab_id_i != NO_TAB_ID_I):
+            # LLFR-01107: where a dragged tab was dropped, in desktop
+            # pixels; a click is no drop.
+            release_tuple = ()
+            if self.tab_drag_in_progress_b:
+                release_point = event.globalPosition().toPoint()
+                release_tuple = (release_point.x(), release_point.y())
             # LLFR-01052: the place is read once Qt has handled the
             # release.
             QTimer.singleShot(0, partial(
                 self.finish_tab_drag, self.pressed_tab_id_i,
-                self.pressed_tab_index_i))
+                self.pressed_tab_index_i, release_tuple))
             self.pressed_tab_id_i = NO_TAB_ID_I
             self.tab_drag_in_progress_b = False
 
-    def finish_tab_drag(self, tab_id_i: int, start_index_i: int) -> None:
+    def finish_tab_drag(self, tab_id_i: int, start_index_i: int,
+                        release_tuple: tuple = ()) -> None:
         """Report where a dragged tab was left.
 
         Inputs:
             tab_id_i: id of the dragged tab.
             start_index_i: its place when the button was pressed.
+            release_tuple: (x, y) of the release in desktop pixels, or
+                () for a release that ends no drag.
         Outputs: none. Nothing is reported when the tab is back at its
-            starting place (LLFR-01055) or is gone.
+            starting place (LLFR-01055) or is gone. A tab dropped
+            outside the main window is undocked there (LLFR-01107).
         """
         # LLFR-01052, LLFR-01054: a tab left at another place.
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return
         index_i = self.tab_widget.indexOf(page)
+        if (len(release_tuple) == 2 and self.undock_enabled_b
+                and self.undock_drop_handler is not None
+                and not self.is_point_in_main_window(*release_tuple)):
+            # LLFR-01107: the tab leaves from its place in the tab order,
+            # so the move Qt made during the drag is taken back first;
+            # LLFR-01109: the last docked tab (undock disabled) is kept.
+            if index_i >= 0 and index_i != start_index_i:
+                self.tab_widget.tabBar().moveTab(index_i, start_index_i)
+            self.undock_drop_handler(tab_id_i, *release_tuple)
+            return
         if index_i < 0 or index_i == start_index_i:
             return
         if self.move_tab_handler is not None:
             self.move_tab_handler(tab_id_i, index_i)
+
+    def is_point_in_main_window(self, x_i: int, y_i: int) -> bool:
+        """Tell whether a desktop point is on the main window.
+
+        Inputs:
+            x_i, y_i: the point, in desktop pixels.
+        Outputs: True when the point is inside the frame of the window
+            that holds this panel.
+        """
+        # LLFR-01107: a drop outside the main window undocks the tab;
+        # LLFR-01053: a drop inside it, off the tab row, does not.
+        return self.window().frameGeometry().contains(QPoint(int(x_i),
+                                                             int(y_i)))
+
+    def tab_row_rect(self):
+        """Return the tab row of the main window on the desktop.
+
+        Inputs: none.
+        Outputs: a QRect in desktop pixels, across the whole width of the
+            tab widget, from its top to the bottom of the tab bar.
+        """
+        # LLFR-01108: the row of the docked tabs and the "+" button.
+        tab_widget = self.tab_widget
+        tab_bar = tab_widget.tabBar()
+        top_left = tab_widget.mapToGlobal(QPoint(0, 0))
+        bottom_i = tab_bar.mapToGlobal(QPoint(0, tab_bar.height())).y()
+        return QRect(top_left.x(), top_left.y(), tab_widget.width(),
+                     max(bottom_i - top_left.y(), 1))
+
+    def docked_drop_index(self, x_i: int, y_i: int) -> int:
+        """Return where a tab dropped at a desktop point is docked.
+
+        Inputs:
+            x_i, y_i: the point of the drop, in desktop pixels.
+        Outputs: the place among the docked tabs, from 0: before the
+            first docked tab whose middle is right of the point, or
+            after the last one; -1 when the point is not on the tab row
+            of the main window, which is then not shown.
+        """
+        # LLFR-01108, LLFR-01032: only a drop on the main tab row.
+        if not self.window().isVisible() or self.window().isMinimized():
+            return -1
+        if not self.tab_row_rect().contains(QPoint(int(x_i), int(y_i))):
+            return -1
+        tab_bar = self.tab_widget.tabBar()
+        for index_i in range(tab_bar.count()):
+            middle_x_i = tab_bar.mapToGlobal(
+                tab_bar.tabRect(index_i).center()).x()
+            if int(x_i) < middle_x_i:
+                return index_i
+        return tab_bar.count()
 
     def is_tab_drag_in_progress(self) -> bool:
         """Tell whether the user is dragging a tab.
@@ -1337,6 +1414,39 @@ class PlotPanel(QWidget):
         for plot_widget in self.plot_widget_dict.values():
             plot_widget.set_areas(area_data_list)
 
+    def shown_page_list(self) -> list:
+        """Return the tab pages shown on the screen.
+
+        Inputs: none.
+        Outputs: the tab page shown in the main window, then the tab
+            page of every undocked window (the pages that are not in the
+            main window's tab row).
+        """
+        # LLFR-00665, LLFR-00709: the tabs that are shown.
+        page_list = []
+        current_page = self.tab_widget.currentWidget()
+        if isinstance(current_page, TabPage):
+            page_list.append(current_page)
+        page_list.extend(page for page in self.page_dict.values()
+                         if self.tab_widget.indexOf(page) < 0)
+        return page_list
+
+    def shown_plot_widget_list(self, plot_id_i: int) -> list:
+        """Return the plot widgets of the shown tabs, but one.
+
+        Inputs:
+            plot_id_i: id of the plot to leave out.
+        Outputs: a list of PlotWidget of shown_page_list, without the
+            plot itself (empty for an unknown plot).
+        """
+        # LLFR-00665, LLFR-00709: every window that is shown.
+        source_widget = self.plot_widget_dict.get(plot_id_i)
+        if source_widget is None:
+            return []
+        return [plot_widget for page in self.shown_page_list()
+                for plot_widget in page.plot_widget_list
+                if plot_widget is not source_widget]
+
     def relay_area_drag(self, plot_id_i: int, area_id_i: int,
                         start_s: float, end_s: float) -> None:
         """Show an area dragged on one plot at its span on the others.
@@ -1348,10 +1458,12 @@ class PlotPanel(QWidget):
             end_s: the end it is shown at, in seconds.
         Outputs: none.
         """
-        # LLFR-00310: while dragged, the area follows the pointer on every
-        # time plot of the current tab; the plots of the other tabs get
-        # the new span when the button is released (controller).
-        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+        # LLFR-00310, LLFR-00709: while dragged, the area follows the
+        # pointer on every time plot of every shown tab, in the main
+        # window and in every undocked window; LLFR-00710: the plots of
+        # the other tabs get the new span when the button is released
+        # (controller).
+        for plot_widget in self.shown_plot_widget_list(plot_id_i):
             plot_widget.follow_area_drag(area_id_i, start_s, end_s)
 
     def relay_marker_drag(self, plot_id_i: int, marker_id_i: int,
@@ -1364,10 +1476,12 @@ class PlotPanel(QWidget):
             time_s: the time it is shown at, in seconds.
         Outputs: none.
         """
-        # LLFR-00205: while dragged, the marker follows the pointer on
-        # every plot of the current tab; the plots of the other tabs get
-        # the new time when the button is released (controller).
-        for plot_widget in self.sibling_plot_widget_list(plot_id_i):
+        # LLFR-00205, LLFR-00665: while dragged, the marker follows the
+        # pointer on every plot of every shown tab, in the main window
+        # and in every undocked window; LLFR-00666: the plots of the
+        # other tabs get the new time when the button is released
+        # (controller).
+        for plot_widget in self.shown_plot_widget_list(plot_id_i):
             plot_widget.follow_marker_drag(marker_id_i, time_s)
 
     def relay_marker_preview(self, plot_id_i: int, time_s: float) -> None:

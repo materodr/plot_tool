@@ -15,6 +15,10 @@ method calls (no Qt code), so it can be tested with a fake view
 - ``copy_current_tab_image(description_str)``: a tuple (copied_b,
   reason_str); the image has a strip with description_str above the
   plots (LLFR-00972);
+- ``window_tab_plot_count(tab_id_i)``, ``copy_window_tab_image(
+  description_str, tab_id_i)`` and ``show_nothing_to_copy_in(tab_id_i)``:
+  the same for the tab shown in a window, -1 for the main window
+  (LLFR-01101, LLFR-01103);
 - ``show_nothing_to_export()``, ``show_nothing_to_copy()``;
 - ``show_export_error(reason_str)``, ``show_copy_error(reason_str)``;
 - ``finish_export_button()``, ``finish_copy_button()``.
@@ -104,6 +108,26 @@ class ExportController:
         finally:
             # LLFR-00003: the copy has finished, whatever happened.
             self.view.finish_copy_button()
+
+    def on_copy_shortcut(self, window_tab_id_i: int) -> None:
+        """Copy the plots of the tab shown in the window of Ctrl+C.
+
+        Inputs:
+            window_tab_id_i: the tab of the undocked window where Ctrl+C
+                (Cmd+C) was pressed, or -1 for the main window.
+        Outputs: none. The Copy button is not involved.
+        """
+        # LLFR-01103: with no plot in that tab, the box over its window.
+        if self.view.window_tab_plot_count(window_tab_id_i) <= 0:
+            self.view.show_nothing_to_copy_in(window_tab_id_i)
+            return
+        # LLFR-01101: the image of the tab shown in that window, as the
+        # Copy button does for the main window (LLFR-00133, LLFR-00972).
+        copied_b, reason_str = self.view.copy_window_tab_image(
+            self.files_description(), window_tab_id_i)
+        if not copied_b:
+            # LLFR-00133: a failed copy is reported (HLFR-00002).
+            self.view.show_copy_error(reason_str)
 
     def _export_pdf(self) -> None:
         """Run the steps of the PDF export.

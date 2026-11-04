@@ -38,8 +38,10 @@ EXPECTED_TIP_DICT = {
                      "Wheel or two-finger swipe to zoom in or out"]),
     "open_file_button": ("Open file", [], []),
     "grid_button": ("Grid", [], []),
-    "export_button": ("Export", [], []),
-    "copy_button": ("Copy", [], []),
+    # LLFR-00215, LLFR-01104: the PDF shortcut of the Export menu.
+    "export_button": ("Export", ["Cmd+P"], ["Ctrl+P"]),
+    # LLFR-00215, LLFR-01101: the Copy shortcut.
+    "copy_button": ("Copy", ["Cmd+C"], ["Ctrl+C"]),
     # LLFR-00356, LLFR-00214: the Pan tool is used with the mouse.
     "pan_button": ("Pan", ["Drag on a plot to pan"],
                    ["Drag on a plot to pan"]),
@@ -50,7 +52,6 @@ EXPECTED_TIP_DICT = {
 }
 # LLFR-00215: the buttons whose tip shows only the name.
 NAME_ONLY_ATTRIBUTE_TUPLE = ("open_file_button", "grid_button",
-                             "export_button", "copy_button",
                              "report_bug_button", "save_signals_button")
 # LLFR-00213: minimum WCAG contrast of the paler line on the tip
 # background, so that it stays readable.
@@ -142,8 +143,8 @@ class ButtonTipTest(unittest.TestCase):
         return color_list
 
     @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181",
-            "LLFR-00463", "LLFR-00464", "LLFR-00465", "HLFR-00042",
-            "HLFR-00143", "HLFR-00144")
+            "LLFR-00463", "LLFR-00464", "LLFR-00465", "LLFR-01101",
+            "LLFR-01104", "HLFR-00042", "HLFR-00143", "HLFR-00144")
     def test_tip_texts_on_macos_and_windows(self) -> None:
         """Each button tip has the lines of the table, on both systems.
 
@@ -161,7 +162,8 @@ class ButtonTipTest(unittest.TestCase):
 
     @covers("LLFR-00215", "LLFR-00181", "LLFR-00465")
     def test_name_only_buttons(self) -> None:
-        """Open file, Grid, Export and Copy show only their plain name.
+        """Open file, Grid, Report a bug and Save signals show only their
+        plain name.
 
         Inputs: none.
         Outputs: none.

@@ -1,6 +1,7 @@
 """Main window of plot_tool, holding the three panels (HLFR-00001)."""
 
 import sys
+from functools import partial
 
 from PyQt6.QtCore import QEvent, QEventLoop, QObject, QPoint, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
@@ -222,6 +223,10 @@ class MainWindow(QMainWindow):
         self.plot_panel.undock_handler = (
             lambda tab_id_i: self._run_window_handler("undock_handler",
                                                       tab_id_i))
+        # LLFR-01107: a tab dropped outside the main window.
+        self.plot_panel.undock_drop_handler = (
+            lambda tab_id_i, x_i, y_i: self._run_window_handler(
+                "undock_drop_handler", tab_id_i, x_i, y_i))
         # LLFR-01020: a drag of the main window's panel border.
         self.lower_splitter.drag_finished_handler = (
             lambda start_i, end_i: self._run_window_handler(
@@ -337,17 +342,22 @@ class MainWindow(QMainWindow):
         self.undo_handler = None
         self.top_panel.undo_button.triggered.connect(
             self._on_undo_triggered)
-        self.undo_shortcut = QShortcut(top_panel.UNDO_STANDARD_KEY, self)
-        self.undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
-        self.undo_shortcut.activated.connect(self._on_undo_shortcut)
         # LLFR-00190, LLFR-00192: the Redo button goes to the plot
         # controller; LLFR-00191: so does Ctrl+Y (Cmd+Y on macOS).
         self.redo_handler = None
         self.top_panel.redo_button.triggered.connect(
             self._on_redo_triggered)
-        self.redo_shortcut = QShortcut(QKeySequence(REDO_SHORTCUT_STR), self)
-        self.redo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
-        self.redo_shortcut.activated.connect(self._on_redo_shortcut)
+        # LLFR-01101: the handler of Ctrl+C (Cmd+C), set by the export
+        # controller.
+        self.copy_shortcut_handler = None
+        # LLFR-00137, LLFR-00191, LLFR-01101, LLFR-01104, LLFR-01105: the
+        # shortcuts of this window (tab id -1 for the main window).
+        shortcut_dict = self.install_window_shortcuts(self, -1)
+        self.undo_shortcut = shortcut_dict["undo"]
+        self.redo_shortcut = shortcut_dict["redo"]
+        self.copy_shortcut = shortcut_dict["copy"]
+        self.pdf_shortcut = shortcut_dict["pdf"]
+        self.search_shortcut = shortcut_dict["search"]
         # LLFR-00216, LLFR-00217: the layout buttons go to the layout
         # controller.
         self.save_layout_handler = None
@@ -593,20 +603,85 @@ class MainWindow(QMainWindow):
             lambda window_tab_id_i, start_i, end_i: self._run_window_handler(
                 "panel_width_handler", window_tab_id_i, start_i, end_i))
         window.main_panel_width_function = self.main_panel_width
-        # LLFR-01036: the Undo and Redo shortcuts in the window too.
-        undo_shortcut = QShortcut(top_panel.UNDO_STANDARD_KEY, window)
-        undo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
-        undo_shortcut.activated.connect(self._on_undo_shortcut)
-        redo_shortcut = QShortcut(QKeySequence(REDO_SHORTCUT_STR), window)
-        redo_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
-        redo_shortcut.activated.connect(self._on_redo_shortcut)
-        window.undo_shortcut = undo_shortcut
-        window.redo_shortcut = redo_shortcut
+        # LLFR-01108: a drag of its tab button, dropped somewhere.
+        window.dock_drop_handler = self.request_dock_drop
+        # LLFR-01036: the Undo, Redo, Copy, PDF and search shortcuts in
+        # the window too.
+        shortcut_dict = self.install_window_shortcuts(window, tab_id_i)
+        window.undo_shortcut = shortcut_dict["undo"]
+        window.redo_shortcut = shortcut_dict["redo"]
+        window.copy_shortcut = shortcut_dict["copy"]
+        window.pdf_shortcut = shortcut_dict["pdf"]
+        window.search_shortcut = shortcut_dict["search"]
         # LLFR-01000, LLFR-01001, LLFR-01002: its own panel, the same
         # list, the same requests.
         self.connect_signal_list_panel(window.signal_list_panel, tab_id_i)
         self.fill_signal_list_panel(window.signal_list_panel)
         return window
+
+    def install_window_shortcuts(self, window, tab_id_i: int) -> dict:
+        """Give a window the keyboard shortcuts of the app.
+
+        Inputs:
+            window: the MainWindow or an UndockedWindow.
+            tab_id_i: the tab of the undocked window, -1 for the main
+                window.
+        Outputs: {"undo", "redo", "copy", "pdf", "search"} -> the
+            QShortcut, each acting while the window is active.
+        """
+        # LLFR-00137, LLFR-00191: Undo and Redo; LLFR-01101: Copy, of
+        # the tab shown in this window; LLFR-01104: Save all tabs as
+        # PDF; LLFR-01105: the search box of this window. LLFR-01036:
+        # the same in every window.
+        sequence_function_dict = {
+            "undo": (QKeySequence(top_panel.UNDO_STANDARD_KEY),
+                     self._on_undo_shortcut),
+            "redo": (QKeySequence(REDO_SHORTCUT_STR),
+                     self._on_redo_shortcut),
+            "copy": (QKeySequence(top_panel.COPY_SHORTCUT_STR),
+                     partial(self._on_copy_shortcut, tab_id_i)),
+            "pdf": (QKeySequence(top_panel.PDF_SHORTCUT_STR),
+                    self._on_pdf_shortcut),
+            "search": (QKeySequence(top_panel.SEARCH_SHORTCUT_STR),
+                       partial(self._on_search_shortcut, tab_id_i)),
+        }
+        shortcut_dict = {}
+        for key_str, (sequence, function) in sequence_function_dict.items():
+            shortcut = QShortcut(sequence, window)
+            shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+            shortcut.activated.connect(function)
+            shortcut_dict[key_str] = shortcut
+        return shortcut_dict
+
+    def dropped_window_tuple(self, x_i: int, y_i: int) -> tuple:
+        """Return the window that a drop outside the main window opens.
+
+        Inputs:
+            x_i, y_i: the point of the drop, in desktop pixels.
+        Outputs: (x, y, width, height): the drop point as the top-left
+            corner and the size of the plot panel; undock_tab_view keeps
+            it on a screen.
+        """
+        # LLFR-01107, LLFR-00981: at the pointer, the plot panel's size.
+        return (int(x_i), int(y_i), int(self.plot_panel.width()),
+                int(self.plot_panel.height()))
+
+    def request_dock_drop(self, tab_id_i: int, x_i: int, y_i: int) -> None:
+        """Dock a tab whose tab button was dropped on the main tab row.
+
+        Inputs:
+            tab_id_i: id of the undocked tab.
+            x_i, y_i: the point of the drop, in desktop pixels.
+        Outputs: none. A drop anywhere else changes nothing
+            (LLFR-01032).
+        """
+        # LLFR-01108: the place between the docked tabs under the
+        # pointer; -1 off the tab row of the main window.
+        docked_index_i = self.plot_panel.docked_drop_index(x_i, y_i)
+        if docked_index_i < 0:
+            return
+        self._run_window_handler("dock_drop_handler", tab_id_i,
+                                 docked_index_i)
 
     def undock_tab_view(self, tab_id_i: int, window_tuple: tuple,
                         panel_shown_b: bool, panel_width_i: int) -> None:
@@ -667,7 +742,7 @@ class MainWindow(QMainWindow):
             tab_id_list: the undocked tabs, in tab order (LLFR-01056).
         Outputs: none.
         """
-        # LLFR-01025, LLFR-01045, LLFR-00998, LLFR-01033: a window whose
+        # LLFR-01025, LLFR-01045, LLFR-00998, LLFR-01110: a window whose
         # tab is docked or gone closes.
         for tab_id_i in list(self.undocked_window_dict):
             if tab_id_i not in tab_id_list:
@@ -1703,7 +1778,7 @@ class MainWindow(QMainWindow):
             tab_id_i: id of the tab.
         Outputs: none.
         """
-        # LLFR-00028: remove the tab; LLFR-01033, LLFR-00998: with its
+        # LLFR-00028: remove the tab; LLFR-01110, LLFR-00998: with its
         # undocked window.
         window = self.undocked_window_dict.pop(tab_id_i, None)
         if window is not None:
@@ -2101,8 +2176,8 @@ class MainWindow(QMainWindow):
     # Export facade, used by the export controller (plain types only)
     # ----------------------------------------------------------------
 
-    def set_export_handlers(self, pdf_export_handler,
-                            copy_handler) -> None:
+    def set_export_handlers(self, pdf_export_handler, copy_handler,
+                            copy_shortcut_handler=None) -> None:
         """Set the functions called by the Export menu and Copy button.
 
         Inputs:
@@ -2110,11 +2185,16 @@ class MainWindow(QMainWindow):
                 "Save all tabs as PDF" is chosen.
             copy_handler: function without arguments, called when the
                 Copy button is clicked.
+            copy_shortcut_handler: function taking the tab id of the
+                window where Ctrl+C (Cmd+C) is pressed, -1 for the main
+                window; None to keep none.
         Outputs: none.
         """
-        # LLFR-00128, LLFR-00133: the controller runs the flows.
+        # LLFR-00128, LLFR-00133: the controller runs the flows;
+        # LLFR-01101: and the Copy shortcut's.
         self.pdf_export_handler = pdf_export_handler
         self.copy_handler = copy_handler
+        self.copy_shortcut_handler = copy_shortcut_handler
 
     def exportable_tab_count(self) -> int:
         """Return the number of tabs that hold at least one plot.
@@ -2234,6 +2314,75 @@ class MainWindow(QMainWindow):
         # screen, below the strip with the data files.
         return plot_export.copy_current_tab_image(
             self.plot_panel.tab_widget, description_str)
+
+    def window_tab_page(self, tab_id_i: int):
+        """Return the tab page shown in a window.
+
+        Inputs:
+            tab_id_i: the tab of an undocked window, -1 for the main
+                window.
+        Outputs: the TabPage, or None.
+        """
+        # LLFR-01101: the tab shown in the window of the shortcut.
+        if tab_id_i < 0:
+            return self.plot_panel.tab_widget.currentWidget()
+        window = self.undocked_window_dict.get(tab_id_i)
+        return None if window is None else window.page()
+
+    def window_of(self, tab_id_i: int):
+        """Return a window by the tab id of an undocked window.
+
+        Inputs:
+            tab_id_i: the tab of an undocked window, -1 for the main
+                window.
+        Outputs: the UndockedWindow, or this main window.
+        """
+        # LLFR-01103: the box is shown over the window of the shortcut.
+        return self.undocked_window_dict.get(tab_id_i, self)
+
+    def window_tab_plot_count(self, tab_id_i: int) -> int:
+        """Return the number of plots of the tab shown in a window.
+
+        Inputs:
+            tab_id_i: the tab of an undocked window, -1 for the main
+                window.
+        Outputs: the number of plots, 0 when there is no tab.
+        """
+        # LLFR-01103: a tab with no plot has nothing to copy.
+        page = self.window_tab_page(tab_id_i)
+        return len(getattr(page, "plot_widget_list", []))
+
+    def copy_window_tab_image(self, description_str: str,
+                              tab_id_i: int) -> tuple:
+        """Put an image of the tab shown in a window on the clipboard.
+
+        Inputs:
+            description_str: the description of the open data files, in
+                a strip above the plots (LLFR-00972).
+            tab_id_i: the tab of an undocked window, -1 for the main
+                window.
+        Outputs: a tuple (copied_b, reason_str).
+        """
+        # LLFR-01101: as LLFR-00133, for the tab of that window.
+        if tab_id_i < 0:
+            return self.copy_current_tab_image(description_str)
+        window = self.undocked_window_dict.get(tab_id_i)
+        if window is None:
+            return (False, plot_export.COPY_FAILED_REASON_STR)
+        return plot_export.copy_current_tab_image(window.pane_widget,
+                                                  description_str)
+
+    def show_nothing_to_copy_in(self, tab_id_i: int) -> None:
+        """Show the box saying there are no plots to copy over a window.
+
+        Inputs:
+            tab_id_i: the tab of an undocked window, -1 for the main
+                window.
+        Outputs: none.
+        """
+        # LLFR-01103, LLFR-00146: an information box over that window.
+        message_boxes.build_nothing_to_copy_box(
+            self.window_of(tab_id_i)).exec()
 
     def show_nothing_to_export(self) -> None:
         """Show the box saying that there are no plots to export.
@@ -2832,6 +2981,64 @@ class MainWindow(QMainWindow):
             return
         # LLFR-00141: the shortcut does nothing while Undo is disabled.
         self.run_undo()
+
+    def _on_copy_shortcut(self, tab_id_i: int) -> None:
+        """Copy the tab of the window where Ctrl+C (Cmd+C) was pressed.
+
+        Inputs:
+            tab_id_i: the tab of the undocked window, -1 for the main
+                window.
+        Outputs: none. In a text field, its selected text is copied
+            instead.
+        """
+        # LLFR-01102: a text field keeps its own Ctrl+C; it usually takes
+        # the key before the shortcut, and is asked to copy here when
+        # the shortcut runs all the same.
+        if self.text_field_has_focus():
+            focus_widget = QApplication.focusWidget()
+            if hasattr(focus_widget, "copy"):
+                focus_widget.copy()
+            return
+        # LLFR-01101: the image of the tab shown in that window.
+        if self.copy_shortcut_handler is not None:
+            self.copy_shortcut_handler(tab_id_i)
+
+    def _on_pdf_shortcut(self) -> None:
+        """Run "Save all tabs as PDF" when Ctrl+P (Cmd+P) is pressed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01104: as the Export menu option, from any window, also
+        # in a text field (which gives Ctrl+P no meaning of its own).
+        self._on_pdf_export_requested()
+
+    def _on_search_shortcut(self, tab_id_i: int) -> None:
+        """Put the focus in the search box of a window (Ctrl+F, Cmd+F).
+
+        Inputs:
+            tab_id_i: the tab of the undocked window, -1 for the main
+                window.
+        Outputs: none.
+        """
+        if tab_id_i >= 0:
+            window = self.undocked_window_dict.get(tab_id_i)
+            if window is None:
+                return
+            if not window.is_panel_shown():
+                # LLFR-01106: the hidden panel is shown first, as the
+                # signal list button does, as one undoable action.
+                self._run_window_handler("panel_show_handler", tab_id_i)
+            window = self.undocked_window_dict.get(tab_id_i)
+            if window is None or not window.is_panel_shown():
+                return
+            panel = window.signal_list_panel
+            window.activateWindow()
+        else:
+            panel = self.signal_list_panel
+        # LLFR-01105: the focus in the search box, its text selected.
+        panel.search_box.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        panel.search_box.selectAll()
 
     def _on_redo_triggered(self) -> None:
         """Run the redo after a click, then let the Redo button finish.

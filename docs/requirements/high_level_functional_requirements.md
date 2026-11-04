@@ -27,7 +27,7 @@ Note: This applies to every button, including the button that opens a file.
 The user must be able to change the widths of the plot panel and the signal list panel of each window.
 
 ### HLFR-00040 Undo
-The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, flags, delta markers, areas, text notes and arrows.
+The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, flags, delta markers, areas, text notes, arrows and grid.
 
 ### HLFR-00048 Redo
 The user must be able to redo the actions they have undone (HLFR-00040).
@@ -51,6 +51,9 @@ Note: The **main window** is the app window that has the top panel. A window tha
 
 ### HLFR-00124 Dock a tab
 The user must be able to put the tab of an undocked window back into the main window.
+
+### HLFR-00152 Undock and dock a tab by dragging it
+The user must be able to undock a tab by dragging it out of the main window's tab row and dropping it outside the main window, and to dock an undocked tab by dragging its tab button onto the main window's tab row.
 
 ### HLFR-00125 One tab per undocked window
 Each undocked window must hold exactly one tab.
@@ -428,7 +431,9 @@ The user must be able to show and hide a grid on the plots.
 The user must be able to save the plots of all tabs to a PDF file.
 
 ### HLFR-00039 Copy the plots as an image
-The user must be able to copy the plots of the tab shown in the main window to the clipboard as an image that can be pasted in other applications.
+The user must be able to copy the plots of a tab to the clipboard as an image that can be pasted in other applications.
+
+Note: The Copy button copies the tab shown in the main window. The Copy shortcut copies the tab shown in the window where it is pressed.
 
 ### HLFR-00041 Move a pinned data tip
 The user must be able to move a pinned data tip to another place in the plot, while it keeps showing the values of the same point.

@@ -125,6 +125,9 @@ START_KEY_STR = "start"
 END_KEY_STR = "end"
 GRID_KEY_STR = "grid"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
+# LLFR-01046, LLFR-01111: the largest size of a Qt window (QWIDGETSIZE_MAX),
+# the limit of every window position, size and panel width of a file.
+MAXIMUM_WINDOW_PIXELS_I = 16777215
 PLOT_PANEL_KEY_STR = "plot_panel"
 SIGNAL_LIST_PANEL_KEY_STR = "signal_list_panel"
 # LLFR-00225 item 6: the list of flags, each with "name", "time" and
@@ -1595,20 +1598,20 @@ class LayoutBuilder:
         default_tuple = self.new_window_tuple
         window_value = tab_entry.get(WINDOW_KEY_STR)
         window_dict = window_value if isinstance(window_value, dict) else {}
-        # LLFR-01040, LLFR-01046: whole numbers, sizes of 1 pixel or more.
+        # LLFR-01040, LLFR-01046: whole numbers that Qt can take, sizes of
+        # 1 pixel or more.
         position_list = [window_dict.get(X_KEY_STR),
                          window_dict.get(Y_KEY_STR)]
         size_list = [window_dict.get(WIDTH_KEY_STR),
                      window_dict.get(HEIGHT_KEY_STR)]
-        if all(is_whole_number(value) for value in position_list):
+        if all(is_window_coordinate(value) for value in position_list):
             position_tuple = tuple(int(value) for value in position_list)
         else:
             position_tuple = tuple(default_tuple[:2])
             self.report_window_value(
                 tab, "Window position", window_value,
                 "the position of a new undocked window")
-        if all(is_whole_number(value) and value >= 1
-               for value in size_list):
+        if all(is_window_length(value) for value in size_list):
             size_tuple = tuple(int(value) for value in size_list)
         else:
             size_tuple = tuple(default_tuple[2:])
@@ -1629,7 +1632,7 @@ class LayoutBuilder:
             shown_b = False
             self.report_window_value(tab, "Signal list panel state",
                                      shown_value, "hidden")
-        if is_whole_number(width_value) and width_value >= 1:
+        if is_window_length(width_value):
             width_i = int(width_value)
         else:
             # LLFR-01046, LLFR-01016: the first width of a new panel.
@@ -1901,16 +1904,15 @@ class LayoutBuilder:
         if isinstance(widths_value, dict):
             for key_str in (PLOT_PANEL_KEY_STR, SIGNAL_LIST_PANEL_KEY_STR):
                 width_value = widths_value.get(key_str)
-                if (isinstance(width_value, int)
-                        and not isinstance(width_value, bool)
-                        and width_value > 0):
+                # LLFR-01111: a width Qt can take.
+                if is_window_length(width_value):
                     width_list.append(int(width_value))
         if len(width_list) == 2:
             return tuple(width_list)
         self.report.add_replaced(
             f"Panel widths {describe_value(widths_value)} are not two "
-            f"positive whole numbers of pixels; the panels kept their "
-            f"widths.")
+            f"whole numbers of pixels from 1 to {MAXIMUM_WINDOW_PIXELS_I}; "
+            f"the panels kept their widths.")
         return ()
 
     def add_synthetic_signals(self, built_value) -> None:
@@ -2021,6 +2023,33 @@ def is_whole_number(value) -> bool:
     """
     # LLFR-01046: a value that is not a whole number cannot be used.
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def is_window_coordinate(value) -> bool:
+    """Tell whether a value of the file is a usable window coordinate.
+
+    Inputs:
+        value: a value read from the JSON text.
+    Outputs: True for a whole number from -MAXIMUM_WINDOW_PIXELS_I to
+        MAXIMUM_WINDOW_PIXELS_I (LLFR-01046).
+    """
+    # LLFR-01046: a position Qt can take, also once a size is added.
+    return (is_whole_number(value)
+            and -MAXIMUM_WINDOW_PIXELS_I <= value
+            <= MAXIMUM_WINDOW_PIXELS_I)
+
+
+def is_window_length(value) -> bool:
+    """Tell whether a value of the file is a usable size or width.
+
+    Inputs:
+        value: a value read from the JSON text.
+    Outputs: True for a whole number from 1 to MAXIMUM_WINDOW_PIXELS_I
+        (LLFR-01046, LLFR-01111).
+    """
+    # LLFR-01046, LLFR-01111: a size Qt can take; a larger number (for
+    # example above 2**31 - 1) would make Qt raise OverflowError.
+    return is_whole_number(value) and 1 <= value <= MAXIMUM_WINDOW_PIXELS_I
 
 
 def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,

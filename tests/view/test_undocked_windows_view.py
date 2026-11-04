@@ -207,37 +207,77 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertEqual(self.main_window.undocked_window(
             second_id_i).windowTitle(), name_str)
 
+    def x_in_window(self, window, widget) -> int:
+        """Return the left edge of a widget in window coordinates.
+
+        Inputs:
+            window: the UndockedWindow.
+            widget: a widget of the window.
+        Outputs: the x of its left edge.
+        """
+        from PyQt6.QtCore import QPoint
+        return widget.mapTo(window, QPoint(0, 0)).x()
+
+    def y_in_window(self, window, widget) -> int:
+        """Return the top edge of a widget in window coordinates.
+
+        Inputs:
+            window: the UndockedWindow.
+            widget: a widget of the window.
+        Outputs: the y of its top edge.
+        """
+        from PyQt6.QtCore import QPoint
+        return widget.mapTo(window, QPoint(0, 0)).y()
+
     @covers("LLFR-00997", "LLFR-00990", "LLFR-01009", "LLFR-00992",
             "LLFR-01035", "LLFR-01000", "LLFR-00440", "LLFR-00996",
             "HLFR-00136", "HLFR-00125")
     def test_tab_row_and_panels(self) -> None:
-        """Tab button left, signal list and dock buttons right, then the
-        plot well and the signal list panel side by side, no top panel.
+        """Tab button left and dock button right in the plot panel's tab
+        row, the signal list button right of it at the window's top
+        right; the plot panel and the signal list panel side by side,
+        their tops level, no top panel.
 
         Inputs: none.
         Outputs: none.
         """
+        from view import theme
         from view.top_panel import TopPanel
         _, _, window = self.two_tabs_one_undocked()
         window.resize(700, 500)
         self.process_events()
         self.assertEqual(window.dock_button.toolTip(), "Dock")
         self.assertFalse(window.dock_button.icon().isNull())
-        list_x_i = window.signal_list_button.mapTo(window, window.rect()
-                                                   .topLeft()).x()
-        dock_x_i = window.dock_button.mapTo(window, window.rect()
-                                            .topLeft()).x()
-        tab_x_i = window.tab_bar.mapTo(window, window.rect().topLeft()).x()
-        self.assertLess(tab_x_i, list_x_i)
-        self.assertLess(list_x_i, dock_x_i)
-        self.assertGreater(dock_x_i + window.dock_button.width(),
-                           window.width() - 40)
-        self.assertLess(window.tab_bar.mapTo(window, window.rect()
-                                             .topLeft()).y(),
-                        window.splitter.mapTo(window, window.rect()
-                                              .topLeft()).y())
-        self.assertIs(window.splitter.widget(0), window.pane_widget)
+        list_x_i = self.x_in_window(window, window.signal_list_button)
+        dock_x_i = self.x_in_window(window, window.dock_button)
+        tab_x_i = self.x_in_window(window, window.tab_bar)
+        self.assertLess(tab_x_i, dock_x_i)
+        self.assertLess(dock_x_i, list_x_i)
+        # LLFR-01009: the signal list button at the top-right corner.
+        self.assertEqual(list_x_i + window.signal_list_button.width(),
+                         window.width() - theme.WINDOW_MARGIN_I)
+        self.assertLess(self.y_in_window(window, window.signal_list_button),
+                        self.y_in_window(window, window.pane_widget))
+        # LLFR-00997: the dock button directly left of it.
+        self.assertLessEqual(
+            list_x_i - (dock_x_i + window.dock_button.width()),
+            2 * theme.TAB_SPACING_I + 1)
+        self.assertIs(window.dock_button.parentWidget(), window.tab_row)
+        self.assertIs(window.tab_bar.parentWidget(), window.tab_row)
+        self.assertIs(window.signal_list_button.parentWidget(), window)
+        # LLFR-01035: the plot panel (tab row above the well) and the
+        # signal list panel side by side, level at their tops.
+        self.assertIs(window.splitter.widget(0), window.plot_column)
         self.assertIs(window.splitter.widget(1), window.signal_list_panel)
+        self.assertLess(self.y_in_window(window, window.tab_row),
+                        self.y_in_window(window, window.pane_widget))
+        window.signal_list_button.click()
+        self.process_events()
+        self.assertEqual(self.y_in_window(window, window.tab_row),
+                         self.y_in_window(window, window.signal_list_panel))
+        self.assertGreater(self.x_in_window(window,
+                                            window.signal_list_panel),
+                           self.x_in_window(window, window.dock_button))
         self.assertEqual(window.findChildren(TopPanel), [])
         self.assertFalse(window.tab_bar.isMovable())
         self.assertEqual(window.pane_widget.count(), 1)
@@ -245,8 +285,8 @@ class WindowPartsTest(UndockedWindowTestCase):
     @covers("LLFR-01015", "LLFR-01012", "LLFR-01013", "LLFR-01014",
             "LLFR-01011", "LLFR-01016", "LLFR-01018", "HLFR-00129")
     def test_signal_list_button_hides_and_shows_the_panel(self) -> None:
-        """Hidden at start; the button shows it at the main panel's
-        width (at most half the window), hides it, and both are undone.
+        """Hidden at start; the button shows it at 25% of the window's
+        width, hides it, and both are undone.
 
         Inputs: none.
         Outputs: none.
@@ -264,13 +304,12 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertTrue(window.signal_list_button.isChecked())
         self.assertEqual(window.signal_list_button.toolTip(),
                          "Hide signal list")
-        expected_i = min(self.main_window.main_panel_width(),
-                         window.width() // 2)
+        expected_i = int(round(window.width() * 0.25))
         self.assertAlmostEqual(window.panel_width(), expected_i, delta=3)
         window.signal_list_button.click()
         self.process_events()
         self.assertFalse(window.is_panel_shown())
-        self.assertEqual(window.pane_widget.width(),
+        self.assertEqual(window.plot_column.width(),
                          window.splitter.width())
         self.plot_controller.on_undo()
         self.process_events()
@@ -325,7 +364,8 @@ class WindowPartsTest(UndockedWindowTestCase):
 class TabButtonMenuTest(UndockedWindowTestCase):
     """The tab button of a window works as a tab (HLFR-00135)."""
 
-    @covers("LLFR-01029", "LLFR-01034", "HLFR-00135", "HLFR-00016")
+    @covers("LLFR-01029", "LLFR-01034", "LLFR-01033", "LLFR-01110",
+            "HLFR-00135", "HLFR-00016")
     def test_tab_menu_with_delete_enabled(self) -> None:
         """The menu of an undocked tab has Delete enabled; Delete deletes
         the tab and closes the window, undoably.
@@ -772,6 +812,586 @@ class WindowPlotActionTest(UndockedWindowTestCase):
             second_id_i).page().plot_widget_list), 1)
 
 
+def send_mouse(receiver, type_name_str: str, global_point,
+               buttons_name_str: str = "LeftButton",
+               button_name_str: str = "LeftButton") -> None:
+    """Send one mouse event to a widget at a desktop point.
+
+    Inputs:
+        receiver: the QWidget the event is sent to.
+        type_name_str: name of a QEvent.Type, e.g. "MouseButtonPress".
+        global_point: the QPoint of the pointer on the desktop.
+        buttons_name_str: name of the Qt.MouseButton held.
+        button_name_str: name of the Qt.MouseButton that changed.
+    Outputs: none. The shared mouse pointer is not moved.
+    """
+    from PyQt6.QtCore import QEvent, QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    from PyQt6.QtWidgets import QApplication
+    event = QMouseEvent(
+        getattr(QEvent.Type, type_name_str),
+        QPointF(receiver.mapFromGlobal(global_point)),
+        QPointF(global_point), getattr(Qt.MouseButton, button_name_str),
+        getattr(Qt.MouseButton, buttons_name_str),
+        Qt.KeyboardModifier.NoModifier)
+    QApplication.sendEvent(receiver, event)
+
+
+def drag(receiver, start_point, end_point) -> None:
+    """Press at one desktop point, move and release at another.
+
+    Inputs:
+        receiver: the QWidget that gets the three events.
+        start_point: the QPoint of the press.
+        end_point: the QPoint of the move and the release.
+    Outputs: none.
+    """
+    from PyQt6.QtCore import QPoint
+    send_mouse(receiver, "MouseButtonPress", start_point)
+    middle_point = QPoint((start_point.x() + end_point.x()) // 2,
+                          (start_point.y() + end_point.y()) // 2)
+    for point in (middle_point, end_point):
+        send_mouse(receiver, "MouseMove", point, "LeftButton", "NoButton")
+    send_mouse(receiver, "MouseButtonRelease", end_point, "NoButton")
+
+
+class SignalListButtonPlaceTest(UndockedWindowTestCase):
+    """The signal list button works like Firefox's sidebar button."""
+
+    def button_rect(self, window):
+        """Return the button's rectangle on the desktop.
+
+        Inputs:
+            window: the UndockedWindow.
+        Outputs: a QRect.
+        """
+        from PyQt6.QtCore import QPoint, QRect
+        button = window.signal_list_button
+        return QRect(button.mapToGlobal(QPoint(0, 0)), button.size())
+
+    @covers("LLFR-01099", "LLFR-01009", "HLFR-00129")
+    def test_button_never_moves(self) -> None:
+        """Hiding and showing the panel, by the button or by undo, leave
+        the button at the same place on the screen.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        window.resize(800, 500)
+        self.process_events()
+        hidden_rect = self.button_rect(window)
+        window.signal_list_button.click()
+        self.process_events()
+        self.assertTrue(window.is_panel_shown())
+        self.assertEqual(self.button_rect(window), hidden_rect)
+        window.signal_list_button.click()
+        self.process_events()
+        self.assertEqual(self.button_rect(window), hidden_rect)
+        self.plot_controller.on_undo()
+        self.process_events()
+        window = self.main_window.undocked_window(second_id_i)
+        self.assertTrue(window.is_panel_shown())
+        self.assertEqual(self.button_rect(window), hidden_rect)
+
+    @covers("LLFR-01098", "LLFR-01100", "LLFR-00894", "HLFR-00129",
+            "HLFR-00127")
+    def test_button_in_the_title_row_level_with_signals(self) -> None:
+        """While shown, the button is at the right end of the "Signals"
+        row, level with the word, which is at least as high as the
+        button; the list still starts level with the plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        _, _, window = self.two_tabs_one_undocked()
+        window.resize(800, 500)
+        window.signal_list_button.click()
+        self.process_events()
+        window.search_box_aligner.align()
+        self.process_events()
+        panel = window.signal_list_panel
+        title = panel.title_label
+        button = window.signal_list_button
+        self.assertGreaterEqual(title.height(), button.height())
+        content_rect = title.contentsRect()
+        text_center_y = title.mapToGlobal(QPoint(
+            0, content_rect.center().y())).y()
+        button_center_y = button.mapToGlobal(QPoint(
+            0, button.height() // 2)).y()
+        self.assertLessEqual(abs(text_center_y - button_center_y), 3)
+        panel_right_x = panel.mapToGlobal(QPoint(panel.width(), 0)).x()
+        button_right_x = button.mapToGlobal(QPoint(button.width(), 0)).x()
+        self.assertLessEqual(abs(panel_right_x - button_right_x), 1)
+        self.assertGreaterEqual(button.mapToGlobal(QPoint(0, 0)).x(),
+                                title.mapToGlobal(QPoint(0, 0)).x())
+        self.assertLessEqual(
+            abs(window.search_box_aligner.list_top_offset_px()), 2)
+
+    @covers("LLFR-01014", "LLFR-01010", "HLFR-00129", "HLFR-00003")
+    def test_round_pale_highlight_while_shown(self) -> None:
+        """Checked with a round, pale highlight and a dark icon while
+        the panel is shown; no highlight while it is hidden.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QColor, QIcon
+        from view import theme, undocked_window
+        _, _, window = self.two_tabs_one_undocked()
+        button = window.signal_list_button
+        sheet_str = undocked_window.signal_list_button_style_sheet()
+        self.assertIn(f"border-radius: {button.width() // 2}px", sheet_str)
+        self.assertIn(theme.SIDEBAR_BUTTON_ACTIVE_COLOR_STR, sheet_str)
+        self.assertEqual(button.width(), button.height())
+        self.assertFalse(button.isChecked())
+        engine_icon = button.icon()
+        on_image = engine_icon.pixmap(20, 20, QIcon.Mode.Normal,
+                                      QIcon.State.On).toImage()
+        off_image = engine_icon.pixmap(20, 20, QIcon.Mode.Normal,
+                                       QIcon.State.Off).toImage()
+        self.assertEqual(on_image, off_image)
+        button.click()
+        self.process_events()
+        self.assertTrue(button.isChecked())
+        image = button.grab().toImage()
+        top_middle = QColor(image.pixel(image.width() // 2, 2))
+        self.assertEqual(top_middle.name(),
+                         theme.SIDEBAR_BUTTON_ACTIVE_COLOR_STR)
+        button.click()
+        self.process_events()
+        self.assertFalse(button.isChecked())
+        image = button.grab().toImage()
+        top_middle = QColor(image.pixel(image.width() // 2, 2))
+        self.assertNotEqual(top_middle.name(),
+                            theme.SIDEBAR_BUTTON_ACTIVE_COLOR_STR)
+
+    @covers("LLFR-00997", "LLFR-00990", "HLFR-00125")
+    def test_dock_button_left_of_the_button_while_hidden(self) -> None:
+        """While hidden, the tab row keeps room for the button right of
+        the dock button; while shown, the dock button ends the tab row
+        at the panel.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        from view import theme
+        _, _, window = self.two_tabs_one_undocked()
+        window.resize(800, 500)
+        self.process_events()
+        self.assertTrue(window.button_space.isVisibleTo(window))
+        dock_right_x = window.dock_button.mapToGlobal(
+            QPoint(window.dock_button.width(), 0)).x()
+        button_x = window.signal_list_button.mapToGlobal(QPoint(0, 0)).x()
+        self.assertGreaterEqual(button_x - dock_right_x, 0)
+        self.assertLessEqual(button_x - dock_right_x,
+                             theme.TAB_SPACING_I + 1)
+        window.signal_list_button.click()
+        self.process_events()
+        self.assertFalse(window.button_space.isVisibleTo(window))
+        row_right_x = window.tab_row.mapToGlobal(
+            QPoint(window.tab_row.width(), 0)).x()
+        dock_right_x = window.dock_button.mapToGlobal(
+            QPoint(window.dock_button.width(), 0)).x()
+        self.assertLessEqual(abs(row_right_x - dock_right_x), 1)
+        panel_x = window.signal_list_panel.mapToGlobal(QPoint(0, 0)).x()
+        self.assertLess(dock_right_x, panel_x)
+
+
+class DragUndockDockViewTest(UndockedWindowTestCase):
+    """Undock and dock a tab by dragging it, like a browser."""
+
+    def outside_point(self):
+        """Return a desktop point right of the main window.
+
+        Inputs: none.
+        Outputs: a QPoint outside the main window's frame.
+        """
+        from PyQt6.QtCore import QPoint
+        frame = self.main_window.frameGeometry()
+        return QPoint(frame.right() + 60, frame.top() + 40)
+
+    def tab_center(self, index_i: int):
+        """Return the desktop point of the middle of a docked tab.
+
+        Inputs:
+            index_i: the place of the tab in the main tab row.
+        Outputs: a QPoint.
+        """
+        tab_bar = self.panel.tab_widget.tabBar()
+        return tab_bar.mapToGlobal(tab_bar.tabRect(index_i).center())
+
+    @covers("LLFR-01107", "LLFR-01015", "LLFR-01048", "LLFR-01025",
+            "HLFR-00152", "HLFR-00123")
+    def test_drop_outside_the_main_window_undocks(self) -> None:
+        """A tab dragged out of the tab row and dropped outside the main
+        window opens in a window at the drop point (kept on a screen),
+        with a hidden panel; the other tabs keep their order; undoable.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.window_placement import placed_window_tuple
+        self.main_window.show()
+        first_id_i = self.panel.current_tab_id()
+        second_id_i = self.add_tab()
+        third_id_i = self.add_tab()
+        self.process_events()
+        drop_point = self.outside_point()
+        expected_tuple = placed_window_tuple(
+            self.main_window.dropped_window_tuple(drop_point.x(),
+                                                  drop_point.y()),
+            self.main_window.screen_area_list(),
+            self.main_window.main_screen_area())
+        drag(self.panel.tab_widget.tabBar(), self.tab_center(1),
+             drop_point)
+        self.process_events()
+        window = self.main_window.undocked_window(second_id_i)
+        self.assertIsNotNone(window)
+        self.assertFalse(window.is_panel_shown())
+        self.assertEqual(window.window_tuple(), tuple(expected_tuple))
+        self.assertEqual([self.panel.tab_id_at_index(index_i)
+                          for index_i in range(2)],
+                         [first_id_i, third_id_i])
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertIsNone(self.main_window.undocked_window(second_id_i))
+        self.assertEqual([self.panel.tab_id_at_index(index_i)
+                          for index_i in range(3)],
+                         [first_id_i, second_id_i, third_id_i])
+
+    @covers("LLFR-01107", "LLFR-01053", "LLFR-01052", "HLFR-00152",
+            "HLFR-00142")
+    def test_drop_inside_the_main_window_does_not_undock(self) -> None:
+        """A drop inside the main window, off the tab row, only moves the
+        tab in the row.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        self.main_window.show()
+        self.add_tab()
+        self.process_events()
+        inside_point = self.panel.mapToGlobal(QPoint(
+            self.panel.width() // 2, self.panel.height() // 2))
+        tab_id_i = self.panel.tab_id_at_index(1)
+        self.panel.finish_tab_drag(tab_id_i, 1, (inside_point.x(),
+                                                 inside_point.y()))
+        self.process_events()
+        self.assertEqual(self.main_window.undocked_window_dict, {})
+        self.assertFalse(self.tab(tab_id_i).undocked_b)
+
+    @covers("LLFR-01109", "HLFR-00152")
+    def test_last_docked_tab_stays(self) -> None:
+        """The last docked tab dropped outside stays docked, with no
+        undo record.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i, second_id_i, _ = self.two_tabs_one_undocked()
+        depth_i = self.plot_controller.undo_history.depth()
+        drop_point = self.outside_point()
+        self.panel.finish_tab_drag(first_id_i, 0, (drop_point.x(),
+                                                   drop_point.y()))
+        self.process_events()
+        self.assertFalse(self.tab(first_id_i).undocked_b)
+        self.assertEqual(list(self.main_window.undocked_window_dict),
+                         [second_id_i])
+        self.assertEqual(self.plot_controller.undo_history.depth(), depth_i)
+
+    @covers("LLFR-01108", "LLFR-00994", "LLFR-00995", "LLFR-01025",
+            "HLFR-00152", "HLFR-00124")
+    def test_tab_button_dropped_on_the_tab_row_docks_there(self) -> None:
+        """Dragging a window's tab button onto the left half of the first
+        docked tab docks it first, closes the window and shows it;
+        undoable.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        first_id_i, second_id_i, window = self.two_tabs_one_undocked()
+        tab_bar = self.panel.tab_widget.tabBar()
+        first_rect = tab_bar.tabRect(0)
+        drop_point = tab_bar.mapToGlobal(QPoint(first_rect.left() + 3,
+                                                first_rect.center().y()))
+        self.assertEqual(self.panel.docked_drop_index(drop_point.x(),
+                                                      drop_point.y()), 0)
+        start_point = window.tab_bar.mapToGlobal(
+            window.tab_bar.tabRect(0).center())
+        drag(window.tab_bar, start_point, drop_point)
+        self.process_events()
+        self.assertIsNone(self.main_window.undocked_window(second_id_i))
+        self.assertEqual([self.panel.tab_id_at_index(index_i)
+                          for index_i in range(2)],
+                         [second_id_i, first_id_i])
+        self.assertEqual(self.panel.current_tab_id(), second_id_i)
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertIsNotNone(self.main_window.undocked_window(second_id_i))
+
+    @covers("LLFR-01108", "HLFR-00152")
+    def test_drop_index_between_the_tabs(self) -> None:
+        """Right of the middle of the last tab, or on the "+" button and
+        the empty row, is after the last docked tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        self.main_window.show()
+        self.add_tab()
+        self.process_events()
+        tab_bar = self.panel.tab_widget.tabBar()
+        second_rect = tab_bar.tabRect(1)
+        point = tab_bar.mapToGlobal(QPoint(second_rect.left() + 2,
+                                           second_rect.center().y()))
+        self.assertEqual(self.panel.docked_drop_index(point.x(),
+                                                      point.y()), 1)
+        point = tab_bar.mapToGlobal(QPoint(second_rect.right() - 2,
+                                           second_rect.center().y()))
+        self.assertEqual(self.panel.docked_drop_index(point.x(),
+                                                      point.y()), 2)
+        row_rect = self.panel.tab_row_rect()
+        point = QPoint(row_rect.right() - 5, row_rect.center().y())
+        self.assertEqual(self.panel.docked_drop_index(point.x(),
+                                                      point.y()), 2)
+
+    @covers("LLFR-01032", "HLFR-00135", "HLFR-00152")
+    def test_tab_button_dropped_elsewhere_changes_nothing(self) -> None:
+        """A drop on the plots of the main window, or outside it, leaves
+        the tab, its window and the history unchanged.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        depth_i = self.plot_controller.undo_history.depth()
+        start_point = window.tab_bar.mapToGlobal(
+            window.tab_bar.tabRect(0).center())
+        for drop_point in (self.panel.mapToGlobal(QPoint(
+                self.panel.width() // 2, self.panel.height() // 2)),
+                self.outside_point()):
+            drag(window.tab_bar, start_point, drop_point)
+            self.process_events()
+            self.assertIs(self.main_window.undocked_window(second_id_i),
+                          window)
+            self.assertTrue(self.tab(second_id_i).undocked_b)
+            self.assertEqual(self.plot_controller.undo_history.depth(),
+                             depth_i)
+
+
+class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
+    """Ctrl+C, Ctrl+P and Ctrl+F (Cmd on macOS) in every window."""
+
+    @covers("LLFR-01101", "LLFR-01036", "HLFR-00039", "HLFR-00137")
+    def test_copy_shortcut_copies_the_tab_of_its_window(self) -> None:
+        """Ctrl+C copies the tab shown in the window where it is pressed;
+        the Copy button copies the main window's tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QKeySequence
+        first_id_i, _, window = self.two_tabs_one_undocked()
+        self.main_window.signal_double_click_handler("force")
+        self.process_events()
+        for owner in (self.main_window, window):
+            self.assertEqual(owner.copy_shortcut.key(),
+                             QKeySequence("Ctrl+C"))
+        with mock.patch("view.plot_export.copy_current_tab_image",
+                        return_value=(True, "")) as copy:
+            window.copy_shortcut.activated.emit()
+            self.process_events()
+            self.assertIs(copy.call_args[0][0], window.pane_widget)
+            self.main_window.copy_shortcut.activated.emit()
+            self.process_events()
+            self.assertIs(copy.call_args[0][0], self.panel.tab_widget)
+            self.main_window.top_panel.copy_button.click()
+            self.process_events()
+            self.assertIs(copy.call_args[0][0], self.panel.tab_widget)
+            self.assertEqual(copy.call_count, 3)
+
+    @covers("LLFR-01103", "LLFR-00146", "HLFR-00039")
+    def test_copy_shortcut_with_no_plot_shows_box_over_window(self) -> None:
+        """A window whose tab has no plot shows the box over itself.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        self.plot_controller.on_plot_delete(
+            self.tab(second_id_i).plot_list[0].plot_id_i)
+        self.process_events()
+        with mock.patch("view.message_boxes.build_nothing_to_copy_box"
+                        ) as box, mock.patch(
+                "view.plot_export.copy_current_tab_image") as copy:
+            window.copy_shortcut.activated.emit()
+            self.process_events()
+        self.assertIs(box.call_args[0][0], window)
+        copy.assert_not_called()
+
+    @covers("LLFR-01102", "HLFR-00039")
+    def test_copy_shortcut_in_a_text_field_copies_text(self) -> None:
+        """With the focus in a text field, its selected text is copied,
+        not an image.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QApplication
+        _, _, window = self.two_tabs_one_undocked()
+        box = self.main_window.signal_list_panel.search_box
+        box.setText("speed")
+        box.selectAll()
+        QApplication.clipboard().setText("before")
+        with mock.patch.object(QApplication, "focusWidget",
+                               return_value=box), mock.patch(
+                "view.plot_export.copy_current_tab_image") as copy:
+            self.main_window.copy_shortcut.activated.emit()
+            window.copy_shortcut.activated.emit()
+            self.process_events()
+        copy.assert_not_called()
+        self.assertEqual(QApplication.clipboard().text(), "speed")
+
+    @covers("LLFR-01104", "LLFR-01036", "HLFR-00038", "HLFR-00137")
+    def test_pdf_shortcut_in_every_window(self) -> None:
+        """Ctrl+P runs "Save all tabs as PDF" from every window, also
+        with the focus in a text field.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QKeySequence
+        from PyQt6.QtWidgets import QApplication
+        _, _, window = self.two_tabs_one_undocked()
+        handler = mock.Mock()
+        self.main_window.pdf_export_handler = handler
+        for owner in (self.main_window, window):
+            self.assertEqual(owner.pdf_shortcut.key(),
+                             QKeySequence("Ctrl+P"))
+            owner.pdf_shortcut.activated.emit()
+        with mock.patch.object(
+                QApplication, "focusWidget",
+                return_value=self.main_window.signal_list_panel.search_box):
+            window.pdf_shortcut.activated.emit()
+        self.assertEqual(handler.call_count, 3)
+
+    @covers("LLFR-01105", "LLFR-01106", "LLFR-01018", "LLFR-01036",
+            "HLFR-00033", "HLFR-00129", "HLFR-00137")
+    def test_search_shortcut_focuses_the_window_search_box(self) -> None:
+        """Ctrl+F in a window with a hidden panel shows it (undoably)
+        and puts the focus in its search box with the text selected; in
+        the main window, in the main search box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QKeySequence
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        self.main_window.signal_list_panel.search_box.setText("spe")
+        self.process_events()
+        self.assertEqual(window.search_shortcut.key(),
+                         QKeySequence("Ctrl+F"))
+        depth_i = self.plot_controller.undo_history.depth()
+        window.search_shortcut.activated.emit()
+        self.process_events()
+        window = self.main_window.undocked_window(second_id_i)
+        self.assertTrue(window.is_panel_shown())
+        self.assertEqual(self.plot_controller.undo_history.depth(),
+                         depth_i + 1)
+        box = window.signal_list_panel.search_box
+        self.assertIs(window.focusWidget(), box)
+        self.assertEqual(box.selectedText(), "spe")
+        # A second press only moves the focus: nothing to undo.
+        window.search_shortcut.activated.emit()
+        self.process_events()
+        self.assertEqual(self.plot_controller.undo_history.depth(),
+                         depth_i + 1)
+        self.main_window.search_shortcut.activated.emit()
+        self.process_events()
+        main_box = self.main_window.signal_list_panel.search_box
+        self.assertIs(self.main_window.focusWidget(), main_box)
+        self.assertEqual(main_box.selectedText(), "spe")
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertFalse(self.main_window.undocked_window(
+            second_id_i).is_panel_shown())
+
+
+class LiveDragInEveryWindowTest(UndockedWindowTestCase):
+    """A dragged flag or area moves live in every shown window."""
+
+    def setUp(self) -> None:
+        """Main tab with a plot, an undocked tab with a plot, and a
+        hidden docked tab with a plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().setUp()
+        self.first_id_i, self.second_id_i, self.window = (
+            self.two_tabs_one_undocked())
+        self.main_window.set_current_tab(self.first_id_i)
+        self.main_window.signal_double_click_handler("force")
+        self.hidden_id_i = self.add_tab()
+        self.main_window.signal_double_click_handler("angle")
+        self.main_window.set_current_tab(self.first_id_i)
+        self.process_events()
+        self.main_plot = self.panel.page_dict[
+            self.first_id_i].plot_widget_list[0]
+        self.window_plot = self.window.page().plot_widget_list[0]
+        self.hidden_plot = self.panel.page_dict[
+            self.hidden_id_i].plot_widget_list[0]
+
+    @covers("LLFR-00665", "LLFR-00666", "LLFR-00205", "HLFR-00029")
+    def test_flag_follows_in_every_shown_window(self) -> None:
+        """A flag dragged in the main window follows in the undocked
+        window, and one dragged there follows in the main window; the
+        hidden docked tab waits for the release.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with mock.patch.object(self.window_plot,
+                               "follow_marker_drag") as window_follow, \
+                mock.patch.object(self.hidden_plot,
+                                  "follow_marker_drag") as hidden_follow, \
+                mock.patch.object(self.main_plot,
+                                  "follow_marker_drag") as main_follow:
+            self.main_plot.marker_drag_moved.emit(4, 1.5)
+            self.window_plot.marker_drag_moved.emit(4, 2.5)
+        window_follow.assert_called_once_with(4, 1.5)
+        main_follow.assert_called_once_with(4, 2.5)
+        hidden_follow.assert_not_called()
+
+    @covers("LLFR-00709", "LLFR-00710", "LLFR-00310", "HLFR-00067",
+            "HLFR-00106")
+    def test_area_follows_in_every_shown_window(self) -> None:
+        """An area dragged in the undocked window follows in the main
+        window's shown tab; the hidden docked tab waits for the release.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with mock.patch.object(self.main_plot,
+                               "follow_area_drag") as main_follow, \
+                mock.patch.object(self.hidden_plot,
+                                  "follow_area_drag") as hidden_follow, \
+                mock.patch.object(self.window_plot,
+                                  "follow_area_drag") as window_follow:
+            self.window_plot.area_drag_moved.emit(2, 1.0, 2.0)
+            self.main_plot.area_drag_moved.emit(2, 1.5, 2.5)
+        main_follow.assert_called_once_with(2, 1.0, 2.0)
+        window_follow.assert_called_once_with(2, 1.5, 2.5)
+        hidden_follow.assert_not_called()
+
+
 class WindowIconShapeTest(unittest.TestCase):
     """The pictures of the window buttons (no Qt needed)."""
 
@@ -779,7 +1399,8 @@ class WindowIconShapeTest(unittest.TestCase):
             "HLFR-00124", "HLFR-00129")
     def test_undock_dock_and_signal_list_pictures(self) -> None:
         """A square with an arrow out to the top right (undock) or in to
-        the bottom left (dock); a rectangle with its right third filled.
+        the bottom left (dock); a rounded rectangle with its right part
+        filled.
 
         Inputs: none.
         Outputs: none.
@@ -796,15 +1417,24 @@ class WindowIconShapeTest(unittest.TestCase):
         self.assertEqual(dock_head_list[1][1:], (11.0, 13.0))
         list_layer_list = icon_shapes.icon_layer_list(
             icon_shapes.SIGNAL_LIST_ICON_STR)
-        fill_command = list_layer_list[0][0][0]
+        fill_list = list_layer_list[0][0]
         outline_command = list_layer_list[1][0][0]
+        # The first layer is filled with the icon color, not stroked.
+        self.assertEqual(list_layer_list[0][1], icon_shapes.NO_ROLE_STR)
         self.assertEqual(list_layer_list[0][2], icon_shapes.INK_ROLE_STR)
-        # The filled part is the right third of the rectangle.
-        self.assertAlmostEqual(fill_command[3] / outline_command[3], 1 / 3,
-                               delta=0.06)
-        self.assertGreaterEqual(fill_command[1] + fill_command[3],
-                                outline_command[1] + outline_command[3]
-                                - 1.0)
+        # The outline is a rounded rectangle.
+        self.assertEqual(outline_command[0], "R")
+        self.assertGreater(outline_command[5], 0.0)
+        outline_left_f = outline_command[1]
+        outline_right_f = outline_command[1] + outline_command[3]
+        x_list = [command[-2] for command in fill_list
+                  if command[0] in ("M", "L", "Q")]
+        # The filled part is the right part: it reaches the right edge
+        # and starts right of the middle of the rectangle.
+        self.assertAlmostEqual(max(x_list), outline_right_f, delta=0.01)
+        self.assertGreater(min(x_list),
+                           (outline_left_f + outline_right_f) / 2.0)
+        self.assertEqual(fill_list[-1], ("Z",))
         for icon_name_str in icon_shapes.WINDOW_ICON_SHAPE_FUNCTION_DICT:
             self.assertNotIn(icon_name_str, icon_shapes.ICON_NAME_TUPLE)
 

@@ -632,17 +632,21 @@ def dock_shape() -> list:
 
 
 def signal_list_shape() -> list:
-    """Return the signal list icon: a rectangle, its right third shaded.
+    """Return the signal list icon: a rounded rectangle, right part filled.
 
     Inputs: none.
     Outputs: the list of layers.
     """
-    # LLFR-01010: the shaded right third stands for the signal list
-    # panel to the right of the plots.
-    return [([("R", 14.5, 5.0, 5.0, 14.0, 1.0)], NO_ROLE_STR, INK_ROLE_STR,
-             0.0),
-            ink_layer([("R", 3.5, 4.5, 17.0, 15.0, 2.0)]),
-            ink_layer(segment(14.0, 4.5, 14.0, 19.5))]
+    # LLFR-01010: like the sidebar button of Firefox, mirrored: the
+    # filled right part stands for the signal list panel to the right of
+    # the plots; its outer corners follow the rounded rectangle.
+    filled_list = [("M", 13.0, 5.0), ("L", 17.5, 5.0),
+                   ("Q", 20.5, 5.0, 20.5, 8.0), ("L", 20.5, 16.0),
+                   ("Q", 20.5, 19.0, 17.5, 19.0), ("L", 13.0, 19.0),
+                   ("Z",)]
+    return [(filled_list, NO_ROLE_STR, INK_ROLE_STR, 0.0),
+            ink_layer([("R", 3.5, 5.0, 17.0, 14.0, 3.0)]),
+            ink_layer(segment(13.0, 5.0, 13.0, 19.0))]
 
 
 # LLFR-00978, LLFR-00991, LLFR-01010: name -> function of the layers.

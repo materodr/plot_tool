@@ -499,10 +499,10 @@ class UndoNotRecordedTest(UndoControllerTestCase):
             lambda: self.handler("marker_place_handler")(self.plot_id_i,
                                                          3.0))
 
-    @covers("LLFR-00140", "LLFR-00070", "LLFR-00115", "LLFR-00122",
-            "LLFR-00079")
+    @covers("LLFR-00140", "LLFR-00070", "LLFR-00115", "LLFR-00079")
     def test_view_only_actions_are_not_undoable(self) -> None:
-        """Zoom and pan, reset zoom, grid and plot tools are not recorded.
+        """Zoom and pan, reset zoom and plot tools are not recorded (a
+        Grid click is, LLFR-01097).
 
         Inputs: none.
         Outputs: none.
@@ -511,8 +511,6 @@ class UndoNotRecordedTest(UndoControllerTestCase):
             lambda: self.handler("time_range_handler")(self.plot_id_i,
                                                        2.0, 4.0))
         self.assert_not_recorded(lambda: self.handler("reset_zoom")())
-        self.assert_not_recorded(lambda: self.handler("grid")(True))
-        self.assert_not_recorded(lambda: self.handler("grid")(False))
         self.assert_not_recorded(
             lambda: self.handler("plot_tool")(NO_TOOL_STR))
         self.assertFalse(self.view.undo_enabled_b)
@@ -716,7 +714,8 @@ class UndoViewStateTest(UndoControllerTestCase):
 
     @covers("LLFR-00138", "LLFR-00109")
     def test_plot_tool_and_grid_are_kept(self) -> None:
-        """Undo changes neither the plot tool nor the grid.
+        """Undoing another action changes neither the plot tool nor the
+        grid.
 
         Inputs: none.
         Outputs: none.
@@ -726,6 +725,64 @@ class UndoViewStateTest(UndoControllerTestCase):
         self.undo()
         self.assertEqual(self.controller.plot_tool_str, MARKER_TOOL_STR)
         self.assertEqual(self.view.plot_tool_str, MARKER_TOOL_STR)
+        self.assertTrue(self.controller.grid_shown_b)
+
+    @covers("LLFR-01097", "LLFR-00140", "LLFR-00138", "LLFR-00192",
+            "LLFR-00124", "HLFR-00040", "HLFR-00048", "HLFR-00037")
+    def test_grid_click_is_undone_and_redone(self) -> None:
+        """Each Grid click that changes the grid is one undoable action:
+        undo and redo show and hide the grid and the Grid button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertTrue(self.controller.grid_shown_b)
+        self.handler("grid")(False)
+        self.assertEqual(self.depth(), 1)
+        self.handler("grid")(True)
+        self.assertEqual(self.depth(), 2)
+        self.undo()
+        self.assertFalse(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, False)
+        self.undo()
+        self.assertTrue(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, True)
+        self.handler("redo")()
+        self.assertFalse(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, False)
+        self.handler("redo")()
+        self.assertTrue(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, True)
+
+    @covers("LLFR-01097", "LLFR-00140", "HLFR-00040")
+    def test_grid_click_that_changes_nothing_is_not_recorded(self) -> None:
+        """A click that asks for the grid state already shown, and the
+        grid shown at start, are no undoable action.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.depth(), 0)
+        self.handler("grid")(True)
+        self.assertEqual(self.depth(), 0)
+        self.assertFalse(self.controller.undo_history.can_undo())
+
+    @covers("LLFR-01097", "LLFR-00138", "LLFR-00193", "HLFR-00040")
+    def test_grid_undo_keeps_the_other_actions(self) -> None:
+        """A grid click between two other actions is undone on its own,
+        and a new action after an undo drops the grid redo.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tab_count_i = len(self.workspace.tab_list)
+        self.handler("add_tab")()
+        self.handler("grid")(False)
+        self.undo()
+        self.assertTrue(self.controller.grid_shown_b)
+        self.assertEqual(len(self.workspace.tab_list), tab_count_i + 1)
+        self.handler("add_tab")()
+        self.assertFalse(self.controller.undo_history.can_redo())
         self.assertTrue(self.controller.grid_shown_b)
 
     @covers("LLFR-00138")

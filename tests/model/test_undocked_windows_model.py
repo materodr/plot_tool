@@ -92,13 +92,18 @@ class WindowPlacementTest(unittest.TestCase):
 
     @covers("LLFR-01016")
     def test_first_panel_width(self) -> None:
-        """The main panel width, at most half the window.
+        """25% of the window's width, whatever the main panel's width.
 
         Inputs: none.
         Outputs: none.
         """
-        self.assertEqual(first_panel_width_i(240, 1000), 240)
-        self.assertEqual(first_panel_width_i(240, 300), 150)
+        self.assertEqual(first_panel_width_i(240, 1000), 250)
+        self.assertEqual(first_panel_width_i(240, 300), 75)
+        self.assertEqual(first_panel_width_i(900, 1000), 250)
+        self.assertEqual(first_panel_width_i(10, 1002), 250)
+        self.assertEqual(first_panel_width_i(10, 3), 1)
+        # An unknown window width falls back to the main panel's.
+        self.assertEqual(first_panel_width_i(240, 0), 240)
         self.assertEqual(first_panel_width_i(0, 0), 1)
 
 
@@ -272,7 +277,8 @@ class LayoutWindowsTest(unittest.TestCase):
 
     @covers("LLFR-00225", "LLFR-01016")
     def test_panel_never_shown_saves_its_first_width(self) -> None:
-        """A hidden panel that was never shown saves its first width.
+        """A hidden panel that was never shown saves its first width,
+        25% of the window's width.
 
         Inputs: none.
         Outputs: none.
@@ -284,7 +290,7 @@ class LayoutWindowsTest(unittest.TestCase):
         workspace.undock_tab(tab.tab_id_i, (0, 0, 400, 300))
         entry_dict = build_layout_dict(workspace, -1, (), True)["tabs"][1]
         self.assertEqual(entry_dict["signal_list_panel"],
-                         {"shown": False, "width": 200})
+                         {"shown": False, "width": 100})
 
     @covers("LLFR-01041", "LLFR-01042", "LLFR-01043", "LLFR-01088",
             "LLFR-00477", "HLFR-00140", "HLFR-00050", "HLFR-00151")
@@ -390,6 +396,77 @@ class LayoutWindowsTest(unittest.TestCase):
                          "Signal list panel state",
                          "Signal list panel width"):
             self.assertIn(what_str, report_str)
+
+    @covers("LLFR-01046", "LLFR-01047", "LLFR-00235", "LLFR-00237",
+            "HLFR-00140", "HLFR-00052")
+    def test_window_values_qt_cannot_take_are_replaced(self) -> None:
+        """A panel width, a window size or a position that Qt can't take
+        (above 2**31 - 1, or beyond 16777215 pixels) is replaced by the
+        value of an undock and reported, like any unusable value.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for window_dict, panel_width_value, what_tuple in (
+                ({"x": 10, "y": 20, "width": 800, "height": 600},
+                 2 ** 31, ("Signal list panel width",)),
+                ({"x": 10, "y": 20, "width": 800, "height": 600},
+                 16777216, ("Signal list panel width",)),
+                ({"x": 10, "y": 20, "width": 2 ** 31, "height": 600},
+                 200, ("Window size",)),
+                ({"x": 10, "y": 20, "width": 800, "height": 2 ** 63},
+                 200, ("Window size",)),
+                ({"x": 2 ** 31, "y": 20, "width": 800, "height": 600},
+                 200, ("Window position",)),
+                ({"x": 10, "y": -2 ** 31 - 1, "width": 800,
+                  "height": 600}, 200, ("Window position",)),
+                ({"x": -16777216, "y": 20, "width": 800,
+                  "height": 600}, 200, ("Window position",))):
+            with self.subTest(window=window_dict, width=panel_width_value):
+                self.setUp()
+                result = self.rebuild(layout_with_tabs(
+                    [{"name": "Docked",
+                      "plots": [plot_entry("file1_Speed")]},
+                     {"name": "W", "undocked": True,
+                      "window": window_dict,
+                      "signal_list_panel": {"shown": True,
+                                            "width": panel_width_value},
+                      "plots": [plot_entry("file1_Torque")]}]))
+                tab = self.workspace.undocked_tab_list()[0]
+                report_str = result.report.text()
+                for what_str in what_tuple:
+                    self.assertIn(what_str, report_str)
+                self.assertEqual(len(result.report.replaced_line_list), 1)
+                x_i, y_i, width_i, height_i = tab.window_tuple
+                for value_i in tab.window_tuple + (tab.panel_width_i,):
+                    self.assertLessEqual(abs(value_i), 16777215)
+                if "Window size" in what_tuple:
+                    self.assertEqual((width_i, height_i), (900, 700))
+                if "Window position" in what_tuple:
+                    self.assertEqual((x_i, y_i), (30, 40))
+                if "Signal list panel width" in what_tuple:
+                    self.assertEqual(tab.panel_width_i, 0)
+                    self.assertTrue(tab.panel_shown_b)
+
+    @covers("LLFR-01046", "HLFR-00140")
+    def test_largest_window_values_qt_takes_are_kept(self) -> None:
+        """The limits themselves (16777215 pixels) are kept, unreported.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        result = self.rebuild(layout_with_tabs(
+            [{"name": "Docked", "plots": [plot_entry("file1_Speed")]},
+             {"name": "W", "undocked": True,
+              "window": {"x": -16777215, "y": 16777215,
+                         "width": 16777215, "height": 1},
+              "signal_list_panel": {"shown": True, "width": 16777215},
+              "plots": [plot_entry("file1_Torque")]}]))
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        tab = self.workspace.undocked_tab_list()[0]
+        self.assertEqual(tab.window_tuple,
+                         (-16777215, 16777215, 16777215, 1))
+        self.assertEqual(tab.panel_width_i, 16777215)
 
     @covers("LLFR-01050", "LLFR-01041", "HLFR-00141", "HLFR-00052")
     def test_off_screen_window_is_not_reported(self) -> None:
