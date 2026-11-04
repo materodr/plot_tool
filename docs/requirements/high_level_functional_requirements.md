@@ -53,10 +53,13 @@ Note: The **main window** is the app window that has the top panel. A window tha
 The user must be able to put the tab of an undocked window back into the main window.
 
 ### HLFR-00152 Undock and dock a tab by dragging it
-The user must be able to undock a tab by dragging it out of the main window's tab row and dropping it outside the main window, and to dock an undocked tab by dragging its tab button onto the main window's tab row.
+The user must be able to undock a tab by dragging it out of the main window's tab row and dropping it outside the main window's plot panel, and to dock an undocked tab by dragging its tab button onto the main window's tab row.
 
-### HLFR-00125 One tab per undocked window
-Each undocked window must hold exactly one tab.
+### HLFR-00125 Tabs of an undocked window
+Each undocked window must hold one or more tabs.
+
+### HLFR-00153 Move a tab into an undocked window
+The user must be able to move a tab of the main window into an undocked window that is already open, by dragging the tab and dropping it on that window.
 
 ### HLFR-00126 Any number of undocked windows
 The app must allow as many undocked windows as the user wants at the same time.
