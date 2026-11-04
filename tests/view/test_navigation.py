@@ -7,6 +7,7 @@ toggle button, in a plot widget and through MainWindow with the real
 controllers. No modal dialog or menu is ever opened.
 """
 
+import gc
 import time
 import unittest
 
@@ -1043,9 +1044,14 @@ class NavigationEndToEndTest(unittest.TestCase):
         from view.toggle_button import ACTIVE_COLOR_STR, NORMAL_COLOR_STR
         reset_button = self.top_panel.reset_zoom_button
         self.zoom_current_tab()
+        # A full garbage collection of the objects left by earlier tests
+        # can pause the event loop for seconds on a slow runner, so it
+        # is done now and kept out of the timed part of the test.
+        gc.collect()
+        gc.disable()
+        self.addCleanup(gc.enable)
         click_s = time.monotonic()
         self.click(reset_button)
-        print("DIAG205 click took", time.monotonic() - click_s, flush=True)
         # The reset has already run, and the button is still active.
         self.assertEqual(self.plot_widgets()[0].time_range_tuple(),
                          (0.0, 4.0))
@@ -1053,20 +1059,8 @@ class NavigationEndToEndTest(unittest.TestCase):
         self.assertEqual(reset_button.current_background_color_str(),
                          ACTIVE_COLOR_STR)
         QTest.qWait(150)
-        print("DIAG205 after qWait150", time.monotonic() - click_s, flush=True)
         self.assertTrue(reset_button.is_active())
-        diag_list = []
-        deadline_s = time.monotonic() + MAXIMUM_WAIT_TIME_S
-        while reset_button.is_active() and time.monotonic() < deadline_s:
-            before_s = time.monotonic()
-            QTest.qWait(5)
-            diag_list.append(time.monotonic() - before_s)
-        normal_s = time.monotonic()
-        print("DIAG205 normal at", normal_s - click_s, "loops", len(diag_list),
-              "longest wait", max(diag_list or [0]), "timer active",
-              reset_button.minimum_active_timer.isActive(),
-              "remaining", reset_button.minimum_active_timer.remainingTime(),
-              "running", reset_button.action_running_b, flush=True)
+        normal_s = self.wait_until_normal(reset_button)
         self.assertFalse(reset_button.is_active())
         self.assertEqual(reset_button.current_background_color_str(),
                          NORMAL_COLOR_STR)
