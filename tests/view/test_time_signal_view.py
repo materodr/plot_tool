@@ -468,12 +468,14 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertEqual(len(reason_list), 1)
         self.assertIn("must always increase", reason_list[0])
         self.assertEqual(self.box_record_list, [])
+        # LLFR-00906: the window had the names in the file; the signal
+        # list has them with the prefix (LLFR-00901).
         self.assertEqual(self.panel.signal_name_list(),
-                         ["speed", "t_s", "force"])
-        self.double_click_signal("force")
+                         ["file1_speed", "file1_t_s", "file1_force"])
+        self.double_click_signal("file1_force")
         plot_widget = self.plot_widgets()[0]
         force_line = [line for line in plot_widget.axes.get_lines()
-                      if line.get_label() == "force"][0]
+                      if line.get_label() == "file1_force"][0]
         self.assertEqual(list(force_line.get_xdata()),
                          [0.0, 0.5, 1.0, 2.0, 4.0])
         self.assertEqual(list(force_line.get_ydata()),
@@ -482,46 +484,46 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertAlmostEqual(start_s, 0.0)
         self.assertAlmostEqual(end_s, 4.0)
         # LLFR-00055: the chosen time signal is plotted like any other.
-        self.double_click_signal("t_s")
+        self.double_click_signal("file1_t_s")
         self.assertEqual(len(self.plot_widgets()), 2)
         self.assertEqual(self.box_record_list, [])
 
     @covers("LLFR-00327", "HLFR-00070", "LLFR-00010", "LLFR-00328",
-            "LLFR-00508", "LLFR-00509", "LLFR-00512", "LLFR-00513")
+            "LLFR-00508", "LLFR-00509", "LLFR-00512", "LLFR-00513",
+            "LLFR-00918")
     def test_cancel_keeps_the_open_file(self) -> None:
-        """Yes, then cancelling the window, keeps the open file.
+        """No question, then cancelling the window, keeps the open file.
 
         Inputs: none.
         Outputs: none.
         """
         self.open_file(self.time_path_str)
-        self.double_click_signal("a")
-        self.replace_answer_list.append(True)
+        self.double_click_signal("file1_a")
         self.window_attempt_list.append([])
         self.open_file(self.no_time_path_str)
         self.assertEqual(len(self.window_record_list), 1)
-        # LLFR-00327: only the replace question, no other message.
-        self.assertEqual([record[0] for record in self.box_record_list],
-                         [self.message_box_class.Icon.Question])
-        self.assertEqual(self.panel.signal_name_list(), ["a", "TIME", "b"])
+        # LLFR-00327, LLFR-00918: no question and no other message.
+        self.assertEqual(self.box_record_list, [])
+        self.assertEqual(self.panel.signal_name_list(),
+                         ["file1_a", "file1_TIME", "file1_b"])
         self.assertEqual(len(self.plot_widgets()), 1)
 
-    @covers("LLFR-00328", "HLFR-00010", "LLFR-00014", "LLFR-00449")
-    def test_replace_question_comes_before_the_window(self) -> None:
-        """No in the replace question: the window is never shown.
+    @covers("LLFR-00953", "LLFR-00906", "LLFR-00916", "HLFR-00070")
+    def test_window_of_an_added_file(self) -> None:
+        """With a file open, the window of the next file lists its names
+        in the file, and the file opens as file 2.
 
         Inputs: none.
         Outputs: none.
         """
         self.open_file(self.time_path_str)
         self.window_attempt_list.append(["t_s"])
-        self.replace_answer_list.append(False)
         self.open_file(self.no_time_path_str)
-        self.assertEqual(len(self.window_record_list), 0)
-        self.assertEqual(len(self.box_record_list), 1)
-        self.assertEqual(self.box_record_list[0][0],
-                         self.message_box_class.Icon.Question)
-        self.assertEqual(self.panel.signal_name_list(), ["a", "TIME", "b"])
+        self.assertEqual(self.window_record_list[0][2],
+                         ["speed", "t_s", "force"])
+        self.assertEqual(self.panel.signal_name_list(), [
+            "file1_a", "file1_TIME", "file1_b", "file2_speed", "file2_t_s",
+            "file2_force"])
 
     @covers("LLFR-00331", "LLFR-00324", "LLFR-00053", "HLFR-00072",
             "LLFR-00505")
@@ -534,7 +536,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.open_file(self.time_path_str)
         self.assertEqual(self.window_record_list, [])
         self.assertEqual(self.box_record_list, [])
-        menu, _ = self.panel.signal_menu_and_requests("TIME")
+        menu, _ = self.panel.signal_menu_and_requests("file1_TIME")
         text_list = []
         pending_menu_list = [menu]
         while pending_menu_list:
@@ -559,41 +561,41 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         green_str = theme.TIME_SIGNAL_TEXT_COLOR_STR.lower()
         self.window_attempt_list.append(["t_s"])
         self.open_file(self.no_time_path_str)
-        self.assertEqual(self.panel.name_color_str("t_s"), green_str)
-        for name_str in ("speed", "force"):
+        self.assertEqual(self.panel.name_color_str("file1_t_s"), green_str)
+        for name_str in ("file1_speed", "file1_force"):
             self.assertNotEqual(self.panel.name_color_str(name_str),
                                 green_str)
             self.assertEqual(self.green_pixel_count(name_str), 0,
                              self.row_colors(name_str))
-        self.assertGreater(self.green_pixel_count("t_s"), 0,
-                           self.row_colors("t_s"))
+        self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
+                           self.row_colors("file1_t_s"))
         # LLFR-00332: also among the search results.
         self.panel.search_box.setText("t s")
         self.application.processEvents()
-        self.assertEqual(self.panel.signal_name_list(), ["t_s"])
-        self.assertEqual(self.panel.name_color_str("t_s"), green_str)
-        self.assertGreater(self.green_pixel_count("t_s"), 0,
-                           self.row_colors("t_s"))
+        self.assertEqual(self.panel.signal_name_list(), ["file1_t_s"])
+        self.assertEqual(self.panel.name_color_str("file1_t_s"), green_str)
+        self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
+                           self.row_colors("file1_t_s"))
         self.panel.search_box.setText("")
         self.application.processEvents()
         # LLFR-00332: also while selected.
         list_widget = self.panel.signal_list_widget
         from PyQt6.QtCore import Qt
         from view.signal_list_panel import SignalItemDelegate
-        item = list_widget.findItems("t_s", Qt.MatchFlag.MatchExactly)[0]
+        item = list_widget.findItems("file1_t_s", Qt.MatchFlag.MatchExactly)[0]
         list_widget.setCurrentItem(item)
         list_widget.setFocus()
         self.application.processEvents()
         self.assertTrue(item.isSelected())
-        self.assertGreater(self.green_pixel_count("t_s"), 0,
-                           self.row_colors("t_s"))
-        other_item = list_widget.findItems("speed",
+        self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
+                           self.row_colors("file1_t_s"))
+        other_item = list_widget.findItems("file1_speed",
                                            Qt.MatchFlag.MatchExactly)[0]
         list_widget.setCurrentItem(other_item)
         self.application.processEvents()
         self.assertTrue(other_item.isSelected())
-        self.assertEqual(self.green_pixel_count("speed"), 0,
-                         self.row_colors("speed"))
+        self.assertEqual(self.green_pixel_count("file1_speed"), 0,
+                         self.row_colors("file1_speed"))
         # LLFR-00332, LLFR-00291: several rows selected at once.
         self.assertIsInstance(list_widget.itemDelegate(),
                               SignalItemDelegate)
@@ -601,11 +603,11 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         other_item.setSelected(True)
         self.application.processEvents()
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["speed", "t_s"])
-        self.assertGreater(self.green_pixel_count("t_s"), 0,
-                           self.row_colors("t_s"))
-        self.assertEqual(self.green_pixel_count("speed"), 0,
-                         self.row_colors("speed"))
+                         ["file1_speed", "file1_t_s"])
+        self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
+                           self.row_colors("file1_t_s"))
+        self.assertEqual(self.green_pixel_count("file1_speed"), 0,
+                         self.row_colors("file1_speed"))
         # LLFR-00292: the list refilled by a search change keeps the
         # selection, and the time row stays green.
         self.panel.search_box.setText("s")
@@ -613,25 +615,26 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.panel.search_box.setText("")
         self.application.processEvents()
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["speed", "t_s"])
-        self.assertEqual(self.panel.name_color_str("t_s"), green_str)
-        self.assertGreater(self.green_pixel_count("t_s"), 0,
-                           self.row_colors("t_s"))
-        self.assertEqual(self.green_pixel_count("speed"), 0,
-                         self.row_colors("speed"))
+                         ["file1_speed", "file1_t_s"])
+        self.assertEqual(self.panel.name_color_str("file1_t_s"), green_str)
+        self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
+                           self.row_colors("file1_t_s"))
+        self.assertEqual(self.green_pixel_count("file1_speed"), 0,
+                         self.row_colors("file1_speed"))
         # LLFR-00266: renaming another shown row keeps the time row green.
-        self.panel.rename_shown_signal("force", "force_renamed")
+        self.panel.rename_shown_signal("file1_force", "file1_force_renamed")
         self.application.processEvents()
-        self.assertEqual(self.panel.name_color_str("t_s"), green_str)
-        self.assertNotEqual(self.panel.name_color_str("force_renamed"),
+        self.assertEqual(self.panel.name_color_str("file1_t_s"), green_str)
+        self.assertNotEqual(self.panel.name_color_str("file1_force_renamed"),
                             green_str)
         # HLFR-00071: a time signal found by its name is green too.
-        self.replace_answer_list.append(True)
+        # LLFR-00332: the time signal of each open file is green.
         self.open_file(self.time_path_str)
-        self.assertEqual(self.panel.name_color_str("TIME"), green_str)
-        self.assertNotEqual(self.panel.name_color_str("a"), green_str)
-        self.assertGreater(self.green_pixel_count("TIME"), 0,
-                           self.row_colors("TIME"))
+        self.assertEqual(self.panel.name_color_str("file2_TIME"), green_str)
+        self.assertEqual(self.panel.name_color_str("file1_t_s"), green_str)
+        self.assertNotEqual(self.panel.name_color_str("file2_a"), green_str)
+        self.assertGreater(self.green_pixel_count("file2_TIME"), 0,
+                           self.row_colors("file2_TIME"))
 
 
 if __name__ == "__main__":

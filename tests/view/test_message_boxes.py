@@ -1,4 +1,4 @@
-"""Tests for the message boxes (HLFR-00002, LLFR-00032, HLFR-00010).
+"""Tests for the message boxes (HLFR-00002, LLFR-00032, LLFR-00952).
 
 The modal ``exec`` is always patched, so no test waits for a user.
 """
@@ -199,113 +199,39 @@ class MessageBoxesTest(unittest.TestCase):
             self.message_module.TAB_NAME_TAKEN_MESSAGE_STR.format(
                 name="Tab 1"))
 
-    @covers("HLFR-00010")
-    def test_replace_file_box_content(self) -> None:
-        """The replace box asks a question with Yes and No, No by default.
+    @covers("LLFR-00892")
+    def test_open_files_limit_box_content(self) -> None:
+        """The limit box is an information box with OK.
 
         Inputs: none.
         Outputs: none.
         """
         standard_button_class = self.message_box_class.StandardButton
-        box = self.message_module.build_replace_file_box(self.parent_widget)
-        self.assertEqual(box.icon(), self.message_box_class.Icon.Question)
-        self.assertEqual(box.windowTitle(), "Replace File")
-        text_str = box.text().lower()
-        self.assertIn("close the current file", text_str)
-        self.assertIn("proceed", text_str)
+        box = self.message_module.build_open_files_limit_box(
+            self.parent_widget, "10 files are already open.")
+        self.assertEqual(box.icon(), self.message_box_class.Icon.Information)
+        self.assertEqual(box.windowTitle(),
+                         self.message_module.OPEN_FILES_LIMIT_TITLE_STR)
+        self.assertEqual(box.text(), "10 files are already open.")
         self.assertEqual(self.button_value_set(box),
-                         {standard_button_class.Yes.value,
-                          standard_button_class.No.value})
-        self.assertIs(box.defaultButton(),
-                      box.button(standard_button_class.No))
-        self.assertIs(box.escapeButton(),
-                      box.button(standard_button_class.No))
+                         {standard_button_class.Ok.value})
 
-    @covers("HLFR-00010")
-    def test_ask_replace_file_yes_int(self) -> None:
-        """Choosing Yes (int return of exec) gives True.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        yes_value_i = self.message_box_class.StandardButton.Yes.value
-        with self.patch_exec(yes_value_i):
-            answer_b = self.message_module.ask_replace_file(
-                self.parent_widget)
-        self.assertIs(answer_b, True)
-        self.assertEqual(len(self.shown_box_list), 1)
-        self.assertEqual(self.shown_box_list[0].windowTitle(),
-                         "Replace File")
-
-    @covers("HLFR-00010")
-    def test_ask_replace_file_no_int(self) -> None:
-        """Choosing No (int return of exec) gives False.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        no_value_i = self.message_box_class.StandardButton.No.value
-        with self.patch_exec(no_value_i):
-            answer_b = self.message_module.ask_replace_file(
-                self.parent_widget)
-        self.assertIs(answer_b, False)
-
-    @covers("HLFR-00010")
-    def test_ask_replace_file_enum_return(self) -> None:
-        """An enum return of exec is understood for Yes and for No.
+    @covers("LLFR-00952")
+    def test_refused_files_box_content(self) -> None:
+        """The box of the refused files is an information box with OK.
 
         Inputs: none.
         Outputs: none.
         """
         standard_button_class = self.message_box_class.StandardButton
-        with self.patch_exec(standard_button_class.Yes):
-            self.assertIs(self.message_module.ask_replace_file(None), True)
-        with self.patch_exec(standard_button_class.No):
-            self.assertIs(self.message_module.ask_replace_file(None), False)
-
-    @covers("HLFR-00010")
-    def test_ask_replace_file_closed_box(self) -> None:
-        """Closing the box without an answer keeps the file (False).
-
-        Inputs: none.
-        Outputs: none.
-        """
-        escape_value_i = self.message_box_class.StandardButton.NoButton.value
-        with self.patch_exec(escape_value_i):
-            answer_b = self.message_module.ask_replace_file(
-                self.parent_widget)
-        self.assertIs(answer_b, False)
-
-    @covers("HLFR-00010")
-    def test_ask_replace_file_real_yes_click(self) -> None:
-        """A real click on Yes, made while the box runs, gives True.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        from PyQt6.QtCore import QTimer
-        from PyQt6.QtWidgets import QApplication
-        standard_button_class = self.message_box_class.StandardButton
-
-        def click_yes() -> None:
-            """Click Yes on the open replace box.
-
-            Inputs: none.
-            Outputs: none.
-            """
-            for widget in QApplication.topLevelWidgets():
-                if (isinstance(widget, self.message_box_class)
-                        and widget.isVisible()):
-                    widget.button(standard_button_class.Yes).click()
-
-        QTimer.singleShot(50, click_yes)
-        safety_timer = QTimer()
-        safety_timer.setSingleShot(True)
-        safety_timer.timeout.connect(self.close_open_boxes)
-        safety_timer.start(3000)
-        answer_b = self.message_module.ask_replace_file(None)
-        safety_timer.stop()
-        self.assertIs(answer_b, True)
+        box = self.message_module.build_refused_files_box(
+            self.parent_widget, "a.csv: already open as file1.")
+        self.assertEqual(box.icon(), self.message_box_class.Icon.Information)
+        self.assertEqual(box.windowTitle(),
+                         self.message_module.REFUSED_FILES_TITLE_STR)
+        self.assertEqual(box.text(), "a.csv: already open as file1.")
+        self.assertEqual(self.button_value_set(box),
+                         {standard_button_class.Ok.value})
 
     def close_open_boxes(self) -> None:
         """Reject any open message box, so a failing test never hangs.

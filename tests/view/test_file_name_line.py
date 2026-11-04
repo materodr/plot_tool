@@ -601,9 +601,10 @@ class FileNameLineWindowTest(unittest.TestCase):
     """The main window passes the opened file's name to the line."""
 
     @covers("LLFR-00362", "LLFR-00363", "HLFR-00079", "LLFR-00010",
-            "LLFR-00013", "LLFR-00014", "LLFR-00650", "LLFR-00651")
+            "LLFR-00650", "LLFR-00651", "LLFR-00894", "LLFR-00933",
+            "HLFR-00114")
     def test_open_file_shows_its_name(self) -> None:
-        """Opening a real CSV file through the app shows its name.
+        """Opening real CSV files through the app shows their rows.
 
         Inputs: none.
         Outputs: none.
@@ -624,46 +625,50 @@ class FileNameLineWindowTest(unittest.TestCase):
             controller.file_controller.open_file_requested()
             application.processEvents()
             self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
+                             "file1_bench run.csv")
             self.assertTrue(
                 window.signal_list_panel.file_name_label.isVisible())
-            # A cancelled dialog keeps the name.
+            # A cancelled dialog keeps the row.
             window.ask_open_file_path = lambda start_folder_str: ""
             controller.file_controller.open_file_requested()
             self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
-            # A file that fails to open keeps the name (LLFR-00010).
+                             "file1_bench run.csv")
+            # A file that fails to open keeps the row (LLFR-00010).
             broken_path_str = os.path.join(folder_str, "broken.csv")
             with open(broken_path_str, "w", encoding="utf-8") as csv_file:
                 csv_file.write("Time,Speed\n0,1\n1,abc\n")
             error_list = []
             window.show_file_open_error = error_list.append
-            # HLFR-00010: the question comes before the read.
-            window.ask_replace_file = lambda: True
             window.ask_open_file_path = (
                 lambda start_folder_str: broken_path_str)
             controller.file_controller.open_file_requested()
             self.assertEqual(len(error_list), 1)
             self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
-            # A declined replacement keeps the name (LLFR-00014).
+                             "file1_bench run.csv")
+            # A file already open adds no row (LLFR-00894).
+            refused_list = []
+            window.show_refused_files_notification = refused_list.append
+            window.ask_open_file_path = lambda start_folder_str: path_str
+            controller.file_controller.open_file_requested()
+            self.assertEqual(len(refused_list), 1)
+            self.assertEqual(window.signal_list_panel.file_name(),
+                             "file1_bench run.csv")
+            # Another file adds its row, with the next number.
             other_path_str = os.path.join(folder_str, "other.csv")
             with open(other_path_str, "w", encoding="utf-8") as csv_file:
                 csv_file.write("Time,Force\n0,1\n1,2\n")
-            window.ask_replace_file = lambda: False
             window.ask_open_file_path = (
                 lambda start_folder_str: other_path_str)
             controller.file_controller.open_file_requested()
-            self.assertEqual(window.signal_list_panel.file_name(),
-                             "bench run.csv")
-            # An accepted replacement shows the new name (LLFR-00013).
-            window.ask_replace_file = lambda: True
-            controller.file_controller.open_file_requested()
             application.processEvents()
             self.assertEqual(window.signal_list_panel.file_name(),
-                             "other.csv")
-            self.assertEqual(window.signal_list_panel.file_name_label.text(),
-                             "other.csv")
+                             "file1_bench run.csv, file2_other.csv")
+            # LLFR-00933: with no file left, no row is shown.
+            controller.file_controller.close_all_files()
+            application.processEvents()
+            self.assertEqual(window.signal_list_panel.file_name(), "")
+            self.assertFalse(
+                window.signal_list_panel.file_name_label.isVisible())
         window.close()
         window.deleteLater()
         application.processEvents()

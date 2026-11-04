@@ -272,10 +272,10 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         state_list = []
 
         def answer_dialog(dialog) -> str:
@@ -334,8 +334,8 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         plot_widget_list = [
             self.main_window.plot_view(plot_id_i) for plot_id_i in
             self.main_window.plot_panel.plot_id_list(
@@ -384,11 +384,11 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         first_tab_id_i = self.main_window.current_tab_id()
         second_tab_id_i = self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         self.main_window.set_current_tab(first_tab_id_i)
         self.application.processEvents()
         path_str = os.path.join(self.folder_str, "drawn.pdf")
@@ -411,7 +411,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from matplotlib.figure import Figure
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         plot_widget_list = self.tab_plot_widget_list(
             self.main_window.current_tab_id())
         original_savefig = Figure.savefig
@@ -445,11 +445,11 @@ class ExportCopyTest(unittest.TestCase):
         from PyQt6.QtCore import Qt
         from PyQt6.QtGui import qGray
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         plot_id_i = self.main_window.plot_panel.plot_id_list(
             self.main_window.current_tab_id())[0]
         plot_controller = self.controller.plot_controller
-        plot_controller.on_tip_pin(plot_id_i, "speed", 1.0, 2.0)
+        plot_controller.on_tip_pin(plot_id_i, "file1_speed", 1.0, 2.0)
         plot_controller.on_pinned_tip_move(plot_id_i, 0, 60.0, -40.0)
         plot_controller.on_marker_place(plot_id_i, 1.5)
         self.application.processEvents()
@@ -507,10 +507,10 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         first_tab_id_i = self.main_window.current_tab_id()
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         self.main_window.set_current_tab(first_tab_id_i)
         self.application.processEvents()
         original_grab = plot_export.grab_page_image
@@ -544,7 +544,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         self.add_tab(SECOND_TAB_NAME_STR)
         path_str = os.path.join(self.folder_str, "one.pdf")
         self.export_to(path_str)
@@ -558,10 +558,10 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         self.add_tab("Empty tab")
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         with mock.patch.object(plot_export, "draw_page_title",
                                wraps=plot_export.draw_page_title) as title:
             self.export_to(os.path.join(self.folder_str, "named.pdf"))
@@ -576,11 +576,11 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         first_tab_id_i = self.main_window.current_tab_id()
         self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
-        self.plot_signal("speed")
+        self.plot_signal("file1_force")
+        self.plot_signal("file1_speed")
         # The first tab was never shown at its current size with plots.
         self.main_window.set_current_tab(first_tab_id_i)
         self.application.processEvents()
@@ -609,12 +609,12 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         first_tab_id_i = self.main_window.current_tab_id()
         hidden_plot_id_i = self.main_window.plot_panel.plot_id_list(
             first_tab_id_i)[0]
         second_tab_id_i = self.add_tab(SECOND_TAB_NAME_STR)
-        self.plot_signal("force")
+        self.plot_signal("file1_force")
         shown_plot_id_i = self.main_window.plot_panel.plot_id_list(
             second_tab_id_i)[0]
         shown_widget = self.main_window.plot_view(shown_plot_id_i)
@@ -661,7 +661,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         with mock.patch.object(plot_export, "draw_page_image",
                                wraps=plot_export.draw_page_image) as draw:
             self.export_to(os.path.join(self.folder_str, "look.pdf"))
@@ -681,7 +681,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         before_list = sorted(os.listdir(self.folder_str))
         dialog_mock = self.export_to("")
         dialog_mock.assert_called_once()
@@ -713,7 +713,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         path_str = os.path.join(self.folder_str, "missing", "plots.pdf")
         self.export_to(path_str)
         self.assertEqual(len(self.box_record_list), 1)
@@ -732,7 +732,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         folder_path_str = os.path.join(self.folder_str, "taken.pdf")
         os.mkdir(folder_path_str)
         self.export_to(folder_path_str)
@@ -748,7 +748,7 @@ class ExportCopyTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         path_str = os.path.join(self.folder_str, "report.pdf")
         with open(path_str, "wb") as existing_file:
             existing_file.write(b"old report")
@@ -772,7 +772,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from view import plot_export
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         path_str = os.path.join(self.folder_str, "broken.pdf")
         with mock.patch.object(plot_export, "build_pdf_bytes",
                                side_effect=OSError("no document")):
@@ -794,8 +794,8 @@ class ExportCopyTest(unittest.TestCase):
         """
         from PyQt6.QtWidgets import QApplication
         from view import plot_export
-        self.plot_signal("speed")
-        self.plot_signal("force")
+        self.plot_signal("file1_speed")
+        self.plot_signal("file1_force")
         clipboard = QApplication.clipboard()
         clipboard.setText("before")
         state_list = []
@@ -836,7 +836,7 @@ class ExportCopyTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QApplication
-        self.plot_signal("speed")
+        self.plot_signal("file1_speed")
         self.add_tab(SECOND_TAB_NAME_STR)
         clipboard = QApplication.clipboard()
         clipboard.setText("keep me")

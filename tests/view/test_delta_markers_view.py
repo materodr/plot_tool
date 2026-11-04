@@ -792,11 +792,11 @@ class DeltaWindowTestCase(unittest.TestCase):
         Inputs: none.
         Outputs: the PlotWidget.
         """
-        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("file1_speed")
         self.process_events()
         plot_id_i = self.main_window.plot_panel.plot_id_list(
             self.main_window.current_tab_id())[0]
-        self.plot_controller.on_signal_dropped(plot_id_i, "force")
+        self.plot_controller.on_signal_dropped(plot_id_i, "file1_force")
         self.process_events()
         return self.main_window.plot_view(plot_id_i)
 
@@ -945,7 +945,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         # LLFR-00163: the first point's dot.
         plot_widget = self.current_plot_widget()
         self.assertEqual(plot_widget.delta_first_point_tuple,
-                         ("speed", 0.5, 1.0))
+                         ("file1_speed", 0.5, 1.0))
         self.left_click(plot_widget, 1.5, 0.0)
         plot_widget = self.current_plot_widget()
         self.assertEqual(plot_widget.delta_first_point_tuple, ())
@@ -1029,14 +1029,14 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         plot_widget = self.plot_speed_and_force()
         plot_id_i = plot_widget.plot_id_i
         self.plot_controller.on_plot_tool_changed(DELTA_X_TOOL_STR)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "speed", 0.5,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_speed", 0.5,
                                                  1.0)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "force", 1.5,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_force", 1.5,
                                                  0.0)
         self.plot_controller.on_plot_tool_changed(DELTA_Y_TOOL_STR)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "force", 1.0,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_force", 1.0,
                                                  -1.0)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "speed", 1.0,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_speed", 1.0,
                                                  2.0)
         self.process_events()
 

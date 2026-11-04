@@ -248,7 +248,7 @@ class LoadTest(LayoutSyntheticTestCase):
         old_curve_list = self.curve_names()
         path_str = self.save("layout.json")
         saved_text_str = self.read_text(path_str)
-        # LLFR-00252: reopening the file removes the synthetic signals.
+        # LLFR-00595: a new start of the app has no synthetic signal.
         self.open_file()
         self.assertEqual(self.store.names(), [])
         self.load(path_str)

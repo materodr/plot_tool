@@ -536,9 +536,9 @@ class StoreCreateTest(unittest.TestCase):
         self.assertEqual(uneven_file.store.names(),
                          ["int_Speed", "mavg_3samples_Speed"])
 
-    @covers("LLFR-00252")
+    @covers("LLFR-00241", "LLFR-00595")
     def test_clear_removes_every_signal(self) -> None:
-        """clear removes every synthetic signal.
+        """clear removes every synthetic signal, so a name is free again.
 
         Inputs: none.
         Outputs: none.

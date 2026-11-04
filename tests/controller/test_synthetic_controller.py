@@ -106,7 +106,9 @@ class FakeSyntheticWindow(FakePlotView):
         self.information_list = []
         self.clipboard_text_list = []
         self.open_path_str = ""
-        self.replace_answer_b = True
+        self.limit_message_list = []
+        self.layout_buttons_enabled_b = None
+        self.save_signals_enabled_b = None
         self.search_text_handler = None
         self.open_file_handler = None
 
@@ -130,13 +132,14 @@ class FakeSyntheticWindow(FakePlotView):
         """
         return self.open_path_str
 
-    def ask_replace_file(self) -> bool:
-        """Answer the replace question.
+    def show_open_files_limit_notification(self, message_str: str) -> None:
+        """Record the box of an Open file click with 10 files open.
 
-        Inputs: none.
-        Outputs: the prepared answer.
+        Inputs:
+            message_str: the sentence of the box.
+        Outputs: none.
         """
-        return self.replace_answer_b
+        self.limit_message_list.append(message_str)
 
     def show_file_open_error(self, message_str: str) -> None:
         """Fail: no file open error is expected.
@@ -291,12 +294,13 @@ class FakeSyntheticWindow(FakePlotView):
         """
 
     def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
-        """Ignore the layout button state.
+        """Record the layout button state.
 
         Inputs:
-            enabled_b: ignored.
+            enabled_b: True when the buttons are enabled.
         Outputs: none.
         """
+        self.layout_buttons_enabled_b = enabled_b
 
     def set_save_signals_handler(self, handler) -> None:
         """Ignore the Save signals handler.
@@ -307,12 +311,13 @@ class FakeSyntheticWindow(FakePlotView):
         """
 
     def set_save_signals_button_enabled(self, enabled_b: bool) -> None:
-        """Ignore the Save signals button state.
+        """Record the Save signals button state.
 
         Inputs:
-            enabled_b: ignored.
+            enabled_b: True when the button is enabled.
         Outputs: none.
         """
+        self.save_signals_enabled_b = enabled_b
 
     # Synthetic signal facade.
 

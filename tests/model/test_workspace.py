@@ -106,9 +106,10 @@ class TabTest(unittest.TestCase):
         workspace.restore(later_snapshot)
         self.assertEqual(workspace.add_tab().name_str, "Tab 6")
 
-    @covers("LLFR-00210", "LLFR-00016", "LLFR-00654")
+    @covers("LLFR-00210", "LLFR-00024", "LLFR-00654")
     def test_reset_restarts_the_numbering(self) -> None:
-        """After reset (a file opened) the tabs count from Tab 1 again.
+        """After reset, the state at the start of the app, the tabs count
+        from Tab 1 again.
 
         Inputs: none.
         Outputs: none.
@@ -175,7 +176,7 @@ class TabTest(unittest.TestCase):
         # Tab 3 and Tab 4 are free again, but their numbers were used up.
         self.assertEqual(workspace.add_tab().name_str, "Tab 6")
 
-    @covers("LLFR-00212", "LLFR-00016")
+    @covers("LLFR-00212", "LLFR-00024")
     def test_reset_gives_tab_1_whatever_the_names(self) -> None:
         """After reset there is one tab "Tab 1", with no conflict.
 
@@ -683,9 +684,9 @@ class PinnedTipTest(unittest.TestCase):
 
 
 class ResetTest(unittest.TestCase):
-    """Check reset when the file is replaced and id uniqueness."""
+    """Check reset, the state at the start of the app, and the ids."""
 
-    @covers("LLFR-00015", "LLFR-00016", "HLFR-00014")
+    @covers("LLFR-00024", "LLFR-00066", "HLFR-00014")
     def test_reset_after_many_tabs_and_plots(self) -> None:
         """reset leaves one tab "Tab 1" with no plots.
 
@@ -709,7 +710,7 @@ class ResetTest(unittest.TestCase):
             self.assertIsNone(workspace.find_plot(plot.plot_id_i))
         self.assertFalse(workspace.can_delete_tab())
 
-    @covers("LLFR-00015", "LLFR-00016", "LLFR-00026")
+    @covers("LLFR-00024", "LLFR-00026")
     def test_ids_are_never_reused(self) -> None:
         """Tab and plot ids keep counting up after deletes and reset.
 

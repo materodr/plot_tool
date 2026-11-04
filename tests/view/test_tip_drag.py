@@ -875,7 +875,7 @@ class TipMoveEndToEndTest(unittest.TestCase):
                         return_value=path_str):
             self.window.top_panel.open_file_button.click()
             self.process_events()
-        self.window.signal_double_click_handler("speed")
+        self.window.signal_double_click_handler("file1_speed")
         self.process_events()
 
     def tearDown(self) -> None:
@@ -911,7 +911,7 @@ class TipMoveEndToEndTest(unittest.TestCase):
             self.window.plot_panel.plot_widget_dict.values())
         self.assertEqual(len(plot_widget_list), 1)
         plot_widget = plot_widget_list[0]
-        plot_widget.tip_pin_requested.emit("speed", 5.0, 10.0)
+        plot_widget.tip_pin_requested.emit("file1_speed", 5.0, 10.0)
         self.process_events()
         plot_widget.canvas.draw()
         self.assertEqual(plot_widget.pinned_tip_count(), 1)
@@ -931,7 +931,7 @@ class TipMoveEndToEndTest(unittest.TestCase):
             plot_widget.plot_id_i)
         pinned_tip = plot.pinned_tip_list[0]
         self.assertEqual((pinned_tip.signal_name_str, pinned_tip.time_s,
-                          pinned_tip.value_f), ("speed", 5.0, 10.0))
+                          pinned_tip.value_f), ("file1_speed", 5.0, 10.0))
         self.assertEqual(len(pinned_tip.label_offset_tuple), 2)
         self.assertEqual(plot_widget.pinned_tip_text(0),
                          "t = 5 s\nspeed = 10")
