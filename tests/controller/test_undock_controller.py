@@ -1,11 +1,11 @@
 """Tests for the undocked windows in the plot controller (#205, step 3).
 
 They run the plot controller with the fake view of test_plot_controller:
-undocking and docking a tab (HLFR-00123, HLFR-00124), one tab per window
-and any number of windows (HLFR-00125, HLFR-00126), closing a window
-(HLFR-00138), the signal list panel of a window (HLFR-00129) and the
-panel width drags (HLFR-00131), all in one undo history (HLFR-00132,
-HLFR-00133), and the plots made from the panel of a window (HLFR-00127).
+undocking and docking a tab (HLFR-00123, HLFR-00124), the tabs of a window (one
+or more) and any number of windows (HLFR-00125, HLFR-00126), closing a window
+(HLFR-00138), the signal list panel of a window (HLFR-00129) and the panel
+width drags (HLFR-00131), all in one undo history (HLFR-00132, HLFR-00133), and
+the plots made from the panel of a window (HLFR-00127).
 """
 
 import unittest
@@ -276,7 +276,7 @@ class UndockUndoTest(UndockControllerTestCase):
     @covers("LLFR-01038", "LLFR-01039", "LLFR-01033", "LLFR-01034",
             "LLFR-01110", "HLFR-00138", "HLFR-00016")
     def test_window_close_deletes_the_tab_and_undo_brings_it(self) -> None:
-        """Closing a window deletes its tab, with its window, undoably.
+        """Closing a window deletes all its tabs, undoably.
 
         Inputs: none.
         Outputs: none.

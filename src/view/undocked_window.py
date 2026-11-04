@@ -128,11 +128,11 @@ def build_signal_list_button(parent=None):
 
 
 class WindowPaneWidget(PlotTabWidget):
-    """The plot well of an undocked window, holding its one tab page.
+    """The plot well of an undocked window, holding its tab pages.
 
     It is a PlotTabWidget, so that the well has the look of the main
     window's (LLFR-00893), but its own tab bar and "+" button are
-    hidden: the tab button is in the window's tab row (LLFR-00997).
+    hidden: the tabs are in the window's tab row (LLFR-00997).
 
     Inputs:
         parent: optional parent widget.
@@ -148,7 +148,7 @@ class WindowPaneWidget(PlotTabWidget):
         super().__init__(parent)
         # LLFR-00997: no "+" button in an undocked window.
         self.add_tab_button.hide()
-        # LLFR-01028: the tab button is in the tab row above the well.
+        # LLFR-01028: the tabs are in the tab row above the well.
         self.tabBar().setMovable(False)
         self.setTabBarAutoHide(True)
         self.tabBar().hide()

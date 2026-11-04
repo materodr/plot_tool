@@ -144,7 +144,7 @@ Note: The title of the main window stays as in LLFR-00560, LLFR-00562 and LLFR-0
 *Parent: HLFR-00134*
 
 ### LLFR-01027 Title follows the tab name
-When the name of the tab that an undocked window shows changes, by a rename (LLFR-00030, LLFR-00421), an undo or a redo, or when the window shows another of its tabs (LLFR-01114, LLFR-01116), the app must change the title of the window to the name of the tab it shows.
+When the name of the tab that an undocked window shows changes, by a rename (LLFR-00030, LLFR-00421), an undo or a redo, or when the window shows another of its tabs (LLFR-01114, LLFR-01121, LLFR-01123), the app must change the title of the window to the name of the tab it shows.
 
 *Parent: HLFR-00134, HLFR-00017*
 

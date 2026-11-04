@@ -1490,7 +1490,8 @@ class LayoutWindowsViewTest(UndockedWindowTestCase):
         # Saved on a screen that is no longer there.
         tab_entry["window"]["x"] = 50000
         tab_entry["window"]["y"] = 50000
-        # The user closes the window, which deletes its tab.
+        # The user closes the window, which deletes all its tabs (here
+        # its only tab).
         self.user_close(window)
         self.assertIsNone(self.tab(second_id_i))
         self.plot_controller.load_layout(layout_dict)
