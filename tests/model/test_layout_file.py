@@ -8,6 +8,7 @@ validating it (LLFR-00236) and rebuilding its layout in a workspace
 import json
 import os
 import random
+import re
 import tempfile
 import unittest
 
@@ -221,7 +222,11 @@ class LayoutWriteTest(unittest.TestCase):
         for word_str in ("path", "file_name", ".csv", "undo", "redo",
                          "history", "search", "plot_tool\"", "active"):
             with self.subTest(word=word_str):
-                self.assertNotIn(word_str, lower_text_str)
+                # Whole words only: the key "undocked" (LLFR-00225 item
+                # 12) is not the undo history.
+                self.assertIsNone(re.search(
+                    r"(?<![a-z_])" + re.escape(word_str) + r"(?![a-z_])",
+                    lower_text_str))
         key_list = list(json.loads(self.text_str))
         self.assertFalse(any("tool" in key_str for key_str in key_list))
 
