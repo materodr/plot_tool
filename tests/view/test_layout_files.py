@@ -237,7 +237,6 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtWidgets import QPlainTextEdit
         from view import message_boxes
         report_text_str = "\n".join(f"  - Data tip at {index_i} s: gone."
                                     for index_i in range(200))
@@ -246,9 +245,10 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
         self.assertEqual(dialog.windowTitle(),
                          message_boxes.LAYOUT_REPORT_TITLE_STR)
         report_field = dialog.findChild(
-            QPlainTextEdit, message_boxes.LAYOUT_REPORT_TEXT_OBJECT_NAME_STR)
+            message_boxes.ListTextField,
+            message_boxes.LAYOUT_REPORT_TEXT_OBJECT_NAME_STR)
         self.assertTrue(report_field.isReadOnly())
-        self.assertEqual(report_field.toPlainText(), report_text_str)
+        self.assertEqual(report_field.plain_text(), report_text_str)
         dialog.show()
         self.application.processEvents()
         self.assertGreater(report_field.verticalScrollBar().maximum(), 0)

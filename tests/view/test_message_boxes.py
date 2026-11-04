@@ -408,10 +408,12 @@ class ListBoxesTest(unittest.TestCase):
         self.assertEqual(box.text(), text_str)
         box.deleteLater()
 
-    @covers("LLFR-00980", "LLFR-00982", "LLFR-00955", "LLFR-00956")
+    @covers("LLFR-00980", "LLFR-00982", "LLFR-00955", "LLFR-00956",
+            "LLFR-01176")
     def test_message_boxes_keep_the_numbered_text(self) -> None:
-        """The File Open Error box and the refused files box show the
-        numbered list as it is, as plain text.
+        """The File Open Error box and the refused files box keep the
+        numbered list as their plain text and draw it as rich text with
+        hanging indents; a text with no list stays plain text.
 
         Inputs: none.
         Outputs: none.
@@ -422,10 +424,17 @@ class ListBoxesTest(unittest.TestCase):
                                self.message_module.build_refused_files_box):
             with self.subTest(box=build_function.__name__):
                 box = build_function(None, text_str)
+                self.assertIsInstance(box, self.message_module.ListMessageBox)
                 self.assertEqual(box.text(), text_str)
-                self.assertNotEqual(box.textFormat(),
-                                    Qt.TextFormat.RichText)
+                self.assertEqual(box.textFormat(), Qt.TextFormat.RichText)
+                self.assertIn("text-indent:", box.rich_text())
                 box.deleteLater()
+                plain_box = build_function(None, "a.csv: could not be read.")
+                self.assertEqual(plain_box.text(),
+                                 "a.csv: could not be read.")
+                self.assertEqual(plain_box.textFormat(),
+                                 Qt.TextFormat.PlainText)
+                plain_box.deleteLater()
 
     @covers("LLFR-00990", "LLFR-00884", "LLFR-00885", "LLFR-00986")
     def test_scrollable_boxes_wrap_their_lines(self) -> None:
@@ -436,7 +445,7 @@ class ListBoxesTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtGui import QTextOption
-        from PyQt6.QtWidgets import QPlainTextEdit
+        from PyQt6.QtWidgets import QTextEdit
         from model.message_lists import list_body_text
         long_name_str = "file1_" + "x" * 400
         text_str = list_body_text([long_name_str] + [
@@ -448,10 +457,11 @@ class ListBoxesTest(unittest.TestCase):
                 (module.build_changed_names_box(None, text_str),
                  module.CHANGED_NAMES_TEXT_OBJECT_NAME_STR)):
             with self.subTest(field=object_name_str):
-                field = dialog.findChild(QPlainTextEdit, object_name_str)
-                self.assertEqual(field.toPlainText(), text_str)
+                field = dialog.findChild(module.ListTextField,
+                                         object_name_str)
+                self.assertEqual(field.plain_text(), text_str)
                 self.assertEqual(field.lineWrapMode(),
-                                 QPlainTextEdit.LineWrapMode.WidgetWidth)
+                                 QTextEdit.LineWrapMode.WidgetWidth)
                 self.assertEqual(
                     field.wordWrapMode(),
                     QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
