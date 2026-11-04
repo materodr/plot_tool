@@ -361,9 +361,10 @@ class SyntheticController:
                 return
             source_name_list, parameter = parameter_tuple
             # LLFR-00240, LLFR-00241: the store names the new signal.
-            self.store.create(operation_str, source_name_list, parameter,
-                              self.signal_lookup, self.source_time_array,
-                              self.data_name_set())
+            new_signal = self.store.create(
+                operation_str, source_name_list, parameter,
+                self.signal_lookup, self.source_time_array,
+                self.data_name_set())
         except SyntheticSignalError as error:
             # LLFR-00247, LLFR-00250: an information box that says why
             # the operation cannot be done; nothing is created.
@@ -371,6 +372,11 @@ class SyntheticController:
             return
         # LLFR-00242: the new signal is listed after the others.
         self.show_synthetic_signals()
+        # LLFR-01178, LLFR-01179: its data file is expanded and the new
+        # signal is selected. A layout load (load_layout_signals) does
+        # neither.
+        self.signal_list_controller.reveal_new_signal(
+            new_signal.name_str, new_signal.file_number_i)
 
     def ask_parameter(self, operation, source_name_str: str) -> tuple:
         """Ask the user for the parameter of an operation.

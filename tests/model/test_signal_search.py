@@ -8,7 +8,8 @@ from tests.support import covers
 
 from model.signal_search import (
     NO_MATCH_TEXT_STR, allowed_typo_count, has_close_substring,
-    normalize_text, search_signals, split_search_words, word_match_kind)
+    normalize_text, search_prefixed_signals, search_signals,
+    split_search_words, word_match_kind)
 
 
 def reference_substring_distance(word_str: str, name_str: str) -> int:
@@ -57,6 +58,18 @@ class NormalizeTest(unittest.TestCase):
         Outputs: none.
         """
         self.assertEqual(normalize_text("a_b-c.d e"), "abcde")
+
+    @covers("LLFR-00100", "LLFR-00566", "HLFR-00034")
+    def test_slashes_removed(self) -> None:
+        """Slashes are removed like the other separators.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(normalize_text("Engine/Speed"), "enginespeed")
+        self.assertEqual(normalize_text("a/b_c/-d./e f"), "abcdef")
+        self.assertEqual(split_search_words("engine/ /speed /"),
+                         ["engine", "speed"])
 
     @covers("LLFR-00105", "LLFR-00100", "HLFR-00034")
     def test_split_search_words(self) -> None:
@@ -231,6 +244,39 @@ class SearchSignalsTest(unittest.TestCase):
                                         "enginespeed"), ["Engine Speed"])
         self.assertEqual(search_signals(["Engine-Speed.A"], "speeda"),
                          ["Engine-Speed.A"])
+
+    @covers("LLFR-00100", "LLFR-00566", "LLFR-00102", "LLFR-00101",
+            "HLFR-00034")
+    def test_slashes_in_names_and_text(self) -> None:
+        """``enginespeed`` finds the HDF5 name ``engine/speed``, a typed
+        slash is ignored, and the ranking and the typo allowance use the
+        names without slashes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = ["Time", "gear/engine/speed", "engine/speed",
+                     "engine/torque"]
+        # LLFR-00102: group 1 starts with the first word once the slash
+        # is left out; group 2 holds the other exact match.
+        self.assertEqual(search_signals(name_list, "enginespeed"),
+                         ["engine/speed", "gear/engine/speed"])
+        self.assertEqual(search_signals(name_list, "engine/speed"),
+                         ["engine/speed", "gear/engine/speed"])
+        self.assertEqual(search_signals(name_list, "/torque"),
+                         ["engine/torque"])
+        self.assertEqual(search_signals(name_list, "gearengine"),
+                         ["gear/engine/speed"])
+        # LLFR-00101: two typos are allowed in 8 to 11 characters,
+        # and the typo group keeps the file order;
+        # the slash doesn't count as a character of the name.
+        self.assertEqual(search_signals(name_list, "engnspeed"),
+                         ["gear/engine/speed", "engine/speed"])
+        self.assertEqual(search_signals(name_list, "/"), name_list)
+        # The prefixed names of the signal list (LLFR-00905).
+        self.assertEqual(search_prefixed_signals(
+            ["file1_Time", "file1_engine/speed"], "enginespeed"),
+            ["file1_engine/speed"])
 
     @covers("LLFR-00105", "HLFR-00034", "LLFR-00567")
     def test_requirement_multi_word_example(self) -> None:

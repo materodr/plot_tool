@@ -89,6 +89,8 @@ class FakeSyntheticWindow(FakePlotView):
         self.shown_name_list = []
         # (old name, new name) given to rename_shown_signal, in order.
         self.renamed_shown_list = []
+        # The names given to select_only_signal, in order (LLFR-01179).
+        self.selected_alone_list = []
         self.synthetic_name_set = set()
         self.fft_name_set = set()
         self.operation_group_list = []
@@ -214,6 +216,15 @@ class FakeSyntheticWindow(FakePlotView):
                               if row_str]
         self.shown_name_list = [name_str for _, _, name_list, _
                                 in group_list for name_str in name_list]
+
+    def select_only_signal(self, signal_name_str: str) -> None:
+        """Record a signal selected alone (LLFR-01179).
+
+        Inputs:
+            signal_name_str: the name to select.
+        Outputs: none. selected_alone_list gets the name.
+        """
+        self.selected_alone_list.append(signal_name_str)
 
     def set_signal_kinds(self, synthetic_name_set: set,
                          fft_name_set: set) -> None:
@@ -1182,6 +1193,77 @@ class CreateTest(SyntheticControllerTestCase):
         self.create("file1_Speed", "integral")
         self.assertFalse(self.view.undo_enabled_b)
         self.assertFalse(self.plot_controller.undo_history.can_undo())
+
+
+class NewSignalShownTest(SyntheticControllerTestCase):
+    """A new synthetic signal expands its file and is selected."""
+
+    @covers("LLFR-01178", "LLFR-01179", "LLFR-00998", "LLFR-01008",
+            "HLFR-00123", "HLFR-00053")
+    def test_collapsed_file_is_expanded_and_signal_selected(self) -> None:
+        """A creation from the menu of a collapsed file's signal shows
+        the file and selects the new signal; the history is unchanged.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_list_controller = self.main_controller.signal_list_controller
+        signal_list_controller.toggle_file(1)
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        self.assertEqual(self.view.shown_name_list, [])
+        depth_i = self.plot_controller.undo_history.depth()
+        self.create("file1_Speed", "integral")
+        self.assertEqual(signal_list_controller.collapsed_number_set, set())
+        self.assertIn("file1_int_Speed", self.view.shown_name_list)
+        self.assertEqual(self.view.selected_alone_list, ["file1_int_Speed"])
+        self.assertEqual(self.plot_controller.undo_history.depth(),
+                         depth_i)
+        # An expanded file stays expanded, and the next signal is
+        # selected alone.
+        self.create("file1_Torque", "max")
+        self.assertEqual(signal_list_controller.collapsed_number_set, set())
+        self.assertEqual(self.view.selected_alone_list,
+                         ["file1_int_Speed", "file1_max_Torque"])
+
+    @covers("LLFR-01178", "LLFR-01003", "LLFR-01004", "HLFR-00123",
+            "HLFR-00033")
+    def test_creation_during_a_search(self) -> None:
+        """During a search the file is shown again, and it stays shown
+        when the search is cleared, also if it was collapsed before.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_list_controller = self.main_controller.signal_list_controller
+        signal_list_controller.toggle_file(1)
+        self.view.search_text_handler("speed")
+        self.assertEqual(self.view.shown_name_list, ["file1_Speed"])
+        signal_list_controller.toggle_file(1)
+        self.assertEqual(self.view.shown_name_list, [])
+        self.create("file1_Speed", "integral")
+        self.assertEqual(self.view.shown_name_list,
+                         ["file1_Speed", "file1_int_Speed"])
+        self.assertEqual(self.view.selected_alone_list, ["file1_int_Speed"])
+        self.view.search_text_handler("")
+        self.assertEqual(signal_list_controller.collapsed_number_set, set())
+        self.assertIn("file1_int_Speed", self.view.shown_name_list)
+
+    @covers("LLFR-01178", "LLFR-01179", "HLFR-00123")
+    def test_cancelled_or_impossible_creation_changes_nothing(self) -> None:
+        """No signal created: the file stays collapsed, nothing is
+        selected.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_list_controller = self.main_controller.signal_list_controller
+        signal_list_controller.toggle_file(1)
+        # The user cancels the cutoff dialog (LLFR-00245).
+        self.view.parameter_answer_list.append(None)
+        self.create("file1_Speed", "lowpass")
+        self.assertEqual(self.store_names(), [])
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        self.assertEqual(self.view.selected_alone_list, [])
 
 
 class PlotSyntheticTest(SyntheticControllerTestCase):

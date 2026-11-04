@@ -408,6 +408,135 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.selected_signal_names(), [])
 
+    def double_click(self, point) -> None:
+        """Double-click the list at a point, as Qt reports it.
+
+        Inputs:
+            point: a QPoint in the viewport's coordinates.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        QTest.mouseDClick(self.widget.viewport(),
+                          Qt.MouseButton.LeftButton,
+                          Qt.KeyboardModifier.NoModifier, point)
+        self.application.processEvents()
+
+    @covers("LLFR-01176", "LLFR-00646", "LLFR-00643", "LLFR-01008",
+            "HLFR-00123")
+    def test_double_click_on_the_row_text_toggles_the_file(self) -> None:
+        """A double-click on the text of a file name row shows its
+        signals, a second one hides them; nothing is plotted, selected
+        or added to the undo history.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        history = self.controller.plot_controller.undo_history
+        depth_i = history.depth()
+        plotted_list = []
+        self.panel.signal_double_clicked.connect(plotted_list.append)
+        self.double_click(self.text_point(FIRST_ROW_STR))
+        self.assertEqual(self.icons(), ["[-]", "[+]"])
+        self.assertEqual(self.panel.signal_name_list(), FIRST_SIGNAL_LIST)
+        self.double_click(self.text_point(SECOND_ROW_STR))
+        self.assertEqual(self.icons(), ["[-]", "[-]"])
+        self.double_click(self.text_point(FIRST_ROW_STR))
+        self.assertEqual(self.icons(), ["[+]", "[-]"])
+        self.assertEqual(self.panel.signal_name_list(), SECOND_SIGNAL_LIST)
+        self.assertEqual(plotted_list, [])
+        self.assertEqual(self.panel.selected_signal_names(), [])
+        self.assertEqual(history.depth(), depth_i)
+        self.assertEqual(
+            len(self.controller.plot_controller.all_plot_list()), 0)
+
+    @covers("LLFR-01176", "LLFR-00997", "LLFR-00998", "HLFR-00123")
+    def test_double_click_on_the_icon_toggles_twice(self) -> None:
+        """Each click of a double-click on the icon toggles the file, so
+        the file ends as it was; on the text it toggles once.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click(self.icon_point(FIRST_ROW_STR))
+        self.assertEqual(self.icons(), ["[+]", "[+]"])
+        self.assertEqual(self.panel.signal_name_list(), [])
+
+    @covers("LLFR-01176", "LLFR-01003", "HLFR-00123", "HLFR-00033")
+    def test_double_click_during_a_search(self) -> None:
+        """During a search a double-click hides the matches of its file
+        until the search is cleared.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.panel.search_box.setText("o")
+        self.application.processEvents()
+        self.assertEqual(self.icons(), ["[-]", "[-]"])
+        self.double_click(self.text_point(FIRST_ROW_STR))
+        self.assertEqual(self.icons(), ["[+]", "[-]"])
+        self.assertEqual(self.panel.signal_name_list(), ["file2_Force"])
+        self.panel.search_box.setText("")
+        self.application.processEvents()
+        self.assertEqual(self.icons(), ["[+]", "[+]"])
+
+    @covers("LLFR-01177", "LLFR-01006", "LLFR-00292", "HLFR-00123")
+    def test_left_key_on_a_signal_row_goes_to_its_file_row(self) -> None:
+        """Left on a signal makes its file name row current and keeps the
+        selection; a second Left collapses the file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        self.click_icon(FIRST_ROW_STR)
+        self.click_icon(SECOND_ROW_STR)
+        self.click(self.text_point("file2_Force"))
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["file2_Force"])
+        self.widget.setFocus()
+        QTest.keyClick(self.widget, Qt.Key.Key_Left)
+        self.application.processEvents()
+        self.assertEqual(self.widget.currentItem().text(), SECOND_ROW_STR)
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["file2_Force"])
+        self.assertEqual(self.icons(), ["[-]", "[-]"])
+        QTest.keyClick(self.widget, Qt.Key.Key_Left)
+        self.application.processEvents()
+        self.assertEqual(self.icons(), ["[-]", "[+]"])
+        self.assertEqual(self.panel.signal_name_list(), FIRST_SIGNAL_LIST)
+        self.assertEqual(self.widget.currentItem().text(), SECOND_ROW_STR)
+        # A signal of the first file goes to the first file row.
+        self.click(self.text_point("file1_Torque"))
+        QTest.keyClick(self.widget, Qt.Key.Key_Left)
+        self.application.processEvents()
+        self.assertEqual(self.widget.currentItem().text(), FIRST_ROW_STR)
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["file1_Torque"])
+
+    @covers("LLFR-01178", "LLFR-01179", "LLFR-00998", "LLFR-00242",
+            "HLFR-00123", "HLFR-00053", "HLFR-00063")
+    def test_new_synthetic_signal_expands_and_is_selected(self) -> None:
+        """Creating an integral from a signal of a collapsed file shows
+        the file and selects the new signal alone.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click_icon(SECOND_ROW_STR)
+        self.click(self.text_point("file2_Force"))
+        self.assertEqual(self.icons(), ["[+]", "[-]"])
+        self.panel.synthetic_operation_requested.emit("file1_Speed",
+                                                      "integral")
+        self.application.processEvents()
+        self.assertEqual(self.icons(), ["[-]", "[-]"])
+        self.assertIn("file1_int_Speed", self.panel.signal_name_list())
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["file1_int_Speed"])
+        self.assertEqual(self.widget.currentItem().text(),
+                         "file1_int_Speed")
+
     @covers("LLFR-00647", "LLFR-00923", "LLFR-01008", "HLFR-00123",
             "HLFR-00118")
     def test_file_menu_and_history_with_collapsed_rows(self) -> None:

@@ -23,11 +23,13 @@ signals" row is not a signal either.
 Each file name row starts with a small icon, ``[-]`` while the signals
 of its file are shown and ``[+]`` while they are hidden, like a folder of
 a folder tree (HLFR-00123, LLFR-00994 to LLFR-00996). A click on the
-icon, or Left and Right while the row is the current row, asks the
-controller to hide or show the signals (LLFR-00997, LLFR-00998,
-LLFR-01006, LLFR-01007); it selects nothing and starts no drag
-(LLFR-00999, LLFR-01000). The controller gives the collapsed files with
-``set_collapsed_file_numbers`` before it shows the groups.
+icon, a double-click on the rest of the row, or Left and Right while
+the row is the current row, asks the controller to hide or show the
+signals (LLFR-00997, LLFR-00998, LLFR-01176, LLFR-01006, LLFR-01007); it
+selects nothing and starts no drag (LLFR-00999, LLFR-01000). Left on a
+signal row moves to the file name row of its file (LLFR-01177). The
+controller gives the collapsed files with ``set_collapsed_file_numbers``
+before it shows the groups.
 
 A right-click on a signal name opens the signal menu (LLFR-00239):
 "Create synthetic signal" with the operations given by the controller,
@@ -494,14 +496,39 @@ class SignalListWidget(QListWidget):
         if clicked_item is not None and not is_signal_row(clicked_item):
             self.press_on_other_row_b = True
             event.accept()
+            if event.button() != Qt.MouseButton.LeftButton:
+                return
             # LLFR-00997, LLFR-00998: the second click of a quick double
             # click on the icon toggles the file again, as a click does.
-            if (event.button() == Qt.MouseButton.LeftButton
-                    and self.is_on_expand_icon(
-                        clicked_item, event.position().toPoint())):
+            # LLFR-01176: a double-click on the rest of a file name row
+            # toggles the file once, as one click on its icon does (its
+            # first click, off the icon, changed nothing).
+            if (self.is_on_expand_icon(clicked_item,
+                                       event.position().toPoint())
+                    or (row_kind(clicked_item) == FILE_ROW_STR
+                        and clicked_item.data(FILE_NUMBER_ROLE_I)
+                        is not None)):
                 self.request_file_toggle(clicked_item)
             return
         super().mouseDoubleClickEvent(event)
+
+    def file_row_of(self, item):
+        """Return the file name row of the group a row belongs to.
+
+        Inputs:
+            item: a row of this list.
+        Outputs: the nearest file name row above it, of an open file
+            (LLFR-00362, LLFR-00939), or None when there is none.
+        """
+        # LLFR-01177: each signal is listed below the file name row of
+        # its own data file, before the next file name row.
+        for row_i in range(self.row(item), -1, -1):
+            row_item = self.item(row_i)
+            if row_kind(row_item) == FILE_ROW_STR:
+                if row_item.data(FILE_NUMBER_ROLE_I) is None:
+                    return None
+                return row_item
+        return None
 
     def select_only(self, item) -> None:
         """Select one item and deselect every other one.
@@ -566,11 +593,23 @@ class SignalListWidget(QListWidget):
                 self.plot_selection_requested.emit()
             return
         # LLFR-01006, LLFR-01007: Left collapses and Right expands the
-        # current file name row; on a signal row the keys keep their
-        # usual meaning.
+        # current file name row; on a signal row Right keeps its usual
+        # meaning.
         current_item = self.currentItem()
         plain_key_b = (event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
                        ) == Qt.KeyboardModifier.NoModifier
+        # LLFR-01177: Left on a signal row makes the file name row of its
+        # file the current row, keeping the selection, so that a second
+        # Left collapses the file (LLFR-01006).
+        if (event.key() == COLLAPSE_KEY and plain_key_b
+                and is_signal_row(current_item)):
+            file_item = self.file_row_of(current_item)
+            if file_item is not None:
+                event.accept()
+                self.setCurrentItem(
+                    file_item, QItemSelectionModel.SelectionFlag.NoUpdate)
+                self.scrollToItem(file_item)
+                return
         if (event.key() in (COLLAPSE_KEY, EXPAND_KEY) and plain_key_b
                 and row_kind(current_item) == FILE_ROW_STR
                 and current_item.data(FILE_NUMBER_ROLE_I) is not None):
@@ -1108,6 +1147,23 @@ class SignalListPanel(QWidget):
         for item in self.signal_list_widget.row_items(SIGNAL_ROW_STR):
             if item.text() == old_name_str:
                 item.setText(new_name_str)
+                return
+
+    def select_only_signal(self, name_str: str) -> None:
+        """Select one shown signal alone and scroll to it.
+
+        Inputs:
+            name_str: the name of a signal of the list.
+        Outputs: none. When the name is not shown (for example it
+            doesn't match the search), the selection is left unchanged.
+        """
+        # LLFR-01179: the new synthetic signal is the only selected
+        # signal and the current row, where a Shift + click range starts
+        # (LLFR-00290), and it is scrolled into view.
+        for item in self.signal_list_widget.row_items(SIGNAL_ROW_STR):
+            if item.text() == name_str:
+                self.signal_list_widget.select_only(item)
+                self.signal_list_widget.scrollToItem(item)
                 return
 
     def clear_signal_selection(self) -> None:
