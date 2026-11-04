@@ -468,7 +468,7 @@ class MatLoadingTest(TemporaryFolderTest):
             "Column": np.array([[4.5], [5.5], [6.5]], dtype=np.float32),
             "Matrix": np.ones((3, 3)),
             "Label": "abc",
-            "Settings": {"gain": 2.0},
+            "Settings": {"table": np.ones((3, 3))},
             "Complex": np.array([1 + 2j, 3, 4]),
             "Empty": np.array([]),
         })

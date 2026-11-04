@@ -535,6 +535,34 @@ class CloseQuestionTest(SeveralFilesTestCase):
         """
         return self.plot_controller.undo_history.depth()
 
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00983",
+            "LLFR-00924", "LLFR-00934")
+    def test_close_questions_number_their_points(self) -> None:
+        """The two close questions: the question, a blank line and the
+        numbered points, one blank line apart.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.file_controller import (
+            CLOSE_ALL_FILES_POINT_STR, CLOSE_ALL_FILES_QUESTION_STR,
+            CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_HISTORY_POINT_STR,
+            CLOSE_LAST_FILE_MARKERS_POINT_STR, CLOSE_TABS_POINT_STR,
+            close_all_files_question, close_file_question)
+        self.assertEqual(
+            close_file_question("file1_run.csv", True),
+            "Do you want to close file1_run.csv?\n\n"
+            f"1. {CLOSE_FILE_SIGNALS_POINT_STR}\n\n"
+            f"2. {CLOSE_TABS_POINT_STR}\n\n"
+            f"3. {CLOSE_LAST_FILE_MARKERS_POINT_STR}\n\n"
+            f"4. {CLOSE_HISTORY_POINT_STR}")
+        all_str = close_all_files_question()
+        self.assertTrue(all_str.startswith(
+            f"{CLOSE_ALL_FILES_QUESTION_STR}\n\n"
+            f"1. {CLOSE_ALL_FILES_POINT_STR}\n\n2. "))
+        self.assertTrue(all_str.endswith(
+            f"\n\n5. {CLOSE_HISTORY_POINT_STR}"))
+
     @covers("LLFR-00924", "HLFR-00118")
     def test_close_file_question_names_the_file_and_says_why(self) -> None:
         """The question names the row and the four consequences.
@@ -551,10 +579,13 @@ class CloseQuestionTest(SeveralFilesTestCase):
         question_str = self.question_list[0]
         self.assertTrue(question_str.startswith(
             "Do you want to close file2_run_B.mat?"))
-        for point_str in (CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,
-                          CLOSE_FILE_MARKERS_POINT_STR,
-                          CLOSE_HISTORY_POINT_STR):
-            self.assertIn("- " + point_str, question_str)
+        # LLFR-00980, LLFR-00982, LLFR-00983: the points are numbered,
+        # below the question and a blank line, one blank line apart.
+        for number_i, point_str in enumerate(
+                (CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,
+                 CLOSE_FILE_MARKERS_POINT_STR, CLOSE_HISTORY_POINT_STR),
+                start=1):
+            self.assertIn(f"\n\n{number_i}. {point_str}", question_str)
         self.assertNotIn(CLOSE_LAST_FILE_MARKERS_POINT_STR, question_str)
         self.assertIn("synthetic signals computed from them", question_str)
         self.assertIn("removed from the signal list and from the plots",

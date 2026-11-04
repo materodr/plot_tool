@@ -41,6 +41,7 @@ import sys
 from model.data_files import DataFileSet, selection_order_list
 from model.errors import FileOpenError
 from model.file_loader import load_signal_file
+from model.message_lists import list_body_text, list_text
 from model.signal_file import increasing_check_reason
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
 
@@ -60,9 +61,6 @@ OPEN_FILES_LIMIT_MESSAGE_STR = (
 # the refused files.
 ALREADY_OPEN_REASON_STR = "{name}: already open as file{number}."
 LIMIT_REASON_STR = "{name}: not opened, because 10 files are already open."
-# LLFR-00955: the entries of the File Open Error box are separated by
-# an empty line.
-ENTRY_SEPARATOR_STR = "\n\n"
 # LLFR-00924: the question asked before one data file is closed. The
 # third point depends on whether other files are left.
 CLOSE_FILE_QUESTION_STR = "Do you want to close {row}?"
@@ -82,8 +80,6 @@ CLOSE_ALL_FILES_POINT_STR = "All the open data files will be closed."
 CLOSE_ALL_SIGNALS_POINT_STR = (
     "Their signals and synthetic signals will be removed from the signal "
     "list and from the plots.")
-# LLFR-00924, LLFR-00934: each point of a question on its own line.
-QUESTION_POINT_FORMAT_STR = "- {point}"
 # LLFR-00204: suffix of a macOS app bundle folder (plot_tool.app).
 APP_BUNDLE_SUFFIX_STR = ".app"
 # LLFR-00204: folders between the bundle and its executable
@@ -148,13 +144,12 @@ def question_text(question_str: str, point_list: list) -> str:
         question_str: the question, for example "Do you want to close
             file1_run.csv?".
         point_list: the sentences that say what proceeding does.
-    Outputs: the question, an empty line and one "- " line per point.
+    Outputs: the question, an empty line and the points, numbered and
+        separated by blank lines (LLFR-00980, LLFR-00982, LLFR-00983).
     """
-    # LLFR-00924, LLFR-00934: the consequences, one per line.
-    point_text_str = "\n".join(
-        QUESTION_POINT_FORMAT_STR.format(point=point_str)
-        for point_str in point_list)
-    return f"{question_str}\n\n{point_text_str}"
+    # LLFR-00924, LLFR-00934: the consequences, as the items of a list
+    # below the question.
+    return list_text(point_list, question_str)
 
 
 def close_file_question(row_str: str, last_file_b: bool) -> str:
@@ -347,14 +342,16 @@ class FileController:
                 continue
             if data_file is not None:
                 added_file_list.append(data_file)
-        # LLFR-00955: one File Open Error box for the whole selection.
+        # LLFR-00955: one File Open Error box for the whole selection,
+        # one numbered item per file (LLFR-00980, LLFR-00981, LLFR-00982).
         if error_message_list:
             self.view.show_file_open_error(
-                ENTRY_SEPARATOR_STR.join(error_message_list))
-        # LLFR-00956: then one information box for the refused files.
+                list_body_text(error_message_list))
+        # LLFR-00956: then one information box for the refused files,
+        # in the same format.
         if refused_line_list:
             self.view.show_refused_files_notification(
-                "\n".join(refused_line_list))
+                list_body_text(refused_line_list))
         # LLFR-00071: a listener that failed after its file was added is
         # an unexpected error of the app, not a reading error of the
         # file, which stays open; it reaches the unexpected error box.

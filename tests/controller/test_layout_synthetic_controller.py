@@ -338,14 +338,15 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
         self.assertIn(SYNTHETIC_HEADING_STR, report_str)
-        self.assertIn(f"  - {name_list[0]}: ", report_str)
+        # LLFR-00987: numbered under the heading of the section.
+        self.assertIn(f"\n1. {name_list[0]}: ", report_str)
         self.assertIn("order", report_str)
-        self.assertIn(f"  - {name_list[1]}: The signal "
+        self.assertIn(f"\n2. {name_list[1]}: The signal "
                       f"\"{name_list[0]}\" it is computed from was not "
                       f"created.", report_str)
         # LLFR-00282, LLFR-00237: the rename is reported.
-        self.assertIn('Renamed:\n  - Synthetic signal "file1_Torque" \u2192 '
-                      '"file1_Torque_2"', report_str)
+        self.assertIn('Renamed:\n\n1. Synthetic signal "file1_Torque" '
+                      '\u2192 "file1_Torque_2"', report_str)
         self.assertIn("Signals not in the data file:", report_str)
         # LLFR-00231: plot 2 lost every curve and was not created.
         self.assertEqual(self.curve_names(), [("Tab 1", [["file1_Speed"]])])
@@ -381,10 +382,10 @@ class LoadTest(LayoutSyntheticTestCase):
         self.load(self.write_layout("edited.json", layout_dict))
         self.assertNotIn("file1_fft_Speed_1s_to_8s", self.store.names())
         report_str = self.view.report_list[0]
-        self.assertIn("  - file1_fft_Speed_1s_to_8s: FFT signals are not "
+        self.assertIn("\n1. file1_fft_Speed_1s_to_8s: FFT signals are not "
                       "loaded from layout files.", report_str)
-        self.assertIn("Signals not in the data file:\n"
-                      "  - file1_fft_Speed_1s_to_8s", report_str)
+        self.assertIn("Signals not in the data file:\n\n"
+                      "1. file1_fft_Speed_1s_to_8s", report_str)
 
     @covers("LLFR-00278", "LLFR-00279", "LLFR-00283")
     def test_no_equation_for_an_fft_signal(self) -> None:
@@ -519,8 +520,10 @@ class KeptTabsTest(LayoutSyntheticTestCase):
             # LLFR-00237: only the tab name in use is reported; no
             # synthetic signal is renamed.
             self.assertEqual(len(self.view.report_list), 1)
+            # LLFR-00983, LLFR-00984: the heading, a blank line and the
+            # one rename, with no number.
             self.assertTrue(self.view.report_list[0].startswith(
-                'Renamed:\n  - Tab "Tab 1" \u2192 "Tab '))
+                'Renamed:\n\nTab "Tab 1" \u2192 "Tab '))
             self.assertNotIn("Synthetic signal", self.view.report_list[0])
             self.assertEqual(self.store.names(), name_list)
             curve_list = self.curve_names()
@@ -546,10 +549,13 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         renamed_list = [name_list[index_i] + "_2"
                         for index_i in (0, 1, 2, 4)]
         # LLFR-00237: every rename, saved and new name, in one section.
-        self.assertEqual(self.view.report_list, ["Renamed:\n" + "\n".join(
-            [f'  - Synthetic signal "{name_list[index_i]}" \u2192 '
+        entry_list = (
+            [f'Synthetic signal "{name_list[index_i]}" \u2192 '
              f'"{name_list[index_i]}_2"' for index_i in (0, 1, 2, 4)]
-            + ['  - Tab "Tab 1" \u2192 "Tab 2"'])])
+            + ['Tab "Tab 1" \u2192 "Tab 2"'])
+        self.assertEqual(self.view.report_list, ["Renamed:\n\n" + "\n\n".join(
+            f"{index_i + 1}. {entry_str}"
+            for index_i, entry_str in enumerate(entry_list))])
         self.assertEqual(self.store.names(), name_list + renamed_list)
         curve_list = self.curve_names()
         self.assertEqual(curve_list[0], old_curve_list[0])
