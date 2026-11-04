@@ -131,6 +131,22 @@ class SampleFileTest(unittest.TestCase):
         """
         self.assert_format_has_good_file("MATLAB")
 
+    @covers("LLFR-00991", "LLFR-00992", "LLFR-00993", "LLFR-00063")
+    def test_nested_structures_sample_content(self) -> None:
+        """nested_structures.mat has its fields named by their path.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_file = load_signal_file(os.path.join(
+            GOOD_FOLDER_STR, "nested_structures.mat"))
+        self.assertEqual(signal_file.signal_name_list, [
+            "Time", "Sine_1Hz", "waves/Cosine_1Hz", "waves/Sine_3Hz",
+            "waves/decaying/Damped_sine", "car/engine/Time",
+            "car/engine/oil/Temperature", "car/engine/Pressure",
+            "car/Ramp"])
+        self.assertEqual(signal_file.time_signal_name_str, "Time")
+
     @requires_h5py
     @covers("PCR-00032", "HLFR-00005", "LLFR-00134", "LLFR-00135")
     def test_hdf5_sample_files_open(self) -> None:

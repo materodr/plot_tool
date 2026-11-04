@@ -181,7 +181,7 @@ def write_good_files(folder_str: str, signal_dict: dict) -> None:
     Inputs:
         folder_str: the folder to write into; it must exist.
         signal_dict: the signals returned by sample_signals.
-    Outputs: none. Writes nine files into folder_str.
+    Outputs: none. Writes ten files into folder_str.
     """
     signal_df = pd.DataFrame(signal_dict)
     # HLFR-00005, LLFR-00059, LLFR-00061: CSV with "," and "." decimals.
@@ -200,6 +200,12 @@ def write_good_files(folder_str: str, signal_dict: dict) -> None:
     mat_variable_dict["matrix_2d"] = np.ones((3, 3))
     scipy.io.savemat(os.path.join(folder_str, "signals.mat"),
                      mat_variable_dict)
+    # LLFR-00991, LLFR-00992, LLFR-00993, LLFR-00063: signals in nested
+    # scalar structures, named by their path ("car/engine/speed"); a
+    # "Time" field inside a structure is an ordinary signal; a struct
+    # array, a cell array and a matrix inside the structures are ignored.
+    scipy.io.savemat(os.path.join(folder_str, "nested_structures.mat"),
+                     nested_mat_variables(signal_dict))
     # HLFR-00008: a small file with the minimum useful content.
     small_df = signal_df[["Time", "Sine_1Hz", "Cosine_1Hz"]].iloc[:11]
     small_df.round(4).to_csv(os.path.join(folder_str, "small_3_signals.csv"),
@@ -218,6 +224,48 @@ def write_good_files(folder_str: str, signal_dict: dict) -> None:
         os.path.join(folder_str, "vehicle_run.csv"), index=False)
     pd.DataFrame(solar_inverter_signals(signal_dict["Time"])).to_csv(
         os.path.join(folder_str, "solar_inverter_run.csv"), index=False)
+
+
+def nested_mat_variables(signal_dict: dict) -> dict:
+    """Build the variables of good/nested_structures.mat.
+
+    Inputs:
+        signal_dict: the signals returned by sample_signals.
+    Outputs: a dict variable name -> value for scipy.io.savemat, where a
+        dict is saved as a scalar structure. It holds "Time" and
+        "Sine_1Hz" at the top level, the other signals in structures up
+        to three levels deep, and values that must be ignored.
+    """
+    # LLFR-00063: a 1x2 struct array and a 1x2 cell array, ignored with
+    # everything they hold.
+    struct_array = np.empty((1, 2), dtype=[("speed", "O")])
+    for index_i in range(2):
+        struct_array[0, index_i]["speed"] = signal_dict["Ramp"]
+    cell_array = np.empty((1, 2), dtype=object)
+    cell_array[0, 0] = signal_dict["Noise"]
+    cell_array[0, 1] = {"hidden": signal_dict["Noise"]}
+    # LLFR-00991: "Ramp" as a 1xN row and "Pressure" as an Nx1 column.
+    return {
+        "Time": signal_dict["Time"],
+        "Sine_1Hz": signal_dict["Sine_1Hz"],
+        "waves": {
+            "Cosine_1Hz": signal_dict["Cosine_1Hz"],
+            "Sine_3Hz": signal_dict["Sine_3Hz"],
+            "decaying": {"Damped_sine": signal_dict["Damped_sine"]},
+        },
+        "car": {
+            "engine": {
+                "Time": signal_dict["Time"],
+                "oil": {"Temperature": signal_dict["Temperature"]},
+                "Pressure": signal_dict["Pressure"].reshape(-1, 1),
+            },
+            "Ramp": signal_dict["Ramp"].reshape(1, -1),
+            "runs": struct_array,
+            "notes": cell_array,
+            "calibration": np.ones((3, 3)),
+            "label": "sample car",
+        },
+    }
 
 
 def write_bad_files(folder_str: str, signal_dict: dict) -> None:
