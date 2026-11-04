@@ -124,6 +124,11 @@ Note: Its signal list panel follows LLFR-01094.
 
 *Parent: HLFR-00132, HLFR-00133, HLFR-00138*
 
+### LLFR-01094 Signal list panel of a window opened again
+When an undo or a redo opens an undocked window again (LLFR-01024), the app must give its signal list panel the shown or hidden state and the width that it had.
+
+*Parent: HLFR-00132, HLFR-00133, HLFR-00138, HLFR-00129*
+
 ### LLFR-01025 Undock and dock undoable
 Undocking a tab (LLFR-00980) and docking a tab (LLFR-00993) must each be one undoable action (LLFR-00140).
 
@@ -173,11 +178,6 @@ Closing an undocked window (LLFR-01038) must be one undoable action (LLFR-00140)
 Note: Undoing it opens the window again with its tab (LLFR-01024).
 
 *Parent: HLFR-00138, HLFR-00040, HLFR-00048*
-
-### LLFR-01094 Signal list panel of a window opened again
-When an undo or a redo opens an undocked window again (LLFR-01024), the app must give its signal list panel the shown or hidden state and the width that it had.
-
-*Parent: HLFR-00132, HLFR-00133, HLFR-00138, HLFR-00129*
 
 ### LLFR-00142 Undo history kept on file open
 When the app opens a data file, it must keep the undo history and the redo history (LLFR-00192) unchanged.
@@ -4005,7 +4005,7 @@ An undocked window must show the button of its tab at the left end of its tab ro
 *Parent: HLFR-00135*
 
 ### LLFR-01095 Look of the tab button in an undocked window
-The tab button of an undocked window (LLFR-01028) must have the look of the selected tab of the main window (LLFR-00107).
+The tab button of an undocked window (LLFR-01028) must have the look of the selected tab of the main window.
 
 *Parent: HLFR-00135*
 
