@@ -329,11 +329,11 @@ class LayoutReport:
 
         Inputs: none.
         Outputs: the text, each heading followed by its entries, numbered
-            when the report holds two or more entries (LLFR-00984,
-            LLFR-00985); "" when the report is empty.
+            when the report holds two or more entries (LLFR-00987,
+            LLFR-00988); "" when the report is empty.
         """
-        # LLFR-00237: one box that lists everything; LLFR-00977 to
-        # LLFR-00986: in the shared format of the boxes with a list.
+        # LLFR-00237: one box that lists everything; LLFR-00980 to
+        # LLFR-00989: in the shared format of the boxes with a list.
         if self.is_empty():
             return ""
         return sections_text(self.section_list())

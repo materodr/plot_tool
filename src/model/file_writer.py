@@ -449,7 +449,7 @@ def non_finite_reason(name_list: list) -> str:
     Outputs: the sentence followed by the list of the signals.
     """
     # LLFR-00408, LLFR-00559: each signal is named, as one item of the
-    # list below the sentence (LLFR-00977, LLFR-00980).
+    # list below the sentence (LLFR-00980, LLFR-00983).
     return list_text([f"'{name_str}'" for name_str in name_list],
                      NON_FINITE_REASON_STR)
 
@@ -475,7 +475,7 @@ def changed_names_text(change_list: list) -> str:
         change_list: (old name, new name) tuples.
     Outputs: one item "<old name> → <new name>" per change, numbered
         and separated by blank lines when there are two or more
-        (LLFR-00977, LLFR-00979).
+        (LLFR-00980, LLFR-00982).
     """
     # LLFR-00404: each changed name as "<old name> → <new name>".
     return list_body_text([f"{old_str} → {new_str}"

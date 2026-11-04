@@ -495,7 +495,7 @@ class LayoutEndToEndTest(unittest.TestCase):
                           workspace.marker_list], ["Flag 1"])
         # LLFR-00237: one report naming "force" once and the lost tip.
         self.assertEqual(len(self.report_list), 1)
-        # LLFR-00977, LLFR-00984: a numbered item of its own.
+        # LLFR-00980, LLFR-00987: a numbered item of its own.
         self.assertEqual(len(re.findall(r"\n\d+\. file1_force\n",
                                         self.report_list[0])), 1)
         self.assertIn("Data tip at 1 s", self.report_list[0])

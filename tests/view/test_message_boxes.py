@@ -345,7 +345,7 @@ class CloseFilesBoxTest(unittest.TestCase):
 
 @requires_qt
 class ListBoxesTest(unittest.TestCase):
-    """The boxes that list items show them numbered (LLFR-00978)."""
+    """The boxes that list items show them numbered (LLFR-00981)."""
 
     def setUp(self) -> None:
         """Get the application and import the module under test.
@@ -357,8 +357,8 @@ class ListBoxesTest(unittest.TestCase):
         from view import message_boxes
         self.message_module = message_boxes
 
-    @covers("LLFR-00977", "LLFR-00978", "LLFR-00979", "LLFR-00980",
-            "LLFR-00981", "LLFR-00255")
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00983",
+            "LLFR-00984", "LLFR-00255")
     def test_delete_question_numbers_the_dependents(self) -> None:
         """The dependents are numbered below their sentence; one
         dependent alone has no number.
@@ -386,7 +386,7 @@ class ListBoxesTest(unittest.TestCase):
         self.assertEqual(box.text(), text_str)
         box.deleteLater()
 
-    @covers("LLFR-00977", "LLFR-00979", "LLFR-00955", "LLFR-00956")
+    @covers("LLFR-00980", "LLFR-00982", "LLFR-00955", "LLFR-00956")
     def test_message_boxes_keep_the_numbered_text(self) -> None:
         """The File Open Error box and the refused files box show the
         numbered list as it is, as plain text.
@@ -405,7 +405,7 @@ class ListBoxesTest(unittest.TestCase):
                                     Qt.TextFormat.RichText)
                 box.deleteLater()
 
-    @covers("LLFR-00987", "LLFR-00884", "LLFR-00885", "LLFR-00983")
+    @covers("LLFR-00990", "LLFR-00884", "LLFR-00885", "LLFR-00986")
     def test_scrollable_boxes_wrap_their_lines(self) -> None:
         """The text fields of the load report and of the changed names
         wrap at their width, also inside a long name, and keep the text.
@@ -436,7 +436,7 @@ class ListBoxesTest(unittest.TestCase):
                 dialog.resize(600, 400)
                 dialog.show()
                 self.application.processEvents()
-                # LLFR-00987: no horizontal scroll is needed.
+                # LLFR-00990: no horizontal scroll is needed.
                 self.assertEqual(field.horizontalScrollBar().maximum(), 0)
                 dialog.close()
                 dialog.deleteLater()

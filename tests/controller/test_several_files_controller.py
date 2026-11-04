@@ -531,7 +531,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
         """
         return self.plot_controller.undo_history.depth()
 
-    @covers("LLFR-00977", "LLFR-00978", "LLFR-00979", "LLFR-00980",
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00983",
             "LLFR-00924", "LLFR-00934")
     def test_close_questions_number_their_points(self) -> None:
         """The two close questions: the question, a blank line and the
@@ -575,7 +575,7 @@ class CloseQuestionTest(SeveralFilesTestCase):
         question_str = self.question_list[0]
         self.assertTrue(question_str.startswith(
             "Do you want to close file2_run_B.mat?"))
-        # LLFR-00977, LLFR-00979, LLFR-00980: the points are numbered,
+        # LLFR-00980, LLFR-00982, LLFR-00983: the points are numbered,
         # below the question and a blank line, one blank line apart.
         for number_i, point_str in enumerate(
                 (CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,

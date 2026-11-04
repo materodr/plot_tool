@@ -145,7 +145,7 @@ def question_text(question_str: str, point_list: list) -> str:
             file1_run.csv?".
         point_list: the sentences that say what proceeding does.
     Outputs: the question, an empty line and the points, numbered and
-        separated by blank lines (LLFR-00977, LLFR-00979, LLFR-00980).
+        separated by blank lines (LLFR-00980, LLFR-00982, LLFR-00983).
     """
     # LLFR-00924, LLFR-00934: the consequences, as the items of a list
     # below the question.
@@ -343,7 +343,7 @@ class FileController:
             if data_file is not None:
                 added_file_list.append(data_file)
         # LLFR-00955: one File Open Error box for the whole selection,
-        # one numbered item per file (LLFR-00977, LLFR-00978, LLFR-00979).
+        # one numbered item per file (LLFR-00980, LLFR-00981, LLFR-00982).
         if error_message_list:
             self.view.show_file_open_error(
                 list_body_text(error_message_list))

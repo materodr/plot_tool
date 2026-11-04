@@ -258,7 +258,7 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.report_list), 1)
         self.assertIn("Synthetic signals not created:",
                       self.report_list[0])
-        # LLFR-00977, LLFR-00984: numbered items under the headings.
+        # LLFR-00980, LLFR-00987: numbered items under the headings.
         self.assertRegex(self.report_list[0],
                          r"\n\d+\. file1_int_Speed: The signal \"Pressure\"")
         self.assertRegex(self.report_list[0] + "\n",

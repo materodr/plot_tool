@@ -315,7 +315,7 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
         self.assertIn(SYNTHETIC_HEADING_STR, report_str)
-        # LLFR-00984: numbered under the heading of the section.
+        # LLFR-00987: numbered under the heading of the section.
         self.assertIn(f"\n1. {name_list[0]}: ", report_str)
         self.assertIn("order", report_str)
         self.assertIn(f"\n2. {name_list[1]}: The signal "
@@ -497,7 +497,7 @@ class KeptTabsTest(LayoutSyntheticTestCase):
             # LLFR-00237: only the tab name in use is reported; no
             # synthetic signal is renamed.
             self.assertEqual(len(self.view.report_list), 1)
-            # LLFR-00980, LLFR-00981: the heading, a blank line and the
+            # LLFR-00983, LLFR-00984: the heading, a blank line and the
             # one rename, with no number.
             self.assertTrue(self.view.report_list[0].startswith(
                 'Renamed:\n\nTab "Tab 1" \u2192 "Tab '))

@@ -589,7 +589,7 @@ class OpenFileTest(FileControllerTestCase):
         self.assertEqual(len(controller.data_files), 10)
         self.assertEqual(controller.data_files.file_list[-1].path_str,
                          "/data/b1.csv")
-        # LLFR-00977, LLFR-00979: two refused files, numbered, with a
+        # LLFR-00980, LLFR-00982: two refused files, numbered, with a
         # blank line between them.
         self.assertEqual(view.refused_message_list, ["\n\n".join([
             "1. a0.csv: already open as file1.",
@@ -665,7 +665,7 @@ class OpenFileTest(FileControllerTestCase):
             "finish_open_file_button"])
         self.assertEqual(view.call_list.count("ask_time_signal_name"), 1)
 
-    @covers("LLFR-00977", "LLFR-00978", "LLFR-00979", "LLFR-00981",
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00984",
             "LLFR-00955", "LLFR-00956")
     def test_boxes_of_a_selection_number_their_files(self) -> None:
         """Two failed files are numbered, one blank line apart; one
@@ -680,16 +680,16 @@ class OpenFileTest(FileControllerTestCase):
             "/d/a_broken.csv": FileReadError("a_broken.csv is broken."),
             "/d/c_crash.csv": RuntimeError("boom")})
         controller.open_file_requested()
-        # LLFR-00977, LLFR-00979: "1." and "2.", a blank line between.
+        # LLFR-00980, LLFR-00982: "1." and "2.", a blank line between.
         self.assertEqual(view.error_message_list, [
             "1. a_broken.csv is broken.\n\n"
             "2. " + UNEXPECTED_ERROR_MESSAGE_STR.format(
                 name="c_crash.csv", error="boom")])
-        # LLFR-00981: the one refused file has no number.
+        # LLFR-00984: the one refused file has no number.
         self.assertEqual(view.refused_message_list,
                          ["first.csv: already open as file1."])
 
-    @covers("LLFR-00977", "LLFR-00978", "LLFR-00979", "LLFR-00981",
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00984",
             "LLFR-00956")
     def test_refused_box_numbers_every_file(self) -> None:
         """Two refused files are numbered 1 and 2, one blank line apart;
@@ -706,10 +706,10 @@ class OpenFileTest(FileControllerTestCase):
             "/d/a_broken.csv": FileReadError("a_broken.csv is broken.")})
         controller.open_file_requested()
         controller.open_file_requested()
-        # LLFR-00981: one failed file, no number.
+        # LLFR-00984: one failed file, no number.
         self.assertEqual(view.error_message_list,
                          ["a_broken.csv is broken."])
-        # LLFR-00977, LLFR-00979: in the order of the file names.
+        # LLFR-00980, LLFR-00982: in the order of the file names.
         self.assertEqual(view.refused_message_list, [
             "1. " + ALREADY_OPEN_REASON_STR.format(name="first.csv",
                                                    number=1)

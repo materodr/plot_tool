@@ -490,7 +490,7 @@ def delete_synthetic_signal_text(name_str: str,
     text_str = DELETE_SYNTHETIC_MESSAGE_STR.format(name=name_str)
     if not dependent_name_list:
         return f"{text_str}\n\n{DELETE_ONE_CONSEQUENCE_MESSAGE_STR}"
-    # LLFR-00977 to LLFR-00981: the dependents as the items of a list
+    # LLFR-00980 to LLFR-00984: the dependents as the items of a list
     # below the sentence that introduces them.
     dependent_text_str = list_text(dependent_name_list,
                                    DELETE_DEPENDENTS_MESSAGE_STR)
@@ -633,7 +633,7 @@ def build_layout_report_box(
     report_field = QPlainTextEdit(dialog)
     report_field.setObjectName(text_object_name_str)
     report_field.setReadOnly(True)
-    # LLFR-00987: each line is wrapped at the width of the field, also
+    # LLFR-00990: each line is wrapped at the width of the field, also
     # inside a long signal name, so that nothing needs a horizontal
     # scroll.
     report_field.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)

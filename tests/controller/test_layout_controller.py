@@ -660,7 +660,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(first_plot_tuple[2], ())
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
-        # LLFR-00984, LLFR-00985: numbered under its own heading.
+        # LLFR-00987, LLFR-00988: numbered under its own heading.
         self.assertIn("Signals not in the data file:\n\n1. Torque\n",
                       report_str)
         self.assertEqual(report_str.count("1. Torque\n"), 1)
