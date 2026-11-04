@@ -67,9 +67,12 @@ SIGNAL_LIST_BUTTON_OBJECT_NAME_STR = "signal_list_button"
 WINDOW_PLOT_COLUMN_OBJECT_NAME_STR = "window_plot_column"
 # LLFR-01100: the tab row, and so the "Signals" title row level with it,
 # is at least as high as the signal list button plus the space between
-# the title row and the list.
+# the title row and the list, plus the border by which the plot well
+# rises into the tab row (LLFR-00893), since the list top is level with
+# the well's top edge (LLFR-00894).
 TAB_ROW_MINIMUM_HEIGHT_I = (theme.SIDEBAR_BUTTON_SIZE_I
-                            + theme.SIGNAL_PANEL_SPACING_I)
+                            + theme.SIGNAL_PANEL_SPACING_I
+                            + theme.TAB_BORDER_WIDTH_I)
 
 
 def signal_list_button_style_sheet() -> str:
