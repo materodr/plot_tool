@@ -620,7 +620,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
             self.assertNotIn("x-axis", text_str)
         menu.deleteLater()
 
-    @covers("LLFR-00332", "HLFR-00071", "LLFR-00638")
+    @covers("LLFR-00332", "HLFR-00071", "LLFR-00638", "LLFR-00992")
     def test_time_signal_name_is_green(self) -> None:
         """The time signal is green; other names are not, in every case.
 
@@ -672,8 +672,9 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         item.setSelected(True)
         other_item.setSelected(True)
         self.application.processEvents()
+        # LLFR-00992: the chosen time signal is first in the list.
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["file1_speed", "file1_t_s"])
+                         ["file1_t_s", "file1_speed"])
         self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
                            self.row_colors("file1_t_s"))
         self.assertEqual(self.green_pixel_count("file1_speed"), 0,
@@ -684,8 +685,9 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.application.processEvents()
         self.panel.search_box.setText("")
         self.application.processEvents()
+        # LLFR-00992: the chosen time signal is first in the list.
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["file1_speed", "file1_t_s"])
+                         ["file1_t_s", "file1_speed"])
         self.assertEqual(self.panel.name_color_str("file1_t_s"), green_str)
         self.assertGreater(self.green_pixel_count("file1_t_s"), 0,
                            self.row_colors("file1_t_s"))

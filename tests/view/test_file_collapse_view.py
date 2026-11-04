@@ -446,7 +446,8 @@ class FileCollapseEndToEndTest(unittest.TestCase):
             self.click_icon(row_str)
         self.assertEqual(history.depth(), depth_i)
         self.assertTrue(undo_button.isEnabled())
-        self.assertEqual(self.icons(), ["[-]", "[-]"])
+        # File 1 was expanded and collapsed again, file 2 expanded.
+        self.assertEqual(self.icons(), ["[+]", "[-]"])
 
 
 if __name__ == "__main__":
