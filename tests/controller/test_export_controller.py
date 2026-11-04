@@ -36,6 +36,7 @@ class FakeExportView:
         self.save_error = None
         self.replace_answer_b = False
         self.call_list = []
+        self.description_list = []
 
     def ask_replace_existing_file(self, path_str: str) -> bool:
         """Record the question and return the prepared answer.
@@ -74,25 +75,30 @@ class FakeExportView:
         self.call_list.append("ask_pdf_save_path")
         return self.answer_path_str
 
-    def save_tabs_pdf(self, path_str: str) -> tuple:
+    def save_tabs_pdf(self, path_str: str,
+                      description_str: str = "") -> tuple:
         """Record the save and return the prepared result.
 
         Inputs:
             path_str: the path to save to.
+            description_str: the description of the data files.
         Outputs: save_result_tuple. Raises save_error when it is set.
         """
         self.call_list.append(("save_tabs_pdf", path_str))
+        self.description_list.append(description_str)
         if self.save_error is not None:
             raise self.save_error
         return self.save_result_tuple
 
-    def copy_current_tab_image(self) -> tuple:
+    def copy_current_tab_image(self, description_str: str = "") -> tuple:
         """Record the copy and return the prepared result.
 
-        Inputs: none.
+        Inputs:
+            description_str: the description of the data files.
         Outputs: copy_result_tuple.
         """
         self.call_list.append("copy_current_tab_image")
+        self.description_list.append(description_str)
         return self.copy_result_tuple
 
     def show_nothing_to_export(self) -> None:
@@ -367,3 +373,70 @@ class CopyFlowTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FilesDescriptionTest(unittest.TestCase):
+    """The PDF and the copied image describe the open data files."""
+
+    def setUp(self) -> None:
+        """Create the controller with a fake view and a description.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportView()
+        self.description_str = "file1 = run_A.csv, file2 = run_B.mat"
+        self.controller = ExportController(
+            self.view, lambda: self.description_str)
+
+    @covers("LLFR-00967", "LLFR-00129", "HLFR-00038", "HLFR-00113")
+    def test_pdf_gets_the_description_of_all_files(self) -> None:
+        """The view saves the PDF with the description at that moment.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.on_export_requested()
+        self.assertEqual(self.view.description_list,
+                         ["file1 = run_A.csv, file2 = run_B.mat"])
+        # Taken again at each export: the files open at that moment.
+        self.description_str = "file2 = run_B.mat"
+        self.controller.on_export_requested()
+        self.assertEqual(self.view.description_list[-1],
+                         "file2 = run_B.mat")
+
+    @covers("LLFR-00968", "LLFR-00133", "HLFR-00039", "HLFR-00113")
+    def test_copy_gets_the_description_of_all_files(self) -> None:
+        """The view copies the image with the same description.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.on_copy_requested()
+        self.assertEqual(self.view.description_list,
+                         ["file1 = run_A.csv, file2 = run_B.mat"])
+
+    @covers("LLFR-00968", "LLFR-00146", "LLFR-00460")
+    def test_nothing_to_copy_needs_no_description(self) -> None:
+        """With no plot, nothing is copied, so there is no strip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.current_plot_count_i = 0
+        self.controller.on_copy_requested()
+        self.assertEqual(self.view.description_list, [])
+        self.assertNotIn("copy_current_tab_image",
+                         self.view.called_names_list())
+
+    @covers("LLFR-00967")
+    def test_no_description_function_gives_empty_text(self) -> None:
+        """Without a function the description is empty.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        controller = ExportController(self.view)
+        self.assertEqual(controller.files_description(), "")
+        controller.on_export_requested()
+        self.assertEqual(self.view.description_list, [""])

@@ -85,6 +85,7 @@ class FakeView:
         self.path_list = list(path_list)
         self.time_answer_list = list(time_answer_list or [])
         self.time_window_list = []
+        self.time_window_file_name_list = []
         self.time_reason_list = []
         self.call_list = []
         self.error_message_list = []
@@ -136,7 +137,7 @@ class FakeView:
 
     def ask_time_signal_name(self, prompt_str: str, name_list: list,
                              search_function, no_match_text_str: str,
-                             check_function):
+                             check_function, file_name_str: str = ""):
         """Record the window and return the first accepted answer.
 
         Inputs:
@@ -145,10 +146,13 @@ class FakeView:
             search_function: text -> matching names.
             no_match_text_str: the text shown when nothing matches.
             check_function: name -> reason ("" when accepted).
+            file_name_str: the name of the file the window is for
+                (LLFR-00953).
         Outputs: the first scripted name that check_function accepts,
             or None (cancel) when none is.
         """
         self.call_list.append("ask_time_signal_name")
+        self.time_window_file_name_list.append(file_name_str)
         self.time_window_list.append(
             (prompt_str, list(name_list), search_function,
              no_match_text_str))
@@ -453,11 +457,11 @@ class OpenFileTest(FileControllerTestCase):
         """
         view = FakeView([[SECOND_PATH_STR, FIRST_PATH_STR]])
 
-        def broken_window(*argument_tuple):
+        def broken_window(*argument_tuple, **argument_dict):
             """Raise as a broken window would.
 
             Inputs:
-                argument_tuple: ignored.
+                argument_tuple, argument_dict: ignored.
             Outputs: none; always raises RuntimeError.
             """
             raise RuntimeError("window failure")
@@ -995,16 +999,18 @@ class LoadingStateView(FakeView):
                                 self.loading_shown_b))
         super().show_file_open_error(message_str)
 
-    def ask_time_signal_name(self, *argument_tuple):
+    def ask_time_signal_name(self, *argument_tuple, **argument_dict):
         """Record the indication state, then answer as FakeView.
 
         Inputs:
             argument_tuple: the window arguments.
+            argument_dict: the keyword arguments (file_name_str).
         Outputs: the scripted answer.
         """
         self.state_list.append(("ask_time_signal_name",
                                 self.loading_shown_b))
-        return super().ask_time_signal_name(*argument_tuple)
+        return super().ask_time_signal_name(*argument_tuple,
+                                            **argument_dict)
 
 
 class OpeningOrderTest(FileControllerTestCase):
@@ -1219,7 +1225,7 @@ class TimeSignalWindowTest(FileControllerTestCase):
         self.no_time_file = build_no_time_file(SECOND_PATH_STR)
 
     @covers("LLFR-00325", "LLFR-00326", "HLFR-00070", "LLFR-00054",
-            "LLFR-00906")
+            "LLFR-00906", "LLFR-00953")
     def test_window_shown_when_no_time_signal(self) -> None:
         """The window lists every signal; the choice is the time signal.
 
@@ -1245,6 +1251,10 @@ class TimeSignalWindowTest(FileControllerTestCase):
                          ["file1_Down", "file1_t_s", "file1_Flat"])
         self.assertEqual(controller.data_files.time_signal_name_list,
                          ["file1_t_s"])
+        # LLFR-00953: the window names its file, without its folder.
+        self.assertEqual(view.time_window_file_name_list,
+                         [os.path.basename(SECOND_PATH_STR)])
+        self.assertNotIn(os.sep, view.time_window_file_name_list[0])
 
     @covers("LLFR-00325", "LLFR-00285", "LLFR-00098", "LLFR-00101",
             "LLFR-00102", "LLFR-00618")

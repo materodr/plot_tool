@@ -14,18 +14,23 @@ offer ``ask_open_file_path(start_folder_str)`` (a path, "" when
 cancelled, or a list of paths), ``show_file_open_error``,
 ``show_open_files_limit_notification``,
 ``show_refused_files_notification``, ``ask_time_signal_name``,
-``finish_open_file_button``, ``show_loading_indication()`` and
-``hide_loading_indication()``.
+``finish_open_file_button``, ``show_loading_indication()``,
+``hide_loading_indication()``, and, for the file menu of the signal
+list (LLFR-00919), ``ask_close_file(question_str)`` and
+``ask_close_all_files(question_str)``, which return True when the user
+proceeds (LLFR-00920, LLFR-00930).
 
 ``show_loading_indication`` shows the busy pointer and the loading title
 of the main window, and ``hide_loading_indication`` restores the normal
 pointer and the normal title (LLFR-00418, LLFR-00560, LLFR-00562).
 
 ``ask_time_signal_name(prompt_str, name_list, search_function,
-no_match_text_str, check_function)`` shows the time signal window
-(LLFR-00325) and returns the confirmed name, or None when the user
-cancels. ``search_function(text_str)`` returns the names that match the
-search box text, in the order to show them; ``check_function(name_str)``
+no_match_text_str, check_function, file_name_str=...)`` shows the time
+signal window (LLFR-00325) for the file named file_name_str (its name
+with its extension, without its folder, LLFR-00953) and returns the
+confirmed name, or None when the user cancels.
+``search_function(text_str)`` returns the names that match the search
+box text, in the order to show them; ``check_function(name_str)``
 returns the reason a name can't be the time signal ("" when it can), and
 the window stays open while there is one (LLFR-00329).
 """
@@ -58,6 +63,27 @@ LIMIT_REASON_STR = "{name}: not opened, because 10 files are already open."
 # LLFR-00951: the entries of the File Open Error box are separated by
 # an empty line.
 ENTRY_SEPARATOR_STR = "\n\n"
+# LLFR-00920: the question asked before one data file is closed. The
+# third point depends on whether other files are left.
+CLOSE_FILE_QUESTION_STR = "Do you want to close {row}?"
+CLOSE_FILE_SIGNALS_POINT_STR = (
+    "Its signals and the synthetic signals computed from them will be "
+    "removed from the signal list and from the plots.")
+CLOSE_TABS_POINT_STR = "The tabs left with no plot will be closed."
+CLOSE_FILE_MARKERS_POINT_STR = (
+    "The flags and areas outside the time range of the files left will "
+    "be deleted.")
+CLOSE_LAST_FILE_MARKERS_POINT_STR = (
+    "Every flag and every area will be deleted, because no file is left.")
+CLOSE_HISTORY_POINT_STR = "The undo and redo history will be cleared."
+# LLFR-00930: the question asked once before every data file is closed.
+CLOSE_ALL_FILES_QUESTION_STR = "Do you want to close all the files?"
+CLOSE_ALL_FILES_POINT_STR = "All the open data files will be closed."
+CLOSE_ALL_SIGNALS_POINT_STR = (
+    "Their signals and synthetic signals will be removed from the signal "
+    "list and from the plots.")
+# LLFR-00920, LLFR-00930: each point of a question on its own line.
+QUESTION_POINT_FORMAT_STR = "- {point}"
 # LLFR-00204: suffix of a macOS app bundle folder (plot_tool.app).
 APP_BUNDLE_SUFFIX_STR = ".app"
 # LLFR-00204: folders between the bundle and its executable
@@ -113,6 +139,55 @@ def first_start_folder_str(frozen_b: bool = None,
         return os.path.dirname(bundle_folder_str)
     # LLFR-00204: Windows (and any other build), the executable's folder.
     return executable_folder_str
+
+
+def question_text(question_str: str, point_list: list) -> str:
+    """Return the text of a question with the points it says.
+
+    Inputs:
+        question_str: the question, for example "Do you want to close
+            file1_run.csv?".
+        point_list: the sentences that say what proceeding does.
+    Outputs: the question, an empty line and one "- " line per point.
+    """
+    # LLFR-00920, LLFR-00930: the consequences, one per line.
+    point_text_str = "\n".join(QUESTION_POINT_FORMAT_STR.format(point=point)
+                               for point in point_list)
+    return f"{question_str}\n\n{point_text_str}"
+
+
+def close_file_question(row_str: str, last_file_b: bool) -> str:
+    """Return the question asked before one data file is closed.
+
+    Inputs:
+        row_str: the file as its file name row shows it, for example
+            "file1_run_A.csv" (LLFR-00362).
+        last_file_b: True when no other data file is open, so that no
+            file is left after the close.
+    Outputs: the text of the question of LLFR-00920.
+    """
+    # LLFR-00920: the flags and areas outside the files left, or every
+    # flag and area when no file is left.
+    markers_point_str = (CLOSE_LAST_FILE_MARKERS_POINT_STR if last_file_b
+                         else CLOSE_FILE_MARKERS_POINT_STR)
+    return question_text(
+        CLOSE_FILE_QUESTION_STR.format(row=row_str),
+        [CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,
+         markers_point_str, CLOSE_HISTORY_POINT_STR])
+
+
+def close_all_files_question() -> str:
+    """Return the question asked before every data file is closed.
+
+    Inputs: none.
+    Outputs: the text of the question of LLFR-00930.
+    """
+    # LLFR-00930: the five points, in the order of the requirement.
+    return question_text(
+        CLOSE_ALL_FILES_QUESTION_STR,
+        [CLOSE_ALL_FILES_POINT_STR, CLOSE_ALL_SIGNALS_POINT_STR,
+         CLOSE_TABS_POINT_STR, CLOSE_LAST_FILE_MARKERS_POINT_STR,
+         CLOSE_HISTORY_POINT_STR])
 
 
 class FileController:
@@ -323,7 +398,8 @@ class FileController:
         # LLFR-00328 step 4: the user chooses the time signal when no
         # signal is named "Time".
         if (signal_file.needs_time_signal_choice_b
-                and not self._choose_time_signal(signal_file)):
+                and not self._choose_time_signal(signal_file,
+                                                 file_name_str)):
             # LLFR-00327, LLFR-00509, LLFR-00512, LLFR-00513: cancelled,
             # nothing is opened and no message is shown.
             return None
@@ -373,12 +449,15 @@ class FileController:
             # remove the indication before any box or window is shown.
             self.view.hide_loading_indication()
 
-    def _choose_time_signal(self, signal_file) -> bool:
+    def _choose_time_signal(self, signal_file,
+                            file_name_str: str = "") -> bool:
         """Ask the user for the time signal of a file.
 
         Inputs:
             signal_file: the SignalFile just read, with no signal that
                 matches the time signal name.
+            file_name_str: the name of the file, with its extension and
+                without its folder, shown in the window (LLFR-00953).
         Outputs: True when the user confirmed a signal, which is now the
             file's time signal; False when the user cancelled.
         """
@@ -408,9 +487,10 @@ class FileController:
             return increasing_check_reason(
                 name_str, signal_file.signal_array(name_str))
 
+        # LLFR-00953: the window names the file it is for.
         chosen_name_str = self.view.ask_time_signal_name(
             TIME_SIGNAL_PROMPT_STR, name_list, matching_names,
-            NO_MATCH_TEXT_STR, check_name)
+            NO_MATCH_TEXT_STR, check_name, file_name_str=file_name_str)
         if not chosen_name_str:
             # LLFR-00327: the window was cancelled.
             return False
@@ -422,6 +502,48 @@ class FileController:
     # ----------------------------------------------------------------
     # Close
     # ----------------------------------------------------------------
+
+    def close_file_requested(self, number_i: int) -> bool:
+        """Ask whether to close a data file, and close it if so.
+
+        Called when the user chooses "Close file" in the file menu of
+        the file's name row (LLFR-00919).
+
+        Inputs:
+            number_i: the number of the data file (LLFR-00896).
+        Outputs: True when the user proceeded and the file was closed.
+        """
+        # LLFR-00920: the question names the file as its row shows it,
+        # also when none of its signals is drawn.
+        data_file = self.data_files.find(int(number_i))
+        if data_file is None:
+            return False
+        last_file_b = len(self.data_files) == 1
+        if not self.view.ask_close_file(close_file_question(
+                data_file.file_name_row_str, last_file_b)):
+            # LLFR-00921: declined, nothing changes.
+            return False
+        # LLFR-00922 to LLFR-00929, LLFR-00946: the close itself.
+        return self.close_file(number_i)
+
+    def close_all_files_requested(self) -> list:
+        """Ask once whether to close every data file, and close them.
+
+        Called when the user chooses "Close all files" in the file menu
+        (LLFR-00919).
+
+        Inputs: none.
+        Outputs: the closed DataFile objects; [] when the user declined
+            or no file was open.
+        """
+        # LLFR-00930: one question for all the files.
+        if len(self.data_files) == 0:
+            return []
+        if not self.view.ask_close_all_files(close_all_files_question()):
+            # LLFR-00931: declined, nothing changes.
+            return []
+        # LLFR-00932: every file, with no further question.
+        return self.close_all_files()
 
     def close_file(self, number_i: int) -> bool:
         """Close one open data file, after the user proceeded.

@@ -125,14 +125,13 @@ class SearchEndToEndTest(unittest.TestCase):
         self.application.processEvents()
 
     def shown_items(self) -> list:
-        """Return the list items shown, from top to bottom.
+        """Return the signal items shown, from top to bottom.
 
         Inputs: none.
-        Outputs: a list of QListWidgetItem.
+        Outputs: a list of QListWidgetItem, without the file name rows.
         """
-        list_widget = self.panel.signal_list_widget
-        return [list_widget.item(row_i)
-                for row_i in range(list_widget.count())]
+        from view.signal_list_panel import SIGNAL_ROW_STR
+        return self.panel.signal_list_widget.row_items(SIGNAL_ROW_STR)
 
     def current_plot_widgets(self) -> list:
         """Return the plot widgets of the current tab, top to bottom.
@@ -232,20 +231,23 @@ class SearchEndToEndTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list(), FIRST_SHOWN_LIST)
 
-    @covers("LLFR-00097", "LLFR-00565")
+    @covers("LLFR-00097", "LLFR-00565", "LLFR-00640", "LLFR-00641")
     def test_no_match_message(self) -> None:
-        """No match empties the list and shows "No matching signals".
+        """No match shows "No matching signals" below the file's row.
 
         Inputs: none.
         Outputs: none.
         """
-        label = self.panel.signal_list_widget.no_match_label
+        from view.signal_list_panel import FILE_ROW_STR, NO_MATCH_ROW_STR
         self.type_search("xyzw")
         self.assertEqual(self.panel.signal_name_list(), [])
-        self.assertTrue(label.isVisible())
-        self.assertEqual(label.text(), "No matching signals")
+        self.assertEqual(self.panel.no_match_message(),
+                         "No matching signals")
+        self.assertEqual(self.panel.row_list(), [
+            (FILE_ROW_STR, self.panel.file_row_texts()[0]),
+            (NO_MATCH_ROW_STR, "No matching signals")])
         self.type_search("pressure")
-        self.assertFalse(label.isVisible())
+        self.assertEqual(self.panel.no_match_message(), "")
         self.assertEqual(self.panel.signal_name_list(), ["file1_Pressure"])
         self.assertEqual(self.box_record_list, [])
 

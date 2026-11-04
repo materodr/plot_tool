@@ -102,6 +102,9 @@ class FakeSignalListView:
         self.selection_clear_count_i = 0
         self.file_name_str = ""
         self.file_name_call_count_i = 0
+        self.group_list = []
+        self.file_row_list = []
+        self.no_match_row_list = []
 
     def set_time_signal_names(self, name_list: list) -> None:
         """Record the time signal names (LLFR-00332).
@@ -114,19 +117,6 @@ class FakeSignalListView:
         Outputs: none.
         """
         self.time_signal_name_list = list(name_list)
-
-    def show_file_name(self, file_name_str: str) -> None:
-        """Record the name shown in the file name line (LLFR-00362).
-
-        Not added to call_list, so that the call order tests of the
-        search are not affected.
-
-        Inputs:
-            file_name_str: the file name, without its folder.
-        Outputs: none.
-        """
-        self.file_name_str = file_name_str
-        self.file_name_call_count_i += 1
 
     def set_search_text_handler(self, handler) -> None:
         """Record the search box handler.
@@ -149,15 +139,30 @@ class FakeSignalListView:
         self.search_text_str = text_str
         self.search_text_handler(text_str)
 
-    def show_signal_names(self, signal_name_list: list) -> None:
-        """Record the names shown in the list.
+    def show_signal_groups(self, group_list: list) -> None:
+        """Record the groups shown in the list, as the real list does.
 
         Inputs:
-            signal_name_list: the names, in display order.
-        Outputs: none.
+            group_list: (file number, row text, names, no-match text)
+                per group, in list order.
+        Outputs: none. shown_name_list holds every shown name, file
+            after file; file_row_list the texts of the file name rows;
+            no_match_row_list the rows below which "No matching
+            signals" is shown; no_match_tuple (shown_b, text).
         """
-        self.call_list.append("show_signal_names")
-        self.shown_name_list = list(signal_name_list)
+        self.call_list.append("show_signal_groups")
+        self.group_list = [tuple(group) for group in group_list]
+        self.shown_name_list = [name_str for _, _, name_list, _
+                                in group_list for name_str in name_list]
+        self.file_row_list = [row_str for _, row_str, _, _ in group_list
+                              if row_str]
+        self.no_match_row_list = [row_str for _, row_str, _, no_match_str
+                                  in group_list if no_match_str]
+        no_match_text_list = [no_match_str for _, _, _, no_match_str
+                              in group_list if no_match_str]
+        self.no_match_tuple = (bool(no_match_text_list), NO_MATCH_TEXT_STR)
+        self.file_name_str = ", ".join(self.file_row_list)
+        self.file_name_call_count_i += 1
 
     def set_signal_kinds(self, synthetic_name_set: set,
                          fft_name_set: set) -> None:
@@ -173,18 +178,6 @@ class FakeSignalListView:
         """
         self.synthetic_name_set = set(synthetic_name_set)
         self.fft_name_set = set(fft_name_set)
-
-    def show_no_match_message(self, visible_b: bool,
-                              message_str: str) -> None:
-        """Record the no-match message state.
-
-        Inputs:
-            visible_b: True when the message is shown.
-            message_str: the message text.
-        Outputs: none.
-        """
-        self.call_list.append("show_no_match_message")
-        self.no_match_tuple = (visible_b, message_str)
 
     def no_match_shown(self) -> bool:
         """Tell whether the no-match message is shown.
@@ -248,7 +241,7 @@ class FakeFileView(FakeSignalListView):
 
     def ask_time_signal_name(self, prompt_str: str, name_list: list,
                              search_function, no_match_text_str: str,
-                             check_function):
+                             check_function, file_name_str: str = ""):
         """Return the prepared answer of the time signal window.
 
         Inputs:
@@ -257,9 +250,11 @@ class FakeFileView(FakeSignalListView):
             search_function: the search of the window (unused).
             no_match_text_str: the no-match text (unused).
             check_function: the check of a chosen name (unused).
+            file_name_str: the name of the file the window is for.
         Outputs: the prepared name, or None to cancel (LLFR-00327).
         """
         self.call_list.append("ask_time_signal_name")
+        self.time_window_file_name_str = file_name_str
         return self.time_signal_answer_str
 
     def ask_open_file_path(self, start_folder_str: str) -> str:
@@ -349,8 +344,6 @@ class SignalListControllerTestCase(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        # The real FileController shows all names before the listeners.
-        self.view.show_signal_names(FIRST_NAME_LIST)
         self.file_controller.open(make_signal_file(FIRST_NAME_LIST), False)
 
 
@@ -451,9 +444,9 @@ class FilterTest(SignalListControllerTestCase):
                          ["Pressure", "mateus_soares_rodrigues 2025",
                           "mateus_soares_rodrigues 2026"])
         self.assertEqual(shown_count_list[-1], ["Pressure"])
-        # One call by the file open, one by the listener, one per key.
-        self.assertEqual(self.view.call_list.count("show_signal_names"),
-                         1 + 1 + len("press"))
+        # One call by the file open (the listener), one per key.
+        self.assertEqual(self.view.call_list.count("show_signal_groups"),
+                         1 + len("press"))
 
     @covers("LLFR-00102")
     def test_model_order_is_kept(self) -> None:
@@ -464,7 +457,6 @@ class FilterTest(SignalListControllerTestCase):
         """
         name_list = ["Time", "outlet_pressure", "pressure_in",
                      "presure_typo", "Pressure"]
-        self.view.show_signal_names(name_list)
         self.file_controller.open(make_signal_file(name_list), False)
         self.view.type_text("pressure")
         # Starts with the word, then contains it, then typo matches.
@@ -658,8 +650,13 @@ class WithFileControllerTest(unittest.TestCase):
         self.assertEqual(self.view.shown_name_list, [
             "file1_" + name_str for name_str in FIRST_NAME_LIST] + [
             "file2_" + name_str for name_str in SECOND_NAME_LIST])
-        self.assertEqual(self.view.call_list[-2:],
-                         ["show_signal_names", "show_no_match_message"])
+        self.assertEqual(self.view.call_list[-1], "show_signal_groups")
+        # LLFR-00934, LLFR-00935: one group per file, in number order,
+        # each starting with its file name row.
+        self.assertEqual([group[:2] for group in self.view.group_list],
+                         [(1, "file1_first.csv"), (2, "file2_second.csv")])
+        self.assertEqual(self.view.group_list[1][2], [
+            "file2_" + name_str for name_str in SECOND_NAME_LIST])
         self.assertEqual(self.view.time_signal_name_list,
                          ["file1_Time", "file2_Time"])
 
@@ -908,3 +905,121 @@ class FileNameLineTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SearchPerFileTest(unittest.TestCase):
+    """The search is done file by file, below each file name row."""
+
+    def setUp(self) -> None:
+        """Open three files through a real FileController.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_dict = {
+            "a.csv": make_signal_file(["Time", "MaxSpeed", "Speed"]),
+            "b.csv": make_signal_file(["Time", "voltage"]),
+            "c.csv": make_signal_file(["Time", "Speed_rear"]),
+        }
+        self.view = FakeFileView()
+        self.file_controller = FileController(self.view,
+                                              self.file_dict.__getitem__)
+        self.controller = SignalListController(self.view,
+                                               self.file_controller)
+        for path_str in ("a.csv", "b.csv", "c.csv"):
+            self.view.path_str = path_str
+            self.file_controller.open_file_requested()
+
+    @covers("LLFR-00362", "LLFR-00934", "LLFR-00935", "LLFR-00650",
+            "HLFR-00079", "HLFR-00114", "HLFR-00117")
+    def test_one_group_per_file_in_number_order(self) -> None:
+        """Each file has its number, its row and its signals.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.view.group_list, [
+            (1, "file1_a.csv", ["file1_Time", "file1_MaxSpeed",
+                                "file1_Speed"], ""),
+            (2, "file2_b.csv", ["file2_Time", "file2_voltage"], ""),
+            (3, "file3_c.csv", ["file3_Time", "file3_Speed_rear"], "")])
+
+    @covers("LLFR-00102", "LLFR-00639", "LLFR-00097", "LLFR-00641",
+            "LLFR-00640", "HLFR-00034", "HLFR-00033", "HLFR-00113")
+    def test_matches_stay_below_their_file(self) -> None:
+        """Matches stay under their row; a file with none says so.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import NO_MATCH_TEXT_STR
+        self.view.type_text("speed")
+        # LLFR-00102: "starts with" leaves the prefix out, so Speed
+        # comes before MaxSpeed within file 1.
+        self.assertEqual(self.view.group_list, [
+            (1, "file1_a.csv", ["file1_Speed", "file1_MaxSpeed"], ""),
+            (2, "file2_b.csv", [], NO_MATCH_TEXT_STR),
+            (3, "file3_c.csv", ["file3_Speed_rear"], "")])
+        self.assertEqual(self.view.no_match_row_list, ["file2_b.csv"])
+        self.view.type_text("xyzw")
+        self.assertEqual(self.view.file_row_list,
+                         ["file1_a.csv", "file2_b.csv", "file3_c.csv"])
+        self.assertEqual(self.view.no_match_row_list,
+                         ["file1_a.csv", "file2_b.csv", "file3_c.csv"])
+        self.assertEqual(self.view.shown_name_list, [])
+        # Matching uses the full name, prefix included.
+        self.view.type_text("e3")
+        self.assertEqual(self.view.shown_name_list,
+                         ["file3_Time", "file3_Speed_rear"])
+        self.view.type_text("   ")
+        self.assertEqual(self.view.no_match_row_list, [])
+
+    @covers("LLFR-00104", "LLFR-00916", "HLFR-00117")
+    def test_search_cleared_on_every_open(self) -> None:
+        """Opening a file empties the box and shows every file again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_dict["d.csv"] = make_signal_file(["Time", "x"])
+        self.view.type_text("volt")
+        self.view.path_str = "d.csv"
+        self.file_controller.open_file_requested()
+        self.assertEqual(self.view.search_text_str, "")
+        self.assertEqual(self.view.file_row_list, [
+            "file1_a.csv", "file2_b.csv", "file3_c.csv", "file4_d.csv"])
+        self.assertEqual(self.view.no_match_row_list, [])
+
+    @covers("LLFR-00242", "LLFR-00935", "LLFR-00936")
+    def test_synthetic_signals_in_the_group_of_their_file(self) -> None:
+        """A synthetic signal is listed at the end of its own file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.set_synthetic_signals(
+            ["file2_int_voltage", "file1_int_Speed"], set(),
+            {"file2_int_voltage": 2, "file1_int_Speed": 1})
+        self.assertEqual(self.view.group_list[0][2][-1], "file1_int_Speed")
+        self.assertEqual(self.view.group_list[1][2][-1],
+                         "file2_int_voltage")
+        self.view.type_text("int")
+        self.assertEqual(self.view.group_list[2][3], "No matching signals")
+        self.assertEqual(self.view.shown_name_list,
+                         ["file1_int_Speed", "file2_int_voltage"])
+
+    @covers("LLFR-00922", "LLFR-00933", "LLFR-00363")
+    def test_closed_file_leaves_its_group(self) -> None:
+        """Close file removes the group; Close all files removes all.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # The MainController registers this listener in the app.
+        self.file_controller.add_files_closed_listener(
+            self.controller.on_files_closed)
+        self.file_controller.close_file(2)
+        self.assertEqual(self.view.file_row_list,
+                         ["file1_a.csv", "file3_c.csv"])
+        self.file_controller.close_all_files()
+        self.assertEqual(self.view.group_list, [])

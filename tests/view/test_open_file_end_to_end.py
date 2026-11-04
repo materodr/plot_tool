@@ -228,8 +228,11 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual(self.shown_name_list(), [
             "file1_Time", "file1_speed", "file1_force", "file2_Time",
             "file2_pressure"])
-        self.assertEqual(self.main_window.signal_list_panel.file_name(),
-                         "file1_first.csv, file2_second.csv")
+        # LLFR-00362, LLFR-00934, LLFR-00650: one row per file, in the
+        # order of the numbers.
+        self.assertEqual(
+            self.main_window.signal_list_panel.file_row_texts(),
+            ["file1_first.csv", "file2_second.csv"])
         self.assert_button_finished()
 
     @covers("LLFR-00894", "LLFR-00895", "LLFR-00952", "LLFR-00003",
@@ -374,18 +377,18 @@ class MainWindowFacadeTest(unittest.TestCase):
 
     @covers("LLFR-00007")
     def test_cancelled_dialog_returns_empty_path(self) -> None:
-        """ask_open_file_path returns "" when the dialog is cancelled.
+        """ask_open_file_path returns [] when the dialog is cancelled.
 
         Inputs: none.
         Outputs: none.
         """
         with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
                         return_value=""):
-            self.assertEqual(self.main_window.ask_open_file_path(), "")
-        # The real dialog, cancelled, gives "" too.
+            self.assertEqual(self.main_window.ask_open_file_path(), [])
+        # The real dialog, cancelled, gives [] too.
         dialog = self.main_window.file_dialog_pool.dialog("open_file")
         with mock.patch.object(dialog, "exec", return_value=0):
-            self.assertEqual(self.main_window.ask_open_file_path(), "")
+            self.assertEqual(self.main_window.ask_open_file_path(), [])
 
     @covers("LLFR-00204", "LLFR-00005")
     def test_dialog_receives_the_start_folder(self) -> None:
@@ -402,7 +405,7 @@ class MainWindowFacadeTest(unittest.TestCase):
                         return_value="/x/y.csv") as dialog_mock:
             self.assertEqual(
                 self.main_window.ask_open_file_path(folder_str),
-                "/x/y.csv")
+                ["/x/y.csv"])
         dialog = dialog_mock.call_args.args[0]
         self.assertIsInstance(dialog, QFileDialog)
         self.assertEqual(
@@ -410,8 +413,9 @@ class MainWindowFacadeTest(unittest.TestCase):
             os.path.realpath(folder_str))
         self.assertEqual(dialog.acceptMode(),
                          QFileDialog.AcceptMode.AcceptOpen)
+        # LLFR-00947: several files can be selected at once.
         self.assertEqual(dialog.fileMode(),
-                         QFileDialog.FileMode.ExistingFile)
+                         QFileDialog.FileMode.ExistingFiles)
 
 
 if __name__ == "__main__":

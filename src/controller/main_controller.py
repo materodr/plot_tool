@@ -90,10 +90,19 @@ class MainController:
             self.save_signals_controller.on_files_closed)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
-        self.export_controller = ExportController(main_window)
+        # LLFR-00967, LLFR-00968: the pages and the image describe the
+        # open data files.
+        self.export_controller = ExportController(
+            main_window,
+            lambda: self.file_controller.data_files.description_str)
         main_window.set_export_handlers(
             self.export_controller.on_export_requested,
             self.export_controller.on_copy_requested)
+
+        # LLFR-00919: the file menu of the file name rows.
+        main_window.set_file_menu_handlers(
+            self.file_controller.close_file_requested,
+            self.file_controller.close_all_files_requested)
 
     def start(self) -> None:
         """Show the main window.

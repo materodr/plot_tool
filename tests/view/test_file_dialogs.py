@@ -432,8 +432,9 @@ class FileDialogTimingTest(unittest.TestCase):
         open_dialog = self.pool.dialog("open_file")
         self.assertEqual(open_dialog.acceptMode(),
                          file_dialog_class.AcceptMode.AcceptOpen)
+        # LLFR-00947: several files at once.
         self.assertEqual(open_dialog.fileMode(),
-                         file_dialog_class.FileMode.ExistingFile)
+                         file_dialog_class.FileMode.ExistingFiles)
         self.assertEqual(open_dialog.windowTitle(), "Open file")
         load_dialog = self.pool.dialog("load_layout")
         self.assertEqual(load_dialog.acceptMode(),
@@ -477,7 +478,7 @@ class FileDialogTimingTest(unittest.TestCase):
         self.assertEqual(os.path.realpath(dialog.directory().absolutePath()),
                          self.folder_str)
 
-    @covers("LLFR-00406", "LLFR-00006", "LLFR-00007")
+    @covers("LLFR-00406", "LLFR-00006", "LLFR-00007", "LLFR-00947")
     def test_accepted_and_cancelled_answers(self) -> None:
         """The path of an accepted dialog, "" for a cancelled one.
 
@@ -497,10 +498,18 @@ class FileDialogTimingTest(unittest.TestCase):
         with mock.patch.object(dialog, "exec", return_value=accepted_i), \
                 mock.patch.object(dialog, "selectedFiles", return_value=[]):
             self.assertEqual(file_dialogs.run_file_dialog(dialog), "")
+        # LLFR-00947: the Open file dialog gives every selected file.
+        with mock.patch.object(dialog, "exec", return_value=accepted_i), \
+                mock.patch.object(dialog, "selectedFiles",
+                                  return_value=["/d/b.csv", "/d/a.csv"]):
+            self.assertEqual(file_dialogs.run_file_dialog_paths(dialog),
+                             ["/d/b.csv", "/d/a.csv"])
+        with mock.patch.object(dialog, "exec", return_value=rejected_i):
+            self.assertEqual(file_dialogs.run_file_dialog_paths(dialog), [])
         with mock.patch.object(self.file_dialog_class, "exec",
                                return_value=rejected_i):
             self.assertEqual(self.main_window.ask_open_file_path(
-                self.folder_str), "")
+                self.folder_str), [])
             self.assertEqual(self.main_window.ask_layout_save_path(
                 self.folder_str), "")
             self.assertEqual(self.main_window.ask_pdf_save_path(), "")

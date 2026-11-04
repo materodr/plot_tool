@@ -775,8 +775,11 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         from PyQt6.QtTest import QTest
         self.widget.doItemsLayout()
         self.application.processEvents()
+        from view.signal_list_panel import SIGNAL_ROW_STR
+        # The rows of the signals only: the file name row is above them.
         row_i = self.panel.signal_name_list().index(name_str)
-        item_rect = self.widget.visualItemRect(self.widget.item(row_i))
+        item = self.widget.row_items(SIGNAL_ROW_STR)[row_i]
+        item_rect = self.widget.visualItemRect(item)
         self.assertFalse(item_rect.isEmpty())
         QTest.mouseClick(self.widget.viewport(), Qt.MouseButton.LeftButton,
                          getattr(Qt.KeyboardModifier, modifier_name_str),

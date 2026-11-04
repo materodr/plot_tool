@@ -31,6 +31,10 @@ MAXIMUM_DATA_FILES_I = 10
 FILE_PREFIX_FORMAT_STR = "file{number}_"
 # LLFR-00901, LLFR-00945, LLFR-00966: a name that starts with a prefix.
 FILE_PREFIX_PATTERN = re.compile(r"file([0-9]+)_")
+# LLFR-00967: one data file in the description of the PDF pages and of
+# the copied image, and the separator between two of them.
+FILE_DESCRIPTION_FORMAT_STR = "file{number} = {name}"
+FILE_DESCRIPTION_SEPARATOR_STR = ", "
 
 
 def prefix_number(name_str: str):
@@ -402,6 +406,23 @@ class DataFileSet:
         if not self.file_list:
             return ""
         return self.file_list[0].path_str
+
+    @property
+    def description_str(self) -> str:
+        """Return the description of the open data files.
+
+        Inputs: none.
+        Outputs: ``file<N> = <file name>`` for each open data file, in
+            the order of the numbers, separated by commas, for example
+            "file1 = run_A.csv, file2 = run_B.mat"; "" while no file is
+            open.
+        """
+        # LLFR-00967, LLFR-00968: every open data file, with its file
+        # name, its extension and no folder.
+        return FILE_DESCRIPTION_SEPARATOR_STR.join(
+            FILE_DESCRIPTION_FORMAT_STR.format(
+                number=data_file.number_i, name=data_file.file_name_str)
+            for data_file in self.file_list)
 
     # Signals ------------------------------------------------------
 

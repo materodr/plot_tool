@@ -310,7 +310,7 @@ class LoadingEndToEndTest(unittest.TestCase):
         # its name row are kept.
         self.assertEqual(self.panel.signal_name_list(), ["file1_Time",
                                                          "file1_speed"])
-        self.assertEqual(self.panel.file_name(), "file1_good.csv")
+        self.assertEqual(self.panel.file_row_texts(), ["file1_good.csv"])
         self.assertEqual(
             plot_panel.plot_id_list(plot_panel.current_tab_id()),
             plot_id_list)
@@ -355,7 +355,7 @@ class LoadingEndToEndTest(unittest.TestCase):
         self.assertIsNone(current_cursor_shape())
         self.assertEqual(self.panel.signal_name_list(), ["file1_Time",
                                                          "file1_speed"])
-        self.assertEqual(self.panel.file_name(), "file1_good.csv")
+        self.assertEqual(self.panel.file_row_texts(), ["file1_good.csv"])
         self.assertEqual(self.main_window.windowTitle(), NORMAL_TITLE_STR)
 
     @covers("LLFR-00560", "LLFR-00562", "LLFR-00563", "LLFR-00561",

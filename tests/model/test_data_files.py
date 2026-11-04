@@ -198,3 +198,31 @@ class SelectionOrderTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DescriptionTest(unittest.TestCase):
+    """The description of the open files (LLFR-00967, LLFR-00968)."""
+
+    @covers("LLFR-00967", "LLFR-00968", "HLFR-00038", "HLFR-00039",
+            "HLFR-00113")
+    def test_every_open_file_in_number_order(self) -> None:
+        """`file<N> = <name>` for each file, separated by commas.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        data_files = DataFileSet()
+        self.assertEqual(data_files.description_str, "")
+        data_files.add(make_file(os.path.join("data", "run_A.csv")))
+        self.assertEqual(data_files.description_str, "file1 = run_A.csv")
+        data_files.add(make_file(os.path.join("other", "run_B.mat")))
+        data_files.add(make_file(os.path.join("x", "y", "run C.h5")))
+        self.assertEqual(
+            data_files.description_str,
+            "file1 = run_A.csv, file2 = run_B.mat, file3 = run C.h5")
+        # A closed file leaves the description; the numbers are kept.
+        data_files.remove(2)
+        self.assertEqual(data_files.description_str,
+                         "file1 = run_A.csv, file3 = run C.h5")
+        data_files.remove_all()
+        self.assertEqual(data_files.description_str, "")

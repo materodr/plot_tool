@@ -157,6 +157,33 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.dialog.reject()
         self.application.processEvents()
 
+    @covers("LLFR-00953", "HLFR-00070")
+    def test_file_line_names_the_file(self) -> None:
+        """A window built for a file names it above the question.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.file_controller import TIME_SIGNAL_PROMPT_STR
+        from view.synthetic_dialogs import build_time_signal_dialog
+        # Without a file name the line is hidden.
+        self.assertTrue(self.dialog.file_label.isHidden())
+        dialog = build_time_signal_dialog(
+            None, TIME_SIGNAL_PROMPT_STR, self.name_list,
+            self.search_function, "No matching signals",
+            lambda name_str: "", "run 2.mat")
+        self.addCleanup(dialog.deleteLater)
+        self.assertFalse(dialog.file_label.isHidden())
+        self.assertEqual(dialog.file_label.text(), "File: run 2.mat")
+        self.assertTrue(dialog.file_label.font().bold())
+        dialog_layout = dialog.layout()
+        widget_list = [dialog_layout.itemAt(index_i).widget()
+                       for index_i in range(dialog_layout.count())]
+        self.assertLess(widget_list.index(dialog.file_label),
+                        widget_list.index(dialog.prompt_label))
+        self.assertEqual(dialog.name_list(), self.name_list)
+        dialog.reject()
+
     @covers("LLFR-00325", "HLFR-00070", "LLFR-00157", "LLFR-00506")
     def test_text_list_and_search_box_with_focus(self) -> None:
         """The window shows its text, every signal and a focused search.
@@ -288,6 +315,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         # in order; an empty list cancels.
         self.window_attempt_list = []
         self.window_record_list = []
+        self.window_file_list = []
         self.main_window.run_modal_dialog = self.fake_run_dialog
         box_patch = mock.patch.object(
             QMessageBox, "exec", new=lambda box: self.fake_exec(box))
@@ -343,6 +371,10 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.window_record_list.append(
             (dialog.windowTitle(), dialog.prompt_label.text(),
              dialog.name_list(), []))
+        # LLFR-00953: the file named by the window, when shown.
+        self.window_file_list.append(
+            dialog.file_label.text() if not dialog.file_label.isHidden()
+            else "")
         for name_str in self.window_attempt_list.pop(0):
             self.assertTrue(dialog.select_name(name_str))
             dialog.button_box.button(
@@ -521,9 +553,36 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.open_file(self.no_time_path_str)
         self.assertEqual(self.window_record_list[0][2],
                          ["speed", "t_s", "force"])
+        # LLFR-00953: the window names its file, without its folder.
+        self.assertEqual(self.window_file_list, ["File: x_axis.csv"])
         self.assertEqual(self.panel.signal_name_list(), [
             "file1_a", "file1_TIME", "file1_b", "file2_speed", "file2_t_s",
             "file2_force"])
+
+    @covers("LLFR-00953", "LLFR-00906", "LLFR-00947", "LLFR-00948",
+            "LLFR-00949", "HLFR-00070", "HLFR-00122")
+    def test_each_selected_file_gets_its_own_window(self) -> None:
+        """Two files without Time selected together: two windows, each
+        naming its file; a cancel skips only that file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        other_path_str = self.write_file("b_other.csv", DATA_TEXT_STR)
+        self.window_attempt_list.extend([[], ["t_s"]])
+        with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
+                        return_value=[self.no_time_path_str,
+                                      other_path_str]):
+            self.controller.file_controller.open_file_requested()
+        self.application.processEvents()
+        # LLFR-00948: b_other.csv comes before x_axis.csv.
+        self.assertEqual(self.window_file_list,
+                         ["File: b_other.csv", "File: x_axis.csv"])
+        self.assertEqual(self.window_record_list[0][2],
+                         ["speed", "t_s", "force"])
+        # The first window was cancelled: only x_axis.csv is open.
+        self.assertEqual(self.panel.file_row_texts(), ["file1_x_axis.csv"])
+        self.assertEqual(self.box_record_list, [])
 
     @covers("LLFR-00331", "LLFR-00324", "LLFR-00053", "HLFR-00072",
             "LLFR-00505")
