@@ -3273,9 +3273,7 @@ Note: Only the corners and the border are added: the rounding changes nothing el
 *Parent: HLFR-00039*
 
 ### LLFR-00893 Rounded plot container corners
-The container of the plot panel that holds the plots of the current tab, below the tab row, must be shown with its top-right, bottom-left and bottom-right corners rounded with the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
-
-Note: The top-left corner stays square because the first tab starts at the left edge of the plot panel (LLFR-00106) and joins the container there, so the left border of the first tab runs straight down into the left border of the container. The look of the tabs and of the "+" button is unchanged (LLFR-00107).
+The container of the plot panel that holds the plots of the current tab, below the tab row, must be shown with a border along its four edges and its four corners rounded, with the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
 
 *Parent: HLFR-00001*
 

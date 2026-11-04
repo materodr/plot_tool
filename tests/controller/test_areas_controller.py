@@ -375,6 +375,34 @@ class ChangeAreaControllerTest(AreaControllerTestCase):
         self.undo()
         self.assertEqual(self.area_tuple_list()[0][0], "Area 1")
 
+    @covers("LLFR-00720", "LLFR-00315")
+    def test_blank_rename_asks_the_view_for_no_message(self) -> None:
+        """An empty or blank area name makes the controller call no
+        notification or message method of the view, with any plot tool.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        rename_handler = self.view.handler_dict["area_rename_handler"]
+        for tool_str in PLOT_TOOL_TUPLE + (NO_TOOL_STR,):
+            with self.subTest(tool=tool_str):
+                self.choose_tool(tool_str)
+                self.view.call_list.clear()
+                self.view.area_name_answer_list = ["", "    ", "\t"]
+                for _ in range(3):
+                    rename_handler(self.plot_id_i, self.first_id_i)
+                self.assertEqual(self.view.area_name_answer_list, [])
+                message_call_list = [
+                    call_tuple for call_tuple in self.view.call_list
+                    if call_tuple[0].startswith("show_")
+                    or "message" in call_tuple[0]
+                    or "notification" in call_tuple[0]]
+                self.assertEqual(message_call_list, [])
+                self.assertEqual(self.view.full_tab_count_i, 0)
+                self.assertEqual(self.view.kind_mismatch_count_i, 0)
+                self.assertEqual(self.view.tab_name_taken_list, [])
+                self.assertEqual(self.area_tuple_list()[0][0], "Area 1")
+
     @covers("LLFR-00351", "LLFR-00310", "LLFR-00140", "LLFR-00138",
             "LLFR-00192", "LLFR-00388", "LLFR-00389", "LLFR-00390",
             "LLFR-00708", "LLFR-00730", "LLFR-00809", "LLFR-00811",
