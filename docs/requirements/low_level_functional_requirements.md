@@ -1000,7 +1000,7 @@ When the app loads a layout file, it must build the tabs that hold at least one 
 *Parent: HLFR-00050*
 
 ### LLFR-00945 Curves matched by file number
-When loading a layout, the app must draw each curve with the signal of the signal list whose name is the saved name, so that a saved name that starts with `file<N>_` is drawn with a signal of the data file that has the number N at that moment.
+When loading a layout, the app must draw each curve with the signal of the signal list whose name is the saved name, so that a saved name that starts with `file<N>_` is drawn with a signal of the data file that has the number N at that moment, except as in LLFR-00959.
 
 Note: A curve whose file number is not open, or whose file has no signal of that name, is a missing signal (LLFR-00231) and is named in the load report (LLFR-00237). The layout file still holds no file name or path (LLFR-00226).
 
@@ -1316,7 +1316,7 @@ Note: A file with fewer than two signals therefore fails with LLFR-00012 and nev
 *Parent: HLFR-00070, HLFR-00008, HLFR-00009, HLFR-00004, HLFR-00101, HLFR-00113, HLFR-00117, HLFR-00122*
 
 ### LLFR-00510 Error box at the reading step
-If a selected file cannot be opened at step 3 of LLFR-00328 (any File Open Error box, for example LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064 or LLFR-00065), the app must list that file with the reason of that error in the one File Open Error box of LLFR-00951.
+If a selected file cannot be opened at step 3 of LLFR-00328 (for any reason of LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064 or LLFR-00065), the app must list that file with the reason of that error in the one File Open Error box of LLFR-00951.
 
 *Parent: HLFR-00008, HLFR-00009, HLFR-00004, HLFR-00122*
 
@@ -2044,7 +2044,7 @@ When the user chooses an operation in the "Create synthetic signal" option (LLFR
 *Parent: HLFR-00053*
 
 ### LLFR-00240 Synthetic signal names
-After the prefix of its data file (LLFR-00904), the app must name a synthetic signal as follows, using the abbreviation of its operation (LLFR-00268) and the full current name, without its prefix (LLFR-00901), of each signal it was computed from, except as in LLFR-00954:
+After the prefix of its data file (LLFR-00904), the app must name a synthetic signal as follows, using the abbreviation of its operation (LLFR-00268) and the full current name, without its prefix (LLFR-00901, LLFR-00904), of each signal it was computed from, except as in LLFR-00954:
 
 | Operation | Name | Example |
 |---|---|---|
@@ -2386,17 +2386,17 @@ Synthetic signals created from a renamed synthetic signal (LLFR-00266) after the
 *Parent: HLFR-00060*
 
 ### LLFR-00267 Invalid synthetic signal name
-If the user enters a name that, without leading and trailing spaces, is empty or is the name of another signal in the signal list, the app must keep the previous name.
+If the user enters a name that, without leading and trailing spaces, is empty (LLFR-00971) or is the name of another signal in the signal list (LLFR-00972), the app must keep the previous name.
 
 *Parent: HLFR-00060*
 
 ### LLFR-00606 Synthetic signal name already in use
-If the user enters a name (LLFR-00266) that, without leading and trailing spaces, is the name of another signal in the signal list, the app must show an information box saying that a signal with that name already exists.
+If the user enters a name (LLFR-00266) that, without leading and trailing spaces and compared as in LLFR-00972, is the name of another signal in the signal list, the app must show an information box saying that a signal with that name already exists.
 
 *Parent: HLFR-00060*
 
 ### LLFR-00607 Empty synthetic signal name
-If the user enters a name (LLFR-00266) that, without leading and trailing spaces, is empty, the app must not show any message.
+If the user enters a name (LLFR-00266) that, without leading and trailing spaces, is empty (LLFR-00971), the app must not show any message.
 
 *Parent: HLFR-00060*
 
@@ -2809,7 +2809,7 @@ When the user right-clicks a file name row (LLFR-00362), the app must show a men
 When the user chooses "Close file" (LLFR-00919), the app must ask the user whether to proceed, naming the file as its file name row shows it (LLFR-00362) and saying that:
 - its signals and the synthetic signals computed from them will be removed from the signal list and from the plots;
 - the tabs left with no plot will be closed;
-- the flags and areas outside the time range of the files left will be deleted;
+- the flags and areas outside the time range of the files left will be deleted, or every flag and area when no file is left;
 - the undo and redo history will be cleared.
 
 Note: The question is asked even when no signal of the file is drawn.
