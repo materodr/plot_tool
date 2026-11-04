@@ -491,5 +491,147 @@ class WindowFileCloseTest(UndockControllerTestCase):
         self.assertEqual(self.view.current_tab_id(), second_id_i)
 
 
+class DragUndockDockTest(UndockControllerTestCase):
+    """Undocking and docking a tab by dragging it (HLFR-00152)."""
+
+    @covers("LLFR-01107", "LLFR-00981", "LLFR-01015", "LLFR-00985",
+            "LLFR-01025", "HLFR-00152", "HLFR-00123")
+    def test_drop_outside_undocks_at_the_drop_point(self) -> None:
+        """A tab dropped outside the main window opens a window whose
+        top-left corner is at the drop, with a hidden panel; one
+        undoable action.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i = self.first_tab_id()
+        self.double_click("s1")
+        second_id_i = self.add_tab()
+        self.controller.undo_history.clear()
+        self.view.handler_dict["undock_drop_handler"](first_id_i, 1500, 70)
+        self.assertEqual(self.undocked_ids(), [first_id_i])
+        self.assertEqual(self.view.window_dict[first_id_i],
+                         [(1500, 70, 900, 600), False, 0])
+        self.assertEqual(
+            len(self.workspace.find_tab(first_id_i).plot_list), 1)
+        self.assertEqual(self.controller.undo_history.depth(), 1)
+        self.undo()
+        self.assertEqual(self.undocked_ids(), [])
+        self.assertEqual(self.tab_ids(), [first_id_i, second_id_i])
+        self.redo()
+        self.assertEqual(self.undocked_ids(), [first_id_i])
+
+    @covers("LLFR-01109", "HLFR-00152")
+    def test_last_docked_tab_stays_docked(self) -> None:
+        """Dropping the last docked tab outside changes nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i = self.first_tab_id()
+        second_id_i = self.add_tab()
+        self.undock(second_id_i)
+        self.controller.undo_history.clear()
+        self.view.call_list.clear()
+        self.view.handler_dict["undock_drop_handler"](first_id_i, 10, 10)
+        self.assertEqual(self.undocked_ids(), [second_id_i])
+        self.assertFalse(self.workspace.find_tab(first_id_i).undocked_b)
+        self.assertFalse(self.controller.undo_history.can_undo())
+        self.assertNotIn("undock_tab_view", self.view.method_names())
+
+    @covers("LLFR-01108", "LLFR-00994", "LLFR-00995", "LLFR-01025",
+            "LLFR-01056", "HLFR-00152", "HLFR-00124")
+    def test_drop_on_tab_row_docks_at_the_place(self) -> None:
+        """A tab button dropped on the main tab row docks the tab at the
+        drop place, closes its window, shows it; undo and redo.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i = self.first_tab_id()
+        second_id_i = self.add_tab()
+        third_id_i = self.add_tab()
+        self.undock(third_id_i)
+        self.controller.undo_history.clear()
+        self.view.handler_dict["dock_drop_handler"](third_id_i, 1)
+        self.assertEqual(self.undocked_ids(), [])
+        self.assertEqual(self.tab_ids(),
+                         [first_id_i, third_id_i, second_id_i])
+        self.assertEqual(list(self.view.tab_dict),
+                         [first_id_i, third_id_i, second_id_i])
+        self.assertNotIn(third_id_i, self.view.window_dict)
+        self.assertEqual(self.view.current_tab_id(), third_id_i)
+        self.undo()
+        self.assertEqual(self.undocked_ids(), [third_id_i])
+        self.assertIn(third_id_i, self.view.window_dict)
+        self.redo()
+        self.assertEqual(self.tab_ids(),
+                         [first_id_i, third_id_i, second_id_i])
+
+    @covers("LLFR-01108", "HLFR-00152")
+    def test_drop_places_first_and_last(self) -> None:
+        """A drop before the first tab docks it first; a place past the
+        last docked tab docks it last, before the undocked tabs.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i = self.first_tab_id()
+        second_id_i = self.add_tab()
+        third_id_i = self.add_tab()
+        self.undock(second_id_i)
+        self.undock(third_id_i)
+        self.view.handler_dict["dock_drop_handler"](third_id_i, 0)
+        self.assertEqual(self.tab_ids(),
+                         [third_id_i, first_id_i, second_id_i])
+        self.view.handler_dict["dock_drop_handler"](second_id_i, 9)
+        self.assertEqual(self.tab_ids(),
+                         [third_id_i, first_id_i, second_id_i])
+        self.assertEqual(self.undocked_ids(), [])
+
+    @covers("LLFR-00993", "LLFR-01108")
+    def test_dock_button_still_docks_last(self) -> None:
+        """The dock button docks the tab as the last docked tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i = self.first_tab_id()
+        second_id_i = self.add_tab()
+        third_id_i = self.add_tab()
+        self.undock(first_id_i)
+        self.dock(first_id_i)
+        self.assertEqual(self.tab_ids(),
+                         [second_id_i, third_id_i, first_id_i])
+
+
+class SearchShortcutPanelTest(UndockControllerTestCase):
+    """Ctrl+F (Cmd+F) shows a hidden panel first (LLFR-01106)."""
+
+    @covers("LLFR-01106", "LLFR-01018", "LLFR-01016", "HLFR-00129")
+    def test_hidden_panel_is_shown_as_one_undoable_action(self) -> None:
+        """The hidden panel is shown at its first width and the show is
+        undoable; a shown panel and the main window change nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i = self.first_tab_id()
+        self.add_tab()
+        self.undock(first_id_i)
+        self.controller.undo_history.clear()
+        show = self.view.handler_dict["panel_show_handler"]
+        show(first_id_i)
+        self.assertEqual(self.view.window_dict[first_id_i][1:],
+                         [True, 225])
+        self.assertEqual(self.controller.undo_history.depth(), 1)
+        show(first_id_i)
+        show(-1)
+        self.assertEqual(self.controller.undo_history.depth(), 1)
+        self.assertTrue(self.view.window_dict[first_id_i][1])
+        self.undo()
+        self.assertFalse(self.view.window_dict[first_id_i][1])
+
+
 if __name__ == "__main__":
     unittest.main()

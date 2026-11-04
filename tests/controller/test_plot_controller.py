@@ -721,6 +721,17 @@ class FakePlotView:
         """
         return tuple(self.new_window_answer_tuple)
 
+    def dropped_window_tuple(self, x_i: int, y_i: int) -> tuple:
+        """Return the window a drop outside the main window opens.
+
+        Inputs:
+            x_i, y_i: the point of the drop.
+        Outputs: (x_i, y_i) with the size of new_window_answer_tuple.
+        """
+        self.call_list.append(("dropped_window_tuple", x_i, y_i))
+        return (int(x_i), int(y_i)) + tuple(
+            self.new_window_answer_tuple[2:])
+
     def window_state_dict(self) -> dict:
         """Return the windows as the fake shows them.
 

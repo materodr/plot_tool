@@ -44,9 +44,11 @@ names, numbers, numpy arrays), so it can be tested with a fake view
 - undo and redo: ``set_undo_enabled``, ``set_redo_enabled``;
 - undocked windows (HLFR-00123 to HLFR-00138): ``set_window_handlers``,
   ``new_window_tuple()`` (the window an undock opens, LLFR-00981,
-  LLFR-01093), ``window_state_dict()`` (the position, size and panel
-  width of each window as shown now), ``undock_tab_view(tab_id_i,
-  window_tuple, panel_shown_b, panel_width_i)``, ``dock_tab_view``,
+  LLFR-01093), ``dropped_window_tuple(x_i, y_i)`` (the window a drop
+  outside the main window opens, LLFR-01107), ``window_state_dict()``
+  (the position, size and panel width of each window as shown now),
+  ``undock_tab_view(tab_id_i, window_tuple, panel_shown_b,
+  panel_width_i)``, ``dock_tab_view``,
   ``set_undocked_tabs(tab_id_list)`` (the windows that stay open, in
   tab order), ``set_window_panel(tab_id_i, shown_b, width_i)``,
   ``set_main_panel_width`` and ``set_undock_enabled``;
@@ -353,7 +355,12 @@ class PlotController:
             dock_handler=self.on_dock_tab,
             window_close_handler=self.on_window_closed,
             panel_toggle_handler=self.on_panel_toggled,
-            panel_width_handler=self.on_panel_width_changed)
+            panel_width_handler=self.on_panel_width_changed,
+            # LLFR-01107, LLFR-01108: undock and dock by dragging.
+            undock_drop_handler=self.on_undock_drop,
+            dock_drop_handler=self.on_dock_drop,
+            # LLFR-01106: Ctrl+F (Cmd+F) shows a hidden panel first.
+            panel_show_handler=self.on_panel_show_requested)
         # LLFR-00024: show the tabs of the model (one empty tab).
         self.rebuild_tab_views()
         # LLFR-00141, LLFR-00194: nothing to undo or redo at start.
@@ -2059,14 +2066,17 @@ class PlotController:
         self.view.undock_tab_view(tab.tab_id_i, tuple(tab.window_tuple),
                                   tab.panel_shown_b, tab.panel_width_i)
 
-    def on_undock_tab(self, tab_id_i: int) -> None:
+    def on_undock_tab(self, tab_id_i: int, window_tuple: tuple = ()) -> None:
         """Move a docked tab into a new undocked window.
 
         Inputs:
             tab_id_i: id of the tab whose undock button was clicked.
+            window_tuple: (x, y, width, height) of the new window, or ()
+                for the window of an undock button (LLFR-01093).
         Outputs: none.
         """
-        # LLFR-00983, LLFR-00984: the last docked tab is not undocked.
+        # LLFR-00983, LLFR-00984, LLFR-01109: the last docked tab is not
+        # undocked.
         if not self.workspace.can_undock_tab(tab_id_i):
             return
         # LLFR-01025: an undock is one undoable action.
@@ -2074,8 +2084,11 @@ class PlotController:
         shown_tab_id_i = self.view.current_tab_id()
         next_shown_id_i = self.nearest_docked_tab_id(tab_id_i)
         # LLFR-00981, LLFR-01093: the size of the plot panel, moved by
-        # 30 pixels; LLFR-01015: the panel hidden.
-        self.workspace.undock_tab(tab_id_i, self.view.new_window_tuple())
+        # 30 pixels; LLFR-01107: or at the drop point; LLFR-01015: the
+        # panel hidden.
+        if len(window_tuple) != 4:
+            window_tuple = self.view.new_window_tuple()
+        self.workspace.undock_tab(tab_id_i, tuple(window_tuple))
         self.record_undo(snapshot)
         # LLFR-00980, LLFR-00985: the tab moves with all it holds.
         self.show_undocked_tab(self.workspace.find_tab(tab_id_i))
@@ -2085,21 +2098,55 @@ class PlotController:
             self.view.set_current_tab(next_shown_id_i)
         self.update_tab_delete_enabled()
 
-    def on_dock_tab(self, tab_id_i: int) -> None:
+    def on_undock_drop(self, tab_id_i: int, x_i: int, y_i: int) -> None:
+        """Undock a tab dropped outside the main window.
+
+        Inputs:
+            tab_id_i: id of the dragged docked tab.
+            x_i, y_i: the point of the drop, in desktop pixels.
+        Outputs: none. The last docked tab stays docked (LLFR-01109).
+        """
+        # LLFR-01109: the last docked tab, nothing changes.
+        if not self.workspace.can_undock_tab(tab_id_i):
+            return
+        # LLFR-01107: a window whose top-left corner is at the drop, with
+        # the size of LLFR-00981; the view keeps it on a screen.
+        self.on_undock_tab(tab_id_i,
+                           tuple(self.view.dropped_window_tuple(x_i, y_i)))
+
+    def on_dock_drop(self, tab_id_i: int, docked_index_i: int) -> None:
+        """Dock a tab whose tab button was dropped on the main tab row.
+
+        Inputs:
+            tab_id_i: id of the undocked tab.
+            docked_index_i: its place among the docked tabs, from 0.
+        Outputs: none.
+        """
+        # LLFR-01108: at the place of the drop.
+        self.on_dock_tab(tab_id_i, docked_index_i)
+
+    def on_dock_tab(self, tab_id_i: int, docked_index_i: int = -1) -> None:
         """Put the tab of an undocked window back into the main window.
 
         Inputs:
             tab_id_i: id of the tab whose dock button was clicked.
+            docked_index_i: its place among the docked tabs, from 0, or
+                -1 for the last docked tab.
         Outputs: none.
         """
         # LLFR-01025: a dock is one undoable action.
         snapshot = self.take_snapshot()
-        # LLFR-00993: the last docked tab, left of the "+" button.
-        if not self.workspace.dock_tab(tab_id_i):
+        # LLFR-00993: the last docked tab, left of the "+" button;
+        # LLFR-01108: or the place of the drop.
+        if not self.workspace.dock_tab(tab_id_i, docked_index_i):
             return
         self.record_undo(snapshot)
         # LLFR-00994: its window closes; LLFR-00985: the tab is unchanged.
         self.view.dock_tab_view(tab_id_i)
+        # LLFR-01108, LLFR-01056: the view has the tab order of the model.
+        self.view.move_tab_view(
+            tab_id_i, self.workspace.tab_list.index(
+                self.workspace.find_tab(tab_id_i)))
         self.view.set_undocked_tabs(self.undocked_tab_id_list())
         # LLFR-00995: the main window shows it.
         self.view.set_current_tab(tab_id_i)
@@ -2143,6 +2190,22 @@ class PlotController:
             return
         self.record_undo(snapshot)
         self.view.set_window_panel(tab_id_i, shown_b, width_i)
+
+    def on_panel_show_requested(self, tab_id_i: int) -> None:
+        """Show the hidden signal list panel of an undocked window.
+
+        Inputs:
+            tab_id_i: id of the tab of the window where Ctrl+F (Cmd+F)
+                was pressed.
+        Outputs: none. A shown panel, or the main window's, is left as
+            it is.
+        """
+        # LLFR-01106: as a click on the signal list button, one undoable
+        # action, only while the panel is hidden.
+        tab = self.workspace.find_tab(tab_id_i)
+        if tab is None or not tab.undocked_b or tab.panel_shown_b:
+            return
+        self.on_panel_toggled(tab_id_i)
 
     def on_panel_width_changed(self, tab_id_i: int, start_width_i: int,
                                end_width_i: int) -> None:

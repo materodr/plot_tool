@@ -1905,11 +1905,14 @@ class Workspace:
         self.tab_list.append(tab)
         return True
 
-    def dock_tab(self, tab_id_i: int) -> bool:
+    def dock_tab(self, tab_id_i: int, docked_index_i: int = -1) -> bool:
         """Put an undocked tab back into the main window.
 
         Inputs:
             tab_id_i: id of the tab.
+            docked_index_i: its place among the docked tabs, from 0
+                (LLFR-01108); -1, or a place past the last docked tab,
+                for the last docked tab (LLFR-00993).
         Outputs: True when the tab was docked; False when it is not an
             undocked tab.
         """
@@ -1919,7 +1922,13 @@ class Workspace:
         # LLFR-00993, LLFR-00985: the last docked tab, unchanged.
         self.tab_list.remove(tab)
         tab.undocked_b = False
-        self.insert_docked_tab(tab)
+        docked_count_i = len(self.docked_tab_list())
+        if 0 <= int(docked_index_i) < docked_count_i:
+            # LLFR-01108: between the docked tabs on either side of the
+            # drop; LLFR-01056: still before every undocked tab.
+            self.tab_list.insert(int(docked_index_i), tab)
+        else:
+            self.insert_docked_tab(tab)
         return True
 
     def set_window_panel(self, tab_id_i: int, shown_b: bool,
