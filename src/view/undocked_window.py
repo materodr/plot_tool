@@ -838,7 +838,7 @@ class UndockedWindow(QWidget):
             self.update_signal_list_button()
             return
         if width_i < 1:
-            # LLFR-01051: a quarter of the window's width.
+            # LLFR-01051: 20% of the window's width.
             main_width_i = (self.main_panel_width_function()
                             if self.main_panel_width_function is not None
                             else 0)

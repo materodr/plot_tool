@@ -292,7 +292,7 @@ class WindowPartsTest(UndockedWindowTestCase):
     @covers("LLFR-01050", "LLFR-01047", "LLFR-01048", "LLFR-01049",
             "LLFR-01046", "LLFR-01051", "LLFR-01053", "HLFR-00130")
     def test_signal_list_button_hides_and_shows_the_panel(self) -> None:
-        """Hidden at start; the button shows it at 25% of the window's
+        """Hidden at start; the button shows it at 20% of the window's
         width, hides it, and both are undone.
 
         Inputs: none.
@@ -311,7 +311,7 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertTrue(window.signal_list_button.isChecked())
         self.assertEqual(window.signal_list_button.toolTip(),
                          "Hide signal list")
-        expected_i = int(round(window.width() * 0.25))
+        expected_i = int(round(window.width() * 0.20))
         self.assertAlmostEqual(window.panel_width(), expected_i, delta=3)
         window.signal_list_button.click()
         self.process_events()
@@ -1244,9 +1244,9 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
         old_window_id_i = window.window_id_i
         depth_i = self.plot_controller.undo_history.depth()
         drop_point = self.point_outside_the_app()
+        # LLFR-01176: the size of the window the tab came from.
         expected_tuple = placed_window_tuple(
-            self.main_window.dropped_window_tuple(drop_point.x(),
-                                                  drop_point.y()),
+            (drop_point.x(), drop_point.y()) + window.window_tuple()[2:],
             self.main_window.screen_area_list(),
             self.main_window.main_screen_area())
         self.drop_outside(window, second_id_i)
@@ -1271,6 +1271,37 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
         self.assertNotEqual(self.tab(second_id_i).window_id_i,
                             old_window_id_i)
         self.assertEqual(len(self.main_window.undocked_window_dict), 1)
+
+    @covers("LLFR-01176", "LLFR-01167", "LLFR-01084", "HLFR-00126",
+            "HLFR-00127")
+    def test_tab_dropped_outside_keeps_its_window_size(self) -> None:
+        """A tab of a window the user resized opens, after a drop outside
+        the app, in a window of that size with its top-left corner at the
+        drop point (kept on a screen), not the plot panel's size.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.window_placement import placed_window_tuple
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        panel_size_tuple = (self.main_window.plot_panel.width(),
+                            self.main_window.plot_panel.height())
+        size_tuple = (max(panel_size_tuple[0] - 120, 300),
+                      max(panel_size_tuple[1] - 90, 200))
+        window.resize(*size_tuple)
+        self.process_events()
+        self.assertNotEqual(window.window_tuple()[2:], panel_size_tuple)
+        source_size_tuple = window.window_tuple()[2:]
+        drop_point = self.point_outside_the_app()
+        expected_tuple = placed_window_tuple(
+            (drop_point.x(), drop_point.y()) + source_size_tuple,
+            self.main_window.screen_area_list(),
+            self.main_window.main_screen_area())
+        self.drop_outside(window, second_id_i)
+        new_window = self.main_window.window_of_tab(second_id_i)
+        self.assertIsNotNone(new_window)
+        self.assertIsNot(new_window, window)
+        self.assertEqual(new_window.window_tuple(), tuple(expected_tuple))
 
     @covers("LLFR-01167", "LLFR-01168", "LLFR-01156", "HLFR-00126")
     def test_tab_dropped_outside_leaves_the_other_tabs(self) -> None:

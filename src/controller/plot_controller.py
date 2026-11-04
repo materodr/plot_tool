@@ -2218,10 +2218,15 @@ class PlotController:
         # undoable action.
         memory_tuple = self.window_memory_tuple()
         snapshot = self.workspace.snapshot(self.view.current_tab_id())
-        # LLFR-01167: a window whose top-left corner is at the drop, with
-        # the size of LLFR-01016; the view keeps it on a screen.
-        self.workspace.move_tab_to_new_window(
-            tab_id_i, tuple(self.view.dropped_window_tuple(x_i, y_i)))
+        # LLFR-01167: a window whose top-left corner is at the drop;
+        # LLFR-01176: with the size of the window the tab came from, as
+        # shown at the drop (window_memory_tuple synced it into the
+        # model). The view keeps it on a screen (LLFR-01083, LLFR-01084).
+        dropped_tuple = tuple(self.view.dropped_window_tuple(x_i, y_i))
+        source_tuple = tuple(tab.window_tuple)
+        if len(source_tuple) == 4 and len(dropped_tuple) == 4:
+            dropped_tuple = dropped_tuple[:2] + source_tuple[2:]
+        self.workspace.move_tab_to_new_window(tab_id_i, dropped_tuple)
         self.record_undo(snapshot)
         # LLFR-01168: a window left with no tab closes; LLFR-01156: one
         # that keeps tabs shows the nearest one.
@@ -2327,7 +2332,7 @@ class PlotController:
         shown_b = not tab.panel_shown_b
         width_i = tab.panel_width_i
         if shown_b and width_i < 1:
-            # LLFR-01051: a quarter of the window's width.
+            # LLFR-01051: 20% of the window's width.
             window_width_i = (tab.window_tuple[2]
                               if len(tab.window_tuple) == 4 else 0)
             width_i = first_panel_width_i(self.workspace.main_panel_width_i,

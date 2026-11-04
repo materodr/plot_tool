@@ -92,15 +92,17 @@ class WindowPlacementTest(unittest.TestCase):
 
     @covers("LLFR-01051")
     def test_first_panel_width(self) -> None:
-        """25% of the window's width, whatever the main panel's width.
+        """20% of the window's width, whatever the main panel's width,
+        as the main window's panel (LLFR-00072).
 
         Inputs: none.
         Outputs: none.
         """
-        self.assertEqual(first_panel_width_i(240, 1000), 250)
-        self.assertEqual(first_panel_width_i(240, 300), 75)
-        self.assertEqual(first_panel_width_i(900, 1000), 250)
-        self.assertEqual(first_panel_width_i(10, 1002), 250)
+        self.assertEqual(first_panel_width_i(240, 1000), 200)
+        self.assertEqual(first_panel_width_i(240, 300), 60)
+        self.assertEqual(first_panel_width_i(900, 1000), 200)
+        self.assertEqual(first_panel_width_i(10, 1002), 200)
+        self.assertEqual(first_panel_width_i(10, 1003), 201)
         self.assertEqual(first_panel_width_i(10, 3), 1)
         # An unknown window width falls back to the main panel's.
         self.assertEqual(first_panel_width_i(240, 0), 240)
@@ -278,7 +280,7 @@ class LayoutWindowsTest(unittest.TestCase):
     @covers("LLFR-00225", "LLFR-01051")
     def test_panel_never_shown_saves_its_first_width(self) -> None:
         """A hidden panel that was never shown saves its first width,
-        25% of the window's width.
+        20% of the window's width.
 
         Inputs: none.
         Outputs: none.
@@ -290,7 +292,7 @@ class LayoutWindowsTest(unittest.TestCase):
         workspace.undock_tab(tab.tab_id_i, (0, 0, 400, 300))
         entry_dict = build_layout_dict(workspace, -1, (), True)["tabs"][1]
         self.assertEqual(entry_dict["signal_list_panel"],
-                         {"shown": False, "width": 100})
+                         {"shown": False, "width": 80})
 
     @covers("LLFR-01076", "LLFR-01077", "LLFR-01078", "LLFR-01123",
             "LLFR-00477", "HLFR-00141", "HLFR-00050", "HLFR-00152")
