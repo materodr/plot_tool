@@ -286,6 +286,28 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.assertEqual(self.store.get(
             "file2_file1_Torque").file_number_i, 2)
 
+    @covers("LLFR-00941", "LLFR-00955", "HLFR-00121", "HLFR-00115")
+    def test_typed_prefix_of_another_file_is_saved_as_typed(self) -> None:
+        """A file-1 signal renamed `file2_x` is saved as `file2_x`.
+
+        The prefix of its own file is removed once; the typed text,
+        which starts like another file's prefix, is kept.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.create("file1_Speed", "integral")
+        self.view.name_answer_list = ["file2_x"]
+        self.view.signal_menu_handler_dict["rename"]("file1_int_Speed")
+        self.assertIn("file1_file2_x", self.store.names())
+        signal = self.store.get("file1_file2_x")
+        self.assertEqual(signal.file_number_i, 1)
+        self.assertEqual(signal.editable_name_str, "file2_x")
+        self.assertEqual(signal.saved_name_str, "file2_x")
+        # Without the typed text kept, the editable part is used whole.
+        signal.plain_name_str = ""
+        self.assertEqual(signal.saved_name_str, "file2_x")
+
 
 class FftRangeTest(SeveralFilesTestCase):
     """The FFT range of a signal's own file (HLFR-00057)."""
