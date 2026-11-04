@@ -20,6 +20,14 @@ at the same size in inches and so with the same look, at a resolution
 that gives at least TARGET_FIGURE_DPI_F dots per inch on the page, and
 drawn over its place in the grab.
 
+Rounded corners (LLFR-00891, LLFR-00892): the plots keep the rounded
+corners and the border they have on screen (LLFR-00890). The page is
+grabbed with the corners painted in the page's background color, so in
+the copied image they match the background around the plots. On a PDF
+page, the same corners and border are painted over each sharp plot as
+vector paths, scaled from screen pixels to the page, in that background
+color.
+
 The PDF is made in memory and then written with
 ``file_writing.write_file_safely``, which never damages a file that was
 already there (LLFR-00131).
@@ -30,11 +38,12 @@ import io
 from PyQt6.QtCore import (
     QBuffer, QIODevice, QMarginsF, QPoint, QPointF, QRectF, Qt)
 from PyQt6.QtGui import (
-    QFont, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter)
+    QFont, QImage, QPageLayout, QPageSize, QPainter, QPalette, QPdfWriter)
 from PyQt6.QtWidgets import QApplication
 
+from view import theme
 from view.file_writing import write_file_safely
-from view.rounded_canvas import square_corners
+from view.rounded_canvas import corners_in_color, paint_rounded_frame
 from view.tab_page import TabPage
 
 # LLFR-00129: page size, orientation, margins and resolution of the PDF.
@@ -89,6 +98,19 @@ def exportable_page_list(tab_widget) -> list:
             if page.plot_widget_list]
 
 
+def page_background_color_str(page) -> str:
+    """Return the color that a grab of a tab page shows around its plots.
+
+    Inputs:
+        page: a TabPage.
+    Outputs: the "#rrggbb" name of the page's window color, with which
+        QWidget.grab fills the parts of the page that no plot covers.
+    """
+    # LLFR-00891, LLFR-00892: the corners outside the rounding show the
+    # background around the plots.
+    return page.palette().color(QPalette.ColorRole.Window).name()
+
+
 def grab_page_image(page):
     """Return an image of a tab page as it is shown on screen.
 
@@ -105,11 +127,11 @@ def grab_page_image(page):
         # LLFR-00354: nor are the delta marker previews.
         plot_widget.hide_delta_preview()
         plot_widget.canvas.draw()
-    # LLFR-00133, LLFR-00890: the copied image keeps the square plots it
-    # had before the plots got rounded corners on screen.
+    # LLFR-00892: the plots keep their rounded corners and border, with
+    # the corners in the color of the image around the plots.
     canvas_list = [plot_widget.canvas
                    for plot_widget in page.plot_widget_list]
-    with square_corners(canvas_list):
+    with corners_in_color(canvas_list, page_background_color_str(page)):
         return page.grab().toImage()
 
 
@@ -214,7 +236,8 @@ def grab_exportable_images(tab_widget) -> list:
     Inputs:
         tab_widget: the QTabWidget of the plot panel.
     Outputs: a list of tuples (tab name str, QImage of the page, list of
-        plot images as returned by plot_image_list), in tab order.
+        plot images as returned by plot_image_list, page background
+        color str), in tab order.
     """
     # LLFR-00129: one page per tab with a plot, in tab order.
     current_page = tab_widget.currentWidget()
@@ -228,7 +251,8 @@ def grab_exportable_images(tab_widget) -> list:
                 lay_out_page_like(page, reference_size)
             page_image = grab_page_image(page)
             snapshot_list.append(
-                (page.name_str, page_image, plot_image_list(page)))
+                (page.name_str, page_image, plot_image_list(page),
+                 page_background_color_str(page)))
     finally:
         # LLFR-00129: the user keeps the tab that was shown.
         if current_page is not None:
@@ -285,7 +309,9 @@ def draw_page_title(painter, name_str: str, page_width_i: int) -> int:
 
 
 def draw_page_image(painter, image, top_i: int, page_width_i: int,
-                    page_height_i: int, plot_entry_list=()) -> list:
+                    page_height_i: int, plot_entry_list=(),
+                    corner_color_str: str = theme.PLOT_CORNER_COLOR_STR
+                    ) -> list:
     """Draw a tab image below the title, scaled to fit the page.
 
     Inputs:
@@ -296,6 +322,9 @@ def draw_page_image(painter, image, top_i: int, page_width_i: int,
         page_height_i: height of the paintable area, in device pixels.
         plot_entry_list: tuples (QRectF in the page's logical pixels,
             QImage of the figure) drawn over the grab.
+        corner_color_str: color of the corners outside the rounding of
+            each plot, the background of the page image around the
+            plots.
     Outputs: a list of tuples (QRectF on the PDF page in device pixels,
         QImage) of the plot images drawn.
     """
@@ -319,8 +348,32 @@ def draw_page_image(painter, image, top_i: int, page_width_i: int,
                              canvas_rect.width() * scale_f,
                              canvas_rect.height() * scale_f)
         painter.drawImage(target_rect, plot_image)
+        # LLFR-00891: the plot's rounded corners and border, scaled from
+        # screen pixels to the page, drawn as vector paths.
+        paint_rounded_frame(painter, target_rect, scale_f, corner_color_str)
         drawn_list.append((target_rect, plot_image))
     return drawn_list
+
+
+def paint_pdf_page(painter, snapshot_tuple: tuple, page_width_i: int,
+                   page_height_i: int) -> list:
+    """Paint one tab on the current PDF page: its name, then its plots.
+
+    Inputs:
+        painter: the QPainter drawing on the PDF writer (or, in a test,
+            on an image of the page's size).
+        snapshot_tuple: (tab name str, page QImage, plot image list,
+            page background color str) from grab_exportable_images.
+        page_width_i: width of the paintable area, in device pixels.
+        page_height_i: height of the paintable area, in device pixels.
+    Outputs: the list returned by draw_page_image.
+    """
+    # LLFR-00129: the tab's name at the top, its plots below it.
+    # LLFR-00891: the plots with their rounded corners.
+    name_str, image, plot_entry_list, corner_color_str = snapshot_tuple
+    top_i = draw_page_title(painter, name_str, page_width_i)
+    return draw_page_image(painter, image, top_i, page_width_i,
+                           page_height_i, plot_entry_list, corner_color_str)
 
 
 def build_pdf_bytes(snapshot_list: list) -> bytes:
@@ -328,7 +381,8 @@ def build_pdf_bytes(snapshot_list: list) -> bytes:
 
     Inputs:
         snapshot_list: tuples (tab name str, page QImage, plot image
-            list) from grab_exportable_images, in page order.
+            list, page background color str) from
+            grab_exportable_images, in page order.
     Outputs: the bytes of the PDF document.
     Raises:
         OSError: when Qt cannot create the document.
@@ -347,12 +401,10 @@ def build_pdf_bytes(snapshot_list: list) -> bytes:
         page_width_i = writer.width()
         page_height_i = writer.height()
         for page_index_i, snapshot_tuple in enumerate(snapshot_list):
-            name_str, image, plot_entry_list = snapshot_tuple
             if page_index_i > 0 and not writer.newPage():
                 raise OSError(PDF_RENDER_FAILED_STR)
-            top_i = draw_page_title(painter, name_str, page_width_i)
-            draw_page_image(painter, image, top_i, page_width_i,
-                            page_height_i, plot_entry_list)
+            paint_pdf_page(painter, snapshot_tuple, page_width_i,
+                           page_height_i)
     finally:
         ended_b = painter.end()
         buffer.close()

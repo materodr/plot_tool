@@ -2736,9 +2736,23 @@ The plots in a tab must be stacked vertically, one below the other.
 ### LLFR-00890 Rounded plot corners
 Each plot must be shown with rounded corners that have the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
 
-Note: The corners outside the rounding show the background of the plot panel behind the plots. The rounding changes only how the plot looks on screen: what the plot draws, and its size and position, are as before. This requirement does not cover the PDF export (LLFR-00129) and the copied image (LLFR-00133), which show the plots with square corners.
+Note: The corners outside the rounding show the background of the plot panel behind the plots. The rounding changes only how the plot looks: what the plot draws, and its size and position, are as before. The PDF export and the copied image show the plots with the same rounded corners (LLFR-00891, LLFR-00892).
 
 *Parent: HLFR-00001*
+
+### LLFR-00891 Rounded plot corners in the PDF
+On each page of the PDF export (LLFR-00129), each plot must have the rounded corners of LLFR-00890, with its radius and border width scaled from the screen to the page in the same proportion as the plot, its border color, and the corners outside the rounding in the color of the page background around the plots.
+
+Note: Only the corners and the border are added: what the page shows, its tab name, its layout and the size of the plots are as before.
+
+*Parent: HLFR-00038*
+
+### LLFR-00892 Rounded plot corners in the copied image
+In the copied image (LLFR-00133), each plot must have the rounded corners of LLFR-00890, with the same radius, border width and border color as on screen, and the corners outside the rounding in the color of the image background around the plots.
+
+Note: Only the corners and the border are added: what the image shows and its size are as before.
+
+*Parent: HLFR-00039*
 
 ### LLFR-00070 Shared time axis
 All time plots in all tabs must share the same x-axis range, so that a change to the time range of one time plot applies to every time plot in every tab.
