@@ -92,16 +92,29 @@ class LayoutController:
         view.set_layout_buttons_enabled(False)
         file_controller.add_file_opened_listener(self.on_file_opened)
 
-    def on_file_opened(self, signal_file, replaced_b: bool) -> None:
+    def on_file_opened(self, signal_file, added_file=None) -> None:
         """Enable the layout buttons once a data file is open.
 
         Inputs:
-            signal_file: the SignalFile that was opened.
-            replaced_b: True when it replaced another file.
+            signal_file: the DataFileSet of the open data files (or one
+                SignalFile).
+            added_file: the DataFile just added; not used.
         Outputs: none.
         """
         # LLFR-00218: enabled after a successful open.
         self.data_file_open_b = signal_file is not None
+        self.view.set_layout_buttons_enabled(self.data_file_open_b)
+
+    def on_files_closed(self, data_files, closed_file_list: list) -> None:
+        """Disable the layout buttons when no data file is left.
+
+        Inputs:
+            data_files: the DataFileSet of the files left.
+            closed_file_list: the closed DataFile objects.
+        Outputs: none.
+        """
+        # LLFR-00218, LLFR-00932: disabled while no data file is open.
+        self.data_file_open_b = len(data_files) > 0
         self.view.set_layout_buttons_enabled(self.data_file_open_b)
 
     def dialog_folder(self) -> str:

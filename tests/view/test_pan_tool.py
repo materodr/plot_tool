@@ -522,7 +522,7 @@ class PanFrequencyPlotTest(unittest.TestCase):
         plot_widget.show()
         application.processEvents()
         frequency_array = np.linspace(0.0, 25.0, 251)
-        plot_widget.set_curves([("fft_Speed", frequency_array,
+        plot_widget.set_curves([("fft_file1_Speed", frequency_array,
                                  np.exp(-(frequency_array - 2.0) ** 2),
                                  "#0000ff", 1)])
         plot_widget.set_plot_tool(PAN_TOOL_STR)
@@ -629,7 +629,7 @@ class PanEndToEndTest(unittest.TestCase):
         from PyQt6.QtCore import QPoint
         self.panel.execute_menu = lambda menu, point: find_action(
             menu, "FFT (fft)")
-        self.panel.show_signal_menu("Speed", QPoint(0, 0))
+        self.panel.show_signal_menu("file1_Speed", QPoint(0, 0))
         self.application.processEvents()
         return self.panel.signal_name_list()[-1]
 
@@ -673,8 +673,8 @@ class PanEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        time_widget = self.double_click("Torque")
-        other_time_widget = self.double_click("Speed")
+        time_widget = self.double_click("file1_Torque")
+        other_time_widget = self.double_click("file1_Speed")
         frequency_widget = self.double_click(fft_name_str)
         self.assertTrue(frequency_widget.frequency_plot_b)
         self.top_panel.zoom_button.click()
@@ -737,7 +737,7 @@ class PanEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        time_widget = self.double_click("Torque")
+        time_widget = self.double_click("file1_Torque")
         self.top_panel.pan_button.click()
         time_widget.wheel_at(time_widget.data_to_widget_point(5.0, 0.0),
                              10.0)

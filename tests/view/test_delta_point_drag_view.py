@@ -466,7 +466,7 @@ class DeltaPointEndToEndTest(DeltaWindowTestCase):
         plot_widget = self.current_plot_widget()
         self.assertEqual(plot_widget.delta_marker_id_list(), [])
         self.assertEqual(plot_widget.delta_first_point_tuple,
-                         ("speed", 0.5, 1.0))
+                         ("file1_speed", 0.5, 1.0))
         for event_name_str in ("button_press_event", "button_release_event"):
             self.send_at(plot_widget, event_name_str, 1.5, 0.0)
         self.process_events()
@@ -485,9 +485,9 @@ class DeltaPointEndToEndTest(DeltaWindowTestCase):
         plot = self.plot_controller.workspace.find_plot(
             plot_widget.plot_id_i)
         self.assertEqual(plot.delta_marker_list[0].first_point_tuple,
-                         ("speed", 0.5, 1.0))
+                         ("file1_speed", 0.5, 1.0))
         self.assertEqual(plot.delta_marker_list[0].second_point_tuple,
-                         ("force", 2.0, 1.0))
+                         ("file1_force", 2.0, 1.0))
         plot_widget = self.current_plot_widget()
         self.assertEqual(plot_widget.delta_label_text(marker_id_i),
                          "Δt = 1.5 s")
@@ -496,7 +496,7 @@ class DeltaPointEndToEndTest(DeltaWindowTestCase):
         plot = self.plot_controller.workspace.find_plot(
             plot_widget.plot_id_i)
         self.assertEqual(plot.delta_marker_list[0].second_point_tuple,
-                         ("force", 1.5, 0.0))
+                         ("file1_force", 1.5, 0.0))
         self.assertEqual(self.box_mock.call_count, 0)
 
 

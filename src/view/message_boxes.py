@@ -6,8 +6,11 @@
   holds the maximum number of plots (LLFR-00032).
 - Tab Name Taken box: information box shown when the user renames a
   tab to the name of another tab (LLFR-00211).
-- Replace File box: question asked before an open file is replaced
-  (HLFR-00010).
+- Open Files Limit box: information box shown in place of the file
+  selection dialog while 10 data files are open (LLFR-00892).
+- Refused Files box: information box that lists the selected files that
+  were not opened because they are already open or because 10 files are
+  open (LLFR-00952).
 - Unexpected Error box: error box shown when an unexpected error
   reaches the event loop, instead of letting the app abort
   (HLFR-00002, PCR-00025).
@@ -55,11 +58,10 @@ PLOT_KIND_MISMATCH_TITLE_STR = "Frequency Plot"
 PLOT_KIND_MISMATCH_MESSAGE_STR = (
     "FFT signals and time signals cannot be drawn in the same plot. "
     "Double-click the signal to draw it in a new plot.")
-REPLACE_FILE_TITLE_STR = "Replace File"
-REPLACE_FILE_MESSAGE_STR = (
-    "Another file is already open. Proceeding will close the current "
-    "file and all its plots. Do you want to proceed?"
-)
+# LLFR-00892, LLFR-00952: the titles of the information boxes of the
+# open-file flow.
+OPEN_FILES_LIMIT_TITLE_STR = "Open file"
+REFUSED_FILES_TITLE_STR = "Files not opened"
 UNEXPECTED_ERROR_TITLE_STR = "Error"
 UNEXPECTED_ERROR_INTRO_STR = (
     "An unexpected error occurred. The app keeps running, but the last "
@@ -202,28 +204,6 @@ def build_plot_kind_mismatch_box(parent) -> QMessageBox:
     return box
 
 
-def build_replace_file_box(parent) -> QMessageBox:
-    """Build the Replace File confirmation box.
-
-    Inputs:
-        parent: parent widget of the box, or None.
-    Outputs: a QMessageBox with the question icon, the title
-        REPLACE_FILE_TITLE_STR, the text REPLACE_FILE_MESSAGE_STR and the
-        buttons Yes and No, where No is the default and escape button.
-    """
-    # LLFR-00013, LLFR-00014: ask whether to proceed, stating that
-    # proceeding closes the current file (HLFR-00010).
-    box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Icon.Question)
-    box.setWindowTitle(REPLACE_FILE_TITLE_STR)
-    box.setText(REPLACE_FILE_MESSAGE_STR)
-    box.setStandardButtons(QMessageBox.StandardButton.Yes
-                           | QMessageBox.StandardButton.No)
-    box.setDefaultButton(QMessageBox.StandardButton.No)
-    box.setEscapeButton(QMessageBox.StandardButton.No)
-    return box
-
-
 def show_file_open_error(parent, message_str: str) -> None:
     """Show the File Open Error box and wait until the user closes it.
 
@@ -270,23 +250,32 @@ def show_plot_kind_mismatch_notification(parent) -> None:
     build_plot_kind_mismatch_box(parent).exec()
 
 
-def ask_replace_file(parent) -> bool:
-    """Ask the user whether to replace the open file.
+def build_open_files_limit_box(parent, message_str: str) -> QMessageBox:
+    """Build the box shown at the Open file click with 10 files open.
 
     Inputs:
         parent: parent widget of the box, or None.
-    Outputs: True when the user chose Yes, False otherwise (No, or the
-        box closed without choosing).
+        message_str: the sentence of the box (from the controller).
+    Outputs: a QMessageBox with the information icon (not an error box)
+        and an OK button.
     """
-    # LLFR-00013: Yes means the user proceeds.
-    # LLFR-00014: any other answer keeps the current file open.
-    result = build_replace_file_box(parent).exec()
-    # exec() returns an int in PyQt6; accept a StandardButton as well.
-    if isinstance(result, QMessageBox.StandardButton):
-        result_value_i = int(result.value)
-    else:
-        result_value_i = int(result)
-    return result_value_i == QMessageBox.StandardButton.Yes.value
+    # LLFR-00892: an information box in place of the dialog.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             OPEN_FILES_LIMIT_TITLE_STR, message_str)
+
+
+def build_refused_files_box(parent, message_str: str) -> QMessageBox:
+    """Build the box that lists the selected files that were refused.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: one line per refused file, with its reason.
+    Outputs: a QMessageBox with the information icon (not an error box)
+        and an OK button.
+    """
+    # LLFR-00952: one information box for the refused files.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             REFUSED_FILES_TITLE_STR, message_str)
 
 
 def build_unexpected_error_box(parent, message_str: str) -> QMessageBox:

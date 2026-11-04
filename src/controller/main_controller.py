@@ -46,7 +46,7 @@ class MainController:
         self.file_controller = FileController(main_window)
         main_window.set_open_file_handler(
             self.file_controller.open_file_requested)
-        # LLFR-00015, LLFR-00019, LLFR-00026, LLFR-00042: the plot
+        # LLFR-00916, LLFR-00019, LLFR-00026, LLFR-00042: the plot
         # controller listens to opened files and to the plot panel.
         self.plot_controller = PlotController(main_window,
                                               self.file_controller)
@@ -59,8 +59,8 @@ class MainController:
         # the FileController has shown all names of a new file.
         self.signal_list_controller = SignalListController(
             main_window, self.file_controller)
-        # LLFR-00239, LLFR-00252: the signal list menu and the synthetic
-        # signals, removed when a data file is opened.
+        # LLFR-00239, LLFR-00922: the signal list menu and the synthetic
+        # signals, removed with the data file they come from.
         self.synthetic_controller = SyntheticController(
             main_window, self.file_controller, self.plot_controller,
             self.signal_list_controller)
@@ -76,6 +76,18 @@ class MainController:
         # signals of the signal list, enabled once a data file is open.
         self.save_signals_controller = SaveSignalsController(
             main_window, self.file_controller, self.synthetic_controller)
+        # LLFR-00922 to LLFR-00933: closing data files. The synthetic
+        # controller goes first: it removes the synthetic signals of the
+        # closed files and has the plot controller remove their curves;
+        # then the signal list and the buttons follow.
+        self.file_controller.add_files_closed_listener(
+            self.synthetic_controller.on_files_closed)
+        self.file_controller.add_files_closed_listener(
+            self.signal_list_controller.on_files_closed)
+        self.file_controller.add_files_closed_listener(
+            self.layout_controller.on_files_closed)
+        self.file_controller.add_files_closed_listener(
+            self.save_signals_controller.on_files_closed)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
         self.export_controller = ExportController(main_window)

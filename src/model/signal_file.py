@@ -172,6 +172,58 @@ class SignalFile:
             raise KeyError("no time signal")
         return self.signal_dict[self.time_signal_name_str]
 
+    def time_array_for_signal(self, signal_name_str: str):
+        """Return the time signal a signal of this file is drawn against.
+
+        Inputs:
+            signal_name_str: name of a signal of the file.
+        Outputs: the time signal of the file (LLFR-00908). Raises
+            KeyError for an unknown name.
+        """
+        # LLFR-00908: every signal of a file uses the time of its file;
+        # the same reading method as model.data_files.DataFileSet.
+        if signal_name_str not in self.signal_dict:
+            raise KeyError(signal_name_str)
+        return self.time_array
+
+    def time_range_tuple(self) -> tuple:
+        """Return the time range of the file.
+
+        Inputs: none.
+        Outputs: (first time, last time) in seconds, or () when no
+            sample is finite or no time signal is set.
+        """
+        # LLFR-00912: from the first to the last time sample.
+        if self.time_signal_name_str is None:
+            return ()
+        sample_array = np.asarray(self.time_array, dtype=float)
+        sample_array = sample_array[np.isfinite(sample_array)]
+        if sample_array.size == 0:
+            return ()
+        return (float(np.min(sample_array)), float(np.max(sample_array)))
+
+    @property
+    def time_signal_name_list(self) -> list:
+        """Return the names of the time signals, as DataFileSet does.
+
+        Inputs: none.
+        Outputs: [the time signal name], or [] when none is set.
+        """
+        # LLFR-00332: the time signal of the file.
+        if self.time_signal_name_str is None:
+            return []
+        return [self.time_signal_name_str]
+
+    @property
+    def path_list(self) -> list:
+        """Return the paths of the file, as DataFileSet does.
+
+        Inputs: none.
+        Outputs: [path_str].
+        """
+        # LLFR-00397: the path of the open data file.
+        return [self.path_str]
+
     def signal_array(self, signal_name_str: str):
         """Return the values of one signal.
 

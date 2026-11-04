@@ -458,14 +458,25 @@ class MainWindow(QMainWindow):
         # or window is shown.
         self.setWindowTitle(self.WINDOW_TITLE_STR)
 
-    def ask_replace_file(self) -> bool:
-        """Ask whether to close the open file and open the selected one.
+    def show_open_files_limit_notification(self, message_str: str) -> None:
+        """Show the box of an Open file click with 10 files open.
 
-        Inputs: none.
-        Outputs: True when the user chose to proceed.
+        Inputs:
+            message_str: the sentence of the box.
+        Outputs: none.
         """
-        # LLFR-00013, LLFR-00014: the confirmation of HLFR-00010.
-        return message_boxes.ask_replace_file(self)
+        # LLFR-00892: shown in place of the file selection dialog.
+        message_boxes.build_open_files_limit_box(self, message_str).exec()
+
+    def show_refused_files_notification(self, message_str: str) -> None:
+        """Show the box that lists the refused selected files.
+
+        Inputs:
+            message_str: one line per refused file, with its reason.
+        Outputs: none.
+        """
+        # LLFR-00952: after the File Open Error box, if any.
+        message_boxes.build_refused_files_box(self, message_str).exec()
 
     def show_signal_names(self, signal_name_list: list) -> None:
         """Show the signal names of the opened file in the signal list.
@@ -474,7 +485,8 @@ class MainWindow(QMainWindow):
             signal_name_list: the signal names, in file order.
         Outputs: none.
         """
-        # LLFR-00017, LLFR-00054: replace the shown names.
+        # LLFR-00934, LLFR-00935, LLFR-00054: the names of the open
+        # files.
         self.signal_list_panel.show_signal_names(signal_name_list)
 
     def set_search_text_handler(self, handler) -> None:
@@ -674,6 +686,27 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00362, LLFR-00363: the file name line.
         self.signal_list_panel.show_file_name(file_name_str)
+
+    def set_time_signal_names(self, name_list: list) -> None:
+        """Tell the signal list which signals are time signals.
+
+        Inputs:
+            name_list: the time signal of each open data file.
+        Outputs: none. Used by the next show_signal_names.
+        """
+        # LLFR-00332: the time signal of each open data file in green.
+        self.signal_list_panel.set_time_signal_names(name_list)
+
+    def set_files_time_range(self, range_tuple: tuple) -> None:
+        """Tell every time plot the time range of the open data files.
+
+        Inputs:
+            range_tuple: (start_s, end_s), or () while no file is open.
+        Outputs: none. Zooms and pans of the time plots stay within it.
+        """
+        # LLFR-00119, LLFR-00676, LLFR-00912: kept for the plots created
+        # later too.
+        self.plot_panel.set_files_time_range(tuple(range_tuple))
 
     def set_time_signal_name(self, name_str: str) -> None:
         """Tell the signal list which signal is the time signal.
@@ -1139,7 +1172,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00015: close all tabs and plots of the previous file.
+        # LLFR-00024, LLFR-00138: the tabs are shown again from the model.
         self.plot_panel.clear_tab_views()
 
     def set_current_tab(self, tab_id_i: int) -> None:

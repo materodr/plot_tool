@@ -598,7 +598,7 @@ class SignalListPanel(QWidget):
         self.synthetic_name_set = set()
         self.fft_name_set = set()
         # LLFR-00332: the time signal of the opened file, in green.
-        self.time_signal_name_str = None
+        self.time_signal_name_set = set()
         # LLFR-00239: the signal and screen point of a pending menu.
         self.pending_menu_tuple = ()
         self.signal_list_widget.setContextMenuPolicy(
@@ -623,7 +623,7 @@ class SignalListPanel(QWidget):
         current_name_str = ""
         if current_item is not None:
             current_name_str = current_item.text()
-        # LLFR-00017: only the names of the new file are shown.
+        # LLFR-00934, LLFR-00935: the names of the open files.
         # LLFR-00054: the time signal is shown like any other name.
         self.signal_list_widget.clear()
         self.signal_list_widget.addItems(
@@ -649,7 +649,7 @@ class SignalListPanel(QWidget):
                 item.setFont(item_font)
             # LLFR-00332: the time signal name in green, also among
             # search results.
-            if item.text() == self.time_signal_name_str:
+            if item.text() in self.time_signal_name_set:
                 item.setForeground(QBrush(QColor(
                     theme.TIME_SIGNAL_TEXT_COLOR_STR)))
 
@@ -681,8 +681,19 @@ class SignalListPanel(QWidget):
         Outputs: none. Used by the next show_signal_names.
         """
         # LLFR-00332: the name shown in green.
-        self.time_signal_name_str = (None if name_str is None
-                                     else str(name_str))
+        self.time_signal_name_set = (set() if name_str is None
+                                     else {str(name_str)})
+
+    def set_time_signal_names(self, name_list: list) -> None:
+        """Keep which names are the time signals of the open files.
+
+        Inputs:
+            name_list: the time signal of each open data file.
+        Outputs: none. Used by the next show_signal_names.
+        """
+        # LLFR-00332: the time signal of each open data file in green.
+        self.time_signal_name_set = {str(name_str) for name_str
+                                     in name_list}
 
     def name_color_str(self, name_str: str) -> str:
         """Return the color a shown name is written in.
@@ -780,7 +791,7 @@ class SignalListPanel(QWidget):
         Inputs: none.
         Outputs: a list of str.
         """
-        # LLFR-00017, LLFR-00054: the names currently shown.
+        # LLFR-00054, LLFR-00935: the names currently shown.
         return [self.signal_list_widget.item(row_i).text()
                 for row_i in range(self.signal_list_widget.count())]
 

@@ -400,7 +400,7 @@ class UndoEndToEndTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00138", "LLFR-00140", "LLFR-00141", "LLFR-00136",
-            "LLFR-00142")
+            "LLFR-00142", "LLFR-00926")
     def test_open_act_and_undo_everything(self) -> None:
         """Two plots, a marker and a tab rename are undone in 4 clicks.
 
@@ -413,11 +413,12 @@ class UndoEndToEndTest(unittest.TestCase):
         undo_button = top_panel.undo_button
         self.open_file()
         self.assertEqual(self.main_window.signal_list_panel
-                         .signal_name_list(), ["Time", "speed", "force"])
+                         .signal_name_list(), ["file1_Time", "file1_speed",
+                                               "file1_force"])
         self.assertFalse(undo_button.isEnabled())
         tab_id_i = plot_panel.current_tab_id()
-        self.double_click_signal("speed")
-        self.double_click_signal("force")
+        self.double_click_signal("file1_speed")
+        self.double_click_signal("file1_force")
         first_id_i, second_id_i = plot_panel.plot_id_list(tab_id_i)
         self.click(top_panel.marker_button)
         plot_panel.plot_view(first_id_i).marker_place_requested.emit(0.5)
@@ -440,19 +441,28 @@ class UndoEndToEndTest(unittest.TestCase):
         self.assertEqual(
             [entry[0] for entry in
              plot_panel.plot_view(first_id_i).legend_entry_list()],
-            ["speed"])
+            ["file1_speed"])
         self.click(undo_button)
         self.assertEqual(self.main_window.tab_name_list(), ["Tab 1"])
         self.assertEqual(plot_panel.plot_id_list(
             plot_panel.current_tab_id()), [])
         self.assertFalse(undo_button.isEnabled())
-        # LLFR-00142: opening the file again leaves nothing to undo.
-        self.double_click_signal("speed")
+        # LLFR-00142: opening another file keeps what can be undone.
+        self.double_click_signal("file1_speed")
         self.assertTrue(undo_button.isEnabled())
-        with mock.patch.object(QInputDialog, "getText"), \
-                mock.patch("view.message_boxes.ask_replace_file",
-                           return_value=True):
-            self.open_file()
+        other_path_str = os.path.join(self.temporary_folder.name,
+                                      "other.csv")
+        with open(other_path_str, "w", encoding="utf-8") as file:
+            file.write("Time,torque\n0,1\n1,2\n")
+        self.path_str = other_path_str
+        self.open_file()
+        self.assertEqual(self.main_window.signal_list_panel
+                         .signal_name_list()[-2:],
+                         ["file2_Time", "file2_torque"])
+        self.assertTrue(undo_button.isEnabled())
+        # LLFR-00926: closing the files leaves nothing to undo.
+        self.controller.file_controller.close_all_files()
+        self.application.processEvents()
         self.assertFalse(undo_button.isEnabled())
 
 

@@ -386,7 +386,7 @@ class TipInsideEndToEndTest(TipInsideAssertions, unittest.TestCase):
                         return_value=path_str):
             self.window.top_panel.open_file_button.click()
             self.process_events()
-        self.window.signal_double_click_handler("speed")
+        self.window.signal_double_click_handler("file1_speed")
         self.process_events()
         self.plot_controller = self.controller.plot_controller
         self.plot_id_i = self.plot_id_list()[0]
@@ -448,10 +448,12 @@ class TipInsideEndToEndTest(TipInsideAssertions, unittest.TestCase):
         Outputs: none.
         """
         # speed goes from 0 to 20: 18 at 9 s is near the top right.
-        self.plot_controller.on_tip_pin(self.plot_id_i, "speed", 5.0, 10.0)
+        self.plot_controller.on_tip_pin(self.plot_id_i, "file1_speed", 5.0,
+                                        10.0)
         self.plot_controller.on_pinned_tip_move(
             self.plot_id_i, 0, HIGH_OFFSET_TUPLE[0], HIGH_OFFSET_TUPLE[1])
-        self.plot_controller.on_tip_pin(self.plot_id_i, "speed", 9.0, 18.0)
+        self.plot_controller.on_tip_pin(self.plot_id_i, "file1_speed", 9.0,
+                                        18.0)
         self.draw_first_plot()
         self.assertEqual(self.plot_widget.pinned_tip_count(), 2)
 
@@ -466,7 +468,8 @@ class TipInsideEndToEndTest(TipInsideAssertions, unittest.TestCase):
         tall_height_f = float(self.plot_widget.axes.bbox.height)
         self.assert_label_at_offset(self.plot_widget, 0, HIGH_OFFSET_TUPLE)
         for signal_name_str in self.signal_name_list[1:]:
-            self.window.signal_double_click_handler(signal_name_str)
+            self.window.signal_double_click_handler(
+                "file1_" + signal_name_str)
             self.process_events()
         self.assertEqual(len(self.plot_id_list()), FULL_TAB_PLOT_COUNT_I)
         self.assertIs(self.window.plot_panel.plot_view(self.plot_id_i),

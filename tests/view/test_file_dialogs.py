@@ -361,7 +361,7 @@ class FileDialogTimingTest(unittest.TestCase):
         self.assertEqual(record_list[0][4],
                          os.path.realpath(first_start_folder_str()))
         self.open_data_file()
-        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("file1_speed")
         self.process_events()
         for button in (top_panel.save_layout_button,
                        top_panel.load_layout_button,

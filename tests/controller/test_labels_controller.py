@@ -186,14 +186,16 @@ class DeltaMarkerNameTest(LabelControllerTestCase):
         self.assertEqual(self.delta_names(), [])
         self.place_delta()
         self.assertEqual(self.delta_names(), ["Delta X 3"])
-        # LLFR-00428: a new file numbers from 1 again.
-        self.file_controller.open(make_signal_file(), True)
+        # LLFR-00428, LLFR-00851: closing and opening files never
+        # restarts the numbering.
+        self.close_all_files()
+        self.file_controller.open(make_signal_file(), None)
         self.double_click("s1")
         self.plot_id_i = self.current_plot_ids()[0]
         self.drop(self.plot_id_i, "s2")
         self.plot = self.workspace.find_plot(self.plot_id_i)
         self.place_delta()
-        self.assertEqual(self.delta_names(), ["Delta X 1"])
+        self.assertEqual(self.delta_names(), ["Delta X 4"])
 
     @covers("LLFR-00852", "LLFR-00428", "HLFR-00097")
     def test_name_in_use_is_skipped(self) -> None:
@@ -348,11 +350,14 @@ class ArrowNameTest(LabelControllerTestCase):
         self.create_arrow((1.0, 1.0, 1.0, 1.0))
         self.create_arrow()
         self.assertEqual(self.arrow_names(), ["Arrow 3"])
-        self.file_controller.open(make_signal_file(), True)
+        # LLFR-00438, LLFR-00872: closing and opening files never
+        # restarts the numbering.
+        self.close_all_files()
+        self.file_controller.open(make_signal_file(), None)
         self.double_click("s1")
         self.plot_id_i = self.current_plot_ids()[0]
         self.create_arrow()
-        self.assertEqual(self.arrow_names(), ["Arrow 1"])
+        self.assertEqual(self.arrow_names(), ["Arrow 4"])
 
 
 class ArrowRenameTest(LabelControllerTestCase):

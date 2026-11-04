@@ -1,4 +1,4 @@
-"""End-to-end tests of the open-file flow (HLFR-00004, HLFR-00010).
+"""End-to-end tests of the open-file flow (HLFR-00004, HLFR-00117).
 
 A real MainWindow and MainController are used. The file dialog and the
 message boxes are patched, so no modal dialog is ever left open.
@@ -154,7 +154,7 @@ class OpenFileEndToEndTest(unittest.TestCase):
                             "*)"):
             self.assertIn(pattern_str, filter_str)
         self.assertEqual(self.shown_name_list(),
-                         ["Time", "speed", "force"])
+                         ["file1_Time", "file1_speed", "file1_force"])
         self.assertEqual(self.box_record_list, [])
         self.assert_button_finished()
         self.assertEqual(self.controller.file_controller.current_file
@@ -170,37 +170,35 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.click_open_file(self.first_path_str)
         self.click_open_file("")
         self.assertEqual(self.shown_name_list(),
-                         ["Time", "speed", "force"])
+                         ["file1_Time", "file1_speed", "file1_force"])
         self.assertEqual(self.box_record_list, [])
         self.assert_button_finished()
 
-    @covers("LLFR-00008", "LLFR-00010", "LLFR-00011", "LLFR-00003")
+    @covers("LLFR-00008", "LLFR-00010", "LLFR-00011", "LLFR-00003",
+            "LLFR-00918", "LLFR-00951")
     def test_bad_files_show_error_and_keep_list(self) -> None:
         """Bad files show the File Open Error box; the list is kept.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import (
-            FILE_OPEN_ERROR_TITLE_STR, REPLACE_FILE_TITLE_STR)
+        from view.message_boxes import FILE_OPEN_ERROR_TITLE_STR
         self.click_open_file(self.first_path_str)
-        self.replace_answer_list = [True, True]
         self.click_open_file(self.bad_path_str)
         self.assert_button_finished()
         self.click_open_file(self.text_path_str)
         self.assert_button_finished()
-        # HLFR-00010: each time the question first, then the error box.
+        # LLFR-00918: no question; each time only the error box.
         self.assertEqual([record[0] for record in self.box_record_list], [
-            REPLACE_FILE_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR,
-            REPLACE_FILE_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR])
-        error_record_list = self.box_record_list[1::2]
+            FILE_OPEN_ERROR_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR])
+        error_record_list = self.box_record_list
         for _, icon, _ in error_record_list:
             self.assertEqual(icon, self.message_box_class.Icon.Critical)
         self.assertIn("could not be read", error_record_list[0][2])
         self.assertIn("bad.csv", error_record_list[0][2])
         self.assertIn("not supported", error_record_list[1][2])
         self.assertEqual(self.shown_name_list(),
-                         ["Time", "speed", "force"])
+                         ["file1_Time", "file1_speed", "file1_force"])
 
     @covers("LLFR-00009", "LLFR-00010")
     def test_missing_file_shows_access_error(self) -> None:
@@ -216,63 +214,61 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual(self.shown_name_list(), [])
         self.assert_button_finished()
 
-    @covers("LLFR-00013", "LLFR-00017", "HLFR-00010")
-    def test_replace_yes_shows_new_file(self) -> None:
-        """Yes in the Replace File box shows only the new names.
+    @covers("LLFR-00916", "LLFR-00917", "LLFR-00918", "LLFR-00650",
+            "HLFR-00117", "HLFR-00113")
+    def test_second_file_is_added(self) -> None:
+        """A second file is added with no box, after the first one.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import REPLACE_FILE_TITLE_STR
         self.click_open_file(self.first_path_str)
-        self.replace_answer_list = [True]
         self.click_open_file(self.second_path_str)
-        self.assertEqual(len(self.box_record_list), 1)
-        self.assertEqual(self.box_record_list[0][0], REPLACE_FILE_TITLE_STR)
-        self.assertEqual(self.shown_name_list(), ["Time", "pressure"])
+        self.assertEqual(self.box_record_list, [])
+        self.assertEqual(self.shown_name_list(), [
+            "file1_Time", "file1_speed", "file1_force", "file2_Time",
+            "file2_pressure"])
+        self.assertEqual(self.main_window.signal_list_panel.file_name(),
+                         "file1_first.csv, file2_second.csv")
         self.assert_button_finished()
 
-    @covers("LLFR-00014", "HLFR-00010", "LLFR-00003", "LLFR-00450")
-    def test_replace_no_keeps_current_file(self) -> None:
-        """No in the Replace File box keeps the current names.
+    @covers("LLFR-00894", "LLFR-00895", "LLFR-00952", "LLFR-00003",
+            "LLFR-00651")
+    def test_same_file_is_refused(self) -> None:
+        """The same file again shows the information box and keeps the
+        open file.
 
         Inputs: none.
         Outputs: none.
         """
+        from view.message_boxes import REFUSED_FILES_TITLE_STR
         self.click_open_file(self.first_path_str)
-        self.replace_answer_list = [False]
-        self.click_open_file(self.second_path_str)
+        self.click_open_file(self.first_path_str)
         self.assertEqual(len(self.box_record_list), 1)
+        title_str, icon, text_str = self.box_record_list[0]
+        self.assertEqual(title_str, REFUSED_FILES_TITLE_STR)
+        self.assertEqual(icon, self.message_box_class.Icon.Information)
+        self.assertEqual(text_str, "first.csv: already open as file1.")
         self.assertEqual(self.shown_name_list(),
-                         ["Time", "speed", "force"])
-        self.assertEqual(self.controller.file_controller.current_file
-                         .path_str, self.first_path_str)
+                         ["file1_Time", "file1_speed", "file1_force"])
+        self.assertEqual(len(self.controller.file_controller.data_files), 1)
         self.assert_button_finished()
 
-    @covers("HLFR-00010", "LLFR-00010", "LLFR-00013", "LLFR-00014",
-            "LLFR-00328", "HLFR-00101", "LLFR-00448")
-    def test_bad_file_after_open_asks_replace_first(self) -> None:
-        """The Replace File box comes before the read of a bad file.
+    @covers("LLFR-00010", "LLFR-00918", "LLFR-00328", "HLFR-00101",
+            "LLFR-00511")
+    def test_bad_file_after_open_is_read_at_once(self) -> None:
+        """With a file open, a bad file is read with no question first.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import (
-            FILE_OPEN_ERROR_TITLE_STR, REPLACE_FILE_TITLE_STR)
+        from view.message_boxes import FILE_OPEN_ERROR_TITLE_STR
         self.click_open_file(self.first_path_str)
-        # LLFR-00014: No, the bad file is not read, no error box.
-        self.replace_answer_list = [False]
         self.click_open_file(self.bad_path_str)
         self.assertEqual([record[0] for record in self.box_record_list],
-                         [REPLACE_FILE_TITLE_STR])
-        # LLFR-00013, LLFR-00010: Yes, the read fails, the file is kept.
-        self.replace_answer_list = [True]
-        self.click_open_file(self.bad_path_str)
-        self.assertEqual([record[0] for record in self.box_record_list], [
-            REPLACE_FILE_TITLE_STR, REPLACE_FILE_TITLE_STR,
-            FILE_OPEN_ERROR_TITLE_STR])
+                         [FILE_OPEN_ERROR_TITLE_STR])
         self.assertEqual(self.shown_name_list(),
-                         ["Time", "speed", "force"])
+                         ["file1_Time", "file1_speed", "file1_force"])
         self.assertEqual(self.controller.file_controller.current_file
                          .path_str, self.first_path_str)
 
@@ -360,10 +356,10 @@ class MainWindowFacadeTest(unittest.TestCase):
         """
         name_list = []
         self.main_window.set_signal_double_click_handler(name_list.append)
-        self.main_window.show_signal_names(["Time", "speed"])
+        self.main_window.show_signal_names(["file1_Time", "file1_speed"])
         widget = self.main_window.signal_list_panel.signal_list_widget
         widget.itemDoubleClicked.emit(widget.item(1))
-        self.assertEqual(name_list, ["speed"])
+        self.assertEqual(name_list, ["file1_speed"])
 
     @covers("LLFR-00003", "LLFR-00005")
     def test_open_file_without_handler_finishes_button(self) -> None:

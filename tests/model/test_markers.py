@@ -195,10 +195,10 @@ class MarkerNumberReuseTest(unittest.TestCase):
         self.assertEqual(marker_name_list(workspace), ["Flag 1"])
         self.assertEqual(workspace.add_marker(3.0).name_str, "Flag 3")
 
-    @covers("LLFR-00085", "LLFR-00111", "LLFR-00205", "LLFR-00015",
-            "LLFR-00667")
+    @covers("LLFR-00085", "LLFR-00111", "LLFR-00205", "LLFR-00667")
     def test_reset_clears_markers_and_restarts_numbering(self) -> None:
-        """A file open (reset) deletes every marker; N restarts at 1.
+        """reset, the state at the start of the app, has no marker and
+        N starts at 1.
 
         Inputs: none.
         Outputs: none.

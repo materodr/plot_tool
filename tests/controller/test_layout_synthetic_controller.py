@@ -42,14 +42,6 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         Outputs: none.
         """
         self.temporary_folder = tempfile.TemporaryDirectory()
-        self.view = FakeAppWindow()
-        self.main_controller = MainController(self.view)
-        self.plot_controller = self.main_controller.plot_controller
-        self.plot_controller.workspace.random_generator = random.Random(3)
-        self.workspace = self.plot_controller.workspace
-        self.synthetic_controller = (
-            self.main_controller.synthetic_controller)
-        self.store = self.synthetic_controller.store
         self.open_file()
 
     def tearDown(self) -> None:
@@ -61,11 +53,23 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         self.temporary_folder.cleanup()
 
     def open_file(self) -> None:
-        """Open (or reopen) the test data file (10 Hz, 0 to 9.9 s).
+        """Start the app again and open the test data file as file 1.
+
+        The test data file is 10 Hz, from 0 to 9.9 s. A new start gives
+        the file the number 1 again (LLFR-00896), so a layout saved
+        before is read with the same signal names.
 
         Inputs: none.
         Outputs: none.
         """
+        self.view = FakeAppWindow()
+        self.main_controller = MainController(self.view)
+        self.plot_controller = self.main_controller.plot_controller
+        self.plot_controller.workspace.random_generator = random.Random(3)
+        self.workspace = self.plot_controller.workspace
+        self.synthetic_controller = (
+            self.main_controller.synthetic_controller)
+        self.store = self.synthetic_controller.store
         file_controller = self.main_controller.file_controller
         file_controller.load_function = (
             lambda path_str: make_signal_file())
@@ -112,17 +116,18 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         Outputs: the names of the synthetic signals, in creation order.
         """
         name_list = [
-            self.create("lowpass", ["Speed"], (1.0, 2, "first_value"))]
+            self.create("lowpass", ["file1_Speed"], (1.0, 2, "first_value"))]
         name_list.append(self.create("highpass", [name_list[0]],
                                      (2.0, 3, "zero")))
         name_list.append(self.create("movingaverage", [name_list[1]], 4))
-        name_list.append(self.create("greaterorequal", ["Torque"], 3.0))
+        name_list.append(self.create("greaterorequal", ["file1_Torque"], 3.0))
         name_list.append(self.create("product",
-                                     [name_list[0], "Torque"]))
+                                     [name_list[0], "file1_Torque"]))
         handler_dict = self.view.handler_dict
         handler_dict["double_click"](name_list[0])
         first_plot = self.workspace.tab_list[0].plot_list[0]
-        handler_dict["signal_drop_handler"](first_plot.plot_id_i, "Speed")
+        handler_dict["signal_drop_handler"](first_plot.plot_id_i,
+                                            "file1_Speed")
         lowpass_array = self.store.get(name_list[0]).value_array
         handler_dict["tip_pin_handler"](first_plot.plot_id_i,
                                         name_list[0], 2.0,
@@ -141,7 +146,7 @@ class LayoutSyntheticTestCase(unittest.TestCase):
             float(product_array[50]))
         handler_dict["plot_tool"]("")
         if with_fft_b:
-            name_list.append(self.create("fft", ["Speed"], (1.0, 8.0)))
+            name_list.append(self.create("fft", ["file1_Speed"], (1.0, 8.0)))
             handler_dict["double_click"](name_list[5])
             self.assertTrue(self.workspace.tab_list[0].plot_list[2]
                             .is_frequency_plot())
@@ -243,7 +248,7 @@ class LoadTest(LayoutSyntheticTestCase):
         old_curve_list = self.curve_names()
         path_str = self.save("layout.json")
         saved_text_str = self.read_text(path_str)
-        # LLFR-00252: reopening the file removes the synthetic signals.
+        # LLFR-00595: a new start of the app has no synthetic signal.
         self.open_file()
         self.assertEqual(self.store.names(), [])
         self.load(path_str)
@@ -298,15 +303,15 @@ class LoadTest(LayoutSyntheticTestCase):
         layout_dict = read_layout_file(path_str)
         entry_list = layout_dict[LAYOUT_KEY_STR]
         entry_list[0]["parameter"]["order"] = 12
-        entry_list[3]["name"] = "Torque"
+        entry_list[3]["name"] = "file1_Torque"
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
         # The signals that need lowpass are not created; the entry
         # named like the data signal Torque is renamed (LLFR-00282).
-        self.assertEqual(self.store.names(), ["Torque_2"])
-        self.assertEqual(self.store.get("Torque_2").operation_str,
+        self.assertEqual(self.store.names(), ["file1_Torque_2"])
+        self.assertEqual(self.store.get("file1_Torque_2").operation_str,
                          "greaterorequal")
-        self.assertEqual(self.view.synthetic_name_set, {"Torque_2"})
+        self.assertEqual(self.view.synthetic_name_set, {"file1_Torque_2"})
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
         self.assertIn(SYNTHETIC_HEADING_STR, report_str)
@@ -316,11 +321,11 @@ class LoadTest(LayoutSyntheticTestCase):
                       f"\"{name_list[0]}\" it is computed from was not "
                       f"created.", report_str)
         # LLFR-00282, LLFR-00237: the rename is reported.
-        self.assertIn('Renamed:\n  - Synthetic signal "Torque" \u2192 '
-                      '"Torque_2"', report_str)
+        self.assertIn('Renamed:\n  - Synthetic signal "file1_Torque" \u2192 '
+                      '"file1_Torque_2"', report_str)
         self.assertIn("Signals not in the data file:", report_str)
         # LLFR-00231: plot 2 lost every curve and was not created.
-        self.assertEqual(self.curve_names(), [("Tab 1", [["Speed"]])])
+        self.assertEqual(self.curve_names(), [("Tab 1", [["file1_Speed"]])])
         self.assertIn("Data tip at 2 s", report_str)
         self.assertIn("Delta X marker between 1 s and 5 s", report_str)
 
@@ -343,19 +348,20 @@ class LoadTest(LayoutSyntheticTestCase):
         self.build_synthetic_layout()
         layout_dict = read_layout_file(self.save("layout.json"))
         layout_dict[LAYOUT_KEY_STR].append({
-            "name": "fft_Speed_1s_to_8s", "operation": "fft",
-            "signals": ["Speed"], "parameter": {"start": 1.0, "end": 8.0}})
+            "name": "fft_file1_Speed_1s_to_8s", "operation": "fft",
+            "signals": ["file1_Speed"], "parameter": {"start": 1.0,
+                                                      "end": 8.0}})
         layout_dict["tabs"][0]["plots"][0]["curves"].append(
-            {"signal": "fft_Speed_1s_to_8s", "color": "#00aa00",
+            {"signal": "fft_file1_Speed_1s_to_8s", "color": "#00aa00",
              "width": 1})
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
-        self.assertNotIn("fft_Speed_1s_to_8s", self.store.names())
+        self.assertNotIn("fft_file1_Speed_1s_to_8s", self.store.names())
         report_str = self.view.report_list[0]
-        self.assertIn("  - fft_Speed_1s_to_8s: FFT signals are not "
+        self.assertIn("  - fft_file1_Speed_1s_to_8s: FFT signals are not "
                       "loaded from layout files.", report_str)
         self.assertIn("Signals not in the data file:\n"
-                      "  - fft_Speed_1s_to_8s", report_str)
+                      "  - fft_file1_Speed_1s_to_8s", report_str)
 
     @covers("LLFR-00278", "LLFR-00279", "LLFR-00283")
     def test_no_equation_for_an_fft_signal(self) -> None:
@@ -381,19 +387,19 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
 
     # LLFR-00240: the names build_synthetic_layout gives its signals.
     NEW_NAME_LIST = [
-        "lpf_1Hz_order2_Speed",
-        "hpf_2Hz_order3_lpf_1Hz_order2_Speed",
-        "mavg_4samples_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
-        "ge_3_Torque",
-        "lpf_1Hz_order2_Speed_prod_Torque"]
+        "lpf_1Hz_order2_file1_Speed",
+        "hpf_2Hz_order3_lpf_1Hz_order2_file1_Speed",
+        "mavg_4samples_hpf_2Hz_order3_lpf_1Hz_order2_file1_Speed",
+        "ge_3_file1_Torque",
+        "lpf_1Hz_order2_file1_Speed_prod_file1_Torque"]
     # The names the same signals had before the abbreviations, as an
     # older layout file holds them.
     OLD_NAME_LIST = [
-        "lowpass_Speed",
-        "highpass_lowpass_Speed",
-        "movingaverage_highpass_lowpass_Speed",
-        "greaterorequal_Torque",
-        "product_lowpass_Speed_Torque"]
+        "lowpass_file1_Speed",
+        "highpass_lowpass_file1_Speed",
+        "movingaverage_highpass_lowpass_file1_Speed",
+        "greaterorequal_file1_Torque",
+        "product_lowpass_file1_Speed_file1_Torque"]
 
     @covers("LLFR-00240", "LLFR-00225", "LLFR-00262", "LLFR-00230")
     def test_round_trip_with_the_new_names(self) -> None:
@@ -408,7 +414,7 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
                          ["lowpass", "highpass", "movingaverage",
                           "greaterorequal", "product"])
         self.assertEqual(entry_list[4]["signals"],
-                         ["lpf_1Hz_order2_Speed", "Torque"])
+                         ["lpf_1Hz_order2_file1_Speed", "file1_Torque"])
         curve_list = self.curve_names()
         self.open_file()
         self.load(path_str)
@@ -447,25 +453,25 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
                 self.store.get(old_name_str).value_array,
                 value_dict[new_name_str])
         self.assertEqual(self.curve_names(), [("Tab 1", [
-            ["lowpass_Speed", "Speed"],
-            ["movingaverage_highpass_lowpass_Speed",
-             "product_lowpass_Speed_Torque"]])])
+            ["lowpass_file1_Speed", "file1_Speed"],
+            ["movingaverage_highpass_lowpass_file1_Speed",
+             "product_lowpass_file1_Speed_file1_Torque"]])])
         plot_list = self.workspace.tab_list[0].plot_list
         self.assertEqual(len(plot_list[0].pinned_tip_list), 1)
         self.assertEqual(len(plot_list[1].delta_marker_list), 1)
         # LLFR-00240: a signal created now gets the new name, and the
         # chains of an old name build up from it.
-        self.assertEqual(self.create("integral", ["lowpass_Speed"]),
-                         "int_lowpass_Speed")
-        self.assertEqual(self.create("lowpass", ["Speed"],
+        self.assertEqual(self.create("integral", ["lowpass_file1_Speed"]),
+                         "int_lowpass_file1_Speed")
+        self.assertEqual(self.create("lowpass", ["file1_Speed"],
                                      (1.0, 2, "zero")),
-                         "lpf_1Hz_order2_Speed")
+                         "lpf_1Hz_order2_file1_Speed")
         # The older names are saved as they are.
         entry_list = read_layout_file(self.save("again.json"))[
             LAYOUT_KEY_STR]
         self.assertEqual([entry["name"] for entry in entry_list],
-                         self.OLD_NAME_LIST + ["int_lowpass_Speed",
-                                               "lpf_1Hz_order2_Speed"])
+                         self.OLD_NAME_LIST + ["int_lowpass_file1_Speed",
+                                               "lpf_1Hz_order2_file1_Speed"])
         # LLFR-00282: loading the older file again adds nothing.
         names_before_list = self.store.names()
         self.load(old_path_str)
@@ -525,14 +531,15 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         curve_list = self.curve_names()
         self.assertEqual(curve_list[0], old_curve_list[0])
         self.assertEqual(curve_list[1][1], [
-            [renamed_list[0], "Speed"], [renamed_list[2], renamed_list[3]]])
+            [renamed_list[0], "file1_Speed"], [renamed_list[2],
+                                               renamed_list[3]]])
         new_plot_list = self.workspace.tab_list[1].plot_list
         self.assertEqual(new_plot_list[0].pinned_tip_list[0]
                          .signal_name_str, renamed_list[0])
         self.assertEqual(new_plot_list[1].delta_marker_list[0]
                          .first_point_tuple[0], renamed_list[3])
         self.assertEqual(self.store.get(renamed_list[3]).source_name_list,
-                         [renamed_list[0], "Torque"])
+                         [renamed_list[0], "file1_Torque"])
         # The same edited file again: nothing new.
         self.load(path_str)
         self.assertEqual(self.store.names(), name_list + renamed_list)
@@ -547,13 +554,13 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         layout_dict = read_layout_file(self.save("layout.json"))
         layout_dict[LAYOUT_KEY_STR] = []
         layout_dict["tabs"] = [{"name": "Other", "plots": [
-            {"curves": [{"signal": "Torque", "color": "#0000ff",
+            {"curves": [{"signal": "file1_Torque", "color": "#0000ff",
                          "width": 1}]}]}]
         self.load(self.write_layout("edited.json", layout_dict))
         self.assertEqual(self.view.report_list, [])
         self.assertEqual(self.store.names(), name_list)
         self.assertEqual(self.curve_names(),
-                         old_curve_list + [("Other", [["Torque"]])])
+                         old_curve_list + [("Other", [["file1_Torque"]])])
 
     def assert_screen_matches_model(self) -> None:
         """Check that every plot is drawn with its own curves.
@@ -589,12 +596,12 @@ class EmptyTabsTest(LayoutSyntheticTestCase):
         """Empty tabs are skipped; the first created tab is shown."""
         path_str = self.file_with_tabs([
             {"name": "Empty", "plots": []},
-            {"name": "Speed tab", "plots": [{"curves": [
-                {"signal": "Speed", "color": "#0000ff", "width": 1}]}]}])
+            {"name": "file1_Speed tab", "plots": [{"curves": [
+                {"signal": "file1_Speed", "color": "#0000ff", "width": 1}]}]}])
         self.load(path_str)
         self.assertEqual(self.view.report_list, [])
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
-                         ["Speed tab"])
+                         ["file1_Speed tab"])
         self.assertEqual(self.view.current_tab_id(),
                          self.workspace.tab_list[0].tab_id_i)
 

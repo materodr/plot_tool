@@ -388,9 +388,9 @@ class RedoHistoryBehaviourTest(RedoControllerTestCase):
         self.redo()
         self.assertEqual(len(self.view.tab_dict), 3)
 
-    @covers("LLFR-00142", "LLFR-00194", "LLFR-00013")
-    def test_opening_a_file_clears_redo(self) -> None:
-        """A replaced file leaves nothing to undo and nothing to redo.
+    @covers("LLFR-00142", "LLFR-00926", "LLFR-00194")
+    def test_opening_keeps_and_closing_clears_redo(self) -> None:
+        """An added file keeps the redo history; a close clears it.
 
         Inputs: none.
         Outputs: none.
@@ -399,14 +399,16 @@ class RedoHistoryBehaviourTest(RedoControllerTestCase):
         self.handler("rename_tab")(self.first_tab_id_i, "Z")
         self.undo()
         self.assertTrue(self.view.redo_enabled_b)
-        self.file_controller.open(make_signal_file(3), True)
+        self.file_controller.open(self.signal_file, None)
+        self.assertEqual(self.redo_depth(), 1)
+        self.assertTrue(self.view.redo_enabled_b)
+        self.close_all_files()
         self.assertEqual(self.redo_depth(), 0)
         self.assertFalse(self.view.redo_enabled_b)
         self.assertFalse(self.view.undo_enabled_b)
         before_tuple = self.workspace.state_tuple()
         self.redo()
         self.assertEqual(self.workspace.state_tuple(), before_tuple)
-        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
 
     @covers("LLFR-00192")
     def test_redo_selects_the_tab_shown_when_undoing(self) -> None:

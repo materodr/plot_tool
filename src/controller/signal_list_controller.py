@@ -4,22 +4,29 @@ It talks to the view only through plain method calls (no Qt code), so
 it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``set_search_text_handler``, ``show_signal_names``,
 ``show_no_match_message``, ``clear_search``, ``set_signal_kinds``,
-``clear_signal_selection``, ``rename_shown_signal`` and
-``show_file_name``.
+``clear_signal_selection``, ``rename_shown_signal``,
+``set_time_signal_names`` and ``show_file_name``.
 
-The file name line above the list (LLFR-00362) gets the name of each
-file the FileController opens; the FileController calls its listeners
-only after a successful open or replace, so a failed, cancelled or
-declined open leaves the line unchanged (LLFR-00363).
+The list shows the signals of every open data file, with their prefixed
+names (LLFR-00901), file after file in the order of their numbers
+(LLFR-00934, LLFR-00935), then the synthetic signals in creation order
+(LLFR-00242); the SyntheticController gives the names of the synthetic
+signals with ``set_synthetic_signals``. The FileController calls its
+listeners only after a successful open, so a failed, cancelled or
+refused open leaves the list unchanged (LLFR-00651).
 
-The list shows the data file signals, then the synthetic signals in
-creation order (LLFR-00242); the SyntheticController gives the names of
-the synthetic signals with ``set_synthetic_signals``.
+The file name row above the list (LLFR-00362) shows the rows of the open
+data files, ``file<N>_<file name>``, separated by commas, until the
+signal list shows one row per file (step 4 of issue #190); it is empty
+while no file is open (LLFR-00363, LLFR-00933).
 """
 
 import os
 
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
+
+# LLFR-00362: the rows of the open files, in the one row shown for now.
+FILE_ROW_SEPARATOR_STR = ", "
 
 
 def file_name_from_path(path_str: str) -> str:
@@ -72,7 +79,7 @@ class SignalListController:
         self.fft_name_set = set()
         self.search_text_str = ""
         view.set_search_text_handler(self.on_search_text_changed)
-        # LLFR-00104, LLFR-00017: a new file resets the shown names.
+        # LLFR-00104, LLFR-00650: a new file is added to the shown names.
         file_controller.add_file_opened_listener(self.on_file_opened)
 
     def on_search_text_changed(self, text_str: str) -> None:
@@ -123,39 +130,68 @@ class SignalListController:
         # LLFR-00242: synthetic signals after the data file signals.
         return self.all_signal_name_list + self.synthetic_name_list
 
-    def on_file_opened(self, signal_file, replaced_b: bool) -> None:
-        """Show the names of a newly opened file, filtered by the search.
+    def on_file_opened(self, signal_file, added_file=None) -> None:
+        """Show the names of the open files after a file was added.
 
-        Called by the FileController after it has shown all names of the
-        new file, so the filter applied here gives the final list.
+        Called by the FileController after a successful open, so the
+        filter applied here gives the final list.
 
         Inputs:
-            signal_file: the SignalFile that was opened.
-            replaced_b: True when the new file replaced another one.
+            signal_file: the DataFileSet of the open data files (or one
+                SignalFile).
+            added_file: the DataFile just added; not used.
         Outputs: none.
         """
-        # LLFR-00362, LLFR-00363: the file name line shows the new
-        # file; this listener only runs after a successful open.
-        self.view.show_file_name(file_name_from_path(signal_file.path_str))
-        # LLFR-00054: the full list includes the time signal.
+        # LLFR-00104: the search box is cleared when a file is opened.
+        # The stored text is reset first, so the change the view reports
+        # back already filters the new names.
+        self.search_text_str = ""
+        self.view.clear_search()
+        # LLFR-00917: the signals and synthetic signals of the other
+        # files are kept, and so is the selection of the shown signals
+        # (LLFR-00292).
+        self.show_open_files(signal_file)
+
+    def on_files_closed(self, data_files, closed_file_list: list) -> None:
+        """Show the names of the files left after data files were closed.
+
+        Inputs:
+            data_files: the DataFileSet of the files left.
+            closed_file_list: the closed DataFile objects.
+        Outputs: none. The SyntheticController has already removed the
+            synthetic signals of the closed files.
+        """
+        # LLFR-00922, LLFR-00933: the closed files' signals leave the
+        # list; LLFR-00292: so they are no longer selected.
+        self.show_open_files(data_files)
+
+    def show_open_files(self, signal_file) -> None:
+        """Show the file name row and the signals of the open files.
+
+        Inputs:
+            signal_file: the DataFileSet of the open data files (or one
+                SignalFile).
+        Outputs: none.
+        """
+        # LLFR-00362, LLFR-00363, LLFR-00934: the rows of the open files,
+        # in the order of their numbers; none while no file is open.
+        file_list = list(getattr(signal_file, "file_list", []))
+        if file_list:
+            row_str = FILE_ROW_SEPARATOR_STR.join(
+                data_file.file_name_row_str for data_file in file_list)
+        elif signal_file is not None and getattr(signal_file, "path_str",
+                                                 ""):
+            row_str = file_name_from_path(signal_file.path_str)
+        else:
+            row_str = ""
+        self.view.show_file_name(row_str)
+        # LLFR-00332: every time signal in green.
+        self.view.set_time_signal_names(
+            list(signal_file.time_signal_name_list))
+        # LLFR-00054, LLFR-00934, LLFR-00935: every signal of every open
+        # file, the time signals included.
         self.all_signal_name_list = list(signal_file.signal_name_list)
-        # LLFR-00252: the synthetic signals of the previous data file
-        # are gone.
-        self.synthetic_name_list = []
-        self.fft_name_set = set()
-        # LLFR-00292: the signals of the previous file are no longer
-        # shown, so none stays selected, also when the new file has a
-        # signal with the same name.
-        self.view.clear_signal_selection()
-        if replaced_b:
-            # LLFR-00104: the search box is cleared on file replace. The
-            # stored text is reset first, so the change the view reports
-            # back already filters the new file's names.
-            self.search_text_str = ""
-            self.view.clear_search()
-        # LLFR-00017, LLFR-00096: after a replace the box is empty, so
-        # every name of the new file is shown; on the first open the
-        # text typed before is applied to the new names.
+        # LLFR-00096: an empty box shows every signal.
         self.show_filtered_names()
 
     def show_filtered_names(self) -> None:

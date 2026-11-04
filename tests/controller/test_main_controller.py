@@ -145,7 +145,7 @@ class MainControllerStartTest(unittest.TestCase):
                          controller.file_controller.open_file_requested)
         self.assertIs(controller.file_controller.view, fake_window)
 
-    @covers("LLFR-00015", "LLFR-00019", "LLFR-00024")
+    @covers("LLFR-00916", "LLFR-00019", "LLFR-00024")
     def test_plot_controller_is_wired(self) -> None:
         """The plot controller listens to files and to the view.
 
@@ -179,7 +179,7 @@ class MainControllerStartTest(unittest.TestCase):
                          signal_list_controller.on_search_text_changed)
         listener_list = controller.file_controller.file_opened_listener_list
         self.assertIn(signal_list_controller.on_file_opened, listener_list)
-        # LLFR-00017: the search listener runs after the plot listener,
+        # LLFR-00934: the search listener runs after the plot listener,
         # so it gives the final signal list of a new file.
         self.assertGreater(
             listener_list.index(signal_list_controller.on_file_opened),

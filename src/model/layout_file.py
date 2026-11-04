@@ -750,12 +750,17 @@ class LayoutBuilder:
         signal_dict: signal name -> numpy array of the open data file;
             the builder copies it and adds the synthetic signals the
             file can draw (LLFR-00230, LLFR-00262).
-        time_array: the values of the time signal, in seconds.
+        time_array: the values of the time signal, in seconds, or a
+            function that takes a signal name and returns the time
+            signal of that signal's data file (LLFR-00908).
+        files_range_tuple: the time range of the open data files
+            (LLFR-00912); None takes the range of time_array.
     Attributes:
         report: the LayoutReport being filled.
     """
 
-    def __init__(self, workspace, signal_dict: dict, time_array) -> None:
+    def __init__(self, workspace, signal_dict: dict, time_array,
+                 files_range_tuple=None) -> None:
         """Store the workspace and the signals.
 
         Inputs: see the class docstring.
@@ -770,9 +775,39 @@ class LayoutBuilder:
         # LLFR-00282: signal name of the file -> (name drawn, samples),
         # or None for a synthetic signal of the file not created.
         self.synthetic_name_dict = {}
-        self.time_array = np.asarray(time_array, dtype=float)
-        self.file_range_tuple = file_time_range(self.time_array)
+        # LLFR-00908: each signal has the time signal of its own file.
+        if callable(time_array):
+            self.time_function = time_array
+            self.time_array = None
+        else:
+            self.time_array = np.asarray(time_array, dtype=float)
+            self.time_function = None
+        # LLFR-00912, LLFR-00233, LLFR-00234: the time range of the open
+        # data files.
+        if files_range_tuple is not None:
+            self.file_range_tuple = tuple(files_range_tuple)
+        elif self.time_array is not None:
+            self.file_range_tuple = file_time_range(self.time_array)
+        else:
+            self.file_range_tuple = ()
         self.report = LayoutReport()
+
+    def time_of(self, signal_name_str: str):
+        """Return the time signal a signal is drawn against.
+
+        Inputs:
+            signal_name_str: a signal name of the signal list.
+        Outputs: a numpy float array of times, in seconds; empty when
+            the time of the signal is not known.
+        """
+        # LLFR-00908, LLFR-00232: the times of the signal's own file.
+        if self.time_function is None:
+            return self.time_array
+        try:
+            return np.asarray(self.time_function(signal_name_str),
+                              dtype=float)
+        except KeyError:
+            return np.asarray([], dtype=float)
 
     # Signals and points ---------------------------------------------
 
@@ -845,7 +880,8 @@ class LayoutBuilder:
         if not plot.has_signal(signal_value):
             return ((), time_s,
                     f"the signal {signal_value} is not drawn in its plot")
-        difference_array = np.abs(self.time_array - time_s)
+        signal_time_array = self.time_of(signal_value)
+        difference_array = np.abs(signal_time_array - time_s)
         if not np.any(np.isfinite(difference_array)):
             return ((), time_s, "the data file has no valid time")
         sample_index_i = int(np.nanargmin(difference_array))
@@ -853,7 +889,7 @@ class LayoutBuilder:
             return ((), time_s,
                     f"the signal {signal_value} has no sample within 1 "
                     f"microsecond of this time")
-        sample_time_s = float(self.time_array[sample_index_i])
+        sample_time_s = float(signal_time_array[sample_index_i])
         value_array = np.asarray(self.signal_dict[signal_value],
                                  dtype=float)
         if sample_index_i >= value_array.size:
@@ -1692,18 +1728,23 @@ class LayoutBuilder:
 
 
 def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
-                   time_array, synthetic_signal_builder=None):
+                   time_array, synthetic_signal_builder=None,
+                   files_range_tuple=None):
     """Rebuild the layout of a file in a workspace.
 
     Inputs:
         workspace: the Workspace to add the layout to.
         layout_dict: the content of the file (parse_layout_text).
         signal_dict: signal name -> numpy array of the open data file.
-        time_array: the values of the time signal, in seconds.
+        time_array: the values of the time signal, in seconds, or a
+            function signal name -> time signal of its file.
         synthetic_signal_builder: optional function of LayoutBuilder.
             rebuild for the synthetic signals (LLFR-00262).
+        files_range_tuple: the time range of the open data files, or
+            None for the range of time_array (LLFR-00912).
     Outputs: the LayoutResult.
     """
     # LLFR-00229 to LLFR-00235: see LayoutBuilder.
-    return LayoutBuilder(workspace, signal_dict, time_array).rebuild(
+    return LayoutBuilder(workspace, signal_dict, time_array,
+                         files_range_tuple).rebuild(
         layout_dict, synthetic_signal_builder)

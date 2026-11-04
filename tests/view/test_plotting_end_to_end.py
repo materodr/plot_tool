@@ -182,22 +182,22 @@ class PlottingEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         from model.curve_colors import PALETTE_COLOR_TUPLE
-        self.double_click_signal("speed")
+        self.double_click_signal("file1_speed")
         plot_widget_list = self.current_plot_widgets()
         self.assertEqual(len(plot_widget_list), 1)
         plot_widget = plot_widget_list[0]
-        self.assertEqual(self.legend_names(plot_widget), ["speed"])
+        self.assertEqual(self.legend_names(plot_widget), ["file1_speed"])
         self.assertEqual(plot_widget.legend_entry_list()[0][1].lower(),
                          PALETTE_COLOR_TUPLE[0])
         line_list = plot_widget.axes.get_lines()
         curve_line_list = [line for line in line_list
-                           if line.get_label() == "speed"]
+                           if line.get_label() == "file1_speed"]
         self.assertEqual(len(curve_line_list), 1)
         self.assertEqual(list(curve_line_list[0].get_xdata()),
                          [0.0, 0.5, 1.0, 1.5, 2.0])
         self.assertEqual(list(curve_line_list[0].get_ydata()),
                          [0.0, 1.0, 2.0, 3.0, 4.0])
-        self.assertEqual(plot_widget.curve_line_width("speed"), 1.0)
+        self.assertEqual(plot_widget.curve_line_width("file1_speed"), 1.0)
         self.assertEqual(self.box_record_list, [])
 
     @covers("LLFR-00055", "HLFR-00012")
@@ -207,9 +207,9 @@ class PlottingEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click_signal("Time")
+        self.double_click_signal("file1_Time")
         plot_widget = self.current_plot_widgets()[0]
-        self.assertEqual(self.legend_names(plot_widget), ["Time"])
+        self.assertEqual(self.legend_names(plot_widget), ["file1_Time"])
 
     @covers("LLFR-00031", "LLFR-00032", "HLFR-00018")
     def test_sixth_plot_shows_full_tab_box(self) -> None:
@@ -219,11 +219,12 @@ class PlottingEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         from view.message_boxes import FULL_TAB_TITLE_STR
-        for name_str in ("speed", "force", "angle", "Time", "speed"):
+        for name_str in ("file1_speed", "file1_force", "file1_angle",
+                         "file1_Time", "file1_speed"):
             self.double_click_signal(name_str)
         self.assertEqual(len(self.current_plot_widgets()), 5)
         self.assertEqual(self.box_record_list, [])
-        self.double_click_signal("force")
+        self.double_click_signal("file1_force")
         self.assertEqual(len(self.current_plot_widgets()), 5)
         self.assertEqual(len(self.box_record_list), 1)
         title_str, icon, text_str = self.box_record_list[0]
@@ -240,16 +241,18 @@ class PlottingEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click_signal("speed")
+        self.double_click_signal("file1_speed")
         plot_widget = self.current_plot_widgets()[0]
-        self.drop_signal(plot_widget, "force")
-        self.assertEqual(self.legend_names(plot_widget), ["speed", "force"])
+        self.drop_signal(plot_widget, "file1_force")
+        self.assertEqual(self.legend_names(plot_widget), ["file1_speed",
+                                                          "file1_force"])
         color_list = [entry_tuple[1].lower()
                       for entry_tuple in plot_widget.legend_entry_list()]
         self.assertEqual(len(set(color_list)), 2)
-        self.drop_signal(plot_widget, "force")
-        self.drop_signal(plot_widget, "speed")
-        self.assertEqual(self.legend_names(plot_widget), ["speed", "force"])
+        self.drop_signal(plot_widget, "file1_force")
+        self.drop_signal(plot_widget, "file1_speed")
+        self.assertEqual(self.legend_names(plot_widget), ["file1_speed",
+                                                          "file1_force"])
         self.assertEqual(len(self.current_plot_widgets()), 1)
         self.assertEqual(self.box_record_list, [])
 
@@ -260,13 +263,13 @@ class PlottingEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click_signal("speed")
-        self.double_click_signal("force")
+        self.double_click_signal("file1_speed")
+        self.double_click_signal("file1_force")
         tip_button = self.main_window.top_panel.tip_button
         tip_button.click()
         self.assertTrue(all(plot_widget.plot_tool_str == "tip"
                             for plot_widget in self.current_plot_widgets()))
-        self.double_click_signal("angle")
+        self.double_click_signal("file1_angle")
         self.assertEqual(self.current_plot_widgets()[2].plot_tool_str, "tip")
         tip_button.click()
         self.assertTrue(all(plot_widget.plot_tool_str == ""
@@ -279,9 +282,9 @@ class PlottingEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click_signal("speed")
+        self.double_click_signal("file1_speed")
         plot_widget = self.current_plot_widgets()[0]
-        plot_widget.tip_pin_requested.emit("speed", 1.0, 2.0)
+        plot_widget.tip_pin_requested.emit("file1_speed", 1.0, 2.0)
         self.application.processEvents()
         self.assertEqual(plot_widget.pinned_tip_count(), 1)
         plot_widget.pinned_tip_delete_requested.emit(0)
@@ -295,11 +298,11 @@ class PlottingEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click_signal("speed")
+        self.double_click_signal("file1_speed")
         plot_widget = self.current_plot_widgets()[0]
-        plot_widget.curve_width_requested.emit("speed", 5)
+        plot_widget.curve_width_requested.emit("file1_speed", 5)
         self.application.processEvents()
-        self.assertGreater(plot_widget.curve_line_width("speed"), 1.0)
+        self.assertGreater(plot_widget.curve_line_width("file1_speed"), 1.0)
 
     @covers("LLFR-00039", "LLFR-00051", "LLFR-00049", "HLFR-00022",
             "HLFR-00019")
@@ -309,13 +312,13 @@ class PlottingEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click_signal("speed")
+        self.double_click_signal("file1_speed")
         plot_widget = self.current_plot_widgets()[0]
-        self.drop_signal(plot_widget, "force")
-        plot_widget.curve_delete_requested.emit("speed")
+        self.drop_signal(plot_widget, "file1_force")
+        plot_widget.curve_delete_requested.emit("file1_speed")
         self.application.processEvents()
-        self.assertEqual(self.legend_names(plot_widget), ["force"])
-        plot_widget.curve_delete_requested.emit("force")
+        self.assertEqual(self.legend_names(plot_widget), ["file1_force"])
+        plot_widget.curve_delete_requested.emit("file1_force")
         self.application.processEvents()
         self.assertEqual(self.current_plot_widgets(), [])
         self.assertEqual(self.box_record_list, [])
@@ -327,35 +330,56 @@ class PlottingEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.double_click_signal("speed")
-        self.double_click_signal("force")
+        self.double_click_signal("file1_speed")
+        self.double_click_signal("file1_force")
         first, second = self.current_plot_widgets()
         first.plot_delete_requested.emit()
         self.application.processEvents()
         self.assertEqual(self.current_plot_widgets(), [second])
 
-    @covers("LLFR-00015", "LLFR-00016", "LLFR-00013", "HLFR-00010")
-    def test_replacing_file_leaves_one_empty_tab(self) -> None:
-        """Opening a second file with Yes closes all tabs and plots.
+    @covers("LLFR-00917", "LLFR-00918", "LLFR-00907", "LLFR-00908",
+            "LLFR-00922", "LLFR-00923", "LLFR-00928", "LLFR-00958",
+            "HLFR-00116", "HLFR-00117", "HLFR-00118")
+    def test_second_file_is_added_then_the_first_is_closed(self) -> None:
+        """A second file keeps the tabs and shares a plot; closing the
+        first file closes the tab left with no plot.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.message_boxes import REPLACE_FILE_TITLE_STR
-        self.double_click_signal("speed")
+        self.double_click_signal("file1_speed")
         self.main_window.plot_panel.add_tab_button.click()
-        self.double_click_signal("force")
+        self.double_click_signal("file1_force")
         self.assertEqual(self.main_window.tab_name_list(),
                          ["Tab 1", "Tab 2"])
         self.click_open_file(self.second_path_str)
-        self.assertEqual([record[0] for record in self.box_record_list],
-                         [REPLACE_FILE_TITLE_STR])
-        self.assertEqual(self.main_window.tab_name_list(), ["Tab 1"])
-        self.assertEqual(self.current_plot_widgets(), [])
-        self.assertEqual(self.main_window.plot_panel.plot_widget_dict, {})
-        self.double_click_signal("pressure")
+        # LLFR-00918: no question; LLFR-00917: the tabs and plots stay.
+        self.assertEqual(self.box_record_list, [])
+        self.assertEqual(self.main_window.tab_name_list(),
+                         ["Tab 1", "Tab 2"])
+        self.assertEqual(len(self.main_window.plot_panel.plot_widget_dict),
+                         2)
+        plot_widget = self.current_plot_widgets()[0]
+        # LLFR-00907, LLFR-00908: a curve of file 2 in the same plot, on
+        # the time of file 2.
+        self.drop_signal(plot_widget, "file2_pressure")
+        self.assertEqual(self.legend_names(plot_widget),
+                         ["file1_force", "file2_pressure"])
+        time_dict = {curve_tuple[0]: list(curve_tuple[1])
+                     for curve_tuple in plot_widget.curve_data_list}
+        self.assertEqual(time_dict["file2_pressure"], [0.0, 1.0])
+        self.assertEqual(time_dict["file1_force"],
+                         [0.0, 0.5, 1.0, 1.5, 2.0])
+        # LLFR-00922 to LLFR-00928: closing file 1 removes its curves
+        # and closes Tab 1, left with no plot; Tab 2 stays shown.
+        self.controller.file_controller.close_file(1)
+        self.application.processEvents()
+        self.assertEqual(self.main_window.tab_name_list(), ["Tab 2"])
         self.assertEqual(self.legend_names(self.current_plot_widgets()[0]),
-                         ["pressure"])
+                         ["file2_pressure"])
+        self.assertEqual(self.main_window.signal_list_panel
+                         .signal_name_list(),
+                         ["file2_Time", "file2_pressure"])
 
 
 if __name__ == "__main__":
