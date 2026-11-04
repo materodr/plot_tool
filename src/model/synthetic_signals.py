@@ -328,12 +328,12 @@ def parameter_from_entry(operation_str: str, parameter_value):
 
 
 class SyntheticSignalStore:
-    """The synthetic signals of one opened data file, in creation order.
+    """The synthetic signals of the open data files, in creation order.
 
     Inputs: none.
-    Outputs: an empty store. The controller creates one store per opened
-        data file, or calls clear() when the data file is replaced
-        (LLFR-00252).
+    Outputs: an empty store. The controller keeps one store for every
+        open data file; closing a file deletes the synthetic signals
+        computed from its signals (LLFR-00922).
 
     Every method that changes the store keeps these rules: names are
     unique among the data file signals and the synthetic signals; every
@@ -400,7 +400,7 @@ class SyntheticSignalStore:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00252: a new data file starts with no synthetic signal.
+        # LLFR-00595: the synthetic signals exist only in this store.
         self.signal_list = []
 
     def check_sources(self, operation_str: str, source_name_list: list,
@@ -459,6 +459,21 @@ class SyntheticSignalStore:
         source_array_list = [np.asarray(signal_lookup(source_name_str),
                                         dtype=np.float64)
                              for source_name_str in source_name_list]
+        # LLFR-00937: a function gives the time signal of the file of the
+        # first source (the right-clicked signal of a product).
+        if callable(time_array):
+            time_function = time_array
+            time_array = time_function(source_name_list[0])
+            # LLFR-00496, LLFR-00275: the signals of a product must have
+            # exactly the same time signal.
+            for source_name_str in source_name_list[1:]:
+                if not np.array_equal(
+                        np.asarray(time_function(source_name_str)),
+                        np.asarray(time_array)):
+                    raise SyntheticSourceError(
+                        f'The signals "{source_name_list[0]}" and '
+                        f'"{source_name_str}" belong to data files whose '
+                        f'time signals are not the same.')
         # LLFR-00245, LLFR-00269, LLFR-00272: the parameter is allowed.
         parameter = operations.check_parameter(
             operation_str, parameter, time_array,
@@ -493,7 +508,9 @@ class SyntheticSignalStore:
                 time plots, LLFR-00248), or None.
             signal_lookup: function name -> samples (array-like) of any
                 signal in the signal list, data file or synthetic.
-            time_array: the time signal of the data file, in seconds.
+            time_array: the time signal of the data file, in seconds,
+                or a function that takes a signal name and returns the
+                time signal of its data file (LLFR-00937).
             data_name_set: the names of the data file signals.
         Outputs: the new SyntheticSignal, named by LLFR-00240 and
             LLFR-00241.
@@ -660,7 +677,9 @@ class SyntheticSignalStore:
                 the module docstring), as read by json.load.
             signal_lookup: function name -> samples of any signal in
                 the signal list, data file or synthetic.
-            time_array: the time signal of the data file, in seconds.
+            time_array: the time signal of the data file, in seconds,
+                or a function that takes a signal name and returns the
+                time signal of its data file (LLFR-00937).
             data_name_set: the names of the data file signals.
         Outputs: the new SyntheticSignal, with the saved name, appended
             to the store. An FFT entry is never created (LLFR-00283).
@@ -812,7 +831,9 @@ class LayoutSignalLoader:
             kept (LLFR-00229).
         signal_lookup: function name -> samples of any signal of the
             signal list, data file or synthetic.
-        time_array: the time signal of the data file, in seconds.
+        time_array: the time signal of the data file, in seconds, or a
+            function that takes a signal name and returns the time
+            signal of its data file (LLFR-00937).
         data_name_set: the names of the data file signals.
     Attributes:
         name_dict: file name of each synthetic entry -> the name of the
@@ -1000,7 +1021,9 @@ def create_layout_signals(store: SyntheticSignalStore, entry_list,
         store: the store to add the signals to; its signals are kept.
         entry_list: the "synthetic_signals" list of the layout file.
         signal_lookup: function name -> samples of any signal.
-        time_array: the time signal of the data file, in seconds.
+        time_array: the time signal of the data file, in seconds, or a
+            function that takes a signal name and returns the time
+            signal of its data file (LLFR-00937).
         data_name_set: the names of the data file signals.
     Outputs: a list of (label_str, reason_str) for each entry that was
         not created (LLFR-00237), FFT entries included (LLFR-00283).

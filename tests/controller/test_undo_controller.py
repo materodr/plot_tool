@@ -600,9 +600,9 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
                              state_list[expected_index_i])
             self.assert_view_matches_model()
 
-    @covers("LLFR-00142", "LLFR-00013", "LLFR-00141")
-    def test_opening_a_file_clears_the_history(self) -> None:
-        """A replaced file leaves nothing to undo.
+    @covers("LLFR-00142", "LLFR-00926", "LLFR-00141")
+    def test_opening_keeps_and_closing_clears_the_history(self) -> None:
+        """An added file keeps the history; closing the files clears it.
 
         Inputs: none.
         Outputs: none.
@@ -610,17 +610,20 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
         self.handler("add_tab")()
         self.handler("rename_tab")(self.first_tab_id_i, "Z")
         self.assertTrue(self.view.undo_enabled_b)
-        self.file_controller.open(make_signal_file(3), True)
+        depth_i = self.depth()
+        self.file_controller.open(self.signal_file, None)
+        self.assertEqual(self.depth(), depth_i)
+        self.assertTrue(self.view.undo_enabled_b)
+        self.close_all_files()
         self.assertEqual(self.depth(), 0)
         self.assertFalse(self.view.undo_enabled_b)
         before_tuple = self.workspace.state_tuple()
         self.undo()
         self.assertEqual(self.workspace.state_tuple(), before_tuple)
-        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
 
     @covers("LLFR-00142", "LLFR-00141")
-    def test_first_file_clears_actions_made_before(self) -> None:
-        """Tab actions before the first file are cleared when it opens.
+    def test_first_file_keeps_actions_made_before(self) -> None:
+        """Tab actions made before the first file stay undoable.
 
         Inputs: none.
         Outputs: none.
@@ -634,9 +637,9 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
         self.assertFalse(view.undo_enabled_b)
         view.handler_dict["add_tab"]()
         self.assertTrue(view.undo_enabled_b)
-        file_controller.open(make_signal_file(2), False)
-        self.assertFalse(controller.undo_history.can_undo())
-        self.assertFalse(view.undo_enabled_b)
+        file_controller.open(make_signal_file(2), None)
+        self.assertTrue(controller.undo_history.can_undo())
+        self.assertTrue(view.undo_enabled_b)
 
 
 class UndoViewStateTest(UndoControllerTestCase):
@@ -700,7 +703,8 @@ class UndoViewStateTest(UndoControllerTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.file_controller.open(make_signal_file(3), True)
+        self.close_all_files()
+        self.file_controller.open(make_signal_file(3), None)
         self.double_click("s1")
         plot_id_i = self.current_plot_ids()[0]
         self.handler("time_range_handler")(plot_id_i, 3.0, 4.0)

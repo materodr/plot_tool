@@ -319,7 +319,8 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: the two names, in creation order.
         """
-        return [self.create_fft("Speed"), self.create_fft("Torque")]
+        return [self.create_fft("file1_Speed"),
+                self.create_fft("file1_Torque")]
 
     @covers("LLFR-00295", "LLFR-00256", "HLFR-00064", "HLFR-00058",
             "LLFR-00631")
@@ -349,8 +350,8 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: none.
         """
-        fft_name_str = self.create_fft("Speed")
-        self.press_enter(["Speed", fft_name_str])
+        fft_name_str = self.create_fft("file1_Speed")
+        self.press_enter(["file1_Speed", fft_name_str])
         self.assertEqual(self.plot_id_list(), [])
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
         self.assertFalse(self.plot_controller.undo_history.can_undo())
@@ -363,11 +364,12 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: none.
         """
-        fft_name_str = self.create_fft("Speed")
-        self.double_click("Time")
+        fft_name_str = self.create_fft("file1_Speed")
+        self.double_click("file1_Time")
         plot_id_i = self.last_plot_id()
-        self.drop_names(plot_id_i, ["Speed", fft_name_str, "Torque"])
-        self.assertEqual(self.view.drawn_names(plot_id_i), ["Time"])
+        self.drop_names(plot_id_i, ["file1_Speed", fft_name_str,
+                                    "file1_Torque"])
+        self.assertEqual(self.view.drawn_names(plot_id_i), ["file1_Time"])
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
 
     @covers("LLFR-00300", "LLFR-00257", "LLFR-00297", "HLFR-00065",
@@ -381,7 +383,7 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         first_fft_str, second_fft_str = self.two_fft_names()
         self.double_click(first_fft_str)
         plot_id_i = self.last_plot_id()
-        self.drop_names(plot_id_i, [second_fft_str, "Speed"])
+        self.drop_names(plot_id_i, [second_fft_str, "file1_Speed"])
         self.assertEqual(self.view.drawn_names(plot_id_i), [first_fft_str])
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
         self.drop_names(plot_id_i, [first_fft_str, second_fft_str])
@@ -400,25 +402,25 @@ class RenameSelectionTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.create("Speed", "integral")
+        self.create("file1_Speed", "integral")
         self.view.name_answer_list = ["Distance"]
-        self.menu("rename", "int_Speed")
+        self.menu("rename", "int_file1_Speed")
         self.assertEqual(self.view.renamed_shown_list,
-                         [("int_Speed", "Distance")])
+                         [("int_file1_Speed", "Distance")])
         self.assertEqual(self.view.shown_name_list[-1], "Distance")
         # A rejected rename tells the view nothing.
         self.view.name_answer_list = ["   "]
         self.menu("rename", "Distance")
         self.assertEqual(self.view.renamed_shown_list,
-                         [("int_Speed", "Distance")])
+                         [("int_file1_Speed", "Distance")])
 
 
 class SelectionOnFileOpenTest(unittest.TestCase):
-    """The selection is cleared when a file is opened (LLFR-00292)."""
+    """Opening another data file keeps the selection (LLFR-00292)."""
 
-    @covers("LLFR-00292", "HLFR-00063")
-    def test_opening_a_file_clears_the_selection(self) -> None:
-        """Every open, first or replacing, clears the selection.
+    @covers("LLFR-00292", "LLFR-00917", "HLFR-00063")
+    def test_opening_a_file_keeps_the_selection(self) -> None:
+        """An added file keeps the signals shown, so they stay selected.
 
         Inputs: none.
         Outputs: none.
@@ -426,11 +428,9 @@ class SelectionOnFileOpenTest(unittest.TestCase):
         view = FakeSignalListView()
         file_controller = FakeFileController()
         SignalListController(view, file_controller)
+        file_controller.open(make_signal_file(2), None)
+        file_controller.open(make_signal_file(2), None)
         self.assertEqual(view.selection_clear_count_i, 0)
-        file_controller.open(make_signal_file(2), False)
-        self.assertEqual(view.selection_clear_count_i, 1)
-        file_controller.open(make_signal_file(2), True)
-        self.assertEqual(view.selection_clear_count_i, 2)
 
 
 if __name__ == "__main__":

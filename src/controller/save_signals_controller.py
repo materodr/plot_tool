@@ -96,16 +96,29 @@ class SaveSignalsController:
         view.set_save_signals_button_enabled(False)
         file_controller.add_file_opened_listener(self.on_file_opened)
 
-    def on_file_opened(self, signal_file, replaced_b: bool) -> None:
+    def on_file_opened(self, signal_file, added_file=None) -> None:
         """Enable the Save signals button once a data file is open.
 
         Inputs:
-            signal_file: the SignalFile that was opened.
-            replaced_b: True when it replaced another file.
+            signal_file: the DataFileSet of the open data files (or one
+                SignalFile).
+            added_file: the DataFile just added; not used.
         Outputs: none.
         """
         # LLFR-00395: enabled after a successful open.
         self.data_file_open_b = signal_file is not None
+        self.view.set_save_signals_button_enabled(self.data_file_open_b)
+
+    def on_files_closed(self, data_files, closed_file_list: list) -> None:
+        """Disable the Save signals button when no data file is left.
+
+        Inputs:
+            data_files: the DataFileSet of the files left.
+            closed_file_list: the closed DataFile objects.
+        Outputs: none.
+        """
+        # LLFR-00395, LLFR-00932: disabled while no data file is open.
+        self.data_file_open_b = len(data_files) > 0
         self.view.set_save_signals_button_enabled(self.data_file_open_b)
 
     def on_save_signals_requested(self) -> None:
@@ -132,13 +145,34 @@ class SaveSignalsController:
         # message about them.
         signal_file = self.synthetic_controller.signal_file
         store = self.synthetic_controller.store
-        signal_list = [(name_str, signal_file.signal_array(name_str))
+        # LLFR-00941: a signal of a data file is saved under its name in
+        # the file, without the prefix of LLFR-00901 (the names of the
+        # synthetic signals follow in step 3 of issue #190).
+        signal_list = [(self.plain_name(name_str),
+                        signal_file.signal_array(name_str))
                        for name_str in signal_file.signal_name_list]
         for name_str in store.names():
             synthetic_signal = store.get(name_str)
             if not synthetic_signal.is_fft_b:
                 signal_list.append((name_str, synthetic_signal.value_array))
         return signal_list
+
+    def plain_name(self, signal_name_str: str) -> str:
+        """Return the name a signal of a data file is saved under.
+
+        Inputs:
+            signal_name_str: a prefixed signal name (LLFR-00901).
+        Outputs: its name in its data file; the name itself when it is
+            not the name of a signal of an open data file.
+        """
+        # LLFR-00941: the prefix the app put in front is removed.
+        signal_file = self.synthetic_controller.signal_file
+        file_of_signal = getattr(signal_file, "file_of_signal", None)
+        data_file = (file_of_signal(signal_name_str)
+                     if file_of_signal is not None else None)
+        if data_file is None:
+            return signal_name_str
+        return data_file.plain_name(signal_name_str)
 
     def save_signals(self) -> None:
         """Run the steps of the Save signals flow.
@@ -164,13 +198,16 @@ class SaveSignalsController:
         # name that does not end with one.
         save_path_str = ensure_format_extension(path_str, format_str)
         file_name_str = os.path.basename(save_path_str)
-        # LLFR-00397, LLFR-00253: the opened data file is never written,
-        # and the app never asks to replace it (the native macOS dialog
-        # may already have asked; the app does not ask again).
-        if same_file(save_path_str, data_path_str):
-            self.view.show_signals_save_error(DATA_FILE_REFUSED_STR.format(
-                name=os.path.basename(data_path_str)))
-            return
+        # LLFR-00397, LLFR-00253: no open data file is ever written, and
+        # the app never asks to replace one (the native macOS dialog may
+        # already have asked; the app does not ask again).
+        for open_path_str in getattr(signal_file, "path_list",
+                                     [data_path_str]):
+            if same_file(save_path_str, open_path_str):
+                self.view.show_signals_save_error(
+                    DATA_FILE_REFUSED_STR.format(
+                        name=os.path.basename(open_path_str)))
+                return
         # LLFR-00397: ask before replacing a file, unless the system's
         # dialog already asked about this very path. LLFR-00398: "No"
         # saves nothing and says nothing.
@@ -201,7 +238,8 @@ class SaveSignalsController:
         # LLFR-00403, LLFR-00407: the names the format can store, with
         # the time signal as "Time".
         new_name_list = saved_name_list(
-            name_list, signal_file.time_signal_name_str, format_str)
+            name_list, self.plain_name(signal_file.time_signal_name_str),
+            format_str)
         # LLFR-00402: the content, then a safe write (LLFR-00399).
         try:
             content_bytes = signal_file_bytes(new_name_list, array_list,

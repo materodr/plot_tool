@@ -370,6 +370,9 @@ class PlotPanel(QWidget):
         self.add_tab_button = self.tab_widget.add_tab_button
         self.page_dict = {}
         self.plot_widget_dict = {}
+        # LLFR-00119, LLFR-00912: the time range of the open data files,
+        # given to every plot, the new ones too.
+        self.files_time_range_tuple = ()
         self.tab_delete_enabled_b = False
         self.add_tab_handler = None
         self.delete_tab_handler = None
@@ -637,7 +640,8 @@ class PlotPanel(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00015: close all tabs and plots of the previous file.
+        # LLFR-00024, LLFR-00138: every tab and plot is shown again from
+        # the model.
         for tab_id_i in list(self.page_dict):
             self.remove_tab_view(tab_id_i)
 
@@ -689,6 +693,19 @@ class PlotPanel(QWidget):
     # Plot facade
     # ----------------------------------------------------------------
 
+    def set_files_time_range(self, range_tuple: tuple) -> None:
+        """Give every plot the time range of the open data files.
+
+        Inputs:
+            range_tuple: (start_s, end_s), or () while no file is open.
+        Outputs: none.
+        """
+        # LLFR-00119, LLFR-00676, LLFR-00912: the limits of the zooms and
+        # pans of every time plot, the plots created later too.
+        self.files_time_range_tuple = tuple(range_tuple)
+        for plot_widget in self.plot_widget_dict.values():
+            plot_widget.set_files_time_range(self.files_time_range_tuple)
+
     def add_plot_view(self, tab_id_i: int, plot_id_i: int,
                       kind_str: str = TIME_PLOT_KIND_STR) -> None:
         """Create a plot widget at the bottom of a tab.
@@ -707,6 +724,8 @@ class PlotPanel(QWidget):
         # LLFR-00256: a time plot or a frequency plot.
         plot_widget = PlotWidget(plot_id_i, kind_str=kind_str)
         plot_widget.setObjectName(f"plot_widget_{plot_id_i}")
+        # LLFR-00119, LLFR-00912: zooms and pans within every open file.
+        plot_widget.set_files_time_range(self.files_time_range_tuple)
         # LLFR-00042, LLFR-00078, LLFR-00081: the new plot starts with no
         # tool; MainWindow.add_plot_view applies the active plot tool.
         # LLFR-00021, LLFR-00039, LLFR-00041, LLFR-00045, LLFR-00047,

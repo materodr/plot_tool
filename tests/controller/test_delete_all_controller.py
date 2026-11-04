@@ -506,7 +506,7 @@ class DeleteAllOnFrequencyPlotsTest(FrequencyPlotTestCase):
         Outputs: none.
         """
         super().setUp()
-        self.double_click("Speed")
+        self.double_click("file1_Speed")
         self.time_plot_id_i = self.last_plot_id()
         fft_name_str = self.create_fft()
         self.double_click(fft_name_str)
@@ -514,7 +514,7 @@ class DeleteAllOnFrequencyPlotsTest(FrequencyPlotTestCase):
         self.assertTrue(self.plot(self.frequency_plot_id_i)
                         .is_frequency_plot())
         for plot_id_i, signal_name_str in (
-                (self.time_plot_id_i, "Speed"),
+                (self.time_plot_id_i, "file1_Speed"),
                 (self.frequency_plot_id_i, fft_name_str)):
             self.view.handler_dict["tip_pin_handler"](
                 plot_id_i, signal_name_str, 1.0, 1.0)

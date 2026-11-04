@@ -5,7 +5,10 @@ in the signal list panel: "Create synthetic signal" with its operations
 (LLFR-00239, LLFR-00268), "Copy name" (LLFR-00277), and, for synthetic
 signals, "Rename" (LLFR-00265), "Delete signal" (LLFR-00254) and "Copy
 equation" (LLFR-00278). It keeps the SyntheticSignalStore of the open
-data file; the synthetic signals live only in memory (LLFR-00253).
+data files; the synthetic signals live only in memory (LLFR-00253,
+LLFR-00595). Each synthetic signal is computed with the time signal of
+the file of the signal it comes from (LLFR-00937). Closing a data file
+removes the synthetic signals computed from its signals (LLFR-00922).
 
 It talks to the view only through plain method calls with plain values,
 so it can be tested with a fake view (COR-00003, COR-00009). The view
@@ -38,6 +41,8 @@ must offer:
   box;
 - ``copy_text_to_clipboard(text_str)``.
 """
+
+import numpy as np
 
 from model import synthetic_operations as operations
 from model.errors import (
@@ -107,14 +112,15 @@ class SyntheticController:
     Inputs:
         view: the view facade (MainWindow or a fake).
         file_controller: the FileController; this controller listens to
-            it for opened files (LLFR-00252).
+            it for opened files (LLFR-00917).
         plot_controller: the PlotController, which draws the curves of
             synthetic signals and gives the time range of the plots.
         signal_list_controller: the SignalListController, which shows
             the synthetic signals in the signal list.
     Attributes:
-        store: the SyntheticSignalStore of the open data file.
-        signal_file: the open SignalFile, or None before the first one.
+        store: the SyntheticSignalStore of the open data files.
+        signal_file: the DataFileSet of the open data files, or None
+            before the first one.
     """
 
     def __init__(self, view, file_controller, plot_controller,
@@ -136,7 +142,7 @@ class SyntheticController:
         self.signal_file = None
         # LLFR-00242: the plots draw synthetic signals from the store.
         plot_controller.set_synthetic_store(self.store)
-        # LLFR-00252: a new data file removes every synthetic signal.
+        # LLFR-00917: a new data file keeps the synthetic signals.
         file_controller.add_file_opened_listener(self.on_file_opened)
         # LLFR-00239, LLFR-00268: the operations of the menu, in groups,
         # each with its abbreviation in parentheses.
@@ -190,6 +196,17 @@ class SyntheticController:
         # stale request from the view is ignored (PCR-00025).
         return signal_name_str in self.signal_list_name_list()
 
+    def source_time_array(self, signal_name_str: str):
+        """Return the time signal a signal of the list is computed with.
+
+        Inputs:
+            signal_name_str: a data file or synthetic signal name.
+        Outputs: the time signal of the signal's data file, in seconds.
+        Raises: KeyError for an unknown name.
+        """
+        # LLFR-00937: the time of the file the signal comes from.
+        return self.plot_controller.time_array_for_signal(signal_name_str)
+
     def signal_lookup(self, signal_name_str: str):
         """Return the samples of any signal of the signal list.
 
@@ -231,17 +248,47 @@ class SyntheticController:
     # File
     # ----------------------------------------------------------------
 
-    def on_file_opened(self, signal_file, replaced_b: bool) -> None:
-        """Remove every synthetic signal of the previous data file.
+    def on_file_opened(self, signal_file, added_file=None) -> None:
+        """Keep the synthetic signals when a data file is added.
 
         Inputs:
-            signal_file: the SignalFile that was opened.
-            replaced_b: True when it replaced another file.
+            signal_file: the DataFileSet of the open data files (or one
+                SignalFile).
+            added_file: the DataFile just added; not used.
         Outputs: none. The SignalListController shows the new list.
         """
-        # LLFR-00252: a new data file starts with no synthetic signal.
+        # LLFR-00917: the synthetic signals of the files already open
+        # are kept.
         self.signal_file = signal_file
-        self.store.clear()
+
+    def on_files_closed(self, data_files, closed_file_list: list) -> None:
+        """Remove the signals of closed data files and what they gave.
+
+        Inputs:
+            data_files: the DataFileSet of the files left.
+            closed_file_list: the closed DataFile objects.
+        Outputs: none. The curves are removed by the PlotController.
+        """
+        # LLFR-00922: the signals of the closed files and every synthetic
+        # signal computed from them, directly or through other synthetic
+        # signals, a product of another file included.
+        self.signal_file = data_files
+        closed_name_list = [name_str for data_file in closed_file_list
+                            for name_str in data_file.signal_name_list]
+        removed_name_set = set()
+        for name_str in closed_name_list:
+            removed_name_set.update(self.store.dependents(name_str))
+        removed_name_list = [name_str for name_str in self.store.names()
+                             if name_str in removed_name_set]
+        for name_str in removed_name_list:
+            if self.store.contains(name_str):
+                self.store.delete(name_str)
+        # LLFR-00923 to LLFR-00926, LLFR-00928: the curves, the plots and
+        # tabs left empty, the flags and areas, and the history.
+        self.plot_controller.close_signals(closed_name_list
+                                           + removed_name_list)
+        # LLFR-00922, LLFR-00242: the synthetic signals left are shown.
+        self.show_synthetic_signals()
 
     # ----------------------------------------------------------------
     # Create
@@ -265,7 +312,9 @@ class SyntheticController:
         if self.store.is_fft(source_name_str):
             return
         operation = operations.OPERATION_DICT[operation_str]
-        time_array = self.signal_file.time_array
+        # LLFR-00937, LLFR-00247: the time of the right-clicked signal's
+        # data file.
+        time_array = self.source_time_array(source_name_str)
         kind_str = operation.parameter_kind_str
         try:
             # LLFR-00247: filters and FFT need evenly spaced samples,
@@ -282,7 +331,7 @@ class SyntheticController:
             source_name_list, parameter = parameter_tuple
             # LLFR-00240, LLFR-00241: the store names the new signal.
             self.store.create(operation_str, source_name_list, parameter,
-                              self.signal_lookup, time_array,
+                              self.signal_lookup, self.source_time_array,
                               self.data_name_set())
         except SyntheticSignalError as error:
             # LLFR-00247, LLFR-00250: an information box that says why
@@ -326,12 +375,15 @@ class SyntheticController:
             return ()
         return ([source_name_str], parameter)
 
-    def number_dialog(self, operation, sample_count_i: int) -> tuple:
+    def number_dialog(self, operation, sample_count_i: int,
+                      time_array=None) -> tuple:
         """Return the prompt and the fields of a parameter dialog.
 
         Inputs:
             operation: the SyntheticOperation.
             sample_count_i: number of samples of the signal.
+            time_array: the time signal of the signal's data file
+                (LLFR-00937); None takes the lowest-numbered file's.
         Outputs: a tuple (prompt_str, field_list, choice_tuple): the
             prompt, with the allowed ranges, a list of (label_str,
             starting text) with one field per value, and the choice of
@@ -343,8 +395,10 @@ class SyntheticController:
             # LLFR-00245: the cutoff, greater than 0 and less than half
             # the sampling rate, in the number format of the data tips,
             # and the order, from 1 to 8, starting at 2.
+            if time_array is None:
+                time_array = self.signal_file.time_array
             lowest_hz, highest_hz = operations.allowed_cutoff_range_hz(
-                self.signal_file.time_array)
+                time_array)
             smallest_i, largest_i = operations.allowed_filter_order_range()
             return (FILTER_PROMPT_STR.format(
                 lowest=format_signal_value(lowest_hz),
@@ -383,10 +437,11 @@ class SyntheticController:
         """
         # LLFR-00245, LLFR-00269, LLFR-00272: the dialog stays open and
         # says why while a value is not allowed.
-        time_array = self.signal_file.time_array
+        # LLFR-00937: the time of the signal's own data file.
+        time_array = self.source_time_array(source_name_str)
         sample_count_i = int(self.signal_lookup(source_name_str).size)
         prompt_str, field_list, choice_tuple = self.number_dialog(
-            operation, sample_count_i)
+            operation, sample_count_i, time_array)
 
         def parameter_of(text_list) -> object:
             """Return the parameter typed in the dialog, checked.
@@ -446,9 +501,12 @@ class SyntheticController:
         Outputs: the chosen name, or None when cancelled.
         """
         # LLFR-00275: every signal of the list except the FFT signals,
-        # including the right-clicked one.
+        # including the right-clicked one, whose data file has exactly
+        # the same time signal as the right-clicked signal's.
+        source_time_array = self.source_time_array(source_name_str)
         name_list = [name_str for name_str in self.signal_list_name_list()
-                     if not self.store.is_fft(name_str)]
+                     if not self.store.is_fft(name_str)
+                     and self.same_time_b(name_str, source_time_array)]
 
         def matching_names(text_str: str) -> list:
             """Return the dialog's signals that match the typed text.
@@ -469,6 +527,24 @@ class SyntheticController:
         if chosen_name_str is None or chosen_name_str not in name_list:
             return None
         return str(chosen_name_str)
+
+    def same_time_b(self, signal_name_str: str, time_array) -> bool:
+        """Tell whether a signal has exactly a given time signal.
+
+        Inputs:
+            signal_name_str: a signal of the signal list.
+            time_array: a time signal, in seconds.
+        Outputs: True when the signal's data file has a time signal with
+            the same number of samples and the same value at each one.
+        """
+        # LLFR-00275: the same number of samples and exactly the same
+        # value at every sample.
+        try:
+            signal_time_array = self.source_time_array(signal_name_str)
+        except KeyError:
+            return False
+        return bool(np.array_equal(np.asarray(signal_time_array),
+                                   np.asarray(time_array)))
 
     # ----------------------------------------------------------------
     # Copy
@@ -599,8 +675,9 @@ class SyntheticController:
         # LLFR-00262, LLFR-00282: create, reuse or rename, in order.
         if self.signal_file is None:
             return {}
+        # LLFR-00937: each signal with the time of its data file.
         loader = LayoutSignalLoader(
-            self.store, self.signal_lookup, self.signal_file.time_array,
+            self.store, self.signal_lookup, self.source_time_array,
             self.data_name_set())
         loader.load(entry_list)
         for label_str, reason_str in loader.not_created_list:

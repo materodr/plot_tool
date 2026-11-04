@@ -1150,6 +1150,10 @@ class PlotWidget(QWidget):
         # as tuples (band, label annotation, times annotation).
         self.area_data_list = []
         self.area_artist_dict = {}
+        # LLFR-00119, LLFR-00912: the time range of the open data files,
+        # () until the controller gives it; a time plot's zooms and pans
+        # stay within it.
+        self.files_time_range_tuple = ()
         # LLFR-00303, LLFR-00312, LLFR-00313: the left press of the Area
         # tool: what it drags (AREA_DRAG_*), the area it drags, where it
         # was pressed (widget point and time), whether the pointer moved
@@ -2688,19 +2692,39 @@ class PlotWidget(QWidget):
         time_text.set_text(format_time_text(time_s))
         self.place_markers()
 
+    def set_files_time_range(self, range_tuple: tuple) -> None:
+        """Keep the time range of the open data files.
+
+        Inputs:
+            range_tuple: (start_s, end_s), or () while no file is open.
+        Outputs: none. The shown range is not changed.
+        """
+        # LLFR-00119, LLFR-00676, LLFR-00912: the limits of the zooms
+        # and pans of a time plot.
+        self.files_time_range_tuple = tuple(range_tuple)
+
     def full_time_range_tuple(self) -> tuple:
         """Return the time range that covers all the curves.
 
         Inputs: none.
         Outputs: a tuple (start_s, end_s); (0, 1) when there are no
-            curves. For a frequency plot, the frequency range (start_hz,
-            end_hz) from 0 Hz to the highest frequency of its curves.
+            curves. For a time plot, the time range of the open data
+            files when the controller gave it. For a frequency plot, the
+            frequency range (start_hz, end_hz) from 0 Hz to the highest
+            frequency of its curves.
         """
         # LLFR-00070: the default view shows all samples.
         time_list = [curve_tuple[1] for curve_tuple in self.curve_data_list
                      if curve_tuple[1].size > 0]
         if not time_list:
             return (0.0, 1.0)
+        # LLFR-00912, LLFR-00119: a time plot reaches the times of every
+        # open data file, also of the files none of its curves comes from.
+        if not self.frequency_plot_b and len(
+                self.files_time_range_tuple) == 2:
+            return padded_range_tuple(self.files_time_range_tuple[0],
+                                      self.files_time_range_tuple[1],
+                                      SINGLE_SAMPLE_HALF_RANGE_S)
         start_s = min(float(np.min(time_array)) for time_array in time_list)
         end_s = max(float(np.max(time_array)) for time_array in time_list)
         # LLFR-00258: a frequency plot's range starts at 0 Hz and ends at

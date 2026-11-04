@@ -1,4 +1,10 @@
-"""Tests for the open-file flow of FileController (no Qt needed)."""
+"""Tests for the open and close flows of FileController (no Qt needed).
+
+Several data files can be open at once (HLFR-00113); opening adds a
+file with the next number (HLFR-00114, HLFR-00117), every signal is
+named with the prefix of its file (HLFR-00115), and a file can be
+closed, or all of them (HLFR-00118, HLFR-00119).
+"""
 
 import os
 import sys
@@ -11,8 +17,10 @@ import numpy as np
 from tests.support import REPOSITORY_ROOT_STR, covers
 
 from controller.file_controller import (
+    ALREADY_OPEN_REASON_STR, LIMIT_REASON_STR, OPEN_FILES_LIMIT_MESSAGE_STR,
     REPOSITORY_FOLDER_STR, TIME_SIGNAL_PROMPT_STR, FileController,
     first_start_folder_str)
+from model.data_files import MAXIMUM_DATA_FILES_I
 from model.errors import (
     SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
     FileAccessError, FileReadError, UnsupportedFormatError)
@@ -40,48 +48,57 @@ def build_signal_file(path_str: str, name_list: list) -> SignalFile:
     return SignalFile(path_str, signal_dict)
 
 
+def build_no_time_file(path_str: str) -> SignalFile:
+    """Build a SignalFile with no signal named "Time".
+
+    Inputs:
+        path_str: the path stored in the SignalFile.
+    Outputs: a SignalFile with "Down" (decreasing), "t_s" (increasing)
+        and "Flat" (not always increasing), three samples each.
+    """
+    return SignalFile(path_str, {
+        "Down": np.array([3.0, 2.0, 1.0]),
+        "t_s": np.array([0.0, 0.5, 1.5]),
+        "Flat": np.array([1.0, 1.0, 2.0])})
+
+
 class FakeView:
     """Stand-in for MainWindow that records every facade call.
 
     Inputs:
-        path_list: paths returned by successive ask_open_file_path calls
-            ("" means the dialog was cancelled).
-        replace_answer_list: answers returned by successive
-            ask_replace_file calls.
+        path_list: answers of successive ask_open_file_path calls: a
+            path, "" (the dialog was cancelled) or a list of paths.
         time_answer_list: lists of names "confirmed" by successive
             ask_time_signal_name calls; each name is checked with the
             window's check function like the real window does, and the
             first accepted one is returned; an empty list cancels.
     """
 
-    def __init__(self, path_list: list, replace_answer_list=None,
-                 time_answer_list=None) -> None:
+    def __init__(self, path_list: list, time_answer_list=None) -> None:
         """Store the scripted answers and start with no calls.
 
         Inputs:
             path_list: the scripted dialog results.
-            replace_answer_list: the scripted confirmation answers.
             time_answer_list: the scripted time signal window answers.
         Outputs: none.
         """
         self.path_list = list(path_list)
-        self.replace_answer_list = list(replace_answer_list or [])
         self.time_answer_list = list(time_answer_list or [])
         self.time_window_list = []
         self.time_reason_list = []
-        self.time_signal_name_list = []
         self.call_list = []
         self.error_message_list = []
-        self.shown_name_list = []
+        self.refused_message_list = []
+        self.limit_message_list = []
         self.start_folder_list = []
         self.loading_shown_b = False
 
-    def ask_open_file_path(self, start_folder_str: str) -> str:
-        """Record the call and return the next scripted path.
+    def ask_open_file_path(self, start_folder_str: str):
+        """Record the call and return the next scripted answer.
 
         Inputs:
             start_folder_str: the folder the dialog would show.
-        Outputs: the next path of path_list.
+        Outputs: the next answer of path_list.
         """
         self.call_list.append("ask_open_file_path")
         self.start_folder_list.append(start_folder_str)
@@ -97,14 +114,25 @@ class FakeView:
         self.call_list.append("show_file_open_error")
         self.error_message_list.append(message_str)
 
-    def ask_replace_file(self) -> bool:
-        """Record the call and return the next scripted answer.
+    def show_refused_files_notification(self, message_str: str) -> None:
+        """Record the box of the refused files.
 
-        Inputs: none.
-        Outputs: the next answer of replace_answer_list.
+        Inputs:
+            message_str: one line per refused file.
+        Outputs: none.
         """
-        self.call_list.append("ask_replace_file")
-        return self.replace_answer_list.pop(0)
+        self.call_list.append("show_refused_files_notification")
+        self.refused_message_list.append(message_str)
+
+    def show_open_files_limit_notification(self, message_str: str) -> None:
+        """Record the box of an Open file click with 10 files open.
+
+        Inputs:
+            message_str: the sentence of the box.
+        Outputs: none.
+        """
+        self.call_list.append("show_open_files_limit_notification")
+        self.limit_message_list.append(message_str)
 
     def ask_time_signal_name(self, prompt_str: str, name_list: list,
                              search_function, no_match_text_str: str,
@@ -130,25 +158,6 @@ class FakeView:
                 return name_str
             self.time_reason_list.append(reason_str)
         return None
-
-    def set_time_signal_name(self, name_str: str) -> None:
-        """Record the time signal given to the signal list.
-
-        Inputs:
-            name_str: the time signal name.
-        Outputs: none.
-        """
-        self.time_signal_name_list.append(name_str)
-
-    def show_signal_names(self, signal_name_list: list) -> None:
-        """Record the names shown in the signal list.
-
-        Inputs:
-            signal_name_list: the names to show.
-        Outputs: none.
-        """
-        self.call_list.append("show_signal_names")
-        self.shown_name_list = list(signal_name_list)
 
     def finish_open_file_button(self) -> None:
         """Record that the Open file button was finished.
@@ -222,8 +231,8 @@ ERROR_CASE_LIST = [
 ]
 
 
-class FileControllerTest(unittest.TestCase):
-    """Check the open-file flow with a fake view and fake loaders."""
+class FileControllerTestCase(unittest.TestCase):
+    """Shared helpers: a controller with a scripted loader."""
 
     def setUp(self) -> None:
         """Prepare two valid files and a listener call recorder.
@@ -234,19 +243,34 @@ class FileControllerTest(unittest.TestCase):
         self.first_file = build_signal_file(FIRST_PATH_STR, ["a", "b"])
         self.second_file = build_signal_file(SECOND_PATH_STR, ["c"])
         self.listener_call_list = []
+        self.closed_call_list = []
 
-    def record_listener(self, signal_file, replaced_b: bool) -> None:
+    def record_listener(self, data_files, data_file) -> None:
         """Record one call of a file-opened listener.
 
         Inputs:
-            signal_file: the opened SignalFile.
-            replaced_b: whether it replaced another file.
+            data_files: the DataFileSet of the open files.
+            data_file: the DataFile just added.
         Outputs: none.
         """
-        self.listener_call_list.append((signal_file, replaced_b))
+        self.listener_call_list.append(
+            (data_file.number_i, data_file.signal_file,
+             list(data_files.signal_name_list)))
+
+    def record_closed(self, data_files, closed_file_list: list) -> None:
+        """Record one call of a files-closed listener.
+
+        Inputs:
+            data_files: the DataFileSet of the files left.
+            closed_file_list: the closed DataFile objects.
+        Outputs: none.
+        """
+        self.closed_call_list.append(
+            ([data_file.number_i for data_file in closed_file_list],
+             [data_file.number_i for data_file in data_files.file_list]))
 
     def build_controller(self, view, result_dict: dict) -> FileController:
-        """Build a FileController with a scripted loader and listener.
+        """Build a FileController with a scripted loader and listeners.
 
         Inputs:
             view: the fake view.
@@ -254,8 +278,9 @@ class FileControllerTest(unittest.TestCase):
         Outputs: the FileController.
         """
         self.loader = ScriptedLoader(result_dict)
-        controller = FileController(view, self.loader)
+        controller = FileController(view, self.loader, "/start")
         controller.add_file_opened_listener(self.record_listener)
+        controller.add_files_closed_listener(self.record_closed)
         return controller
 
     def open_first_file(self, view, result_dict: dict) -> FileController:
@@ -264,21 +289,56 @@ class FileControllerTest(unittest.TestCase):
         Inputs:
             view: the fake view; its first path must be FIRST_PATH_STR.
             result_dict: path -> SignalFile or exception.
-        Outputs: the FileController with the first file open.
+        Outputs: the FileController with the first file open; the
+            recorded calls are cleared.
         """
         result_dict = dict(result_dict)
         result_dict[FIRST_PATH_STR] = self.first_file
         controller = self.build_controller(view, result_dict)
         controller.open_file_requested()
-        self.assertIs(controller.current_file, self.first_file)
+        self.assertEqual(self.numbers(controller), [1])
         view.call_list.clear()
         self.listener_call_list.clear()
         return controller
 
-    @covers("LLFR-00005", "LLFR-00006", "LLFR-00054", "LLFR-00003",
-            "LLFR-00328", "LLFR-00418")
-    def test_first_file_is_opened_and_shown(self) -> None:
-        """The first valid file opens without confirmation.
+    def numbers(self, controller) -> list:
+        """Return the numbers of the open data files.
+
+        Inputs:
+            controller: the FileController.
+        Outputs: the numbers, in order.
+        """
+        return [data_file.number_i
+                for data_file in controller.data_files.file_list]
+
+    def assert_first_file_kept(self, controller, view) -> None:
+        """Check that only the first file is open, unchanged.
+
+        Inputs:
+            controller: the FileController.
+            view: the fake view.
+        Outputs: none.
+        """
+        # LLFR-00010: no change for the file that did not open; no
+        # listener ran, so the plots, the signal list, the synthetic
+        # signals and the history are unchanged too.
+        self.assertEqual(self.numbers(controller), [1])
+        self.assertIs(controller.data_files.file_list[0].signal_file,
+                      self.first_file)
+        self.assertEqual(self.listener_call_list, [])
+        self.assertEqual(controller.dialog_folder_str, "/data")
+        self.assertFalse(view.loading_shown_b)
+        self.assertEqual(controller.data_files.next_number_i, 2)
+
+
+class OpenFileTest(FileControllerTestCase):
+    """Opening data files (HLFR-00004, HLFR-00113, HLFR-00117)."""
+
+    @covers("LLFR-00005", "LLFR-00006", "LLFR-00003", "LLFR-00328",
+            "LLFR-00418", "LLFR-00896", "LLFR-00901", "LLFR-00902",
+            "LLFR-00916", "HLFR-00114", "HLFR-00115")
+    def test_first_file_is_opened_as_file_1(self) -> None:
+        """The first valid file opens as file 1, with prefixed names.
 
         Inputs: none.
         Outputs: none.
@@ -289,64 +349,61 @@ class FileControllerTest(unittest.TestCase):
         self.assertIsNone(controller.current_file)
         controller.open_file_requested()
         self.assertEqual(self.loader.loaded_path_list, [FIRST_PATH_STR])
-        self.assertIs(controller.current_file, self.first_file)
-        self.assertEqual(view.shown_name_list, ["Time", "a", "b"])
-        # LLFR-00418: the indication is shown for the first file too.
+        self.assertIs(controller.current_file, controller.data_files)
+        self.assertEqual(self.numbers(controller), [1])
+        self.assertEqual(controller.data_files.signal_name_list,
+                         ["file1_Time", "file1_a", "file1_b"])
         self.assertEqual(view.call_list, [
-            "ask_open_file_path", *LOADING_CALL_LIST, "show_signal_names",
+            "ask_open_file_path", *LOADING_CALL_LIST,
             "finish_open_file_button"])
-        self.assertEqual(self.listener_call_list,
-                         [(self.first_file, False)])
+        self.assertEqual(self.listener_call_list, [
+            (1, self.first_file, ["file1_Time", "file1_a", "file1_b"])])
 
-    @covers("HLFR-00010")
-    def test_first_file_does_not_ask_for_confirmation(self) -> None:
-        """No replace confirmation is asked when no file is open.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        view = FakeView([FIRST_PATH_STR])
-        controller = self.build_controller(
-            view, {FIRST_PATH_STR: self.first_file})
-        controller.open_file_requested()
-        self.assertNotIn("ask_replace_file", view.call_list)
-
-    @covers("LLFR-00007", "LLFR-00003")
-    def test_cancel_before_any_file_changes_nothing(self) -> None:
-        """Cancelling the dialog with no file open loads nothing.
+    @covers("LLFR-00918", "LLFR-00916", "LLFR-00917", "LLFR-00896",
+            "LLFR-00897", "LLFR-00891", "HLFR-00117", "HLFR-00113")
+    def test_second_file_is_added_with_no_question(self) -> None:
+        """A second file is read at once and added as file 2.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([""])
-        controller = self.build_controller(view, {})
+        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR])
+        controller = self.open_first_file(
+            view, {SECOND_PATH_STR: self.second_file})
+        first_data_file = controller.data_files.file_list[0]
         controller.open_file_requested()
-        self.assertIsNone(controller.current_file)
-        self.assertEqual(self.loader.loaded_path_list, [])
         self.assertEqual(view.call_list, [
-            "ask_open_file_path", "finish_open_file_button"])
-        self.assertEqual(self.listener_call_list, [])
+            "ask_open_file_path", *LOADING_CALL_LIST,
+            "finish_open_file_button"])
+        self.assertEqual(self.numbers(controller), [1, 2])
+        self.assertIs(controller.data_files.file_list[0], first_data_file)
+        self.assertEqual(controller.data_files.signal_name_list, [
+            "file1_Time", "file1_a", "file1_b", "file2_Time", "file2_c"])
+        self.assertEqual(self.listener_call_list[0][:2],
+                         (2, self.second_file))
 
     @covers("LLFR-00007", "LLFR-00003")
-    def test_cancel_keeps_open_file_and_list(self) -> None:
-        """Cancelling the dialog keeps the open file and its list.
+    def test_cancel_changes_nothing(self) -> None:
+        """Cancelling the dialog keeps the open files and reads nothing.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([FIRST_PATH_STR, ""])
+        view = FakeView([FIRST_PATH_STR, "", []])
         controller = self.open_first_file(view, {})
         controller.open_file_requested()
-        self.assertIs(controller.current_file, self.first_file)
-        self.assertEqual(view.shown_name_list, ["Time", "a", "b"])
+        controller.open_file_requested()
+        self.assert_first_file_kept(controller, view)
+        self.assertEqual(self.loader.loaded_path_list, [FIRST_PATH_STR])
         self.assertEqual(view.call_list, [
-            "ask_open_file_path", "finish_open_file_button"])
-        self.assertEqual(self.listener_call_list, [])
+            "ask_open_file_path", "finish_open_file_button"] * 2)
 
     @covers("LLFR-00008", "LLFR-00009", "LLFR-00011", "LLFR-00012",
-            "LLFR-00003", "LLFR-00418")
-    def test_each_error_shows_its_message(self) -> None:
-        """Every FileOpenError shows the error box with its message.
+            "LLFR-00010", "LLFR-00510", "LLFR-00511", "LLFR-00951",
+            "LLFR-00899", "LLFR-00651", "HLFR-00101", "LLFR-00418")
+    def test_each_error_shows_its_message_and_keeps_the_files(
+            self) -> None:
+        """Every FileOpenError shows its reason; nothing else changes.
 
         Inputs: none.
         Outputs: none.
@@ -355,178 +412,327 @@ class FileControllerTest(unittest.TestCase):
             with self.subTest(requirement_str=requirement_str,
                               error=str(error)):
                 self.listener_call_list.clear()
-                view = FakeView([SECOND_PATH_STR])
-                controller = self.build_controller(
+                view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR])
+                controller = self.open_first_file(
                     view, {SECOND_PATH_STR: error})
                 controller.open_file_requested()
                 self.assertEqual(view.error_message_list, [str(error)])
-                self.assertIsNone(controller.current_file)
                 # LLFR-00418: the indication is gone before the box.
                 self.assertEqual(view.call_list, [
                     "ask_open_file_path", *LOADING_CALL_LIST,
                     "show_file_open_error", "finish_open_file_button"])
-                self.assertEqual(self.listener_call_list, [])
+                self.assert_first_file_kept(controller, view)
 
-    @covers("LLFR-00010", "LLFR-00008", "LLFR-00009", "LLFR-00011",
-            "LLFR-00012", "HLFR-00010", "LLFR-00013", "LLFR-00328",
-            "LLFR-00418", "LLFR-00363", "HLFR-00101", "LLFR-00448",
-            "LLFR-00510", "LLFR-00511", "LLFR-00651")
-    def test_failed_open_keeps_previous_file(self) -> None:
-        """Proceeding, then a failed read, keeps the previous file.
-
-        The confirmation comes first, then the read with the
-        indication, then the error box; nothing is replaced.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        for requirement_str, error in ERROR_CASE_LIST:
-            with self.subTest(requirement_str=requirement_str,
-                              error=str(error)):
-                view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR], [True])
-                controller = self.open_first_file(
-                    view, {SECOND_PATH_STR: error})
-                controller.open_file_requested()
-                self.assertIs(controller.current_file, self.first_file)
-                self.assertEqual(view.shown_name_list, ["Time", "a", "b"])
-                self.assertEqual(view.call_list, [
-                    "ask_open_file_path", "ask_replace_file",
-                    *LOADING_CALL_LIST, "show_file_open_error",
-                    "finish_open_file_button"])
-                self.assertFalse(view.loading_shown_b)
-                self.assertEqual(view.error_message_list, [str(error)])
-                self.assertEqual(self.listener_call_list, [])
-
-    @covers("LLFR-00008", "LLFR-00010", "LLFR-00003")
+    @covers("LLFR-00969", "LLFR-00008", "LLFR-00010", "LLFR-00003")
     def test_unexpected_error_is_reported_not_raised(self) -> None:
-        """An unexpected loader exception shows an error box, no crash.
+        """An unexpected loader exception is a reading error of the file.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR], [True])
+        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR])
         controller = self.open_first_file(
             view, {SECOND_PATH_STR: ValueError("strange failure")})
         controller.open_file_requested()
-        self.assertIs(controller.current_file, self.first_file)
         self.assertEqual(len(view.error_message_list), 1)
         message_str = view.error_message_list[0]
         self.assertIn("could not be read", message_str)
         self.assertIn("strange failure", message_str)
         self.assertIn(SECOND_PATH_STR, message_str)
-        # LLFR-00418: the indication is removed before the box.
-        self.assertEqual(view.call_list, [
-            "ask_open_file_path", "ask_replace_file", *LOADING_CALL_LIST,
-            "show_file_open_error", "finish_open_file_button"])
-        self.assertEqual(self.listener_call_list, [])
+        self.assert_first_file_kept(controller, view)
 
-    @covers("LLFR-00013", "LLFR-00017", "LLFR-00054", "HLFR-00010",
-            "LLFR-00328", "LLFR-00418")
-    def test_replace_accepted_opens_new_file(self) -> None:
-        """Yes in the confirmation replaces the file and its list.
+    @covers("LLFR-00969", "LLFR-00949", "LLFR-00951")
+    def test_unexpected_error_after_the_read_goes_on(self) -> None:
+        """An error in the time signal window is listed; the next file
+        of the selection is still opened.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR], [True])
-        controller = self.open_first_file(
-            view, {SECOND_PATH_STR: self.second_file})
-        controller.open_file_requested()
-        self.assertIs(controller.current_file, self.second_file)
-        self.assertEqual(view.shown_name_list, ["Time", "c"])
-        self.assertEqual(view.call_list, [
-            "ask_open_file_path", "ask_replace_file", *LOADING_CALL_LIST,
-            "show_signal_names", "finish_open_file_button"])
-        self.assertEqual(self.listener_call_list,
-                         [(self.second_file, True)])
+        view = FakeView([[SECOND_PATH_STR, FIRST_PATH_STR]])
 
-    @covers("LLFR-00014", "HLFR-00010", "LLFR-00003", "LLFR-00010",
-            "LLFR-00328", "LLFR-00418", "LLFR-00449", "LLFR-00450")
-    def test_replace_declined_keeps_current_file(self) -> None:
-        """No in the confirmation keeps the file; nothing is read.
+        def broken_window(*argument_tuple):
+            """Raise as a broken window would.
+
+            Inputs:
+                argument_tuple: ignored.
+            Outputs: none; always raises RuntimeError.
+            """
+            raise RuntimeError("window failure")
+
+        view.ask_time_signal_name = broken_window
+        controller = self.build_controller(view, {
+            FIRST_PATH_STR: self.first_file,
+            SECOND_PATH_STR: build_no_time_file(SECOND_PATH_STR)})
+        controller.open_file_requested()
+        self.assertEqual(self.numbers(controller), [1])
+        self.assertIs(controller.data_files.file_list[0].signal_file,
+                      self.first_file)
+        self.assertEqual(len(view.error_message_list), 1)
+        self.assertIn("window failure", view.error_message_list[0])
+        self.assertIn("second.csv", view.error_message_list[0])
+
+    @covers("LLFR-00894", "LLFR-00895", "LLFR-00952", "LLFR-00899",
+            "LLFR-00010", "LLFR-00651", "HLFR-00113")
+    def test_file_already_open_is_refused_before_it_is_read(self) -> None:
+        """The same file again is listed as already open, and not read.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR], [False])
-        controller = self.open_first_file(
-            view, {SECOND_PATH_STR: self.second_file})
+        view = FakeView([FIRST_PATH_STR, "/data/../data/first.csv"])
+        controller = self.open_first_file(view, {})
         controller.open_file_requested()
-        self.assertIs(controller.current_file, self.first_file)
-        self.assertEqual(view.shown_name_list, ["Time", "a", "b"])
-        self.assertEqual(view.call_list, [
-            "ask_open_file_path", "ask_replace_file",
-            "finish_open_file_button"])
-        # LLFR-00014: the selected file is not read, no indication.
         self.assertEqual(self.loader.loaded_path_list, [FIRST_PATH_STR])
+        self.assertEqual(view.refused_message_list, [
+            ALREADY_OPEN_REASON_STR.format(name="first.csv", number=1)])
+        self.assertEqual(view.refused_message_list,
+                         ["first.csv: already open as file1."])
+        self.assertEqual(view.error_message_list, [])
+        self.assertEqual(view.call_list, [
+            "ask_open_file_path", "show_refused_files_notification",
+            "finish_open_file_button"])
+        self.assert_first_file_kept(controller, view)
+
+    @covers("LLFR-00894", "LLFR-00895")
+    def test_link_to_an_open_file_is_refused(self) -> None:
+        """A symbolic link to an open file names the same file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with tempfile.TemporaryDirectory() as folder_str:
+            path_str = os.path.join(folder_str, "run.csv")
+            with open(path_str, "w", encoding="utf-8") as file:
+                file.write("Time,speed\n0,1\n1,2\n")
+            link_path_str = os.path.join(folder_str, "link.csv")
+            try:
+                os.symlink(path_str, link_path_str)
+            except (OSError, NotImplementedError):
+                self.skipTest("symbolic links are not available")
+            view = FakeView([path_str, link_path_str])
+            controller = FileController(view, load_signal_file, "/start")
+            controller.open_file_requested()
+            controller.open_file_requested()
+        self.assertEqual(self.numbers(controller), [1])
+        self.assertEqual(view.refused_message_list,
+                         ["link.csv: already open as file1."])
+
+    @covers("LLFR-00892", "LLFR-00893", "LLFR-00891", "LLFR-00005",
+            "LLFR-00003", "HLFR-00113")
+    def test_ten_open_files_show_the_limit_box(self) -> None:
+        """With 10 files open, a click shows a box in place of the dialog.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        path_list = [f"/data/run{index_i}.csv"
+                     for index_i in range(MAXIMUM_DATA_FILES_I)]
+        view = FakeView([path_list])
+        controller = self.build_controller(view, {
+            path_str: build_signal_file(path_str, ["a"])
+            for path_str in path_list})
+        controller.open_file_requested()
+        self.assertEqual(len(controller.data_files), 10)
+        self.assertTrue(controller.data_files.is_full_b)
+        view.call_list.clear()
+        self.listener_call_list.clear()
+        controller.open_file_requested()
+        self.assertEqual(view.call_list, [
+            "show_open_files_limit_notification",
+            "finish_open_file_button"])
+        self.assertEqual(view.limit_message_list,
+                         [OPEN_FILES_LIMIT_MESSAGE_STR])
+        self.assertIn("10 files are already open",
+                      OPEN_FILES_LIMIT_MESSAGE_STR)
+        self.assertIn("Close one of them", OPEN_FILES_LIMIT_MESSAGE_STR)
+        self.assertEqual(self.numbers(controller), list(range(1, 11)))
         self.assertEqual(self.listener_call_list, [])
+        # LLFR-00891: a closed file makes room for another one.
+        controller.close_file(4)
+        view.path_list = ["/data/extra.csv"]
+        self.loader.result_dict["/data/extra.csv"] = build_signal_file(
+            "/data/extra.csv", ["z"])
+        controller.open_file_requested()
+        self.assertEqual(self.numbers(controller)[-1], 11)
+        self.assertEqual(len(controller.data_files), 10)
 
-    @covers("LLFR-00013", "LLFR-00017", "HLFR-00010")
-    def test_reopening_same_path_asks_and_replaces(self) -> None:
-        """Opening a file while one is open always asks, even same path.
+    @covers("LLFR-00950", "LLFR-00952", "LLFR-00894", "LLFR-00949",
+            "LLFR-00899", "HLFR-00122")
+    def test_selected_files_beyond_ten_are_refused(self) -> None:
+        """The limit is checked first, then whether a file is open.
 
         Inputs: none.
         Outputs: none.
         """
-        reloaded_file = build_signal_file(FIRST_PATH_STR, ["a", "b", "z"])
-        view = FakeView([FIRST_PATH_STR, FIRST_PATH_STR], [True])
-        controller = self.build_controller(view, {})
-        self.loader.result_dict[FIRST_PATH_STR] = self.first_file
+        path_list = [f"/data/a{index_i}.csv" for index_i in range(9)]
+        result_dict = {path_str: build_signal_file(path_str, ["a"])
+                       for path_str in path_list}
+        result_dict["/data/b1.csv"] = build_signal_file("/data/b1.csv",
+                                                        ["b"])
+        result_dict["/data/b2.csv"] = build_signal_file("/data/b2.csv",
+                                                        ["b"])
+        view = FakeView([path_list, ["/data/b2.csv", "/data/a0.csv",
+                                     "/data/b1.csv"]])
+        controller = self.build_controller(view, result_dict)
         controller.open_file_requested()
-        self.loader.result_dict[FIRST_PATH_STR] = reloaded_file
+        view.call_list.clear()
         controller.open_file_requested()
-        self.assertEqual(view.call_list.count("ask_replace_file"), 1)
-        self.assertIs(controller.current_file, reloaded_file)
-        self.assertEqual(view.shown_name_list, ["Time", "a", "b", "z"])
+        # LLFR-00948: a0 comes first; it is already open and refused for
+        # that; b1 opens as the tenth file; b2 is refused for the limit.
+        self.assertEqual(len(controller.data_files), 10)
+        self.assertEqual(controller.data_files.file_list[-1].path_str,
+                         "/data/b1.csv")
+        self.assertEqual(view.refused_message_list, ["\n".join([
+            "a0.csv: already open as file1.",
+            LIMIT_REASON_STR.format(name="b2.csv")])])
+        self.assertIn("10 files are already open",
+                      view.refused_message_list[0])
+        self.assertNotIn("/data/b2.csv", self.loader.loaded_path_list)
+        self.assertEqual(view.call_list[-2:], [
+            "show_refused_files_notification", "finish_open_file_button"])
+        # LLFR-00894 Note: with 10 files open, an open file is refused
+        # for the limit.
+        controller.open_paths(["/data/a1.csv"])
+        self.assertEqual(view.refused_message_list[-1],
+                         LIMIT_REASON_STR.format(name="a1.csv"))
 
-    @covers("LLFR-00013", "LLFR-00014", "LLFR-00017")
-    def test_decline_then_accept_sequence(self) -> None:
-        """A declined replace does not stop a later accepted one.
+    @covers("LLFR-00948", "LLFR-00970", "LLFR-00006", "LLFR-00896",
+            "HLFR-00122")
+    def test_selected_files_open_in_the_order_of_their_names(self) -> None:
+        """Characters, not numbers, and case only to break a tie.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR, SECOND_PATH_STR],
-                        [False, True])
-        controller = self.open_first_file(
-            view, {SECOND_PATH_STR: self.second_file})
+        path_list = ["/z/run2.csv", "/a/Run10.csv", "/y/b.csv", "/x/B.csv"]
+        view = FakeView([path_list])
+        controller = self.build_controller(view, {
+            path_str: build_signal_file(path_str, ["s"])
+            for path_str in path_list})
         controller.open_file_requested()
-        self.assertIs(controller.current_file, self.first_file)
-        controller.open_file_requested()
-        self.assertIs(controller.current_file, self.second_file)
-        self.assertEqual(view.shown_name_list, ["Time", "c"])
-        self.assertEqual(self.listener_call_list,
-                         [(self.second_file, True)])
+        self.assertEqual(self.loader.loaded_path_list, [
+            "/x/B.csv", "/y/b.csv", "/a/Run10.csv", "/z/run2.csv"])
+        self.assertEqual(
+            [(data_file.number_i, data_file.file_name_str)
+             for data_file in controller.data_files.file_list],
+            [(1, "B.csv"), (2, "b.csv"), (3, "Run10.csv"), (4, "run2.csv")])
+        # LLFR-00447: the folder of the last file opened.
+        self.assertEqual(controller.dialog_folder_str, "/z")
 
-    @covers("LLFR-00003")
-    def test_button_finished_when_view_raises(self) -> None:
-        """The button is finished even if a view call raises.
+    @covers("LLFR-00949", "LLFR-00951", "LLFR-00952", "LLFR-00899",
+            "LLFR-00327", "LLFR-00509", "HLFR-00122")
+    def test_selection_goes_on_and_shows_one_box_of_each_kind(
+            self) -> None:
+        """Errors, a cancelled window and refusals do not stop the rest.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([FIRST_PATH_STR, [
+            "/d/a_broken.csv", "/d/b_no_time.csv", FIRST_PATH_STR,
+            "/d/c_crash.csv", SECOND_PATH_STR]], [[]])
+        controller = self.open_first_file(view, {
+            "/d/a_broken.csv": FileReadError("a_broken.csv is broken."),
+            "/d/b_no_time.csv": build_no_time_file("/d/b_no_time.csv"),
+            "/d/c_crash.csv": RuntimeError("boom"),
+            SECOND_PATH_STR: self.second_file})
+        controller.open_file_requested()
+        # LLFR-00899: the cancelled and failed files used no number.
+        self.assertEqual(self.numbers(controller), [1, 2])
+        self.assertIs(controller.data_files.file_list[1].signal_file,
+                      self.second_file)
+        self.assertEqual(len(view.error_message_list), 1)
+        error_str = view.error_message_list[0]
+        self.assertIn("a_broken.csv is broken.", error_str)
+        self.assertIn("boom", error_str)
+        self.assertLess(error_str.index("a_broken"), error_str.index("boom"))
+        self.assertEqual(view.refused_message_list,
+                         ["first.csv: already open as file1."])
+        # LLFR-00951, LLFR-00952: one box of each kind, after the last
+        # file, the errors first.
+        self.assertEqual(view.call_list[-3:], [
+            "show_file_open_error", "show_refused_files_notification",
+            "finish_open_file_button"])
+        self.assertEqual(view.call_list.count("ask_time_signal_name"), 1)
+
+    @covers("LLFR-00896", "LLFR-00897", "LLFR-00898", "LLFR-00900",
+            "LLFR-00927", "HLFR-00114", "HLFR-00118", "HLFR-00119")
+    def test_numbers_are_never_given_again(self) -> None:
+        """Closed numbers stay used up, also after Close all files.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        path_list = ["/d/a.csv", "/d/b.csv", "/d/c.csv"]
+        result_dict = {path_str: build_signal_file(path_str, ["s"])
+                       for path_str in path_list + ["/d/d.csv"]}
+        view = FakeView([path_list, ["/d/d.csv"], ["/d/b.csv"]])
+        controller = self.build_controller(view, result_dict)
+        controller.open_file_requested()
+        third_data_file = controller.data_files.file_list[2]
+        self.assertTrue(controller.close_file(2))
+        self.assertEqual(self.numbers(controller), [1, 3])
+        self.assertIs(controller.data_files.file_list[1], third_data_file)
+        self.assertEqual(third_data_file.signal_name_list,
+                         ["file3_Time", "file3_s"])
+        self.assertEqual(self.closed_call_list, [([2], [1, 3])])
+        controller.open_file_requested()
+        self.assertEqual(self.numbers(controller), [1, 3, 4])
+        # LLFR-00900: after Close all files, numbering goes on.
+        self.assertEqual(
+            [data_file.number_i
+             for data_file in controller.close_all_files()], [1, 3, 4])
+        self.assertEqual(self.closed_call_list[-1], ([1, 3, 4], []))
+        self.assertIsNone(controller.current_file)
+        controller.open_file_requested()
+        self.assertEqual(self.numbers(controller), [5])
+
+    @covers("LLFR-00922", "LLFR-00932")
+    def test_closing_nothing_tells_nobody(self) -> None:
+        """An unknown number, or no file open, closes nothing.
 
         Inputs: none.
         Outputs: none.
         """
         view = FakeView([FIRST_PATH_STR])
+        controller = self.open_first_file(view, {})
+        self.assertFalse(controller.close_file(7))
+        self.assertEqual(self.closed_call_list, [])
+        controller.close_all_files()
+        self.assertEqual(controller.close_all_files(), [])
+        self.assertEqual(len(self.closed_call_list), 1)
 
-        def failing_show(signal_name_list: list) -> None:
-            """Raise as a broken view would.
+    @covers("LLFR-00003")
+    def test_button_finished_when_a_listener_raises(self) -> None:
+        """The button is finished even if a listener raises.
 
-            Inputs:
-                signal_name_list: ignored.
-            Outputs: none; always raises RuntimeError.
-            """
-            view.call_list.append("show_signal_names")
-            raise RuntimeError("view failure")
-
-        view.show_signal_names = failing_show
+        Inputs: none.
+        Outputs: none.
+        """
+        view = FakeView([FIRST_PATH_STR])
         controller = self.build_controller(
             view, {FIRST_PATH_STR: self.first_file})
-        with self.assertRaises(RuntimeError):
-            controller.open_file_requested()
-        self.assertEqual(view.call_list[-1], "finish_open_file_button")
 
-    @covers("LLFR-00013")
-    def test_every_listener_is_notified(self) -> None:
-        """All registered listeners receive the opened file in order.
+        def failing_listener(data_files, data_file) -> None:
+            """Raise as a broken listener would.
+
+            Inputs:
+                data_files: ignored.
+                data_file: ignored.
+            Outputs: none; always raises RuntimeError.
+            """
+            raise RuntimeError("listener failure")
+
+        controller.add_file_opened_listener(failing_listener)
+        controller.open_file_requested()
+        self.assertEqual(view.call_list[-1], "finish_open_file_button")
+        # LLFR-00969: the error is listed for the file.
+        self.assertIn("listener failure", view.error_message_list[0])
+
+    @covers("LLFR-00916")
+    def test_every_listener_is_notified_in_order(self) -> None:
+        """All registered listeners receive the added file in order.
 
         Inputs: none.
         Outputs: none.
@@ -536,12 +742,11 @@ class FileControllerTest(unittest.TestCase):
         controller = self.build_controller(
             view, {FIRST_PATH_STR: self.first_file})
         controller.add_file_opened_listener(
-            lambda signal_file, replaced_b: order_list.append(
-                ("second", signal_file, replaced_b)))
+            lambda data_files, data_file: order_list.append(
+                ("second", data_file.number_i)))
         controller.open_file_requested()
-        self.assertEqual(self.listener_call_list,
-                         [(self.first_file, False)])
-        self.assertEqual(order_list, [("second", self.first_file, False)])
+        self.assertEqual(len(self.listener_call_list), 1)
+        self.assertEqual(order_list, [("second", 1)])
 
     @covers("LLFR-00006")
     def test_default_load_function_is_load_signal_file(self) -> None:
@@ -622,9 +827,9 @@ class StartFolderTest(unittest.TestCase):
                          first_start_folder_str())
 
     @covers("LLFR-00204", "LLFR-00005", "LLFR-00007", "LLFR-00010",
-            "LLFR-00014", "LLFR-00447")
+            "LLFR-00447", "LLFR-00894")
     def test_folder_follows_only_successful_opens(self) -> None:
-        """Cancel, failed open and declined replace keep the folder.
+        """Cancel, failed and refused opens keep the folder.
 
         Inputs: none.
         Outputs: none.
@@ -640,14 +845,15 @@ class StartFolderTest(unittest.TestCase):
         view = FakeView(["", "/data/a/first.csv", "",
                          "/data/bad/broken.csv", "/data/crash/crash.csv",
                          "/data/b/second.csv", "/data/b/second.csv",
-                         ""], [True, True, False, True])
+                         ""])
         controller = FileController(view, loader, "/start")
         for _ in range(8):
             controller.open_file_requested()
         self.assertEqual(view.start_folder_list, [
             "/start", "/start", "/data/a", "/data/a", "/data/a",
-            "/data/a", "/data/a", "/data/b"])
-        self.assertIs(controller.current_file, second_file)
+            "/data/a", "/data/b", "/data/b"])
+        self.assertEqual(controller.data_files.path_list,
+                         ["/data/a/first.csv", "/data/b/second.csv"])
 
 
 class FileControllerRealLoaderTest(unittest.TestCase):
@@ -687,50 +893,42 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         return path_str
 
     @covers("LLFR-00006", "LLFR-00054", "LLFR-00008", "LLFR-00009",
-            "LLFR-00010", "LLFR-00011", "LLFR-00012", "LLFR-00013",
-            "LLFR-00014", "LLFR-00017", "HLFR-00010", "HLFR-00101")
-    def test_real_messages_reach_the_view(self) -> None:
-        """Real files open, fail with the loader's messages, or replace.
+            "LLFR-00010", "LLFR-00011", "LLFR-00012", "LLFR-00951",
+            "LLFR-00905", "LLFR-00916", "HLFR-00101", "HLFR-00122")
+    def test_real_messages_reach_the_view_in_one_box(self) -> None:
+        """Real files open, or fail with the loader's messages, listed
+        in one box for one selection.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([self.valid_path_str, self.no_time_path_str,
-                         self.bad_value_path_str, self.text_path_str,
-                         self.missing_path_str, self.other_path_str,
-                         self.other_path_str],
-                        [True, True, True, True, False, True])
+        view = FakeView([[self.valid_path_str, self.no_time_path_str,
+                          self.bad_value_path_str, self.text_path_str,
+                          self.missing_path_str, self.other_path_str]])
         controller = FileController(view)
         controller.open_file_requested()
-        self.assertEqual(view.shown_name_list, ["Time", "speed", "force"])
-        for _ in range(4):
-            controller.open_file_requested()
-        self.assertEqual(len(view.error_message_list), 4)
-        no_time_str, bad_value_str, text_str, missing_str = (
-            view.error_message_list)
-        self.assertIn("one_signal.csv", no_time_str)
-        self.assertIn("at least two signals", no_time_str)
-        self.assertIn("could not be read", bad_value_str)
-        self.assertIn("abc", bad_value_str)
-        self.assertIn("not supported", text_str)
-        self.assertIn("could not be accessed", missing_str)
-        self.assertEqual(view.shown_name_list, ["Time", "speed", "force"])
-        # HLFR-00010: each failed file was confirmed before being read.
-        self.assertEqual(view.call_list.count("ask_replace_file"), 4)
-        controller.open_file_requested()
-        self.assertEqual(controller.current_file.path_str,
-                         self.valid_path_str)
-        controller.open_file_requested()
-        self.assertEqual(controller.current_file.path_str,
-                         self.other_path_str)
-        self.assertEqual(view.shown_name_list, ["Time", "pressure"])
+        self.assertEqual(len(view.error_message_list), 1)
+        error_str = view.error_message_list[0]
+        self.assertIn("one_signal.csv", error_str)
+        self.assertIn("at least two signals", error_str)
+        self.assertIn("could not be read", error_str)
+        self.assertIn("abc", error_str)
+        self.assertIn("not supported", error_str)
+        self.assertIn("could not be accessed", error_str)
+        # LLFR-00948: other.csv comes before valid.csv.
+        self.assertEqual(controller.data_files.signal_name_list, [
+            "file1_Time", "file1_pressure", "file2_Time", "file2_speed",
+            "file2_force"])
+        # LLFR-00905: "Time" was found by its name in each file.
+        self.assertEqual(controller.data_files.time_signal_name_list,
+                         ["file1_Time", "file2_Time"])
         self.assertEqual(view.call_list.count("finish_open_file_button"),
-                         7)
+                         1)
         self.assertNotIn("ask_time_signal_name", view.call_list)
-        self.assertEqual(view.time_signal_name_list, ["Time", "Time"])
 
     @covers("LLFR-00325", "LLFR-00326", "LLFR-00328", "LLFR-00329",
-            "LLFR-00068", "HLFR-00070", "HLFR-00007", "LLFR-00507")
+            "LLFR-00068", "HLFR-00070", "HLFR-00007", "LLFR-00507",
+            "LLFR-00906")
     def test_real_file_without_time_asks_for_it(self) -> None:
         """A real CSV whose x column is "t_s" opens after the choice.
 
@@ -739,36 +937,24 @@ class FileControllerRealLoaderTest(unittest.TestCase):
         """
         path_str = self.write_file(
             "x_axis.csv", "speed,t_s,force\n5,0,2\n4,0.5,4\n3,2,1\n")
-        view = FakeView([path_str], [], [["speed", "force", "t_s"]])
+        view = FakeView([path_str], [["speed", "force", "t_s"]])
         controller = FileController(view)
         controller.open_file_requested()
         self.assertEqual(view.call_list, [
             "ask_open_file_path", *LOADING_CALL_LIST,
-            "ask_time_signal_name", "show_signal_names",
-            "finish_open_file_button"])
+            "ask_time_signal_name", "finish_open_file_button"])
+        # LLFR-00906: the window lists the names in the file.
+        self.assertEqual(view.time_window_list[0][1],
+                         ["speed", "t_s", "force"])
         self.assertEqual(len(view.time_reason_list), 2)
         for reason_str in view.time_reason_list:
             self.assertIn("must always increase", reason_str)
-        self.assertEqual(controller.current_file.time_signal_name_str,
-                         "t_s")
-        np.testing.assert_array_equal(controller.current_file.time_array,
+        data_file = controller.data_files.file_list[0]
+        self.assertEqual(data_file.time_signal_name_str, "file1_t_s")
+        np.testing.assert_array_equal(data_file.time_array,
                                       [0.0, 0.5, 2.0])
-        self.assertEqual(view.shown_name_list, ["speed", "t_s", "force"])
-        self.assertEqual(view.time_signal_name_list, ["t_s"])
-
-
-def build_no_time_file(path_str: str) -> SignalFile:
-    """Build a SignalFile with no signal named "Time".
-
-    Inputs:
-        path_str: the path stored in the SignalFile.
-    Outputs: a SignalFile with "Down" (decreasing), "t_s" (increasing)
-        and "Flat" (not always increasing), three samples each.
-    """
-    return SignalFile(path_str, {
-        "Down": np.array([3.0, 2.0, 1.0]),
-        "t_s": np.array([0.0, 0.5, 1.5]),
-        "Flat": np.array([1.0, 1.0, 2.0])})
+        self.assertEqual(data_file.signal_name_list,
+                         ["file1_speed", "file1_t_s", "file1_force"])
 
 
 class LoadingStateView(FakeView):
@@ -776,8 +962,8 @@ class LoadingStateView(FakeView):
 
     Inputs: as FakeView.
     Attributes:
-        state_list: (call name, loading_shown_b) for every dialog, box
-            and window the controller showed.
+        state_list: (call name, loading_shown_b) for every box and
+            window the controller showed.
     """
 
     def __init__(self, *argument_tuple) -> None:
@@ -789,15 +975,6 @@ class LoadingStateView(FakeView):
         """
         super().__init__(*argument_tuple)
         self.state_list = []
-
-    def ask_replace_file(self) -> bool:
-        """Record the indication state, then answer as FakeView.
-
-        Inputs: none.
-        Outputs: the next scripted answer.
-        """
-        self.state_list.append(("ask_replace_file", self.loading_shown_b))
-        return super().ask_replace_file()
 
     def show_file_open_error(self, message_str: str) -> None:
         """Record the indication state, then record the error.
@@ -822,18 +999,8 @@ class LoadingStateView(FakeView):
         return super().ask_time_signal_name(*argument_tuple)
 
 
-class OpeningOrderTest(unittest.TestCase):
+class OpeningOrderTest(FileControllerTestCase):
     """The order of LLFR-00328 and the indication of LLFR-00418."""
-
-    def setUp(self) -> None:
-        """Prepare a file with Time, one without, and a recorder.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.first_file = build_signal_file(FIRST_PATH_STR, ["a", "b"])
-        self.second_file = build_signal_file(SECOND_PATH_STR, ["c"])
-        self.listener_call_list = []
 
     def build_controller(self, view, result_dict: dict) -> FileController:
         """Build a controller whose loader records the indication state.
@@ -841,9 +1008,10 @@ class OpeningOrderTest(unittest.TestCase):
         Inputs:
             view: the LoadingStateView.
             result_dict: path -> SignalFile or exception.
-        Outputs: the FileController with the first file not yet open.
+        Outputs: the FileController with no file open yet.
         """
-        scripted_loader = ScriptedLoader(result_dict)
+        controller = super().build_controller(view, result_dict)
+        scripted_loader = self.loader
 
         def recording_loader(path_str: str) -> SignalFile:
             """Record the indication state, then load as scripted.
@@ -855,49 +1023,20 @@ class OpeningOrderTest(unittest.TestCase):
             view.state_list.append(("load", view.loading_shown_b))
             return scripted_loader(path_str)
 
-        self.loader = scripted_loader
-        controller = FileController(view, recording_loader, "/start")
-        controller.add_file_opened_listener(
-            lambda signal_file, replaced_b: self.listener_call_list.append(
-                (signal_file, replaced_b)))
+        controller.load_function = recording_loader
         return controller
 
-    def open_first(self, view, result_dict: dict) -> FileController:
-        """Build a controller and open FIRST_PATH_STR, then reset logs.
+    def open_first_file(self, view, result_dict: dict) -> FileController:
+        """Open FIRST_PATH_STR, then clear the recorded states too.
 
         Inputs:
             view: the LoadingStateView; its first path is FIRST_PATH_STR.
             result_dict: the results of the other paths.
         Outputs: the FileController with the first file open.
         """
-        result_dict = dict(result_dict)
-        result_dict[FIRST_PATH_STR] = self.first_file
-        controller = self.build_controller(view, result_dict)
-        controller.open_file_requested()
-        self.assertIs(controller.current_file, self.first_file)
-        view.call_list.clear()
+        controller = super().open_first_file(view, result_dict)
         view.state_list.clear()
-        self.listener_call_list.clear()
         return controller
-
-    def assert_previous_file_kept(self, controller, view) -> None:
-        """Check that the first file, its list and folder are unchanged.
-
-        Inputs:
-            controller: the FileController.
-            view: the LoadingStateView.
-        Outputs: none.
-        """
-        # LLFR-00010: the previous file, its list and, since no listener
-        # ran, its plots, synthetic signals, undo history and file name
-        # row (LLFR-00363) are unchanged.
-        self.assertIs(controller.current_file, self.first_file)
-        self.assertEqual(view.shown_name_list, ["Time", "a", "b"])
-        self.assertEqual(view.time_signal_name_list, ["Time"])
-        self.assertNotIn("show_signal_names", view.call_list)
-        self.assertEqual(self.listener_call_list, [])
-        self.assertEqual(controller.dialog_folder_str, "/data")
-        self.assertFalse(view.loading_shown_b)
 
     @covers("LLFR-00418", "LLFR-00328", "LLFR-00006", "LLFR-00560")
     def test_first_file_read_under_the_indication(self) -> None:
@@ -913,77 +1052,56 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertEqual(view.state_list, [("load", True)])
         self.assertEqual(view.call_list.count("show_loading_indication"), 1)
         self.assertFalse(view.loading_shown_b)
-        self.assertNotIn("ask_replace_file", view.call_list)
-        self.assertIs(controller.current_file, self.first_file)
+        self.assertEqual(self.numbers(controller), [1])
 
-    @covers("LLFR-00418", "LLFR-00328", "LLFR-00013", "HLFR-00010",
-            "LLFR-00448", "LLFR-00564")
-    def test_replace_accepted_order(self) -> None:
-        """Confirmation without indication, then the read under it.
+    @covers("LLFR-00418", "LLFR-00560", "LLFR-00918", "LLFR-00328",
+            "HLFR-00117")
+    def test_added_file_read_under_the_indication(self) -> None:
+        """With a file open, the next one is read at once, with the
+        indication, and no question comes before.
 
         Inputs: none.
         Outputs: none.
         """
-        view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR], [True])
-        controller = self.open_first(
+        view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR])
+        controller = self.open_first_file(
             view, {SECOND_PATH_STR: self.second_file})
         controller.open_file_requested()
-        self.assertEqual(view.state_list, [("ask_replace_file", False),
-                                           ("load", True)])
+        self.assertEqual(view.state_list, [("load", True)])
         self.assertEqual(view.call_list, [
-            "ask_open_file_path", "ask_replace_file", *LOADING_CALL_LIST,
-            "show_signal_names", "finish_open_file_button"])
-        self.assertIs(controller.current_file, self.second_file)
-        self.assertEqual(self.listener_call_list, [(self.second_file, True)])
-
-    @covers("LLFR-00014", "LLFR-00328", "LLFR-00418", "LLFR-00010",
-            "LLFR-00449", "LLFR-00450", "LLFR-00564")
-    def test_replace_declined_order(self) -> None:
-        """Declined: the file is not read and no indication is shown.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR], [False])
-        controller = self.open_first(
-            view, {SECOND_PATH_STR: self.second_file})
-        controller.open_file_requested()
-        self.assertEqual(view.state_list, [("ask_replace_file", False)])
-        self.assertNotIn("show_loading_indication", view.call_list)
-        self.assertEqual(self.loader.loaded_path_list, [FIRST_PATH_STR])
-        self.assertEqual(view.error_message_list, [])
-        self.assert_previous_file_kept(controller, view)
+            "ask_open_file_path", *LOADING_CALL_LIST,
+            "finish_open_file_button"])
+        self.assertEqual(self.numbers(controller), [1, 2])
 
     @covers("LLFR-00008", "LLFR-00009", "LLFR-00011", "LLFR-00012",
-            "LLFR-00010", "LLFR-00013", "LLFR-00328", "LLFR-00418",
-            "LLFR-00448", "LLFR-00510", "LLFR-00511", "LLFR-00562")
-    def test_error_after_proceeding_order(self) -> None:
-        """Every File Open Error after Yes: box after the indication.
+            "LLFR-00010", "LLFR-00328", "LLFR-00418", "LLFR-00510",
+            "LLFR-00511", "LLFR-00561", "LLFR-00562", "LLFR-00969")
+    def test_error_box_after_the_indication(self) -> None:
+        """Every File Open Error is shown after the indication is gone.
 
         Inputs: none.
         Outputs: none.
         """
         for requirement_str, error in ERROR_CASE_LIST + [
-                ("LLFR-00008", RuntimeError("boom"))]:
+                ("LLFR-00969", RuntimeError("boom"))]:
             with self.subTest(requirement_str=requirement_str,
                               error=str(error)):
-                view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR],
-                                        [True])
-                controller = self.open_first(view, {SECOND_PATH_STR: error})
+                view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR])
+                controller = self.open_first_file(
+                    view, {SECOND_PATH_STR: error})
                 controller.open_file_requested()
                 self.assertEqual(view.state_list, [
-                    ("ask_replace_file", False), ("load", True),
-                    ("show_file_open_error", False)])
+                    ("load", True), ("show_file_open_error", False)])
                 self.assertEqual(len(view.error_message_list), 1)
                 self.assertIn(str(error), view.error_message_list[0])
                 self.assertEqual(view.call_list[-1],
                                  "finish_open_file_button")
-                self.assert_previous_file_kept(controller, view)
+                self.assert_first_file_kept(controller, view)
 
     @covers("LLFR-00011", "LLFR-00328", "LLFR-00418", "LLFR-00010",
             "LLFR-00510")
-    def test_unsupported_format_after_proceeding(self) -> None:
-        """A real .txt file after Yes gives the unsupported format box.
+    def test_unsupported_format_with_a_file_open(self) -> None:
+        """A real .txt file gives the unsupported format box.
 
         Inputs: none.
         Outputs: none.
@@ -992,11 +1110,10 @@ class OpeningOrderTest(unittest.TestCase):
             text_path_str = os.path.join(folder_str, "notes.txt")
             with open(text_path_str, "w", encoding="utf-8") as file:
                 file.write("hello")
-            view = LoadingStateView([FIRST_PATH_STR, text_path_str], [True])
-            controller = self.open_first(view, {})
-            self.loader.result_dict[text_path_str] = None
+            view = LoadingStateView([FIRST_PATH_STR, text_path_str])
+            controller = self.open_first_file(view, {})
 
-            def real_or_scripted(path_str: str) -> SignalFile:
+            def real_loader(path_str: str) -> SignalFile:
                 """Use the real loader for the text file.
 
                 Inputs:
@@ -1006,54 +1123,52 @@ class OpeningOrderTest(unittest.TestCase):
                 view.state_list.append(("load", view.loading_shown_b))
                 return load_signal_file(path_str)
 
-            controller.load_function = real_or_scripted
+            controller.load_function = real_loader
             controller.open_file_requested()
         self.assertEqual(view.state_list, [
-            ("ask_replace_file", False), ("load", True),
-            ("show_file_open_error", False)])
+            ("load", True), ("show_file_open_error", False)])
         self.assertIn("not supported", view.error_message_list[0])
-        self.assert_previous_file_kept(controller, view)
+        self.assert_first_file_kept(controller, view)
 
     @covers("LLFR-00327", "LLFR-00328", "LLFR-00418", "LLFR-00010",
             "LLFR-00325", "LLFR-00508", "LLFR-00509", "LLFR-00512",
-            "LLFR-00513", "LLFR-00562")
-    def test_time_window_cancelled_after_proceeding(self) -> None:
-        """Yes, read under the indication, window without it, cancel.
+            "LLFR-00513", "LLFR-00562", "LLFR-00899")
+    def test_time_window_cancelled(self) -> None:
+        """Read under the indication, window without it, cancel.
 
         Inputs: none.
         Outputs: none.
         """
-        view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR], [True],
-                                [[]])
-        controller = self.open_first(
+        view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR], [[]])
+        controller = self.open_first_file(
             view, {SECOND_PATH_STR: build_no_time_file(SECOND_PATH_STR)})
         controller.open_file_requested()
         self.assertEqual(view.state_list, [
-            ("ask_replace_file", False), ("load", True),
-            ("ask_time_signal_name", False)])
+            ("load", True), ("ask_time_signal_name", False)])
         self.assertEqual(view.error_message_list, [])
-        self.assert_previous_file_kept(controller, view)
+        self.assertEqual(view.refused_message_list, [])
+        self.assert_first_file_kept(controller, view)
 
-    @covers("LLFR-00326", "LLFR-00328", "LLFR-00418", "LLFR-00013",
-            "LLFR-00448", "LLFR-00507")
-    def test_time_window_confirmed_after_proceeding(self) -> None:
-        """Yes, read, window, then only now the file is replaced.
+    @covers("LLFR-00326", "LLFR-00328", "LLFR-00418", "LLFR-00507",
+            "LLFR-00916")
+    def test_time_window_confirmed(self) -> None:
+        """Read, window, then only now the file is added.
 
         Inputs: none.
         Outputs: none.
         """
         no_time_file = build_no_time_file(SECOND_PATH_STR)
-        view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR], [True],
+        view = LoadingStateView([FIRST_PATH_STR, SECOND_PATH_STR],
                                 [["t_s"]])
-        controller = self.open_first(view, {SECOND_PATH_STR: no_time_file})
+        controller = self.open_first_file(view,
+                                          {SECOND_PATH_STR: no_time_file})
         controller.open_file_requested()
         self.assertEqual(view.state_list, [
-            ("ask_replace_file", False), ("load", True),
-            ("ask_time_signal_name", False)])
-        self.assertEqual(view.call_list[-2:], [
-            "show_signal_names", "finish_open_file_button"])
-        self.assertIs(controller.current_file, no_time_file)
-        self.assertEqual(self.listener_call_list, [(no_time_file, True)])
+            ("load", True), ("ask_time_signal_name", False)])
+        self.assertEqual(self.numbers(controller), [1, 2])
+        self.assertEqual(self.listener_call_list[0][:2], (2, no_time_file))
+        self.assertEqual(controller.data_files.file_list[1]
+                         .time_signal_name_str, "file2_t_s")
 
     @covers("LLFR-00418", "LLFR-00561", "LLFR-00562")
     def test_indication_removed_when_reading_is_interrupted(self) -> None:
@@ -1083,41 +1198,27 @@ class OpeningOrderTest(unittest.TestCase):
         self.assertIsNone(controller.current_file)
 
 
-class TimeSignalWindowTest(unittest.TestCase):
+class TimeSignalWindowTest(FileControllerTestCase):
     """The time signal window in the open-file flow (HLFR-00070)."""
 
     def setUp(self) -> None:
-        """Prepare a file with Time, a file without, and a recorder.
+        """Prepare a file with Time and a file without.
 
         Inputs: none.
         Outputs: none.
         """
-        self.first_file = build_signal_file(FIRST_PATH_STR, ["a", "b"])
+        super().setUp()
         self.no_time_file = build_no_time_file(SECOND_PATH_STR)
-        self.listener_call_list = []
 
-    def build_controller(self, view, result_dict: dict) -> FileController:
-        """Build a FileController with a scripted loader and listener.
-
-        Inputs:
-            view: the fake view.
-            result_dict: path -> SignalFile or exception.
-        Outputs: the FileController.
-        """
-        controller = FileController(view, ScriptedLoader(result_dict))
-        controller.add_file_opened_listener(
-            lambda signal_file, replaced_b: self.listener_call_list.append(
-                (signal_file, replaced_b)))
-        return controller
-
-    @covers("LLFR-00325", "LLFR-00326", "HLFR-00070", "LLFR-00054")
+    @covers("LLFR-00325", "LLFR-00326", "HLFR-00070", "LLFR-00054",
+            "LLFR-00906")
     def test_window_shown_when_no_time_signal(self) -> None:
         """The window lists every signal; the choice is the time signal.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([SECOND_PATH_STR], [], [["t_s"]])
+        view = FakeView([SECOND_PATH_STR], [["t_s"]])
         controller = self.build_controller(
             view, {SECOND_PATH_STR: self.no_time_file})
         controller.open_file_requested()
@@ -1129,14 +1230,13 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.assertEqual(prompt_str, TIME_SIGNAL_PROMPT_STR)
         self.assertEqual(name_list, ["Down", "t_s", "Flat"])
         self.assertEqual(no_match_str, "No matching signals")
-        self.assertIs(controller.current_file, self.no_time_file)
         self.assertEqual(self.no_time_file.time_signal_name_str, "t_s")
         np.testing.assert_array_equal(self.no_time_file.time_array,
                                       [0.0, 0.5, 1.5])
-        self.assertEqual(view.shown_name_list, ["Down", "t_s", "Flat"])
-        self.assertEqual(view.time_signal_name_list, ["t_s"])
-        self.assertEqual(self.listener_call_list,
-                         [(self.no_time_file, False)])
+        self.assertEqual(controller.data_files.signal_name_list,
+                         ["file1_Down", "file1_t_s", "file1_Flat"])
+        self.assertEqual(controller.data_files.time_signal_name_list,
+                         ["file1_t_s"])
 
     @covers("LLFR-00325", "LLFR-00285", "LLFR-00098", "LLFR-00101",
             "LLFR-00102", "LLFR-00618")
@@ -1146,7 +1246,7 @@ class TimeSignalWindowTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([SECOND_PATH_STR], [], [[]])
+        view = FakeView([SECOND_PATH_STR], [[]])
         controller = self.build_controller(
             view, {SECOND_PATH_STR: self.no_time_file})
         controller.open_file_requested()
@@ -1164,7 +1264,7 @@ class TimeSignalWindowTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([SECOND_PATH_STR], [], [["Down", "Flat", "t_s"]])
+        view = FakeView([SECOND_PATH_STR], [["Down", "Flat", "t_s"]])
         controller = self.build_controller(
             view, {SECOND_PATH_STR: self.no_time_file})
         controller.open_file_requested()
@@ -1173,10 +1273,10 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.assertIn("'Flat'", view.time_reason_list[1])
         for reason_str in view.time_reason_list:
             self.assertIn("must always increase", reason_str)
-        self.assertEqual(controller.current_file.time_signal_name_str,
-                         "t_s")
+        self.assertEqual(controller.data_files.time_signal_name_list,
+                         ["file1_t_s"])
 
-    @covers("LLFR-00329")
+    @covers("LLFR-00329", "LLFR-00899")
     def test_unchecked_bad_answer_never_becomes_time(self) -> None:
         """A window that returns a refused name opens nothing.
 
@@ -1191,66 +1291,26 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.assertIsNone(controller.current_file)
         self.assertIsNone(self.no_time_file.time_signal_name_str)
         self.assertEqual(self.listener_call_list, [])
+        self.assertEqual(controller.data_files.next_number_i, 1)
 
     @covers("LLFR-00327", "HLFR-00070", "LLFR-00003", "LLFR-00010",
-            "LLFR-00328", "LLFR-00418", "LLFR-00363", "LLFR-00508",
-            "LLFR-00512", "LLFR-00651")
-    def test_cancel_keeps_the_current_file(self) -> None:
-        """Proceeding, then cancelling the window, opens nothing.
+            "LLFR-00328", "LLFR-00418", "LLFR-00508", "LLFR-00512",
+            "LLFR-00651", "LLFR-00918")
+    def test_cancel_keeps_the_open_files(self) -> None:
+        """Read with no question, then a cancelled window opens nothing.
 
         Inputs: none.
         Outputs: none.
         """
-        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR], [True], [[]])
-        controller = self.build_controller(
-            view, {FIRST_PATH_STR: self.first_file,
-                   SECOND_PATH_STR: self.no_time_file})
+        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR], [[]])
+        controller = self.open_first_file(
+            view, {SECOND_PATH_STR: self.no_time_file})
         controller.open_file_requested()
-        view.call_list.clear()
-        self.listener_call_list.clear()
-        controller.open_file_requested()
-        self.assertIs(controller.current_file, self.first_file)
-        self.assertEqual(view.shown_name_list, ["Time", "a", "b"])
         self.assertEqual(view.error_message_list, [])
-        # LLFR-00328, LLFR-00418: confirmation, read with the indication,
-        # indication removed, then the window.
         self.assertEqual(view.call_list, [
-            "ask_open_file_path", "ask_replace_file", *LOADING_CALL_LIST,
+            "ask_open_file_path", *LOADING_CALL_LIST,
             "ask_time_signal_name", "finish_open_file_button"])
-        self.assertEqual(self.listener_call_list, [])
-        self.assertEqual(view.replace_answer_list, [])
-        # LLFR-00204: the cancelled file does not move the dialog folder.
-        self.assertEqual(controller.dialog_folder_str,
-                         os.path.dirname(os.path.abspath(FIRST_PATH_STR)))
-
-    @covers("LLFR-00328", "HLFR-00010", "LLFR-00013", "LLFR-00014",
-            "LLFR-00418", "LLFR-00449")
-    def test_replace_confirmation_comes_before_the_window(self) -> None:
-        """The confirmation is asked first; declined, nothing is read.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        for answer_b in (False, True):
-            with self.subTest(answer_b=answer_b):
-                no_time_file = build_no_time_file(SECOND_PATH_STR)
-                view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR],
-                                [answer_b], [["t_s"]])
-                controller = self.build_controller(
-                    view, {FIRST_PATH_STR: self.first_file,
-                           SECOND_PATH_STR: no_time_file})
-                controller.open_file_requested()
-                view.call_list.clear()
-                controller.open_file_requested()
-                expected_list = ["ask_open_file_path", "ask_replace_file"]
-                if answer_b:
-                    expected_list += [*LOADING_CALL_LIST,
-                                      "ask_time_signal_name",
-                                      "show_signal_names"]
-                expected_list.append("finish_open_file_button")
-                self.assertEqual(view.call_list, expected_list)
-                expected_file = no_time_file if answer_b else self.first_file
-                self.assertIs(controller.current_file, expected_file)
+        self.assert_first_file_kept(controller, view)
 
     @covers("LLFR-00328", "LLFR-00012", "HLFR-00008", "LLFR-00418")
     def test_failed_check_never_shows_the_window(self) -> None:
@@ -1269,9 +1329,10 @@ class TimeSignalWindowTest(unittest.TestCase):
             "show_file_open_error", "finish_open_file_button"])
 
     @covers("LLFR-00331", "LLFR-00324", "HLFR-00072", "HLFR-00070",
-            "LLFR-00505")
+            "LLFR-00505", "LLFR-00515", "LLFR-00905")
     def test_file_with_time_never_shows_the_window(self) -> None:
-        """Opening (and reopening) a file with a Time match asks nothing.
+        """Opening, closing and opening again a file with a Time match
+        asks nothing.
 
         Inputs: none.
         Outputs: none.
@@ -1279,17 +1340,17 @@ class TimeSignalWindowTest(unittest.TestCase):
         lowercase_file = SignalFile(SECOND_PATH_STR, {
             "a": np.arange(3.0), "TIME": np.arange(3.0),
             "time": np.arange(3.0)})
-        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR, FIRST_PATH_STR],
-                        [True, True])
+        view = FakeView([FIRST_PATH_STR, SECOND_PATH_STR, FIRST_PATH_STR])
         controller = self.build_controller(
             view, {FIRST_PATH_STR: self.first_file,
                    SECOND_PATH_STR: lowercase_file})
-        for _ in range(3):
-            controller.open_file_requested()
+        controller.open_file_requested()
+        controller.open_file_requested()
+        controller.close_file(1)
+        controller.open_file_requested()
         self.assertNotIn("ask_time_signal_name", view.call_list)
-        self.assertEqual(view.time_signal_name_list,
-                         ["Time", "TIME", "Time"])
-        self.assertIs(controller.current_file, self.first_file)
+        self.assertEqual(controller.data_files.time_signal_name_list,
+                         ["file2_TIME", "file3_Time"])
 
 
 if __name__ == "__main__":

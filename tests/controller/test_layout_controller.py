@@ -19,6 +19,7 @@ from tests.support import covers
 from controller.layout_controller import LayoutController
 from controller.plot_controller import PlotController
 from controller.plot_tools import DELTA_X_TOOL_STR, MARKER_TOOL_STR
+from model.data_files import DataFileSet
 from model.layout_file import LAYOUT_FORMAT_STR
 from model.signal_file import SignalFile
 from model.workspace import Workspace
@@ -227,6 +228,19 @@ class LayoutControllerTestCase(unittest.TestCase):
         self.controller = LayoutController(
             self.view, self.file_controller, self.plot_controller)
         self.file_controller.open(make_data_file(), False)
+
+    def reopen(self, signal_file) -> None:
+        """Close the data file as "Close all files" does, then open one.
+
+        Inputs:
+            signal_file: the SignalFile opened afterwards.
+        Outputs: none.
+        """
+        closed_name_list = list(
+            self.plot_controller.signal_file.signal_name_list)
+        self.plot_controller.signal_file = DataFileSet()
+        self.plot_controller.close_signals(closed_name_list)
+        self.file_controller.open(signal_file, None)
 
     def tearDown(self) -> None:
         """Remove the temporary folder.
@@ -537,13 +551,14 @@ class LoadLayoutTest(LayoutControllerTestCase):
         path_str = self.path("layout.json")
         self.save(path_str)
         self.saved_content_tuple = self.content()
-        self.file_controller.open(make_data_file(signal_name_list), True)
+        self.reopen(make_data_file(signal_name_list))
         return path_str
 
     @covers("LLFR-00221", "LLFR-00230", "LLFR-00229", "LLFR-00237",
             "LLFR-00478", "LLFR-00480", "LLFR-00481", "LLFR-00493")
-    def test_round_trip_after_replacing_the_file(self) -> None:
-        """Loading into a new file rebuilds everything, with no report.
+    def test_round_trip_after_closing_the_file(self) -> None:
+        """Loading after the file was closed and opened again rebuilds
+        everything, with no report.
 
         Inputs: none.
         Outputs: none.
@@ -576,6 +591,10 @@ class LoadLayoutTest(LayoutControllerTestCase):
         Outputs: none.
         """
         path_str = self.save_and_reopen()
+        # LLFR-00957: the close kept the emptied tab "Main"; it is named
+        # "Tab 1" here, so that the file's "Main" is not renamed.
+        self.view.handler_dict["rename_tab"](
+            self.workspace.tab_list[0].tab_id_i, "Tab 1")
         self.view.handler_dict["double_click"]("Torque")
         kept_tab_tuple = self.content()[0][0]
         self.load(path_str)
@@ -657,7 +676,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         short_dict = {"Time": np.linspace(0.0, 3.0, 31)}
         for index_i, name_str in enumerate(("Speed", "Torque", "Power")):
             short_dict[name_str] = short_dict["Time"] * (index_i + 1)
-        self.file_controller.open(SignalFile("short.csv", short_dict), True)
+        self.reopen(SignalFile("short.csv", short_dict))
         self.load(path_str)
         self.assertEqual(self.plot_controller.shared_time_range_tuple,
                          (1.0, 3.0))
