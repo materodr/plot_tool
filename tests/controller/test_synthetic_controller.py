@@ -15,7 +15,7 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 
 from tests.controller.test_plot_controller import FakePlotView
 
@@ -485,6 +485,9 @@ class SyntheticControllerTestCase(unittest.TestCase):
         self.file_controller.load_function = lambda path_str: signal_file
         self.view.open_path_str = path_str
         self.file_controller.open_file_requested()
+        # LLFR-00984: the files are collapsed after an open; these tests
+        # read the shown signals.
+        expand_all_files(self.main_controller)
 
     def create(self, name_str: str, operation_str: str) -> None:
         """Choose an operation in the menu of a signal.
@@ -1605,6 +1608,7 @@ class FileTest(SyntheticControllerTestCase):
             self.file_controller.load_function = load_signal_file
             self.view.open_path_str = path_str
             self.file_controller.open_file_requested()
+            expand_all_files(self.main_controller)
             self.assertEqual(self.view.shown_name_list, ["file2_Time",
                                                          "file2_Speed"])
             self.create("file2_Speed", "integral")

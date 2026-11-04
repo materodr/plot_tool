@@ -10,7 +10,7 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 
 from controller.main_controller import MainController
 from controller.plot_tools import (
@@ -62,6 +62,9 @@ class SeveralFilesTestCase(unittest.TestCase):
         self.file_controller.load_function = lambda path_str: signal_file
         self.view.open_path_str = signal_file.path_str
         self.file_controller.open_file_requested()
+        # LLFR-00984: the files are collapsed after an open; these tests
+        # read the shown signals.
+        expand_all_files(self.main_controller)
 
     def plot(self, *name_tuple: str) -> int:
         """Create a plot in the current tab with some signals.
@@ -664,6 +667,36 @@ class CloseQuestionTest(SeveralFilesTestCase):
         self.assertEqual(self.file_controller.close_all_files_requested(),
                          [])
         self.assertEqual(len(self.question_list), 2)
+
+
+class FileCollapseHistoryTest(SeveralFilesTestCase):
+    """Hiding the signals of a file is not undoable (LLFR-00991)."""
+
+    @covers("LLFR-00991", "LLFR-00140", "HLFR-00123", "HLFR-00040",
+            "HLFR-00048")
+    def test_toggle_keeps_the_undo_and_redo_history(self) -> None:
+        """Collapsing and expanding leave both histories as they were.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open(make_time_file("a.csv", 0.0, 10.0))
+        self.open(make_time_file("b.csv", 0.0, 10.0))
+        self.plot("file1_Speed")
+        self.plot("file2_Speed")
+        self.plot_controller.on_undo()
+        history = self.plot_controller.undo_history
+        depth_tuple = (history.depth(), history.redo_depth())
+        self.assertEqual(depth_tuple, (1, 1))
+        signal_list_controller = self.main_controller.signal_list_controller
+        for number_i in (1, 2, 1, 2, 2):
+            signal_list_controller.toggle_file(number_i)
+        self.assertEqual((history.depth(), history.redo_depth()),
+                         depth_tuple)
+        self.assertTrue(self.view.undo_enabled_b)
+        self.assertTrue(self.view.redo_enabled_b)
+        # The curves are not touched by a collapse.
+        self.assertEqual(len(self.workspace.tab_list[0].plot_list), 1)
 
 
 if __name__ == "__main__":

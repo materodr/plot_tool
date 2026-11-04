@@ -16,6 +16,7 @@ from unittest import mock
 
 import numpy as np
 
+from tests.support import expand_all_files
 from tests.support import (
     button_name, button_tip_line_list, covers, get_qt_application,
     requires_qt)
@@ -594,6 +595,9 @@ class PanEndToEndTest(unittest.TestCase):
                         return_value=path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
+        # LLFR-00984: the files are collapsed after an open; these
+        # tests read the shown signals.
+        expand_all_files(self.controller)
 
     def tearDown(self) -> None:
         """Close the main window.

@@ -15,7 +15,7 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 from tests.controller.test_layout_synthetic_controller import FakeAppWindow
 from tests.controller.test_save_signals_controller import (
     FakeFileController, FakeSaveSignalsView, FakeSyntheticController)
@@ -98,6 +98,9 @@ class SeveralFilesTestCase(unittest.TestCase):
         self.file_controller.load_function = lambda path: signal_file
         self.view.open_path_str = path_str
         self.file_controller.open_file_requested()
+        # LLFR-00984: the files are collapsed after an open; these tests
+        # read the shown signals.
+        expand_all_files(self.main_controller)
 
     def create(self, name_str: str, operation_str: str) -> None:
         """Choose an operation in the menu of a signal.

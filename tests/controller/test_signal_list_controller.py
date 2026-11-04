@@ -9,7 +9,7 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 
 from controller.file_controller import FileController
 from controller.signal_list_controller import (
@@ -105,6 +105,8 @@ class FakeSignalListView:
         self.group_list = []
         self.file_row_list = []
         self.no_match_row_list = []
+        self.collapsed_number_set = set()
+        self.file_toggle_handler = None
 
     def set_time_signal_names(self, name_list: list) -> None:
         """Record the time signal names (LLFR-00332).
@@ -117,6 +119,27 @@ class FakeSignalListView:
         Outputs: none.
         """
         self.time_signal_name_list = list(name_list)
+
+    def set_collapsed_file_numbers(self, number_set: set) -> None:
+        """Record which file name rows are collapsed (LLFR-00978).
+
+        Not added to call_list, so that the call order tests of the
+        search are not affected.
+
+        Inputs:
+            number_set: the numbers of the collapsed files.
+        Outputs: none.
+        """
+        self.collapsed_number_set = set(number_set)
+
+    def set_file_toggle_handler(self, handler) -> None:
+        """Record the handler of the icons of the file name rows.
+
+        Inputs:
+            handler: function taking a file number (LLFR-00980).
+        Outputs: none.
+        """
+        self.file_toggle_handler = handler
 
     def set_search_text_handler(self, handler) -> None:
         """Record the search box handler.
@@ -597,6 +620,9 @@ class FileOpenedTest(SignalListControllerTestCase):
         self.assertIn("clear_search", self.view.call_list)
         self.assertEqual(self.view.search_text_str, "")
         self.assertEqual(self.controller.search_text_str, "")
+        # LLFR-00984: the open collapses every file.
+        self.assertEqual(self.view.shown_name_list, [])
+        expand_all_files(self.controller)
         self.assertEqual(self.view.shown_name_list,
                          data_files.signal_name_list)
         self.assertFalse(self.view.no_match_shown())
@@ -647,6 +673,7 @@ class WithFileControllerTest(unittest.TestCase):
         self.view.type_text("engine")
         self.assertEqual(self.view.shown_name_list, ["file1_Engine_Speed"])
         self.open_path("second.csv")
+        expand_all_files(self.controller)
         self.assertEqual(self.view.shown_name_list, [
             "file1_" + name_str for name_str in FIRST_NAME_LIST] + [
             "file2_" + name_str for name_str in SECOND_NAME_LIST])
@@ -673,6 +700,7 @@ class WithFileControllerTest(unittest.TestCase):
                          ["file1_mateus_soares_rodrigues 2025"])
         self.open_path("second.csv")
         self.assertEqual(self.view.search_text_str, "")
+        expand_all_files(self.controller)
         self.assertEqual(len(self.view.shown_name_list),
                          len(FIRST_NAME_LIST) + len(SECOND_NAME_LIST))
 
@@ -702,6 +730,7 @@ class WithFileControllerTest(unittest.TestCase):
         """
         self.open_path("first.csv")
         self.open_path("second.csv")
+        expand_all_files(self.controller)
         self.file_controller.add_files_closed_listener(
             self.controller.on_files_closed)
         self.file_controller.close_file(1)
@@ -872,6 +901,7 @@ class FileNameLineTest(unittest.TestCase):
         Outputs: none.
         """
         self.open_path(self.first_path_str)
+        expand_all_files(self.controller)
         prefixed_name_list = ["file1_" + name_str
                               for name_str in FIRST_NAME_LIST]
         self.assertNotIn("file1_first_run.csv", self.view.shown_name_list)
@@ -925,6 +955,9 @@ class SearchPerFileTest(unittest.TestCase):
         for path_str in ("a.csv", "b.csv", "c.csv"):
             self.view.path_str = path_str
             self.file_controller.open_file_requested()
+        # LLFR-00984: the files are collapsed after an open; these tests
+        # read the shown signals.
+        expand_all_files(self.controller)
 
     @covers("LLFR-00362", "LLFR-00938", "LLFR-00939", "LLFR-00650",
             "HLFR-00079", "HLFR-00114", "HLFR-00117")
@@ -1019,6 +1052,260 @@ class SearchPerFileTest(unittest.TestCase):
                          ["file1_a.csv", "file3_c.csv"])
         self.file_controller.close_all_files()
         self.assertEqual(self.view.group_list, [])
+
+
+class FileCollapseTest(unittest.TestCase):
+    """The file name rows hide and show their signals (HLFR-00123)."""
+
+    def setUp(self) -> None:
+        """Open three files through a real FileController.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_dict = {
+            "a.csv": make_signal_file(["Time", "MaxSpeed", "Speed"]),
+            "b.csv": make_signal_file(["Time", "voltage"]),
+            "c.csv": make_signal_file(["Time", "Speed_rear"]),
+            "d.csv": make_signal_file(["Time", "x"]),
+        }
+        self.view = FakeFileView()
+        self.file_controller = FileController(self.view,
+                                              self.file_dict.__getitem__)
+        self.controller = SignalListController(self.view,
+                                               self.file_controller)
+        for path_str in ("a.csv", "b.csv", "c.csv"):
+            self.open_path(path_str)
+
+    def open_path(self, path_value) -> None:
+        """Run the open-file flow with the dialog returning path_value.
+
+        Inputs:
+            path_value: a path or a list of paths.
+        Outputs: none.
+        """
+        self.view.path_str = path_value
+        self.file_controller.open_file_requested()
+
+    def shown_dict(self) -> dict:
+        """Return the shown names of each file, by file number.
+
+        Inputs: none.
+        Outputs: dict file number -> list of shown names.
+        """
+        return {group[0]: list(group[2]) for group in self.view.group_list}
+
+    @covers("LLFR-00984", "LLFR-00978", "HLFR-00123", "HLFR-00117")
+    def test_every_file_collapsed_after_an_open(self) -> None:
+        """After an open, every row is collapsed, with no signal row.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.view.file_row_list,
+                         ["file1_a.csv", "file2_b.csv", "file3_c.csv"])
+        self.assertEqual(self.view.shown_name_list, [])
+        self.assertEqual(self.view.no_match_row_list, [])
+        self.assertEqual(self.view.collapsed_number_set, {1, 2, 3})
+        # A file expanded by the user is collapsed again by the next
+        # open, like the new file.
+        self.controller.toggle_file(2)
+        self.assertEqual(self.shown_dict()[2],
+                         ["file2_Time", "file2_voltage"])
+        self.open_path("d.csv")
+        self.assertEqual(self.view.collapsed_number_set, {1, 2, 3, 4})
+        self.assertEqual(self.view.shown_name_list, [])
+
+    @covers("LLFR-00984", "HLFR-00123", "HLFR-00122")
+    def test_several_files_opened_at_once_are_collapsed(self) -> None:
+        """Files selected together are all collapsed, with the others.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_dict["e.csv"] = make_signal_file(["Time", "y"])
+        expand_all_files(self.controller)
+        self.open_path(["d.csv", "e.csv"])
+        self.assertEqual(len(self.view.file_row_list), 5)
+        self.assertEqual(self.view.collapsed_number_set, {1, 2, 3, 4, 5})
+        self.assertEqual(self.view.shown_name_list, [])
+
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00977", "LLFR-00978",
+            "HLFR-00123")
+    def test_toggle_hides_and_shows_one_file(self) -> None:
+        """The icon of a row hides or shows only the signals of its file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertIs(self.view.file_toggle_handler.__func__,
+                      SignalListController.toggle_file)
+        self.view.file_toggle_handler(1)
+        self.assertEqual(self.shown_dict(), {
+            1: ["file1_Time", "file1_MaxSpeed", "file1_Speed"], 2: [],
+            3: []})
+        self.assertEqual(self.view.collapsed_number_set, {2, 3})
+        self.controller.set_synthetic_signals(
+            ["file1_int_Speed", "file2_int_voltage"], set(),
+            {"file1_int_Speed": 1, "file2_int_voltage": 2})
+        # LLFR-00980: the synthetic signals are hidden with their file.
+        self.assertEqual(self.shown_dict()[1][-1], "file1_int_Speed")
+        self.assertEqual(self.shown_dict()[2], [])
+        self.view.file_toggle_handler(2)
+        self.assertEqual(self.shown_dict()[2], [
+            "file2_Time", "file2_voltage", "file2_int_voltage"])
+        self.view.file_toggle_handler(1)
+        self.assertEqual(self.shown_dict()[1], [])
+        self.assertEqual(self.view.collapsed_number_set, {1, 3})
+        # The rows stay in their place (LLFR-00938).
+        self.assertEqual(self.view.file_row_list,
+                         ["file1_a.csv", "file2_b.csv", "file3_c.csv"])
+
+    @covers("LLFR-00985", "LLFR-00986", "LLFR-00987", "HLFR-00123",
+            "HLFR-00033")
+    def test_search_expands_and_then_restores(self) -> None:
+        """A search shows every file; clearing it restores the states.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.toggle_file(1)
+        self.view.type_text("speed")
+        self.assertEqual(self.view.collapsed_number_set, set())
+        self.assertEqual(self.shown_dict(), {
+            1: ["file1_Speed", "file1_MaxSpeed"], 2: [],
+            3: ["file3_Speed_rear"]})
+        self.assertEqual(self.view.no_match_row_list, ["file2_b.csv"])
+        # LLFR-00986: a click during the search hides the matches and
+        # the no-match text, for as long as the search goes on.
+        self.controller.toggle_file(3)
+        self.controller.toggle_file(2)
+        self.assertEqual(self.shown_dict()[3], [])
+        self.assertEqual(self.view.no_match_row_list, [])
+        self.assertEqual(self.view.collapsed_number_set, {2, 3})
+        self.view.type_text("speed r")
+        self.assertEqual(self.view.collapsed_number_set, {2, 3})
+        self.controller.toggle_file(1)
+        self.assertEqual(self.shown_dict()[1], [])
+        # LLFR-00987: back to the states before the search; the clicks
+        # of the search are forgotten.
+        self.view.type_text("  ")
+        self.assertEqual(self.view.collapsed_number_set, {2, 3})
+        self.assertEqual(self.shown_dict()[1], [
+            "file1_Time", "file1_MaxSpeed", "file1_Speed"])
+        self.view.type_text("volt")
+        self.assertEqual(self.view.collapsed_number_set, set())
+        self.assertEqual(self.shown_dict()[2], ["file2_voltage"])
+        self.view.type_text("")
+        self.assertEqual(self.view.collapsed_number_set, {2, 3})
+
+    @covers("LLFR-00984", "LLFR-00104", "HLFR-00123")
+    def test_open_during_a_search_collapses_every_file(self) -> None:
+        """An open clears the search and collapses every file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.type_text("speed")
+        self.controller.toggle_file(1)
+        self.open_path("d.csv")
+        self.assertEqual(self.view.search_text_str, "")
+        self.assertEqual(self.view.collapsed_number_set, {1, 2, 3, 4})
+        self.view.type_text("x")
+        self.assertEqual(self.view.collapsed_number_set, set())
+        self.assertEqual(self.shown_dict()[4], ["file4_x"])
+
+    @covers("LLFR-00980", "LLFR-00931", "HLFR-00123", "HLFR-00118")
+    def test_close_keeps_the_states_of_the_other_files(self) -> None:
+        """Closing a file keeps the other files expanded or collapsed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_controller.add_files_closed_listener(
+            self.controller.on_files_closed)
+        self.controller.toggle_file(3)
+        self.file_controller.close_file(2)
+        self.assertEqual(self.view.collapsed_number_set, {1})
+        self.assertEqual(self.shown_dict(), {
+            1: [], 3: ["file3_Time", "file3_Speed_rear"]})
+        self.file_controller.close_all_files()
+        self.assertEqual(self.view.group_list, [])
+        self.assertEqual(self.controller.collapsed_number_set, set())
+
+
+class TimeSignalFirstTest(unittest.TestCase):
+    """The time signal is the first signal of its file (LLFR-00992)."""
+
+    def setUp(self) -> None:
+        """Open a file whose time signal is not its first column.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_dict = {
+            "a.csv": make_signal_file(["measure", "Time", "zeta"]),
+            "b.csv": make_signal_file(["x", "y", "chosen"]),
+        }
+        self.view = FakeFileView()
+        self.file_controller = FileController(self.view,
+                                              self.file_dict.__getitem__)
+        self.controller = SignalListController(self.view,
+                                               self.file_controller)
+        self.view.path_str = "a.csv"
+        self.file_controller.open_file_requested()
+        expand_all_files(self.controller)
+
+    @covers("LLFR-00992", "LLFR-00939", "HLFR-00011", "HLFR-00006")
+    def test_time_signal_found_by_name_comes_first(self) -> None:
+        """`Time` is listed first, then the file's order, then the
+        synthetic signals.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.view.shown_name_list,
+                         ["file1_Time", "file1_measure", "file1_zeta"])
+        self.controller.set_synthetic_signals(["file1_int_zeta"], set(),
+                                              {"file1_int_zeta": 1})
+        self.assertEqual(self.view.shown_name_list, [
+            "file1_Time", "file1_measure", "file1_zeta", "file1_int_zeta"])
+        self.assertEqual(self.controller.signal_name_list(),
+                         self.view.shown_name_list)
+
+    @covers("LLFR-00992", "LLFR-00326", "HLFR-00011", "HLFR-00070")
+    def test_chosen_time_signal_comes_first(self) -> None:
+        """A time signal chosen in the window is listed first too.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.time_signal_answer_str = "chosen"
+        self.view.path_str = "b.csv"
+        self.file_controller.open_file_requested()
+        expand_all_files(self.controller)
+        self.assertEqual(self.view.group_list[1][2],
+                         ["file2_chosen", "file2_x", "file2_y"])
+        self.assertIn("file2_chosen", self.view.time_signal_name_list)
+
+    @covers("LLFR-00993", "LLFR-00102", "HLFR-00033")
+    def test_matching_time_signal_stays_first(self) -> None:
+        """A matching time signal is first, before the groups of the
+        search.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # "me" starts "measure" (group 1) but is only inside "Time"
+        # (group 2); the time signal still comes first.
+        self.view.type_text("me")
+        self.assertEqual(self.view.shown_name_list,
+                         ["file1_Time", "file1_measure"])
+        # With a typo, the time signal is in group 3 and still first.
+        self.view.type_text("tiem")
+        self.assertEqual(self.view.shown_name_list[0], "file1_Time")
+        self.view.type_text("zeta")
+        self.assertEqual(self.view.shown_name_list, ["file1_zeta"])
 
 
 if __name__ == "__main__":

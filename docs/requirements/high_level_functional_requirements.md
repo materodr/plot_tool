@@ -249,6 +249,11 @@ Note: Closing a file removes its signals, the synthetic signals computed from it
 ### HLFR-00119 Close all files
 The user must be able to close all the open data files in one action from the signal list panel.
 
+### HLFR-00123 Hide the signals of a file
+The user must be able to hide and show again the signals of each data file in the signal list panel, like a folder in a folder tree.
+
+Note: The file row has a [-] icon on its left while its signals are shown and [+] while they are hidden.
+
 ### HLFR-00095 Search box aligned with the plots
 The bottom of the search box must be aligned with the bottom of the last plot.
 

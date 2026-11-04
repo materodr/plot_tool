@@ -13,6 +13,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
@@ -577,6 +578,9 @@ class SyntheticEndToEndTest(unittest.TestCase):
                         return_value=self.path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
+        # LLFR-00984: the files are collapsed after an open; these
+        # tests read the shown signals.
+        expand_all_files(self.controller)
 
     def tearDown(self) -> None:
         """Close the main window.

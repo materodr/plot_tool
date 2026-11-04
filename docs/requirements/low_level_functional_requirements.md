@@ -89,7 +89,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 ### LLFR-00140 Undoable actions
 The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
 
-Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, closing a file or all files (LLFR-00924, LLFR-00934), zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
+Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, closing a file or all files (LLFR-00924, LLFR-00934), hiding or showing the signals of a data file in the signal list (LLFR-00991), zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
 
 *Parent: HLFR-00040*
 
@@ -917,9 +917,9 @@ The layout file must hold:
 *Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097*
 
 ### LLFR-00226 Not in the layout file
-The layout file must not hold the names or the paths of the data files, the undo and redo history, the active plot tool, the text of the search box, the text notes or the arrows.
+The layout file must not hold the names or the paths of the data files, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, or which data files have their signals hidden in the signal list (LLFR-00980).
 
-*Parent: HLFR-00049*
+*Parent: HLFR-00049, HLFR-00123*
 
 ### LLFR-00948 Prefixed names in the layout file
 The layout file must hold the name of each signal with its prefix of LLFR-00905, for example `file1_Speed` or `file1_int_Speed`, in its curves, pinned data tips, delta markers and synthetic signals (LLFR-00225).
@@ -1893,12 +1893,12 @@ Each time the text in the search box changes, the app must show in the signal li
 *Parent: HLFR-00033*
 
 ### LLFR-00096 Empty search
-When the search box is empty or contains only spaces, the signal list must show all the signals of the open data files, with their synthetic signals.
+When the search box is empty or contains only spaces, the signal list must show all the signals of the open data files, with their synthetic signals, except the signals hidden as in LLFR-00980 and LLFR-00984.
 
 *Parent: HLFR-00033*
 
 ### LLFR-00097 No matching signals
-When no signal of an open data file matches the text in the search box, the signal list must show the text "No matching signals" below the file name row of that file (LLFR-00362).
+When no signal of an open data file matches the text in the search box, the signal list must show the text "No matching signals" below the file name row of that file (LLFR-00362), except while the user has hidden that file as in LLFR-00986.
 
 *Parent: HLFR-00033*
 
@@ -1937,7 +1937,7 @@ Note: For example, `presure` finds `Pressure`, and `sine_2hz` finds `Sine_3Hz`.
 *Parent: HLFR-00034*
 
 ### LLFR-00102 Order of search results
-Below the file name row of each open data file, the app must list the matching signals of that file, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105, LLFR-00567), in three groups in this order, keeping the order of the signal list (LLFR-00939) within each group:
+Below the file name row of each open data file, the app must list the matching signals of that file, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105, LLFR-00567), in three groups in this order, keeping the order of the signal list (LLFR-00939) within each group, except as in LLFR-00993:
 1. the signals that match every search word without LLFR-00101 and whose name, after LLFR-00098, LLFR-00100 and LLFR-00566 are applied, starts with the first search word, once its prefix of LLFR-00905 is left out;
 2. the other signals that match every search word without LLFR-00101;
 3. the signals that need LLFR-00101 for at least one search word.
@@ -2726,7 +2726,7 @@ The signal list must show the open data files in the order of their numbers (LLF
 *Parent: HLFR-00079, HLFR-00011, HLFR-00113*
 
 ### LLFR-00939 Signals below their file name row
-The signal list must show the signals of each data file directly below its file name row, in the file's order, followed by the synthetic signals of that file (LLFR-00242).
+The signal list must show the signals of each data file directly below its file name row, in the file's order, followed by the synthetic signals of that file (LLFR-00242), except as in LLFR-00980, LLFR-00984 and LLFR-00992.
 
 *Parent: HLFR-00079, HLFR-00011, HLFR-00113*
 
@@ -2920,6 +2920,97 @@ If the user proceeds in the question of LLFR-00934, the app must close every ope
 After the app closes every data file (LLFR-00936), the signal list panel must show the same content as when the app starts with no data file open: no file name row and no signal.
 
 *Parent: HLFR-00119, HLFR-00011*
+
+### LLFR-00977 Icon of a file with its signals shown
+While the signals of a data file are shown in the signal list, its file name row (LLFR-00362) must show at its left, before its text, a small `[-]` icon: a minus sign inside square brackets.
+
+*Parent: HLFR-00123, HLFR-00079*
+
+### LLFR-00978 Icon of a file with its signals hidden
+While the signals of a data file are hidden in the signal list (LLFR-00980, LLFR-00984, LLFR-00986), its file name row (LLFR-00362) must show, in place of the icon of LLFR-00977, a small `[+]` icon: a plus sign inside square brackets.
+
+*Parent: HLFR-00123, HLFR-00079*
+
+### LLFR-00979 Look of the file icons
+The app must draw the icons of LLFR-00977 and LLFR-00978 as thin lines in the muted text color of the signal list panel, the same color as the text "No matching signals" (LLFR-00097), centered vertically on the text of the file name row, on a transparent background.
+
+*Parent: HLFR-00123*
+
+### LLFR-00980 Hide the signals of a file
+When the user clicks the `[-]` icon of a file name row (LLFR-00977) while the search box is empty or contains only spaces, the app must hide from the signal list every signal and every synthetic signal of that data file, keeping its file name row in its place (LLFR-00938).
+
+*Parent: HLFR-00123*
+
+### LLFR-00981 Show again the signals of a file
+When the user clicks the `[+]` icon of a file name row (LLFR-00978) while the search box is empty or contains only spaces, the app must show again the signals and synthetic signals of that data file below its file name row, as in LLFR-00939.
+
+*Parent: HLFR-00123*
+
+### LLFR-00982 Icon click keeps the selection
+A click on the icon of a file name row (LLFR-00977, LLFR-00978) must change the selection of the signal list only as in LLFR-00988.
+
+Note: The click selects nothing, like any click on a file name row (LLFR-00643).
+
+*Parent: HLFR-00123, HLFR-00063*
+
+### LLFR-00983 Icon press starts no drag
+A press of the left mouse button on the icon of a file name row (LLFR-00977, LLFR-00978) must start no drag, also when the mouse moves before the button is released, as in LLFR-00645.
+
+*Parent: HLFR-00123, HLFR-00079*
+
+### LLFR-00984 Files collapsed on file open
+Each time the app opens data files (LLFR-00920), including several files selected at once (LLFR-00951), it must show the file name row of every open data file, the new ones and the ones already open, with the `[+]` icon (LLFR-00978) and none of their signals or synthetic signals.
+
+*Parent: HLFR-00123, HLFR-00117, HLFR-00122*
+
+### LLFR-00985 Files expanded during a search
+While the search box holds text other than spaces, the app must show every file name row with the `[-]` icon (LLFR-00977) and, below it, the matches of that file (LLFR-00102) or the text "No matching signals" (LLFR-00097), whatever the file's state before the search, except as in LLFR-00986.
+
+*Parent: HLFR-00123, HLFR-00033*
+
+### LLFR-00986 File icon during a search
+While the search box holds text other than spaces, a click on the icon of a file name row must hide the matches of that file and its text "No matching signals", or show them again, as in LLFR-00980 and LLFR-00981, for as long as the search box holds text other than spaces.
+
+Note: The click does not change the state that the file gets back when the search is cleared (LLFR-00987).
+
+*Parent: HLFR-00123, HLFR-00033*
+
+### LLFR-00987 File states back after a search
+When the search box becomes empty or holds only spaces again, the app must show each data file with the signals shown or hidden as they were just before the search box got its text, as set by LLFR-00980, LLFR-00981 and LLFR-00984.
+
+*Parent: HLFR-00123, HLFR-00033*
+
+### LLFR-00988 Hidden signals deselected
+When the app hides the signals of a data file (LLFR-00980, LLFR-00984, LLFR-00986), it must deselect them, as for the signals that are no longer shown in LLFR-00292, so that they stay unselected when they are shown again (LLFR-00627).
+
+*Parent: HLFR-00123, HLFR-00063*
+
+### LLFR-00989 Left key hides the signals of a file
+When the keyboard focus is in the signal list, the current row is a file name row (LLFR-00362) with the `[-]` icon and the user presses the Left arrow key alone, the app must hide the signals of that file as a click on the icon does (LLFR-00980, LLFR-00986).
+
+*Parent: HLFR-00123*
+
+### LLFR-00990 Right key shows the signals of a file
+When the keyboard focus is in the signal list, the current row is a file name row (LLFR-00362) with the `[+]` icon and the user presses the Right arrow key alone, the app must show again the signals of that file as a click on the icon does (LLFR-00981, LLFR-00986).
+
+*Parent: HLFR-00123*
+
+### LLFR-00991 Hiding signals is not undoable
+Hiding and showing again the signals of a data file (LLFR-00980, LLFR-00981, LLFR-00984 to LLFR-00990) must leave the undo and redo history unchanged.
+
+*Parent: HLFR-00123, HLFR-00040, HLFR-00048*
+
+### LLFR-00992 Time signal first below its file
+The signal list must show the time signal of each data file (HLFR-00006), whether found by its name (LLFR-00053) or chosen by the user (LLFR-00326), as the first signal directly below the file name row of that file, before the other signals of the file in the file's order and before its synthetic signals (LLFR-00939, LLFR-00242).
+
+Note: The time signal keeps its green color (LLFR-00332). The order of the signal list is also the order of the second signal dialog (LLFR-00967) and of the saved file of the Save signals button (LLFR-00401, LLFR-00944).
+
+*Parent: HLFR-00011, HLFR-00079, HLFR-00006*
+
+### LLFR-00993 Time signal first among the matches
+When the time signal of a data file matches the text in the search box, the app must show it as the first match below the file name row of that file, before the groups of LLFR-00102.
+
+*Parent: HLFR-00033, HLFR-00079, HLFR-00006*
 
 ### LLFR-00424 Search box bottom edge
 The bottom edge of the search box (LLFR-00094) must be at the same height as the bottom edge of the lowest plot of the current tab, including its x-axis numbers and label, at any window size.

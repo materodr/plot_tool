@@ -224,6 +224,20 @@ class DataFile:
         return list(self.signal_dict)
 
     @property
+    def listed_signal_name_list(self) -> list:
+        """Return the prefixed names in the order of the signal list.
+
+        Inputs: none.
+        Outputs: the time signal first, then the other signals in the
+            file's order (LLFR-00992).
+        """
+        # LLFR-00992: the time signal, found by its name or chosen by
+        # the user, is the first signal below the file name row.
+        time_name_str = self.time_signal_name_str
+        return [time_name_str] + [name_str for name_str in self.signal_dict
+                                  if name_str != time_name_str]
+
+    @property
     def time_array(self):
         """Return the time signal of the file.
 
