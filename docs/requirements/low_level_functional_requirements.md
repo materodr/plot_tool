@@ -2511,6 +2511,11 @@ When the current tab holds no plot, the bottom edge of the search box (LLFR-0009
 
 *Parent: HLFR-00095*
 
+### LLFR-00894 Signal list top edge
+The top edge of the signal list of the signal list panel (LLFR-00094) must be at the same height as the top edge of the container of the plot panel that holds the plots, just below the tab row (LLFR-00893), at any window size and any widths of the two panels.
+
+*Parent: HLFR-00001, HLFR-00026*
+
 ## Plot panel
 
 ### LLFR-00024 Initial tab
@@ -2753,6 +2758,13 @@ In the copied image (LLFR-00133), each plot must have the rounded corners of LLF
 Note: Only the corners and the border are added: what the image shows and its size are as before.
 
 *Parent: HLFR-00039*
+
+### LLFR-00893 Rounded plot container corners
+The container of the plot panel that holds the plots of the current tab, below the tab row, must be shown with its top-right, bottom-left and bottom-right corners rounded with the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
+
+Note: The top-left corner stays square because the first tab starts at the left edge of the plot panel (LLFR-00106) and joins the container there, so the left border of the first tab runs straight down into the left border of the container. The look of the tabs and of the "+" button is unchanged (LLFR-00107).
+
+*Parent: HLFR-00001*
 
 ### LLFR-00070 Shared time axis
 All time plots in all tabs must share the same x-axis range, so that a change to the time range of one time plot applies to every time plot in every tab.
