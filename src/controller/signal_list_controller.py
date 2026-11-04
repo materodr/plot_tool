@@ -9,11 +9,12 @@ offer ``set_search_text_handler``, ``show_signal_names``,
 
 The list shows the signals of every open data file, with their prefixed
 names (LLFR-00901), file after file in the order of their numbers
-(LLFR-00934, LLFR-00935), then the synthetic signals in creation order
-(LLFR-00242); the SyntheticController gives the names of the synthetic
-signals with ``set_synthetic_signals``. The FileController calls its
-listeners only after a successful open, so a failed, cancelled or
-refused open leaves the list unchanged (LLFR-00651).
+(LLFR-00934, LLFR-00935), each followed by its own synthetic signals in
+creation order (LLFR-00242, LLFR-00936); the SyntheticController gives
+the names of the synthetic signals with ``set_synthetic_signals``. The
+FileController calls its listeners only after a successful open, so a
+failed, cancelled or refused open leaves the list unchanged
+(LLFR-00651).
 
 The file name row above the list (LLFR-00362) shows the rows of the open
 data files, ``file<N>_<file name>``, separated by commas, until the
@@ -24,6 +25,7 @@ while no file is open (LLFR-00363, LLFR-00933).
 import os
 
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
+from model.synthetic_signals import ordered_signal_names
 
 # LLFR-00362: the rows of the open files, in the one row shown for now.
 FILE_ROW_SEPARATOR_STR = ", "
@@ -77,6 +79,9 @@ class SignalListController:
         # FFT signals among them (LLFR-00251).
         self.synthetic_name_list = []
         self.fft_name_set = set()
+        # LLFR-00936: the data file of each synthetic signal.
+        self.synthetic_file_dict = {}
+        self.signal_file = None
         self.search_text_str = ""
         view.set_search_text_handler(self.on_search_text_changed)
         # LLFR-00104, LLFR-00650: a new file is added to the shown names.
@@ -94,19 +99,24 @@ class SignalListController:
         self.show_filtered_names()
 
     def set_synthetic_signals(self, synthetic_name_list: list,
-                              fft_name_set: set) -> None:
+                              fft_name_set: set,
+                              file_number_dict: dict = None) -> None:
         """Show the current synthetic signals after the data signals.
 
         Inputs:
             synthetic_name_list: the synthetic signal names, in creation
                 order.
             fft_name_set: the names of the FFT signals among them.
+            file_number_dict: synthetic signal name -> number of its
+                data file (LLFR-00936); None lists them after every file.
         Outputs: none. The list is filtered again by the search text.
         """
-        # LLFR-00242: after the data file signals, in creation order,
-        # in italics, and searchable like the others.
+        # LLFR-00242, LLFR-00935: after the signals of their own data
+        # file, in creation order, in italics, and searchable like the
+        # others.
         self.synthetic_name_list = list(synthetic_name_list)
         self.fft_name_set = set(fft_name_set)
+        self.synthetic_file_dict = dict(file_number_dict or {})
         self.show_filtered_names()
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
@@ -125,10 +135,16 @@ class SignalListController:
         """Return every name of the signal list, in list order.
 
         Inputs: none.
-        Outputs: the data file signals, then the synthetic signals.
+        Outputs: file after file, the signals of each data file
+            followed by its synthetic signals (LLFR-00934, LLFR-00935).
         """
-        # LLFR-00242: synthetic signals after the data file signals.
-        return self.all_signal_name_list + self.synthetic_name_list
+        # LLFR-00242, LLFR-00935: each file's synthetic signals after
+        # its own signals.
+        if self.signal_file is None:
+            return self.all_signal_name_list + self.synthetic_name_list
+        return ordered_signal_names(self.signal_file,
+                                    self.synthetic_name_list,
+                                    self.synthetic_file_dict)
 
     def on_file_opened(self, signal_file, added_file=None) -> None:
         """Show the names of the open files after a file was added.
@@ -191,6 +207,7 @@ class SignalListController:
         # LLFR-00054, LLFR-00934, LLFR-00935: every signal of every open
         # file, the time signals included.
         self.all_signal_name_list = list(signal_file.signal_name_list)
+        self.signal_file = signal_file
         # LLFR-00096: an empty box shows every signal.
         self.show_filtered_names()
 

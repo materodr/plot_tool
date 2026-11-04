@@ -735,10 +735,13 @@ class MainWindow(QMainWindow):
         """Let the user type a new name for a synthetic signal.
 
         Inputs:
-            current_name_str: the signal's name, shown in the dialog.
+            current_name_str: the part of the signal's name after the
+                prefix of its data file, shown in the dialog
+                (LLFR-00955).
         Outputs: the typed text (not stripped), or None when cancelled.
         """
-        # LLFR-00266: the dialog starts from the current name.
+        # LLFR-00266, LLFR-00955: the dialog starts from the current
+        # name without its prefix.
         new_name_str, accepted_b = QInputDialog.getText(
             self, RENAME_SIGNAL_DIALOG_TITLE_STR,
             RENAME_SIGNAL_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,

@@ -65,11 +65,11 @@ class SignalMenuTest(unittest.TestCase):
         from view.signal_list_panel import SignalListPanel
         self.panel = SignalListPanel()
         self.panel.set_operation_groups(operation_group_list())
-        self.panel.set_signal_kinds({"int_file1_Speed",
-                                     "fft_0s_to_1s_file1_Speed"},
-                                    {"fft_0s_to_1s_file1_Speed"})
+        self.panel.set_signal_kinds({"file1_int_Speed",
+                                     "file1_fft_0s_to_1s_Speed"},
+                                    {"file1_fft_0s_to_1s_Speed"})
         self.panel.show_signal_names(DATA_NAME_LIST + [
-            "int_file1_Speed", "fft_0s_to_1s_file1_Speed"])
+            "file1_int_Speed", "file1_fft_0s_to_1s_Speed"])
         self.panel.resize(250, 400)
         self.panel.show()
         self.application.processEvents()
@@ -123,11 +123,11 @@ class SignalMenuTest(unittest.TestCase):
         for name_str in DATA_NAME_LIST:
             self.assertEqual(self.option_text_list(name_str),
                              ["Create synthetic signal", "Copy name"])
-        self.assertEqual(self.option_text_list("int_file1_Speed"), [
+        self.assertEqual(self.option_text_list("file1_int_Speed"), [
             "Create synthetic signal", "Copy name", "Copy equation",
             "Rename", "Delete signal"])
         # LLFR-00278, LLFR-00283: an FFT signal has no equation.
-        self.assertEqual(self.option_text_list("fft_0s_to_1s_file1_Speed"), [
+        self.assertEqual(self.option_text_list("file1_fft_0s_to_1s_Speed"), [
             "Create synthetic signal", "Copy name", "Rename",
             "Delete signal"])
 
@@ -171,13 +171,13 @@ class SignalMenuTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        menu = self.panel.build_signal_menu("fft_0s_to_1s_file1_Speed")
+        menu = self.panel.build_signal_menu("file1_fft_0s_to_1s_Speed")
         self.assertEqual(menu.actions()[0].text(),
                          "Create synthetic signal")
         self.assertFalse(menu.actions()[0].isEnabled())
         self.assertFalse(menu.actions()[0].menu().isEnabled())
         menu.deleteLater()
-        menu = self.panel.build_signal_menu("int_file1_Speed")
+        menu = self.panel.build_signal_menu("file1_int_Speed")
         self.assertTrue(menu.actions()[0].isEnabled())
         menu.deleteLater()
 
@@ -189,18 +189,18 @@ class SignalMenuTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        menu = self.panel.build_signal_menu("int_file1_Speed")
+        menu = self.panel.build_signal_menu("file1_int_Speed")
         for text_str in ("Moving average (mavg)", "Copy name",
                          "Copy equation",
                          "Rename", "Delete signal"):
             find_action(menu, text_str).trigger()
         menu.deleteLater()
         self.assertEqual(self.request_list, [
-            ("create", "int_file1_Speed", "movingaverage"),
-            ("copy_name", "int_file1_Speed"),
-            ("copy_equation", "int_file1_Speed"),
-            ("rename", "int_file1_Speed"),
-            ("delete", "int_file1_Speed")])
+            ("create", "file1_int_Speed", "movingaverage"),
+            ("copy_name", "file1_int_Speed"),
+            ("copy_equation", "file1_int_Speed"),
+            ("rename", "file1_int_Speed"),
+            ("delete", "file1_int_Speed")])
 
     @covers("LLFR-00239", "LLFR-00568")
     def test_chosen_option_is_emitted_after_the_menu_closes(self) -> None:
@@ -248,11 +248,11 @@ class SignalMenuTest(unittest.TestCase):
         """
         for name_str in DATA_NAME_LIST:
             self.assertFalse(self.panel.is_name_italic(name_str))
-        self.assertTrue(self.panel.is_name_italic("int_file1_Speed"))
-        self.assertTrue(self.panel.is_name_italic("fft_0s_to_1s_file1_Speed"))
+        self.assertTrue(self.panel.is_name_italic("file1_int_Speed"))
+        self.assertTrue(self.panel.is_name_italic("file1_fft_0s_to_1s_Speed"))
         self.panel.set_signal_kinds(set(), set())
-        self.panel.show_signal_names(DATA_NAME_LIST + ["int_file1_Speed"])
-        self.assertFalse(self.panel.is_name_italic("int_file1_Speed"))
+        self.panel.show_signal_names(DATA_NAME_LIST + ["file1_int_Speed"])
+        self.assertFalse(self.panel.is_name_italic("file1_int_Speed"))
 
 
 @requires_qt
@@ -371,8 +371,8 @@ class SyntheticDialogTest(unittest.TestCase):
         from model.signal_search import NO_MATCH_TEXT_STR, search_signals
         from view.synthetic_dialogs import build_second_signal_dialog
         name_list = ["file1_Time", "file1_Speed", "file1_Torque",
-                     "int_file1_Speed",
-                     "Engine_file1_Speed"]
+                     "file1_int_Speed",
+                     "file1_Engine_Speed"]
         dialog = build_second_signal_dialog(
             None, "Product with signal", "Multiply 'file1_Speed' by:",
             name_list, "file1_Speed",
@@ -424,8 +424,8 @@ class SyntheticDialogTest(unittest.TestCase):
         self.assertEqual(dialog.no_match_text(), "")
         dialog.set_search_text("speed")
         self.assertEqual(dialog.name_list(),
-                         ["file1_Speed", "int_file1_Speed",
-                          "Engine_file1_Speed"])
+                         ["file1_Speed", "file1_int_Speed",
+                          "file1_Engine_Speed"])
         self.assertEqual(dialog.chosen_name(), "file1_Speed")
         for text_str in ("ENGINESPEED", "sped", "int sp", "e", "Tork"):
             dialog.set_search_text(text_str)
@@ -461,9 +461,9 @@ class SyntheticDialogTest(unittest.TestCase):
         self.assertTrue(dialog.isVisible())
         # The selected signal is kept while it is still shown.
         dialog.set_search_text("speed")
-        self.assertTrue(dialog.select_name("Engine_file1_Speed"))
+        self.assertTrue(dialog.select_name("file1_Engine_Speed"))
         dialog.set_search_text("speed ")
-        self.assertEqual(dialog.chosen_name(), "Engine_file1_Speed")
+        self.assertEqual(dialog.chosen_name(), "file1_Engine_Speed")
         dialog.set_search_text("torque")
         self.assertEqual(dialog.chosen_name(), "file1_Torque")
         QTest.keyClick(dialog.search_box, Qt.Key.Key_Return)
@@ -489,17 +489,17 @@ class SyntheticDialogTest(unittest.TestCase):
         from PyQt6.QtWidgets import QMessageBox
         from view import message_boxes
         box = message_boxes.build_delete_synthetic_signal_box(
-            None, "int_file1_Speed", ["der_int_file1_Speed",
-                                      "max_der_int_file1_Speed"])
+            None, "file1_int_Speed", ["file1_der_int_Speed",
+                                      "file1_max_der_int_Speed"])
         self.assertEqual(box.icon(), QMessageBox.Icon.Question)
-        self.assertIn("'int_file1_Speed'", box.text())
-        self.assertIn("der_int_file1_Speed", box.text())
-        self.assertIn("max_der_int_file1_Speed", box.text())
+        self.assertIn("'file1_int_Speed'", box.text())
+        self.assertIn("file1_der_int_Speed", box.text())
+        self.assertIn("file1_max_der_int_Speed", box.text())
         self.assertEqual(box.defaultButton(),
                          box.button(QMessageBox.StandardButton.No))
         box.deleteLater()
         alone_box = message_boxes.build_delete_synthetic_signal_box(
-            None, "max_file1_Speed", [])
+            None, "file1_max_Speed", [])
         self.assertNotIn("computed from it", alone_box.text())
         alone_box.deleteLater()
 
@@ -668,7 +668,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         """
         self.choose("file1_Speed", "Integral (int)")
         self.dialog_attempts_list = [[["9", "2"], ["2", "3", "zero"]]]
-        self.choose("int_file1_Speed", "Low-pass filter (lpf)")
+        self.choose("file1_int_Speed", "Low-pass filter (lpf)")
         self.assertIn("less than 5 Hz", self.prompt_text_list[0])
         self.assertIn("from 1 to 8", self.prompt_text_list[0])
         self.assertEqual(len(self.reason_text_list), 1)
@@ -676,30 +676,30 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(self.choice_text_list[0], {
             "first_value": "From the first value", "zero": "From zero"})
         self.assertEqual(self.controller.synthetic_controller.store.get(
-            "lpf_2Hz_order3_int_file1_Speed").parameter, (2.0, 3, "zero"))
+            "file1_lpf_2Hz_order3_int_Speed").parameter, (2.0, 3, "zero"))
         self.assertEqual(self.panel.signal_name_list(), [
-            "file1_Time", "file1_Speed", "file1_Torque", "int_file1_Speed",
-            "lpf_2Hz_order3_int_file1_Speed"])
+            "file1_Time", "file1_Speed", "file1_Torque", "file1_int_Speed",
+            "file1_lpf_2Hz_order3_int_Speed"])
         self.assertTrue(self.panel.is_name_italic(
-            "lpf_2Hz_order3_int_file1_Speed"))
+            "file1_lpf_2Hz_order3_int_Speed"))
         self.assertFalse(self.panel.is_name_italic("file1_Speed"))
         # LLFR-00019, LLFR-00021: plotted like data signals.
-        self.panel.signal_double_clicked.emit("lpf_2Hz_order3_int_file1_Speed")
+        self.panel.signal_double_clicked.emit("file1_lpf_2Hz_order3_int_Speed")
         self.panel.signal_double_clicked.emit("file1_Torque")
         self.application.processEvents()
         first_widget, second_widget = self.plot_widget_list()
         self.controller.plot_controller.on_signal_dropped(
-            second_widget.plot_id_i, "int_file1_Speed")
+            second_widget.plot_id_i, "file1_int_Speed")
         self.application.processEvents()
         self.assertEqual(self.legend_names(first_widget),
-                         ["lpf_2Hz_order3_int_file1_Speed"])
+                         ["file1_lpf_2Hz_order3_int_Speed"])
         self.assertEqual(self.legend_names(second_widget),
-                         ["file1_Torque", "int_file1_Speed"])
+                         ["file1_Torque", "file1_int_Speed"])
         # LLFR-00255: the question names the dependent; Yes deletes.
-        self.choose("int_file1_Speed", "Delete signal")
+        self.choose("file1_int_Speed", "Delete signal")
         title_str, _, text_str = self.box_record_list[-1]
         self.assertEqual(title_str, "Delete signal")
-        self.assertIn("lpf_2Hz_order3_int_file1_Speed", text_str)
+        self.assertIn("file1_lpf_2Hz_order3_int_Speed", text_str)
         self.assertEqual(self.panel.signal_name_list(),
                          ["file1_Time", "file1_Speed", "file1_Torque"])
         remaining_list = self.plot_widget_list()
@@ -709,7 +709,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.assertFalse(self.main_window.is_undo_enabled())
 
     @covers("LLFR-00266", "LLFR-00267", "LLFR-00277", "LLFR-00279",
-            "LLFR-00603", "LLFR-00623")
+            "LLFR-00603", "LLFR-00623", "LLFR-00955", "LLFR-00972")
     def test_rename_and_clipboard(self) -> None:
         """Rename updates the legend; names and equations are copied.
 
@@ -718,26 +718,30 @@ class SyntheticEndToEndTest(unittest.TestCase):
         """
         from PyQt6.QtWidgets import QApplication, QInputDialog
         self.choose("file1_Speed", "Integral (int)")
-        self.panel.signal_double_clicked.emit("int_file1_Speed")
+        self.panel.signal_double_clicked.emit("file1_int_Speed")
         self.application.processEvents()
         with mock.patch.object(QInputDialog, "getText",
-                               return_value=(" Distance ", True)):
-            self.choose("int_file1_Speed", "Rename")
-        self.assertEqual(self.panel.signal_name_list()[-1], "Distance")
-        self.assertTrue(self.panel.is_name_italic("Distance"))
+                               return_value=(" Distance ", True)
+                               ) as get_text:
+            self.choose("file1_int_Speed", "Rename")
+        # LLFR-00955: the field starts with the part after the prefix,
+        # and the prefix stays in front of the typed name.
+        self.assertEqual(get_text.call_args[0][4], "int_Speed")
+        self.assertEqual(self.panel.signal_name_list()[-1], "file1_Distance")
+        self.assertTrue(self.panel.is_name_italic("file1_Distance"))
         self.assertEqual(self.legend_names(self.plot_widget_list()[0]),
-                         ["Distance"])
+                         ["file1_Distance"])
         with mock.patch.object(QInputDialog, "getText",
-                               return_value=("file1_Torque", True)):
-            self.choose("Distance", "Rename")
+                               return_value=("Torque", True)):
+            self.choose("file1_Distance", "Rename")
         self.assertIn("already exists", self.box_record_list[-1][2])
         self.assertEqual(self.box_record_list[-1][1],
                          self.message_box_class.Icon.Information)
         self.choose("file1_Torque", "Copy name")
         self.assertEqual(QApplication.clipboard().text(), "file1_Torque")
-        self.choose("Distance", "Copy equation")
+        self.choose("file1_Distance", "Copy equation")
         self.assertEqual(json.loads(QApplication.clipboard().text()), [
-            {"name": "Distance", "operation": "integral",
+            {"name": "file1_Distance", "operation": "integral",
              "signals": ["file1_Speed"], "parameter": None}])
 
     @covers("LLFR-00275", "LLFR-00272", "LLFR-00922", "LLFR-00933")
@@ -751,7 +755,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.dialog_attempts_list = [[["file1_Torque"]], [["x"], ["0"]]]
         self.choose("file1_Speed", "Product with signal (prod)")
         self.assertEqual(self.panel.signal_name_list()[-1],
-                         "file1_Speed_prod_file1_Torque")
+                         "file1_Speed_prod_Torque")
         # "x" and 0 are refused and the dialog is cancelled after them.
         self.choose("file1_Speed", "Divide by constant (div)")
         self.assertEqual(len(self.panel.signal_name_list()), 4)
@@ -761,7 +765,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.dialog_attempts_list = [[["4"]]]
         self.choose("file1_Speed", "Divide by constant (div)")
         self.assertEqual(self.panel.signal_name_list()[-1],
-                         "div_4_file1_Speed")
+                         "file1_div_4_Speed")
         self.controller.file_controller.close_all_files()
         self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list(), [])

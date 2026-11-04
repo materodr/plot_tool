@@ -51,7 +51,7 @@ from model.number_format import format_signal_value
 from model.layout_file import RENAMED_SIGNAL_LINE_STR
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
 from model.synthetic_signals import (
-    LayoutSignalLoader, SyntheticSignalStore)
+    LayoutSignalLoader, SyntheticSignalStore, ordered_signal_names)
 
 # LLFR-00247, LLFR-00250: title of the information boxes of a creation.
 CREATE_TITLE_STR = "Create synthetic signal"
@@ -82,6 +82,13 @@ CONSTANT_FIELD_LABEL_STR = "Constant:"
 NOT_CREATED_LINE_STR = "{label}: {reason}"
 # LLFR-00275: prompt of the second signal dialog.
 SECOND_SIGNAL_PROMPT_STR = "Multiply '{name}' by the signal:"
+# LLFR-00965: the information box of an x-axis range with too few
+# samples of the signal.
+FFT_RANGE_TOO_FEW_STR = (
+    "The x-axis range shown in the time plots does not hold enough "
+    "samples of '{name}' to compute an FFT: it holds {count} of them, "
+    "and an FFT needs at least {minimum}. Move the x-axis to a range "
+    "where the signal has samples, then choose FFT again.")
 
 
 def parse_number_text(text_str: str):
@@ -178,12 +185,27 @@ class SyntheticController:
         """Return every signal name of the signal list, in list order.
 
         Inputs: none.
-        Outputs: the data file signals, then the synthetic signals.
+        Outputs: file after file, the signals of each data file
+            followed by its synthetic signals.
         """
-        # LLFR-00242: synthetic signals after the data file signals.
+        # LLFR-00934, LLFR-00935, LLFR-00242: each file's synthetic
+        # signals after its own signals.
         if self.signal_file is None:
             return []
-        return list(self.signal_file.signal_name_list) + self.store.names()
+        return ordered_signal_names(self.signal_file, self.store.names(),
+                                    self.file_number_dict())
+
+    def file_number_dict(self) -> dict:
+        """Return the data file of each synthetic signal.
+
+        Inputs: none.
+        Outputs: synthetic signal name -> number of its data file, or
+            None (LLFR-00936).
+        """
+        # LLFR-00936: a synthetic signal belongs to the file of the
+        # signal it was computed from.
+        return {signal.name_str: signal.file_number_i
+                for signal in self.store.signal_list}
 
     def is_listed(self, signal_name_str: str) -> bool:
         """Tell whether a name is in the signal list.
@@ -229,9 +251,11 @@ class SyntheticController:
         # LLFR-00242: after the data signals, in creation order, in
         # italics; LLFR-00251: the FFT signals are told apart.
         name_list = self.store.names()
+        # LLFR-00935, LLFR-00936: each one is listed under its own file.
         self.signal_list_controller.set_synthetic_signals(
             name_list, {name_str for name_str in name_list
-                        if self.store.is_fft(name_str)})
+                        if self.store.is_fft(name_str)},
+            self.file_number_dict())
 
     def show_information(self, title_str: str, message_str: str) -> None:
         """Show an information box.
@@ -365,15 +389,52 @@ class SyntheticController:
                 return ()
             return ([source_name_str, second_name_str], None)
         if kind_str == operations.TIME_RANGE_PARAMETER_STR:
-            # LLFR-00248: the range shown by the time plots, or the
-            # whole file when no time plot exists.
-            return ([source_name_str],
-                    tuple(self.plot_controller.time_plot_range_tuple()))
+            # LLFR-00964, LLFR-00592: the part of the shown range within
+            # the signal's file, or the whole file with no time plot.
+            return ([source_name_str], self.fft_range(source_name_str))
         # LLFR-00245, LLFR-00269, LLFR-00272: a dialog with a number.
         parameter = self.ask_number(operation, source_name_str)
         if parameter is None:
             return ()
         return ([source_name_str], parameter)
+
+    def fft_range(self, source_name_str: str) -> tuple:
+        """Return the time range an FFT of a signal is computed from.
+
+        Inputs:
+            source_name_str: the right-clicked signal name.
+        Outputs: (start_s, end_s): with a time plot, the part of the
+            x-axis range shared by the time plots that lies within the
+            time range of the signal's data file (LLFR-00964); with no
+            time plot, the whole time range of that file (LLFR-00592).
+        Raises: TooFewSamplesError, with the text of LLFR-00965, when a
+            time plot exists and that part holds fewer than 8 samples of
+            the signal or does not exist.
+        """
+        # LLFR-00936, LLFR-00937: the time of the signal's own file.
+        time_array = np.asarray(self.source_time_array(source_name_str),
+                                dtype=float)
+        finite_array = time_array[np.isfinite(time_array)]
+        file_start_s = float(np.min(finite_array))
+        file_end_s = float(np.max(finite_array))
+        # LLFR-00592: with no time plot, all the samples.
+        if not self.plot_controller.time_plot_list():
+            return (file_start_s, file_end_s)
+        shown_start_s, shown_end_s = (
+            self.plot_controller.time_plot_range_tuple())
+        # LLFR-00964: the part of the shown range within the file.
+        start_s = max(float(shown_start_s), file_start_s)
+        end_s = min(float(shown_end_s), file_end_s)
+        inside_count_i = (0 if start_s > end_s else int(np.count_nonzero(
+            (time_array >= start_s) & (time_array <= end_s))))
+        if inside_count_i < operations.MINIMUM_FFT_SAMPLES_I:
+            # LLFR-00965, LLFR-00250: no FFT, and one information box that
+            # asks to move the x-axis; also with no overlap at all.
+            raise operations.TooFewSamplesError(
+                FFT_RANGE_TOO_FEW_STR.format(
+                    name=source_name_str, count=inside_count_i,
+                    minimum=operations.MINIMUM_FFT_SAMPLES_I))
+        return (start_s, end_s)
 
     def number_dialog(self, operation, sample_count_i: int,
                       time_array=None) -> tuple:
@@ -593,9 +654,10 @@ class SyntheticController:
         # LLFR-00265: only synthetic signals can be renamed.
         if not self.store.contains(signal_name_str):
             return
-        # LLFR-00266: the user types the new name.
+        # LLFR-00266, LLFR-00955: the user types the new name; the field
+        # shows only the part after the prefix of its data file.
         typed_name_str = self.view.ask_synthetic_signal_name(
-            signal_name_str)
+            self.store.get(signal_name_str).editable_name_str)
         if typed_name_str is None:
             return
         try:

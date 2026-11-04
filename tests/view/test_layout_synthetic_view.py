@@ -181,20 +181,20 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         top_panel = self.main_window.top_panel
         self.choose("file1_Speed", "Integral (int)")
         self.dialog_text_list = [["2", "3", "zero"]]
-        self.choose("int_file1_Speed", "Low-pass filter (lpf)")
+        self.choose("file1_int_Speed", "Low-pass filter (lpf)")
         self.dialog_text_list = [["5"]]
         self.choose("file1_Torque", "Moving average (mavg)")
-        name_list = ["int_file1_Speed", "lpf_2Hz_order3_int_file1_Speed",
-                     "mavg_5samples_file1_Torque"]
+        name_list = ["file1_int_Speed", "file1_lpf_2Hz_order3_int_Speed",
+                     "file1_mavg_5samples_Torque"]
         store = self.controller.synthetic_controller.store
         self.assertEqual(store.names(), name_list)
-        self.panel.signal_double_clicked.emit("lpf_2Hz_order3_int_file1_Speed")
+        self.panel.signal_double_clicked.emit("file1_lpf_2Hz_order3_int_Speed")
         self.panel.signal_double_clicked.emit("file1_Torque")
         self.application.processEvents()
         plot_list = self.controller.plot_controller.workspace.tab_list[
             0].plot_list
         self.controller.plot_controller.on_signal_dropped(
-            plot_list[1].plot_id_i, "mavg_5samples_file1_Torque")
+            plot_list[1].plot_id_i, "file1_mavg_5samples_Torque")
         self.application.processEvents()
         legend_list = self.legend_names_of_tab()
         layout_path_str = os.path.join(self.folder_str, "synthetic.json")
@@ -226,7 +226,7 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         # LLFR-00230: the curves of synthetic signals are drawn again.
         self.assertEqual(self.legend_names_of_tab(), legend_list)
         store = self.controller.synthetic_controller.store
-        self.assertEqual(store.get("lpf_2Hz_order3_int_file1_Speed").parameter,
+        self.assertEqual(store.get("file1_lpf_2Hz_order3_int_Speed").parameter,
                          (2.0, 3, "zero"))
 
     @covers("LLFR-00262", "LLFR-00237", "LLFR-00231", "LLFR-00496",
@@ -236,7 +236,7 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         and its curve is not drawn."""
         top_panel = self.main_window.top_panel
         self.choose("file1_Speed", "Integral (int)")
-        self.panel.signal_double_clicked.emit("int_file1_Speed")
+        self.panel.signal_double_clicked.emit("file1_int_Speed")
         self.panel.signal_double_clicked.emit("file1_Torque")
         self.application.processEvents()
         layout_path_str = os.path.join(self.folder_str, "edited.json")
@@ -258,9 +258,9 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.report_list), 1)
         self.assertIn("Synthetic signals not created:",
                       self.report_list[0])
-        self.assertIn("  - int_file1_Speed: The signal \"Pressure\"",
+        self.assertIn("  - file1_int_Speed: The signal \"Pressure\"",
                       self.report_list[0])
-        self.assertIn("  - int_file1_Speed\n", self.report_list[0] + "\n")
+        self.assertIn("  - file1_int_Speed\n", self.report_list[0] + "\n")
 
     @covers("LLFR-00283", "LLFR-00231", "LLFR-00229", "LLFR-00484")
     def test_fft_and_frequency_plots_are_not_saved(self) -> None:
@@ -273,7 +273,7 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         store = self.controller.synthetic_controller.store
         fft_name_str = [name_str for name_str in store.names()
                         if store.is_fft(name_str)][0]
-        self.panel.signal_double_clicked.emit("int_file1_Speed")
+        self.panel.signal_double_clicked.emit("file1_int_Speed")
         plot_controller.on_add_tab()
         self.panel.signal_double_clicked.emit(fft_name_str)
         self.application.processEvents()
@@ -289,7 +289,7 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertNotIn(fft_name_str, text_str)
         self.assertEqual(
             [entry["name"] for entry in
-             json.loads(text_str)["synthetic_signals"]], ["int_file1_Speed"])
+             json.loads(text_str)["synthetic_signals"]], ["file1_int_Speed"])
         self.start_again_and_open()
         self.click_with_dialog_answer(
             self.main_window.top_panel.load_layout_button,
@@ -297,9 +297,9 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         self.assertEqual(self.report_list, [])
         self.assertEqual(self.panel.signal_name_list(),
                          ["file1_Time", "file1_Speed", "file1_Torque",
-                          "int_file1_Speed"])
+                          "file1_int_Speed"])
         self.assertEqual(self.main_window.tab_name_list(), ["Tab 1"])
-        self.assertEqual(self.legend_names_of_tab(), [["int_file1_Speed"]])
+        self.assertEqual(self.legend_names_of_tab(), [["file1_int_Speed"]])
 
 
 if __name__ == "__main__":

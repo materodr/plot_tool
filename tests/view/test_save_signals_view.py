@@ -219,7 +219,8 @@ class SaveSignalsViewTest(unittest.TestCase):
         # LLFR-00941: the names are saved without the prefix.
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "force"])
-        self.assertEqual(self.changed_names_list, ["time → Time"])
+        # LLFR-00404, LLFR-00558: the name in the app, then the new one.
+        self.assertEqual(self.changed_names_list, ["file1_time → Time"])
         # LLFR-00003: normal again once the save is done and the minimum
         # active time of an action button has passed.
         from PyQt6.QtTest import QTest
@@ -263,7 +264,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         from model.synthetic_signals import SyntheticSignal
         self.open_data_file()
         self.controller.synthetic_controller.store.signal_list.append(
-            SyntheticSignal("mul_1e308_file1_speed", operations.MULTIPLY_STR,
+            SyntheticSignal("file1_mul_1e308_speed", operations.MULTIPLY_STR,
                             ["file1_speed"], 1e308,
                             np.array([0.0, np.inf, np.inf, np.inf, np.inf])))
         target_str = os.path.join(self.folder_str, "bad.xlsx")
@@ -271,7 +272,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertEqual(len(self.box_record_list), 1)
         self.assertEqual(self.box_record_list[0][1],
                          self.message_box_class.Icon.Critical)
-        self.assertIn("mul_1e308_file1_speed", self.box_record_list[0][2])
+        self.assertIn("file1_mul_1e308_speed", self.box_record_list[0][2])
         self.assertFalse(os.path.exists(target_str))
         self.assertEqual(self.changed_names_list, [])
 
