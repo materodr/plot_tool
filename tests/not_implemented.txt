@@ -5,3 +5,46 @@
 # request into develop may affect them with no test (PCR-00068). A pull
 # request from develop to main must list none (PCR-00069). Remove an HLFR
 # from this list when its implementation is done (PCR-00067).
+#
+# #205 (undockable tab windows, tab reordering, plot matrix, new zoom keys).
+# Step 1 adds the requirements only. Step 2 (feature/205-matrix) does the
+# plot matrix, the plot swap, the tab drag and the Z and 0 keys. Step 3
+# (feature/205-undock) does the undocked windows.
+HLFR-00123 #205: there are no undocked windows yet, and the tabs have no undock button (step 3).
+HLFR-00124 #205: there is no dock button, because there are no undocked windows yet (step 3).
+HLFR-00125 #205: there are no undocked windows yet, so none holds a tab (step 3).
+HLFR-00126 #205: there are no undocked windows yet (step 3).
+HLFR-00127 #205: only the main window has a signal list panel (step 3).
+HLFR-00128 #205: there is one search box, so nothing shares its text (step 3).
+HLFR-00129 #205: there is no signal list button to hide the panel of an undocked window (step 3).
+HLFR-00130 #205: the main window already keeps its panel (its splitter can't collapse), but LLFR-01019 has no test yet; it comes with the signal list button of the undocked windows (step 3).
+HLFR-00131 #205: a drag of the panel border is not an undoable action yet (step 3).
+HLFR-00132 #205: the one undo history does not cover undocked windows yet, because there are none (step 3).
+HLFR-00133 #205: undocking and docking don't exist yet, so they can't be undone (step 3).
+HLFR-00134 #205: there are no undocked windows yet to give a title (step 3).
+HLFR-00135 #205: there is no undocked window yet to show a tab button (step 3).
+HLFR-00136 #205: there are no undocked windows yet (step 3).
+HLFR-00137 #205: the keyboard shortcuts work only in the main window (step 3).
+HLFR-00138 #205: there are no undocked windows yet to close (step 3).
+HLFR-00139 #205: the layout file does not save undocked tabs or their windows yet (step 3).
+HLFR-00140 #205: loading a layout file opens no undocked windows yet (step 3).
+HLFR-00141 #205: loading a layout file opens no undocked windows yet, so none is moved onto a screen (step 3).
+HLFR-00142 #205: the tabs can't be dragged to a new place yet (step 2).
+HLFR-00143 #205: holding the Z key does not activate the Zoom tool yet; pressing Z still resets the zoom (step 2).
+HLFR-00144 #205: the 0 key does not reset the zoom yet; the Z key does (step 2).
+HLFR-00145 #205: a tab has no plot matrix yet; its plots are always stacked in one column (step 2).
+HLFR-00146 #205: there is no matrix picker yet (step 2).
+HLFR-00147 #205: the plots fill one column only; there is no fill order over rows and columns yet (step 2).
+HLFR-00148 #205: the plots fill one column only; rows of several plots don't exist yet (step 2).
+HLFR-00149 #205: a plot can't be moved to the slot of another plot yet (step 2).
+HLFR-00150 #205: a tab has no plot matrix yet; its fixed limit of 5 stacked plots matches the default 5 x 1 matrix (step 2).
+HLFR-00151 #205: the layout file does not save the plot matrix of a tab yet (step 2).
+HLFR-00018 #205: the limit is fixed at 5 plots (MAXIMUM_PLOTS_PER_TAB_I in src/model/workspace.py) instead of the slots of the plot matrix, and the Full Tab Notification box still says to delete a plot (step 2).
+#
+# Not listed, but #205 changes child LLFRs that the code doesn't follow yet
+# (the code comes with steps 2 and 3; their tests still pass on the old
+# behaviour): HLFR-00035 (LLFR-00207, LLFR-00454: the 0 key in place of Z),
+# HLFR-00042 (LLFR-00215, LLFR-00463: Zoom "Hold Z", Reset zoom "0"),
+# HLFR-00019, HLFR-00068, HLFR-00069 and HLFR-00093 (LLFR-00314: "Position"
+# in the area menu), HLFR-00040 (LLFR-00140: a panel border drag is
+# undoable).
