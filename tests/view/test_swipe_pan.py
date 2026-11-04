@@ -671,7 +671,7 @@ class SwipeEndToEndTest(unittest.TestCase):
         self.addCleanup(window_test.tearDown)
         application = get_qt_application()
         fft_name_str = window_test.create_fft()
-        time_widget = window_test.double_click("Torque")
+        time_widget = window_test.double_click("file1_Torque")
         frequency_widget = window_test.double_click(fft_name_str)
         time_widget.wheel_at(time_widget.data_to_widget_point(5.0, 0.0),
                              4.0)

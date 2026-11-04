@@ -390,7 +390,8 @@ class SelectionPanelTest(unittest.TestCase):
         self.assertEqual(bytes(mime_data.data(
             self.panel_module.SIGNAL_MIME_TYPE_STR)).decode("utf-8"),
             "file1_Time")
-        self.assertEqual(mime_data.text(), "Time\nspeed\ntemperature")
+        self.assertEqual(mime_data.text(),
+                         "file1_Time\nfile1_speed\nfile1_temperature")
         model = self.widget.model()
         self.assertIn(list_type_str, model.mimeTypes())
         model_mime_data = model.mimeData([model.index(4, 0),

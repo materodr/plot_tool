@@ -468,7 +468,8 @@ class TipInsideEndToEndTest(TipInsideAssertions, unittest.TestCase):
         tall_height_f = float(self.plot_widget.axes.bbox.height)
         self.assert_label_at_offset(self.plot_widget, 0, HIGH_OFFSET_TUPLE)
         for signal_name_str in self.signal_name_list[1:]:
-            self.window.signal_double_click_handler(signal_name_str)
+            self.window.signal_double_click_handler(
+                "file1_" + signal_name_str)
             self.process_events()
         self.assertEqual(len(self.plot_id_list()), FULL_TAB_PLOT_COUNT_I)
         self.assertIs(self.window.plot_panel.plot_view(self.plot_id_i),

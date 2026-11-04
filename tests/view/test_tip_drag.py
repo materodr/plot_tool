@@ -934,7 +934,7 @@ class TipMoveEndToEndTest(unittest.TestCase):
                           pinned_tip.value_f), ("file1_speed", 5.0, 10.0))
         self.assertEqual(len(pinned_tip.label_offset_tuple), 2)
         self.assertEqual(plot_widget.pinned_tip_text(0),
-                         "t = 5 s\nspeed = 10")
+                         "t = 5 s\nfile1_speed = 10")
         center_tuple = plot_widget.tip_label_center_tuple(0)
         self.assertAlmostEqual(center_tuple[0], end_tuple[0],
                                delta=PIXEL_TOLERANCE_PX)
