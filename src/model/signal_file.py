@@ -24,15 +24,17 @@ def is_time_signal_name(signal_name_str: str) -> bool:
 
     The whole name must be ``Time`` in any letter case. In HDF5 files a
     signal is named after its dataset path (LLFR-00134), so a dataset in
-    a group, such as ``engine/time``, never matches (LLFR-00330).
+    a group, such as ``engine/time``, never matches (LLFR-00330). The
+    same holds for a field of a MAT structure, such as ``engine/Time``
+    (LLFR-00977, LLFR-00979).
 
     Inputs:
         signal_name_str: a signal name.
     Outputs: True when the name is "Time", "time", "TIME" and so on.
     """
     # LLFR-00053: ignore the difference between uppercase and lowercase.
-    # LLFR-00330: the path of a dataset in a group has a "/" and so is
-    # never equal to "time".
+    # LLFR-00330, LLFR-00979: the path of a dataset in a group, or of a
+    # field of a MAT structure, has a "/" and so is never "time".
     return (str(signal_name_str).casefold()
             == TIME_SIGNAL_NAME_STR.casefold())
 

@@ -432,13 +432,32 @@ In MAT files, the app must read each top-level variable that holds a one-dimensi
 
 *Parent: HLFR-00005*
 
+### LLFR-00977 MAT structure fields
+In MAT files, the app must read as one signal each field that holds a one-dimensional numeric array (1×N or N×1) in a scalar (1×1) structure held by a top-level variable, or by a field of such a structure at any depth, named after the field's path: the name of the variable and the names of the fields, separated by `/`, as for HDF5 (LLFR-00134), for example `engine/speed` or `car/engine/speed`.
+
+*Parent: HLFR-00005*
+
+### LLFR-00978 Order of the MAT signals
+In MAT files, the app must list the signals in the order of the top-level variables in the file, with the signals of a structure (LLFR-00977) at the place of the variable or field that holds it, in the order of the structure's fields.
+
+*Parent: HLFR-00005*
+
+### LLFR-00979 Time signal in a MAT structure
+In MAT files, only a top-level variable must match the time signal name (LLFR-00053), so that a structure field such as `engine/Time` is an ordinary signal and is not found automatically. The user can still choose it in the window of LLFR-00325.
+
+Note: This is the same rule as for HDF5 groups (LLFR-00330).
+
+*Parent: HLFR-00006, HLFR-00005*
+
 ### LLFR-00063 Other MAT variables
-In MAT files, the app must ignore top-level variables that do not hold a one-dimensional numeric array.
+In MAT files, the app must ignore, at any level, each top-level variable and each structure field that holds neither a one-dimensional numeric array nor a scalar (1×1) structure, together with everything it holds, for example a struct array, a cell array, a matrix or a text.
+
+Note: So a signal is never read from inside a struct array or a cell array (LLFR-00977).
 
 *Parent: HLFR-00005*
 
 ### LLFR-00452 Checks on the MAT signals read
-In MAT files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read (LLFR-00062).
+In MAT files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to the signals it read (LLFR-00062, LLFR-00977).
 
 *Parent: HLFR-00005, HLFR-00008, HLFR-00009*
 
@@ -1695,6 +1714,8 @@ The app must change each signal name that the chosen format cannot store into a 
 
 ### LLFR-00543 Characters of a MAT name
 When the chosen format is MAT, every character of a signal name that is not an English letter, a digit or `_` must be replaced by `_`.
+
+Note: For example, a signal read from a MAT structure or an HDF5 group (LLFR-00977, LLFR-00134), such as `engine/speed`, is saved as the top-level variable `engine_speed` (LLFR-00402).
 
 *Parent: HLFR-00090*
 
