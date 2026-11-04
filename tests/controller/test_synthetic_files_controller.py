@@ -26,7 +26,7 @@ from controller.save_signals_controller import SaveSignalsController
 from controller.synthetic_controller import (
     CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)
 from model import synthetic_operations as operations
-from model.data_files import DataFileSet, prefix_number
+from model.data_files import DataFileSet, TIME_TOLERANCE_F, prefix_number
 from model.errors import SyntheticSourceError
 from model.file_loader import load_signal_file
 from model.file_writer import CSV_FORMAT_STR
@@ -714,6 +714,15 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.assertEqual(self.view.dialog_call_list, [])
         self.assertEqual(len(self.view.error_list), 1)
         self.assertIn("need the same time signals", self.view.error_list[0])
+        # LLFR-00942: the text mentions the tolerance of LLFR-00977.
+        self.assertIn(f"at most {TIME_TOLERANCE_F:g} times the larger of "
+                      "their absolute values", self.view.error_list[0])
+        self.assertIn(f"at most {TIME_TOLERANCE_F:g} s when both are "
+                      "smaller than 1 s in absolute value",
+                      self.view.error_list[0])
+        self.assertNotIn("exactly", self.view.error_list[0])
+        self.assertNotIn("same value at every sample",
+                         self.view.error_list[0])
         self.assertEqual(self.view.written_path_list, [])
         self.assertEqual(sorted(os.listdir(self.folder_str)), [])
         self.assertEqual(self.view.finished_count_i, 1)
