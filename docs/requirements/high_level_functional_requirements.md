@@ -199,9 +199,9 @@ Except for the product of two signals (HLFR-00104), the app must name each synth
 Note: For example, `file1_int_Speed`, and `file1_int_lpf_2Hz_order2_Speed` for the Integral of a Low-pass filter of `file1_Speed`.
 
 ### HLFR-00104 Product signal name
-For the product of two signals, the name of the synthetic signal must be the name of the first signal with its prefix (HLFR-00115), the abbreviation of the operation and the name of the second signal, separated by underscores, where the name of the second signal keeps its own prefix only when it belongs to another data file.
+For the product of two signals, the name of the synthetic signal must be the name of the first signal with its prefix (HLFR-00115), the abbreviation of the operation and the name of the second signal with its prefix, separated by underscores.
 
-Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
+Note: For example, `file1_Speed_prod_file1_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
 
 ### HLFR-00055 Synthetic signals in memory
 The app must keep synthetic signals only in its memory.
