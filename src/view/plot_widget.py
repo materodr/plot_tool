@@ -219,6 +219,7 @@ from view import (
     arrow_geometry, color_picker, delta_geometry, theme, value_text)
 from view.arrow_geometry import ArrowLabel, ArrowPatch
 from view.delta_geometry import DeltaBracketPatch
+from view.matrix_picker import add_picker_submenu
 from view.menu_title import add_menu_title
 from view.rounded_canvas import RoundedFigureCanvas
 from view.text_note_editor import TextNoteEditor
@@ -992,6 +993,10 @@ class PlotWidget(QWidget):
     delta_point_move_requested = pyqtSignal(int, int, float, float)
     marker_drag_moved = pyqtSignal(int, float)
     marker_preview_changed = pyqtSignal(float)
+    # LLFR-01127, LLFR-01128: the preview of a new area and the time span
+    # selection, (start_s, end_s), NaN when hidden.
+    area_preview_changed = pyqtSignal(float, float)
+    span_preview_changed = pyqtSignal(float, float)
     area_create_requested = pyqtSignal(float, float)
     area_change_requested = pyqtSignal(int, float, float)
     area_rename_requested = pyqtSignal(int)
@@ -1175,6 +1180,13 @@ class PlotWidget(QWidget):
         # LLFR-00303: the preview band (made by rebuild_axes), blitted
         # like the time span selection line.
         self.area_preview_band = None
+        # LLFR-01127, LLFR-01128: the area preview and the time span
+        # selection of another shown plot, (start_s, end_s) or ().
+        self.mirror_area_span_tuple = ()
+        self.mirror_span_tuple = ()
+        # LLFR-01079: builds the position picker of the "Position"
+        # submenu; set by the plot panel.
+        self.position_picker_factory = None
         # LLFR-00336, LLFR-00337: text notes to draw, as tuples
         # (text_str, time_s, value_f, size_i, border_color_str,
         # text_color_str), and their annotations.
@@ -2400,6 +2412,81 @@ class PlotWidget(QWidget):
             [y_px - half_tick_px, y_px + half_tick_px, np.nan,
              y_px - half_tick_px, y_px + half_tick_px])
 
+    def place_mirror_span_artists(self) -> None:
+        """Put the selection line at the span of another plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01128: the same ends as the selection on the other plot,
+        # at the middle of this plot's drawing area.
+        start_s, end_s = self.mirror_span_tuple
+        start_x_px = float(self.axes.transData.transform((start_s, 0.0))[0])
+        end_x_px = float(self.axes.transData.transform((end_s, 0.0))[0])
+        y_px = (float(self.axes.bbox.y0) + float(self.axes.bbox.y1)) / 2.0
+        half_tick_px = (SPAN_TICK_HALF_HEIGHT_POINTS_F
+                        * self.pixels_per_point_f())
+        self.span_line.set_data([start_x_px, end_x_px], [y_px, y_px])
+        self.span_end_ticks.set_data(
+            [start_x_px, start_x_px, np.nan, end_x_px, end_x_px],
+            [y_px - half_tick_px, y_px + half_tick_px, np.nan,
+             y_px - half_tick_px, y_px + half_tick_px])
+
+    def show_mirror_area_preview(self, start_s: float,
+                                 end_s: float) -> None:
+        """Show, or hide, the area preview of another shown plot.
+
+        Inputs:
+            start_s, end_s: the span of the preview, in seconds; NaN to
+                hide it.
+        Outputs: none. A frequency plot never shows it (LLFR-00311).
+        """
+        # LLFR-01127: on every other time plot of every shown tab.
+        span_tuple = ()
+        if (not self.frequency_plot_b and np.isfinite(start_s)
+                and np.isfinite(end_s)):
+            span_tuple = (float(start_s), float(end_s))
+        if span_tuple == self.mirror_area_span_tuple:
+            return
+        self.mirror_area_span_tuple = span_tuple
+        self.blit_overlay()
+
+    def show_mirror_span(self, start_s: float, end_s: float) -> None:
+        """Show, or hide, the time span selection of another shown plot.
+
+        Inputs:
+            start_s, end_s: the two ends of the span, in seconds; NaN to
+                hide it.
+        Outputs: none. A frequency plot never shows it (LLFR-01128).
+        """
+        # LLFR-01128: on every other time plot of every shown tab.
+        span_tuple = ()
+        if (not self.frequency_plot_b and np.isfinite(start_s)
+                and np.isfinite(end_s)):
+            span_tuple = (float(start_s), float(end_s))
+        if span_tuple == self.mirror_span_tuple:
+            return
+        self.mirror_span_tuple = span_tuple
+        self.blit_overlay()
+
+    def mirror_area_preview_tuple(self) -> tuple:
+        """Return the area preview of another plot shown here.
+
+        Inputs: none.
+        Outputs: (start_s, end_s), or () while none is shown.
+        """
+        # LLFR-01127: for the tests.
+        return tuple(self.mirror_area_span_tuple)
+
+    def mirror_span_preview_tuple(self) -> tuple:
+        """Return the time span selection of another plot shown here.
+
+        Inputs: none.
+        Outputs: (start_s, end_s), or () while none is shown.
+        """
+        # LLFR-01128: for the tests.
+        return tuple(self.mirror_span_tuple)
+
     def place_preview_artists(self) -> None:
         """Put the preview line and time text at the preview's time.
 
@@ -2433,9 +2520,12 @@ class PlotWidget(QWidget):
         # LLFR-00352, LLFR-00353: and so do the delta marker previews.
         # LLFR-00371, LLFR-00376, LLFR-00377: and so are the arrow
         # previews.
+        # LLFR-01127, LLFR-01128: and the previews of other plots.
         return (self.preview_time_s is not None or self.time_span_shown_b
                 or self.area_preview_shown() or self.delta_preview_shown()
-                or self.arrow_preview_shown())
+                or self.arrow_preview_shown()
+                or bool(self.mirror_area_span_tuple)
+                or bool(self.mirror_span_tuple))
 
     def blit_marker_preview(self) -> None:
         """Draw the marker preview over the last full draw of the canvas.
@@ -2495,6 +2585,19 @@ class PlotWidget(QWidget):
             # LLFR-00303: the preview band of a new area, updated live.
             self.place_area_preview()
             self.axes.draw_artist(self.area_preview_band)
+        elif (self.mirror_area_span_tuple
+              and self.area_preview_band is not None):
+            # LLFR-01127: the area preview of another shown plot.
+            start_s, end_s = self.mirror_area_span_tuple
+            self.area_preview_band.set_x(start_s)
+            self.area_preview_band.set_width(end_s - start_s)
+            self.axes.draw_artist(self.area_preview_band)
+        if self.mirror_span_tuple and not self.time_span_shown_b:
+            # LLFR-01128: the time span selection of another shown plot,
+            # at the middle of the height of the drawing area.
+            self.place_mirror_span_artists()
+            self.axes.draw_artist(self.span_line)
+            self.axes.draw_artist(self.span_end_ticks)
         if self.delta_preview_shown():
             # LLFR-00352, LLFR-00353: the delta previews, updated live.
             self.draw_delta_preview()
@@ -4334,8 +4437,7 @@ class PlotWidget(QWidget):
                 menu, DELETE_ALL_AREAS_TEXT_STR,
                 lambda: self.all_areas_delete_requested.emit())
             # LLFR-01078: "Position", directly above "Delete plot".
-            add_request_action(menu, POSITION_TEXT_STR,
-                               lambda: self.plot_position_requested.emit())
+            self.add_position_option(menu, add_request_action)
             # LLFR-00314 Note: a plot covered by an area can be deleted.
             add_request_action(menu, "Delete plot",
                                lambda: self.plot_delete_requested.emit())
@@ -4345,11 +4447,31 @@ class PlotWidget(QWidget):
         # mouse). LLFR-00425, LLFR-00426: the title is "Plot".
         add_menu_title(menu, PLOT_MENU_TITLE_STR)
         # LLFR-01077: "Position", directly above "Delete plot".
-        add_request_action(menu, POSITION_TEXT_STR,
-                           lambda: self.plot_position_requested.emit())
+        self.add_position_option(menu, add_request_action)
         add_request_action(menu, "Delete plot",
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
+
+    def add_position_option(self, menu, add_request_action) -> None:
+        """Add the "Position" option to the plot or area menu.
+
+        Inputs:
+            menu: the QMenu being built.
+            add_request_action: the function of build_context_menu that
+                adds a plain option.
+        Outputs: none. With a position_picker_factory (set by the plot
+            panel), the option is a submenu that holds the position
+            picker, opened beside the menu with no click (LLFR-01079);
+            without one, a plain option that emits
+            plot_position_requested.
+        """
+        # LLFR-01077, LLFR-01078, LLFR-01079.
+        if self.position_picker_factory is not None:
+            add_picker_submenu(menu, POSITION_TEXT_STR,
+                               self.position_picker_factory)
+            return
+        add_request_action(menu, POSITION_TEXT_STR,
+                           lambda: self.plot_position_requested.emit())
 
     def request_color(self, color_signal, item_i: int,
                       chosen_color_str: str) -> None:
@@ -5257,6 +5379,12 @@ class PlotWidget(QWidget):
         self.span_end_time_s = end_time_s
         # LLFR-00208: updated live, by redrawing only the line.
         self.blit_overlay()
+        # LLFR-01128: a time plot's span applies to every time plot, so
+        # it is shown on the other shown time plots too; a frequency
+        # plot's span applies only to itself (LLFR-00693).
+        if not self.frequency_plot_b:
+            self.span_preview_changed.emit(self.span_press_time_s,
+                                           self.span_end_time_s)
 
     def span_release_at(self, widget_point) -> None:
         """End a click zoom or a time span selection at a release point.
@@ -5325,6 +5453,9 @@ class PlotWidget(QWidget):
         self.time_span_shown_b = False
         if shown_b:
             self.blit_overlay()
+            # LLFR-01128: the other plots hide it too.
+            if not self.frequency_plot_b:
+                self.span_preview_changed.emit(float("nan"), float("nan"))
 
     def time_span_line_shown(self) -> bool:
         """Tell whether the time span selection line is shown.
@@ -5989,6 +6120,8 @@ class PlotWidget(QWidget):
                 widget_point)
             # LLFR-00303: updated live, by redrawing only the preview.
             self.blit_overlay()
+            # LLFR-01127: and on the other shown time plots.
+            self.area_preview_changed.emit(*self.area_drag_span_tuple)
             return
         # LLFR-00312, LLFR-00313: until the mouse leaves the pressed
         # pixel column, nothing moves (a press and release is no drag).
@@ -6061,6 +6194,8 @@ class PlotWidget(QWidget):
         self.area_drag_moved_b = False
         if preview_shown_b and not self.retired_b:
             self.blit_overlay()
+            # LLFR-01127: the other plots hide it too.
+            self.area_preview_changed.emit(float("nan"), float("nan"))
 
     def cancel_area_drag(self) -> None:
         """Forget the area drag in progress, if any.

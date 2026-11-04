@@ -174,8 +174,8 @@ class WorkspaceDockTest(unittest.TestCase):
         snapshot = self.workspace.snapshot()
         self.workspace.find_tab(self.id_list[0]).window_tuple = (9, 9, 9, 9)
         self.assertTrue(self.workspace.is_unchanged_since(snapshot))
-        self.assertTrue(self.workspace.set_window_panel(self.id_list[0],
-                                                        True, 120))
+        self.assertTrue(self.workspace.set_window_panel(
+            self.workspace.find_tab(self.id_list[0]).window_id_i, True, 120))
         self.assertFalse(self.workspace.is_unchanged_since(snapshot))
         snapshot = self.workspace.snapshot()
         self.assertTrue(self.workspace.set_panel_width(-1, 310))
@@ -258,7 +258,7 @@ class LayoutWindowsTest(unittest.TestCase):
         workspace.set_plot_matrix(second_tab.tab_id_i, 2, 3)
         workspace.add_plot(second_tab.tab_id_i).add_curve("file1_Torque")
         workspace.undock_tab(second_tab.tab_id_i, (-5, 60, 800, 500))
-        workspace.set_window_panel(second_tab.tab_id_i, True, 210)
+        workspace.set_window_panel(second_tab.window_id_i, True, 210)
         text_str = layout_text(build_layout_dict(
             workspace, first_tab.tab_id_i, (), True))
         tab_list = json.loads(text_str)["tabs"]
@@ -308,7 +308,7 @@ class LayoutWindowsTest(unittest.TestCase):
         workspace.set_plot_matrix(second_tab.tab_id_i, 1, 2)
         workspace.add_plot(second_tab.tab_id_i).add_curve("file1_Torque")
         workspace.undock_tab(second_tab.tab_id_i, (100, 120, 640, 480))
-        workspace.set_window_panel(second_tab.tab_id_i, True, 190)
+        workspace.set_window_panel(second_tab.window_id_i, True, 190)
         layout_dict = parse_layout_text(layout_text(build_layout_dict(
             workspace, first_tab.tab_id_i, (), True)))
         result = self.rebuild(layout_dict)

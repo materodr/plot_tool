@@ -216,6 +216,11 @@ TAB_HORIZONTAL_PADDING_I = 14
 TAB_VERTICAL_PADDING_I = 5
 TAB_SPACING_I = 3
 ADD_BUTTON_WIDTH_I = 30
+# LLFR-01113: the pale rounded highlight behind the icon of an undock or
+# dock button under the pointer, a little darker than a hovered tab, and
+# darker still while pressed.
+TAB_BUTTON_HOVER_COLOR_STR = "#c9d0d7"
+TAB_BUTTON_PRESSED_COLOR_STR = "#bcc4cc"
 
 # ----------------------------------------------------------------------
 # Plots (matplotlib)

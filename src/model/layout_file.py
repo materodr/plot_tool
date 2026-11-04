@@ -142,6 +142,9 @@ SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
 # the window, its signal list panel and the plot matrix of a tab.
 UNDOCKED_KEY_STR = "undocked"
 WINDOW_KEY_STR = "window"
+# LLFR-00225 item 16, LLFR-01124: the number of the undocked window of a
+# tab, the same for the tabs that share a window.
+WINDOW_NUMBER_KEY_STR = "window_number"
 X_KEY_STR = "x"
 Y_KEY_STR = "y"
 HEIGHT_KEY_STR = "height"
@@ -639,13 +642,20 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     # LLFR-00225 items 1 and 2: the tabs in order, each with its time
     # plots from top to bottom; LLFR-00283: no frequency plot, but a tab
     # of only frequency plots is still saved.
+    # LLFR-00225 item 16: the undocked windows numbered from 1, in the
+    # tab order (LLFR-01056).
+    window_number_dict = {window_id_i: number_i + 1
+                          for number_i, window_id_i
+                          in enumerate(workspace.window_id_list())}
     layout_dict[TABS_KEY_STR] = [
-        tab_entry(tab, workspace.main_panel_width_i)
+        tab_entry(tab, workspace.main_panel_width_i,
+                  window_number_dict.get(tab.window_id_i, 0))
         for tab in workspace.tab_list]
     return layout_dict
 
 
-def tab_entry(tab, main_panel_width_i: int = 0) -> dict:
+def tab_entry(tab, main_panel_width_i: int = 0,
+              window_number_i: int = 0) -> dict:
     """Return the file entry of a tab.
 
     Inputs:
@@ -653,6 +663,8 @@ def tab_entry(tab, main_panel_width_i: int = 0) -> dict:
         main_panel_width_i: width of the main window's signal list
             panel, in pixels, used as the first width of a panel that
             was never shown (LLFR-01016).
+        window_number_i: the number of its undocked window in the file,
+            from 1 (LLFR-00225 item 16); 0 for a docked tab.
     Outputs: a dict with its name, whether it is undocked, its plot
         matrix and its time plots, and, for an undocked tab, its window
         and the window's signal list panel.
@@ -677,6 +689,10 @@ def tab_entry(tab, main_panel_width_i: int = 0) -> dict:
                 HEIGHT_KEY_STR: height_i}
         else:
             entry_dict[WINDOW_KEY_STR] = None
+        # LLFR-00225 item 16, LLFR-01124: the tabs that share a window
+        # have the same number; their order in the file is their order
+        # in the window.
+        entry_dict[WINDOW_NUMBER_KEY_STR] = max(int(window_number_i), 1)
         # LLFR-00225 item 14: whether its panel is shown, and its width;
         # a panel never shown gets the width it would first get.
         panel_width_i = int(tab.panel_width_i)
@@ -937,6 +953,9 @@ class LayoutBuilder:
         # LLFR-01046: the values of an undock, for unusable values.
         self.new_window_tuple = tuple(int(value_i)
                                       for value_i in new_window_tuple)
+        # LLFR-01124: window number of the file -> the first created tab
+        # of that window.
+        self.window_first_tab_dict = {}
         self.report = LayoutReport()
 
     def time_of(self, signal_name_str: str):
@@ -1595,6 +1614,11 @@ class LayoutBuilder:
                 f"\"{tab.name_str}\" is neither true nor false; the tab "
                 f"was docked.")
             return
+        if self.joins_window(tab_entry):
+            # LLFR-01124: the window values of the first tab of its
+            # window are used, so this tab's own are not read.
+            self.place_in_window(tab, tab_entry, ())
+            return
         default_tuple = self.new_window_tuple
         window_value = tab_entry.get(WINDOW_KEY_STR)
         window_dict = window_value if isinstance(window_value, dict) else {}
@@ -1640,13 +1664,72 @@ class LayoutBuilder:
             self.report_window_value(
                 tab, "Signal list panel width", width_value,
                 "the width a new panel gets when it is first shown")
-        # LLFR-01041: the tab goes into an undocked window of its own.
+        self.place_in_window(tab, tab_entry, (window_tuple, shown_b,
+                                              width_i))
+
+    def joins_window(self, tab_entry) -> bool:
+        """Tell whether an undocked tab joins a window created before.
+
+        Inputs:
+            tab_entry: the entry of an undocked tab of the file.
+        Outputs: True when its window number is that of a tab created
+            earlier in this load (LLFR-01124).
+        """
+        # LLFR-01124: the same window number, the same window.
+        number_value = tab_entry.get(WINDOW_NUMBER_KEY_STR)
+        if not (is_whole_number(number_value) and number_value >= 1):
+            return False
+        first_tab = self.window_first_tab_dict.get(number_value)
+        return (first_tab is not None and self.workspace.find_tab(
+            first_tab.tab_id_i) is not None and first_tab.undocked_b)
+
+    def place_in_window(self, tab, tab_entry,
+                        value_tuple: tuple) -> None:
+        """Put an undocked tab of the file in its undocked window.
+
+        Inputs:
+            tab: the new model Tab, docked.
+            tab_entry: its entry of the file.
+            value_tuple: (window_tuple, panel_shown_b, panel_width_i), the
+                usable window values of the entry.
+        Outputs: none. A tab with the window number of a tab created
+            before goes into that tab's window, after its last tab
+            (LLFR-01124); a tab with no window number, or an unusable
+            one, gets a window of its own (LLFR-01125, LLFR-01130).
+        """
+        number_value = tab_entry.get(WINDOW_NUMBER_KEY_STR)
+        if number_value is not None and not (
+                is_whole_number(number_value) and number_value >= 1):
+            # LLFR-01130, LLFR-01047: a window of its own, reported.
+            self.report_window_value(tab, "Window number", number_value,
+                                     "a window of its own")
+            number_value = None
+        first_tab = self.window_first_tab_dict.get(number_value)
+        if number_value is not None and first_tab is not None and (
+                self.workspace.find_tab(first_tab.tab_id_i) is not None):
+            # LLFR-01124: the window of the first tab of that number,
+            # with its values; LLFR-01056: in the file's order.
+            last_tab = self.workspace.window_tab_list(
+                first_tab.window_id_i)[-1]
+            self.workspace.tab_list.remove(tab)
+            self.workspace.tab_list.insert(
+                self.workspace.tab_list.index(last_tab) + 1, tab)
+            tab.copy_window_values(first_tab)
+            tab.window_shown_b = False
+            return
+        # LLFR-01041, LLFR-01125: the tab opens a new undocked window;
+        # LLFR-01126: which shows its first tab.
+        window_tuple, shown_b, width_i = value_tuple
         self.workspace.tab_list.remove(tab)
         self.workspace.tab_list.append(tab)
-        tab.undocked_b = True
+        tab.window_id_i = self.workspace.next_window_id_i
+        self.workspace.next_window_id_i += 1
+        tab.window_shown_b = True
         tab.window_tuple = window_tuple
         tab.panel_shown_b = shown_b
         tab.panel_width_i = width_i
+        if number_value is not None:
+            self.window_first_tab_dict[number_value] = tab
 
     # Markers, range, grid and widths ------------------------------------
 

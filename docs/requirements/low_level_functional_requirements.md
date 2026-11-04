@@ -79,7 +79,7 @@ While the mouse pointer is over the part of the border of LLFR-00280, and while 
 *Parent: HLFR-00026*
 
 ### LLFR-00138 Undo action
-When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, with the position and size of each undocked window that the undo opens again (LLFR-01024) and the shown state and width of the signal list panel of each undocked window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes, arrows and the grid to the state they were in before that action.
+When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the undo opens again (LLFR-01024) and the shown state and width of the signal list panel of each undocked window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes, arrows and the grid to the state they were in before that action.
 
 *Parent: HLFR-00040*
 
@@ -89,7 +89,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 *Parent: HLFR-00040*
 
 ### LLFR-00140 Undoable actions
-The app must treat these actions as undoable: adding a tab, deleting a tab, including by closing its undocked window (LLFR-01038), renaming a tab, moving a tab by a drag (LLFR-01054), changing a tab's plot matrix (LLFR-01068), showing or hiding the grid with the Grid button (LLFR-01097), undocking a tab, docking a tab (LLFR-01025), changing the width of a signal list panel by dragging its border (LLFR-01020), hiding or showing the signal list panel of an undocked window (LLFR-01018), creating a plot, deleting a plot, moving a plot to another slot (LLFR-01085), adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
+The app must treat these actions as undoable: adding a tab, deleting a tab, including deleting all the tabs of an undocked window by closing it (LLFR-01038), renaming a tab, moving a tab by a drag (LLFR-01054), moving a tab into an undocked window (LLFR-01118), changing a tab's plot matrix (LLFR-01068), showing or hiding the grid with the Grid button (LLFR-01097), undocking a tab, docking a tab (LLFR-01025), changing the width of a signal list panel by dragging its border (LLFR-01020), hiding or showing the signal list panel of an undocked window (LLFR-01018), creating a plot, deleting a plot, moving a plot to another slot (LLFR-01085), adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
 
 Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. The grid shown at app start (LLFR-00147) is not an action, and the grid setting of a loaded layout file (LLFR-00481) is part of the layout load. Opening a file, closing a file or all files (LLFR-00924, LLFR-00934), zooming, panning, resetting the zoom, exporting, copying, searching, and moving or resizing a window (LLFR-01021) are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
 
@@ -118,11 +118,11 @@ When the user presses the Undo or the Redo shortcut (LLFR-00137, LLFR-00191) in 
 *Parent: HLFR-00132, HLFR-00040, HLFR-00048*
 
 ### LLFR-01024 Window opened again by an undo or a redo
-When an undo or a redo opens an undocked window again, for example by undoing its close (LLFR-01038) or redoing an undock, the app must open it at the position and size it had, kept on a screen as in LLFR-01048 and LLFR-01049.
+When an undo or a redo opens an undocked window again, for example by undoing its close (LLFR-01038) or redoing an undock, the app must open it at the position and size it had, with the tabs it had in their order, kept on a screen as in LLFR-01048 and LLFR-01049.
 
 Note: Its signal list panel follows LLFR-01094.
 
-*Parent: HLFR-00132, HLFR-00133, HLFR-00138*
+*Parent: HLFR-00132, HLFR-00133, HLFR-00138, HLFR-00125*
 
 ### LLFR-01094 Signal list panel of a window opened again
 When an undo or a redo opens an undocked window again (LLFR-01024), the app must give its signal list panel the shown or hidden state and the width that it had.
@@ -137,14 +137,14 @@ Note: Undoing an undock puts the tab back at its place among the docked tabs and
 *Parent: HLFR-00133, HLFR-00040, HLFR-00048*
 
 ### LLFR-01026 Undocked window title
-The title of an undocked window must be the name of its tab, with no other text.
+The title of an undocked window must be the name of the tab it shows, with no other text.
 
 Note: The title of the main window stays as in LLFR-00560, LLFR-00562 and LLFR-00563.
 
 *Parent: HLFR-00134*
 
 ### LLFR-01027 Title follows the tab name
-When the name of an undocked tab changes, by a rename (LLFR-00030, LLFR-00421), an undo or a redo, the app must change the title of its window to the new name.
+When the name of the tab that an undocked window shows changes, by a rename (LLFR-00030, LLFR-00421), an undo or a redo, or when the window shows another of its tabs (LLFR-01114, LLFR-01121, LLFR-01123), the app must change the title of the window to the name of the tab it shows.
 
 *Parent: HLFR-00134, HLFR-00017*
 
@@ -165,17 +165,17 @@ Note: The plot tool buttons are only in the top panel, so the held tool keys (LL
 
 *Parent: HLFR-00137, HLFR-00032*
 
-### LLFR-01038 System close deletes the tab
-When the user closes an undocked window with the system's close button or the system's close shortcut, the app must delete its tab as in LLFR-00028, with no question.
+### LLFR-01038 System close deletes the tabs
+When the user closes an undocked window with the system's close button or the system's close shortcut, the app must delete all its tabs as in LLFR-00028, with no question.
 
 Note: The system's close shortcut is, for example, Cmd+W on macOS and Alt+F4 on Windows.
 
-*Parent: HLFR-00138, HLFR-00016*
+*Parent: HLFR-00138, HLFR-00016, HLFR-00125*
 
 ### LLFR-01039 Window close is one undoable action
-Closing an undocked window (LLFR-01038) must be one undoable action (LLFR-00140), the deletion of its tab.
+Closing an undocked window (LLFR-01038) must be one undoable action (LLFR-00140), the deletion of all its tabs.
 
-Note: Undoing it opens the window again with its tab (LLFR-01024).
+Note: Undoing it opens the window again with all its tabs (LLFR-01024).
 
 *Parent: HLFR-00138, HLFR-00040, HLFR-00048*
 
@@ -187,7 +187,7 @@ Note: Closing a data file clears them (LLFR-00930).
 *Parent: HLFR-00040, HLFR-00048, HLFR-00117*
 
 ### LLFR-00192 Redo action
-When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, with the position and size of each undocked window that the redo opens again (LLFR-01024) and the shown state and width of the signal list panel of each undocked window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes, arrows and the grid to the state they were in after that action.
+When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the redo opens again (LLFR-01024) and the shown state and width of the signal list panel of each undocked window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, areas, text notes, arrows and the grid to the state they were in after that action.
 
 Note: The user can redo, one by one, every action undone since the last new undoable action, so at most 30 (LLFR-00139).
 
@@ -277,7 +277,7 @@ Note: As in LLFR-00188, the time is measured from the second launch onward, on t
 
 
 ### LLFR-00977 Undock button on each tab
-The main window must show, on each docked tab, a small undock button to the right of the tab's name.
+The main window must show, inside each docked tab that can be undocked, to the right of the tab's name, a small undock button, except as in LLFR-00983.
 
 Note: The tabs have no × button. A tab is deleted only from its menu (LLFR-00027) or by closing its undocked window (LLFR-01038).
 
@@ -313,22 +313,46 @@ When the tab that the main window shows is undocked, the main window must show t
 
 *Parent: HLFR-00123, HLFR-00014*
 
-### LLFR-00983 Undock button disabled on the last docked tab
-While the main window holds only one docked tab, the app must show the undock button of that tab as disabled, in a paler color.
+### LLFR-00983 No undock button on the last docked tab
+While the main window holds only one docked tab, the app must show that tab with no undock button.
 
 Note: The main window therefore always holds at least one docked tab, so the Copy button and the "+" button always have a tab to work with.
 
 *Parent: HLFR-00123, HLFR-00003, HLFR-00014*
 
-### LLFR-00984 Disabled undock button does nothing
-While the main window holds only one docked tab, the undock button of that tab must do nothing.
+### LLFR-00984 Last docked tab stays docked
+While the main window holds only one docked tab, the app must keep that tab docked.
+
+Note: The tab shows no undock button (LLFR-00983), and its drops outside the plot panel or on an undocked window leave it docked (LLFR-01109).
 
 *Parent: HLFR-00123*
 
-### LLFR-00985 Tab unchanged by an undock or a dock
-When the app undocks or docks a tab (LLFR-00980, LLFR-01107, LLFR-00993, LLFR-01108), it must keep the tab's name, its plot matrix and its plots unchanged, with their curves, x-axis and y-axis ranges, pinned data tips, delta markers, text notes, arrows, flags and areas.
+### LLFR-01112 Tab buttons drawn flat
+The undock button (LLFR-00977) and the dock button (LLFR-00990) must be drawn flat as part of their tab, with no border or background of their own, and with their icon in the color of the tab's text.
+
+Note: The icon drawing itself is that of LLFR-00978 and LLFR-00991.
 
 *Parent: HLFR-00123, HLFR-00124*
+
+### LLFR-01113 Tab button highlight on hover
+While the mouse pointer is over an undock button or a dock button, the app must show behind its icon a pale highlight with rounded corners, inside the tab, like the close button of a tab of a web browser.
+
+*Parent: HLFR-00123, HLFR-00124, HLFR-00003*
+
+### LLFR-01119 Tab button inside its tab
+Each undock button and dock button must lie entirely inside its tab, with at least 2 pixels between the button and each of the tab's borders.
+
+*Parent: HLFR-00123, HLFR-00124*
+
+### LLFR-01120 Tab wide enough for its button
+Each tab that shows an undock button or a dock button must be wide enough for its name and the button side by side, so that the name and the button never overlap.
+
+*Parent: HLFR-00123, HLFR-00124, HLFR-00014*
+
+### LLFR-00985 Tab unchanged by an undock or a dock
+When the app undocks or docks a tab, or moves it into another undocked window (LLFR-00980, LLFR-01107, LLFR-00993, LLFR-01108, LLFR-01115, LLFR-01117), it must keep the tab's name, its plot matrix and its plots unchanged, with their curves, x-axis and y-axis ranges, pinned data tips, delta markers, text notes, arrows, flags and areas.
+
+*Parent: HLFR-00123, HLFR-00124, HLFR-00153*
 
 ### LLFR-00986 Independent windows
 Each undocked window must be a separate window that the user can move, resize, minimize and bring to the front on its own, independently of the main window and of the other undocked windows.
@@ -357,7 +381,9 @@ When the user closes the main window, the app must close every undocked window a
 *Parent: HLFR-00123*
 
 ### LLFR-00990 Dock button
-An undocked window must show a dock button at the right end of the tab row of its plot panel (LLFR-00997).
+Each tab of an undocked window must show, inside the tab, to the right of the tab's name, a dock button.
+
+Note: The dock buttons are always inside the tabs, never in the tab row beside them. The signal list button (LLFR-01009) is a button of the window, not of a tab.
 
 *Parent: HLFR-00124*
 
@@ -372,12 +398,14 @@ While the mouse pointer is over the dock button (LLFR-00990), the app must show 
 *Parent: HLFR-00124*
 
 ### LLFR-00993 Dock action
-When the user clicks the dock button of an undocked window, the app must move its tab back into the main window, as the last docked tab, directly to the left of the "+" button (LLFR-00025).
+When the user clicks the dock button of a tab of an undocked window, the app must move that tab back into the main window, as the last docked tab, directly to the left of the "+" button (LLFR-00025).
 
 *Parent: HLFR-00124*
 
 ### LLFR-00994 Window closed on dock
-When the app docks a tab (LLFR-00993, LLFR-01108), it must close the undocked window that held it.
+When the app docks the last tab of an undocked window (LLFR-00993, LLFR-01108), it must close that window.
+
+Note: A window that holds other tabs stays open with them (LLFR-00996, LLFR-01121).
 
 *Parent: HLFR-00124, HLFR-00125*
 
@@ -386,20 +414,29 @@ When the app docks a tab (LLFR-00993, LLFR-01108), the main window must show tha
 
 *Parent: HLFR-00124*
 
-### LLFR-00996 One tab in an undocked window
-An undocked window must hold exactly its own tab for as long as it is open.
+### LLFR-00996 Tabs of an undocked window
+An undocked window must hold at least one tab for as long as it is open.
+
+Note: A window closes when its last tab leaves it (LLFR-00994, LLFR-01110, LLFR-00998), and when the user closes it (LLFR-01038).
 
 *Parent: HLFR-00125*
 
-### LLFR-00997 Tab row of an undocked window
-The tab row of an undocked window must hold only, from left to right, its tab button (LLFR-01028), then, at its right end, the dock button (LLFR-00990), followed by the signal list button (LLFR-01009) while the signal list panel is hidden.
+### LLFR-01121 Tab shown after a tab leaves an undocked window
+When the tab that an undocked window shows leaves the window, by a dock, a deletion, a file close or a move into another window, and the window keeps other tabs, the window must show the nearest of its tabs to the left of the tab that left, or, when there is none, the nearest to its right.
 
-Note: There is no "+" button in an undocked window. New tabs are added in the main window (LLFR-00025). While the panel is shown, the signal list button is in the panel's title row (LLFR-01098), and the tab row ends at the panel.
+*Parent: HLFR-00125, HLFR-00134*
+
+### LLFR-00997 Tab row of an undocked window
+The tab row of an undocked window must hold only its tabs, from left to right in their order in the window (LLFR-01028), followed at its right end by the signal list button (LLFR-01009) while the signal list panel is hidden.
+
+Note: There is no "+" button in an undocked window. New tabs are added in the main window (LLFR-00025). Each tab carries its own dock button (LLFR-00990). While the panel is shown, the signal list button is in the panel's title row (LLFR-01098), and the tab row ends at the panel.
 
 *Parent: HLFR-00125, HLFR-00015*
 
 ### LLFR-00998 Window of an undocked tab closed by a file close
-When closing data files closes an undocked tab (LLFR-00932), the app must also close its undocked window.
+When closing data files closes the last tab of an undocked window (LLFR-00932), the app must also close that window.
+
+Note: When the window holds other tabs, only the emptied tab is closed (LLFR-00932), and the window stays open with the others (LLFR-01121).
 
 *Parent: HLFR-00125, HLFR-00118*
 
@@ -1192,9 +1229,10 @@ The layout file must hold:
 12. for each tab, whether it is undocked (HLFR-00123);
 13. for each undocked tab, the position and size of its window (LLFR-01040);
 14. for each undocked tab, whether its signal list panel is shown, and the panel's width (LLFR-01012, LLFR-01013);
-15. for each tab, its plot matrix, as its number of rows and its number of columns (HLFR-00145).
+15. for each tab, its plot matrix, as its number of rows and its number of columns (HLFR-00145);
+16. for each undocked tab, the number of its undocked window, the same number for the tabs that share a window, numbered from 1 in the tab order (LLFR-01056), so that the order of the tabs in the file gives their order in their window (LLFR-01124).
 
-*Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097, HLFR-00139, HLFR-00151*
+*Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097, HLFR-00139, HLFR-00151, HLFR-00125*
 
 ### LLFR-00226 Not in the layout file
 The layout file must not hold the names or the paths of the data files, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, or the position and size of the main window.
@@ -1221,14 +1259,14 @@ The layout file must start with an entry `format` with the value `plot_tool layo
 ### LLFR-01040 Window values in pixels
 The layout file must write the position of each undocked window, its width and height, and the width of its signal list panel, as whole numbers of pixels in the coordinates of the desktop, with the position of the window's top-left corner.
 
-Note: Suggested keys: `undocked` (true or false) for each tab, and for an undocked tab `window` with `x`, `y`, `width` and `height`, and `signal_list_panel` with `shown` and `width`, and `plot_matrix` with `rows` and `columns` for each tab (LLFR-00227).
+Note: Suggested keys: `undocked` (true or false) for each tab, and for an undocked tab `window` with `x`, `y`, `width` and `height`, `window_number`, and `signal_list_panel` with `shown` and `width`, and `plot_matrix` with `rows` and `columns` for each tab (LLFR-00227). Each tab that shares a window holds the same window values.
 
 *Parent: HLFR-00139, HLFR-00051*
 
 ### LLFR-00471 Layout file format number
 The number of the layout file format in the `version` entry (LLFR-00228) must be 3.
 
-Note: Version 3 names the signals with their prefix (LLFR-00948). A file of a lower version is read as in LLFR-00963.
+Note: Version 3 names the signals with their prefix (LLFR-00948). A file of a lower version is read as in LLFR-00963. The window numbers (LLFR-00225, item 16) were added within version 3: a version 3 file without them is read as in LLFR-01125.
 
 *Parent: HLFR-00051, HLFR-00050*
 
@@ -1284,7 +1322,7 @@ Note: The undocked tabs it added are shown in their own windows (LLFR-01041).
 *Parent: HLFR-00050*
 
 ### LLFR-00230 Rebuild the layout
-When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00484), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, LLFR-00474 and LLFR-00475, docked or undocked as in LLFR-01041 and LLFR-01042, using the signals of the open data files (LLFR-00949) and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00815, LLFR-00816, LLFR-00410, LLFR-00822, LLFR-00823, LLFR-01044, LLFR-01046, LLFR-01048, LLFR-01049 and LLFR-01090.
+When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00484), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, LLFR-00474 and LLFR-00475, docked or undocked as in LLFR-01041 and LLFR-01042, using the signals of the open data files (LLFR-00949) and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00815, LLFR-00816, LLFR-00410, LLFR-00822, LLFR-00823, LLFR-01044, LLFR-01046, LLFR-01130, LLFR-01048, LLFR-01049 and LLFR-01090.
 
 *Parent: HLFR-00050*
 
@@ -1330,9 +1368,24 @@ Note: The panel of each undocked window follows LLFR-01043.
 *Parent: HLFR-00050*
 
 ### LLFR-01041 Undocked tabs rebuilt in windows
-When the app loads a layout file, it must open each tab that the file saved as undocked and that it creates (LLFR-00484) in an undocked window of its own, at the saved position and size, except as in LLFR-01046, LLFR-01048 and LLFR-01049.
+When the app loads a layout file, it must open each tab that the file saved as undocked and that it creates (LLFR-00484) in an undocked window, at the saved position and size, except as in LLFR-01124, LLFR-01125, LLFR-01130, LLFR-01046, LLFR-01048 and LLFR-01049.
 
 *Parent: HLFR-00140, HLFR-00050*
+
+### LLFR-01124 Tabs that share a window in a layout
+When the app loads a layout file, it must open the undocked tabs that it creates with the same window number (LLFR-00225, item 16) in one undocked window, in the file's order, with the position, size and signal list panel saved for the first of them.
+
+*Parent: HLFR-00140, HLFR-00050, HLFR-00125*
+
+### LLFR-01125 Undocked tab with no window number
+When the app loads a layout file, it must open each undocked tab that has no window number, for example in a file saved before windows could hold several tabs, in an undocked window of its own, with nothing in the load report.
+
+*Parent: HLFR-00140, HLFR-00050*
+
+### LLFR-01126 Window from a layout shows its first tab
+When the app opens an undocked window from a layout file (LLFR-01041), the window must show the first of its tabs.
+
+*Parent: HLFR-00140, HLFR-00134*
 
 ### LLFR-01042 Docked tabs from a layout
 When the app loads a layout file, it must add as docked tabs of the main window the tabs that the file saved as docked or with no `undocked` entry, as in LLFR-00474 and LLFR-00475.
@@ -1365,8 +1418,15 @@ Note: Such values appear only when the file was edited by hand. 16777215 pixels 
 
 *Parent: HLFR-00140, HLFR-00052*
 
+### LLFR-01130 Unusable window number in a layout
+When loading a layout, the app must open an undocked tab whose window number (LLFR-00225, item 16) is not a whole number of 1 or more in an undocked window of its own.
+
+Note: Such values appear only when the file was edited by hand.
+
+*Parent: HLFR-00140, HLFR-00052*
+
 ### LLFR-01047 Unusable window values in the load report
-The load report (LLFR-00237) must list each value replaced as in LLFR-01046 as a replaced value.
+The load report (LLFR-00237) must list each value replaced as in LLFR-01046 and LLFR-01130 as a replaced value.
 
 *Parent: HLFR-00140, HLFR-00052*
 
@@ -1494,7 +1554,7 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 *Parent: HLFR-00050*
 
 ### LLFR-00237 Layout load report
-After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00262, LLFR-00496, LLFR-00282, LLFR-00499, LLFR-00283, LLFR-00502, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00817, LLFR-00410, LLFR-00824, LLFR-01046, LLFR-01090), the app must show one information box that lists, except as in LLFR-00492: the signals that are not in the open data files, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use or did not start with the prefix of its data file (LLFR-00489, LLFR-00499, LLFR-00970), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, flag, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced.
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00262, LLFR-00496, LLFR-00282, LLFR-00499, LLFR-00283, LLFR-00502, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00817, LLFR-00410, LLFR-00824, LLFR-01046, LLFR-01130, LLFR-01090), the app must show one information box that lists, except as in LLFR-00492: the signals that are not in the open data files, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use or did not start with the prefix of its data file (LLFR-00489, LLFR-00499, LLFR-00970), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, flag, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032).
 
@@ -3541,7 +3601,9 @@ Note: The tab menu is then "Delete", "Rename", "Plot matrix".
 *Parent: HLFR-00145*
 
 ### LLFR-01062 Matrix picker
-When the user chooses "Plot matrix" (LLFR-01061), the app must show a picker of 10 rows and 10 columns of small squares, in which the square in row R and column C stands for a plot matrix of R rows and C columns.
+When the user holds the mouse pointer over "Plot matrix" in the tab menu (LLFR-01061), the app must show beside the menu, as a submenu that opens with no click, a picker of 10 rows and 10 columns of small squares, in which the square in row R and column C stands for a plot matrix of R rows and C columns.
+
+Note: The submenu opens like the color submenu of the curve menu (LLFR-00388).
 
 *Parent: HLFR-00145*
 
@@ -3561,7 +3623,7 @@ When the matrix picker opens (LLFR-01062), it must show marked the squares of th
 *Parent: HLFR-00145*
 
 ### LLFR-01065 Choose a matrix
-When the user clicks the square in row R and column C of the matrix picker (LLFR-01062), the app must give the tab a plot matrix of R rows and C columns and close the picker, except as in LLFR-01069 and LLFR-01072.
+When the user clicks the square in row R and column C of the matrix picker (LLFR-01062), the app must give the tab a plot matrix of R rows and C columns and close the picker and the tab menu, except as in LLFR-01069 and LLFR-01072.
 
 *Parent: HLFR-00145*
 
@@ -3581,12 +3643,12 @@ A change of the plot matrix of a tab (LLFR-01065) must be one undoable action (L
 *Parent: HLFR-00145, HLFR-00040, HLFR-00048*
 
 ### LLFR-01069 Same matrix changes nothing
-When the user clicks the square of the tab's current plot matrix, the app must close the picker and leave the tab and the undo and redo history unchanged.
+When the user clicks the square of the tab's current plot matrix, the app must close the picker and the tab menu and leave the tab and the undo and redo history unchanged.
 
 *Parent: HLFR-00145*
 
 ### LLFR-01070 Pickers closed without a choice
-When the user presses the Esc key or clicks outside the matrix picker (LLFR-01062) or the position picker (LLFR-01079), the app must close the picker and leave the tab unchanged.
+When the user presses the Esc key or clicks outside the menu of the matrix picker (LLFR-01062) or of the position picker (LLFR-01079), the app must close the picker and leave the tab unchanged.
 
 *Parent: HLFR-00145, HLFR-00149*
 
@@ -3722,7 +3784,7 @@ Note: As for "Delete plot", this lets the user move a plot whose whole shown ran
 *Parent: HLFR-00149*
 
 ### LLFR-01079 Position picker
-When the user chooses "Position" (LLFR-01077, LLFR-01078), the app must show a picker with as many rows and columns of small squares as the tab's plot matrix, in which each square stands for the slot at its row and column.
+When the user holds the mouse pointer over "Position" (LLFR-01077, LLFR-01078), the app must show beside the menu, as a submenu that opens with no click, a picker with as many rows and columns of small squares as the tab's plot matrix, in which each square stands for the slot at its row and column.
 
 *Parent: HLFR-00149*
 
@@ -3742,7 +3804,7 @@ The position picker (LLFR-01079) must show marked the square of the slot of the 
 *Parent: HLFR-00149*
 
 ### LLFR-01083 Swap two plots
-When the user clicks in the position picker the square of the slot of another plot, the app must swap the two plots, so that each one takes the slot of the other, and close the picker.
+When the user clicks in the position picker the square of the slot of another plot, the app must swap the two plots, so that each one takes the slot of the other, and close the picker and the menu.
 
 Note: Only the order of the plots changes. The other plots keep their slots, and the sizes follow LLFR-01075 and LLFR-01076.
 
@@ -3759,7 +3821,7 @@ A swap (LLFR-01083) must be one undoable action (LLFR-00140).
 *Parent: HLFR-00149, HLFR-00040, HLFR-00048*
 
 ### LLFR-01086 Own slot changes nothing
-When the user clicks in the position picker the square of the plot's own slot (LLFR-01082), the app must close the picker and leave the plots and the undo and redo history unchanged.
+When the user clicks in the position picker the square of the plot's own slot (LLFR-01082), the app must close the picker and the menu and leave the plots and the undo and redo history unchanged.
 
 *Parent: HLFR-00149*
 
@@ -4005,9 +4067,9 @@ While the user drags a flag (LLFR-00086), the app must update the flag's time va
 *Parent: HLFR-00029*
 
 ### LLFR-00203 Flag preview
-While the Flag button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing flag, the app must show a preview of the flag that a click would place on every time plot of the tab that holds the plot under the pointer: a dashed vertical line at the time under the pointer, in a paler version of the reserved marker color (LLFR-00083), the color of a new flag, with its time value (LLFR-00092).
+While the Flag button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing flag, the app must show a preview of the flag that a click would place on every time plot of every tab that is shown (LLFR-00665): a dashed vertical line at the time under the pointer, in a paler version of the reserved marker color (LLFR-00083), the color of a new flag, with its time value (LLFR-00092).
 
-Note: Plots of the other tabs, including those shown in other windows, don't need the preview.
+Note: The tabs that are shown are the tab shown in the main window and the tab shown in each undocked window. The plots of the other tabs don't need the preview.
 
 *Parent: HLFR-00028*
 
@@ -4034,14 +4096,14 @@ Note: Each of these remains one undoable action (LLFR-00140).
 *Parent: HLFR-00028, HLFR-00029, HLFR-00030, HLFR-00031, HLFR-00089*
 
 ### LLFR-00665 Dragged flag in the shown tabs
-While a flag is dragged (LLFR-00086), it must follow the pointer on every time plot of every tab that is shown: the tab shown in the main window and the tab of every undocked window.
+While a flag is dragged (LLFR-00086), it must follow the pointer on every time plot of every tab that is shown: the tab shown in the main window and the tab shown in every undocked window.
 
 Note: On the time plots of the tabs that are not shown, LLFR-00666 applies.
 
 *Parent: HLFR-00029*
 
 ### LLFR-00666 Dragged flag in the tabs not shown
-While a flag is dragged (LLFR-00086), on the time plots of the docked tabs that the main window does not show it must be at its new time at the latest when the button is released.
+While a flag is dragged (LLFR-00086), on the time plots of the tabs that are not shown (LLFR-00665) it must be at its new time at the latest when the button is released.
 
 *Parent: HLFR-00029*
 
@@ -4072,35 +4134,52 @@ The "+" button (LLFR-00025) must be narrower than a tab, like the new tab button
 
 *Parent: HLFR-00015*
 
-### LLFR-01028 Tab button in an undocked window
-An undocked window must show the button of its tab at the left end of its tab row, starting at the window's left edge (LLFR-00106).
+### LLFR-01028 Tabs in an undocked window
+An undocked window must show a tab for each of its tabs in its tab row, the first one starting at the window's left edge (LLFR-00106), also when it holds only one tab.
+
+Note: A window with one tab therefore looks like a window with several tabs, with a tab row of one tab.
+
+*Parent: HLFR-00135, HLFR-00125*
+
+### LLFR-01095 Look of the tabs in an undocked window
+The tab that an undocked window shows must have the look of the selected tab of the main window, and its other tabs the look of the unselected tabs of the main window.
 
 *Parent: HLFR-00135*
 
-### LLFR-01095 Look of the tab button in an undocked window
-The tab button of an undocked window (LLFR-01028) must have the look of the selected tab of the main window.
+### LLFR-01114 Switch tabs in an undocked window
+When the user clicks a tab of an undocked window, the window must show that tab.
 
-*Parent: HLFR-00135*
+*Parent: HLFR-00135, HLFR-00125*
 
-### LLFR-01029 Tab menu on the tab button
-When the user right-clicks the tab button of an undocked window, the app must show the tab menu (LLFR-00027, LLFR-00029, LLFR-01061) and act on that tab as in the main window.
+### LLFR-01029 Tab menu on the tabs of an undocked window
+When the user right-clicks a tab of an undocked window, the app must show the tab menu (LLFR-00027, LLFR-00029, LLFR-01061) and act on that tab as in the main window.
 
 *Parent: HLFR-00135, HLFR-00016, HLFR-00017, HLFR-00145*
 
-### LLFR-01030 Double-click on the tab button
-A double-click on the tab button of an undocked window with the left mouse button must act as in LLFR-00421.
+### LLFR-01030 Double-click on a tab of an undocked window
+A double-click on a tab of an undocked window with the left mouse button must act as in LLFR-00421.
 
 *Parent: HLFR-00135, HLFR-00017, HLFR-00094*
 
-### LLFR-01031 Tab button without an undock button
-The tab button of an undocked window must show only the tab's name, without the undock button of LLFR-00977.
+### LLFR-01031 Dock button in place of the undock button
+The tabs of an undocked window must show the dock button (LLFR-00990) in place of the undock button of LLFR-00977.
 
 *Parent: HLFR-00135*
 
-### LLFR-01032 Tab button drag
-A drag of the tab button of an undocked window that is released anywhere other than over the tab row of the main window (LLFR-01108) must leave the tab, its place in the tab order and its window unchanged.
+### LLFR-01032 Tab drag released elsewhere
+A drag of a tab of an undocked window that is released anywhere other than over the tab row of the main window (LLFR-01108), over the tab row of its own window (LLFR-01122, LLFR-01131) or over another undocked window (LLFR-01117) must leave the tab, its place in the tab order and its window unchanged.
 
 *Parent: HLFR-00135, HLFR-00142, HLFR-00152*
+
+### LLFR-01122 Reorder the tabs of an undocked window
+While the user drags a tab of an undocked window with the left mouse button along the tab row of that window, the app must move the tab with the pointer, the other tabs moving aside to make room for it, as in LLFR-01051.
+
+*Parent: HLFR-00142, HLFR-00135*
+
+### LLFR-01131 Tab left where it is dropped in an undocked window
+When the user releases the left mouse button after LLFR-01122 with the pointer over the tab row of that window, the app must leave the tab at the place where it was released, between the tabs on either side of it, as in LLFR-01052.
+
+*Parent: HLFR-00142, HLFR-00135*
 
 ### LLFR-01033 Delete in an undocked window
 When the user chooses "Delete" in the tab menu of an undocked tab (LLFR-01029), the app must delete the tab (LLFR-00028) as one undoable action (LLFR-00140).
@@ -4108,9 +4187,9 @@ When the user chooses "Delete" in the tab menu of an undocked tab (LLFR-01029), 
 *Parent: HLFR-00135, HLFR-00016*
 
 ### LLFR-01110 Window closed by Delete
-When the app deletes an undocked tab from its tab menu (LLFR-01033), it must close the tab's window as part of the same undoable action.
+When the app deletes the last tab of an undocked window from its tab menu (LLFR-01033), it must close the window as part of the same undoable action.
 
-Note: Undoing the deletion opens the window again (LLFR-01024).
+Note: Undoing the deletion opens the window again (LLFR-01024). A window that holds other tabs stays open with them (LLFR-01121).
 
 *Parent: HLFR-00135, HLFR-00016*
 
@@ -4136,23 +4215,54 @@ Note: The "+" button stays directly to the right of the last tab (LLFR-00025).
 ### LLFR-01053 Tab kept in the tab row during a drag
 While the user drags a tab (LLFR-01051) with the pointer outside the tab row, the app must keep the tab in the tab row, at the place nearest to the pointer.
 
-Note: The tab leaves the tab row only when it is dropped outside the main window (LLFR-01107). A drop inside the main window, off the tab row, leaves it at the place nearest to the pointer (LLFR-01052).
+Note: The tab leaves the tab row only when it is dropped outside the main window's plot panel (LLFR-01107) or on an undocked window (LLFR-01115). A drop inside the plot panel, off the tab row, leaves it at the place nearest to the pointer (LLFR-01052).
 
 *Parent: HLFR-00142, HLFR-00152*
 
-### LLFR-01107 Undock by a drop outside the main window
-When the user releases the left mouse button after LLFR-01051 with the pointer outside the main window, the app must move the dragged tab out of the main window into a new undocked window whose top-left corner is at the pointer, kept on a screen as in LLFR-01048, except as in LLFR-01109.
+### LLFR-01107 Undock by a drop outside the plot panel
+When the user releases the left mouse button after LLFR-01051 with the pointer outside the main window's plot panel and not over an undocked window, the app must move the dragged tab out of the main window into a new undocked window whose top-left corner is at the pointer, kept on a screen as in LLFR-01048, except as in LLFR-01109.
 
-Note: The window gets the size of LLFR-00981 and its panel is hidden (LLFR-01015), as after a click on the undock button.
-
-*Parent: HLFR-00152, HLFR-00123*
-
-### LLFR-01109 Last docked tab dropped outside the main window
-When the main window holds only one docked tab, a drop of that tab outside the main window (LLFR-01107) must leave it docked, with the tabs and the undo and redo history unchanged.
-
-Note: As its undock button (LLFR-00983), the last docked tab can't be undocked.
+Note: The pointer may be over the signal list panel, over the top panel or outside the app. The window gets the size of LLFR-00981 and its panel is hidden (LLFR-01015), as after a click on the undock button.
 
 *Parent: HLFR-00152, HLFR-00123*
+
+### LLFR-01109 Last docked tab dropped outside the plot panel
+When the main window holds only one docked tab, a drop of that tab outside the main window's plot panel (LLFR-01107) or on an undocked window (LLFR-01115) must leave it docked, with the tabs and the undo and redo history unchanged.
+
+Note: As without its undock button (LLFR-00983), the last docked tab can't be undocked.
+
+*Parent: HLFR-00152, HLFR-00123, HLFR-00153*
+
+### LLFR-01115 Docked tab dropped on an undocked window
+When the user releases the left mouse button after LLFR-01051 with the pointer over an undocked window, the app must move the dragged tab into that window, after its last tab, except as in LLFR-01109 and LLFR-01116.
+
+*Parent: HLFR-00153*
+
+### LLFR-01116 Drop on the tab row of an undocked window
+When the pointer of a drop of LLFR-01115 or LLFR-01117 is over the tab row of the undocked window, the app must put the tab at the place of the pointer, between the tabs of that window on either side of it.
+
+Note: The tab goes before the first tab of the window whose middle is to the right of the pointer, or after its last tab when there is none.
+
+*Parent: HLFR-00153*
+
+### LLFR-01123 Moved tab shown
+When the app moves a tab into an undocked window (LLFR-01115, LLFR-01117), that window must show the tab.
+
+*Parent: HLFR-00153, HLFR-00125*
+
+### LLFR-01117 Tab of an undocked window dropped on another one
+When the user drags a tab of an undocked window and releases it over another undocked window, the app must move the tab into that other window, as in LLFR-01115 and LLFR-01116.
+
+Note: The window it leaves closes when the tab was its last tab (LLFR-00996), and otherwise shows another tab (LLFR-01121).
+
+*Parent: HLFR-00153, HLFR-00125*
+
+### LLFR-01118 Move into an undocked window undoable
+Moving a tab into an undocked window (LLFR-01115, LLFR-01117) must be one undoable action (LLFR-00140).
+
+Note: Undoing it puts the tab back in its window, docked or undocked, at its earlier place, and opens again a window that the move closed (LLFR-01024).
+
+*Parent: HLFR-00153, HLFR-00040, HLFR-00048, HLFR-00132*
 
 ### LLFR-01108 Dock by a drop on the main window's tab row
 When the user drags the tab button of an undocked window with the left mouse button and releases it with the pointer over the tab row of the main window, the app must move the tab back into the main window at the place of the pointer, between the docked tabs on either side of it.
@@ -4162,21 +4272,21 @@ Note: The tab row of the main window is the row of the docked tabs and the "+" b
 *Parent: HLFR-00152, HLFR-00124*
 
 ### LLFR-01054 Tab move undoable
-A tab drag (LLFR-01051) that leaves the tab at another place must be one undoable action (LLFR-00140).
+A tab drag (LLFR-01051, LLFR-01122, LLFR-01131) that leaves the tab at another place in its tab row must be one undoable action (LLFR-00140).
 
 *Parent: HLFR-00142, HLFR-00040, HLFR-00048*
 
 ### LLFR-01055 Tab drag back to its place
-A tab drag (LLFR-01051) that leaves the tab at its starting place must leave the tabs and the undo and redo history unchanged.
+A tab drag (LLFR-01051, LLFR-01122) that leaves the tab at its starting place must leave the tabs and the undo and redo history unchanged.
 
 *Parent: HLFR-00142*
 
 ### LLFR-01056 Tab order
-The tab order must be the order of the docked tabs in the main window, followed by the undocked tabs in the order they were undocked, the undocked tabs created by loading a layout file (LLFR-01041) following in the file's order.
+The tab order must be the order of the docked tabs in the main window, followed by the tabs of the undocked windows, window by window in the order the windows were opened, each window's tabs in their order in its tab row, the windows opened by loading a layout file (LLFR-01041) following in the file's order.
 
 Note: The PDF (LLFR-00129) and the layout file (LLFR-00225) use this order. Undoing an undock (LLFR-01025) puts the tab back at its earlier place among the docked tabs.
 
-*Parent: HLFR-00142, HLFR-00038, HLFR-00049*
+*Parent: HLFR-00142, HLFR-00038, HLFR-00049, HLFR-00125*
 
 ### LLFR-00108 Wheel zoom with any plot tool
 The app must apply mouse wheel zoom (LLFR-00074, LLFR-00659) whether or not a plot tool is active.
@@ -4229,6 +4339,18 @@ On macOS, the app must zoom out when the user's fingers move down on the trackpa
 While the Zoom button (LLFR-00077) is active and the user presses the left mouse button on a plot and moves the pointer 5 pixels or more from where the button was pressed, the app must show a horizontal dashed line at the height of the press, from the time of the press to the time under the pointer (the frequencies, on a frequency plot), with a short vertical line at each end, in the reserved marker color (LLFR-00083, LLFR-00172).
 
 *Parent: HLFR-00027*
+
+### LLFR-01128 Span selection in every shown tab
+While the selection line of LLFR-00208 is shown on a time plot, the app must show a line from the same time to the same time, with the same look, at the middle of the height of the drawing area, on every other time plot of every tab that is shown (LLFR-00665).
+
+Note: This is the time span that a release would show on every time plot (LLFR-00209). A selection on a frequency plot changes only that plot, so it is shown only there.
+
+*Parent: HLFR-00027*
+
+### LLFR-01129 Previews of other plots left out of the PDF and the copy
+The app must leave the previews of LLFR-01127 and LLFR-01128 out of the PDF export (LLFR-00129) and the copied image (LLFR-00133, LLFR-01101).
+
+*Parent: HLFR-00027, HLFR-00066, HLFR-00038, HLFR-00039*
 
 ### LLFR-00209 Zoom to the selected span
 When the user releases the left mouse button after LLFR-00208, the app must set the plot's x-axis range to the selected time span, so that its two ends are the plot's left and right edges, applied to every time plot (LLFR-00070). On a frequency plot, the span zoom changes only that plot (LLFR-00693).
@@ -4584,6 +4706,13 @@ While the Area button (LLFR-00286) is active and the user presses the left mouse
 
 *Parent: HLFR-00066*
 
+### LLFR-01127 Area preview in every shown tab
+While the area preview of LLFR-00303 is shown, the app must show the same preview, from the same start time to the same end time, on every other time plot of every tab that is shown (LLFR-00665).
+
+Note: This is the area that a release would create on every time plot (LLFR-00304, LLFR-00310).
+
+*Parent: HLFR-00066*
+
 ### LLFR-00697 Area preview stops at an area
 The area preview (LLFR-00303) must stop at the edge of the nearest existing area, so that it never overlaps one.
 
@@ -4684,14 +4813,14 @@ Note: Each of these remains one undoable action (LLFR-00140).
 *Parent: HLFR-00066, HLFR-00067, HLFR-00068, HLFR-00069, HLFR-00106*
 
 ### LLFR-00709 Dragged area in the shown tabs
-While an area is dragged (LLFR-00312, LLFR-00313), it must follow the pointer on every time plot of every tab that is shown: the tab shown in the main window and the tab of every undocked window.
+While an area is dragged (LLFR-00312, LLFR-00313), it must follow the pointer on every time plot of every tab that is shown: the tab shown in the main window and the tab shown in every undocked window.
 
 Note: On the time plots of the tabs that are not shown, LLFR-00710 applies.
 
 *Parent: HLFR-00067, HLFR-00106*
 
 ### LLFR-00710 Dragged area in the tabs not shown
-While an area is dragged (LLFR-00312, LLFR-00313), on the time plots of the docked tabs that the main window does not show it must be at its new position at the latest when the button is released.
+While an area is dragged (LLFR-00312, LLFR-00313), on the time plots of the tabs that are not shown (LLFR-00709) it must be at its new position at the latest when the button is released.
 
 *Parent: HLFR-00067, HLFR-00106*
 

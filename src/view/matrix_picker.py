@@ -16,12 +16,16 @@
   others are pale (LLFR-01081). The square of the plot it was opened
   from is marked (LLFR-01082).
 
-Both are popups: a click on an enabled square calls the choice function
-with the row and column of the square, counted from 1, and closes the
-picker (LLFR-01065, LLFR-01083); the Esc key or a click outside closes
-it with no choice (LLFR-01070). Whether the choice changes anything (the
-current matrix, the plot's own slot) is decided by the controller
-(LLFR-01069, LLFR-01086).
+Both open as submenus of their menu, beside it, as soon as the pointer
+is over their option, like the color submenu (LLFR-01062, LLFR-01079):
+add_picker_submenu puts the picker in a QWidgetAction of a submenu. A
+click on an enabled square closes the picker and its menus and calls the
+choice function with the row and column of the square, counted from 1
+(LLFR-01065, LLFR-01083); the Esc key or a click outside closes them
+with no choice (LLFR-01070). Built with embedded_b False, a picker is a
+popup of its own instead, shown by show_at. Whether the choice changes
+anything (the current matrix, the plot's own slot) is decided by the
+controller (LLFR-01069, LLFR-01086).
 
 The geometry of the squares is plain arithmetic (square_rect,
 square_at), so tests can click a square without guessing pixels.
@@ -29,7 +33,7 @@ square_at), so tests can click a square without guessing pixels.
 
 from PyQt6.QtCore import QPoint, QRect, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import QApplication, QMenu, QWidget, QWidgetAction
 
 from model.workspace import MAXIMUM_MATRIX_SIZE_I
 from view import theme
@@ -94,17 +98,25 @@ class SquarePicker(QWidget):
     """
 
     def __init__(self, row_count_i: int, column_count_i: int,
-                 choice_function, parent=None) -> None:
-        """Create the picker; it is shown by show_at.
+                 choice_function, parent=None,
+                 embedded_b: bool = False) -> None:
+        """Create the picker; it is shown by show_at or by its menu.
 
         Inputs:
             row_count_i: see the class docstring.
             column_count_i: see the class docstring.
             choice_function: see the class docstring.
             parent: optional parent widget.
+            embedded_b: True for a picker inside a submenu
+                (add_picker_submenu), False for a popup of its own.
         Outputs: none.
         """
-        super().__init__(parent, Qt.WindowType.Popup)
+        # LLFR-01062, LLFR-01079: inside a submenu, a plain widget.
+        self.embedded_b = bool(embedded_b)
+        if self.embedded_b:
+            super().__init__(parent)
+        else:
+            super().__init__(parent, Qt.WindowType.Popup)
         # LLFR-01062, LLFR-01079: the rows and columns of squares.
         self.row_count_i = int(row_count_i)
         self.column_count_i = int(column_count_i)
@@ -241,12 +253,29 @@ class SquarePicker(QWidget):
         if not self.is_square_enabled(row_i, column_i):
             return False
         # LLFR-01065, LLFR-01083: close first, then make the choice, so
-        # that the controller may rebuild the views behind the picker.
+        # that the controller may rebuild the views behind the picker;
+        # inside a submenu, the menus close with it.
         self.chosen_tuple = (row_i, column_i)
-        self.close()
+        if self.embedded_b:
+            self.close_menus()
+        else:
+            self.close()
         if self.choice_function is not None:
             self.choice_function(row_i, column_i)
         return True
+
+    def close_menus(self) -> None:
+        """Close the submenu that holds the picker and its parent menus.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01065, LLFR-01069, LLFR-01083, LLFR-01086: a choice closes
+        # the picker and the menu it opened from.
+        widget = self.parentWidget()
+        while isinstance(widget, QMenu):
+            widget.close()
+            widget = widget.parentWidget()
 
     def show_at(self, global_point) -> None:
         """Show the picker with its top-left corner at a point.
@@ -404,7 +433,8 @@ class MatrixPicker(SquarePicker):
     """
 
     def __init__(self, current_row_count_i: int, current_column_count_i: int,
-                 plot_count_i: int, choice_function, parent=None) -> None:
+                 plot_count_i: int, choice_function, parent=None,
+                 embedded_b: bool = False) -> None:
         """Create the matrix picker.
 
         Inputs:
@@ -413,11 +443,12 @@ class MatrixPicker(SquarePicker):
             plot_count_i: see the class docstring.
             choice_function: see the class docstring.
             parent: optional parent widget.
+            embedded_b: True for a picker inside a submenu.
         Outputs: none.
         """
         # LLFR-01062: always 10 rows and 10 columns of squares.
         super().__init__(MAXIMUM_MATRIX_SIZE_I, MAXIMUM_MATRIX_SIZE_I,
-                         choice_function, parent)
+                         choice_function, parent, embedded_b)
         self.current_row_count_i = int(current_row_count_i)
         self.current_column_count_i = int(current_column_count_i)
         self.plot_count_i = int(plot_count_i)
@@ -497,7 +528,8 @@ class PositionPicker(SquarePicker):
 
     def __init__(self, row_count_i: int, column_count_i: int,
                  plot_count_i: int, own_slot_tuple: tuple,
-                 choice_function, parent=None) -> None:
+                 choice_function, parent=None,
+                 embedded_b: bool = False) -> None:
         """Create the position picker.
 
         Inputs:
@@ -507,11 +539,12 @@ class PositionPicker(SquarePicker):
             own_slot_tuple: see the class docstring.
             choice_function: see the class docstring.
             parent: optional parent widget.
+            embedded_b: True for a picker inside a submenu.
         Outputs: none.
         """
         # LLFR-01079: one square per slot of the plot matrix.
         super().__init__(row_count_i, column_count_i, choice_function,
-                         parent)
+                         parent, embedded_b)
         self.plot_count_i = int(plot_count_i)
         self.own_slot_tuple = tuple(own_slot_tuple)
 
@@ -538,3 +571,29 @@ class PositionPicker(SquarePicker):
         """
         # LLFR-01082: the plot the picker was opened from.
         return (row_i, column_i) == self.own_slot_tuple
+
+
+def add_picker_submenu(menu, title_str: str, picker_factory):
+    """Add an option whose submenu is a square picker.
+
+    Inputs:
+        menu: the QMenu that gets the option.
+        title_str: the option's text, "Plot matrix" or "Position".
+        picker_factory: function taking the parent submenu and returning
+            a SquarePicker built with embedded_b True, or None.
+    Outputs: (submenu, picker): the QMenu that opens beside the menu
+        when the pointer is over the option, like the color submenu,
+        and the picker it holds (None when the factory gave none, and
+        the option is then disabled).
+    """
+    # LLFR-01062, LLFR-01079: the picker opens as a submenu, with no
+    # click, beside the menu.
+    submenu = menu.addMenu(title_str)
+    picker = picker_factory(submenu)
+    if picker is None:
+        submenu.menuAction().setEnabled(False)
+        return submenu, None
+    picker_action = QWidgetAction(submenu)
+    picker_action.setDefaultWidget(picker)
+    submenu.addAction(picker_action)
+    return submenu, picker

@@ -63,7 +63,7 @@ class UndockedWindowTestCase(PlotPanelTestCase):
         """
         self.panel.undock_button_of(tab_id_i).click()
         self.process_events()
-        return self.main_window.undocked_window(tab_id_i)
+        return self.main_window.window_of_tab(tab_id_i)
 
     def two_tabs_one_undocked(self):
         """Show the window, add a tab with a plot and undock it.
@@ -124,23 +124,35 @@ class UndockButtonTest(UndockedWindowTestCase):
             self.assertEqual(button.toolTip(), "Undock")
             self.assertFalse(button.icon().isNull())
 
-    @covers("LLFR-00983", "LLFR-00984", "LLFR-00999", "HLFR-00126")
+    @covers("LLFR-00983", "LLFR-00984", "LLFR-00999", "LLFR-01120",
+            "HLFR-00126")
     def test_last_docked_tab_cannot_be_undocked(self) -> None:
-        """Disabled with one docked tab; any number of windows else.
+        """No undock button at all with one docked tab, and no room for
+        one; any number of windows else.
 
         Inputs: none.
         Outputs: none.
         """
+        from PyQt6.QtWidgets import QTabBar
+        tab_bar = self.panel.tab_widget.tabBar()
         first_id_i = self.panel.current_tab_id()
-        self.assertFalse(self.panel.undock_button_of(first_id_i).isEnabled())
-        self.panel.undock_button_of(first_id_i).click()
+        self.assertIsNone(tab_bar.tabButton(
+            0, QTabBar.ButtonPosition.RightSide))
+        self.assertFalse(self.panel.undock_button_of(first_id_i).isVisible())
+        alone_width_i = tab_bar.tabRect(0).width()
+        self.panel.request_undock(first_id_i)
         self.process_events()
-        self.assertIsNone(self.main_window.undocked_window(first_id_i))
+        self.assertIsNone(self.main_window.window_of_tab(first_id_i))
         id_list = [self.add_tab() for _ in range(3)]
+        self.assertIs(tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide),
+                      self.panel.undock_button_of(first_id_i))
+        # LLFR-01120: the tab grows to make room for its button.
+        self.assertGreater(tab_bar.tabRect(0).width(), alone_width_i)
         for tab_id_i in id_list:
             self.assertIsNotNone(self.undock(tab_id_i))
         self.assertEqual(len(self.main_window.undocked_window_dict), 3)
-        self.assertFalse(self.panel.undock_button_of(first_id_i).isEnabled())
+        self.assertIsNone(tab_bar.tabButton(
+            0, QTabBar.ButtonPosition.RightSide))
 
     @covers("LLFR-00980", "LLFR-00985", "LLFR-00981", "LLFR-01093",
             "LLFR-01048", "LLFR-01049", "HLFR-00123", "HLFR-00125")
@@ -182,10 +194,10 @@ class WindowPartsTest(UndockedWindowTestCase):
     """The parts of an undocked window."""
 
     @covers("LLFR-01026", "LLFR-01027", "LLFR-01028", "LLFR-01031",
-            "LLFR-01095", "HLFR-00134", "HLFR-00135")
+            "LLFR-01095", "LLFR-00990", "HLFR-00134", "HLFR-00135")
     def test_title_and_tab_button(self) -> None:
-        """Titled with the tab name, which follows a rename; one tab
-        button, selected, with no undock button.
+        """Titled with the tab name, which follows a rename; a tab row
+        of one tab, selected, with its dock button inside it.
 
         Inputs: none.
         Outputs: none.
@@ -197,14 +209,15 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertEqual(window.tab_bar.count(), 1)
         self.assertEqual(window.tab_bar.currentIndex(), 0)
         self.assertEqual(window.tab_bar.tabText(0), name_str)
-        self.assertIsNone(window.tab_bar.tabButton(
-            0, QTabBar.ButtonPosition.RightSide))
+        self.assertIs(window.tab_bar.tabButton(
+            0, QTabBar.ButtonPosition.RightSide),
+            window.dock_button_of(second_id_i))
         self.plot_controller.on_rename_tab(second_id_i, "Engine")
         self.assertEqual(window.windowTitle(), "Engine")
         self.assertEqual(window.tab_bar.tabText(0), "Engine")
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertEqual(self.main_window.undocked_window(
+        self.assertEqual(self.main_window.window_of_tab(
             second_id_i).windowTitle(), name_str)
 
     def x_in_window(self, window, widget) -> int:
@@ -230,39 +243,35 @@ class WindowPartsTest(UndockedWindowTestCase):
         return widget.mapTo(window, QPoint(0, 0)).y()
 
     @covers("LLFR-00997", "LLFR-00990", "LLFR-01009", "LLFR-00992",
-            "LLFR-01035", "LLFR-01000", "LLFR-00440", "LLFR-00996",
-            "HLFR-00136", "HLFR-00125")
+            "LLFR-00991", "LLFR-01035", "LLFR-01000", "LLFR-00440",
+            "LLFR-00996", "HLFR-00136", "HLFR-00125")
     def test_tab_row_and_panels(self) -> None:
-        """Tab button left and dock button right in the plot panel's tab
-        row, the signal list button right of it at the window's top
-        right; the plot panel and the signal list panel side by side,
-        their tops level, no top panel.
+        """The tab with its dock button inside it in the plot panel's tab
+        row, the signal list button at the window's top right; the plot
+        panel and the signal list panel side by side, their tops level,
+        no top panel.
 
         Inputs: none.
         Outputs: none.
         """
         from view import theme
         from view.top_panel import TopPanel
-        _, _, window = self.two_tabs_one_undocked()
+        _, second_id_i, window = self.two_tabs_one_undocked()
         window.resize(700, 500)
         self.process_events()
-        self.assertEqual(window.dock_button.toolTip(), "Dock")
-        self.assertFalse(window.dock_button.icon().isNull())
+        dock_button = window.dock_button_of(second_id_i)
+        self.assertEqual(dock_button.toolTip(), "Dock")
+        self.assertFalse(dock_button.icon().isNull())
+        # LLFR-00990: inside the tab, never in the tab row beside it.
+        self.assertIs(dock_button.parentWidget(), window.tab_bar)
         list_x_i = self.x_in_window(window, window.signal_list_button)
-        dock_x_i = self.x_in_window(window, window.dock_button)
         tab_x_i = self.x_in_window(window, window.tab_bar)
-        self.assertLess(tab_x_i, dock_x_i)
-        self.assertLess(dock_x_i, list_x_i)
+        self.assertLess(tab_x_i, list_x_i)
         # LLFR-01009: the signal list button at the top-right corner.
         self.assertEqual(list_x_i + window.signal_list_button.width(),
                          window.width() - theme.WINDOW_MARGIN_I)
         self.assertLess(self.y_in_window(window, window.signal_list_button),
                         self.y_in_window(window, window.pane_widget))
-        # LLFR-00997: the dock button directly left of it.
-        self.assertLessEqual(
-            list_x_i - (dock_x_i + window.dock_button.width()),
-            2 * theme.TAB_SPACING_I + 1)
-        self.assertIs(window.dock_button.parentWidget(), window.tab_row)
         self.assertIs(window.tab_bar.parentWidget(), window.tab_row)
         self.assertIs(window.signal_list_button.parentWidget(), window)
         # LLFR-01035: the plot panel (tab row above the well) and the
@@ -275,11 +284,9 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.process_events()
         self.assertEqual(self.y_in_window(window, window.tab_row),
                          self.y_in_window(window, window.signal_list_panel))
-        self.assertGreater(self.x_in_window(window,
-                                            window.signal_list_panel),
-                           self.x_in_window(window, window.dock_button))
         self.assertEqual(window.findChildren(TopPanel), [])
-        self.assertFalse(window.tab_bar.isMovable())
+        # LLFR-01122: the tabs can be dragged to reorder them.
+        self.assertTrue(window.tab_bar.isMovable())
         self.assertEqual(window.pane_widget.count(), 1)
 
     @covers("LLFR-01015", "LLFR-01012", "LLFR-01013", "LLFR-01014",
@@ -313,11 +320,11 @@ class WindowPartsTest(UndockedWindowTestCase):
                          window.splitter.width())
         self.plot_controller.on_undo()
         self.process_events()
-        window = self.main_window.undocked_window(second_id_i)
+        window = self.main_window.window_of_tab(second_id_i)
         self.assertTrue(window.is_panel_shown())
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertFalse(self.main_window.undocked_window(
+        self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
 
     @covers("LLFR-01019", "HLFR-00130")
@@ -382,10 +389,10 @@ class TabButtonMenuTest(UndockedWindowTestCase):
         menu.deleteLater()
         self.process_events()
         self.assertIsNone(self.tab(second_id_i))
-        self.assertIsNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNone(self.main_window.window_of_tab(second_id_i))
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertIsNotNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
     @covers("LLFR-01030", "LLFR-01032", "HLFR-00135", "HLFR-00017")
     def test_double_click_renames(self) -> None:
@@ -422,9 +429,9 @@ class DockAndCloseTest(UndockedWindowTestCase):
         """
         first_id_i, second_id_i, window = self.two_tabs_one_undocked()
         page = window.page()
-        window.dock_button.click()
+        window.dock_button_of(second_id_i).click()
         self.process_events()
-        self.assertIsNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNone(self.main_window.window_of_tab(second_id_i))
         tab_widget = self.panel.tab_widget
         self.assertEqual(tab_widget.indexOf(page), tab_widget.count() - 1)
         self.assertEqual(self.panel.current_tab_id(), second_id_i)
@@ -432,7 +439,7 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.assertIsNotNone(self.panel.undock_button_of(second_id_i))
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertIsNotNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
     @covers("LLFR-01038", "LLFR-01039", "LLFR-01024", "LLFR-01094",
             "HLFR-00138", "HLFR-00133")
@@ -450,10 +457,10 @@ class DockAndCloseTest(UndockedWindowTestCase):
         place_tuple = (window.x(), window.y())
         self.user_close(window)
         self.assertIsNone(self.tab(second_id_i))
-        self.assertIsNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNone(self.main_window.window_of_tab(second_id_i))
         self.plot_controller.on_undo()
         self.process_events()
-        window = self.main_window.undocked_window(second_id_i)
+        window = self.main_window.window_of_tab(second_id_i)
         self.assertEqual((window.x(), window.y()), place_tuple)
         self.assertTrue(window.is_panel_shown())
         self.assertEqual(len(window.page().plot_widget_list), 1)
@@ -665,7 +672,7 @@ class WindowShortcutTest(UndockedWindowTestCase):
         self.assertFalse(self.tab(second_id_i).undocked_b)
         self.main_window.redo_shortcut.activated.emit()
         self.process_events()
-        window = self.main_window.undocked_window(second_id_i)
+        window = self.main_window.window_of_tab(second_id_i)
         self.assertIsNotNone(window)
         window.undo_shortcut.activated.emit()
         self.process_events()
@@ -778,7 +785,7 @@ class PanelWidthUndoTest(UndockedWindowTestCase):
                          depth_i + 1)
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertAlmostEqual(self.main_window.undocked_window(
+        self.assertAlmostEqual(self.main_window.window_of_tab(
             second_id_i).panel_width(), start_i, delta=2)
 
 
@@ -808,7 +815,7 @@ class WindowPlotActionTest(UndockedWindowTestCase):
         self.assertEqual(window.page().plot_widget_list, [])
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertEqual(len(self.main_window.undocked_window(
+        self.assertEqual(len(self.main_window.window_of_tab(
             second_id_i).page().plot_widget_list), 1)
 
 
@@ -890,7 +897,7 @@ class SignalListButtonPlaceTest(UndockedWindowTestCase):
         self.assertEqual(self.button_rect(window), hidden_rect)
         self.plot_controller.on_undo()
         self.process_events()
-        window = self.main_window.undocked_window(second_id_i)
+        window = self.main_window.window_of_tab(second_id_i)
         self.assertTrue(window.is_panel_shown())
         self.assertEqual(self.button_rect(window), hidden_rect)
 
@@ -968,36 +975,30 @@ class SignalListButtonPlaceTest(UndockedWindowTestCase):
                             theme.SIDEBAR_BUTTON_ACTIVE_COLOR_STR)
 
     @covers("LLFR-00997", "LLFR-00990", "HLFR-00125")
-    def test_dock_button_left_of_the_button_while_hidden(self) -> None:
-        """While hidden, the tab row keeps room for the button right of
-        the dock button; while shown, the dock button ends the tab row
-        at the panel.
+    def test_room_for_the_button_while_hidden(self) -> None:
+        """While hidden, the tab row keeps room for the signal list
+        button at its right end; while shown, the tab row ends at the
+        panel.
 
         Inputs: none.
         Outputs: none.
         """
         from PyQt6.QtCore import QPoint
-        from view import theme
         _, _, window = self.two_tabs_one_undocked()
         window.resize(800, 500)
         self.process_events()
         self.assertTrue(window.button_space.isVisibleTo(window))
-        dock_right_x = window.dock_button.mapToGlobal(
-            QPoint(window.dock_button.width(), 0)).x()
+        row_right_x = window.tab_row.mapToGlobal(
+            QPoint(window.tab_row.width(), 0)).x()
         button_x = window.signal_list_button.mapToGlobal(QPoint(0, 0)).x()
-        self.assertGreaterEqual(button_x - dock_right_x, 0)
-        self.assertLessEqual(button_x - dock_right_x,
-                             theme.TAB_SPACING_I + 1)
+        self.assertGreaterEqual(row_right_x, button_x)
         window.signal_list_button.click()
         self.process_events()
         self.assertFalse(window.button_space.isVisibleTo(window))
         row_right_x = window.tab_row.mapToGlobal(
             QPoint(window.tab_row.width(), 0)).x()
-        dock_right_x = window.dock_button.mapToGlobal(
-            QPoint(window.dock_button.width(), 0)).x()
-        self.assertLessEqual(abs(row_right_x - dock_right_x), 1)
         panel_x = window.signal_list_panel.mapToGlobal(QPoint(0, 0)).x()
-        self.assertLess(dock_right_x, panel_x)
+        self.assertLess(row_right_x, panel_x)
 
 
 class DragUndockDockViewTest(UndockedWindowTestCase):
@@ -1048,7 +1049,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         drag(self.panel.tab_widget.tabBar(), self.tab_center(1),
              drop_point)
         self.process_events()
-        window = self.main_window.undocked_window(second_id_i)
+        window = self.main_window.window_of_tab(second_id_i)
         self.assertIsNotNone(window)
         self.assertFalse(window.is_panel_shown())
         self.assertEqual(window.window_tuple(), tuple(expected_tuple))
@@ -1057,7 +1058,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
                          [first_id_i, third_id_i])
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertIsNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNone(self.main_window.window_of_tab(second_id_i))
         self.assertEqual([self.panel.tab_id_at_index(index_i)
                           for index_i in range(3)],
                          [first_id_i, second_id_i, third_id_i])
@@ -1100,7 +1101,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.process_events()
         self.assertFalse(self.tab(first_id_i).undocked_b)
         self.assertEqual(list(self.main_window.undocked_window_dict),
-                         [second_id_i])
+                         [self.tab(second_id_i).window_id_i])
         self.assertEqual(self.plot_controller.undo_history.depth(), depth_i)
 
     @covers("LLFR-01108", "LLFR-00994", "LLFR-00995", "LLFR-01025",
@@ -1125,14 +1126,14 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
             window.tab_bar.tabRect(0).center())
         drag(window.tab_bar, start_point, drop_point)
         self.process_events()
-        self.assertIsNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNone(self.main_window.window_of_tab(second_id_i))
         self.assertEqual([self.panel.tab_id_at_index(index_i)
                           for index_i in range(2)],
                          [second_id_i, first_id_i])
         self.assertEqual(self.panel.current_tab_id(), second_id_i)
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertIsNotNone(self.main_window.undocked_window(second_id_i))
+        self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
     @covers("LLFR-01108", "HLFR-00152")
     def test_drop_index_between_the_tabs(self) -> None:
@@ -1179,7 +1180,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
                 self.outside_point()):
             drag(window.tab_bar, start_point, drop_point)
             self.process_events()
-            self.assertIs(self.main_window.undocked_window(second_id_i),
+            self.assertIs(self.main_window.window_of_tab(second_id_i),
                           window)
             self.assertTrue(self.tab(second_id_i).undocked_b)
             self.assertEqual(self.plot_controller.undo_history.depth(),
@@ -1301,7 +1302,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         depth_i = self.plot_controller.undo_history.depth()
         window.search_shortcut.activated.emit()
         self.process_events()
-        window = self.main_window.undocked_window(second_id_i)
+        window = self.main_window.window_of_tab(second_id_i)
         self.assertTrue(window.is_panel_shown())
         self.assertEqual(self.plot_controller.undo_history.depth(),
                          depth_i + 1)
@@ -1320,7 +1321,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         self.assertEqual(main_box.selectedText(), "spe")
         self.plot_controller.on_undo()
         self.process_events()
-        self.assertFalse(self.main_window.undocked_window(
+        self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
 
 
@@ -1489,7 +1490,8 @@ class LayoutWindowsViewTest(UndockedWindowTestCase):
         # Saved on a screen that is no longer there.
         tab_entry["window"]["x"] = 50000
         tab_entry["window"]["y"] = 50000
-        # The user closes the window, which deletes its tab.
+        # The user closes the window, which deletes all its tabs (here
+        # its only tab).
         self.user_close(window)
         self.assertIsNone(self.tab(second_id_i))
         self.plot_controller.load_layout(layout_dict)
