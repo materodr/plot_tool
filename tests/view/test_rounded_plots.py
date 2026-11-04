@@ -1,4 +1,4 @@
-"""Tests for the rounded corners of the plots (LLFR-00889)."""
+"""Tests for the rounded corners of the plots (LLFR-00890)."""
 
 import unittest
 
@@ -84,7 +84,7 @@ class RoundedPlotTest(unittest.TestCase):
         """
         return self.plot_widget.canvas.grab().toImage()
 
-    @covers("LLFR-00889")
+    @covers("LLFR-00890")
     def test_corners_show_the_plot_well(self) -> None:
         """The four corner pixels are cut away: they show the plot well
         color, not the white figure.
@@ -103,7 +103,7 @@ class RoundedPlotTest(unittest.TestCase):
                     pixel_name(image, x_i, y_i),
                     theme.PLOT_WELL_COLOR_STR))
 
-    @covers("LLFR-00889")
+    @covers("LLFR-00890")
     def test_edges_have_the_signal_list_border(self) -> None:
         """The middle of each edge is drawn in the hairline border color
         of the signal list, and just inside it the figure stays white.
@@ -129,7 +129,7 @@ class RoundedPlotTest(unittest.TestCase):
             pixel_name(image, middle_x_i, 1),
             theme.PLOT_BACKGROUND_COLOR_STR))
 
-    @covers("LLFR-00889")
+    @covers("LLFR-00890")
     def test_corner_follows_the_signal_list_radius(self) -> None:
         """Along the top edge, the corner is cut over the radius of the
         signal list: the border starts at the radius, and the first pixel
@@ -151,7 +151,7 @@ class RoundedPlotTest(unittest.TestCase):
         self.assertFalse(colors_close_b(
             pixel_name(image, 1, 0), theme.SIGNAL_LIST_BORDER_COLOR_STR))
 
-    @covers("LLFR-00889")
+    @covers("LLFR-00890")
     def test_same_radius_and_border_as_the_signal_list(self) -> None:
         """The signal list's style sheet uses the radius, border width and
         border color that the plots paint.
@@ -170,7 +170,7 @@ class RoundedPlotTest(unittest.TestCase):
         self.assertIn(
             f"border-radius: {theme.PLOT_CORNER_RADIUS_I}px;", rule_str)
 
-    @covers("LLFR-00889")
+    @covers("LLFR-00890")
     def test_plot_geometry_unchanged(self) -> None:
         """The canvas still fills the whole plot widget, so the figure and
         everything it draws keep their size and position.
@@ -184,7 +184,7 @@ class RoundedPlotTest(unittest.TestCase):
                          int(round(canvas.width()
                                    * canvas.device_pixel_ratio)))
 
-    @covers("LLFR-00889", "LLFR-00133")
+    @covers("LLFR-00890", "LLFR-00133")
     def test_copied_image_keeps_square_corners(self) -> None:
         """The image of the Copy button shows the plot with its square
         white corners, and the screen gets its rounded corners back.

@@ -105,7 +105,7 @@ def grab_page_image(page):
         # LLFR-00354: nor are the delta marker previews.
         plot_widget.hide_delta_preview()
         plot_widget.canvas.draw()
-    # LLFR-00133, LLFR-00889: the copied image keeps the square plots it
+    # LLFR-00133, LLFR-00890: the copied image keeps the square plots it
     # had before the plots got rounded corners on screen.
     canvas_list = [plot_widget.canvas
                    for plot_widget in page.plot_widget_list]

@@ -1,4 +1,4 @@
-"""Plot canvas with rounded corners, like the signal list (LLFR-00889).
+"""Plot canvas with rounded corners, like the signal list (LLFR-00890).
 
 A matplotlib canvas paints its whole rectangle, so a style sheet cannot
 round it. This canvas lets matplotlib paint as usual, then paints, on
@@ -36,7 +36,7 @@ def rounded_rectangle_path(width_f: float, height_f: float,
     Outputs: a QPainterPath of the rectangle (0, 0, width, height) with
         corners rounded by the radius, limited to half the shorter side.
     """
-    # LLFR-00889: the radius of the signal list's corners.
+    # LLFR-00890: the radius of the signal list's corners.
     radius_f = max(0.0, min(radius_f, width_f / 2.0, height_f / 2.0))
     path = QPainterPath()
     path.addRoundedRect(QRectF(0.0, 0.0, width_f, height_f),
@@ -54,7 +54,7 @@ def corner_path(width_f: float, height_f: float, radius_f: float):
     Outputs: a QPainterPath of the parts of the widget's rectangle that
         are outside rounded_rectangle_path.
     """
-    # LLFR-00889: the corners show the plot well, as if cut away.
+    # LLFR-00890: the corners show the plot well, as if cut away.
     full_path = QPainterPath()
     full_path.addRect(QRectF(0.0, 0.0, width_f, height_f))
     return full_path.subtracted(
@@ -72,7 +72,7 @@ def paint_rounded_frame(painter, width_f: float, height_f: float) -> None:
         with the plot well color, and the border is stroked inside the
         rectangle, both antialiased.
     """
-    # LLFR-00889: same radius, border width and border color as the
+    # LLFR-00890: same radius, border width and border color as the
     # signal list.
     radius_f = float(theme.PLOT_CORNER_RADIUS_I)
     border_width_f = float(theme.PLOT_BORDER_WIDTH_I)
@@ -81,7 +81,7 @@ def paint_rounded_frame(painter, width_f: float, height_f: float) -> None:
                      QColor(theme.PLOT_CORNER_COLOR_STR))
     if border_width_f <= 0.0:
         return
-    # LLFR-00889: the pen is centred on the path, so the border path is
+    # LLFR-00890: the pen is centred on the path, so the border path is
     # moved in by half the width to keep the whole border inside.
     half_width_f = border_width_f / 2.0
     border_path = QPainterPath()
@@ -104,7 +104,7 @@ class RoundedFigureCanvas(FigureCanvasQTAgg):
         figure: the matplotlib Figure to show.
     Attributes:
         rounded_corners_b: True while the corners and the border are
-            painted over the figure (LLFR-00889); False while the copied
+            painted over the figure (LLFR-00890); False while the copied
             image is grabbed (square_corners).
     """
 
@@ -116,7 +116,7 @@ class RoundedFigureCanvas(FigureCanvasQTAgg):
         Outputs: none.
         """
         super().__init__(figure)
-        # LLFR-00889: the plot is shown with rounded corners.
+        # LLFR-00890: the plot is shown with rounded corners.
         self.rounded_corners_b = True
 
     def paintEvent(self, event) -> None:
@@ -128,7 +128,7 @@ class RoundedFigureCanvas(FigureCanvasQTAgg):
                 corners inside that part.
         Outputs: none.
         """
-        # LLFR-00889: matplotlib paints the figure as before.
+        # LLFR-00890: matplotlib paints the figure as before.
         super().paintEvent(event)
         if not self.rounded_corners_b:
             return
@@ -151,7 +151,7 @@ def square_corners(canvas_list: list):
         and no border; afterwards they paint them again and are
         repainted.
     """
-    # LLFR-00889, LLFR-00133: the copied image keeps its square plots.
+    # LLFR-00890, LLFR-00133: the copied image keeps its square plots.
     rounded_list = [canvas for canvas in canvas_list
                     if getattr(canvas, "rounded_corners_b", False)]
     for canvas in rounded_list:

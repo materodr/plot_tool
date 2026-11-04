@@ -1220,7 +1220,7 @@ class PlotWidget(QWidget):
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
         self.figure = Figure(layout="constrained")
-        # LLFR-00889: the canvas paints rounded corners and a hairline
+        # LLFR-00890: the canvas paints rounded corners and a hairline
         # border over the figure, like the signal list.
         self.canvas = RoundedFigureCanvas(self.figure)
         self.canvas.setParent(self)

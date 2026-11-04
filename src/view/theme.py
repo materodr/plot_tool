@@ -168,7 +168,7 @@ SIGNAL_PANEL_SPACING_I = 8
 SPLITTER_HANDLE_WIDTH_I = 8
 PLOT_SPACING_I = 6
 CONTROL_RADIUS_I = 6
-# LLFR-00889: the corners and border of the signal list, which the plots
+# LLFR-00890: the corners and border of the signal list, which the plots
 # share (PLOT_CORNER_RADIUS_I, PLOT_BORDER_WIDTH_I, PLOT_BORDER_COLOR_STR).
 SIGNAL_LIST_RADIUS_I = CONTROL_RADIUS_I
 SIGNAL_LIST_BORDER_WIDTH_I = 1
@@ -201,7 +201,7 @@ ADD_BUTTON_WIDTH_I = 30
 # Plots (matplotlib)
 # ----------------------------------------------------------------------
 PLOT_BACKGROUND_COLOR_STR = "#ffffff"
-# LLFR-00889: each plot has the rounded corners and the hairline border
+# LLFR-00890: each plot has the rounded corners and the hairline border
 # of the signal list; the corners outside the rounding show the plot
 # well behind the plots (the pane of the tab widget).
 PLOT_CORNER_RADIUS_I = SIGNAL_LIST_RADIUS_I
