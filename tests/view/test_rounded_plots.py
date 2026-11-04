@@ -434,7 +434,7 @@ class RoundedExportTest(unittest.TestCase):
         Inputs: none.
         Outputs: the "#rrggbb" color of the page between the two plots.
         """
-        from view import plot_export
+        from view import theme
         page_image, drawn_list = self.rendered_pdf_page()
         self.assertEqual(len(drawn_list), 2)
         first_rect = drawn_list[0][0]
@@ -442,7 +442,7 @@ class RoundedExportTest(unittest.TestCase):
         paper_str = pixel_name(page_image, int(first_rect.left()) + 2,
                                int(first_rect.top()) - 3)
         self.assertTrue(colors_close_b(paper_str,
-                                       plot_export.PDF_PAPER_COLOR_STR))
+                                       theme.PDF_PAPER_COLOR_STR))
         for target_rect, _ in drawn_list:
             first_x_i = int(target_rect.left()) + 2
             first_y_i = int(target_rect.top()) + 2

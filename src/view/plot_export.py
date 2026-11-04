@@ -26,7 +26,7 @@ grabbed with the corners painted in the page's background color, so in
 the copied image they match the background around the plots. On a PDF
 page, the same corners and border are painted over each sharp plot as
 vector paths, scaled from screen pixels to the page, with the corners in
-the color of the paper (PDF_PAPER_COLOR_STR): every plot corner touches
+the color of the paper (theme.PDF_PAPER_COLOR_STR): every plot corner touches
 the paper on its left or right, since the tab image has no margins.
 
 The PDF is made in memory and then written with
@@ -42,6 +42,7 @@ from PyQt6.QtGui import (
     QFont, QImage, QPageLayout, QPageSize, QPainter, QPalette, QPdfWriter)
 from PyQt6.QtWidgets import QApplication
 
+from view import theme
 from view.file_writing import write_file_safely
 from view.rounded_canvas import corners_in_color, paint_rounded_frame
 from view.tab_page import TabPage
@@ -50,8 +51,6 @@ from view.tab_page import TabPage
 PAGE_MARGIN_MM_F = 10.0
 PDF_RESOLUTION_I = 300
 PDF_TITLE_STR = "plot_tool plots"
-# LLFR-00891: the color of the PDF paper, which the plot corners show.
-PDF_PAPER_COLOR_STR = "#ffffff"
 TITLE_FONT_POINT_SIZE_F = 14.0
 # LLFR-00129: space between the tab name and the plots, in title line
 # heights.
@@ -310,7 +309,7 @@ def draw_page_title(painter, name_str: str, page_width_i: int) -> int:
 
 def draw_page_image(painter, image, top_i: int, page_width_i: int,
                     page_height_i: int, plot_entry_list=(),
-                    corner_color_str: str = PDF_PAPER_COLOR_STR) -> list:
+                    corner_color_str: str = theme.PDF_PAPER_COLOR_STR) -> list:
     """Draw a tab image below the title, scaled to fit the page.
 
     Inputs:
@@ -373,7 +372,7 @@ def paint_pdf_page(painter, snapshot_tuple: tuple, page_width_i: int,
     top_i = draw_page_title(painter, name_str, page_width_i)
     return draw_page_image(painter, image, top_i, page_width_i,
                            page_height_i, plot_entry_list,
-                           PDF_PAPER_COLOR_STR)
+                           theme.PDF_PAPER_COLOR_STR)
 
 
 def build_pdf_bytes(snapshot_list: list) -> bytes:
