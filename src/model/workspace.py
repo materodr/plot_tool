@@ -2129,7 +2129,7 @@ class Workspace:
         Outputs: True when it moved; False when it was already there,
             is docked or unknown.
         """
-        # LLFR-01122: the tab is left where it is dropped.
+        # LLFR-01122, LLFR-01131: the tab is left where it is dropped.
         tab = self.find_tab(tab_id_i)
         if tab is None or not tab.undocked_b:
             return False

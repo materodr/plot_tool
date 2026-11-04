@@ -758,7 +758,7 @@ class MainWindow(QMainWindow):
                                      docked_index_i)
             return
         if target_window is window and window.tab_index_at(x_i, y_i) >= 0:
-            # LLFR-01122: on its own tab row, left where it was dropped;
+            # LLFR-01131: on its own tab row, left where it was dropped;
             # LLFR-01055: back at its place, nothing.
             if index_i != start_index_i:
                 self._run_window_handler("window_tab_move_handler",

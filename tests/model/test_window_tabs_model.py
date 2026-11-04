@@ -195,7 +195,8 @@ class WindowTabOrderTest(WindowTabsTestCase):
         self.workspace.move_tab_to_window(fourth_i, window_id_i)
         return window_id_i
 
-    @covers("LLFR-01122", "LLFR-01054", "LLFR-01055", "HLFR-00142")
+    @covers("LLFR-01122", "LLFR-01131", "LLFR-01054", "LLFR-01055",
+            "HLFR-00142")
     def test_reorder_in_a_window(self) -> None:
         """A tab moves within its window; its own place changes nothing.
 

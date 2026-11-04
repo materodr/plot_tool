@@ -140,7 +140,8 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
 class WindowTabsActionTest(WindowTabsControllerTestCase):
     """Reordering, docking, deleting and closing in a window."""
 
-    @covers("LLFR-01122", "LLFR-01054", "LLFR-01055", "HLFR-00142")
+    @covers("LLFR-01122", "LLFR-01131", "LLFR-01054", "LLFR-01055",
+            "HLFR-00142")
     def test_reorder_in_the_window_is_undoable(self) -> None:
         """A drag in the window's tab row is one undoable action; a drag
         back to the place records nothing.

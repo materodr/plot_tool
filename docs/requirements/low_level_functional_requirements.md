@@ -321,9 +321,9 @@ Note: The main window therefore always holds at least one docked tab, so the Cop
 *Parent: HLFR-00123, HLFR-00003, HLFR-00014*
 
 ### LLFR-00984 Last docked tab stays docked
-While the main window holds only one docked tab, the app must keep that tab in the main window whatever the user clicks on it.
+While the main window holds only one docked tab, the app must keep that tab docked.
 
-Note: Only the drags of LLFR-01109 could try to move it out, and they leave it docked too.
+Note: The tab shows no undock button (LLFR-00983), and its drops outside the plot panel or on an undocked window leave it docked (LLFR-01109).
 
 *Parent: HLFR-00123*
 
@@ -4167,12 +4167,17 @@ The tabs of an undocked window must show the dock button (LLFR-00990) in place o
 *Parent: HLFR-00135*
 
 ### LLFR-01032 Tab drag released elsewhere
-A drag of a tab of an undocked window that is released anywhere other than over the tab row of the main window (LLFR-01108), over the tab row of its own window (LLFR-01122) or over another undocked window (LLFR-01117) must leave the tab, its place in the tab order and its window unchanged.
+A drag of a tab of an undocked window that is released anywhere other than over the tab row of the main window (LLFR-01108), over the tab row of its own window (LLFR-01122, LLFR-01131) or over another undocked window (LLFR-01117) must leave the tab, its place in the tab order and its window unchanged.
 
 *Parent: HLFR-00135, HLFR-00142, HLFR-00152*
 
 ### LLFR-01122 Reorder the tabs of an undocked window
-While the user drags a tab of an undocked window with the left mouse button along the tab row of that window, the app must move the tab with the pointer, the other tabs moving aside to make room for it, and leave it at the place where the button is released, as in LLFR-01051 and LLFR-01052.
+While the user drags a tab of an undocked window with the left mouse button along the tab row of that window, the app must move the tab with the pointer, the other tabs moving aside to make room for it, as in LLFR-01051.
+
+*Parent: HLFR-00142, HLFR-00135*
+
+### LLFR-01131 Tab left where it is dropped in an undocked window
+When the user releases the left mouse button after LLFR-01122 with the pointer over the tab row of that window, the app must leave the tab at the place where it was released, between the tabs on either side of it, as in LLFR-01052.
 
 *Parent: HLFR-00142, HLFR-00135*
 
@@ -4267,7 +4272,7 @@ Note: The tab row of the main window is the row of the docked tabs and the "+" b
 *Parent: HLFR-00152, HLFR-00124*
 
 ### LLFR-01054 Tab move undoable
-A tab drag (LLFR-01051, LLFR-01122) that leaves the tab at another place in its tab row must be one undoable action (LLFR-00140).
+A tab drag (LLFR-01051, LLFR-01122, LLFR-01131) that leaves the tab at another place in its tab row must be one undoable action (LLFR-00140).
 
 *Parent: HLFR-00142, HLFR-00040, HLFR-00048*
 

@@ -226,7 +226,7 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
         self.assertIs(self.main_window.window_of_tab(second_id_i), window)
         self.assertEqual(window.tab_id_list(), [second_id_i])
 
-    @covers("LLFR-01122", "LLFR-01054", "HLFR-00142")
+    @covers("LLFR-01122", "LLFR-01131", "LLFR-01054", "HLFR-00142")
     def test_drag_in_the_window_tab_row_reorders(self) -> None:
         """A tab moved in the window's tab row and dropped there keeps
         its new place, as one undoable action.
