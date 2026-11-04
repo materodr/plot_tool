@@ -81,7 +81,7 @@ TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
 # portable key sequence, so this is Ctrl+Y on Windows and Cmd+Y on
 # macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS). It is kept
 # with the button tip texts in view.top_panel, so that the shortcut and
-# its button tip change together (LLFR-00215).
+# its button tip change together (LLFR-00215, LLFR-00883).
 REDO_SHORTCUT_STR = top_panel.REDO_SHORTCUT_STR
 # LLFR-00406: the names of the file dialogs kept by the dialog pool.
 OPEN_FILE_DIALOG_KEY_STR = "open_file"
@@ -1409,7 +1409,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00315: the dialog starts from the current name; a blank
         # answer is returned as typed, and the controller keeps the old
-        # name without a message.
+        # name without a message (LLFR-00720).
         new_name_str, accepted_b = QInputDialog.getText(
             self, RENAME_AREA_DIALOG_TITLE_STR,
             RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
