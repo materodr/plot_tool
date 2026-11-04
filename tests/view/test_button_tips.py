@@ -415,6 +415,7 @@ class ButtonTipSourceTest(unittest.TestCase):
         Outputs: a dict from button name to its list of lines below the
             name.
         """
+        from view import top_panel as top_panel_module
         from view.top_panel import key_name_str
         top_panel = self.main_window.top_panel
         tool_key_filter = self.main_window.tool_key_filter
@@ -435,9 +436,22 @@ class ButtonTipSourceTest(unittest.TestCase):
             self.shortcut_line_str(self.main_window.undo_shortcut, macos_b)]
         expected_dict[button_name(top_panel.redo_button)] = [
             self.shortcut_line_str(self.main_window.redo_shortcut, macos_b)]
+        # LLFR-01136, LLFR-01139: the window shortcuts of Copy and of
+        # the Export button's "Save all tabs as PDF".
+        expected_dict[button_name(top_panel.copy_button)] = [
+            self.shortcut_line_str(self.main_window.copy_shortcut, macos_b)]
+        expected_dict[button_name(top_panel.export_button)] = [
+            self.shortcut_line_str(self.main_window.pdf_shortcut, macos_b)]
+        # LLFR-00463: the Zoom tool has a held key and, below it, the
+        # two lines of its mouse use.
+        zoom_name_str = button_name(top_panel.zoom_button)
+        if zoom_name_str in expected_dict:
+            expected_dict[zoom_name_str] = expected_dict[zoom_name_str] + (
+                list(top_panel_module.ZOOM_MOUSE_LINE_TUPLE))
         return expected_dict
 
-    @covers("LLFR-00883", "LLFR-00213", "LLFR-00214", "LLFR-00215")
+    @covers("LLFR-00883", "LLFR-00213", "LLFR-00214", "LLFR-00215",
+            "LLFR-00463", "LLFR-01136", "LLFR-01139")
     def test_every_tip_line_names_what_the_app_uses(self) -> None:
         """On both systems, the line below the name of each button with
         a keyboard shortcut is the key or shortcut that the window's key
