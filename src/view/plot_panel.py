@@ -17,8 +17,9 @@ from functools import partial
 
 from PyQt6.QtCore import QEvent, QTimer, Qt
 from PyQt6.QtWidgets import (
-    QApplication, QInputDialog, QLineEdit, QMenu, QTabBar, QTabWidget,
-    QToolButton, QVBoxLayout, QWidget)
+    QApplication, QInputDialog, QLineEdit, QMenu, QStyle,
+    QStyleOptionTabWidgetFrame, QTabBar, QTabWidget, QToolButton,
+    QVBoxLayout, QWidget)
 
 from model.workspace import TIME_PLOT_KIND_STR
 from view import theme
@@ -240,6 +241,21 @@ class PlotTabWidget(QTabWidget):
         self.add_tab_button.setGeometry(left_i, bar_geometry.y() + top_i,
                                         button_width_i, height_i)
         self.add_tab_button.raise_()
+
+    def pane_rect(self):
+        """Return the rectangle of the plot well, below the tab row.
+
+        Inputs: none.
+        Outputs: a QRect, in this widget's coordinates, of the pane that
+            Qt paints with the plot well style (LLFR-00893): its border
+            included, its top edge under the tab row.
+        """
+        # LLFR-00893, LLFR-00894: the same rectangle Qt lays out and
+        # paints the pane in, with the style sheet's offsets applied.
+        option = QStyleOptionTabWidgetFrame()
+        self.initStyleOption(option)
+        return self.style().subElementRect(
+            QStyle.SubElement.SE_TabWidgetTabPane, option, self)
 
     def limit_tab_bar_width(self) -> None:
         """Keep the tab bar narrow enough to leave room for the button.

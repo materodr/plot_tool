@@ -2931,6 +2931,11 @@ When the current tab holds no plot, the bottom edge of the search box (LLFR-0009
 
 *Parent: HLFR-00095*
 
+### LLFR-00894 Signal list top edge
+The top edge of the signal list of the signal list panel (LLFR-00094) must be at the same height as the top edge of the container of the plot panel that holds the plots, just below the tab row (LLFR-00893), at any window size and any widths of the two panels.
+
+*Parent: HLFR-00001, HLFR-00026*
+
 ## Plot panel
 
 ### LLFR-00024 Initial tab
@@ -3158,7 +3163,28 @@ The plots in a tab must be stacked vertically, one below the other.
 ### LLFR-00890 Rounded plot corners
 Each plot must be shown with rounded corners that have the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
 
-Note: The corners outside the rounding show the background of the plot panel behind the plots. The rounding changes only how the plot looks on screen: what the plot draws, and its size and position, are as before. This requirement does not cover the PDF export (LLFR-00129) and the copied image (LLFR-00133), which show the plots with square corners.
+Note: The corners outside the rounding show the background of the plot panel behind the plots. The rounding changes only how the plot looks: what the plot draws, and its size and position, are as before. The PDF export and the copied image show the plots with rounded corners too (LLFR-00891, LLFR-00892).
+
+*Parent: HLFR-00001*
+
+### LLFR-00891 Rounded plot corners in the PDF
+On each page of the PDF export (LLFR-00129), each plot must have the rounded corners of LLFR-00890, with the radius, border width and border color of the screen, the radius and border width scaled from the screen to the page in the same proportion as the plot, and the corners outside the rounding in the color of the PDF paper, white.
+
+Note: Only the corners and the border are added: the rounding changes nothing else on the page, neither the tab name, the description of the data files below it (LLFR-00971), the layout nor the size of the plots.
+
+*Parent: HLFR-00038*
+
+### LLFR-00892 Rounded plot corners in the copied image
+In the copied image (LLFR-00133), each plot must have the rounded corners of LLFR-00890, with the same radius, border width and border color as on screen, and the corners outside the rounding in the color of the image background around the plots.
+
+Note: Only the corners and the border are added: the rounding changes nothing else in the image, neither the strip with the description of the data files above the plots (LLFR-00972) nor the size of the image.
+
+*Parent: HLFR-00039*
+
+### LLFR-00893 Rounded plot container corners
+The container of the plot panel that holds the plots of the current tab, below the tab row, must be shown with its top-right, bottom-left and bottom-right corners rounded with the same radius, border width and border color as the signal list of the signal list panel (LLFR-00094).
+
+Note: The top-left corner stays square because the first tab starts at the left edge of the plot panel (LLFR-00106) and joins the container there, so the left border of the first tab runs straight down into the left border of the container. The look of the tabs and of the "+" button is unchanged (LLFR-00107).
 
 *Parent: HLFR-00001*
 

@@ -549,6 +549,11 @@ class SignalListPanel(QWidget):
         # HLFR-00011: the panel shows the signal names under a title.
         self.title_label = QLabel(TITLE_TEXT_STR)
         self.title_label.setObjectName("signal_list_title")
+        # LLFR-00894: the title's height is set by the main window so
+        # that the list starts level with the plot well; the text sits
+        # on the bottom of the title row, just above the list.
+        self.title_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         self.signal_list_widget = SignalListWidget()
         self.signal_list_widget.setObjectName("signal_list_widget")
         self.panel_layout.addWidget(self.title_label)
@@ -807,6 +812,32 @@ class SignalListPanel(QWidget):
         if margin_i == self.search_box_bottom_margin():
             return
         self.panel_layout.setContentsMargins(0, 0, 0, margin_i)
+
+    def title_height(self) -> int:
+        """Return the height of the "Signals" title row.
+
+        Inputs: none.
+        Outputs: the title label's height, in pixels.
+        """
+        # LLFR-00894: the row above the list that sets where it starts.
+        return int(self.title_label.height())
+
+    def set_title_height(self, height_i: int) -> None:
+        """Give the "Signals" title row a fixed height.
+
+        Inputs:
+            height_i: the height, in pixels; a negative value is taken
+                as 0.
+        Outputs: none. The list below the title moves up or down by the
+            change, and the search box keeps its bottom edge.
+        """
+        # LLFR-00894: the main window gives the height that puts the top
+        # edge of the list at the top edge of the plot well.
+        height_i = max(int(height_i), 0)
+        if (self.title_label.minimumHeight() == height_i
+                and self.title_label.maximumHeight() == height_i):
+            return
+        self.title_label.setFixedHeight(height_i)
 
     def search_box_bottom_margin(self) -> int:
         """Return the space left below the search box.
