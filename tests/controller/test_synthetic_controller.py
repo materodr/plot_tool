@@ -15,12 +15,13 @@ import unittest
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 
 from tests.controller.test_plot_controller import FakePlotView
 
 from controller.main_controller import MainController
-from controller.synthetic_controller import parse_number_text
+from controller.synthetic_controller import (
+    CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR, parse_number_text)
 from model.file_loader import load_signal_file
 from model.signal_file import SignalFile
 from model.workspace import Workspace
@@ -486,16 +487,50 @@ class SyntheticControllerTestCase(unittest.TestCase):
         self.file_controller.load_function = lambda path_str: signal_file
         self.view.open_path_str = path_str
         self.file_controller.open_file_requested()
+        # LLFR-01001: the files are collapsed after an open; these tests
+        # read the shown signals.
+        expand_all_files(self.main_controller)
 
-    def create(self, name_str: str, operation_str: str) -> None:
+    def create(self, name_str: str, operation_str: str,
+               time_plot_b: bool = True) -> None:
         """Choose an operation in the menu of a signal.
 
         Inputs:
             name_str: the right-clicked signal.
             operation_str: the operation id.
+            time_plot_b: for an FFT chosen while no time plot exists,
+                True first plots the right-clicked signal's time signal
+                in a time plot, as the user must (LLFR-00592), and then
+                undoes that plot, so that the FFT covers the whole file
+                and the plots are as before; False chooses the FFT with
+                no time plot.
         Outputs: none.
         """
-        self.view.signal_menu_handler_dict["create"](name_str, operation_str)
+        create_handler = self.view.signal_menu_handler_dict["create"]
+        if (operation_str != "fft" or not time_plot_b
+                or self.plot_controller.time_plot_list()):
+            create_handler(name_str, operation_str)
+            return
+        # LLFR-00592: an FFT needs a time plot; a new time plot shows
+        # the whole time range of the file (LLFR-00180).
+        file_number_i = int(name_str.split("_")[0][len("file"):])
+        time_name_str = self.time_signal_of_file(file_number_i)
+        self.double_click(time_name_str)
+        create_handler(name_str, operation_str)
+        self.view.handler_dict["undo"]()
+
+    def time_signal_of_file(self, file_number_i: int) -> str:
+        """Return the prefixed name of the time signal of a data file.
+
+        Inputs:
+            file_number_i: the number of the data file.
+        Outputs: the time signal's name, for example "file1_Time".
+        """
+        for data_file in self.file_controller.data_files.file_list:
+            if data_file.number_i == file_number_i:
+                return (f"file{file_number_i}_"
+                        f"{data_file.signal_file.time_signal_name_str}")
+        raise KeyError(file_number_i)
 
     def menu(self, option_str: str, name_str: str) -> None:
         """Choose another option of the signal menu.
@@ -860,12 +895,12 @@ class CreateTest(SyntheticControllerTestCase):
         self.create("file1_Speed", "product")
         self.create("file1_Speed", "product")
         self.assertEqual(self.store_names()[-2:],
-                         ["file1_Speed_prod_Torque",
-                          "file1_Speed_prod_Speed"])
+                         ["file1_Speed_prod_file1_Torque",
+                          "file1_Speed_prod_file1_Speed"])
         speed_array = make_signal_file().signal_array("Speed")
         np.testing.assert_allclose(
             self.controller.store.get(
-                "file1_Speed_prod_Torque").value_array,
+                "file1_Speed_prod_file1_Torque").value_array,
             speed_array * make_signal_file().signal_array("Torque"))
 
     @covers("LLFR-00284", "LLFR-00272", "LLFR-00240", "LLFR-00264",
@@ -901,22 +936,22 @@ class CreateTest(SyntheticControllerTestCase):
 
     @covers("LLFR-00240", "LLFR-00241", "LLFR-00275")
     def test_product_names_and_the_name_collision(self) -> None:
-        """Products are <first>_prod_<second>; a collision gets _2.
+        """Products are <first>_prod_<prefixed second>; a collision gets _2.
 
         Inputs: none.
         Outputs: none.
         """
         self.view.second_signal_answer_list = ["file1_Torque", "file1_Torque"]
         self.create("file1_Speed", "product")
-        self.create("file1_Speed_prod_Torque", "integral")
+        self.create("file1_Speed_prod_file1_Torque", "integral")
         self.create("file1_Speed", "integral")
         self.create("file1_int_Speed", "product")
         self.assertEqual(self.store_names(), [
-            "file1_Speed_prod_Torque",
-            "file1_int_Speed_prod_Torque", "file1_int_Speed",
-            "file1_int_Speed_prod_Torque_2"])
+            "file1_Speed_prod_file1_Torque",
+            "file1_int_Speed_prod_file1_Torque", "file1_int_Speed",
+            "file1_int_Speed_prod_file1_Torque_2"])
         self.assertEqual(self.controller.store.get(
-            "file1_int_Speed_prod_Torque_2").source_name_list,
+            "file1_int_Speed_prod_file1_Torque_2").source_name_list,
             ["file1_int_Speed", "file1_Torque"])
 
     @covers("LLFR-00285", "LLFR-00275", "LLFR-00095", "LLFR-00096",
@@ -997,13 +1032,61 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(search_signals(name_list, "speed"),
                          ["file1_MaxSpeed", "file1_Speed"])
 
-    @covers("LLFR-00248", "LLFR-00240", "LLFR-00249", "LLFR-00592")
-    def test_fft_uses_the_whole_file_without_time_plots(self) -> None:
-        """With no plot, the FFT range is the file's whole range.
+    @covers("LLFR-00592", "LLFR-00979", "HLFR-00057")
+    def test_no_fft_without_a_time_plot(self) -> None:
+        """With no time plot, no FFT is created, whatever the number of
+        samples, and one box asks for a time plot.
 
         Inputs: none.
         Outputs: none.
         """
+        self.create("file1_Speed", "fft", time_plot_b=False)
+        self.assertEqual(self.store_names(), [])
+        self.assertEqual(self.view.information_list,
+                         [(CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
+        self.assertEqual(self.view.parameter_question_list, [])
+        self.assertEqual(self.plot_id_list(), [])
+
+    @covers("LLFR-00592", "LLFR-00979", "LLFR-00256", "HLFR-00058")
+    def test_frequency_plot_alone_is_not_a_time_plot(self) -> None:
+        """A frequency plot alone does not let an FFT be created.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.create("file1_Speed", "fft")
+        self.double_click(self.store_names()[0])
+        self.assertEqual(len(self.plot_id_list()), 1)
+        self.assertEqual(self.plot_controller.time_plot_list(), [])
+        self.create("file1_Torque", "fft", time_plot_b=False)
+        self.assertEqual(len(self.store_names()), 1)
+        self.assertEqual(self.view.information_list,
+                         [(CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
+
+    @covers("LLFR-00591", "LLFR-00592", "LLFR-00979")
+    def test_uneven_samples_without_a_time_plot(self) -> None:
+        """With uneven time steps and no time plot, only the box of the
+        uneven time samples is shown.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = np.arange(SAMPLE_COUNT_I) * 0.1
+        time_array[50:] += 0.05
+        self.open_file(make_signal_file(time_array))
+        self.create("file2_Speed", "fft", time_plot_b=False)
+        self.assertEqual(self.store_names(), [])
+        self.assertEqual(len(self.view.information_list), 1)
+        self.assertIn("evenly spaced", self.view.information_list[0][1])
+
+    @covers("LLFR-00248", "LLFR-00240", "LLFR-00249", "LLFR-00968")
+    def test_fft_over_the_whole_shown_range(self) -> None:
+        """A time plot of the whole file gives the file's whole range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("file1_Torque")
         self.create("file1_Speed", "fft")
         signal = self.controller.store.get("file1_fft_0s_to_9p9s_Speed")
         self.assertEqual(signal.parameter, (0.0, 9.9))
@@ -1606,6 +1689,7 @@ class FileTest(SyntheticControllerTestCase):
             self.file_controller.load_function = load_signal_file
             self.view.open_path_str = path_str
             self.file_controller.open_file_requested()
+            expand_all_files(self.main_controller)
             self.assertEqual(self.view.shown_name_list, ["file2_Time",
                                                          "file2_Speed"])
             self.create("file2_Speed", "integral")

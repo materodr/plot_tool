@@ -11,6 +11,7 @@ import os
 import tempfile
 import unittest
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 
 from view.elided_text import (
@@ -619,6 +620,9 @@ class FileRowsWindowTest(unittest.TestCase):
         self.window.ask_open_file_path = lambda start_folder_str: path_value
         self.controller.file_controller.open_file_requested()
         self.application.processEvents()
+        # LLFR-01001: the files are collapsed after an open; these
+        # tests read the shown signals.
+        expand_all_files(self.controller)
 
     def answer_questions(self, answer_b: bool) -> None:
         """Answer the close questions with answer_b and record them.

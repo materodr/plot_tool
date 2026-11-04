@@ -114,11 +114,11 @@ def exportable_page_list(tab_widget, undocked_page_list=()) -> list:
     Inputs:
         tab_widget: the QTabWidget of the plot panel.
         undocked_page_list: the TabPage of each undocked window, in tab
-            order (LLFR-01056).
+            order (LLFR-01091).
     Outputs: a list of TabPage: the docked ones, then the undocked ones.
     """
     # LLFR-00129, LLFR-00145: only tabs with a plot get a PDF page,
-    # docked or undocked, in tab order (LLFR-01056).
+    # docked or undocked, in tab order (LLFR-01091).
     return [page for page in (tab_page_list(tab_widget)
                               + list(undocked_page_list))
             if page.plot_widget_list]
@@ -586,7 +586,7 @@ def save_tabs_pdf(tab_widget, path_str: str, description_str: str = "",
         description_str: the description of the open data files
             (LLFR-00971).
         undocked_page_list: the pages of the undocked windows, in tab
-            order (LLFR-01056).
+            order (LLFR-01091).
     Outputs: a tuple (saved_b, reason_str); reason_str says why the file
         was not saved, "" when it was.
     """

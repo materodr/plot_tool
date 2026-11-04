@@ -37,10 +37,12 @@ build the box and run it.
 """
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QTextOption
 from PyQt6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
     QPlainTextEdit, QStyle, QVBoxLayout)
 
+from model.message_lists import list_text
 from model.workspace import MAXIMUM_MATRIX_SIZE_I
 
 FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
@@ -49,7 +51,7 @@ FULL_TAB_TITLE_STR = "Full Tab"
 FULL_TAB_MESSAGE_STR = (
     "This tab is full ({rows} \u00d7 {columns} matrix). Use a new tab, "
     "or a larger matrix from the tab's menu.")
-# LLFR-01092: a full tab whose plot matrix is already 10 x 10.
+# LLFR-01127: a full tab whose plot matrix is already 10 x 10.
 FULL_LARGEST_MATRIX_MESSAGE_STR = (
     "This tab is full (10 \u00d7 10 matrix). Use a new tab.")
 
@@ -163,7 +165,7 @@ def full_tab_message_str(row_count_i: int = 5,
     Outputs: FULL_TAB_MESSAGE_STR with the matrix filled in, or
         FULL_LARGEST_MATRIX_MESSAGE_STR for a 10 x 10 matrix.
     """
-    # LLFR-01092: with a 10 x 10 matrix, only "use a new tab".
+    # LLFR-01127: with a 10 x 10 matrix, only "use a new tab".
     if (row_count_i >= MAXIMUM_MATRIX_SIZE_I
             and column_count_i >= MAXIMUM_MATRIX_SIZE_I):
         return FULL_LARGEST_MATRIX_MESSAGE_STR
@@ -184,7 +186,7 @@ def build_full_tab_box(parent, row_count_i: int = 5,
         box), the title FULL_TAB_TITLE_STR, the text of
         full_tab_message_str and an OK button.
     """
-    # LLFR-00032, LLFR-01092: information message telling the user to
+    # LLFR-00032, LLFR-01127: information message telling the user to
     # use a new tab or, below 10 x 10, a larger plot matrix.
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
@@ -259,7 +261,7 @@ def show_full_tab_notification(parent, row_count_i: int = 5,
         column_count_i: columns of the full tab's plot matrix.
     Outputs: none.
     """
-    # LLFR-00032, LLFR-01092: notify that the tab is full.
+    # LLFR-00032, LLFR-01127: notify that the tab is full.
     build_full_tab_box(parent, row_count_i, column_count_i).exec()
 
 
@@ -518,11 +520,12 @@ def delete_synthetic_signal_text(name_str: str,
     text_str = DELETE_SYNTHETIC_MESSAGE_STR.format(name=name_str)
     if not dependent_name_list:
         return f"{text_str}\n\n{DELETE_ONE_CONSEQUENCE_MESSAGE_STR}"
-    dependent_text_str = "\n".join(
-        f"  - {dependent_name_str}"
-        for dependent_name_str in dependent_name_list)
-    return (f"{text_str}\n\n{DELETE_DEPENDENTS_MESSAGE_STR}\n"
-            f"{dependent_text_str}\n\n{DELETE_CONSEQUENCE_MESSAGE_STR}")
+    # LLFR-00980 to LLFR-00984: the dependents as the items of a list
+    # below the sentence that introduces them.
+    dependent_text_str = list_text(dependent_name_list,
+                                   DELETE_DEPENDENTS_MESSAGE_STR)
+    return (f"{text_str}\n\n{dependent_text_str}\n\n"
+            f"{DELETE_CONSEQUENCE_MESSAGE_STR}")
 
 
 def build_delete_synthetic_signal_box(parent, name_str: str,
@@ -582,7 +585,8 @@ def build_signal_information_box(parent, title_str: str,
     Outputs: a QMessageBox with the information icon (not an error box)
         and an OK button.
     """
-    # LLFR-00247, LLFR-00250, LLFR-00267: information, not errors.
+    # LLFR-00247, LLFR-00250, LLFR-00267, LLFR-00979: information, not
+    # errors.
     return build_message_box(parent, QMessageBox.Icon.Information,
                              title_str, message_str)
 
@@ -660,6 +664,12 @@ def build_layout_report_box(
     report_field = QPlainTextEdit(dialog)
     report_field.setObjectName(text_object_name_str)
     report_field.setReadOnly(True)
+    # LLFR-00990: each line is wrapped at the width of the field, also
+    # inside a long signal name, so that nothing needs a horizontal
+    # scroll.
+    report_field.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+    report_field.setWordWrapMode(
+        QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
     report_field.setPlainText(report_text_str)
     dialog_layout.addWidget(report_field, 1)
     button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok,

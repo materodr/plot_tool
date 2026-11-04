@@ -90,7 +90,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         self.assertEqual(self.view.plot_tab_dict[plot_id_i],
                          self.view.current_tab_id())
 
-    @covers("LLFR-00295", "LLFR-01074", "HLFR-00064")
+    @covers("LLFR-00295", "LLFR-01109", "HLFR-00064")
     def test_enter_adds_the_plot_below_the_others(self) -> None:
         """The new plot goes below the existing plots of the tab.
 

@@ -85,7 +85,7 @@ TEXT_INPUT_WIDGET_TUPLE = (QLineEdit, QTextEdit, QPlainTextEdit,
 # portable key sequence, so this is Ctrl+Y on Windows and Cmd+Y on
 # macOS (StandardKey.Redo would be Shift+Cmd+Z on macOS). It is kept
 # with the button tip texts in view.top_panel, so that the shortcut and
-# its button tip change together (LLFR-00215).
+# its button tip change together (LLFR-00215, LLFR-00883).
 REDO_SHORTCUT_STR = top_panel.REDO_SHORTCUT_STR
 # LLFR-00406: the names of the file dialogs kept by the dialog pool.
 OPEN_FILE_DIALOG_KEY_STR = "open_file"
@@ -112,7 +112,7 @@ class QuitFilter(QObject):
         Outputs: none.
         """
         super().__init__(parent)
-        # LLFR-00989: what the main window does on a quit.
+        # LLFR-01024: what the main window does on a quit.
         self.quit_function = quit_function
 
     def eventFilter(self, watched, event) -> bool:
@@ -123,7 +123,7 @@ class QuitFilter(QObject):
             event: the QEvent.
         Outputs: False, so the quit goes on.
         """
-        # LLFR-00989, LLFR-01038: Qt closes the windows in no set order,
+        # LLFR-01024, LLFR-01073: Qt closes the windows in no set order,
         # so the undocked windows are closed by the app first, and none
         # of them takes the quit for the user's close of its tab.
         if (event.type() == QEvent.Type.Quit
@@ -213,21 +213,21 @@ class MainWindow(QMainWindow):
         # follows the bottom edge of the lowest plot of the current tab.
         self.search_box_aligner = SearchBoxAligner(
             self.plot_panel, self.signal_list_panel, self)
-        # HLFR-00123, HLFR-00125: window id -> UndockedWindow, and the
-        # windows in tab order (LLFR-01056).
+        # HLFR-00124, HLFR-00126: window id -> UndockedWindow, and the
+        # windows in tab order (LLFR-01091).
         self.undocked_window_dict = {}
         self.undocked_order_list = []
-        # LLFR-00980, LLFR-00993, LLFR-01038, LLFR-01012, LLFR-01020:
+        # LLFR-01015, LLFR-01028, LLFR-01073, LLFR-01047, LLFR-01055:
         # the handlers of the windows, set by the plot controller.
         self.window_handler_dict = {}
         self.plot_panel.undock_handler = (
             lambda tab_id_i: self._run_window_handler("undock_handler",
                                                       tab_id_i))
-        # LLFR-01107: a tab dropped outside the plot panel.
+        # LLFR-01142: a tab dropped outside the plot panel.
         self.plot_panel.undock_drop_handler = (
             lambda tab_id_i, x_i, y_i: self._run_window_handler(
                 "undock_drop_handler", tab_id_i, x_i, y_i))
-        # LLFR-01115, LLFR-01116: a tab dropped on an undocked window.
+        # LLFR-01150, LLFR-01151: a tab dropped on an undocked window.
         self.plot_panel.window_at_point_function = (
             lambda x_i, y_i: self.window_at_point(x_i, y_i))
         self.plot_panel.window_drop_function = (
@@ -236,11 +236,11 @@ class MainWindow(QMainWindow):
         # windows show.
         self.plot_panel.undocked_shown_page_function = (
             self.undocked_shown_page_list)
-        # LLFR-01020: a drag of the main window's panel border.
+        # LLFR-01055: a drag of the main window's panel border.
         self.lower_splitter.drag_finished_handler = (
             lambda start_i, end_i: self._run_window_handler(
                 "panel_width_handler", -1, start_i, end_i))
-        # LLFR-01001, LLFR-01008: what every signal list panel shows,
+        # LLFR-01036, LLFR-01043: what every signal list panel shows,
         # kept so that a new window's panel shows the same.
         self.signal_list_state_dict = {}
 
@@ -312,8 +312,8 @@ class MainWindow(QMainWindow):
         # X or Y keeps the Delta X or Delta Y tool active; LLFR-00287,
         # LLFR-00321: holding A or T keeps the Area or Text tool active;
         # LLFR-00367: holding R keeps the Arrow tool active;
-        # LLFR-01057: holding Z keeps the Zoom tool active;
-        # LLFR-00207, LLFR-01060: 0 alone, of the main keyboard or of
+        # LLFR-01092: holding Z keeps the Zoom tool active;
+        # LLFR-00207, LLFR-01095: 0 alone, of the main keyboard or of
         # the keypad, resets the zoom; LLFR-00370: Esc alone
         # switches off the active plot tool; LLFR-00157: none of them
         # in text fields (any QLineEdit, QTextEdit, QPlainTextEdit or
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
         application = QApplication.instance()
         if application is not None:
             application.installEventFilter(self.tool_key_filter)
-        # LLFR-00989: a quit closes every undocked window and keeps their
+        # LLFR-01024: a quit closes every undocked window and keeps their
         # tabs.
         self.quit_filter = QuitFilter(self.close_all_undocked_windows, self)
         if application is not None:
@@ -356,10 +356,10 @@ class MainWindow(QMainWindow):
         self.redo_handler = None
         self.top_panel.redo_button.triggered.connect(
             self._on_redo_triggered)
-        # LLFR-01101: the handler of Ctrl+C (Cmd+C), set by the export
+        # LLFR-01136: the handler of Ctrl+C (Cmd+C), set by the export
         # controller.
         self.copy_shortcut_handler = None
-        # LLFR-00137, LLFR-00191, LLFR-01101, LLFR-01104, LLFR-01105: the
+        # LLFR-00137, LLFR-00191, LLFR-01136, LLFR-01139, LLFR-01140: the
         # shortcuts of this window (tab id -1 for the main window).
         shortcut_dict = self.install_window_shortcuts(self, -1)
         self.undo_shortcut = shortcut_dict["undo"]
@@ -395,18 +395,18 @@ class MainWindow(QMainWindow):
                 for the main window.
         Outputs: none.
         """
-        # LLFR-01002: every panel works as the main window's.
-        # LLFR-00019, LLFR-01003: a double-click plots in the tab that
+        # LLFR-01037: every panel works as the main window's.
+        # LLFR-00019, LLFR-01038: a double-click plots in the tab that
         # the panel's window shows at that moment.
         panel.signal_double_clicked.connect(
             lambda name_str: self._on_signal_double_clicked(
                 name_str, self.window_shown_tab_id(window_id_i)))
-        # LLFR-00295, LLFR-01003, LLFR-01005: Enter plots the panel's own
+        # LLFR-00295, LLFR-01038, LLFR-01040: Enter plots the panel's own
         # selection in the tab its window shows.
         panel.selected_signals_plot_requested.connect(
             lambda name_list: self._on_selected_signals_plot_requested(
                 name_list, self.window_shown_tab_id(window_id_i)))
-        # LLFR-00095, LLFR-01006: the search text, shared by every panel.
+        # LLFR-00095, LLFR-01041: the search text, shared by every panel.
         panel.search_text_changed.connect(
             lambda text_str: self._on_search_text_changed(text_str, panel))
         panel.synthetic_operation_requested.connect(
@@ -430,6 +430,12 @@ class MainWindow(QMainWindow):
                 "close_file", number_i))
         panel.close_all_files_requested.connect(
             lambda: self._run_signal_menu_handler("close_all_files"))
+        # LLFR-00997, LLFR-00998: the icons of the file name rows go to
+        # the signal list controller; LLFR-01036: a file hidden in one
+        # panel is hidden in every panel.
+        panel.file_expand_toggled.connect(
+            lambda number_i: self._run_signal_menu_handler(
+                "toggle_file", number_i))
 
     def signal_list_panel_list(self) -> list:
         """Return every signal list panel, the main window's first.
@@ -437,7 +443,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: a list of SignalListPanel.
         """
-        # LLFR-01001: the panels that show the same signal list.
+        # LLFR-01036: the panels that show the same signal list.
         return [self.signal_list_panel] + [
             window.signal_list_panel
             for window in self.undocked_window_dict.values()]
@@ -452,7 +458,7 @@ class MainWindow(QMainWindow):
         Outputs: none. The last call of each method is kept, so that the
             panel of a window opened later shows the same.
         """
-        # LLFR-01001: the same file rows, signals, synthetic signals,
+        # LLFR-01036: the same file rows, signals, synthetic signals,
         # letters and colors in every panel, at every moment.
         self.signal_list_state_dict[method_name_str] = argument_tuple
         for panel in self.signal_list_panel_list():
@@ -465,15 +471,16 @@ class MainWindow(QMainWindow):
             panel: the SignalListPanel of a new undocked window.
         Outputs: none.
         """
-        # LLFR-01001: the kinds, the operations and the time signals
+        # LLFR-01036: the kinds, the operations and the time signals
         # first, then the list that uses them.
         for method_name_str in ("set_operation_groups", "set_signal_kinds",
                                 "set_time_signal_name",
-                                "set_time_signal_names"):
+                                "set_time_signal_names",
+                                "set_collapsed_file_numbers"):
             if method_name_str in self.signal_list_state_dict:
                 getattr(panel, method_name_str)(
                     *self.signal_list_state_dict[method_name_str])
-        # LLFR-01008: the shared search text, with no new filtering.
+        # LLFR-01043: the shared search text, with no new filtering.
         panel.search_box.blockSignals(True)
         panel.search_box.setText(self.signal_list_panel.search_text())
         panel.search_box.blockSignals(False)
@@ -487,7 +494,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: the active undocked window, or this main window.
         """
-        # LLFR-00988: over the undocked window of the action; the boxes
+        # LLFR-01023: over the undocked window of the action; the boxes
         # of the top panel stay over the main window.
         active_window = QApplication.activeWindow()
         if active_window in self.undocked_window_dict.values():
@@ -495,7 +502,7 @@ class MainWindow(QMainWindow):
         return self
 
     # ----------------------------------------------------------------
-    # Undocked windows (HLFR-00123 to HLFR-00138)
+    # Undocked windows (HLFR-00124 to HLFR-00139)
     # ----------------------------------------------------------------
 
     def set_window_handlers(self, **handler_dict) -> None:
@@ -509,8 +516,8 @@ class MainWindow(QMainWindow):
                 press and at the release of a border drag.
         Outputs: none.
         """
-        # LLFR-00980, LLFR-00993, LLFR-01038, LLFR-01012, LLFR-01013,
-        # LLFR-01020: the plot controller decides.
+        # LLFR-01015, LLFR-01028, LLFR-01073, LLFR-01047, LLFR-01048,
+        # LLFR-01055: the plot controller decides.
         self.window_handler_dict.update(handler_dict)
 
     def _run_window_handler(self, key_str: str, *argument_tuple) -> None:
@@ -521,7 +528,7 @@ class MainWindow(QMainWindow):
             argument_tuple: its arguments.
         Outputs: none.
         """
-        # LLFR-00980, LLFR-00993, LLFR-01038, LLFR-01020.
+        # LLFR-01015, LLFR-01028, LLFR-01073, LLFR-01055.
         handler = self.window_handler_dict.get(key_str)
         if handler is not None:
             handler(*argument_tuple)
@@ -532,7 +539,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: a list of (x, y, width, height) in desktop pixels.
         """
-        # LLFR-01048, LLFR-01049: where a window can be placed.
+        # LLFR-01083, LLFR-01084: where a window can be placed.
         area_list = []
         for screen in QApplication.screens():
             geometry = screen.availableGeometry()
@@ -546,7 +553,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: (x, y, width, height), or () when unknown.
         """
-        # LLFR-01048: a window off-screen goes onto this screen.
+        # LLFR-01083: a window off-screen goes onto this screen.
         screen = self.screen()
         if screen is None:
             return ()
@@ -561,7 +568,7 @@ class MainWindow(QMainWindow):
         Outputs: (x, y, width, height): the plot panel's size, at its
             position moved 30 pixels right and down, in desktop pixels.
         """
-        # LLFR-00981, LLFR-01093: from the main window's plot panel.
+        # LLFR-01016, LLFR-01128: from the main window's plot panel.
         top_left = self.plot_panel.mapToGlobal(QPoint(0, 0))
         return new_window_tuple((top_left.x(), top_left.y(),
                                  self.plot_panel.width(),
@@ -573,7 +580,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: the width in pixels.
         """
-        # LLFR-01016, LLFR-01020: the main window's panel.
+        # LLFR-01051, LLFR-01055: the main window's panel.
         return self.lower_splitter.last_widget_width()
 
     def window_state_dict(self) -> dict:
@@ -584,8 +591,8 @@ class MainWindow(QMainWindow):
             "windows": {window id: (x, y, width, height, panel width)},
             "shown": {window id: id of the tab it shows}}.
         """
-        # LLFR-01021, LLFR-01024, LLFR-00225 items 9, 13 and 14;
-        # LLFR-01121: the tab each window shows.
+        # LLFR-01056, LLFR-01059, LLFR-00225 items 9, 13 and 14;
+        # LLFR-01156: the tab each window shows.
         return {"main_panel_width": self.main_panel_width(),
                 "windows": {window_id_i: window.window_tuple()
                             + (window.panel_width(),)
@@ -617,10 +624,10 @@ class MainWindow(QMainWindow):
             lambda changed_id_i, start_i, end_i: self._run_window_handler(
                 "panel_width_handler", changed_id_i, start_i, end_i))
         window.main_panel_width_function = self.main_panel_width
-        # LLFR-01108, LLFR-01116, LLFR-01117, LLFR-01122: a drag of one
+        # LLFR-01143, LLFR-01151, LLFR-01152, LLFR-01157: a drag of one
         # of its tabs, dropped somewhere.
         window.tab_drop_handler = self.request_window_tab_drop
-        # LLFR-01036: the Undo, Redo, Copy, PDF and search shortcuts in
+        # LLFR-01071: the Undo, Redo, Copy, PDF and search shortcuts in
         # the window too.
         shortcut_dict = self.install_window_shortcuts(window, window_id_i)
         window.undo_shortcut = shortcut_dict["undo"]
@@ -628,7 +635,7 @@ class MainWindow(QMainWindow):
         window.copy_shortcut = shortcut_dict["copy"]
         window.pdf_shortcut = shortcut_dict["pdf"]
         window.search_shortcut = shortcut_dict["search"]
-        # LLFR-01000, LLFR-01001, LLFR-01002: its own panel, the same
+        # LLFR-01035, LLFR-01036, LLFR-01037: its own panel, the same
         # list, the same requests.
         self.connect_signal_list_panel(window.signal_list_panel,
                                        window_id_i)
@@ -644,7 +651,7 @@ class MainWindow(QMainWindow):
         Outputs: the tab id, or -1 for the main window or an unknown
             window (the controller then uses the main window's tab).
         """
-        # LLFR-01003, LLFR-01101: the tab the window shows when the
+        # LLFR-01038, LLFR-01136: the tab the window shows when the
         # request is made.
         window = self.undocked_window_dict.get(window_id_i)
         if window is None:
@@ -661,9 +668,9 @@ class MainWindow(QMainWindow):
         Outputs: {"undo", "redo", "copy", "pdf", "search"} -> the
             QShortcut, each acting while the window is active.
         """
-        # LLFR-00137, LLFR-00191: Undo and Redo; LLFR-01101: Copy, of
-        # the tab shown in this window; LLFR-01104: Save all tabs as
-        # PDF; LLFR-01105: the search box of this window. LLFR-01036:
+        # LLFR-00137, LLFR-00191: Undo and Redo; LLFR-01136: Copy, of
+        # the tab shown in this window; LLFR-01139: Save all tabs as
+        # PDF; LLFR-01140: the search box of this window. LLFR-01071:
         # the same in every window.
         sequence_function_dict = {
             "undo": (QKeySequence(top_panel.UNDO_STANDARD_KEY),
@@ -694,7 +701,7 @@ class MainWindow(QMainWindow):
             corner and the size of the plot panel; set_window_tabs keeps
             it on a screen.
         """
-        # LLFR-01107, LLFR-00981: at the pointer, the plot panel's size.
+        # LLFR-01142, LLFR-01016: at the pointer, the plot panel's size.
         return (int(x_i), int(y_i), int(self.plot_panel.width()),
                 int(self.plot_panel.height()))
 
@@ -707,7 +714,7 @@ class MainWindow(QMainWindow):
             when the point is on no undocked window (for example on the
             main window above it, or on no window of the app).
         """
-        # LLFR-01115, LLFR-01117: the window the user dropped a tab on.
+        # LLFR-01150, LLFR-01152: the window the user dropped a tab on.
         top_window = QApplication.topLevelAt(QPoint(int(x_i), int(y_i)))
         for window in self.undocked_window_dict.values():
             if top_window is window and window.isVisible():
@@ -722,12 +729,12 @@ class MainWindow(QMainWindow):
             tab_id_i: id of the dragged docked tab.
             x_i, y_i: the point of the drop, in desktop pixels.
         Outputs: True when the point is on an undocked window, which
-            then gets the drop (LLFR-01115, LLFR-01116).
+            then gets the drop (LLFR-01150, LLFR-01151).
         """
         window = self.window_at_point(x_i, y_i)
         if window is None:
             return False
-        # LLFR-01115: after its last tab; LLFR-01116: on its tab row, at
+        # LLFR-01150: after its last tab; LLFR-01151: on its tab row, at
         # the place of the pointer.
         self._run_window_handler("window_drop_handler", tab_id_i,
                                  window.window_id_i,
@@ -749,7 +756,7 @@ class MainWindow(QMainWindow):
         if tab_id_i not in window.tab_id_list():
             return
         index_i = window.tab_id_list().index(tab_id_i)
-        # LLFR-01108: on the main window's tab row, docked there.
+        # LLFR-01143: on the main window's tab row, docked there.
         docked_index_i = self.plot_panel.docked_drop_index(x_i, y_i)
         target_window = self.window_at_point(x_i, y_i)
         if docked_index_i >= 0 and target_window is None:
@@ -758,19 +765,44 @@ class MainWindow(QMainWindow):
                                      docked_index_i)
             return
         if target_window is window and window.tab_index_at(x_i, y_i) >= 0:
-            # LLFR-01131: on its own tab row, left where it was dropped;
-            # LLFR-01055: back at its place, nothing.
+            # LLFR-01166: on its own tab row, left where it was dropped;
+            # LLFR-01090: back at its place, nothing.
             if index_i != start_index_i:
                 self._run_window_handler("window_tab_move_handler",
                                          tab_id_i, index_i)
             return
         self.restore_dragged_tab(window, index_i, start_index_i)
         if target_window is not None and target_window is not window:
-            # LLFR-01117: on another undocked window, moved into it.
+            # LLFR-01152: on another undocked window, moved into it.
             self._run_window_handler(
                 "window_drop_handler", tab_id_i, target_window.window_id_i,
                 target_window.tab_index_at(x_i, y_i))
-        # LLFR-01032: anywhere else, nothing changes.
+        elif target_window is None and self.is_point_outside_app_windows(
+                x_i, y_i):
+            # LLFR-01167: outside every window of the app, into a new
+            # undocked window at the drop point.
+            self._run_window_handler("new_window_drop_handler", tab_id_i,
+                                     x_i, y_i)
+        # LLFR-01067: anywhere else, nothing changes.
+
+    def is_point_outside_app_windows(self, x_i: int, y_i: int) -> bool:
+        """Tell whether a desktop point is outside every window of the app.
+
+        Inputs:
+            x_i, y_i: the point, in desktop pixels.
+        Outputs: True when the point is on neither the main window, while
+            it is shown, nor any shown undocked window.
+        """
+        # LLFR-01167: a drop outside the app opens a new window;
+        # LLFR-01067: a drop on a window of the app, off a tab row, does
+        # nothing.
+        point = QPoint(int(x_i), int(y_i))
+        window_list = [self] + list(self.undocked_window_dict.values())
+        for window in window_list:
+            if (window.isVisible() and not window.isMinimized()
+                    and window.frameGeometry().contains(point)):
+                return False
+        return True
 
     def restore_dragged_tab(self, window, index_i: int,
                             start_index_i: int) -> None:
@@ -782,7 +814,7 @@ class MainWindow(QMainWindow):
             start_index_i: its place at the press.
         Outputs: none.
         """
-        # LLFR-01032: a tab dropped elsewhere keeps its place; Qt moved
+        # LLFR-01067: a tab dropped elsewhere keeps its place; Qt moved
         # it along the row during the drag.
         if index_i != start_index_i and 0 <= start_index_i < (
                 window.tab_bar.count()):
@@ -795,9 +827,9 @@ class MainWindow(QMainWindow):
             tab_id_i: id of the undocked tab.
             x_i, y_i: the point of the drop, in desktop pixels.
         Outputs: none. A drop anywhere else changes nothing
-            (LLFR-01032).
+            (LLFR-01067).
         """
-        # LLFR-01108: the place between the docked tabs under the
+        # LLFR-01143: the place between the docked tabs under the
         # pointer; -1 off the tab row of the main window.
         docked_index_i = self.plot_panel.docked_drop_index(x_i, y_i)
         if docked_index_i < 0:
@@ -812,7 +844,7 @@ class MainWindow(QMainWindow):
             tab_id_i: id of the tab.
         Outputs: the UndockedWindow, or None for a docked or unknown tab.
         """
-        # LLFR-01028: each undocked tab is in one window.
+        # LLFR-01063: each undocked tab is in one window.
         for window in self.undocked_window_dict.values():
             if tab_id_i in window.tab_id_list():
                 return window
@@ -839,12 +871,12 @@ class MainWindow(QMainWindow):
         window = self.undocked_window_dict.get(window_id_i)
         new_window_b = window is None
         if new_window_b:
-            # LLFR-00980: a new window.
+            # LLFR-01015: a new window.
             window = self.build_undocked_window(window_id_i)
             self.undocked_window_dict[window_id_i] = window
             if len(window_tuple) != 4:
                 window_tuple = self.new_window_tuple()
-            # LLFR-01048, LLFR-01049: kept on a screen.
+            # LLFR-01083, LLFR-01084: kept on a screen.
             window.set_window_tuple(placed_window_tuple(
                 window_tuple, self.screen_area_list(),
                 self.main_screen_area()))
@@ -853,7 +885,7 @@ class MainWindow(QMainWindow):
             page = self.plot_panel.page_dict.get(tab_id_i)
             if page is None:
                 continue
-            # LLFR-01115, LLFR-01117, LLFR-00980: the page leaves the main
+            # LLFR-01150, LLFR-01152, LLFR-01015: the page leaves the main
             # window or another undocked window.
             other_window = self.window_of_tab(tab_id_i)
             if other_window is not None and other_window is not window:
@@ -863,15 +895,15 @@ class MainWindow(QMainWindow):
             page_list.append(page)
         left_id_list = [tab_id_i for tab_id_i in window.tab_id_list()
                         if tab_id_i not in tab_id_list]
-        # LLFR-01028: its tabs in their order; LLFR-01026: the tab it
+        # LLFR-01063: its tabs in their order; LLFR-01061: the tab it
         # shows, with its name as the title.
         window.set_pages(page_list, shown_tab_id_i)
         for tab_id_i in left_id_list:
-            # LLFR-00993: a tab that left the window and no other window
+            # LLFR-01028: a tab that left the window and no other window
             # took is a docked tab again.
             if self.window_of_tab(tab_id_i) is None:
                 self.plot_panel.attach_page(tab_id_i)
-        # LLFR-01015, LLFR-01043, LLFR-01094: the panel as saved.
+        # LLFR-01050, LLFR-01078, LLFR-01129: the panel as saved.
         window.set_panel(panel_shown_b, panel_width_i)
         if new_window_b:
             window.show()
@@ -882,12 +914,12 @@ class MainWindow(QMainWindow):
         Inputs:
             tab_id_i: id of the tab.
         Outputs: none. The window stays open until set_undocked_windows
-            closes it, if it was its last tab (LLFR-00994).
+            closes it, if it was its last tab (LLFR-01029).
         """
         window = self.window_of_tab(tab_id_i)
         if window is None:
             return
-        # LLFR-00993: the last docked tab; LLFR-01121: the window shows
+        # LLFR-01028: the last docked tab; LLFR-01156: the window shows
         # another of its tabs.
         window.take_page(tab_id_i)
         self.plot_panel.attach_page(tab_id_i)
@@ -897,10 +929,10 @@ class MainWindow(QMainWindow):
 
         Inputs:
             window_id_list: the undocked windows, in tab order
-                (LLFR-01056).
+                (LLFR-01091).
         Outputs: none.
         """
-        # LLFR-01025, LLFR-01045, LLFR-00998, LLFR-01110, LLFR-00994: a
+        # LLFR-01060, LLFR-01080, LLFR-01033, LLFR-01145, LLFR-01029: a
         # window with no tab left, or not in the model, closes.
         for window_id_i in list(self.undocked_window_dict):
             if window_id_i not in window_id_list:
@@ -917,7 +949,7 @@ class MainWindow(QMainWindow):
         Outputs: none. Its tabs that still exist go back to the main
             window.
         """
-        # LLFR-00994, LLFR-01045: closed by the app.
+        # LLFR-01029, LLFR-01080: closed by the app.
         window = self.undocked_window_dict.pop(window_id_i, None)
         if window is None:
             return
@@ -935,7 +967,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00989: the main window closes them all; each page goes
+        # LLFR-01024: the main window closes them all; each page goes
         # back to the plot panel, which still keeps it.
         for window_id_i in list(self.undocked_window_dict):
             self.close_window(window_id_i)
@@ -948,7 +980,7 @@ class MainWindow(QMainWindow):
             window_id_i: id of the window.
         Outputs: the UndockedWindow, or None.
         """
-        # HLFR-00123, LLFR-00996: the windows of the model.
+        # HLFR-00124, LLFR-01031: the windows of the model.
         return self.undocked_window_dict.get(window_id_i)
 
     def undocked_shown_page_list(self) -> list:
@@ -957,7 +989,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: a list of TabPage.
         """
-        # LLFR-00203, LLFR-00665, LLFR-00709, LLFR-01127, LLFR-01128: the
+        # LLFR-00203, LLFR-00665, LLFR-00709, LLFR-01162, LLFR-01163: the
         # tabs that are shown, besides the main window's.
         return [window.page() for window in self.undocked_window_dict.values()
                 if window.page() is not None]
@@ -972,7 +1004,7 @@ class MainWindow(QMainWindow):
             width_i: its width in pixels.
         Outputs: none.
         """
-        # LLFR-01012, LLFR-01013.
+        # LLFR-01047, LLFR-01048.
         window = self.undocked_window_dict.get(window_id_i)
         if window is not None:
             window.set_panel(shown_b, width_i)
@@ -984,7 +1016,7 @@ class MainWindow(QMainWindow):
             width_i: the width in pixels.
         Outputs: none. The plot panel takes the rest.
         """
-        # LLFR-01020, LLFR-00138: an undo of a border drag.
+        # LLFR-01055, LLFR-00138: an undo of a border drag.
         total_i = sum(self.lower_splitter.sizes())
         width_i = max(int(width_i), 1)
         if total_i <= width_i:
@@ -999,7 +1031,7 @@ class MainWindow(QMainWindow):
             enabled_b: False while the main window holds one docked tab.
         Outputs: none.
         """
-        # LLFR-00983, LLFR-00984.
+        # LLFR-01018, LLFR-01019.
         self.plot_panel.set_undock_enabled(enabled_b)
 
     def closeEvent(self, event) -> None:
@@ -1009,7 +1041,7 @@ class MainWindow(QMainWindow):
             event: the QCloseEvent.
         Outputs: none. With no visible window left, Qt quits the app.
         """
-        # LLFR-00989: every undocked window closes, and the app quits.
+        # LLFR-01024: every undocked window closes, and the app quits.
         self.close_all_undocked_windows()
         super().closeEvent(event)
 
@@ -1185,7 +1217,7 @@ class MainWindow(QMainWindow):
             signal_name_list: the signal names, in their order.
         Outputs: none.
         """
-        # LLFR-00054, LLFR-00939: the names in their order; LLFR-01001:
+        # LLFR-00054, LLFR-00939: the names in their order; LLFR-01036:
         # in every panel.
         self.signal_list_state_dict["signal_list"] = (
             "show_signal_names", (signal_name_list,))
@@ -1202,11 +1234,34 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00362, LLFR-00938, LLFR-00939, LLFR-00097: the groups of
-        # the signal list; LLFR-01001: in every panel.
+        # the signal list; LLFR-01036: in every panel.
         self.signal_list_state_dict["signal_list"] = (
             "show_signal_groups", (group_list,))
         for panel in self.signal_list_panel_list():
             panel.show_signal_groups(group_list)
+
+    def set_collapsed_file_numbers(self, number_set: set) -> None:
+        """Tell the signal list which files are shown collapsed.
+
+        Inputs:
+            number_set: the numbers of the files whose signals are
+                hidden.
+        Outputs: none. Used by the next show_signal_groups.
+        """
+        # LLFR-00994, LLFR-00995: [-] or [+] on each file name row;
+        # LLFR-01036: the same in every panel.
+        self.broadcast_signal_list("set_collapsed_file_numbers",
+                                   set(number_set))
+
+    def set_file_toggle_handler(self, handler) -> None:
+        """Set the function called by the icons of the file name rows.
+
+        Inputs:
+            handler: function taking a file number.
+        Outputs: none.
+        """
+        # LLFR-00997, LLFR-00998: hide or show the signals of a file.
+        self.signal_menu_handler_dict["toggle_file"] = handler
 
     def set_search_text_handler(self, handler) -> None:
         """Set the function called when the search box text changes.
@@ -1225,7 +1280,7 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00104: the search is cleared when a file is opened; the
-        # change reaches every panel (LLFR-01006).
+        # change reaches every panel (LLFR-01041).
         self.signal_list_panel.clear_search()
 
     # ----------------------------------------------------------------
@@ -1564,7 +1619,7 @@ class MainWindow(QMainWindow):
             is also true while the pointer is over a child of it).
         """
         # LLFR-00302: there the Tip key and Shift select signals, in any
-        # window (LLFR-01036).
+        # window (LLFR-01071).
         return any(panel.isVisible() and panel.underMouse()
                    for panel in self.signal_list_panel_list())
 
@@ -1701,7 +1756,7 @@ class MainWindow(QMainWindow):
         if (QApplication.activeModalWidget() is not None
                 or QApplication.activePopupWidget() is not None):
             return
-        # LLFR-01036: in the main window and in every undocked window.
+        # LLFR-01071: in the main window and in every undocked window.
         active_window = QApplication.activeWindow()
         if (active_window is not None and active_window is not self
                 and active_window not in self.undocked_window_dict.values()):
@@ -1880,7 +1935,7 @@ class MainWindow(QMainWindow):
                 columns.
         Outputs: none.
         """
-        # LLFR-01052, LLFR-01065: the controller decides.
+        # LLFR-01087, LLFR-01100: the controller decides.
         self.plot_panel.set_tab_arrangement_handlers(move_tab_handler,
                                                      plot_matrix_handler)
 
@@ -1892,7 +1947,7 @@ class MainWindow(QMainWindow):
             index_i: its new place, from 0.
         Outputs: none.
         """
-        # LLFR-01052: the tab order of the model.
+        # LLFR-01087: the tab order of the model.
         self.plot_panel.move_tab_view(tab_id_i, index_i)
 
     def set_tab_matrix_view(self, tab_id_i: int, row_count_i: int,
@@ -1905,7 +1960,7 @@ class MainWindow(QMainWindow):
             column_count_i: number of columns.
         Outputs: none.
         """
-        # LLFR-01065, LLFR-01073 to LLFR-01076.
+        # LLFR-01100, LLFR-01108 to LLFR-01111.
         self.plot_panel.set_tab_matrix_view(tab_id_i, row_count_i,
                                             column_count_i)
 
@@ -1918,7 +1973,7 @@ class MainWindow(QMainWindow):
             plot_id_list: the plot ids in fill order.
         Outputs: none.
         """
-        # LLFR-01083: the plots after a swap.
+        # LLFR-01118: the plots after a swap.
         self.plot_panel.set_plot_order_view(tab_id_i, plot_id_list)
 
     def set_plot_handlers(self, **handler_dict) -> None:
@@ -1951,8 +2006,8 @@ class MainWindow(QMainWindow):
             tab_id_i: id of the tab.
         Outputs: none.
         """
-        # LLFR-00028: remove the tab; LLFR-01121: its window shows
-        # another of its tabs; LLFR-01110, LLFR-00998: a window left with
+        # LLFR-00028: remove the tab; LLFR-01156: its window shows
+        # another of its tabs; LLFR-01145, LLFR-01033: a window left with
         # no tab is closed by set_undocked_windows.
         window = self.window_of_tab(tab_id_i)
         if window is not None:
@@ -1967,7 +2022,7 @@ class MainWindow(QMainWindow):
             name_str: the new name.
         Outputs: none.
         """
-        # LLFR-00030: show the name chosen by the user; LLFR-01027: in
+        # LLFR-00030: show the name chosen by the user; LLFR-01062: in
         # the title of its window too.
         self.plot_panel.rename_tab_view(tab_id_i, name_str)
         window = self.window_of_tab(tab_id_i)
@@ -1981,7 +2036,7 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00024, LLFR-00138: the tabs are shown again from the model.
-        # LLFR-01024: the windows stay open; set_window_tabs gives them
+        # LLFR-01059: the windows stay open; set_window_tabs gives them
         # their new pages, and set_undocked_windows closes the others.
         for window in self.undocked_window_dict.values():
             window.take_all_pages()
@@ -2036,7 +2091,7 @@ class MainWindow(QMainWindow):
                 FREQUENCY_PLOT_KIND_STR for a frequency plot (LLFR-00256).
         Outputs: none.
         """
-        # LLFR-00019, LLFR-01074: the new plot takes the next slot.
+        # LLFR-00019, LLFR-01109: the new plot takes the next slot.
         # LLFR-00256: with frequency or time on its x-axis.
         self.plot_panel.add_plot_view(tab_id_i, plot_id_i, kind_str)
         # LLFR-00042, LLFR-00078: a new plot starts with the active tool.
@@ -2176,7 +2231,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00315: the dialog starts from the current name; a blank
         # answer is returned as typed, and the controller keeps the old
-        # name without a message.
+        # name without a message (LLFR-00720).
         new_name_str, accepted_b = QInputDialog.getText(
             self.dialog_parent(), RENAME_AREA_DIALOG_TITLE_STR,
             RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
@@ -2319,7 +2374,7 @@ class MainWindow(QMainWindow):
             column_count_i: columns of the full tab's plot matrix.
         Outputs: none.
         """
-        # LLFR-00032, LLFR-01092: the tab is full; use a new tab or,
+        # LLFR-00032, LLFR-01127: the tab is full; use a new tab or,
         # below 10 x 10, a larger plot matrix.
         message_boxes.show_full_tab_notification(self.dialog_parent(),
                                                  row_count_i,
@@ -2366,7 +2421,7 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00128, LLFR-00133: the controller runs the flows;
-        # LLFR-01101: and the Copy shortcut's.
+        # LLFR-01136: and the Copy shortcut's.
         self.pdf_export_handler = pdf_export_handler
         self.copy_handler = copy_handler
         self.copy_shortcut_handler = copy_shortcut_handler
@@ -2454,7 +2509,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00129, LLFR-00131, LLFR-00971: one page per tab with a
         # plot, with the data files below the tab's name.
-        # LLFR-01056: the docked tabs, then the undocked ones.
+        # LLFR-01091: the docked tabs, then the undocked ones.
         return plot_export.save_tabs_pdf(self.plot_panel.tab_widget,
                                          path_str, description_str,
                                          self.undocked_page_list())
@@ -2463,9 +2518,9 @@ class MainWindow(QMainWindow):
         """Return the tab pages of the undocked windows, in tab order.
 
         Inputs: none.
-        Outputs: a list of TabPage (LLFR-01056).
+        Outputs: a list of TabPage (LLFR-01091).
         """
-        # LLFR-00129, LLFR-01056: after the docked tabs, window by window
+        # LLFR-00129, LLFR-01091: after the docked tabs, window by window
         # in the order of the windows, each window's tabs in its order.
         order_list = [window_id_i for window_id_i in self.undocked_order_list
                       if window_id_i in self.undocked_window_dict]
@@ -2495,7 +2550,7 @@ class MainWindow(QMainWindow):
                 window.
         Outputs: the TabPage, or None.
         """
-        # LLFR-01101: the tab shown in the window of the shortcut.
+        # LLFR-01136: the tab shown in the window of the shortcut.
         if tab_id_i < 0:
             return self.plot_panel.tab_widget.currentWidget()
         window = self.window_of_tab(tab_id_i)
@@ -2509,7 +2564,7 @@ class MainWindow(QMainWindow):
                 window.
         Outputs: the UndockedWindow, or this main window.
         """
-        # LLFR-01103: the box is shown over the window of the shortcut.
+        # LLFR-01138: the box is shown over the window of the shortcut.
         window = self.window_of_tab(tab_id_i)
         return self if window is None else window
 
@@ -2521,7 +2576,7 @@ class MainWindow(QMainWindow):
                 window.
         Outputs: the number of plots, 0 when there is no tab.
         """
-        # LLFR-01103: a tab with no plot has nothing to copy.
+        # LLFR-01138: a tab with no plot has nothing to copy.
         page = self.window_tab_page(tab_id_i)
         return len(getattr(page, "plot_widget_list", []))
 
@@ -2536,7 +2591,7 @@ class MainWindow(QMainWindow):
                 window.
         Outputs: a tuple (copied_b, reason_str).
         """
-        # LLFR-01101: as LLFR-00133, for the tab of that window.
+        # LLFR-01136: as LLFR-00133, for the tab of that window.
         if tab_id_i < 0:
             return self.copy_current_tab_image(description_str)
         window = self.window_of_tab(tab_id_i)
@@ -2553,7 +2608,7 @@ class MainWindow(QMainWindow):
                 window.
         Outputs: none.
         """
-        # LLFR-01103, LLFR-00146: an information box over that window.
+        # LLFR-01138, LLFR-00146: an information box over that window.
         message_boxes.build_nothing_to_copy_box(
             self.window_of(tab_id_i)).exec()
 
@@ -3164,7 +3219,7 @@ class MainWindow(QMainWindow):
         Outputs: none. In a text field, its selected text is copied
             instead.
         """
-        # LLFR-01102: a text field keeps its own Ctrl+C; it usually takes
+        # LLFR-01137: a text field keeps its own Ctrl+C; it usually takes
         # the key before the shortcut, and is asked to copy here when
         # the shortcut runs all the same.
         if self.text_field_has_focus():
@@ -3172,7 +3227,10 @@ class MainWindow(QMainWindow):
             if hasattr(focus_widget, "copy"):
                 focus_widget.copy()
             return
-        # LLFR-01101: the image of the tab shown in that window.
+        # LLFR-01173: during a mouse drag, no image and no box.
+        if self.is_mouse_drag_in_progress():
+            return
+        # LLFR-01136: the image of the tab shown in that window.
         if self.copy_shortcut_handler is not None:
             self.copy_shortcut_handler(self.window_shown_tab_id(window_id_i))
 
@@ -3182,7 +3240,10 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01104: as the Export menu option, from any window, also
+        # LLFR-01172: during a mouse drag, Ctrl+P does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
+        # LLFR-01139: as the Export menu option, from any window, also
         # in a text field (which gives Ctrl+P no meaning of its own).
         self._on_pdf_export_requested()
 
@@ -3192,14 +3253,17 @@ class MainWindow(QMainWindow):
         Inputs:
             window_id_i: id of the undocked window, -1 for the main
                 window.
-        Outputs: none.
+        Outputs: none. Nothing happens during a mouse drag.
         """
+        # LLFR-01174: during a mouse drag, Ctrl+F does nothing.
+        if self.is_mouse_drag_in_progress():
+            return
         if window_id_i >= 0:
             window = self.undocked_window_dict.get(window_id_i)
             if window is None:
                 return
             if not window.is_panel_shown():
-                # LLFR-01106: the hidden panel is shown first, as the
+                # LLFR-01141: the hidden panel is shown first, as the
                 # signal list button does, as one undoable action.
                 self._run_window_handler("panel_show_handler", window_id_i)
             window = self.undocked_window_dict.get(window_id_i)
@@ -3209,7 +3273,7 @@ class MainWindow(QMainWindow):
             window.activateWindow()
         else:
             panel = self.signal_list_panel
-        # LLFR-01105: the focus in the search box, its text selected.
+        # LLFR-01140: the focus in the search box, its text selected.
         panel.search_box.setFocus(Qt.FocusReason.ShortcutFocusReason)
         panel.search_box.selectAll()
 
@@ -3278,9 +3342,9 @@ class MainWindow(QMainWindow):
                 None for the main window's.
         Outputs: none.
         """
-        # LLFR-01006: the same text in every other search box;
-        # LLFR-01007: the focus and the cursor stay where the user types;
-        # LLFR-01017: hidden panels get it too.
+        # LLFR-01041: the same text in every other search box;
+        # LLFR-01042: the focus and the cursor stay where the user types;
+        # LLFR-01052: hidden panels get it too.
         for panel in self.signal_list_panel_list():
             if panel is source_panel or panel.search_text() == text_str:
                 continue
@@ -3302,7 +3366,7 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00295: the handler creates one plot with every signal;
-        # LLFR-01003: in the tab of the panel's window.
+        # LLFR-01038: in the tab of the panel's window.
         if self.selected_signals_plot_handler is None:
             return
         if tab_id_i < 0:
@@ -3322,7 +3386,7 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00019: the handler creates a plot with the signal;
-        # LLFR-01003: in the tab of the panel's window.
+        # LLFR-01038: in the tab of the panel's window.
         if self.signal_double_click_handler is None:
             return
         if tab_id_i < 0:

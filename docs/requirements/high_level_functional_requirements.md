@@ -11,7 +11,7 @@ The requirements are grouped by part of the interface: General, Top panel, Signa
 ### HLFR-00001 Interface layout
 The main window of the app must be divided into three panels: a top panel, a plot panel and a signal list panel.
 
-Note: The **top panel** holds the controls for opening a file and for the plot tools. The **plot panel** shows the plots where signal curves are drawn, organized in tabs. The **signal list panel** shows the signals of the open data files, from which the user picks what to plot. An undocked window (HLFR-00123) has a plot panel with its tabs and a signal list panel of its own, and no top panel (HLFR-00136).
+Note: The **top panel** holds the controls for opening a file and for the plot tools. The **plot panel** shows the plots where signal curves are drawn, organized in tabs. The **signal list panel** shows the signals of the open data files, from which the user picks what to plot. An undocked window (HLFR-00124) has a plot panel with its tabs and a signal list panel of its own, and no top panel (HLFR-00137).
 
 ### HLFR-00002 Error notification
 When an error occurs, the app must notify the user with an error box that describes the error.
@@ -44,47 +44,47 @@ The app must open quickly, so that the user waits as little as possible before i
 ### HLFR-00091 Dialog opening time
 The windows in which the user chooses a file to open or to save must appear quickly after the user asks for them.
 
-### HLFR-00123 Undock a tab
+### HLFR-00124 Undock a tab
 The user must be able to move a tab of the main window into a window of its own, which the user can move and resize independently of the main window.
 
-Note: The **main window** is the app window that has the top panel. A window that holds a tab moved out of the main window is an **undocked window**, and its tab is an **undocked tab**. A tab in the main window is a **docked tab**. The undock button is like the one of MATLAB's docked figures.
+Note: The **main window** is the app window that has the top panel. A window that holds tabs moved out of the main window is an **undocked window**, and each of its tabs is an **undocked tab**. A tab in the main window is a **docked tab**. The undock button is like the one of MATLAB's docked figures.
 
-### HLFR-00124 Dock a tab
-The user must be able to put the tab of an undocked window back into the main window.
+### HLFR-00125 Dock a tab
+The user must be able to put a tab of an undocked window back into the main window.
 
-### HLFR-00152 Undock and dock a tab by dragging it
+### HLFR-00153 Undock and dock a tab by dragging it
 The user must be able to undock a tab by dragging it out of the main window's tab row and dropping it outside the main window's plot panel, and to dock an undocked tab by dragging its tab button onto the main window's tab row.
 
-### HLFR-00125 Tabs of an undocked window
+### HLFR-00126 Tabs of an undocked window
 Each undocked window must hold one or more tabs.
 
-### HLFR-00153 Move a tab into an undocked window
+### HLFR-00154 Move a tab into an undocked window
 The user must be able to move a tab of the main window into an undocked window that is already open, by dragging the tab and dropping it on that window.
 
-### HLFR-00126 Any number of undocked windows
+### HLFR-00127 Any number of undocked windows
 The app must allow as many undocked windows as the user wants at the same time.
 
-Note: The main window keeps one docked tab (LLFR-00983), so the user adds a tab with "+" to undock one more.
+Note: The main window keeps one docked tab (LLFR-01018), so the user adds a tab with "+" to undock one more.
 
-### HLFR-00131 Undo a panel width change
+### HLFR-00132 Undo a panel width change
 The user must be able to undo and redo a change of the width of a signal list panel.
 
-### HLFR-00132 One undo history for every window
+### HLFR-00133 One undo history for every window
 The app must keep one undo and redo history for the actions done in every window.
 
-### HLFR-00133 Undo undocking and docking
+### HLFR-00134 Undo undocking and docking
 The user must be able to undo and redo undocking and docking a tab.
 
-### HLFR-00134 Undocked window title
+### HLFR-00135 Undocked window title
 The app must title each undocked window with the name of the tab it shows.
 
-### HLFR-00136 No top panel in an undocked window
+### HLFR-00137 No top panel in an undocked window
 An undocked window must hold a plot panel and a signal list panel, without a top panel.
 
-### HLFR-00137 Shortcuts in an undocked window
+### HLFR-00138 Shortcuts in an undocked window
 Every keyboard shortcut of the app must work while an undocked window is the active window.
 
-### HLFR-00138 Closing an undocked window deletes its tabs
+### HLFR-00139 Closing an undocked window deletes its tabs
 When the user closes an undocked window with the system's close button, the app must delete all its tabs as the Delete option of the tab menu does, as one action that can be undone.
 
 Note: The close button is the red dot on macOS and the × on Windows. There is no × on the tabs: deleting a tab stays in its menu (HLFR-00016).
@@ -145,13 +145,13 @@ The app must allow only one plot tool to be active at a time.
 
 Note: The **plot tools** are the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Area, Text and Arrow functions. Each one is started from its own button in the top panel.
 
-### HLFR-00143 Hold Z for Zoom
+### HLFR-00144 Hold Z for Zoom
 The user must be able to use the Zoom tool by holding the Z key, in the same way as the other held tool keys.
 
-### HLFR-00144 Press 0 to reset the zoom
+### HLFR-00145 Press 0 to reset the zoom
 The user must be able to reset the zoom (HLFR-00035) by pressing the 0 key.
 
-Note: The 0 key takes the place of the Z key, which holds the Zoom tool (HLFR-00143).
+Note: The 0 key takes the place of the Z key, which holds the Zoom tool (HLFR-00144).
 
 ### HLFR-00042 Button icons
 Each button in the top panel must show an icon that illustrates its function.
@@ -161,7 +161,7 @@ Note: The small box with a button's name that appears while the mouse pointer is
 ### HLFR-00049 Save a layout
 The user must be able to save the current layout of the plots to a layout file from the top panel.
 
-Note: The **layout** is what the plot panels show and how: the tabs, which of them are undocked and their windows (HLFR-00139), their plot matrices (HLFR-00151), their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. Each file with time series that the user opens with the Open file button is called a **data file**; several can be open at once (HLFR-00113). The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
+Note: The **layout** is what the plot panels show and how: the tabs, which of them are undocked and their windows (HLFR-00140), their plot matrices (HLFR-00152), their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. Each file with time series that the user opens with the Open file button is called a **data file**; several can be open at once (HLFR-00113). The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
 
 ### HLFR-00050 Load a layout
 The user must be able to load a layout file from the top panel and rebuild its layout with the signals of the open data files.
@@ -175,18 +175,18 @@ After loading a layout file, the app must tell the user which parts of the layou
 ### HLFR-00056 Synthetic signals in the layout
 The layout file must hold what the app needs to create again the synthetic signals (HLFR-00053) when the layout file is loaded, except the FFT signals, which are not saved in the layout file.
 
-### HLFR-00139 Windows in the layout file
+### HLFR-00140 Windows in the layout file
 The layout file must hold which tabs are undocked and, for each undocked window, its position and size, whether its signal list panel is shown and the panel's width.
 
-### HLFR-00140 Rebuild the windows from a layout
+### HLFR-00141 Rebuild the windows from a layout
 When the app loads a layout file, it must open each undocked tab of the file in an undocked window of its own, as saved.
 
-### HLFR-00141 Windows moved onto a screen
+### HLFR-00142 Windows moved onto a screen
 When the app loads a layout file, it must move onto a screen every undocked window whose saved position is off-screen.
 
 Note: This happens, for example, when the layout was saved with a second screen that is no longer connected.
 
-### HLFR-00151 Plot matrix in the layout file
+### HLFR-00152 Plot matrix in the layout file
 The layout file must hold the plot matrix of each tab.
 
 ### HLFR-00070 Choose the time signal
@@ -222,7 +222,7 @@ The user must be able to save, from the top panel, the signals of the signal lis
 Note: FFT signals are not saved, because their samples are frequencies, not times (HLFR-00009). The file is written with the **Save signals** button.
 
 ### HLFR-00120 Same time signals to save several files
-The app must save the signals of the open data files to one file only when all the open data files have exactly the same time signal.
+The app must save the signals of the open data files to one file only when all the open data files have the same time signal, within the tolerance of LLFR-00977.
 
 ### HLFR-00121 Saved names without the file prefix
 The app must save each signal under its name without the prefix of HLFR-00115, also inside the names of synthetic signals.
@@ -255,7 +255,7 @@ The search (HLFR-00033) must also find the signals whose names are close to the 
 
 Note: For example, typing part of the name, typing it in a different case, leaving out separators such as `_`, or making a small spelling mistake still finds the signal.
 
-### HLFR-00128 Shared search text
+### HLFR-00129 Shared search text
 When the user types in the search box of one signal list panel, the app must type the same text in the search box of every other signal list panel.
 
 ### HLFR-00053 Synthetic signals
@@ -269,9 +269,9 @@ Except for the product of two signals (HLFR-00104), the app must name each synth
 Note: For example, `file1_int_Speed`, and `file1_int_lpf_2Hz_order2_Speed` for the Integral of a Low-pass filter of `file1_Speed`.
 
 ### HLFR-00104 Product signal name
-For the product of two signals, the name of the synthetic signal must be the name of the first signal with its prefix (HLFR-00115), the abbreviation of the operation and the name of the second signal, separated by underscores, where the name of the second signal keeps its own prefix only when it belongs to another data file.
+For the product of two signals, the name of the synthetic signal must be the name of the first signal with its prefix (HLFR-00115), the abbreviation of the operation and the name of the second signal with its prefix, separated by underscores.
 
-Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
+Note: For example, `file1_Speed_prod_file1_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
 
 ### HLFR-00055 Synthetic signals in memory
 The app must keep synthetic signals only in its memory.
@@ -319,18 +319,23 @@ Note: Closing a file removes its signals, the synthetic signals computed from it
 ### HLFR-00119 Close all files
 The user must be able to close all the open data files in one action from the signal list panel.
 
+### HLFR-00123 Hide the signals of a file
+The user must be able to hide and show again the signals of each data file in the signal list panel, like a folder in a folder tree.
+
+Note: The file row has a [-] icon on its left while its signals are shown and [+] while they are hidden.
+
 ### HLFR-00095 Search box aligned with the plots
 In each window, the bottom of the search box must be aligned with the bottom of the last row of plots of the tab that the window shows.
 
-### HLFR-00127 Signal list panel in every undocked window
+### HLFR-00128 Signal list panel in every undocked window
 Each undocked window must have a signal list panel of its own that shows the same data files, signals and synthetic signals as the signal list panel of the main window, at every moment.
 
 Note: Each window's panels follow the Signal list panel requirements, so the signal list can be used from any window.
 
-### HLFR-00129 Hide the signal list panel of an undocked window
+### HLFR-00130 Hide the signal list panel of an undocked window
 The user must be able to hide the signal list panel of an undocked window and to show it again at its previous width.
 
-### HLFR-00130 Main window signal list panel always shown
+### HLFR-00131 Main window signal list panel always shown
 The main window must always show its signal list panel, which the user can only make narrower or wider.
 
 
@@ -349,29 +354,29 @@ The user must be able to delete a tab from the plot panel.
 The user must be able to rename a tab.
 
 ### HLFR-00018 Plots per tab
-Each tab must hold at most as many plots as its plot matrix has slots (HLFR-00145), its number of rows times its number of columns.
+Each tab must hold at most as many plots as its plot matrix has slots (HLFR-00146), its number of rows times its number of columns.
 
-Note: A plot is an area of the tab in which signal curves are drawn. A tab with the default 5 × 1 matrix (HLFR-00150) holds 5 plots.
+Note: A plot is an area of the tab in which signal curves are drawn. A tab with the default 5 × 1 matrix (HLFR-00151) holds 5 plots.
 
-### HLFR-00145 Plot matrix per tab
+### HLFR-00146 Plot matrix per tab
 The user must be able to choose, for each tab, the number of rows and the number of columns, each from 1 to 10, of the matrix in which the tab lays out its plots.
 
 Note: This matrix is the tab's **plot matrix**, written `R × C` for R rows and C columns. Each of its R times C cells is a **slot**. The plot matrix changes only where the plots are shown, not how they behave.
 
-### HLFR-00146 Matrix too small for the plots
+### HLFR-00147 Matrix too small for the plots
 The app must let the user choose only a plot matrix that has at least as many slots as the tab has plots.
 
-### HLFR-00147 Order of the plots in the matrix
+### HLFR-00148 Order of the plots in the matrix
 The app must place the plots of a tab in its plot matrix filling row 1 from left to right, up to the number of columns, then row 2 in the same way, and so on.
 
 Note: This order is the **fill order**.
 
-### HLFR-00148 Size of the plots in the matrix
+### HLFR-00149 Size of the plots in the matrix
 The app must show only the rows of the plot matrix that hold a plot, each with an equal share of the height, and give the plots of each row an equal share of its full width.
 
 Note: A partly filled row therefore stretches its plots across the full width, and one plot fills the whole area.
 
-### HLFR-00150 Default plot matrix
+### HLFR-00151 Default plot matrix
 The app must give each new tab a plot matrix of 5 rows and 1 column.
 
 Note: A new tab therefore holds up to 5 plots stacked vertically, as before plot matrices were added.
@@ -379,7 +384,7 @@ Note: A new tab therefore holds up to 5 plots stacked vertically, as before plot
 ### HLFR-00019 Delete a plot
 The user must be able to delete a plot from a tab.
 
-### HLFR-00149 Move a plot by swapping it
+### HLFR-00150 Move a plot by swapping it
 The user must be able to move a plot to the slot of another plot of its tab, the two plots swapping their slots.
 
 ### HLFR-00020 Curve colors
@@ -565,9 +570,9 @@ The user must be able to rename an arrow.
 ### HLFR-00112 Arrow label follows the arrow
 When the position or the angle of an arrow changes, its label (HLFR-00100) must change with it.
 
-### HLFR-00135 Tab buttons in an undocked window
+### HLFR-00136 Tab buttons in an undocked window
 An undocked window must show the buttons of its tabs, which work like the tabs of the main window, including Rename.
 
-### HLFR-00142 Reorder the tabs
+### HLFR-00143 Reorder the tabs
 The user must be able to change the order of the tabs by dragging a tab.
 

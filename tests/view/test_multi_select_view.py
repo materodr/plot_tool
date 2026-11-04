@@ -16,6 +16,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
@@ -609,6 +610,9 @@ class MultiSelectMainWindowTest(unittest.TestCase):
             QTest.mouseClick(self.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()
+            # LLFR-01001: the files are collapsed after an open; these
+            # tests read the shown signals.
+            expand_all_files(self.controller)
 
     def select(self, name_list: list) -> None:
         """Select exactly the given names in the signal list.

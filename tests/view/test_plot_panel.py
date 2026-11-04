@@ -176,7 +176,7 @@ class TabTest(PlotPanelTestCase):
         self.assert_button_beside_last_tab()
 
     @covers("LLFR-00027", "LLFR-00029", "LLFR-00066", "HLFR-00016",
-            "LLFR-01061", "HLFR-00145")
+            "LLFR-01096", "HLFR-00146")
     def test_tab_menu_options_and_last_tab(self) -> None:
         """The tab menu is Delete, Rename, Plot matrix; Delete is off on
         one tab.

@@ -1,31 +1,31 @@
-"""The two square pickers of the plot matrix (HLFR-00145, HLFR-00149).
+"""The two square pickers of the plot matrix (HLFR-00146, HLFR-00150).
 
 - The **matrix picker** opens from "Plot matrix" in the tab menu
-  (LLFR-01061). It shows 10 rows of 10 small squares; the square in row
+  (LLFR-01096). It shows 10 rows of 10 small squares; the square in row
   R and column C stands for a plot matrix of R rows and C columns
-  (LLFR-01062). While the pointer is over a square, every square from
+  (LLFR-01097). While the pointer is over a square, every square from
   row 1 to its row and from column 1 to its column is highlighted
-  (LLFR-01063) and the text "R × C" is shown below the squares
-  (LLFR-01096). The squares of the tab's current matrix are marked when
-  the picker opens (LLFR-01064). A square with fewer slots than the tab
-  has plots is pale and does nothing (LLFR-01071, LLFR-01072).
+  (LLFR-01098) and the text "R × C" is shown below the squares
+  (LLFR-01131). The squares of the tab's current matrix are marked when
+  the picker opens (LLFR-01099). A square with fewer slots than the tab
+  has plots is pale and does nothing (LLFR-01106, LLFR-01107).
 - The **position picker** opens from "Position" in the plot menu and in
-  the area menu (LLFR-01077, LLFR-01078). It has as many rows and columns
-  of squares as the tab's plot matrix, one per slot (LLFR-01079). Only
-  the squares of slots that hold a plot are enabled (LLFR-01080); the
-  others are pale (LLFR-01081). The square of the plot it was opened
-  from is marked (LLFR-01082).
+  the area menu (LLFR-01112, LLFR-01113). It has as many rows and columns
+  of squares as the tab's plot matrix, one per slot (LLFR-01114). Only
+  the squares of slots that hold a plot are enabled (LLFR-01115); the
+  others are pale (LLFR-01116). The square of the plot it was opened
+  from is marked (LLFR-01117).
 
 Both open as submenus of their menu, beside it, as soon as the pointer
-is over their option, like the color submenu (LLFR-01062, LLFR-01079):
+is over their option, like the color submenu (LLFR-01097, LLFR-01114):
 add_picker_submenu puts the picker in a QWidgetAction of a submenu. A
 click on an enabled square closes the picker and its menus and calls the
 choice function with the row and column of the square, counted from 1
-(LLFR-01065, LLFR-01083); the Esc key or a click outside closes them
-with no choice (LLFR-01070). Built with embedded_b False, a picker is a
+(LLFR-01100, LLFR-01118); the Esc key or a click outside closes them
+with no choice (LLFR-01105). Built with embedded_b False, a picker is a
 popup of its own instead, shown by show_at. Whether the choice changes
 anything (the current matrix, the plot's own slot) is decided by the
-controller (LLFR-01069, LLFR-01086).
+controller (LLFR-01104, LLFR-01121).
 
 The geometry of the squares is plain arithmetic (square_rect,
 square_at), so tests can click a square without guessing pixels.
@@ -38,33 +38,33 @@ from PyQt6.QtWidgets import QApplication, QMenu, QWidget, QWidgetAction
 from model.workspace import MAXIMUM_MATRIX_SIZE_I
 from view import theme
 
-# LLFR-01062: the size of a square and the gap between two squares.
+# LLFR-01097: the size of a square and the gap between two squares.
 SQUARE_SIZE_I = 16
 SQUARE_GAP_I = 3
-# LLFR-01062: the margin around the squares.
+# LLFR-01097: the margin around the squares.
 PICKER_MARGIN_I = 8
-# LLFR-01096: the height of the "R × C" text below the squares.
+# LLFR-01131: the height of the "R × C" text below the squares.
 SIZE_TEXT_HEIGHT_I = 22
-# LLFR-01096: how the size of a plot matrix is written.
+# LLFR-01131: how the size of a plot matrix is written.
 MATRIX_SIZE_FORMAT_STR = "{rows} × {columns}"
-# LLFR-01062, LLFR-01079: the colors of the squares.
+# LLFR-01097, LLFR-01114: the colors of the squares.
 SQUARE_COLOR_STR = theme.SURFACE_COLOR_STR
 SQUARE_BORDER_COLOR_STR = theme.CONTROL_BORDER_COLOR_STR
-# LLFR-01063: the highlighted squares.
+# LLFR-01098: the highlighted squares.
 HIGHLIGHT_COLOR_STR = theme.FOCUS_COLOR_STR
-# LLFR-01064, LLFR-01082: the marked squares get a border of this color
+# LLFR-01099, LLFR-01117: the marked squares get a border of this color
 # and width, drawn on top of any fill, so that a square can be pale and
 # marked at once.
 MARKED_COLOR_STR = theme.ACTIVE_COLOR_STR
 MARK_BORDER_WIDTH_I = 2
-# LLFR-01071, LLFR-01081: the pale squares.
+# LLFR-01106, LLFR-01116: the pale squares.
 PALE_COLOR_STR = theme.DISABLED_COLOR_STR
 PALE_BORDER_COLOR_STR = theme.DISABLED_BORDER_COLOR_STR
 PICKER_BACKGROUND_COLOR_STR = theme.SURFACE_COLOR_STR
 PICKER_BORDER_COLOR_STR = theme.HAIRLINE_COLOR_STR
-# LLFR-01096: the color of the size text.
+# LLFR-01131: the color of the size text.
 SIZE_TEXT_COLOR_STR = theme.TEXT_COLOR_STR
-# LLFR-01062: no square under the pointer.
+# LLFR-01097: no square under the pointer.
 NO_SQUARE_TUPLE = ()
 
 
@@ -74,9 +74,9 @@ def matrix_size_text(row_count_i: int, column_count_i: int) -> str:
     Inputs:
         row_count_i: number of rows.
         column_count_i: number of columns.
-    Outputs: the text `R × C` (LLFR-01096).
+    Outputs: the text `R × C` (LLFR-01131).
     """
-    # LLFR-01096: R rows and C columns, written `R × C`.
+    # LLFR-01131: R rows and C columns, written `R × C`.
     return MATRIX_SIZE_FORMAT_STR.format(rows=int(row_count_i),
                                          columns=int(column_count_i))
 
@@ -111,19 +111,19 @@ class SquarePicker(QWidget):
                 (add_picker_submenu), False for a popup of its own.
         Outputs: none.
         """
-        # LLFR-01062, LLFR-01079: inside a submenu, a plain widget.
+        # LLFR-01097, LLFR-01114: inside a submenu, a plain widget.
         self.embedded_b = bool(embedded_b)
         if self.embedded_b:
             super().__init__(parent)
         else:
             super().__init__(parent, Qt.WindowType.Popup)
-        # LLFR-01062, LLFR-01079: the rows and columns of squares.
+        # LLFR-01097, LLFR-01114: the rows and columns of squares.
         self.row_count_i = int(row_count_i)
         self.column_count_i = int(column_count_i)
         self.choice_function = choice_function
         self.hover_tuple = NO_SQUARE_TUPLE
         self.chosen_tuple = NO_SQUARE_TUPLE
-        # LLFR-01063: hover changes are seen without a pressed button.
+        # LLFR-01098: hover changes are seen without a pressed button.
         self.setMouseTracking(True)
         self.setFixedSize(self.picker_width(), self.picker_height())
 
@@ -133,7 +133,7 @@ class SquarePicker(QWidget):
         Inputs: none.
         Outputs: the width in pixels.
         """
-        # LLFR-01062: the squares and their margins.
+        # LLFR-01097: the squares and their margins.
         return (2 * PICKER_MARGIN_I + self.column_count_i * SQUARE_SIZE_I
                 + (self.column_count_i - 1) * SQUARE_GAP_I)
 
@@ -144,7 +144,7 @@ class SquarePicker(QWidget):
         Outputs: the height in pixels, with room for the text below the
             squares.
         """
-        # LLFR-01062, LLFR-01096: the squares, then the text.
+        # LLFR-01097, LLFR-01131: the squares, then the text.
         return (2 * PICKER_MARGIN_I + self.row_count_i * SQUARE_SIZE_I
                 + (self.row_count_i - 1) * SQUARE_GAP_I
                 + SIZE_TEXT_HEIGHT_I)
@@ -157,7 +157,7 @@ class SquarePicker(QWidget):
             column_i: column of the square, from 1.
         Outputs: a QRect in this widget's coordinates.
         """
-        # LLFR-01062: row 1 at the top, column 1 at the left.
+        # LLFR-01097: row 1 at the top, column 1 at the left.
         step_i = SQUARE_SIZE_I + SQUARE_GAP_I
         return QRect(PICKER_MARGIN_I + (column_i - 1) * step_i,
                      PICKER_MARGIN_I + (row_i - 1) * step_i,
@@ -171,7 +171,7 @@ class SquarePicker(QWidget):
         Outputs: (row_i, column_i) counted from 1, or NO_SQUARE_TUPLE
             when the point is not on a square.
         """
-        # LLFR-01063: the gaps between the squares count as no square.
+        # LLFR-01098: the gaps between the squares count as no square.
         for row_i in range(1, self.row_count_i + 1):
             for column_i in range(1, self.column_count_i + 1):
                 if self.square_rect(row_i, column_i).contains(point):
@@ -186,7 +186,7 @@ class SquarePicker(QWidget):
             column_i: column of the square, from 1.
         Outputs: True for an enabled square; every square here.
         """
-        # LLFR-01072, LLFR-01080: the subclasses leave some out.
+        # LLFR-01107, LLFR-01115: the subclasses leave some out.
         return True
 
     def is_square_marked(self, row_i: int, column_i: int) -> bool:
@@ -197,7 +197,7 @@ class SquarePicker(QWidget):
             column_i: column of the square, from 1.
         Outputs: False here; the subclasses mark their squares.
         """
-        # LLFR-01064, LLFR-01082: the subclasses mark their squares.
+        # LLFR-01099, LLFR-01117: the subclasses mark their squares.
         return False
 
     def is_square_highlighted(self, row_i: int, column_i: int) -> bool:
@@ -209,7 +209,7 @@ class SquarePicker(QWidget):
         Outputs: True for the square under the pointer when it is
             enabled.
         """
-        # LLFR-01080: only an enabled square reacts to the pointer.
+        # LLFR-01115: only an enabled square reacts to the pointer.
         return (self.hover_tuple == (row_i, column_i)
                 and self.is_square_enabled(row_i, column_i))
 
@@ -219,7 +219,7 @@ class SquarePicker(QWidget):
         Inputs: none.
         Outputs: an empty text here; the matrix picker shows `R × C`.
         """
-        # LLFR-01096: the matrix picker overrides this.
+        # LLFR-01131: the matrix picker overrides this.
         return ""
 
     def hover_square(self, square_tuple: tuple) -> None:
@@ -229,7 +229,7 @@ class SquarePicker(QWidget):
             square_tuple: (row_i, column_i) or NO_SQUARE_TUPLE.
         Outputs: none.
         """
-        # LLFR-01063, LLFR-01096: the highlight and the text follow the
+        # LLFR-01098, LLFR-01131: the highlight and the text follow the
         # pointer.
         square_tuple = tuple(square_tuple)
         if square_tuple != self.hover_tuple:
@@ -244,15 +244,15 @@ class SquarePicker(QWidget):
             column_i: column of the square, from 1.
         Outputs: True when the square was enabled: the picker then
             closes and calls the choice function. A pale square leaves
-            the picker open (LLFR-01072, LLFR-01080).
+            the picker open (LLFR-01107, LLFR-01115).
         """
-        # LLFR-01072, LLFR-01080: a pale square does nothing.
+        # LLFR-01107, LLFR-01115: a pale square does nothing.
         if not (1 <= row_i <= self.row_count_i
                 and 1 <= column_i <= self.column_count_i):
             return False
         if not self.is_square_enabled(row_i, column_i):
             return False
-        # LLFR-01065, LLFR-01083: close first, then make the choice, so
+        # LLFR-01100, LLFR-01118: close first, then make the choice, so
         # that the controller may rebuild the views behind the picker;
         # inside a submenu, the menus close with it.
         self.chosen_tuple = (row_i, column_i)
@@ -270,7 +270,7 @@ class SquarePicker(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01065, LLFR-01069, LLFR-01083, LLFR-01086: a choice closes
+        # LLFR-01100, LLFR-01104, LLFR-01118, LLFR-01121: a choice closes
         # the picker and the menu it opened from.
         widget = self.parentWidget()
         while isinstance(widget, QMenu):
@@ -284,7 +284,7 @@ class SquarePicker(QWidget):
             global_point: a QPoint in screen coordinates.
         Outputs: none. The picker is moved to stay on the screen.
         """
-        # LLFR-01062, LLFR-01079: the picker opens next to the pointer.
+        # LLFR-01097, LLFR-01114: the picker opens next to the pointer.
         left_i, top_i = global_point.x(), global_point.y()
         screen = QApplication.screenAt(global_point)
         if screen is not None:
@@ -303,7 +303,7 @@ class SquarePicker(QWidget):
             event: the QMouseEvent.
         Outputs: none.
         """
-        # LLFR-01063, LLFR-01096.
+        # LLFR-01098, LLFR-01131.
         self.hover_square(self.square_at(event.position().toPoint()))
 
     def leaveEvent(self, event) -> None:
@@ -313,7 +313,7 @@ class SquarePicker(QWidget):
             event: the QEvent.
         Outputs: none.
         """
-        # LLFR-01063: no square under the pointer.
+        # LLFR-01098: no square under the pointer.
         self.hover_square(NO_SQUARE_TUPLE)
         super().leaveEvent(event)
 
@@ -324,9 +324,9 @@ class SquarePicker(QWidget):
             event: the QMouseEvent.
         Outputs: none. A click outside the squares does nothing; a click
             outside the picker closes it (Qt closes a popup then,
-            LLFR-01070).
+            LLFR-01105).
         """
-        # LLFR-01065, LLFR-01083: a left click on an enabled square.
+        # LLFR-01100, LLFR-01118: a left click on an enabled square.
         if event.button() != Qt.MouseButton.LeftButton:
             return
         square_tuple = self.square_at(event.position().toPoint())
@@ -340,7 +340,7 @@ class SquarePicker(QWidget):
             event: the QKeyEvent.
         Outputs: none.
         """
-        # LLFR-01070: Esc closes the picker and changes nothing.
+        # LLFR-01105: Esc closes the picker and changes nothing.
         if event.key() == Qt.Key.Key_Escape:
             self.close()
             return
@@ -355,7 +355,7 @@ class SquarePicker(QWidget):
         Outputs: the "#rrggbb" color: highlighted, then pale, then
             normal. The mark is a border (square_border_color_str).
         """
-        # LLFR-01063, LLFR-01071, LLFR-01081.
+        # LLFR-01098, LLFR-01106, LLFR-01116.
         if self.is_square_highlighted(row_i, column_i):
             return HIGHLIGHT_COLOR_STR
         if not self.is_square_enabled(row_i, column_i):
@@ -371,7 +371,7 @@ class SquarePicker(QWidget):
         Outputs: the "#rrggbb" color: MARKED_COLOR_STR for a marked
             square, whatever its fill, then the pale or normal border.
         """
-        # LLFR-01064, LLFR-01082: the mark stays visible over a pale or
+        # LLFR-01099, LLFR-01117: the mark stays visible over a pale or
         # highlighted fill.
         if self.is_square_marked(row_i, column_i):
             return MARKED_COLOR_STR
@@ -386,7 +386,7 @@ class SquarePicker(QWidget):
             event: the QPaintEvent.
         Outputs: none.
         """
-        # LLFR-01062, LLFR-01079: the background and the squares.
+        # LLFR-01097, LLFR-01114: the background and the squares.
         painter = QPainter(self)
         try:
             painter.setPen(QPen(QColor(PICKER_BORDER_COLOR_STR)))
@@ -400,7 +400,7 @@ class SquarePicker(QWidget):
                     painter.setBrush(QColor(
                         self.square_fill_color_str(row_i, column_i)))
                     painter.drawRect(square_rect)
-                    # LLFR-01064, LLFR-01082: the mark, a border on top
+                    # LLFR-01099, LLFR-01117: the mark, a border on top
                     # of the fill.
                     if self.is_square_marked(row_i, column_i):
                         mark_pen = QPen(QColor(MARKED_COLOR_STR))
@@ -408,7 +408,7 @@ class SquarePicker(QWidget):
                         painter.setPen(mark_pen)
                         painter.setBrush(Qt.BrushStyle.NoBrush)
                         painter.drawRect(square_rect.adjusted(1, 1, -1, -1))
-            # LLFR-01096: the text below the squares.
+            # LLFR-01131: the text below the squares.
             text_str = self.size_text()
             if text_str:
                 painter.setPen(QPen(QColor(SIZE_TEXT_COLOR_STR)))
@@ -422,7 +422,7 @@ class SquarePicker(QWidget):
 
 
 class MatrixPicker(SquarePicker):
-    """The 10 x 10 picker of the plot matrix of a tab (LLFR-01062).
+    """The 10 x 10 picker of the plot matrix of a tab (LLFR-01097).
 
     Inputs:
         current_row_count_i: rows of the tab's current plot matrix.
@@ -446,7 +446,7 @@ class MatrixPicker(SquarePicker):
             embedded_b: True for a picker inside a submenu.
         Outputs: none.
         """
-        # LLFR-01062: always 10 rows and 10 columns of squares.
+        # LLFR-01097: always 10 rows and 10 columns of squares.
         super().__init__(MAXIMUM_MATRIX_SIZE_I, MAXIMUM_MATRIX_SIZE_I,
                          choice_function, parent, embedded_b)
         self.current_row_count_i = int(current_row_count_i)
@@ -460,9 +460,9 @@ class MatrixPicker(SquarePicker):
             row_i: rows of the matrix of the square.
             column_i: columns of the matrix of the square.
         Outputs: False when row_i times column_i is smaller than the
-            number of plots of the tab (LLFR-01071).
+            number of plots of the tab (LLFR-01106).
         """
-        # LLFR-01071, LLFR-01072, HLFR-00146.
+        # LLFR-01106, LLFR-01107, HLFR-00147.
         return row_i * column_i >= self.plot_count_i
 
     def is_square_marked(self, row_i: int, column_i: int) -> bool:
@@ -472,9 +472,9 @@ class MatrixPicker(SquarePicker):
             row_i: row of the square, from 1.
             column_i: column of the square, from 1.
         Outputs: True from row 1 to the current last row and from
-            column 1 to the current last column (LLFR-01064).
+            column 1 to the current last column (LLFR-01099).
         """
-        # LLFR-01064: the tab's current matrix.
+        # LLFR-01099: the tab's current matrix.
         return (row_i <= self.current_row_count_i
                 and column_i <= self.current_column_count_i)
 
@@ -485,11 +485,11 @@ class MatrixPicker(SquarePicker):
             row_i: row of the square, from 1.
             column_i: column of the square, from 1.
         Outputs: True from row 1 to the hovered row and from column 1
-            to the hovered column (LLFR-01063), but never while the
-            hovered square is pale (LLFR-01071).
+            to the hovered column (LLFR-01098), but never while the
+            hovered square is pale (LLFR-01106).
         """
-        # LLFR-01063: the R x C rectangle of the hovered square;
-        # LLFR-01071: a pale size is not highlighted, so it never looks
+        # LLFR-01098: the R x C rectangle of the hovered square;
+        # LLFR-01106: a pale size is not highlighted, so it never looks
         # like a size that can be chosen.
         if not self.hover_tuple or not self.is_square_enabled(
                 *self.hover_tuple):
@@ -504,7 +504,7 @@ class MatrixPicker(SquarePicker):
         Outputs: `R × C` while the pointer is over a square that is not
             pale, otherwise the size of the current matrix.
         """
-        # LLFR-01096: the text of the hovered square; LLFR-01071: not for
+        # LLFR-01131: the text of the hovered square; LLFR-01106: not for
         # a pale size, which cannot be chosen.
         if self.hover_tuple and self.is_square_enabled(*self.hover_tuple):
             return matrix_size_text(*self.hover_tuple)
@@ -513,7 +513,7 @@ class MatrixPicker(SquarePicker):
 
 
 class PositionPicker(SquarePicker):
-    """The picker of the slot a plot moves to (LLFR-01079).
+    """The picker of the slot a plot moves to (LLFR-01114).
 
     Inputs:
         row_count_i: rows of the tab's plot matrix.
@@ -542,7 +542,7 @@ class PositionPicker(SquarePicker):
             embedded_b: True for a picker inside a submenu.
         Outputs: none.
         """
-        # LLFR-01079: one square per slot of the plot matrix.
+        # LLFR-01114: one square per slot of the plot matrix.
         super().__init__(row_count_i, column_count_i, choice_function,
                          parent, embedded_b)
         self.plot_count_i = int(plot_count_i)
@@ -555,9 +555,9 @@ class PositionPicker(SquarePicker):
             row_i: row of the slot, from 1.
             column_i: column of the slot, from 1.
         Outputs: True when the slot is one of the first plot_count_i
-            slots of the fill order (LLFR-01080).
+            slots of the fill order (LLFR-01115).
         """
-        # LLFR-01073, LLFR-01080, LLFR-01081.
+        # LLFR-01108, LLFR-01115, LLFR-01116.
         slot_index_i = (row_i - 1) * self.column_count_i + (column_i - 1)
         return slot_index_i < self.plot_count_i
 
@@ -567,9 +567,9 @@ class PositionPicker(SquarePicker):
         Inputs:
             row_i: row of the slot, from 1.
             column_i: column of the slot, from 1.
-        Outputs: True for the own slot (LLFR-01082).
+        Outputs: True for the own slot (LLFR-01117).
         """
-        # LLFR-01082: the plot the picker was opened from.
+        # LLFR-01117: the plot the picker was opened from.
         return (row_i, column_i) == self.own_slot_tuple
 
 
@@ -586,7 +586,7 @@ def add_picker_submenu(menu, title_str: str, picker_factory):
         and the picker it holds (None when the factory gave none, and
         the option is then disabled).
     """
-    # LLFR-01062, LLFR-01079: the picker opens as a submenu, with no
+    # LLFR-01097, LLFR-01114: the picker opens as a submenu, with no
     # click, beside the menu.
     submenu = menu.addMenu(title_str)
     picker = picker_factory(submenu)

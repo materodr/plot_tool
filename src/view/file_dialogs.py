@@ -39,6 +39,18 @@ A FileDialogPool keeps these dialogs:
 - ``run_file_dialog(dialog)`` shows a dialog modally and returns the
   chosen path ("" when cancelled).
 
+A reused dialog must show the folder the controllers ask for on every
+use (LLFR-00447, LLFR-00468, issue #232). Qt keeps, in the options it
+gives the system panel, the files selected at the earlier use: before
+the second show it stores them as the "initially selected files", and
+it never replaces them while that list is not empty. The macOS panel
+then opens in the folder of the first of those files and ignores the
+folder of setDirectory, so every later dialog of a run showed the
+folder of the first file chosen in it. reset_for_new_use therefore also
+selects the new folder itself (selectFile with the folder's path) on
+the macOS panel, which replaces that stale list: Qt's macOS helper
+opens a selected folder as the panel's folder, with no file name.
+
 Any other file dialog is made fast the same way: register its factory
 function with a new key and ask for it with prepared_dialog, as the
 Save signals dialog does.
@@ -46,13 +58,14 @@ Save signals dialog does.
 
 import ctypes
 import ctypes.util
+import os
 import sys
 import time
 import traceback
 
 from PyQt6 import sip
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QDialog, QLineEdit
+from PyQt6.QtWidgets import QDialog, QFileDialog, QLineEdit
 
 # LLFR-00406: the name of the field where a file name is typed in Qt's
 # own file dialog (used where the system has no file dialog, as in the
@@ -169,7 +182,23 @@ def run_file_dialog_paths(dialog) -> list:
             if path_str]
 
 
-def reset_for_new_use(dialog, start_folder_str: str) -> None:
+def uses_system_panel(dialog, platform_str: str = sys.platform) -> bool:
+    """Tell whether a dialog is shown as the macOS system panel.
+
+    Inputs:
+        dialog: a QFileDialog.
+        platform_str: the platform name, as sys.platform.
+    Outputs: True on macOS when the dialog may use the system's own
+        panel (DontUseNativeDialog is not set).
+    """
+    # LLFR-00447, LLFR-00468: only that panel opens in the folder of the
+    # files selected at an earlier use (issue #232).
+    return (platform_str == MACOS_PLATFORM_STR and not dialog.testOption(
+        QFileDialog.Option.DontUseNativeDialog))
+
+
+def reset_for_new_use(dialog, start_folder_str: str,
+                      platform_str: str = sys.platform) -> None:
     """Make a dialog shown before look as a newly built one.
 
     Inputs:
@@ -177,11 +206,17 @@ def reset_for_new_use(dialog, start_folder_str: str) -> None:
         start_folder_str: the folder to show; "" keeps the folder the
             dialog shows now (the folder Qt chose when it was built, or
             the one it showed last).
+        platform_str: the platform name, as sys.platform.
     Outputs: none. The first name filter is chosen and the typed file
         name of an earlier use is cleared.
     """
     # LLFR-00204, LLFR-00220: the folder chosen by the controllers.
+    # LLFR-00447, LLFR-00468: on the macOS panel the folder is also
+    # selected, so that the file chosen at the earlier use no longer
+    # decides the folder (issue #232).
     if start_folder_str:
+        if uses_system_panel(dialog, platform_str):
+            dialog.selectFile(os.path.abspath(start_folder_str))
         dialog.setDirectory(start_folder_str)
     # LLFR-00128, LLFR-00219, LLFR-00221: the filters are kept as they
     # were built; the first one is chosen, as in a new dialog.
@@ -296,10 +331,10 @@ class FileDialogPool:
                 its current folder.
         Outputs: the QFileDialog, reset as by reset_for_new_use.
         """
-        # LLFR-00406, LLFR-00204, LLFR-00220: the same dialog, in the
-        # folder the controller chose.
+        # LLFR-00406, LLFR-00204, LLFR-00220, LLFR-00447, LLFR-00468:
+        # the same dialog, in the folder the controller chose.
         dialog = self.dialog(key_str)
-        reset_for_new_use(dialog, start_folder_str)
+        reset_for_new_use(dialog, start_folder_str, self.platform_str)
         return dialog
 
     def build_and_polish(self, key_str: str) -> None:

@@ -586,7 +586,7 @@ ICON_SHAPE_FUNCTION_DICT = {
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 
-# LLFR-00978, LLFR-00991, LLFR-01010: the icons of the tab buttons of
+# LLFR-01013, LLFR-01026, LLFR-01045: the icons of the tab buttons of
 # the undocked windows, which are not top panel buttons.
 UNDOCK_ICON_STR = "undock"
 DOCK_ICON_STR = "dock"
@@ -600,7 +600,7 @@ def window_square_layer() -> tuple:
     Outputs: the layer of a rounded square open at its top-right corner,
         where the arrow goes out (undock) or comes in (dock).
     """
-    # LLFR-00978, LLFR-00991: a small square.
+    # LLFR-01013, LLFR-01026: a small square.
     return ink_layer([("M", 11.0, 4.5), ("L", 6.5, 4.5),
                       ("Q", 4.5, 4.5, 4.5, 6.5), ("L", 4.5, 17.5),
                       ("Q", 4.5, 19.5, 6.5, 19.5), ("L", 17.5, 19.5),
@@ -613,7 +613,7 @@ def undock_shape() -> list:
     Inputs: none.
     Outputs: the list of layers.
     """
-    # LLFR-00978: the arrow leaves the square at its top-right corner.
+    # LLFR-01013: the arrow leaves the square at its top-right corner.
     return [window_square_layer(),
             ink_layer(segment(11.0, 13.0, 20.5, 3.5)),
             ink_layer(polyline([(14.0, 3.5), (20.5, 3.5), (20.5, 10.0)]))]
@@ -625,7 +625,7 @@ def dock_shape() -> list:
     Inputs: none.
     Outputs: the list of layers.
     """
-    # LLFR-00991: the arrow enters the square at its top-right corner.
+    # LLFR-01026: the arrow enters the square at its top-right corner.
     return [window_square_layer(),
             ink_layer(segment(20.5, 3.5, 11.0, 13.0)),
             ink_layer(polyline([(11.0, 6.5), (11.0, 13.0), (17.5, 13.0)]))]
@@ -637,7 +637,7 @@ def signal_list_shape() -> list:
     Inputs: none.
     Outputs: the list of layers.
     """
-    # LLFR-01010: like the sidebar button of Firefox, mirrored: the
+    # LLFR-01045: like the sidebar button of Firefox, mirrored: the
     # filled right part stands for the signal list panel to the right of
     # the plots; its outer corners follow the rounded rectangle.
     filled_list = [("M", 13.0, 5.0), ("L", 17.5, 5.0),
@@ -649,7 +649,7 @@ def signal_list_shape() -> list:
             ink_layer(segment(13.0, 5.0, 13.0, 19.0))]
 
 
-# LLFR-00978, LLFR-00991, LLFR-01010: name -> function of the layers.
+# LLFR-01013, LLFR-01026, LLFR-01045: name -> function of the layers.
 WINDOW_ICON_SHAPE_FUNCTION_DICT = {
     UNDOCK_ICON_STR: undock_shape,
     DOCK_ICON_STR: dock_shape,
@@ -666,8 +666,8 @@ def icon_layer_list(icon_name_str: str) -> list:
     Outputs: the list of layers, on the 24 by 24 grid. Raises KeyError
         for an unknown name.
     """
-    # LLFR-00159: one drawing per icon; LLFR-00978, LLFR-00991,
-    # LLFR-01010: and the icons of the undocked windows.
+    # LLFR-00159: one drawing per icon; LLFR-01013, LLFR-01026,
+    # LLFR-01045: and the icons of the undocked windows.
     if icon_name_str in WINDOW_ICON_SHAPE_FUNCTION_DICT:
         return WINDOW_ICON_SHAPE_FUNCTION_DICT[icon_name_str]()
     return ICON_SHAPE_FUNCTION_DICT[icon_name_str]()

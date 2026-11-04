@@ -732,9 +732,10 @@ class RebuildWithSyntheticTest(unittest.TestCase):
                                 data_file.time_array,
                                 self.builder_for(data_file))
         # LLFR-00282, LLFR-00237: the renames are reported, nothing else.
-        self.assertEqual(result.report.text(), "Renamed:\n" + "\n".join(
-            f'  - Synthetic signal "{name_list[index_i]}" \u2192 '
-            f'"{name_list[index_i]}_2"' for index_i in (0, 1, 2, 4, 5, 6)))
+        self.assertEqual(result.report.text(), "Renamed:\n\n" + "\n\n".join(
+            f'{number_i}. Synthetic signal "{name_list[index_i]}" \u2192 '
+            f'"{name_list[index_i]}_2"' for number_i, index_i in enumerate(
+                (0, 1, 2, 4, 5, 6), start=1)))
         new_plot = new_workspace.tab_list[0].plot_list[0]
         renamed_str = name_list[1] + "_2"
         self.assertEqual([curve.signal_name_str
@@ -789,7 +790,7 @@ class RebuildWithSyntheticTest(unittest.TestCase):
         self.assertEqual([curve.signal_name_str
                           for curve in plot.curve_list], ["Speed"])
         report_str = result.report.text()
-        self.assertIn("  - fft_Speed_0s_to_5s: FFT signals are not loaded "
+        self.assertIn("\n1. fft_Speed_0s_to_5s: FFT signals are not loaded "
                       "from layout files.", report_str)
         self.assertEqual(result.report.missing_signal_list,
                          ["fft_Speed_0s_to_5s"])
@@ -853,7 +854,7 @@ class ReportTest(unittest.TestCase):
         self.assertNotIn("Removed from the current tabs:", text_str)
         self.assertLess(text_str.index(SYNTHETIC_HEADING_STR),
                         text_str.index("Signals not in the data file:"))
-        self.assertIn("  - a: reason", text_str)
+        self.assertIn(SYNTHETIC_HEADING_STR + "\n\n1. a: reason", text_str)
 
 
 if __name__ == "__main__":

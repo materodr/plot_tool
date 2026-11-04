@@ -16,13 +16,13 @@ Nine keys work this way:
       (LLFR-00321, LLFR-00322, LLFR-00323);
     - the R key does the same for the Arrow tool (LLFR-00367,
       LLFR-00368, LLFR-00369);
-    - the Z key does the same for the Zoom tool (LLFR-01057,
-      LLFR-01058, LLFR-01059).
+    - the Z key does the same for the Zoom tool (LLFR-01092,
+      LLFR-01093, LLFR-01094).
 Besides these tool keys, the filter knows action keys: a key that runs
 a function once when it is pressed alone. The 0 key is one: it resets
 the zoom (LLFR-00207), the 0 of the main keyboard and the 0 of the
 numeric keypad alike, since both have the code Key_0 and the keypad
-flag is allowed (LLFR-01060); the Esc key is another: it switches off
+flag is allowed (LLFR-01095); the Esc key is another: it switches off
 the active plot tool (LLFR-00370). An Esc pressed while a tool key is held
 ends that hold like any other key (LLFR-00150, LLFR-00156, LLFR-00199,
 LLFR-00202, LLFR-00289, LLFR-00323), so no plot tool is active
@@ -114,16 +114,16 @@ AREA_KEY_I = int(Qt.Key.Key_A.value)
 TEXT_KEY_I = int(Qt.Key.Key_T.value)
 # LLFR-00367: the key that holds the Arrow tool.
 ARROW_KEY_I = int(Qt.Key.Key_R.value)
-# LLFR-01057: the key that holds the Zoom tool.
+# LLFR-01092: the key that holds the Zoom tool.
 ZOOM_KEY_I = int(Qt.Key.Key_Z.value)
-# LLFR-00207, LLFR-01060: the key that resets the zoom; the 0 of the
+# LLFR-00207, LLFR-01095: the key that resets the zoom; the 0 of the
 # numeric keypad has the same code, with the keypad flag.
 RESET_ZOOM_KEY_I = int(Qt.Key.Key_0.value)
 # LLFR-00370: the key that switches off the active plot tool.
 ESCAPE_KEY_I = int(Qt.Key.Key_Escape.value)
 # LLFR-00148, LLFR-00154: the modifier each tool key sets by itself; with
 # the keypad flag, the only modifiers allowed while the key is "alone".
-# LLFR-00197, LLFR-00200, LLFR-01057, LLFR-00207: a letter or a digit
+# LLFR-00197, LLFR-00200, LLFR-01092, LLFR-00207: a letter or a digit
 # key sets none.
 OWN_MODIFIER_DICT = {
     TIP_KEY_I: int(Qt.KeyboardModifier.ControlModifier.value),
@@ -359,7 +359,7 @@ class ToolKeyFilter(QObject):
         self.held_key_set.discard(key_i)
         if key_i not in self.key_tool_dict:
             return
-        # LLFR-00148, LLFR-00197, LLFR-00200, LLFR-01057: macOS may never
+        # LLFR-00148, LLFR-00197, LLFR-00200, LLFR-01092: macOS may never
         # send the release of a key pressed together with Cmd (e.g. the Z
         # of Cmd+Z or the Y of Cmd+Y), so every held key except the
         # modifier tool keys is forgotten here; otherwise such a key
@@ -450,7 +450,7 @@ class ToolKeyFilter(QObject):
             and (self.is_text_field(watched)
                  or self.is_text_field(QApplication.focusWidget())))
         # LLFR-00148, LLFR-00150, LLFR-00154, LLFR-00156, LLFR-00197 to
-        # LLFR-00202, LLFR-01057 to LLFR-01059, LLFR-00207.
+        # LLFR-00202, LLFR-01092 to LLFR-01094, LLFR-00207.
         self.handle_key_press(key_i, modifier_value_i(event),
                               bool(event.isAutoRepeat()),
                               text_field_focused_b)

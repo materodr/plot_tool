@@ -87,6 +87,7 @@ import re
 import numpy as np
 
 from model.curve_colors import hex_color_or_none, is_far_from_marker_color
+from model.message_lists import sections_text
 from model.workspace import (
     AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_AREA_COLOR_STR,
     DEFAULT_DELTA_MARKER_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
@@ -125,7 +126,7 @@ START_KEY_STR = "start"
 END_KEY_STR = "end"
 GRID_KEY_STR = "grid"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
-# LLFR-01046, LLFR-01111: the largest size of a Qt window (QWIDGETSIZE_MAX),
+# LLFR-01081, LLFR-01146: the largest size of a Qt window (QWIDGETSIZE_MAX),
 # the limit of every window position, size and panel width of a file.
 MAXIMUM_WINDOW_PIXELS_I = 16777215
 PLOT_PANEL_KEY_STR = "plot_panel"
@@ -138,11 +139,11 @@ FLAGS_KEY_STR = "flags"
 # COLOR_KEY_STR, LLFR-00351). A file without it has no area.
 AREAS_KEY_STR = "areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
-# LLFR-00225 items 12 to 15, LLFR-01040: the keys of the undocked state,
+# LLFR-00225 items 12 to 15, LLFR-01075: the keys of the undocked state,
 # the window, its signal list panel and the plot matrix of a tab.
 UNDOCKED_KEY_STR = "undocked"
 WINDOW_KEY_STR = "window"
-# LLFR-00225 item 16, LLFR-01124: the number of the undocked window of a
+# LLFR-00225 item 16, LLFR-01159: the number of the undocked window of a
 # tab, the same for the tabs that share a window.
 WINDOW_NUMBER_KEY_STR = "window_number"
 X_KEY_STR = "x"
@@ -203,7 +204,6 @@ MISSING_HEADING_STR = "Signals not in the data file:"
 NOT_REBUILT_HEADING_STR = "Not rebuilt:"
 TIME_RANGE_HEADING_STR = "Time range:"
 REPLACED_HEADING_STR = "Values replaced:"
-REPORT_ITEM_PREFIX_STR = "  - "
 
 
 class LayoutFileError(Exception):
@@ -346,20 +346,15 @@ class LayoutReport:
         """Return the report as the text of the information box.
 
         Inputs: none.
-        Outputs: the text, one entry per line under its heading; "" when
-            the report is empty.
+        Outputs: the text, each heading followed by its entries, numbered
+            when the report holds two or more entries (LLFR-00987,
+            LLFR-00988); "" when the report is empty.
         """
-        # LLFR-00237: one box that lists everything.
+        # LLFR-00237: one box that lists everything; LLFR-00980 to
+        # LLFR-00989: in the shared format of the boxes with a list.
         if self.is_empty():
             return ""
-        line_list = []
-        for heading_str, entry_list in self.section_list():
-            if line_list:
-                line_list.append("")
-            line_list.append(heading_str)
-            line_list += [REPORT_ITEM_PREFIX_STR + entry_str
-                          for entry_str in entry_list]
-        return "\n".join(line_list)
+        return sections_text(self.section_list())
 
 
 class LayoutResult:
@@ -643,7 +638,7 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     # plots from top to bottom; LLFR-00283: no frequency plot, but a tab
     # of only frequency plots is still saved.
     # LLFR-00225 item 16: the undocked windows numbered from 1, in the
-    # tab order (LLFR-01056).
+    # tab order (LLFR-01091).
     window_number_dict = {window_id_i: number_i + 1
                           for number_i, window_id_i
                           in enumerate(workspace.window_id_list())}
@@ -662,7 +657,7 @@ def tab_entry(tab, main_panel_width_i: int = 0,
         tab: a model Tab.
         main_panel_width_i: width of the main window's signal list
             panel, in pixels, used as the first width of a panel that
-            was never shown (LLFR-01016).
+            was never shown (LLFR-01051).
         window_number_i: the number of its undocked window in the file,
             from 1 (LLFR-00225 item 16); 0 for a docked tab.
     Outputs: a dict with its name, whether it is undocked, its plot
@@ -679,7 +674,7 @@ def tab_entry(tab, main_panel_width_i: int = 0,
                       ROWS_KEY_STR: int(tab.row_count_i),
                       COLUMNS_KEY_STR: int(tab.column_count_i)}}
     if tab.undocked_b:
-        # LLFR-00225 item 13, LLFR-01040: the window's position and size
+        # LLFR-00225 item 13, LLFR-01075: the window's position and size
         # in whole desktop pixels.
         if len(tab.window_tuple) == 4:
             x_i, y_i, width_i, height_i = (int(value_i) for value_i
@@ -689,7 +684,7 @@ def tab_entry(tab, main_panel_width_i: int = 0,
                 HEIGHT_KEY_STR: height_i}
         else:
             entry_dict[WINDOW_KEY_STR] = None
-        # LLFR-00225 item 16, LLFR-01124: the tabs that share a window
+        # LLFR-00225 item 16, LLFR-01159: the tabs that share a window
         # have the same number; their order in the file is their order
         # in the window.
         entry_dict[WINDOW_NUMBER_KEY_STR] = max(int(window_number_i), 1)
@@ -913,8 +908,8 @@ class LayoutBuilder:
         files_range_tuple: the time range of the open data files
             (LLFR-00916); None takes the range of time_array.
         new_window_tuple: (x, y, width, height) that an undock would
-            give a new window (LLFR-00981, LLFR-01093), used for an
-            unusable saved window (LLFR-01046); () when unknown.
+            give a new window (LLFR-01016, LLFR-01128), used for an
+            unusable saved window (LLFR-01081); () when unknown.
     Attributes:
         report: the LayoutReport being filled.
     """
@@ -950,10 +945,10 @@ class LayoutBuilder:
             self.file_range_tuple = file_time_range(self.time_array)
         else:
             self.file_range_tuple = ()
-        # LLFR-01046: the values of an undock, for unusable values.
+        # LLFR-01081: the values of an undock, for unusable values.
         self.new_window_tuple = tuple(int(value_i)
                                       for value_i in new_window_tuple)
-        # LLFR-01124: window number of the file -> the first created tab
+        # LLFR-01159: window number of the file -> the first created tab
         # of that window.
         self.window_first_tab_dict = {}
         self.report = LayoutReport()
@@ -1527,10 +1522,10 @@ class LayoutBuilder:
                 tab = self.workspace.add_named_tab(name_str)
             else:
                 tab = self.workspace.add_tab()
-            # LLFR-01088 to LLFR-01091: the saved plot matrix, before the
+            # LLFR-01123 to LLFR-01126: the saved plot matrix, before the
             # plots, so that it limits them (LLFR-00488).
             self.apply_plot_matrix(tab, tab_entry)
-            # LLFR-01041, LLFR-01042: docked or undocked, with its window.
+            # LLFR-01076, LLFR-01077: docked or undocked, with its window.
             self.apply_window(tab, tab_entry)
             if first_tab_id_i < 0 and not tab.undocked_b:
                 # LLFR-00477: the first docked tab added is shown.
@@ -1550,23 +1545,23 @@ class LayoutBuilder:
             tab: the new model Tab.
             tab_entry: its entry of the file.
         Outputs: none. A missing matrix gives the default with no report
-            (LLFR-01089); an unusable one gives the default and is
-            reported (LLFR-01090, LLFR-01091).
+            (LLFR-01124); an unusable one gives the default and is
+            reported (LLFR-01125, LLFR-01126).
         """
         if not isinstance(tab_entry, dict) or (
                 PLOT_MATRIX_KEY_STR not in tab_entry):
-            # LLFR-01089: an older file; the default 5 x 1 matrix.
+            # LLFR-01124: an older file; the default 5 x 1 matrix.
             return
         matrix_value = tab_entry[PLOT_MATRIX_KEY_STR]
         if isinstance(matrix_value, dict):
             row_value = matrix_value.get(ROWS_KEY_STR)
             column_value = matrix_value.get(COLUMNS_KEY_STR)
             if is_matrix_size(row_value) and is_matrix_size(column_value):
-                # LLFR-01088: the saved matrix.
+                # LLFR-01123: the saved matrix.
                 tab.row_count_i = int(row_value)
                 tab.column_count_i = int(column_value)
                 return
-        # LLFR-01090, LLFR-01091: the default, as a replaced value.
+        # LLFR-01125, LLFR-01126: the default, as a replaced value.
         tab.row_count_i = DEFAULT_MATRIX_ROWS_I
         tab.column_count_i = DEFAULT_MATRIX_COLUMNS_I
         self.report.add_replaced(
@@ -1586,7 +1581,7 @@ class LayoutBuilder:
             replacement_str: what replaced it.
         Outputs: none.
         """
-        # LLFR-01047: listed as a replaced value.
+        # LLFR-01082: listed as a replaced value.
         self.report.add_replaced(
             f"{what_str} {describe_value(value)} of tab \"{tab.name_str}\" "
             f"cannot be used; replaced by {replacement_str}.")
@@ -1599,12 +1594,12 @@ class LayoutBuilder:
             tab_entry: its entry of the file.
         Outputs: none. An undocked tab gets the saved window and panel,
             each unusable value replaced as an undock would set it
-            (LLFR-01046) and reported (LLFR-01047).
+            (LLFR-01081) and reported (LLFR-01082).
         """
         if not isinstance(tab_entry, dict):
             return
         undocked_value = tab_entry.get(UNDOCKED_KEY_STR)
-        # LLFR-01042: a tab saved as docked, or with no entry, is docked.
+        # LLFR-01077: a tab saved as docked, or with no entry, is docked.
         if undocked_value is None or undocked_value is False:
             return
         if undocked_value is not True:
@@ -1615,14 +1610,14 @@ class LayoutBuilder:
                 f"was docked.")
             return
         if self.joins_window(tab_entry):
-            # LLFR-01124: the window values of the first tab of its
+            # LLFR-01159: the window values of the first tab of its
             # window are used, so this tab's own are not read.
             self.place_in_window(tab, tab_entry, ())
             return
         default_tuple = self.new_window_tuple
         window_value = tab_entry.get(WINDOW_KEY_STR)
         window_dict = window_value if isinstance(window_value, dict) else {}
-        # LLFR-01040, LLFR-01046: whole numbers that Qt can take, sizes of
+        # LLFR-01075, LLFR-01081: whole numbers that Qt can take, sizes of
         # 1 pixel or more.
         position_list = [window_dict.get(X_KEY_STR),
                          window_dict.get(Y_KEY_STR)]
@@ -1652,14 +1647,14 @@ class LayoutBuilder:
         if isinstance(shown_value, bool):
             shown_b = shown_value
         else:
-            # LLFR-01046, LLFR-01015: hidden, as after an undock.
+            # LLFR-01081, LLFR-01050: hidden, as after an undock.
             shown_b = False
             self.report_window_value(tab, "Signal list panel state",
                                      shown_value, "hidden")
         if is_window_length(width_value):
             width_i = int(width_value)
         else:
-            # LLFR-01046, LLFR-01016: the first width of a new panel.
+            # LLFR-01081, LLFR-01051: the first width of a new panel.
             width_i = 0
             self.report_window_value(
                 tab, "Signal list panel width", width_value,
@@ -1673,9 +1668,9 @@ class LayoutBuilder:
         Inputs:
             tab_entry: the entry of an undocked tab of the file.
         Outputs: True when its window number is that of a tab created
-            earlier in this load (LLFR-01124).
+            earlier in this load (LLFR-01159).
         """
-        # LLFR-01124: the same window number, the same window.
+        # LLFR-01159: the same window number, the same window.
         number_value = tab_entry.get(WINDOW_NUMBER_KEY_STR)
         if not (is_whole_number(number_value) and number_value >= 1):
             return False
@@ -1694,21 +1689,21 @@ class LayoutBuilder:
                 usable window values of the entry.
         Outputs: none. A tab with the window number of a tab created
             before goes into that tab's window, after its last tab
-            (LLFR-01124); a tab with no window number, or an unusable
-            one, gets a window of its own (LLFR-01125, LLFR-01130).
+            (LLFR-01159); a tab with no window number, or an unusable
+            one, gets a window of its own (LLFR-01160, LLFR-01165).
         """
         number_value = tab_entry.get(WINDOW_NUMBER_KEY_STR)
         if number_value is not None and not (
                 is_whole_number(number_value) and number_value >= 1):
-            # LLFR-01130, LLFR-01047: a window of its own, reported.
+            # LLFR-01165, LLFR-01082: a window of its own, reported.
             self.report_window_value(tab, "Window number", number_value,
                                      "a window of its own")
             number_value = None
         first_tab = self.window_first_tab_dict.get(number_value)
         if number_value is not None and first_tab is not None and (
                 self.workspace.find_tab(first_tab.tab_id_i) is not None):
-            # LLFR-01124: the window of the first tab of that number,
-            # with its values; LLFR-01056: in the file's order.
+            # LLFR-01159: the window of the first tab of that number,
+            # with its values; LLFR-01091: in the file's order.
             last_tab = self.workspace.window_tab_list(
                 first_tab.window_id_i)[-1]
             self.workspace.tab_list.remove(tab)
@@ -1717,8 +1712,8 @@ class LayoutBuilder:
             tab.copy_window_values(first_tab)
             tab.window_shown_b = False
             return
-        # LLFR-01041, LLFR-01125: the tab opens a new undocked window;
-        # LLFR-01126: which shows its first tab.
+        # LLFR-01076, LLFR-01160: the tab opens a new undocked window;
+        # LLFR-01161: which shows its first tab.
         window_tuple, shown_b, width_i = value_tuple
         self.workspace.tab_list.remove(tab)
         self.workspace.tab_list.append(tab)
@@ -1987,7 +1982,7 @@ class LayoutBuilder:
         if isinstance(widths_value, dict):
             for key_str in (PLOT_PANEL_KEY_STR, SIGNAL_LIST_PANEL_KEY_STR):
                 width_value = widths_value.get(key_str)
-                # LLFR-01111: a width Qt can take.
+                # LLFR-01146: a width Qt can take.
                 if is_window_length(width_value):
                     width_list.append(int(width_value))
         if len(width_list) == 2:
@@ -2065,15 +2060,15 @@ class LayoutBuilder:
         # text notes, which a layout file never holds (LLFR-00226).
         kept_docked_tab = None
         if tabs_replaced_b:
-            # LLFR-01044: the first current docked tab, kept if every tab
+            # LLFR-01079: the first current docked tab, kept if every tab
             # of the file turns out to be undocked.
             kept_docked_tab = self.workspace.docked_tab_list()[0]
             self.workspace.remove_all_tabs()
         first_tab_id_i = self.rebuild_tabs(tab_entry_list)
         if kept_docked_tab is not None and not (
                 self.workspace.docked_tab_list()):
-            # LLFR-01044: the main window keeps a docked tab, with no
-            # plot; LLFR-01045: the windows of the other tabs close.
+            # LLFR-01079: the main window keeps a docked tab, with no
+            # plot; LLFR-01080: the windows of the other tabs close.
             self.workspace.tab_list.insert(0, kept_docked_tab)
         # LLFR-00230, LLFR-00233: the flags of the file; LLFR-00228: only
         # under "flags", also in a file of an earlier version.
@@ -2102,9 +2097,9 @@ def is_whole_number(value) -> bool:
 
     Inputs:
         value: a value read from the JSON text.
-    Outputs: True for an int that is not a bool (LLFR-01040).
+    Outputs: True for an int that is not a bool (LLFR-01075).
     """
-    # LLFR-01046: a value that is not a whole number cannot be used.
+    # LLFR-01081: a value that is not a whole number cannot be used.
     return isinstance(value, int) and not isinstance(value, bool)
 
 
@@ -2114,9 +2109,9 @@ def is_window_coordinate(value) -> bool:
     Inputs:
         value: a value read from the JSON text.
     Outputs: True for a whole number from -MAXIMUM_WINDOW_PIXELS_I to
-        MAXIMUM_WINDOW_PIXELS_I (LLFR-01046).
+        MAXIMUM_WINDOW_PIXELS_I (LLFR-01081).
     """
-    # LLFR-01046: a position Qt can take, also once a size is added.
+    # LLFR-01081: a position Qt can take, also once a size is added.
     return (is_whole_number(value)
             and -MAXIMUM_WINDOW_PIXELS_I <= value
             <= MAXIMUM_WINDOW_PIXELS_I)
@@ -2128,9 +2123,9 @@ def is_window_length(value) -> bool:
     Inputs:
         value: a value read from the JSON text.
     Outputs: True for a whole number from 1 to MAXIMUM_WINDOW_PIXELS_I
-        (LLFR-01046, LLFR-01111).
+        (LLFR-01081, LLFR-01146).
     """
-    # LLFR-01046, LLFR-01111: a size Qt can take; a larger number (for
+    # LLFR-01081, LLFR-01146: a size Qt can take; a larger number (for
     # example above 2**31 - 1) would make Qt raise OverflowError.
     return is_whole_number(value) and 1 <= value <= MAXIMUM_WINDOW_PIXELS_I
 
@@ -2150,7 +2145,7 @@ def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
             rebuild for the synthetic signals (LLFR-00262).
         files_range_tuple: the time range of the open data files, or
             None for the range of time_array (LLFR-00916).
-        new_window_tuple: the window an undock would open (LLFR-01046).
+        new_window_tuple: the window an undock would open (LLFR-01081).
     Outputs: the LayoutResult.
     """
     # LLFR-00229 to LLFR-00235: see LayoutBuilder.

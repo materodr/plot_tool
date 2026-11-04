@@ -18,7 +18,7 @@ method calls (no Qt code), so it can be tested with a fake view
 - ``window_tab_plot_count(tab_id_i)``, ``copy_window_tab_image(
   description_str, tab_id_i)`` and ``show_nothing_to_copy_in(tab_id_i)``:
   the same for the tab shown in a window, -1 for the main window
-  (LLFR-01101, LLFR-01103);
+  (LLFR-01136, LLFR-01138);
 - ``show_nothing_to_export()``, ``show_nothing_to_copy()``;
 - ``show_export_error(reason_str)``, ``show_copy_error(reason_str)``;
 - ``finish_export_button()``, ``finish_copy_button()``.
@@ -117,11 +117,11 @@ class ExportController:
                 (Cmd+C) was pressed, or -1 for the main window.
         Outputs: none. The Copy button is not involved.
         """
-        # LLFR-01103: with no plot in that tab, the box over its window.
+        # LLFR-01138: with no plot in that tab, the box over its window.
         if self.view.window_tab_plot_count(window_tab_id_i) <= 0:
             self.view.show_nothing_to_copy_in(window_tab_id_i)
             return
-        # LLFR-01101: the image of the tab shown in that window, as the
+        # LLFR-01136: the image of the tab shown in that window, as the
         # Copy button does for the main window (LLFR-00133, LLFR-00972).
         copied_b, reason_str = self.view.copy_window_tab_image(
             self.files_description(), window_tab_id_i)

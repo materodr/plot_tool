@@ -195,7 +195,7 @@ class ButtonIconEngine(QIconEngine):
         icon_shapes.icon_layer_list(icon_name_str)
         self.icon_name_str = icon_name_str
         self.normal_color_str = normal_color_str or theme.ICON_COLOR_STR
-        # LLFR-01014: a button with a pale active highlight keeps a dark
+        # LLFR-01049: a button with a pale active highlight keeps a dark
         # icon while active.
         self.active_color_str = active_color_str
 
@@ -213,7 +213,7 @@ class ButtonIconEngine(QIconEngine):
             return self.normal_color_str
         if (color_str == theme.ICON_ACTIVE_COLOR_STR
                 and self.active_color_str is not None):
-            # LLFR-01014: the icon of a pale active highlight.
+            # LLFR-01049: the icon of a pale active highlight.
             return self.active_color_str
         return color_str
 

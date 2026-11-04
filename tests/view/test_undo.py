@@ -11,6 +11,7 @@ from unittest import mock
 
 import numpy as np
 
+from tests.support import expand_all_files
 from tests.support import button_name, covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
@@ -66,7 +67,7 @@ class UndoWindowTestCase(unittest.TestCase):
 
         Inputs: none.
         Outputs: the Workspace.state_tuple(), with the panel widths
-            shown now (LLFR-01020): the model learns them from the view.
+            shown now (LLFR-01055): the model learns them from the view.
         """
         self.plot_controller.sync_window_state()
         return self.plot_controller.workspace.state_tuple()
@@ -252,7 +253,7 @@ class UndoButtonTest(UndoWindowTestCase):
         self.assertTrue(self.top_panel.zoom_button.is_active())
         self.assertTrue(self.top_panel.grid_button.is_active())
 
-    @covers("LLFR-01097", "LLFR-00138", "LLFR-00192", "LLFR-00124",
+    @covers("LLFR-01132", "LLFR-00138", "LLFR-00192", "LLFR-00124",
             "LLFR-00122", "LLFR-00123", "HLFR-00040", "HLFR-00048",
             "HLFR-00037")
     def test_grid_click_is_undone_and_redone(self) -> None:
@@ -425,6 +426,9 @@ class UndoEndToEndTest(unittest.TestCase):
         with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
                         return_value=self.path_str):
             self.click(self.main_window.top_panel.open_file_button)
+            # LLFR-01001: the files are collapsed after an open; these
+            # tests read the shown signals.
+            expand_all_files(self.controller)
 
     def double_click_signal(self, signal_name_str: str) -> None:
         """Double-click a name in the signal list.

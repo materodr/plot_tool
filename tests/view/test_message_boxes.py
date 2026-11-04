@@ -122,7 +122,7 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(shown_box.icon(),
                          self.message_box_class.Icon.Critical)
 
-    @covers("LLFR-00032", "HLFR-00018", "HLFR-00145")
+    @covers("LLFR-00032", "HLFR-00018", "HLFR-00146")
     def test_full_tab_box_content(self) -> None:
         """The full tab box is information and tells to use a new tab
         or a larger plot matrix, naming the tab's matrix.
@@ -150,7 +150,7 @@ class MessageBoxesTest(unittest.TestCase):
             "This tab is full (2 \u00d7 3 matrix). Use a new tab, or a "
             "larger matrix from the tab's menu.")
 
-    @covers("LLFR-01092", "LLFR-00032", "HLFR-00018")
+    @covers("LLFR-01127", "LLFR-00032", "HLFR-00018")
     def test_full_ten_by_ten_box_says_only_new_tab(self) -> None:
         """With a 10 x 10 matrix the box says only to use a new tab.
 
@@ -363,6 +363,106 @@ class CloseFilesBoxTest(unittest.TestCase):
             self.assertTrue(window.ask_close_all_files("Close all?"))
         self.assertEqual(record_list, [("Close file", "Close file1_a.csv?"),
                                        ("Close all files", "Close all?")])
+
+
+@requires_qt
+class ListBoxesTest(unittest.TestCase):
+    """The boxes that list items show them numbered (LLFR-00981)."""
+
+    def setUp(self) -> None:
+        """Get the application and import the module under test.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+        from view import message_boxes
+        self.message_module = message_boxes
+
+    @covers("LLFR-00980", "LLFR-00981", "LLFR-00982", "LLFR-00983",
+            "LLFR-00984", "LLFR-00255")
+    def test_delete_question_numbers_the_dependents(self) -> None:
+        """The dependents are numbered below their sentence; one
+        dependent alone has no number.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        module = self.message_module
+        text_str = module.delete_synthetic_signal_text(
+            "file1_int_Speed", ["file1_der_int_Speed",
+                                "file1_max_der_int_Speed"])
+        self.assertEqual(text_str, "\n\n".join([
+            module.DELETE_SYNTHETIC_MESSAGE_STR.format(
+                name="file1_int_Speed"),
+            module.DELETE_DEPENDENTS_MESSAGE_STR,
+            "1. file1_der_int_Speed", "2. file1_max_der_int_Speed",
+            module.DELETE_CONSEQUENCE_MESSAGE_STR]))
+        alone_str = module.delete_synthetic_signal_text(
+            "file1_int_Speed", ["file1_der_int_Speed"])
+        self.assertIn(module.DELETE_DEPENDENTS_MESSAGE_STR
+                      + "\n\nfile1_der_int_Speed\n\n", alone_str)
+        box = module.build_delete_synthetic_signal_box(
+            None, "file1_int_Speed", ["file1_der_int_Speed",
+                                      "file1_max_der_int_Speed"])
+        self.assertEqual(box.text(), text_str)
+        box.deleteLater()
+
+    @covers("LLFR-00980", "LLFR-00982", "LLFR-00955", "LLFR-00956")
+    def test_message_boxes_keep_the_numbered_text(self) -> None:
+        """The File Open Error box and the refused files box show the
+        numbered list as it is, as plain text.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        text_str = "1. a.csv: could not be read.\n\n2. b.csv: gone."
+        for build_function in (self.message_module.build_file_open_error_box,
+                               self.message_module.build_refused_files_box):
+            with self.subTest(box=build_function.__name__):
+                box = build_function(None, text_str)
+                self.assertEqual(box.text(), text_str)
+                self.assertNotEqual(box.textFormat(),
+                                    Qt.TextFormat.RichText)
+                box.deleteLater()
+
+    @covers("LLFR-00990", "LLFR-00884", "LLFR-00885", "LLFR-00986")
+    def test_scrollable_boxes_wrap_their_lines(self) -> None:
+        """The text fields of the load report and of the changed names
+        wrap at their width, also inside a long name, and keep the text.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QTextOption
+        from PyQt6.QtWidgets import QPlainTextEdit
+        from model.message_lists import list_body_text
+        long_name_str = "file1_" + "x" * 400
+        text_str = list_body_text([long_name_str] + [
+            f"item {index_i}" for index_i in range(10)])
+        module = self.message_module
+        for dialog, object_name_str in (
+                (module.build_layout_report_box(None, text_str),
+                 module.LAYOUT_REPORT_TEXT_OBJECT_NAME_STR),
+                (module.build_changed_names_box(None, text_str),
+                 module.CHANGED_NAMES_TEXT_OBJECT_NAME_STR)):
+            with self.subTest(field=object_name_str):
+                field = dialog.findChild(QPlainTextEdit, object_name_str)
+                self.assertEqual(field.toPlainText(), text_str)
+                self.assertEqual(field.lineWrapMode(),
+                                 QPlainTextEdit.LineWrapMode.WidgetWidth)
+                self.assertEqual(
+                    field.wordWrapMode(),
+                    QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+                dialog.resize(600, 400)
+                dialog.show()
+                self.application.processEvents()
+                # LLFR-00990: no horizontal scroll is needed.
+                self.assertEqual(field.horizontalScrollBar().maximum(), 0)
+                dialog.close()
+                dialog.deleteLater()
+        self.application.processEvents()
 
 
 if __name__ == "__main__":

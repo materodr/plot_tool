@@ -9,9 +9,17 @@ import numpy as np
 from tests.support import covers
 
 from model.data_files import (
-    MAXIMUM_DATA_FILES_I, DataFileSet, file_prefix, prefixed_name,
-    same_file_b, selection_order_list)
+    MAXIMUM_DATA_FILES_I, DataFileSet, file_prefix,
+    identical_time_signals_b, prefixed_name, same_file_b,
+    selection_order_list)
+from model.file_loader import load_signal_file
 from model.signal_file import SignalFile
+from model.synthetic_signals import ordered_signal_names
+
+# The sample files of PCR-00032.
+GOOD_FOLDER_STR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "user_tests", "good")
 
 
 def make_file(path_str: str, start_s: float = 0.0,
@@ -222,6 +230,159 @@ class DescriptionTest(unittest.TestCase):
                          "file1 = run_A.csv, file3 = run C.h5")
         data_files.remove_all()
         self.assertEqual(data_files.description_str, "")
+
+
+class TimeToleranceTest(unittest.TestCase):
+    """Identical time signals within a tolerance (HLFR-00120)."""
+
+    def identical(self, first_list: list, second_list: list) -> bool:
+        """Compare two time signals both ways.
+
+        Inputs:
+            first_list: the samples of the first time signal.
+            second_list: the samples of the second one.
+        Outputs: the answer of identical_time_signals_b, which must be
+            the same in both orders.
+        """
+        first_b = identical_time_signals_b(np.array(first_list),
+                                           np.array(second_list))
+        second_b = identical_time_signals_b(np.array(second_list),
+                                            np.array(first_list))
+        self.assertEqual(first_b, second_b)
+        return first_b
+
+    @covers("LLFR-00977", "HLFR-00120")
+    def test_relative_tolerance_from_1_up(self) -> None:
+        """From 1 up, two samples match within 1e-8 times the larger
+        absolute value.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertTrue(self.identical([0.0, 1000.0], [0.0, 1000.0]))
+        self.assertTrue(self.identical([1000.0], [1000.0 + 0.9e-5]))
+        self.assertFalse(self.identical([1000.0], [1000.0 + 1.1e-5]))
+        self.assertTrue(self.identical([-2.0], [-2.0 - 1.9e-8]))
+        self.assertFalse(self.identical([-2.0], [-2.0 - 2.1e-8]))
+        self.assertTrue(self.identical([1.0], [1.0 + 0.9e-8]))
+        self.assertFalse(self.identical([1.0], [1.0 + 1.1e-8]))
+        # The larger of the two values sets the tolerance.
+        self.assertTrue(self.identical([0.9999999995], [1.000000005]))
+
+    @covers("LLFR-00977", "HLFR-00120")
+    def test_absolute_tolerance_below_1(self) -> None:
+        """When both samples are smaller than 1 in absolute value, they
+        match within 1e-8.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertTrue(self.identical([0.0], [0.9e-8]))
+        self.assertFalse(self.identical([0.0], [1.1e-8]))
+        self.assertTrue(self.identical([0.5], [0.5 + 0.9e-8]))
+        self.assertFalse(self.identical([0.5], [0.5 + 1.1e-8]))
+        self.assertTrue(self.identical([-0.5], [-0.5 - 0.9e-8]))
+        self.assertTrue(self.identical([1e-12], [-1e-12]))
+
+    @covers("LLFR-00977", "HLFR-00120")
+    def test_number_of_samples(self) -> None:
+        """Time signals with different numbers of samples never match.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertFalse(self.identical([0.0, 1.0], [0.0, 1.0, 2.0]))
+        self.assertFalse(self.identical([0.0], []))
+        self.assertTrue(self.identical([], []))
+
+    @covers("LLFR-00978", "LLFR-00977", "HLFR-00120")
+    def test_nan_samples(self) -> None:
+        """A NaN matches a NaN at the same position, never a number.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        nan_f = float("nan")
+        self.assertTrue(self.identical([0.0, nan_f, 2.0],
+                                       [0.0, nan_f, 2.0 + 1e-9]))
+        self.assertTrue(self.identical([nan_f, nan_f], [nan_f, nan_f]))
+        self.assertFalse(self.identical([0.0, nan_f, 2.0],
+                                        [0.0, 1.0, 2.0]))
+        self.assertFalse(self.identical([0.0, nan_f], [nan_f, 0.0]))
+        # A NaN elsewhere does not hide a difference.
+        self.assertFalse(self.identical([nan_f, 1.0], [nan_f, 1.1]))
+
+    @covers("LLFR-00977", "HLFR-00120")
+    def test_infinite_samples(self) -> None:
+        """An infinity matches the same infinity only.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        inf_f = float("inf")
+        self.assertTrue(self.identical([0.0, inf_f], [0.0, inf_f]))
+        self.assertFalse(self.identical([inf_f], [-inf_f]))
+        self.assertFalse(self.identical([inf_f], [1e300]))
+
+    @covers("LLFR-00977", "LLFR-00942", "HLFR-00120", "HLFR-00113")
+    def test_excel_and_mat_samples_are_identical(self) -> None:
+        """signals.xlsx and signals.mat store the same times with tiny
+        rounding differences, and count as identical.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        excel_file = load_signal_file(os.path.join(GOOD_FOLDER_STR,
+                                                   "signals.xlsx"))
+        mat_file = load_signal_file(os.path.join(GOOD_FOLDER_STR,
+                                                 "signals.mat"))
+        # The test is meaningful only while the values differ.
+        self.assertFalse(np.array_equal(excel_file.time_array,
+                                        mat_file.time_array))
+        self.assertTrue(identical_time_signals_b(excel_file.time_array,
+                                                 mat_file.time_array))
+        data_files = DataFileSet()
+        data_files.add(excel_file)
+        data_files.add(mat_file)
+        self.assertTrue(data_files.same_time_signals_b())
+        # A third file with one time 1e-6 s later is not identical.
+        later_array = np.array(mat_file.time_array, dtype=float)
+        later_array[10] += 1e-6
+        data_files.add(SignalFile("later.csv", {
+            "Time": later_array, "Speed": later_array}))
+        self.assertFalse(data_files.same_time_signals_b())
+
+
+class TimeSignalFirstTest(unittest.TestCase):
+    """The time signal is the first signal of its file (LLFR-01009)."""
+
+    @covers("LLFR-01009", "LLFR-00939", "HLFR-00011")
+    def test_listed_names_start_with_the_time_signal(self) -> None:
+        """The time signal comes first, then the file's order.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = np.linspace(0.0, 2.0, 3)
+        data_files = DataFileSet()
+        first_file = data_files.add(SignalFile("a.csv", {
+            "Speed": time_array, "Time": time_array, "Force": time_array}))
+        second_file = data_files.add(SignalFile("b.csv", {
+            "x": time_array, "t_s": time_array}, "t_s"))
+        self.assertEqual(first_file.listed_signal_name_list,
+                         ["file1_Time", "file1_Speed", "file1_Force"])
+        self.assertEqual(second_file.listed_signal_name_list,
+                         ["file2_t_s", "file2_x"])
+        # The file's own order is kept by signal_name_list.
+        self.assertEqual(first_file.signal_name_list,
+                         ["file1_Speed", "file1_Time", "file1_Force"])
+        # The order of the signal list, with the synthetic signals
+        # after their own file's signals.
+        self.assertEqual(
+            ordered_signal_names(data_files, ["file1_int_Speed"],
+                                 {"file1_int_Speed": 1}),
+            ["file1_Time", "file1_Speed", "file1_Force", "file1_int_Speed",
+             "file2_t_s", "file2_x"])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-"""Tests for the X, Y and Z keys (LLFR-00197 to LLFR-00202, LLFR-01057
-to LLFR-01059), the 0 key (LLFR-00207, LLFR-00454, LLFR-01060) and for
+"""Tests for the X, Y and Z keys (LLFR-00197 to LLFR-00202, LLFR-01092
+to LLFR-01094), the 0 key (LLFR-00207, LLFR-00454, LLFR-01095) and for
 these keys while typing in a text field (LLFR-00157).
 
 The first class drives the ToolKeyFilter state machine with real Qt key
@@ -94,7 +94,7 @@ class XyzKeyFilterTest(unittest.TestCase):
                  "NoModifier", auto_repeat_b)
 
     @covers("LLFR-00197", "LLFR-00200", "LLFR-00207", "LLFR-00148",
-            "LLFR-00154", "LLFR-01057")
+            "LLFR-00154", "LLFR-01092")
     def test_lost_letter_release_with_ctrl_blocks_nothing(self) -> None:
         """Ctrl, then Y, X or Z with Ctrl (Redo, Ctrl+X, Undo), then Ctrl
         released without the letter's release (macOS can drop it): X, Y,
@@ -147,7 +147,7 @@ class XyzKeyFilterTest(unittest.TestCase):
             self.assertEqual(self.call_list, ["reset"])
 
     @covers("LLFR-00197", "LLFR-00198", "LLFR-00200", "LLFR-00201",
-            "LLFR-01057", "LLFR-01058")
+            "LLFR-01092", "LLFR-01093")
     def test_x_and_y_alone_activate_and_release_ends(self) -> None:
         """X alone holds Delta X, Y alone holds Delta Y, Z alone holds
         Zoom; each release ends the activation once, even with repeated
@@ -170,7 +170,7 @@ class XyzKeyFilterTest(unittest.TestCase):
             self.assertEqual(self.call_list, [tool_str, "release"])
             self.assertFalse(self.tool_key_filter.is_activation_on())
 
-    @covers("LLFR-00199", "LLFR-00202", "LLFR-01059")
+    @covers("LLFR-00199", "LLFR-00202", "LLFR-01094")
     def test_other_key_ends_the_activation_at_once(self) -> None:
         """Another key while X, Y or Z is held ends the activation; it is
         not renewed until the key is pressed again alone.
@@ -198,7 +198,7 @@ class XyzKeyFilterTest(unittest.TestCase):
                 self.assertEqual(self.call_list[-1], tool_str)
                 self.release(key_name_str)
 
-    @covers("LLFR-00197", "LLFR-00200", "LLFR-01057", "LLFR-00137")
+    @covers("LLFR-00197", "LLFR-00200", "LLFR-01092", "LLFR-00137")
     def test_x_and_y_not_alone_do_not_activate(self) -> None:
         """X, Y or Z with a modifier (Ctrl+X, Shift+Y, Ctrl+Z) or with
         another key held activates nothing.
@@ -217,7 +217,7 @@ class XyzKeyFilterTest(unittest.TestCase):
             self.release("Key_A")
         self.assertEqual(self.call_list, [])
 
-    @covers("LLFR-00197", "LLFR-00200", "LLFR-01057", "LLFR-00207")
+    @covers("LLFR-00197", "LLFR-00200", "LLFR-01092", "LLFR-00207")
     def test_auto_repeat_restarts_nothing(self) -> None:
         """Auto-repeated presses and releases of X, Y, Z and 0 change
         nothing: the hold goes on, and 0 resets only once.
@@ -245,7 +245,7 @@ class XyzKeyFilterTest(unittest.TestCase):
         self.release("Key_0")
         self.assertEqual(self.call_list, ["reset"])
 
-    @covers("LLFR-00207", "LLFR-01060")
+    @covers("LLFR-00207", "LLFR-01095")
     def test_zero_alone_runs_its_action_once(self) -> None:
         """0 alone runs the reset once per press (ShortcutOverride and
         KeyPress count once), the 0 of the keypad too; 0 with a modifier
@@ -257,7 +257,7 @@ class XyzKeyFilterTest(unittest.TestCase):
         self.press("Key_0")
         self.release("Key_0")
         self.assertEqual(self.call_list, ["reset"])
-        # LLFR-01060: the 0 of the numeric keypad.
+        # LLFR-01095: the 0 of the numeric keypad.
         self.press("Key_0", "KeypadModifier")
         self.release("Key_0")
         self.assertEqual(self.call_list, ["reset", "reset"])
@@ -274,7 +274,7 @@ class XyzKeyFilterTest(unittest.TestCase):
         self.assertFalse(self.tool_key_filter.is_activation_on())
 
     @covers("LLFR-00207", "LLFR-00199", "LLFR-00150", "LLFR-00156",
-            "LLFR-01059")
+            "LLFR-01094")
     def test_zero_while_a_tool_key_is_held_ends_it_and_does_not_reset(
             self) -> None:
         """0 pressed while X, Y, Z, the Tip key or Shift is held ends
@@ -298,7 +298,7 @@ class XyzKeyFilterTest(unittest.TestCase):
             self.assertEqual(self.call_list, [tool_str, "release"])
 
     @covers("LLFR-00157", "LLFR-00197", "LLFR-00200", "LLFR-00207",
-            "LLFR-01057")
+            "LLFR-01092")
     def test_nothing_while_a_text_field_has_focus(self) -> None:
         """X, Y, Z and 0 sent to a text field, or with the focus in one,
         do nothing, and the events reach the field.
@@ -339,7 +339,7 @@ class XyzKeyFilterTest(unittest.TestCase):
             self.release(key_name_str, receiver=self.line_edit)
             self.assertEqual(self.call_list, [tool_str, "release"])
 
-    @covers("LLFR-00199", "LLFR-00202", "LLFR-00207", "LLFR-01059")
+    @covers("LLFR-00199", "LLFR-00202", "LLFR-00207", "LLFR-01094")
     def test_filter_never_consumes_an_event(self) -> None:
         """The filter lets every X, Y, Z and 0 event through.
 
@@ -581,7 +581,7 @@ class XyKeyMainWindowTest(XyzKeyWindowTestCase):
         self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00157", "LLFR-00197", "LLFR-00200", "LLFR-00207",
-            "LLFR-01057")
+            "LLFR-01092")
     def test_typing_x_y_z_in_the_search_box(self) -> None:
         """In the search box x, y, z and 0 are typed and change neither
         the tool nor the zoom.
@@ -609,7 +609,7 @@ class XyKeyMainWindowTest(XyzKeyWindowTestCase):
         self.assert_every_range(ZOOMED_RANGE_TUPLE)
         self.assertFalse(self.top_panel.reset_zoom_button.is_active())
 
-    @covers("LLFR-00157", "LLFR-00197", "LLFR-00207", "LLFR-01057")
+    @covers("LLFR-00157", "LLFR-00197", "LLFR-00207", "LLFR-01092")
     def test_typing_in_a_name_dialog(self) -> None:
         """In the line edit of a name dialog x, z and 0 are typed and change
         neither the tool nor the zoom.
@@ -654,7 +654,7 @@ class ZeroKeyMainWindowTest(XyzKeyWindowTestCase):
         self.application.processEvents()
         self.assertEqual(len(self.all_plot_widgets()), 3)
 
-    @covers("LLFR-00207", "LLFR-00115", "LLFR-00070", "HLFR-00144")
+    @covers("LLFR-00207", "LLFR-00115", "LLFR-00070", "HLFR-00145")
     def test_zero_resets_every_plot_in_every_tab(self) -> None:
         """0 alone sets every plot of every tab to the file's range, from
         any focus widget that is not a text field, with any plot tool.
@@ -703,7 +703,7 @@ class ZeroKeyMainWindowTest(XyzKeyWindowTestCase):
         QTest.qWait(400)
         self.assertFalse(button.is_active())
 
-    @covers("LLFR-00207", "LLFR-01059")
+    @covers("LLFR-00207", "LLFR-01094")
     def test_zero_with_a_modifier_or_another_key_does_not_reset(self) -> None:
         """Ctrl+0, Shift+0 and 0 with another key held do not reset; 0
         while X, Y, Z, Ctrl or Shift is held ends that hold and does not
@@ -864,8 +864,8 @@ class ZeroKeyMainWindowTest(XyzKeyWindowTestCase):
 class ZKeyHoldMainWindowTest(XyzKeyWindowTestCase):
     """Holding the Z key for the Zoom tool in the main window."""
 
-    @covers("LLFR-01057", "LLFR-01058", "LLFR-00079", "LLFR-00077",
-            "HLFR-00143")
+    @covers("LLFR-01092", "LLFR-01093", "LLFR-00079", "LLFR-00077",
+            "HLFR-00144")
     def test_hold_z_activates_zoom_and_release_leaves_no_tool(
             self) -> None:
         """Z alone makes Zoom the only active tool, whatever tool was
@@ -886,11 +886,11 @@ class ZKeyHoldMainWindowTest(XyzKeyWindowTestCase):
             self.assert_tool_everywhere(ZOOM_TOOL_STR)
             self.release_key("Key_Z", self.plot_widgets()[0].canvas)
             self.assert_tool_everywhere(NO_TOOL_STR)
-        # LLFR-01057 Note: Z holds a tool, it does not reset the zoom.
+        # LLFR-01092 Note: Z holds a tool, it does not reset the zoom.
         self.assert_every_range(ZOOMED_RANGE_TUPLE)
         self.assertFalse(self.top_panel.reset_zoom_button.is_active())
 
-    @covers("LLFR-01059", "HLFR-00143")
+    @covers("LLFR-01094", "HLFR-00144")
     def test_other_key_ends_the_zoom_hold(self) -> None:
         """Another key while Z is held leaves no tool active, also after
         both keys are released.
@@ -908,7 +908,7 @@ class ZKeyHoldMainWindowTest(XyzKeyWindowTestCase):
             self.release_key("Key_Z")
             self.assert_tool_everywhere(NO_TOOL_STR)
 
-    @covers("LLFR-01057", "LLFR-00137", "HLFR-00143")
+    @covers("LLFR-01092", "LLFR-00137", "HLFR-00144")
     def test_ctrl_z_never_activates_zoom(self) -> None:
         """Ctrl+Z (Undo), Shift+Z and Alt+Z never activate the Zoom
         tool; Z alone still does afterwards.
@@ -926,7 +926,7 @@ class ZKeyHoldMainWindowTest(XyzKeyWindowTestCase):
         self.release_key("Key_Z")
         self.assert_tool_everywhere(NO_TOOL_STR)
 
-    @covers("LLFR-00207", "LLFR-01060", "HLFR-00144")
+    @covers("LLFR-00207", "LLFR-01095", "HLFR-00145")
     def test_keypad_zero_resets_the_zoom(self) -> None:
         """The 0 of the numeric keypad resets the zoom like the 0 of the
         main keyboard.
@@ -943,7 +943,7 @@ class ZKeyHoldMainWindowTest(XyzKeyWindowTestCase):
         self.release_key("Key_0")
         self.assert_every_range(FULL_RANGE_TUPLE)
 
-    @covers("LLFR-00454", "LLFR-00207", "HLFR-00144")
+    @covers("LLFR-00454", "LLFR-00207", "HLFR-00145")
     def test_zero_does_nothing_during_a_tab_drag(self) -> None:
         """While a tab is dragged, 0 does nothing; after the release it
         resets.

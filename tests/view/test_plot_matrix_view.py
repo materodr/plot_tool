@@ -2,9 +2,9 @@
 
 A real MainWindow and MainController are used (the setup of
 test_plot_panel). They check the layout of the plots in the plot matrix
-(HLFR-00147, HLFR-00148), the matrix picker of the tab menu
-(HLFR-00145, HLFR-00146), the position picker of the plot menu
-(HLFR-00149), the drag of a tab (HLFR-00142) and the undo of each of
+(HLFR-00148, HLFR-00149), the matrix picker of the tab menu
+(HLFR-00146, HLFR-00147), the position picker of the plot menu
+(HLFR-00150), the drag of a tab (HLFR-00143) and the undo of each of
 them (HLFR-00040). No picker or menu is left open: pickers are shown
 only where a test closes them, and show_picker is patched elsewhere.
 """
@@ -96,10 +96,10 @@ class PlotMatrixViewTestCase(PlotPanelTestCase):
 
 
 class MatrixLayoutTest(PlotMatrixViewTestCase):
-    """The plots laid out in the plot matrix (HLFR-00147, HLFR-00148)."""
+    """The plots laid out in the plot matrix (HLFR-00148, HLFR-00149)."""
 
-    @covers("LLFR-01073", "LLFR-01075", "LLFR-01076", "LLFR-00069",
-            "HLFR-00147", "HLFR-00148")
+    @covers("LLFR-01108", "LLFR-01110", "LLFR-01111", "LLFR-00069",
+            "HLFR-00148", "HLFR-00149")
     def test_three_plots_in_a_two_by_two_matrix(self) -> None:
         """Row 1 holds plots 1 and 2 side by side; plot 3 stretches over
         the whole width of row 2; both rows have the same height.
@@ -126,7 +126,7 @@ class MatrixLayoutTest(PlotMatrixViewTestCase):
                                delta=LAYOUT_TOLERANCE_I)
         self.assertEqual(len(page.row_layout_list), 2)
 
-    @covers("LLFR-01075", "LLFR-01076", "HLFR-00148")
+    @covers("LLFR-01110", "LLFR-01111", "HLFR-00149")
     def test_only_rows_in_use_share_the_height(self) -> None:
         """Two plots in a 5 x 5 matrix use one row and the whole height.
 
@@ -144,7 +144,7 @@ class MatrixLayoutTest(PlotMatrixViewTestCase):
                                page.width(),
                                delta=LAYOUT_TOLERANCE_I * 4)
 
-    @covers("LLFR-01067", "LLFR-01065", "LLFR-00069", "LLFR-01087")
+    @covers("LLFR-01102", "LLFR-01100", "LLFR-00069", "LLFR-01122")
     def test_matrix_change_lays_the_same_plots_out_again(self) -> None:
         """Three stacked plots become one row in a 1 x 3 matrix, keeping
         their widgets and order.
@@ -153,7 +153,7 @@ class MatrixLayoutTest(PlotMatrixViewTestCase):
         Outputs: none.
         """
         plot_widget_list = self.add_plots(3)
-        # LLFR-01087, LLFR-00069: the default 5 x 1 stacks them.
+        # LLFR-01122, LLFR-00069: the default 5 x 1 stacks them.
         x_set = {widget.x() for widget in plot_widget_list}
         self.assertEqual(len(x_set), 1)
         self.choose_matrix(1, 3)
@@ -164,7 +164,7 @@ class MatrixLayoutTest(PlotMatrixViewTestCase):
         for left, right in zip(plot_widget_list, plot_widget_list[1:]):
             self.assertLessEqual(left.x() + left.width(), right.x())
 
-    @covers("LLFR-00050", "LLFR-01073", "HLFR-00019")
+    @covers("LLFR-00050", "LLFR-01108", "HLFR-00019")
     def test_deletion_moves_the_later_plots_back(self) -> None:
         """Deleting plot 1 of a 2 x 2 tab moves plot 3 up into row 1.
 
@@ -182,7 +182,7 @@ class MatrixLayoutTest(PlotMatrixViewTestCase):
         self.assertAlmostEqual(second.y(), third.y(),
                                delta=LAYOUT_TOLERANCE_I)
 
-    @covers("LLFR-01066", "HLFR-00145")
+    @covers("LLFR-01101", "HLFR-00146")
     def test_each_tab_keeps_its_own_matrix(self) -> None:
         """A matrix change of one tab leaves the other page at 5 x 1.
 
@@ -203,7 +203,7 @@ class MatrixLayoutTest(PlotMatrixViewTestCase):
 
 
 class MatrixPickerTest(PlotMatrixViewTestCase):
-    """The matrix picker of the tab menu (HLFR-00145, HLFR-00146)."""
+    """The matrix picker of the tab menu (HLFR-00146, HLFR-00147)."""
 
     def highlighted_set(self, picker) -> set:
         """Return the highlighted squares of a picker.
@@ -217,7 +217,7 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
                 for column_i in range(1, picker.column_count_i + 1)
                 if picker.is_square_highlighted(row_i, column_i)}
 
-    @covers("LLFR-01064", "LLFR-01071", "HLFR-00145")
+    @covers("LLFR-01099", "LLFR-01106", "HLFR-00146")
     def test_current_matrix_mark_stays_visible_over_pale_squares(
             self) -> None:
         """With 5 plots in the 5 x 1 matrix, rows 1 to 4 of column 1 are
@@ -245,7 +245,7 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
                     int(rect.center().y() * ratio_f))
                 self.assertEqual(border_color.name(),
                                  QColor(MARKED_COLOR_STR).name())
-        # LLFR-01071: rows 1 to 4 are pale under the mark.
+        # LLFR-01106: rows 1 to 4 are pale under the mark.
         for row_i in range(1, 5):
             self.assertFalse(picker.is_square_enabled(row_i, 1))
             self.assertEqual(picker.square_fill_color_str(row_i, 1),
@@ -273,7 +273,7 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         self.picker_menu = menu
         return picker
 
-    @covers("LLFR-01061", "LLFR-01062", "LLFR-01064", "HLFR-00145")
+    @covers("LLFR-01096", "LLFR-01097", "LLFR-01099", "HLFR-00146")
     def test_menu_opens_a_ten_by_ten_picker_with_the_current_matrix(
             self) -> None:
         """"Plot matrix" opens a 10 x 10 picker that marks the 5 x 1
@@ -295,7 +295,7 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         self.assertEqual(picker.size_text(), "5 × 1")
         picker.deleteLater()
 
-    @covers("LLFR-01063", "LLFR-01096", "HLFR-00145")
+    @covers("LLFR-01098", "LLFR-01131", "HLFR-00146")
     def test_hover_highlights_the_rectangle_and_shows_its_size(
             self) -> None:
         """The pointer over the square of row 2 and column 3 highlights
@@ -322,7 +322,7 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         picker.close()
         self.process_events()
 
-    @covers("LLFR-01065", "LLFR-01068", "HLFR-00145")
+    @covers("LLFR-01100", "LLFR-01103", "HLFR-00146")
     def test_click_on_a_square_gives_the_matrix_and_closes(self) -> None:
         """A click on the square of row 3 and column 2 gives the tab a
         3 x 2 matrix, closes the picker, and an undo gives 5 x 1 back.
@@ -344,8 +344,8 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         self.assertEqual((page.row_count_i, page.column_count_i), (5, 1))
         self.assertEqual(len(page.plot_widget_list), 2)
 
-    @covers("LLFR-01071", "LLFR-01072", "LLFR-01063", "LLFR-01096",
-            "HLFR-00146")
+    @covers("LLFR-01106", "LLFR-01107", "LLFR-01098", "LLFR-01131",
+            "HLFR-00147")
     def test_pale_squares_do_nothing(self) -> None:
         """With 5 plots, the squares of fewer than 5 slots are pale and a
         click on one leaves the picker open and the matrix unchanged.
@@ -361,13 +361,13 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         self.assertTrue(picker.is_square_enabled(3, 2))
         picker.show()
         self.process_events()
-        # LLFR-01071: a hovered pale size is not highlighted and its size
+        # LLFR-01106: a hovered pale size is not highlighted and its size
         # is not shown; the text keeps the current matrix.
         self.send_picker_mouse(picker, "MouseMove", 2, 2)
         self.assertEqual(picker.hover_tuple, (2, 2))
         self.assertEqual(self.highlighted_set(picker), set())
         self.assertEqual(picker.size_text(), "5 \u00d7 1")
-        # LLFR-01063: an enabled size still highlights its rectangle.
+        # LLFR-01098: an enabled size still highlights its rectangle.
         self.send_picker_mouse(picker, "MouseMove", 3, 2)
         self.assertEqual(self.highlighted_set(picker),
                          {(row_i, column_i) for row_i in (1, 2, 3)
@@ -382,7 +382,7 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         picker.close()
         self.process_events()
 
-    @covers("LLFR-01070", "HLFR-00145")
+    @covers("LLFR-01105", "HLFR-00146")
     def test_escape_closes_without_a_choice(self) -> None:
         """Esc closes the matrix picker and leaves the matrix unchanged.
 
@@ -403,7 +403,7 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
         self.assertEqual((page.row_count_i, page.column_count_i), (5, 1))
         self.assertFalse(self.main_window.top_panel.undo_button.isEnabled())
 
-    @covers("LLFR-01069")
+    @covers("LLFR-01104")
     def test_current_matrix_closes_with_no_undo_step(self) -> None:
         """A click on the square of the current 5 x 1 matrix closes the
         picker and records nothing.
@@ -420,10 +420,10 @@ class MatrixPickerTest(PlotMatrixViewTestCase):
 
 
 class PositionPickerTest(PlotMatrixViewTestCase):
-    """Moving a plot with the position picker (HLFR-00149)."""
+    """Moving a plot with the position picker (HLFR-00150)."""
 
-    @covers("LLFR-01079", "LLFR-01080", "LLFR-01081", "LLFR-01082",
-            "HLFR-00149")
+    @covers("LLFR-01114", "LLFR-01115", "LLFR-01116", "LLFR-01117",
+            "HLFR-00150")
     def test_picker_has_the_matrix_and_its_occupied_slots(self) -> None:
         """For 3 plots in a 2 x 2 tab, the picker of plot 2 is 2 x 2,
         with slot (2, 2) pale and slot (1, 2) marked.
@@ -455,7 +455,7 @@ class PositionPickerTest(PlotMatrixViewTestCase):
         picker.grab()
         picker.deleteLater()
 
-    @covers("LLFR-01083", "LLFR-01084", "LLFR-01085", "HLFR-00149")
+    @covers("LLFR-01118", "LLFR-01119", "LLFR-01120", "HLFR-00150")
     def test_choosing_a_slot_swaps_and_undo_swaps_back(self) -> None:
         """Choosing slot (2, 1) for plot 2 swaps it with plot 3; the
         widgets keep their curves; an undo gives the old order back.
@@ -476,14 +476,14 @@ class PositionPickerTest(PlotMatrixViewTestCase):
                          [id_list[0], id_list[2], id_list[1]])
         self.assertEqual(page.plot_slot_tuple(second), (1, 0))
         self.assertLessEqual(first.y() + first.height(), second.y())
-        # LLFR-01084: the moved plot keeps its curve.
+        # LLFR-01119: the moved plot keeps its curve.
         self.assertEqual(list(second.curve_width_dict), ["force"])
         self.undo()
         self.assertEqual(self.model_plot_ids(), id_list)
         self.assertEqual([widget.plot_id_i for widget
                           in self.current_page().plot_widget_list], id_list)
 
-    @covers("LLFR-01086", "LLFR-01070")
+    @covers("LLFR-01121", "LLFR-01105")
     def test_own_slot_and_escape_change_nothing(self) -> None:
         """The plot's own slot closes the picker with no swap and no
         undo step; Esc closes it too.
@@ -518,7 +518,7 @@ class PositionPickerTest(PlotMatrixViewTestCase):
 
 
 class TabDragTest(PlotMatrixViewTestCase):
-    """Reordering the tabs by a drag (HLFR-00142)."""
+    """Reordering the tabs by a drag (HLFR-00143)."""
 
     def send_tab_bar_mouse(self, type_name_str: str, tab_index_i: int,
                            buttons_held_b: bool) -> None:
@@ -566,8 +566,8 @@ class TabDragTest(PlotMatrixViewTestCase):
         self.process_events()
         self.assertEqual(self.tab_names(), ["Tab 1", "Tab 2", "Tab 3"])
 
-    @covers("LLFR-01051", "LLFR-01052", "LLFR-01054", "LLFR-01056",
-            "LLFR-00454", "HLFR-00142")
+    @covers("LLFR-01086", "LLFR-01087", "LLFR-01089", "LLFR-01091",
+            "LLFR-00454", "HLFR-00143")
     def test_dragged_tab_stays_where_it_is_dropped(self) -> None:
         """Tab 1 dragged to the last place stays there, in the view and
         the model, as one undoable action; the drag counts as a mouse
@@ -597,7 +597,7 @@ class TabDragTest(PlotMatrixViewTestCase):
         self.assertEqual(self.main_window.tab_name_list(),
                          ["Tab 1", "Tab 2", "Tab 3"])
 
-    @covers("LLFR-01055")
+    @covers("LLFR-01090")
     def test_drag_back_to_its_place_changes_nothing(self) -> None:
         """A tab released at its starting place records no undo step.
 
@@ -616,7 +616,7 @@ class TabDragTest(PlotMatrixViewTestCase):
             self.controller.plot_controller.undo_history.depth(),
             undo_depth_i)
 
-    @covers("LLFR-01053", "LLFR-01051", "HLFR-00142")
+    @covers("LLFR-01088", "LLFR-01086", "HLFR-00143")
     def test_tab_dragged_out_of_the_row_stays_in_it(self) -> None:
         """Real mouse events on the tab bar that drag a tab far below the
         tab row leave every tab in the tab row of the main window.
@@ -657,7 +657,7 @@ class TabDragTest(PlotMatrixViewTestCase):
         for page in self.panel.page_dict.values():
             self.assertIs(page.window(), self.main_window)
 
-    @covers("LLFR-01052", "LLFR-01073", "HLFR-00142")
+    @covers("LLFR-01087", "LLFR-01108", "HLFR-00143")
     def test_moved_tab_keeps_its_plots_and_matrix(self) -> None:
         """A moved tab keeps its plots and its plot matrix.
 
@@ -683,7 +683,7 @@ class TabDragTest(PlotMatrixViewTestCase):
 class LostReleaseTest(PlotMatrixViewTestCase):
     """A tab drag whose release was never seen (LLFR-00454)."""
 
-    @covers("LLFR-00454", "LLFR-00207", "HLFR-00144")
+    @covers("LLFR-00454", "LLFR-00207", "HLFR-00145")
     def test_drag_ends_when_the_left_button_is_up(self) -> None:
         """A tab drag left on by a lost release ends once the left button
         is up, so the 0 key resets the zoom again.
@@ -704,7 +704,7 @@ class LostReleaseTest(PlotMatrixViewTestCase):
 class MatrixExportTest(PlotMatrixViewTestCase):
     """The PDF and the copied image follow the plot matrix."""
 
-    @covers("LLFR-00129", "LLFR-00133", "HLFR-00148", "HLFR-00038",
+    @covers("LLFR-00129", "LLFR-00133", "HLFR-00149", "HLFR-00038",
             "HLFR-00039")
     def test_export_images_keep_the_matrix_places(self) -> None:
         """In a 1 x 2 tab the exported plot images are side by side, at
