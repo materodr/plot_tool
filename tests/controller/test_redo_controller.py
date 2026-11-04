@@ -388,7 +388,7 @@ class RedoHistoryBehaviourTest(RedoControllerTestCase):
         self.redo()
         self.assertEqual(len(self.view.tab_dict), 3)
 
-    @covers("LLFR-00142", "LLFR-00926", "LLFR-00194")
+    @covers("LLFR-00142", "LLFR-00930", "LLFR-00194")
     def test_opening_keeps_and_closing_clears_redo(self) -> None:
         """An added file keeps the redo history; a close clears it.
 

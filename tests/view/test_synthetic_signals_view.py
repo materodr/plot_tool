@@ -720,7 +720,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.assertFalse(self.main_window.is_undo_enabled())
 
     @covers("LLFR-00266", "LLFR-00267", "LLFR-00277", "LLFR-00279",
-            "LLFR-00603", "LLFR-00623", "LLFR-00955", "LLFR-00972")
+            "LLFR-00603", "LLFR-00623", "LLFR-00959", "LLFR-00976")
     def test_rename_and_clipboard(self) -> None:
         """Rename updates the legend; names and equations are copied.
 
@@ -735,7 +735,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
                                return_value=(" Distance ", True)
                                ) as get_text:
             self.choose("file1_int_Speed", "Rename")
-        # LLFR-00955: the field starts with the part after the prefix,
+        # LLFR-00959: the field starts with the part after the prefix,
         # and the prefix stays in front of the typed name.
         self.assertEqual(get_text.call_args[0][4], "int_Speed")
         self.assertEqual(self.panel.signal_name_list()[-1], "file1_Distance")
@@ -755,7 +755,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
             {"name": "file1_Distance", "operation": "integral",
              "signals": ["file1_Speed"], "parameter": None}])
 
-    @covers("LLFR-00275", "LLFR-00272", "LLFR-00922", "LLFR-00933")
+    @covers("LLFR-00275", "LLFR-00272", "LLFR-00926", "LLFR-00937")
     def test_product_constant_and_file_close(self) -> None:
         """Product and constant dialogs work; closing the file removes
         the synthetic signals.

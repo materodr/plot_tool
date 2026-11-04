@@ -1,4 +1,4 @@
-"""Tests for the message boxes (HLFR-00002, LLFR-00032, LLFR-00952).
+"""Tests for the message boxes (HLFR-00002, LLFR-00032, LLFR-00956).
 
 The modal ``exec`` is always patched, so no test waits for a user.
 """
@@ -199,7 +199,7 @@ class MessageBoxesTest(unittest.TestCase):
             self.message_module.TAB_NAME_TAKEN_MESSAGE_STR.format(
                 name="Tab 1"))
 
-    @covers("LLFR-00892")
+    @covers("LLFR-00896")
     def test_open_files_limit_box_content(self) -> None:
         """The limit box is an information box with OK.
 
@@ -216,7 +216,7 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(self.button_value_set(box),
                          {standard_button_class.Ok.value})
 
-    @covers("LLFR-00952")
+    @covers("LLFR-00956")
     def test_refused_files_box_content(self) -> None:
         """The box of the refused files is an information box with OK.
 
@@ -247,7 +247,7 @@ class MessageBoxesTest(unittest.TestCase):
 
 @requires_qt
 class CloseFilesBoxTest(unittest.TestCase):
-    """The questions of the file menu (LLFR-00920, LLFR-00930)."""
+    """The questions of the file menu (LLFR-00924, LLFR-00934)."""
 
     def setUp(self) -> None:
         """Start Qt.
@@ -257,7 +257,7 @@ class CloseFilesBoxTest(unittest.TestCase):
         """
         self.application = get_qt_application()
 
-    @covers("LLFR-00920", "LLFR-00921", "HLFR-00118")
+    @covers("LLFR-00924", "LLFR-00925", "HLFR-00118")
     def test_close_file_box(self) -> None:
         """The question of the file controller, with Yes and No.
 
@@ -287,7 +287,7 @@ class CloseFilesBoxTest(unittest.TestCase):
                 self.assertIs(message_boxes.ask_close_file(
                     None, question_str), expected_b)
 
-    @covers("LLFR-00930", "LLFR-00931", "HLFR-00119")
+    @covers("LLFR-00934", "LLFR-00935", "HLFR-00119")
     def test_close_all_files_box(self) -> None:
         """One question for every file, with Yes and No.
 
@@ -313,7 +313,7 @@ class CloseFilesBoxTest(unittest.TestCase):
             self.assertTrue(message_boxes.ask_close_all_files(
                 None, question_str))
 
-    @covers("LLFR-00920", "LLFR-00930")
+    @covers("LLFR-00924", "LLFR-00934")
     def test_main_window_asks_with_the_boxes(self) -> None:
         """The main window facade returns the user's answer.
 

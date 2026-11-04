@@ -132,8 +132,8 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.open_file(make_file(), "a.csv")
         self.open_file(make_file(offset_f=1.0), "b.csv")
 
-    @covers("LLFR-00904", "LLFR-00240", "HLFR-00054", "HLFR-00115",
-            "LLFR-00936")
+    @covers("LLFR-00908", "LLFR-00240", "HLFR-00054", "HLFR-00115",
+            "LLFR-00940")
     def test_names_start_with_the_prefix_of_the_file(self) -> None:
         """The Integral of file1_Speed is file1_int_Speed, and chains
         build up after the prefix.
@@ -150,12 +150,12 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.assertEqual(self.store.names(), [
             "file1_int_Speed", "file2_int_Speed", "file1_der_int_Speed",
             "file2_lpf_2Hz_order2_Speed", "file2_int_lpf_2Hz_order2_Speed"])
-        # LLFR-00936: each one belongs to the file of its source.
+        # LLFR-00940: each one belongs to the file of its source.
         self.assertEqual([self.store.get(name_str).file_number_i
                           for name_str in self.store.names()],
                          [1, 2, 1, 2, 2])
 
-    @covers("LLFR-00241", "LLFR-00904", "HLFR-00054")
+    @covers("LLFR-00241", "LLFR-00908", "HLFR-00054")
     def test_name_in_use_gets_a_number_after_the_prefix(self) -> None:
         """A second Integral of the same signal gets _2 at the end.
 
@@ -166,11 +166,11 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.create("file2_Speed", "integral")
         self.assertEqual(self.store.names(),
                          ["file2_int_Speed", "file2_int_Speed_2"])
-        # LLFR-00941: the number stays in the plain name.
+        # LLFR-00945: the number stays in the plain name.
         self.assertEqual(self.store.get("file2_int_Speed_2").saved_name_str,
                          "int_Speed_2")
 
-    @covers("LLFR-00954", "LLFR-00936", "HLFR-00104", "LLFR-00276",
+    @covers("LLFR-00958", "LLFR-00940", "HLFR-00104", "LLFR-00276",
             "LLFR-00240")
     def test_product_names_within_and_across_files(self) -> None:
         """A product of one file has no second prefix; a product across
@@ -193,12 +193,12 @@ class SyntheticNameTest(SeveralFilesTestCase):
             across.value_array,
             data_files.signal_array("file1_Speed")
             * data_files.signal_array("file2_Torque"))
-        # LLFR-00941: both are saved as Speed_prod_Torque.
+        # LLFR-00945: both are saved as Speed_prod_Torque.
         self.assertEqual(across.saved_name_str, "Speed_prod_Torque")
         self.assertEqual(
             self.store.get("file1_Speed_prod_Torque").saved_name_str,
             "Speed_prod_Torque")
-        # LLFR-00954: a synthetic second signal of another file keeps
+        # LLFR-00958: a synthetic second signal of another file keeps
         # its own prefix too.
         self.create("file2_Speed", "integral")
         self.view.second_signal_answer_list = ["file2_int_Speed"]
@@ -209,7 +209,7 @@ class SyntheticNameTest(SeveralFilesTestCase):
             "file1_Torque_prod_file2_int_Speed").saved_name_str,
             "Torque_prod_int_Speed")
 
-    @covers("LLFR-00935", "LLFR-00242", "LLFR-00936", "LLFR-00934")
+    @covers("LLFR-00939", "LLFR-00242", "LLFR-00940", "LLFR-00938")
     def test_synthetic_signals_listed_after_their_own_file(self) -> None:
         """A synthetic signal of file 2 is listed after file 2's signals,
         one of file 1 after file 1's, whatever the creation order.
@@ -225,7 +225,7 @@ class SyntheticNameTest(SeveralFilesTestCase):
             "file2_Time", "file2_Speed", "file2_Torque", "file2_int_Speed",
             "file2_abs_Torque"])
 
-    @covers("LLFR-00963", "LLFR-00275", "LLFR-00936", "HLFR-00113")
+    @covers("LLFR-00967", "LLFR-00275", "LLFR-00940", "HLFR-00113")
     def test_second_signal_dialog_is_one_list(self) -> None:
         """The dialog lists, in signal list order and with prefixed
         names, the signals of the files with the same time signal, and
@@ -250,7 +250,7 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.assertEqual(self.view.second_signal_question_list[-1][2], [
             "file3_Time", "file3_Speed", "file3_Torque", "file3_int_Speed"])
 
-    @covers("LLFR-00955", "LLFR-00971", "LLFR-00972", "LLFR-00267",
+    @covers("LLFR-00959", "LLFR-00975", "LLFR-00976", "LLFR-00267",
             "LLFR-00606", "LLFR-00607", "HLFR-00115", "HLFR-00060")
     def test_rename_keeps_the_prefix(self) -> None:
         """The field shows the part after the prefix, the typed name
@@ -267,17 +267,17 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.assertEqual(self.store.names(), ["file2_my"])
         self.assertIn("file2_my", self.view.shown_name_list)
         self.assertEqual(self.store.get("file2_my").saved_name_str, "my")
-        # LLFR-00971: an empty typed part keeps the name, silently.
+        # LLFR-00975: an empty typed part keeps the name, silently.
         self.view.signal_menu_handler_dict["rename"]("file2_my")
         self.assertEqual(self.view.name_question_list[-1], "my")
         self.assertEqual(self.store.names(), ["file2_my"])
         self.assertEqual(self.view.information_list, [])
-        # LLFR-00972: "Torque" gives file2_Torque, a data file signal.
+        # LLFR-00976: "Torque" gives file2_Torque, a data file signal.
         self.view.signal_menu_handler_dict["rename"]("file2_my")
         self.assertEqual(self.store.names(), ["file2_my"])
         self.assertEqual(len(self.view.information_list), 1)
         self.assertIn('"file2_Torque"', self.view.information_list[0][1])
-        # LLFR-00955: a typed prefix is part of the typed text.
+        # LLFR-00959: a typed prefix is part of the typed text.
         self.view.signal_menu_handler_dict["rename"]("file2_my")
         self.assertEqual(self.store.names(), ["file2_file1_Torque"])
         self.assertEqual(
@@ -286,7 +286,7 @@ class SyntheticNameTest(SeveralFilesTestCase):
         self.assertEqual(self.store.get(
             "file2_file1_Torque").file_number_i, 2)
 
-    @covers("LLFR-00941", "LLFR-00955", "HLFR-00121", "HLFR-00115")
+    @covers("LLFR-00945", "LLFR-00959", "HLFR-00121", "HLFR-00115")
     def test_typed_prefix_of_another_file_is_saved_as_typed(self) -> None:
         """A file-1 signal renamed `file2_x` is saved as `file2_x`.
 
@@ -337,7 +337,7 @@ class FftRangeTest(SeveralFilesTestCase):
         self.view.handler_dict["time_range_handler"](plot_id_i, start_s,
                                                      end_s)
 
-    @covers("LLFR-00592", "LLFR-00964", "LLFR-00240", "HLFR-00057")
+    @covers("LLFR-00592", "LLFR-00968", "LLFR-00240", "HLFR-00057")
     def test_no_time_plot_uses_the_whole_file(self) -> None:
         """With no time plot, each FFT uses all the samples of its file.
 
@@ -351,7 +351,7 @@ class FftRangeTest(SeveralFilesTestCase):
         self.assertEqual(self.store.get(
             "file2_fft_20s_to_29p9s_Speed").parameter, (20.0, 29.9))
 
-    @covers("LLFR-00964", "LLFR-00248", "LLFR-00240", "HLFR-00057",
+    @covers("LLFR-00968", "LLFR-00248", "LLFR-00240", "HLFR-00057",
             "HLFR-00113")
     def test_shown_range_is_cut_to_the_file(self) -> None:
         """A shown range of 5 s to 25 s gives 5 s to 9.9 s for file 1 and
@@ -371,7 +371,7 @@ class FftRangeTest(SeveralFilesTestCase):
         self.assertEqual(frequency_array.size, 51 // 2 + 1)
         self.assertEqual(self.view.information_list, [])
 
-    @covers("LLFR-00965", "LLFR-00250", "HLFR-00057", "HLFR-00113")
+    @covers("LLFR-00969", "LLFR-00250", "HLFR-00057", "HLFR-00113")
     def test_range_outside_the_file_shows_one_box(self) -> None:
         """A shown range with no sample of file 2, or fewer than 8,
         creates no FFT and shows one box that asks to move the x-axis.
@@ -387,7 +387,7 @@ class FftRangeTest(SeveralFilesTestCase):
         self.assertIn("does not hold enough samples of 'file2_Speed'",
                       message_str)
         self.assertIn("Move the x-axis", message_str)
-        # LLFR-00965: 7 samples of file 2 (20 s to 20.6 s) are too few.
+        # LLFR-00969: 7 samples of file 2 (20 s to 20.6 s) are too few.
         self.show_range(9.0, 20.6)
         self.create("file2_Speed", "fft")
         self.assertEqual(self.store.names(), [])
@@ -498,7 +498,7 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.view.handler()
         return dict(load_signal_file(path_str).signal_dict)
 
-    @covers("LLFR-00938", "LLFR-00939", "HLFR-00120", "LLFR-00396")
+    @covers("LLFR-00942", "LLFR-00943", "HLFR-00120", "LLFR-00396")
     def test_different_time_signals_show_an_error_first(self) -> None:
         """Different time signals show an error box in place of the
         dialog, and nothing is written.
@@ -523,7 +523,7 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(self.folder_str)), [])
         self.assertEqual(self.view.finished_count_i, 1)
 
-    @covers("LLFR-00938", "HLFR-00120")
+    @covers("LLFR-00942", "HLFR-00120")
     def test_different_sample_counts_show_an_error(self) -> None:
         """A time signal with another number of samples is different.
 
@@ -538,8 +538,8 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.assertEqual(self.view.dialog_call_list, [])
         self.assertEqual(len(self.view.error_list), 1)
 
-    @covers("LLFR-00940", "LLFR-00941", "LLFR-00942", "LLFR-00401",
-            "LLFR-00404", "LLFR-00943", "HLFR-00121", "HLFR-00120",
+    @covers("LLFR-00944", "LLFR-00945", "LLFR-00946", "LLFR-00401",
+            "LLFR-00404", "LLFR-00947", "HLFR-00121", "HLFR-00120",
             "LLFR-00532")
     def test_same_time_signals_save_one_file(self) -> None:
         """One Time, every signal and the synthetic signals under plain
@@ -574,7 +574,7 @@ class SaveSeveralFilesTest(unittest.TestCase):
             "file2_Speed → Speed_2\n"
             "file2_int_Speed → int_Speed_2"])
 
-    @covers("LLFR-00961", "LLFR-00942", "LLFR-00241", "HLFR-00121")
+    @covers("LLFR-00965", "LLFR-00946", "LLFR-00241", "HLFR-00121")
     def test_name_still_shared_after_the_number(self) -> None:
         """With file1_Speed, file1_Speed_2 and file2_Speed, the later
         Speed_2 becomes Speed_2_2.
@@ -596,7 +596,7 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.assertIn("file2_Speed → Speed_2_2",
                       self.view.changed_names_list[0])
 
-    @covers("LLFR-00941", "LLFR-00955", "LLFR-00558", "LLFR-00940",
+    @covers("LLFR-00945", "LLFR-00959", "LLFR-00558", "LLFR-00944",
             "HLFR-00121")
     def test_renamed_signal_keeps_the_typed_name(self) -> None:
         """A renamed synthetic signal is saved under the typed text, and
@@ -615,7 +615,7 @@ class SaveSeveralFilesTest(unittest.TestCase):
         self.assertEqual(self.view.changed_names_list,
                          ["file1_t → Time"])
 
-    @covers("LLFR-00938", "LLFR-00532", "LLFR-00940")
+    @covers("LLFR-00942", "LLFR-00532", "LLFR-00944")
     def test_lowest_open_file_after_a_close(self) -> None:
         """After file 1 is closed, file 2 gives the dialog values and the
         time signal.
@@ -694,8 +694,8 @@ class LayoutSeveralFilesTest(SeveralFilesTestCase):
                 for tab in self.workspace.tab_list
                 for plot in tab.plot_list]
 
-    @covers("LLFR-00944", "LLFR-00471", "LLFR-00228", "HLFR-00049",
-            "HLFR-00051", "LLFR-00945", "HLFR-00050")
+    @covers("LLFR-00948", "LLFR-00471", "LLFR-00228", "HLFR-00049",
+            "HLFR-00051", "LLFR-00949", "HLFR-00050")
     def test_saved_names_carry_the_prefix(self) -> None:
         """The layout file holds version 3 and prefixed names, and loads
         them back on the files of the same numbers.
@@ -735,7 +735,7 @@ class LayoutSeveralFilesTest(SeveralFilesTestCase):
             "file2_int_Speed", "file1_Speed_prod_file2_Torque",
             "file1_Torque"]])
 
-    @covers("LLFR-00945", "LLFR-00231", "LLFR-00237", "HLFR-00050",
+    @covers("LLFR-00949", "LLFR-00231", "LLFR-00237", "HLFR-00050",
             "HLFR-00052")
     def test_curve_of_a_file_not_open_is_missing(self) -> None:
         """A curve of file 3 when no file 3 is open is a missing signal.
@@ -753,7 +753,7 @@ class LayoutSeveralFilesTest(SeveralFilesTestCase):
         self.assertEqual(self.curve_names(), [["file2_Speed"]])
         self.assertIn("file3_Speed", self.view.report_list[0])
 
-    @covers("LLFR-00959", "LLFR-00960", "LLFR-00472", "HLFR-00050",
+    @covers("LLFR-00963", "LLFR-00964", "LLFR-00472", "HLFR-00050",
             "HLFR-00115")
     def test_older_layout_names_mean_file_1(self) -> None:
         """A version 2 file with names without prefix loads them as
@@ -794,14 +794,14 @@ class LayoutSeveralFilesTest(SeveralFilesTestCase):
         plot = self.workspace.tab_list[-1].plot_list[0]
         self.assertEqual(len(plot.pinned_tip_list), 1)
         self.assertEqual(len(plot.delta_marker_list), 1)
-        # LLFR-00960: only the signal still missing, with its prefix.
+        # LLFR-00964: only the signal still missing, with its prefix.
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
         self.assertIn("file1_Power", report_str)
         self.assertNotIn("Renamed", report_str)
         self.assertNotIn("file1_Torque", report_str)
 
-    @covers("LLFR-00966", "LLFR-00501", "LLFR-00500", "LLFR-00237",
+    @covers("LLFR-00970", "LLFR-00501", "LLFR-00500", "LLFR-00237",
             "LLFR-00499", "HLFR-00050", "HLFR-00052", "HLFR-00115")
     def test_wrong_prefix_is_corrected(self) -> None:
         """`my_int` of file 2 becomes `file2_my_int`, `file1_x` of file 2
@@ -849,7 +849,7 @@ class LayoutSeveralFilesTest(SeveralFilesTestCase):
         self.assertIn('"my_int" → "file2_my_int_2"',
                       self.view.report_list[-1])
 
-    @covers("LLFR-00935", "LLFR-00242")
+    @covers("LLFR-00939", "LLFR-00242")
     def test_model_order_of_the_signal_list(self) -> None:
         """The order helper puts each synthetic signal after its file.
 

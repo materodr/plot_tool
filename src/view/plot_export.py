@@ -20,7 +20,7 @@ at the same size in inches and so with the same look, at a resolution
 that gives at least TARGET_FIGURE_DPI_F dots per inch on the page, and
 drawn over its place in the grab.
 
-Data files (LLFR-00967, LLFR-00968): each PDF page shows, directly
+Data files (LLFR-00971, LLFR-00972): each PDF page shows, directly
 below the tab's name, the description of all the open data files,
 ``file1 = run_A.csv, file2 = run_B.mat``, given by the export
 controller, wrapped on several lines when it is wider than the page.
@@ -64,14 +64,14 @@ PAINT_WIDTH_INCHES_F = ((A4_LONG_SIDE_MM_F - 2.0 * PAGE_MARGIN_MM_F)
 TARGET_FIGURE_DPI_F = 300.0
 MAXIMUM_FIGURE_DPI_F = 1200.0
 FIGURE_IMAGE_FORMAT_STR = "png"
-# LLFR-00967: the description of the data files below the tab name, in
+# LLFR-00971: the description of the data files below the tab name, in
 # a smaller font, and the space below it, in description line heights.
 DESCRIPTION_FONT_POINT_SIZE_F = 10.0
 DESCRIPTION_GAP_RATIO_F = 0.5
 DESCRIPTION_TEXT_FLAGS_I = (Qt.AlignmentFlag.AlignLeft.value
                             | Qt.AlignmentFlag.AlignTop.value
                             | Qt.TextFlag.TextWordWrap.value)
-# LLFR-00968: the font size and the padding of the strip of the copied
+# LLFR-00972: the font size and the padding of the strip of the copied
 # image, in logical pixels.
 STRIP_FONT_PIXEL_SIZE_I = 13
 STRIP_PADDING_PX_I = 8
@@ -317,7 +317,7 @@ def draw_page_description(painter, description_str: str, top_i: int,
     Outputs: the height, in device pixels, taken by the description and
         the gap below it; 0 for an empty description.
     """
-    # LLFR-00967: directly below the tab's name, every open data file,
+    # LLFR-00971: directly below the tab's name, every open data file,
     # wrapped at the page width so that none is cut.
     if not description_str:
         return 0
@@ -345,7 +345,7 @@ def strip_colors(page) -> tuple:
         window text colors, so the strip looks like the area around
         the plots.
     """
-    # LLFR-00968: the strip looks like the rest of the image.
+    # LLFR-00972: the strip looks like the rest of the image.
     palette = page.palette()
     return (QColor(palette.color(QPalette.ColorRole.Window)),
             QColor(palette.color(QPalette.ColorRole.WindowText)))
@@ -360,7 +360,7 @@ def strip_height_px(description_str: str, logical_width_f: float) -> int:
     Outputs: the height in logical pixels: the wrapped text with the
         padding above and below it; 0 for an empty description.
     """
-    # LLFR-00968: the strip holds the whole description.
+    # LLFR-00972: the strip holds the whole description.
     if not description_str:
         return 0
     strip_font = QFont()
@@ -386,7 +386,7 @@ def image_with_description_strip(image, description_str: str,
         and image whole below it, so that the strip covers no part of
         the plots; image itself when the description is empty.
     """
-    # LLFR-00968: the strip is added above the plots, not drawn on them.
+    # LLFR-00972: the strip is added above the plots, not drawn on them.
     if not description_str or image.isNull():
         return image
     pixel_ratio_f = max(float(image.devicePixelRatio()), 1e-6)
@@ -462,7 +462,7 @@ def build_pdf_bytes(snapshot_list: list, description_str: str = "") -> bytes:
         snapshot_list: tuples (tab name str, page QImage, plot image
             list) from grab_exportable_images, in page order.
         description_str: the description of the open data files,
-            written below each tab's name (LLFR-00967).
+            written below each tab's name (LLFR-00971).
     Outputs: the bytes of the PDF document.
     Raises:
         OSError: when Qt cannot create the document.
@@ -485,7 +485,7 @@ def build_pdf_bytes(snapshot_list: list, description_str: str = "") -> bytes:
             if page_index_i > 0 and not writer.newPage():
                 raise OSError(PDF_RENDER_FAILED_STR)
             top_i = draw_page_title(painter, name_str, page_width_i)
-            # LLFR-00967: the data files directly below the tab's name.
+            # LLFR-00971: the data files directly below the tab's name.
             top_i += draw_page_description(painter, description_str, top_i,
                                            page_width_i)
             draw_page_image(painter, image, top_i, page_width_i,
@@ -520,7 +520,7 @@ def save_tabs_pdf(tab_widget, path_str: str,
         tab_widget: the QTabWidget of the plot panel.
         path_str: the path of the .pdf file.
         description_str: the description of the open data files
-            (LLFR-00967).
+            (LLFR-00971).
     Outputs: a tuple (saved_b, reason_str); reason_str says why the file
         was not saved, "" when it was.
     """
@@ -541,7 +541,7 @@ def copy_current_tab_image(tab_widget, description_str: str = "") -> tuple:
     Inputs:
         tab_widget: the QTabWidget of the plot panel.
         description_str: the description of the open data files, shown
-            in a strip above the plots (LLFR-00968).
+            in a strip above the plots (LLFR-00972).
     Outputs: a tuple (copied_b, reason_str); reason_str is "" when the
         image was copied.
     """
@@ -553,7 +553,7 @@ def copy_current_tab_image(tab_widget, description_str: str = "") -> tuple:
     image = grab_page_image(page)
     if image.isNull():
         return (False, COPY_FAILED_REASON_STR)
-    # LLFR-00968: the strip with the data files above the plots.
+    # LLFR-00972: the strip with the data files above the plots.
     background_color, text_color = strip_colors(page)
     image = image_with_description_strip(image, description_str,
                                          background_color, text_color)

@@ -177,10 +177,10 @@ class SignalFile:
 
         Inputs:
             signal_name_str: name of a signal of the file.
-        Outputs: the time signal of the file (LLFR-00908). Raises
+        Outputs: the time signal of the file (LLFR-00912). Raises
             KeyError for an unknown name.
         """
-        # LLFR-00908: every signal of a file uses the time of its file;
+        # LLFR-00912: every signal of a file uses the time of its file;
         # the same reading method as model.data_files.DataFileSet.
         if signal_name_str not in self.signal_dict:
             raise KeyError(signal_name_str)
@@ -193,7 +193,7 @@ class SignalFile:
         Outputs: (first time, last time) in seconds, or () when no
             sample is finite or no time signal is set.
         """
-        # LLFR-00912: from the first to the last time sample.
+        # LLFR-00916: from the first to the last time sample.
         if self.time_signal_name_str is None:
             return ()
         sample_array = np.asarray(self.time_array, dtype=float)

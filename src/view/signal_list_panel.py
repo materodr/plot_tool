@@ -6,16 +6,16 @@ gives the text shown when nothing matches (the view does not import the
 model, COR-00009).
 
 The list is made of groups, one per open data file, in the order of the
-file numbers (LLFR-00934). Each group starts with the file name row of
+file numbers (LLFR-00938). Each group starts with the file name row of
 its file (LLFR-00362), ``file<N>_<file name>`` in bold, followed by the
-shown signals of that file and its synthetic signals (LLFR-00935,
+shown signals of that file and its synthetic signals (LLFR-00939,
 LLFR-00242), or by the text "No matching signals" when none of them
 matches the search (LLFR-00097, LLFR-00641). A file name row is an item
 of the list that is not a signal (LLFR-00642): it can't be selected,
 also not by a Shift + click range (LLFR-00643, LLFR-00644), dragged
 (LLFR-00645), plotted with a double-click or Enter (LLFR-00646), and a
 right-click on it opens the file menu, "Close file" and "Close all
-files" (LLFR-00647, LLFR-00919), instead of the signal menu. A file name
+files" (LLFR-00647, LLFR-00923), instead of the signal menu. A file name
 row that is too wide is shortened in the middle with "..." and has the
 whole text as its tip (LLFR-00648, LLFR-00649). The "No matching
 signals" row is not a signal either.
@@ -73,7 +73,7 @@ COPY_NAME_TEXT_STR = "Copy name"
 COPY_EQUATION_TEXT_STR = "Copy equation"
 RENAME_SIGNAL_TEXT_STR = "Rename"
 DELETE_SIGNAL_TEXT_STR = "Delete signal"
-# LLFR-00919: the options of the file menu, in this order.
+# LLFR-00923: the options of the file menu, in this order.
 CLOSE_FILE_TEXT_STR = "Close file"
 CLOSE_ALL_FILES_TEXT_STR = "Close all files"
 # LLFR-00362, LLFR-00642, LLFR-00097: the kind of each row of the list,
@@ -233,7 +233,7 @@ class SignalListWidget(QListWidget):
                 keep only the rows of that kind; "" keeps every row.
         Outputs: a list of QListWidgetItem.
         """
-        # LLFR-00934, LLFR-00935: the rows in the order of the list.
+        # LLFR-00938, LLFR-00939: the rows in the order of the list.
         item_list = [self.item(row_i) for row_i in range(self.count())]
         if not kind_str:
             return item_list
@@ -511,9 +511,9 @@ class SignalListPanel(QWidget):
             LLFR-00279, LLFR-00266, LLFR-00255).
         close_file_requested(int): the number of the file whose file
             name row's menu was used to choose "Close file"
-            (LLFR-00919).
+            (LLFR-00923).
         close_all_files_requested(): "Close all files" was chosen in
-            the file menu (LLFR-00919).
+            the file menu (LLFR-00923).
     """
 
     signal_double_clicked = pyqtSignal(str)
@@ -527,7 +527,7 @@ class SignalListPanel(QWidget):
     copy_equation_requested = pyqtSignal(str)
     rename_signal_requested = pyqtSignal(str)
     delete_signal_requested = pyqtSignal(str)
-    # LLFR-00919: the options of the file menu.
+    # LLFR-00923: the options of the file menu.
     close_file_requested = pyqtSignal(int)
     close_all_files_requested = pyqtSignal()
 
@@ -580,7 +580,7 @@ class SignalListPanel(QWidget):
         self.time_signal_name_set = set()
         # LLFR-00239: the signal and screen point of a pending menu.
         self.pending_menu_tuple = ()
-        # LLFR-00919: the file number and screen point of a pending file
+        # LLFR-00923: the file number and screen point of a pending file
         # menu.
         self.pending_file_menu_tuple = ()
         self.signal_list_widget.setContextMenuPolicy(
@@ -596,7 +596,7 @@ class SignalListPanel(QWidget):
         Outputs: none. Used while no file name row is needed, for
             example by tests of the selection.
         """
-        # LLFR-00054, LLFR-00935: the names in their order.
+        # LLFR-00054, LLFR-00939: the names in their order.
         self.show_signal_groups([(None, "", list(signal_name_list), "")])
 
     def show_signal_groups(self, group_list: list) -> None:
@@ -605,7 +605,7 @@ class SignalListPanel(QWidget):
         Inputs:
             group_list: one tuple (file number or None, file name row
                 text or "", shown signal names, no-match text or "") per
-                group, in list order (LLFR-00934). A group with a row
+                group, in list order (LLFR-00938). A group with a row
                 text starts with its file name row; a group with a
                 no-match text ends with that text.
         Outputs: none.
@@ -622,11 +622,11 @@ class SignalListPanel(QWidget):
         self.signal_list_widget.clear()
         for number_value, row_str, name_list, no_match_str in group_list:
             # LLFR-00362, LLFR-00650: the file name row of each open
-            # file, in the place of LLFR-00934.
+            # file, in the place of LLFR-00938.
             if row_str:
                 self.signal_list_widget.addItem(
                     self.build_file_row(str(row_str), number_value))
-            # LLFR-00935, LLFR-00639: its shown signals directly below.
+            # LLFR-00939, LLFR-00639: its shown signals directly below.
             # LLFR-00054: the time signal is shown like any other name.
             for name_str in name_list:
                 self.signal_list_widget.addItem(
@@ -679,7 +679,7 @@ class SignalListPanel(QWidget):
 
         Inputs:
             row_str: ``file<N>_<file name>`` (LLFR-00362).
-            number_value: the number of the file (LLFR-00896), or None.
+            number_value: the number of the file (LLFR-00900), or None.
         Outputs: a QListWidgetItem in bold that can't be selected or
             dragged (LLFR-00642 to LLFR-00645).
         """
@@ -720,7 +720,7 @@ class SignalListPanel(QWidget):
         Outputs: a list of str, ``file<N>_<file name>``; [] while no
             file is open (LLFR-00363).
         """
-        # LLFR-00362, LLFR-00934: one row per open file, in number order.
+        # LLFR-00362, LLFR-00938: one row per open file, in number order.
         return [item.text() for item
                 in self.signal_list_widget.row_items(FILE_ROW_STR)]
 
@@ -731,7 +731,7 @@ class SignalListPanel(QWidget):
         Outputs: a list of tuples (kind, text), where kind is
             SIGNAL_ROW_STR, FILE_ROW_STR or NO_MATCH_ROW_STR.
         """
-        # LLFR-00934, LLFR-00935, LLFR-00639, LLFR-00641: the order of
+        # LLFR-00938, LLFR-00939, LLFR-00639, LLFR-00641: the order of
         # the rows.
         return [(row_kind(item), item.text())
                 for item in self.signal_list_widget.row_items()]
@@ -841,7 +841,7 @@ class SignalListPanel(QWidget):
         Inputs: none.
         Outputs: a list of str.
         """
-        # LLFR-00054, LLFR-00935: the names currently shown;
+        # LLFR-00054, LLFR-00939: the names currently shown;
         # LLFR-00642: the file name rows are not signals.
         return [item.text() for item
                 in self.signal_list_widget.row_items(SIGNAL_ROW_STR)]
@@ -1132,7 +1132,7 @@ class SignalListPanel(QWidget):
             actions hold, as data, the index of their request in
             request_list, a list of functions without arguments.
         """
-        # LLFR-00919: the two options, in this order.
+        # LLFR-00923: the two options, in this order.
         menu = QMenu(self)
         menu.setObjectName("file_menu")
         request_list = [
@@ -1153,7 +1153,7 @@ class SignalListPanel(QWidget):
             triggered, so tests can choose an option without a modal
             menu.
         """
-        # LLFR-00919: Close file and Close all files.
+        # LLFR-00923: Close file and Close all files.
         menu, request_list = self.file_menu_and_requests(number_i)
         for action in menu.actions():
             action.triggered.connect(
@@ -1183,7 +1183,7 @@ class SignalListPanel(QWidget):
         Outputs: none. The request is emitted after the menu has been
             closed and deleted, so the receiver may change the list.
         """
-        # LLFR-00919: the user chooses Close file or Close all files.
+        # LLFR-00923: the user chooses Close file or Close all files.
         menu, request_list = self.file_menu_and_requests(number_i)
         chosen_action = self.execute_menu(menu, global_point)
         request_index = None

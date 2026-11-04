@@ -7,15 +7,15 @@ in memory (HLFR-00055, LLFR-00595): one SyntheticSignalStore holds the
 synthetic signals of every open data file, in creation order.
 
 Each synthetic signal belongs to the data file of the signal it was
-computed from, the right-clicked signal of a product (LLFR-00936), and
+computed from, the right-clicked signal of a product (LLFR-00940), and
 its name starts with the prefix ``file<N>_`` of that file, followed by
 the name of LLFR-00240 built from the names of its sources without
-their prefix (LLFR-00904); the second signal of a product of another
-file keeps its own prefix (LLFR-00954). The signal also keeps its plain
+their prefix (LLFR-00908); the second signal of a product of another
+file keeps its own prefix (LLFR-00958). The signal also keeps its plain
 name, without any prefix the app put into it, for the Save signals
-button (LLFR-00941). ``ordered_signal_names`` gives the order of the
+button (LLFR-00945). ``ordered_signal_names`` gives the order of the
 signal list: file after file, each file's synthetic signals after its
-own signals (LLFR-00935).
+own signals (LLFR-00939).
 
 Public API:
 
@@ -232,10 +232,10 @@ class SyntheticSignal:
             samples (its x-axis, HLFR-00058); None for the others,
             whose x-axis is the time signal.
         file_number_i: the number of the data file it belongs to
-            (LLFR-00936), or None for a signal whose sources have no
+            (LLFR-00940), or None for a signal whose sources have no
             file prefix.
         plain_name_str: its name with every prefix that the app put
-            into it removed (LLFR-00941); "" takes the name without its
+            into it removed (LLFR-00945); "" takes the name without its
             own prefix.
     """
 
@@ -253,10 +253,10 @@ class SyntheticSignal:
         """Return the prefix of the signal's data file.
 
         Inputs: none.
-        Outputs: ``file<N>_`` (LLFR-00904), or "" when it belongs to no
+        Outputs: ``file<N>_`` (LLFR-00908), or "" when it belongs to no
             numbered file.
         """
-        # LLFR-00904, LLFR-00936: the prefix of the file it belongs to.
+        # LLFR-00908, LLFR-00940: the prefix of the file it belongs to.
         if self.file_number_i is None:
             return ""
         return file_prefix(self.file_number_i)
@@ -266,9 +266,9 @@ class SyntheticSignal:
         """Return the part of the name after the prefix of its file.
 
         Inputs: none.
-        Outputs: the text the rename field shows (LLFR-00955).
+        Outputs: the text the rename field shows (LLFR-00959).
         """
-        # LLFR-00955: only the part after the prefix can be typed.
+        # LLFR-00959: only the part after the prefix can be typed.
         if self.prefix_str and self.name_str.startswith(self.prefix_str):
             return self.name_str[len(self.prefix_str):]
         return self.name_str
@@ -279,9 +279,9 @@ class SyntheticSignal:
 
         Inputs: none.
         Outputs: the name without the prefixes the app put into it
-            (LLFR-00941).
+            (LLFR-00945).
         """
-        # LLFR-00941: a renamed signal keeps the typed text; a signal
+        # LLFR-00945: a renamed signal keeps the typed text; a signal
         # made without a plain name is saved under its editable name,
         # which leaves out only the prefix of its own data file.
         return self.plain_name_str or self.editable_name_str
@@ -392,7 +392,7 @@ class SyntheticSignalStore:
     Inputs: none.
     Outputs: an empty store. The controller keeps one store for every
         open data file; closing a file deletes the synthetic signals
-        computed from its signals (LLFR-00922).
+        computed from its signals (LLFR-00926).
 
     Every method that changes the store keeps these rules: names are
     unique among the data file signals and the synthetic signals; every
@@ -467,12 +467,12 @@ class SyntheticSignalStore:
 
         Inputs:
             name_str: a signal of a data file or a synthetic signal.
-        Outputs: the file number (LLFR-00936): the one stored with a
+        Outputs: the file number (LLFR-00940): the one stored with a
             synthetic signal, or the one of the prefix of a data file
-            signal (LLFR-00901); None for a name without a prefix.
+            signal (LLFR-00905); None for a name without a prefix.
         """
-        # LLFR-00936: a synthetic signal belongs to the file of the
-        # signal it was computed from; LLFR-00901: a data file signal
+        # LLFR-00940: a synthetic signal belongs to the file of the
+        # signal it was computed from; LLFR-00905: a data file signal
         # carries the number of its file in its prefix.
         if self.contains(name_str):
             return self.get(name_str).file_number_i
@@ -483,9 +483,9 @@ class SyntheticSignalStore:
 
         Inputs:
             name_str: a signal of a data file or a synthetic signal.
-        Outputs: the part after ``file<N>_`` (LLFR-00904).
+        Outputs: the part after ``file<N>_`` (LLFR-00908).
         """
-        # LLFR-00240, LLFR-00904: the names are built from the names
+        # LLFR-00240, LLFR-00908: the names are built from the names
         # without their prefix.
         if self.contains(name_str):
             return self.get(name_str).editable_name_str
@@ -496,18 +496,18 @@ class SyntheticSignalStore:
 
         Inputs:
             name_str: a signal of a data file or a synthetic signal.
-        Outputs: its plain name (LLFR-00941): the name in its file for
+        Outputs: its plain name (LLFR-00945): the name in its file for
             a data file signal, the stored plain name for a synthetic
             signal.
         """
-        # LLFR-00941: every prefix the app put into the name removed.
+        # LLFR-00945: every prefix the app put into the name removed.
         if self.contains(name_str):
             return self.get(name_str).saved_name_str
         return without_prefix(name_str)
 
     def default_names(self, operation_str: str, source_name_list: list,
                       parameter) -> tuple:
-        """Return the name and the plain name of LLFR-00904.
+        """Return the name and the plain name of LLFR-00908.
 
         Inputs:
             operation_str: the operation id.
@@ -516,25 +516,25 @@ class SyntheticSignalStore:
         Outputs: a tuple (file number or None, name before LLFR-00241,
             plain name before LLFR-00241).
         """
-        # LLFR-00936: the file of the (right-clicked) first source.
+        # LLFR-00940: the file of the (right-clicked) first source.
         file_number_i = self.file_number_of(source_name_list[0])
         shown_list = []
         for index_i, source_str in enumerate(source_name_list):
             source_number_i = self.file_number_of(source_str)
             if (index_i > 0 and source_number_i is not None
                     and source_number_i != file_number_i):
-                # LLFR-00954: a second signal of another file keeps its
+                # LLFR-00958: a second signal of another file keeps its
                 # own prefix.
                 shown_list.append(file_prefix(source_number_i)
                                   + self.name_without_prefix(source_str))
             else:
-                # LLFR-00240, LLFR-00904: the name without its prefix.
+                # LLFR-00240, LLFR-00908: the name without its prefix.
                 shown_list.append(self.name_without_prefix(source_str))
         prefix_str = "" if file_number_i is None else file_prefix(
             file_number_i)
         name_str = prefix_str + base_synthetic_name(
             operation_str, shown_list, parameter)
-        # LLFR-00941: the plain name holds no prefix at all.
+        # LLFR-00945: the plain name holds no prefix at all.
         plain_str = base_synthetic_name(
             operation_str, [self.plain_name_of(source_str)
                             for source_str in source_name_list], parameter)
@@ -596,7 +596,7 @@ class SyntheticSignalStore:
         source_array_list = [np.asarray(signal_lookup(source_name_str),
                                         dtype=np.float64)
                              for source_name_str in source_name_list]
-        # LLFR-00937: a function gives the time signal of the file of the
+        # LLFR-00941: a function gives the time signal of the file of the
         # first source (the right-clicked signal of a product).
         if callable(time_array):
             time_function = time_array
@@ -618,7 +618,7 @@ class SyntheticSignalStore:
         # LLFR-00243 to LLFR-00276: compute the samples.
         value_array, frequency_array = operations.compute(
             operation_str, time_array, source_array_list, parameter)
-        # LLFR-00904, LLFR-00936, LLFR-00954: the prefix of the file of
+        # LLFR-00908, LLFR-00940, LLFR-00958: the prefix of the file of
         # the first source, then the names without their prefix.
         file_number_i, default_name_str, plain_str = self.default_names(
             operation_str, source_name_list, parameter)
@@ -626,7 +626,7 @@ class SyntheticSignalStore:
             # LLFR-00240, LLFR-00241: unique among all signal names.
             name_str = unique_name(default_name_str,
                                    set(data_name_set) | set(self.names()))
-        # LLFR-00941: the number of LLFR-00241 stays in the plain name;
+        # LLFR-00945: the number of LLFR-00241 stays in the plain name;
         # a name that is not the app's own keeps the text after its
         # prefix.
         suffix_match = re.fullmatch(re.escape(default_name_str)
@@ -660,7 +660,7 @@ class SyntheticSignalStore:
                 signal in the signal list, data file or synthetic.
             time_array: the time signal of the data file, in seconds,
                 or a function that takes a signal name and returns the
-                time signal of its data file (LLFR-00937).
+                time signal of its data file (LLFR-00941).
             data_name_set: the names of the data file signals.
         Outputs: the new SyntheticSignal, named by LLFR-00240 and
             LLFR-00241.
@@ -722,7 +722,7 @@ class SyntheticSignalStore:
         Inputs:
             old_name_str: the current name of a synthetic signal.
             new_name_str: the name the user typed: the part after the
-                prefix of its data file (LLFR-00955).
+                prefix of its data file (LLFR-00959).
             data_name_set: the names of the data file signals.
         Outputs: the stored new name: the prefix of its data file and
             the typed text without leading and trailing spaces.
@@ -736,10 +736,10 @@ class SyntheticSignalStore:
         # LLFR-00267: the name is compared without outer spaces.
         signal = self.get(old_name_str)
         typed_name_str = new_name_str.strip()
-        # LLFR-00971: the empty-name check is on the typed part.
+        # LLFR-00975: the empty-name check is on the typed part.
         if not typed_name_str:
             raise EmptySyntheticNameError("The name is empty.")
-        # LLFR-00955, LLFR-00972: the prefix of its file stays in front
+        # LLFR-00959, LLFR-00976: the prefix of its file stays in front
         # of the typed part, and the whole name is checked.
         trimmed_name_str = signal.prefix_str + typed_name_str
         if trimmed_name_str == old_name_str:
@@ -750,7 +750,7 @@ class SyntheticSignalStore:
             raise SyntheticNameInUseError(
                 f'A signal named "{trimmed_name_str}" already exists.')
         signal.name_str = trimmed_name_str
-        # LLFR-00941: the text the user typed is the plain name.
+        # LLFR-00945: the text the user typed is the plain name.
         signal.plain_name_str = typed_name_str
         # LLFR-00266: dependents keep their own names, but their stored
         # sources follow the new name (LLFR-00225 item 10).
@@ -837,7 +837,7 @@ class SyntheticSignalStore:
                 the signal list, data file or synthetic.
             time_array: the time signal of the data file, in seconds,
                 or a function that takes a signal name and returns the
-                time signal of its data file (LLFR-00937).
+                time signal of its data file (LLFR-00941).
             data_name_set: the names of the data file signals.
         Outputs: the new SyntheticSignal, with the saved name, appended
             to the store. An FFT entry is never created (LLFR-00283).
@@ -949,14 +949,14 @@ def own_prefix_name(name_str: str, file_number_i) -> str:
 
     Inputs:
         name_str: the saved name of a synthetic signal of a layout file.
-        file_number_i: the number of its data file (LLFR-00936), or
+        file_number_i: the number of its data file (LLFR-00940), or
             None.
     Outputs: the name itself when it starts with ``file<N>_`` of its
         file or when file_number_i is None; else the name with that
         prefix in place of the prefix of another file, or in front of
-        the name when it has no prefix (LLFR-00966).
+        the name when it has no prefix (LLFR-00970).
     """
-    # LLFR-00966: for example `my_int` of file 2 becomes `file2_my_int`
+    # LLFR-00970: for example `my_int` of file 2 becomes `file2_my_int`
     # and `file1_x` of file 2 becomes `file2_x`.
     if file_number_i is None:
         return name_str
@@ -1013,7 +1013,7 @@ class LayoutSignalLoader:
             signal list, data file or synthetic.
         time_array: the time signal of the data file, in seconds, or a
             function that takes a signal name and returns the time
-            signal of its data file (LLFR-00937).
+            signal of its data file (LLFR-00941).
         data_name_set: the names of the data file signals.
     Attributes:
         name_dict: file name of each synthetic entry -> the name of the
@@ -1111,7 +1111,7 @@ class LayoutSignalLoader:
         source_name_list = [self.source_name(source_value)
                             for source_value in source_name_list]
         saved_name_str = name_str
-        # LLFR-00966: a saved name that does not start with the prefix
+        # LLFR-00970: a saved name that does not start with the prefix
         # of its own data file gets that prefix, in place of the prefix
         # of another file or in front of the name.
         self.store.check_sources(operation_str, source_name_list,
@@ -1138,7 +1138,7 @@ class LayoutSignalLoader:
                 self.store.signal_list.remove(signal)
                 return candidate_name_str
         if signal.name_str != saved_name_str:
-            # LLFR-00499, LLFR-00966, LLFR-00501: the rename is reported,
+            # LLFR-00499, LLFR-00970, LLFR-00501: the rename is reported,
             # with the saved and the new name.
             self.renamed_list.append((saved_name_str, signal.name_str))
         return signal.name_str
@@ -1212,7 +1212,7 @@ def create_layout_signals(store: SyntheticSignalStore, entry_list,
         signal_lookup: function name -> samples of any signal.
         time_array: the time signal of the data file, in seconds, or a
             function that takes a signal name and returns the time
-            signal of its data file (LLFR-00937).
+            signal of its data file (LLFR-00941).
         data_name_set: the names of the data file signals.
     Outputs: a list of (label_str, reason_str) for each entry that was
         not created (LLFR-00237), FFT entries included (LLFR-00283).
@@ -1233,13 +1233,13 @@ def ordered_signal_names(data_files, synthetic_name_list: list,
             SignalFile, or None).
         synthetic_name_list: the synthetic signals, in creation order.
         file_number_dict: synthetic signal name -> number of its data
-            file (LLFR-00936); a missing name or None puts the signal
+            file (LLFR-00940); a missing name or None puts the signal
             after every file.
     Outputs: the files in the order of their numbers, each with its
         signals in the file's order followed by its synthetic signals
-        in creation order (LLFR-00934, LLFR-00935, LLFR-00242).
+        in creation order (LLFR-00938, LLFR-00939, LLFR-00242).
     """
-    # LLFR-00934, LLFR-00935, LLFR-00242: file after file, each file's
+    # LLFR-00938, LLFR-00939, LLFR-00242: file after file, each file's
     # synthetic signals right after its own signals.
     if data_files is None:
         return list(synthetic_name_list)

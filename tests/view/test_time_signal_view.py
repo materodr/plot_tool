@@ -157,7 +157,7 @@ class TimeSignalWindowTest(unittest.TestCase):
         self.dialog.reject()
         self.application.processEvents()
 
-    @covers("LLFR-00953", "HLFR-00070")
+    @covers("LLFR-00957", "HLFR-00070")
     def test_file_line_names_the_file(self) -> None:
         """A window built for a file names it above the question.
 
@@ -371,7 +371,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.window_record_list.append(
             (dialog.windowTitle(), dialog.prompt_label.text(),
              dialog.name_list(), []))
-        # LLFR-00953: the file named by the window, when shown.
+        # LLFR-00957: the file named by the window, when shown.
         self.window_file_list.append(
             dialog.file_label.text() if not dialog.file_label.isHidden()
             else "")
@@ -500,8 +500,8 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.assertEqual(len(reason_list), 1)
         self.assertIn("must always increase", reason_list[0])
         self.assertEqual(self.box_record_list, [])
-        # LLFR-00906: the window had the names in the file; the signal
-        # list has them with the prefix (LLFR-00901).
+        # LLFR-00910: the window had the names in the file; the signal
+        # list has them with the prefix (LLFR-00905).
         self.assertEqual(self.panel.signal_name_list(),
                          ["file1_speed", "file1_t_s", "file1_force"])
         self.double_click_signal("file1_force")
@@ -522,7 +522,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
 
     @covers("LLFR-00327", "HLFR-00070", "LLFR-00010", "LLFR-00328",
             "LLFR-00508", "LLFR-00509", "LLFR-00512", "LLFR-00513",
-            "LLFR-00918")
+            "LLFR-00922")
     def test_cancel_keeps_the_open_file(self) -> None:
         """No question, then cancelling the window, keeps the open file.
 
@@ -534,13 +534,13 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.window_attempt_list.append([])
         self.open_file(self.no_time_path_str)
         self.assertEqual(len(self.window_record_list), 1)
-        # LLFR-00327, LLFR-00918: no question and no other message.
+        # LLFR-00327, LLFR-00922: no question and no other message.
         self.assertEqual(self.box_record_list, [])
         self.assertEqual(self.panel.signal_name_list(),
                          ["file1_a", "file1_TIME", "file1_b"])
         self.assertEqual(len(self.plot_widgets()), 1)
 
-    @covers("LLFR-00953", "LLFR-00906", "LLFR-00916", "HLFR-00070")
+    @covers("LLFR-00957", "LLFR-00910", "LLFR-00920", "HLFR-00070")
     def test_window_of_an_added_file(self) -> None:
         """With a file open, the window of the next file lists its names
         in the file, and the file opens as file 2.
@@ -553,14 +553,14 @@ class TimeSignalEndToEndTest(unittest.TestCase):
         self.open_file(self.no_time_path_str)
         self.assertEqual(self.window_record_list[0][2],
                          ["speed", "t_s", "force"])
-        # LLFR-00953: the window names its file, without its folder.
+        # LLFR-00957: the window names its file, without its folder.
         self.assertEqual(self.window_file_list, ["File: x_axis.csv"])
         self.assertEqual(self.panel.signal_name_list(), [
             "file1_a", "file1_TIME", "file1_b", "file2_speed", "file2_t_s",
             "file2_force"])
 
-    @covers("LLFR-00953", "LLFR-00906", "LLFR-00947", "LLFR-00948",
-            "LLFR-00949", "HLFR-00070", "HLFR-00122")
+    @covers("LLFR-00957", "LLFR-00910", "LLFR-00951", "LLFR-00952",
+            "LLFR-00953", "HLFR-00070", "HLFR-00122")
     def test_each_selected_file_gets_its_own_window(self) -> None:
         """Two files without Time selected together: two windows, each
         naming its file; a cancel skips only that file.
@@ -575,7 +575,7 @@ class TimeSignalEndToEndTest(unittest.TestCase):
                                       other_path_str]):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
-        # LLFR-00948: b_other.csv comes before x_axis.csv.
+        # LLFR-00952: b_other.csv comes before x_axis.csv.
         self.assertEqual(self.window_file_list,
                          ["File: b_other.csv", "File: x_axis.csv"])
         self.assertEqual(self.window_record_list[0][2],

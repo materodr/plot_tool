@@ -44,7 +44,7 @@ DATA_FILE_REFUSED_STR = (
     "signals.")
 # LLFR-00399, LLFR-00400: the start of the error box text.
 SAVE_FAILED_STR = "The signals could not be saved to '{name}'."
-# LLFR-00938: the error box shown in place of the save file dialog.
+# LLFR-00942: the error box shown in place of the save file dialog.
 DIFFERENT_TIME_SIGNALS_STR = (
     "The signals of the open data files cannot be saved together: the "
     "files need the same time signals, with the same number of samples "
@@ -125,7 +125,7 @@ class SaveSignalsController:
             closed_file_list: the closed DataFile objects.
         Outputs: none.
         """
-        # LLFR-00395, LLFR-00932: disabled while no data file is open.
+        # LLFR-00395, LLFR-00936: disabled while no data file is open.
         self.data_file_open_b = len(data_files) > 0
         self.view.set_save_signals_button_enabled(self.data_file_open_b)
 
@@ -150,13 +150,13 @@ class SaveSignalsController:
             order, except the FFT signals and the time signals of the
             files other than the lowest-numbered one.
         """
-        # LLFR-00401, LLFR-00935: file after file, each file's signals
+        # LLFR-00401, LLFR-00939: file after file, each file's signals
         # then its synthetic signals, without the FFT signals and
         # without a message about them (LLFR-00541).
         signal_file = self.synthetic_controller.signal_file
         store = self.synthetic_controller.store
         data_name_set = set(signal_file.signal_name_list)
-        # LLFR-00940: one time signal, the lowest-numbered file's.
+        # LLFR-00944: one time signal, the lowest-numbered file's.
         kept_time_str = signal_file.time_signal_name_str
         other_time_set = set(getattr(signal_file, "time_signal_name_list",
                                      [kept_time_str])) - {kept_time_str}
@@ -174,8 +174,8 @@ class SaveSignalsController:
                 if synthetic_signal.is_fft_b:
                     continue
                 value_array = synthetic_signal.value_array
-            # LLFR-00941: the name with every prefix the app put into it
-            # removed; LLFR-00942: with the number of its data file.
+            # LLFR-00945: the name with every prefix the app put into it
+            # removed; LLFR-00946: with the number of its data file.
             signal_list.append((name_str, store.plain_name_of(name_str),
                                 store.file_number_of(name_str),
                                 value_array))
@@ -191,7 +191,7 @@ class SaveSignalsController:
         signal_file = self.synthetic_controller.signal_file
         if not self.data_file_open_b or signal_file is None:
             return
-        # LLFR-00938, LLFR-00939: different time signals show an error
+        # LLFR-00942, LLFR-00943: different time signals show an error
         # box in place of the save file dialog, and nothing is written.
         same_time_function = getattr(signal_file, "same_time_signals_b",
                                      None)
@@ -250,7 +250,7 @@ class SaveSignalsController:
             self.view.show_signals_save_error(
                 f"{failed_str}\n\n{non_finite_reason(bad_name_list)}")
             return
-        # LLFR-00943: LLFR-00941, LLFR-00942 and LLFR-00961 first, then
+        # LLFR-00947: LLFR-00945, LLFR-00946 and LLFR-00965 first, then
         # LLFR-00403 and LLFR-00407: the names the format can store, with
         # the time signal as "Time".
         time_name_str = signal_file.time_signal_name_str
@@ -277,7 +277,7 @@ class SaveSignalsController:
                 else failed_str)
             return
         # LLFR-00404: one box with the changed names, none otherwise;
-        # the removal of the prefix alone is not a change (LLFR-00941).
+        # the removal of the prefix alone is not a change (LLFR-00945).
         change_list = [
             (name_str, new_str) for name_str, new_str
             in changed_name_list(name_list, new_name_list)

@@ -400,7 +400,7 @@ class UndoEndToEndTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00138", "LLFR-00140", "LLFR-00141", "LLFR-00136",
-            "LLFR-00142", "LLFR-00926")
+            "LLFR-00142", "LLFR-00930")
     def test_open_act_and_undo_everything(self) -> None:
         """Two plots, a marker and a tab rename are undone in 4 clicks.
 
@@ -460,7 +460,7 @@ class UndoEndToEndTest(unittest.TestCase):
                          .signal_name_list()[-2:],
                          ["file2_Time", "file2_torque"])
         self.assertTrue(undo_button.isEnabled())
-        # LLFR-00926: closing the files leaves nothing to undo.
+        # LLFR-00930: closing the files leaves nothing to undo.
         self.controller.file_controller.close_all_files()
         self.application.processEvents()
         self.assertFalse(undo_button.isEnabled())

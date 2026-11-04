@@ -35,7 +35,7 @@ The signal list panel must be placed to the right of the plot panel.
 *Parent: HLFR-00001*
 
 ### LLFR-00071 Unexpected error box
-If an unexpected error occurs while the app handles a user action, the app must show an error box titled "Error" that describes the error, except as in LLFR-00969.
+If an unexpected error occurs while the app handles a user action, the app must show an error box titled "Error" that describes the error, except as in LLFR-00973.
 
 *Parent: HLFR-00002*
 
@@ -89,14 +89,14 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 ### LLFR-00140 Undoable actions
 The app must treat these actions as undoable: adding a tab, deleting a tab, renaming a tab, creating a plot, deleting a plot, adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating an area, moving or resizing an area, renaming an area, changing an area's color, deleting an area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the areas).
 
-Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, closing a file or all files (LLFR-00920, LLFR-00930), zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
+Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. Opening a file, closing a file or all files (LLFR-00924, LLFR-00934), zooming, panning, resetting the zoom, showing or hiding the grid, exporting, copying, searching and resizing the panels are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
 
 *Parent: HLFR-00040*
 
 ### LLFR-00142 Undo history kept on file open
 When the app opens a data file, it must keep the undo history and the redo history (LLFR-00192) unchanged.
 
-Note: Closing a data file clears them (LLFR-00926).
+Note: Closing a data file clears them (LLFR-00930).
 
 *Parent: HLFR-00040, HLFR-00048, HLFR-00117*
 
@@ -198,57 +198,57 @@ The top panel must contain a button called "Open file".
 *Parent: HLFR-00004*
 
 ### LLFR-00005 File selection dialog
-When the user clicks the open file button (LLFR-00004), the app must show a file selection dialog, except as in LLFR-00892.
+When the user clicks the open file button (LLFR-00004), the app must show a file selection dialog, except as in LLFR-00896.
 
 *Parent: HLFR-00004*
 
-### LLFR-00947 Several files in the file dialog
+### LLFR-00951 Several files in the file dialog
 The file selection dialog of LLFR-00005 must let the user select several files at once.
 
 *Parent: HLFR-00122, HLFR-00004*
 
-### LLFR-00948 Order of the selected files
-When the user selects several files in the dialog of LLFR-00005, the app must take them one after the other, in character order of their file names without their folders, ignoring the difference between uppercase and lowercase letters except as in LLFR-00970, so that the files that open get their numbers (LLFR-00896) in that order.
+### LLFR-00952 Order of the selected files
+When the user selects several files in the dialog of LLFR-00005, the app must take them one after the other, in character order of their file names without their folders, ignoring the difference between uppercase and lowercase letters except as in LLFR-00974, so that the files that open get their numbers (LLFR-00900) in that order.
 
 Note: The order compares characters, not numbers, so `run10.csv` comes before `run2.csv`.
 
 *Parent: HLFR-00122, HLFR-00114*
 
-### LLFR-00970 Selected names that differ only in case
-When two selected file names (LLFR-00948) differ only in uppercase and lowercase letters, the app must take them in the order of an exact comparison of their characters.
+### LLFR-00974 Selected names that differ only in case
+When two selected file names (LLFR-00952) differ only in uppercase and lowercase letters, the app must take them in the order of an exact comparison of their characters.
 
 *Parent: HLFR-00122, HLFR-00114*
 
-### LLFR-00949 Next selected file after a file that does not open
-When a selected file fails to open (LLFR-00510, LLFR-00969), is refused (LLFR-00894, LLFR-00950) or its time signal window is cancelled (LLFR-00327), the app must go on with the next selected file of LLFR-00948.
+### LLFR-00953 Next selected file after a file that does not open
+When a selected file fails to open (LLFR-00510, LLFR-00973), is refused (LLFR-00898, LLFR-00954) or its time signal window is cancelled (LLFR-00327), the app must go on with the next selected file of LLFR-00952.
 
 Note: A cancelled time signal window therefore cancels only that file, with no message (LLFR-00509).
 
 *Parent: HLFR-00122, HLFR-00101*
 
-### LLFR-00950 Selected files beyond 10 open files
-When 10 data files are open while selected files of LLFR-00948 are still left to open, the app must refuse each of those files, listing it in the information box of LLFR-00952 as not opened because 10 files are already open.
+### LLFR-00954 Selected files beyond 10 open files
+When 10 data files are open while selected files of LLFR-00952 are still left to open, the app must refuse each of those files, listing it in the information box of LLFR-00956 as not opened because 10 files are already open.
 
 *Parent: HLFR-00122, HLFR-00113*
 
-### LLFR-00951 One File Open Error box for a selection
-After the app has taken all the selected files (LLFR-00948), if any of them could not be opened at the reading step of LLFR-00328 or met an unexpected error (LLFR-00969), the app must show one File Open Error box that lists each such file by its name, without its folder, with the reason of its error (LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064, LLFR-00065, LLFR-00969).
+### LLFR-00955 One File Open Error box for a selection
+After the app has taken all the selected files (LLFR-00952), if any of them could not be opened at the reading step of LLFR-00328 or met an unexpected error (LLFR-00973), the app must show one File Open Error box that lists each such file by its name, without its folder, with the reason of its error (LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064, LLFR-00065, LLFR-00973).
 
 Note: With one file selected, the box lists that one file.
 
 *Parent: HLFR-00122, HLFR-00002, HLFR-00004*
 
-### LLFR-00952 One information box for the refused files
-After the app has taken all the selected files (LLFR-00948), and after the box of LLFR-00951 when that box is shown, if any selected file was refused (LLFR-00894, LLFR-00950), the app must show one information box that lists each refused file by its name, without its folder, with the reason of LLFR-00894 or LLFR-00950.
+### LLFR-00956 One information box for the refused files
+After the app has taken all the selected files (LLFR-00952), and after the box of LLFR-00955 when that box is shown, if any selected file was refused (LLFR-00898, LLFR-00954), the app must show one information box that lists each refused file by its name, without its folder, with the reason of LLFR-00898 or LLFR-00954.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032).
 
 *Parent: HLFR-00122, HLFR-00113*
 
-### LLFR-00969 Unexpected error while opening one of the selected files
-If an unexpected error (LLFR-00071) occurs while the app takes one selected file (LLFR-00328), the app must treat it as a reading error of that file, listing the file in the box of LLFR-00951 with a description of the error as its reason.
+### LLFR-00973 Unexpected error while opening one of the selected files
+If an unexpected error (LLFR-00071) occurs while the app takes one selected file (LLFR-00328), the app must treat it as a reading error of that file, listing the file in the box of LLFR-00955 with a description of the error as its reason.
 
-Note: The app then goes on with the next selected file (LLFR-00949).
+Note: The app then goes on with the next selected file (LLFR-00953).
 
 *Parent: HLFR-00122, HLFR-00002*
 
@@ -268,77 +268,77 @@ After the first time the user clicks the Open file button after the app starts (
 *Parent: HLFR-00004*
 
 ### LLFR-00006 Open the selected file
-When the user selects one or more files in the file selection dialog (LLFR-00005, LLFR-00947), the app must try to open each selected file in the steps of LLFR-00328, one file after the other in the order of LLFR-00948.
+When the user selects one or more files in the file selection dialog (LLFR-00005, LLFR-00951), the app must try to open each selected file in the steps of LLFR-00328, one file after the other in the order of LLFR-00952.
 
 *Parent: HLFR-00004, HLFR-00122*
 
-### LLFR-00891 Maximum of open data files
+### LLFR-00895 Maximum of open data files
 The app must allow up to 10 data files to be open at the same time.
 
 *Parent: HLFR-00113*
 
-### LLFR-00892 Open file with 10 files open
+### LLFR-00896 Open file with 10 files open
 When the user clicks the Open file button (LLFR-00004) while 10 data files are open, the app must show, in place of the file selection dialog (LLFR-00005), an information box saying that 10 files are already open and that closing one of them makes room for another.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032).
 
 *Parent: HLFR-00113, HLFR-00004*
 
-### LLFR-00893 Open files kept with 10 files open
-When the user clicks the Open file button while 10 data files are open (LLFR-00892), the app must keep the open data files, the plots and the undo and redo history unchanged.
+### LLFR-00897 Open files kept with 10 files open
+When the user clicks the Open file button while 10 data files are open (LLFR-00896), the app must keep the open data files, the plots and the undo and redo history unchanged.
 
 *Parent: HLFR-00113*
 
-### LLFR-00894 File already open
-When a file selected in the file selection dialog (LLFR-00005) is already open as data file N, the app must refuse it, listing it in the information box of LLFR-00952 as already open as `file<N>`.
+### LLFR-00898 File already open
+When a file selected in the file selection dialog (LLFR-00005) is already open as data file N, the app must refuse it, listing it in the information box of LLFR-00956 as already open as `file<N>`.
 
-Note: Two paths name the same file when they lead to the same file on disk, for example through a symbolic link. The check is step 2 of LLFR-00328, after the 10-file limit of step 1 and before the file is read. When both refusals apply, the file is refused for the 10-file limit (LLFR-00950).
+Note: Two paths name the same file when they lead to the same file on disk, for example through a symbolic link. The check is step 2 of LLFR-00328, after the 10-file limit of step 1 and before the file is read. When both refusals apply, the file is refused for the 10-file limit (LLFR-00954).
 
 *Parent: HLFR-00113, HLFR-00004*
 
-### LLFR-00895 Open files kept when the file is already open
-When the app refuses a selected file because it is already open (LLFR-00894), it must keep the open data files unchanged, as in LLFR-00010.
+### LLFR-00899 Open files kept when the file is already open
+When the app refuses a selected file because it is already open (LLFR-00898), it must keep the open data files unchanged, as in LLFR-00010.
 
 *Parent: HLFR-00113, HLFR-00101*
 
-### LLFR-00896 File number
+### LLFR-00900 File number
 When the app opens a data file, it must give it the number that is 1 more than the highest number given to a data file since the app started, or 1 for the first data file opened since the app started.
 
 *Parent: HLFR-00114*
 
-### LLFR-00897 File number kept while open
-A data file must keep its number (LLFR-00896) for as long as it stays open, whatever other data files are opened or closed.
+### LLFR-00901 File number kept while open
+A data file must keep its number (LLFR-00900) for as long as it stays open, whatever other data files are opened or closed.
 
 *Parent: HLFR-00114*
 
-### LLFR-00898 Numbers of closed files used up
+### LLFR-00902 Numbers of closed files used up
 The app must keep the number of each closed data file used up until the app closes, so that no later data file gets it.
 
 Note: After file 2 of three open files is closed, file 3 keeps the number 3, and the next file opened is file 4.
 
 *Parent: HLFR-00114*
 
-### LLFR-00899 Number only for an opened file
-The app must give a number (LLFR-00896) only to a file it opens, so that a file whose opening fails, is cancelled or is refused (LLFR-00010, LLFR-00892, LLFR-00894, LLFR-00950) uses up no number.
+### LLFR-00903 Number only for an opened file
+The app must give a number (LLFR-00900) only to a file it opens, so that a file whose opening fails, is cancelled or is refused (LLFR-00010, LLFR-00896, LLFR-00898, LLFR-00954) uses up no number.
 
 *Parent: HLFR-00114*
 
-### LLFR-00900 Numbering after Close all files
-After "Close all files" (LLFR-00932), the app must give the next data file opened the next number of LLFR-00896, so that numbering restarts at 1 only when the app starts.
+### LLFR-00904 Numbering after Close all files
+After "Close all files" (LLFR-00936), the app must give the next data file opened the next number of LLFR-00900, so that numbering restarts at 1 only when the app starts.
 
 *Parent: HLFR-00114, HLFR-00119*
 
-### LLFR-00916 Opening adds the file
-When the app opens a selected file (LLFR-00328, step 5), it must add it as the next data file (LLFR-00896), whether or not other data files are open.
+### LLFR-00920 Opening adds the file
+When the app opens a selected file (LLFR-00328, step 5), it must add it as the next data file (LLFR-00900), whether or not other data files are open.
 
 *Parent: HLFR-00117, HLFR-00113*
 
-### LLFR-00917 Open files kept when a file is added
-When the app adds a data file (LLFR-00916), it must keep the data files already open unchanged, with their numbers, signals, synthetic signals, tabs, plots, curves, pinned data tips, flags, delta markers, areas, text notes and arrows.
+### LLFR-00921 Open files kept when a file is added
+When the app adds a data file (LLFR-00920), it must keep the data files already open unchanged, with their numbers, signals, synthetic signals, tabs, plots, curves, pinned data tips, flags, delta markers, areas, text notes and arrows.
 
 *Parent: HLFR-00117*
 
-### LLFR-00918 Added file read without a question
+### LLFR-00922 Added file read without a question
 When the user selects a file while other data files are open, the app must go on to the reading step of LLFR-00328 right away, with no question to the user.
 
 *Parent: HLFR-00117*
@@ -349,27 +349,27 @@ If the user cancels the file selection dialog (LLFR-00005), the app must keep th
 *Parent: HLFR-00004*
 
 ### LLFR-00008 Unreadable file
-If the file cannot be read or parsed (for example, it is corrupt or its content does not match its format), the app must list the file in the File Open Error box of LLFR-00951 with the reason that the file could not be read.
+If the file cannot be read or parsed (for example, it is corrupt or its content does not match its format), the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file could not be read.
 
 *Parent: HLFR-00004, HLFR-00002*
 
 ### LLFR-00009 File access error
-If the file does not exist or the app has no permission to read it, the app must list the file in the File Open Error box of LLFR-00951 with the reason that the file could not be accessed.
+If the file does not exist or the app has no permission to read it, the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file could not be accessed.
 
 *Parent: HLFR-00004, HLFR-00002*
 
 ### LLFR-00010 State after a failed open
-When opening a selected file fails, is cancelled after the user selected it, or is refused (LLFR-00892, LLFR-00894, LLFR-00950), the app must make no change for that file to the open data files, the tabs and plots, the signal list, the synthetic signals or the undo and redo history.
+When opening a selected file fails, is cancelled after the user selected it, or is refused (LLFR-00896, LLFR-00898, LLFR-00954), the app must make no change for that file to the open data files, the tabs and plots, the signal list, the synthetic signals or the undo and redo history.
 
 *Parent: HLFR-00004, HLFR-00101*
 
 ### LLFR-00011 Unsupported file format
-If the user selects a file whose format is not listed in HLFR-00005, the app must list the file in the File Open Error box of LLFR-00951 with the reason that the file format is not supported.
+If the user selects a file whose format is not listed in HLFR-00005, the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file format is not supported.
 
 *Parent: HLFR-00005, HLFR-00002*
 
 ### LLFR-00012 Failed content check message
-If the file fails the check in HLFR-00008 or HLFR-00009, the app must list the file in the File Open Error box of LLFR-00951 with the reason that the file cannot be opened, naming the check that failed.
+If the file fails the check in HLFR-00008 or HLFR-00009, the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file cannot be opened, naming the check that failed.
 
 *Parent: HLFR-00008, HLFR-00009, HLFR-00002*
 
@@ -443,14 +443,14 @@ In MAT files, the app must apply the checks of HLFR-00008 and HLFR-00009 only to
 *Parent: HLFR-00005, HLFR-00008, HLFR-00009*
 
 ### LLFR-00064 MAT v7.3 files
-If a MAT file was saved in the MATLAB v7.3 format, the app must list the file in the File Open Error box of LLFR-00951 with the reason that the file could not be read.
+If a MAT file was saved in the MATLAB v7.3 format, the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file could not be read.
 
 Note: Support for v7.3 files needs an extra library and may be added later (COR-00011).
 
 *Parent: HLFR-00005, HLFR-00002*
 
 ### LLFR-00065 Missing or non-numeric values
-If a sample of any signal in a CSV or Excel file is empty or is not a number, the app must list the file in the File Open Error box of LLFR-00951 with the reason that the file could not be read.
+If a sample of any signal in a CSV or Excel file is empty or is not a number, the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file could not be read.
 
 *Parent: HLFR-00004, HLFR-00002*
 
@@ -529,11 +529,11 @@ When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a s
 *Parent: HLFR-00038*
 
 ### LLFR-00129 PDF content
-The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page, the description of the data files of LLFR-00967 directly below it, and the tab's plots below the description as they are shown on screen, including their time range, curves, legends, grid, flags, areas, text notes, arrows, delta markers and pinned data tips.
+The saved PDF must have one page for each tab that holds at least one plot, in tab order, with the tab's name at the top of the page, the description of the data files of LLFR-00971 directly below it, and the tab's plots below the description as they are shown on screen, including their time range, curves, legends, grid, flags, areas, text notes, arrows, delta markers and pinned data tips.
 
 *Parent: HLFR-00038, HLFR-00113*
 
-### LLFR-00967 Data files described on each PDF page
+### LLFR-00971 Data files described on each PDF page
 On each page of the PDF (LLFR-00129), directly below the tab's name, the app must show a description of all the open data files, as `file<N> = <file name>` for each of them, with the file name with its extension and without its folder, separated by commas, in the order of the file numbers, for example `file1 = run_A.csv, file2 = run_B.mat`.
 
 *Parent: HLFR-00038, HLFR-00113*
@@ -554,12 +554,12 @@ The top panel must contain a button called "Copy".
 *Parent: HLFR-00039*
 
 ### LLFR-00133 Copy action
-When the user clicks the Copy button, the app must put on the system clipboard an image of all plots of the current tab as they are shown on screen, including their flags, areas, text notes, arrows, delta markers and pinned data tips, without any preview, with the strip of LLFR-00968 above the plots.
+When the user clicks the Copy button, the app must put on the system clipboard an image of all plots of the current tab as they are shown on screen, including their flags, areas, text notes, arrows, delta markers and pinned data tips, without any preview, with the strip of LLFR-00972 above the plots.
 
 *Parent: HLFR-00039, HLFR-00113*
 
-### LLFR-00968 Data files described on the copied image
-The image that the Copy button puts on the clipboard (LLFR-00133) must have at its top, above the plots, its own strip with the description of all the open data files of LLFR-00967, so that the strip covers no part of the plots.
+### LLFR-00972 Data files described on the copied image
+The image that the Copy button puts on the clipboard (LLFR-00133) must have at its top, above the plots, its own strip with the description of all the open data files of LLFR-00971, so that the strip covers no part of the plots.
 
 Note: When the current tab holds no plot, nothing is copied (LLFR-00146, LLFR-00460), so there is no strip.
 
@@ -921,8 +921,8 @@ The layout file must not hold the names or the paths of the data files, the undo
 
 *Parent: HLFR-00049*
 
-### LLFR-00944 Prefixed names in the layout file
-The layout file must hold the name of each signal with its prefix of LLFR-00901, for example `file1_Speed` or `file1_int_Speed`, in its curves, pinned data tips, delta markers and synthetic signals (LLFR-00225).
+### LLFR-00948 Prefixed names in the layout file
+The layout file must hold the name of each signal with its prefix of LLFR-00905, for example `file1_Speed` or `file1_int_Speed`, in its curves, pinned data tips, delta markers and synthetic signals (LLFR-00225).
 
 *Parent: HLFR-00049, HLFR-00115*
 
@@ -941,24 +941,24 @@ The layout file must start with an entry `format` with the value `plot_tool layo
 ### LLFR-00471 Layout file format number
 The number of the layout file format in the `version` entry (LLFR-00228) must be 3.
 
-Note: Version 3 names the signals with their prefix (LLFR-00944). A file of a lower version is read as in LLFR-00959.
+Note: Version 3 names the signals with their prefix (LLFR-00948). A file of a lower version is read as in LLFR-00963.
 
 *Parent: HLFR-00051, HLFR-00050*
 
 ### LLFR-00472 Layout files with a lower version
-A layout file with a lower `version` (LLFR-00228, LLFR-00471) must still be read, with the current rules and with no special support for the earlier format apart from the signal names of LLFR-00959, so that, for example, the flags it saved under another key are not rebuilt.
+A layout file with a lower `version` (LLFR-00228, LLFR-00471) must still be read, with the current rules and with no special support for the earlier format apart from the signal names of LLFR-00963, so that, for example, the flags it saved under another key are not rebuilt.
 
 *Parent: HLFR-00051, HLFR-00050*
 
-### LLFR-00959 Names of an older layout file
+### LLFR-00963 Names of an older layout file
 When the app loads a layout file whose `version` (LLFR-00228) is lower than 3 (LLFR-00471), it must read each signal name of the file, in its curves, pinned data tips, delta markers and synthetic signal entries (the names of the synthetic signals and of the signals they are computed from), as that name with the prefix `file1_` in front, so that `Speed` means `file1_Speed`.
 
 Note: A synthetic signal saved as `int_Speed` is therefore created as `file1_int_Speed`, from `file1_Speed`, and its curves follow it. In a version 3 file, a name without a prefix is a missing signal (LLFR-00231).
 
 *Parent: HLFR-00050, HLFR-00051, HLFR-00115*
 
-### LLFR-00960 Older layout names not in the load report
-The load report (LLFR-00237) must leave the names read as in LLFR-00959 out of its list, apart from the signals that are still missing after that reading, which it lists with their prefix, for example `file1_Speed`.
+### LLFR-00964 Older layout names not in the load report
+The load report (LLFR-00237) must leave the names read as in LLFR-00963 out of its list, apart from the signals that are still missing after that reading, which it lists with their prefix, for example `file1_Speed`.
 
 *Parent: HLFR-00052, HLFR-00115*
 
@@ -995,21 +995,21 @@ When the user loads a layout file (LLFR-00221), the app must show the first tab 
 *Parent: HLFR-00050*
 
 ### LLFR-00230 Rebuild the layout
-When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00484), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, LLFR-00474 and LLFR-00475, using the signals of the open data files (LLFR-00945) and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00815, LLFR-00816, LLFR-00410, LLFR-00822 and LLFR-00823.
+When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00484), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, LLFR-00474 and LLFR-00475, using the signals of the open data files (LLFR-00949) and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00815, LLFR-00816, LLFR-00410, LLFR-00822 and LLFR-00823.
 
 *Parent: HLFR-00050*
 
-### LLFR-00945 Curves matched by file number
-When loading a layout, the app must draw each curve with the signal of the signal list whose name is the saved name, so that a saved name that starts with `file<N>_` is drawn with a signal of the data file that has the number N at that moment, except as in LLFR-00959.
+### LLFR-00949 Curves matched by file number
+When loading a layout, the app must draw each curve with the signal of the signal list whose name is the saved name, so that a saved name that starts with `file<N>_` is drawn with a signal of the data file that has the number N at that moment, except as in LLFR-00963.
 
 Note: A curve whose file number is not open, or whose file has no signal of that name, is a missing signal (LLFR-00231) and is named in the load report (LLFR-00237). The layout file still holds no file name or path (LLFR-00226).
 
 *Parent: HLFR-00050, HLFR-00052, HLFR-00115*
 
-### LLFR-00966 Synthetic signal of a layout with a wrong prefix
-When a synthetic signal of a layout file (LLFR-00262) has a saved name that does not start with the prefix of its own data file (LLFR-00901, LLFR-00936), the app must create it with that prefix in place of the prefix of another file, or in front of the name when it has no prefix.
+### LLFR-00970 Synthetic signal of a layout with a wrong prefix
+When a synthetic signal of a layout file (LLFR-00262) has a saved name that does not start with the prefix of its own data file (LLFR-00905, LLFR-00940), the app must create it with that prefix in place of the prefix of another file, or in front of the name when it has no prefix.
 
-Note: For example, `my_int` computed from `file2_Speed` becomes `file2_my_int`, and `file1_x` computed from `file2_Speed` becomes `file2_x`. LLFR-00499 then applies to the new name. The rename is listed under "Renamed:" (LLFR-00237, LLFR-00501), and the curves follow the new name (LLFR-00500). In a file of an older version, LLFR-00959 gives every name the prefix `file1_` first.
+Note: For example, `my_int` computed from `file2_Speed` becomes `file2_my_int`, and `file1_x` computed from `file2_Speed` becomes `file2_x`. LLFR-00499 then applies to the new name. The rename is listed under "Renamed:" (LLFR-00237, LLFR-00501), and the curves follow the new name (LLFR-00500). In a file of an older version, LLFR-00963 gives every name the prefix `file1_` first.
 
 *Parent: HLFR-00050, HLFR-00052, HLFR-00115*
 
@@ -1039,7 +1039,7 @@ When the app loads a layout file (LLFR-00230), it must apply the file's panel wi
 *Parent: HLFR-00050*
 
 ### LLFR-00231 Missing signals in a layout
-When loading a layout, the app must not draw a curve whose signal is not in the open data files (LLFR-00945).
+When loading a layout, the app must not draw a curve whose signal is not in the open data files (LLFR-00949).
 
 *Parent: HLFR-00050, HLFR-00052*
 
@@ -1071,17 +1071,17 @@ When loading a layout, the app must not rebuild a delta marker whose value on th
 *Parent: HLFR-00050, HLFR-00052, HLFR-00098*
 
 ### LLFR-00233 Flags in a layout
-When loading a layout, the app must rebuild a flag only if its time is within the time range of the open data files (LLFR-00912).
+When loading a layout, the app must rebuild a flag only if its time is within the time range of the open data files (LLFR-00916).
 
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00234 Time range in a layout
-When loading a layout, the app must limit the saved x-axis range to the time range of the open data files (LLFR-00912, LLFR-00119), except as in LLFR-00487.
+When loading a layout, the app must limit the saved x-axis range to the time range of the open data files (LLFR-00916, LLFR-00119), except as in LLFR-00487.
 
 *Parent: HLFR-00050, HLFR-00052*
 
 ### LLFR-00487 Saved time range outside the files
-When loading a layout, if the saved x-axis range does not overlap the time range of the open data files (LLFR-00912), the app must show that whole time range.
+When loading a layout, if the saved x-axis range does not overlap the time range of the open data files (LLFR-00916), the app must show that whole time range.
 
 *Parent: HLFR-00050, HLFR-00052*
 
@@ -1118,7 +1118,7 @@ If the chosen file cannot be read, is not valid JSON or does not identify itself
 *Parent: HLFR-00050*
 
 ### LLFR-00237 Layout load report
-After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00262, LLFR-00496, LLFR-00282, LLFR-00499, LLFR-00283, LLFR-00502, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00817, LLFR-00410, LLFR-00824), the app must show one information box that lists, except as in LLFR-00492: the signals that are not in the open data files, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use or did not start with the prefix of its data file (LLFR-00489, LLFR-00499, LLFR-00966), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, flag, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced.
+After loading a layout, if any part of it was not rebuilt or was changed (LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00262, LLFR-00496, LLFR-00282, LLFR-00499, LLFR-00283, LLFR-00502, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00817, LLFR-00410, LLFR-00824), the app must show one information box that lists, except as in LLFR-00492: the signals that are not in the open data files, each named once; each synthetic signal that was not created, with the reason; each tab and each synthetic signal of the file that was renamed because its name was in use or did not start with the prefix of its data file (LLFR-00489, LLFR-00499, LLFR-00970), under the heading "Renamed:", as `<saved name> → <new name>`; each pinned data tip, flag, area and delta marker that was not rebuilt, with its time and the reason; the time range when it was changed; and each value that was replaced.
 
 Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032).
 
@@ -1140,7 +1140,7 @@ After loading a layout, if everything was rebuilt as saved, the app must not sho
 *Parent: HLFR-00052*
 
 ### LLFR-00238 Undo history on layout load
-When the app loads a layout, it must clear the undo and redo history, as when a data file is closed (LLFR-00926).
+When the app loads a layout, it must clear the undo and redo history, as when a data file is closed (LLFR-00930).
 
 *Parent: HLFR-00050, HLFR-00040, HLFR-00048*
 
@@ -1150,7 +1150,7 @@ Saving and loading a layout must not be undoable actions (LLFR-00140).
 *Parent: HLFR-00050, HLFR-00040, HLFR-00048*
 
 ### LLFR-00262 Synthetic signals on layout load
-When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must create the synthetic signals of the file, in the file's order, with their saved names except as in LLFR-00966, LLFR-00282 and LLFR-00499 (each rename is listed in the load report, LLFR-00237), using the saved operation, signals and parameter (LLFR-00225), except as in LLFR-00496.
+When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it must create the synthetic signals of the file, in the file's order, with their saved names except as in LLFR-00970, LLFR-00282 and LLFR-00499 (each rename is listed in the load report, LLFR-00237), using the saved operation, signals and parameter (LLFR-00225), except as in LLFR-00496.
 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
@@ -1160,7 +1160,7 @@ When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
 ### LLFR-00496 Synthetic signals not created from a layout
-When the app loads a layout file (LLFR-00262), a synthetic signal of the file must not be created when it is an FFT signal (LLFR-00502), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when the signals it is computed from belong to different data files whose time signals are not the same (LLFR-00275, LLFR-00936), when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00613), or when the operation cannot be done (LLFR-00590).
+When the app loads a layout file (LLFR-00262), a synthetic signal of the file must not be created when it is an FFT signal (LLFR-00502), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when the signals it is computed from belong to different data files whose time signals are not the same (LLFR-00275, LLFR-00940), when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00613), or when the operation cannot be done (LLFR-00590).
 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
@@ -1187,12 +1187,12 @@ When a synthetic signal of the layout file (LLFR-00262) has the name of a signal
 *Parent: HLFR-00050, HLFR-00056*
 
 ### LLFR-00500 New name used in the layout
-When the app creates a synthetic signal of the layout file with a new name (LLFR-00499, LLFR-00966), it must use the new name for every curve, pinned data tip and delta marker of the file that names it, and for every later synthetic signal of the file that is computed from it.
+When the app creates a synthetic signal of the layout file with a new name (LLFR-00499, LLFR-00970), it must use the new name for every curve, pinned data tip and delta marker of the file that names it, and for every later synthetic signal of the file that is computed from it.
 
 *Parent: HLFR-00050, HLFR-00056, HLFR-00115*
 
 ### LLFR-00501 Synthetic signal rename in the load report
-Each rename of LLFR-00499 or LLFR-00966 must be listed in the load report (LLFR-00237), with the saved and the new name.
+Each rename of LLFR-00499 or LLFR-00970 must be listed in the load report (LLFR-00237), with the saved and the new name.
 
 *Parent: HLFR-00050, HLFR-00056, HLFR-00115*
 
@@ -1304,19 +1304,19 @@ If the user cancels the window of LLFR-00325, the app must not show any message.
 *Parent: HLFR-00070, HLFR-00004*
 
 ### LLFR-00328 Order of the opening steps
-For each selected file (LLFR-00006, LLFR-00948), the app must take these steps in this order:
-1. if 10 data files are open, refuse the file (LLFR-00950) and go on with the next one;
-2. if the file is already open as a data file, refuse it (LLFR-00894) and go on with the next one;
-3. read the file and apply the checks of HLFR-00008 and HLFR-00009 to it, showing the indication of LLFR-00418 and LLFR-00560, and, if it cannot be opened, keep it for the box of LLFR-00951 and go on with the next one;
+For each selected file (LLFR-00006, LLFR-00952), the app must take these steps in this order:
+1. if 10 data files are open, refuse the file (LLFR-00954) and go on with the next one;
+2. if the file is already open as a data file, refuse it (LLFR-00898) and go on with the next one;
+3. read the file and apply the checks of HLFR-00008 and HLFR-00009 to it, showing the indication of LLFR-00418 and LLFR-00560, and, if it cannot be opened, keep it for the box of LLFR-00955 and go on with the next one;
 4. show the window of LLFR-00325 for this file if it is needed, and go on with the next file if the window is cancelled;
-5. only then add the file as the next data file (LLFR-00896, LLFR-00916) and show its file name row and its signals (LLFR-00934, LLFR-00935).
+5. only then add the file as the next data file (LLFR-00900, LLFR-00920) and show its file name row and its signals (LLFR-00938, LLFR-00939).
 
-Note: A file with fewer than two signals therefore fails with LLFR-00012 and never shows the window. The boxes of LLFR-00951 and LLFR-00952 come after the last selected file. The limit of 10 files is also checked before the file selection dialog opens (LLFR-00892).
+Note: A file with fewer than two signals therefore fails with LLFR-00012 and never shows the window. The boxes of LLFR-00955 and LLFR-00956 come after the last selected file. The limit of 10 files is also checked before the file selection dialog opens (LLFR-00896).
 
 *Parent: HLFR-00070, HLFR-00008, HLFR-00009, HLFR-00004, HLFR-00101, HLFR-00113, HLFR-00117, HLFR-00122*
 
 ### LLFR-00510 Error box at the reading step
-If a selected file cannot be opened at step 3 of LLFR-00328 (for any reason of LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064 or LLFR-00065), the app must list that file with the reason of that error in the one File Open Error box of LLFR-00951.
+If a selected file cannot be opened at step 3 of LLFR-00328 (for any reason of LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064 or LLFR-00065), the app must list that file with the reason of that error in the one File Open Error box of LLFR-00955.
 
 *Parent: HLFR-00008, HLFR-00009, HLFR-00004, HLFR-00122*
 
@@ -1358,7 +1358,7 @@ The app must not offer any button, menu option or other control that changes the
 *Parent: HLFR-00072*
 
 ### LLFR-00515 Time signal changed only by reopening the file
-The app must not change the time signal of an open data file except when the file is closed (LLFR-00920, LLFR-00930) and opened again.
+The app must not change the time signal of an open data file except when the file is closed (LLFR-00924, LLFR-00934) and opened again.
 
 Note: Reopening a file that has a signal matching the time signal name does not show the window of LLFR-00325 (HLFR-00070).
 
@@ -1548,55 +1548,55 @@ While no data file is open, the Save signals button must do nothing.
 *Parent: HLFR-00090*
 
 ### LLFR-00396 Save signals dialog
-When the user clicks the Save signals button, the app must show a save file dialog in which the user chooses the folder, types the name of the file and chooses its format among CSV (`.csv`), Excel (`.xlsx`), MAT (`.mat`) and HDF5 (`.h5`, `.hdf5`) (HLFR-00005), except as in LLFR-00938.
+When the user clicks the Save signals button, the app must show a save file dialog in which the user chooses the folder, types the name of the file and chooses its format among CSV (`.csv`), Excel (`.xlsx`), MAT (`.mat`) and HDF5 (`.h5`, `.hdf5`) (HLFR-00005), except as in LLFR-00942.
 
 *Parent: HLFR-00090*
 
-### LLFR-00938 Different time signals
+### LLFR-00942 Different time signals
 When the user clicks the Save signals button (LLFR-00394) and the time signals of the open data files do not all have the same number of samples and exactly the same value at every sample, the app must show, in place of the save file dialog (LLFR-00396), an error box saying that the files need the same time signals to be saved together.
 
 Note: With one data file open, the check always passes.
 
 *Parent: HLFR-00120, HLFR-00090, HLFR-00002*
 
-### LLFR-00939 No file written with different time signals
-In the case of LLFR-00938, the app must leave every file on disk as it was.
+### LLFR-00943 No file written with different time signals
+In the case of LLFR-00942, the app must leave every file on disk as it was.
 
 *Parent: HLFR-00120, HLFR-00090*
 
-### LLFR-00940 One time signal in the saved file
-When the time signals of the open data files are the same (LLFR-00938), the saved file must hold, once and in place of the time signals of all the open data files, the time signal of the open data file with the lowest number, at its place in the signal list, under the name of LLFR-00407.
+### LLFR-00944 One time signal in the saved file
+When the time signals of the open data files are the same (LLFR-00942), the saved file must hold, once and in place of the time signals of all the open data files, the time signal of the open data file with the lowest number, at its place in the signal list, under the name of LLFR-00407.
 
 *Parent: HLFR-00120, HLFR-00090*
 
-### LLFR-00941 Plain names in the saved file
-The app must save each signal under its plain name, which is its name with every prefix of LLFR-00901 removed that the app put into it (LLFR-00901, LLFR-00904, LLFR-00954, LLFR-00955), keeping the text that the user typed when renaming a synthetic signal (LLFR-00266) as it was typed.
+### LLFR-00945 Plain names in the saved file
+The app must save each signal under its plain name, which is its name with every prefix of LLFR-00905 removed that the app put into it (LLFR-00905, LLFR-00908, LLFR-00958, LLFR-00959), keeping the text that the user typed when renaming a synthetic signal (LLFR-00266) as it was typed.
 
-Note: For example, `file1_Speed` is saved as `Speed`, `file1_int_Speed` as `int_Speed`, `file1_lpf_2Hz_order2_Speed` as `lpf_2Hz_order2_Speed`, `file1_Speed_prod_Torque` and `file1_Speed_prod_file2_Torque` as `Speed_prod_Torque`, and a synthetic signal renamed `file1_my` (LLFR-00955) as `my`.
+Note: For example, `file1_Speed` is saved as `Speed`, `file1_int_Speed` as `int_Speed`, `file1_lpf_2Hz_order2_Speed` as `lpf_2Hz_order2_Speed`, `file1_Speed_prod_Torque` and `file1_Speed_prod_file2_Torque` as `Speed_prod_Torque`, and a synthetic signal renamed `file1_my` (LLFR-00959) as `my`.
 
 *Parent: HLFR-00121, HLFR-00090*
 
-### LLFR-00942 Plain name shared by several signals
-When two or more saved signals other than the time signal (LLFR-00940) have the same plain name (LLFR-00941), the app must add to the plain name of each of them an underscore and the number of its own data file (LLFR-00896, LLFR-00936), except as in LLFR-00961.
+### LLFR-00946 Plain name shared by several signals
+When two or more saved signals other than the time signal (LLFR-00944) have the same plain name (LLFR-00945), the app must add to the plain name of each of them an underscore and the number of its own data file (LLFR-00900, LLFR-00940), except as in LLFR-00965.
 
 Note: For example, `file1_Speed` and `file2_Speed` are saved as `Speed_1` and `Speed_2`, `file3_Speed` and `file5_Speed` as `Speed_3` and `Speed_5`, and `file1_int_Speed` and `file2_int_Speed` as `int_Speed_1` and `int_Speed_2`. A signal whose plain name no other saved signal has keeps it with no number.
 
 *Parent: HLFR-00121, HLFR-00090*
 
-### LLFR-00961 Name still shared after the file number
-When a name made by LLFR-00942 is still the name of another saved signal, the app must add to the name of the later of the two signals in the order of LLFR-00401 an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241.
+### LLFR-00965 Name still shared after the file number
+When a name made by LLFR-00946 is still the name of another saved signal, the app must add to the name of the later of the two signals in the order of LLFR-00401 an underscore and the smallest number from 2 up that makes it unique, as in LLFR-00241.
 
-Note: For example, with `file1_Speed`, `file2_Speed` and `file1_Speed_2`, the plain name `Speed` is shared, so `file1_Speed` and `file2_Speed` become `Speed_1` and `Speed_2`. `file1_Speed_2` keeps its plain name `Speed_2`, because no other signal has that plain name. `Speed_2` from `file2_Speed` comes later in the list (LLFR-00935), so it becomes `Speed_2_2`.
+Note: For example, with `file1_Speed`, `file2_Speed` and `file1_Speed_2`, the plain name `Speed` is shared, so `file1_Speed` and `file2_Speed` become `Speed_1` and `Speed_2`. `file1_Speed_2` keeps its plain name `Speed_2`, because no other signal has that plain name. `Speed_2` from `file2_Speed` comes later in the list (LLFR-00939), so it becomes `Speed_2_2`.
 
 *Parent: HLFR-00121, HLFR-00090*
 
-### LLFR-00943 Order of the name changes
-When the app saves the signals, it must apply LLFR-00941, LLFR-00942 and LLFR-00961, in this order, before the rules of LLFR-00403, LLFR-00407 and LLFR-00557.
+### LLFR-00947 Order of the name changes
+When the app saves the signals, it must apply LLFR-00945, LLFR-00946 and LLFR-00965, in this order, before the rules of LLFR-00403, LLFR-00407 and LLFR-00557.
 
 *Parent: HLFR-00121, HLFR-00090*
 
 ### LLFR-00532 Save signals dialog first values
-The dialog of LLFR-00396 must open in the folder of the open data file with the lowest number (LLFR-00896), with that file's name without its extension, followed by `_signals` and that file's extension, and with that file's format chosen; for example `run1_signals.csv` for `run1.csv`.
+The dialog of LLFR-00396 must open in the folder of the open data file with the lowest number (LLFR-00900), with that file's name without its extension, followed by `_signals` and that file's extension, and with that file's format chosen; for example `run1_signals.csv` for `run1.csv`.
 
 *Parent: HLFR-00090*
 
@@ -1663,7 +1663,7 @@ If the signals to save (LLFR-00401) do not fit in one Excel sheet (LLFR-00400), 
 *Parent: HLFR-00090, HLFR-00002*
 
 ### LLFR-00401 Saved signals
-The saved file must hold every signal of the signal list, in the order of the list, with all its samples, including the synthetic signals and the one time signal of LLFR-00940, except the FFT signals and the other time signals, which the app leaves out.
+The saved file must hold every signal of the signal list, in the order of the list, with all its samples, including the synthetic signals and the one time signal of LLFR-00944, except the FFT signals and the other time signals, which the app leaves out.
 
 *Parent: HLFR-00090*
 
@@ -1673,7 +1673,7 @@ The app must leave the FFT signals out of the saved file (LLFR-00401) without an
 *Parent: HLFR-00090*
 
 ### LLFR-00402 Saved file opens as a data file
-The app must write the saved file following the reading rules of its format, so that opening it (LLFR-00006) shows the same signals, with the names of LLFR-00941, LLFR-00942, LLFR-00961, LLFR-00403, LLFR-00407 and LLFR-00557 behind the prefix of its new file number (LLFR-00901), and the same values:
+The app must write the saved file following the reading rules of its format, so that opening it (LLFR-00006) shows the same signals, with the names of LLFR-00945, LLFR-00946, LLFR-00965, LLFR-00403, LLFR-00407 and LLFR-00557 behind the prefix of its new file number (LLFR-00905), and the same values:
 1. CSV: one column per signal with the signal names in the first row (LLFR-00059, LLFR-00451), with `,` as the separator and `.` as the decimal mark (LLFR-00061);
 2. Excel: the same columns in the first and only sheet (LLFR-00059, LLFR-00060);
 3. MAT: one top-level variable holding a one-dimensional numeric array per signal (LLFR-00062), in a MAT format that is not v7.3 (LLFR-00064);
@@ -1754,9 +1754,9 @@ CSV and Excel names must not be changed otherwise than as in LLFR-00550, LLFR-00
 *Parent: HLFR-00090*
 
 ### LLFR-00404 Changed names after saving
-After saving the file, if any name was changed (LLFR-00942, LLFR-00961, LLFR-00403, LLFR-00407, LLFR-00557), including the name of the time signal, the app must show one information box that lists each changed name as `<name in the app> → <new name>`, for example `file1_Speed → Speed_1` and `file2_Speed → Speed_2`.
+After saving the file, if any name was changed (LLFR-00946, LLFR-00965, LLFR-00403, LLFR-00407, LLFR-00557), including the name of the time signal, the app must show one information box that lists each changed name as `<name in the app> → <new name>`, for example `file1_Speed → Speed_1` and `file2_Speed → Speed_2`.
 
-Note: The box is an information box, not an error box (HLFR-00002). The removal of the prefix alone (LLFR-00941) is not listed, because it applies to every signal, so `file1_Accel → Accel` does not appear.
+Note: The box is an information box, not an error box (HLFR-00002). The removal of the prefix alone (LLFR-00945) is not listed, because it applies to every signal, so `file1_Accel → Accel` does not appear.
 
 *Parent: HLFR-00090*
 
@@ -1766,7 +1766,7 @@ The information box of LLFR-00404 must be scrollable when its list is longer tha
 *Parent: HLFR-00090*
 
 ### LLFR-00555 No message when no name changed
-After saving the file, if no name was changed (LLFR-00942, LLFR-00961, LLFR-00403, LLFR-00407, LLFR-00557), the app must not show any message.
+After saving the file, if no name was changed (LLFR-00946, LLFR-00965, LLFR-00403, LLFR-00407, LLFR-00557), the app must not show any message.
 
 *Parent: HLFR-00090*
 
@@ -1781,19 +1781,19 @@ Saving the signals must not be an undoable action (LLFR-00140).
 *Parent: HLFR-00090, HLFR-00040*
 
 ### LLFR-00407 Time signal name in a saved file
-The app must write the time signal of LLFR-00940 (HLFR-00006, LLFR-00326) under the name `Time`, in every format, so that opening the saved file finds its time signal by its name (LLFR-00053) and does not show the time signal window (LLFR-00325).
+The app must write the time signal of LLFR-00944 (HLFR-00006, LLFR-00326) under the name `Time`, in every format, so that opening the saved file finds its time signal by its name (LLFR-00053) and does not show the time signal window (LLFR-00325).
 
 *Parent: HLFR-00090, HLFR-00006*
 
 ### LLFR-00557 Other names that match the time signal name
-Every saved signal other than the time signal (LLFR-00407) whose name, after LLFR-00941, LLFR-00942, LLFR-00961 and LLFR-00403, would also match the time signal name in the chosen format (LLFR-00053, LLFR-00330), for example `TIME` or `time`, must get an underscore and the smallest number from 2 up that makes its name unique, as in LLFR-00241, for example `TIME_2`, so that the saved file has only one signal that matches the time signal name.
+Every saved signal other than the time signal (LLFR-00407) whose name, after LLFR-00945, LLFR-00946, LLFR-00965 and LLFR-00403, would also match the time signal name in the chosen format (LLFR-00053, LLFR-00330), for example `TIME` or `time`, must get an underscore and the smallest number from 2 up that makes its name unique, as in LLFR-00241, for example `TIME_2`, so that the saved file has only one signal that matches the time signal name.
 
 Note: Such other names exist, for example, when a data file holds both `Time` and `TIME` (LLFR-00324), or when a synthetic signal was renamed `time` (LLFR-00266). A time signal chosen in the window (LLFR-00326) has no other signal of the data file matching the time signal name.
 
 *Parent: HLFR-00090, HLFR-00006*
 
 ### LLFR-00558 Time signal rename in the box
-When the plain name (LLFR-00941) of the saved time signal (LLFR-00940) is not exactly `Time`, its change to `Time` (LLFR-00407) must be listed in the box of LLFR-00404 like the other changed names, for example `file1_t → Time`.
+When the plain name (LLFR-00945) of the saved time signal (LLFR-00944) is not exactly `Time`, its change to `Time` (LLFR-00407) must be listed in the box of LLFR-00404 like the other changed names, for example `file1_t → Time`.
 
 *Parent: HLFR-00090, HLFR-00006*
 
@@ -1937,8 +1937,8 @@ Note: For example, `presure` finds `Pressure`, and `sine_2hz` finds `Sine_3Hz`.
 *Parent: HLFR-00034*
 
 ### LLFR-00102 Order of search results
-Below the file name row of each open data file, the app must list the matching signals of that file, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105, LLFR-00567), in three groups in this order, keeping the order of the signal list (LLFR-00935) within each group:
-1. the signals that match every search word without LLFR-00101 and whose name, after LLFR-00098, LLFR-00100 and LLFR-00566 are applied, starts with the first search word, once its prefix of LLFR-00901 is left out;
+Below the file name row of each open data file, the app must list the matching signals of that file, which are the signals whose name contains every search word, exactly or within the typo allowance of LLFR-00101 (LLFR-00105, LLFR-00567), in three groups in this order, keeping the order of the signal list (LLFR-00939) within each group:
+1. the signals that match every search word without LLFR-00101 and whose name, after LLFR-00098, LLFR-00100 and LLFR-00566 are applied, starts with the first search word, once its prefix of LLFR-00905 is left out;
 2. the other signals that match every search word without LLFR-00101;
 3. the signals that need LLFR-00101 for at least one search word.
 
@@ -1950,7 +1950,7 @@ The user must be able to plot the signals shown in a filtered signal list in the
 *Parent: HLFR-00033, HLFR-00012, HLFR-00013*
 
 ### LLFR-00104 Search cleared on file open
-When the app opens a data file (LLFR-00916), it must clear the search box.
+When the app opens a data file (LLFR-00920), it must clear the search box.
 
 *Parent: HLFR-00033, HLFR-00117*
 
@@ -1968,68 +1968,68 @@ Note: For example, with the signals `mateus_soares_rodrigues 2026` and `mateus_s
 
 *Parent: HLFR-00034*
 
-### LLFR-00901 Signal name prefix
-The app must name each signal of a data file with `file`, the file's number (LLFR-00896), `_` and the signal's name in the file, for example `file1_Speed` for the signal `Speed` of file 1.
+### LLFR-00905 Signal name prefix
+The app must name each signal of a data file with `file`, the file's number (LLFR-00900), `_` and the signal's name in the file, for example `file1_Speed` for the signal `Speed` of file 1.
 
 *Parent: HLFR-00115*
 
-### LLFR-00902 Prefix with one file open
-The app must add the prefix of LLFR-00901 also while only one data file is open.
+### LLFR-00906 Prefix with one file open
+The app must add the prefix of LLFR-00905 also while only one data file is open.
 
 *Parent: HLFR-00115*
 
-### LLFR-00903 Prefixed name used everywhere
-The app must use the name of LLFR-00901 as the signal's name wherever it shows or saves the name of a signal, for example in the signal list, the legends, the menu titles (LLFR-00426), the search (LLFR-00095), the second signal dialog (LLFR-00275) and the layout files (LLFR-00944), except as in LLFR-00906 and LLFR-00941.
+### LLFR-00907 Prefixed name used everywhere
+The app must use the name of LLFR-00905 as the signal's name wherever it shows or saves the name of a signal, for example in the signal list, the legends, the menu titles (LLFR-00426), the search (LLFR-00095), the second signal dialog (LLFR-00275) and the layout files (LLFR-00948), except as in LLFR-00910 and LLFR-00945.
 
 *Parent: HLFR-00115*
 
-### LLFR-00904 Synthetic signal name starts with the file prefix
-The app must name a synthetic signal with the prefix of its data file (LLFR-00901, LLFR-00936), followed by the name of LLFR-00240, which is built from the names without their prefix of the signals it was computed from, except as in LLFR-00954.
+### LLFR-00908 Synthetic signal name starts with the file prefix
+The app must name a synthetic signal with the prefix of its data file (LLFR-00905, LLFR-00940), followed by the name of LLFR-00240, which is built from the names without their prefix of the signals it was computed from, except as in LLFR-00958.
 
 Note: For example, the Integral of `file1_Speed` is `file1_int_Speed`, a Low-pass filter of `file1_Speed` is `file1_lpf_2Hz_order2_Speed`, its Integral is `file1_int_lpf_2Hz_order2_Speed`, and the FFT of `file1_Speed` is `file1_fft_1p5s_to_3s_Speed`.
 
 *Parent: HLFR-00115, HLFR-00054, HLFR-00104*
 
-### LLFR-00954 Second signal of another file in a product name
-When the second signal of a Product with signal (LLFR-00275) belongs to another data file than the right-clicked signal, the app must write the name of the second signal in the product's name (LLFR-00240) with its own prefix (LLFR-00901).
+### LLFR-00958 Second signal of another file in a product name
+When the second signal of a Product with signal (LLFR-00275) belongs to another data file than the right-clicked signal, the app must write the name of the second signal in the product's name (LLFR-00240) with its own prefix (LLFR-00905).
 
 Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
 
 *Parent: HLFR-00115, HLFR-00104*
 
-### LLFR-00955 Prefix kept on a rename
-When the user renames a synthetic signal (LLFR-00266), the app must show in the field where the user types the new name only the part of the current name after the prefix of its data file (LLFR-00936), and keep that prefix in front of the name the user types.
+### LLFR-00959 Prefix kept on a rename
+When the user renames a synthetic signal (LLFR-00266), the app must show in the field where the user types the new name only the part of the current name after the prefix of its data file (LLFR-00940), and keep that prefix in front of the name the user types.
 
 Note: For example, typing `my` for a synthetic signal of file 1 gives `file1_my`.
 
 *Parent: HLFR-00115, HLFR-00060*
 
-### LLFR-00971 Empty-name check on the typed part
-When the user renames a synthetic signal (LLFR-00955), the app must apply the empty-name check of LLFR-00267 and LLFR-00607 to the part that the user types, without the prefix of its data file.
+### LLFR-00975 Empty-name check on the typed part
+When the user renames a synthetic signal (LLFR-00959), the app must apply the empty-name check of LLFR-00267 and LLFR-00607 to the part that the user types, without the prefix of its data file.
 
 *Parent: HLFR-00115, HLFR-00060*
 
-### LLFR-00972 Name-in-use check on the whole name
-When the user renames a synthetic signal (LLFR-00955), the app must apply the name-in-use check of LLFR-00267 and LLFR-00606 to the whole new name, with the prefix of its data file in front of the part that the user types.
+### LLFR-00976 Name-in-use check on the whole name
+When the user renames a synthetic signal (LLFR-00959), the app must apply the name-in-use check of LLFR-00267 and LLFR-00606 to the whole new name, with the prefix of its data file in front of the part that the user types.
 
 *Parent: HLFR-00115, HLFR-00060*
 
-### LLFR-00905 Time signal found by its name in the file
-The app must match the time signal name (LLFR-00053, LLFR-00324, LLFR-00330) against each signal's name in its file, before the prefix of LLFR-00901 is added.
+### LLFR-00909 Time signal found by its name in the file
+The app must match the time signal name (LLFR-00053, LLFR-00324, LLFR-00330) against each signal's name in its file, before the prefix of LLFR-00905 is added.
 
 Note: A signal named `Time` in file 1 is therefore the time signal of file 1 and is shown as `file1_Time`.
 
 *Parent: HLFR-00006, HLFR-00115*
 
-### LLFR-00906 Plain names in the time signal window
-The window of LLFR-00325 must list the signals of the file being opened with their names in the file, without the prefix of LLFR-00901.
+### LLFR-00910 Plain names in the time signal window
+The window of LLFR-00325 must list the signals of the file being opened with their names in the file, without the prefix of LLFR-00905.
 
 *Parent: HLFR-00070, HLFR-00115*
 
-### LLFR-00953 File named in the time signal window
+### LLFR-00957 File named in the time signal window
 The window of LLFR-00325 must show the name of the file it is for, with its extension and without its folder.
 
-Note: With several files selected (LLFR-00947), each file that needs it gets its own window.
+Note: With several files selected (LLFR-00951), each file that needs it gets its own window.
 
 *Parent: HLFR-00070, HLFR-00122*
 
@@ -2044,7 +2044,7 @@ When the user chooses an operation in the "Create synthetic signal" option (LLFR
 *Parent: HLFR-00053*
 
 ### LLFR-00240 Synthetic signal names
-After the prefix of its data file (LLFR-00904), the app must name a synthetic signal as follows, using the abbreviation of its operation (LLFR-00268) and the full current name, without its prefix (LLFR-00901, LLFR-00904), of each signal it was computed from, except as in LLFR-00954:
+After the prefix of its data file (LLFR-00908), the app must name a synthetic signal as follows, using the abbreviation of its operation (LLFR-00268) and the full current name, without its prefix (LLFR-00905, LLFR-00908), of each signal it was computed from, except as in LLFR-00958:
 
 | Operation | Name | Example |
 |---|---|---|
@@ -2054,9 +2054,9 @@ After the prefix of its data file (LLFR-00904), the app must name a synthetic si
 | Low-pass filter, High-pass filter | `<abbreviation>_<cutoff>Hz_order<order>_<signal>` | `file1_lpf_0p5Hz_order2_Speed` |
 | Moving average | `mavg_<window>samples_<signal>` | `file1_mavg_10samples_Speed` |
 | FFT | `fft_<start>s_to_<end>s_<signal>` | `file1_fft_1p5s_to_3s_Speed` |
-| Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `file1_Speed_prod_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` (LLFR-00954) |
+| Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `file1_Speed_prod_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` (LLFR-00958) |
 
-The FFT times are the time range of LLFR-00964 and LLFR-00592, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
+The FFT times are the time range of LLFR-00968 and LLFR-00592, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
 
 *Parent: HLFR-00054, HLFR-00104, HLFR-00115*
 
@@ -2118,38 +2118,38 @@ Note: This happens, for example, when the same signal is filtered twice with the
 *Parent: HLFR-00054*
 
 ### LLFR-00242 Synthetic signals in the signal list
-The signal list panel must show the synthetic signals of each data file (LLFR-00936) after the signals of that file, in the order they were created, in italic letters.
+The signal list panel must show the synthetic signals of each data file (LLFR-00940) after the signals of that file, in the order they were created, in italic letters.
 
 *Parent: HLFR-00053, HLFR-00011, HLFR-00113*
 
-### LLFR-00936 File of a synthetic signal
+### LLFR-00940 File of a synthetic signal
 Each synthetic signal must belong to the data file of the signal it was computed from, which for a Product with signal is the data file of the right-clicked signal.
 
-Note: The second signal of a Product with signal can belong to another data file only when its time signal is exactly the same (LLFR-00275), so the product is computed on that one time signal. Closing either file removes the product, because it is computed from a signal of that file (LLFR-00922).
+Note: The second signal of a Product with signal can belong to another data file only when its time signal is exactly the same (LLFR-00275), so the product is computed on that one time signal. Closing either file removes the product, because it is computed from a signal of that file (LLFR-00926).
 
 *Parent: HLFR-00053, HLFR-00113*
 
-### LLFR-00937 Synthetic signals use the time of their file
-The app must compute each synthetic signal with the time signal of its file (LLFR-00936) wherever its operation uses the time signal or the time samples (LLFR-00243, LLFR-00244, LLFR-00580, LLFR-00247, LLFR-00248, LLFR-00271).
+### LLFR-00941 Synthetic signals use the time of their file
+The app must compute each synthetic signal with the time signal of its file (LLFR-00940) wherever its operation uses the time signal or the time samples (LLFR-00243, LLFR-00244, LLFR-00580, LLFR-00247, LLFR-00248, LLFR-00271).
 
 *Parent: HLFR-00053, HLFR-00116*
 
-### LLFR-00964 FFT time range of a signal
-When at least one time plot exists when the user chooses "FFT", the app must take as the time range of the FFT the part of the x-axis range shared by the time plots (LLFR-00070) that lies within the time range of the signal's data file (LLFR-00936).
+### LLFR-00968 FFT time range of a signal
+When at least one time plot exists when the user chooses "FFT", the app must take as the time range of the FFT the part of the x-axis range shared by the time plots (LLFR-00070) that lies within the time range of the signal's data file (LLFR-00940).
 
 Note: The FFT name shows this range (LLFR-00240). With no time plot, the FFT uses all the samples (LLFR-00592).
 
 *Parent: HLFR-00057, HLFR-00113*
 
-### LLFR-00965 Too few samples of the signal in the shown range
-When the user chooses "FFT", at least one time plot exists and the time range of LLFR-00964 holds fewer than 8 samples of the signal, the app must show an information box saying that the shown x-axis range does not hold enough samples of the signal to compute an FFT, and asking the user to move the x-axis to a range where the signal has samples.
+### LLFR-00969 Too few samples of the signal in the shown range
+When the user chooses "FFT", at least one time plot exists and the time range of LLFR-00968 holds fewer than 8 samples of the signal, the app must show an information box saying that the shown x-axis range does not hold enough samples of the signal to compute an FFT, and asking the user to move the x-axis to a range where the signal has samples.
 
 Note: The FFT is then not created (LLFR-00250). This includes a range that does not overlap the signal's file at all.
 
 *Parent: HLFR-00057, HLFR-00053, HLFR-00113*
 
-### LLFR-00963 One list in the second signal dialog
-The dialog of LLFR-00275 must show its signals in one flat list, in the order of the signal list (LLFR-00934, LLFR-00935), with the names of LLFR-00901 and with no file name row.
+### LLFR-00967 One list in the second signal dialog
+The dialog of LLFR-00275 must show its signals in one flat list, in the order of the signal list (LLFR-00938, LLFR-00939), with the names of LLFR-00905 and with no file name row.
 
 *Parent: HLFR-00053, HLFR-00113*
 
@@ -2238,7 +2238,7 @@ Note: With "From zero", a constant signal gives a Low-pass output that starts be
 *Parent: HLFR-00053*
 
 ### LLFR-00247 Sampling rate
-The app must compute the sampling rate as 1 divided by the mean time step of the time signal of the right-clicked signal's data file (LLFR-00936).
+The app must compute the sampling rate as 1 divided by the mean time step of the time signal of the right-clicked signal's data file (LLFR-00940).
 
 *Parent: HLFR-00053*
 
@@ -2253,7 +2253,7 @@ When the user chooses "Low-pass filter", "High-pass filter" or "FFT" and any tim
 *Parent: HLFR-00053*
 
 ### LLFR-00248 FFT time range
-When at least one time plot exists, the FFT must use only the samples of the signal whose time is within the time range of LLFR-00964, taken when the FFT is created.
+When at least one time plot exists, the FFT must use only the samples of the signal whose time is within the time range of LLFR-00968, taken when the FFT is created.
 
 *Parent: HLFR-00057, HLFR-00113*
 
@@ -2278,7 +2278,7 @@ When the user chooses "FFT" and fewer than 8 samples of the signal are within th
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00594 Too few samples message
-When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must show an information box saying that the time range holds too few samples, except as in LLFR-00965.
+When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must show an information box saying that the time range holds too few samples, except as in LLFR-00969.
 
 *Parent: HLFR-00053, HLFR-00057*
 
@@ -2300,7 +2300,7 @@ Note: The Save signals button writes them to a new file, never to a data file (L
 *Parent: HLFR-00105*
 
 ### LLFR-00595 Synthetic signals only in memory
-Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255, LLFR-00597), their data file is closed (LLFR-00922, LLFR-00932) or the app is closed.
+Synthetic signals must exist only in the app's memory, until they are deleted (LLFR-00255, LLFR-00597), their data file is closed (LLFR-00926, LLFR-00936) or the app is closed.
 
 Note: A layout file can create them again (LLFR-00262), except the FFT signals (LLFR-00283).
 
@@ -2386,17 +2386,17 @@ Synthetic signals created from a renamed synthetic signal (LLFR-00266) after the
 *Parent: HLFR-00060*
 
 ### LLFR-00267 Invalid synthetic signal name
-If the user enters a name that, without leading and trailing spaces, is empty (LLFR-00971) or is the name of another signal in the signal list (LLFR-00972), the app must keep the previous name.
+If the user enters a name that, without leading and trailing spaces, is empty (LLFR-00975) or is the name of another signal in the signal list (LLFR-00976), the app must keep the previous name.
 
 *Parent: HLFR-00060*
 
 ### LLFR-00606 Synthetic signal name already in use
-If the user enters a name (LLFR-00266) that, without leading and trailing spaces and compared as in LLFR-00972, is the name of another signal in the signal list, the app must show an information box saying that a signal with that name already exists.
+If the user enters a name (LLFR-00266) that, without leading and trailing spaces and compared as in LLFR-00976, is the name of another signal in the signal list, the app must show an information box saying that a signal with that name already exists.
 
 *Parent: HLFR-00060*
 
 ### LLFR-00607 Empty synthetic signal name
-If the user enters a name (LLFR-00266) that, without leading and trailing spaces, is empty (LLFR-00971), the app must not show any message.
+If the user enters a name (LLFR-00266) that, without leading and trailing spaces, is empty (LLFR-00975), the app must not show any message.
 
 *Parent: HLFR-00060*
 
@@ -2449,7 +2449,7 @@ Near the first and last samples, the window of the Moving average (LLFR-00270) m
 *Parent: HLFR-00053*
 
 ### LLFR-00271 Max and Min
-The Max and the Min of a signal must be constant signals, with at every time sample the largest and the smallest value, respectively, of all samples of the signal over the whole time range of its data file (LLFR-00936), whatever time range the plots show.
+The Max and the Min of a signal must be constant signals, with at every time sample the largest and the smallest value, respectively, of all samples of the signal over the whole time range of its data file (LLFR-00940), whatever time range the plots show.
 
 *Parent: HLFR-00053*
 
@@ -2489,7 +2489,7 @@ An "Add constant", "Subtract constant", "Multiply by constant" or "Divide by con
 *Parent: HLFR-00053*
 
 ### LLFR-00275 Second signal dialog
-When the user chooses "Product with signal", the app must show a dialog that lists every signal and every synthetic signal (LLFR-00936) of the right-clicked signal's data file and of every other open data file whose time signal has the same number of samples and exactly the same value at every sample, except the FFT signals, including the right-clicked signal, in one list (LLFR-00963), in which the user chooses the second signal.
+When the user chooses "Product with signal", the app must show a dialog that lists every signal and every synthetic signal (LLFR-00940) of the right-clicked signal's data file and of every other open data file whose time signal has the same number of samples and exactly the same value at every sample, except the FFT signals, including the right-clicked signal, in one list (LLFR-00967), in which the user chooses the second signal.
 
 *Parent: HLFR-00053, HLFR-00113*
 
@@ -2516,7 +2516,7 @@ Note: The search box is a text field (LLFR-00157), so typing in it never activat
 *Parent: HLFR-00053, HLFR-00034*
 
 ### LLFR-00618 Second signal dialog filter
-Each time the text in the search box of LLFR-00285 changes, the dialog must show in its one list (LLFR-00963) only the signals that match the text by the rules of the signal list search (LLFR-00095, LLFR-00098 to LLFR-00101, LLFR-00566, LLFR-00105, LLFR-00567), in the three groups of LLFR-00102 formed over the whole list, keeping the order of the list within each group.
+Each time the text in the search box of LLFR-00285 changes, the dialog must show in its one list (LLFR-00967) only the signals that match the text by the rules of the signal list search (LLFR-00095, LLFR-00098 to LLFR-00101, LLFR-00566, LLFR-00105, LLFR-00567), in the three groups of LLFR-00102 formed over the whole list, keeping the order of the list within each group.
 
 *Parent: HLFR-00053, HLFR-00034, HLFR-00113*
 
@@ -2590,7 +2590,7 @@ The signal list must highlight every selected signal.
 *Parent: HLFR-00063*
 
 ### LLFR-00292 Only shown signals stay selected
-A signal that is no longer shown in the signal list, because of the search (LLFR-00095), a deleted synthetic signal (LLFR-00255, LLFR-00597) or a closed data file (LLFR-00922, LLFR-00932), must no longer be selected.
+A signal that is no longer shown in the signal list, because of the search (LLFR-00095), a deleted synthetic signal (LLFR-00255, LLFR-00597) or a closed data file (LLFR-00926, LLFR-00936), must no longer be selected.
 
 *Parent: HLFR-00063, HLFR-00033*
 
@@ -2706,7 +2706,7 @@ Note: These keys select signals in the list (LLFR-00625, LLFR-00626), so using t
 *Parent: HLFR-00063, HLFR-00032*
 
 ### LLFR-00332 Green time signal name
-The signal list panel must show the name of the time signal of each open data file (LLFR-00053, LLFR-00326, LLFR-00905) in a green that is easy to read against the list's background, including in search results (LLFR-00095) and while the signal is selected (LLFR-00291).
+The signal list panel must show the name of the time signal of each open data file (LLFR-00053, LLFR-00326, LLFR-00909) in a green that is easy to read against the list's background, including in search results (LLFR-00095) and while the signal is selected (LLFR-00291).
 
 *Parent: HLFR-00071*
 
@@ -2716,22 +2716,22 @@ The signal list panel must show the names of all the signals other than the time
 *Parent: HLFR-00071*
 
 ### LLFR-00362 File name row
-The signal list must show, for each open data file, a file name row in bold letters with `file`, the file's number (LLFR-00896), `_` and the name of the data file with its extension and without its folder, for example `file1_run_A.csv`.
+The signal list must show, for each open data file, a file name row in bold letters with `file`, the file's number (LLFR-00900), `_` and the name of the data file with its extension and without its folder, for example `file1_run_A.csv`.
 
 *Parent: HLFR-00079, HLFR-00033, HLFR-00063, HLFR-00114*
 
-### LLFR-00934 Order of the files in the signal list
-The signal list must show the open data files in the order of their numbers (LLFR-00896), each one starting with its file name row (LLFR-00362).
+### LLFR-00938 Order of the files in the signal list
+The signal list must show the open data files in the order of their numbers (LLFR-00900), each one starting with its file name row (LLFR-00362).
 
 *Parent: HLFR-00079, HLFR-00011, HLFR-00113*
 
-### LLFR-00935 Signals below their file name row
+### LLFR-00939 Signals below their file name row
 The signal list must show the signals of each data file directly below its file name row, in the file's order, followed by the synthetic signals of that file (LLFR-00242).
 
 *Parent: HLFR-00079, HLFR-00011, HLFR-00113*
 
 ### LLFR-00639 File name row stays above its signals
-Each file name row (LLFR-00362) must stay directly above the shown signals of its file (LLFR-00935), in the order of LLFR-00934, whatever the text in the search box.
+Each file name row (LLFR-00362) must stay directly above the shown signals of its file (LLFR-00939), in the order of LLFR-00938, whatever the text in the search box.
 
 *Parent: HLFR-00079, HLFR-00033*
 
@@ -2741,7 +2741,7 @@ The search (LLFR-00095) must never hide a file name row (LLFR-00362).
 *Parent: HLFR-00079, HLFR-00033*
 
 ### LLFR-00641 File name row when nothing matches
-When no signal of an open data file matches the text in the search box, the file name row of that file (LLFR-00362) must stay in its place (LLFR-00934), with the text "No matching signals" below it (LLFR-00097).
+When no signal of an open data file matches the text in the search box, the file name row of that file (LLFR-00362) must stay in its place (LLFR-00938), with the text "No matching signals" below it (LLFR-00097).
 
 *Parent: HLFR-00079, HLFR-00033*
 
@@ -2771,7 +2771,7 @@ A file name row (LLFR-00362) must not be plotted, so that a double-click on it (
 *Parent: HLFR-00079*
 
 ### LLFR-00647 File menu instead of the signal menu
-A right-click on a file name row (LLFR-00362) must show the file menu (LLFR-00919) instead of the signal menu (LLFR-00239).
+A right-click on a file name row (LLFR-00362) must show the file menu (LLFR-00923) instead of the signal menu (LLFR-00239).
 
 *Parent: HLFR-00079, HLFR-00118*
 
@@ -2791,22 +2791,22 @@ The signal list must show a file name row (LLFR-00362) only for each data file t
 *Parent: HLFR-00079, HLFR-00113*
 
 ### LLFR-00650 File name row on open
-When the app opens a data file (LLFR-00916), it must add the file name row of that file (LLFR-00362) in the place of LLFR-00934.
+When the app opens a data file (LLFR-00920), it must add the file name row of that file (LLFR-00362) in the place of LLFR-00938.
 
 *Parent: HLFR-00079, HLFR-00117*
 
 ### LLFR-00651 No file name row for a file that is not opened
-When opening a selected file fails, is cancelled or is refused (LLFR-00007, LLFR-00010, LLFR-00327, LLFR-00892, LLFR-00894, LLFR-00950), the app must add no file name row (LLFR-00362) for that file.
+When opening a selected file fails, is cancelled or is refused (LLFR-00007, LLFR-00010, LLFR-00327, LLFR-00896, LLFR-00898, LLFR-00954), the app must add no file name row (LLFR-00362) for that file.
 
 *Parent: HLFR-00079, HLFR-00101*
 
-### LLFR-00919 File menu
+### LLFR-00923 File menu
 When the user right-clicks a file name row (LLFR-00362), the app must show a menu with the options "Close file" and "Close all files", in this order.
 
 *Parent: HLFR-00118, HLFR-00119*
 
-### LLFR-00920 Close file question
-When the user chooses "Close file" (LLFR-00919), the app must ask the user whether to proceed, naming the file as its file name row shows it (LLFR-00362) and saying that:
+### LLFR-00924 Close file question
+When the user chooses "Close file" (LLFR-00923), the app must ask the user whether to proceed, naming the file as its file name row shows it (LLFR-00362) and saying that:
 - its signals and the synthetic signals computed from them will be removed from the signal list and from the plots;
 - the tabs left with no plot will be closed;
 - the flags and areas outside the time range of the files left will be deleted, or every flag and area when no file is left;
@@ -2816,88 +2816,88 @@ Note: The question is asked even when no signal of the file is drawn.
 
 *Parent: HLFR-00118*
 
-### LLFR-00921 Close file declined
-If the user does not proceed in the question of LLFR-00920, the app must keep the open data files, the signal list, the plots and the undo and redo history unchanged.
+### LLFR-00925 Close file declined
+If the user does not proceed in the question of LLFR-00924, the app must keep the open data files, the signal list, the plots and the undo and redo history unchanged.
 
 *Parent: HLFR-00118*
 
-### LLFR-00922 Signals of a closed file removed
-If the user proceeds in the question of LLFR-00920, the app must remove from the signal list the file name row of that file, its signals, and every synthetic signal computed from one of those signals, directly or through other synthetic signals, including a Product with signal that belongs to another file (LLFR-00936).
+### LLFR-00926 Signals of a closed file removed
+If the user proceeds in the question of LLFR-00924, the app must remove from the signal list the file name row of that file, its signals, and every synthetic signal computed from one of those signals, directly or through other synthetic signals, including a Product with signal that belongs to another file (LLFR-00940).
 
 *Parent: HLFR-00118*
 
-### LLFR-00923 Curves of a closed file removed
-If the user proceeds in the question of LLFR-00920, the app must remove the curves of the signals of LLFR-00922 from every plot in every tab, with their pinned data tips and the delta markers that have a point on them (LLFR-00178).
+### LLFR-00927 Curves of a closed file removed
+If the user proceeds in the question of LLFR-00924, the app must remove the curves of the signals of LLFR-00926 from every plot in every tab, with their pinned data tips and the delta markers that have a point on them (LLFR-00178).
 
 *Parent: HLFR-00118, HLFR-00022*
 
-### LLFR-00924 Plots left with no curve after a close
+### LLFR-00928 Plots left with no curve after a close
 When closing a data file leaves a plot with no curve, the app must delete that plot as in LLFR-00051, with its text notes and arrows (LLFR-00744, LLFR-00777).
 
 Note: A frequency plot whose FFT signals all belonged to the closed file is deleted in the same way.
 
 *Parent: HLFR-00118, HLFR-00019*
 
-### LLFR-00925 First point discarded on a close
+### LLFR-00929 First point discarded on a close
 When closing a data file removes the curve of a first point (LLFR-00163), the app must discard the first point and its dot.
 
 *Parent: HLFR-00118, HLFR-00043, HLFR-00044*
 
-### LLFR-00926 History cleared on a close
-If the user proceeds in the question of LLFR-00920, the app must clear the undo and redo history.
+### LLFR-00930 History cleared on a close
+If the user proceeds in the question of LLFR-00924, the app must clear the undo and redo history.
 
 Note: Closing a data file is not an undoable action (LLFR-00140).
 
 *Parent: HLFR-00118, HLFR-00040, HLFR-00048*
 
-### LLFR-00927 Other files kept on a close
-When the app closes a data file, it must keep the other open data files unchanged, with their numbers (LLFR-00897), signals, synthetic signals and curves, except as in LLFR-00922 and LLFR-00923.
+### LLFR-00931 Other files kept on a close
+When the app closes a data file, it must keep the other open data files unchanged, with their numbers (LLFR-00901), signals, synthetic signals and curves, except as in LLFR-00926 and LLFR-00927.
 
 *Parent: HLFR-00118*
 
-### LLFR-00928 Tabs emptied by a close are closed
-When closing data files leaves with no plot a tab that held at least one plot before the close, the app must close that tab, except as in LLFR-00957.
+### LLFR-00932 Tabs emptied by a close are closed
+When closing data files leaves with no plot a tab that held at least one plot before the close, the app must close that tab, except as in LLFR-00961.
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00016*
 
-### LLFR-00956 Empty tabs kept on a close
+### LLFR-00960 Empty tabs kept on a close
 When the app closes data files, it must keep every tab that held no plot before the close.
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00014*
 
-### LLFR-00957 One tab kept on a close
-When closing data files would close every tab (LLFR-00928), the app must keep the first of those tabs in tab order, with no plot, so that at least one tab always exists (LLFR-00066).
+### LLFR-00961 One tab kept on a close
+When closing data files would close every tab (LLFR-00932), the app must keep the first of those tabs in tab order, with no plot, so that at least one tab always exists (LLFR-00066).
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00014*
 
-### LLFR-00958 Tab shown after a close
-When a close (LLFR-00928) closes the tab that is shown, the app must show the nearest tab that is left to its left, or, when no tab is left to its left, the nearest tab that is left to its right.
+### LLFR-00962 Tab shown after a close
+When a close (LLFR-00932) closes the tab that is shown, the app must show the nearest tab that is left to its left, or, when no tab is left to its left, the nearest tab that is left to its right.
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00014*
 
-### LLFR-00929 Flags outside the files left deleted on a close
-When the app closes data files and at least one plot is left, it must delete every flag whose time is outside the time range of the open data files that are left (LLFR-00912), keeping a flag whose time is on an end of that range.
+### LLFR-00933 Flags outside the files left deleted on a close
+When the app closes data files and at least one plot is left, it must delete every flag whose time is outside the time range of the open data files that are left (LLFR-00916), keeping a flag whose time is on an end of that range.
 
-Note: The deletion is part of the close, which clears the undo and redo history (LLFR-00926). When no plot is left, every flag is deleted (LLFR-00667).
+Note: The deletion is part of the close, which clears the undo and redo history (LLFR-00930). When no plot is left, every flag is deleted (LLFR-00667).
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00031*
 
-### LLFR-00946 Areas outside the files left deleted on a close
-When the app closes data files and at least one plot is left, it must delete every area that lies entirely outside the time range of the open data files that are left (LLFR-00912), keeping an area that is partly inside that range or touches one of its ends.
+### LLFR-00950 Areas outside the files left deleted on a close
+When the app closes data files and at least one plot is left, it must delete every area that lies entirely outside the time range of the open data files that are left (LLFR-00916), keeping an area that is partly inside that range or touches one of its ends.
 
-Note: The deletion is part of the close, which clears the undo and redo history (LLFR-00926). When no plot is left, every area is deleted (LLFR-00711).
+Note: The deletion is part of the close, which clears the undo and redo history (LLFR-00930). When no plot is left, every area is deleted (LLFR-00711).
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00069*
 
-### LLFR-00962 Area partly outside the files left, resized
-When the user starts to resize an area (LLFR-00313) that lies partly outside the time range of the open data files (LLFR-00912), the app must first limit the area to that time range.
+### LLFR-00966 Area partly outside the files left, resized
+When the user starts to resize an area (LLFR-00313) that lies partly outside the time range of the open data files (LLFR-00916), the app must first limit the area to that time range.
 
 Note: A move of such an area is limited by LLFR-00713.
 
 *Parent: HLFR-00106, HLFR-00118, HLFR-00119*
 
-### LLFR-00930 Close all files question
-When the user chooses "Close all files" (LLFR-00919), the app must ask the user once whether to proceed, saying that:
+### LLFR-00934 Close all files question
+When the user chooses "Close all files" (LLFR-00923), the app must ask the user once whether to proceed, saying that:
 - all the open data files will be closed;
 - their signals and synthetic signals will be removed from the signal list and from the plots;
 - the tabs left with no plot will be closed;
@@ -2906,18 +2906,18 @@ When the user chooses "Close all files" (LLFR-00919), the app must ask the user 
 
 *Parent: HLFR-00119*
 
-### LLFR-00931 Close all files declined
-If the user does not proceed in the question of LLFR-00930, the app must keep the open data files, the signal list, the plots and the undo and redo history unchanged.
+### LLFR-00935 Close all files declined
+If the user does not proceed in the question of LLFR-00934, the app must keep the open data files, the signal list, the plots and the undo and redo history unchanged.
 
 *Parent: HLFR-00119*
 
-### LLFR-00932 Close all files action
-If the user proceeds in the question of LLFR-00930, the app must close every open data file as in LLFR-00922, LLFR-00923, LLFR-00924, LLFR-00925, LLFR-00926, LLFR-00928, LLFR-00956, LLFR-00957 and LLFR-00958, with no further question.
+### LLFR-00936 Close all files action
+If the user proceeds in the question of LLFR-00934, the app must close every open data file as in LLFR-00926, LLFR-00927, LLFR-00928, LLFR-00929, LLFR-00930, LLFR-00932, LLFR-00960, LLFR-00961 and LLFR-00962, with no further question.
 
 *Parent: HLFR-00119*
 
-### LLFR-00933 Signal list after Close all files
-After the app closes every data file (LLFR-00932), the signal list panel must show the same content as when the app starts with no data file open: no file name row and no signal.
+### LLFR-00937 Signal list after Close all files
+After the app closes every data file (LLFR-00936), the signal list panel must show the same content as when the app starts with no data file open: no file name row and no signal.
 
 *Parent: HLFR-00119, HLFR-00011*
 
@@ -2963,7 +2963,7 @@ When the app names a new tab (LLFR-00210), it must not reuse the number of a del
 ### LLFR-00654 Tab numbering restart
 The numbering of new tabs (LLFR-00210) must restart with "Tab 1" only when the app starts.
 
-Note: Opening or closing data files never restarts the tab numbering, even when a close closes tabs (LLFR-00928).
+Note: Opening or closing data files never restarts the tab numbering, even when a close closes tabs (LLFR-00932).
 
 *Parent: HLFR-00015*
 
@@ -3146,7 +3146,7 @@ When the app compares a tab name with the names of the other tabs (LLFR-00211, L
 *Parent: HLFR-00017*
 
 ### LLFR-00068 Time on the x-axis
-Every time plot (HLFR-00058) must have on its x-axis the time, in seconds, given by the time signals of the data files of its curves (HLFR-00006, LLFR-00908).
+Every time plot (HLFR-00058) must have on its x-axis the time, in seconds, given by the time signals of the data files of its curves (HLFR-00006, LLFR-00912).
 
 *Parent: HLFR-00012, HLFR-00013, HLFR-00007, HLFR-00116*
 
@@ -3167,28 +3167,28 @@ All time plots in all tabs must share the same x-axis range, so that a change to
 
 *Parent: HLFR-00014, HLFR-00027, HLFR-00036*
 
-### LLFR-00907 Curves of different files in one time plot
+### LLFR-00911 Curves of different files in one time plot
 The app must let the user draw signals of different data files in the same time plot, by drop or the Enter key (LLFR-00021, LLFR-00295, LLFR-00297), in the same way as signals of one file.
 
 *Parent: HLFR-00116, HLFR-00013, HLFR-00064, HLFR-00065*
 
-### LLFR-00908 Each curve on the time of its own file
+### LLFR-00912 Each curve on the time of its own file
 The app must draw each curve of a time plot with the samples of its signal placed at the times of the time signal of the signal's own data file.
 
 *Parent: HLFR-00116, HLFR-00006, HLFR-00007*
 
-### LLFR-00909 Same time origin for every file
+### LLFR-00913 Same time origin for every file
 The app must place the times of every data file on the shared x-axis (LLFR-00070) as they are stored in the file, with the same time origin for every file and no offset between files.
 
 *Parent: HLFR-00116, HLFR-00007*
 
-### LLFR-00910 Data tip time of its own file
+### LLFR-00914 Data tip time of its own file
 The x-axis value of a data tip on a time plot (LLFR-00043) must be the time of the point in the time signal of the curve's own data file.
 
 *Parent: HLFR-00116, HLFR-00024*
 
-### LLFR-00911 Delta marker points on curves of different files
-The app must let the two points of a delta marker (LLFR-00164) be on curves of different data files, each point taking its time from the time signal of its own curve's file (LLFR-00908).
+### LLFR-00915 Delta marker points on curves of different files
+The app must let the two points of a delta marker (LLFR-00164) be on curves of different data files, each point taking its time from the time signal of its own curve's file (LLFR-00912).
 
 *Parent: HLFR-00116, HLFR-00043, HLFR-00044*
 
@@ -3338,7 +3338,7 @@ While a flag is dragged (LLFR-00086), on the time plots of the other tabs it mus
 *Parent: HLFR-00029*
 
 ### LLFR-00667 Flags deleted with the last plot
-When no plot is left in any tab, whether because a plot is deleted (LLFR-00049, LLFR-00051), a tab is deleted (LLFR-00028) or data files are closed (LLFR-00922 to LLFR-00924, LLFR-00932), the app must delete every flag.
+When no plot is left in any tab, whether because a plot is deleted (LLFR-00049, LLFR-00051), a tab is deleted (LLFR-00028) or data files are closed (LLFR-00926 to LLFR-00928, LLFR-00936), the app must delete every flag.
 
 *Parent: HLFR-00028, HLFR-00031, HLFR-00118, HLFR-00119*
 
@@ -3439,36 +3439,36 @@ If the left mouse button is released outside the plot's drawing area after LLFR-
 *Parent: HLFR-00027*
 
 ### LLFR-00676 Span limited to the files
-The span of the span zoom (LLFR-00209) must be limited to the time range of the open data files (LLFR-00912, LLFR-00119). On a frequency plot, the span zoom is limited as in LLFR-00694.
+The span of the span zoom (LLFR-00209) must be limited to the time range of the open data files (LLFR-00916, LLFR-00119). On a frequency plot, the span zoom is limited as in LLFR-00694.
 
 *Parent: HLFR-00027*
 
-### LLFR-00912 Time range of the open data files
+### LLFR-00916 Time range of the open data files
 The app must take as the time range of the open data files the range from the earliest first time sample to the latest last time sample of all the open data files.
 
 Note: Reset zoom (LLFR-00115), the first time plot (LLFR-00688), the pan limits (LLFR-00119), the span zoom (LLFR-00676), the area limits (LLFR-00713, LLFR-00715) and the layout checks (LLFR-00233, LLFR-00234, LLFR-00487, LLFR-00319) use this range.
 
 *Parent: HLFR-00035, HLFR-00036, HLFR-00113*
 
-### LLFR-00913 X-axis range kept when a file is opened
+### LLFR-00917 X-axis range kept when a file is opened
 When the app opens a data file while at least one time plot exists, it must keep the x-axis range shared by the time plots (LLFR-00070) unchanged.
 
 Note: The user can then press Reset zoom to see the time range of all the open data files.
 
 *Parent: HLFR-00113, HLFR-00117, HLFR-00035*
 
-### LLFR-00914 X-axis range limited when a file is closed
-When the app closes data files and time plots are left whose shared x-axis range (LLFR-00070) goes beyond the time range of the open data files that are left (LLFR-00912), the app must limit the x-axis range to that time range, except as in LLFR-00915.
+### LLFR-00918 X-axis range limited when a file is closed
+When the app closes data files and time plots are left whose shared x-axis range (LLFR-00070) goes beyond the time range of the open data files that are left (LLFR-00916), the app must limit the x-axis range to that time range, except as in LLFR-00919.
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00036*
 
-### LLFR-00915 X-axis range outside the files left
-When the app closes data files and the shared x-axis range of the time plots that are left does not overlap the time range of the open data files that are left (LLFR-00912), the app must show the whole time range of those files.
+### LLFR-00919 X-axis range outside the files left
+When the app closes data files and the shared x-axis range of the time plots that are left does not overlap the time range of the open data files that are left (LLFR-00916), the app must show the whole time range of those files.
 
 *Parent: HLFR-00118, HLFR-00119, HLFR-00035*
 
 ### LLFR-00115 Reset zoom action
-When the user clicks the Reset zoom button (LLFR-00114), the app must set the x-axis range of every time plot in every tab to the time range of the open data files (LLFR-00912). Frequency plots are reset as in LLFR-00695.
+When the user clicks the Reset zoom button (LLFR-00114), the app must set the x-axis range of every time plot in every tab to the time range of the open data files (LLFR-00916). Frequency plots are reset as in LLFR-00695.
 
 *Parent: HLFR-00035*
 
@@ -3483,12 +3483,12 @@ When the user holds the mouse wheel pressed over a plot and moves the mouse left
 *Parent: HLFR-00036*
 
 ### LLFR-00118 No pan without zoom
-While a plot shows the whole time range of the open data files (LLFR-00912) (for a frequency plot, its whole frequency range, LLFR-00692), holding the mouse wheel pressed and moving the mouse, or a horizontal two-finger swipe (LLFR-00345), must not change the plot's x-axis range.
+While a plot shows the whole time range of the open data files (LLFR-00916) (for a frequency plot, its whole frequency range, LLFR-00692), holding the mouse wheel pressed and moving the mouse, or a horizontal two-finger swipe (LLFR-00345), must not change the plot's x-axis range.
 
 *Parent: HLFR-00036*
 
 ### LLFR-00119 Pan limits
-The app must not pan a time plot's x-axis range before the earliest first time sample or after the latest last time sample of the open data files (LLFR-00912). A frequency plot's pan is limited as in LLFR-00694.
+The app must not pan a time plot's x-axis range before the earliest first time sample or after the latest last time sample of the open data files (LLFR-00916). A frequency plot's pan is limited as in LLFR-00694.
 
 *Parent: HLFR-00036*
 
@@ -3691,7 +3691,7 @@ When other time plots exist, a new time plot must show the x-axis range shared b
 *Parent: HLFR-00012, HLFR-00014*
 
 ### LLFR-00688 Time range of the first time plot
-When no other time plot exists, a new time plot must show the time range of the open data files (LLFR-00912).
+When no other time plot exists, a new time plot must show the time range of the open data files (LLFR-00916).
 
 *Parent: HLFR-00012, HLFR-00014*
 
@@ -3902,7 +3902,7 @@ While the Area button (LLFR-00286) is active or no plot tool is active (LLFR-007
 *Parent: HLFR-00067*
 
 ### LLFR-00713 Moved area within the files
-While the user moves an area (LLFR-00312), the whole area must stay within the time range of the open data files (LLFR-00912).
+While the user moves an area (LLFR-00312), the whole area must stay within the time range of the open data files (LLFR-00916).
 
 *Parent: HLFR-00067*
 
@@ -3917,7 +3917,7 @@ While the Area button (LLFR-00286) is active or no plot tool is active (LLFR-007
 *Parent: HLFR-00106*
 
 ### LLFR-00715 Resized edge within the files
-While the user resizes an area (LLFR-00313), the moved edge must stay within the time range of the open data files (LLFR-00912).
+While the user resizes an area (LLFR-00313), the moved edge must stay within the time range of the open data files (LLFR-00916).
 
 *Parent: HLFR-00106*
 
@@ -3994,7 +3994,7 @@ While no plot tool is active, a press within 5 pixels of an edge of an area must
 *Parent: HLFR-00066, HLFR-00032, HLFR-00085*
 
 ### LLFR-00319 Areas in a layout
-When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the open data files (LLFR-00912), and it does not overlap a current area or an area already rebuilt from the same layout file.
+When loading a layout, the app must rebuild an area only if its start time is before its end time, both are within the time range of the open data files (LLFR-00916), and it does not overlap a current area or an area already rebuilt from the same layout file.
 
 *Parent: HLFR-00050, HLFR-00052, HLFR-00088*
 

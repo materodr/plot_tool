@@ -48,7 +48,7 @@ class SignalListPanelTest(unittest.TestCase):
         self.assertEqual(self.panel.title_label.text(), "Signals")
         self.assertEqual(self.panel.signal_name_list(), [])
 
-    @covers("LLFR-00054", "LLFR-00935")
+    @covers("LLFR-00054", "LLFR-00939")
     def test_names_shown_in_file_order_with_time(self) -> None:
         """The names are shown in the given order, Time included.
 
@@ -61,7 +61,7 @@ class SignalListPanelTest(unittest.TestCase):
         self.assertEqual(widget.count(), len(NAME_LIST))
         self.assertEqual(widget.item(0).text(), "Time")
 
-    @covers("LLFR-00922", "LLFR-00933")
+    @covers("LLFR-00926", "LLFR-00937")
     def test_new_names_replace_old_ones(self) -> None:
         """Showing other names removes the previous names, as after a
         close; an empty list shows no signal.

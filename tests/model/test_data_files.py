@@ -32,7 +32,7 @@ def make_file(path_str: str, start_s: float = 0.0,
 class PrefixTest(unittest.TestCase):
     """The prefix of the signal names (HLFR-00115)."""
 
-    @covers("LLFR-00901", "LLFR-00902", "HLFR-00115")
+    @covers("LLFR-00905", "LLFR-00906", "HLFR-00115")
     def test_prefix_of_a_file_number(self) -> None:
         """file<N>_ goes in front of the name in the file.
 
@@ -50,7 +50,7 @@ class PrefixTest(unittest.TestCase):
         self.assertEqual(data_file.plain_name("other"), "other")
         self.assertEqual(data_file.file_name_row_str, "file1_a.csv")
 
-    @covers("LLFR-00905", "LLFR-00053", "HLFR-00006")
+    @covers("LLFR-00909", "LLFR-00053", "HLFR-00006")
     def test_time_signal_found_before_the_prefix(self) -> None:
         """The time signal is found by its name in the file.
 
@@ -67,8 +67,8 @@ class PrefixTest(unittest.TestCase):
 class NumberTest(unittest.TestCase):
     """The file numbers (HLFR-00114)."""
 
-    @covers("LLFR-00896", "LLFR-00897", "LLFR-00898", "LLFR-00900",
-            "LLFR-00934", "HLFR-00114")
+    @covers("LLFR-00900", "LLFR-00901", "LLFR-00902", "LLFR-00904",
+            "LLFR-00938", "HLFR-00114")
     def test_numbers_are_never_given_again(self) -> None:
         """Numbers grow; closed numbers stay used up.
 
@@ -88,7 +88,7 @@ class NumberTest(unittest.TestCase):
         self.assertEqual(len(data_files), 0)
         self.assertEqual(data_files.add(make_file("/d/e.csv")).number_i, 5)
 
-    @covers("LLFR-00891", "LLFR-00892", "HLFR-00113")
+    @covers("LLFR-00895", "LLFR-00896", "HLFR-00113")
     def test_at_most_ten_files(self) -> None:
         """The eleventh file cannot be added.
 
@@ -108,7 +108,7 @@ class NumberTest(unittest.TestCase):
 class SignalsTest(unittest.TestCase):
     """The signals of several files (HLFR-00116)."""
 
-    @covers("LLFR-00908", "LLFR-00912", "LLFR-00934", "LLFR-00935",
+    @covers("LLFR-00912", "LLFR-00916", "LLFR-00938", "LLFR-00939",
             "LLFR-00332", "HLFR-00116")
     def test_signals_and_times_of_every_file(self) -> None:
         """Each signal keeps the time of its file; the range covers all.
@@ -144,9 +144,9 @@ class SignalsTest(unittest.TestCase):
 
 
 class SameFileTest(unittest.TestCase):
-    """The same file on disk (LLFR-00894)."""
+    """The same file on disk (LLFR-00898)."""
 
-    @covers("LLFR-00894")
+    @covers("LLFR-00898")
     def test_paths_of_the_same_file(self) -> None:
         """A link, or another spelling of the path, is the same file.
 
@@ -180,9 +180,9 @@ class SameFileTest(unittest.TestCase):
 
 
 class SelectionOrderTest(unittest.TestCase):
-    """The order of the selected files (LLFR-00948, LLFR-00970)."""
+    """The order of the selected files (LLFR-00952, LLFR-00974)."""
 
-    @covers("LLFR-00948", "LLFR-00970", "HLFR-00122")
+    @covers("LLFR-00952", "LLFR-00974", "HLFR-00122")
     def test_names_in_character_order(self) -> None:
         """Folders are left out; case only breaks a tie.
 
@@ -197,9 +197,9 @@ class SelectionOrderTest(unittest.TestCase):
 
 
 class DescriptionTest(unittest.TestCase):
-    """The description of the open files (LLFR-00967, LLFR-00968)."""
+    """The description of the open files (LLFR-00971, LLFR-00972)."""
 
-    @covers("LLFR-00967", "LLFR-00968", "HLFR-00038", "HLFR-00039",
+    @covers("LLFR-00971", "LLFR-00972", "HLFR-00038", "HLFR-00039",
             "HLFR-00113")
     def test_every_open_file_in_number_order(self) -> None:
         """`file<N> = <name>` for each file, separated by commas.

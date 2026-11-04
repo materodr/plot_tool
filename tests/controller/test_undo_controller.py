@@ -600,7 +600,7 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
                              state_list[expected_index_i])
             self.assert_view_matches_model()
 
-    @covers("LLFR-00142", "LLFR-00926", "LLFR-00141")
+    @covers("LLFR-00142", "LLFR-00930", "LLFR-00141")
     def test_opening_keeps_and_closing_clears_the_history(self) -> None:
         """An added file keeps the history; closing the files clears it.
 

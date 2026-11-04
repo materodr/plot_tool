@@ -175,7 +175,7 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assert_button_finished()
 
     @covers("LLFR-00008", "LLFR-00010", "LLFR-00011", "LLFR-00003",
-            "LLFR-00918", "LLFR-00951")
+            "LLFR-00922", "LLFR-00955")
     def test_bad_files_show_error_and_keep_list(self) -> None:
         """Bad files show the File Open Error box; the list is kept.
 
@@ -188,7 +188,7 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assert_button_finished()
         self.click_open_file(self.text_path_str)
         self.assert_button_finished()
-        # LLFR-00918: no question; each time only the error box.
+        # LLFR-00922: no question; each time only the error box.
         self.assertEqual([record[0] for record in self.box_record_list], [
             FILE_OPEN_ERROR_TITLE_STR, FILE_OPEN_ERROR_TITLE_STR])
         error_record_list = self.box_record_list
@@ -214,7 +214,7 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual(self.shown_name_list(), [])
         self.assert_button_finished()
 
-    @covers("LLFR-00916", "LLFR-00917", "LLFR-00918", "LLFR-00650",
+    @covers("LLFR-00920", "LLFR-00921", "LLFR-00922", "LLFR-00650",
             "HLFR-00117", "HLFR-00113")
     def test_second_file_is_added(self) -> None:
         """A second file is added with no box, after the first one.
@@ -228,14 +228,14 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual(self.shown_name_list(), [
             "file1_Time", "file1_speed", "file1_force", "file2_Time",
             "file2_pressure"])
-        # LLFR-00362, LLFR-00934, LLFR-00650: one row per file, in the
+        # LLFR-00362, LLFR-00938, LLFR-00650: one row per file, in the
         # order of the numbers.
         self.assertEqual(
             self.main_window.signal_list_panel.file_row_texts(),
             ["file1_first.csv", "file2_second.csv"])
         self.assert_button_finished()
 
-    @covers("LLFR-00894", "LLFR-00895", "LLFR-00952", "LLFR-00003",
+    @covers("LLFR-00898", "LLFR-00899", "LLFR-00956", "LLFR-00003",
             "LLFR-00651")
     def test_same_file_is_refused(self) -> None:
         """The same file again shows the information box and keeps the
@@ -257,7 +257,7 @@ class OpenFileEndToEndTest(unittest.TestCase):
         self.assertEqual(len(self.controller.file_controller.data_files), 1)
         self.assert_button_finished()
 
-    @covers("LLFR-00010", "LLFR-00918", "LLFR-00328", "HLFR-00101",
+    @covers("LLFR-00010", "LLFR-00922", "LLFR-00328", "HLFR-00101",
             "LLFR-00511")
     def test_bad_file_after_open_is_read_at_once(self) -> None:
         """With a file open, a bad file is read with no question first.
@@ -413,7 +413,7 @@ class MainWindowFacadeTest(unittest.TestCase):
             os.path.realpath(folder_str))
         self.assertEqual(dialog.acceptMode(),
                          QFileDialog.AcceptMode.AcceptOpen)
-        # LLFR-00947: several files can be selected at once.
+        # LLFR-00951: several files can be selected at once.
         self.assertEqual(dialog.fileMode(),
                          QFileDialog.FileMode.ExistingFiles)
 

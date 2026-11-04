@@ -591,7 +591,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         Outputs: none.
         """
         path_str = self.save_and_reopen()
-        # LLFR-00957: the close kept the emptied tab "Main"; it is named
+        # LLFR-00961: the close kept the emptied tab "Main"; it is named
         # "Tab 1" here, so that the file's "Main" is not renamed.
         self.view.handler_dict["rename_tab"](
             self.workspace.tab_list[0].tab_id_i, "Tab 1")

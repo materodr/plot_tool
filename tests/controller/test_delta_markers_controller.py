@@ -347,7 +347,7 @@ class DiscardFirstPointTest(DeltaControllerTestCase):
         self.assertEqual(self.controller.pending_delta_tuple, ())
         self.assertEqual(self.first_point(plot_id_i), ())
 
-    @covers("LLFR-00167", "LLFR-00925", "LLFR-00917")
+    @covers("LLFR-00167", "LLFR-00929", "LLFR-00921")
     def test_closing_the_file_discards_it(self) -> None:
         """An added file keeps the first point; a close discards it.
 

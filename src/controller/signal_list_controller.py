@@ -7,11 +7,11 @@ offer ``set_search_text_handler``, ``show_signal_groups``,
 ``rename_shown_signal`` and ``set_time_signal_names``.
 
 The list shows the signals of every open data file, with their prefixed
-names (LLFR-00901), file after file in the order of their numbers
-(LLFR-00934), each file starting with its file name row,
+names (LLFR-00905), file after file in the order of their numbers
+(LLFR-00938), each file starting with its file name row,
 ``file<N>_<file name>`` in bold (LLFR-00362), followed by its signals
-and then its own synthetic signals in creation order (LLFR-00935,
-LLFR-00242, LLFR-00936); the SyntheticController gives the names of the
+and then its own synthetic signals in creation order (LLFR-00939,
+LLFR-00242, LLFR-00940); the SyntheticController gives the names of the
 synthetic signals with ``set_synthetic_signals``. The FileController
 calls its listeners only after a successful open, so a failed, cancelled
 or refused open leaves the list unchanged (LLFR-00651).
@@ -23,7 +23,7 @@ matches stay below their own file name row, which the search never
 hides (LLFR-00102, LLFR-00639, LLFR-00640), and "No matching signals"
 is shown below the row of each file with no match (LLFR-00097,
 LLFR-00641). While no file is open, the list is empty (LLFR-00363,
-LLFR-00933).
+LLFR-00937).
 """
 
 import os
@@ -80,7 +80,7 @@ class SignalListController:
         # FFT signals among them (LLFR-00251).
         self.synthetic_name_list = []
         self.fft_name_set = set()
-        # LLFR-00936: the data file of each synthetic signal.
+        # LLFR-00940: the data file of each synthetic signal.
         self.synthetic_file_dict = {}
         self.signal_file = None
         self.search_text_str = ""
@@ -109,10 +109,10 @@ class SignalListController:
                 order.
             fft_name_set: the names of the FFT signals among them.
             file_number_dict: synthetic signal name -> number of its
-                data file (LLFR-00936); None lists them after every file.
+                data file (LLFR-00940); None lists them after every file.
         Outputs: none. The list is filtered again by the search text.
         """
-        # LLFR-00242, LLFR-00935: after the signals of their own data
+        # LLFR-00242, LLFR-00939: after the signals of their own data
         # file, in creation order, in italics, and searchable like the
         # others.
         self.synthetic_name_list = list(synthetic_name_list)
@@ -137,9 +137,9 @@ class SignalListController:
 
         Inputs: none.
         Outputs: file after file, the signals of each data file
-            followed by its synthetic signals (LLFR-00934, LLFR-00935).
+            followed by its synthetic signals (LLFR-00938, LLFR-00939).
         """
-        # LLFR-00242, LLFR-00935: each file's synthetic signals after
+        # LLFR-00242, LLFR-00939: each file's synthetic signals after
         # its own signals.
         if self.signal_file is None:
             return self.all_signal_name_list + self.synthetic_name_list
@@ -164,7 +164,7 @@ class SignalListController:
         # back already filters the new names.
         self.search_text_str = ""
         self.view.clear_search()
-        # LLFR-00917: the signals and synthetic signals of the other
+        # LLFR-00921: the signals and synthetic signals of the other
         # files are kept, and so is the selection of the shown signals
         # (LLFR-00292).
         self.show_open_files(signal_file)
@@ -178,7 +178,7 @@ class SignalListController:
         Outputs: none. The SyntheticController has already removed the
             synthetic signals of the closed files.
         """
-        # LLFR-00922, LLFR-00933: the closed files' signals leave the
+        # LLFR-00926, LLFR-00937: the closed files' signals leave the
         # list; LLFR-00292: so they are no longer selected.
         self.show_open_files(data_files)
 
@@ -193,7 +193,7 @@ class SignalListController:
         # LLFR-00332: every time signal in green.
         self.view.set_time_signal_names(
             list(signal_file.time_signal_name_list))
-        # LLFR-00054, LLFR-00934, LLFR-00935: every signal of every open
+        # LLFR-00054, LLFR-00938, LLFR-00939: every signal of every open
         # file, the time signals included.
         self.all_signal_name_list = list(signal_file.signal_name_list)
         self.signal_file = signal_file
@@ -208,11 +208,11 @@ class SignalListController:
             text or "", every name of the group in list order, True for
             the group of a data file): one group per open data file, in
             the order of the numbers, with its signals and its synthetic
-            signals (LLFR-00934, LLFR-00935, LLFR-00242); [] while no
+            signals (LLFR-00938, LLFR-00939, LLFR-00242); [] while no
             file is open (LLFR-00363). One SignalFile given without a
             DataFileSet (as some tests do) is one group with no row.
         """
-        # LLFR-00363, LLFR-00933: no row and no signal without a file.
+        # LLFR-00363, LLFR-00937: no row and no signal without a file.
         if self.signal_file is None:
             return []
         file_list = list(getattr(self.signal_file, "file_list", []))
@@ -226,7 +226,7 @@ class SignalListController:
         group_list = []
         placed_name_set = set()
         for data_file in file_list:
-            # LLFR-00935, LLFR-00936: the file's signals, then its own
+            # LLFR-00939, LLFR-00940: the file's signals, then its own
             # synthetic signals in creation order.
             own_synthetic_list = [
                 name_str for name_str in self.synthetic_name_list

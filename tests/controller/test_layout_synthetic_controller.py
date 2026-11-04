@@ -56,7 +56,7 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         """Start the app again and open the test data file as file 1.
 
         The test data file is 10 Hz, from 0 to 9.9 s. A new start gives
-        the file the number 1 again (LLFR-00896), so a layout saved
+        the file the number 1 again (LLFR-00900), so a layout saved
         before is read with the same signal names.
 
         Inputs: none.

@@ -1150,7 +1150,7 @@ class PlotWidget(QWidget):
         # as tuples (band, label annotation, times annotation).
         self.area_data_list = []
         self.area_artist_dict = {}
-        # LLFR-00119, LLFR-00912: the time range of the open data files,
+        # LLFR-00119, LLFR-00916: the time range of the open data files,
         # () until the controller gives it; a time plot's zooms and pans
         # stay within it.
         self.files_time_range_tuple = ()
@@ -2699,7 +2699,7 @@ class PlotWidget(QWidget):
             range_tuple: (start_s, end_s), or () while no file is open.
         Outputs: none. The shown range is not changed.
         """
-        # LLFR-00119, LLFR-00676, LLFR-00912: the limits of the zooms
+        # LLFR-00119, LLFR-00676, LLFR-00916: the limits of the zooms
         # and pans of a time plot.
         self.files_time_range_tuple = tuple(range_tuple)
 
@@ -2718,7 +2718,7 @@ class PlotWidget(QWidget):
                      if curve_tuple[1].size > 0]
         if not time_list:
             return (0.0, 1.0)
-        # LLFR-00912, LLFR-00119: a time plot reaches the times of every
+        # LLFR-00916, LLFR-00119: a time plot reaches the times of every
         # open data file, also of the files none of its curves comes from.
         if not self.frequency_plot_b and len(
                 self.files_time_range_tuple) == 2:

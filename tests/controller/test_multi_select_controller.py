@@ -418,7 +418,7 @@ class RenameSelectionTest(FrequencyPlotTestCase):
 class SelectionOnFileOpenTest(unittest.TestCase):
     """Opening another data file keeps the selection (LLFR-00292)."""
 
-    @covers("LLFR-00292", "LLFR-00917", "HLFR-00063")
+    @covers("LLFR-00292", "LLFR-00921", "HLFR-00063")
     def test_opening_a_file_keeps_the_selection(self) -> None:
         """An added file keeps the signals shown, so they stay selected.
 
