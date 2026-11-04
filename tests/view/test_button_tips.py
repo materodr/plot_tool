@@ -28,11 +28,13 @@ EXPECTED_TIP_DICT = {
     "area_button": ("Area", ["Hold A"], ["Hold A"]),
     "text_button": ("Text", ["Hold T"], ["Hold T"]),
     "arrow_button": ("Arrow", ["Hold R"], ["Hold R"]),
-    "reset_zoom_button": ("Reset zoom", ["Z"], ["Z"]),
+    # LLFR-00215, LLFR-00207: "0".
+    "reset_zoom_button": ("Reset zoom", ["0"], ["0"]),
+    # LLFR-00463: "Hold Z", then the two mouse lines.
     "zoom_button": ("Zoom",
-                    ["Click or drag to zoom in",
+                    ["Hold Z", "Click or drag to zoom in",
                      "Wheel or two-finger swipe to zoom in or out"],
-                    ["Click or drag to zoom in",
+                    ["Hold Z", "Click or drag to zoom in",
                      "Wheel or two-finger swipe to zoom in or out"]),
     "open_file_button": ("Open file", [], []),
     "grid_button": ("Grid", [], []),
@@ -140,7 +142,8 @@ class ButtonTipTest(unittest.TestCase):
         return color_list
 
     @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181",
-            "LLFR-00463", "LLFR-00464", "LLFR-00465")
+            "LLFR-00463", "LLFR-00464", "LLFR-00465", "HLFR-00042",
+            "HLFR-00143", "HLFR-00144")
     def test_tip_texts_on_macos_and_windows(self) -> None:
         """Each button tip has the lines of the table, on both systems.
 
@@ -296,7 +299,8 @@ class ButtonTipTest(unittest.TestCase):
             self.application.processEvents()
 
     @covers("LLFR-00215", "LLFR-00148", "LLFR-00154", "LLFR-00197",
-            "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321")
+            "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321",
+            "LLFR-01057", "LLFR-00883", "HLFR-00143", "HLFR-00144")
     def test_key_names_follow_the_tool_keys(self) -> None:
         """The held and pressed keys are named from the filter's keys.
 
@@ -313,7 +317,8 @@ class ButtonTipTest(unittest.TestCase):
                 (tip_key_filter.AREA_KEY_I, "A", "A"),
                 (tip_key_filter.TEXT_KEY_I, "T", "T"),
                 (tip_key_filter.ARROW_KEY_I, "R", "R"),
-                (tip_key_filter.RESET_ZOOM_KEY_I, "Z", "Z")):
+                (tip_key_filter.ZOOM_KEY_I, "Z", "Z"),
+                (tip_key_filter.RESET_ZOOM_KEY_I, "0", "0")):
             with self.subTest(key_i=key_i):
                 self.assertEqual(key_name_str(key_i, True), macos_str)
                 self.assertEqual(key_name_str(key_i, False), windows_str)

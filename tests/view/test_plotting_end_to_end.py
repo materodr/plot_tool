@@ -230,8 +230,8 @@ class PlottingEndToEndTest(unittest.TestCase):
         title_str, icon, text_str = self.box_record_list[0]
         self.assertEqual(title_str, FULL_TAB_TITLE_STR)
         self.assertEqual(icon, self.message_box_class.Icon.Information)
-        self.assertIn("tab", text_str.lower())
-        self.assertIn("delete a plot", text_str.lower())
+        self.assertIn("use a new tab", text_str.lower())
+        self.assertIn("larger plot matrix", text_str.lower())
 
     @covers("LLFR-00021", "LLFR-00036", "LLFR-00037", "LLFR-00056",
             "LLFR-00057", "HLFR-00013", "HLFR-00020", "HLFR-00021")

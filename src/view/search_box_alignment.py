@@ -160,8 +160,8 @@ class SearchBoxAligner(QObject):
         if page is None:
             return None
         self.watch_page(page)
-        # LLFR-00424: the plots are stacked from top to bottom
-        # (LLFR-00069), so the lowest one ends lowest on the screen.
+        # LLFR-00424, LLFR-01075: the plots of the last shown row of the
+        # plot matrix (LLFR-00069) end lowest on the screen.
         plot_widget_list = [
             plot_widget for plot_widget
             in getattr(page, "plot_widget_list", [])

@@ -207,7 +207,7 @@ class MenuTitleTest(LabelWidgetTestCase):
                              ["Delete signal", "Width"])
         with self.subTest(menu="plot"):
             self.check_title(self.data_display(9.0, -0.5), "Plot",
-                             ["Delete plot"])
+                             ["Position", "Delete plot"])
         with self.subTest(menu="tip"):
             widget.set_pinned_tips([("Ramp", 4.0, 3.4, (0.0, -60.0))])
             self.draw()

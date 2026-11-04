@@ -191,7 +191,7 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
 
     @covers("LLFR-00314", "LLFR-00417")
     def test_area_menu(self) -> None:
-        """Rename, Color, Delete, Delete all areas, Delete plot.
+        """Rename, Color, Delete, Delete all areas, Position, Delete plot.
 
         Inputs: none.
         Outputs: none.
@@ -202,7 +202,7 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
         self.check_menu(4.0, 2.0, AREA_MENU_TEXT_LIST)
         self.assertEqual(AREA_MENU_TEXT_LIST,
                          ["Rename", "Color", "Delete", "Delete all areas",
-                          "Delete plot"])
+                          "Position", "Delete plot"])
 
     @covers("LLFR-00048", "LLFR-00038")
     def test_other_menus_have_no_delete_all(self) -> None:
@@ -213,7 +213,8 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
         """
         self.assertEqual(self.menu_texts(8.0, 3.8),
                          ["Delete signal", "Width"])
-        self.assertEqual(self.menu_texts(8.0, 2.0), ["Delete plot"])
+        self.assertEqual(self.menu_texts(8.0, 2.0),
+                         ["Position", "Delete plot"])
 
 
 @requires_qt

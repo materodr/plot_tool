@@ -32,8 +32,10 @@ FLAG_MENU_TEXT_LIST = ["Rename", "Color", "Delete", "Delete all flags"]
 DELTA_MENU_TEXT_LIST = ["Rename", "Color", "Delete",
                         "Delete all delta markers in this plot",
                         "Delete all delta markers in all plots"]
-# LLFR-00314, LLFR-00417: the area menu.
+# LLFR-00314, LLFR-00417, LLFR-01078: the area menu.
 AREA_MENU_TEXT_LIST = ["Rename", "Color", "Delete", "Delete all areas",
-                       "Delete plot"]
+                       "Position", "Delete plot"]
+# LLFR-00048, LLFR-01077: the plot menu of an empty area of a plot.
+PLOT_MENU_TEXT_LIST = ["Position", "Delete plot"]
 # LLFR-00378: the arrow menu.
 ARROW_MENU_TEXT_LIST = ["Rename", "Color", "Delete"]

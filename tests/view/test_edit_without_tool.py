@@ -622,7 +622,7 @@ class EditWindowTest(XyzKeyWindowTestCase):
             "LLFR-00665")
     def test_flag_drag_moves_it_on_every_time_plot(self) -> None:
         """With no tool, a drag moves the flag on the other plot of the
-        tab before the release; Z does nothing during it; the move is one
+        tab before the release; 0 does nothing during it; the move is one
         undoable action.
 
         Inputs: none.
@@ -639,7 +639,7 @@ class EditWindowTest(XyzKeyWindowTestCase):
         depth_i = undo_history.depth()
 
         def check_during_drag() -> None:
-            """Check the other plot and the Z key mid-drag.
+            """Check the other plot and the 0 key mid-drag.
 
             Inputs: none.
             Outputs: none.
@@ -648,8 +648,8 @@ class EditWindowTest(XyzKeyWindowTestCase):
             self.assertAlmostEqual(
                 second_widget.marker_time_s(self.marker_id_i), 3.4,
                 delta=0.03)
-            self.press_key("Key_Z", first_widget.canvas)
-            self.release_key("Key_Z", first_widget.canvas)
+            self.press_key("Key_0", first_widget.canvas)
+            self.release_key("Key_0", first_widget.canvas)
             self.assert_every_range(zoomed_range_tuple)
 
         self.drag_area(first_widget, 3.0, 3.4, check_during_drag)

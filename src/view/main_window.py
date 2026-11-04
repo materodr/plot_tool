@@ -11,7 +11,8 @@ from PyQt6.QtWidgets import (
 
 from controller.plot_tools import (
     ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
-    MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
+    MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
+    ZOOM_TOOL_STR)
 from model import file_writer
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
@@ -23,8 +24,8 @@ from view.search_box_alignment import SearchBoxAligner
 from view.signal_list_panel import SignalListPanel
 from view.tip_key_filter import (
     ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, ESCAPE_KEY_I,
-    MARKER_KEY_I,
-    RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ToolKeyFilter)
+    MARKER_KEY_I, RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ZOOM_KEY_I,
+    ToolKeyFilter)
 from view import top_panel
 from view.top_panel import TopPanel
 
@@ -266,7 +267,9 @@ class MainWindow(QMainWindow):
         # X or Y keeps the Delta X or Delta Y tool active; LLFR-00287,
         # LLFR-00321: holding A or T keeps the Area or Text tool active;
         # LLFR-00367: holding R keeps the Arrow tool active;
-        # LLFR-00207: Z alone resets the zoom; LLFR-00370: Esc alone
+        # LLFR-01057: holding Z keeps the Zoom tool active;
+        # LLFR-00207, LLFR-01060: 0 alone, of the main keyboard or of
+        # the keypad, resets the zoom; LLFR-00370: Esc alone
         # switches off the active plot tool; LLFR-00157: none of them
         # in text fields (any QLineEdit, QTextEdit, QPlainTextEdit or
         # spin box, so also the search boxes of dialogs and windows and
@@ -279,7 +282,7 @@ class MainWindow(QMainWindow):
              DELTA_X_KEY_I: DELTA_X_TOOL_STR,
              DELTA_Y_KEY_I: DELTA_Y_TOOL_STR,
              AREA_KEY_I: AREA_TOOL_STR, TEXT_KEY_I: TEXT_TOOL_STR,
-             ARROW_KEY_I: ARROW_TOOL_STR},
+             ARROW_KEY_I: ARROW_TOOL_STR, ZOOM_KEY_I: ZOOM_TOOL_STR},
             self.on_tool_key_activate, self.on_tool_key_release,
             TEXT_INPUT_WIDGET_TUPLE, self,
             {RESET_ZOOM_KEY_I: self.on_reset_zoom_key,
@@ -952,21 +955,22 @@ class MainWindow(QMainWindow):
         """Tell whether the user is dragging the mouse on a plot.
 
         Inputs: none.
-        Outputs: True during a pan, a marker or tip drag or a time span
-            selection on any plot.
+        Outputs: True during a pan, a drag of an object or a time span
+            selection on any plot, or a drag of a tab.
         """
-        # LLFR-00207: the Z key does nothing during a mouse drag.
+        # LLFR-00454: the 0 key does nothing during a mouse drag, a tab
+        # drag included.
         return self.plot_panel.is_mouse_drag_in_progress()
 
     def on_reset_zoom_key(self) -> None:
-        """Reset the zoom because the Z key was pressed alone.
+        """Reset the zoom because the 0 key was pressed alone.
 
         Inputs: none.
         Outputs: none. Nothing happens during a mouse drag, or while a
             modal dialog or a menu of the application is open.
         """
-        # LLFR-00207: during a pan, a marker or tip drag or a time span
-        # selection, Z does nothing.
+        # LLFR-00454: during a pan, a drag of an object, a time span
+        # selection or a tab drag, 0 does nothing.
         if self.is_mouse_drag_in_progress():
             return
         # LLFR-00207: the zoom is reset in the main window, not behind a
@@ -991,7 +995,7 @@ class MainWindow(QMainWindow):
         # nothing.
         if self.current_plot_tool() == NO_TOOL_STR:
             return
-        # LLFR-00370, LLFR-00207: during a mouse drag, Esc does nothing.
+        # LLFR-00370, LLFR-00530: during a mouse drag, Esc does nothing.
         if self.is_mouse_drag_in_progress():
             return
         # LLFR-00370: in a menu or a dialog Esc keeps its own meaning
@@ -1167,6 +1171,57 @@ class MainWindow(QMainWindow):
                                          delete_tab_handler,
                                          rename_tab_handler)
 
+    def set_tab_arrangement_handlers(self, move_tab_handler,
+                                     plot_matrix_handler) -> None:
+        """Set the functions called for a tab move and a matrix choice.
+
+        Inputs:
+            move_tab_handler: function taking a tab id and its new place.
+            plot_matrix_handler: function taking a tab id, rows and
+                columns.
+        Outputs: none.
+        """
+        # LLFR-01052, LLFR-01065: the controller decides.
+        self.plot_panel.set_tab_arrangement_handlers(move_tab_handler,
+                                                     plot_matrix_handler)
+
+    def move_tab_view(self, tab_id_i: int, index_i: int) -> None:
+        """Move a tab to a place in the tab row.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            index_i: its new place, from 0.
+        Outputs: none.
+        """
+        # LLFR-01052: the tab order of the model.
+        self.plot_panel.move_tab_view(tab_id_i, index_i)
+
+    def set_tab_matrix_view(self, tab_id_i: int, row_count_i: int,
+                            column_count_i: int) -> None:
+        """Lay the plots of a tab out in a plot matrix.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            row_count_i: number of rows.
+            column_count_i: number of columns.
+        Outputs: none.
+        """
+        # LLFR-01065, LLFR-01073 to LLFR-01076.
+        self.plot_panel.set_tab_matrix_view(tab_id_i, row_count_i,
+                                            column_count_i)
+
+    def set_plot_order_view(self, tab_id_i: int,
+                            plot_id_list: list) -> None:
+        """Place the plots of a tab in a new fill order.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            plot_id_list: the plot ids in fill order.
+        Outputs: none.
+        """
+        # LLFR-01083: the plots after a swap.
+        self.plot_panel.set_plot_order_view(tab_id_i, plot_id_list)
+
     def set_plot_handlers(self, **handler_dict) -> None:
         """Set the functions called for the requests made on a plot.
 
@@ -1269,7 +1324,7 @@ class MainWindow(QMainWindow):
                 FREQUENCY_PLOT_KIND_STR for a frequency plot (LLFR-00256).
         Outputs: none.
         """
-        # LLFR-00019, LLFR-00069: the new plot goes below the others.
+        # LLFR-00019, LLFR-01074: the new plot takes the next slot.
         # LLFR-00256: with frequency or time on its x-axis.
         self.plot_panel.add_plot_view(tab_id_i, plot_id_i, kind_str)
         # LLFR-00042, LLFR-00078: a new plot starts with the active tool.
@@ -1542,14 +1597,19 @@ class MainWindow(QMainWindow):
             return None
         return str(new_name_str)
 
-    def show_full_tab_notification(self) -> None:
+    def show_full_tab_notification(self, row_count_i: int = 5,
+                                   column_count_i: int = 1) -> None:
         """Show the Full Tab Notification box.
 
-        Inputs: none.
+        Inputs:
+            row_count_i: rows of the full tab's plot matrix.
+            column_count_i: columns of the full tab's plot matrix.
         Outputs: none.
         """
-        # LLFR-00032: the tab is full; add a tab or delete a plot.
-        message_boxes.show_full_tab_notification(self)
+        # LLFR-00032, LLFR-01092: the tab is full; use a new tab or,
+        # below 10 x 10, a larger plot matrix.
+        message_boxes.show_full_tab_notification(self, row_count_i,
+                                                 column_count_i)
 
     def show_plot_kind_mismatch_notification(self) -> None:
         """Show the box saying FFT and time signals need separate plots.

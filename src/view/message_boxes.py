@@ -41,12 +41,21 @@ from PyQt6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
     QPlainTextEdit, QStyle, QVBoxLayout)
 
+from model.workspace import MAXIMUM_MATRIX_SIZE_I
+
 FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
 FULL_TAB_TITLE_STR = "Full Tab"
+# LLFR-00032: a full tab whose plot matrix can still grow.
 FULL_TAB_MESSAGE_STR = (
-    "This tab already holds the maximum of 5 plots, so no new plot was "
-    "created. Add a new tab or delete a plot from this tab."
-)
+    "This tab is full: its {rows} \u00d7 {columns} plot matrix holds "
+    "{slots} plots, so no new plot was created. Use a new tab, or choose "
+    "a larger plot matrix for this tab with \"Plot matrix\" in the menu "
+    "of the tab.")
+# LLFR-01092: a full tab whose plot matrix is already 10 x 10.
+FULL_LARGEST_MATRIX_MESSAGE_STR = (
+    "This tab is full: its 10 \u00d7 10 plot matrix holds 100 plots, so "
+    "no new plot was created. Use a new tab.")
+
 # LLFR-00211: the information box of a rename to another tab's name.
 TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
 TAB_NAME_TAKEN_MESSAGE_STR = (
@@ -147,21 +156,44 @@ def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
     return box
 
 
-def build_full_tab_box(parent) -> QMessageBox:
+def full_tab_message_str(row_count_i: int = 5,
+                         column_count_i: int = 1) -> str:
+    """Return the text of the Full Tab Notification box.
+
+    Inputs:
+        row_count_i: rows of the full tab's plot matrix.
+        column_count_i: columns of the full tab's plot matrix.
+    Outputs: FULL_TAB_MESSAGE_STR with the matrix filled in, or
+        FULL_LARGEST_MATRIX_MESSAGE_STR for a 10 x 10 matrix.
+    """
+    # LLFR-01092: with a 10 x 10 matrix, only "use a new tab".
+    if (row_count_i >= MAXIMUM_MATRIX_SIZE_I
+            and column_count_i >= MAXIMUM_MATRIX_SIZE_I):
+        return FULL_LARGEST_MATRIX_MESSAGE_STR
+    # LLFR-00032: use a new tab or choose a larger plot matrix.
+    return FULL_TAB_MESSAGE_STR.format(
+        rows=int(row_count_i), columns=int(column_count_i),
+        slots=int(row_count_i) * int(column_count_i))
+
+
+def build_full_tab_box(parent, row_count_i: int = 5,
+                       column_count_i: int = 1) -> QMessageBox:
     """Build the Full Tab Notification box.
 
     Inputs:
         parent: parent widget of the box, or None.
+        row_count_i: rows of the full tab's plot matrix.
+        column_count_i: columns of the full tab's plot matrix.
     Outputs: a QMessageBox with the information icon (it is not an error
-        box), the title FULL_TAB_TITLE_STR, the text FULL_TAB_MESSAGE_STR
-        and an OK button.
+        box), the title FULL_TAB_TITLE_STR, the text of
+        full_tab_message_str and an OK button.
     """
-    # LLFR-00032: information message telling the user to add a new tab
-    # or delete a plot.
+    # LLFR-00032, LLFR-01092: information message telling the user to
+    # use a new tab or, below 10 x 10, a larger plot matrix.
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(FULL_TAB_TITLE_STR)
-    box.setText(FULL_TAB_MESSAGE_STR)
+    box.setText(full_tab_message_str(row_count_i, column_count_i))
     box.setStandardButtons(QMessageBox.StandardButton.Ok)
     box.setDefaultButton(QMessageBox.StandardButton.Ok)
     return box
@@ -221,15 +253,18 @@ def show_file_open_error(parent, message_str: str) -> None:
     build_file_open_error_box(parent, message_str).exec()
 
 
-def show_full_tab_notification(parent) -> None:
+def show_full_tab_notification(parent, row_count_i: int = 5,
+                               column_count_i: int = 1) -> None:
     """Show the Full Tab Notification box and wait until it is closed.
 
     Inputs:
         parent: parent widget of the box, or None.
+        row_count_i: rows of the full tab's plot matrix.
+        column_count_i: columns of the full tab's plot matrix.
     Outputs: none.
     """
-    # LLFR-00032: notify that the tab is full.
-    build_full_tab_box(parent).exec()
+    # LLFR-00032, LLFR-01092: notify that the tab is full.
+    build_full_tab_box(parent, row_count_i, column_count_i).exec()
 
 
 def show_tab_name_taken_notification(parent, name_str: str) -> None:
