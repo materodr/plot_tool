@@ -442,8 +442,8 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.assertTrue(fft_name_str.startswith("fft_"))
-        self.assertTrue(fft_name_str.endswith("file1_s_Speed"))
+        self.assertTrue(fft_name_str.startswith("file1_fft_"))
+        self.assertTrue(fft_name_str.endswith("s_Speed"))
         plot_widget = self.double_click(fft_name_str)
         self.assertTrue(plot_widget.frequency_plot_b)
         self.assertEqual(plot_widget.axes.get_xlabel(), "Frequency (Hz)")
