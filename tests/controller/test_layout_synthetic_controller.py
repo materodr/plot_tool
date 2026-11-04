@@ -392,7 +392,7 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
         "file1_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
         "file1_mavg_4samples_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
         "file1_ge_3_Torque",
-        "file1_lpf_1Hz_order2_Speed_prod_Torque"]
+        "file1_lpf_1Hz_order2_Speed_prod_file1_Torque"]
     # The names the same signals had before the abbreviations, as an
     # older layout file holds them.
     OLD_NAME_LIST = [
