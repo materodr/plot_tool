@@ -524,6 +524,40 @@ class MatLoadingTest(TemporaryFolderTest):
         self.assertIn("'B' has 3", message_str)
         self.assertNotIn("'A' has", message_str)
 
+    @covers("LLFR-01178", "LLFR-00012", "LLFR-00980", "LLFR-00983",
+            "LLFR-00984", "HLFR-00009")
+    def test_sample_count_error_lists_the_signals(self) -> None:
+        """The signals with another sample count are a numbered list
+        below the sentence that names the check; one signal alone has no
+        number.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model import file_loader
+        from model.message_lists import list_text
+        path_str = self.write_mat("data.mat", {
+            "Time": np.arange(5.0), "A": np.arange(2.0),
+            "B": np.arange(5.0), "C": np.arange(3.0)})
+        message_str = self.assert_check_error(path_str,
+                                              SAMPLE_COUNT_CHECK_STR)
+        prefix_str = "The file 'data.mat' cannot be opened because"
+        heading_str = file_loader.SAMPLE_COUNT_HEADING_STR.format(
+            prefix=prefix_str, reference="Time", count=5)
+        self.assertEqual(message_str, list_text(
+            ["'A' has 2 samples.", "'C' has 3 samples."], heading_str))
+        self.assertEqual(message_str, heading_str + "\n\n"
+                         "1. 'A' has 2 samples.\n\n2. 'C' has 3 samples.")
+        self.assertIn("different sample counts", message_str)
+        alone_path_str = self.write_mat("alone.mat", {
+            "Time": np.arange(5.0), "A": np.arange(2.0)})
+        alone_str = self.assert_check_error(alone_path_str,
+                                            SAMPLE_COUNT_CHECK_STR)
+        self.assertEqual(alone_str, file_loader.ONE_SAMPLE_COUNT_HEADING_STR
+                         .format(prefix="The file 'alone.mat' cannot be "
+                                 "opened because", reference="Time",
+                                 count=5) + "\n\n'A' has 2 samples.")
+
     @covers("LLFR-00064", "HLFR-00002")
     def test_v73_file_is_not_supported(self) -> None:
         """A v7.3 MAT file gives a read error saying so.
