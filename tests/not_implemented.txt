@@ -5,3 +5,29 @@
 # request into develop may affect them with no test (PCR-00068). A pull
 # request from develop to main must list none (PCR-00069). Remove an HLFR
 # from this list when its implementation is done (PCR-00067).
+HLFR-00113 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00114 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00115 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00116 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00117 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00118 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00119 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00120 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00121 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+HLFR-00122 Implementation is planned in the next steps of #190 on feature/190-multiple-files.
+# Changed by #190: the current code and tests still follow the old text
+# even with one data file open (names without the file prefix or number,
+# layout file version 2).
+HLFR-00049 Implementation is planned in the next steps of #190 on feature/190-multiple-files. The layout file still holds names without the file prefix and version 2.
+HLFR-00050 Implementation is planned in the next steps of #190 on feature/190-multiple-files. Layout names are not yet matched by file number, and older layouts are not yet read as file 1.
+HLFR-00051 Implementation is planned in the next steps of #190 on feature/190-multiple-files. The layout file format number is still 2.
+HLFR-00054 Implementation is planned in the next steps of #190 on feature/190-multiple-files. Synthetic signal names don't start with the file prefix yet.
+HLFR-00079 Implementation is planned in the next steps of #190 on feature/190-multiple-files. The file name row doesn't show the file number yet.
+HLFR-00104 Implementation is planned in the next steps of #190 on feature/190-multiple-files. Product names don't use the file prefix yet.
+HLFR-00015 Implementation is planned in the next steps of #190 on feature/190-multiple-files. Tab numbering still restarts when a file is opened.
+HLFR-00038 Implementation is planned in the next steps of #190 on feature/190-multiple-files. The PDF pages don't describe the data files yet.
+HLFR-00039 Implementation is planned in the next steps of #190 on feature/190-multiple-files. The copied image has no data file strip yet.
+HLFR-00040 Implementation is planned in the next steps of #190 on feature/190-multiple-files. Opening a file still clears the undo history.
+HLFR-00048 Implementation is planned in the next steps of #190 on feature/190-multiple-files. Opening a file still clears the redo history.
+HLFR-00057 Implementation is planned in the next steps of #190 on feature/190-multiple-files. The FFT box with a time plot still shows the old text.
+HLFR-00070 Implementation is planned in the next steps of #190 on feature/190-multiple-files. The time signal window doesn't name the file yet.

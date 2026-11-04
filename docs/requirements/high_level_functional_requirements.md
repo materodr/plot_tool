@@ -11,7 +11,7 @@ The requirements are grouped by part of the interface: General, Top panel, Signa
 ### HLFR-00001 Interface layout
 The app interface must be divided into three panels: a top panel, a plot panel and a signal list panel.
 
-Note: The **top panel** holds the controls for opening a file and for the plot tools. The **plot panel** shows the plots where signal curves are drawn, organized in tabs. The **signal list panel** shows the signals of the opened file, from which the user picks what to plot.
+Note: The **top panel** holds the controls for opening a file and for the plot tools. The **plot panel** shows the plots where signal curves are drawn, organized in tabs. The **signal list panel** shows the signals of the open data files, from which the user picks what to plot.
 
 ### HLFR-00002 Error notification
 When an error occurs, the app must notify the user with an error box that describes the error.
@@ -50,15 +50,18 @@ The windows in which the user chooses a file to open or to save must appear quic
 ### HLFR-00004 Open a file
 The user must be able to open a time series file from the top panel.
 
+### HLFR-00122 Open several files at once
+The user must be able to select several files at once in the dialog of the Open file button and open them all with that one choice.
+
 ### HLFR-00005 Supported file formats
 The app must open files in these formats: CSV (`.csv`), Excel (`.xlsx`), MATLAB (`.mat`) and HDF5 (`.h5`, `.hdf5`).
 
 Note: More formats may be added in later versions.
 
 ### HLFR-00006 Time signal name
-The app must identify the time signal as the signal named `Time`, ignoring the difference between uppercase and lowercase letters, or, when no signal has that name, as the signal the user chooses (HLFR-00070).
+The app must identify the time signal of each data file as the signal of that file whose name in the file is `Time`, ignoring the difference between uppercase and lowercase letters, or, when no signal of the file has that name, as the signal the user chooses (HLFR-00070).
 
-Note: The time signal is the signal used as the x-axis of the time plots.
+Note: The time signal of a file gives the times of the curves of that file in the time plots (HLFR-00116).
 
 ### HLFR-00007 Time unit
 The app must treat the values of the time signal as seconds.
@@ -71,11 +74,26 @@ The app must open a file only if it contains at least two signals, one of which 
 ### HLFR-00009 Equal sample count
 The app must open a file only if all its signals have the same number of samples.
 
-### HLFR-00010 Replace file confirmation
-When the user selects a file to open while another file is already open, the app must ask the user whether to proceed, stating that proceeding will close the current file, before it reads the selected file.
+### HLFR-00113 Several data files open
+The user must be able to have up to 10 data files open at the same time.
 
-### HLFR-00101 Failed replace keeps the current file
-If the user proceeds in the confirmation of HLFR-00010 but the selected file cannot be opened, the app must keep the current file open.
+Note: Each file opened with the Open file button is a **data file** (HLFR-00049).
+
+### HLFR-00114 File numbers
+The app must give each data file a number, in the order the files are opened, starting at 1 when the app starts and never giving again the number of a closed file while the app runs.
+
+Note: For example, after file 2 of three open files is closed, file 3 keeps the number 3, and the next file opened is file 4.
+
+### HLFR-00010 DELETED
+DELETED
+
+### HLFR-00117 Opening adds a file
+When the user opens a file while other data files are open, the app must add it to the open data files, with no question, keeping the data files already open.
+
+Note: Opening a file never asks to close the data files already open (LLFR-00918).
+
+### HLFR-00101 Failed open keeps the open files
+If a selected file cannot be opened, the app must keep the data files already open unchanged.
 
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
@@ -90,10 +108,10 @@ Note: The small box with a button's name that appears while the mouse pointer is
 ### HLFR-00049 Save a layout
 The user must be able to save the current layout of the plots to a layout file from the top panel.
 
-Note: The **layout** is what the plot panel shows and how: the tabs, their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. The file with the time series that the user opens with the Open file button is called the **data file**. The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
+Note: The **layout** is what the plot panel shows and how: the tabs, their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. Each file with time series that the user opens with the Open file button is called a **data file**; several can be open at once (HLFR-00113). The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
 
 ### HLFR-00050 Load a layout
-The user must be able to load a layout file from the top panel and rebuild its layout with the signals of the opened data file.
+The user must be able to load a layout file from the top panel and rebuild its layout with the signals of the open data files.
 
 ### HLFR-00051 Layout file format
 The layout file must be a text file that the user can read and edit by hand in a text editor.
@@ -110,7 +128,7 @@ When the user opens a file in which no signal is named `Time` (HLFR-00006), the 
 Note: The window works like the second signal window of the Product with signal operation.
 
 ### HLFR-00072 Time signal fixed after opening
-The user must not be able to change the time signal after the file is open.
+The user must not be able to change the time signal after its file is open.
 
 ### HLFR-00077 Button groups
 The buttons of the top panel must be organized in groups of related buttons.
@@ -132,16 +150,29 @@ Note: The page is opened with the **Report a bug** button.
 The top panel must show the text "Designed by materodr" in its upper-right corner.
 
 ### HLFR-00090 Save the signals to a data file
-The user must be able to save, from the top panel, the signals of the signal list, including the synthetic signals, to a new file in one of the formats of HLFR-00005, which the app can open again as a data file.
+The user must be able to save, from the top panel, the signals of the signal list, including the synthetic signals, to a new file in one of the formats of HLFR-00005, which the app can open again as a data file, except as in HLFR-00120.
 
 Note: FFT signals are not saved, because their samples are frequencies, not times (HLFR-00009). The file is written with the **Save signals** button.
+
+### HLFR-00120 Same time signals to save several files
+The app must save the signals of the open data files to one file only when all the open data files have exactly the same time signal.
+
+### HLFR-00121 Saved names without the file prefix
+The app must save each signal under its name without the prefix of HLFR-00115, also inside the names of synthetic signals.
+
+Note: For example, `file1_Speed` is saved as `Speed`, and `file1_int_Speed` as `int_Speed`.
 
 ## Signal list panel
 
 ### HLFR-00011 Signal list
-The signal list panel must show the names of the signals contained in the opened file.
+The signal list panel must show the names of the signals contained in the open data files.
 
-Note: The updated signal list is the confirmation that the file was opened successfully.
+Note: The new file name row and its signals are the confirmation that the file was opened successfully.
+
+### HLFR-00115 Signal name prefix
+The app must name each signal of a data file with `file`, the file's number (HLFR-00114), an underscore and the signal's name in the file, for example `file1_Speed`.
+
+Note: This prefixed name is the signal's name everywhere in the app, also while only one data file is open, except in the time signal window (HLFR-00070) and in the files written by the Save signals button (HLFR-00121).
 
 ### HLFR-00012 Plot a signal in a new plot
 The user must be able to plot a signal from the signal list in a new plot.
@@ -163,16 +194,20 @@ The user must be able to create, from a signal in the signal list, including a s
 Note: Such a signal is called a **synthetic signal**. The operations that create one are Integral, Derivative, Low-pass filter, High-pass filter, Moving average, Max, Min, Greater than, Less than, Greater than or equal, Less than or equal, Add constant, Subtract constant, Multiply by constant, Divide by constant, Absolute value, Product with signal and FFT. Product with signal multiplies two signals sample by sample; the Comparison operations and the other Arithmetic operations, except Absolute value, use a constant number. An FFT signal is a synthetic signal created by the FFT operation.
 
 ### HLFR-00054 Synthetic signal name
-Except for the product of two signals (HLFR-00104), the app must name each synthetic signal with the abbreviation of its operation shown in the menu, an underscore, the value of its parameter when it has one, an underscore and the name of the signal it was computed from. The parameter of an FFT signal is the time range it was computed from (HLFR-00057).
+Except for the product of two signals (HLFR-00104), the app must name each synthetic signal with the prefix of its data file (HLFR-00115), the abbreviation of its operation shown in the menu, an underscore, the value of its parameter when it has one, an underscore and the name, without its prefix, of the signal it was computed from. The parameter of an FFT signal is the time range it was computed from (HLFR-00057).
+
+Note: For example, `file1_int_Speed`, and `file1_int_lpf_2Hz_order2_Speed` for the Integral of a Low-pass filter of `file1_Speed`.
 
 ### HLFR-00104 Product signal name
-For the product of two signals, the name of the synthetic signal must be the name of the first signal, the abbreviation of the operation and the name of the second signal, separated by underscores.
+For the product of two signals, the name of the synthetic signal must be the name of the first signal with its prefix (HLFR-00115), the abbreviation of the operation and the name of the second signal, separated by underscores, where the name of the second signal keeps its own prefix only when it belongs to another data file.
+
+Note: For example, `file1_Speed_prod_Torque` for two signals of file 1, and `file1_Speed_prod_file2_Torque` when `Torque` belongs to file 2.
 
 ### HLFR-00055 Synthetic signals in memory
 The app must keep synthetic signals only in its memory.
 
-### HLFR-00105 Synthetic signals not in the data file
-The app must not add synthetic signals to the data file.
+### HLFR-00105 Synthetic signals not in the data files
+The app must not add synthetic signals to any data file.
 
 ### HLFR-00057 FFT time range
 The app must compute an FFT signal only from the samples within the time range shown in the plots when the FFT signal is created.
@@ -201,10 +236,18 @@ The user must be able to plot the selected signals together, as curves of one ne
 The user must be able to add all the selected signals to an existing plot at once, by dragging them to it.
 
 ### HLFR-00071 Time signal shown in green
-The signal list panel must show the name of the time signal in green, whether the app found it by its name or the user chose it.
+The signal list panel must show the name of the time signal of each data file in green, whether the app found it by its name or the user chose it.
 
-### HLFR-00079 Name of the opened file
-The signal list panel must show the name of the data file that is open as the first row of the signal list.
+### HLFR-00079 Names of the open files
+The signal list panel must show the name of each open data file, with its file number (HLFR-00114), in a row above the signals of that file.
+
+### HLFR-00118 Close a file
+The user must be able to close one open data file from the signal list panel.
+
+Note: Closing a file removes its signals, the synthetic signals computed from its signals and their curves.
+
+### HLFR-00119 Close all files
+The user must be able to close all the open data files in one action from the signal list panel.
 
 ### HLFR-00095 Search box aligned with the plots
 The bottom of the search box must be aligned with the bottom of the last plot.
@@ -271,7 +314,7 @@ The user must be able to rename a flag.
 The user must be able to delete a flag from a plot.
 
 ### HLFR-00035 Reset the zoom
-The user must be able to return the plots to the whole time range of the file in one action.
+The user must be able to return the plots, in one action, to the whole time range of the open data files, from the earliest first time sample to the latest last time sample of all of them.
 
 ### HLFR-00036 Pan a plot
 The user must be able to move the time range shown in a zoomed plot along the x-axis.
@@ -302,6 +345,9 @@ Note: The measurement is shown in the plot by a **Delta Y marker**. Delta X and 
 The app must draw FFT signals in plots that have frequency on their x-axis.
 
 Note: Such a plot is called a **frequency plot**. A plot that has time on its x-axis is called a **time plot**.
+
+### HLFR-00116 Signals of several files in one plot
+The user must be able to draw signals of different data files in the same time plot, each curve against the time signal of its own file.
 
 ### HLFR-00066 Mark a time range with an area
 The user must be able to mark a time range with an area, shown on every time plot.
