@@ -920,7 +920,7 @@ class StartFolderTest(unittest.TestCase):
         self.assertEqual(controller.data_files.path_list,
                          ["/data/a/first.csv", "/data/b/second.csv"])
 
-    @covers("LLFR-00447", "LLFR-00991", "LLFR-00951", "LLFR-00952",
+    @covers("LLFR-00447", "LLFR-01011", "LLFR-00951", "LLFR-00952",
             "LLFR-00953", "HLFR-00122")
     def test_folder_after_several_files_at_once(self) -> None:
         """The last selected file that opened, in the opening order.

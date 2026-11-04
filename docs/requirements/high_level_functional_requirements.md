@@ -155,7 +155,7 @@ The user must be able to save, from the top panel, the signals of the signal lis
 Note: FFT signals are not saved, because their samples are frequencies, not times (HLFR-00009). The file is written with the **Save signals** button.
 
 ### HLFR-00120 Same time signals to save several files
-The app must save the signals of the open data files to one file only when all the open data files have exactly the same time signal.
+The app must save the signals of the open data files to one file only when all the open data files have the same time signal, within the tolerance of LLFR-00977.
 
 ### HLFR-00121 Saved names without the file prefix
 The app must save each signal under its name without the prefix of HLFR-00115, also inside the names of synthetic signals.
@@ -248,6 +248,11 @@ Note: Closing a file removes its signals, the synthetic signals computed from it
 
 ### HLFR-00119 Close all files
 The user must be able to close all the open data files in one action from the signal list panel.
+
+### HLFR-00123 Hide the signals of a file
+The user must be able to hide and show again the signals of each data file in the signal list panel, like a folder in a folder tree.
+
+Note: The file row has a [-] icon on its left while its signals are shown and [+] while they are hidden.
 
 ### HLFR-00095 Search box aligned with the plots
 The bottom of the search box must be aligned with the bottom of the last plot.

@@ -14,6 +14,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_synthetic_signals_view import find_action
@@ -131,6 +132,9 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
                         return_value=self.data_path_str):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
+        # LLFR-01001: the files are collapsed after an open; these
+        # tests read the shown signals.
+        expand_all_files(self.controller)
 
     def choose(self, name_str: str, option_str: str) -> None:
         """Right-click a signal name and choose an option of its menu.

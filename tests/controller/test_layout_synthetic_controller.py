@@ -17,7 +17,7 @@ from unittest import mock
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 from tests.controller.test_layout_controller import FakeLayoutView
 from tests.controller.test_synthetic_controller import (
     FakeSyntheticWindow, make_signal_file)
@@ -75,6 +75,9 @@ class LayoutSyntheticTestCase(unittest.TestCase):
             lambda path_str: make_signal_file())
         self.view.open_path_str = "test.csv"
         file_controller.open_file_requested()
+        # LLFR-01001: the file is collapsed after the open; these tests
+        # read the shown signals.
+        expand_all_files(self.main_controller)
 
     def path(self, name_str: str) -> str:
         """Return a path in the temporary folder.
@@ -234,6 +237,26 @@ class SaveTest(LayoutSyntheticTestCase):
                           layout_dict[LAYOUT_KEY_STR]], name_list[:5])
         self.assertEqual(len(layout_dict["tabs"][0]["plots"]), 2)
         self.assertNotIn(name_list[5], self.read_text(path_str))
+
+
+class CollapsedFilesNotSavedTest(LayoutSyntheticTestCase):
+    """The layout file says nothing of the collapsed files."""
+
+    @covers("LLFR-00226", "HLFR-00123", "HLFR-00049")
+    def test_collapse_changes_nothing_in_the_layout_file(self) -> None:
+        """A layout saved with the file collapsed is the same file."""
+        self.build_synthetic_layout()
+        expanded_text_str = self.read_text(self.save("expanded.json"))
+        signal_list_controller = self.main_controller.signal_list_controller
+        signal_list_controller.toggle_file(1)
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        collapsed_text_str = self.read_text(self.save("collapsed.json"))
+        self.assertEqual(collapsed_text_str, expanded_text_str)
+        for word_str in ("collapse", "expand", "hidden"):
+            self.assertNotIn(word_str, collapsed_text_str.lower())
+        # Loading the layout keeps the file collapsed.
+        self.load(self.path("collapsed.json"))
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
 
 
 class LoadTest(LayoutSyntheticTestCase):

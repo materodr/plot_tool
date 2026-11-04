@@ -236,6 +236,11 @@ class MainWindow(QMainWindow):
                 "close_file", number_i))
         self.signal_list_panel.close_all_files_requested.connect(
             lambda: self._run_signal_menu_handler("close_all_files"))
+        # LLFR-00997, LLFR-00998: the icons of the file name rows go to
+        # the signal list controller.
+        self.signal_list_panel.file_expand_toggled.connect(
+            lambda number_i: self._run_signal_menu_handler(
+                "toggle_file", number_i))
         # LLFR-00115: the Reset zoom button goes to the plot controller.
         self.reset_zoom_handler = None
         self.top_panel.reset_zoom_button.triggered.connect(
@@ -515,6 +520,27 @@ class MainWindow(QMainWindow):
         # LLFR-00362, LLFR-00938, LLFR-00939, LLFR-00097: the groups of
         # the signal list.
         self.signal_list_panel.show_signal_groups(group_list)
+
+    def set_collapsed_file_numbers(self, number_set: set) -> None:
+        """Tell the signal list which files are shown collapsed.
+
+        Inputs:
+            number_set: the numbers of the files whose signals are
+                hidden.
+        Outputs: none. Used by the next show_signal_groups.
+        """
+        # LLFR-00994, LLFR-00995: [-] or [+] on each file name row.
+        self.signal_list_panel.set_collapsed_file_numbers(number_set)
+
+    def set_file_toggle_handler(self, handler) -> None:
+        """Set the function called by the icons of the file name rows.
+
+        Inputs:
+            handler: function taking a file number.
+        Outputs: none.
+        """
+        # LLFR-00997, LLFR-00998: hide or show the signals of a file.
+        self.signal_menu_handler_dict["toggle_file"] = handler
 
     def set_search_text_handler(self, handler) -> None:
         """Set the function called when the search box text changes.
