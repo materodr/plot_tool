@@ -38,7 +38,8 @@ from view import theme
 from view.matrix_picker import MatrixPicker, PositionPicker
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
-from view.window_buttons import build_undock_button
+from view.window_buttons import (
+    UNDOCK_BUTTON_OBJECT_NAME_STR, build_undock_button)
 
 ADD_TAB_TEXT_STR = "+"
 ADD_TAB_TOOL_TIP_STR = "Add a new tab"
@@ -297,10 +298,13 @@ class PlotTabWidget(QTabWidget):
         Inputs: none.
         Outputs: True when the tab bar shows its scroll buttons.
         """
-        # LLFR-00025: the scroll buttons are tool buttons of the tab bar.
+        # LLFR-00025: the scroll buttons are tool buttons of the tab bar;
+        # LLFR-00977: the undock buttons of the tabs are not.
         tab_bar = self.tabBar()
         return any(not scroll_button.isHidden()
-                   for scroll_button in tab_bar.findChildren(QToolButton))
+                   for scroll_button in tab_bar.findChildren(QToolButton)
+                   if scroll_button.objectName()
+                   != UNDOCK_BUTTON_OBJECT_NAME_STR)
 
     def schedule_reposition(self) -> None:
         """Move the "+" button now and again once Qt has laid out.
