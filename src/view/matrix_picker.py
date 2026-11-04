@@ -48,8 +48,11 @@ SQUARE_COLOR_STR = theme.SURFACE_COLOR_STR
 SQUARE_BORDER_COLOR_STR = theme.CONTROL_BORDER_COLOR_STR
 # LLFR-01063: the highlighted squares.
 HIGHLIGHT_COLOR_STR = theme.FOCUS_COLOR_STR
-# LLFR-01064, LLFR-01082: the marked squares.
-MARKED_COLOR_STR = theme.ROW_SELECTED_COLOR_STR
+# LLFR-01064, LLFR-01082: the marked squares get a border of this color
+# and width, drawn on top of any fill, so that a square can be pale and
+# marked at once.
+MARKED_COLOR_STR = theme.ACTIVE_COLOR_STR
+MARK_BORDER_WIDTH_I = 2
 # LLFR-01071, LLFR-01081: the pale squares.
 PALE_COLOR_STR = theme.DISABLED_COLOR_STR
 PALE_BORDER_COLOR_STR = theme.DISABLED_BORDER_COLOR_STR
@@ -321,16 +324,31 @@ class SquarePicker(QWidget):
             row_i: row of the square, from 1.
             column_i: column of the square, from 1.
         Outputs: the "#rrggbb" color: highlighted, then pale, then
-            marked, then normal.
+            normal. The mark is a border (square_border_color_str).
         """
-        # LLFR-01063, LLFR-01064, LLFR-01071, LLFR-01081, LLFR-01082.
+        # LLFR-01063, LLFR-01071, LLFR-01081.
         if self.is_square_highlighted(row_i, column_i):
             return HIGHLIGHT_COLOR_STR
         if not self.is_square_enabled(row_i, column_i):
             return PALE_COLOR_STR
+        return SQUARE_COLOR_STR
+
+    def square_border_color_str(self, row_i: int, column_i: int) -> str:
+        """Return the color of the border of a square.
+
+        Inputs:
+            row_i: row of the square, from 1.
+            column_i: column of the square, from 1.
+        Outputs: the "#rrggbb" color: MARKED_COLOR_STR for a marked
+            square, whatever its fill, then the pale or normal border.
+        """
+        # LLFR-01064, LLFR-01082: the mark stays visible over a pale or
+        # highlighted fill.
         if self.is_square_marked(row_i, column_i):
             return MARKED_COLOR_STR
-        return SQUARE_COLOR_STR
+        if not self.is_square_enabled(row_i, column_i):
+            return PALE_BORDER_COLOR_STR
+        return SQUARE_BORDER_COLOR_STR
 
     def paintEvent(self, event) -> None:
         """Draw the squares and the size text.
@@ -347,13 +365,20 @@ class SquarePicker(QWidget):
             painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
             for row_i in range(1, self.row_count_i + 1):
                 for column_i in range(1, self.column_count_i + 1):
-                    enabled_b = self.is_square_enabled(row_i, column_i)
+                    square_rect = self.square_rect(row_i, column_i)
                     painter.setPen(QPen(QColor(
-                        SQUARE_BORDER_COLOR_STR if enabled_b
-                        else PALE_BORDER_COLOR_STR)))
+                        self.square_border_color_str(row_i, column_i))))
                     painter.setBrush(QColor(
                         self.square_fill_color_str(row_i, column_i)))
-                    painter.drawRect(self.square_rect(row_i, column_i))
+                    painter.drawRect(square_rect)
+                    # LLFR-01064, LLFR-01082: the mark, a border on top
+                    # of the fill.
+                    if self.is_square_marked(row_i, column_i):
+                        mark_pen = QPen(QColor(MARKED_COLOR_STR))
+                        mark_pen.setWidth(MARK_BORDER_WIDTH_I)
+                        painter.setPen(mark_pen)
+                        painter.setBrush(Qt.BrushStyle.NoBrush)
+                        painter.drawRect(square_rect.adjusted(1, 1, -1, -1))
             # LLFR-01096: the text below the squares.
             text_str = self.size_text()
             if text_str:
@@ -429,10 +454,14 @@ class MatrixPicker(SquarePicker):
             row_i: row of the square, from 1.
             column_i: column of the square, from 1.
         Outputs: True from row 1 to the hovered row and from column 1
-            to the hovered column (LLFR-01063).
+            to the hovered column (LLFR-01063), but never while the
+            hovered square is pale (LLFR-01071).
         """
-        # LLFR-01063: the R x C rectangle of the hovered square.
-        if not self.hover_tuple:
+        # LLFR-01063: the R x C rectangle of the hovered square;
+        # LLFR-01071: a pale size is not highlighted, so it never looks
+        # like a size that can be chosen.
+        if not self.hover_tuple or not self.is_square_enabled(
+                *self.hover_tuple):
             return False
         hover_row_i, hover_column_i = self.hover_tuple
         return row_i <= hover_row_i and column_i <= hover_column_i
@@ -441,11 +470,12 @@ class MatrixPicker(SquarePicker):
         """Return the size of the plot matrix under the pointer.
 
         Inputs: none.
-        Outputs: `R × C` while the pointer is over a square, otherwise
-            the size of the current matrix.
+        Outputs: `R × C` while the pointer is over a square that is not
+            pale, otherwise the size of the current matrix.
         """
-        # LLFR-01096: the text of the hovered square.
-        if self.hover_tuple:
+        # LLFR-01096: the text of the hovered square; LLFR-01071: not for
+        # a pale size, which cannot be chosen.
+        if self.hover_tuple and self.is_square_enabled(*self.hover_tuple):
             return matrix_size_text(*self.hover_tuple)
         return matrix_size_text(self.current_row_count_i,
                                 self.current_column_count_i)

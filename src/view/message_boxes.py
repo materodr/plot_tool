@@ -41,6 +41,8 @@ from PyQt6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
     QPlainTextEdit, QStyle, QVBoxLayout)
 
+from model.workspace import MAXIMUM_MATRIX_SIZE_I
+
 FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
 FULL_TAB_TITLE_STR = "Full Tab"
 # LLFR-00032: a full tab whose plot matrix can still grow.
@@ -53,8 +55,6 @@ FULL_TAB_MESSAGE_STR = (
 FULL_LARGEST_MATRIX_MESSAGE_STR = (
     "This tab is full: its 10 \u00d7 10 plot matrix holds 100 plots, so "
     "no new plot was created. Use a new tab.")
-# LLFR-01092: the largest plot matrix.
-LARGEST_MATRIX_SIZE_I = 10
 
 # LLFR-00211: the information box of a rename to another tab's name.
 TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
@@ -167,8 +167,8 @@ def full_tab_message_str(row_count_i: int = 5,
         FULL_LARGEST_MATRIX_MESSAGE_STR for a 10 x 10 matrix.
     """
     # LLFR-01092: with a 10 x 10 matrix, only "use a new tab".
-    if (row_count_i >= LARGEST_MATRIX_SIZE_I
-            and column_count_i >= LARGEST_MATRIX_SIZE_I):
+    if (row_count_i >= MAXIMUM_MATRIX_SIZE_I
+            and column_count_i >= MAXIMUM_MATRIX_SIZE_I):
         return FULL_LARGEST_MATRIX_MESSAGE_STR
     # LLFR-00032: use a new tab or choose a larger plot matrix.
     return FULL_TAB_MESSAGE_STR.format(

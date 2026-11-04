@@ -730,7 +730,7 @@ class PanEndToEndTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
 
     @covers("LLFR-00207", "LLFR-00356", "LLFR-00454")
-    def test_z_key_does_nothing_during_a_pan(self) -> None:
+    def test_zero_key_does_nothing_during_a_pan(self) -> None:
         """While the left button pans, the 0 key resets nothing; after
         the release it resets the zoom again.
 

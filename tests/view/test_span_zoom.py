@@ -583,7 +583,7 @@ class SpanInteractionTest(SpanWidgetTestCase):
         self.assertTrue(self.plot_widget.is_mouse_drag_in_progress())
         self.left_release(self.point_at(6.0, 0.0))
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
-        # LLFR-00207: a removed plot never blocks the 0 key.
+        # LLFR-00454: a removed plot never blocks the 0 key.
         self.left_press(self.point_at(2.0, 0.0))
         self.move_to(self.point_at(3.0, 0.0))
         self.plot_widget.retire()
@@ -910,7 +910,7 @@ class SpanZoomWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-00208", "LLFR-00209", "LLFR-00070", "LLFR-00207",
             "LLFR-00076", "LLFR-00454", "LLFR-00674")
-    def test_span_zooms_every_plot_and_z_waits_for_the_release(
+    def test_span_zooms_every_plot_and_zero_waits_for_the_release(
             self) -> None:
         """A span drag on one plot zooms every plot of both tabs; the 0
         key does nothing during the drag and resets after it.

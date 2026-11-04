@@ -1271,7 +1271,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.assertEqual(self.plot_widgets()[0].arrow_count(), 1)
 
     @covers("LLFR-00207", "LLFR-00371", "LLFR-00376", "LLFR-00454")
-    def test_z_does_nothing_during_an_arrow_drag(self) -> None:
+    def test_zero_does_nothing_during_an_arrow_drag(self) -> None:
         """Z while an arrow is drawn or dragged does nothing; after the
         release it resets.
 

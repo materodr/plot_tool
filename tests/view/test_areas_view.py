@@ -938,7 +938,7 @@ class AreaWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-00312", "LLFR-00310", "LLFR-00207", "LLFR-00140",
             "LLFR-00454", "LLFR-00708", "LLFR-00709")
-    def test_move_follows_on_the_tab_and_z_waits(self) -> None:
+    def test_move_follows_on_the_tab_and_zero_waits(self) -> None:
         """Moving an area shows it moving on the other plot of the tab
         before the release; the 0 key does nothing during the drag; the
         move is one undoable action.

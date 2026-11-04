@@ -951,13 +951,16 @@ class ZKeyHoldMainWindowTest(XyzKeyWindowTestCase):
         Inputs: none.
         Outputs: none.
         """
+        from unittest import mock
         plot_panel = self.main_window.plot_panel
         self.zoom_in()
         plot_panel.tab_drag_in_progress_b = True
-        self.assertTrue(self.main_window.is_mouse_drag_in_progress())
-        self.press_key("Key_0")
-        self.release_key("Key_0")
-        self.assert_every_range(ZOOMED_RANGE_TUPLE)
+        with mock.patch.object(plot_panel, "left_button_down",
+                               return_value=True):
+            self.assertTrue(self.main_window.is_mouse_drag_in_progress())
+            self.press_key("Key_0")
+            self.release_key("Key_0")
+            self.assert_every_range(ZOOMED_RANGE_TUPLE)
         plot_panel.tab_drag_in_progress_b = False
         self.press_key("Key_0")
         self.release_key("Key_0")

@@ -1360,17 +1360,6 @@ class Tab:
         # maximum is the number of slots of the plot matrix.
         return len(self.plot_list) >= self.slot_count()
 
-    def has_largest_matrix(self) -> bool:
-        """Tell whether the plot matrix is already 10 x 10.
-
-        Inputs: none.
-        Outputs: True when no larger plot matrix can be chosen
-            (LLFR-01092).
-        """
-        # LLFR-01092: then the Full Tab box only says to use a new tab.
-        return (self.row_count_i == MAXIMUM_MATRIX_SIZE_I
-                and self.column_count_i == MAXIMUM_MATRIX_SIZE_I)
-
     def can_take_matrix(self, row_count_i: int, column_count_i: int) -> bool:
         """Tell whether the tab may get a plot matrix.
 
@@ -1387,20 +1376,6 @@ class Tab:
         # LLFR-01071, LLFR-01072, HLFR-00146: a matrix too small for the
         # plots of the tab cannot be chosen.
         return row_count_i * column_count_i >= len(self.plot_list)
-
-    def plot_slot_tuple(self, plot_id_i: int) -> tuple:
-        """Return the slot of a plot of this tab.
-
-        Inputs:
-            plot_id_i: id of the plot.
-        Outputs: (row_index_i, column_index_i), counted from 0, or ()
-            when the plot is not in this tab.
-        """
-        # LLFR-01073, LLFR-01082: the slot follows the fill order.
-        for plot_index_i, plot in enumerate(self.plot_list):
-            if plot.plot_id_i == plot_id_i:
-                return matrix_slot_tuple(plot_index_i, self.column_count_i)
-        return ()
 
     def find_plot(self, plot_id_i: int):
         """Return a plot of this tab by its id.

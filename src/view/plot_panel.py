@@ -520,10 +520,28 @@ class PlotPanel(QWidget):
 
         Inputs: none.
         Outputs: True from the first move with the button held on a tab
-            to the release.
+            to the release. A drag whose release was never seen (for
+            example the window lost the mouse) ends as soon as the left
+            button is no longer down.
         """
-        # LLFR-00454: a tab drag is a mouse drag.
+        # LLFR-00454: a tab drag is a mouse drag; a lost release must not
+        # keep the 0 key blocked.
+        if self.tab_drag_in_progress_b and not self.left_button_down():
+            self.tab_drag_in_progress_b = False
+            self.pressed_tab_id_i = NO_TAB_ID_I
         return self.tab_drag_in_progress_b
+
+    def left_button_down(self) -> bool:
+        """Tell whether the left mouse button is down.
+
+        Inputs: none.
+        Outputs: True while the application sees the left button held.
+            Tests replace this method, since events they send do not
+            change the button state of the application.
+        """
+        # LLFR-00454: the end of a tab drag whose release was lost.
+        return bool(QApplication.mouseButtons()
+                    & Qt.MouseButton.LeftButton)
 
     def double_click_tab_at(self, position) -> None:
         """Rename the tab under a left double-click on the tab bar.

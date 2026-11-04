@@ -30,6 +30,9 @@ HLFR-00138 #205: there are no undocked windows yet to close (step 3).
 HLFR-00139 #205: the layout file does not save undocked tabs or their windows yet (step 3).
 HLFR-00140 #205: loading a layout file opens no undocked windows yet (step 3).
 HLFR-00141 #205: loading a layout file opens no undocked windows yet, so none is moved onto a screen (step 3).
+HLFR-00142 #205: the tab reorder works in the main window, but LLFR-01032 (a drag of the tab button of an undocked window changes nothing) comes with the undocked windows (step 3).
+HLFR-00145 #205: the plot matrix works in the main window, but LLFR-01029 (the tab menu on the tab button of an undocked window) comes with the undocked windows (step 3).
+HLFR-00150 #205: new tabs get 5 x 1, but LLFR-01089 (a layout tab with no plot matrix entry) has no test until the layout file reads plot matrices (step 3).
 HLFR-00151 #205: the layout file does not save the plot matrix of a tab yet, and a loaded tab always gets the default 5 x 1 matrix (step 3, with the other layout file additions).
 HLFR-00040 #205: LLFR-00140 now makes these undoable, but the code doesn't yet: undocking, docking, closing an undocked window, hiding or showing its signal list panel and dragging a panel border (step 3). Moving a tab, changing a plot matrix and moving a plot are undoable since step 2.
 HLFR-00049 #205: LLFR-00225 now saves, for each tab, whether it is undocked, its window, its signal list panel and its plot matrix, but the layout file has no such entries yet (step 3).

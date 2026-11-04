@@ -893,7 +893,7 @@ class DoubleClickTest(PlotControllerTestCase):
             plot_id_i][0][0]
         np.testing.assert_array_equal(time_array, value_array)
 
-    @covers("LLFR-00019", "LLFR-00069")
+    @covers("LLFR-00019", "LLFR-01074")
     def test_plots_go_in_order_into_current_tab(self) -> None:
         """Each double-click adds a plot below, in the current tab.
 
