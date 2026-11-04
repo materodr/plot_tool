@@ -192,7 +192,6 @@ import sys
 
 import numpy as np
 from matplotlib.backend_bases import MouseButton
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
@@ -221,6 +220,7 @@ from view import (
 from view.arrow_geometry import ArrowLabel, ArrowPatch
 from view.delta_geometry import DeltaBracketPatch
 from view.menu_title import add_menu_title
+from view.rounded_canvas import RoundedFigureCanvas
 from view.text_note_editor import TextNoteEditor
 
 # LLFR-00068: every plot uses the look of view.theme (spines, ticks,
@@ -958,7 +958,7 @@ class PlotWidget(QWidget):
         plot_id_i: the identifier given at creation.
         frequency_plot_b: True for a frequency plot (HLFR-00058).
         figure: the matplotlib Figure.
-        canvas: the FigureCanvasQTAgg that shows the figure.
+        canvas: the RoundedFigureCanvas that shows the figure.
         axes: the matplotlib Axes where the curves are drawn.
         redraw_pending_b: True when a time range was set while the
             widget was hidden and the canvas still shows the old one.
@@ -1220,7 +1220,9 @@ class PlotWidget(QWidget):
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
         self.figure = Figure(layout="constrained")
-        self.canvas = FigureCanvasQTAgg(self.figure)
+        # LLFR-00890: the canvas paints rounded corners and a hairline
+        # border over the figure, like the signal list.
+        self.canvas = RoundedFigureCanvas(self.figure)
         self.canvas.setParent(self)
         self.canvas.setAcceptDrops(False)
         # LLFR-00137: a click on the plot takes the keyboard focus away
