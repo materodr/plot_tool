@@ -15,8 +15,17 @@ from model.curve_colors import (
     MARKER_COLOR_STR, PALETTE_COLOR_TUPLE, hex_color_or_none,
     next_curve_color)
 
-# LLFR-00031: maximum number of plots in one tab (HLFR-00018).
-MAXIMUM_PLOTS_PER_TAB_I = 5
+# LLFR-01087: the plot matrix of a new tab, 5 rows and 1 column
+# (HLFR-00150).
+DEFAULT_MATRIX_ROWS_I = 5
+DEFAULT_MATRIX_COLUMNS_I = 1
+# LLFR-01062: the rows and the columns of a plot matrix go from 1 to 10
+# (HLFR-00145).
+MINIMUM_MATRIX_SIZE_I = 1
+MAXIMUM_MATRIX_SIZE_I = 10
+# LLFR-00031: maximum number of plots in a tab with the default plot
+# matrix (HLFR-00018): its rows times its columns.
+MAXIMUM_PLOTS_PER_TAB_I = DEFAULT_MATRIX_ROWS_I * DEFAULT_MATRIX_COLUMNS_I
 # LLFR-00041: preset curve widths (HLFR-00023).
 PRESET_WIDTH_TUPLE = (1, 2, 3, 4, 5)
 # LLFR-00052: width of a newly drawn curve.
@@ -1259,16 +1268,64 @@ class Plot:
         return removed_count_i
 
 
+def is_matrix_size(size_value) -> bool:
+    """Tell whether a value is a number of rows or columns of a matrix.
+
+    Inputs:
+        size_value: any value.
+    Outputs: True for a whole number (not a bool) from
+        MINIMUM_MATRIX_SIZE_I to MAXIMUM_MATRIX_SIZE_I.
+    """
+    # LLFR-01062: a plot matrix has 1 to 10 rows and 1 to 10 columns.
+    if isinstance(size_value, bool) or not isinstance(size_value, int):
+        return False
+    return MINIMUM_MATRIX_SIZE_I <= size_value <= MAXIMUM_MATRIX_SIZE_I
+
+
+def matrix_slot_tuple(plot_index_i: int, column_count_i: int) -> tuple:
+    """Return the slot of a plot in the fill order of a plot matrix.
+
+    Inputs:
+        plot_index_i: place of the plot in the tab's plot list, from 0.
+        column_count_i: number of columns of the plot matrix, 1 or more.
+    Outputs: (row_index_i, column_index_i), both counted from 0.
+    """
+    # LLFR-01073: row 1 is filled from left to right up to the number
+    # of columns, then row 2, and so on.
+    return divmod(int(plot_index_i), max(int(column_count_i), 1))
+
+
+def matrix_row_list(item_list: list, column_count_i: int) -> list:
+    """Split the plots of a tab into the rows of its plot matrix.
+
+    Inputs:
+        item_list: the plots (or their ids or widgets), in fill order.
+        column_count_i: number of columns of the plot matrix.
+    Outputs: one list per row that holds at least one plot, top to
+        bottom, each with its plots from left to right. The last row
+        may hold fewer plots than the number of columns.
+    """
+    # LLFR-01073: the fill order; LLFR-01075: only the rows in use.
+    column_count_i = max(int(column_count_i), 1)
+    return [list(item_list[start_i:start_i + column_count_i])
+            for start_i in range(0, len(item_list), column_count_i)]
+
+
 class Tab:
-    """A tab of the plot panel, holding plots stacked top to bottom.
+    """A tab of the plot panel, holding plots in its plot matrix.
 
     Inputs:
         tab_id_i: id of the tab, unique within the workspace.
         name_str: name shown on the tab.
+    Attributes:
+        plot_list: the plots, in the fill order of the plot matrix
+            (LLFR-01073).
+        row_count_i: number of rows of the plot matrix (HLFR-00145).
+        column_count_i: number of columns of the plot matrix.
     """
 
     def __init__(self, tab_id_i: int, name_str: str) -> None:
-        """Create a tab with no plots.
+        """Create a tab with no plots and the default plot matrix.
 
         Inputs:
             tab_id_i: id of the tab, unique within the workspace.
@@ -1278,17 +1335,72 @@ class Tab:
         # LLFR-00026: a new tab has no plots.
         self.tab_id_i = tab_id_i
         self.name_str = name_str
-        # LLFR-00069: plots in order from top to bottom.
+        # LLFR-01073: plots in the fill order of the plot matrix.
         self.plot_list = []
+        # LLFR-01087: every new tab gets the 5 x 1 plot matrix.
+        self.row_count_i = DEFAULT_MATRIX_ROWS_I
+        self.column_count_i = DEFAULT_MATRIX_COLUMNS_I
+
+    def slot_count(self) -> int:
+        """Return the number of slots of the tab's plot matrix.
+
+        Inputs: none.
+        Outputs: its number of rows times its number of columns.
+        """
+        # HLFR-00018, LLFR-00031: the most plots the tab can hold.
+        return self.row_count_i * self.column_count_i
 
     def is_full(self) -> bool:
-        """Tell whether the tab holds the maximum number of plots.
+        """Tell whether every slot of the plot matrix holds a plot.
 
         Inputs: none.
         Outputs: True when no more plots can be added (LLFR-00031).
         """
-        # LLFR-00031: a full tab blocks new plots.
-        return len(self.plot_list) >= MAXIMUM_PLOTS_PER_TAB_I
+        # LLFR-00031: a full tab blocks new plots; HLFR-00018: the
+        # maximum is the number of slots of the plot matrix.
+        return len(self.plot_list) >= self.slot_count()
+
+    def has_largest_matrix(self) -> bool:
+        """Tell whether the plot matrix is already 10 x 10.
+
+        Inputs: none.
+        Outputs: True when no larger plot matrix can be chosen
+            (LLFR-01092).
+        """
+        # LLFR-01092: then the Full Tab box only says to use a new tab.
+        return (self.row_count_i == MAXIMUM_MATRIX_SIZE_I
+                and self.column_count_i == MAXIMUM_MATRIX_SIZE_I)
+
+    def can_take_matrix(self, row_count_i: int, column_count_i: int) -> bool:
+        """Tell whether the tab may get a plot matrix.
+
+        Inputs:
+            row_count_i: number of rows asked for.
+            column_count_i: number of columns asked for.
+        Outputs: True when both are from 1 to 10 and the matrix has at
+            least as many slots as the tab has plots (LLFR-01071).
+        """
+        # LLFR-01062: 1 to 10 rows and columns.
+        if not (is_matrix_size(row_count_i)
+                and is_matrix_size(column_count_i)):
+            return False
+        # LLFR-01071, LLFR-01072, HLFR-00146: a matrix too small for the
+        # plots of the tab cannot be chosen.
+        return row_count_i * column_count_i >= len(self.plot_list)
+
+    def plot_slot_tuple(self, plot_id_i: int) -> tuple:
+        """Return the slot of a plot of this tab.
+
+        Inputs:
+            plot_id_i: id of the plot.
+        Outputs: (row_index_i, column_index_i), counted from 0, or ()
+            when the plot is not in this tab.
+        """
+        # LLFR-01073, LLFR-01082: the slot follows the fill order.
+        for plot_index_i, plot in enumerate(self.plot_list):
+            if plot.plot_id_i == plot_id_i:
+                return matrix_slot_tuple(plot_index_i, self.column_count_i)
+        return ()
 
     def find_plot(self, plot_id_i: int):
         """Return a plot of this tab by its id.
@@ -1382,15 +1494,19 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
         marker_list: the VerticalMarker objects, in placing order.
         area_list: the Area objects, in creation order.
     Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
-        (tab_id_i, name_str, plot state tuples) per tab, one entry
+        (tab_id_i, name_str, plot state tuples, row_count_i,
+        column_count_i) per tab, in tab order, one entry
         (marker_id_i, name_str, time_s, color_str) per marker and one
         entry (area_id_i, name_str, start_s, end_s, color_str) per area;
         two states with equal tuples show the same thing (LLFR-00140).
     """
-    # LLFR-00138, LLFR-00140: what an undo restores.
+    # LLFR-00138, LLFR-00140: what an undo restores. LLFR-01054: the
+    # order of the tabs; LLFR-01085: the order of the plots, which is
+    # their fill order; LLFR-01068: the plot matrix of each tab.
     tab_tuple = tuple(
         (tab.tab_id_i, tab.name_str,
-         tuple(plot_state_tuple(plot) for plot in tab.plot_list))
+         tuple(plot_state_tuple(plot) for plot in tab.plot_list),
+         tab.row_count_i, tab.column_count_i)
         for tab in tab_list)
     # LLFR-00392, LLFR-00140: changing a flag's color is undoable.
     marker_tuple = tuple((marker.marker_id_i, marker.name_str, marker.time_s,
@@ -1749,9 +1865,86 @@ class Workspace:
         tab.name_str = stripped_name_str
         return True
 
+    def move_tab(self, tab_id_i: int, new_index_i: int) -> bool:
+        """Move a tab to another place in the tab order.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            new_index_i: the place the tab takes, from 0 (first tab);
+                a place past the end means the last place.
+        Outputs: True when the tab moved; False when it was already at
+            that place or no tab has that id.
+        """
+        # LLFR-01052: the tab is left where it is dropped, between the
+        # tabs on either side of it.
+        tab = self.find_tab(tab_id_i)
+        if tab is None:
+            return False
+        new_index_i = max(0, min(int(new_index_i), len(self.tab_list) - 1))
+        # LLFR-01055: a drag back to its place changes nothing.
+        if self.tab_list.index(tab) == new_index_i:
+            return False
+        self.tab_list.remove(tab)
+        self.tab_list.insert(new_index_i, tab)
+        return True
+
+    def set_plot_matrix(self, tab_id_i: int, row_count_i: int,
+                        column_count_i: int) -> bool:
+        """Give a tab another plot matrix.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            row_count_i: number of rows, 1 to 10.
+            column_count_i: number of columns, 1 to 10.
+        Outputs: True when the matrix changed; False when it is the
+            tab's current matrix (LLFR-01069), when it has fewer slots
+            than the tab has plots (LLFR-01072), when a size is not
+            from 1 to 10, or when no tab has that id.
+        """
+        # LLFR-01066: only this tab's matrix changes.
+        tab = self.find_tab(tab_id_i)
+        if tab is None or not tab.can_take_matrix(row_count_i,
+                                                  column_count_i):
+            return False
+        # LLFR-01069: the current matrix changes nothing.
+        if (tab.row_count_i, tab.column_count_i) == (row_count_i,
+                                                     column_count_i):
+            return False
+        # LLFR-01065, LLFR-01067: the plots keep their order, so their
+        # place in the fill order, and everything they hold.
+        tab.row_count_i = int(row_count_i)
+        tab.column_count_i = int(column_count_i)
+        return True
+
+    def swap_plots(self, plot_id_i: int, other_plot_id_i: int) -> bool:
+        """Swap the slots of two plots of the same tab.
+
+        Inputs:
+            plot_id_i: id of the plot the position picker was opened
+                from.
+            other_plot_id_i: id of the plot whose slot was chosen.
+        Outputs: True when the plots were swapped; False when both ids
+            are the same plot (LLFR-01086), when they are in different
+            tabs or when one of them is unknown.
+        """
+        # LLFR-01086: the plot's own slot changes nothing.
+        if plot_id_i == other_plot_id_i:
+            return False
+        tab = self.tab_of_plot(plot_id_i)
+        if tab is None or tab.find_plot(other_plot_id_i) is None:
+            return False
+        # LLFR-01083: each plot takes the slot of the other; the other
+        # plots keep theirs. LLFR-01084: the Plot objects are moved,
+        # with everything they hold.
+        first_index_i = tab.plot_list.index(tab.find_plot(plot_id_i))
+        second_index_i = tab.plot_list.index(tab.find_plot(other_plot_id_i))
+        tab.plot_list[first_index_i], tab.plot_list[second_index_i] = (
+            tab.plot_list[second_index_i], tab.plot_list[first_index_i])
+        return True
+
     def add_plot(self, tab_id_i: int,
                  kind_str: str = TIME_PLOT_KIND_STR):
-        """Add a new empty plot at the bottom of a tab.
+        """Add a new empty plot in the next slot of a tab.
 
         Inputs:
             tab_id_i: id of the tab.
@@ -1765,7 +1958,8 @@ class Workspace:
         tab = self.find_tab(tab_id_i)
         if tab is None or tab.is_full():
             return None
-        # LLFR-00069: the new plot goes below the existing ones.
+        # LLFR-01074: the new plot goes after the last plot of the tab
+        # in the fill order.
         plot = Plot(self.next_plot_id_i, self.random_generator,
                     self.marker_id_counter, kind_str)
         self.next_plot_id_i += 1
@@ -2101,8 +2295,8 @@ class Workspace:
 
         Inputs: none.
         Outputs: a tuple (tab tuple, marker tuple, area tuple): one entry
-            (tab_id_i, name_str, plot state tuples) per tab, in tab
-            order, the vertical markers (marker_state_tuple) and the
+            (tab_id_i, name_str, plot state tuples, row_count_i,
+            column_count_i) per tab, in tab order, the vertical markers (marker_state_tuple) and the
             areas (area_state_tuple); two workspaces with equal tuples
             show the same thing (LLFR-00140).
         """
