@@ -1,4 +1,4 @@
-"""Search box aligned with the plots (HLFR-00095).
+"""Signal list panel aligned with the plot panel (HLFR-00095, HLFR-00001).
 
 The bottom edge of the search box of the signal list panel is kept at
 the height of the bottom edge of the lowest plot of the current tab,
@@ -13,6 +13,14 @@ after every change of geometry (window or panel resize, tab change, a
 plot added or removed) and gives it to the signal list panel as the
 space below its search box. The measure is deferred to the next turn of
 the event loop, so the layouts have their final geometry by then.
+
+The same aligner keeps the top edge of the signal list box at the height
+of the top edge of the plot well, the pane just below the tab row
+(LLFR-00894). The two stacks above those edges are unrelated: the
+"Signals" title and the panel spacing on one side, the tab row (its
+padding, the selected tab's top line and the pane's overlap with the
+tabs) on the other, and their heights depend on the font. The aligner
+measures the difference and changes the height of the title row by it.
 """
 
 from functools import partial
@@ -23,6 +31,18 @@ from PyQt6.QtCore import QEvent, QObject, QPoint, QTimer
 WATCHED_EVENT_TYPE_TUPLE = (
     QEvent.Type.Resize, QEvent.Type.Move, QEvent.Type.Show,
     QEvent.Type.LayoutRequest)
+
+
+def top_edge_global_y(widget, local_top_i: int = 0) -> int:
+    """Return the screen y of a line of a widget.
+
+    Inputs:
+        widget: a QWidget.
+        local_top_i: the y of the line in the widget's coordinates.
+    Outputs: the global y, in pixels, of that line.
+    """
+    # LLFR-00894: both panels are compared in the same coordinates.
+    return int(widget.mapToGlobal(QPoint(0, local_top_i)).y())
 
 
 def bottom_edge_global_y(widget) -> int:
@@ -178,6 +198,39 @@ class SearchBoxAligner(QObject):
         # LLFR-00424, LLFR-00652: the space below the search box.
         self.signal_list_panel.set_search_box_bottom_margin(
             self.search_box_target_margin())
+        # LLFR-00894: and the list's top edge level with the plot well.
+        self.align_list_top()
+
+    def list_top_offset_px(self) -> int:
+        """Return how far the signal list starts below the plot well.
+
+        Inputs: none.
+        Outputs: the top edge of the plot well minus the top edge of the
+            signal list box, in pixels: positive when the list starts
+            higher, negative when it starts lower, 0 when level.
+        """
+        # LLFR-00894: the pane rectangle Qt paints the plot well in.
+        tab_widget = self.plot_panel.tab_widget
+        well_top_i = top_edge_global_y(tab_widget,
+                                       tab_widget.pane_rect().top())
+        list_top_i = top_edge_global_y(
+            self.signal_list_panel.signal_list_widget)
+        return well_top_i - list_top_i
+
+    def align_list_top(self) -> None:
+        """Level the top edge of the signal list with the plot well.
+
+        Inputs: none.
+        Outputs: none. The "Signals" title row grows or shrinks by the
+            difference, which moves the list's top edge by as much.
+        """
+        # LLFR-00894: only once both panels are laid out on screen.
+        panel = self.signal_list_panel
+        if not (panel.isVisible() and self.plot_panel.isVisible()):
+            return
+        offset_i = self.list_top_offset_px()
+        if offset_i != 0:
+            panel.set_title_height(panel.title_height() + offset_i)
 
     def misalignment_px(self) -> int:
         """Return how far the search box ends from the lowest plot.
