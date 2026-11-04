@@ -79,6 +79,20 @@ class UndockedWindowTestCase(PlotPanelTestCase):
         window = self.undock(second_id_i)
         return first_id_i, second_id_i, window
 
+    def user_close(self, window) -> None:
+        """Close a window as the system's close button does.
+
+        Inputs:
+            window: the UndockedWindow.
+        Outputs: none. The close event is spontaneous, as one sent by
+            the window system.
+        """
+        event = mock.Mock()
+        event.spontaneous.return_value = True
+        window.closeEvent(event)
+        event.ignore.assert_called_once_with()
+        self.process_events()
+
     def tab(self, tab_id_i: int):
         """Return a tab of the model.
 
@@ -394,8 +408,7 @@ class DockAndCloseTest(UndockedWindowTestCase):
         window.move(40, 30)
         self.process_events()
         place_tuple = (window.x(), window.y())
-        window.close()
-        self.process_events()
+        self.user_close(window)
         self.assertIsNone(self.tab(second_id_i))
         self.assertIsNone(self.main_window.undocked_window(second_id_i))
         self.plot_controller.on_undo()
@@ -404,6 +417,49 @@ class DockAndCloseTest(UndockedWindowTestCase):
         self.assertEqual((window.x(), window.y()), place_tuple)
         self.assertTrue(window.is_panel_shown())
         self.assertEqual(len(window.page().plot_widget_list), 1)
+
+    @covers("LLFR-00989", "LLFR-01038", "HLFR-00138", "HLFR-00123")
+    def test_quit_closes_the_windows_and_keeps_the_tabs(self) -> None:
+        """A quit closes every undocked window first, keeps their tabs
+        and the undo history, and lets the quit go on.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QEvent
+        _, second_id_i, _ = self.two_tabs_one_undocked()
+        third_id_i = self.add_tab()
+        self.undock(third_id_i)
+        history = self.plot_controller.undo_history
+        depth_tuple = (history.depth(), history.redo_depth())
+        consumed_b = self.main_window.quit_filter.eventFilter(
+            self.application, QEvent(QEvent.Type.Quit))
+        self.process_events()
+        self.assertFalse(consumed_b)
+        self.assertEqual(self.main_window.undocked_window_dict, {})
+        self.assertIsNotNone(self.tab(second_id_i))
+        self.assertIsNotNone(self.tab(third_id_i))
+        self.assertTrue(self.tab(second_id_i).undocked_b)
+        self.assertEqual((history.depth(), history.redo_depth()),
+                         depth_tuple)
+
+    @covers("LLFR-00989", "LLFR-01038")
+    def test_close_not_by_the_user_keeps_the_tab(self) -> None:
+        """A close that the window system did not send (as Qt's close of
+        every window on a quit) closes the window and keeps the tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QCloseEvent
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        event = QCloseEvent()
+        self.assertFalse(event.spontaneous())
+        window.closeEvent(event)
+        self.process_events()
+        self.assertTrue(event.isAccepted())
+        self.assertIsNotNone(self.tab(second_id_i))
+        self.assertTrue(self.plot_controller.undo_history.depth() > 0)
 
     @covers("LLFR-01038")
     def test_close_shortcut_closes_the_window(self) -> None:
@@ -480,13 +536,25 @@ class WindowSignalListTest(UndockedWindowTestCase):
         Outputs: none.
         """
         _, _, window = self.two_tabs_one_undocked()
+        from PyQt6.QtWidgets import QApplication
         main_box = self.main_window.signal_list_panel.search_box
         window_box = window.signal_list_panel.search_box
-        window_box.setText("spe")
+        window.signal_list_button.click()
+        window.activateWindow()
+        window_box.setFocus()
+        self.process_events()
+        focus_before = QApplication.focusWidget()
+        window_box.insert("spe")
         window_box.setCursorPosition(1)
         self.process_events()
         self.assertEqual(main_box.text(), "spe")
         self.assertEqual(window_box.cursorPosition(), 1)
+        # The keyboard focus stays where it was, in the typed box when
+        # the window system gave it the focus.
+        self.assertIs(QApplication.focusWidget(), focus_before)
+        self.assertFalse(main_box.hasFocus())
+        if focus_before is not None:
+            self.assertIs(focus_before, window_box)
         main_box.setText("for")
         self.assertEqual(window_box.text(), "for")
         self.assertEqual(window.signal_list_panel.signal_name_list(),
@@ -792,8 +860,7 @@ class LayoutWindowsViewTest(UndockedWindowTestCase):
         tab_entry["window"]["x"] = 50000
         tab_entry["window"]["y"] = 50000
         # The user closes the window, which deletes its tab.
-        window.close()
-        self.process_events()
+        self.user_close(window)
         self.assertIsNone(self.tab(second_id_i))
         self.plot_controller.load_layout(layout_dict)
         self.process_events()

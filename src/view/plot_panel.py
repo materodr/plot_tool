@@ -790,8 +790,12 @@ class PlotPanel(QWidget):
         # LLFR-01062, LLFR-01079: one picker at a time; the one shown
         # before is deleted.
         if self.open_picker is not None and self.open_picker is not picker:
-            self.open_picker.close()
-            self.open_picker.deleteLater()
+            try:
+                self.open_picker.close()
+                self.open_picker.deleteLater()
+            except RuntimeError:
+                # LLFR-00988: it was deleted with its undocked window.
+                pass
         self.open_picker = picker
         picker.show_at(global_point)
 
@@ -802,6 +806,7 @@ class PlotPanel(QWidget):
             tab_id_i: id of the tab.
         Outputs: a MatrixPicker, or None for an unknown tab.
         """
+        # LLFR-00988: over the window that shows the tab.
         # LLFR-01062, LLFR-01064, LLFR-01071: the tab's current matrix
         # and its number of plots.
         page = self.page_dict.get(tab_id_i)
@@ -810,7 +815,7 @@ class PlotPanel(QWidget):
         return MatrixPicker(
             page.row_count_i, page.column_count_i,
             len(page.plot_widget_list),
-            partial(self.request_matrix_choice, tab_id_i), self)
+            partial(self.request_matrix_choice, tab_id_i), page.window())
 
     def request_plot_matrix(self, tab_id_i: int,
                             global_point=None) -> None:
@@ -866,6 +871,7 @@ class PlotPanel(QWidget):
             plot_id_i: id of the plot.
         Outputs: a PositionPicker, or None for an unknown plot.
         """
+        # LLFR-00988: over the window that shows the tab.
         # LLFR-01079 to LLFR-01082: the tab's matrix, its occupied slots
         # and the plot's own slot.
         page = self.page_of_plot(plot_id_i)
@@ -877,7 +883,7 @@ class PlotPanel(QWidget):
             page.row_count_i, page.column_count_i,
             len(page.plot_widget_list),
             (row_index_i + 1, column_index_i + 1),
-            partial(self.request_position_choice, plot_id_i), self)
+            partial(self.request_position_choice, plot_id_i), page.window())
 
     def request_plot_position(self, plot_id_i: int) -> None:
         """Open the position picker of a plot at the pointer.

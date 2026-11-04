@@ -225,6 +225,26 @@ class UndockUndoTest(UndockControllerTestCase):
                          (5, 6, 700, 500))
         self.assertEqual(self.view.current_tab_id(), third_id_i)
 
+    @covers("LLFR-00138", "LLFR-00192", "LLFR-01021", "HLFR-00040")
+    def test_open_window_keeps_its_place_on_undo(self) -> None:
+        """An undo or a redo leaves a window that stays open where the
+        user moved it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        second_id_i = self.add_tab()
+        self.undock(second_id_i)
+        self.view.handler_dict["double_click"]("s1", second_id_i)
+        # The user moves the window after the action.
+        self.view.window_dict[second_id_i][0] = (300, 200, 640, 480)
+        self.undo()
+        self.assertEqual(self.view.window_dict[second_id_i][0],
+                         (300, 200, 640, 480))
+        self.redo()
+        self.assertEqual(self.view.window_dict[second_id_i][0],
+                         (300, 200, 640, 480))
+
     @covers("LLFR-01025", "LLFR-01024", "LLFR-01094", "HLFR-00133")
     def test_dock_undo_opens_the_window_again(self) -> None:
         """Undoing a dock opens the window with its panel as it was.

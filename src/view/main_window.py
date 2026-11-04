@@ -2,7 +2,7 @@
 
 import sys
 
-from PyQt6.QtCore import QEventLoop, QPoint, Qt, QUrl
+from PyQt6.QtCore import QEvent, QEventLoop, QObject, QPoint, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
@@ -92,6 +92,43 @@ SAVE_LAYOUT_DIALOG_KEY_STR = "save_layout"
 LOAD_LAYOUT_DIALOG_KEY_STR = "load_layout"
 SAVE_PDF_DIALOG_KEY_STR = "save_pdf"
 SAVE_SIGNALS_DIALOG_KEY_STR = "save_signals"
+
+
+class QuitFilter(QObject):
+    """Application event filter that sees the app being quit.
+
+    Inputs:
+        quit_function: function without arguments, called when the
+            application receives the Quit event (Cmd+Q, the Dock's Quit,
+            a logout, QCoreApplication.quit()).
+        parent: the QObject that owns the filter (the main window).
+    """
+
+    def __init__(self, quit_function, parent=None) -> None:
+        """Store the function.
+
+        Inputs: see the class docstring.
+        Outputs: none.
+        """
+        super().__init__(parent)
+        # LLFR-00989: what the main window does on a quit.
+        self.quit_function = quit_function
+
+    def eventFilter(self, watched, event) -> bool:
+        """Close the undocked windows before Qt closes every window.
+
+        Inputs:
+            watched: the object the event is sent to.
+            event: the QEvent.
+        Outputs: False, so the quit goes on.
+        """
+        # LLFR-00989, LLFR-01038: Qt closes the windows in no set order,
+        # so the undocked windows are closed by the app first, and none
+        # of them takes the quit for the user's close of its tab.
+        if (event.type() == QEvent.Type.Quit
+                and watched is QApplication.instance()):
+            self.quit_function()
+        return False
 
 
 class MainWindow(QMainWindow):
@@ -289,6 +326,11 @@ class MainWindow(QMainWindow):
         application = QApplication.instance()
         if application is not None:
             application.installEventFilter(self.tool_key_filter)
+        # LLFR-00989: a quit closes every undocked window and keeps their
+        # tabs.
+        self.quit_filter = QuitFilter(self.close_all_undocked_windows, self)
+        if application is not None:
+            application.installEventFilter(self.quit_filter)
         # LLFR-00136, LLFR-00138: the Undo button goes to the plot
         # controller. LLFR-00137: so does Ctrl+Z (Cmd+Z on macOS, which
         # QKeySequence.StandardKey.Undo maps to), in this window.

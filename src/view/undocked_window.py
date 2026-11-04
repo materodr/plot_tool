@@ -226,7 +226,7 @@ class UndockedWindow(QWidget):
         # or Ctrl+F4 on Windows; Alt+F4 is the system's own close).
         self.close_shortcut = QShortcut(QKeySequence.StandardKey.Close, self)
         self.close_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
-        self.close_shortcut.activated.connect(self.close)
+        self.close_shortcut.activated.connect(self.request_user_close)
 
     # ----------------------------------------------------------------
     # Tab and title
@@ -473,8 +473,19 @@ class UndockedWindow(QWidget):
         self.close()
         self.deleteLater()
 
+    def request_user_close(self) -> None:
+        """Delete the tab because the user asked to close the window.
+
+        Inputs: none.
+        Outputs: none. The window stays until the controller has deleted
+            the tab; the deletion runs once control is back in Qt.
+        """
+        # LLFR-01038: the user's close deletes the tab, with no question.
+        if self.close_handler is not None:
+            QTimer.singleShot(0, lambda: self.close_handler(self.tab_id_i))
+
     def closeEvent(self, event) -> None:
-        """Delete the tab when the user closes the window.
+        """Tell a user's close of the window from a close of the app.
 
         Inputs:
             event: the QCloseEvent.
@@ -483,9 +494,14 @@ class UndockedWindow(QWidget):
         if self.closing_by_app_b:
             event.accept()
             return
-        # LLFR-01038: the user's close deletes the tab, with no question;
-        # the window stays until the controller has done it, and the
-        # deletion runs once control is back in Qt.
-        event.ignore()
-        if self.close_handler is not None:
-            QTimer.singleShot(0, lambda: self.close_handler(self.tab_id_i))
+        if event.spontaneous():
+            # LLFR-01038: the system's close button (or Alt+F4) of this
+            # window, sent by the window system: the tab is deleted.
+            event.ignore()
+            self.request_user_close()
+            return
+        # LLFR-00989: a close that neither the user nor this window's own
+        # actions asked for comes from the app closing every window (for
+        # example a quit, which MainWindow also catches first): the
+        # window closes and its tab is kept.
+        event.accept()
