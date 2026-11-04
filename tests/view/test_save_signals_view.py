@@ -219,7 +219,8 @@ class SaveSignalsViewTest(unittest.TestCase):
         # LLFR-00941: the names are saved without the prefix.
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "force"])
-        self.assertEqual(self.changed_names_list, ["time → Time"])
+        # LLFR-00404, LLFR-00558: the name in the app, then the new one.
+        self.assertEqual(self.changed_names_list, ["file1_time → Time"])
         # LLFR-00003: normal again once the save is done and the minimum
         # active time of an action button has passed.
         from PyQt6.QtTest import QTest

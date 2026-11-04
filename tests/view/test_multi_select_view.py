@@ -836,9 +836,9 @@ class MultiSelectMainWindowTest(unittest.TestCase):
                                return_value=("distance", True)):
             self.panel.rename_signal_requested.emit("file1_int_speed")
             self.application.processEvents()
-        self.assertEqual(self.panel.signal_name_list()[-1], "distance")
+        self.assertEqual(self.panel.signal_name_list()[-1], "file1_distance")
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["file1_force", "distance"])
+                         ["file1_force", "file1_distance"])
 
     @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00032",
             "LLFR-00637")

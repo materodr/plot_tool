@@ -1,10 +1,21 @@
-"""Synthetic signals of the opened data file (HLFR-00053), without Qt.
+"""Synthetic signals of the open data files (HLFR-00053), without Qt.
 
 A synthetic signal is computed from one or two signals of the signal
 list (data file signals or other synthetic signals) by one of the
 operations of model.synthetic_operations. Synthetic signals live only
-in memory (HLFR-00055, LLFR-00253): one SyntheticSignalStore per opened
-data file holds them in creation order.
+in memory (HLFR-00055, LLFR-00595): one SyntheticSignalStore holds the
+synthetic signals of every open data file, in creation order.
+
+Each synthetic signal belongs to the data file of the signal it was
+computed from, the right-clicked signal of a product (LLFR-00936), and
+its name starts with the prefix ``file<N>_`` of that file, followed by
+the name of LLFR-00240 built from the names of its sources without
+their prefix (LLFR-00904); the second signal of a product of another
+file keeps its own prefix (LLFR-00954). The signal also keeps its plain
+name, without any prefix the app put into it, for the Save signals
+button (LLFR-00941). ``ordered_signal_names`` gives the order of the
+signal list: file after file, each file's synthetic signals after its
+own signals (LLFR-00935).
 
 Public API:
 
@@ -53,10 +64,10 @@ Example::
 
     [
       {
-        "name": "lpf_2p5Hz_order2_Speed",
+        "name": "file1_lpf_2p5Hz_order2_Speed",
         "operation": "lowpass",
         "signals": [
-          "Speed"
+          "file1_Speed"
         ],
         "parameter": {
           "cutoff": 2.5,
@@ -65,11 +76,11 @@ Example::
         }
       },
       {
-        "name": "lpf_2p5Hz_order2_Speed_prod_Torque",
+        "name": "file1_lpf_2p5Hz_order2_Speed_prod_file2_Torque",
         "operation": "product",
         "signals": [
-          "lpf_2p5Hz_order2_Speed",
-          "Torque"
+          "file1_lpf_2p5Hz_order2_Speed",
+          "file2_Torque"
         ],
         "parameter": null
       }
@@ -270,8 +281,9 @@ class SyntheticSignal:
         Outputs: the name without the prefixes the app put into it
             (LLFR-00941).
         """
-        # LLFR-00941: a renamed signal keeps the typed text.
-        return self.plain_name_str or self.editable_name_str
+        # LLFR-00941: a renamed signal keeps the typed text; a signal
+        # made without a plain name loses the prefix it starts with.
+        return self.plain_name_str or without_prefix(self.editable_name_str)
 
     @property
     def is_fft_b(self) -> bool:

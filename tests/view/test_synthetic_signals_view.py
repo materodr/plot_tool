@@ -709,7 +709,7 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.assertFalse(self.main_window.is_undo_enabled())
 
     @covers("LLFR-00266", "LLFR-00267", "LLFR-00277", "LLFR-00279",
-            "LLFR-00603", "LLFR-00623")
+            "LLFR-00603", "LLFR-00623", "LLFR-00955", "LLFR-00972")
     def test_rename_and_clipboard(self) -> None:
         """Rename updates the legend; names and equations are copied.
 
@@ -721,23 +721,27 @@ class SyntheticEndToEndTest(unittest.TestCase):
         self.panel.signal_double_clicked.emit("file1_int_Speed")
         self.application.processEvents()
         with mock.patch.object(QInputDialog, "getText",
-                               return_value=(" Distance ", True)):
+                               return_value=(" Distance ", True)
+                               ) as get_text:
             self.choose("file1_int_Speed", "Rename")
-        self.assertEqual(self.panel.signal_name_list()[-1], "Distance")
-        self.assertTrue(self.panel.is_name_italic("Distance"))
+        # LLFR-00955: the field starts with the part after the prefix,
+        # and the prefix stays in front of the typed name.
+        self.assertEqual(get_text.call_args[0][4], "int_Speed")
+        self.assertEqual(self.panel.signal_name_list()[-1], "file1_Distance")
+        self.assertTrue(self.panel.is_name_italic("file1_Distance"))
         self.assertEqual(self.legend_names(self.plot_widget_list()[0]),
-                         ["Distance"])
+                         ["file1_Distance"])
         with mock.patch.object(QInputDialog, "getText",
-                               return_value=("file1_Torque", True)):
-            self.choose("Distance", "Rename")
+                               return_value=("Torque", True)):
+            self.choose("file1_Distance", "Rename")
         self.assertIn("already exists", self.box_record_list[-1][2])
         self.assertEqual(self.box_record_list[-1][1],
                          self.message_box_class.Icon.Information)
         self.choose("file1_Torque", "Copy name")
         self.assertEqual(QApplication.clipboard().text(), "file1_Torque")
-        self.choose("Distance", "Copy equation")
+        self.choose("file1_Distance", "Copy equation")
         self.assertEqual(json.loads(QApplication.clipboard().text()), [
-            {"name": "Distance", "operation": "integral",
+            {"name": "file1_Distance", "operation": "integral",
              "signals": ["file1_Speed"], "parameter": None}])
 
     @covers("LLFR-00275", "LLFR-00272", "LLFR-00922", "LLFR-00933")
