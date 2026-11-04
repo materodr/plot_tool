@@ -56,6 +56,7 @@ from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication, QHBoxLayout, QTabBar, QToolButton, QVBoxLayout, QWidget)
 
+from model.window_placement import fitted_panel_width_i
 from model.workspace import first_panel_width_i
 from view import icon_shapes, icons, theme
 from view.panel_splitter import PanelSplitter
@@ -824,7 +825,8 @@ class UndockedWindow(QWidget):
             shown_b: True to show it.
             width_i: its width in pixels; 0 for the first width
                 (LLFR-01051).
-        Outputs: none.
+        Outputs: none. A panel shown at a given width gets at most the
+            window's width minus 100 pixels (LLFR-01176).
         """
         width_i = int(width_i)
         if not shown_b:
@@ -843,6 +845,11 @@ class UndockedWindow(QWidget):
                             if self.main_panel_width_function is not None
                             else 0)
             width_i = first_panel_width_i(main_width_i, self.width())
+        else:
+            # LLFR-01176: a saved or restored width leaves the plot panel
+            # room in the window, which may be narrower than when the
+            # width was saved (LLFR-01084).
+            width_i = fitted_panel_width_i(width_i, self.width())
         if self.is_panel_shown() and self.panel_width() == width_i:
             self.update_signal_list_button()
             return

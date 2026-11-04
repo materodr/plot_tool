@@ -2587,14 +2587,17 @@ class PlotWidget(QWidget):
             self.axes.draw_artist(self.area_preview_band)
         elif (self.mirror_area_span_tuple
               and self.area_preview_band is not None):
-            # LLFR-01162: the area preview of another shown plot.
+            # LLFR-01162: the area preview of another shown plot;
+            # LLFR-01164: drawn only here, by blitting, so a full draw,
+            # the PDF export and the copied image leave it out.
             start_s, end_s = self.mirror_area_span_tuple
             self.area_preview_band.set_x(start_s)
             self.area_preview_band.set_width(end_s - start_s)
             self.axes.draw_artist(self.area_preview_band)
         if self.mirror_span_tuple and not self.time_span_shown_b:
             # LLFR-01163: the time span selection of another shown plot,
-            # at the middle of the height of the drawing area.
+            # at the middle of the height of the drawing area;
+            # LLFR-01164: like the area preview, never in an export.
             self.place_mirror_span_artists()
             self.axes.draw_artist(self.span_line)
             self.axes.draw_artist(self.span_end_ticks)

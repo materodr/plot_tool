@@ -288,6 +288,35 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
         self.assertEqual(self.main_window.panel_width_tuple(),
                          (total_i - 400, 400))
 
+    @covers("LLFR-01176", "LLFR-00482", "LLFR-00230", "LLFR-01054",
+            "HLFR-00050", "HLFR-00130", "HLFR-00141")
+    def test_panel_widths_scaled_and_trimmed(self) -> None:
+        """Saved widths are scaled to the room of the panels; a signal
+        list panel wider than the window minus 100 pixels is trimmed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.show()
+        self.application.processEvents()
+        total_i = sum(self.main_window.panel_width_tuple())
+        # The saved share of a room twice as wide.
+        self.main_window.set_panel_widths(total_i, total_i)
+        self.application.processEvents()
+        plot_width_i, list_width_i = self.main_window.panel_width_tuple()
+        self.assertEqual(plot_width_i + list_width_i, total_i)
+        self.assertAlmostEqual(list_width_i, total_i // 2, delta=2)
+        # A signal list panel wider than the window can hold.
+        self.main_window.set_panel_widths(1, 16777215)
+        self.application.processEvents()
+        plot_width_i, list_width_i = self.main_window.panel_width_tuple()
+        self.assertEqual(plot_width_i + list_width_i, total_i)
+        self.assertGreaterEqual(list_width_i, 1)
+        self.assertLessEqual(list_width_i,
+                             self.main_window.width() - 100)
+        self.assertGreaterEqual(
+            plot_width_i, total_i - self.main_window.width() + 100)
+
 
 @requires_qt
 class LayoutEndToEndTest(unittest.TestCase):

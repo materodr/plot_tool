@@ -327,7 +327,7 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
 
-    @covers("LLFR-01054", "HLFR-00131")
+    @covers("LLFR-01054", "LLFR-01177", "HLFR-00131")
     def test_main_window_keeps_its_panel(self) -> None:
         """The main window's panel cannot be collapsed or hidden.
 
@@ -787,6 +787,38 @@ class PanelWidthUndoTest(UndockedWindowTestCase):
         self.process_events()
         self.assertAlmostEqual(self.main_window.window_of_tab(
             second_id_i).panel_width(), start_i, delta=2)
+
+    @covers("LLFR-01176", "LLFR-01048", "LLFR-01047", "HLFR-00130")
+    def test_panel_shown_again_fits_a_narrower_window(self) -> None:
+        """A panel hidden at a width that the window, made narrower
+        since, can no longer hold is shown again at most at the
+        window's width minus 100 pixels.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        window.resize(900, 500)
+        window.signal_list_button.click()
+        self.process_events()
+        window.set_panel(True, 600)
+        self.process_events()
+        self.assertAlmostEqual(window.panel_width(), 600, delta=3)
+        window.signal_list_button.click()
+        self.process_events()
+        self.assertFalse(window.is_panel_shown())
+        window.resize(500, 500)
+        self.process_events()
+        window.signal_list_button.click()
+        self.process_events()
+        window = self.main_window.window_of_tab(second_id_i)
+        self.assertTrue(window.is_panel_shown())
+        self.assertGreaterEqual(window.panel_width(), 1)
+        self.assertLessEqual(window.panel_width(), window.width() - 100)
+        # A width the window holds is kept.
+        window.set_panel(True, 200)
+        self.process_events()
+        self.assertAlmostEqual(window.panel_width(), 200, delta=3)
 
 
 class WindowPlotActionTest(UndockedWindowTestCase):
@@ -1743,6 +1775,43 @@ class LayoutWindowsViewTest(UndockedWindowTestCase):
         self.assertLessEqual(loaded.x() + loaded.width(),
                              area_tuple[0] + area_tuple[2])
         self.assertEqual(len(loaded.page().plot_widget_list), 1)
+
+    @covers("LLFR-01176", "LLFR-01078", "LLFR-01085", "HLFR-00141",
+            "HLFR-00130", "HLFR-00050", "HLFR-00052")
+    def test_saved_panel_wider_than_its_window_is_trimmed(self) -> None:
+        """A saved panel width that Qt takes but the window cannot hold
+        is trimmed to the window's width minus 100 pixels, so the plot
+        panel keeps room, and the load reports nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, window = self.two_tabs_one_undocked()
+        window.signal_list_button.click()
+        self.process_events()
+        layout_dict = self.plot_controller.layout_dict()
+        tab_entry = layout_dict["tabs"][-1]
+        area_tuple = self.main_window.main_screen_area()
+        tab_entry["window"].update({
+            "x": area_tuple[0] + 10, "y": area_tuple[1] + 10,
+            "width": 600, "height": 400})
+        tab_entry["signal_list_panel"] = {"shown": True, "width": 5000}
+        self.user_close(window)
+        self.assertIsNone(self.tab(second_id_i))
+        result = self.plot_controller.load_layout(layout_dict)
+        self.process_events()
+        self.assertIsNotNone(result)
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        loaded = next(iter(self.main_window.undocked_window_dict.values()))
+        self.assertTrue(loaded.is_panel_shown())
+        self.assertGreaterEqual(loaded.panel_width(), 1)
+        self.assertLessEqual(loaded.panel_width(), loaded.width() - 100)
+        # The plot panel has the rest of the splitter.
+        self.assertGreaterEqual(
+            loaded.plot_column.width(),
+            loaded.splitter.width() - loaded.splitter.handleWidth()
+            - loaded.panel_width() - 1)
+        self.assertGreater(loaded.plot_column.width(), 0)
 
 
 if __name__ == "__main__":

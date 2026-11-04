@@ -15,7 +15,8 @@ from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
     ZOOM_TOOL_STR)
 from model import file_writer
-from model.window_placement import new_window_tuple, placed_window_tuple
+from model.window_placement import (
+    fitted_panel_width_i, new_window_tuple, placed_window_tuple)
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     color_picker, file_dialogs, file_writing, icons, message_boxes,
@@ -197,6 +198,9 @@ class MainWindow(QMainWindow):
         self.lower_splitter.setStretchFactor(0, self.PLOT_PANEL_STRETCH_I)
         self.lower_splitter.setStretchFactor(1, self.SIGNAL_LIST_STRETCH_I)
         # LLFR-00073: a comfortable handle to grab between the panels.
+        # LLFR-01054: the main window's panel has no signal list button
+        # and is never hidden; its splitter keeps it at least 1 pixel
+        # wide, as no child of a PanelSplitter can be collapsed.
         self.lower_splitter.setHandleWidth(theme.SPLITTER_HANDLE_WIDTH_I)
 
         # LLFR-00058: the top panel is above the other two panels.
@@ -876,7 +880,8 @@ class MainWindow(QMainWindow):
             self.undocked_window_dict[window_id_i] = window
             if len(window_tuple) != 4:
                 window_tuple = self.new_window_tuple()
-            # LLFR-01083, LLFR-01084: kept on a screen.
+            # LLFR-01083, LLFR-01084: kept on a screen; LLFR-01085: not
+            # reported, as the view never tells the load report.
             window.set_window_tuple(placed_window_tuple(
                 window_tuple, self.screen_area_list(),
                 self.main_screen_area()))
@@ -886,7 +891,10 @@ class MainWindow(QMainWindow):
             if page is None:
                 continue
             # LLFR-01150, LLFR-01152, LLFR-01015: the page leaves the main
-            # window or another undocked window.
+            # window or another undocked window. LLFR-01022, LLFR-01039:
+            # it keeps its plot widgets and their connections, so every
+            # plot action and every signal drop works as in the main
+            # window.
             other_window = self.window_of_tab(tab_id_i)
             if other_window is not None and other_window is not window:
                 other_window.take_page(tab_id_i)
@@ -1249,7 +1257,8 @@ class MainWindow(QMainWindow):
         Outputs: none. Used by the next show_signal_groups.
         """
         # LLFR-00994, LLFR-00995: [-] or [+] on each file name row;
-        # LLFR-01036: the same in every panel.
+        # LLFR-01036, LLFR-01175: the same in every panel, also in the
+        # panel of a window opened later (broadcast_signal_list keeps it).
         self.broadcast_signal_list("set_collapsed_file_numbers",
                                    set(number_set))
 
@@ -1647,7 +1656,8 @@ class MainWindow(QMainWindow):
         self.plot_tool_str = tool_str
         self.top_panel.show_plot_tool(tool_str)
         # LLFR-00042, LLFR-00045, LLFR-00078: every plot reacts to the
-        # mouse according to the tool.
+        # mouse according to the tool; LLFR-01072: the plots of the
+        # undocked windows too, as their pages stay in plot_widget_dict.
         for plot_widget in self.plot_panel.plot_widget_dict.values():
             plot_widget.set_plot_tool(tool_str)
 
@@ -2797,13 +2807,30 @@ class MainWindow(QMainWindow):
         Inputs:
             plot_width_i: width of the plot panel, in pixels.
             list_width_i: width of the signal list panel, in pixels.
-        Outputs: none. Qt scales the two widths to the room there is and
-            keeps each panel at least at its minimum width.
+        Outputs: none. The two widths are scaled to the room there is,
+            as Qt would scale them, and the signal list panel is then at
+            most the window's width minus 100 pixels (LLFR-01176).
         """
         # LLFR-00230: the panel widths of a loaded layout; the start
         # widths of LLFR-00072 must not be applied over them later.
         self.lower_splitter.initial_sizes_set_b = True
-        self.lower_splitter.setSizes([int(plot_width_i), int(list_width_i)])
+        plot_width_i = max(int(plot_width_i), 1)
+        list_width_i = max(int(list_width_i), 1)
+        room_i = sum(self.lower_splitter.sizes())
+        if room_i > 1:
+            # LLFR-00230: the saved share of the room the panels have.
+            list_width_i = max(int(round(
+                room_i * list_width_i / (plot_width_i + list_width_i))), 1)
+            # LLFR-01176: the plot panel keeps room; LLFR-01054: the
+            # signal list panel keeps at least 1 pixel.
+            list_width_i = min(fitted_panel_width_i(list_width_i,
+                                                    self.width()),
+                               room_i - 1)
+            plot_width_i = room_i - list_width_i
+        else:
+            # LLFR-01176: the room is not known yet; the window is.
+            list_width_i = fitted_panel_width_i(list_width_i, self.width())
+        self.lower_splitter.setSizes([plot_width_i, list_width_i])
 
     def show_layout_save_error(self, reason_str: str) -> None:
         """Show the error box saying that the layout file was not saved.
@@ -3208,6 +3235,8 @@ class MainWindow(QMainWindow):
         if self.text_field_has_focus():
             return
         # LLFR-00141: the shortcut does nothing while Undo is disabled.
+        # LLFR-01058: the same in every window (LLFR-01071), on the one
+        # history of LLFR-01057.
         self.run_undo()
 
     def _on_copy_shortcut(self, window_id_i: int) -> None:
@@ -3303,6 +3332,8 @@ class MainWindow(QMainWindow):
         if self.text_field_has_focus():
             return
         # LLFR-00194: the shortcut does nothing while Redo is disabled.
+        # LLFR-01058: the same in every window (LLFR-01071), on the one
+        # history of LLFR-01057.
         self.run_redo()
 
     @staticmethod

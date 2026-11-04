@@ -490,7 +490,9 @@ class PlotController:
         if self.workspace.is_unchanged_since(snapshot):
             return
         # LLFR-00139: the history keeps the 30 most recent actions;
-        # LLFR-00193: and forgets the undone ones.
+        # LLFR-00193: and forgets the undone ones. LLFR-01057: one
+        # history for the actions of the main window and of every
+        # undocked window.
         self.undo_history.record(snapshot)
         self.update_undo_enabled()
 
