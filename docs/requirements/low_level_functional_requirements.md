@@ -189,6 +189,18 @@ Note: As in LLFR-00188, the time is measured from the second launch onward, on t
 
 *Parent: HLFR-00091*
 
+### LLFR-00977 Identical time signals
+The app must treat two time signals as identical when they have the same number of samples and each pair of samples at the same position differs by at most 1e-8 times the larger of their absolute values, or by at most 1e-8 when both are smaller than 1 in absolute value.
+
+Note: This is the comparison of the time signals of several data files, for example in the second signal dialog of Product with signal (LLFR-00275) and before Save signals saves several files to one (LLFR-00942). Files of different formats can store the same times with tiny rounding differences, for example `signals.xlsx` and `signals.mat` of `tests/user_tests/good`, which are identical.
+
+*Parent: HLFR-00120, HLFR-00113*
+
+### LLFR-00978 NaN samples of identical time signals
+In the comparison of LLFR-00977, the app must count a pair of samples at the same position that are both NaN as matching, and a pair in which only one sample is NaN as not matching.
+
+*Parent: HLFR-00120, HLFR-00113*
+
 
 ## Top panel
 
@@ -1160,7 +1172,7 @@ When the app loads a layout file (LLFR-00230), before it rebuilds the plots, it 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
 ### LLFR-00496 Synthetic signals not created from a layout
-When the app loads a layout file (LLFR-00262), a synthetic signal of the file must not be created when it is an FFT signal (LLFR-00502), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when the signals it is computed from belong to different data files whose time signals are not the same (LLFR-00275, LLFR-00940), when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00613), or when the operation cannot be done (LLFR-00590).
+When the app loads a layout file (LLFR-00262), a synthetic signal of the file must not be created when it is an FFT signal (LLFR-00502), when its entry cannot be read, when a signal it is computed from is missing, was not created or comes later in the list, when the signals it is computed from belong to different data files whose time signals are not identical (LLFR-00275, LLFR-00940, LLFR-00977), when its parameter is not allowed (LLFR-00245, LLFR-00269, LLFR-00272, LLFR-00613), or when the operation cannot be done (LLFR-00590).
 
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
@@ -1175,7 +1187,7 @@ When a synthetic signal of the layout file is not created (LLFR-00496), the load
 *Parent: HLFR-00056, HLFR-00050, HLFR-00052*
 
 ### LLFR-00282 Synthetic signal names on layout load
-When a synthetic signal of the layout file (LLFR-00262) has the name of a signal of the signal list, which is a current synthetic signal, one created earlier in the same load or a signal of an open data file, and that signal, or a synthetic signal whose name is made from that name as in LLFR-00241 (for example by an earlier load), has the same operation, the same signals it is computed from (after the renames of LLFR-00499) and the same parameter, the app must create nothing and use that signal.
+When a synthetic signal of the layout file (LLFR-00262) has a corrected name, which is its saved name with the prefix of LLFR-00970, that is the name of a signal of the signal list, which is a current synthetic signal, one created earlier in the same load or a signal of an open data file, and that signal, or a synthetic signal whose name is made from that corrected name as in LLFR-00241 (for example by an earlier load), has the same operation, the same signals it is computed from (after the renames of LLFR-00499) and the same parameter, the app must create nothing and use that signal.
 
 Note: Loading the same layout twice therefore adds nothing to the signal list the second time.
 
@@ -1553,7 +1565,7 @@ When the user clicks the Save signals button, the app must show a save file dial
 *Parent: HLFR-00090*
 
 ### LLFR-00942 Different time signals
-When the user clicks the Save signals button (LLFR-00394) and the time signals of the open data files do not all have the same number of samples and exactly the same value at every sample, the app must show, in place of the save file dialog (LLFR-00396), an error box saying that the files need the same time signals to be saved together.
+When the user clicks the Save signals button (LLFR-00394) and the time signals of the open data files are not all identical (LLFR-00977), the app must show, in place of the save file dialog (LLFR-00396), an error box saying that the files need the same time signals to be saved together.
 
 Note: With one data file open, the check always passes.
 
@@ -1565,7 +1577,7 @@ In the case of LLFR-00942, the app must leave every file on disk as it was.
 *Parent: HLFR-00120, HLFR-00090*
 
 ### LLFR-00944 One time signal in the saved file
-When the time signals of the open data files are the same (LLFR-00942), the saved file must hold, once and in place of the time signals of all the open data files, the time signal of the open data file with the lowest number, at its place in the signal list, under the name of LLFR-00407.
+When the time signals of the open data files are identical (LLFR-00942, LLFR-00977), the saved file must hold, once and in place of the time signals of all the open data files, the time signal of the open data file with the lowest number, at its place in the signal list, under the name of LLFR-00407.
 
 *Parent: HLFR-00120, HLFR-00090*
 
@@ -2056,7 +2068,7 @@ After the prefix of its data file (LLFR-00908), the app must name a synthetic si
 | FFT | `fft_<start>s_to_<end>s_<signal>` | `file1_fft_1p5s_to_3s_Speed` |
 | Product with signal | `<right-clicked signal>_prod_<second signal>` (LLFR-00275) | `file1_Speed_prod_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` (LLFR-00958) |
 
-The FFT times are the time range of LLFR-00968 and LLFR-00592, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
+The FFT times are the time range of LLFR-00968, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
 
 *Parent: HLFR-00054, HLFR-00104, HLFR-00115*
 
@@ -2125,7 +2137,7 @@ The signal list panel must show the synthetic signals of each data file (LLFR-00
 ### LLFR-00940 File of a synthetic signal
 Each synthetic signal must belong to the data file of the signal it was computed from, which for a Product with signal is the data file of the right-clicked signal.
 
-Note: The second signal of a Product with signal can belong to another data file only when its time signal is exactly the same (LLFR-00275), so the product is computed on that one time signal. Closing either file removes the product, because it is computed from a signal of that file (LLFR-00926).
+Note: The second signal of a Product with signal can belong to another data file only when its time signal is identical (LLFR-00275, LLFR-00977), so the product is computed on the time signal of the right-clicked signal's data file. Closing either file removes the product, because it is computed from a signal of that file (LLFR-00926).
 
 *Parent: HLFR-00053, HLFR-00113*
 
@@ -2137,7 +2149,7 @@ The app must compute each synthetic signal with the time signal of its file (LLF
 ### LLFR-00968 FFT time range of a signal
 When at least one time plot exists when the user chooses "FFT", the app must take as the time range of the FFT the part of the x-axis range shared by the time plots (LLFR-00070) that lies within the time range of the signal's data file (LLFR-00940).
 
-Note: The FFT name shows this range (LLFR-00240). With no time plot, the FFT uses all the samples (LLFR-00592).
+Note: The FFT name shows this range (LLFR-00240). With no time plot, no FFT is created (LLFR-00592, LLFR-00979).
 
 *Parent: HLFR-00057, HLFR-00113*
 
@@ -2253,32 +2265,43 @@ When the user chooses "Low-pass filter", "High-pass filter" or "FFT" and any tim
 *Parent: HLFR-00053*
 
 ### LLFR-00248 FFT time range
-When at least one time plot exists, the FFT must use only the samples of the signal whose time is within the time range of LLFR-00968, taken when the FFT is created.
+The FFT must use only the samples of the signal whose time is within the time range of LLFR-00968, taken when the FFT is created.
+
+Note: With no time plot, no FFT is created (LLFR-00592).
 
 *Parent: HLFR-00057, HLFR-00113*
 
 ### LLFR-00592 FFT without a time plot
-When no time plot exists when the FFT is created, the FFT must use all samples of the signal.
+When the user chooses "FFT" and no time plot exists, the app must not create the FFT signal, whatever the number of samples of the signal.
+
+Note: A frequency plot is not a time plot (HLFR-00058).
 
 *Parent: HLFR-00057*
 
+### LLFR-00979 FFT without a time plot message
+When the user chooses "FFT" and no time plot exists, the app must show an information box with the text "The FFT is computed only over the time range shown on the x-axis of the time plots. Plot a signal in a time plot and zoom to the time range you want, then create the FFT again.", except as in LLFR-00591.
+
+Note: The FFT is then not created (LLFR-00592). When the time samples are not evenly spaced, only the box of LLFR-00591 is shown.
+
+*Parent: HLFR-00057, HLFR-00053*
+
 ### LLFR-00593 FFT fixed after creation
-A change of the time range after an FFT signal is created (LLFR-00248, LLFR-00592) must not change the FFT signal.
+A change of the time range after an FFT signal is created (LLFR-00248) must not change the FFT signal.
 
 *Parent: HLFR-00057*
 
 ### LLFR-00249 FFT result
-The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-00248 and LLFR-00592, from 0 Hz up to half the sampling rate (LLFR-00247), computed with a Hann window and scaled so that a sine wave of amplitude A over the whole time range gives a peak of height close to A.
+The FFT signal must be the one-sided amplitude spectrum of the samples of LLFR-00248, from 0 Hz up to half the sampling rate (LLFR-00247), computed with a Hann window and scaled so that a sine wave of amplitude A over the whole time range gives a peak of height close to A.
 
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00250 Too few samples for an FFT
-When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must not create the FFT signal.
+When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248, the app must not create the FFT signal.
 
 *Parent: HLFR-00053, HLFR-00057*
 
 ### LLFR-00594 Too few samples message
-When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248 and LLFR-00592, the app must show an information box saying that the time range holds too few samples, except as in LLFR-00969.
+When the user chooses "FFT" and fewer than 8 samples of the signal are within the time range of LLFR-00248, the app must show an information box saying that the time range holds too few samples, except as in LLFR-00969.
 
 *Parent: HLFR-00053, HLFR-00057*
 
@@ -2489,7 +2512,7 @@ An "Add constant", "Subtract constant", "Multiply by constant" or "Divide by con
 *Parent: HLFR-00053*
 
 ### LLFR-00275 Second signal dialog
-When the user chooses "Product with signal", the app must show a dialog that lists every signal and every synthetic signal (LLFR-00940) of the right-clicked signal's data file and of every other open data file whose time signal has the same number of samples and exactly the same value at every sample, except the FFT signals, including the right-clicked signal, in one list (LLFR-00967), in which the user chooses the second signal.
+When the user chooses "Product with signal", the app must show a dialog that lists every signal and every synthetic signal (LLFR-00940) of the right-clicked signal's data file and of every other open data file whose time signal is identical to that of the right-clicked signal's data file (LLFR-00977), except the FFT signals, including the right-clicked signal, in one list (LLFR-00967), in which the user chooses the second signal.
 
 *Parent: HLFR-00053, HLFR-00113*
 

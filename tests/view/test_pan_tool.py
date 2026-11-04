@@ -627,10 +627,19 @@ class PanEndToEndTest(unittest.TestCase):
         Outputs: the name of the FFT signal.
         """
         from PyQt6.QtCore import QPoint
+        # LLFR-00592: an FFT needs a time plot; the time signal's plot,
+        # which shows the whole file, is undone after the FFT.
+        plot_controller = self.controller.plot_controller
+        time_plot_added_b = not plot_controller.time_plot_list()
+        if time_plot_added_b:
+            self.double_click("file1_Time")
         self.panel.execute_menu = lambda menu, point: find_action(
             menu, "FFT (fft)")
         self.panel.show_signal_menu("file1_Speed", QPoint(0, 0))
         self.application.processEvents()
+        if time_plot_added_b:
+            plot_controller.on_undo()
+            self.application.processEvents()
         return self.panel.signal_name_list()[-1]
 
     def left_drag(self, plot_widget, start_tuple: tuple,
