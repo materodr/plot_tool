@@ -11,7 +11,7 @@ The requirements are grouped by part of the interface: General, Top panel, Signa
 ### HLFR-00001 Interface layout
 The main window of the app must be divided into three panels: a top panel, a plot panel and a signal list panel.
 
-Note: The **top panel** holds the controls for opening a file and for the plot tools. The **plot panel** shows the plots where signal curves are drawn, organized in tabs. The **signal list panel** shows the signals of the open data files, from which the user picks what to plot. An undocked window (HLFR-00123) has a plot panel with its one tab and a signal list panel of its own, and no top panel (HLFR-00136).
+Note: The **top panel** holds the controls for opening a file and for the plot tools. The **plot panel** shows the plots where signal curves are drawn, organized in tabs. The **signal list panel** shows the signals of the open data files, from which the user picks what to plot. An undocked window (HLFR-00123) has a plot panel with its tabs and a signal list panel of its own, and no top panel (HLFR-00136).
 
 ### HLFR-00002 Error notification
 When an error occurs, the app must notify the user with an error box that describes the error.
@@ -76,7 +76,7 @@ The app must keep one undo and redo history for the actions done in every window
 The user must be able to undo and redo undocking and docking a tab.
 
 ### HLFR-00134 Undocked window title
-The app must title each undocked window with the name of its tab.
+The app must title each undocked window with the name of the tab it shows.
 
 ### HLFR-00136 No top panel in an undocked window
 An undocked window must hold a plot panel and a signal list panel, without a top panel.
@@ -84,8 +84,8 @@ An undocked window must hold a plot panel and a signal list panel, without a top
 ### HLFR-00137 Shortcuts in an undocked window
 Every keyboard shortcut of the app must work while an undocked window is the active window.
 
-### HLFR-00138 Closing an undocked window deletes its tab
-When the user closes an undocked window with the system's close button, the app must delete its tab as the Delete option of the tab menu does, as an action that can be undone.
+### HLFR-00138 Closing an undocked window deletes its tabs
+When the user closes an undocked window with the system's close button, the app must delete all its tabs as the Delete option of the tab menu does, as one action that can be undone.
 
 Note: The close button is the red dot on macOS and the × on Windows. There is no × on the tabs: deleting a tab stays in its menu (HLFR-00016).
 
@@ -565,8 +565,8 @@ The user must be able to rename an arrow.
 ### HLFR-00112 Arrow label follows the arrow
 When the position or the angle of an arrow changes, its label (HLFR-00100) must change with it.
 
-### HLFR-00135 Tab button in an undocked window
-An undocked window must show the button of its tab, which works like a tab of the main window, including Rename.
+### HLFR-00135 Tab buttons in an undocked window
+An undocked window must show the buttons of its tabs, which work like the tabs of the main window, including Rename.
 
 ### HLFR-00142 Reorder the tabs
 The user must be able to change the order of the tabs by dragging a tab.
