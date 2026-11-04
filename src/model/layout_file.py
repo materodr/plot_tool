@@ -1667,7 +1667,7 @@ class LayoutBuilder:
         self.place_in_window(tab, tab_entry, (window_tuple, shown_b,
                                               width_i))
 
-    def joins_window(self, tab_entry: dict) -> bool:
+    def joins_window(self, tab_entry) -> bool:
         """Tell whether an undocked tab joins a window created before.
 
         Inputs:
@@ -1683,7 +1683,7 @@ class LayoutBuilder:
         return (first_tab is not None and self.workspace.find_tab(
             first_tab.tab_id_i) is not None and first_tab.undocked_b)
 
-    def place_in_window(self, tab, tab_entry: dict,
+    def place_in_window(self, tab, tab_entry,
                         value_tuple: tuple) -> None:
         """Put an undocked tab of the file in its undocked window.
 
