@@ -38,6 +38,7 @@ from view import theme
 from view.matrix_picker import MatrixPicker, PositionPicker
 from view.plot_widget import PlotWidget
 from view.tab_page import TabPage
+from view.window_buttons import build_undock_button
 
 ADD_TAB_TEXT_STR = "+"
 ADD_TAB_TOOL_TIP_STR = "Add a new tab"
@@ -423,6 +424,12 @@ class PlotPanel(QWidget):
         self.tab_drag_in_progress_b = False
         # LLFR-01062, LLFR-01079: the picker that is open, if any.
         self.open_picker = None
+        # LLFR-00980: the undock button of each docked tab, and the
+        # function called with the tab id when one is clicked.
+        self.undock_button_dict = {}
+        self.undock_handler = None
+        # LLFR-00983: whether the undock buttons are enabled.
+        self.undock_enabled_b = False
         self.plot_handler_dict = {}
         # LLFR-00026: the "+" button asks for a new tab.
         self.add_tab_button.clicked.connect(self.request_add_tab)
@@ -640,8 +647,9 @@ class PlotPanel(QWidget):
         page = self.page_dict.get(tab_id_i)
         if page is None:
             return
+        # LLFR-00988: over the window that shows the tab.
         new_name_str, accepted_b = QInputDialog.getText(
-            self, RENAME_DIALOG_TITLE_STR, RENAME_DIALOG_LABEL_STR,
+            page.window(), RENAME_DIALOG_TITLE_STR, RENAME_DIALOG_LABEL_STR,
             QLineEdit.EchoMode.Normal, page.name_str)
         if not accepted_b:
             return
@@ -674,12 +682,26 @@ class PlotPanel(QWidget):
         Outputs: a QMenu with "Delete" (disabled when the panel has only
             one tab), "Rename" and "Plot matrix".
         """
-        tab_id_i = self.tab_id_at_index(tab_index_i)
-        menu = QMenu(self)
-        # LLFR-00027, LLFR-00066: "Delete", disabled on the last tab.
+        # LLFR-00027, LLFR-00029, LLFR-01061: the menu of a docked tab.
+        return self.build_tab_menu_of(self.tab_id_at_index(tab_index_i),
+                                      False)
+
+    def build_tab_menu_of(self, tab_id_i: int, undocked_b: bool,
+                          parent=None) -> QMenu:
+        """Build the tab menu of a tab, docked or undocked.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            undocked_b: True for the tab button of an undocked window.
+            parent: the parent of the menu; None for this panel.
+        Outputs: a QMenu with "Delete", "Rename" and "Plot matrix".
+        """
+        menu = QMenu(self if parent is None else parent)
+        # LLFR-00027, LLFR-00066: "Delete", disabled on the last docked
+        # tab; LLFR-01034: always enabled on an undocked tab.
         delete_action = menu.addAction(DELETE_TAB_TEXT_STR)
-        delete_action.setEnabled(self.tab_delete_enabled_b
-                                 and self.tab_widget.count() > 1)
+        delete_action.setEnabled(undocked_b or (
+            self.tab_delete_enabled_b and self.tab_widget.count() > 1))
         delete_action.triggered.connect(
             lambda *_: self.request_delete_tab(tab_id_i))
         # LLFR-00029: "Rename".
@@ -708,6 +730,25 @@ class PlotPanel(QWidget):
             return
         menu = self.build_tab_menu(tab_index_i)
         menu.exec(tab_bar.mapToGlobal(position))
+        menu.deleteLater()
+
+    def show_tab_menu_of(self, tab_id_i: int, global_point,
+                         undocked_b: bool) -> None:
+        """Show the tab menu of a tab at a point of the screen.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            global_point: QPoint in screen coordinates.
+            undocked_b: True for the tab button of an undocked window.
+        Outputs: none.
+        """
+        # LLFR-01029: the tab menu on the tab button of a window, over
+        # that window (LLFR-00988).
+        page = self.page_dict.get(tab_id_i)
+        if page is None:
+            return
+        menu = self.build_tab_menu_of(tab_id_i, undocked_b, page.window())
+        menu.exec(global_point)
         menu.deleteLater()
 
     # ----------------------------------------------------------------
@@ -868,7 +909,106 @@ class PlotPanel(QWidget):
             return
         page = TabPage(tab_id_i, name_str)
         self.page_dict[tab_id_i] = page
-        self.tab_widget.addTab(page, escape_tab_text(name_str))
+        self.add_page_to_tab_row(page)
+
+    def add_page_to_tab_row(self, page) -> None:
+        """Add a tab page after the last docked tab, with its button.
+
+        Inputs:
+            page: the TabPage.
+        Outputs: none.
+        """
+        # LLFR-00025, LLFR-00993: after the last docked tab.
+        index_i = self.tab_widget.addTab(page, escape_tab_text(
+            page.name_str))
+        # LLFR-00977: the undock button right of the tab's name.
+        undock_button = build_undock_button()
+        undock_button.setEnabled(self.undock_enabled_b)
+        undock_button.clicked.connect(partial(self.request_undock,
+                                              page.tab_id_i))
+        self.undock_button_dict[page.tab_id_i] = undock_button
+        self.tab_widget.tabBar().setTabButton(
+            index_i, QTabBar.ButtonPosition.RightSide, undock_button)
+        self.tab_widget.schedule_reposition()
+
+    def request_undock(self, tab_id_i: int) -> None:
+        """Ask the controller to undock a tab.
+
+        Inputs:
+            tab_id_i: id of the tab whose undock button was clicked.
+        Outputs: none.
+        """
+        # LLFR-00980: the undock button; LLFR-00984: a disabled button
+        # sends no click.
+        if self.undock_handler is not None:
+            self.undock_handler(tab_id_i)
+
+    def set_undock_enabled(self, enabled_b: bool) -> None:
+        """Enable or disable every undock button.
+
+        Inputs:
+            enabled_b: False while the main window holds one docked tab.
+        Outputs: none.
+        """
+        # LLFR-00983: disabled, and paler, on the last docked tab.
+        self.undock_enabled_b = bool(enabled_b)
+        for undock_button in self.undock_button_dict.values():
+            undock_button.setEnabled(self.undock_enabled_b)
+
+    def undock_button_of(self, tab_id_i: int):
+        """Return the undock button of a docked tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: the QToolButton, or None for an undocked or unknown tab.
+        """
+        # LLFR-00977: each docked tab has one.
+        return self.undock_button_dict.get(tab_id_i)
+
+    def detach_page(self, tab_id_i: int):
+        """Take a tab page out of the tab row of the main window.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: the TabPage, kept in page_dict with its plots, or None.
+        """
+        # LLFR-00980, LLFR-00985: the page moves with all it holds.
+        page = self.page_dict.get(tab_id_i)
+        if page is None:
+            return None
+        index_i = self.tab_widget.indexOf(page)
+        if index_i >= 0:
+            self.tab_widget.removeTab(index_i)
+        # LLFR-01031: an undocked tab has no undock button.
+        undock_button = self.undock_button_dict.pop(tab_id_i, None)
+        if undock_button is not None:
+            undock_button.deleteLater()
+        self.tab_widget.schedule_reposition()
+        return page
+
+    def attach_page(self, tab_id_i: int) -> None:
+        """Put a detached tab page back as the last docked tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        # LLFR-00993: directly left of the "+" button.
+        page = self.page_dict.get(tab_id_i)
+        if page is None or self.tab_widget.indexOf(page) >= 0:
+            return
+        self.add_page_to_tab_row(page)
+
+    def is_page_docked(self, tab_id_i: int) -> bool:
+        """Tell whether a tab page is in the tab row of the main window.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: True for a docked tab.
+        """
+        # LLFR-00977: the docked tabs of the main window.
+        page = self.page_dict.get(tab_id_i)
+        return page is not None and self.tab_widget.indexOf(page) >= 0
 
     def remove_tab_view(self, tab_id_i: int) -> None:
         """Remove a tab and all its plots.
@@ -886,7 +1026,10 @@ class PlotPanel(QWidget):
             self.plot_widget_dict.pop(plot_widget.plot_id_i, None)
             # LLFR-00138: no late request from the removed plot.
             plot_widget.retire()
-        self.tab_widget.removeTab(self.tab_widget.indexOf(page))
+        index_i = self.tab_widget.indexOf(page)
+        if index_i >= 0:
+            self.tab_widget.removeTab(index_i)
+        self.undock_button_dict.pop(tab_id_i, None)
         page.deleteLater()
 
     def rename_tab_view(self, tab_id_i: int, name_str: str) -> None:
@@ -902,8 +1045,9 @@ class PlotPanel(QWidget):
         if page is None:
             return
         page.name_str = name_str
-        self.tab_widget.setTabText(self.tab_widget.indexOf(page),
-                                   escape_tab_text(name_str))
+        index_i = self.tab_widget.indexOf(page)
+        if index_i >= 0:
+            self.tab_widget.setTabText(index_i, escape_tab_text(name_str))
         # LLFR-00025: the last tab may have changed its width.
         self.tab_widget.schedule_reposition()
 
@@ -927,7 +1071,9 @@ class PlotPanel(QWidget):
         """
         # LLFR-00026: a new tab becomes the current one.
         page = self.page_dict.get(tab_id_i)
-        if page is not None:
+        # LLFR-00982, LLFR-00995: only a docked tab is shown in the main
+        # window.
+        if page is not None and self.tab_widget.indexOf(page) >= 0:
             self.tab_widget.setCurrentWidget(page)
 
     def current_tab_id(self) -> int:
