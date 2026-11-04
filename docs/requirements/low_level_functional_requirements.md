@@ -2741,7 +2741,7 @@ Note: The corners outside the rounding show the background of the plot panel beh
 *Parent: HLFR-00001*
 
 ### LLFR-00891 Rounded plot corners in the PDF
-On each page of the PDF export (LLFR-00129), each plot must have the rounded corners of LLFR-00890, with its radius and border width scaled from the screen to the page in the same proportion as the plot, its border color, and the corners outside the rounding in the color of the page background around the plots.
+On each page of the PDF export (LLFR-00129), each plot must have the rounded corners of LLFR-00890, with the radius, border width and border color of the screen, the radius and border width scaled from the screen to the page in the same proportion as the plot, and the corners outside the rounding in the color of the page background around the plots.
 
 Note: Only the corners and the border are added: what the page shows, its tab name, its layout and the size of the plots are as before.
 
