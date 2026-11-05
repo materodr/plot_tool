@@ -242,7 +242,8 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
         Outputs: none.
         """
         self.assertEqual(plot_state_tuple(self.plot)[5],
-                         (("Peak", 1.0, 2.0, 12, "#ff8000", "#24303b"),))
+                         (("Peak", 1.0, 2.0, 12, "#ff8000", "#24303b", 1,
+                           "continuous"),))
         for change in (lambda: self.plot.set_text_note_size(0, 8),
                        lambda: self.plot.set_text_note_border_color(
                            0, "#ff0000"),

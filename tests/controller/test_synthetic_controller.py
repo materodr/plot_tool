@@ -517,6 +517,12 @@ class SyntheticControllerTestCase(unittest.TestCase):
                 no time plot.
         Outputs: none.
         """
+        # LLFR-01297: a statistic asks for its range; with no answer
+        # given, the user keeps "Whole signal".
+        if (operation_str in ("max", "min", "rms", "mean", "std",
+                              "median")
+                and not self.view.parameter_answer_list):
+            self.view.parameter_answer_list.append([[]])
         create_handler = self.view.signal_menu_handler_dict["create"]
         if (operation_str != "fft" or not time_plot_b
                 or self.plot_controller.time_plot_list()):
@@ -598,7 +604,9 @@ class MenuWiringTest(SyntheticControllerTestCase):
             ("Calculus", ["Integral (int)", "Derivative (der)"]),
             ("Filters", ["Low-pass filter (lpf)", "High-pass filter (hpf)",
                          "Moving average (mavg)"]),
-            ("Statistics", ["Max (max)", "Min (min)"]),
+            ("Statistics", ["Max (max)", "Min (min)", "RMS (rms)",
+                            "Mean (mean)", "Standard deviation (std)",
+                            "Median (median)"]),
             ("Comparison", ["Greater than (gt)", "Less than (lt)",
                             "Greater than or equal (ge)",
                             "Less than or equal (le)"]),
@@ -607,13 +615,15 @@ class MenuWiringTest(SyntheticControllerTestCase):
                             "Divide by constant (div)",
                             "Absolute value (abs)",
                             "Product with signal (prod)"]),
+            ("Trigonometric", ["Sine (sind)", "Cosine (cosd)",
+                               "Tangent (tand)"]),
             ("Spectrum", ["FFT (fft)"])])
         id_list = [operation_str
                    for _, operation_list in self.view.operation_group_list
                    for operation_str, _ in operation_list]
         self.assertEqual(id_list[:3], ["integral", "derivative", "lowpass"])
         self.assertEqual(id_list[-1], "fft")
-        self.assertEqual(id_list[-3:-1], ["abs", "product"])
+        self.assertEqual(id_list[-6:-4], ["abs", "product"])
 
     @covers("LLFR-00239", "LLFR-00254", "LLFR-00265", "LLFR-00277",
             "LLFR-00278")

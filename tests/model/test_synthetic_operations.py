@@ -47,7 +47,7 @@ def sine_array(time_array: np.ndarray, frequency_hz: float,
 class OperationTableTest(unittest.TestCase):
     """Check the operation ids, menu labels and groups."""
 
-    @covers("LLFR-00268")
+    @covers("LLFR-00268", "LLFR-01294", "LLFR-01296")
     def test_groups_and_labels_follow_the_menu_order(self) -> None:
         """The groups and labels are those of LLFR-00268, in order.
 
@@ -58,13 +58,15 @@ class OperationTableTest(unittest.TestCase):
             ("Calculus", ["Integral", "Derivative"]),
             ("Filters", ["Low-pass filter", "High-pass filter",
                          "Moving average"]),
-            ("Statistics", ["Max", "Min"]),
+            ("Statistics", ["Max", "Min", "RMS", "Mean",
+                            "Standard deviation", "Median"]),
             ("Comparison", ["Greater than", "Less than",
                             "Greater than or equal",
                             "Less than or equal"]),
             ("Arithmetic", ["Add constant", "Subtract constant",
                             "Multiply by constant", "Divide by constant",
                             "Absolute value", "Product with signal"]),
+            ("Trigonometric", ["Sine", "Cosine", "Tangent"]),
             ("Spectrum", ["FFT"]),
         ]
         found_list = [(group_str, [operation.label_str
@@ -87,7 +89,9 @@ class OperationTableTest(unittest.TestCase):
             ("Calculus", ["Integral (int)", "Derivative (der)"]),
             ("Filters", ["Low-pass filter (lpf)", "High-pass filter (hpf)",
                          "Moving average (mavg)"]),
-            ("Statistics", ["Max (max)", "Min (min)"]),
+            ("Statistics", ["Max (max)", "Min (min)", "RMS (rms)",
+                            "Mean (mean)", "Standard deviation (std)",
+                            "Median (median)"]),
             ("Comparison", ["Greater than (gt)", "Less than (lt)",
                             "Greater than or equal (ge)",
                             "Less than or equal (le)"]),
@@ -96,6 +100,8 @@ class OperationTableTest(unittest.TestCase):
                             "Divide by constant (div)",
                             "Absolute value (abs)",
                             "Product with signal (prod)"]),
+            ("Trigonometric", ["Sine (sind)", "Cosine (cosd)",
+                               "Tangent (tand)"]),
             ("Spectrum", ["FFT (fft)"]),
         ]
         found_list = [(group_str, [operation.menu_label_str
@@ -117,12 +123,14 @@ class OperationTableTest(unittest.TestCase):
         """
         self.assertEqual(list(operations.OPERATION_DICT), [
             "integral", "derivative", "lowpass", "highpass",
-            "movingaverage", "max", "min", "greater", "less",
-            "greaterorequal", "lessorequal", "add", "subtract",
-            "multiply", "divide", "abs", "product", "fft"])
+            "movingaverage", "max", "min", "rms", "mean", "std", "median",
+            "greater", "less", "greaterorequal", "lessorequal", "add",
+            "subtract", "multiply", "divide", "abs", "product", "sind",
+            "cosd", "tand", "fft", "constant", "step", "ramp",
+            "polynomial", "sine", "cosine"])
 
     @covers("LLFR-00245", "LLFR-00269", "LLFR-00272", "LLFR-00275",
-            "LLFR-00248")
+            "LLFR-00248", "LLFR-01297")
     def test_parameter_kinds(self) -> None:
         """Each operation asks for the parameter its dialog asks for.
 
@@ -132,9 +140,13 @@ class OperationTableTest(unittest.TestCase):
         kind_dict = {operation_str: operation.parameter_kind_str
                      for operation_str, operation
                      in operations.OPERATION_DICT.items()}
-        for operation_str in ("integral", "derivative", "max", "min",
-                              "abs"):
+        for operation_str in ("integral", "derivative", "abs", "sind",
+                              "cosd", "tand"):
             self.assertEqual(kind_dict[operation_str], "none")
+        # LLFR-01297: every statistic asks for its range.
+        for operation_str in ("max", "min", "rms", "mean", "std",
+                              "median"):
+            self.assertEqual(kind_dict[operation_str], "statistic_range")
         for operation_str in ("lowpass", "highpass"):
             self.assertEqual(kind_dict[operation_str], "filter")
         self.assertEqual(kind_dict["movingaverage"], "window_i")

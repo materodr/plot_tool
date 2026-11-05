@@ -132,7 +132,7 @@ class DeltaMarkerNameModelTest(unittest.TestCase):
                           delta_marker.delta_f(), delta_marker.color_str),
                          before_tuple)
         self.assertNotEqual(plot_state_tuple(self.plot), state_before_tuple)
-        self.assertEqual(plot_state_tuple(self.plot)[4][0][-1], "Lap")
+        self.assertEqual(plot_state_tuple(self.plot)[4][0][5], "Lap")
         for name_str in ("", "   ", "Lap"):
             self.assertFalse(self.plot.rename_delta_marker(delta_id_i,
                                                            name_str))
@@ -184,7 +184,7 @@ class ArrowNameModelTest(unittest.TestCase):
                           arrow.end_time_s, arrow.end_value_f,
                           arrow.color_str),
                          (0.0, 1.0, 2.0, 3.0, "#ff8000"))
-        self.assertEqual(plot_state_tuple(self.plot)[6][0][-1], "Peak")
+        self.assertEqual(plot_state_tuple(self.plot)[6][0][5], "Peak")
         for name_str in ("", " ", "Peak"):
             self.assertFalse(self.plot.rename_arrow(0, name_str))
         self.assertFalse(self.plot.rename_arrow(3, "Other"))

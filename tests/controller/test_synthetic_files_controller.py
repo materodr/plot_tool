@@ -121,6 +121,12 @@ class SeveralFilesTestCase(unittest.TestCase):
             operation_str: the operation id.
         Outputs: none.
         """
+        # LLFR-01297: a statistic asks for its range; with no answer
+        # given, the user keeps "Whole signal".
+        if (operation_str in ("max", "min", "rms", "mean", "std",
+                              "median")
+                and not self.view.parameter_answer_list):
+            self.view.parameter_answer_list.append([[]])
         self.view.signal_menu_handler_dict["create"](name_str, operation_str)
 
     def path(self, name_str: str) -> str:

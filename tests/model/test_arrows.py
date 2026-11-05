@@ -173,7 +173,8 @@ class ArrowModelTest(unittest.TestCase):
         self.plot.add_arrow(0.0, 0.0, 1.0, 1.0)
         state_tuple = plot_state_tuple(self.plot)
         self.assertEqual(state_tuple[6],
-                         ((0.0, 0.0, 1.0, 1.0, "#ff8000", "Arrow 1"),))
+                         ((0.0, 0.0, 1.0, 1.0, "#ff8000", "Arrow 1", 1,
+                           "dashed"),))
         # The kind stays last and the text notes stay at index 5.
         self.assertEqual(state_tuple[-1], self.plot.kind_str)
         self.assertEqual(state_tuple[5], ())
