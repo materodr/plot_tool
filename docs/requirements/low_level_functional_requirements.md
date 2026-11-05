@@ -503,12 +503,14 @@ Note: The owner reported on 2026-11-05 that these drags lagged behind the mouse 
 *Parent: HLFR-00029, HLFR-00067, HLFR-00106, HLFR-00041, HLFR-00074, HLFR-00099, HLFR-00085*
 
 ### LLFR-01216 Drag delay
-While the user drags an object of LLFR-01215 in a plot whose curves hold up to 1,000,000 samples in all, the app must show the object at the pointer's new position at most 50 milliseconds after each move of the pointer, on the computer the app is tested on.
+While the user drags an object of LLFR-01215 in a plot whose curves hold up to 1,000,000 samples in all, the app must show the object at the pointer's new position at most 50 milliseconds after each move of the pointer that comes after the first move of the drag, on the computer the app is tested on.
+
+Note: The first move makes the image of the curves (LLFR-01215), so it takes as long as one full draw of the plot.
 
 *Parent: HLFR-00029, HLFR-00067, HLFR-00106, HLFR-00041, HLFR-00074, HLFR-00099, HLFR-00085*
 
 ### LLFR-01217 Dragged flags and areas on the other plots
-While the user drags a flag or an area, the app must show it at its latest place on the other shown time plots of every window (LLFR-00205, LLFR-00310) with at most one redraw of each of those plots for every 30 milliseconds, except as in LLFR-01239.
+While the user drags a flag or an area, the app must show it at its latest place on the other shown time plots of every window (LLFR-00205, LLFR-00310), with, while the pointer moves, at least one redraw of each of those plots in every 150 milliseconds and at most one in every 30 milliseconds, except as in LLFR-01239.
 
 Note: The other plots are drawn over the image of their curves as in LLFR-01215, so they follow the pointer without slowing the drag.
 
@@ -1004,9 +1006,21 @@ The app must save in the chosen folder one PNG image file for each tab that hold
 *Parent: HLFR-00038*
 
 ### LLFR-01235 PNG file names
-The app must name each PNG file of LLFR-01234 with the name of its tab, each character other than a letter, a digit, a space, `-` or `_` replaced by `_`, followed by `.png`, and, when that name, compared ignoring uppercase and lowercase, was already given to another file of the same export, with `_2`, `_3` and so on added before `.png`, the smallest number that makes it unique.
+The app must name each PNG file of LLFR-01234 with the name of its tab, each character other than a letter, a digit, a space, `-` or `_` replaced by `_`, or with `tab` when the tab's name is empty, followed by `.png`, and, when that name, compared ignoring uppercase and lowercase, was already given to another file of the same export, with `_2`, `_3` and so on added before `.png`, the smallest number that makes it unique, except as in LLFR-01250 and LLFR-01251.
 
-Note: For example, the tabs `Tab 1`, `a/b` and `A?b` give `Tab 1.png`, `a_b.png` and `A_b_2.png`. A name left empty becomes `tab`.
+Note: For example, the tabs `Tab 1`, `a/b`, `A?b` and `///` give `Tab 1.png`, `a_b.png`, `A_b_2.png` and `___.png`. A tab's name is never empty in the app (LLFR-00067), but a hand-edited layout file could give one.
+
+*Parent: HLFR-00038*
+
+### LLFR-01250 PNG names reserved by Windows
+When the name of a PNG file of LLFR-01235, before `.png` and before any number that makes it unique, is, compared ignoring uppercase and lowercase, a name that Windows reserves for a device (`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9` or `LPT1` to `LPT9`), the app must add `_tab` to it, for example `CON_tab.png`.
+
+*Parent: HLFR-00038*
+
+### LLFR-01251 Length of PNG file names
+When the name of a PNG file of LLFR-01235, before `.png` and before any number that makes it unique, is longer than 100 characters, the app must keep only its first 100 characters, without the spaces left at the end.
+
+Note: This keeps the path of the file within the limits of Windows and macOS in a folder with a usual path.
 
 *Parent: HLFR-00038*
 
@@ -1472,15 +1486,37 @@ The top panel must contain a button called "Load layout", placed directly to the
 
 *Parent: HLFR-00050*
 
-### LLFR-00218 Layout buttons need a data file
-While no data file is open, the app must show the Save layout and Load layout buttons as disabled, in a paler color.
+### LLFR-00218 Save layout button needs a data file
+While no data file is open, the app must show the Save layout button as disabled, in a paler color.
 
-*Parent: HLFR-00049, HLFR-00050, HLFR-00003*
+*Parent: HLFR-00049, HLFR-00003*
 
-### LLFR-00466 Layout buttons do nothing without a data file
-While no data file is open, neither the Save layout button nor the Load layout button must do anything.
+### LLFR-00466 Save layout button does nothing without a data file
+While no data file is open, the Save layout button must not do anything.
 
-*Parent: HLFR-00049, HLFR-00050*
+*Parent: HLFR-00049*
+
+### LLFR-01244 Load layout button without a data file
+The app must keep the Load layout button (LLFR-00217) enabled, so that a click on it shows its dialog (LLFR-00221), whether a data file is open or not.
+
+Note: The owner decided on 2026-11-05 that Load layout stays enabled with no data file open, so that a layout file that holds the names of its data files (LLFR-01223) can open them from an empty app (LLFR-01224, HLFR-00157).
+
+*Parent: HLFR-00050, HLFR-00157, HLFR-00003*
+
+### LLFR-01245 Layout that needs a data file
+When the user loads a layout file that holds no data files (LLFR-01223) while no data file is open, the app must show an information box saying that the layout needs an open data file.
+
+*Parent: HLFR-00050, HLFR-00052*
+
+### LLFR-01246 No data file opened from a layout
+When the user loads a layout file that holds data files (LLFR-01223) while no data file is open, and none of them is opened (LLFR-01224), the app must show the information box of LLFR-01245, with the data files not opened listed below its text as in LLFR-01227.
+
+*Parent: HLFR-00050, HLFR-00052, HLFR-00157*
+
+### LLFR-01247 Nothing changed when a layout needs a data file
+When the app shows the information box of LLFR-01245 or LLFR-01246, it must leave the tabs, the plots, the synthetic signals, the undo and redo history and the folder of the layout dialogs (LLFR-00220) as they were before the layout was loaded.
+
+*Parent: HLFR-00050*
 
 ### LLFR-00219 Save layout dialog
 When the user clicks the Save layout button, the app must show a save file dialog in which the user chooses the folder and types the name of the layout file.
@@ -1490,7 +1526,7 @@ When the user clicks the Save layout button, the app must show a save file dialo
 ### LLFR-01218 Layout save options dialog
 When the user clicks the Save layout button, the app must show, before the save file dialog of LLFR-00219, a dialog with three choices: "Include the markers (data tips, flags, areas and delta markers)", "All tabs" or "Only the current tab", and "Include the names of the open data files".
 
-Note: The text notes and the arrows are not saved in a layout file (LLFR-00226), so the first choice names only the markers that are.
+Note: The markers are the data tips, flags, areas and delta markers (HLFR-00156). The text notes and the arrows are not markers and are not saved in a layout file (LLFR-00226).
 
 *Parent: HLFR-00156, HLFR-00049*
 
@@ -4083,7 +4119,7 @@ Note: Each click on the icon itself still toggles the file, so a double-click on
 ### LLFR-01209 Double-click on a file name row during a search
 When the user double-clicks a file name row (LLFR-00362) of an open data file anywhere other than its icon while the search box holds text other than spaces, the app must clear the search box of every signal list panel (LLFR-01041).
 
-Note: The owner asked on 2026-11-05 that the double-click also clears the search, so that all the files are shown again.
+Note: The owner asked on 2026-11-05 that the double-click also clears the search, so that all the files are shown again. After the review of #257, the owner confirmed the same day that it stays as built: the double-click clears the search and shows that file (LLFR-01210).
 
 *Parent: HLFR-00123, HLFR-00033*
 
@@ -4167,7 +4203,9 @@ Note: When the tabs are wider than the plot panel and the tab row shows scroll b
 *Parent: HLFR-00015*
 
 ### LLFR-00026 Add tab button action
-When the user clicks the "+" button (LLFR-00025) of the main window, the app must add a new tab after the last docked tab, except as in LLFR-01203.
+When the user clicks the "+" button (LLFR-00025) of the main window, the app must add a new tab after the last docked tab.
+
+Note: The "+" button of an undocked window adds the tab to that window (LLFR-01203).
 
 *Parent: HLFR-00015*
 
@@ -4359,7 +4397,7 @@ When the user chooses a preset width in the "Width" option of the curve menu (LL
 *Parent: HLFR-00023*
 
 ### LLFR-00042 Hover data tip
-While the Data tip button (LLFR-00018) is active and the user hovers over a curve, the app must show a hover data tip with the x-axis and y-axis values of the hovered point.
+While the Data tip button (LLFR-00018) is active and the user hovers over a curve, the app must show a hover data tip with the x-axis and y-axis values of the hovered point, except as in LLFR-01249.
 
 *Parent: HLFR-00024*
 
@@ -4716,11 +4754,23 @@ Note: The tabs that are shown are the tab shown in the main window and the tab s
 *Parent: HLFR-00028*
 
 ### LLFR-01238 Previews over other objects
-The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow or a delta marker, except the flag preview over an existing flag (LLFR-00203).
+The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow or a delta marker, except the flag preview over an existing flag (LLFR-00203) and the hover data tip over a pinned data tip (LLFR-01249).
 
-Note: The owner asked on 2026-11-05 that previews take priority over the objects under the pointer. The grab rules are kept: a press on a pinned data tip still moves it (LLFR-00153), and a press on a text note still moves it (LLFR-00339), so over them the preview shows where the pointer is while a click grabs the object. Over an existing flag the flag preview stays hidden, so that the flag can be grabbed (LLFR-00086).
+Note: The owner asked on 2026-11-05 that previews take priority over the objects under the pointer. The preview shows what a click does: over a pinned data tip or a text note, a press where the flag preview, the hover data tip or the dot of a delta marker point is shown places what the preview shows (LLFR-01248). Over an existing flag the flag preview stays hidden, so that the flag can be grabbed (LLFR-00086), and over a pinned data tip the hover data tip stays hidden, so that the tip can be grabbed (LLFR-01249).
 
 *Parent: HLFR-00028, HLFR-00024, HLFR-00027, HLFR-00043, HLFR-00044, HLFR-00066, HLFR-00081*
+
+### LLFR-01248 Press where a preview is shown
+While the Flag button, the Data tip button, the Delta X button or the Delta Y button is active and the user presses the left mouse button on a pinned data tip or a text note at a point where the active tool shows its preview (the flag preview of LLFR-00203, the hover data tip of LLFR-00042 or the dot of LLFR-00352), the app must act as for a press at that point with no pinned data tip and no text note drawn there: place the flag (LLFR-00081), pin the data tip (LLFR-00045) or pick the delta marker point (LLFR-00163, LLFR-00164).
+
+Note: The owner decided on 2026-11-05 that a click where a preview is shown places the previewed object, because the preview shows what a click does. The pinned data tip or the text note under the pointer is then not grabbed. An object of the active tool's own kind is still grabbed: a flag with the Flag button (LLFR-00086), where the flag preview is hidden (LLFR-00662), a pinned data tip with the Data tip button, where the hover data tip is hidden (LLFR-01249), and a dot of a delta marker with the Delta X or Delta Y button (LLFR-00433, LLFR-00866). The other previews of LLFR-01238 appear only after the press, so they don't change what the press grabs (LLFR-00383). The first press of a double-click is such a press, so a double-click on a text note with one of these buttons first places what the preview shows, then edits the note (LLFR-00411).
+
+*Parent: HLFR-00028, HLFR-00025, HLFR-00043, HLFR-00044, HLFR-00032*
+
+### LLFR-01249 Hover data tip hidden over a pinned data tip
+While the Data tip button (LLFR-00018) is active and the mouse pointer is over a pinned data tip, the app must hide the hover data tip (LLFR-00042), so that the preview is not shown where a press moves the pinned data tip (LLFR-00153).
+
+*Parent: HLFR-00024, HLFR-00041*
 
 ### LLFR-00662 Flag preview hidden
 The app must hide the flag preview (LLFR-00203) when the pointer leaves the plot's drawing area, moves over an existing flag, or the Flag button is deactivated.
@@ -5172,17 +5222,17 @@ The app must connect each pinned data tip (LLFR-00045) to the point whose values
 *Parent: HLFR-00025*
 
 ### LLFR-00152 Drag a pinned data tip
-When the user presses the left mouse button on a pinned data tip and drags it, the app must move the data tip with the mouse pointer and leave it where the button is released, while the data tip keeps showing the values of the same point.
+When the user presses the left mouse button on a pinned data tip and drags it, the app must move the data tip with the mouse pointer and leave it where the button is released, while the data tip keeps showing the values of the same point, except as in LLFR-01248.
 
 *Parent: HLFR-00041*
 
 ### LLFR-00153 Press on a pinned data tip
-A left mouse button press on a pinned data tip must start moving it (LLFR-00152), whether or not a plot tool is active, except as in LLFR-00383.
+A left mouse button press on a pinned data tip must start moving it (LLFR-00152), whether or not a plot tool is active, except as in LLFR-00383 and LLFR-01248.
 
 *Parent: HLFR-00041, HLFR-00032*
 
 ### LLFR-00679 Press on a pinned data tip does nothing else
-A left mouse button press on a pinned data tip (LLFR-00153) must not pin a new data tip, zoom, pan, place or move a flag, create, move or resize an area, start or move a text note, draw, move, rotate or stretch an arrow, or pick a delta marker point.
+A left mouse button press on a pinned data tip (LLFR-00153) must not pin a new data tip, zoom, pan, place or move a flag, create, move or resize an area, start or move a text note, draw, move, rotate or stretch an arrow, or pick a delta marker point, except as in LLFR-01248.
 
 *Parent: HLFR-00041, HLFR-00032*
 
@@ -5769,17 +5819,17 @@ While a text note is shown, the app must move it by the shortest distance needed
 *Parent: HLFR-00073, HLFR-00074*
 
 ### LLFR-00339 Drag a text note
-When the user presses the left mouse button on a text note and drags it, the app must move the text note with the mouse pointer and leave it where the button is released, attached to the x-axis and y-axis values of that place.
+When the user presses the left mouse button on a text note and drags it, the app must move the text note with the mouse pointer and leave it where the button is released, attached to the x-axis and y-axis values of that place, except as in LLFR-01248.
 
 *Parent: HLFR-00074, HLFR-00032*
 
 ### LLFR-00742 Press on a text note with any plot tool
-A left mouse button press on a text note must start moving it (LLFR-00339) whether or not a plot tool is active.
+A left mouse button press on a text note must start moving it (LLFR-00339) whether or not a plot tool is active, except as in LLFR-01248.
 
 *Parent: HLFR-00074, HLFR-00032*
 
 ### LLFR-00743 Press on a text note does nothing else
-A left mouse button press on a text note (LLFR-00339) must not pin a data tip, move a pinned data tip, zoom, pan, place or move a flag, create, move or resize an area, draw, move, rotate or stretch an arrow, pick a delta marker point or start another text note.
+A left mouse button press on a text note (LLFR-00339) must not pin a data tip, move a pinned data tip, zoom, pan, place or move a flag, create, move or resize an area, draw, move, rotate or stretch an arrow, pick a delta marker point or start another text note, except as in LLFR-01248.
 
 *Parent: HLFR-00074, HLFR-00032*
 
@@ -6203,7 +6253,7 @@ While a plot tool is active, with any plot tool other than the own tool of LLFR-
 *Parent: HLFR-00085, HLFR-00032*
 
 ### LLFR-00800 Data tips and text notes move with any plot tool
-While a plot tool is active, pinned data tips and text notes must move with any plot tool (LLFR-00153, LLFR-00339, LLFR-00742).
+While a plot tool is active, pinned data tips and text notes must move with any plot tool (LLFR-00153, LLFR-00339, LLFR-00742), except as in LLFR-01248.
 
 *Parent: HLFR-00085, HLFR-00032*
 
@@ -6392,7 +6442,7 @@ When the user double-clicks a text note with the left mouse button, whether a pl
 *Parent: HLFR-00075*
 
 ### LLFR-00825 Double-click on a text note does nothing else
-When the user double-clicks a text note with the left mouse button, whether a plot tool is active or not, the app must not pin a data tip, zoom, pan, place a flag, create an area, start another text note, draw an arrow, pick a delta marker point, create a plot or do anything else besides LLFR-00411.
+When the user double-clicks a text note with the left mouse button, whether a plot tool is active or not, the app must not pin a data tip, zoom, pan, place a flag, create an area, start another text note, draw an arrow, pick a delta marker point, create a plot or do anything else besides LLFR-00411, except as in LLFR-01248 for its first press.
 
 *Parent: HLFR-00075*
 

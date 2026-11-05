@@ -20,7 +20,7 @@ from tests.view.menu_texts import (
     FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST, menu_option_texts)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_plot_tools import (
-    ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
+    GRAB_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
@@ -504,16 +504,19 @@ class TipDragWidgetTest(TipDragTestCase):
 class PressOnTipTest(TipDragTestCase):
     """A press on a pinned tip only moves it (LLFR-00153)."""
 
-    @covers("LLFR-00153", "LLFR-00152", "LLFR-00109", "LLFR-00679")
+    @covers("LLFR-00153", "LLFR-00152", "LLFR-00109", "LLFR-00679",
+            "LLFR-01249")
     def test_press_on_tip_with_every_tool_starts_a_move(self) -> None:
-        """With any tool or none: no pin, zoom or marker; the tip moves.
+        """With any tool or none, except the tools whose preview places
+        an object there (LLFR-01248): no pin, zoom or marker; the tip
+        moves.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         self.draw()
-        for tool_str in ALL_TOOL_TUPLE:
+        for tool_str in GRAB_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_pinned_tips([RAMP_TIP_TUPLE,
                                                   SINE_TIP_TUPLE])
@@ -523,7 +526,8 @@ class PressOnTipTest(TipDragTestCase):
                 range_tuple = self.plot_widget.time_range_tuple()
                 for press_tuple in (self.label_center(),
                                     self.point_display()):
-                    # The hover tip of the Tip tool is shown on the ramp.
+                    # LLFR-01249: no hover tip of the Tip tool over the
+                    # pinned tip.
                     self.plot_widget.hover_at(
                         self.plot_widget.display_to_widget_point(
                             *self.point_display()))

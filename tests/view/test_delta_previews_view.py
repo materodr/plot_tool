@@ -19,12 +19,13 @@ from tests.support import covers, get_qt_application, requires_qt
 from tests.view.test_delta_markers_view import (
     DeltaWidgetTestCase, to_hex_str)
 from tests.view.test_markers_view import LEFT_BUTTON_I, send_mouse_event
+from tests.view.test_plot_tools import recorder
 from tests.view.test_shared_markers_view import (
     PREVIEW_MOVE_COUNT_I, SharedMarkerWindowTestCase)
 
 from controller.plot_tools import (
-    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR,
-    ZOOM_TOOL_STR)
+    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    TIP_TOOL_STR, ZOOM_TOOL_STR)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import (
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR)
@@ -75,6 +76,68 @@ class DeltaPreviewWidgetTestCase(DeltaWidgetTestCase):
         Outputs: none.
         """
         self.mouse("motion_notify_event", time_s, value_f)
+
+    def hover_display(self, display_tuple: tuple) -> None:
+        """Move the mouse, with no button held, to a display point.
+
+        Inputs:
+            display_tuple: (x, y) in display pixels.
+        Outputs: none.
+        """
+        send_mouse_event(self.plot_widget, "motion_notify_event",
+                         *display_tuple, LEFT_BUTTON_I)
+
+    def note_box_center(self) -> tuple:
+        """Return the center of the box of the first text note.
+
+        Inputs: none.
+        Outputs: (x, y) in display pixels.
+        """
+        box = self.plot_widget.text_note_box_extent(0)
+        return ((box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+
+    def note_off_curves(self) -> tuple:
+        """Write a text note between the sine and the ramp.
+
+        Inputs: none.
+        Outputs: (x, y) of the center of its box, in display pixels,
+            where text_note_at finds it and no curve is near.
+        """
+        self.plot_widget.set_text_notes([("Note", 5.0, 2.0)])
+        self.draw()
+        center_tuple = self.note_box_center()
+        widget_point = self.plot_widget.display_to_widget_point(
+            *center_tuple)
+        self.assertEqual(self.plot_widget.text_note_at(widget_point), 0)
+        self.assertEqual(self.plot_widget.nearest_curve_tuple(widget_point),
+                         ())
+        return center_tuple
+
+    def note_on_level_curve(self) -> tuple:
+        """Write a text note with a constant curve "Level" through it.
+
+        Inputs: none.
+        Outputs: (x, y) of the center of the note's box, in display
+            pixels, where text_note_at finds the note and the nearest
+            curve is "Level".
+        """
+        self.note_off_curves()
+        level_f = float(self.plot_widget.axes.transData.inverted().transform(
+            self.note_box_center())[1])
+        self.plot_widget.set_curves([
+            ("Sine", self.time_array, self.sine_array, "#ff0000", 1),
+            ("Ramp", self.time_array, self.ramp_array, "#0000ff", 1),
+            ("Level", self.time_array,
+             np.full_like(self.time_array, level_f), "#00aa00", 1)])
+        self.plot_widget.set_text_notes([("Note", 5.0, 2.0)])
+        self.draw()
+        center_tuple = self.note_box_center()
+        widget_point = self.plot_widget.display_to_widget_point(
+            *center_tuple)
+        self.assertEqual(self.plot_widget.text_note_at(widget_point), 0)
+        self.assertEqual(
+            self.plot_widget.nearest_curve_tuple(widget_point)[0], "Level")
+        return center_tuple
 
     def assert_no_delta_preview(self) -> None:
         """Check that no delta preview is shown.
@@ -285,11 +348,12 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.on_mouse_leave(None)
         self.assert_no_delta_preview()
 
-    @covers("LLFR-00352", "LLFR-01238", "LLFR-00153", "LLFR-00679",
+    @covers("LLFR-00352", "LLFR-01238", "LLFR-01248", "LLFR-00163",
             "HLFR-00043")
     def test_dot_stays_over_a_pinned_tip(self) -> None:
-        """Over a pinned tip the dot stays shown (LLFR-01238); a press on
-        the tip still moves it and picks no point (LLFR-00153).
+        """Over a pinned tip the dot stays shown (LLFR-01238); a press
+        there picks the point of the dot and does not move the tip
+        (LLFR-01248).
 
         Inputs: none.
         Outputs: none.
@@ -303,38 +367,221 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.assertTrue(self.plot_widget.delta_preview_shown())
         self.hover(*self.sine_point(7.0)[1:])
         self.assertTrue(self.plot_widget.delta_preview_shown())
-        # A press on the tip starts its drag and hides the preview.
+        # LLFR-01248: the press picks the point of the dot.
         self.hover(*point_tuple[1:])
         self.mouse("button_press_event", *point_tuple[1:])
-        self.assert_no_delta_preview()
+        self.assertEqual(self.plot_widget.drag_tip_index_i, -1)
         self.mouse("button_release_event", *point_tuple[1:])
-        self.assertEqual(self.pick_list, [])
+        self.assertEqual(self.pick_list, [point_tuple])
 
 
 class HoverTipOverObjectsTest(DeltaPreviewWidgetTestCase):
-    """The hover data tip stays over other objects (LLFR-01238)."""
+    """The hover data tip stays over other objects (LLFR-01238), except
+    over a pinned tip (LLFR-01249)."""
 
-    @covers("LLFR-01238", "LLFR-00042", "HLFR-00024")
-    def test_hover_tip_over_a_pinned_tip(self) -> None:
-        """With the Data tip tool, the hover tip is shown on a curve
-        point where a pinned tip is, and follows the pointer.
+    @covers("LLFR-01249", "LLFR-01238", "LLFR-00042", "LLFR-00153",
+            "HLFR-00024", "HLFR-00041")
+    def test_hover_tip_hidden_over_a_pinned_tip(self) -> None:
+        """With the Data tip tool, the hover tip is hidden where a pinned
+        tip is, shown again off it, and a press on the pinned tip moves
+        it and pins nothing.
 
         Inputs: none.
         Outputs: none.
         """
-        from controller.plot_tools import TIP_TOOL_STR
         point_tuple = self.sine_point(4.0)
         self.plot_widget.set_pinned_tips([point_tuple + ((),)])
         self.draw()
         self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        point_widget = self.plot_widget.display_to_widget_point(
+            *self.display_tuple(*point_tuple[1:]))
+        self.assertEqual(self.plot_widget.pinned_tip_at(point_widget), 0)
         self.hover(*point_tuple[1:])
+        self.assertFalse(self.plot_widget.hover_annotation.get_visible())
+        self.assertEqual(self.plot_widget.hover_point_tuple, ())
+        next_tuple = self.sine_point(7.0)
+        self.hover(*next_tuple[1:])
         self.assertTrue(self.plot_widget.hover_annotation.get_visible())
         self.assertEqual(self.plot_widget.hover_point_tuple[:2],
-                         point_tuple[:2])
-        next_tuple = self.sine_point(4.5)
-        self.hover(*next_tuple[1:])
-        self.assertEqual(self.plot_widget.hover_point_tuple[:2],
                          next_tuple[:2])
+        self.hover(*point_tuple[1:])
+        self.assertFalse(self.plot_widget.hover_annotation.get_visible())
+        # LLFR-00153: the press moves the pinned tip, own kind of the
+        # Data tip tool, and pins nothing.
+        self.mouse("button_press_event", *point_tuple[1:])
+        self.assertEqual(self.plot_widget.drag_tip_index_i, 0)
+        self.mouse("button_release_event", *point_tuple[1:])
+        self.assertEqual(self.pin_list, [])
+
+    @covers("LLFR-01238", "LLFR-00042", "HLFR-00024")
+    def test_hover_tip_over_a_text_note(self) -> None:
+        """With the Data tip tool, the hover tip is shown on a curve
+        where a text note is, and follows the pointer.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_on_level_curve()
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        self.hover_display(center_tuple)
+        self.assertTrue(self.plot_widget.hover_annotation.get_visible())
+        self.assertEqual(self.plot_widget.hover_point_tuple[0], "Level")
+        first_s = self.plot_widget.hover_point_tuple[1]
+        self.hover_display((center_tuple[0] + 15.0, center_tuple[1]))
+        self.assertGreater(self.plot_widget.hover_point_tuple[1], first_s)
+
+
+class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
+    """A press where the preview of the active tool is shown places what
+    the preview shows, also on a pinned tip or a text note
+    (LLFR-01248)."""
+
+    def setUp(self) -> None:
+        """Create the widget and record the moves of tips and notes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().setUp()
+        self.tip_move_list = recorder(
+            self.plot_widget.pinned_tip_move_requested)
+        self.note_move_list = recorder(
+            self.plot_widget.text_note_move_requested)
+
+    def press_release_display(self, display_tuple: tuple) -> None:
+        """Hover a display point, press there and release there.
+
+        Inputs:
+            display_tuple: (x, y) in display pixels.
+        Outputs: none.
+        """
+        self.hover_display(display_tuple)
+        send_mouse_event(self.plot_widget, "button_press_event",
+                         *display_tuple, LEFT_BUTTON_I)
+        self.press_tip_index_i = self.plot_widget.drag_tip_index_i
+        self.press_note_index_i = self.plot_widget.drag_note_index_i
+        send_mouse_event(self.plot_widget, "button_release_event",
+                         *display_tuple, LEFT_BUTTON_I)
+
+    def tip_point_display(self) -> tuple:
+        """Pin a tip on the sine at 4 s and return its point.
+
+        Inputs: none.
+        Outputs: (x, y) of the tip's point, in display pixels, where
+            pinned_tip_at finds the tip.
+        """
+        point_tuple = self.sine_point(4.0)
+        self.plot_widget.set_pinned_tips([point_tuple + ((),)])
+        self.draw()
+        display_tuple = self.display_tuple(*point_tuple[1:])
+        self.assertEqual(self.plot_widget.pinned_tip_at(
+            self.plot_widget.display_to_widget_point(*display_tuple)), 0)
+        return display_tuple
+
+    @covers("LLFR-01248", "LLFR-00081", "LLFR-00203", "LLFR-00153",
+            "HLFR-00028")
+    def test_flag_placed_over_a_pinned_tip(self) -> None:
+        """With the Flag tool, a press on a pinned tip where the flag
+        preview is shown asks for the flag of the preview and does not
+        grab the tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        display_tuple = self.tip_point_display()
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.hover_display(display_tuple)
+        self.assertTrue(self.plot_widget.marker_preview_shown())
+        preview_s = self.plot_widget.marker_preview_time_s()
+        self.press_release_display(display_tuple)
+        self.assertEqual(self.press_tip_index_i, -1)
+        self.assertEqual(len(self.place_list), 1)
+        self.assertAlmostEqual(self.place_list[0][0], preview_s, delta=1e-9)
+        self.assertEqual(self.tip_move_list, [])
+
+    @covers("LLFR-01248", "LLFR-00081", "LLFR-00339", "LLFR-00742",
+            "HLFR-00028")
+    def test_flag_placed_over_a_text_note(self) -> None:
+        """With the Flag tool, a press on a text note asks for the flag
+        of the preview and does not grab the note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_off_curves()
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.hover_display(center_tuple)
+        self.assertTrue(self.plot_widget.marker_preview_shown())
+        self.press_release_display(center_tuple)
+        self.assertEqual(self.press_note_index_i, -1)
+        self.assertEqual(len(self.place_list), 1)
+        self.assertEqual(self.note_move_list, [])
+
+    @covers("LLFR-01248", "LLFR-00045", "LLFR-00042", "LLFR-00742",
+            "HLFR-00025")
+    def test_tip_pinned_over_a_text_note(self) -> None:
+        """With the Data tip tool, a press on a text note where the hover
+        tip is shown pins that point and does not grab the note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_on_level_curve()
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        self.hover_display(center_tuple)
+        hover_tuple = self.plot_widget.hover_point_tuple
+        self.assertEqual(hover_tuple[0], "Level")
+        self.press_release_display(center_tuple)
+        self.assertEqual(self.press_note_index_i, -1)
+        self.assertEqual(self.pin_list, [hover_tuple])
+        self.assertEqual(self.note_move_list, [])
+
+    @covers("LLFR-01248", "LLFR-00163", "LLFR-00352", "LLFR-00742",
+            "HLFR-00043", "HLFR-00044")
+    def test_point_picked_over_a_text_note(self) -> None:
+        """With a delta tool, a press on a text note where the dot is
+        shown picks the point of the dot and does not grab the note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_on_level_curve()
+        for tool_str in (DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                self.pick_list.clear()
+                self.plot_widget.set_plot_tool(tool_str)
+                self.hover_display(center_tuple)
+                self.assertTrue(self.plot_widget.delta_preview_shown())
+                target_tuple = self.plot_widget.delta_preview_point_tuple
+                self.press_release_display(center_tuple)
+                self.assertEqual(self.press_note_index_i, -1)
+                self.assertEqual(self.pick_list, [target_tuple])
+                self.assertEqual(target_tuple[0], "Level")
+                self.assertEqual(self.note_move_list, [])
+
+    @covers("LLFR-01248", "LLFR-00742", "LLFR-00339", "LLFR-00354")
+    def test_note_grabbed_where_no_dot_is_shown(self) -> None:
+        """With a delta tool, a press on a text note off every curve,
+        where no dot is shown, still grabs the note and picks nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_off_curves()
+        self.plot_widget.set_plot_tool(DELTA_X_TOOL_STR)
+        self.hover_display(center_tuple)
+        self.assertFalse(self.plot_widget.delta_preview_shown())
+        self.hover_display(center_tuple)
+        send_mouse_event(self.plot_widget, "button_press_event",
+                         *center_tuple, LEFT_BUTTON_I)
+        self.assertEqual(self.plot_widget.drag_note_index_i, 0)
+        end_tuple = (center_tuple[0] + 30.0, center_tuple[1])
+        send_mouse_event(self.plot_widget, "motion_notify_event",
+                         *end_tuple, LEFT_BUTTON_I)
+        send_mouse_event(self.plot_widget, "button_release_event",
+                         *end_tuple, LEFT_BUTTON_I)
+        self.assertEqual(len(self.note_move_list), 1)
+        self.assertEqual(self.pick_list, [])
 
 
 class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):

@@ -110,7 +110,7 @@ class FakeSyntheticWindow(FakePlotView):
         self.clipboard_text_list = []
         self.open_path_str = ""
         self.limit_message_list = []
-        self.layout_buttons_enabled_b = None
+        self.save_layout_enabled_b = None
         self.save_signals_enabled_b = None
         self.search_text_handler = None
         self.open_file_handler = None
@@ -293,14 +293,14 @@ class FakeSyntheticWindow(FakePlotView):
         Outputs: none.
         """
 
-    def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
-        """Record the layout button state.
+    def set_save_layout_button_enabled(self, enabled_b: bool) -> None:
+        """Record the Save layout button state.
 
         Inputs:
-            enabled_b: True when the buttons are enabled.
+            enabled_b: True when the button is enabled.
         Outputs: none.
         """
-        self.layout_buttons_enabled_b = enabled_b
+        self.save_layout_enabled_b = enabled_b
 
     def set_save_signals_handler(self, handler) -> None:
         """Ignore the Save signals handler.

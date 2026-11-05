@@ -29,7 +29,9 @@ release, unless the release is less than 5 pixels from the press.
 
 A left press is handled in the same order: on a text note it starts
 moving the note (LLFR-00339), and on a pinned tip it starts moving the
-tip's label (LLFR-00152, LLFR-00153), both with any plot tool or none;
+tip's label (LLFR-00152, LLFR-00153), both with any plot tool or none,
+except where the Flag, Data tip, Delta X or Delta Y tool shows its
+preview: there the press places what the preview shows (LLFR-01248);
 with the Text tool, any other press on the drawing area opens a
 one-line text field at the pressed point (LLFR-00333); with the
 Vertical marker tool, on a marker it starts dragging the marker
@@ -1460,6 +1462,10 @@ class PlotWidget(QWidget):
         if self.drag_marker_id_i not in {
                 marker_tuple[0] for marker_tuple in self.marker_data_list}:
             self.cancel_marker_drag()
+        # LLFR-01215, LLFR-01239: the markers given by the model end a
+        # drawing over the kept image (a plot that followed a drag), so
+        # that the new markers are drawn once, by the full draw below.
+        self.forget_fast_drag()
         # LLFR-00203: a marker may now be under the pointer (one was just
         # placed there); the next mouse move shows the preview again.
         self.hide_marker_preview()
@@ -2863,8 +2869,8 @@ class PlotWidget(QWidget):
         """
         # LLFR-00203: the preview shows the marker a click would place
         # (LLFR-00081); LLFR-01238: it stays over the other objects, a
-        # pinned tip too, although a press on a tip moves it
-        # (LLFR-00153).
+        # pinned tip and a text note too, where a press places the flag
+        # (LLFR-01248).
         if self.plot_tool_str != MARKER_TOOL_STR or self.retired_b:
             return NO_PREVIEW_TIME_S
         # LLFR-00259: a click on a frequency plot places no marker.
@@ -4762,10 +4768,16 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: none.
+        Outputs: none. The tip is shown only with the Tip tool, on a
+            curve and not over a pinned tip (LLFR-01249).
         """
         # LLFR-00042: tips only with the Tip tool and only on a curve.
         if self.plot_tool_str != TIP_TOOL_STR:
+            self.hide_hover_tip()
+            return
+        # LLFR-01249: over a pinned tip a press moves that tip
+        # (LLFR-00153), so no hover tip is shown there.
+        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
             self.hide_hover_tip()
             return
         nearest_tuple = self.nearest_curve_tuple(widget_point)
@@ -4888,11 +4900,13 @@ class PlotWidget(QWidget):
             widget_point: QPoint in this widget's coordinates.
         Outputs: none. The objects at the point are tried in the order
             of LLFR-00383: a press on a text note or a pinned tip starts
-            moving it, with any tool or none. With the Arrow tool, a
-            press on an arrow edits it and any other press draws a new
-            one (arrow_tool_press_at). With no tool active, a press on
-            an arrow, a flag or an area starts moving (or resizing) it,
-            and any other press does nothing (edit_press_at). With the
+            moving it, with any tool or none, except where the active
+            tool shows its preview (preview_press_b, LLFR-01248). With
+            the Arrow tool, a press on an arrow edits it and any other
+            press draws a new one (arrow_tool_press_at). With no tool
+            active, a press on an arrow, a flag or an area starts moving
+            (or resizing) it, and any other press does nothing
+            (edit_press_at). With the
             Pan tool, any other press on the drawing area starts a pan
             (tool_pan_press_at); with the Area tool, it creates, moves
             or resizes an area; with the Flag tool, a press on a flag
@@ -4913,20 +4927,24 @@ class PlotWidget(QWidget):
         # LLFR-00886: a press on a name label whose release was lost
         # does nothing.
         self.label_press_point = None
-        # LLFR-00383: text note first. LLFR-00339: a press on it moves
-        # it, with any tool or none, and never pins, zooms, places a
-        # flag, picks a delta point or starts a note.
-        note_index_i = self.text_note_at(widget_point)
-        if note_index_i != NO_TEXT_NOTE_INDEX_I:
-            self.note_press_at(widget_point, note_index_i)
-            return
-        # LLFR-00383: then the pinned data tip. LLFR-00153: a press on it
-        # moves it, with any tool or none, and never pins, zooms or
-        # places a flag.
-        tip_index_i = self.pinned_tip_at(widget_point)
-        if tip_index_i != NO_TIP_INDEX_I:
-            self.tip_press_at(widget_point, tip_index_i)
-            return
+        # LLFR-01248: where the Flag, Data tip, Delta X or Delta Y tool
+        # shows its preview, the press does what the preview shows, so a
+        # text note or a pinned tip there is not grabbed.
+        if not self.preview_press_b(widget_point):
+            # LLFR-00383: text note first. LLFR-00339: a press on it
+            # moves it, with any tool or none, and never pins, zooms,
+            # places a flag, picks a delta point or starts a note.
+            note_index_i = self.text_note_at(widget_point)
+            if note_index_i != NO_TEXT_NOTE_INDEX_I:
+                self.note_press_at(widget_point, note_index_i)
+                return
+            # LLFR-00383: then the pinned data tip. LLFR-00153: a press
+            # on it moves it, with any tool or none, and never pins,
+            # zooms or places a flag.
+            tip_index_i = self.pinned_tip_at(widget_point)
+            if tip_index_i != NO_TIP_INDEX_I:
+                self.tip_press_at(widget_point, tip_index_i)
+                return
         # LLFR-00383: then the arrow. LLFR-00376, LLFR-00377, LLFR-00384:
         # with the Arrow tool, a press on an arrow edits it, and
         # LLFR-00371: anywhere else, also on a flag or an area, it draws
@@ -4980,6 +4998,33 @@ class PlotWidget(QWidget):
             self.label_press_point = QPoint(widget_point)
             return
         self.click_at(widget_point)
+
+    def preview_press_b(self, widget_point) -> bool:
+        """Tell whether a press at a point places what a preview shows.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed.
+        Outputs: True when the active tool shows its preview at the
+            point: the flag preview with the Flag tool, the hover data
+            tip with the Data tip tool, or the dot of a delta marker
+            point with the Delta X or Delta Y tool; False otherwise.
+        """
+        # LLFR-01248: a click where a preview is shown places the object
+        # it shows. LLFR-00203, LLFR-00662: the flag preview, hidden over
+        # an existing flag, which a press then drags (LLFR-00086).
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            return not math.isnan(self.marker_preview_time_at(widget_point))
+        # LLFR-00042, LLFR-01249: the hover tip shown, never over a
+        # pinned tip, which a press then moves (LLFR-00153).
+        if self.plot_tool_str == TIP_TOOL_STR:
+            return (bool(self.hover_point_tuple)
+                    and self.pinned_tip_at(widget_point) == NO_TIP_INDEX_I)
+        # LLFR-00352: the dot of the point a click would pick.
+        if is_delta_tool(self.plot_tool_str):
+            return bool(self.delta_preview_target_tuple(widget_point))
+        # LLFR-01238: the other previews appear only after the press.
+        return False
 
     def edit_press_at(self, widget_point) -> None:
         """Start moving the object under a press made with no tool active.
@@ -5899,6 +5944,10 @@ class PlotWidget(QWidget):
                 and self.area_drag_id_i not in {
                     area_tuple[0] for area_tuple in self.area_data_list}):
             self.reset_area_drag()
+        # LLFR-01215, LLFR-01239: the areas given by the model end a
+        # drawing over the kept image (a plot that followed a drag), so
+        # that the new areas are drawn once, by the full draw below.
+        self.forget_fast_drag()
         self.draw_areas()
         # LLFR-00310: the areas change on every time plot of every tab; a
         # hidden plot draws them only when it is shown (showEvent).
@@ -7495,7 +7544,7 @@ class PlotWidget(QWidget):
                 or self.retired_b):
             return ()
         # LLFR-01238: the preview stays over a text note or a pinned tip,
-        # although a press there moves them (LLFR-00153, LLFR-00339).
+        # where a press picks the point it shows (LLFR-01248).
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
         nearest_tuple = self.nearest_curve_tuple(widget_point)
         # LLFR-00432: where the second point would give a value of zero

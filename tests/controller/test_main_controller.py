@@ -85,14 +85,14 @@ class FakeMainWindow(FakePlotView):
         """
         self.layout_handler_tuple = (save_handler, load_handler)
 
-    def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
-        """Record whether the layout buttons are enabled.
+    def set_save_layout_button_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Save layout button is enabled.
 
         Inputs:
-            enabled_b: True when they are enabled.
+            enabled_b: True when it is enabled.
         Outputs: none.
         """
-        self.layout_buttons_enabled_b = bool(enabled_b)
+        self.save_layout_enabled_b = bool(enabled_b)
 
     def set_save_signals_handler(self, handler) -> None:
         """Record the handler of the Save signals button.

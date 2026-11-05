@@ -22,7 +22,7 @@ from tests.view.menu_texts import (
     AREA_MENU_TEXT_LIST, DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST,
     TIP_MENU_TEXT_LIST)
 from tests.view.test_plot_tools import (
-    ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
+    ALL_TOOL_TUPLE, GRAB_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 from tests.view.test_text_notes_view import (
     EMPTY_PLACE_TUPLE, TextNoteWidgetTestCase, all_menu_actions)
 
@@ -286,16 +286,17 @@ class DoubleClickTextNoteTest(TextNoteWidgetTestCase):
 
     @covers("LLFR-00411", "LLFR-00342", "LLFR-00339", "LLFR-00825")
     def test_double_click_with_every_tool_opens_edit(self) -> None:
-        """With any plot tool or none, the double-click opens the field
-        of "Edit" over the note, with its text and the keyboard focus,
-        and does nothing else.
+        """With any plot tool or none, except the tools whose preview
+        places an object there (LLFR-01248), the double-click opens the
+        field of "Edit" over the note, with its text and the keyboard
+        focus, and does nothing else.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         self.plot_widget.set_areas([(2, "Area 1", 4.0, 6.0)])
-        for tool_str in ALL_TOOL_TUPLE:
+        for tool_str in GRAB_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_text_notes([self.note_tuple])
                 self.plot_widget.set_plot_tool(tool_str)
@@ -320,6 +321,26 @@ class DoubleClickTextNoteTest(TextNoteWidgetTestCase):
                 self.type_and_press("", "Key_Escape")
                 self.assertFalse(self.editor.isVisible())
                 self.assertEqual(self.edit_list, [])
+
+    @covers("LLFR-01248", "LLFR-00825", "LLFR-00411", "LLFR-00081")
+    def test_double_click_with_the_flag_tool_places_then_edits(self) -> None:
+        """With the Flag tool, the first press of a double-click on a
+        note places the flag of the preview (LLFR-01248), and the second
+        press opens the field of "Edit".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.plot_widget.set_text_notes([self.note_tuple])
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.draw()
+        self.marker_place_list.clear()
+        self.double_click_display(self.note_center())
+        self.assertEqual(len(self.marker_place_list), 1)
+        self.assertTrue(self.editor.isVisible())
+        self.assertEqual(self.plot_widget.editor_note_index_i, 0)
+        self.type_and_press("", "Key_Escape")
+        self.assertEqual(self.edit_list, [])
 
     @covers("LLFR-00411", "LLFR-00342", "LLFR-00746")
     def test_double_click_then_enter_edits_the_text(self) -> None:
