@@ -1,54 +1,20 @@
-"""Self-tests for tests/check_pr_ready.py (PCR-00060 to PCR-00062,
-PCR-00064, PCR-00069, PCR-00070, PCR-00079, PCR-00081)."""
+"""Self-tests for tests/check_pr_ready.py (PCR-00060, PCR-00062,
+PCR-00064, PCR-00065, PCR-00069, PCR-00070, PCR-00081)."""
 
 import os
-import re
 import subprocess
 import tempfile
 import unittest
 
-from tests.check_pr_ready import (MATRIX_PATH_STR, TEST_CELL_PATTERN_STR,
+from tests.build_test_matrix import fail_star_section
+from tests.check_pr_ready import (MATRIX_PATH_STR, NO_FAIL_STAR_SECTION_STR,
                                   branch_problems, description_problems,
-                                  fail_star_entries, matrix_problems,
-                                  pull_request_target, source_hash,
+                                  fail_star_entries, listed_explanations,
+                                  not_implemented_entries,
+                                  pull_request_target, run_matrix_problems,
+                                  source_hash,
                                   starts_with_fail_star_section)
 from tests.support import covers
-
-
-class MatrixProblemsTest(unittest.TestCase):
-    """Check how a committed matrix is judged."""
-
-    @covers("PCR-00061", "PCR-00062")
-    def test_current_matrix_passes(self) -> None:
-        """The right hash with no failed test is no problem.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        text_str = "Source hash: `abc1`\n\n`a.test` passed `b.test` known\n"
-        self.assertEqual(matrix_problems(text_str, "abc1"), [])
-
-    @covers("PCR-00061")
-    def test_old_or_missing_hash_fails(self) -> None:
-        """A matrix built from other code is a problem.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.assertEqual(len(matrix_problems("Source hash: `abc1`\n", "ff")),
-                         1)
-        self.assertEqual(len(matrix_problems("No hash\n", "ff")), 1)
-
-    @covers("PCR-00062")
-    def test_failed_test_fails(self) -> None:
-        """A matrix with a failed test is a problem.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        text_str = "Source hash: `abc1`\n\n`a.test` failed\n"
-        self.assertEqual(len(matrix_problems(text_str, "abc1")), 1)
-
 
 ENVIRONMENT_ENTRY_STR = ("Environment, PyQt6: 2 tests shown as \"Fail* (PyQt6 "
                          "missing)\". PyQt6 cannot be installed in the "
@@ -62,50 +28,76 @@ FAIL_STAR_MATRIX_STR = (
     "| HLFR | LLFR | Tests (last run status) | Result |\n|---|---|---|---|\n"
     "| HLFR-00001 A | LLFR-00001 | `view.test_a` Fail* (PyQt6 missing)"
     "<br>`model.test_b` passed | Fail* (PyQt6 missing) |\n")
+PLAIN_MATRIX_STR = ("# Test matrix\n\nSource hash: `abc1`\n\n"
+                    "| HLFR | LLFR | Tests (last run status) | Result |\n"
+                    "|---|---|---|---|\n"
+                    "| HLFR-00001 A | LLFR-00001 | `a.test` passed<br>"
+                    "`b.test` known macOS failure | pass |\n")
 
 
-class FailStarMatrixTest(unittest.TestCase):
-    """Check how a committed matrix with Fail* is judged."""
+def section_body(entry_list: list, rest_str: str = "## Summary\n") -> str:
+    """Write a description that starts with a Fail* section.
 
-    @covers("PCR-00064")
-    def test_environment_fail_star_counts_as_passed(self) -> None:
-        """An environment Fail* isn't a failed test, into any branch.
+    Inputs:
+        entry_list: the entry texts of the section, without "- ".
+        rest_str: the text after the section.
+    Outputs: the description text.
+    """
+    return ("## Fail* (PCR-00070)\n\n"
+            + "".join(f"- {entry_str}\n" for entry_str in entry_list)
+            + "\n" + rest_str)
+
+
+class RunMatrixProblemsTest(unittest.TestCase):
+    """Check how the matrix of a CI run is judged."""
+
+    @covers("PCR-00062")
+    def test_matrix_with_no_failed_test_passes(self) -> None:
+        """Passed tests and known macOS failures are no problem.
 
         Inputs: none.
         Outputs: none.
         """
-        text_str = FAIL_STAR_MATRIX_STR.replace(
-            f"- {NOT_IMPLEMENTED_ENTRY_STR}\n", "")
-        self.assertEqual(matrix_problems(text_str, "abc1", "develop"), [])
-        self.assertEqual(matrix_problems(text_str, "abc1", "main"), [])
+        self.assertEqual(run_matrix_problems(PLAIN_MATRIX_STR, "develop"), [])
+        self.assertEqual(run_matrix_problems(PLAIN_MATRIX_STR, "main"), [])
 
-    @covers("PCR-00068", "PCR-00069")
-    def test_not_implemented_only_into_develop(self) -> None:
-        """A not-implemented Fail* goes into develop, never into main.
+    @covers("PCR-00062")
+    def test_failed_test_fails(self) -> None:
+        """A matrix with a failed test is a problem into any branch.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        text_str = PLAIN_MATRIX_STR.replace("`a.test` passed",
+                                            "`a.test` failed")
+        self.assertEqual(len(run_matrix_problems(text_str, "develop")), 1)
+        self.assertEqual(len(run_matrix_problems(text_str, "main")), 1)
+
+    @covers("PCR-00064", "PCR-00068")
+    def test_fail_star_is_accepted_into_develop(self) -> None:
+        """Both kinds of Fail* can go into develop.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(
-            matrix_problems(FAIL_STAR_MATRIX_STR, "abc1", "develop"), [])
-        problem_list = matrix_problems(FAIL_STAR_MATRIX_STR, "abc1", "main")
-        self.assertEqual(len(problem_list), 1)
-        self.assertIn("HLFR-00014", problem_list[0])
+            run_matrix_problems(FAIL_STAR_MATRIX_STR, "develop"), [])
 
-    @covers("PCR-00061", "PCR-00063")
-    def test_fail_star_cells_are_tests_of_the_matrix(self) -> None:
-        """The comparison with the CI matrix sees the Fail* tests too.
+    @covers("PCR-00069", "PCR-00064")
+    def test_no_fail_star_of_any_kind_into_main(self) -> None:
+        """Into main, an environment and a not-implemented Fail* both fail.
 
         Inputs: none.
         Outputs: none.
         """
-        self.assertEqual(
-            set(re.findall(TEST_CELL_PATTERN_STR, FAIL_STAR_MATRIX_STR)),
-            {"view.test_a", "model.test_b"})
+        problem_list = run_matrix_problems(FAIL_STAR_MATRIX_STR, "main")
+        self.assertEqual(len(problem_list), 2)
+        self.assertIn("Environment, PyQt6", problem_list[0])
+        self.assertIn("HLFR-00014", problem_list[1])
 
 
-class FailStarDescriptionTest(unittest.TestCase):
-    """Check the Fail* section at the top of the description."""
+class FailStarEntryTest(unittest.TestCase):
+    """Check how the Fail* entries are read and written."""
 
     @covers("PCR-00070")
     def test_entries_are_read(self) -> None:
@@ -116,57 +108,134 @@ class FailStarDescriptionTest(unittest.TestCase):
         """
         self.assertEqual(fail_star_entries(FAIL_STAR_MATRIX_STR),
                          [ENVIRONMENT_ENTRY_STR, NOT_IMPLEMENTED_ENTRY_STR])
-        self.assertEqual(fail_star_entries("# Test matrix\n\n| a |\n"), [])
+        self.assertEqual(fail_star_entries(PLAIN_MATRIX_STR), [])
+        self.assertEqual(fail_star_entries(NO_FAIL_STAR_SECTION_STR),
+                         ["none"])
 
-    @covers("PCR-00070")
-    def test_complete_section_first_passes(self) -> None:
-        """A description that starts with every entry passes.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        body_str = (f"\n## Fail* (PCR-00070)\n\n- {ENVIRONMENT_ENTRY_STR}\n"
-                    f"- {NOT_IMPLEMENTED_ENTRY_STR}\n\n## Summary\n\nText\n")
-        self.assertTrue(starts_with_fail_star_section(body_str))
-        self.assertEqual(description_problems(body_str, FAIL_STAR_MATRIX_STR),
-                         [])
-
-    @covers("PCR-00070")
-    def test_section_not_first_or_incomplete_fails(self) -> None:
-        """The section must be first and hold every entry.
+    @covers("PCR-00066")
+    def test_list_is_read_without_comments(self) -> None:
+        """The list gives each HLFR with its explanation.
 
         Inputs: none.
         Outputs: none.
         """
-        late_body_str = (f"Closes #1\n\n## Fail* (PCR-00070)\n\n"
-                         f"- {ENVIRONMENT_ENTRY_STR}\n"
-                         f"- {NOT_IMPLEMENTED_ENTRY_STR}\n")
-        self.assertFalse(starts_with_fail_star_section(late_body_str))
         self.assertEqual(
-            len(description_problems(late_body_str, FAIL_STAR_MATRIX_STR)), 1)
-        short_body_str = f"## Fail* (PCR-00070)\n\n- {ENVIRONMENT_ENTRY_STR}\n"
-        problem_list = description_problems(short_body_str,
-                                            FAIL_STAR_MATRIX_STR)
+            listed_explanations("# comment\n  # HLFR-00001 no\n\n"
+                                "HLFR-00014 Waits for #190.\n"),
+            {"HLFR-00014": "Waits for #190."})
+
+    @covers("PCR-00065", "PCR-00070")
+    def test_entries_match_the_matrix_builder(self) -> None:
+        """The check writes the same entries as the matrix builder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        explanation_dict = {"HLFR-00014": "Waits for #190.",
+                            "HLFR-00002": "Later."}
+        self.assertEqual(
+            not_implemented_entries(explanation_dict),
+            fail_star_entries(fail_star_section([], explanation_dict)))
+        self.assertIn(NOT_IMPLEMENTED_ENTRY_STR, not_implemented_entries(
+            {"HLFR-00014": "Waits for #190."}))
+
+
+class FailStarDescriptionTest(unittest.TestCase):
+    """Check the Fail* section at the top of the description."""
+
+    @covers("PCR-00070")
+    def test_none_section_passes(self) -> None:
+        """With no Fail*, the section with "- none" passes everywhere.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        body_str = NO_FAIL_STAR_SECTION_STR + "\n## Summary\n\nText\n"
+        self.assertTrue(starts_with_fail_star_section(body_str))
+        self.assertEqual(description_problems(body_str, [], "develop"), [])
+        self.assertEqual(description_problems(body_str, [], "main"), [])
+
+    @covers("PCR-00070")
+    def test_section_is_always_required(self) -> None:
+        """A description with no section, or not first, fails.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for body_str in ("", "Closes #1",
+                         "Closes #1\n\n" + NO_FAIL_STAR_SECTION_STR):
+            with self.subTest(body_str=body_str):
+                problem_list = description_problems(body_str, [], "develop")
+                self.assertEqual(len(problem_list), 1)
+                self.assertIn("- none", problem_list[0])
+
+    @covers("PCR-00070")
+    def test_empty_section_or_none_with_entries_fails(self) -> None:
+        """The section holds "none" alone, or only real entries.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(len(description_problems(section_body([]), [])), 1)
+        self.assertEqual(len(description_problems(
+            section_body(["none", ENVIRONMENT_ENTRY_STR]), [])), 1)
+
+    @covers("PCR-00070", "PCR-00065")
+    def test_missing_expected_entry_fails(self) -> None:
+        """Every expected entry must be in the section.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        problem_list = description_problems(
+            section_body(["none"]), [NOT_IMPLEMENTED_ENTRY_STR])
         self.assertEqual(len(problem_list), 1)
         self.assertIn("HLFR-00014", problem_list[0])
-        self.assertEqual(len(description_problems("", FAIL_STAR_MATRIX_STR)),
-                         1)
+        self.assertEqual(description_problems(
+            section_body([NOT_IMPLEMENTED_ENTRY_STR]),
+            [NOT_IMPLEMENTED_ENTRY_STR]), [])
 
-    @covers("PCR-00070")
-    def test_matrix_without_fail_star_needs_no_section(self) -> None:
-        """With no Fail* in the matrix, any description passes.
+    @covers("PCR-00065")
+    def test_unlisted_not_implemented_entry_fails(self) -> None:
+        """A not-implemented entry needs its HLFR in the list.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        problem_list = description_problems(
+            section_body([NOT_IMPLEMENTED_ENTRY_STR]), [])
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("not_implemented.txt", problem_list[0])
+
+    @covers("PCR-00064", "PCR-00070")
+    def test_declared_environment_entry_into_develop_passes(self) -> None:
+        """An environment entry the check doesn't know is kept into develop.
 
         Inputs: none.
         Outputs: none.
         """
         self.assertEqual(description_problems(
-            "Closes #1", "Source hash: `a`\n\n| a |\n"), [])
+            section_body([ENVIRONMENT_ENTRY_STR]), [], "develop"), [])
+
+    @covers("PCR-00069")
+    def test_any_entry_into_main_fails(self) -> None:
+        """Into main, the section holds only "none".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for entry_str in (ENVIRONMENT_ENTRY_STR, NOT_IMPLEMENTED_ENTRY_STR):
+            with self.subTest(entry_str=entry_str):
+                problem_list = description_problems(
+                    section_body([entry_str]), [entry_str], "main")
+                self.assertEqual(len(problem_list), 1)
+                self.assertIn("PCR-00069", problem_list[0])
 
 
 class TargetTest(unittest.TestCase):
     """Check which commands count as creating a pull request."""
 
-    @covers("PCR-00061")
+    @covers("PCR-00060", "PCR-00081")
     def test_targets(self) -> None:
         """Base and head are read, and other commands give None.
 
@@ -189,10 +258,11 @@ class BranchProblemsTest(unittest.TestCase):
     """Check a branch in a real temporary git repository."""
 
     def setUp(self) -> None:
-        """Create a repository with a develop branch and a feature branch.
+        """Create a repository whose first commit is origin/develop.
 
         Inputs: none.
-        Outputs: none.
+        Outputs: none. The first commit holds src/code.py and the matrix
+            that CI committed to develop.
         """
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
@@ -201,8 +271,8 @@ class BranchProblemsTest(unittest.TestCase):
         for folder_str in ("tests", "src", "docs"):
             os.makedirs(os.path.join(self.folder_str, folder_str))
         self.write_file("src/code.py", "one\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "first")
+        self.write_file(MATRIX_PATH_STR, "# Test matrix built by CI\n")
+        self.commit("first")
         self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
 
     def git(self, *argument_tuple: str) -> None:
@@ -228,39 +298,77 @@ class BranchProblemsTest(unittest.TestCase):
                   encoding="utf-8") as text_file:
             text_file.write(text_str)
 
-    def commit_current_matrix(self) -> None:
-        """Commit a matrix that holds the hash of the current commit.
+    def commit(self, message_str: str) -> None:
+        """Commit every change of the temporary repository.
 
-        Inputs: none.
+        Inputs:
+            message_str: the commit message.
         Outputs: none.
         """
-        hash_str = source_hash("HEAD", self.folder_str)
-        self.write_file(MATRIX_PATH_STR, f"Source hash: `{hash_str}`\n")
         self.git("add", "-A")
-        self.git("commit", "-q", "-m", "matrix")
+        self.git("commit", "-q", "-m", message_str)
 
-    @covers("PCR-00060", "PCR-00061")
-    def test_ready_branch_has_no_problem(self) -> None:
-        """The matrix commit itself doesn't make the matrix old.
+    @covers("PCR-00060", "PCR-00081")
+    def test_code_branch_has_no_problem(self) -> None:
+        """A branch that changes code and not the matrix is ready.
 
         Inputs: none.
         Outputs: none.
         """
-        self.commit_current_matrix()
+        self.write_file("src/code.py", "two\n")
+        self.commit("code")
         self.assertEqual(
             branch_problems("develop", "HEAD", self.folder_str), [])
 
-    @covers("PCR-00061")
-    def test_code_after_the_matrix_is_a_problem(self) -> None:
-        """A code commit after the matrix makes the matrix old.
+    @covers("PCR-00081", "PCR-00061")
+    def test_branch_that_changes_the_matrix_fails(self) -> None:
+        """Only CI writes the matrix; the message names the file.
 
         Inputs: none.
         Outputs: none.
         """
-        self.commit_current_matrix()
+        self.write_file(MATRIX_PATH_STR, "# Built on the branch\n")
+        self.commit("matrix")
+        problem_list = branch_problems("develop", "HEAD", self.folder_str)
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn(MATRIX_PATH_STR, problem_list[0])
+        self.assertIn(f"git checkout origin/develop -- {MATRIX_PATH_STR}",
+                      problem_list[0])
+
+    @covers("PCR-00081", "PCR-00060")
+    def test_matrix_merged_from_develop_is_no_problem(self) -> None:
+        """A new CI matrix on develop, merged into the branch, is fine.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.git("checkout", "-q", "-b", "feature")
         self.write_file("src/code.py", "two\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "more")
+        self.commit("code")
+        self.git("checkout", "-q", "-b", "develop_tip", "HEAD~1")
+        self.write_file(MATRIX_PATH_STR, "# Newer CI matrix\n")
+        self.commit("Update test matrix from CI run 1")
+        self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
+        self.git("checkout", "-q", "feature")
+        self.git("merge", "-q", "--no-edit", "develop_tip")
+        self.assertEqual(
+            branch_problems("develop", "feature", self.folder_str), [])
+
+    @covers("PCR-00081", "PCR-00061")
+    def test_matrix_of_main_brought_by_a_sync_is_no_problem(self) -> None:
+        """The release matrix that main holds may come back to develop.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.git("checkout", "-q", "-b", "main_tip")
+        self.write_file(MATRIX_PATH_STR, "# Matrix of the release run\n")
+        self.commit("Update test matrix from CI run 2")
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.assertEqual(
+            branch_problems("develop", "main_tip", self.folder_str), [])
+        self.write_file(MATRIX_PATH_STR, "# Edited on the branch\n")
+        self.commit("edit")
         self.assertEqual(
             len(branch_problems("develop", "HEAD", self.folder_str)), 1)
 
@@ -272,11 +380,11 @@ class BranchProblemsTest(unittest.TestCase):
         Outputs: none.
         """
         self.git("checkout", "-q", "-b", "feature")
-        self.commit_current_matrix()
+        self.write_file("src/code.py", "two\n")
+        self.commit("code")
         self.git("checkout", "-q", "-b", "newer", "HEAD~1")
-        self.write_file("other.py", "x\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "newer")
+        self.write_file("src/other.py", "x\n")
+        self.commit("newer")
         self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
         self.assertEqual(
             len(branch_problems("develop", "feature", self.folder_str)), 1)
@@ -293,82 +401,28 @@ class BranchProblemsTest(unittest.TestCase):
         self.write_file("tests/not_implemented.txt",
                         "# comment\n  # indented comment\n"
                         "HLFR-00014 Waits for #190.\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "list")
-        self.commit_current_matrix()
+        self.commit("list")
         self.assertEqual(
             branch_problems("develop", "HEAD", self.folder_str), [])
         problem_list = branch_problems("main", "HEAD", self.folder_str)
         self.assertEqual(len(problem_list), 1)
         self.assertIn("HLFR-00014", problem_list[0])
 
-    def commit_docs_change_after_develop_matrix(self) -> None:
-        """Make develop hold a matrix, then change only a PCR-like file.
-
-        Inputs: none.
-        Outputs: none. origin/develop points at the matrix commit, and
-            HEAD is one commit later that changes only docs/process.md.
-        """
-        self.commit_current_matrix()
-        self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
-        self.write_file("docs/process.md", "new rule\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "docs")
-
-    @covers("PCR-00079", "PCR-00081", "PCR-00061")
-    def test_docs_only_branch_keeps_the_develop_matrix(self) -> None:
-        """A branch that runs no test isn't asked for its own matrix.
+    @covers("PCR-00061")
+    def test_hash_ignores_the_matrix(self) -> None:
+        """The hash that the matrix shows doesn't depend on the matrix.
 
         Inputs: none.
         Outputs: none.
         """
-        self.commit_docs_change_after_develop_matrix()
-        self.assertEqual(
-            branch_problems("develop", "HEAD", self.folder_str), [])
-
-    @covers("PCR-00058", "PCR-00061")
-    def test_docs_only_branch_into_main_needs_its_matrix(self) -> None:
-        """Into main every test runs, so the old hash is a problem.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.commit_docs_change_after_develop_matrix()
-        problem_list = branch_problems("main", "HEAD", self.folder_str)
-        self.assertEqual(len(problem_list), 1)
-        self.assertIn("PCR-00061", problem_list[0])
-
-    @covers("PCR-00078", "PCR-00061")
-    def test_code_branch_after_develop_matrix_is_a_problem(self) -> None:
-        """A change under src after develop's matrix makes it old.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.commit_docs_change_after_develop_matrix()
-        self.write_file("src/code.py", "three\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "code")
-        self.assertEqual(
-            len(branch_problems("develop", "HEAD", self.folder_str)), 1)
-
-    @covers("PCR-00079", "PCR-00062")
-    def test_docs_only_branch_still_checks_failed_tests(self) -> None:
-        """The checks that need no test run still apply.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.write_file(MATRIX_PATH_STR, "Source hash: `0`\n`a.t` failed\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "matrix")
-        self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
-        self.write_file("docs/process.md", "new rule\n")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "docs")
-        problem_list = branch_problems("develop", "HEAD", self.folder_str)
-        self.assertEqual(len(problem_list), 1)
-        self.assertIn("PCR-00062", problem_list[0])
+        first_hash_str = source_hash("HEAD", self.folder_str)
+        self.write_file(MATRIX_PATH_STR, "# Another matrix\n")
+        self.commit("matrix")
+        self.assertEqual(source_hash("HEAD", self.folder_str), first_hash_str)
+        self.write_file("src/code.py", "two\n")
+        self.commit("code")
+        self.assertNotEqual(source_hash("HEAD", self.folder_str),
+                            first_hash_str)
 
 
 if __name__ == "__main__":

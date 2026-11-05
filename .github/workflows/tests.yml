@@ -2,23 +2,31 @@ name: Tests
 
 # Runs every test with PyQt6 offscreen, builds the test matrix
 # (PCR-00019 to PCR-00023, PCR-00042) and checks PEP 8 (COR-00002).
-# A pull request runs every test (PCR-00057, PCR-00058) when it changes a
-# file of the list of PCR-00078, and always into main. Otherwise the
-# "Decide" step skips the steps that run or need the tests (PCR-00079),
-# and the job still reports success, so the required check never blocks
-# a merge. The requirement checks run on every pull request (PCR-00080).
+# A pull request, or a push to develop or main, runs every test
+# (PCR-00057, PCR-00058) when it changes a file of the list of PCR-00078,
+# and a pull request into main always does. Otherwise the "Decide" step
+# skips the steps that run or need the tests and the matrix stays as it
+# is (PCR-00079); the job still reports success, so the required check
+# never blocks a merge. The requirement checks run on every pull request
+# (PCR-00080). CI is the only builder of tests/test_matrix.md: it posts
+# the matrix of each pull request on it, and after a push to main that
+# ran the tests, the matrix-pull-request job opens one pull request into
+# main that changes only tests/test_matrix.md (PCR-00061). That pull
+# request, and its merge, skip the tests (PCR-00083).
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [develop, main]
 
 permissions:
-  contents: write        # commit HDF5 sample files on pull request branches
+  contents: write        # commit HDF5 samples, push the matrix branch
   pull-requests: write   # post the test matrix on pull requests
 
 jobs:
   tests:
     runs-on: ubuntu-latest
+    outputs:
+      full_suite: ${{ steps.changes.outputs.full_suite }}
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
@@ -31,29 +39,36 @@ jobs:
           python-version: "3.12"
 
       # PCR-00078, PCR-00079: tests/ci_changed_files.py compares the head
-      # of the pull request with its base and writes full_suite=true or
-      # false. A push to main, and a pull request into main, always run
-      # every test (PCR-00058).
+      # of the pull request with its base, or the pushed commit with the
+      # one the branch pointed to before the push, and writes
+      # full_suite=true or false. A pull request into main always runs
+      # every test (PCR-00058). A doubt (a new branch, a git error) runs
+      # every test.
       - name: Decide whether every test runs
         id: changes
         env:
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
           HEAD_COMMIT: ${{ github.event.pull_request.head.sha }}
+          BEFORE_COMMIT: ${{ github.event.before }}
         run: |
-          if [ -z "$BASE_BRANCH" ]; then
+          if [ -n "$BASE_BRANCH" ]; then
+            python tests/ci_changed_files.py --base "$BASE_BRANCH" \
+              --head "$HEAD_COMMIT" --github-output "$GITHUB_OUTPUT" \
+              | tee changed_files.txt
+          elif [ "$GITHUB_EVENT_NAME" = "push" ] && [ -n "$BEFORE_COMMIT" ]; then
+            python tests/ci_changed_files.py --before "$BEFORE_COMMIT" \
+              --head "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT" \
+              | tee changed_files.txt
+          else
             echo "full_suite=true" >> "$GITHUB_OUTPUT"
-            echo "Result: every test runs (not a pull request)."
-            exit 0
+            echo "Result: every test runs." | tee changed_files.txt
           fi
-          python tests/ci_changed_files.py --base "$BASE_BRANCH" \
-            --head "$HEAD_COMMIT" --github-output "$GITHUB_OUTPUT" \
-            | tee changed_files.txt
           if grep -q "^full_suite=false" "$GITHUB_OUTPUT"; then
             echo "::notice title=Tests skipped (PCR-00079)::every changed file is outside the list of PCR-00078; the requirement checks still run"
             {
               echo "## Tests skipped (PCR-00079)"
               echo
-              echo "Every changed file is outside the list of PCR-00078, so no test runs and the test matrix of develop is kept (PCR-00081). The requirement checks still run (PCR-00080)."
+              echo "Every changed file is outside the list of PCR-00078, so no test runs and the test matrix stays as it is (PCR-00079). The requirement checks still run (PCR-00080)."
               echo
               echo '```'
               cat changed_files.txt
@@ -151,15 +166,18 @@ jobs:
           python tests/build_test_matrix.py --require-qt --require-h5py \
             --output test_matrix_ci.md "${affected_option_list[@]}"
 
-      # PCR-00060 to PCR-00062: the branch is up to date and its committed
-      # matrix was built from its code, with no failed test. An
-      # environment Fail* counts as passed (PCR-00064); a Fail* for an
-      # HLFR not implemented yet is refused into main (PCR-00069). A test
-      # that runs here and fails is still a failure, with or without
-      # --environment-limit. When the tests are skipped (PCR-00079), the
-      # script itself skips the checks that need this run's matrix and
-      # the hash of the branch (PCR-00081), and runs the others.
-      - name: Check the branch and its committed matrix
+      # PCR-00060 to PCR-00062, PCR-00069, PCR-00070, PCR-00081: the
+      # branch is up to date and leaves tests/test_matrix.md as develop
+      # has it; the matrix of this run shows no failed test; into main it
+      # shows no Fail* of any kind; and the description lists every Fail*
+      # of this run, the environment ones included, which only this job
+      # knows. An environment Fail* counts as passed into develop only
+      # (PCR-00064). A test that runs here and fails is still a failure,
+      # with or without --environment-limit. When the tests are skipped
+      # (PCR-00079), only the branch is checked. The description goes
+      # through an environment variable, so its text is never read as
+      # shell code; after editing it, run this job again.
+      - name: Check the branch and the matrix of this run
         if: >-
           github.event_name == 'pull_request' &&
           (github.event.pull_request.base.ref == 'develop' ||
@@ -167,9 +185,12 @@ jobs:
         env:
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
           HEAD_COMMIT: ${{ github.event.pull_request.head.sha }}
-        run: >-
-          python tests/check_pr_ready.py --base "$BASE_BRANCH"
-          --head "$HEAD_COMMIT" --ci-matrix test_matrix_ci.md
+          PULL_REQUEST_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PULL_REQUEST_BODY" > pull_request_body.md
+          python tests/check_pr_ready.py --base "$BASE_BRANCH" \
+            --head "$HEAD_COMMIT" --ci-matrix test_matrix_ci.md \
+            --body-file pull_request_body.md
 
       - name: Show the test matrix
         if: always()
@@ -261,6 +282,74 @@ jobs:
           name: test-matrix
           path: test_matrix_ci.md
           if-no-files-found: ignore
+
+  # PCR-00019, PCR-00022, PCR-00061: after a push to main that ran every
+  # test, which is the merge of a release pull request and tests the
+  # same code as its run, open one pull request into main, from a test
+  # matrix branch (PCR-00002), that changes only tests/test_matrix.md to
+  # the matrix of this run. GitHub runs no workflow on a pull request
+  # opened with the workflow token, so the owner merges it with his
+  # admin bypass (PCR-00084); its merge skips the tests (PCR-00083). The
+  # matrix comes back to develop with the next sync of main into
+  # develop, which tests/check_pr_ready.py accepts (PCR-00081).
+  matrix-pull-request:
+    needs: tests
+    if: >-
+      always() && needs.tests.result != 'cancelled' &&
+      needs.tests.outputs.full_suite == 'true' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: test-matrix-pull-request
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the test matrix
+        uses: actions/download-artifact@v4
+        with:
+          name: test-matrix
+          path: matrix_artifact
+
+      - name: Open the matrix pull request into main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+        run: |
+          cp matrix_artifact/test_matrix_ci.md tests/test_matrix.md
+          if git diff --quiet -- tests/test_matrix.md; then
+            echo "The test matrix on main is already up to date."
+            exit 0
+          fi
+          branch="test-matrix/run-$RUN_ID"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add tests/test_matrix.md
+          git commit -m "Update test matrix from CI run $RUN_ID"
+          git push origin "HEAD:refs/heads/$branch"
+          python3 - "$GITHUB_SHA" "$RUN_ID" "$TESTS_RESULT" > matrix_pull_request.md <<'PYTHON'
+          import sys
+          sys.path.insert(0, ".")
+          from tests.check_pr_ready import (FAIL_STAR_HEADING_STR,
+                                            fail_star_entries)
+          commit_str, run_str, result_str = sys.argv[1:4]
+          with open("tests/test_matrix.md", encoding="utf-8") as matrix_file:
+              entry_list = fail_star_entries(matrix_file.read()) or ["none"]
+          print(f"## {FAIL_STAR_HEADING_STR}\n")
+          print("\n".join(f"- {entry_str}" for entry_str in entry_list))
+          print(f"\nThe test matrix of CI run {run_str} on main, commit "
+                f"{commit_str} (the release merge), whose tests job ended "
+                f"with \"{result_str}\" (PCR-00061). This pull request "
+                "changes only tests/test_matrix.md, so it runs no test "
+                "(PCR-00083). GitHub runs no workflow on it, so the owner "
+                "merges it with his admin bypass (PCR-00084).")
+          PYTHON
+          gh api "repos/$REPOSITORY/pulls" -f title="Update the test matrix from CI run $RUN_ID" \
+            -f head="$branch" -f base=main -F body=@matrix_pull_request.md \
+            --jq '.html_url'
 
   # PCR-00037 and PCR-00038: test the quality of the requirements and
   # post the result on the pull request. A separate job, so a problem in

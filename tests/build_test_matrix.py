@@ -42,7 +42,16 @@ Justified exceptions, shown as `Fail*` with their justification:
   test doesn't fail the check of PCR-00059 (PCR-00068).
 Every Fail* is listed in the section "Fail* (PCR-00070)" above the
 table, and the script prints that section, ready to paste at the top of
-the pull request description (PCR-00070).
+the pull request description, or the section with the single entry
+`none` when there is no Fail* (PCR-00070).
+
+CI is the only builder of tests/test_matrix.md (PCR-00061): it runs
+this script with --output test_matrix_ci.md, posts that file on each
+pull request and, after a release, opens one pull request into main
+that puts it in tests/test_matrix.md. Run locally, the script writes
+test_matrix_local.md at the repository root by default, which git
+ignores, so that a branch leaves tests/test_matrix.md unchanged
+(PCR-00081).
 """
 
 import argparse
@@ -59,7 +68,8 @@ if REPOSITORY_ROOT_STR not in sys.path:
 
 from tests.check_pr_ready import (  # noqa
     ENVIRONMENT_ENTRY_START_STR, FAIL_STAR_HEADING_STR, FAIL_STAR_STR,
-    MAIN_BRANCH_STR, NOT_IMPLEMENTED_ENTRY_START_STR, source_hash)
+    MAIN_BRANCH_STR, NO_FAIL_STAR_SECTION_STR, NOT_IMPLEMENTED_TEXT_STR,
+    not_implemented_entry, source_hash)
 from tests.find_affected_requirements import find_affected_hlfrs  # noqa
 from tests.support import (  # noqa
     COVERED_ATTRIBUTE_STR, H5PY_AVAILABLE_B, QT_AVAILABLE_B)
@@ -72,7 +82,9 @@ REQUIREMENTS_PATH_TUPLE = (
     os.path.join(REQUIREMENTS_FOLDER_STR,
                  "low_level_functional_requirements.md"),
 )
-DEFAULT_OUTPUT_PATH_STR = os.path.join(TESTS_FOLDER_STR, "test_matrix.md")
+# PCR-00081: only CI writes tests/test_matrix.md.
+DEFAULT_OUTPUT_PATH_STR = os.path.join(REPOSITORY_ROOT_STR,
+                                       "test_matrix_local.md")
 HEADING_PATTERN_STR = r"^### ((?:HLFR|LLFR)-\d{5}) (.+)$"
 PARENT_PATTERN_STR = r"^\*Parent: (.+)\*$"
 PASSED_STR = "passed"
@@ -88,7 +100,6 @@ NOT_IMPLEMENTED_LINE_PATTERN_STR = r"^(HLFR-\d{5})\s+(\S.*)$"
 # requires_h5py, and the capability each one names.
 CAPABILITY_BY_SKIP_REASON_DICT = {"PyQt6 is not installed": "PyQt6",
                                   "h5py is not installed": "h5py"}
-NOT_IMPLEMENTED_TEXT_STR = "the implementation has not been done yet."
 
 
 def read_requirements() -> tuple:
@@ -443,9 +454,8 @@ def fail_star_section(test_status_list: list, explanation_dict: dict,
         f"{environment_justification(capability_str, extra_text_str)}"
         for capability_str in sorted(count_dict)]
     entry_list.extend(
-        f"- {NOT_IMPLEMENTED_ENTRY_START_STR}{hlfr_id_str}: "
-        f"{FAIL_STAR_STR} in column 4, {NOT_IMPLEMENTED_TEXT_STR} "
-        f"{explanation_dict[hlfr_id_str]}"
+        "- " + not_implemented_entry(hlfr_id_str,
+                                     explanation_dict[hlfr_id_str])
         for hlfr_id_str in sorted(explanation_dict))
     if not entry_list:
         return ""
@@ -651,6 +661,10 @@ def main() -> int:
     if section_str:
         print("\nThe matrix shows Fail*. Start the pull request description "
               "with this section (PCR-00070):\n\n" + section_str)
+    else:
+        print("\nThe matrix shows no Fail*. Start the pull request "
+              "description with this section (PCR-00070):\n\n"
+              + NO_FAIL_STAR_SECTION_STR)
     if untested_list:
         print("LLFRs without tests: " + ", ".join(untested_list))
     failed_b = any(status_str == FAILED_STR

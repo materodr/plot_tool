@@ -229,3 +229,6 @@ tests/user_tests/big/
 
 # Test matrix built by CI
 test_matrix_ci.md
+
+# Test matrix built locally (PCR-00081: only CI writes tests/test_matrix.md)
+test_matrix_local.md

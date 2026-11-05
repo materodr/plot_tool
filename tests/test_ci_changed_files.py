@@ -1,5 +1,5 @@
 """Self-tests for tests/ci_changed_files.py (PCR-00057, PCR-00058,
-PCR-00078 to PCR-00080)."""
+PCR-00078 to PCR-00080, PCR-00083)."""
 
 import os
 import re
@@ -8,7 +8,8 @@ import tempfile
 import unittest
 
 from tests.ci_changed_files import (branch_needs_full_suite, changed_paths,
-                                    needs_full_suite, path_needs_full_suite)
+                                    needs_full_suite, path_needs_full_suite,
+                                    pushed_paths)
 from tests.support import covers
 
 REPOSITORY_ROOT_STR = os.path.dirname(os.path.dirname(
@@ -129,6 +130,32 @@ class DecisionTest(unittest.TestCase):
         """
         self.assertTrue(needs_full_suite(["CLAUDE.md"], "main"))
 
+    @covers("PCR-00079")
+    def test_push_follows_the_list_on_any_branch(self) -> None:
+        """A push (no base branch) skips for docs, also on main.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertFalse(needs_full_suite(["CLAUDE.md"], ""))
+        self.assertTrue(needs_full_suite(["src/main.py"], ""))
+
+    @covers("PCR-00083", "PCR-00058")
+    def test_matrix_only_change_skips_everywhere(self) -> None:
+        """The matrix pull request and its merge run no test, into main too.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for base_str in ("main", "develop", ""):
+            with self.subTest(base_str=base_str):
+                self.assertFalse(needs_full_suite(["tests/test_matrix.md"],
+                                                  base_str))
+        self.assertTrue(needs_full_suite(
+            ["tests/test_matrix.md", "CLAUDE.md"], "main"))
+        self.assertTrue(needs_full_suite(
+            ["tests/test_matrix.md", "src/main.py"], "develop"))
+
     @covers("PCR-00057")
     def test_no_changed_file_runs_every_test(self) -> None:
         """With no changed file to judge, every test runs.
@@ -229,6 +256,20 @@ class ChangedPathsTest(unittest.TestCase):
             ["code.md", "src/code.py"])
         self.assertTrue(branch_needs_full_suite("develop", "HEAD",
                                                 self.folder_str))
+
+    @covers("PCR-00079")
+    def test_pushed_paths_compare_with_the_commit_before(self) -> None:
+        """A push is judged on what it brought since the previous tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.write_file("CLAUDE.md", "more rules\n")
+        self.git("commit", "-q", "-am", "docs")
+        self.assertEqual(pushed_paths("HEAD~1", "HEAD", self.folder_str),
+                         ["CLAUDE.md"])
+        with self.assertRaises(subprocess.CalledProcessError):
+            pushed_paths("0" * 40, "HEAD", self.folder_str)
 
     @covers("PCR-00078")
     def test_git_failure_runs_every_test(self) -> None:
