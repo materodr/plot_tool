@@ -118,9 +118,9 @@ When in doubt, don't split: over-splitting hurts readability.
    - `pycodestyle`.
 
    PyQt6 and h5py may not install locally (the proxy blocks pypi), so CI runs the GUI tests.
-6. **Matrix:** compare it with develop's `tests/test_matrix.md`.
+6. **Matrix:** compare the matrix that CI posts on the fix PR with the one CI posted on the latest PR into `develop` that ran every test. `tests/test_matrix.md` is updated only once per release (PCR-00019), so it is older between releases.
    - No HLFR that passed may become "fail" or "no tests", unless it only passed through a parent link that no longer fits. Report that case explicitly.
-   - The CI matrix comment is cut off at GitHub's size limit, so read the HLFR rows from the `tests` job log.
+   - The CI matrix comment is cut off at GitHub's size limit, so read the HLFR rows from the run's `test-matrix` artifact or the `tests` job log.
 
 ### Large batches (dozens of requirements)
 - **Regions:** split the work into regions:

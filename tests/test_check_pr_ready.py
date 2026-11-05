@@ -1,5 +1,5 @@
 """Self-tests for tests/check_pr_ready.py (PCR-00060, PCR-00062,
-PCR-00064, PCR-00065, PCR-00069, PCR-00070, PCR-00081)."""
+PCR-00064, PCR-00065, PCR-00069, PCR-00070, PCR-00081, PCR-00085)."""
 
 import os
 import subprocess
@@ -8,7 +8,8 @@ import unittest
 
 from tests.build_test_matrix import fail_star_section
 from tests.check_pr_ready import (MATRIX_PATH_STR, NO_FAIL_STAR_SECTION_STR,
-                                  branch_problems, description_problems,
+                                  branch_problems, command_body,
+                                  description_problems, expected_entries,
                                   fail_star_entries, listed_explanations,
                                   not_implemented_entries,
                                   pull_request_target, run_matrix_problems,
@@ -354,23 +355,58 @@ class BranchProblemsTest(unittest.TestCase):
         self.assertEqual(
             branch_problems("develop", "feature", self.folder_str), [])
 
-    @covers("PCR-00081", "PCR-00061")
-    def test_matrix_of_main_brought_by_a_sync_is_no_problem(self) -> None:
-        """The release matrix that main holds may come back to develop.
+    @covers("PCR-00085", "PCR-00081")
+    def test_test_matrix_branch_may_change_only_the_matrix(self) -> None:
+        """The matrix pull request into develop changes only the matrix.
 
         Inputs: none.
         Outputs: none.
         """
-        self.git("checkout", "-q", "-b", "main_tip")
         self.write_file(MATRIX_PATH_STR, "# Matrix of the release run\n")
-        self.commit("Update test matrix from CI run 2")
-        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.commit("Update the test matrix from the release #254")
+        self.assertEqual(branch_problems(
+            "develop", "HEAD", self.folder_str, "test-matrix/254-develop"),
+            [])
+        self.assertEqual(len(branch_problems(
+            "develop", "HEAD", self.folder_str, "feature/1-x")), 1)
+        self.write_file("src/code.py", "sneaked in\n")
+        self.commit("code")
+        problem_list = branch_problems("develop", "HEAD", self.folder_str,
+                                       "test-matrix/254-develop")
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("PCR-00085", problem_list[0])
+
+    @covers("PCR-00070", "PCR-00065")
+    def test_expected_entries_come_from_the_list_and_the_run(self) -> None:
+        """The list of the head and the environment Fail* of the run.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(expected_entries("HEAD", self.folder_str), [])
+        self.write_file("tests/not_implemented.txt",
+                        "HLFR-00014 Waits for #190.\n")
+        self.commit("list")
         self.assertEqual(
-            branch_problems("develop", "main_tip", self.folder_str), [])
-        self.write_file(MATRIX_PATH_STR, "# Edited on the branch\n")
-        self.commit("edit")
-        self.assertEqual(
-            len(branch_problems("develop", "HEAD", self.folder_str)), 1)
+            expected_entries("HEAD", self.folder_str, FAIL_STAR_MATRIX_STR),
+            [NOT_IMPLEMENTED_ENTRY_STR, ENVIRONMENT_ENTRY_STR])
+
+    @covers("PCR-00070")
+    def test_hook_reads_the_description_file(self) -> None:
+        """The hook finds the description in -F body=@ and --body-file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.write_file("body.md", NO_FAIL_STAR_SECTION_STR)
+        for command_str in (
+                "gh api repos/a/b/pulls -f base=develop -F body=@body.md",
+                "gh pr create --base develop --body-file body.md"):
+            with self.subTest(command_str=command_str):
+                self.assertEqual(command_body(command_str, self.folder_str),
+                                 NO_FAIL_STAR_SECTION_STR)
+        self.assertEqual(command_body("gh pr create --body 'x'",
+                                      self.folder_str), "")
 
     @covers("PCR-00060")
     def test_branch_behind_develop_is_a_problem(self) -> None:

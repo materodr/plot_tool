@@ -57,6 +57,22 @@ on:
       - .github/workflows/macos_build.yml
   push:
     branches: [develop]
+    paths:
+      - build_executable.py
+      - requirements.txt
+      - requirements-build.txt
+      - src/main.py
+      - src/view/splash_screen.py
+      - src/view/theme.py
+      - src/view/startup_probe.py
+      - src/view/file_dialogs.py
+      - src/view/matplotlib_cache.py
+      - src/model/file_loader.py
+      - src/view/icons.py
+      - src/view/icon_shapes.py
+      - src/view/app_icon_files.py
+      - tests/user_tests/measure_startup.py
+      - .github/workflows/macos_build.yml
   workflow_dispatch:
 
 permissions:

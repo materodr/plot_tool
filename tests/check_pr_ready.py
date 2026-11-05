@@ -10,24 +10,33 @@ Usage:
 The flow is: make the change, run locally the tests the environment can
 run before each push (PCR-00082), bring the branch up to date with
 develop (PCR-00060), and open the pull request. CI is the only builder
-of the test matrix (PCR-00061): it builds it on every pull request that
-runs the tests and posts it on the pull request; after a release, it
-opens one pull request into main with the matrix of main's run. A
-branch into develop therefore leaves tests/test_matrix.md as develop
-or main has it (PCR-00081).
+of the test matrix: it builds it on every pull request that runs the
+tests and posts it on the pull request. After a release, an agent opens
+one pull request into main and one into develop, from test matrix
+branches, that put the matrix of the release run in
+tests/test_matrix.md (PCR-00061, PCR-00085). Any other branch into
+develop leaves tests/test_matrix.md as develop has it (PCR-00081).
 
 --hook is the Claude Code PreToolUse hook of .claude/settings.json: it
 exits with code 2, which blocks the command, when the command creates a
 pull request into develop or main from a branch that isn't ready.
+The hook also checks the Fail* section of a description given in a
+file (--body-file, -F or body=@).
 --ci-matrix is for the `tests` CI job: it checks the branch, and the
 matrix that this run built from the branch's code (PCR-00062,
-PCR-00069). With --body-file too, it checks that the description lists
-every Fail* of that matrix (PCR-00070). A pull request that skips the
-tests (PCR-00079) has no matrix of its own, so that part is skipped.
+PCR-00069). With --body-file too, it checks only that the description
+lists the environment Fail* of that run, which is rare and happens only
+into develop (PCR-00072), so that editing a description almost never
+needs the tests to run again. A pull request that skips the tests
+(PCR-00079, PCR-00083) has no matrix of its own, so that part is
+skipped.
 --body-file alone is for the fail-star-section CI job, which runs
-without the tests: the description must start with the Fail* section,
-with an entry for each HLFR of tests/not_implemented.txt, or the single
-entry `none` (PCR-00070). It exits with code 1 when it finds a problem.
+without the tests and again on each edit of the description: the
+description must start with the Fail* section, with an entry for each
+HLFR of tests/not_implemented.txt and for each environment Fail* of
+the matrix that the `tests` job posted for the head commit
+(--run-matrix), or the single entry `none` (PCR-00070). It exits with
+code 1 when it finds a problem.
 
 Two justified exceptions show as `Fail*` in the matrix, each with its
 justification, and are listed in the "Fail* (PCR-00070)" section:
@@ -54,8 +63,10 @@ if REPOSITORY_ROOT_STR not in sys.path:
     sys.path.insert(0, REPOSITORY_ROOT_STR)
 
 from tests.check_requirement_review import (  # noqa
-    API_PULLS_PATTERN_STR, PR_CREATE_PATTERN_STR, option_value)
-from tests.ci_changed_files import branch_needs_full_suite  # noqa
+    API_PULLS_PATTERN_STR, PR_CREATE_PATTERN_STR, option_value,
+    read_text_file)
+from tests.ci_changed_files import (  # noqa
+    branch_needs_full_suite, is_test_matrix_branch)
 from tests.find_affected_requirements import run_git  # noqa
 
 MATRIX_PATH_STR = "tests/test_matrix.md"
@@ -267,33 +278,16 @@ def run_matrix_problems(matrix_str: str,
     return problem_list
 
 
-def matrix_is_the_one_of_main(head_str: str, folder_str: str) -> bool:
-    """Tell whether a branch holds the matrix that main holds.
-
-    Inputs:
-        head_str: the branch or commit.
-        folder_str: a folder of the git checkout.
-    Outputs: True when tests/test_matrix.md of head_str is the file of
-        origin/main, as after the sync of main into develop that brings
-        back the matrix of a release (PCR-00061, PCR-00081); False when
-        it differs or git can't read either.
-    """
-    try:
-        return (run_git(folder_str, "rev-parse",
-                        f"{head_str}:{MATRIX_PATH_STR}")
-                == run_git(folder_str, "rev-parse",
-                           f"origin/{MAIN_BRANCH_STR}:{MATRIX_PATH_STR}"))
-    except (OSError, subprocess.CalledProcessError):
-        return False
-
-
-def branch_problems(base_str: str, head_str: str, folder_str: str) -> list:
+def branch_problems(base_str: str, head_str: str, folder_str: str,
+                    head_branch_str: str = "") -> list:
     """Check a branch that is about to go into a base branch.
 
     Inputs:
         base_str: the branch the pull request goes into.
         head_str: the branch or commit of the pull request.
         folder_str: a folder of the git checkout.
+        head_branch_str: the name of the branch of the pull request, if
+            known, to tell a test matrix branch (PCR-00002).
     Outputs: a list of problem texts. Raises OSError or
         subprocess.CalledProcessError when git can't read the branch.
     """
@@ -306,17 +300,25 @@ def branch_problems(base_str: str, head_str: str, folder_str: str) -> list:
             problem_list.append(
                 f"The branch doesn't contain the latest {base_str} "
                 "(PCR-00060). Update it and run the tests again.")
-        # PCR-00061, PCR-00081: only CI builds the matrix.
-        if (run_git(folder_str, "diff", "--name-only",
-                    f"origin/{base_str}...{head_str}", "--",
-                    MATRIX_PATH_STR).strip()
-                and not matrix_is_the_one_of_main(head_str, folder_str)):
+        changed_path_list = run_git(
+            folder_str, "diff", "--name-only", "--no-renames",
+            f"origin/{base_str}...{head_str}").split()
+        if is_test_matrix_branch(head_branch_str):
+            # PCR-00085: the matrix pull request into develop changes
+            # only the matrix.
+            if any(path_str != MATRIX_PATH_STR
+                   for path_str in changed_path_list):
+                problem_list.append(
+                    f"A test matrix branch changes only {MATRIX_PATH_STR} "
+                    "(PCR-00085), but this one changes other files too.")
+        elif MATRIX_PATH_STR in changed_path_list:
+            # PCR-00081: only the matrix pull requests change the matrix.
             problem_list.append(
-                f"The branch changes {MATRIX_PATH_STR}, which only CI "
-                "builds (PCR-00061, PCR-00081). Put it back as develop has "
-                f"it: `git checkout origin/develop -- {MATRIX_PATH_STR}`, "
-                "then commit. (The matrix of main, brought back by a sync, "
-                "is accepted.)")
+                f"The branch changes {MATRIX_PATH_STR}, which only the "
+                "matrix pull requests of a release change (PCR-00061, "
+                "PCR-00081, PCR-00085). Put it back as develop has it: "
+                f"`git checkout origin/develop -- {MATRIX_PATH_STR}`, then "
+                "commit.")
     if base_str == MAIN_BRANCH_STR:
         # PCR-00069: the list itself, so that no HLFR that isn't
         # implemented yet goes into main.
@@ -361,6 +363,50 @@ def pull_request_target(command_str: str) -> tuple:
     return None
 
 
+def command_body(command_str: str, folder_str: str) -> str:
+    """Read the description of a command that creates a pull request.
+
+    Inputs:
+        command_str: the whole shell command.
+        folder_str: the folder the command runs in.
+    Outputs: the text of the file given with --body-file, -F or body=@,
+        or an empty text when the description isn't in a file.
+    """
+    path_str = option_value(r"(?:--body-file[= ]|-F[= ]?)", command_str)
+    body_match = re.search(r"\bbody=@(['\"]?)(.+?)\1(?:\s|$)", command_str,
+                           re.MULTILINE)
+    if body_match:
+        path_str = body_match.group(2)
+    if not path_str or path_str == "-" or path_str.startswith("body="):
+        return ""
+    return read_text_file(path_str, folder_str)
+
+
+def expected_entries(head_str: str, folder_str: str,
+                     run_matrix_str: str = "") -> list:
+    """List the Fail* entries that a description must hold.
+
+    Inputs:
+        head_str: the branch or commit of the pull request.
+        folder_str: a folder of the git checkout.
+        run_matrix_str: the matrix that the `tests` job built for that
+            commit, or an empty text when it isn't known.
+    Outputs: the entries of the HLFRs of tests/not_implemented.txt of the
+        head (PCR-00065), then the environment entries of the run's
+        matrix (PCR-00063) (PCR-00070). Raises OSError when git can't
+        run.
+    """
+    try:
+        list_text_str = run_git(
+            folder_str, "show",
+            f"{head_str}:{NOT_IMPLEMENTED_LIST_PATH_STR}")
+    except subprocess.CalledProcessError:
+        list_text_str = ""
+    return (not_implemented_entries(listed_explanations(list_text_str))
+            + [entry_str for entry_str in fail_star_entries(run_matrix_str)
+               if entry_str.startswith(ENVIRONMENT_ENTRY_START_STR)])
+
+
 def run_hook() -> int:
     """Check the command that Claude Code is about to run.
 
@@ -379,9 +425,17 @@ def run_hook() -> int:
                                                        DEVELOP_BRANCH_STR):
         return 0
     folder_str = hook_dict.get("cwd") or os.getcwd()
+    base_str, head_str = target_tuple
     try:
-        problem_list = branch_problems(target_tuple[0], target_tuple[1],
-                                       folder_str)
+        head_branch_str = (head_str if head_str != "HEAD" else run_git(
+            folder_str, "rev-parse", "--abbrev-ref", "HEAD").strip())
+        problem_list = branch_problems(base_str, head_str, folder_str,
+                                       head_branch_str)
+        body_str = command_body(command_str, folder_str)
+        if body_str:
+            # PCR-00070: the environment Fail* comes later, from CI.
+            problem_list.extend(description_problems(
+                body_str, expected_entries(head_str, folder_str), base_str))
     except (OSError, subprocess.CalledProcessError):
         return 0
     if not problem_list:
@@ -407,7 +461,7 @@ def print_result(problem_list: list, pass_text_str: str) -> int:
 
 
 def check_in_ci(base_str: str, head_str: str, matrix_path_str: str,
-                body_path_str: str = "") -> int:
+                body_path_str: str = "", head_branch_str: str = "") -> int:
     """Check a pull request's branch and the matrix of its CI run.
 
     Inputs:
@@ -416,71 +470,80 @@ def check_in_ci(base_str: str, head_str: str, matrix_path_str: str,
         matrix_path_str: the matrix that the CI run built.
         body_path_str: the saved description, or empty to skip that
             part.
+        head_branch_str: the name of the branch of the pull request.
     Outputs: the process exit code, 0 when there is no problem. When
-        the pull request skips the tests (PCR-00079), there is no matrix
-        of the run to check, and the branch is still checked.
+        the pull request skips the tests (PCR-00079, PCR-00083), there is
+        no matrix of the run to check, and the branch is still checked.
+        Of the description, only the environment Fail* of this run is
+        checked here (PCR-00070); the fail-star-section job checks the
+        rest.
     """
     try:
         problem_list = branch_problems(base_str, head_str,
-                                       REPOSITORY_ROOT_STR)
+                                       REPOSITORY_ROOT_STR, head_branch_str)
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Result: fail, git can't read the branch: {error}")
         return 1
-    if not branch_needs_full_suite(base_str, head_str, REPOSITORY_ROOT_STR):
-        print("The tests of this pull request are skipped (PCR-00079), so "
-              "there is no matrix of this run to check.")
+    if not branch_needs_full_suite(base_str, head_str, REPOSITORY_ROOT_STR,
+                                   head_branch_str):
+        print("The tests of this pull request are skipped (PCR-00079, "
+              "PCR-00083), so there is no matrix of this run to check.")
         return print_result(problem_list, "the branch is ready.")
     if not os.path.exists(matrix_path_str):
         problem_list.append(f"This run built no test matrix at "
-                            f"{matrix_path_str} (PCR-00061).")
+                            f"{matrix_path_str}.")
         return print_result(problem_list, "")
     with open(matrix_path_str, encoding="utf-8") as matrix_file:
         matrix_str = matrix_file.read()
     problem_list.extend(run_matrix_problems(matrix_str, base_str))
-    if body_path_str:
+    environment_entry_list = [
+        entry_str for entry_str in fail_star_entries(matrix_str)
+        if entry_str.startswith(ENVIRONMENT_ENTRY_START_STR)]
+    if body_path_str and environment_entry_list:
         with open(body_path_str, encoding="utf-8") as body_file:
-            body_str = body_file.read()
-        problem_list.extend(description_problems(
-            body_str, fail_star_entries(matrix_str), base_str))
+            body_entry_list = fail_star_entries(body_file.read())
+        problem_list.extend(
+            f"This run has an environment Fail* that the section \"## "
+            f"{FAIL_STAR_HEADING_STR}\" of the description doesn't list: "
+            f"\"- {entry_str}\" (PCR-00070). Add it, then run this job "
+            "again." for entry_str in environment_entry_list
+            if entry_str not in body_entry_list)
     return print_result(problem_list,
                         "the branch and the matrix of this run are ready.")
 
 
-def check_description(base_str: str, head_str: str,
-                      body_path_str: str) -> int:
+def check_description(base_str: str, head_str: str, body_path_str: str,
+                      run_matrix_path_str: str = "") -> int:
     """Check a saved pull request description, for the CI job.
 
     Inputs:
         base_str: the branch the pull request goes into.
         head_str: the commit of the pull request.
         body_path_str: the path of the saved description.
+        run_matrix_path_str: a file with the matrix that the `tests` job
+            posted for that commit, or empty when there is none yet.
     Outputs: the process exit code, 0 when the description starts with
         the Fail* section and the section lists every HLFR of the
-        branch's tests/not_implemented.txt, or only `none` (PCR-00070),
-        with no Fail* into main (PCR-00069). The environment Fail* of a
-        CI run is checked by the `tests` job (check_in_ci), which knows
-        it.
+        branch's tests/not_implemented.txt and every environment Fail* of
+        the posted matrix, or only `none` (PCR-00070), with no Fail* into
+        main (PCR-00069).
     """
+    run_matrix_str = (read_text_file(run_matrix_path_str, "")
+                      if run_matrix_path_str else "")
     try:
-        list_text_str = run_git(
-            REPOSITORY_ROOT_STR, "show",
-            f"{head_str}:{NOT_IMPLEMENTED_LIST_PATH_STR}")
-    except subprocess.CalledProcessError:
-        list_text_str = ""
+        expected_entry_list = expected_entries(head_str, REPOSITORY_ROOT_STR,
+                                               run_matrix_str)
     except OSError as error:
         print(f"Result: fail, git can't read {head_str} (into {base_str}): "
               f"{error}")
         return 1
     with open(body_path_str, encoding="utf-8") as body_file:
         body_str = body_file.read()
-    expected_entry_list = not_implemented_entries(
-        listed_explanations(list_text_str))
     problem_list = description_problems(body_str, expected_entry_list,
                                         base_str)
     return print_result(problem_list,
                         "the description starts with its Fail* section "
-                        f"({len(expected_entry_list)} HLFR not implemented "
-                        "yet).")
+                        f"({len(expected_entry_list)} Fail* expected).")
 
 
 def main() -> int:
@@ -495,21 +558,26 @@ def main() -> int:
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--ci-matrix", default="")
     parser.add_argument("--body-file", default="")
+    parser.add_argument("--head-branch", default="")
+    parser.add_argument("--run-matrix", default="")
     argument_namespace = parser.parse_args()
     if argument_namespace.hook:
         return run_hook()
     if argument_namespace.ci_matrix:
         return check_in_ci(argument_namespace.base, argument_namespace.head,
                            argument_namespace.ci_matrix,
-                           argument_namespace.body_file)
+                           argument_namespace.body_file,
+                           argument_namespace.head_branch)
     if argument_namespace.body_file:
         return check_description(argument_namespace.base,
                                  argument_namespace.head,
-                                 argument_namespace.body_file)
+                                 argument_namespace.body_file,
+                                 argument_namespace.run_matrix)
     try:
         problem_list = branch_problems(argument_namespace.base,
                                        argument_namespace.head,
-                                       REPOSITORY_ROOT_STR)
+                                       REPOSITORY_ROOT_STR,
+                                       argument_namespace.head_branch)
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Result: fail, git can't read the branch: {error}")
         return 1
