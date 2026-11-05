@@ -3,11 +3,12 @@
 import sys
 from functools import partial
 
+from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QEventLoop, QObject, QPoint, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QAbstractSpinBox, QApplication, QDialog, QFileDialog, QInputDialog,
-    QLineEdit, QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout,
+    QAbstractSpinBox, QApplication, QDialog, QFileDialog, QLineEdit,
+    QMainWindow, QPlainTextEdit, QTextEdit, QVBoxLayout,
     QWidget)
 
 from controller.plot_tools import (
@@ -19,7 +20,7 @@ from model.window_placement import new_window_tuple, placed_window_tuple
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     color_picker, file_dialogs, file_writing, icons, message_boxes,
-    plot_export, synthetic_dialogs, theme)
+    name_dialog, plot_export, synthetic_dialogs, theme)
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.search_box_alignment import SearchBoxAligner
@@ -220,6 +221,9 @@ class MainWindow(QMainWindow):
         # LLFR-01015, LLFR-01028, LLFR-01073, LLFR-01047, LLFR-01055:
         # the handlers of the windows, set by the plot controller.
         self.window_handler_dict = {}
+        # LLFR-01185: Ctrl+P and Ctrl+F in the tab rename dialog.
+        self.plot_panel.name_dialog_shortcut_handler = (
+            self.run_name_dialog_shortcut)
         self.plot_panel.undock_handler = (
             lambda tab_id_i: self._run_window_handler("undock_handler",
                                                       tab_id_i))
@@ -1535,10 +1539,11 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00266, LLFR-00959: the dialog starts from the current
         # name without its prefix.
-        new_name_str, accepted_b = QInputDialog.getText(
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        new_name_str, accepted_b = name_dialog.ask_name_text(
             self.dialog_parent(), RENAME_SIGNAL_DIALOG_TITLE_STR,
-            RENAME_SIGNAL_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
-            current_name_str)
+            RENAME_SIGNAL_DIALOG_LABEL_STR, current_name_str,
+            self.run_name_dialog_shortcut)
         if not accepted_b:
             return None
         return str(new_name_str)
@@ -2232,10 +2237,11 @@ class MainWindow(QMainWindow):
         # LLFR-00315: the dialog starts from the current name; a blank
         # answer is returned as typed, and the controller keeps the old
         # name without a message (LLFR-00720).
-        new_name_str, accepted_b = QInputDialog.getText(
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        new_name_str, accepted_b = name_dialog.ask_name_text(
             self.dialog_parent(), RENAME_AREA_DIALOG_TITLE_STR,
-            RENAME_AREA_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
-            current_name_str)
+            RENAME_AREA_DIALOG_LABEL_STR, current_name_str,
+            self.run_name_dialog_shortcut)
         if not accepted_b:
             return None
         return str(new_name_str)
@@ -2281,10 +2287,10 @@ class MainWindow(QMainWindow):
         Outputs: the typed text, or None when the user cancelled.
         """
         # LLFR-00429, LLFR-00439: the same dialog as for flags and areas.
-        new_name_str, accepted_b = QInputDialog.getText(
-            self.dialog_parent(), title_str, label_str,
-            QLineEdit.EchoMode.Normal,
-            current_name_str)
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        new_name_str, accepted_b = name_dialog.ask_name_text(
+            self.dialog_parent(), title_str, label_str, current_name_str,
+            self.run_name_dialog_shortcut)
         if not accepted_b:
             return None
         return str(new_name_str)
@@ -2357,10 +2363,11 @@ class MainWindow(QMainWindow):
         # LLFR-00088: the dialog starts from the current name.
         # LLFR-00089: a blank answer is returned as typed; the
         # controller keeps the old name without a message.
-        new_name_str, accepted_b = QInputDialog.getText(
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        new_name_str, accepted_b = name_dialog.ask_name_text(
             self.dialog_parent(), RENAME_MARKER_DIALOG_TITLE_STR,
-            RENAME_MARKER_DIALOG_LABEL_STR, QLineEdit.EchoMode.Normal,
-            current_name_str)
+            RENAME_MARKER_DIALOG_LABEL_STR, current_name_str,
+            self.run_name_dialog_shortcut)
         if not accepted_b:
             return None
         return str(new_name_str)
@@ -3251,6 +3258,9 @@ class MainWindow(QMainWindow):
         # LLFR-01172: during a mouse drag, Ctrl+P does nothing.
         if self.is_mouse_drag_in_progress():
             return
+        # LLFR-01186, LLFR-01190, LLFR-01187: a text field is left
+        # first, its selection cleared and its typed text accepted.
+        self.leave_text_field()
         # LLFR-01139: as the Export menu option, from any window, also
         # in a text field (which gives Ctrl+P no meaning of its own).
         self._on_pdf_export_requested()
@@ -3266,6 +3276,12 @@ class MainWindow(QMainWindow):
         # LLFR-01174: during a mouse drag, Ctrl+F does nothing.
         if self.is_mouse_drag_in_progress():
             return
+        # LLFR-01188: in the window's own search box, the focus stays
+        # there; LLFR-01186, LLFR-01190, LLFR-01187: another field is left
+        # first, its selection cleared and its typed text accepted.
+        if QApplication.focusWidget() is not self.search_box_of_window(
+                window_id_i):
+            self.leave_text_field()
         if window_id_i >= 0:
             window = self.undocked_window_dict.get(window_id_i)
             if window is None:
@@ -3284,6 +3300,72 @@ class MainWindow(QMainWindow):
         # LLFR-01140: the focus in the search box, its text selected.
         panel.search_box.setFocus(Qt.FocusReason.ShortcutFocusReason)
         panel.search_box.selectAll()
+
+    def search_box_of_window(self, window_id_i: int):
+        """Return the search box of a window's signal list panel.
+
+        Inputs:
+            window_id_i: id of the undocked window, -1 for the main
+                window.
+        Outputs: the QLineEdit, or None for an unknown window.
+        """
+        # LLFR-01140, LLFR-01188: the search box that Ctrl+F goes to.
+        if window_id_i < 0:
+            return self.signal_list_panel.search_box
+        window = self.undocked_window_dict.get(window_id_i)
+        if window is None:
+            return None
+        return window.signal_list_panel.search_box
+
+    @staticmethod
+    def leave_text_field() -> None:
+        """Take the keyboard focus out of the text field that has it.
+
+        Inputs: none.
+        Outputs: none. The field's selection is cleared and the text
+            typed so far is accepted, as Enter does: a text note field
+            writes its note. Nothing happens when no text field has the
+            focus.
+        """
+        focus_widget = QApplication.focusWidget()
+        if not isinstance(focus_widget, TEXT_INPUT_WIDGET_TUPLE):
+            return
+        # LLFR-01190: the selection is cleared first.
+        if isinstance(focus_widget, QLineEdit):
+            focus_widget.deselect()
+        elif isinstance(focus_widget, (QTextEdit, QPlainTextEdit)):
+            text_cursor = focus_widget.textCursor()
+            text_cursor.clearSelection()
+            focus_widget.setTextCursor(text_cursor)
+        # LLFR-01187: the typed text is accepted, as Enter does
+        # (LLFR-00334). The search box has nothing to accept: its text
+        # is applied while it is typed (LLFR-00095).
+        confirm_signal = getattr(focus_widget, "confirm_requested", None)
+        if confirm_signal is not None:
+            confirm_signal.emit()
+        # LLFR-01186: the focus leaves the field, unless accepting it
+        # already closed it.
+        if not sip.isdeleted(focus_widget) and focus_widget.hasFocus():
+            focus_widget.clearFocus()
+
+    def run_name_dialog_shortcut(self, action_str: str, parent) -> None:
+        """Run Ctrl+P or Ctrl+F pressed in a name dialog, after it closed.
+
+        Inputs:
+            action_str: name_dialog.PDF_ACTION_STR or SEARCH_ACTION_STR.
+            parent: the window the dialog was shown over.
+        Outputs: none.
+        """
+        # LLFR-01185: the action of the shortcut, for the window the
+        # dialog was shown over (the main window when it is unknown).
+        window_id_i = -1
+        for undocked_id_i, window in self.undocked_window_dict.items():
+            if window is parent:
+                window_id_i = undocked_id_i
+        if action_str == name_dialog.PDF_ACTION_STR:
+            self._on_pdf_shortcut()
+        elif action_str == name_dialog.SEARCH_ACTION_STR:
+            self._on_search_shortcut(window_id_i)
 
     def _on_redo_triggered(self) -> None:
         """Run the redo after a click, then let the Redo button finish.

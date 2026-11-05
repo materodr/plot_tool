@@ -32,12 +32,12 @@ from functools import partial
 from PyQt6.QtCore import QEvent, QPoint, QRect, QTimer, Qt
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
-    QApplication, QInputDialog, QLineEdit, QMenu, QStyle,
+    QApplication, QMenu, QStyle,
     QStyleOptionTabWidgetFrame, QTabBar, QTabWidget, QToolButton,
     QVBoxLayout, QWidget)
 
 from model.workspace import TIME_PLOT_KIND_STR
-from view import theme
+from view import name_dialog, theme
 from view.matrix_picker import (
     MatrixPicker, PositionPicker, add_picker_submenu)
 from view.plot_widget import PlotWidget
@@ -428,6 +428,9 @@ class PlotPanel(QWidget):
         self.add_tab_handler = None
         self.delete_tab_handler = None
         self.rename_tab_handler = None
+        # LLFR-01185: runs Ctrl+P or Ctrl+F pressed in the rename dialog,
+        # after the rename; set by the main window.
+        self.name_dialog_shortcut_handler = None
         # LLFR-01087, LLFR-01100: the tab move and the matrix choice.
         self.move_tab_handler = None
         self.plot_matrix_handler = None
@@ -802,9 +805,11 @@ class PlotPanel(QWidget):
         if page is None:
             return
         # LLFR-01023: over the window that shows the tab.
-        new_name_str, accepted_b = QInputDialog.getText(
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name,
+        # then run their action for that window.
+        new_name_str, accepted_b = name_dialog.ask_name_text(
             page.window(), RENAME_DIALOG_TITLE_STR, RENAME_DIALOG_LABEL_STR,
-            QLineEdit.EchoMode.Normal, page.name_str)
+            page.name_str, self.name_dialog_shortcut_handler)
         if not accepted_b:
             return
         # LLFR-00067: the controller keeps the old name for a blank one.
