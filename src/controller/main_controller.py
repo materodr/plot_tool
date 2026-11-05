@@ -102,10 +102,14 @@ class MainController:
             self.export_controller.on_export_requested,
             self.export_controller.on_copy_requested,
             self.export_controller.on_copy_shortcut)
-        # LLFR-01223: the Word and PNG options of the Export menu.
-        main_window.set_image_export_handlers(
-            self.export_controller.on_docx_export_requested,
-            self.export_controller.on_png_export_requested)
+        # LLFR-01223: the Word and PNG options of the Export menu; fake
+        # views of tests that do not export may leave the method out.
+        set_image_export_handlers = getattr(
+            main_window, "set_image_export_handlers", None)
+        if set_image_export_handlers is not None:
+            set_image_export_handlers(
+                self.export_controller.on_docx_export_requested,
+                self.export_controller.on_png_export_requested)
 
         # LLFR-00923: the file menu of the file name rows.
         main_window.set_file_menu_handlers(
