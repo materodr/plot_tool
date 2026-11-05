@@ -1551,6 +1551,49 @@ class HiddenSignalsInEveryPanelTest(UndockedWindowTestCase):
             self.assertEqual(panel.file_row_icon_text("file2_b.csv"),
                              "[+]")
 
+    @covers("LLFR-01194", "LLFR-01192", "LLFR-01036", "LLFR-01037",
+            "HLFR-00128", "HLFR-00123", "HLFR-00053")
+    def test_selection_and_left_key_in_every_panel(self) -> None:
+        """A new signal is selected alone in every panel, and Left on a
+        signal row of a window's panel goes to its file name row.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QEvent, QItemSelectionModel, Qt
+        from PyQt6.QtGui import QKeyEvent
+        _, _, window = self.two_tabs_one_undocked()
+        group_list = [(1, "file1_a.csv", ["file1_Time", "file1_Speed"], ""),
+                      (2, "file2_b.csv", ["file2_Time"], "")]
+        self.main_window.set_collapsed_file_numbers(set())
+        self.main_window.show_signal_groups(group_list)
+        self.process_events()
+        panel_list = [self.main_window.signal_list_panel,
+                      window.signal_list_panel]
+        panel_list[1].signal_list_widget.select_only(
+            panel_list[1].signal_list_widget.row_items("signal")[2])
+        self.main_window.select_only_signal("file1_Speed")
+        for panel in panel_list:
+            self.assertEqual(panel.selected_signal_names(), ["file1_Speed"])
+            self.assertEqual(panel.signal_list_widget.currentItem().text(),
+                             "file1_Speed")
+        # A name that a panel doesn't show changes nothing there.
+        self.main_window.select_only_signal("file3_x")
+        for panel in panel_list:
+            self.assertEqual(panel.selected_signal_names(), ["file1_Speed"])
+        widget = window.signal_list_panel.signal_list_widget
+        for item in widget.row_items("signal"):
+            if item.text() == "file2_Time":
+                widget.setCurrentItem(
+                    item, QItemSelectionModel.SelectionFlag.NoUpdate)
+        widget.keyPressEvent(QKeyEvent(
+            QEvent.Type.KeyPress, Qt.Key.Key_Left,
+            Qt.KeyboardModifier.NoModifier))
+        self.process_events()
+        self.assertEqual(widget.currentItem().text(), "file2_b.csv")
+        self.assertEqual(window.signal_list_panel.selected_signal_names(),
+                         ["file1_Speed"])
+
 
 class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
     """Ctrl+P, Ctrl+C and Ctrl+F do nothing during a mouse drag."""

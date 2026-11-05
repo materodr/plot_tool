@@ -2,10 +2,11 @@
 
 The typed text is split into search words at spaces (LLFR-00105). Each
 word and each signal name is compared without case (LLFR-00098) and
-without separators (LLFR-00100). A word matches a name when it appears
-anywhere in it (LLFR-00099), or, for words of 4 or more characters,
-when a part of the name is within the typo allowance (LLFR-00101).
-The matching names are returned in the three groups of LLFR-00102.
+without separators, the slash included (LLFR-00100, LLFR-00566). A
+word matches a name when it appears anywhere in it (LLFR-00099), or, for
+words of 4 or more characters, when a part of the name is within the
+typo allowance (LLFR-00101). The matching names are returned in the
+three groups of LLFR-00102.
 
 This module is pure Python and has no user interface code (COR-00009).
 """
@@ -17,10 +18,12 @@ from model.data_files import without_prefix
 # LLFR-00097: text the view shows when no signal matches.
 NO_MATCH_TEXT_STR = "No matching signals"
 
-# LLFR-00100: characters ignored in the typed text and in the names.
-# Spaces are also ignored in names; in the typed text they separate the
-# search words (LLFR-00105) before this table is applied.
-IGNORED_CHARACTER_TABLE_DICT = str.maketrans("", "", " _-.")
+# LLFR-00100, LLFR-00566: characters ignored in the typed text and in
+# the names: underscores, hyphens, dots and slashes, so that
+# ``enginespeed`` finds the HDF5 name ``engine/speed``. Spaces are also
+# ignored in names; in the typed text they separate the search words
+# (LLFR-00105) before this table is applied.
+IGNORED_CHARACTER_TABLE_DICT = str.maketrans("", "", " _-./")
 
 # LLFR-00101: one typo is allowed for every full block of this many
 # characters of a search word.
@@ -37,10 +40,11 @@ def normalize_text(text_str: str) -> str:
 
     Inputs:
         text_str: a signal name or a search word.
-    Outputs: the text in lowercase, without spaces, underscores, hyphens
-        and dots.
+    Outputs: the text in lowercase, without spaces, underscores, hyphens,
+        dots and slashes.
     """
-    # LLFR-00098: case is ignored. LLFR-00100: separators are ignored.
+    # LLFR-00098: case is ignored. LLFR-00100, LLFR-00566: separators,
+    # the slash included, are ignored.
     return text_str.lower().translate(IGNORED_CHARACTER_TABLE_DICT)
 
 

@@ -5,8 +5,9 @@ it can be tested with a fake view (COR-00003, COR-00009). The view must
 offer ``set_search_text_handler``, ``show_signal_groups``,
 ``clear_search``, ``set_signal_kinds``, ``clear_signal_selection``,
 ``rename_shown_signal`` and ``set_time_signal_names``, and may offer
-``set_file_toggle_handler`` (the main window does; fake views of tests
-that don't click the icons may leave it out).
+``set_file_toggle_handler`` and ``select_only_signal`` (the main window
+does; fake views of tests that don't click the icons or select may leave
+them out).
 
 The list shows the signals of every open data file, with their prefixed
 names (LLFR-00905), file after file in the order of their numbers
@@ -33,6 +34,9 @@ a folder of a folder tree (HLFR-00123): before each
 offers it) gives the numbers of the collapsed files, whose rows show the
 ``[+]`` icon and no signal below them (LLFR-00994 to LLFR-00998).
 Every open file is collapsed each time a file is opened (LLFR-01001).
+Creating a synthetic signal from the signal menu expands its file and
+selects the new signal (``reveal_new_signal``, LLFR-01193, LLFR-01194);
+a layout load changes neither.
 While the search box holds text, every file is expanded to show its
 matches, and a click on an icon then hides or shows the matches only
 until the search is cleared, when each file goes back to the state it
@@ -201,6 +205,34 @@ class SignalListController:
         else:
             collapsed_set.add(number_i)
         self.show_filtered_names()
+
+    def reveal_new_signal(self, signal_name_str: str,
+                          file_number_value) -> None:
+        """Show and select a synthetic signal the user just created.
+
+        Inputs:
+            signal_name_str: the name of the new synthetic signal, which
+                set_synthetic_signals already lists.
+            file_number_value: the number of its data file (LLFR-00940),
+                or None.
+        Outputs: none. Its file is expanded, also for the state the
+            file gets back after a search (LLFR-01004), and the new
+            signal becomes the only selected signal of every panel
+            (LLFR-01036). The undo and redo history is left unchanged
+            (LLFR-01008).
+        """
+        # LLFR-01193: a collapsed file of the new signal is expanded, in
+        # the state shown now and in the state outside a search.
+        if file_number_value is not None:
+            number_i = int(file_number_value)
+            self.collapsed_number_set.discard(number_i)
+            self.search_collapsed_number_set.discard(number_i)
+        self.show_filtered_names()
+        # LLFR-01194: the new signal is selected, alone; fake views of
+        # tests that don't select may leave the method out.
+        select_signal = getattr(self.view, "select_only_signal", None)
+        if select_signal is not None:
+            select_signal(signal_name_str)
 
     def set_synthetic_signals(self, synthetic_name_list: list,
                               fft_name_set: set,
