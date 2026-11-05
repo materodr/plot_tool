@@ -256,6 +256,78 @@ class AreaCreateTest(AreaWidgetTestCase):
 
 
 @requires_qt
+class PreviewOverObjectsTest(AreaWidgetTestCase):
+    """The drawing previews stay over other objects (LLFR-01232)."""
+
+    def tip_label_point(self):
+        """Pin a data tip on the first curve and return its label centre.
+
+        Inputs: none.
+        Outputs: the QPoint of the centre of the tip's label, in widget
+            coordinates, where pinned_tip_at finds the tip.
+        """
+        name_str, time_array, value_array = (
+            self.plot_widget.curve_data_list[0][:3])
+        index_i = len(time_array) // 2
+        self.plot_widget.set_pinned_tips([
+            (name_str, float(time_array[index_i]),
+             float(value_array[index_i]))])
+        self.draw()
+        box = self.plot_widget.tip_box_extent(
+            self.plot_widget.pinned_tip_annotation(0))
+        point = self.plot_widget.display_to_widget_point(
+            (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+        self.assertEqual(self.plot_widget.pinned_tip_at(point), 0)
+        return point
+
+    @covers("LLFR-01232", "LLFR-00303", "HLFR-00066")
+    def test_area_preview_over_a_pinned_tip(self) -> None:
+        """The preview of a new area follows the pointer over a tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tip_point = self.tip_label_point()
+        self.left_press(self.at(1.0))
+        self.move_to(self.at(1.5))
+        self.move_to(tip_point)
+        self.assertEqual(len(self.plot_widget.area_preview_span_tuple()), 2)
+        self.assertTrue(self.plot_widget.area_preview_shown())
+        self.left_release(tip_point)
+
+    @covers("LLFR-01232", "LLFR-00208", "HLFR-00027")
+    def test_span_selection_over_a_pinned_tip(self) -> None:
+        """The time span line of the Zoom tool follows over a tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tip_point = self.tip_label_point()
+        self.plot_widget.set_plot_tool(ZOOM_TOOL_STR)
+        self.left_press(self.at(1.0))
+        self.move_to(self.at(1.5))
+        self.move_to(tip_point)
+        self.assertTrue(self.plot_widget.time_span_shown_b)
+        self.left_release(tip_point)
+
+    @covers("LLFR-01232", "LLFR-00371", "HLFR-00081")
+    def test_arrow_preview_over_a_pinned_tip(self) -> None:
+        """The preview of a new arrow follows over a tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import ARROW_TOOL_STR
+        tip_point = self.tip_label_point()
+        self.plot_widget.set_plot_tool(ARROW_TOOL_STR)
+        self.left_press(self.at(1.0))
+        self.move_to(self.at(1.5))
+        self.move_to(tip_point)
+        self.assertTrue(self.plot_widget.arrow_preview_shown())
+        self.left_release(tip_point)
+
+
+@requires_qt
 class AreaLookTest(AreaWidgetTestCase):
     """How an area is drawn (LLFR-00305 to LLFR-00308)."""
 

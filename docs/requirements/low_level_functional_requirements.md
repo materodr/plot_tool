@@ -4658,6 +4658,13 @@ Note: The tabs that are shown are the tab shown in the main window and the tab s
 
 *Parent: HLFR-00028*
 
+### LLFR-01232 Previews over other objects
+The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow or a delta marker, except the flag preview over an existing flag (LLFR-00203).
+
+Note: The owner asked on 2026-11-05 that previews take priority over the objects under the pointer. The grab rules are kept: a press on a pinned data tip still moves it (LLFR-00153), and a press on a text note still moves it (LLFR-00339), so over them the preview shows where the pointer is while a click grabs the object. Over an existing flag the flag preview stays hidden, so that the flag can be grabbed (LLFR-00086).
+
+*Parent: HLFR-00028, HLFR-00024, HLFR-00027, HLFR-00043, HLFR-00044, HLFR-00066, HLFR-00081*
+
 ### LLFR-00662 Flag preview hidden
 The app must hide the flag preview (LLFR-00203) when the pointer leaves the plot's drawing area, moves over an existing flag, or the Flag button is deactivated.
 
@@ -5779,7 +5786,7 @@ A two-finger swipe that does not move more horizontally than vertically must onl
 *Parent: HLFR-00036, HLFR-00027*
 
 ### LLFR-00352 Preview of a delta marker point
-While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, including while the X or Y key is held (LLFR-00197, LLFR-00200), and the mouse pointer is over a curve where a click would take a first point (LLFR-00163, LLFR-00166), the app must show a dot on the curve sample nearest to the pointer, in a paler version of the reserved marker color (LLFR-00083).
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, including while the X or Y key is held (LLFR-00197, LLFR-00200), and the mouse pointer is over a curve where a click would take a first point (LLFR-00163, LLFR-00166), or over such a curve where an object of LLFR-01232 lies on it, the app must show a dot on the curve sample nearest to the pointer, in a paler version of the reserved marker color (LLFR-00083).
 
 *Parent: HLFR-00043, HLFR-00044*
 

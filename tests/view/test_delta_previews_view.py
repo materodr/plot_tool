@@ -285,9 +285,11 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.on_mouse_leave(None)
         self.assert_no_delta_preview()
 
-    @covers("LLFR-00352", "LLFR-00153", "LLFR-00679")
-    def test_no_dot_where_a_press_moves_a_pinned_tip(self) -> None:
-        """Over a pinned tip, a press moves the tip: no dot there.
+    @covers("LLFR-00352", "LLFR-01232", "LLFR-00153", "LLFR-00679",
+            "HLFR-00043")
+    def test_dot_stays_over_a_pinned_tip(self) -> None:
+        """Over a pinned tip the dot stays shown (LLFR-01232); a press on
+        the tip still moves it and picks no point (LLFR-00153).
 
         Inputs: none.
         Outputs: none.
@@ -296,8 +298,9 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.set_pinned_tips([point_tuple + ((),)])
         self.draw()
         self.plot_widget.set_plot_tool(DELTA_X_TOOL_STR)
+        # The old rule hid the dot here, over the tip.
         self.hover(*point_tuple[1:])
-        self.assert_no_delta_preview()
+        self.assertTrue(self.plot_widget.delta_preview_shown())
         self.hover(*self.sine_point(7.0)[1:])
         self.assertTrue(self.plot_widget.delta_preview_shown())
         # A press on the tip starts its drag and hides the preview.
@@ -306,6 +309,32 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.assert_no_delta_preview()
         self.mouse("button_release_event", *point_tuple[1:])
         self.assertEqual(self.pick_list, [])
+
+
+class HoverTipOverObjectsTest(DeltaPreviewWidgetTestCase):
+    """The hover data tip stays over other objects (LLFR-01232)."""
+
+    @covers("LLFR-01232", "LLFR-00042", "HLFR-00024")
+    def test_hover_tip_over_a_pinned_tip(self) -> None:
+        """With the Data tip tool, the hover tip is shown on a curve
+        point where a pinned tip is, and follows the pointer.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import TIP_TOOL_STR
+        point_tuple = self.sine_point(4.0)
+        self.plot_widget.set_pinned_tips([point_tuple + ((),)])
+        self.draw()
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        self.hover(*point_tuple[1:])
+        self.assertTrue(self.plot_widget.hover_annotation.get_visible())
+        self.assertEqual(self.plot_widget.hover_point_tuple[:2],
+                         point_tuple[:2])
+        next_tuple = self.sine_point(4.5)
+        self.hover(*next_tuple[1:])
+        self.assertEqual(self.plot_widget.hover_point_tuple[:2],
+                         next_tuple[:2])
 
 
 class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):

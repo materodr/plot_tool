@@ -2689,13 +2689,14 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: the time under the point, in seconds, or NaN when a
-            click there would not place a marker: no Vertical marker
-            tool, a drag in progress, outside the drawing area, or on an
-            existing marker or a pinned tip.
+        Outputs: the time under the point, in seconds, or NaN when there
+            is no preview: no Vertical marker tool, a drag in progress,
+            outside the drawing area, or on an existing marker.
         """
         # LLFR-00203: the preview shows the marker a click would place
-        # (LLFR-00081); LLFR-00153: a click on a pinned tip moves it.
+        # (LLFR-00081); LLFR-01232: it stays over the other objects, a
+        # pinned tip too, although a press on a tip moves it
+        # (LLFR-00153).
         if self.plot_tool_str != MARKER_TOOL_STR or self.retired_b:
             return NO_PREVIEW_TIME_S
         # LLFR-00259: a click on a frequency plot places no marker.
@@ -2709,8 +2710,6 @@ class PlotWidget(QWidget):
         if not self.inside_axes_b(display_x_px, display_y_px):
             return NO_PREVIEW_TIME_S
         if self.marker_at(widget_point) != NO_MARKER_ID_I:
-            return NO_PREVIEW_TIME_S
-        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
             return NO_PREVIEW_TIME_S
         return self.time_at(widget_point)
 
@@ -7309,12 +7308,8 @@ class PlotWidget(QWidget):
         if (widget_point is None or not is_delta_tool(self.plot_tool_str)
                 or self.retired_b):
             return ()
-        # LLFR-00153, LLFR-00339: a press on a text note or a pinned tip
-        # moves it and picks no point.
-        if self.text_note_at(widget_point) != NO_TEXT_NOTE_INDEX_I:
-            return ()
-        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
-            return ()
+        # LLFR-01232: the preview stays over a text note or a pinned tip,
+        # although a press there moves them (LLFR-00153, LLFR-00339).
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
         nearest_tuple = self.nearest_curve_tuple(widget_point)
         # LLFR-00432: where the second point would give a value of zero

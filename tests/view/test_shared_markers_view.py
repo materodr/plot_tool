@@ -473,6 +473,48 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.process_events()
         self.assert_no_preview()
 
+    @covers("LLFR-01232", "LLFR-00203", "LLFR-00153", "HLFR-00028")
+    def test_preview_stays_over_a_pinned_tip(self) -> None:
+        """Over the label of a pinned data tip the flag preview stays
+        shown and follows the pointer; a press there still moves the tip
+        and places no flag.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        plot_widget = self.current_widget_list[0]
+        name_str, time_array, value_array = plot_widget.curve_data_list[0][:3]
+        index_i = len(time_array) // 2
+        plot_widget.set_pinned_tips([(name_str, float(time_array[index_i]),
+                                      float(value_array[index_i]))])
+        self.process_events()
+        plot_widget.canvas.draw()
+        self.activate_marker_tool()
+        box = plot_widget.tip_box_extent(plot_widget.pinned_tip_annotation(0))
+        center_tuple = ((box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+        self.assertEqual(plot_widget.pinned_tip_at(
+            plot_widget.display_to_widget_point(*center_tuple)), 0)
+        send_mouse_event(plot_widget, "motion_notify_event",
+                         float(center_tuple[0]), float(center_tuple[1]),
+                         LEFT_BUTTON_I)
+        self.process_events()
+        self.assertTrue(plot_widget.marker_preview_shown())
+        preview_s = plot_widget.marker_preview_time_s()
+        self.assertTrue(np.isfinite(preview_s))
+        send_mouse_event(plot_widget, "motion_notify_event",
+                         float(center_tuple[0]) + 4.0, float(center_tuple[1]),
+                         LEFT_BUTTON_I)
+        self.assertGreater(plot_widget.marker_preview_time_s(), preview_s)
+        # LLFR-00153: the press grabs the tip, so no flag is placed.
+        send_mouse_event(plot_widget, "button_press_event",
+                         float(center_tuple[0]), float(center_tuple[1]),
+                         LEFT_BUTTON_I)
+        send_mouse_event(plot_widget, "button_release_event",
+                         float(center_tuple[0]), float(center_tuple[1]),
+                         LEFT_BUTTON_I)
+        self.process_events()
+        self.assertEqual(self.workspace.marker_list, [])
+
     @covers("LLFR-00203")
     def test_preview_moves_redraw_only_the_preview(self) -> None:
         """Following the mouse never makes a full draw of any canvas.
