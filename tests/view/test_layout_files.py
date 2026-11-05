@@ -457,7 +457,6 @@ class LayoutEndToEndTestCase(unittest.TestCase):
         self.application.processEvents()
 
 
-
 @requires_qt
 class LayoutEndToEndTest(LayoutEndToEndTestCase):
     """Open a CSV, build a layout, save it, open another file in a new
