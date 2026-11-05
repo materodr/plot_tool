@@ -315,6 +315,7 @@ class ExportCopyTest(unittest.TestCase):
         self.assertFalse(self.top_panel.export_button.is_active())
 
     @covers("LLFR-01233", "LLFR-01234", "LLFR-01235", "LLFR-01236",
+            "LLFR-01240",
             "HLFR-00038")
     def test_png_export_writes_one_file_per_tab(self) -> None:
         """"Save each tab as PNG" asks for a folder and writes one A4 page

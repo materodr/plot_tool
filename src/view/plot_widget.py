@@ -458,9 +458,9 @@ ARROW_DRAG_MOVE_STR = "move"
 ARROW_DRAG_START_STR = "start"
 ARROW_DRAG_END_STR = "end"
 
-# LLFR-01215, LLFR-01217: a drag session ends this long after the last
-# drawn position once no mouse button is held, in case a release was
-# lost; the session ends at the release otherwise.
+# LLFR-01215, LLFR-01217, LLFR-01239: a drag session ends this long
+# after the last drawn position once no mouse button is held, in case a
+# release was lost; the session ends at the release otherwise.
 FAST_DRAG_END_DELAY_MS_I = 150
 
 

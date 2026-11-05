@@ -2601,7 +2601,7 @@ class MainWindow(QMainWindow):
         Outputs: the chosen path, or "" when the user cancelled.
         """
         # LLFR-01230: a save file dialog for a .docx file, in the folder
-        # of LLFR-01237; the system asks before replacing the file.
+        # of LLFR-01243; the system asks before replacing the file.
         dialog = QFileDialog(self, SAVE_DOCX_DIALOG_TITLE_STR,
                              str(start_folder_str), SAVE_DOCX_FILTER_STR)
         dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
@@ -2616,7 +2616,7 @@ class MainWindow(QMainWindow):
             start_folder_str: the folder the dialog shows.
         Outputs: the chosen folder, or "" when the user cancelled.
         """
-        # LLFR-01233: a folder dialog, in the folder of LLFR-01237.
+        # LLFR-01233: a folder dialog, in the folder of LLFR-01243.
         dialog = QFileDialog(self, SAVE_PNG_DIALOG_TITLE_STR,
                              str(start_folder_str))
         dialog.setFileMode(QFileDialog.FileMode.Directory)
@@ -2631,7 +2631,7 @@ class MainWindow(QMainWindow):
         Outputs: the chosen path, or "" when the user cancelled. Tests
             replace this method to answer without a modal dialog.
         """
-        # LLFR-01230, LLFR-01233, LLFR-01237: an empty path is a cancel.
+        # LLFR-01230, LLFR-01233, LLFR-01241: an empty path is a cancel.
         return file_dialogs.run_file_dialog(dialog)
 
     def ask_replace_existing_files(self, folder_str: str,
@@ -2661,7 +2661,7 @@ class MainWindow(QMainWindow):
             description_str: the description of the open data files.
         Outputs: a tuple (saved_b, reason_str).
         """
-        # LLFR-01231, LLFR-01232, LLFR-01237.
+        # LLFR-01231, LLFR-01232, LLFR-01242.
         return plot_export.save_tabs_docx(self.plot_panel.tab_widget,
                                           path_str, description_str,
                                           self.undocked_page_list())
@@ -2676,7 +2676,7 @@ class MainWindow(QMainWindow):
             description_str: the description of the open data files.
         Outputs: a tuple (saved_b, reason_str).
         """
-        # LLFR-01234, LLFR-01237.
+        # LLFR-01234, LLFR-01242.
         return plot_export.save_tab_png_files(
             self.plot_panel.tab_widget, folder_str, file_name_list,
             description_str, self.undocked_page_list())

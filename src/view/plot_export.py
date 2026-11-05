@@ -99,7 +99,7 @@ STRIP_PADDING_PX_I = 8
 PDF_RENDER_FAILED_STR = "The PDF document could not be created."
 # LLFR-00133: reason given when no image could be made.
 COPY_FAILED_REASON_STR = "The image of the plots could not be created."
-# LLFR-01237: the reason of a Word or PNG image that cannot be made.
+# LLFR-01242: the reason of a Word or PNG image that cannot be made.
 IMAGE_RENDER_FAILED_STR = "The image of the plots could not be created."
 
 
@@ -748,11 +748,11 @@ def save_tabs_docx(tab_widget, path_str: str, description_str: str = "",
                      for snapshot_tuple in snapshot_list]
         content_bytes = build_docx_bytes(page_list)
     except (OSError, ValueError) as error:
-        # LLFR-01237, LLFR-00131: the document could not be made.
+        # LLFR-01242, LLFR-00131: the document could not be made.
         if isinstance(error, OSError):
             return (False, describe_os_error(error))
         return (False, str(error))
-    # LLFR-01237, LLFR-00131: a failed write leaves the file untouched.
+    # LLFR-01242, LLFR-00131: a failed write leaves the file untouched.
     return write_file_safely(path_str, content_bytes)
 
 
@@ -781,7 +781,7 @@ def save_tab_png_files(tab_widget, folder_str: str, file_name_list: list,
                 render_page_image(snapshot_tuple, description_str))
         except OSError as error:
             return (False, describe_os_error(error))
-        # LLFR-01237, LLFR-00131: a file that cannot be written stops the
+        # LLFR-01242, LLFR-00131: a file that cannot be written stops the
         # export and is reported.
         saved_b, reason_str = write_file_safely(
             os.path.join(folder_str, file_name_str), content_bytes)

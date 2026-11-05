@@ -257,7 +257,8 @@ class SharedMarkerDrawingTest(SharedMarkerWindowTestCase):
             self.assertEqual(plot_widget.marker_label_text(id_list[0]),
                              "Peak")
 
-    @covers("LLFR-00086", "LLFR-00093", "LLFR-00205", "LLFR-00665")
+    @covers("LLFR-00086", "LLFR-00093", "LLFR-00205", "LLFR-00665",
+            "LLFR-01239", "HLFR-00029")
     def test_drag_on_one_plot_moves_marker_on_all(self) -> None:
         """While dragged, the marker follows on the plots of the tab.
 

@@ -508,9 +508,14 @@ While the user drags an object of LLFR-01215 in a plot whose curves hold up to 1
 *Parent: HLFR-00029, HLFR-00067, HLFR-00106, HLFR-00041, HLFR-00074, HLFR-00099, HLFR-00085*
 
 ### LLFR-01217 Dragged flags and areas on the other plots
-While the user drags a flag or an area, the app must show it at its latest place on the other shown time plots of every window (LLFR-00205, LLFR-00310) with at most one redraw of each of those plots for every 30 milliseconds, and at the place of the release once the button is released.
+While the user drags a flag or an area, the app must show it at its latest place on the other shown time plots of every window (LLFR-00205, LLFR-00310) with at most one redraw of each of those plots for every 30 milliseconds, except as in LLFR-01239.
 
 Note: The other plots are drawn over the image of their curves as in LLFR-01215, so they follow the pointer without slowing the drag.
+
+*Parent: HLFR-00028, HLFR-00029, HLFR-00066, HLFR-00067*
+
+### LLFR-01239 Dragged flags and areas after the release
+When the user releases the mouse button at the end of a drag of a flag or an area, the app must show it at the place of the release on the other shown time plots of every window (LLFR-00205, LLFR-00310).
 
 *Parent: HLFR-00028, HLFR-00029, HLFR-00066, HLFR-00067*
 
@@ -1006,14 +1011,34 @@ Note: For example, the tabs `Tab 1`, `a/b` and `A?b` give `Tab 1.png`, `a_b.png`
 *Parent: HLFR-00038*
 
 ### LLFR-01236 Existing PNG files
-If any PNG file of LLFR-01235 already exists in the chosen folder, the app must ask the user once, naming those files, whether to replace them, and save the PNG files only if the user agrees.
+If any PNG file of LLFR-01235 already exists in the chosen folder, the app must ask the user once, naming those files, whether to replace them.
 
 *Parent: HLFR-00038*
 
-### LLFR-01237 Rules of the PDF export for every export
-The app must apply to "Save all tabs as Word document (.docx)" and "Save each tab as PNG" the rules of "Save all tabs as PDF": the information box when no tab holds a plot, in place of the dialog (LLFR-00145, LLFR-00459), no file saved when the dialog is cancelled (LLFR-00130), the error box when a file cannot be written (LLFR-00131), and the dialog folders of LLFR-01179 and LLFR-01180, with one folder shared by the three exports.
+### LLFR-01240 PNG files saved only if the user agrees
+When the app asks whether to replace existing PNG files (LLFR-01236), it must save the PNG files only if the user agrees.
 
-Note: The shared folder is the folder of the last file that any of the three exports saved successfully. Ctrl+P (Cmd+P on macOS) stays the PDF export (LLFR-01139).
+*Parent: HLFR-00038*
+
+### LLFR-01237 Nothing to export as Word or PNG
+If no tab holds a plot when the user chooses "Save all tabs as Word document (.docx)" or "Save each tab as PNG", the app must show, in place of the dialog of LLFR-01230 or LLFR-01233, the information box of LLFR-00145 saying that there are no plots to export, as for the PDF (LLFR-00459).
+
+*Parent: HLFR-00038*
+
+### LLFR-01241 Word or PNG export cancelled
+If the user cancels the dialog of LLFR-01230 or LLFR-01233, the app must leave every file unchanged, as for the PDF (LLFR-00130).
+
+*Parent: HLFR-00038*
+
+### LLFR-01242 Word or PNG export failure
+If the Word document or a PNG file cannot be written, the app must show an error box saying that the file could not be saved, as for the PDF (LLFR-00131).
+
+*Parent: HLFR-00038, HLFR-00002*
+
+### LLFR-01243 One dialog folder for every export
+The dialogs of "Save all tabs as PDF", "Save all tabs as Word document (.docx)" and "Save each tab as PNG" (LLFR-00128, LLFR-01230, LLFR-01233) must show the folder of LLFR-01179 and LLFR-01180, where the last file saved successfully is the last file that any of the three exports saved successfully.
+
+Note: Ctrl+P (Cmd+P on macOS) stays the PDF export (LLFR-01139).
 
 *Parent: HLFR-00038*
 

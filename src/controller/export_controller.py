@@ -30,7 +30,7 @@ method calls (no Qt code), so it can be tested with a fake view
   ``ask_replace_existing_files(folder_str, file_name_list)`` and
   ``save_tab_png_files(folder_str, file_name_list, description_str)``.
 
-The three exports share one dialog folder (LLFR-01237): the folder of the
+The three exports share one dialog folder (LLFR-01243): the folder of the
 last file that any of them saved successfully, or, before the first, the
 folder the Open file dialog would show (LLFR-01179, LLFR-01180).
 """
@@ -240,9 +240,9 @@ class ExportController:
         if self.view.exportable_tab_count() <= 0:
             self.view.show_nothing_to_export()
             return
-        # LLFR-01230, LLFR-01237: the dialog in the shared folder.
+        # LLFR-01230, LLFR-01243: the dialog in the shared folder.
         path_str = self.view.ask_docx_save_path(self.dialog_folder())
-        # LLFR-01237, LLFR-00130: a cancelled dialog saves nothing.
+        # LLFR-01241, LLFR-00130: a cancelled dialog saves nothing.
         if not path_str:
             return
         docx_path_str = ensure_docx_suffix(path_str)
@@ -252,11 +252,11 @@ class ExportController:
         # LLFR-01231, LLFR-01232: one page per tab that holds a plot.
         saved_b, reason_str = self.view.save_tabs_docx(
             docx_path_str, self.files_description())
-        # LLFR-01237, LLFR-00131: the user is told when it failed.
+        # LLFR-01242, LLFR-00131: the user is told when it failed.
         if not saved_b:
             self.view.show_export_error(reason_str)
             return
-        # LLFR-01237, LLFR-01180: the shared folder moves.
+        # LLFR-01243, LLFR-01180: the shared folder moves.
         self.pdf_folder_str = os.path.dirname(os.path.abspath(docx_path_str))
 
     def _export_png(self) -> None:
@@ -269,15 +269,16 @@ class ExportController:
         if self.view.exportable_tab_count() <= 0:
             self.view.show_nothing_to_export()
             return
-        # LLFR-01233, LLFR-01237: the folder dialog in the shared folder.
+        # LLFR-01233, LLFR-01243: the folder dialog in the shared folder.
         folder_str = self.view.ask_png_folder(self.dialog_folder())
-        # LLFR-01237, LLFR-00130: a cancelled dialog saves nothing.
+        # LLFR-01241, LLFR-00130: a cancelled dialog saves nothing.
         if not folder_str:
             return
         # LLFR-01235: one safe, unique name per tab.
         file_name_list = png_file_name_list(
             self.view.exportable_tab_name_list())
-        # LLFR-01236: one question for the files already there.
+        # LLFR-01236, LLFR-01240: one question for the files already
+        # there, and no file saved without a Yes.
         existing_name_list = [
             file_name_str for file_name_str in file_name_list
             if os.path.exists(os.path.join(folder_str, file_name_str))]
@@ -287,11 +288,11 @@ class ExportController:
         # LLFR-01234: the files.
         saved_b, reason_str = self.view.save_tab_png_files(
             folder_str, file_name_list, self.files_description())
-        # LLFR-01237, LLFR-00131: the user is told when one failed.
+        # LLFR-01242, LLFR-00131: the user is told when one failed.
         if not saved_b:
             self.view.show_export_error(reason_str)
             return
-        # LLFR-01237, LLFR-01180: the shared folder moves.
+        # LLFR-01243, LLFR-01180: the shared folder moves.
         self.pdf_folder_str = os.path.abspath(folder_str)
 
     def _copy_image(self) -> None:
