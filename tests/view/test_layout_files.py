@@ -319,9 +319,9 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
 
 
 @requires_qt
-class LayoutEndToEndTest(unittest.TestCase):
-    """Open a CSV, build a layout, save it, open another file in a new
-    start of the app, load it."""
+class LayoutEndToEndTestCase(unittest.TestCase):
+    """Helpers: open a CSV, build a layout, save it, open another file
+    in a new start of the app, load it."""
 
     def setUp(self) -> None:
         """Create the files, the window and the controller; open a file.
@@ -456,6 +456,13 @@ class LayoutEndToEndTest(unittest.TestCase):
         plot_controller.on_time_range_changed(plot_id_i, 0.5, 1.5)
         self.application.processEvents()
 
+
+
+@requires_qt
+class LayoutEndToEndTest(LayoutEndToEndTestCase):
+    """Open a CSV, build a layout, save it, open another file in a new
+    start of the app, load it."""
+
     @covers("LLFR-00219", "LLFR-00225", "LLFR-00227", "LLFR-00228",
             "LLFR-00230", "LLFR-00231", "LLFR-00232", "LLFR-00237",
             "LLFR-00238", "LLFR-00229", "LLFR-00221", "LLFR-00003")
@@ -559,13 +566,9 @@ class LayoutEndToEndTest(unittest.TestCase):
 
 
 @requires_qt
-class LayoutOptionsViewTest(LayoutEndToEndTest):
+class LayoutOptionsViewTest(LayoutEndToEndTestCase):
     """The save options dialog and the data files of a layout
     (LLFR-01212 to LLFR-01222)."""
-
-    # The tests of LayoutEndToEndTest run in their own class only.
-    test_save_start_again_and_load = None
-    test_unreadable_file_and_cancel_keep_the_layout = None
 
     @covers("LLFR-01212", "LLFR-01213", "HLFR-00155")
     def test_dialog_choices_and_first_values(self) -> None:
