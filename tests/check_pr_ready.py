@@ -30,6 +30,10 @@ into develop (PCR-00072), so that editing a description almost never
 needs the tests to run again. A pull request that skips the tests
 (PCR-00079, PCR-00083) has no matrix of its own, so that part is
 skipped.
+--green-light with --body-file is for the green-light CI job: into
+develop, the description must end its record of the review with a line
+`Green light: <SHA>` that names the head commit, so that any commit
+after the green light fails the check (PCR-00105, PCR-00111, PCR-00112).
 --body-file alone is for the fail-star-section CI job, which runs
 without the tests and again on each edit of the description: the
 description must start with the Fail* section, with an entry for each
@@ -84,6 +88,9 @@ NOT_IMPLEMENTED_ENTRY_START_STR = "Not implemented, "
 NOT_IMPLEMENTED_TEXT_STR = "the implementation has not been done yet."
 LISTED_LINE_PATTERN_STR = r"^\s*(HLFR-\d{5})\b\s*(.*?)\s*$"
 NO_FAIL_STAR_SECTION_STR = f"## {FAIL_STAR_HEADING_STR}\n\n- none\n"
+# PCR-00111, PCR-00112: the line of the description that records the
+# commit the reviewer gave its green light to.
+GREEN_LIGHT_PATTERN_STR = r"^Green light:\s*`?([0-9a-f]{40})`?\s*$"
 
 
 def listed_explanations(list_text_str: str) -> dict:
@@ -236,6 +243,39 @@ def description_problems(body_str: str, expected_entry_list: list,
             "A pull request into main can't carry a Fail* of any kind "
             f"(PCR-00069), but its section lists {len(exception_list)}.")
     return problem_list
+
+
+def green_light_problems(body_str: str, head_sha_str: str,
+                         base_str: str = DEVELOP_BRANCH_STR,
+                         head_branch_str: str = "") -> list:
+    """Check that a pull request's head is the commit of its green light.
+
+    Inputs:
+        body_str: the text of the pull request description.
+        head_sha_str: the full SHA of the head commit of the pull
+            request.
+        base_str: the branch the pull request goes into.
+        head_branch_str: the name of the branch of the pull request.
+    Outputs: a list of problem texts, empty into a branch other than
+        develop, for a test matrix branch (PCR-00087), or when the last
+        line `Green light: <SHA>` of the description names the head
+        commit (PCR-00105, PCR-00111, PCR-00112).
+    """
+    if base_str != DEVELOP_BRANCH_STR or is_test_matrix_branch(
+            head_branch_str):
+        return []
+    sha_list = re.findall(GREEN_LIGHT_PATTERN_STR, body_str, re.MULTILINE)
+    if not sha_list:
+        return ["The description has no line `Green light: <commit SHA>`: "
+                "the reviewer records its green light there, with the head "
+                "commit it approved (PCR-00111)."]
+    if sha_list[-1] != head_sha_str:
+        return [f"The branch changed after the green light of commit "
+                f"{sha_list[-1]}: the head is now {head_sha_str}. After the "
+                "green light nobody changes the branch (PCR-00105), so the "
+                "work goes back to the implementer's loop (PCR-00106, "
+                "PCR-00110)."]
+    return []
 
 
 def source_hash(head_str: str, folder_str: str) -> str:
@@ -560,9 +600,17 @@ def main() -> int:
     parser.add_argument("--body-file", default="")
     parser.add_argument("--head-branch", default="")
     parser.add_argument("--run-matrix", default="")
+    parser.add_argument("--green-light", action="store_true")
     argument_namespace = parser.parse_args()
     if argument_namespace.hook:
         return run_hook()
+    if argument_namespace.green_light:
+        with open(argument_namespace.body_file, encoding="utf-8") as body_file:
+            body_str = body_file.read()
+        return print_result(green_light_problems(
+            body_str, argument_namespace.head, argument_namespace.base,
+            argument_namespace.head_branch),
+            "the head is the commit of the green light.")
     if argument_namespace.ci_matrix:
         return check_in_ci(argument_namespace.base, argument_namespace.head,
                            argument_namespace.ci_matrix,

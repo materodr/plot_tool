@@ -89,3 +89,32 @@ jobs:
           python tests/check_pr_ready.py --body-file pull_request_body.md \
             --base "$BASE_BRANCH" --head "$HEAD_COMMIT" \
             --run-matrix run_matrix.md
+
+  # PCR-00105, PCR-00111, PCR-00112: after the reviewer's green light,
+  # nobody changes the branch. The description records the green-light
+  # commit as `Green light: <SHA>`; a pull request into develop whose head
+  # is another commit fails here, also after a merge of develop or a
+  # conflict fix, and the work goes back to the implementer (PCR-00106,
+  # PCR-00110). The matrix pull request of PCR-00085 has no review
+  # (PCR-00087). Releases into main follow PCR-00050.
+  green-light:
+    if: github.event.pull_request.base.ref == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the green light
+        env:
+          PULL_REQUEST_BODY: ${{ github.event.pull_request.body }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_COMMIT: ${{ github.event.pull_request.head.sha }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          printf '%s' "$PULL_REQUEST_BODY" > pull_request_body.md
+          python tests/check_pr_ready.py --green-light \
+            --body-file pull_request_body.md --base "$BASE_BRANCH" \
+            --head "$HEAD_COMMIT" --head-branch "$HEAD_BRANCH"

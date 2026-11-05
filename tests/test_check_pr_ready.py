@@ -10,6 +10,7 @@ from tests.build_test_matrix import fail_star_section
 from tests.check_pr_ready import (MATRIX_PATH_STR, NO_FAIL_STAR_SECTION_STR,
                                   branch_problems, command_body,
                                   description_problems, expected_entries,
+                                  green_light_problems,
                                   fail_star_entries, listed_explanations,
                                   not_implemented_entries,
                                   pull_request_target, run_matrix_problems,
@@ -231,6 +232,65 @@ class FailStarDescriptionTest(unittest.TestCase):
                     section_body([entry_str]), [entry_str], "main")
                 self.assertEqual(len(problem_list), 1)
                 self.assertIn("PCR-00069", problem_list[0])
+
+
+HEAD_SHA_STR = "a" * 40
+OTHER_SHA_STR = "b" * 40
+
+
+class GreenLightTest(unittest.TestCase):
+    """Check the green-light record of a pull request into develop."""
+
+    @covers("PCR-00111", "PCR-00112")
+    def test_green_light_of_the_head_passes(self) -> None:
+        """The last green-light line names the head commit.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for line_str in (f"Green light: {HEAD_SHA_STR}",
+                         f"Green light: `{HEAD_SHA_STR}`"):
+            with self.subTest(line_str=line_str):
+                self.assertEqual(green_light_problems(
+                    f"Text\n{line_str}\n", HEAD_SHA_STR), [])
+        self.assertEqual(green_light_problems(
+            f"Green light: {OTHER_SHA_STR}\nGreen light: {HEAD_SHA_STR}\n",
+            HEAD_SHA_STR), [])
+
+    @covers("PCR-00105", "PCR-00106", "PCR-00112")
+    def test_commit_after_the_green_light_fails(self) -> None:
+        """A head that isn't the green-light commit goes back.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        problem_list = green_light_problems(
+            f"Green light: {OTHER_SHA_STR}\n", HEAD_SHA_STR)
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("PCR-00105", problem_list[0])
+
+    @covers("PCR-00111")
+    def test_missing_green_light_fails(self) -> None:
+        """A pull request into develop needs the green-light line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(len(green_light_problems("Closes #1",
+                                                  HEAD_SHA_STR)), 1)
+        self.assertEqual(len(green_light_problems(
+            "Green light: abc\n", HEAD_SHA_STR)), 1)
+
+    @covers("PCR-00087", "PCR-00112")
+    def test_main_and_matrix_branches_need_no_green_light(self) -> None:
+        """Releases and the matrix pull request into develop are exempt.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(green_light_problems("", HEAD_SHA_STR, "main"), [])
+        self.assertEqual(green_light_problems(
+            "", HEAD_SHA_STR, "develop", "test-matrix/254-develop"), [])
 
 
 class TargetTest(unittest.TestCase):

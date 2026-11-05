@@ -19,6 +19,13 @@ on:
   push:
     branches: [develop, main]
 
+# PCR-00107: a new commit on the branch of a pull request cancels the
+# run of the earlier commit, and the green-light check sends the work back
+# to the implementer (PCR-00106).
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write        # commit HDF5 sample files on pull request branches
   pull-requests: write   # post the test matrix on pull requests

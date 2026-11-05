@@ -97,7 +97,7 @@ Pull requests into `main` must be approved by humans.
 ### PCR-00016 Agent merges
 An AI agent must only merge a pull request into a branch other than `main` after an agent different from the one that did the implementation has reviewed and tested it independently, except as in PCR-00087.
 
-Note: The review happens before the pull request is opened and before CI runs (PCR-00088 to PCR-00098).
+Note: The review happens before the pull request is opened and before CI runs (PCR-00088 to PCR-00112).
 
 ### PCR-00017 Issue list for develop to main
 A pull request from `develop` to `main` must list all the issues that track the code changes since the last merge into `main`.
@@ -292,7 +292,7 @@ Note: The Feature and Fix issue templates have this section. The reviewer reads 
 ### PCR-00088 Independent review before the pull request
 Before a pull request into `develop` is opened, an agent other than its implementer must review the branch's code, requirements and tests, except as in PCR-00087.
 
-Note: This is the review of PCR-00016, done before CI. The owner agreed this flow on 2026-11-05 and refined it the same day. A release keeps PCR-00050, and the owner merges it (PCR-00015).
+Note: This is the review of PCR-00016, done before CI. The owner agreed this flow on 2026-11-05 and refined it the same day (PCR-00098 to PCR-00112). A release keeps PCR-00050, and the owner merges it (PCR-00015).
 
 ### PCR-00104 Questions and answers in the review
 The reviewer of PCR-00088 must read, as part of its review, the "Questions and answers" section of the issue of the change (PCR-00103).
@@ -334,8 +334,44 @@ Note: A declared `Fail*` is accepted into `develop` only (PCR-00069).
 ### PCR-00097 CI failure goes back to the implementer
 When the CI checks of the pull request fail, the branch must go back to the implementer for a fix, which the reviewer checks as in PCR-00094 before CI runs again.
 
-### PCR-00098 Commits after the green light
-The reviewer of PCR-00088 must check every commit added to the branch after its green light, such as a merge of `develop` or a conflict fix, before it merges the pull request.
+### PCR-00098 Branch frozen after the handover
+After the handover (PCR-00102), only the reviewer of PCR-00088 must change the branch, with its own tests under `tests/` (PCR-00091), until the reviewer or CI sends the work back to the implementer.
+
+Note: The implementer works on the branch again only in its loop (PCR-00100), after a rejection.
+
+### PCR-00105 Branch frozen after the green light
+After the green light of the reviewer of PCR-00088, the branch must stay unchanged, by everyone, the reviewer included, until it is merged or sent back to the implementer.
+
+### PCR-00106 Commit after the green light
+When a commit is added to the branch after the green light, for example after CI has started, the work must go back to the implementer's loop (PCR-00100).
+
+Note: The `green-light` check fails such a pull request (PCR-00112), and the commit cancels the CI run of the earlier commit (PCR-00107).
+
+### PCR-00107 CI stopped by a new commit
+When a commit is added to the branch of a pull request, CI must cancel the `tests` run of the earlier commit.
+
+Note: The `tests` workflow has a `concurrency` group per pull request with `cancel-in-progress: true`.
+
+### PCR-00108 Green light only on an up-to-date branch
+The reviewer of PCR-00088 must give its green light only while the branch contains the latest commit of `develop`.
+
+### PCR-00109 Branch outdated during the review
+When `develop` gets a new commit during the review, the reviewer of PCR-00088 must send the work back to the implementer, who merges `develop` in, goes through its loop again (PCR-00100, PCR-00101) and hands over again (PCR-00102).
+
+### PCR-00110 Branch outdated during CI or before the merge
+When `develop` gets a new commit while the CI of the pull request runs or before its merge, the work must go back to the implementer, who merges `develop` in, goes through its loop again (PCR-00100, PCR-00101) and hands over again (PCR-00102), as in PCR-00109.
+
+Note: The merge of `develop` changes the branch after the green light, so the `green-light` check fails until a new green light (PCR-00112). The ruleset of `develop` also asks for an up-to-date branch.
+
+### PCR-00111 Green light recorded
+The reviewer of PCR-00088 must record its green light in the description of the pull request, as a line `Green light: <commit SHA>` with the full SHA of the head commit that it approved.
+
+Note: When a new green light is given after a rejection, a new line is added below; the last one counts.
+
+### PCR-00112 Green light check
+The `green-light` CI check must fail a pull request into `develop` whose head commit isn't the commit of the last green-light line of its description (PCR-00111), except the pull request of PCR-00085.
+
+Note: `tests/check_pr_ready.py --green-light` makes the check. It runs again on every push and every edit of the description.
 
 ### PCR-00025 Stable permanent branches
 The `develop` and `main` branches must be kept free of crashes.
