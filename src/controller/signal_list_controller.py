@@ -197,7 +197,8 @@ class SignalListController:
             is left unchanged (LLFR-01008).
         """
         # LLFR-00997, LLFR-00998: [-] hides the signals, [+] shows them;
-        # LLFR-01003: during a search, only for that search.
+        # LLFR-01003: during a search, only for that search. LLFR-01008:
+        # no snapshot is taken, so the undo and redo history stays.
         number_i = int(number_i)
         collapsed_set = self.active_collapsed_set()
         if number_i in collapsed_set:
