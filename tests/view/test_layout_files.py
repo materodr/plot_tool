@@ -288,7 +288,7 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
         self.assertEqual(self.main_window.panel_width_tuple(),
                          (total_i - 400, 400))
 
-    @covers("LLFR-01191", "LLFR-00482", "LLFR-00230", "LLFR-01054",
+    @covers("LLFR-01195", "LLFR-00482", "LLFR-00230", "LLFR-01054",
             "HLFR-00050", "HLFR-00130", "HLFR-00141")
     def test_panel_widths_scaled_and_trimmed(self) -> None:
         """Saved widths are scaled to the room of the panels; a signal
