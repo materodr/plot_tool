@@ -50,8 +50,8 @@ When a box of LLFR-00981 lists two or more items, the app must number them `1.`,
 *Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
 
 ### LLFR-00981 Boxes that list items
-The boxes whose items are shown as in LLFR-00980 to LLFR-00990 must be these boxes, with these items:
-1. the File Open Error box of LLFR-00955: one item for each file that could not be opened, with its reason;
+The boxes whose items are shown as in LLFR-00980 to LLFR-00990 and LLFR-01176 must be these boxes, with these items:
+1. the File Open Error box of LLFR-00955: one item for each file that could not be opened, with its reason, which holds a list of its own for the check of HLFR-00009 (LLFR-01178);
 2. the box of the refused files of LLFR-00956: one item for each refused file, with its reason;
 3. the load report of LLFR-00237: one item for each entry under each of its headings;
 4. the box of the changed names of LLFR-00404: one item for each changed name;
@@ -104,9 +104,32 @@ In the load report of LLFR-00237, the app must leave one blank line between the 
 *Parent: HLFR-00052*
 
 ### LLFR-00990 Wrapped lines in the scrollable boxes
-In the scrollable boxes of LLFR-00884 and LLFR-00885, the app must wrap each line that is wider than the box at the width of the box, also inside a long name, so that the user reads every item without scrolling to the side.
+In the scrollable boxes of LLFR-00884, LLFR-00885 and LLFR-01177, the app must wrap each line that is wider than the box at the width of the box, also inside a long name, so that the user reads every item without scrolling to the side.
 
-*Parent: HLFR-00052, HLFR-00090*
+Note: Each wrapped line starts under the text of its own item (LLFR-01176).
+
+*Parent: HLFR-00052, HLFR-00090, HLFR-00122*
+
+### LLFR-01176 Wrapped lines under the text of their item
+When a box of LLFR-00981 wraps a line that is wider than the box, the app must start each wrapped part of that line where the text of the line starts after its indent (LLFR-00985) and its number (LLFR-00980, LLFR-00986), so that a wrapped line continues under the text of its own item and not at the left edge of the box.
+
+Note: The owner asked for this on 2026-11-04 (answer 23b). The indent and the number are drawn as a hanging indent, measured in the font of the box. A line with no indent and no number, such as the sentence of LLFR-00983, wraps at the left edge of the box as before.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-01177 Scrollable File Open Error and refused files boxes
+When the text of the File Open Error box of LLFR-00955 or of the box of LLFR-00956 takes more than 15 lines, counting each line of more than 80 characters as one line for every 80 characters or part of them, the app must show that box, with its title and its icon, with its text in a read-only field that is scrollable when the text is longer than the field can show, like the load report (LLFR-00884).
+
+Note: The owner asked for this on 2026-11-04 (answer 23c). A shorter box stays an ordinary message box. The load report and the box of the changed names always show their list in such a field (LLFR-00884, LLFR-00885).
+
+*Parent: HLFR-00002, HLFR-00122, HLFR-00113*
+
+### LLFR-01178 Sample-count error as a list
+When a file fails the check of HLFR-00009, the app must list, in the reason of LLFR-00012, each signal whose number of samples differs from that of the reference signal, which is the time signal or, while the time signal is not chosen yet, the first signal of the file, with its number of samples, as the items of a list (LLFR-00980 to LLFR-00986) below the sentence that names the check and gives the number of samples of the reference signal (LLFR-00983).
+
+Note: The owner asked for this on 2026-11-04 (answer 23d). Inside the File Open Error box this list is part of the item of its file, so its lines are indented under that item (LLFR-00985). One signal alone is shown without a number (LLFR-00984).
+
+*Parent: HLFR-00009, HLFR-00002*
 
 ### LLFR-00072 Initial signal list width
 When the app starts, the signal list panel of the main window must take 20% of the main window's width.
@@ -377,11 +400,11 @@ When the user clicks the undock button of a docked tab, the app must move that t
 ### LLFR-01016 Size of a new undocked window
 When the app opens an undocked window by an undock (LLFR-01015, LLFR-01142), it must give the window the width and height of the main window's plot panel, limited to the screen as in LLFR-01084.
 
-Note: A window opened by a drop of a tab of an undocked window outside the app gets the size of LLFR-01176.
+Note: A window opened by a drop of a tab of an undocked window outside the app gets the size of LLFR-01179.
 
 *Parent: HLFR-00124*
 
-### LLFR-01176 Size of a window opened by a drop outside the app
+### LLFR-01179 Size of a window opened by a drop outside the app
 When the app opens an undocked window by a drop of a tab of an undocked window outside the app (LLFR-01167), it must give the new window the width and height that the window the tab was dragged from had at the drop, limited to the screen as in LLFR-01084.
 
 Note: The owner's answer of 2026-11-04 (27a): the tab keeps the size of the window it came from. A tab dragged out of the main window still gets the size of the plot panel (LLFR-01016).
@@ -574,14 +597,14 @@ When 10 data files are open while selected files of LLFR-00952 are still left to
 ### LLFR-00955 One File Open Error box for a selection
 After the app has taken all the selected files (LLFR-00952), if any of them could not be opened at the reading step of LLFR-00328 or met an unexpected error (LLFR-00973), the app must show one File Open Error box that lists each such file by its name, without its folder, with the reason of its error (LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064, LLFR-00065, LLFR-00973).
 
-Note: With one file selected, the box lists that one file.
+Note: With one file selected, the box lists that one file. A long box is scrollable (LLFR-01177).
 
 *Parent: HLFR-00122, HLFR-00002, HLFR-00004*
 
 ### LLFR-00956 One information box for the refused files
 After the app has taken all the selected files (LLFR-00952), and after the box of LLFR-00955 when that box is shown, if any selected file was refused (LLFR-00898, LLFR-00954), the app must show one information box that lists each refused file by its name, without its folder, with the reason of LLFR-00898 or LLFR-00954.
 
-Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032).
+Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long box is scrollable (LLFR-01177).
 
 *Parent: HLFR-00122, HLFR-00113*
 
@@ -719,6 +742,8 @@ If the user selects a file whose format is not listed in HLFR-00005, the app mus
 
 ### LLFR-00012 Failed content check message
 If the file fails the check in HLFR-00008 or HLFR-00009, the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file cannot be opened, naming the check that failed.
+
+Note: For the check of HLFR-00009, the reason lists the signals with another number of samples (LLFR-01178).
 
 *Parent: HLFR-00008, HLFR-00009, HLFR-00002*
 
@@ -909,7 +934,7 @@ When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a s
 *Parent: HLFR-00038*
 
 ### LLFR-01139 PDF shortcut
-The app must run "Save all tabs as PDF" (LLFR-00128) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01177), after leaving that field as in LLFR-01178, LLFR-01182 and LLFR-01179 or that dialog as in LLFR-01177, except as in LLFR-01172 and LLFR-01181.
+The app must run "Save all tabs as PDF" (LLFR-00128) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01180), after leaving that field as in LLFR-01181, LLFR-01185 and LLFR-01182 or that dialog as in LLFR-01180, except as in LLFR-01172 and LLFR-01184.
 
 Note: Text fields give Ctrl+P no meaning of their own. The boxes and the dialog of the export are shown over the main window, as for the Export button. For example, a tab being renamed takes the name typed so far, and then the PDF dialog opens (the owner's answer of 2026-11-04, 21b).
 
@@ -923,43 +948,44 @@ Note: As the 0 key (LLFR-00454) and the Esc key (LLFR-00530), so that no dialog 
 
 *Parent: HLFR-00038*
 
-### LLFR-01177 Shortcuts in a name dialog
+### LLFR-01180 Shortcuts in a name dialog
 When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) in a name dialog, which is the dialog in which the user types a new name for a tab, a flag, an area, a delta marker, an arrow or a synthetic signal (LLFR-00030, LLFR-00088, LLFR-00315, LLFR-00429, LLFR-00439, LLFR-00266), the app must close the dialog with the name typed so far accepted, as its OK button does, before it runs the action of LLFR-01139 or LLFR-01140.
 
 Note: The rename is applied first, with its usual checks (for example LLFR-00067 and LLFR-00211), and then the PDF dialog opens or the focus goes to the search box of the window the dialog was shown over (LLFR-01140).
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
-### LLFR-01178 Text field left by a shortcut
-When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) while the keyboard focus is in a text field of a window (LLFR-00157), such as a search box or the field of a text note (LLFR-00333), the app must take the keyboard focus out of the field before it runs the action of LLFR-01139 or LLFR-01140, except as in LLFR-01180.
+### LLFR-01181 Text field left by a shortcut
+When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) while the keyboard focus is in a text field of a window (LLFR-00157), such as a search box or the field of a text note (LLFR-00333), the app must take the keyboard focus out of the field before it runs the action of LLFR-01139 or LLFR-01140, except as in LLFR-01183.
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
-### LLFR-01182 Selection cleared by a shortcut
-When the app takes the keyboard focus out of a text field for a shortcut (LLFR-01178), it must first clear the field's selection.
+### LLFR-01185 Selection cleared by a shortcut
+When the app takes the keyboard focus out of a text field for a shortcut (LLFR-01181), it must first clear the field's selection.
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
-### LLFR-01179 Text note written by a shortcut
-When the app takes the keyboard focus out of the field of a text note for a shortcut (LLFR-01178), it must write the text typed so far into the note, as the Enter key does (LLFR-00334), before it runs the shortcut's action.
+### LLFR-01182 Text note written by a shortcut
+When the app takes the keyboard focus out of the field of a text note for a shortcut (LLFR-01181), it must write the text typed so far into the note, as the Enter key does (LLFR-00334), before it runs the shortcut's action.
 
 Note: The search box has nothing to accept: its text is applied while it is typed (LLFR-00095).
 
 *Parent: HLFR-00073, HLFR-00075, HLFR-00038, HLFR-00033*
 
-### LLFR-01180 Search shortcut in the search box
+### LLFR-01183 Search shortcut in the search box
 When the user presses Ctrl+F (Cmd+F on macOS) while the keyboard focus is already in the search box of the signal list panel of that window, the app must keep the keyboard focus in that search box while it selects the whole search text (LLFR-01140).
 
 Note: A second Ctrl+F therefore lets the user type a new search over the old one.
 
 *Parent: HLFR-00033*
 
-### LLFR-01181 Shortcuts in the signal dialogs
+### LLFR-01184 Shortcuts in the signal dialogs
 While the second signal dialog (LLFR-00275), the time signal window (LLFR-00325) or a dialog that asks for the parameter of a synthetic signal (LLFR-00245, LLFR-00269, LLFR-00272) is open, the app must keep that dialog open, with its typed text and its choice unchanged, when the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS).
 
 Note: Accepting these dialogs would create a signal or choose the time signal, so the shortcuts leave them to the user.
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00053, HLFR-00070*
+
 ### LLFR-00129 PDF content
 The saved PDF must have one page for each tab that holds at least one plot, docked or undocked, in tab order (LLFR-01091), with the tab's name at the top of the page, the description of the data files of LLFR-00971 directly below it, and the tab's plots below the description, laid out in the tab's plot matrix as they are shown on screen, including their time range, curves, legends, grid, flags, areas, text notes, arrows, delta markers and pinned data tips.
 
@@ -2630,9 +2656,9 @@ When the app opens an undocked window, the search box of its signal list panel m
 *Parent: HLFR-00129*
 
 ### LLFR-01140 Search shortcut
-When the user presses Ctrl+F (Cmd+F on macOS) in a window, the app must put the keyboard focus in the search box of that window's signal list panel, with the whole search text selected, also while the keyboard focus is in another text field of the window (LLFR-00157) or in a name dialog shown over the window (LLFR-01177), after leaving that field as in LLFR-01178, LLFR-01182 and LLFR-01179 or that dialog as in LLFR-01177, except as in LLFR-01174 and LLFR-01181.
+When the user presses Ctrl+F (Cmd+F on macOS) in a window, the app must put the keyboard focus in the search box of that window's signal list panel, with the whole search text selected, also while the keyboard focus is in another text field of the window (LLFR-00157) or in a name dialog shown over the window (LLFR-01180), after leaving that field as in LLFR-01181, LLFR-01185 and LLFR-01182 or that dialog as in LLFR-01180, except as in LLFR-01174 and LLFR-01184.
 
-Note: With the focus already in that search box, the focus stays there (LLFR-01180).
+Note: With the focus already in that search box, the focus stays there (LLFR-01183).
 
 *Parent: HLFR-00033, HLFR-00128*
 
@@ -4549,7 +4575,7 @@ Note: The window it leaves closes when the tab was its last tab (LLFR-01031), an
 ### LLFR-01167 Tab of an undocked window dropped outside the app
 When the user drags a tab of an undocked window and releases it with the pointer outside every window of the app, the app must move the tab into a new undocked window whose top-left corner is at the pointer, kept on a screen as in LLFR-01083, as LLFR-01142 does for a docked tab.
 
-Note: The new window gets the size of LLFR-01176 and its panel is hidden (LLFR-01050). A drop over the main window, away from its tab row, or over the tab's own window, away from its tab row, changes nothing (LLFR-01067).
+Note: The new window gets the size of LLFR-01179 and its panel is hidden (LLFR-01050). A drop over the main window, away from its tab row, or over the tab's own window, away from its tab row, changes nothing (LLFR-01067).
 
 *Parent: HLFR-00126, HLFR-00127*
 

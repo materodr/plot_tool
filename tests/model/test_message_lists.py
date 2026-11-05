@@ -15,9 +15,11 @@ import unittest
 from tests.support import covers
 
 from model import file_writer, layout_file
+from model import message_lists
 from model.message_lists import (
-    FIGURE_SPACE_STR, PUNCTUATION_SPACE_STR, list_body_text, list_text,
-    number_prefix, sections_text, sub_line_indent)
+    FIGURE_SPACE_STR, PUNCTUATION_SPACE_STR, display_line_count,
+    has_hanging_line_b, is_long_list_text, list_body_text, list_line_list,
+    list_text, number_prefix, sections_text, sub_line_indent)
 
 
 class ListTextTest(unittest.TestCase):
@@ -206,6 +208,92 @@ class ModelBoxTextTest(unittest.TestCase):
                          f"{heading_str}\n\n1. 'big'\n\n2. 'gap'")
         self.assertEqual(file_writer.non_finite_reason(["big"]),
                          f"{heading_str}\n\n'big'")
+
+
+class ListLinesTest(unittest.TestCase):
+    """The lines of a list text, read back for the hanging indents."""
+
+    @covers("LLFR-01176", "LLFR-00980", "LLFR-00985", "LLFR-00986")
+    def test_lines_split_into_indent_number_and_text(self) -> None:
+        """Each line gives its blank indent, its number and its text.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        item_list = ["first\nsecond line"] + [f"item {index_i}"
+                                              for index_i in range(2, 11)]
+        text_str = list_text(item_list, "Heading:")
+        line_list = list_line_list(text_str)
+        self.assertEqual(line_list[0], ("", "", "Heading:"))
+        self.assertEqual(line_list[1], ("", "", ""))
+        # LLFR-00986: " 1. " is padded by one figure space.
+        self.assertEqual(line_list[2], (FIGURE_SPACE_STR, "1. ", "first"))
+        # LLFR-00985: the sub-line is indented, with no number.
+        self.assertEqual(line_list[3], (sub_line_indent(2), "",
+                                        "second line"))
+        self.assertEqual(line_list[-1], ("", "10. ", "item 10"))
+        # The plain text is read back exactly.
+        self.assertEqual("\n".join(
+            indent_str + number_str + rest_str
+            for indent_str, number_str, rest_str in line_list), text_str)
+
+    @covers("LLFR-01176", "LLFR-01178", "LLFR-00985")
+    def test_list_inside_an_item(self) -> None:
+        """A numbered list inside an item keeps both indents.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        inner_str = list_text(["'A' has 3 samples.", "'B' has 4 samples."],
+                              "Different counts:")
+        text_str = list_body_text([inner_str, "b.csv: gone."])
+        line_list = list_line_list(text_str)
+        self.assertEqual(line_list[0], ("", "1. ", "Different counts:"))
+        # LLFR-00982: the blank line inside the item stays blank.
+        self.assertEqual(line_list[1], ("", "", ""))
+        self.assertEqual(line_list[2], (sub_line_indent(1), "1. ",
+                                        "'A' has 3 samples."))
+        self.assertEqual(line_list[4], (sub_line_indent(1), "2. ",
+                                        "'B' has 4 samples."))
+        self.assertEqual(line_list[6], ("", "2. ", "b.csv: gone."))
+
+    @covers("LLFR-01176", "LLFR-00984")
+    def test_hanging_lines_only_with_an_indent_or_number(self) -> None:
+        """A text with no indented or numbered line has no hanging line.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertFalse(has_hanging_line_b("a.csv: could not be read."))
+        self.assertFalse(has_hanging_line_b("One.\n\nTwo."))
+        self.assertTrue(has_hanging_line_b(list_body_text(["a", "b"])))
+        self.assertTrue(has_hanging_line_b("x\n" + PUNCTUATION_SPACE_STR
+                                           + "y"))
+
+    @covers("LLFR-01177")
+    def test_long_text_rule(self) -> None:
+        """More than 15 lines, a long line counting per 80 characters.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        limit_i = message_lists.LONG_BOX_LINE_COUNT_I
+        width_i = message_lists.LONG_LINE_CHARACTERS_I
+        self.assertEqual(limit_i, 15)
+        self.assertEqual(width_i, 80)
+        self.assertEqual(display_line_count("a\n\nb"), 3)
+        self.assertEqual(display_line_count("x" * width_i), 1)
+        self.assertEqual(display_line_count("x" * (width_i + 1)), 2)
+        fifteen_str = "\n".join(["line"] * limit_i)
+        self.assertFalse(is_long_list_text(fifteen_str))
+        self.assertTrue(is_long_list_text(fifteen_str + "\nline"))
+        # Two items with a blank line between them: 8 items are 15
+        # lines, 9 items are 17.
+        self.assertFalse(is_long_list_text(list_body_text(["i"] * 8)))
+        self.assertTrue(is_long_list_text(list_body_text(["i"] * 9)))
+        # One long line of 15 * 80 + 1 characters.
+        self.assertTrue(is_long_list_text("x" * (limit_i * width_i + 1)))
+        self.assertFalse(is_long_list_text("x" * (limit_i * width_i)))
 
 
 if __name__ == "__main__":

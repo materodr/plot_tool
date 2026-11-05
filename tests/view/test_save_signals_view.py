@@ -284,7 +284,6 @@ class SaveSignalsViewTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtWidgets import QPlainTextEdit
         from view import message_boxes
         text_str = "\n".join(f"a.{index_i} → a_{index_i}"
                              for index_i in range(200))
@@ -293,9 +292,10 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertEqual(dialog.windowTitle(),
                          message_boxes.CHANGED_NAMES_TITLE_STR)
         field = dialog.findChild(
-            QPlainTextEdit, message_boxes.CHANGED_NAMES_TEXT_OBJECT_NAME_STR)
+            message_boxes.ListTextField,
+            message_boxes.CHANGED_NAMES_TEXT_OBJECT_NAME_STR)
         self.assertTrue(field.isReadOnly())
-        self.assertEqual(field.toPlainText(), text_str)
+        self.assertEqual(field.plain_text(), text_str)
         dialog.show()
         self.application.processEvents()
         self.assertGreater(field.verticalScrollBar().maximum(), 0)

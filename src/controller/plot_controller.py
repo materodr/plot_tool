@@ -2219,7 +2219,7 @@ class PlotController:
         memory_tuple = self.window_memory_tuple()
         snapshot = self.workspace.snapshot(self.view.current_tab_id())
         # LLFR-01167: a window whose top-left corner is at the drop;
-        # LLFR-01176: with the size of the window the tab came from, as
+        # LLFR-01179: with the size of the window the tab came from, as
         # shown at the drop (window_memory_tuple synced it into the
         # model). The view keeps it on a screen (LLFR-01083, LLFR-01084).
         dropped_tuple = tuple(self.view.dropped_window_tuple(x_i, y_i))

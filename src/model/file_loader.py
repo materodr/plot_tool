@@ -17,6 +17,7 @@ import numpy as np
 from model.errors import (
     SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
     FileAccessError, FileReadError, UnsupportedFormatError)
+from model.message_lists import list_text
 from model.signal_file import SignalFile, matching_time_signal_name
 
 # HLFR-00005: the file formats the app opens, by extension.
@@ -25,6 +26,16 @@ SUPPORTED_EXTENSION_TUPLE = (".csv", ".xlsx", ".mat", ".h5", ".hdf5")
 # LLFR-00065: a sample written as text must be a plain finite number,
 # such as "-2", "3.5", ".5" or "1e-3" (no "nan", "inf" or "1_000").
 NUMBER_PATTERN_STR = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+
+# LLFR-00012, LLFR-01178: the sentence above the list of the signals
+# whose sample count differs, for several signals or for one.
+SAMPLE_COUNT_HEADING_STR = (
+    "{prefix} its signals have different sample counts. '{reference}' "
+    "has {count} samples, and these signals have another count:")
+ONE_SAMPLE_COUNT_HEADING_STR = (
+    "{prefix} its signals have different sample counts. '{reference}' "
+    "has {count} samples, and this signal has another count:")
+SAMPLE_COUNT_ITEM_STR = "'{name}' has {count} samples."
 
 # LLFR-00061: (separator, decimal mark) of the two CSV styles.
 COMMA_STYLE_TUPLE = (",", ".")
@@ -699,11 +710,18 @@ def check_signal_content(file_name_str: str, signal_dict: dict) -> None:
         reference_name_str = next(iter(signal_dict))
     reference_count_i = len(signal_dict[reference_name_str])
     different_list = [
-        f"'{name_str}' has {len(signal_array)}"
+        SAMPLE_COUNT_ITEM_STR.format(name=name_str,
+                                     count=len(signal_array))
         for name_str, signal_array in signal_dict.items()
         if len(signal_array) != reference_count_i]
     if different_list:
-        raise ContentCheckError(
-            f"{prefix_str} its signals have different sample counts: "
-            f"'{reference_name_str}' has {reference_count_i} samples, but "
-            f"{', '.join(different_list)}.", SAMPLE_COUNT_CHECK_STR)
+        # LLFR-01178: the signals with another count, as a list below
+        # the sentence that names the check (LLFR-00980 to LLFR-00984).
+        heading_format_str = (SAMPLE_COUNT_HEADING_STR
+                              if len(different_list) >= 2
+                              else ONE_SAMPLE_COUNT_HEADING_STR)
+        heading_str = heading_format_str.format(
+            prefix=prefix_str, reference=reference_name_str,
+            count=reference_count_i)
+        raise ContentCheckError(list_text(different_list, heading_str),
+                                SAMPLE_COUNT_CHECK_STR)

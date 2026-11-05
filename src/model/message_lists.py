@@ -13,11 +13,20 @@ the boxes look the same:
   start of its text (LLFR-00985);
 - the numbers are aligned on their right side (LLFR-00986);
 - the load report numbers the items under each of its headings as their
-  own list (LLFR-00987, LLFR-00988, LLFR-00989).
+  own list (LLFR-00987, LLFR-00988, LLFR-00989);
+- ``list_line_list`` splits such a text back into its lines, each with
+  the blank indent and the number in front of its text, so that the
+  view can draw a wrapped line under the text of its own item
+  (LLFR-01176);
+- ``is_long_list_text`` tells when a message box is too long to be
+  shown without a scroll bar (LLFR-01177).
 
-The functions only build plain text, so the model, the controllers and
-the view can all use them (COR-00003).
+The functions only build or read plain text, so the model, the
+controllers and the view can all use them (COR-00003).
 """
+
+import math
+import re
 
 # LLFR-00986: a figure space has the width of a digit in the fonts of
 # the boxes, so that a number padded with it on its left ends where the
@@ -32,6 +41,18 @@ NUMBER_FORMAT_STR = "{number}. "
 # LLFR-00982, LLFR-00983, LLFR-00989: one blank line between the parts.
 BLANK_LINE_SEPARATOR_STR = "\n\n"
 LINE_SEPARATOR_STR = "\n"
+# LLFR-01176: the blank characters that indent a line of a list (the
+# figure spaces and the punctuation space of LLFR-00985 and LLFR-00986,
+# and ordinary spaces), followed by an optional number of LLFR-00980.
+LIST_LINE_PATTERN = re.compile(
+    "^([" + FIGURE_SPACE_STR + PUNCTUATION_SPACE_STR
+    + r" ]*)(\d+\. )?(.*)$", re.DOTALL)
+# LLFR-01177: a message box shows at most this many lines without a
+# scroll bar, counting a line of more than LONG_LINE_CHARACTERS_I
+# characters as one line for every LONG_LINE_CHARACTERS_I characters or
+# part of them.
+LONG_BOX_LINE_COUNT_I = 15
+LONG_LINE_CHARACTERS_I = 80
 
 
 def number_prefix(number_i: int, width_i: int) -> str:
@@ -75,9 +96,11 @@ def numbered_item_text(item_str: str, number_i: int, width_i: int) -> str:
     # LLFR-00980, LLFR-00985: number the first line, indent the others.
     line_list = str(item_str).split(LINE_SEPARATOR_STR)
     indent_str = sub_line_indent(width_i)
+    # LLFR-00982: a blank line inside an item stays blank.
     return LINE_SEPARATOR_STR.join(
         [number_prefix(number_i, width_i) + line_list[0]]
-        + [indent_str + line_str for line_str in line_list[1:]])
+        + [indent_str + line_str if line_str else ""
+           for line_str in line_list[1:]])
 
 
 def list_body_text(item_list: list, numbered_b: bool = None) -> str:
@@ -146,3 +169,74 @@ def sections_text(section_list: list) -> str:
     return BLANK_LINE_SEPARATOR_STR.join(
         list_text(item_list, heading_str, numbered_b)
         for heading_str, item_list in kept_list)
+
+
+def list_line_list(text_str: str) -> list:
+    """Split the text of a list box into its lines and their indents.
+
+    Inputs:
+        text_str: the plain text of a box of LLFR-00981, as built by
+            list_text, list_body_text or sections_text, possibly with a
+            list inside an item (LLFR-01178).
+    Outputs: one (indent_str, number_str, rest_str) tuple per line, in
+        order: indent_str is the blank characters at the start of the
+        line, number_str is the number of LLFR-00980 that follows them
+        with its period and its space ("" when the line has none), and
+        rest_str is the rest of the line. A blank line gives
+        ("", "", "").
+    """
+    # LLFR-01176: the part in front of the text of each line is the
+    # indent and the number; a wrapped line goes under what follows.
+    line_tuple_list = []
+    for line_str in str(text_str).split(LINE_SEPARATOR_STR):
+        match = LIST_LINE_PATTERN.match(line_str)
+        indent_str, number_str, rest_str = (
+            match.group(1), match.group(2) or "", match.group(3))
+        if not number_str and not rest_str:
+            # LLFR-00982: a blank line between items.
+            line_tuple_list.append(("", "", ""))
+            continue
+        line_tuple_list.append((indent_str, number_str, rest_str))
+    return line_tuple_list
+
+
+def has_hanging_line_b(text_str: str) -> bool:
+    """Tell whether a box text has a line with an indent or a number.
+
+    Inputs:
+        text_str: the plain text of a box.
+    Outputs: True when at least one line starts with blank characters or
+        with a number of LLFR-00980, so that its wrapped lines must be
+        drawn under its text (LLFR-01176).
+    """
+    # LLFR-01176: only such lines need a hanging indent.
+    return any(indent_str or number_str
+               for indent_str, number_str, _ in list_line_list(text_str))
+
+
+def display_line_count(text_str: str) -> int:
+    """Return the number of lines a box text takes, for LLFR-01177.
+
+    Inputs:
+        text_str: the plain text of a box.
+    Outputs: the number of its lines, a line of more than
+        LONG_LINE_CHARACTERS_I characters counting as one line for every
+        LONG_LINE_CHARACTERS_I characters or part of them, and an empty
+        line as one line.
+    """
+    # LLFR-01177: a long line takes several lines once wrapped.
+    return sum(max(1, math.ceil(len(line_str) / LONG_LINE_CHARACTERS_I))
+               for line_str in str(text_str).split(LINE_SEPARATOR_STR))
+
+
+def is_long_list_text(text_str: str) -> bool:
+    """Tell whether a box text must be shown in a scrollable box.
+
+    Inputs:
+        text_str: the plain text of the File Open Error box or of the
+            refused files box (LLFR-00955, LLFR-00956).
+    Outputs: True when it takes more than LONG_BOX_LINE_COUNT_I lines
+        (display_line_count).
+    """
+    # LLFR-01177: more lines than a message box shows.
+    return display_line_count(text_str) > LONG_BOX_LINE_COUNT_I

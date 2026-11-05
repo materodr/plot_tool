@@ -428,7 +428,7 @@ class PlotPanel(QWidget):
         self.add_tab_handler = None
         self.delete_tab_handler = None
         self.rename_tab_handler = None
-        # LLFR-01177: runs Ctrl+P or Ctrl+F pressed in the rename dialog,
+        # LLFR-01180: runs Ctrl+P or Ctrl+F pressed in the rename dialog,
         # after the rename; set by the main window.
         self.name_dialog_shortcut_handler = None
         # LLFR-01087, LLFR-01100: the tab move and the matrix choice.
@@ -805,7 +805,7 @@ class PlotPanel(QWidget):
         if page is None:
             return
         # LLFR-01023: over the window that shows the tab.
-        # LLFR-01177: Ctrl+P and Ctrl+F in the dialog take the typed name,
+        # LLFR-01180: Ctrl+P and Ctrl+F in the dialog take the typed name,
         # then run their action for that window.
         new_name_str, accepted_b = name_dialog.ask_name_text(
             page.window(), RENAME_DIALOG_TITLE_STR, RENAME_DIALOG_LABEL_STR,
