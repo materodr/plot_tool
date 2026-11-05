@@ -1488,7 +1488,7 @@ class HiddenSignalsInEveryPanelTest(UndockedWindowTestCase):
             self.assertEqual(panel.file_row_icon_text("file2_b.csv"),
                              "[+]")
 
-    @covers("LLFR-01187", "LLFR-01185", "LLFR-01036", "LLFR-01037",
+    @covers("LLFR-01194", "LLFR-01192", "LLFR-01036", "LLFR-01037",
             "HLFR-00128", "HLFR-00123", "HLFR-00053")
     def test_selection_and_left_key_in_every_panel(self) -> None:
         """A new signal is selected alone in every panel, and Left on a

@@ -372,7 +372,7 @@ class SyntheticController:
             return
         # LLFR-00242: the new signal is listed after the others.
         self.show_synthetic_signals()
-        # LLFR-01186, LLFR-01187: its data file is expanded and the new
+        # LLFR-01193, LLFR-01194: its data file is expanded and the new
         # signal is selected. A layout load (load_layout_signals) does
         # neither.
         self.signal_list_controller.reveal_new_signal(

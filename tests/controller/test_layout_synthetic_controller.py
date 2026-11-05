@@ -262,7 +262,7 @@ class CollapsedFilesNotSavedTest(LayoutSyntheticTestCase):
 class LayoutSignalsKeepTheFilesTest(LayoutSyntheticTestCase):
     """Signals created by a layout load expand nothing, select nothing."""
 
-    @covers("LLFR-01186", "LLFR-01187", "LLFR-00262", "HLFR-00123",
+    @covers("LLFR-01193", "LLFR-01194", "LLFR-00262", "HLFR-00123",
             "HLFR-00053")
     def test_layout_load_keeps_the_file_collapsed(self) -> None:
         """A load that creates synthetic signals of a collapsed file

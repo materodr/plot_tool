@@ -810,9 +810,9 @@ class MultiSelectMainWindowTest(unittest.TestCase):
                          ["file1_speed", "file1_force", "file1_temperature"])
 
     @covers("LLFR-00290", "LLFR-00242", "HLFR-00063", "LLFR-00626",
-            "LLFR-01187")
+            "LLFR-01194")
     def test_shift_click_after_a_synthetic_signal_is_created(self) -> None:
-        """A new synthetic signal is selected alone (LLFR-01187) and is
+        """A new synthetic signal is selected alone (LLFR-01194) and is
         the start of the next Shift + click range.
 
         Inputs: none.
