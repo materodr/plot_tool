@@ -231,7 +231,7 @@ class ArrowLayoutTest(unittest.TestCase):
         self.assertNotIn("aa00cc", text_str.lower())
         plot_entry_dict = json.loads(text_str)["tabs"][0]["plots"][0]
         self.assertEqual(sorted(plot_entry_dict),
-                         ["curves", "data_tips", "delta_markers"])
+                         ["curves", "data_tips", "delta_markers", "shapes"])
 
     @covers("LLFR-00226", "LLFR-00229", "LLFR-00473", "LLFR-00474")
     def test_loading_keeps_the_arrows_of_the_kept_tabs(self) -> None:

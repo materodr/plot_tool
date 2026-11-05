@@ -54,7 +54,8 @@ class TipMoveControllerTest(PlotControllerTestCase):
         Inputs: none.
         Outputs: a list of tuples.
         """
-        return self.view.drawn_dict[self.plot_id_i][1]
+        return [tuple(tip[:4])
+                for tip in self.view.drawn_dict[self.plot_id_i][1]]
 
     @covers("LLFR-00152", "HLFR-00041")
     def test_move_stores_the_offset_and_redraws(self) -> None:

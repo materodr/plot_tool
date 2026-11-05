@@ -404,7 +404,8 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.assertEqual(layout_dict["tabs"][0]["name"], "Main")
         self.assertEqual(len(layout_dict["tabs"][0]["plots"]), 2)
         self.assertEqual(layout_dict["flags"],
-                         [{"name": "Flag 1", "time": 4.0, "color": "#ff8000"}])
+                         [{"name": "Flag 1", "time": 4.0, "color": "#ff8000",
+                           "width": 1, "line_style": "dashed"}])
         self.assertIn('\n  "tabs": [\n', text_str)
         self.assertEqual(self.view.finished_list, ["save"])
         self.assertEqual(self.view.save_error_list, [])
