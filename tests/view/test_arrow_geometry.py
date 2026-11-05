@@ -46,7 +46,7 @@ class ArrowGeometryTest(unittest.TestCase):
             (3.0, 4.0), (3.0, 4.0), 1.0)
         self.assertTrue(np.allclose(same_array, 3 * [[3.0, 4.0]]))
 
-    @covers("LLFR-00373")
+    @covers("LLFR-01201", "HLFR-00081")
     def test_points_on_the_line_and_on_the_head(self) -> None:
         """Distances to the segment and points in the head triangle.
 

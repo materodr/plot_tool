@@ -1162,7 +1162,8 @@ class Plot:
             of this plot has that id, the value is not "#rrggbb" or it is
             the marker's current color.
         """
-        # LLFR-00409, LLFR-00390: the chosen color, but nothing when it
+        # LLFR-00409, LLFR-00390: the chosen color (LLFR-01197: any
+        # color, also one of the curve palette), but nothing when it
         # is the color the marker already has; the points, the value and
         # the other delta markers stay as they are.
         new_color_str = hex_color_or_none(color_str)
@@ -2740,8 +2741,9 @@ class Workspace:
             that id, the value is not "#rrggbb" or it is the marker's
             current color.
         """
-        # LLFR-00392, LLFR-00390: the confirmed color; the color the
-        # flag already has changes nothing.
+        # LLFR-00392, LLFR-00390: the confirmed color (LLFR-01197: any
+        # color, also one of the curve palette); the color the flag
+        # already has changes nothing.
         new_color_str = hex_color_or_none(color_str)
         marker = self.find_marker(marker_id_i)
         if marker is None or new_color_str is None:

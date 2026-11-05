@@ -423,7 +423,7 @@ class ArrowLabelViewTest(LabelWidgetTestCase):
         return angle_deg
 
     @covers("LLFR-00436", "LLFR-00869", "LLFR-00887", "LLFR-00373",
-            "LLFR-00788", "HLFR-00100")
+            "LLFR-01201", "LLFR-00788", "HLFR-00100")
     def test_label_parallel_readable_and_part_of_the_arrow(self) -> None:
         """The name is drawn next to the middle of the line, parallel to
         it as shown, never upside down, in the arrow's color; a point on
@@ -505,6 +505,93 @@ class ArrowLabelViewTest(LabelWidgetTestCase):
                                delta=2.0)
         self.send("button_release_event", moved_tuple)
         self.assertEqual(widget.arrow_preview_label_place_tuple(), ())
+
+
+class LabelContrastBoxTest(LabelWidgetTestCase):
+    """Colored labels on an opaque box with a WCAG contrast of at least
+    4.5:1 (LLFR-00704, LLFR-00436, LLFR-01202)."""
+
+    def assert_contrast_box(self, text) -> None:
+        """Check that a text is drawn on an opaque box that reads with it.
+
+        Inputs:
+            text: a matplotlib Text with a box.
+        Outputs: none.
+        """
+        from matplotlib.colors import to_hex
+        from view import theme
+        text_color_str = to_hex(text.get_color())
+        box_patch = text.get_bbox_patch()
+        self.assertIsNotNone(box_patch)
+        box_color_str = to_hex(box_patch.get_facecolor())
+        self.assertEqual(box_color_str,
+                         theme.area_label_box_color_str(text_color_str))
+        self.assertIn(box_patch.get_alpha(), (None, 1.0))
+        self.assertGreaterEqual(
+            theme.contrast_ratio_f(text_color_str, box_color_str), 4.5)
+
+    @covers("LLFR-00436", "LLFR-00704", "LLFR-00870", "HLFR-00100")
+    def test_arrow_label_and_preview_on_a_contrast_box(self) -> None:
+        """The label of an arrow in the default orange, in green and in
+        a dark blue, and the label of the move preview in its pale
+        color, each reach 4.5:1 on their box; orange gets a black box,
+        the dark blue a white one.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.colors import to_hex
+        widget = self.plot_widget
+        widget.set_plot_tool(NO_TOOL_STR)
+        widget.set_arrows([ARROW_TUPLE,
+                           (6.0, 1.5, 8.0, 2.5, GREEN_STR, "Green"),
+                           (4.0, 1.0, 5.0, 2.0, "#1f3b8c", "Blue")])
+        self.draw()
+        for index_i in range(3):
+            with self.subTest(arrow=index_i):
+                self.assert_contrast_box(widget.arrow_label(index_i))
+        self.assertEqual(to_hex(widget.arrow_label(0).get_bbox_patch()
+                                .get_facecolor()), "#000000")
+        self.assertEqual(to_hex(widget.arrow_label(2).get_bbox_patch()
+                                .get_facecolor()), "#ffffff")
+        press_tuple = self.data_display(2.0, 2.0)
+        self.send("button_press_event", press_tuple)
+        moved_tuple = (press_tuple[0] + 40.0, press_tuple[1])
+        self.send("motion_notify_event", moved_tuple, None)
+        self.assertEqual(widget.arrow_preview_label.get_text(), "Arrow 1")
+        self.assert_contrast_box(widget.arrow_preview_label)
+        self.send("button_release_event", moved_tuple)
+
+    @covers("LLFR-01202", "LLFR-00704", "LLFR-00084", "LLFR-00092",
+            "LLFR-00427", "LLFR-00169", "LLFR-00203", "LLFR-00353",
+            "HLFR-00028", "HLFR-00097")
+    def test_flag_and_delta_marker_labels_on_a_contrast_box(self) -> None:
+        """The name and time of flags, the name and value of delta
+        markers, and the texts of the flag and delta marker previews
+        reach 4.5:1 on their boxes; the value keeps its colored border.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.colors import to_hex
+        widget = self.plot_widget
+        widget.set_markers([(1, "Flag 1", 2.0, ORANGE_STR),
+                            (2, "Dark", 4.0, "#1f3b8c")])
+        widget.set_delta_markers([DELTA_X_TUPLE])
+        self.draw()
+        for marker_id_i in (1, 2):
+            _, label, time_text = widget.marker_artist_tuple(marker_id_i)
+            for text in (label, time_text):
+                with self.subTest(flag=marker_id_i, text=text.get_text()):
+                    self.assert_contrast_box(text)
+        self.assert_contrast_box(widget.delta_name_label(5))
+        value_label = widget.delta_artist_tuple(5)[3]
+        self.assert_contrast_box(value_label)
+        self.assertEqual(to_hex(value_label.get_bbox_patch()
+                                .get_edgecolor()), ORANGE_STR)
+        # The previews, in their paler color.
+        self.assert_contrast_box(widget.preview_time_text)
+        self.assert_contrast_box(widget.delta_preview_artist_tuple[2])
 
 
 class LabelDoubleClickTest(LabelWidgetTestCase):

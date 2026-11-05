@@ -607,9 +607,12 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         old_curve_list = self.curve_names()
         layout_dict = read_layout_file(self.save("layout.json"))
         layout_dict[LAYOUT_KEY_STR] = []
-        layout_dict["tabs"] = [{"name": "Other", "plots": [
-            {"curves": [{"signal": "file1_Torque", "color": "#0000ff",
-                         "width": 1}]}]}]
+        # LLFR-01200: the tab's values are given, so nothing is missing.
+        curve_dict = {"signal": "file1_Torque", "color": "#0000ff",
+                      "width": 1}
+        layout_dict["tabs"] = [{"name": "Other", "undocked": False,
+                                "plot_matrix": {"rows": 5, "columns": 1},
+                                "plots": [{"curves": [curve_dict]}]}]
         self.load(self.write_layout("edited.json", layout_dict))
         self.assertEqual(self.view.report_list, [])
         self.assertEqual(self.store.names(), name_list)
@@ -650,8 +653,11 @@ class EmptyTabsTest(LayoutSyntheticTestCase):
         """Empty tabs are skipped; the first created tab is shown."""
         path_str = self.file_with_tabs([
             {"name": "Empty", "plots": []},
-            {"name": "file1_Speed tab", "plots": [{"curves": [
-                {"signal": "file1_Speed", "color": "#0000ff", "width": 1}]}]}])
+            {"name": "file1_Speed tab", "undocked": False,
+             "plot_matrix": {"rows": 5, "columns": 1},
+             "plots": [{"curves": [
+                 {"signal": "file1_Speed", "color": "#0000ff",
+                  "width": 1}]}]}])
         self.load(path_str)
         self.assertEqual(self.view.report_list, [])
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],

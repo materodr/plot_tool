@@ -1138,9 +1138,9 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.assertEqual(self.plot_controller.undo_history.depth(), depth_i)
 
     @covers("LLFR-01143", "LLFR-01170", "LLFR-01029", "LLFR-01030",
-            "LLFR-01060", "HLFR-00153", "HLFR-00125")
-    def test_tab_button_dropped_on_the_tab_row_docks_there(self) -> None:
-        """Dragging a window's tab button onto the left half of the first
+            "LLFR-01060", "HLFR-00155", "HLFR-00125")
+    def test_tab_dropped_on_the_tab_row_docks_there(self) -> None:
+        """Dragging a window's tab onto the left half of the first
         docked tab docks it first, closes the window and shows it;
         undoable.
 
@@ -1168,7 +1168,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.process_events()
         self.assertIsNotNone(self.main_window.window_of_tab(second_id_i))
 
-    @covers("LLFR-01143", "LLFR-01170", "HLFR-00153")
+    @covers("LLFR-01143", "LLFR-01170", "HLFR-00155")
     def test_drop_index_between_the_tabs(self) -> None:
         """Right of the middle of the last tab, or on the "+" button and
         the empty row, is after the last docked tab.
@@ -1195,7 +1195,7 @@ class DragUndockDockViewTest(UndockedWindowTestCase):
         self.assertEqual(self.panel.docked_drop_index(point.x(),
                                                       point.y()), 2)
 
-    @covers("LLFR-01067", "HLFR-00136", "HLFR-00153")
+    @covers("LLFR-01067", "HLFR-00136", "HLFR-00155")
     def test_tab_button_dropped_elsewhere_changes_nothing(self) -> None:
         """A drop on the plots of the main window, or on the plots of
         its own window, leaves the tab, its window and the history
@@ -1472,6 +1472,66 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
                 return_value=self.main_window.signal_list_panel.search_box):
             window.pdf_shortcut.activated.emit()
         self.assertEqual(handler.call_count, 3)
+
+    @covers("LLFR-01139", "LLFR-01023", "LLFR-00128", "LLFR-00145",
+            "LLFR-00131", "HLFR-00038", "HLFR-00124")
+    def test_pdf_shortcut_boxes_over_the_window_of_the_key(self) -> None:
+        """Ctrl+P in an undocked window shows the PDF dialog, the
+        nothing-to-export box and the save error box over that window;
+        the dialog goes back to the main window afterwards, and the
+        Export button and Ctrl+P in the main window use the main window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import os
+        import tempfile
+        _, _, window = self.two_tabs_one_undocked()
+        parent_list = []
+
+        def answer_dialog(dialog) -> str:
+            """Record the dialog's parent and cancel it.
+
+            Inputs:
+                dialog: the QFileDialog that would be shown.
+            Outputs: "" (cancel).
+            """
+            parent_list.append(dialog.parent())
+            return ""
+
+        self.main_window.run_pdf_save_dialog = answer_dialog
+        window.pdf_shortcut.activated.emit()
+        self.main_window.pdf_shortcut.activated.emit()
+        self.main_window._on_pdf_export_requested()
+        self.assertEqual(len(parent_list), 3)
+        self.assertIs(parent_list[0], window)
+        self.assertIs(parent_list[1], self.main_window)
+        self.assertIs(parent_list[2], self.main_window)
+        from view.main_window import SAVE_PDF_DIALOG_KEY_STR
+        self.assertIs(self.main_window.file_dialog_pool.dialog(
+            SAVE_PDF_DIALOG_KEY_STR).parent(), self.main_window)
+        self.assertIsNone(self.main_window.pdf_shortcut_window)
+        # LLFR-00145: the nothing-to-export box over the window.
+        with mock.patch.object(self.main_window, "exportable_tab_count",
+                               return_value=0), mock.patch(
+                "view.message_boxes.build_nothing_to_export_box") as box:
+            window.pdf_shortcut.activated.emit()
+            self.main_window._on_pdf_export_requested()
+        self.assertIs(box.call_args_list[0].args[0], window)
+        self.assertIs(box.call_args_list[1].args[0], self.main_window)
+        # LLFR-00131: the save error box over the window.
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path_str = os.path.join(folder.name, "plots.pdf")
+        self.main_window.run_pdf_save_dialog = lambda dialog: path_str
+        with mock.patch.object(self.main_window, "save_tabs_pdf",
+                               return_value=(False, "disk full")), \
+                mock.patch("view.message_boxes.build_export_error_box") \
+                as error_box:
+            window.pdf_shortcut.activated.emit()
+        self.assertIs(error_box.call_args.args[0], window)
+        self.assertEqual(error_box.call_args.args[1], "disk full")
+        self.assertIsNone(self.main_window.pdf_shortcut_window)
 
     @covers("LLFR-01140", "LLFR-01141", "LLFR-01053", "LLFR-01071",
             "HLFR-00033", "HLFR-00130", "HLFR-00138")

@@ -510,7 +510,8 @@ class WindowFileCloseTest(UndockControllerTestCase):
 
 
 class DragUndockDockTest(UndockControllerTestCase):
-    """Undocking and docking a tab by dragging it (HLFR-00153)."""
+    """Undocking and docking a tab by dragging it (HLFR-00153,
+    HLFR-00155)."""
 
     @covers("LLFR-01142", "LLFR-01016", "LLFR-01050", "LLFR-01020",
             "LLFR-01060", "HLFR-00153", "HLFR-00124")
@@ -558,7 +559,7 @@ class DragUndockDockTest(UndockControllerTestCase):
         self.assertNotIn("set_window_tabs", self.view.method_names())
 
     @covers("LLFR-01143", "LLFR-01029", "LLFR-01030", "LLFR-01060",
-            "LLFR-01091", "HLFR-00153", "HLFR-00125")
+            "LLFR-01091", "HLFR-00155", "HLFR-00125")
     def test_drop_on_tab_row_docks_at_the_place(self) -> None:
         """A tab button dropped on the main tab row docks the tab at the
         drop place, closes its window, shows it; undo and redo.
@@ -586,7 +587,7 @@ class DragUndockDockTest(UndockControllerTestCase):
         self.assertEqual(self.tab_ids(),
                          [first_id_i, third_id_i, second_id_i])
 
-    @covers("LLFR-01143", "HLFR-00153")
+    @covers("LLFR-01143", "HLFR-00155")
     def test_drop_places_first_and_last(self) -> None:
         """A drop before the first tab docks it first; a place past the
         last docked tab docks it last, before the undocked tabs.
