@@ -172,7 +172,10 @@ class MainPanelButton(QObject):
         # LLFR-01048, LLFR-01195: shown again at its width, leaving the
         # plot panel room.
         self.signal_list_panel.show()
-        total_i = max(sum(self.splitter.sizes()), 2)
+        # LLFR-01048: the room of the two panels, without the handle the
+        # shown panel brings back.
+        total_i = max(self.splitter.width() - self.splitter.handleWidth(),
+                      2)
         if width_i < 1:
             width_i = max(total_i // 5, 1)
         width_i = min(fitted_panel_width_i(width_i, total_i), total_i - 1)

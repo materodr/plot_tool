@@ -524,6 +524,12 @@ class DropOnWindowViewTest(WindowTabsViewTestCase):
         self.process_events()
         row_point = window.tab_bar.mapToGlobal(
             window.tab_bar.tabRect(0).topLeft())
+        import sys
+        print("DIAG257", window.tab_bar.geometry(), window.tab_bar.tabRect(0),
+              window.tab_row.geometry(), window.tab_row.mapToGlobal(
+                  window.tab_row.rect().topLeft()), row_point,
+              window.tab_index_at(row_point.x() + 1, row_point.y() + 1),
+              file=sys.stderr)
         with mock.patch.object(self.main_window, "window_at_point",
                                return_value=window):
             index_i = self.panel.tab_widget.indexOf(

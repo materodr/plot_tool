@@ -642,7 +642,9 @@ def write_big_hdf5(path_str: str, row_count_i: int, step_s: float,
     """
     # PCR-00073: the HDF5 file of the big files.
     import h5py
-    with h5py.File(path_str, "w") as hdf5_file:
+    # LLFR-00455: the datasets in the order they were created, "Time"
+    # first.
+    with h5py.File(path_str, "w", track_order=True) as hdf5_file:
         for column_i, name_str in enumerate(
                 big_signal_name_list(signal_count_i)):
             hdf5_file.create_dataset(
