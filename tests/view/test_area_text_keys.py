@@ -100,7 +100,7 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
         Outputs: none.
         """
         for key_name_str, tool_str in KEY_TOOL_TUPLE:
-            for other_key_name_str in ("Key_B", "Key_Shift", "Key_Control",
+            for other_key_name_str in ("Key_Q", "Key_Shift", "Key_Control",
                                        "Key_X", "Key_Y", "Key_A", "Key_T",
                                        "Key_Z", "Key_0"):
                 if other_key_name_str == key_name_str:
@@ -160,11 +160,11 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
                 self.release_key(key_name_str)
                 self.release_key(held_key_name_str)
                 self.assert_tool_everywhere(NO_TOOL_STR)
-            self.press_key("Key_B")
+            self.press_key("Key_Q")
             self.press_key(key_name_str)
             self.assert_tool_everywhere(NO_TOOL_STR)
             self.release_key(key_name_str)
-            self.release_key("Key_B")
+            self.release_key("Key_Q")
         self.assertEqual(self.main_window.tool_key_filter.held_key_set,
                          set())
 

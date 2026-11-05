@@ -1286,7 +1286,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         Inputs: none.
         Outputs: none.
         """
-        for other_key_name_str in ("Key_B", "Key_Shift", "Key_Control",
+        for other_key_name_str in ("Key_Q", "Key_Shift", "Key_Control",
                                    "Key_X", "Key_A", "Key_T", "Key_Z"):
             with self.subTest(other=other_key_name_str):
                 self.press_key("Key_R")
@@ -1301,11 +1301,11 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
             self.press_key("Key_R", modifier_name_str=modifier_name_str)
             self.assert_tool_everywhere(NO_TOOL_STR)
             self.release_key("Key_R")
-        self.press_key("Key_B")
+        self.press_key("Key_Q")
         self.press_key("Key_R")
         self.assert_tool_everywhere(NO_TOOL_STR)
         self.release_key("Key_R")
-        self.release_key("Key_B")
+        self.release_key("Key_Q")
         self.press_key("Key_R")
         for _ in range(3):
             self.release_key("Key_R", auto_repeat_b=True)
