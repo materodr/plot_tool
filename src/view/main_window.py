@@ -16,6 +16,7 @@ from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
     ZOOM_TOOL_STR)
 from model import file_writer
+from model.message_lists import list_text
 from model.window_placement import (
     fitted_panel_width_i, new_window_tuple, placed_window_tuple)
 from model.workspace import TIME_PLOT_KIND_STR
@@ -63,6 +64,16 @@ SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
 # LLFR-00128: added by the dialog to a name typed without an extension,
 # so that its overwrite question names the file really written.
 SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
+# LLFR-01224, LLFR-01227: the dialogs of the Word and PNG exports.
+SAVE_DOCX_DIALOG_TITLE_STR = "Save all tabs as Word document"
+SAVE_DOCX_FILTER_STR = "Word documents (*.docx)"
+SAVE_DOCX_DEFAULT_SUFFIX_STR = "docx"
+SAVE_PNG_DIALOG_TITLE_STR = "Choose the folder of the PNG files"
+# LLFR-01230: the question asked before PNG files are replaced.
+REPLACE_PNG_TITLE_STR = "Replace Files"
+REPLACE_PNG_QUESTION_STR = (
+    "These files already exist in the folder '{folder}':")
+REPLACE_PNG_END_STR = "Do you want to replace them?"
 # LLFR-00219, LLFR-00221: titles and filter of the layout dialogs.
 SAVE_LAYOUT_DIALOG_TITLE_STR = "Save layout"
 LOAD_LAYOUT_DIALOG_TITLE_STR = "Load layout"
@@ -323,6 +334,13 @@ class MainWindow(QMainWindow):
         self.copy_handler = None
         self.top_panel.pdf_export_requested.connect(
             self._on_pdf_export_requested)
+        # LLFR-01223: the Word and PNG options of the Export menu.
+        self.docx_export_handler = None
+        self.png_export_handler = None
+        self.top_panel.docx_export_requested.connect(
+            lambda: self._run_export_handler(self.docx_export_handler))
+        self.top_panel.png_export_requested.connect(
+            lambda: self._run_export_handler(self.png_export_handler))
         self.top_panel.copy_requested.connect(self._on_copy_requested)
         # LLFR-00148 to LLFR-00150: holding the Tip key keeps the Tip
         # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
@@ -2530,6 +2548,134 @@ class MainWindow(QMainWindow):
         self.pdf_export_handler = pdf_export_handler
         self.copy_handler = copy_handler
         self.copy_shortcut_handler = copy_shortcut_handler
+
+    def set_image_export_handlers(self, docx_export_handler,
+                                  png_export_handler) -> None:
+        """Set the functions of the Word and PNG options of Export.
+
+        Inputs:
+            docx_export_handler: function without arguments, for "Save
+                all tabs as Word document (.docx)".
+            png_export_handler: function without arguments, for "Save
+                each tab as PNG".
+        Outputs: none.
+        """
+        # LLFR-01223: the controller runs the flows.
+        self.docx_export_handler = docx_export_handler
+        self.png_export_handler = png_export_handler
+
+    def _run_export_handler(self, handler) -> None:
+        """Run an export handler, or end the Export button's function.
+
+        Inputs:
+            handler: the function, or None.
+        Outputs: none.
+        """
+        # LLFR-00003: with nothing to run, the function is finished.
+        if handler is None:
+            self.finish_export_button()
+            return
+        # LLFR-01224, LLFR-01227.
+        handler()
+
+    def exportable_tab_name_list(self) -> list:
+        """Return the names of the tabs that hold at least one plot.
+
+        Inputs: none.
+        Outputs: a list of str, in tab order (LLFR-01091).
+        """
+        # LLFR-01228, LLFR-01229: the tabs that get a PNG file.
+        page_list = plot_export.exportable_page_list(
+            self.plot_panel.tab_widget, self.undocked_page_list())
+        return [str(page.name_str) for page in page_list]
+
+    def ask_docx_save_path(self, start_folder_str: str = "") -> str:
+        """Show the save file dialog for a .docx file.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-01224: a save file dialog for a .docx file, in the folder
+        # of LLFR-01231; the system asks before replacing the file.
+        dialog = QFileDialog(self, SAVE_DOCX_DIALOG_TITLE_STR,
+                             str(start_folder_str), SAVE_DOCX_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setDefaultSuffix(SAVE_DOCX_DEFAULT_SUFFIX_STR)
+        return self.run_export_dialog(dialog) or ""
+
+    def ask_png_folder(self, start_folder_str: str = "") -> str:
+        """Show the dialog in which the user chooses the PNG folder.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen folder, or "" when the user cancelled.
+        """
+        # LLFR-01227: a folder dialog, in the folder of LLFR-01231.
+        dialog = QFileDialog(self, SAVE_PNG_DIALOG_TITLE_STR,
+                             str(start_folder_str))
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
+        return self.run_export_dialog(dialog) or ""
+
+    def run_export_dialog(self, dialog) -> str:
+        """Run a dialog of the Word or PNG export modally.
+
+        Inputs:
+            dialog: the QFileDialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-01224, LLFR-01227, LLFR-01231: an empty path is a cancel.
+        return file_dialogs.run_file_dialog(dialog)
+
+    def ask_replace_existing_files(self, folder_str: str,
+                                   file_name_list: list) -> bool:
+        """Ask once whether to replace PNG files that already exist.
+
+        Inputs:
+            folder_str: the chosen folder.
+            file_name_list: the names of the existing files.
+        Outputs: True when the user chose Yes.
+        """
+        # LLFR-01230: one question that names the files.
+        question_str = list_text(
+            [str(name_str) for name_str in file_name_list],
+            REPLACE_PNG_QUESTION_STR.format(folder=folder_str))
+        box = message_boxes.build_question_box(
+            self, REPLACE_PNG_TITLE_STR,
+            f"{question_str}\n\n{REPLACE_PNG_END_STR}")
+        return message_boxes.answered_yes(box)
+
+    def save_tabs_docx(self, path_str: str,
+                       description_str: str = "") -> tuple:
+        """Save the plots of every tab that holds a plot to a .docx file.
+
+        Inputs:
+            path_str: the path of the .docx file.
+            description_str: the description of the open data files.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-01225, LLFR-01226, LLFR-01231.
+        return plot_export.save_tabs_docx(self.plot_panel.tab_widget,
+                                          path_str, description_str,
+                                          self.undocked_page_list())
+
+    def save_tab_png_files(self, folder_str: str, file_name_list: list,
+                           description_str: str = "") -> tuple:
+        """Save one PNG file per tab that holds a plot.
+
+        Inputs:
+            folder_str: the chosen folder.
+            file_name_list: the file name of each tab (LLFR-01229).
+            description_str: the description of the open data files.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-01228, LLFR-01231.
+        return plot_export.save_tab_png_files(
+            self.plot_panel.tab_widget, folder_str, file_name_list,
+            description_str, self.undocked_page_list())
 
     def exportable_tab_count(self) -> int:
         """Return the number of tabs that hold at least one plot.
