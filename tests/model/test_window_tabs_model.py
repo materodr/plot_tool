@@ -53,6 +53,33 @@ class WindowTabsTestCase(unittest.TestCase):
         return [tab.tab_id_i for tab in self.workspace.tab_list]
 
 
+class AddTabToWindowTest(WindowTabsTestCase):
+    """The "+" button of an undocked window adds a tab there."""
+
+    @covers("LLFR-01197", "LLFR-00210", "LLFR-01091", "HLFR-00015")
+    def test_new_tab_is_last_of_its_window(self) -> None:
+        """The tab takes the next "Tab N", joins the window after its
+        last tab with the window values, and the window shows it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        workspace = self.workspace
+        self.assertTrue(workspace.undock_tab(self.id_list[1],
+                                             (10, 20, 300, 200)))
+        window_id_i = self.window_of(self.id_list[1])
+        tab = workspace.add_tab_to_window(window_id_i)
+        self.assertEqual(tab.name_str, "Tab 5")
+        self.assertEqual([member.tab_id_i for member
+                          in workspace.window_tab_list(window_id_i)],
+                         [self.id_list[1], tab.tab_id_i])
+        self.assertEqual(tuple(tab.window_tuple), (10, 20, 300, 200))
+        self.assertIs(workspace.window_shown_tab(window_id_i), tab)
+        # LLFR-01091: the undocked tabs stay after the docked ones.
+        self.assertEqual(self.order()[-2:], [self.id_list[1], tab.tab_id_i])
+        self.assertIsNone(workspace.add_tab_to_window(99))
+
+
 class MoveIntoWindowTest(WindowTabsTestCase):
     """Moving tabs into undocked windows."""
 

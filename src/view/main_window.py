@@ -638,6 +638,10 @@ class MainWindow(QMainWindow):
         window.panel_toggle_handler = (
             lambda toggled_id_i: self._run_window_handler(
                 "panel_toggle_handler", toggled_id_i))
+        # LLFR-01197: the "+" button of the window.
+        window.add_tab_handler = (
+            lambda added_id_i: self._run_window_handler(
+                "window_add_tab_handler", added_id_i))
         window.panel_width_handler = (
             lambda changed_id_i, start_i, end_i: self._run_window_handler(
                 "panel_width_handler", changed_id_i, start_i, end_i))

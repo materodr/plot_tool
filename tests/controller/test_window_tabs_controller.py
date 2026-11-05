@@ -137,6 +137,61 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
                          [second_id_i, third_id_i])
 
 
+class WindowAddTabControllerTest(WindowTabsControllerTestCase):
+    """The "+" button of an undocked window (LLFR-01197)."""
+
+    @covers("LLFR-01197", "LLFR-00210", "LLFR-00212", "LLFR-00140",
+            "HLFR-00015", "HLFR-00126")
+    def test_plus_of_a_window_adds_the_tab_there(self) -> None:
+        """The new tab is the last of the window, shown there, named
+        "Tab N"; the main window keeps its tab; one undo removes it and
+        one redo adds it again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i, second_id_i, third_id_i, window_id_i = (
+            self.three_tabs_two_in_a_window())
+        self.view.set_current_tab(first_id_i)
+        self.view.handler_dict["window_add_tab_handler"](window_id_i)
+        tab_list = self.workspace.window_tab_list(window_id_i)
+        self.assertEqual(len(tab_list), 3)
+        new_tab = tab_list[-1]
+        self.assertEqual(new_tab.name_str, "Tab 4")
+        self.assertTrue(new_tab.undocked_b)
+        self.assertEqual(self.window_tabs(window_id_i),
+                         [second_id_i, third_id_i, new_tab.tab_id_i])
+        self.assertEqual(self.view.window_shown_dict[window_id_i],
+                         new_tab.tab_id_i)
+        self.assertEqual(self.view.current_tab_id(), first_id_i)
+        self.undo()
+        self.assertEqual(self.window_tabs(window_id_i),
+                         [second_id_i, third_id_i])
+        self.assertIsNone(self.workspace.find_tab(new_tab.tab_id_i))
+        self.redo()
+        self.assertEqual(self.window_tabs(window_id_i),
+                         [second_id_i, third_id_i, new_tab.tab_id_i])
+        # LLFR-00210: the number is never reused, even after an undo.
+        self.undo()
+        self.view.handler_dict["window_add_tab_handler"](window_id_i)
+        self.assertEqual(
+            self.workspace.window_tab_list(window_id_i)[-1].name_str,
+            "Tab 5")
+
+    @covers("LLFR-01197", "HLFR-00015")
+    def test_plus_of_an_unknown_window_changes_nothing(self) -> None:
+        """A window id with no tab adds nothing and records nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        depth_i = self.controller.undo_history.depth()
+        count_i = len(self.workspace.tab_list)
+        self.view.handler_dict["window_add_tab_handler"](99)
+        self.assertEqual(len(self.workspace.tab_list), count_i)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i)
+
+
 class NewWindowDropControllerTest(WindowTabsControllerTestCase):
     """A tab of an undocked window dropped outside the app."""
 

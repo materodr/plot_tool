@@ -313,6 +313,198 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
                          plot_count_i + 1)
 
 
+class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
+    """The "+" button, the left alignment and the spacing of the tabs of
+    an undocked window (LLFR-01197, LLFR-00106, LLFR-01198,
+    LLFR-01199)."""
+
+    def border_rect(self, tab_bar, index_i: int):
+        """Return the border box of a tab, in tab bar coordinates.
+
+        Inputs:
+            tab_bar: the QTabBar.
+            index_i: the index of the tab.
+        Outputs: a QRect without the tab's right margin.
+        """
+        from PyQt6.QtCore import QRect
+        from view import theme
+        rect = tab_bar.tabRect(index_i)
+        return QRect(rect.x(), rect.y(),
+                     rect.width() - theme.TAB_SPACING_I, rect.height())
+
+    @covers("LLFR-00025", "LLFR-01032", "LLFR-01197", "LLFR-00107",
+            "HLFR-00015", "HLFR-00126")
+    def test_plus_button_adds_a_tab_in_the_window(self) -> None:
+        """The window's "+" sits right after its last tab, as high as a
+        tab; a click adds a tab at the end of the window, shown there.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        _, second_id_i, third_id_i, window = self.two_tabs_in_one_window()
+        window.show()
+        self.process_events()
+        button = window.add_tab_button
+        self.assertTrue(button.isVisible())
+        self.assertEqual(button.text(), "+")
+        last_rect = self.border_rect(window.tab_bar, 1)
+        right_i = window.tab_bar.mapTo(window.tab_row,
+                                       last_rect.topRight()).x()
+        left_i = button.mapTo(window.tab_row, QPoint(0, 0)).x()
+        # LLFR-01199: 2 pixels between the last tab and the "+" button.
+        self.assertEqual(left_i - right_i - 1, 2)
+        self.assertEqual(button.height(), window.tab_bar.tabRect(0).height())
+        button.click()
+        self.process_events()
+        id_list = window.tab_id_list()
+        self.assertEqual(len(id_list), 3)
+        self.assertEqual(id_list[:2], [second_id_i, third_id_i])
+        self.assertEqual(window.shown_tab_id(), id_list[2])
+        self.assertTrue(self.tab(id_list[2]).undocked_b)
+
+    @covers("LLFR-00106", "LLFR-01063", "LLFR-01198", "HLFR-00014",
+            "HLFR-00126")
+    def test_window_tabs_start_at_the_left_two_pixels_apart(self) -> None:
+        """The first tab starts at the left edge of the window's tab row,
+        the tabs are 2 pixels apart, and the free room is on the right.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        _, _, _, window = self.two_tabs_in_one_window()
+        window.resize(900, 500)
+        window.show()
+        self.process_events()
+        tab_bar = window.tab_bar
+        first_left_i = tab_bar.mapTo(window.tab_row,
+                                     tab_bar.tabRect(0).topLeft()).x()
+        self.assertLessEqual(abs(first_left_i), 1)
+        first_rect = self.border_rect(tab_bar, 0)
+        second_rect = self.border_rect(tab_bar, 1)
+        self.assertEqual(second_rect.x() - (first_rect.x()
+                                            + first_rect.width()), 2)
+        button_right_i = window.add_tab_button.mapTo(
+            window.tab_row, QPoint(window.add_tab_button.width(), 0)).x()
+        self.assertLess(button_right_i, window.tab_row.width() // 2)
+
+    @covers("LLFR-01198", "LLFR-01199", "HLFR-00014", "HLFR-00015")
+    def test_main_window_tabs_two_pixels_apart(self) -> None:
+        """In the main window too, the tabs are 2 pixels apart and the
+        "+" button 2 pixels after the last tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        self.main_window.show()
+        self.add_tab()
+        self.add_tab()
+        self.process_events()
+        tab_widget = self.panel.tab_widget
+        tab_bar = tab_widget.tabBar()
+        for index_i in range(1, tab_bar.count()):
+            previous_rect = self.border_rect(tab_bar, index_i - 1)
+            current_rect = self.border_rect(tab_bar, index_i)
+            self.assertEqual(current_rect.x() - (previous_rect.x()
+                                                 + previous_rect.width()),
+                             2)
+        last_rect = self.border_rect(tab_bar, tab_bar.count() - 1)
+        right_i = tab_bar.mapTo(tab_widget, last_rect.topRight()).x()
+        left_i = tab_widget.add_tab_button.mapTo(tab_widget,
+                                                 QPoint(0, 0)).x()
+        self.assertEqual(left_i - right_i - 1, 2)
+
+
+class TabDragPreviewTest(WindowTabsViewTestCase):
+    """The image of a dragged tab follows the pointer (LLFR-01202)."""
+
+    def press_move_and_check(self, tab_bar, index_i: int, preview) -> None:
+        """Press on a tab, move far with the button held, check the
+        image, release and check it is gone.
+
+        Inputs:
+            tab_bar: the QTabBar of the tab.
+            index_i: the index of the tab.
+            preview: the TabDragPreview.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        from tests.view.test_undocked_windows_view import send_mouse
+        from view import tab_drag_preview
+        start_point = tab_bar.mapToGlobal(tab_bar.tabRect(index_i).center())
+        send_mouse(tab_bar, "MouseButtonPress", start_point)
+        self.assertFalse(preview.is_shown())
+        first_point = start_point + QPoint(40, 60)
+        second_point = start_point + QPoint(90, 130)
+        send_mouse(tab_bar, "MouseMove", first_point, "LeftButton",
+                   "NoButton")
+        send_mouse(tab_bar, "MouseMove", second_point, "LeftButton",
+                   "NoButton")
+        self.process_events()
+        self.assertTrue(preview.is_shown())
+        self.assertLessEqual(preview.width(),
+                             tab_drag_preview.PREVIEW_MAXIMUM_WIDTH_I)
+        self.assertGreater(preview.width(), 0)
+        self.assertLess(preview.windowOpacity(), 1.0)
+        offset_i = tab_drag_preview.PREVIEW_OFFSET_I
+        self.assertEqual(preview.pos(),
+                         second_point + QPoint(offset_i, offset_i))
+        send_mouse(tab_bar, "MouseButtonRelease", second_point, "NoButton")
+        self.process_events()
+        self.assertFalse(preview.is_shown())
+
+    @covers("LLFR-01202", "HLFR-00143", "HLFR-00153")
+    def test_image_follows_a_dragged_docked_tab(self) -> None:
+        """A tab of the main window dragged with the left button shows a
+        small semi-transparent image next to the pointer until the
+        release.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.show()
+        self.add_tab()
+        self.main_window.signal_double_click_handler("speed")
+        self.process_events()
+        tab_bar = self.panel.tab_widget.tabBar()
+        self.press_move_and_check(tab_bar, 1, self.panel.tab_drag_preview)
+
+    @covers("LLFR-01202", "HLFR-00143", "HLFR-00154")
+    def test_image_follows_a_dragged_window_tab(self) -> None:
+        """A tab of an undocked window dragged with the left button
+        shows the same image until the release.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, _, _, window = self.two_tabs_in_one_window()
+        window.show()
+        self.process_events()
+        with mock.patch.object(self.main_window, "request_window_tab_drop"):
+            window.tab_drop_handler = lambda *argument_tuple: None
+            self.press_move_and_check(window.tab_bar, 0,
+                                      self.panel.tab_drag_preview)
+
+    @covers("LLFR-01202")
+    def test_image_is_scaled_to_200_pixels(self) -> None:
+        """preview_pixmap keeps the page's proportions within 200 pixels.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view.tab_drag_preview import preview_pixmap
+        self.main_window.resize(1200, 800)
+        self.main_window.show()
+        self.process_events()
+        page = self.panel.page_dict[self.panel.current_tab_id()]
+        pixmap = preview_pixmap(page)
+        self.assertEqual(pixmap.width(), 200)
+        self.assertAlmostEqual(pixmap.height() / pixmap.width(),
+                               page.height() / page.width(), delta=0.02)
+
+
 class DropOnWindowViewTest(WindowTabsViewTestCase):
     """Dropping a dragged tab on a window or outside the plot panel."""
 

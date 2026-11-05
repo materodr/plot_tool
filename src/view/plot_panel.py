@@ -41,6 +41,7 @@ from view import name_dialog, theme
 from view.matrix_picker import (
     MatrixPicker, PositionPicker, add_picker_submenu)
 from view.plot_widget import PlotWidget
+from view.tab_drag_preview import TabDragPreview
 from view.tab_page import TabPage
 from view.window_buttons import (
     DOCK_BUTTON_OBJECT_NAME_STR, UNDOCK_BUTTON_OBJECT_NAME_STR,
@@ -60,8 +61,9 @@ PLOT_MATRIX_TEXT_STR = "Plot matrix"
 NO_TAB_ID_I = -1
 RENAME_DIALOG_TITLE_STR = "Rename tab"
 RENAME_DIALOG_LABEL_STR = "New tab name:"
-# LLFR-00025: pixels between the last tab and the "+" button.
-ADD_BUTTON_GAP_I = theme.TAB_SPACING_I
+# LLFR-00025, LLFR-01199: pixels between the right margin of the last tab
+# and the "+" button; the margin itself is the 2 pixels of LLFR-01199.
+ADD_BUTTON_GAP_I = 0
 # LLFR-00106, LLFR-00107: object names used by the style sheet.
 TAB_WIDGET_OBJECT_NAME_STR = "plot_tab_widget"
 TAB_BAR_OBJECT_NAME_STR = "plot_tab_bar"
@@ -439,6 +441,8 @@ class PlotPanel(QWidget):
         self.pressed_tab_id_i = NO_TAB_ID_I
         self.pressed_tab_index_i = -1
         self.tab_drag_in_progress_b = False
+        # LLFR-01202: the image of a dragged tab, shared by every window.
+        self.tab_drag_preview = TabDragPreview()
         # LLFR-01097, LLFR-01114: the picker that is open, if any.
         self.open_picker = None
         # LLFR-01015: the undock button of each docked tab, and the
@@ -524,12 +528,21 @@ class PlotPanel(QWidget):
               and event.buttons() & Qt.MouseButton.LeftButton):
             # LLFR-00454: from the first move, the 0 key does nothing.
             self.tab_drag_in_progress_b = True
+            # LLFR-01202: the image of the tab follows the pointer.
+            global_point = event.globalPosition().toPoint()
+            if self.tab_drag_preview.dragged_page is None:
+                self.tab_drag_preview.start(
+                    self.page_dict.get(self.pressed_tab_id_i), global_point)
+            else:
+                self.tab_drag_preview.follow(global_point)
         elif (event_type == QEvent.Type.MouseButtonRelease
               and event.button() == Qt.MouseButton.LeftButton
               and self.pressed_tab_id_i != NO_TAB_ID_I):
             # LLFR-01142: where a dragged tab was dropped, in desktop
             # pixels; a click is no drop.
             release_tuple = ()
+            # LLFR-01202: the image is removed at the release.
+            self.tab_drag_preview.stop()
             if self.tab_drag_in_progress_b:
                 release_point = event.globalPosition().toPoint()
                 release_tuple = (release_point.x(), release_point.y())
@@ -675,6 +688,8 @@ class PlotPanel(QWidget):
         if self.tab_drag_in_progress_b and not self.left_button_down():
             self.tab_drag_in_progress_b = False
             self.pressed_tab_id_i = NO_TAB_ID_I
+            # LLFR-01202: a lost release removes the image too.
+            self.tab_drag_preview.stop()
         return self.tab_drag_in_progress_b
 
     def left_button_down(self) -> bool:

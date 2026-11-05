@@ -1873,6 +1873,25 @@ class Workspace:
         self.insert_docked_tab(tab)
         return tab
 
+    def add_tab_to_window(self, window_id_i: int):
+        """Add a new empty tab at the end of an undocked window.
+
+        Inputs:
+            window_id_i: id of the undocked window.
+        Outputs: the new Tab, named as add_tab names it, shown by the
+            window; None for an unknown window, with nothing changed.
+        """
+        # LLFR-01197: the "+" button of an undocked window adds the tab
+        # there, after its last tab; LLFR-00210, LLFR-00212: named as
+        # any new tab.
+        if not self.window_tab_list(window_id_i):
+            return None
+        tab = self.add_tab()
+        # LLFR-01150, LLFR-01158: it takes the window values and the
+        # window shows it.
+        self.move_tab_to_window(tab.tab_id_i, int(window_id_i))
+        return tab
+
     def insert_docked_tab(self, tab) -> None:
         """Put a docked tab after the last docked tab.
 

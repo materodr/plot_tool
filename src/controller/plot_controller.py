@@ -356,6 +356,8 @@ class PlotController:
             dock_handler=self.on_dock_tab,
             window_close_handler=self.on_window_closed,
             panel_toggle_handler=self.on_panel_toggled,
+            # LLFR-01197: the "+" button of an undocked window.
+            window_add_tab_handler=self.on_window_add_tab,
             panel_width_handler=self.on_panel_width_changed,
             # LLFR-01142, LLFR-01143: undock and dock by dragging.
             undock_drop_handler=self.on_undock_drop,
@@ -1913,6 +1915,31 @@ class PlotController:
         self.show_tab_view(tab)
         self.view.set_current_tab(tab.tab_id_i)
         # LLFR-00066: with two tabs or more, "Delete" is enabled.
+        self.update_tab_delete_enabled()
+
+    def on_window_add_tab(self, window_id_i: int) -> None:
+        """Add a new tab in an undocked window and show it there.
+
+        Inputs:
+            window_id_i: id of the window whose "+" button was clicked.
+        Outputs: none. An unknown window changes nothing.
+        """
+        # LLFR-00140: adding a tab is undoable.
+        memory_tuple = self.window_memory_tuple()
+        snapshot = self.workspace.snapshot(self.view.current_tab_id())
+        shown_tab_id_i = self.view.current_tab_id()
+        # LLFR-01197: the tab is added at the end of that window.
+        tab = self.workspace.add_tab_to_window(window_id_i)
+        if tab is None:
+            return
+        self.record_undo(snapshot)
+        # LLFR-01122: the new tab has the default plot matrix.
+        self.show_tab_view(tab)
+        # LLFR-01197, LLFR-01158: the window shows it; the main window
+        # keeps the tab it showed.
+        self.show_windows(memory_tuple)
+        if shown_tab_id_i >= 0:
+            self.view.set_current_tab(shown_tab_id_i)
         self.update_tab_delete_enabled()
 
     def on_delete_tab(self, tab_id_i: int) -> None:
