@@ -551,8 +551,9 @@ class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
         """
         center_tuple = self.note_off_curves()
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
-        preview_s = self.plot_widget.marker_preview_time_at(
-            self.plot_widget.display_to_widget_point(*center_tuple))
+        # The time the preview shows once the pointer is there.
+        self.hover_display(center_tuple)
+        preview_s = self.plot_widget.marker_preview_time_s()
         self.press_release_display(center_tuple)
         self.assertEqual(self.place_list, [])
         # Another left press, away from the note: both flags at once,
