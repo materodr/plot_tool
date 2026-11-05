@@ -527,6 +527,134 @@ class LabelsAndTipNamesTest(ShapeWidgetTestCase):
         self.assertEqual(self.shape_rename_list, [])
 
 
+class ShapeEdgeTest(ShapeWidgetTestCase):
+    """Shapes at the edge of the drawing area and under other items."""
+
+    @covers("LLFR-01319", "HLFR-00158")
+    def test_shape_is_cut_at_the_edge(self) -> None:
+        """A shape partly outside the shown range is clipped to the
+        drawing area.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_one_shape(box_tuple=(8.0, 1.5, 14.0, 2.5))
+        patch = self.plot_widget.shape_patch(0)
+        self.assertTrue(patch.get_clip_on())
+        self.assertTrue(patch.get_clip_path() is not None
+                        or patch.get_clip_box() is not None)
+
+    @covers("LLFR-01325", "HLFR-00158")
+    def test_move_released_outside_uses_the_nearest_point(self) -> None:
+        """A move released right of the drawing area moves the shape as
+        far as the right edge.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_one_shape()
+        self.plot_widget.set_plot_tool(NO_TOOL_STR)
+        right_f = self.plot_widget.axes.get_xlim()[1]
+        press_tuple = self.display_of(4.0, 1.5)
+        box = self.plot_widget.axes.bbox
+        self.drag(press_tuple, (box.x1 + 120.0, press_tuple[1]))
+        self.assertEqual(len(self.shape_change_list), 1)
+        shift_f = right_f - 4.0
+        self.assert_values_near(self.box_of(self.shape_change_list[0][1:]),
+                                (2.0 + shift_f, 1.5, 6.0 + shift_f, 2.5))
+
+    @covers("LLFR-01331", "HLFR-00158")
+    def test_corner_released_outside_uses_the_nearest_point(self) -> None:
+        """A corner released above the drawing area stops at its top.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_one_shape()
+        self.plot_widget.set_plot_tool(RECTANGLE_TOOL_STR)
+        top_f = self.plot_widget.axes.get_ylim()[1]
+        corner_tuple = self.display_of(6.0, 2.5)
+        box = self.plot_widget.axes.bbox
+        self.drag(corner_tuple, (corner_tuple[0], box.y1 + 120.0))
+        self.assertEqual(len(self.shape_change_list), 1)
+        self.assert_values_near(self.box_of(self.shape_change_list[0][1:]),
+                                (2.0, 1.5, 6.0, top_f))
+
+    @covers("LLFR-01341", "HLFR-00158")
+    def test_arrow_over_a_shape_gets_its_menu(self) -> None:
+        """Where an arrow is drawn over the line of a shape, the
+        right-click shows the arrow menu.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from tests.view.menu_texts import ARROW_MENU_TEXT_LIST
+        self.set_one_shape()
+        point_tuple = self.display_of(4.0, 1.5)
+        self.assertEqual(self.choose_menu(point_tuple, ""),
+                         SHAPE_MENU_TEXT_LIST)
+        self.set_one_arrow((3.0, 1.5, 5.0, 1.5))
+        self.assertEqual(self.choose_menu(point_tuple, ""),
+                         ARROW_MENU_TEXT_LIST)
+
+    @covers("LLFR-01345", "HLFR-00158")
+    def test_label_follows_the_preview(self) -> None:
+        """While a shape is moved, its label is drawn with the preview,
+        moved with it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_one_shape(name_str="Zone")
+        self.plot_widget.set_plot_tool(NO_TOOL_STR)
+        before_tuple = self.plot_widget.shape_label(0).get_position()
+        self.left_press(self.display_of(4.0, 1.5))
+        self.move_to(self.display_of(4.5, 1.6))
+        self.move_to(self.display_of(5.0, 1.7))
+        preview_label = self.plot_widget.shape_preview_label
+        self.assertEqual(preview_label.get_text(), "Zone")
+        self.assertGreater(preview_label.get_position()[0],
+                           before_tuple[0] + 5.0)
+        self.plot_widget.cancel_drags()
+
+    @covers("LLFR-01275", "HLFR-00161", "HLFR-00038", "HLFR-00039")
+    def test_hidden_labels_are_not_exported(self) -> None:
+        """The export image of a magenta shape has fewer magenta pixels
+        once its label is hidden, and the label stays empty.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import plot_export
+
+        def magenta_pixel_count(image) -> int:
+            """Count the pixels close to magenta.
+
+            Inputs:
+                image: a QImage.
+            Outputs: the count.
+            """
+            count_i = 0
+            for y_i in range(0, image.height()):
+                for x_i in range(image.width()):
+                    color = image.pixelColor(x_i, y_i)
+                    if (color.red() >= 180 and color.green() <= 120
+                            and color.blue() >= 180):
+                        count_i += 1
+            return count_i
+
+        figure = self.plot_widget.figure
+        self.set_one_shape(color_str=MAGENTA_STR, name_str="WWWWWWWW")
+        shown_count_i = magenta_pixel_count(
+            plot_export.render_figure_image(figure, figure.dpi))
+        self.plot_widget.set_labels_hidden(True)
+        self.draw()
+        hidden_count_i = magenta_pixel_count(
+            plot_export.render_figure_image(figure, figure.dpi))
+        self.assertLess(hidden_count_i, shown_count_i - 20)
+        self.assertEqual(self.plot_widget.shape_label(0).get_text(), "")
+
+
 @requires_qt
 class ShapeWindowTest(XyzKeyWindowTestCase):
     """The new buttons and keys through MainWindow and the controllers."""
