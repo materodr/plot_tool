@@ -35,7 +35,7 @@ offers it) gives the numbers of the collapsed files, whose rows show the
 ``[+]`` icon and no signal below them (LLFR-00994 to LLFR-00998).
 Every open file is collapsed each time a file is opened (LLFR-01001).
 Creating a synthetic signal from the signal menu expands its file and
-selects the new signal (``reveal_new_signal``, LLFR-01181, LLFR-01182);
+selects the new signal (``reveal_new_signal``, LLFR-01186, LLFR-01187);
 a layout load changes neither.
 While the search box holds text, every file is expanded to show its
 matches, and a click on an icon then hides or shows the matches only
@@ -220,14 +220,14 @@ class SignalListController:
             (LLFR-01036). The undo and redo history is left unchanged
             (LLFR-01008).
         """
-        # LLFR-01181: a collapsed file of the new signal is expanded, in
+        # LLFR-01186: a collapsed file of the new signal is expanded, in
         # the state shown now and in the state outside a search.
         if file_number_value is not None:
             number_i = int(file_number_value)
             self.collapsed_number_set.discard(number_i)
             self.search_collapsed_number_set.discard(number_i)
         self.show_filtered_names()
-        # LLFR-01182: the new signal is selected, alone; fake views of
+        # LLFR-01187: the new signal is selected, alone; fake views of
         # tests that don't select may leave the method out.
         select_signal = getattr(self.view, "select_only_signal", None)
         if select_signal is not None:

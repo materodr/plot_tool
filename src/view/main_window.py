@@ -1608,7 +1608,7 @@ class MainWindow(QMainWindow):
         Outputs: none. A panel that doesn't show the name keeps its
             selection.
         """
-        # LLFR-01182: the new synthetic signal is selected; LLFR-01036:
+        # LLFR-01187: the new synthetic signal is selected; LLFR-01036:
         # every panel shows the same list, so each one selects it.
         for panel in self.signal_list_panel_list():
             panel.select_only_signal(signal_name_str)
