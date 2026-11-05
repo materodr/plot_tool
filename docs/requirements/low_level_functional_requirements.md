@@ -185,7 +185,7 @@ Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing 
 ### LLFR-01055 Panel width change undoable
 Each drag of the border between the plot panel and the signal list panel of a window (LLFR-00073) that ends with the signal list panel at a width different from its width at the start of the drag must be one undoable action (LLFR-00140).
 
-Note: Undoing it returns the signal list panel of that window to its width at the start of the drag (LLFR-00138), limited for an undocked window as in LLFR-01179.
+Note: Undoing it returns the signal list panel of that window to its width at the start of the drag (LLFR-00138), limited for an undocked window as in LLFR-01184.
 
 *Parent: HLFR-00132, HLFR-00040, HLFR-00048, HLFR-00026*
 
@@ -212,7 +212,7 @@ Note: Its signal list panel follows LLFR-01129.
 *Parent: HLFR-00133, HLFR-00134, HLFR-00139, HLFR-00126*
 
 ### LLFR-01129 Signal list panel of a window opened again
-When an undo or a redo opens an undocked window again (LLFR-01059), the app must give its signal list panel the shown or hidden state and the width that it had, except as in LLFR-01179.
+When an undo or a redo opens an undocked window again (LLFR-01059), the app must give its signal list panel the shown or hidden state and the width that it had, except as in LLFR-01184.
 
 *Parent: HLFR-00133, HLFR-00134, HLFR-00139, HLFR-00130*
 
@@ -1465,7 +1465,7 @@ Note: The undocked tabs it added are shown in their own windows (LLFR-01076).
 *Parent: HLFR-00050*
 
 ### LLFR-00230 Rebuild the layout
-When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00484), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, LLFR-00474 and LLFR-00475, docked or undocked as in LLFR-01076 and LLFR-01077, using the signals of the open data files (LLFR-00949) and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00815, LLFR-00816, LLFR-00410, LLFR-00822, LLFR-00823, LLFR-01079, LLFR-01081, LLFR-01165, LLFR-01083, LLFR-01084, LLFR-01125 and LLFR-01179.
+When the app loads a layout file, it must build the tabs that hold at least one plot (LLFR-00484), and the plots, curves, delta markers and pinned data tips of the file, in the file's order, in the tabs of LLFR-00229, LLFR-00474 and LLFR-00475, docked or undocked as in LLFR-01076 and LLFR-01077, using the signals of the open data files (LLFR-00949) and the synthetic signals of LLFR-00262, except as in LLFR-00231 to LLFR-00235, LLFR-00483, LLFR-00484, LLFR-00485, LLFR-00486, LLFR-00487, LLFR-00488, LLFR-00489, LLFR-00319, LLFR-00726, LLFR-00728, LLFR-00393, LLFR-00815, LLFR-00816, LLFR-00410, LLFR-00822, LLFR-00823, LLFR-01079, LLFR-01081, LLFR-01165, LLFR-01083, LLFR-01084, LLFR-01125 and LLFR-01184.
 
 *Parent: HLFR-00050*
 
@@ -1538,7 +1538,7 @@ Note: A layout file saved before undocked windows were added has no such entry, 
 *Parent: HLFR-00141, HLFR-00050*
 
 ### LLFR-01078 Signal list panel from a layout
-When the app opens an undocked window from a layout file (LLFR-01076), it must show or hide its signal list panel as saved, at the saved width, except as in LLFR-01081 and LLFR-01179.
+When the app opens an undocked window from a layout file (LLFR-01076), it must show or hide its signal list panel as saved, at the saved width, except as in LLFR-01081 and LLFR-01184.
 
 *Parent: HLFR-00141, HLFR-00130*
 
@@ -1593,7 +1593,7 @@ When the saved size of an undocked window is larger than the available area of t
 *Parent: HLFR-00142*
 
 ### LLFR-01085 Move onto a screen not reported
-The app must leave the moves and size changes of LLFR-01083 and LLFR-01084, and the panel widths limited as in LLFR-01179, out of the load report (LLFR-00237).
+The app must leave the moves and size changes of LLFR-01083 and LLFR-01084, and the panel widths limited as in LLFR-01184, out of the load report (LLFR-00237).
 
 *Parent: HLFR-00142, HLFR-00052*
 
@@ -2438,14 +2438,14 @@ Note: The panels share one state of the data files, as they share the search tex
 
 *Parent: HLFR-00128, HLFR-00123*
 
-### LLFR-01179 Signal list panel width limited to its window
+### LLFR-01184 Signal list panel width limited to its window
 When the app gives a signal list panel the width saved in a layout file (LLFR-00482, LLFR-01078), or shows the signal list panel of an undocked window again at a width it had (LLFR-01048, LLFR-01055, LLFR-01129), it must give the panel at most the larger of 1 pixel and the width of its window minus 100 pixels.
 
 Note: The plot panel of the window keeps room this way. A saved width can be too wide when the layout file was edited by hand, or when the window was made smaller to fit the screen (LLFR-01084). In the main window, the saved width is first scaled with the plot panel width to the room the two panels have (LLFR-00482), and the 100 pixels are taken from that room, which is a little narrower than the window, so the plot panel keeps at least 100 pixels.
 
 *Parent: HLFR-00050, HLFR-00141, HLFR-00130*
 
-### LLFR-01180 No signal list button in the main window
+### LLFR-01185 No signal list button in the main window
 The main window must show its signal list panel without a signal list button (LLFR-01044).
 
 *Parent: HLFR-00131*
@@ -2660,7 +2660,7 @@ When the user clicks the signal list button while the signal list panel of its w
 *Parent: HLFR-00130*
 
 ### LLFR-01048 Show the signal list panel
-When the user clicks the signal list button while the signal list panel of its window is hidden, the app must show the panel again at the width it had when it was hidden, except as in LLFR-01051 and LLFR-01179.
+When the user clicks the signal list button while the signal list panel of its window is hidden, the app must show the panel again at the width it had when it was hidden, except as in LLFR-01051 and LLFR-01184.
 
 *Parent: HLFR-00130*
 
@@ -2716,7 +2716,7 @@ Hiding and showing the signal list panel of an undocked window (LLFR-01047, LLFR
 ### LLFR-01054 Main window signal list panel always shown
 The main window must keep its signal list panel shown, at least 1 pixel wide, at all times.
 
-Note: The panel is made narrower or wider only by dragging its border (LLFR-00073), as the main window has no signal list button (LLFR-01180).
+Note: The panel is made narrower or wider only by dragging its border (LLFR-00073), as the main window has no signal list button (LLFR-01185).
 
 *Parent: HLFR-00131, HLFR-00026*
 

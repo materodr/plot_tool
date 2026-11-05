@@ -40,7 +40,7 @@ class WindowPlacementTest(unittest.TestCase):
         self.assertEqual(new_window_tuple((12, 90, 950, 640)),
                          (42, 120, 950, 640))
 
-    @covers("LLFR-01179", "LLFR-01054", "HLFR-00050", "HLFR-00141",
+    @covers("LLFR-01184", "LLFR-01054", "HLFR-00050", "HLFR-00141",
             "HLFR-00130")
     def test_panel_width_fitted_to_its_window(self) -> None:
         """A width wider than the window minus 100 pixels is trimmed to
@@ -516,12 +516,12 @@ class LayoutWindowsTest(unittest.TestCase):
             (90000, -90000, 5000, 4000), [MAIN_SCREEN_TUPLE],
             MAIN_SCREEN_TUPLE), MAIN_SCREEN_TUPLE)
 
-    @covers("LLFR-01085", "LLFR-01179", "LLFR-01078", "LLFR-01081",
+    @covers("LLFR-01085", "LLFR-01184", "LLFR-01078", "LLFR-01081",
             "HLFR-00142", "HLFR-00141", "HLFR-00052")
     def test_too_wide_panel_width_is_not_reported(self) -> None:
         """A panel width in the range Qt takes but wider than its window
         loads as saved, with no report; the view trims it when it shows
-        the panel (LLFR-01179).
+        the panel (LLFR-01184).
 
         Inputs: none.
         Outputs: none.
