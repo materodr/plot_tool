@@ -1912,8 +1912,8 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
             list panel (LLFR-01053, LLFR-01211).
         labels_hidden_b: True while the labels are hidden (LLFR-01270).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
-        width, grid shown, main panel shown, labels hidden): one entry (tab_id_i,
-        name_str, plot state tuples, row_count_i, column_count_i,
+        width, grid shown, main panel shown, labels hidden): one entry
+        (tab_id_i, name_str, plot state tuples, row_count_i, column_count_i,
         window state tuple) per tab, in tab order, one entry
         (marker_id_i, name_str, time_s, color_str) per marker and one
         entry (area_id_i, name_str, start_s, end_s, color_str) per area;

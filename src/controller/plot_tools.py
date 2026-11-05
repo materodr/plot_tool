@@ -16,6 +16,8 @@ Constants:
     AREA_TOOL_STR: the Area tool (LLFR-00286, LLFR-00287).
     TEXT_TOOL_STR: the Text tool (LLFR-00320, LLFR-00321).
     ARROW_TOOL_STR: the Arrow tool (LLFR-00366, LLFR-00367).
+    CIRCLE_TOOL_STR, RECTANGLE_TOOL_STR: the shape tools (LLFR-01261,
+        LLFR-01262).
     PLOT_TOOL_TUPLE: every plot tool name, NO_TOOL_STR excluded.
 """
 
@@ -40,10 +42,16 @@ TEXT_TOOL_STR = "text"
 # LLFR-00366: the Arrow tool (HLFR-00081), the last plot tool of
 # LLFR-00347, right of Text.
 ARROW_TOOL_STR = "arrow"
+# LLFR-01261, LLFR-01262: the Circle and Rectangle tools (HLFR-00158),
+# right of Arrow; their names are the kinds of the shapes they draw.
+CIRCLE_TOOL_STR = "circle"
+RECTANGLE_TOOL_STR = "rectangle"
+SHAPE_TOOL_TUPLE = (CIRCLE_TOOL_STR, RECTANGLE_TOOL_STR)
 # LLFR-00347: in the order of their buttons.
 PLOT_TOOL_TUPLE = (TIP_TOOL_STR, ZOOM_TOOL_STR, PAN_TOOL_STR,
                    MARKER_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
-                   AREA_TOOL_STR, TEXT_TOOL_STR, ARROW_TOOL_STR)
+                   AREA_TOOL_STR, TEXT_TOOL_STR, ARROW_TOOL_STR,
+                   CIRCLE_TOOL_STR, RECTANGLE_TOOL_STR)
 
 
 def is_known_plot_tool(tool_str: str) -> bool:

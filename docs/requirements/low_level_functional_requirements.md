@@ -7202,7 +7202,7 @@ When loading a layout, the app must give each rebuilt pinned data tip (LLFR-0023
 *Parent: HLFR-00025, HLFR-00050*
 
 ### LLFR-01303 Shape preview while drawing
-While the Circle button (LLFR-01261) or the Rectangle button (LLFR-01262) is active and the user presses the left mouse button on a plot's drawing area, on a time plot or a frequency plot, at a point that is not on an existing shape of the active button's kind, arrow, pinned data tip or text note, and moves the pointer 5 pixels or more from where the button was pressed, the app must show on that plot a preview of a shape of the active button's kind in the box whose opposite corners are the point of the press and the point under the pointer.
+While the Circle button (LLFR-01261) or the Rectangle button (LLFR-01262) is active and the user presses the left mouse button on a plot's drawing area, on a time plot or a frequency plot, at a point that is not on an existing shape of the active button's kind, a pinned data tip or a text note, and moves the pointer 5 pixels or more from where the button was pressed, the app must show on that plot a preview of a shape of the active button's kind in the box whose opposite corners are the point of the press and the point under the pointer.
 
 Note: A shape is a circle or a rectangle. Its box is the rectangle, with sides parallel to the axes, that it is drawn in.
 
