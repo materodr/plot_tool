@@ -149,7 +149,7 @@ def fitted_panel_width_i(panel_width_i: int, window_width_i: int) -> int:
         minus 100 pixels and 1 pixel; panel_width_i unchanged (at least
         1 pixel) when the window's width is unknown.
     """
-    # LLFR-01195: the plot panel keeps room; LLFR-01054, LLFR-01081: the
+    # LLFR-01195: the plot panel keeps room; LLFR-01081: the
     # panel keeps at least 1 pixel.
     width_i = max(int(panel_width_i), MINIMUM_WINDOW_SIZE_I)
     if int(window_width_i) < 1:

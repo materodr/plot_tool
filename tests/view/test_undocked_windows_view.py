@@ -327,23 +327,84 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
 
-    @covers("LLFR-01054", "LLFR-01196", "HLFR-00131")
-    def test_main_window_keeps_its_panel(self) -> None:
-        """The main window's panel cannot be collapsed or hidden.
+    @covers("LLFR-01211", "LLFR-01212", "LLFR-01047", "LLFR-01048",
+            "LLFR-01049", "LLFR-01171", "LLFR-01046", "LLFR-01134",
+            "LLFR-01213", "LLFR-01053", "HLFR-00131")
+    def test_main_window_signal_list_button(self) -> None:
+        """The main window starts with its panel shown and a checked
+        signal list button at the top right; a click hides the panel,
+        the plot panel takes the width, the tab row keeps room for the
+        button, which does not move; a second click shows the panel at
+        its width; both are undoable.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.undocked_window import SIGNAL_LIST_BUTTON_OBJECT_NAME_STR
+        from view import theme
+        self.main_window.resize(1100, 700)
         self.main_window.show()
         self.process_events()
-        self.assertFalse(self.main_window.lower_splitter
-                         .childrenCollapsible())
-        self.assertGreaterEqual(self.main_window.main_panel_width(), 1)
+        main_button = self.main_window.main_panel_button
+        button = main_button.button
         self.assertTrue(self.main_window.signal_list_panel.isVisible())
-        from PyQt6.QtWidgets import QWidget
-        self.assertEqual(self.main_window.findChildren(
-            QWidget, SIGNAL_LIST_BUTTON_OBJECT_NAME_STR), [])
+        self.assertTrue(button.isVisible())
+        self.assertTrue(button.isChecked())
+        self.assertEqual(button.toolTip(), "Hide signal list")
+        splitter = self.main_window.lower_splitter
+        right_i = splitter.mapTo(self.main_window, splitter.rect()
+                                 .topRight()).x()
+        place_before = button.mapTo(self.main_window,
+                                    button.rect().topLeft())
+        self.assertLessEqual(abs(place_before.x() + button.width() - 1
+                                 - right_i), 1)
+        width_i = self.main_window.main_panel_width()
+        self.assertGreater(width_i, 1)
+        button.click()
+        self.process_events()
+        self.assertFalse(self.main_window.signal_list_panel.isVisible())
+        self.assertFalse(self.main_window.is_main_panel_shown())
+        self.assertFalse(button.isChecked())
+        self.assertEqual(button.toolTip(), "Show signal list")
+        self.assertGreaterEqual(self.panel.width(), splitter.width() - 1)
+        self.assertEqual(self.panel.tab_widget.reserved_right_width_i,
+                         theme.SIDEBAR_BUTTON_SIZE_I + theme.TAB_SPACING_I)
+        self.assertEqual(button.mapTo(self.main_window,
+                                      button.rect().topLeft()),
+                         place_before)
+        # LLFR-01048: the hidden panel keeps its width.
+        self.assertEqual(self.main_window.main_panel_width(), width_i)
+        button.click()
+        self.process_events()
+        self.assertTrue(self.main_window.signal_list_panel.isVisible())
+        self.assertEqual(self.main_window.main_panel_width(), width_i)
+        self.assertEqual(self.panel.tab_widget.reserved_right_width_i, 0)
+        # LLFR-01053: one undo hides it again, another shows it.
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertFalse(self.main_window.is_main_panel_shown())
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertTrue(self.main_window.is_main_panel_shown())
+        self.plot_controller.on_redo()
+        self.process_events()
+        self.assertFalse(self.main_window.is_main_panel_shown())
+
+    @covers("LLFR-01141", "LLFR-01052", "HLFR-00131", "HLFR-00033")
+    def test_search_shortcut_shows_the_main_panel(self) -> None:
+        """Ctrl+F (Cmd+F) with the main window's panel hidden shows it
+        first and puts the focus in its search box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.show()
+        self.process_events()
+        self.main_window.main_panel_button.button.click()
+        self.process_events()
+        self.assertFalse(self.main_window.is_main_panel_shown())
+        self.main_window._on_search_shortcut(-1)
+        self.process_events()
+        self.assertTrue(self.main_window.is_main_panel_shown())
 
     @covers("LLFR-00893", "LLFR-00424", "LLFR-00894", "HLFR-00095")
     def test_well_look_and_search_box_alignment(self) -> None:

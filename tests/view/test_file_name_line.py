@@ -436,11 +436,12 @@ class FileRowMouseTest(FileRowPanelTestCase):
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
         toggled_list = []
-        self.panel.file_expand_toggled.connect(toggled_list.append)
+        self.panel.file_row_opened.connect(toggled_list.append)
         self.click(FIRST_ROW_STR, double_b=True)
         self.assertEqual(self.double_clicked_list, [])
         self.assertEqual(self.panel.selected_signal_names(), [])
-        # LLFR-01191: the double-click asks to toggle file 1 once (no
+        # LLFR-01191, LLFR-01209: the double-click reports file 1 once,
+        # and the controller toggles it or clears the search (no
         # controller here, so the list stays as it is).
         self.assertEqual(toggled_list, [1])
         self.panel._emit_signal_double_clicked(self.item_of(FIRST_ROW_STR))

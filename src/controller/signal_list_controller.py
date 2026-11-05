@@ -132,6 +132,10 @@ class SignalListController:
         set_toggle_handler = getattr(view, "set_file_toggle_handler", None)
         if set_toggle_handler is not None:
             set_toggle_handler(self.toggle_file)
+        # LLFR-01191, LLFR-01209: a double-click on a file name row.
+        set_row_handler = getattr(view, "set_file_row_handler", None)
+        if set_row_handler is not None:
+            set_row_handler(self.on_file_row_double_clicked)
         # LLFR-00104, LLFR-00650: a new file is added to the shown names.
         file_controller.add_file_opened_listener(self.on_file_opened)
 
@@ -206,6 +210,32 @@ class SignalListController:
         else:
             collapsed_set.add(number_i)
         self.show_filtered_names()
+
+    def on_file_row_double_clicked(self, number_i: int) -> None:
+        """Handle a double-click on a file name row, off its icon.
+
+        Inputs:
+            number_i: the number of the file of the row (LLFR-00900).
+        Outputs: none. With no search, the file is toggled as by its
+            icon (LLFR-01191). During a search, the search box of every
+            panel is cleared (LLFR-01209) and the file is shown expanded,
+            the other files getting back their state of before the
+            search (LLFR-01210). The undo and redo history is left
+            unchanged (LLFR-01008).
+        """
+        # LLFR-01191: no search, one toggle.
+        if not self.is_searching():
+            self.toggle_file(number_i)
+            return
+        # LLFR-01210: the file is expanded in the state that comes back
+        # when the search ends (LLFR-01004).
+        self.collapsed_number_set.discard(int(number_i))
+        # LLFR-01209: the search box of every panel is cleared; the view
+        # reports the new text, which shows the list again.
+        self.view.clear_search()
+        if self.is_searching():
+            # A fake view that does not report the cleared text.
+            self.on_search_text_changed("")
 
     def reveal_new_signal(self, signal_name_str: str,
                           file_number_value) -> None:

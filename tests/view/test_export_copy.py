@@ -229,16 +229,19 @@ class ExportCopyTest(unittest.TestCase):
         self.assertLess(self.top_panel.export_button.x(),
                         self.top_panel.copy_button.x())
 
-    @covers("LLFR-00127")
+    @covers("LLFR-00127", "LLFR-01229", "HLFR-00038")
     def test_export_menu_has_pdf_option(self) -> None:
-        """The Export menu holds "Save all tabs as PDF".
+        """The Export menu holds "Save all tabs as PDF", then the Word
+        and PNG options (LLFR-01229).
 
         Inputs: none.
         Outputs: none.
         """
         menu = self.top_panel.build_export_menu()
         self.assertEqual([action.text() for action in menu.actions()],
-                         ["Save all tabs as PDF"])
+                         ["Save all tabs as PDF",
+                          "Save all tabs as Word document (.docx)",
+                          "Save each tab as PNG"])
         menu.deleteLater()
 
     @covers("LLFR-00127", "LLFR-00001", "LLFR-00003")
@@ -257,13 +260,93 @@ class ExportCopyTest(unittest.TestCase):
         self.assertTrue(self.top_panel.export_button.is_active())
         for _ in range(3):
             self.application.processEvents()
-        self.assertEqual(self.menu_text_list, ["Save all tabs as PDF"])
+        self.assertEqual(self.menu_text_list[0], "Save all tabs as PDF")
         self.assertFalse(self.top_panel.export_button.is_active())
         self.assertEqual(self.box_record_list, [])
 
     # ----------------------------------------------------------------
     # PDF export
     # ----------------------------------------------------------------
+
+    @covers("LLFR-01230", "LLFR-01231", "LLFR-01232", "LLFR-00001",
+            "LLFR-00003", "HLFR-00038")
+    def test_word_export_writes_one_page_per_tab(self) -> None:
+        """"Save all tabs as Word document (.docx)" shows a .docx save
+        dialog and writes a Word document with one picture per tab.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import zipfile
+        self.plot_signal("file1_speed")
+        self.add_tab(SECOND_TAB_NAME_STR)
+        self.plot_signal("file1_force")
+        state_list = []
+
+        def answer_dialog(dialog) -> str:
+            """Record the dialog settings.
+
+            Inputs:
+                dialog: the QFileDialog that would be shown.
+            Outputs: the chosen path without its extension.
+            """
+            state_list.append((dialog.acceptMode(), dialog.defaultSuffix(),
+                               dialog.nameFilters()))
+            return os.path.join(self.folder_str, "plots")
+
+        self.menu_choice_str = "Save all tabs as Word document (.docx)"
+        with mock.patch.object(self.main_window, "run_export_dialog",
+                               side_effect=answer_dialog):
+            self.click(self.top_panel.export_button)
+        self.assertEqual(state_list, [
+            (self.file_dialog_class.AcceptMode.AcceptSave, "docx",
+             ["Word documents (*.docx)"])])
+        path_str = os.path.join(self.folder_str, "plots.docx")
+        with zipfile.ZipFile(path_str) as archive:
+            document_str = archive.read("word/document.xml").decode()
+            image_list = [name_str for name_str in archive.namelist()
+                          if name_str.startswith("word/media/")]
+            first_bytes = archive.read(image_list[0])
+        self.assertEqual(len(image_list), 2)
+        self.assertTrue(first_bytes.startswith(b"\x89PNG"))
+        self.assertIn(SECOND_TAB_NAME_STR, document_str)
+        self.assertIn("file1 = data.csv", document_str)
+        self.assertEqual(self.box_record_list, [])
+        self.assertFalse(self.top_panel.export_button.is_active())
+
+    @covers("LLFR-01233", "LLFR-01234", "LLFR-01235", "LLFR-01236",
+            "LLFR-01240",
+            "HLFR-00038")
+    def test_png_export_writes_one_file_per_tab(self) -> None:
+        """"Save each tab as PNG" asks for a folder and writes one A4 page
+        image per tab with a plot, named after the tab; an empty tab gets
+        no file; a second export asks once before replacing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtGui import QImage
+        self.plot_signal("file1_speed")
+        self.add_tab("a/b")
+        self.plot_signal("file1_force")
+        self.add_tab("empty")
+        output_str = os.path.join(self.folder_str, "png")
+        os.mkdir(output_str)
+        self.menu_choice_str = "Save each tab as PNG"
+        with mock.patch.object(self.main_window, "run_export_dialog",
+                               return_value=output_str):
+            self.click(self.top_panel.export_button)
+        self.assertEqual(sorted(os.listdir(output_str)),
+                         ["Tab 1.png", "a_b.png"])
+        image = QImage(os.path.join(output_str, "a_b.png"))
+        self.assertFalse(image.isNull())
+        self.assertGreater(image.width(), image.height())
+        self.assertEqual(self.box_record_list, [])
+        with mock.patch.object(self.main_window, "run_export_dialog",
+                               return_value=output_str):
+            self.click(self.top_panel.export_button)
+        self.assertEqual(self.box_title_list(), ["Replace Files"])
+        self.assertIn("a_b.png", self.box_record_list[0][2])
 
     @covers("LLFR-00128", "LLFR-00129", "LLFR-00001", "LLFR-00003")
     def test_two_tabs_with_plots_give_two_pages(self) -> None:

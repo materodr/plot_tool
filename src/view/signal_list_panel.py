@@ -285,10 +285,14 @@ class SignalListWidget(QListWidget):
         file_toggle_requested(int): the number of the file whose icon
             was clicked, or whose row got Left or Right (LLFR-00997,
             LLFR-00998, LLFR-01006, LLFR-01007).
+        file_row_double_clicked(int): the number of the file whose file
+            name row was double-clicked off its icon (LLFR-01191,
+            LLFR-01209).
     """
 
     plot_selection_requested = pyqtSignal()
     file_toggle_requested = pyqtSignal(int)
+    file_row_double_clicked = pyqtSignal(int)
 
     def __init__(self, parent=None) -> None:
         """Create a multi-selection, drag-only list.
@@ -500,15 +504,18 @@ class SignalListWidget(QListWidget):
                 return
             # LLFR-00997, LLFR-00998: the second click of a quick double
             # click on the icon toggles the file again, as a click does.
-            # LLFR-01191: a double-click on the rest of a file name row
-            # toggles the file once, as one click on its icon does (its
-            # first click, off the icon, changed nothing).
-            if (self.is_on_expand_icon(clicked_item,
-                                       event.position().toPoint())
-                    or (row_kind(clicked_item) == FILE_ROW_STR
-                        and clicked_item.data(FILE_NUMBER_ROLE_I)
-                        is not None)):
+            if self.is_on_expand_icon(clicked_item,
+                                      event.position().toPoint()):
                 self.request_file_toggle(clicked_item)
+            elif (row_kind(clicked_item) == FILE_ROW_STR
+                  and clicked_item.data(FILE_NUMBER_ROLE_I) is not None):
+                # LLFR-01191: a double-click on the rest of a file name
+                # row toggles the file once, as one click on its icon
+                # does (its first click, off the icon, changed nothing);
+                # LLFR-01209, LLFR-01210: during a search, it clears the
+                # search and shows the file. The controller decides.
+                self.file_row_double_clicked.emit(
+                    int(clicked_item.data(FILE_NUMBER_ROLE_I)))
             return
         super().mouseDoubleClickEvent(event)
 
@@ -691,6 +698,9 @@ class SignalListPanel(QWidget):
         file_expand_toggled(int): the number of the file whose signals
             the user asked to hide or show again (LLFR-00997,
             LLFR-00998, LLFR-01006, LLFR-01007).
+        file_row_opened(int): the number of the file whose file name row
+            the user double-clicked off its icon (LLFR-01191,
+            LLFR-01209).
         selected_signals_plot_requested(list): emitted with the
             selected names, in list order, when the user presses Enter
             in the list and at least one signal is selected
@@ -727,6 +737,8 @@ class SignalListPanel(QWidget):
     close_all_files_requested = pyqtSignal()
     # LLFR-00997, LLFR-00998: the icon of a file name row.
     file_expand_toggled = pyqtSignal(int)
+    # LLFR-01191, LLFR-01209: a double-click on a file name row.
+    file_row_opened = pyqtSignal(int)
 
     def __init__(self) -> None:
         """Create the panel with its title and an empty signal list.
@@ -773,6 +785,9 @@ class SignalListPanel(QWidget):
         # LLFR-00997, LLFR-00998: the icons of the file name rows.
         self.signal_list_widget.file_toggle_requested.connect(
             self.file_expand_toggled.emit)
+        # LLFR-01191, LLFR-01209: a double-click on a file name row.
+        self.signal_list_widget.file_row_double_clicked.connect(
+            self.file_row_opened.emit)
         # LLFR-00995: the numbers of the files shown collapsed.
         self.collapsed_number_set = set()
         # LLFR-00095: every change of the text is passed on.

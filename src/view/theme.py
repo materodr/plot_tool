@@ -214,7 +214,9 @@ TAB_CORNER_RADIUS_I = 6
 TAB_MINIMUM_TEXT_WIDTH_I = 48
 TAB_HORIZONTAL_PADDING_I = 14
 TAB_VERTICAL_PADDING_I = 5
-TAB_SPACING_I = 3
+# LLFR-01204: the space between the borders of two neighbouring tabs,
+# which is the right margin of each tab.
+TAB_SPACING_I = 2
 ADD_BUTTON_WIDTH_I = 30
 # LLFR-01148: the pale rounded highlight behind the icon of an undock or
 # dock button under the pointer, a little darker than a hovered tab, and

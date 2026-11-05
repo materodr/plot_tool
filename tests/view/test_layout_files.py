@@ -288,7 +288,7 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
         self.assertEqual(self.main_window.panel_width_tuple(),
                          (total_i - 400, 400))
 
-    @covers("LLFR-01195", "LLFR-00482", "LLFR-00230", "LLFR-01054",
+    @covers("LLFR-01195", "LLFR-00482", "LLFR-00230",
             "HLFR-00050", "HLFR-00130", "HLFR-00141")
     def test_panel_widths_scaled_and_trimmed(self) -> None:
         """Saved widths are scaled to the room of the panels; a signal
@@ -319,9 +319,9 @@ class LayoutDialogAndBoxTest(unittest.TestCase):
 
 
 @requires_qt
-class LayoutEndToEndTest(unittest.TestCase):
-    """Open a CSV, build a layout, save it, open another file in a new
-    start of the app, load it."""
+class LayoutEndToEndTestCase(unittest.TestCase):
+    """Helpers: open a CSV, build a layout, save it, open another file
+    in a new start of the app, load it."""
 
     def setUp(self) -> None:
         """Create the files, the window and the controller; open a file.
@@ -456,6 +456,12 @@ class LayoutEndToEndTest(unittest.TestCase):
         plot_controller.on_time_range_changed(plot_id_i, 0.5, 1.5)
         self.application.processEvents()
 
+
+@requires_qt
+class LayoutEndToEndTest(LayoutEndToEndTestCase):
+    """Open a CSV, build a layout, save it, open another file in a new
+    start of the app, load it."""
+
     @covers("LLFR-00219", "LLFR-00225", "LLFR-00227", "LLFR-00228",
             "LLFR-00230", "LLFR-00231", "LLFR-00232", "LLFR-00237",
             "LLFR-00238", "LLFR-00229", "LLFR-00221", "LLFR-00003")
@@ -556,6 +562,103 @@ class LayoutEndToEndTest(unittest.TestCase):
         self.assertEqual(workspace.state_tuple(), before_tuple)
         self.assertEqual(self.report_list, [])
         self.assertEqual(os.listdir(self.folder_str).count("other.json"), 1)
+
+
+@requires_qt
+class LayoutOptionsViewTest(LayoutEndToEndTestCase):
+    """The save options dialog and the data files of a layout
+    (LLFR-01218 to LLFR-01228)."""
+
+    @covers("LLFR-01218", "LLFR-01219", "HLFR-00156")
+    def test_dialog_choices_and_first_values(self) -> None:
+        """The dialog shows the three choices with their first values,
+        each time it opens.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view.layout_options_dialog import LayoutOptionsDialog
+        dialog = LayoutOptionsDialog(self.main_window)
+        self.assertEqual(dialog.answer_dict(), {
+            "markers": True, "all_tabs": True, "data_files": False})
+        self.assertIn("markers", dialog.markers_box.text())
+        self.assertEqual(dialog.current_tab_button.text(),
+                         "Only the current tab")
+        self.assertEqual(dialog.data_files_box.text(),
+                         "Include the names of the open data files")
+        dialog.current_tab_button.setChecked(True)
+        dialog.data_files_box.setChecked(True)
+        dialog.markers_box.setChecked(False)
+        self.assertEqual(dialog.answer_dict(), {
+            "markers": False, "all_tabs": False, "data_files": True})
+        dialog.deleteLater()
+
+    @covers("LLFR-01220", "HLFR-00156")
+    def test_cancel_shows_no_file_dialog(self) -> None:
+        """A cancelled options dialog shows no save file dialog.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with mock.patch.object(self.main_window,
+                               "run_layout_options_dialog",
+                               return_value=False):
+            dialog_mock = self.click_with_dialog_answer(
+                self.main_window.top_panel.save_layout_button,
+                os.path.join(self.folder_str, "x.json"))
+        self.assertEqual(dialog_mock.call_count, 0)
+        self.assertFalse(os.path.exists(os.path.join(self.folder_str,
+                                                     "x.json")))
+
+    @covers("LLFR-01223", "LLFR-01224", "LLFR-01226", "HLFR-00156",
+            "HLFR-00157")
+    def test_layout_with_file_names_opens_its_file(self) -> None:
+        """A layout saved with the names of the data files, loaded in a
+        new start of the app where another file is open, opens its file
+        and draws its curves.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.signal_double_click_handler("file1_speed")
+        self.application.processEvents()
+        layout_path_str = os.path.join(self.folder_str, "with_files.json")
+
+        def answer_options(dialog) -> bool:
+            """Choose the names of the data files.
+
+            Inputs:
+                dialog: the LayoutOptionsDialog.
+            Outputs: True, as OK.
+            """
+            dialog.data_files_box.setChecked(True)
+            return True
+
+        with mock.patch.object(self.main_window,
+                               "run_layout_options_dialog",
+                               side_effect=answer_options):
+            self.click_with_dialog_answer(
+                self.main_window.top_panel.save_layout_button,
+                layout_path_str)
+        with open(layout_path_str, encoding="utf-8") as layout_file:
+            saved_dict = json.load(layout_file)
+        self.assertEqual(saved_dict["data_files"][0]["relative_path"],
+                         "first.csv")
+        self.main_window.close()
+        self.start_app()
+        self.open_data_file(self.second_path_str)
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.load_layout_button, layout_path_str)
+        data_files = self.controller.file_controller.data_files
+        self.assertEqual(
+            [os.path.basename(data_file.path_str)
+             for data_file in data_files.file_list],
+            ["second.csv", "first.csv"])
+        workspace = self.controller.plot_controller.workspace
+        curve_name_list = [curve.signal_name_str for tab in workspace.tab_list
+                           for plot in tab.plot_list
+                           for curve in plot.curve_list]
+        self.assertIn("file2_speed", curve_name_list)
 
 
 if __name__ == "__main__":

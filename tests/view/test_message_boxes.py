@@ -138,17 +138,16 @@ class MessageBoxesTest(unittest.TestCase):
         self.assertEqual(box.windowTitle(), "Full Tab")
         self.assertEqual(
             box.text(),
-            "This tab is full (5 \u00d7 1 matrix). Use a new tab, or a "
-            "larger matrix from the tab's menu.")
-        self.assertNotIn("delete a plot", box.text().lower())
+            "This tab is full (5 \u00d7 1 matrix). Use a new tab, a "
+            "larger matrix from the tab's menu, or delete a plot.")
         self.assertEqual(self.button_value_set(box),
                          {self.message_box_class.StandardButton.Ok.value})
         box = self.message_module.build_full_tab_box(self.parent_widget, 2,
                                                      3)
         self.assertEqual(
             box.text(),
-            "This tab is full (2 \u00d7 3 matrix). Use a new tab, or a "
-            "larger matrix from the tab's menu.")
+            "This tab is full (2 \u00d7 3 matrix). Use a new tab, a "
+            "larger matrix from the tab's menu, or delete a plot.")
 
     @covers("LLFR-01127", "LLFR-00032", "HLFR-00018")
     def test_full_ten_by_ten_box_says_only_new_tab(self) -> None:
@@ -161,7 +160,8 @@ class MessageBoxesTest(unittest.TestCase):
                                                      10, 10)
         self.assertEqual(
             box.text(),
-            "This tab is full (10 \u00d7 10 matrix). Use a new tab.")
+            "This tab is full (10 \u00d7 10 matrix). Use a new tab, or "
+            "delete a plot.")
         self.assertNotIn("larger", box.text().lower())
 
     @covers("LLFR-00032")
@@ -473,6 +473,126 @@ class ListBoxesTest(unittest.TestCase):
                 dialog.close()
                 dialog.deleteLater()
         self.application.processEvents()
+
+
+@requires_qt
+class BoldMessageTextTest(unittest.TestCase):
+    """The main text of every box is bold, in one size (LLFR-01206)."""
+
+    def setUp(self) -> None:
+        """Get the application and a parent widget.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+        from PyQt6.QtWidgets import QWidget
+        from view import message_boxes
+        self.message_module = message_boxes
+        self.parent_widget = QWidget()
+
+    def tearDown(self) -> None:
+        """Delete the parent widget.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.parent_widget.deleteLater()
+        self.application.processEvents()
+
+    def built_box_list(self) -> list:
+        """Return one box of each builder of the module.
+
+        Inputs: none.
+        Outputs: a list of (name, box) tuples.
+        """
+        module = self.message_module
+        parent = self.parent_widget
+        list_text_str = "Intro:\n\n1. first item\n\n2. second item"
+        return [
+            ("file open", module.build_file_open_error_box(parent, "x")),
+            ("full tab", module.build_full_tab_box(parent, 5, 1)),
+            ("tab name", module.build_tab_name_taken_box(parent, "Tab 1")),
+            ("kind", module.build_plot_kind_mismatch_box(parent)),
+            ("limit", module.build_open_files_limit_box(parent, "x")),
+            ("refused", module.build_refused_files_box(parent,
+                                                       list_text_str)),
+            ("unexpected", module.build_unexpected_error_box(parent, "x")),
+            ("nothing", module.build_nothing_to_export_box(parent)),
+            ("export", module.build_export_error_box(parent, "why")),
+            ("replace", module.build_replace_existing_file_box(parent,
+                                                               "/a.pdf")),
+            ("delete", module.build_delete_synthetic_signal_box(
+                parent, "file1_int_x", ["file1_int_int_x"])),
+            ("question", module.build_question_box(parent, "Close file",
+                                                   list_text_str)),
+        ]
+
+    @covers("LLFR-01206", "LLFR-01207", "HLFR-00002")
+    def test_every_message_box_text_is_bold_in_one_size(self) -> None:
+        """Information boxes, error boxes and questions, with or without
+        a list, draw their text label in bold at 13 points.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QLabel
+        for name_str, box in self.built_box_list():
+            with self.subTest(box=name_str):
+                label = box.findChild(
+                    QLabel,
+                    self.message_module.MESSAGE_BOX_LABEL_OBJECT_NAME_STR)
+                self.assertIsNotNone(label)
+                box.ensurePolished()
+                label.ensurePolished()
+                self.assertTrue(label.font().bold())
+                self.assertEqual(
+                    label.font().pointSize(),
+                    self.message_module.MESSAGE_FONT_POINT_SIZE_I)
+
+    @covers("LLFR-01206", "LLFR-01207", "HLFR-00052")
+    def test_scrollable_boxes_are_bold_in_one_size(self) -> None:
+        """The load report and a long File Open Error box show their
+        sentence and their list in bold, at 13 points.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QLabel
+        module = self.message_module
+        long_text_str = "\n\n".join(f"{index_i}. file {index_i}: bad"
+                                    for index_i in range(1, 30))
+        report = module.build_layout_report_box(self.parent_widget,
+                                                long_text_str)
+        error_box = module.build_file_open_error_box(self.parent_widget,
+                                                     long_text_str)
+        for dialog, field_name_str in (
+                (report, module.LAYOUT_REPORT_TEXT_OBJECT_NAME_STR),
+                (error_box, module.FILE_OPEN_ERROR_TEXT_OBJECT_NAME_STR)):
+            field = dialog.findChild(module.ListTextField, field_name_str)
+            self.assertIsNotNone(field)
+            field.ensurePolished()
+            self.assertTrue(field.font().bold())
+            self.assertEqual(field.font().pointSize(),
+                             module.MESSAGE_FONT_POINT_SIZE_I)
+        intro = report.findChild(QLabel,
+                                 module.SCROLLABLE_INTRO_OBJECT_NAME_STR)
+        intro.ensurePolished()
+        self.assertTrue(intro.font().bold())
+        self.assertEqual(intro.font().pointSize(),
+                         module.MESSAGE_FONT_POINT_SIZE_I)
+
+    @covers("LLFR-01206")
+    def test_style_helper_is_added_once(self) -> None:
+        """apply_message_text_style adds the shared style only once.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        box = self.message_module.ListMessageBox(self.parent_widget)
+        self.message_module.apply_message_text_style(box)
+        self.assertEqual(box.styleSheet().count("font-weight: bold"), 1)
+        self.assertIn("qt_msgbox_label", box.styleSheet())
 
 
 if __name__ == "__main__":

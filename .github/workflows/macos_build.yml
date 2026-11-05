@@ -77,8 +77,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-build.txt
 
+      # PCR-00073: the big sample files take minutes and GB of disk, so
+      # the CI build leaves them out; a local build writes them.
       - name: Build the app
-        run: python build_executable.py
+        run: python build_executable.py --no-big-files
 
       - name: Check the app bundle
         run: |

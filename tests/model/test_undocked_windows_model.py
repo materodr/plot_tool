@@ -40,7 +40,7 @@ class WindowPlacementTest(unittest.TestCase):
         self.assertEqual(new_window_tuple((12, 90, 950, 640)),
                          (42, 120, 950, 640))
 
-    @covers("LLFR-01195", "LLFR-01054", "HLFR-00050", "HLFR-00141",
+    @covers("LLFR-01195", "HLFR-00050", "HLFR-00141",
             "HLFR-00130")
     def test_panel_width_fitted_to_its_window(self) -> None:
         """A width wider than the window minus 100 pixels is trimmed to

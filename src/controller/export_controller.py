@@ -23,10 +23,21 @@ method calls (no Qt code), so it can be tested with a fake view
   (LLFR-01136, LLFR-01138);
 - ``show_nothing_to_export()``, ``show_nothing_to_copy()``;
 - ``show_export_error(reason_str)``, ``show_copy_error(reason_str)``;
-- ``finish_export_button()``, ``finish_copy_button()``.
+- ``finish_export_button()``, ``finish_copy_button()``;
+- for the Word and PNG exports (LLFR-01229): ``ask_docx_save_path(
+  start_folder_str)``, ``save_tabs_docx(path_str, description_str)``,
+  ``ask_png_folder(start_folder_str)``, ``exportable_tab_name_list()``,
+  ``ask_replace_existing_files(folder_str, file_name_list)`` and
+  ``save_tab_png_files(folder_str, file_name_list, description_str)``.
+
+The three exports share one dialog folder (LLFR-01243): the folder of the
+last file that any of them saved successfully, or, before the first, the
+folder the Open file dialog would show (LLFR-01179, LLFR-01180).
 """
 
 import os
+
+from model.export_files import ensure_docx_suffix, png_file_name_list
 
 # LLFR-00128: the extension of the saved file.
 PDF_SUFFIX_STR = ".pdf"
@@ -192,6 +203,97 @@ class ExportController:
             return
         # LLFR-01180: only a successful save moves the dialog folder.
         self.pdf_folder_str = os.path.dirname(os.path.abspath(pdf_path_str))
+
+    def on_docx_export_requested(self) -> None:
+        """Save the plots of all tabs to a Word document.
+
+        Inputs: none.
+        Outputs: none. The Export button always returns to normal at
+            the end.
+        """
+        try:
+            self._export_docx()
+        finally:
+            # LLFR-00003: the function started by the button finished.
+            self.view.finish_export_button()
+
+    def on_png_export_requested(self) -> None:
+        """Save one PNG file per tab that holds a plot.
+
+        Inputs: none.
+        Outputs: none. The Export button always returns to normal at
+            the end.
+        """
+        try:
+            self._export_png()
+        finally:
+            # LLFR-00003: the function started by the button finished.
+            self.view.finish_export_button()
+
+    def _export_docx(self) -> None:
+        """Run the steps of the Word export.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01237, LLFR-00145, LLFR-00459: nothing to save, no dialog.
+        if self.view.exportable_tab_count() <= 0:
+            self.view.show_nothing_to_export()
+            return
+        # LLFR-01230, LLFR-01243: the dialog in the shared folder.
+        path_str = self.view.ask_docx_save_path(self.dialog_folder())
+        # LLFR-01241, LLFR-00130: a cancelled dialog saves nothing.
+        if not path_str:
+            return
+        docx_path_str = ensure_docx_suffix(path_str)
+        if (docx_path_str != path_str and os.path.exists(docx_path_str)
+                and not self.view.ask_replace_existing_file(docx_path_str)):
+            return
+        # LLFR-01231, LLFR-01232: one page per tab that holds a plot.
+        saved_b, reason_str = self.view.save_tabs_docx(
+            docx_path_str, self.files_description())
+        # LLFR-01242, LLFR-00131: the user is told when it failed.
+        if not saved_b:
+            self.view.show_export_error(reason_str)
+            return
+        # LLFR-01243, LLFR-01180: the shared folder moves.
+        self.pdf_folder_str = os.path.dirname(os.path.abspath(docx_path_str))
+
+    def _export_png(self) -> None:
+        """Run the steps of the PNG export.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01237, LLFR-00145, LLFR-00459: nothing to save, no dialog.
+        if self.view.exportable_tab_count() <= 0:
+            self.view.show_nothing_to_export()
+            return
+        # LLFR-01233, LLFR-01243: the folder dialog in the shared folder.
+        folder_str = self.view.ask_png_folder(self.dialog_folder())
+        # LLFR-01241, LLFR-00130: a cancelled dialog saves nothing.
+        if not folder_str:
+            return
+        # LLFR-01235: one safe, unique name per tab.
+        file_name_list = png_file_name_list(
+            self.view.exportable_tab_name_list())
+        # LLFR-01236, LLFR-01240: one question for the files already
+        # there, and no file saved without a Yes.
+        existing_name_list = [
+            file_name_str for file_name_str in file_name_list
+            if os.path.exists(os.path.join(folder_str, file_name_str))]
+        if existing_name_list and not self.view.ask_replace_existing_files(
+                folder_str, existing_name_list):
+            return
+        # LLFR-01234: the files.
+        saved_b, reason_str = self.view.save_tab_png_files(
+            folder_str, file_name_list, self.files_description())
+        # LLFR-01242, LLFR-00131: the user is told when one failed.
+        if not saved_b:
+            self.view.show_export_error(reason_str)
+            return
+        # LLFR-01243, LLFR-01180: the shared folder moves.
+        self.pdf_folder_str = os.path.abspath(folder_str)
 
     def _copy_image(self) -> None:
         """Run the steps of the copy to the clipboard.

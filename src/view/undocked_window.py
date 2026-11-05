@@ -61,6 +61,7 @@ from model.workspace import first_panel_width_i
 from view import icon_shapes, icons, theme
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import (
+    ADD_BUTTON_OBJECT_NAME_STR, ADD_TAB_TEXT_STR, ADD_TAB_TOOL_TIP_STR,
     PlotTabWidget, TAB_BAR_OBJECT_NAME_STR, build_tab_style_sheet,
     escape_tab_text)
 from view.search_box_alignment import SearchBoxAligner
@@ -135,7 +136,8 @@ class WindowPaneWidget(PlotTabWidget):
 
     It is a PlotTabWidget, so that the well has the look of the main
     window's (LLFR-00893), but its own tab bar and "+" button are
-    hidden: the tabs are in the window's tab row (LLFR-01032).
+    hidden: the tabs and the window's own "+" button are in the window's
+    tab row (LLFR-01032).
 
     Inputs:
         parent: optional parent widget.
@@ -149,7 +151,7 @@ class WindowPaneWidget(PlotTabWidget):
         Outputs: none.
         """
         super().__init__(parent)
-        # LLFR-01032: no "+" button in an undocked window.
+        # LLFR-01032: the "+" button of the window is in its tab row.
         self.add_tab_button.hide()
         # LLFR-01063: the tabs are in the tab row above the well.
         self.tabBar().setMovable(False)
@@ -233,6 +235,8 @@ class UndockedWindow(QWidget):
         self.closing_by_app_b = False
         self.close_handler = None
         self.dock_handler = None
+        # LLFR-01203: function taking the window id, for the "+" button.
+        self.add_tab_handler = None
         self.panel_toggle_handler = None
         self.panel_width_handler = None
         # LLFR-01143, LLFR-01151, LLFR-01152, LLFR-01157: where a dragged
@@ -282,13 +286,31 @@ class UndockedWindow(QWidget):
         self.tab_row.setMinimumHeight(TAB_ROW_MINIMUM_HEIGHT_I)
         row_layout = QHBoxLayout(self.tab_row)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(theme.TAB_SPACING_I)
-        # LLFR-01063: the tabs from the left edge.
-        row_layout.addWidget(self.tab_bar, 1, Qt.AlignmentFlag.AlignBottom)
+        # LLFR-01205: the space before the "+" button is the right margin
+        # of the last tab, so the layout adds none.
+        row_layout.setSpacing(0)
+        # LLFR-01063, LLFR-00106: the tabs from the left edge, the tab
+        # bar only as wide as its tabs (or narrower, with its scroll
+        # buttons), so that no platform centres them in a wider bar.
+        row_layout.addWidget(self.tab_bar, 0, Qt.AlignmentFlag.AlignBottom)
+        # LLFR-00025, LLFR-01032, LLFR-00107: the "+" button right after
+        # the last tab, styled like an unselected tab.
+        self.add_tab_button = QToolButton()
+        self.add_tab_button.setObjectName(ADD_BUTTON_OBJECT_NAME_STR)
+        self.add_tab_button.setText(ADD_TAB_TEXT_STR)
+        self.add_tab_button.setToolTip(ADD_TAB_TOOL_TIP_STR)
+        self.add_tab_button.setFixedWidth(theme.ADD_BUTTON_WIDTH_I)
+        self.add_tab_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.add_tab_button.clicked.connect(self.request_add_tab)
+        row_layout.addWidget(self.add_tab_button, 0,
+                             Qt.AlignmentFlag.AlignBottom)
+        # LLFR-00106: the free room is on the right of the "+" button.
+        row_layout.addStretch(1)
         # LLFR-01032: while the panel is hidden, the room of the signal
         # list button at the right end.
         self.button_space = QWidget()
-        self.button_space.setFixedSize(theme.SIDEBAR_BUTTON_SIZE_I, 1)
+        self.button_space.setFixedSize(
+            theme.SIDEBAR_BUTTON_SIZE_I + theme.TAB_SPACING_I, 1)
         row_layout.addWidget(self.button_space)
         # LLFR-01070: the plot panel, the tab row above the well.
         self.pane_widget = WindowPaneWidget()
@@ -446,6 +468,33 @@ class UndockedWindow(QWidget):
         self.dock_button_dict[page.tab_id_i] = dock_button
         self.tab_bar.setTabButton(index_i, QTabBar.ButtonPosition.RightSide,
                                   dock_button)
+        self.fit_add_tab_button()
+
+    def fit_add_tab_button(self) -> None:
+        """Give the "+" button the height of the tabs.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00107: the same height as a tab.
+        if self.tab_bar.count() > 0:
+            height_i = self.tab_bar.tabRect(0).height()
+        else:
+            height_i = self.tab_bar.sizeHint().height()
+        if height_i > 0:
+            self.add_tab_button.setFixedHeight(height_i)
+
+    def request_add_tab(self) -> None:
+        """Ask the controller for a new tab in this window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00137: the press does not leave the focus in a text field.
+        self.pane_widget.setFocus(Qt.FocusReason.MouseFocusReason)
+        # LLFR-01203: a new tab in this window.
+        if self.add_tab_handler is not None:
+            self.add_tab_handler(self.window_id_i)
 
     def show_tab(self, tab_id_i: int) -> None:
         """Show one of the window's tabs.
@@ -663,6 +712,13 @@ class UndockedWindow(QWidget):
                     and moved_i >= QApplication.startDragDistance()):
                 # LLFR-01157: the press is a drag.
                 self.tab_button_drag_b = True
+                # LLFR-01208: the image of the tab follows the pointer.
+                self.plot_panel.tab_drag_preview.start(
+                    self.plot_panel.page_dict.get(self.pressed_tab_id_i),
+                    event.globalPosition().toPoint())
+            elif self.tab_button_drag_b:
+                self.plot_panel.tab_drag_preview.follow(
+                    event.globalPosition().toPoint())
         elif (event_type == QEvent.Type.MouseButtonRelease
               and event.button() == Qt.MouseButton.LeftButton
               and self.drag_start_point is not None):
@@ -672,6 +728,8 @@ class UndockedWindow(QWidget):
             self.drag_start_point = None
             self.pressed_tab_id_i = -1
             self.tab_button_drag_b = False
+            # LLFR-01208: the image is removed at the release.
+            self.plot_panel.tab_drag_preview.stop()
             if dragged_b and self.tab_drop_handler is not None:
                 # LLFR-01143: decided once control is back in Qt, so the
                 # window is not closed inside its own mouse event.
@@ -692,6 +750,8 @@ class UndockedWindow(QWidget):
                 QApplication.mouseButtons() & Qt.MouseButton.LeftButton):
             self.tab_button_drag_b = False
             self.drag_start_point = None
+            # LLFR-01208: a lost release removes the image too.
+            self.plot_panel.tab_drag_preview.stop()
         return self.tab_button_drag_b
 
     def signal_list_button_point(self):

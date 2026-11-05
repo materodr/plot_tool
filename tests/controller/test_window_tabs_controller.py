@@ -137,6 +137,61 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
                          [second_id_i, third_id_i])
 
 
+class WindowAddTabControllerTest(WindowTabsControllerTestCase):
+    """The "+" button of an undocked window (LLFR-01203)."""
+
+    @covers("LLFR-01203", "LLFR-00210", "LLFR-00212", "LLFR-00140",
+            "HLFR-00015", "HLFR-00126")
+    def test_plus_of_a_window_adds_the_tab_there(self) -> None:
+        """The new tab is the last of the window, shown there, named
+        "Tab N"; the main window keeps its tab; one undo removes it and
+        one redo adds it again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        first_id_i, second_id_i, third_id_i, window_id_i = (
+            self.three_tabs_two_in_a_window())
+        self.view.set_current_tab(first_id_i)
+        self.view.handler_dict["window_add_tab_handler"](window_id_i)
+        tab_list = self.workspace.window_tab_list(window_id_i)
+        self.assertEqual(len(tab_list), 3)
+        new_tab = tab_list[-1]
+        self.assertEqual(new_tab.name_str, "Tab 4")
+        self.assertTrue(new_tab.undocked_b)
+        self.assertEqual(self.window_tabs(window_id_i),
+                         [second_id_i, third_id_i, new_tab.tab_id_i])
+        self.assertEqual(self.view.window_shown_dict[window_id_i],
+                         new_tab.tab_id_i)
+        self.assertEqual(self.view.current_tab_id(), first_id_i)
+        self.undo()
+        self.assertEqual(self.window_tabs(window_id_i),
+                         [second_id_i, third_id_i])
+        self.assertIsNone(self.workspace.find_tab(new_tab.tab_id_i))
+        self.redo()
+        self.assertEqual(self.window_tabs(window_id_i),
+                         [second_id_i, third_id_i, new_tab.tab_id_i])
+        # LLFR-00210: the number is never reused, even after an undo.
+        self.undo()
+        self.view.handler_dict["window_add_tab_handler"](window_id_i)
+        self.assertEqual(
+            self.workspace.window_tab_list(window_id_i)[-1].name_str,
+            "Tab 5")
+
+    @covers("LLFR-01203", "HLFR-00015")
+    def test_plus_of_an_unknown_window_changes_nothing(self) -> None:
+        """A window id with no tab adds nothing and records nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        depth_i = self.controller.undo_history.depth()
+        count_i = len(self.workspace.tab_list)
+        self.view.handler_dict["window_add_tab_handler"](99)
+        self.assertEqual(len(self.workspace.tab_list), count_i)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i)
+
+
 class NewWindowDropControllerTest(WindowTabsControllerTestCase):
     """A tab of an undocked window dropped outside the app."""
 
@@ -402,6 +457,57 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
         self.assertTrue(self.view.window_entry_dict[window_id_i][1])
         for tab_id_i in (second_id_i, third_id_i):
             self.assertTrue(self.workspace.find_tab(tab_id_i).panel_shown_b)
+
+
+class MainPanelToggleControllerTest(WindowTabsControllerTestCase):
+    """The signal list button of the main window (LLFR-01211)."""
+
+    @covers("LLFR-01211", "LLFR-01212", "LLFR-01047", "LLFR-01048",
+            "LLFR-01053", "LLFR-00140", "HLFR-00131", "HLFR-00040",
+            "HLFR-00048")
+    def test_main_panel_hidden_and_shown_as_undoable_actions(self) -> None:
+        """The panel starts shown; the button of window -1 hides it, the
+        width kept, then shows it; each click is one undoable action.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        depth_i = self.controller.undo_history.depth()
+        self.view.handler_dict["panel_toggle_handler"](-1)
+        self.assertFalse(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.view.call_list[-1],
+                         ("set_main_panel", False, 240))
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 1)
+        self.view.handler_dict["panel_toggle_handler"](-1)
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.view.call_list[-1],
+                         ("set_main_panel", True, 240))
+        self.undo()
+        self.assertFalse(self.workspace.main_panel_shown_b)
+        self.assertFalse(self.view.main_panel_shown_b)
+        self.undo()
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertTrue(self.view.main_panel_shown_b)
+        self.redo()
+        self.assertFalse(self.view.main_panel_shown_b)
+
+    @covers("LLFR-01141", "HLFR-00131")
+    def test_search_shortcut_shows_only_a_hidden_main_panel(self) -> None:
+        """Ctrl+F in the main window shows its hidden panel, as one
+        undoable action, and does nothing while it is shown.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        depth_i = self.controller.undo_history.depth()
+        self.view.handler_dict["panel_show_handler"](-1)
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i)
+        self.view.handler_dict["panel_toggle_handler"](-1)
+        self.view.handler_dict["panel_show_handler"](-1)
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 2)
 
 
 if __name__ == "__main__":

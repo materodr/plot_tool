@@ -255,5 +255,32 @@ class SampleCopyTest(unittest.TestCase):
                             "Check the sample files next to the app"))
 
 
+class BigSampleBuildTest(unittest.TestCase):
+    """The build writes the big sample files (PCR-00073)."""
+
+    @covers("PCR-00073")
+    def test_main_writes_big_files_unless_left_out(self) -> None:
+        """main() runs the generator with --big after the copy, unless
+        --no-big-files is given, which the macOS CI job passes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        build_module = load_build_script()
+        main_source_str = inspect.getsource(build_module.main)
+        self.assertLess(main_source_str.index("copy_sample_folders()"),
+                        main_source_str.index("write_big_sample_files()"))
+        self.assertIn("NO_BIG_FILES_FLAG_STR", main_source_str)
+        writer_source_str = inspect.getsource(
+            build_module.write_big_sample_files)
+        self.assertIn("BIG_FILES_FLAG_STR", writer_source_str)
+        self.assertEqual(build_module.BIG_FILES_FLAG_STR, "--big")
+        self.assertTrue(os.path.isfile(build_module.SAMPLE_SCRIPT_PATH_STR))
+        with open(MACOS_WORKFLOW_PATH_STR, encoding="utf-8") as file:
+            workflow_str = file.read()
+        self.assertIn("python build_executable.py --no-big-files",
+                      workflow_str)
+
+
 if __name__ == "__main__":
     unittest.main()

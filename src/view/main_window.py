@@ -16,12 +16,15 @@ from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
     ZOOM_TOOL_STR)
 from model import file_writer
+from model.message_lists import list_text
 from model.window_placement import (
     fitted_panel_width_i, new_window_tuple, placed_window_tuple)
 from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     color_picker, file_dialogs, file_writing, icons, message_boxes,
     name_dialog, plot_export, synthetic_dialogs, theme)
+from view.layout_options_dialog import LayoutOptionsDialog
+from view.main_panel_button import MainPanelButton
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.search_box_alignment import SearchBoxAligner
@@ -62,6 +65,16 @@ SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
 # LLFR-00128: added by the dialog to a name typed without an extension,
 # so that its overwrite question names the file really written.
 SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
+# LLFR-01230, LLFR-01233: the dialogs of the Word and PNG exports.
+SAVE_DOCX_DIALOG_TITLE_STR = "Save all tabs as Word document"
+SAVE_DOCX_FILTER_STR = "Word documents (*.docx)"
+SAVE_DOCX_DEFAULT_SUFFIX_STR = "docx"
+SAVE_PNG_DIALOG_TITLE_STR = "Choose the folder of the PNG files"
+# LLFR-01236: the question asked before PNG files are replaced.
+REPLACE_PNG_TITLE_STR = "Replace Files"
+REPLACE_PNG_QUESTION_STR = (
+    "These files already exist in the folder '{folder}':")
+REPLACE_PNG_END_STR = "Do you want to replace them?"
 # LLFR-00219, LLFR-00221: titles and filter of the layout dialogs.
 SAVE_LAYOUT_DIALOG_TITLE_STR = "Save layout"
 LOAD_LAYOUT_DIALOG_TITLE_STR = "Load layout"
@@ -198,11 +211,9 @@ class MainWindow(QMainWindow):
         self.lower_splitter.addWidget(self.signal_list_panel)
         self.lower_splitter.setStretchFactor(0, self.PLOT_PANEL_STRETCH_I)
         self.lower_splitter.setStretchFactor(1, self.SIGNAL_LIST_STRETCH_I)
-        # LLFR-00073: a comfortable handle to grab between the panels.
-        # LLFR-01196: the main window's panel has no signal list button;
-        # LLFR-01054: it is never hidden, and its splitter keeps it at
-        # least 1 pixel wide, as no child of a PanelSplitter can be
-        # collapsed.
+        # LLFR-00073: a comfortable handle to grab between the panels;
+        # no child of a PanelSplitter can be collapsed by a drag, so the
+        # panel is hidden only by its signal list button (LLFR-01211).
         self.lower_splitter.setHandleWidth(theme.SPLITTER_HANDLE_WIDTH_I)
 
         # LLFR-00058: the top panel is above the other two panels.
@@ -215,6 +226,13 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.top_panel)
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)
+        # LLFR-01211, LLFR-01212: the signal list button of the main
+        # window; the panel starts shown.
+        self.main_panel_button = MainPanelButton(
+            central_widget, self.lower_splitter, self.plot_panel,
+            self.signal_list_panel)
+        self.main_panel_button.toggle_handler = (
+            lambda: self._run_window_handler("panel_toggle_handler", -1))
         # LLFR-00424, LLFR-00652: the bottom edge of the search box
         # follows the bottom edge of the lowest plot of the current tab.
         self.search_box_aligner = SearchBoxAligner(
@@ -320,6 +338,13 @@ class MainWindow(QMainWindow):
         self.pdf_shortcut_window = None
         self.top_panel.pdf_export_requested.connect(
             self._on_pdf_export_requested)
+        # LLFR-01229: the Word and PNG options of the Export menu.
+        self.docx_export_handler = None
+        self.png_export_handler = None
+        self.top_panel.docx_export_requested.connect(
+            lambda: self._run_export_handler(self.docx_export_handler))
+        self.top_panel.png_export_requested.connect(
+            lambda: self._run_export_handler(self.png_export_handler))
         self.top_panel.copy_requested.connect(self._on_copy_requested)
         # LLFR-00148 to LLFR-00150: holding the Tip key keeps the Tip
         # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
@@ -452,6 +477,11 @@ class MainWindow(QMainWindow):
         panel.file_expand_toggled.connect(
             lambda number_i: self._run_signal_menu_handler(
                 "toggle_file", number_i))
+        # LLFR-01191, LLFR-01209, LLFR-01210: a double-click on a file
+        # name row.
+        panel.file_row_opened.connect(
+            lambda number_i: self._run_signal_menu_handler(
+                "open_file_row", number_i))
 
     def signal_list_panel_list(self) -> list:
         """Return every signal list panel, the main window's first.
@@ -596,8 +626,9 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: the width in pixels.
         """
-        # LLFR-01051, LLFR-01055: the main window's panel.
-        return self.lower_splitter.last_widget_width()
+        # LLFR-01051, LLFR-01055: the main window's panel; LLFR-01048:
+        # while hidden, the width it gets back.
+        return self.main_panel_button.panel_width()
 
     def window_state_dict(self) -> dict:
         """Return the windows and panel widths as shown now.
@@ -636,6 +667,10 @@ class MainWindow(QMainWindow):
         window.panel_toggle_handler = (
             lambda toggled_id_i: self._run_window_handler(
                 "panel_toggle_handler", toggled_id_i))
+        # LLFR-01203: the "+" button of the window.
+        window.add_tab_handler = (
+            lambda added_id_i: self._run_window_handler(
+                "window_add_tab_handler", added_id_i))
         window.panel_width_handler = (
             lambda changed_id_i, start_i, end_i: self._run_window_handler(
                 "panel_width_handler", changed_id_i, start_i, end_i))
@@ -1029,6 +1064,26 @@ class MainWindow(QMainWindow):
         if window is not None:
             window.set_panel(shown_b, width_i)
 
+    def set_main_panel(self, shown_b: bool, width_i: int) -> None:
+        """Show or hide the main window's signal list panel.
+
+        Inputs:
+            shown_b: True to show it.
+            width_i: its width in pixels, 0 to keep the one it had.
+        Outputs: none.
+        """
+        # LLFR-01047, LLFR-01048, LLFR-01211, LLFR-01214.
+        self.main_panel_button.set_panel(shown_b, width_i)
+
+    def is_main_panel_shown(self) -> bool:
+        """Tell whether the main window shows its signal list panel.
+
+        Inputs: none.
+        Outputs: True when it is shown.
+        """
+        # LLFR-01211.
+        return self.main_panel_button.is_panel_shown()
+
     def set_main_panel_width(self, width_i: int) -> None:
         """Give the main window's signal list panel a width.
 
@@ -1283,6 +1338,16 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00997, LLFR-00998: hide or show the signals of a file.
         self.signal_menu_handler_dict["toggle_file"] = handler
+
+    def set_file_row_handler(self, handler) -> None:
+        """Set the function called by a double-click on a file name row.
+
+        Inputs:
+            handler: function taking a file number.
+        Outputs: none.
+        """
+        # LLFR-01191, LLFR-01209, LLFR-01210.
+        self.signal_menu_handler_dict["open_file_row"] = handler
 
     def set_search_text_handler(self, handler) -> None:
         """Set the function called when the search box text changes.
@@ -2488,6 +2553,134 @@ class MainWindow(QMainWindow):
         self.copy_handler = copy_handler
         self.copy_shortcut_handler = copy_shortcut_handler
 
+    def set_image_export_handlers(self, docx_export_handler,
+                                  png_export_handler) -> None:
+        """Set the functions of the Word and PNG options of Export.
+
+        Inputs:
+            docx_export_handler: function without arguments, for "Save
+                all tabs as Word document (.docx)".
+            png_export_handler: function without arguments, for "Save
+                each tab as PNG".
+        Outputs: none.
+        """
+        # LLFR-01229: the controller runs the flows.
+        self.docx_export_handler = docx_export_handler
+        self.png_export_handler = png_export_handler
+
+    def _run_export_handler(self, handler) -> None:
+        """Run an export handler, or end the Export button's function.
+
+        Inputs:
+            handler: the function, or None.
+        Outputs: none.
+        """
+        # LLFR-00003: with nothing to run, the function is finished.
+        if handler is None:
+            self.finish_export_button()
+            return
+        # LLFR-01230, LLFR-01233.
+        handler()
+
+    def exportable_tab_name_list(self) -> list:
+        """Return the names of the tabs that hold at least one plot.
+
+        Inputs: none.
+        Outputs: a list of str, in tab order (LLFR-01091).
+        """
+        # LLFR-01234, LLFR-01235: the tabs that get a PNG file.
+        page_list = plot_export.exportable_page_list(
+            self.plot_panel.tab_widget, self.undocked_page_list())
+        return [str(page.name_str) for page in page_list]
+
+    def ask_docx_save_path(self, start_folder_str: str = "") -> str:
+        """Show the save file dialog for a .docx file.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen path, or "" when the user cancelled.
+        """
+        # LLFR-01230: a save file dialog for a .docx file, in the folder
+        # of LLFR-01243; the system asks before replacing the file.
+        dialog = QFileDialog(self, SAVE_DOCX_DIALOG_TITLE_STR,
+                             str(start_folder_str), SAVE_DOCX_FILTER_STR)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setDefaultSuffix(SAVE_DOCX_DEFAULT_SUFFIX_STR)
+        return self.run_export_dialog(dialog) or ""
+
+    def ask_png_folder(self, start_folder_str: str = "") -> str:
+        """Show the dialog in which the user chooses the PNG folder.
+
+        Inputs:
+            start_folder_str: the folder the dialog shows.
+        Outputs: the chosen folder, or "" when the user cancelled.
+        """
+        # LLFR-01233: a folder dialog, in the folder of LLFR-01243.
+        dialog = QFileDialog(self, SAVE_PNG_DIALOG_TITLE_STR,
+                             str(start_folder_str))
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
+        return self.run_export_dialog(dialog) or ""
+
+    def run_export_dialog(self, dialog) -> str:
+        """Run a dialog of the Word or PNG export modally.
+
+        Inputs:
+            dialog: the QFileDialog.
+        Outputs: the chosen path, or "" when the user cancelled. Tests
+            replace this method to answer without a modal dialog.
+        """
+        # LLFR-01230, LLFR-01233, LLFR-01241: an empty path is a cancel.
+        return file_dialogs.run_file_dialog(dialog)
+
+    def ask_replace_existing_files(self, folder_str: str,
+                                   file_name_list: list) -> bool:
+        """Ask once whether to replace PNG files that already exist.
+
+        Inputs:
+            folder_str: the chosen folder.
+            file_name_list: the names of the existing files.
+        Outputs: True when the user chose Yes.
+        """
+        # LLFR-01236: one question that names the files.
+        question_str = list_text(
+            [str(name_str) for name_str in file_name_list],
+            REPLACE_PNG_QUESTION_STR.format(folder=folder_str))
+        box = message_boxes.build_question_box(
+            self, REPLACE_PNG_TITLE_STR,
+            f"{question_str}\n\n{REPLACE_PNG_END_STR}")
+        return message_boxes.answered_yes(box)
+
+    def save_tabs_docx(self, path_str: str,
+                       description_str: str = "") -> tuple:
+        """Save the plots of every tab that holds a plot to a .docx file.
+
+        Inputs:
+            path_str: the path of the .docx file.
+            description_str: the description of the open data files.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-01231, LLFR-01232, LLFR-01242.
+        return plot_export.save_tabs_docx(self.plot_panel.tab_widget,
+                                          path_str, description_str,
+                                          self.undocked_page_list())
+
+    def save_tab_png_files(self, folder_str: str, file_name_list: list,
+                           description_str: str = "") -> tuple:
+        """Save one PNG file per tab that holds a plot.
+
+        Inputs:
+            folder_str: the chosen folder.
+            file_name_list: the file name of each tab (LLFR-01235).
+            description_str: the description of the open data files.
+        Outputs: a tuple (saved_b, reason_str).
+        """
+        # LLFR-01234, LLFR-01242.
+        return plot_export.save_tab_png_files(
+            self.plot_panel.tab_widget, folder_str, file_name_list,
+            description_str, self.undocked_page_list())
+
     def exportable_tab_count(self) -> int:
         """Return the number of tabs that hold at least one plot.
 
@@ -2891,6 +3084,10 @@ class MainWindow(QMainWindow):
         size_list = list(self.lower_splitter.sizes())
         if len(size_list) < 2:
             return ()
+        if not self.is_main_panel_shown():
+            # LLFR-01048: a hidden panel keeps the width it gets back.
+            list_width_i = max(self.main_panel_width(), 1)
+            return (max(int(size_list[0]) - list_width_i, 1), list_width_i)
         return (int(size_list[0]), int(size_list[1]))
 
     def set_panel_widths(self, plot_width_i: int, list_width_i: int) -> None:
@@ -2916,8 +3113,8 @@ class MainWindow(QMainWindow):
                 room_i * list_width_i / (plot_width_i + list_width_i))), 1)
             # LLFR-01195: the plot panel keeps 100 pixels of the room the
             # panels have, which is narrower than the window, so the
-            # window's limit holds too; LLFR-01054: the signal list
-            # panel keeps at least 1 pixel.
+            # window's limit holds too; the signal list panel keeps at
+            # least 1 pixel.
             list_width_i = min(fitted_panel_width_i(list_width_i, room_i),
                                room_i - 1)
             plot_width_i = room_i - list_width_i
@@ -2925,6 +3122,34 @@ class MainWindow(QMainWindow):
             # LLFR-01195: the room is not known yet; the window is.
             list_width_i = fitted_panel_width_i(list_width_i, self.width())
         self.lower_splitter.setSizes([plot_width_i, list_width_i])
+
+    def ask_layout_save_options(self):
+        """Show the save options dialog of the Save layout button.
+
+        Inputs: none.
+        Outputs: the dict of LayoutOptionsDialog.answer_dict, or None
+            when the user cancelled (LLFR-01220).
+        """
+        # LLFR-01218, LLFR-01219: a new dialog each time, with the first
+        # values.
+        dialog = LayoutOptionsDialog(self)
+        try:
+            if not self.run_layout_options_dialog(dialog):
+                return None
+            return dialog.answer_dict()
+        finally:
+            dialog.deleteLater()
+
+    def run_layout_options_dialog(self, dialog) -> bool:
+        """Run the save options dialog modally.
+
+        Inputs:
+            dialog: the LayoutOptionsDialog.
+        Outputs: True when the user confirmed it. Tests replace this
+            method to answer without a modal dialog.
+        """
+        # LLFR-01218, LLFR-01220.
+        return dialog.exec() == QDialog.DialogCode.Accepted.value
 
     def show_layout_save_error(self, reason_str: str) -> None:
         """Show the error box saying that the layout file was not saved.
@@ -3415,6 +3640,11 @@ class MainWindow(QMainWindow):
             panel = window.signal_list_panel
             window.activateWindow()
         else:
+            if not self.is_main_panel_shown():
+                # LLFR-01141: the hidden panel of the main window too.
+                self._run_window_handler("panel_show_handler", -1)
+            if not self.is_main_panel_shown():
+                return
             panel = self.signal_list_panel
         # LLFR-01140: the focus in the search box, its text selected.
         panel.search_box.setFocus(Qt.FocusReason.ShortcutFocusReason)
