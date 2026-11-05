@@ -101,8 +101,8 @@ def install_file_dialog_guard() -> None:
 
     QFileDialog.exec = cancel_unanswered_dialog
 
-    # LLFR-01212: the save options dialog of Save layout, shown before
-    # its file dialog, is confirmed with its first values (LLFR-01213),
+    # LLFR-01218: the save options dialog of Save layout, shown before
+    # its file dialog, is confirmed with its first values (LLFR-01219),
     # so the tests of the file dialog see the layout saved as before. A
     # test of the options patches MainWindow.run_layout_options_dialog.
     from view.layout_options_dialog import LayoutOptionsDialog

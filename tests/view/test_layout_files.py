@@ -567,9 +567,9 @@ class LayoutEndToEndTest(LayoutEndToEndTestCase):
 @requires_qt
 class LayoutOptionsViewTest(LayoutEndToEndTestCase):
     """The save options dialog and the data files of a layout
-    (LLFR-01212 to LLFR-01222)."""
+    (LLFR-01218 to LLFR-01228)."""
 
-    @covers("LLFR-01212", "LLFR-01213", "HLFR-00155")
+    @covers("LLFR-01218", "LLFR-01219", "HLFR-00156")
     def test_dialog_choices_and_first_values(self) -> None:
         """The dialog shows the three choices with their first values,
         each time it opens.
@@ -593,7 +593,7 @@ class LayoutOptionsViewTest(LayoutEndToEndTestCase):
             "markers": False, "all_tabs": False, "data_files": True})
         dialog.deleteLater()
 
-    @covers("LLFR-01214", "HLFR-00155")
+    @covers("LLFR-01220", "HLFR-00156")
     def test_cancel_shows_no_file_dialog(self) -> None:
         """A cancelled options dialog shows no save file dialog.
 
@@ -610,8 +610,8 @@ class LayoutOptionsViewTest(LayoutEndToEndTestCase):
         self.assertFalse(os.path.exists(os.path.join(self.folder_str,
                                                      "x.json")))
 
-    @covers("LLFR-01217", "LLFR-01218", "LLFR-01220", "HLFR-00155",
-            "HLFR-00156")
+    @covers("LLFR-01223", "LLFR-01224", "LLFR-01226", "HLFR-00156",
+            "HLFR-00157")
     def test_layout_with_file_names_opens_its_file(self) -> None:
         """A layout saved with the names of the data files, loaded in a
         new start of the app where another file is open, opens its file

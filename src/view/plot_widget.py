@@ -458,7 +458,7 @@ ARROW_DRAG_MOVE_STR = "move"
 ARROW_DRAG_START_STR = "start"
 ARROW_DRAG_END_STR = "end"
 
-# LLFR-01209, LLFR-01211: a drag session ends this long after the last
+# LLFR-01215, LLFR-01217: a drag session ends this long after the last
 # drawn position once no mouse button is held, in case a release was
 # lost; the session ends at the release otherwise.
 FAST_DRAG_END_DELAY_MS_I = 150
@@ -1119,7 +1119,7 @@ class PlotWidget(QWidget):
         # rebuild_axes).
         self.preview_time_s = None
         self.overlay_background = None
-        # LLFR-01209, LLFR-01210: while an object is dragged, the image of
+        # LLFR-01215, LLFR-01216: while an object is dragged, the image of
         # the plot without the objects over the curves, the artists drawn
         # over it, and the number of full draws and of fast redraws.
         self.fast_drag_background = None
@@ -1646,7 +1646,7 @@ class PlotWidget(QWidget):
         self.overlay_background = None
         if self.overlay_shown() and not self.canvas.is_saving():
             QTimer.singleShot(0, self.blit_overlay)
-        # LLFR-01209: during a drag, the image just drawn, without the
+        # LLFR-01215: during a drag, the image just drawn, without the
         # objects over the curves, is the new background they are drawn
         # on.
         if self.fast_drag_artist_list and not self.canvas.is_saving():
@@ -1662,7 +1662,7 @@ class PlotWidget(QWidget):
         Outputs: a set with the curves, the axes background, spines,
             axis lines and titles, and the legend.
         """
-        # LLFR-01209: the curves are drawn once for the whole drag.
+        # LLFR-01215: the curves are drawn once for the whole drag.
         artist_set = set(getattr(self, "curve_line_dict", {}).values())
         artist_set.update(self.axes.spines.values())
         artist_set.update((self.axes.xaxis, self.axes.yaxis, self.axes.patch,
@@ -1680,7 +1680,7 @@ class PlotWidget(QWidget):
             text notes, arrows, delta markers and their labels) are drawn
             from then on over a copy of that image (fast_drag_redraw).
         """
-        # LLFR-01209: the artists drawn at each move; the previews that
+        # LLFR-01215: the artists drawn at each move; the previews that
         # blit_overlay draws are animated already and are left to it.
         static_set = self.static_artist_set()
         self.fast_drag_artist_list = sorted(
@@ -1689,7 +1689,7 @@ class PlotWidget(QWidget):
             key=lambda artist: artist.get_zorder())
         for artist in self.fast_drag_artist_list:
             artist.set_animated(True)
-        # LLFR-01209: one full draw; on_canvas_drawn keeps its image.
+        # LLFR-01215: one full draw; on_canvas_drawn keeps its image.
         self.canvas.draw()
 
     def fast_drag_redraw(self) -> None:
@@ -1698,10 +1698,10 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none. The first call of a drag draws the plot once
             (start_fast_drag); each call then puts that image back and
-            draws only the objects over the curves (LLFR-01209,
-            LLFR-01210). A hidden plot draws when it is shown.
+            draws only the objects over the curves (LLFR-01215,
+            LLFR-01216). A hidden plot draws when it is shown.
         """
-        # LLFR-01209: hidden or never drawn plots draw as before.
+        # LLFR-01215: hidden or never drawn plots draw as before.
         if (sip.isdeleted(self) or self.retired_b or not self.isVisible()
                 or getattr(self.canvas, "renderer", None) is None):
             self.draw_when_visible()
@@ -1709,7 +1709,7 @@ class PlotWidget(QWidget):
         if not self.fast_drag_artist_list:
             self.start_fast_drag()
         self.blit_fast_drag()
-        # LLFR-01209: the session ends at the release, or soon after a
+        # LLFR-01215: the session ends at the release, or soon after a
         # lost one.
         self.fast_drag_end_timer.start()
 
@@ -1719,11 +1719,11 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01209, LLFR-01210: only these artists are drawn.
+        # LLFR-01215, LLFR-01216: only these artists are drawn.
         if (not self.fast_drag_artist_list or self.fast_drag_background is None
                 or sip.isdeleted(self)):
             return
-        # LLFR-01209: artists made again during the drag (for example the
+        # LLFR-01215: artists made again during the drag (for example the
         # delta markers, drawn again for each sample) join the list.
         static_set = self.static_artist_set()
         known_set = set(self.fast_drag_artist_list)
@@ -1750,7 +1750,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none. The artists are drawn by full draws again.
         """
-        # LLFR-01209: every artist is part of a full draw, the PDF export
+        # LLFR-01215: every artist is part of a full draw, the PDF export
         # and the copied image again (LLFR-00129, LLFR-00133).
         for artist in self.fast_drag_artist_list:
             artist.set_animated(False)
@@ -1765,7 +1765,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01209: the plot is drawn in full when the button is
+        # LLFR-01215: the plot is drawn in full when the button is
         # released.
         if not self.fast_drag_artist_list:
             return
@@ -1778,7 +1778,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none. While a mouse button is held, the session goes on.
         """
-        # LLFR-01209, LLFR-01211: the other plots of a drag, and a drag
+        # LLFR-01215, LLFR-01217: the other plots of a drag, and a drag
         # whose release never came, end once no button is held.
         held_buttons = QApplication.mouseButtons()
         if held_buttons & (Qt.MouseButton.LeftButton
@@ -1828,7 +1828,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01209: the artists of a drag in progress are thrown away.
+        # LLFR-01215: the artists of a drag in progress are thrown away.
         self.forget_fast_drag()
         # LLFR-00068: the x-axis is time in seconds; LLFR-00256: or the
         # frequency in Hz for a frequency plot.
@@ -2853,7 +2853,7 @@ class PlotWidget(QWidget):
             outside the drawing area, or on an existing marker.
         """
         # LLFR-00203: the preview shows the marker a click would place
-        # (LLFR-00081); LLFR-01232: it stays over the other objects, a
+        # (LLFR-00081); LLFR-01238: it stays over the other objects, a
         # pinned tip too, although a press on a tip moves it
         # (LLFR-00153).
         if self.plot_tool_str != MARKER_TOOL_STR or self.retired_b:
@@ -2939,7 +2939,7 @@ class PlotWidget(QWidget):
             return
         self.hide_marker_preview()
         self.move_marker_artists(int(marker_id_i), float(time_s))
-        # LLFR-01211: drawn over the image of its curves.
+        # LLFR-01217: drawn over the image of its curves.
         self.fast_drag_redraw()
 
     def move_marker_artists(self, marker_id_i: int, time_s: float) -> None:
@@ -3768,7 +3768,7 @@ class PlotWidget(QWidget):
         annotation.xy = place_tuple
         # LLFR-00338: kept inside the axes while it is dragged too.
         self.place_text_note(annotation)
-        # LLFR-01209: drawn over the image of the curves.
+        # LLFR-01215: drawn over the image of the curves.
         self.fast_drag_redraw()
 
     def note_release_at(self, widget_point) -> None:
@@ -5071,7 +5071,7 @@ class PlotWidget(QWidget):
         self.drag_time_s = time_s
         self.drag_moved_b = True
         self.move_marker_artists(self.drag_marker_id_i, time_s)
-        # LLFR-01209: drawn over the image of the curves.
+        # LLFR-01215: drawn over the image of the curves.
         self.fast_drag_redraw()
         # LLFR-00205: the other plots of the tab show the marker here.
         self.marker_drag_moved.emit(self.drag_marker_id_i, time_s)
@@ -5248,7 +5248,7 @@ class PlotWidget(QWidget):
         self.tip_drag_moved_b = True
         # LLFR-00151: the leader line follows the label when drawn.
         self.place_tips()
-        # LLFR-01209: drawn over the image of the curves.
+        # LLFR-01215: drawn over the image of the curves.
         self.fast_drag_redraw()
 
     def tip_release_at(self, widget_point) -> None:
@@ -6301,7 +6301,7 @@ class PlotWidget(QWidget):
         self.area_drag_span_tuple = span_tuple
         # LLFR-00308: the band, the label and the times follow live.
         self.move_area_artists(self.area_drag_id_i, *span_tuple)
-        # LLFR-01209: drawn over the image of the curves.
+        # LLFR-01215: drawn over the image of the curves.
         self.fast_drag_redraw()
         # LLFR-00310: the other plots of the tab show the area here.
         self.area_drag_moved.emit(self.area_drag_id_i, span_tuple[0],
@@ -6424,7 +6424,7 @@ class PlotWidget(QWidget):
         if int(area_id_i) not in self.area_artist_dict:
             return
         self.move_area_artists(int(area_id_i), float(start_s), float(end_s))
-        # LLFR-01211: drawn over the image of its curves.
+        # LLFR-01217: drawn over the image of its curves.
         self.fast_drag_redraw()
 
     def area_id_list(self) -> list:
@@ -7252,7 +7252,7 @@ class PlotWidget(QWidget):
         Outputs: none.
         """
         widget_point = self.display_to_widget_point(event.x, event.y)
-        # LLFR-01209: a drag drawn over its kept image ends here; the
+        # LLFR-01215: a drag drawn over its kept image ends here; the
         # release then draws the result in full.
         self.end_fast_drag()
         # LLFR-00117: releasing the wheel button ends a pan.
@@ -7476,7 +7476,7 @@ class PlotWidget(QWidget):
         if (widget_point is None or not is_delta_tool(self.plot_tool_str)
                 or self.retired_b):
             return ()
-        # LLFR-01232: the preview stays over a text note or a pinned tip,
+        # LLFR-01238: the preview stays over a text note or a pinned tip,
         # although a press there moves them (LLFR-00153, LLFR-00339).
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
         nearest_tuple = self.nearest_curve_tuple(widget_point)
@@ -7835,7 +7835,7 @@ class PlotWidget(QWidget):
                 + marker_tuple[5:])
         self.delta_drag_point_tuple = tuple(point_tuple)
         self.draw_delta_markers()
-        # LLFR-01209: drawn over the image of the curves.
+        # LLFR-01215: drawn over the image of the curves.
         self.fast_drag_redraw()
 
     def delta_point_drag_to(self, widget_point) -> None:

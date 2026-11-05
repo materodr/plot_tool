@@ -1,7 +1,7 @@
 """Tests for the files of the Word and PNG exports (no Qt needed).
 
 They check the Word document built with the standard library only
-(LLFR-01225, LLFR-01226) and the names of the PNG files (LLFR-01229).
+(LLFR-01231, LLFR-01232) and the names of the PNG files (LLFR-01235).
 """
 
 import struct
@@ -77,7 +77,7 @@ class DocxTest(unittest.TestCase):
         """
         self.archive.close()
 
-    @covers("LLFR-01226", "HLFR-00038")
+    @covers("LLFR-01232", "HLFR-00038")
     def test_parts_of_a_minimal_docx(self) -> None:
         """The archive holds the parts Word and LibreOffice need, every
         XML part parses, and the content types come first.
@@ -100,7 +100,7 @@ class DocxTest(unittest.TestCase):
         self.assertIn('Extension="png"', content_str)
         self.assertIn("wordprocessingml.document.main+xml", content_str)
 
-    @covers("LLFR-01225", "LLFR-01226", "HLFR-00038")
+    @covers("LLFR-01231", "LLFR-01232", "HLFR-00038")
     def test_one_page_per_tab_with_name_text_and_image(self) -> None:
         """Each page has the bold name, the description when there is
         one and a picture whose relationship leads to its PNG, with page
@@ -139,7 +139,7 @@ class DocxTest(unittest.TestCase):
         self.assertAlmostEqual(extent_list[1][1] / extent_list[1][0], 3.0,
                                places=3)
 
-    @covers("LLFR-01225")
+    @covers("LLFR-01231")
     def test_image_fits_the_page(self) -> None:
         """A wide and a tall image both stay inside the free area.
 
@@ -156,7 +156,7 @@ class DocxTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_docx_bytes([("Tab", "", b"no png")])
 
-    @covers("LLFR-01224")
+    @covers("LLFR-01230")
     def test_docx_suffix(self) -> None:
         """".docx" is added only when the path has another ending.
 
@@ -170,7 +170,7 @@ class DocxTest(unittest.TestCase):
 class PngNameTest(unittest.TestCase):
     """The names of the PNG files of "Save each tab as PNG"."""
 
-    @covers("LLFR-01229", "HLFR-00038")
+    @covers("LLFR-01235", "HLFR-00038")
     def test_names_safe_and_unique_ignoring_case(self) -> None:
         """Unsafe characters become "_", an empty name becomes "tab",
         and names already given get "_2", "_3".

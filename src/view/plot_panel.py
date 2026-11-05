@@ -61,8 +61,8 @@ PLOT_MATRIX_TEXT_STR = "Plot matrix"
 NO_TAB_ID_I = -1
 RENAME_DIALOG_TITLE_STR = "Rename tab"
 RENAME_DIALOG_LABEL_STR = "New tab name:"
-# LLFR-00025, LLFR-01199: pixels between the right margin of the last tab
-# and the "+" button; the margin itself is the 2 pixels of LLFR-01199.
+# LLFR-00025, LLFR-01205: pixels between the right margin of the last tab
+# and the "+" button; the margin itself is the 2 pixels of LLFR-01205.
 ADD_BUTTON_GAP_I = 0
 # LLFR-00106, LLFR-00107: object names used by the style sheet.
 TAB_WIDGET_OBJECT_NAME_STR = "plot_tab_widget"
@@ -87,7 +87,7 @@ ADD_BUTTON_WIDTH_I = theme.ADD_BUTTON_WIDTH_I
 # LLFR-00107: one declaration block for background, border and corners,
 # used by both the unselected tab rule and the "+" button rule.
 SHARED_TAB_SHAPE_STR = theme.SHARED_TAB_SHAPE_STR
-# LLFR-01211: the other plots of a dragged flag or area are drawn at
+# LLFR-01217: the other plots of a dragged flag or area are drawn at
 # most once for this many milliseconds.
 DRAG_RELAY_INTERVAL_MS_I = 30
 # LLFR-00025: events of the tab bar after which the button is moved.
@@ -205,7 +205,7 @@ class PlotTabWidget(QTabWidget):
         """
         super().__init__(parent)
         self.setObjectName(TAB_WIDGET_OBJECT_NAME_STR)
-        # LLFR-01207: room kept at the right end of the tab row, for the
+        # LLFR-01213: room kept at the right end of the tab row, for the
         # signal list button of the main window while its panel is
         # hidden.
         self.reserved_right_width_i = 0
@@ -277,7 +277,7 @@ class PlotTabWidget(QTabWidget):
                            self.add_tab_button.sizeHint().height())
         button_width_i = ADD_BUTTON_WIDTH_I
         left_i = bar_geometry.x() + right_edge_i + ADD_BUTTON_GAP_I
-        # LLFR-01207: the "+" button stays left of the kept room.
+        # LLFR-01213: the "+" button stays left of the kept room.
         left_i = max(0, min(left_i, self.width() - button_width_i
                             - getattr(self, "reserved_right_width_i", 0)))
         self.add_tab_button.setGeometry(left_i, bar_geometry.y() + top_i,
@@ -308,7 +308,7 @@ class PlotTabWidget(QTabWidget):
         # LLFR-00025: a corner widget would not do this, because the
         # style sheet position of the tab bar (LLFR-00106) ignores
         # corner widgets; QWidget.setGeometry respects the maximum width.
-        # LLFR-01207: and for the signal list button of the main window.
+        # LLFR-01213: and for the signal list button of the main window.
         reserved_width_i = (ADD_BUTTON_WIDTH_I + 2 * ADD_BUTTON_GAP_I
                             + getattr(self, "reserved_right_width_i", 0))
         self.tabBar().setMaximumWidth(max(0, self.width()
@@ -321,7 +321,7 @@ class PlotTabWidget(QTabWidget):
             width_i: the room in pixels, 0 for none.
         Outputs: none. The tabs and the "+" button stay left of it.
         """
-        # LLFR-01207: while the main window's panel is hidden.
+        # LLFR-01213: while the main window's panel is hidden.
         self.reserved_right_width_i = max(int(width_i), 0)
         self.limit_tab_bar_width()
         self.schedule_reposition()
@@ -464,9 +464,9 @@ class PlotPanel(QWidget):
         self.pressed_tab_id_i = NO_TAB_ID_I
         self.pressed_tab_index_i = -1
         self.tab_drag_in_progress_b = False
-        # LLFR-01202: the image of a dragged tab, shared by every window.
+        # LLFR-01208: the image of a dragged tab, shared by every window.
         self.tab_drag_preview = TabDragPreview()
-        # LLFR-01211: the latest place of a dragged flag or area that the
+        # LLFR-01217: the latest place of a dragged flag or area that the
         # other plots have not shown yet, and the timer that spaces their
         # redraws.
         self.pending_relay_tuple = ()
@@ -559,7 +559,7 @@ class PlotPanel(QWidget):
               and event.buttons() & Qt.MouseButton.LeftButton):
             # LLFR-00454: from the first move, the 0 key does nothing.
             self.tab_drag_in_progress_b = True
-            # LLFR-01202: the image of the tab follows the pointer.
+            # LLFR-01208: the image of the tab follows the pointer.
             global_point = event.globalPosition().toPoint()
             if self.tab_drag_preview.dragged_page is None:
                 self.tab_drag_preview.start(
@@ -572,7 +572,7 @@ class PlotPanel(QWidget):
             # LLFR-01142: where a dragged tab was dropped, in desktop
             # pixels; a click is no drop.
             release_tuple = ()
-            # LLFR-01202: the image is removed at the release.
+            # LLFR-01208: the image is removed at the release.
             self.tab_drag_preview.stop()
             if self.tab_drag_in_progress_b:
                 release_point = event.globalPosition().toPoint()
@@ -719,7 +719,7 @@ class PlotPanel(QWidget):
         if self.tab_drag_in_progress_b and not self.left_button_down():
             self.tab_drag_in_progress_b = False
             self.pressed_tab_id_i = NO_TAB_ID_I
-            # LLFR-01202: a lost release removes the image too.
+            # LLFR-01208: a lost release removes the image too.
             self.tab_drag_preview.stop()
         return self.tab_drag_in_progress_b
 
@@ -1572,7 +1572,7 @@ class PlotPanel(QWidget):
         """
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112, LLFR-00205: the
         # same markers on every plot; hidden plots draw them when shown.
-        # LLFR-01211: a place of a drag not shown yet is out of date.
+        # LLFR-01217: a place of a drag not shown yet is out of date.
         self.drop_drag_relay()
         for plot_widget in self.plot_widget_dict.values():
             plot_widget.set_markers(marker_data_list)
@@ -1588,7 +1588,7 @@ class PlotPanel(QWidget):
         # LLFR-00304, LLFR-00312, LLFR-00315, LLFR-00316, LLFR-00310: the
         # same areas on every plot; hidden plots draw them when shown;
         # LLFR-00311: a frequency plot leaves them out by itself.
-        # LLFR-01211: a place of a drag not shown yet is out of date.
+        # LLFR-01217: a place of a drag not shown yet is out of date.
         self.drop_drag_relay()
         for plot_widget in self.plot_widget_dict.values():
             plot_widget.set_areas(area_data_list)
@@ -1650,7 +1650,7 @@ class PlotPanel(QWidget):
         # window and in every undocked window; LLFR-00710: the plots of
         # the other tabs get the new span when the button is released
         # (controller).
-        # LLFR-01211: at most one redraw of the other plots per interval.
+        # LLFR-01217: at most one redraw of the other plots per interval.
         self.queue_drag_relay(("follow_area_drag", plot_id_i,
                                (area_id_i, start_s, end_s)))
 
@@ -1669,7 +1669,7 @@ class PlotPanel(QWidget):
         # and in every undocked window; LLFR-00666: the plots of the
         # other tabs get the new time when the button is released
         # (controller).
-        # LLFR-01211: at most one redraw of the other plots per interval.
+        # LLFR-01217: at most one redraw of the other plots per interval.
         self.queue_drag_relay(("follow_marker_drag", plot_id_i,
                                (marker_id_i, time_s)))
 
@@ -1683,7 +1683,7 @@ class PlotPanel(QWidget):
             come during the next DRAG_RELAY_INTERVAL_MS_I milliseconds
             are merged, the latest shown when the interval ends.
         """
-        # LLFR-01211: the latest place wins. Only a drag with the button
+        # LLFR-01217: the latest place wins. Only a drag with the button
         # held is spaced in time; a place sent with no button held (a
         # cancelled drag putting the object back) is shown at once.
         self.pending_relay_tuple = tuple(relay_tuple)
@@ -1696,7 +1696,7 @@ class PlotPanel(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01211, LLFR-00205, LLFR-00310: the shown time plots of
+        # LLFR-01217, LLFR-00205, LLFR-00310: the shown time plots of
         # every window; the next redraw waits for the interval.
         if not self.pending_relay_tuple:
             return
@@ -1712,7 +1712,7 @@ class PlotPanel(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01211: the release shows the stored place on every plot.
+        # LLFR-01217: the release shows the stored place on every plot.
         self.pending_relay_tuple = ()
         self.relay_timer.stop()
 

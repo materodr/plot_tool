@@ -477,7 +477,7 @@ class ListBoxesTest(unittest.TestCase):
 
 @requires_qt
 class BoldMessageTextTest(unittest.TestCase):
-    """The main text of every box is bold, in one size (LLFR-01200)."""
+    """The main text of every box is bold, in one size (LLFR-01206)."""
 
     def setUp(self) -> None:
         """Get the application and a parent widget.
@@ -528,7 +528,7 @@ class BoldMessageTextTest(unittest.TestCase):
                                                    list_text_str)),
         ]
 
-    @covers("LLFR-01200", "LLFR-01201", "HLFR-00002")
+    @covers("LLFR-01206", "LLFR-01207", "HLFR-00002")
     def test_every_message_box_text_is_bold_in_one_size(self) -> None:
         """Information boxes, error boxes and questions, with or without
         a list, draw their text label in bold at 13 points.
@@ -550,7 +550,7 @@ class BoldMessageTextTest(unittest.TestCase):
                     label.font().pointSize(),
                     self.message_module.MESSAGE_FONT_POINT_SIZE_I)
 
-    @covers("LLFR-01200", "LLFR-01201", "HLFR-00052")
+    @covers("LLFR-01206", "LLFR-01207", "HLFR-00052")
     def test_scrollable_boxes_are_bold_in_one_size(self) -> None:
         """The load report and a long File Open Error box show their
         sentence and their list in bold, at 13 points.
@@ -582,7 +582,7 @@ class BoldMessageTextTest(unittest.TestCase):
         self.assertEqual(intro.font().pointSize(),
                          module.MESSAGE_FONT_POINT_SIZE_I)
 
-    @covers("LLFR-01200")
+    @covers("LLFR-01206")
     def test_style_helper_is_added_once(self) -> None:
         """apply_message_text_style adds the shared style only once.
 

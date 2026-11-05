@@ -153,7 +153,7 @@ FILE_OPEN_ERROR_TEXT_OBJECT_NAME_STR = "file_open_error_text"
 REFUSED_FILES_TEXT_OBJECT_NAME_STR = "refused_files_text"
 # LLFR-01176: the objectName that QMessageBox gives its text label.
 MESSAGE_BOX_LABEL_OBJECT_NAME_STR = "qt_msgbox_label"
-# LLFR-01200: the objectName of the sentence of a scrollable box.
+# LLFR-01206: the objectName of the sentence of a scrollable box.
 SCROLLABLE_INTRO_OBJECT_NAME_STR = "scrollable_box_intro"
 # LLFR-01176: the style of one line of a list box: no space above or
 # below it (LLFR-00982 already puts a blank line between the items),
@@ -163,7 +163,7 @@ SCROLLABLE_INTRO_OBJECT_NAME_STR = "scrollable_box_intro"
 LIST_LINE_STYLE_STR = (
     "margin-top:0px; margin-bottom:0px; margin-left:{margin}px; "
     "margin-right:0px; text-indent:{indent}px; white-space:pre-wrap;")
-# LLFR-01200, LLFR-01201: the main text of every box, in bold letters
+# LLFR-01206, LLFR-01207: the main text of every box, in bold letters
 # and in one font size.
 MESSAGE_FONT_POINT_SIZE_I = 13
 MESSAGE_TEXT_STYLE_STR = (
@@ -183,7 +183,7 @@ def message_box_style_sheet() -> str:
         (MESSAGE_BOX_LABEL_OBJECT_NAME_STR): bold letters of
         MESSAGE_FONT_POINT_SIZE_I points.
     """
-    # LLFR-01200, LLFR-01201: one shared style for every box.
+    # LLFR-01206, LLFR-01207: one shared style for every box.
     return (f"QLabel#{MESSAGE_BOX_LABEL_OBJECT_NAME_STR} "
             f"{{ {MESSAGE_TEXT_STYLE_STR} }}")
 
@@ -197,7 +197,7 @@ def apply_message_text_style(widget, label_only_b: bool = True) -> None:
             through its objectName; False to style the widget itself.
     Outputs: none. The style is added to the widget's style sheet.
     """
-    # LLFR-01200, LLFR-01201: the shared style helper of the boxes.
+    # LLFR-01206, LLFR-01207: the shared style helper of the boxes.
     style_str = (message_box_style_sheet() if label_only_b
                  else MESSAGE_TEXT_STYLE_STR)
     current_str = widget.styleSheet()
@@ -258,7 +258,7 @@ class ListMessageBox(QMessageBox):
         # LLFR-01176: the plain text of the list, kept for text().
         super().__init__(parent)
         self.plain_text_str = ""
-        # LLFR-01200, LLFR-01201: the main text in bold, in one size.
+        # LLFR-01206, LLFR-01207: the main text in bold, in one size.
         apply_message_text_style(self)
 
     def setText(self, text_str: str) -> None:
@@ -324,7 +324,7 @@ class ListTextField(QTextEdit):
         # bar when the list is longer than the field.
         super().__init__(parent)
         self.plain_text_str = ""
-        # LLFR-01200, LLFR-01201: the list of a scrollable box in bold,
+        # LLFR-01206, LLFR-01207: the list of a scrollable box in bold,
         # in the size of the other boxes.
         apply_message_text_style(self, False)
         self.setReadOnly(True)
@@ -901,7 +901,7 @@ def build_scrollable_list_box(parent, text_str: str, title_str: str,
         intro_label = QLabel(intro_str, dialog)
         intro_label.setObjectName(SCROLLABLE_INTRO_OBJECT_NAME_STR)
         intro_label.setWordWrap(True)
-        # LLFR-01200, LLFR-01201: the sentence in bold too.
+        # LLFR-01206, LLFR-01207: the sentence in bold too.
         apply_message_text_style(intro_label, False)
         intro_layout.addWidget(intro_label, 1)
     else:

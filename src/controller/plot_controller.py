@@ -356,7 +356,7 @@ class PlotController:
             dock_handler=self.on_dock_tab,
             window_close_handler=self.on_window_closed,
             panel_toggle_handler=self.on_panel_toggled,
-            # LLFR-01197: the "+" button of an undocked window.
+            # LLFR-01203: the "+" button of an undocked window.
             window_add_tab_handler=self.on_window_add_tab,
             panel_width_handler=self.on_panel_width_changed,
             # LLFR-01142, LLFR-01143: undock and dock by dragging.
@@ -1928,14 +1928,14 @@ class PlotController:
         memory_tuple = self.window_memory_tuple()
         snapshot = self.workspace.snapshot(self.view.current_tab_id())
         shown_tab_id_i = self.view.current_tab_id()
-        # LLFR-01197: the tab is added at the end of that window.
+        # LLFR-01203: the tab is added at the end of that window.
         tab = self.workspace.add_tab_to_window(window_id_i)
         if tab is None:
             return
         self.record_undo(snapshot)
         # LLFR-01122: the new tab has the default plot matrix.
         self.show_tab_view(tab)
-        # LLFR-01197, LLFR-01158: the window shows it; the main window
+        # LLFR-01203, LLFR-01158: the window shows it; the main window
         # keeps the tab it showed.
         self.show_windows(memory_tuple)
         if shown_tab_id_i >= 0:
@@ -2349,7 +2349,7 @@ class PlotController:
 
         Inputs:
             window_id_i: id of the window whose signal list button was
-                clicked, -1 for the main window (LLFR-01205).
+                clicked, -1 for the main window (LLFR-01211).
         Outputs: none.
         """
         if int(window_id_i) < 0:
@@ -2387,7 +2387,7 @@ class PlotController:
         snapshot = self.take_snapshot()
         shown_b = not self.workspace.main_panel_shown_b
         width_i = int(self.workspace.main_panel_width_i)
-        # LLFR-01047, LLFR-01048, LLFR-01205: hidden, or shown at its
+        # LLFR-01047, LLFR-01048, LLFR-01211: hidden, or shown at its
         # width.
         self.workspace.main_panel_shown_b = shown_b
         self.record_undo(snapshot)
@@ -2403,7 +2403,7 @@ class PlotController:
         """
         # LLFR-01141: as a click on the signal list button, one undoable
         # action, only while the panel is hidden; the main window's too
-        # (LLFR-01205).
+        # (LLFR-01211).
         if int(window_id_i) < 0:
             if not self.workspace.main_panel_shown_b:
                 self.toggle_main_panel()

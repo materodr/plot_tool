@@ -1,4 +1,4 @@
-"""The image of a dragged tab that follows the pointer (LLFR-01202).
+"""The image of a dragged tab that follows the pointer (LLFR-01208).
 
 While the user drags a tab, of the main window or of an undocked window,
 a small semi-transparent image of the tab's page follows the pointer,
@@ -12,11 +12,11 @@ would take the mouse from the tab bar.
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtWidgets import QLabel
 
-# LLFR-01202: the image is at most this wide, in pixels.
+# LLFR-01208: the image is at most this wide, in pixels.
 PREVIEW_MAXIMUM_WIDTH_I = 200
-# LLFR-01202: semi-transparent.
+# LLFR-01208: semi-transparent.
 PREVIEW_OPACITY_F = 0.6
-# LLFR-01202: the image's top-left corner, from the pointer, in pixels,
+# LLFR-01208: the image's top-left corner, from the pointer, in pixels,
 # so that the pointer stays visible beside it.
 PREVIEW_OFFSET_I = 12
 PREVIEW_OBJECT_NAME_STR = "tab_drag_preview"
@@ -31,7 +31,7 @@ def preview_pixmap(page, maximum_width_i: int = PREVIEW_MAXIMUM_WIDTH_I):
     Outputs: a QPixmap at most maximum_width_i pixels wide, with the
         page's proportions, or None when the page has no size.
     """
-    # LLFR-01202: a scaled grab of the page.
+    # LLFR-01208: a scaled grab of the page.
     if page is None or page.width() < 1 or page.height() < 1:
         return None
     pixmap = page.grab()
@@ -57,7 +57,7 @@ class TabDragPreview(QLabel):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01202: a top-level tool window with no frame, that never
+        # LLFR-01208: a top-level tool window with no frame, that never
         # takes the mouse or the keyboard focus.
         super().__init__(None, Qt.WindowType.ToolTip
                          | Qt.WindowType.FramelessWindowHint
@@ -77,7 +77,7 @@ class TabDragPreview(QLabel):
             global_point: the QPoint of the pointer, in desktop pixels.
         Outputs: none. Nothing is shown for a page with no image.
         """
-        # LLFR-01202: shown once the press became a drag.
+        # LLFR-01208: shown once the press became a drag.
         pixmap = preview_pixmap(page)
         if pixmap is None:
             return
@@ -94,7 +94,7 @@ class TabDragPreview(QLabel):
             global_point: the QPoint of the pointer, in desktop pixels.
         Outputs: none.
         """
-        # LLFR-01202: it follows the pointer until the release.
+        # LLFR-01208: it follows the pointer until the release.
         if self.dragged_page is None:
             return
         self.move(global_point + QPoint(PREVIEW_OFFSET_I, PREVIEW_OFFSET_I))
@@ -105,7 +105,7 @@ class TabDragPreview(QLabel):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01202: removed wherever the tab is dropped.
+        # LLFR-01208: removed wherever the tab is dropped.
         self.dragged_page = None
         self.hide()
 
@@ -115,5 +115,5 @@ class TabDragPreview(QLabel):
         Inputs: none.
         Outputs: True from the start of the drag to the release.
         """
-        # LLFR-01202.
+        # LLFR-01208.
         return self.dragged_page is not None and self.isVisible()

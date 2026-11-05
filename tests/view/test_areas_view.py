@@ -257,7 +257,7 @@ class AreaCreateTest(AreaWidgetTestCase):
 
 @requires_qt
 class PreviewOverObjectsTest(AreaWidgetTestCase):
-    """The drawing previews stay over other objects (LLFR-01232)."""
+    """The drawing previews stay over other objects (LLFR-01238)."""
 
     def tip_label_point(self):
         """Pin a data tip on the first curve and return its label centre.
@@ -280,7 +280,7 @@ class PreviewOverObjectsTest(AreaWidgetTestCase):
         self.assertEqual(self.plot_widget.pinned_tip_at(point), 0)
         return point
 
-    @covers("LLFR-01232", "LLFR-00303", "HLFR-00066")
+    @covers("LLFR-01238", "LLFR-00303", "HLFR-00066")
     def test_area_preview_over_a_pinned_tip(self) -> None:
         """The preview of a new area follows the pointer over a tip.
 
@@ -295,7 +295,7 @@ class PreviewOverObjectsTest(AreaWidgetTestCase):
         self.assertTrue(self.plot_widget.area_preview_shown())
         self.left_release(tip_point)
 
-    @covers("LLFR-01232", "LLFR-00208", "HLFR-00027")
+    @covers("LLFR-01238", "LLFR-00208", "HLFR-00027")
     def test_span_selection_over_a_pinned_tip(self) -> None:
         """The time span line of the Zoom tool follows over a tip.
 
@@ -310,7 +310,7 @@ class PreviewOverObjectsTest(AreaWidgetTestCase):
         self.assertTrue(self.plot_widget.time_span_shown_b)
         self.left_release(tip_point)
 
-    @covers("LLFR-01232", "LLFR-00371", "HLFR-00081")
+    @covers("LLFR-01238", "LLFR-00371", "HLFR-00081")
     def test_arrow_preview_over_a_pinned_tip(self) -> None:
         """The preview of a new arrow follows over a tip.
 

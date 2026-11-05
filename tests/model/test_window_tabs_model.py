@@ -56,7 +56,7 @@ class WindowTabsTestCase(unittest.TestCase):
 class AddTabToWindowTest(WindowTabsTestCase):
     """The "+" button of an undocked window adds a tab there."""
 
-    @covers("LLFR-01197", "LLFR-00210", "LLFR-01091", "HLFR-00015")
+    @covers("LLFR-01203", "LLFR-00210", "LLFR-01091", "HLFR-00015")
     def test_new_tab_is_last_of_its_window(self) -> None:
         """The tab takes the next "Tab N", joins the window after its
         last tab with the window values, and the window shows it.
@@ -491,12 +491,12 @@ class LayoutWindowNumberTest(WindowTabsTestCase):
 
 class MainPanelLayoutTest(WindowTabsTestCase):
     """Whether the main window shows its signal list panel, in the layout
-    file (LLFR-00225 item 9, LLFR-01208)."""
+    file (LLFR-00225 item 9, LLFR-01214)."""
 
     # The same rebuild as for the window numbers.
     rebuild = LayoutWindowNumberTest.rebuild
 
-    @covers("LLFR-00225", "LLFR-01208", "LLFR-01053", "HLFR-00131",
+    @covers("LLFR-00225", "LLFR-01214", "LLFR-01053", "HLFR-00131",
             "HLFR-00049", "HLFR-00050")
     def test_main_panel_state_saved_and_loaded(self) -> None:
         """The file holds the state; loading it sets the model and the

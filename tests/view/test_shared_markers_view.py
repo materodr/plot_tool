@@ -473,7 +473,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.process_events()
         self.assert_no_preview()
 
-    @covers("LLFR-01232", "LLFR-00203", "LLFR-00153", "HLFR-00028")
+    @covers("LLFR-01238", "LLFR-00203", "LLFR-00153", "HLFR-00028")
     def test_preview_stays_over_a_pinned_tip(self) -> None:
         """Over the label of a pinned data tip the flag preview stays
         shown and follows the pointer; a press there still moves the tip

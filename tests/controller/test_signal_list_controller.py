@@ -1178,7 +1178,7 @@ class FileCollapseTest(unittest.TestCase):
         self.assertEqual(self.view.collapsed_number_set, {1, 2, 3})
         self.assertNotIn("clear_search", self.view.call_list)
 
-    @covers("LLFR-01203", "LLFR-01204", "LLFR-01004", "HLFR-00123",
+    @covers("LLFR-01209", "LLFR-01210", "LLFR-01004", "HLFR-00123",
             "HLFR-00033")
     def test_row_double_click_during_search_clears_and_shows(self) -> None:
         """During a search, a double-click on a file name row clears the

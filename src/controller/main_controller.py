@@ -102,7 +102,7 @@ class MainController:
             self.export_controller.on_export_requested,
             self.export_controller.on_copy_requested,
             self.export_controller.on_copy_shortcut)
-        # LLFR-01223: the Word and PNG options of the Export menu; fake
+        # LLFR-01229: the Word and PNG options of the Export menu; fake
         # views of tests that do not export may leave the method out.
         set_image_export_handlers = getattr(
             main_window, "set_image_export_handlers", None)

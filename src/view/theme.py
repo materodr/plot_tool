@@ -214,7 +214,7 @@ TAB_CORNER_RADIUS_I = 6
 TAB_MINIMUM_TEXT_WIDTH_I = 48
 TAB_HORIZONTAL_PADDING_I = 14
 TAB_VERTICAL_PADDING_I = 5
-# LLFR-01198: the space between the borders of two neighbouring tabs,
+# LLFR-01204: the space between the borders of two neighbouring tabs,
 # which is the right margin of each tab.
 TAB_SPACING_I = 2
 ADD_BUTTON_WIDTH_I = 30

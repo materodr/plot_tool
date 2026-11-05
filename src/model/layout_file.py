@@ -128,7 +128,7 @@ START_KEY_STR = "start"
 END_KEY_STR = "end"
 GRID_KEY_STR = "grid"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
-# LLFR-00225 item 9, LLFR-01208: whether the main window shows its signal
+# LLFR-00225 item 9, LLFR-01214: whether the main window shows its signal
 # list panel.
 MAIN_PANEL_SHOWN_KEY_STR = "signal_list_panel_shown"
 # LLFR-01081, LLFR-01146: the largest size of a Qt window (QWIDGETSIZE_MAX),
@@ -200,7 +200,7 @@ NEWER_VERSION_REASON_STR = (
     "only versions up to {supported}.")
 
 # LLFR-00237: the headings of the load report.
-# LLFR-01221: the heading of the data files of the layout file that are
+# LLFR-01227: the heading of the data files of the layout file that are
 # not open.
 DATA_FILES_HEADING_STR = "Data files not opened:"
 SYNTHETIC_HEADING_STR = "Synthetic signals not created:"
@@ -255,7 +255,7 @@ class LayoutReport:
         self.not_rebuilt_line_list = []
         self.time_range_line_list = []
         self.replaced_line_list = []
-        # LLFR-01221: the data files of the file that are not open.
+        # LLFR-01227: the data files of the file that are not open.
         self.data_file_line_list = []
 
     def add_data_file(self, line_str: str) -> None:
@@ -265,7 +265,7 @@ class LayoutReport:
             line_str: the text of the entry, with the path and reason.
         Outputs: none.
         """
-        # LLFR-01221: listed under "Data files not opened:".
+        # LLFR-01227: listed under "Data files not opened:".
         self.data_file_line_list.append(str(line_str))
 
     def add_missing_signal(self, signal_name_str: str) -> None:
@@ -353,7 +353,7 @@ class LayoutReport:
         # LLFR-00237: synthetic signals, missing signals, items not
         # rebuilt, the time range and the replaced values; the renamed
         # tabs and synthetic signals.
-        # LLFR-01221: the data files that are not open come first, as
+        # LLFR-01227: the data files that are not open come first, as
         # they explain the signals missing below.
         section_list = [
             (DATA_FILES_HEADING_STR, self.data_file_line_list),
@@ -413,7 +413,7 @@ class LayoutResult:
         self.grid_shown_b = grid_shown_b
         self.panel_width_tuple = tuple(panel_width_tuple)
         self.tabs_replaced_b = bool(tabs_replaced_b)
-        # LLFR-01208: whether the main window shows its signal list
+        # LLFR-01214: whether the main window shows its signal list
         # panel, None when the file does not say.
         self.main_panel_shown_b = None
 
@@ -647,7 +647,7 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
             SIGNAL_LIST_PANEL_KEY_STR: int(panel_width_tuple[1])}
     else:
         layout_dict[PANEL_WIDTHS_KEY_STR] = None
-    # LLFR-00225 item 9, LLFR-01205: whether the main window shows its
+    # LLFR-00225 item 9, LLFR-01211: whether the main window shows its
     # signal list panel.
     layout_dict[MAIN_PANEL_SHOWN_KEY_STR] = bool(
         getattr(workspace, "main_panel_shown_b", True))
@@ -2121,7 +2121,7 @@ class LayoutBuilder:
         result = LayoutResult(self.report, first_tab_id_i, time_range_tuple,
                               grid_shown_b, panel_width_tuple,
                               tabs_replaced_b)
-        # LLFR-01208: the main window's panel shown or hidden as saved; a
+        # LLFR-01214: the main window's panel shown or hidden as saved; a
         # file without the value leaves it as it is.
         shown_value = layout_dict.get(MAIN_PANEL_SHOWN_KEY_STR)
         if isinstance(shown_value, bool):
@@ -2197,21 +2197,21 @@ def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
 
 
 # ----------------------------------------------------------------------
-# Save options and data files of a layout (HLFR-00155, HLFR-00156)
+# Save options and data files of a layout (HLFR-00156, HLFR-00157)
 # ----------------------------------------------------------------------
 
-# LLFR-01217: the keys of the data files of the layout file.
+# LLFR-01223: the keys of the data files of the layout file.
 DATA_FILES_KEY_STR = "data_files"
 NUMBER_KEY_STR = "number"
 PATH_KEY_STR = "path"
 RELATIVE_PATH_KEY_STR = "relative_path"
-# LLFR-01220: a file prefix at the start of a name, or after the
+# LLFR-01226: a file prefix at the start of a name, or after the
 # operation of a product of two signals (HLFR-00104).
 FILE_PREFIX_PATTERN_STR = r"(^|_prod_)file([0-9]+)_"
-# LLFR-01222: the number given to the prefix of a data file of the
+# LLFR-01228: the number given to the prefix of a data file of the
 # layout file that is not open; no data file ever has it (LLFR-00900).
 UNUSED_FILE_NUMBER_I = 0
-# LLFR-01221: the reasons of the load report.
+# LLFR-01227: the reasons of the load report.
 FILE_NOT_FOUND_REASON_STR = (
     "{path}: no file at this path or at the path relative to the layout "
     "file.")
@@ -2227,14 +2227,14 @@ def layout_with_save_options(layout_dict: dict, markers_b: bool = True,
     Inputs:
         layout_dict: the content built by build_layout_dict.
         markers_b: False to leave out the pinned data tips, flags, areas
-            and delta markers (LLFR-01215).
+            and delta markers (LLFR-01221).
         current_tab_only_b: True to keep only the tab that the main
-            window shows, as its shown docked tab (LLFR-01216).
+            window shows, as its shown docked tab (LLFR-01222).
     Outputs: a new dict; layout_dict is not changed.
     """
     result_dict = json.loads(json.dumps(layout_dict))
     if not markers_b:
-        # LLFR-01215: no marker of any kind in the file.
+        # LLFR-01221: no marker of any kind in the file.
         result_dict[FLAGS_KEY_STR] = []
         result_dict[AREAS_KEY_STR] = []
         for tab_entry_dict in list_entry(result_dict, TABS_KEY_STR):
@@ -2242,7 +2242,7 @@ def layout_with_save_options(layout_dict: dict, markers_b: bool = True,
                 plot_entry_dict[DATA_TIPS_KEY_STR] = []
                 plot_entry_dict[DELTA_MARKERS_KEY_STR] = []
     if current_tab_only_b:
-        # LLFR-01216: the tab the main window shows (LLFR-00225 item 1),
+        # LLFR-01222: the tab the main window shows (LLFR-00225 item 1),
         # docked, and shown.
         tab_list = list_entry(result_dict, TABS_KEY_STR)
         shown_index_i = result_dict.get(SHOWN_TAB_KEY_STR, 0)
@@ -2269,7 +2269,7 @@ def relative_path_str(path_str: str, layout_path_str: str):
     Outputs: the relative path, with "/" separators, or None when there
         is none (another drive on Windows).
     """
-    # LLFR-01217: relative to the folder of the layout file.
+    # LLFR-01223: relative to the folder of the layout file.
     try:
         relative_str = os.path.relpath(
             path_str, os.path.dirname(os.path.abspath(layout_path_str)))
@@ -2286,9 +2286,9 @@ def data_file_entry_list(numbered_path_list: list,
         numbered_path_list: one (number, path) per open data file.
         layout_path_str: the path of the layout file.
     Outputs: one dict per file, in the order of the numbers, with its
-        number, absolute path and relative path (LLFR-01217).
+        number, absolute path and relative path (LLFR-01223).
     """
-    # LLFR-01217: the number, the absolute and the relative path.
+    # LLFR-01223: the number, the absolute and the relative path.
     entry_list = []
     for number_i, path_str in sorted(numbered_path_list):
         absolute_str = os.path.abspath(str(path_str))
@@ -2309,7 +2309,7 @@ def data_file_candidate_list(entry_dict: dict, layout_path_str: str) -> list:
     Outputs: its `path`, then its `relative_path` from the folder of the
         layout file, each when it is a text.
     """
-    # LLFR-01218: the absolute path first, then the relative one.
+    # LLFR-01224: the absolute path first, then the relative one.
     candidate_list = []
     path_value = entry_dict.get(PATH_KEY_STR)
     if isinstance(path_value, str) and path_value:
@@ -2332,7 +2332,7 @@ def renamed_file_prefix(name_value, number_dict: dict):
         `_prod_`, given the new number of N when number_dict has one; any
         other value unchanged.
     """
-    # LLFR-01220: the prefix of the number the data file has now.
+    # LLFR-01226: the prefix of the number the data file has now.
     if not isinstance(name_value, str):
         return name_value
 
@@ -2343,7 +2343,7 @@ def renamed_file_prefix(name_value, number_dict: dict):
             match: the re match of FILE_PREFIX_PATTERN_STR.
         Outputs: the replacement text.
         """
-        # LLFR-01220, LLFR-01222.
+        # LLFR-01226, LLFR-01228.
         number_i = int(match.group(2))
         return (f"{match.group(1)}file"
                 f"{number_dict.get(number_i, number_i)}_")
@@ -2359,7 +2359,7 @@ def renumber_point(entry, number_dict: dict) -> None:
         number_dict: saved file number -> number now.
     Outputs: none; the entry is changed in place.
     """
-    # LLFR-01220: the curves, data tips and delta marker points.
+    # LLFR-01226: the curves, data tips and delta marker points.
     if isinstance(entry, dict) and SIGNAL_KEY_STR in entry:
         entry[SIGNAL_KEY_STR] = renamed_file_prefix(entry[SIGNAL_KEY_STR],
                                                     number_dict)
@@ -2374,9 +2374,9 @@ def renumber_layout_names(layout_dict: dict, number_dict: dict) -> None:
             saved number missing from it is kept.
     Outputs: none; the names of the curves, pinned data tips, delta
         markers and synthetic signal entries are changed in place
-        (LLFR-01220, LLFR-01222).
+        (LLFR-01226, LLFR-01228).
     """
-    # LLFR-01220: every name that a load matches with the signal list.
+    # LLFR-01226: every name that a load matches with the signal list.
     for tab_entry_dict in list_entry(layout_dict, TABS_KEY_STR):
         for plot_entry_dict in list_entry(tab_entry_dict, PLOTS_KEY_STR):
             for curve_entry in list_entry(plot_entry_dict, CURVES_KEY_STR):
@@ -2411,14 +2411,14 @@ def file_number_dict(saved_number_list: list, found_dict: dict,
         saved_number_list: the numbers of the data files of the layout
             file.
         found_dict: saved number -> number of the open data file used
-            for it (LLFR-01218, LLFR-01219).
+            for it (LLFR-01224, LLFR-01225).
         open_number_list: the numbers of the open data files.
     Outputs: saved number -> number to read its names with: the found
         file's number, or UNUSED_FILE_NUMBER_I for a saved file that is
         not open while another open file has its saved number
-        (LLFR-01222); a saved number that no open file has is kept.
+        (LLFR-01228); a saved number that no open file has is kept.
     """
-    # LLFR-01220, LLFR-01222.
+    # LLFR-01226, LLFR-01228.
     number_dict = {}
     for saved_number_i in saved_number_list:
         if saved_number_i in found_dict:
@@ -2437,7 +2437,7 @@ def data_file_entries_of(layout_dict: dict) -> list:
         with a whole number of 1 or more, and (None, entry, reason) for
         each other entry.
     """
-    # LLFR-01217, LLFR-01218: hand-edited values are reported.
+    # LLFR-01223, LLFR-01224: hand-edited values are reported.
     result_list = []
     for entry_value in list_entry(layout_dict, DATA_FILES_KEY_STR):
         number_value = (entry_value.get(NUMBER_KEY_STR)

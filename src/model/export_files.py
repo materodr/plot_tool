@@ -2,15 +2,15 @@
 
 - ``build_docx_bytes`` writes a Word document (Office Open XML, .docx)
   with the Python standard library only (zipfile and XML text,
-  LLFR-01226, COR-00011): one landscape A4 page per tab, with the tab's
+  LLFR-01232, COR-00011): one landscape A4 page per tab, with the tab's
   name in bold, the description of the open data files and one PNG
-  image of the tab's plots (LLFR-01225). The parts are the minimum that
+  image of the tab's plots (LLFR-01231). The parts are the minimum that
   Microsoft Word and LibreOffice Writer open: ``[Content_Types].xml``,
   ``_rels/.rels``, ``word/document.xml``,
   ``word/_rels/document.xml.rels`` and ``word/media/imageN.png``, with
   ``docProps/core.xml`` and ``docProps/app.xml`` for the file
   properties.
-- ``png_file_name_list`` names the PNG file of each tab (LLFR-01229).
+- ``png_file_name_list`` names the PNG file of each tab (LLFR-01235).
 - ``png_size_tuple`` reads the size of a PNG image from its header.
 """
 
@@ -20,22 +20,22 @@ import zipfile
 from io import BytesIO
 from xml.sax.saxutils import escape
 
-# LLFR-01224: the extension of the Word document.
+# LLFR-01230: the extension of the Word document.
 DOCX_SUFFIX_STR = ".docx"
-# LLFR-01229: the extension of the PNG files and the name of a tab left
+# LLFR-01235: the extension of the PNG files and the name of a tab left
 # empty by the replaced characters.
 PNG_SUFFIX_STR = ".png"
 EMPTY_PNG_NAME_STR = "tab"
-# LLFR-01229: the characters replaced in a PNG file name: all but
+# LLFR-01235: the characters replaced in a PNG file name: all but
 # letters, digits, "_", spaces and "-".
 UNSAFE_NAME_CHARACTER_PATTERN_STR = r"[^\w \-]"
-# LLFR-01225: the page is landscape A4 with margins of 1 cm, in
+# LLFR-01231: the page is landscape A4 with margins of 1 cm, in
 # twentieths of a point (twips), and the image fits in it.
 PAGE_WIDTH_TWIPS_I = 16838
 PAGE_HEIGHT_TWIPS_I = 11906
 PAGE_MARGIN_TWIPS_I = 567
 EMU_PER_TWIP_I = 635
-# LLFR-01225: room kept on each page for the name and the description.
+# LLFR-01231: room kept on each page for the name and the description.
 TEXT_ROOM_TWIPS_I = 1700
 TITLE_HALF_POINTS_I = 28
 DESCRIPTION_HALF_POINTS_I = 20
@@ -107,7 +107,7 @@ def png_size_tuple(png_bytes: bytes) -> tuple:
     Raises:
         ValueError: when the bytes are not a PNG image.
     """
-    # LLFR-01225: the size gives the proportions of the image on the
+    # LLFR-01231: the size gives the proportions of the image on the
     # page; the IHDR chunk comes first, right after the signature.
     if (len(png_bytes) < 24 or png_bytes[:8] != PNG_SIGNATURE_BYTES
             or png_bytes[12:16] != b"IHDR"):
@@ -125,7 +125,7 @@ def fitted_image_emu_tuple(width_px_i: int, height_px_i: int) -> tuple:
     Outputs: (cx, cy) in English Metric Units: as large as the page's
         free width and height allow, keeping the proportions.
     """
-    # LLFR-01225: the plots fill the page below the text.
+    # LLFR-01231: the plots fill the page below the text.
     free_width_i = (PAGE_WIDTH_TWIPS_I - 2 * PAGE_MARGIN_TWIPS_I
                     ) * EMU_PER_TWIP_I
     free_height_i = (PAGE_HEIGHT_TWIPS_I - 2 * PAGE_MARGIN_TWIPS_I
@@ -147,7 +147,7 @@ def text_paragraph_xml(text_str: str, half_points_i: int,
         bold_b: True for bold letters.
     Outputs: a ``w:p`` element as text.
     """
-    # LLFR-01225: the tab's name and the description of the files.
+    # LLFR-01231: the tab's name and the description of the files.
     bold_str = "<w:b/>" if bold_b else ""
     return (f'<w:p><w:r><w:rPr>{bold_str}<w:sz w:val="{half_points_i}"/>'
             f'</w:rPr><w:t xml:space="preserve">{escape(text_str)}</w:t>'
@@ -164,7 +164,7 @@ def image_paragraph_xml(relationship_id_str: str, picture_number_i: int,
         size_emu_tuple: (cx, cy) of the picture, in EMU.
     Outputs: a ``w:p`` element with a ``wp:inline`` drawing.
     """
-    # LLFR-01225, LLFR-01226: an inline DrawingML picture, as Word and
+    # LLFR-01231, LLFR-01232: an inline DrawingML picture, as Word and
     # LibreOffice write them.
     cx_i, cy_i = (int(value_i) for value_i in size_emu_tuple)
     name_str = f"Plots {picture_number_i}"
@@ -198,7 +198,7 @@ def document_xml(page_list: list) -> str:
         when there is one and the image, with a page break before every
         page but the first, and a landscape A4 section.
     """
-    # LLFR-01225: one page per tab, in tab order.
+    # LLFR-01231: one page per tab, in tab order.
     body_list = []
     for page_index_i, (name_str, description_str,
                        png_bytes) in enumerate(page_list):
@@ -231,7 +231,7 @@ def document_rels_xml(page_count_i: int) -> str:
         page_count_i: the number of pages, one image each.
     Outputs: the XML text with one image relationship per page.
     """
-    # LLFR-01226: each picture points at its PNG part.
+    # LLFR-01232: each picture points at its PNG part.
     relationship_list = [
         f'<Relationship Id="rIdImage{number_i}" '
         f'Type="{IMAGE_RELATIONSHIP_TYPE_STR}" '
@@ -253,7 +253,7 @@ def build_docx_bytes(page_list: list) -> bytes:
     Raises:
         ValueError: when an image is not a PNG image.
     """
-    # LLFR-01226: built with zipfile and XML text only (COR-00011); the
+    # LLFR-01232: built with zipfile and XML text only (COR-00011); the
     # content types come first, as Word expects.
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -265,7 +265,7 @@ def build_docx_bytes(page_list: list) -> bytes:
         archive.writestr("word/_rels/document.xml.rels",
                          document_rels_xml(len(page_list)))
         for page_index_i, page_tuple in enumerate(page_list):
-            # LLFR-01225: the PNG image of the page's plots, stored as it
+            # LLFR-01231: the PNG image of the page's plots, stored as it
             # is (already compressed).
             archive.writestr(
                 zipfile.ZipInfo(f"word/media/image{page_index_i + 1}.png"),
@@ -281,7 +281,7 @@ def ensure_docx_suffix(path_str: str) -> str:
     Outputs: path_str when it ends with ``.docx`` (in any case), else
         path_str followed by ``.docx``.
     """
-    # LLFR-01224: the saved file is always a .docx file.
+    # LLFR-01230: the saved file is always a .docx file.
     if str(path_str).lower().endswith(DOCX_SUFFIX_STR):
         return str(path_str)
     return str(path_str) + DOCX_SUFFIX_STR
@@ -298,7 +298,7 @@ def png_file_name_list(tab_name_list: list) -> list:
         ``_2``, ``_3`` and so on for a name already given in the export,
         compared ignoring case, and ``.png``.
     """
-    # LLFR-01229: names safe on macOS and on Windows, unique in the
+    # LLFR-01235: names safe on macOS and on Windows, unique in the
     # folder even on a file system that ignores case.
     used_set = set()
     file_name_list = []

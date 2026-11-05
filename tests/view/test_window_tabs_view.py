@@ -315,8 +315,8 @@ class SeveralTabsWindowTest(WindowTabsViewTestCase):
 
 class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
     """The "+" button, the left alignment and the spacing of the tabs of
-    an undocked window (LLFR-01197, LLFR-00106, LLFR-01198,
-    LLFR-01199)."""
+    an undocked window (LLFR-01203, LLFR-00106, LLFR-01204,
+    LLFR-01205)."""
 
     def border_rect(self, tab_bar, index_i: int):
         """Return the border box of a tab, in tab bar coordinates.
@@ -332,7 +332,7 @@ class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
         return QRect(rect.x(), rect.y(),
                      rect.width() - theme.TAB_SPACING_I, rect.height())
 
-    @covers("LLFR-00025", "LLFR-01032", "LLFR-01197", "LLFR-00107",
+    @covers("LLFR-00025", "LLFR-01032", "LLFR-01203", "LLFR-00107",
             "HLFR-00015", "HLFR-00126")
     def test_plus_button_adds_a_tab_in_the_window(self) -> None:
         """The window's "+" sits right after its last tab, as high as a
@@ -352,7 +352,7 @@ class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
         right_i = window.tab_bar.mapTo(window.tab_row,
                                        last_rect.topRight()).x()
         left_i = button.mapTo(window.tab_row, QPoint(0, 0)).x()
-        # LLFR-01199: 2 pixels between the last tab and the "+" button.
+        # LLFR-01205: 2 pixels between the last tab and the "+" button.
         self.assertEqual(left_i - right_i - 1, 2)
         self.assertEqual(button.height(), window.tab_bar.tabRect(0).height())
         button.click()
@@ -363,7 +363,7 @@ class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
         self.assertEqual(window.shown_tab_id(), id_list[2])
         self.assertTrue(self.tab(id_list[2]).undocked_b)
 
-    @covers("LLFR-00106", "LLFR-01063", "LLFR-01198", "HLFR-00014",
+    @covers("LLFR-00106", "LLFR-01063", "LLFR-01204", "HLFR-00014",
             "HLFR-00126")
     def test_window_tabs_start_at_the_left_two_pixels_apart(self) -> None:
         """The first tab starts at the left edge of the window's tab row,
@@ -389,7 +389,7 @@ class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
             window.tab_row, QPoint(window.add_tab_button.width(), 0)).x()
         self.assertLess(button_right_i, window.tab_row.width() // 2)
 
-    @covers("LLFR-01198", "LLFR-01199", "HLFR-00014", "HLFR-00015")
+    @covers("LLFR-01204", "LLFR-01205", "HLFR-00014", "HLFR-00015")
     def test_main_window_tabs_two_pixels_apart(self) -> None:
         """In the main window too, the tabs are 2 pixels apart and the
         "+" button 2 pixels after the last tab.
@@ -418,7 +418,7 @@ class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
 
 
 class TabDragPreviewTest(WindowTabsViewTestCase):
-    """The image of a dragged tab follows the pointer (LLFR-01202)."""
+    """The image of a dragged tab follows the pointer (LLFR-01208)."""
 
     def press_move_and_check(self, tab_bar, index_i: int, preview) -> None:
         """Press on a tab, move far with the button held, check the
@@ -455,7 +455,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
         self.process_events()
         self.assertFalse(preview.is_shown())
 
-    @covers("LLFR-01202", "HLFR-00143", "HLFR-00153")
+    @covers("LLFR-01208", "HLFR-00143", "HLFR-00153")
     def test_image_follows_a_dragged_docked_tab(self) -> None:
         """A tab of the main window dragged with the left button shows a
         small semi-transparent image next to the pointer until the
@@ -471,7 +471,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
         tab_bar = self.panel.tab_widget.tabBar()
         self.press_move_and_check(tab_bar, 1, self.panel.tab_drag_preview)
 
-    @covers("LLFR-01202", "HLFR-00143", "HLFR-00154")
+    @covers("LLFR-01208", "HLFR-00143", "HLFR-00154")
     def test_image_follows_a_dragged_window_tab(self) -> None:
         """A tab of an undocked window dragged with the left button
         shows the same image until the release.
@@ -487,7 +487,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
             self.press_move_and_check(window.tab_bar, 0,
                                       self.panel.tab_drag_preview)
 
-    @covers("LLFR-01202")
+    @covers("LLFR-01208")
     def test_image_is_scaled_to_200_pixels(self) -> None:
         """preview_pixmap keeps the page's proportions within 200 pixels.
 

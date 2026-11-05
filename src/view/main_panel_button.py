@@ -1,4 +1,4 @@
-"""The signal list button of the main window (LLFR-01205, HLFR-00131).
+"""The signal list button of the main window (LLFR-01211, HLFR-00131).
 
 The main window gets the same Firefox-style signal list button as the
 undocked windows (LLFR-01044 to LLFR-01049, LLFR-01171). It floats at
@@ -7,7 +7,7 @@ plot panel and the signal list panel, always at the same place
 (LLFR-01134): level with the tab row and, while the panel is shown, at
 the right end of the panel's "Signals" title row (LLFR-01133). While the
 panel is hidden, the plot panel takes the whole width and its tab row
-keeps room at its right end for the button (LLFR-01207).
+keeps room at its right end for the button (LLFR-01213).
 
 MainPanelButton keeps the button in place and shows or hides the panel
 when the controller asks; a click is passed on to the controller, which
@@ -57,7 +57,7 @@ class MainPanelButton(QObject):
         self.signal_list_panel = signal_list_panel
         self.hidden_width_i = 0
         self.toggle_handler = None
-        # LLFR-01205, LLFR-01045, LLFR-01049: the same button as in the
+        # LLFR-01211, LLFR-01045, LLFR-01049: the same button as in the
         # undocked windows.
         self.button = build_signal_list_button(area_widget)
         self.button.clicked.connect(self.request_toggle)
@@ -94,7 +94,7 @@ class MainPanelButton(QObject):
         Outputs: the QPoint of its top-left corner: at the right edge of
             the splitter, centred on the height of the main tab row.
         """
-        # LLFR-01205, LLFR-01134: the same place whether the panel is
+        # LLFR-01211, LLFR-01134: the same place whether the panel is
         # shown or hidden; LLFR-01133: level with the title row.
         size_i = theme.SIDEBAR_BUTTON_SIZE_I
         top_left = self.splitter.mapTo(self.area_widget, QPoint(0, 0))
@@ -130,7 +130,7 @@ class MainPanelButton(QObject):
         Inputs: none.
         Outputs: True when the panel is not hidden.
         """
-        # LLFR-01205.
+        # LLFR-01211.
         return not self.signal_list_panel.isHidden()
 
     def panel_width(self) -> int:
@@ -194,7 +194,7 @@ class MainPanelButton(QObject):
                    else SHOW_SIGNAL_LIST_TIP_STR)
         self.button.setToolTip(tip_str)
         self.button.setAccessibleName(tip_str)
-        # LLFR-01207: while hidden, the tab row keeps room for it.
+        # LLFR-01213: while hidden, the tab row keeps room for it.
         reserved_i = (0 if shown_b
                       else theme.SIDEBAR_BUTTON_SIZE_I + theme.TAB_SPACING_I)
         self.plot_panel.tab_widget.set_reserved_right_width(reserved_i)

@@ -161,7 +161,7 @@ Note: The small box with a button's name that appears while the mouse pointer is
 ### HLFR-00049 Save a layout
 The user must be able to save the current layout of the plots to a layout file from the top panel.
 
-Note: The **layout** is what the plot panels show and how: the tabs, which of them are undocked and their windows (HLFR-00140), their plot matrices (HLFR-00152), their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. When the user chooses it (HLFR-00155), the layout file also holds the names of the open data files. A **layout file** is a file that holds a layout. Each file with time series that the user opens with the Open file button is called a **data file**; several can be open at once (HLFR-00113). The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
+Note: The **layout** is what the plot panels show and how: the tabs, which of them are undocked and their windows (HLFR-00140), their plot matrices (HLFR-00152), their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. When the user chooses it (HLFR-00156), the layout file also holds the names of the open data files. A **layout file** is a file that holds a layout. Each file with time series that the user opens with the Open file button is called a **data file**; several can be open at once (HLFR-00113). The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
 
 ### HLFR-00050 Load a layout
 The user must be able to load a layout file from the top panel and rebuild its layout with the signals of the open data files.
@@ -189,12 +189,12 @@ Note: This happens, for example, when the layout was saved with a second screen 
 ### HLFR-00152 Plot matrix in the layout file
 The layout file must hold the plot matrix of each tab.
 
-### HLFR-00155 Layout save options
+### HLFR-00156 Layout save options
 When saving a layout, the user must be able to choose whether the layout file holds the markers, all the tabs or only the current tab, and the names of the open data files.
 
 Note: The markers are the data tips, flags, areas, delta markers, text notes and arrows.
 
-### HLFR-00156 Data files from a layout
+### HLFR-00157 Data files from a layout
 When the app loads a layout file that holds the names of data files, it must open those data files that are not open yet.
 
 ### HLFR-00070 Choose the time signal

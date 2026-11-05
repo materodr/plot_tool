@@ -235,7 +235,7 @@ class UndockedWindow(QWidget):
         self.closing_by_app_b = False
         self.close_handler = None
         self.dock_handler = None
-        # LLFR-01197: function taking the window id, for the "+" button.
+        # LLFR-01203: function taking the window id, for the "+" button.
         self.add_tab_handler = None
         self.panel_toggle_handler = None
         self.panel_width_handler = None
@@ -286,7 +286,7 @@ class UndockedWindow(QWidget):
         self.tab_row.setMinimumHeight(TAB_ROW_MINIMUM_HEIGHT_I)
         row_layout = QHBoxLayout(self.tab_row)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        # LLFR-01199: the space before the "+" button is the right margin
+        # LLFR-01205: the space before the "+" button is the right margin
         # of the last tab, so the layout adds none.
         row_layout.setSpacing(0)
         # LLFR-01063, LLFR-00106: the tabs from the left edge, the tab
@@ -492,7 +492,7 @@ class UndockedWindow(QWidget):
         """
         # LLFR-00137: the press does not leave the focus in a text field.
         self.pane_widget.setFocus(Qt.FocusReason.MouseFocusReason)
-        # LLFR-01197: a new tab in this window.
+        # LLFR-01203: a new tab in this window.
         if self.add_tab_handler is not None:
             self.add_tab_handler(self.window_id_i)
 
@@ -712,7 +712,7 @@ class UndockedWindow(QWidget):
                     and moved_i >= QApplication.startDragDistance()):
                 # LLFR-01157: the press is a drag.
                 self.tab_button_drag_b = True
-                # LLFR-01202: the image of the tab follows the pointer.
+                # LLFR-01208: the image of the tab follows the pointer.
                 self.plot_panel.tab_drag_preview.start(
                     self.plot_panel.page_dict.get(self.pressed_tab_id_i),
                     event.globalPosition().toPoint())
@@ -728,7 +728,7 @@ class UndockedWindow(QWidget):
             self.drag_start_point = None
             self.pressed_tab_id_i = -1
             self.tab_button_drag_b = False
-            # LLFR-01202: the image is removed at the release.
+            # LLFR-01208: the image is removed at the release.
             self.plot_panel.tab_drag_preview.stop()
             if dragged_b and self.tab_drop_handler is not None:
                 # LLFR-01143: decided once control is back in Qt, so the
@@ -750,7 +750,7 @@ class UndockedWindow(QWidget):
                 QApplication.mouseButtons() & Qt.MouseButton.LeftButton):
             self.tab_button_drag_b = False
             self.drag_start_point = None
-            # LLFR-01202: a lost release removes the image too.
+            # LLFR-01208: a lost release removes the image too.
             self.plot_panel.tab_drag_preview.stop()
         return self.tab_button_drag_b
 

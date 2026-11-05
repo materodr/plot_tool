@@ -476,7 +476,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.signal_name_list(), [])
 
-    @covers("LLFR-01203", "LLFR-01204", "LLFR-01004", "HLFR-00123",
+    @covers("LLFR-01209", "LLFR-01210", "LLFR-01004", "HLFR-00123",
             "HLFR-00033")
     def test_double_click_during_a_search(self) -> None:
         """During a search, a double-click on the text of a file name

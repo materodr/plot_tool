@@ -327,9 +327,9 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
 
-    @covers("LLFR-01205", "LLFR-01206", "LLFR-01047", "LLFR-01048",
+    @covers("LLFR-01211", "LLFR-01212", "LLFR-01047", "LLFR-01048",
             "LLFR-01049", "LLFR-01171", "LLFR-01046", "LLFR-01134",
-            "LLFR-01207", "LLFR-01053", "HLFR-00131")
+            "LLFR-01213", "LLFR-01053", "HLFR-00131")
     def test_main_window_signal_list_button(self) -> None:
         """The main window starts with its panel shown and a checked
         signal list button at the top right; a click hides the panel,

@@ -138,9 +138,9 @@ class WindowDropControllerTest(WindowTabsControllerTestCase):
 
 
 class WindowAddTabControllerTest(WindowTabsControllerTestCase):
-    """The "+" button of an undocked window (LLFR-01197)."""
+    """The "+" button of an undocked window (LLFR-01203)."""
 
-    @covers("LLFR-01197", "LLFR-00210", "LLFR-00212", "LLFR-00140",
+    @covers("LLFR-01203", "LLFR-00210", "LLFR-00212", "LLFR-00140",
             "HLFR-00015", "HLFR-00126")
     def test_plus_of_a_window_adds_the_tab_there(self) -> None:
         """The new tab is the last of the window, shown there, named
@@ -178,7 +178,7 @@ class WindowAddTabControllerTest(WindowTabsControllerTestCase):
             self.workspace.window_tab_list(window_id_i)[-1].name_str,
             "Tab 5")
 
-    @covers("LLFR-01197", "HLFR-00015")
+    @covers("LLFR-01203", "HLFR-00015")
     def test_plus_of_an_unknown_window_changes_nothing(self) -> None:
         """A window id with no tab adds nothing and records nothing.
 
@@ -460,9 +460,9 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
 
 
 class MainPanelToggleControllerTest(WindowTabsControllerTestCase):
-    """The signal list button of the main window (LLFR-01205)."""
+    """The signal list button of the main window (LLFR-01211)."""
 
-    @covers("LLFR-01205", "LLFR-01206", "LLFR-01047", "LLFR-01048",
+    @covers("LLFR-01211", "LLFR-01212", "LLFR-01047", "LLFR-01048",
             "LLFR-01053", "LLFR-00140", "HLFR-00131", "HLFR-00040",
             "HLFR-00048")
     def test_main_panel_hidden_and_shown_as_undoable_actions(self) -> None:

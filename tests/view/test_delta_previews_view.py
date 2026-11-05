@@ -285,10 +285,10 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.on_mouse_leave(None)
         self.assert_no_delta_preview()
 
-    @covers("LLFR-00352", "LLFR-01232", "LLFR-00153", "LLFR-00679",
+    @covers("LLFR-00352", "LLFR-01238", "LLFR-00153", "LLFR-00679",
             "HLFR-00043")
     def test_dot_stays_over_a_pinned_tip(self) -> None:
-        """Over a pinned tip the dot stays shown (LLFR-01232); a press on
+        """Over a pinned tip the dot stays shown (LLFR-01238); a press on
         the tip still moves it and picks no point (LLFR-00153).
 
         Inputs: none.
@@ -312,9 +312,9 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
 
 
 class HoverTipOverObjectsTest(DeltaPreviewWidgetTestCase):
-    """The hover data tip stays over other objects (LLFR-01232)."""
+    """The hover data tip stays over other objects (LLFR-01238)."""
 
-    @covers("LLFR-01232", "LLFR-00042", "HLFR-00024")
+    @covers("LLFR-01238", "LLFR-00042", "HLFR-00024")
     def test_hover_tip_over_a_pinned_tip(self) -> None:
         """With the Data tip tool, the hover tip is shown on a curve
         point where a pinned tip is, and follows the pointer.

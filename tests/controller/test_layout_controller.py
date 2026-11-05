@@ -841,7 +841,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
 
 
 class LayoutSaveOptionsTest(LayoutControllerTestCase):
-    """The save options of a layout (LLFR-01212 to LLFR-01217)."""
+    """The save options of a layout (LLFR-01218 to LLFR-01223)."""
 
     def save_with(self, option_dict, path_str: str) -> None:
         """Save with the save options dialog answering option_dict.
@@ -854,8 +854,8 @@ class LayoutSaveOptionsTest(LayoutControllerTestCase):
         self.view.ask_layout_save_options = lambda: option_dict
         self.save(path_str)
 
-    @covers("LLFR-01213", "LLFR-01215", "LLFR-01216", "LLFR-01217",
-            "LLFR-00226", "HLFR-00155")
+    @covers("LLFR-01219", "LLFR-01221", "LLFR-01222", "LLFR-01223",
+            "LLFR-00226", "HLFR-00156")
     def test_default_options_keep_everything_and_no_files(self) -> None:
         """With the first values, the file is as before: the markers,
         every tab and no data file.
@@ -874,8 +874,8 @@ class LayoutSaveOptionsTest(LayoutControllerTestCase):
                              ["data_tips"]), 1)
         self.assertNotIn("data_files", layout_dict)
 
-    @covers("LLFR-01212", "LLFR-01215", "LLFR-01216", "LLFR-01217",
-            "HLFR-00155", "HLFR-00049")
+    @covers("LLFR-01218", "LLFR-01221", "LLFR-01222", "LLFR-01223",
+            "HLFR-00156", "HLFR-00049")
     def test_no_markers_current_tab_and_file_names(self) -> None:
         """Markers off, only the current tab and the data files: no tip,
         flag, area or delta marker, one docked tab, and the number,
@@ -915,7 +915,7 @@ class LayoutSaveOptionsTest(LayoutControllerTestCase):
             {"number": 2, "path": os.path.abspath(second_path_str),
              "relative_path": "sub/run_b.mat"}])
 
-    @covers("LLFR-01214", "HLFR-00155")
+    @covers("LLFR-01220", "HLFR-00156")
     def test_cancelled_options_save_nothing(self) -> None:
         """A cancel of the options dialog shows no save dialog and
         writes nothing.
@@ -965,7 +965,7 @@ class StubFileController:
 
 
 class LayoutDataFilesTest(unittest.TestCase):
-    """Loading the data files of a layout (LLFR-01218 to LLFR-01222)."""
+    """Loading the data files of a layout (LLFR-01224 to LLFR-01228)."""
 
     def setUp(self) -> None:
         """Make files on disk: b.csv is open as file 3, a.csv is not.
@@ -1018,8 +1018,8 @@ class LayoutDataFilesTest(unittest.TestCase):
                                        "second_point": {
                                            "signal": "file2_x"}}]}]}]}
 
-    @covers("LLFR-01218", "LLFR-01219", "LLFR-01220", "LLFR-01221",
-            "LLFR-01222", "HLFR-00156", "HLFR-00050")
+    @covers("LLFR-01224", "LLFR-01225", "LLFR-01226", "LLFR-01227",
+            "LLFR-01228", "HLFR-00157", "HLFR-00050")
     def test_files_opened_reused_renumbered_and_reported(self) -> None:
         """Saved file 1 (a.csv, found by its relative path) is opened as
         file 4; saved file 2 (b.csv) is already open as file 3; saved
@@ -1052,7 +1052,7 @@ class LayoutDataFilesTest(unittest.TestCase):
         self.assertIn("/nowhere/z.csv", line_list[0])
         self.assertIn("no usable number", line_list[1])
 
-    @covers("LLFR-01221", "LLFR-01222", "HLFR-00156")
+    @covers("LLFR-01227", "LLFR-01228", "HLFR-00157")
     def test_file_not_opened_keeps_its_curves_missing(self) -> None:
         """A file that fails to open is reported, and its saved number,
         which another open file has, is read as no file's.
@@ -1071,7 +1071,7 @@ class LayoutDataFilesTest(unittest.TestCase):
         self.assertEqual(layout_dict["tabs"][0]["plots"][0]["curves"][0]
                          ["signal"], "file0_x")
 
-    @covers("LLFR-01221", "HLFR-00052")
+    @covers("LLFR-01227", "HLFR-00052")
     def test_report_lists_the_files_first(self) -> None:
         """The heading of the files not opened comes first.
 

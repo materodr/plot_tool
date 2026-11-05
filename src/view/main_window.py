@@ -65,12 +65,12 @@ SAVE_PDF_FILTER_STR = "PDF files (*.pdf)"
 # LLFR-00128: added by the dialog to a name typed without an extension,
 # so that its overwrite question names the file really written.
 SAVE_PDF_DEFAULT_SUFFIX_STR = "pdf"
-# LLFR-01224, LLFR-01227: the dialogs of the Word and PNG exports.
+# LLFR-01230, LLFR-01233: the dialogs of the Word and PNG exports.
 SAVE_DOCX_DIALOG_TITLE_STR = "Save all tabs as Word document"
 SAVE_DOCX_FILTER_STR = "Word documents (*.docx)"
 SAVE_DOCX_DEFAULT_SUFFIX_STR = "docx"
 SAVE_PNG_DIALOG_TITLE_STR = "Choose the folder of the PNG files"
-# LLFR-01230: the question asked before PNG files are replaced.
+# LLFR-01236: the question asked before PNG files are replaced.
 REPLACE_PNG_TITLE_STR = "Replace Files"
 REPLACE_PNG_QUESTION_STR = (
     "These files already exist in the folder '{folder}':")
@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
         self.lower_splitter.setStretchFactor(1, self.SIGNAL_LIST_STRETCH_I)
         # LLFR-00073: a comfortable handle to grab between the panels;
         # no child of a PanelSplitter can be collapsed by a drag, so the
-        # panel is hidden only by its signal list button (LLFR-01205).
+        # panel is hidden only by its signal list button (LLFR-01211).
         self.lower_splitter.setHandleWidth(theme.SPLITTER_HANDLE_WIDTH_I)
 
         # LLFR-00058: the top panel is above the other two panels.
@@ -226,7 +226,7 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.top_panel)
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)
-        # LLFR-01205, LLFR-01206: the signal list button of the main
+        # LLFR-01211, LLFR-01212: the signal list button of the main
         # window; the panel starts shown.
         self.main_panel_button = MainPanelButton(
             central_widget, self.lower_splitter, self.plot_panel,
@@ -335,7 +335,7 @@ class MainWindow(QMainWindow):
         self.copy_handler = None
         self.top_panel.pdf_export_requested.connect(
             self._on_pdf_export_requested)
-        # LLFR-01223: the Word and PNG options of the Export menu.
+        # LLFR-01229: the Word and PNG options of the Export menu.
         self.docx_export_handler = None
         self.png_export_handler = None
         self.top_panel.docx_export_requested.connect(
@@ -474,7 +474,7 @@ class MainWindow(QMainWindow):
         panel.file_expand_toggled.connect(
             lambda number_i: self._run_signal_menu_handler(
                 "toggle_file", number_i))
-        # LLFR-01191, LLFR-01203, LLFR-01204: a double-click on a file
+        # LLFR-01191, LLFR-01209, LLFR-01210: a double-click on a file
         # name row.
         panel.file_row_opened.connect(
             lambda number_i: self._run_signal_menu_handler(
@@ -664,7 +664,7 @@ class MainWindow(QMainWindow):
         window.panel_toggle_handler = (
             lambda toggled_id_i: self._run_window_handler(
                 "panel_toggle_handler", toggled_id_i))
-        # LLFR-01197: the "+" button of the window.
+        # LLFR-01203: the "+" button of the window.
         window.add_tab_handler = (
             lambda added_id_i: self._run_window_handler(
                 "window_add_tab_handler", added_id_i))
@@ -1069,7 +1069,7 @@ class MainWindow(QMainWindow):
             width_i: its width in pixels, 0 to keep the one it had.
         Outputs: none.
         """
-        # LLFR-01047, LLFR-01048, LLFR-01205, LLFR-01208.
+        # LLFR-01047, LLFR-01048, LLFR-01211, LLFR-01214.
         self.main_panel_button.set_panel(shown_b, width_i)
 
     def is_main_panel_shown(self) -> bool:
@@ -1078,7 +1078,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: True when it is shown.
         """
-        # LLFR-01205.
+        # LLFR-01211.
         return self.main_panel_button.is_panel_shown()
 
     def set_main_panel_width(self, width_i: int) -> None:
@@ -1343,7 +1343,7 @@ class MainWindow(QMainWindow):
             handler: function taking a file number.
         Outputs: none.
         """
-        # LLFR-01191, LLFR-01203, LLFR-01204.
+        # LLFR-01191, LLFR-01209, LLFR-01210.
         self.signal_menu_handler_dict["open_file_row"] = handler
 
     def set_search_text_handler(self, handler) -> None:
@@ -2561,7 +2561,7 @@ class MainWindow(QMainWindow):
                 each tab as PNG".
         Outputs: none.
         """
-        # LLFR-01223: the controller runs the flows.
+        # LLFR-01229: the controller runs the flows.
         self.docx_export_handler = docx_export_handler
         self.png_export_handler = png_export_handler
 
@@ -2576,7 +2576,7 @@ class MainWindow(QMainWindow):
         if handler is None:
             self.finish_export_button()
             return
-        # LLFR-01224, LLFR-01227.
+        # LLFR-01230, LLFR-01233.
         handler()
 
     def exportable_tab_name_list(self) -> list:
@@ -2585,7 +2585,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: a list of str, in tab order (LLFR-01091).
         """
-        # LLFR-01228, LLFR-01229: the tabs that get a PNG file.
+        # LLFR-01234, LLFR-01235: the tabs that get a PNG file.
         page_list = plot_export.exportable_page_list(
             self.plot_panel.tab_widget, self.undocked_page_list())
         return [str(page.name_str) for page in page_list]
@@ -2597,8 +2597,8 @@ class MainWindow(QMainWindow):
             start_folder_str: the folder the dialog shows.
         Outputs: the chosen path, or "" when the user cancelled.
         """
-        # LLFR-01224: a save file dialog for a .docx file, in the folder
-        # of LLFR-01231; the system asks before replacing the file.
+        # LLFR-01230: a save file dialog for a .docx file, in the folder
+        # of LLFR-01237; the system asks before replacing the file.
         dialog = QFileDialog(self, SAVE_DOCX_DIALOG_TITLE_STR,
                              str(start_folder_str), SAVE_DOCX_FILTER_STR)
         dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
@@ -2613,7 +2613,7 @@ class MainWindow(QMainWindow):
             start_folder_str: the folder the dialog shows.
         Outputs: the chosen folder, or "" when the user cancelled.
         """
-        # LLFR-01227: a folder dialog, in the folder of LLFR-01231.
+        # LLFR-01233: a folder dialog, in the folder of LLFR-01237.
         dialog = QFileDialog(self, SAVE_PNG_DIALOG_TITLE_STR,
                              str(start_folder_str))
         dialog.setFileMode(QFileDialog.FileMode.Directory)
@@ -2628,7 +2628,7 @@ class MainWindow(QMainWindow):
         Outputs: the chosen path, or "" when the user cancelled. Tests
             replace this method to answer without a modal dialog.
         """
-        # LLFR-01224, LLFR-01227, LLFR-01231: an empty path is a cancel.
+        # LLFR-01230, LLFR-01233, LLFR-01237: an empty path is a cancel.
         return file_dialogs.run_file_dialog(dialog)
 
     def ask_replace_existing_files(self, folder_str: str,
@@ -2640,7 +2640,7 @@ class MainWindow(QMainWindow):
             file_name_list: the names of the existing files.
         Outputs: True when the user chose Yes.
         """
-        # LLFR-01230: one question that names the files.
+        # LLFR-01236: one question that names the files.
         question_str = list_text(
             [str(name_str) for name_str in file_name_list],
             REPLACE_PNG_QUESTION_STR.format(folder=folder_str))
@@ -2658,7 +2658,7 @@ class MainWindow(QMainWindow):
             description_str: the description of the open data files.
         Outputs: a tuple (saved_b, reason_str).
         """
-        # LLFR-01225, LLFR-01226, LLFR-01231.
+        # LLFR-01231, LLFR-01232, LLFR-01237.
         return plot_export.save_tabs_docx(self.plot_panel.tab_widget,
                                           path_str, description_str,
                                           self.undocked_page_list())
@@ -2669,11 +2669,11 @@ class MainWindow(QMainWindow):
 
         Inputs:
             folder_str: the chosen folder.
-            file_name_list: the file name of each tab (LLFR-01229).
+            file_name_list: the file name of each tab (LLFR-01235).
             description_str: the description of the open data files.
         Outputs: a tuple (saved_b, reason_str).
         """
-        # LLFR-01228, LLFR-01231.
+        # LLFR-01234, LLFR-01237.
         return plot_export.save_tab_png_files(
             self.plot_panel.tab_widget, folder_str, file_name_list,
             description_str, self.undocked_page_list())
@@ -3091,9 +3091,9 @@ class MainWindow(QMainWindow):
 
         Inputs: none.
         Outputs: the dict of LayoutOptionsDialog.answer_dict, or None
-            when the user cancelled (LLFR-01214).
+            when the user cancelled (LLFR-01220).
         """
-        # LLFR-01212, LLFR-01213: a new dialog each time, with the first
+        # LLFR-01218, LLFR-01219: a new dialog each time, with the first
         # values.
         dialog = LayoutOptionsDialog(self)
         try:
@@ -3111,7 +3111,7 @@ class MainWindow(QMainWindow):
         Outputs: True when the user confirmed it. Tests replace this
             method to answer without a modal dialog.
         """
-        # LLFR-01212, LLFR-01214.
+        # LLFR-01218, LLFR-01220.
         return dialog.exec() == QDialog.DialogCode.Accepted.value
 
     def show_layout_save_error(self, reason_str: str) -> None:

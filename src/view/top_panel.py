@@ -60,7 +60,7 @@ GRID_TEXT_STR = "Grid"
 # LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
 EXPORT_TEXT_STR = "Export"
 SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
-# LLFR-01223: the Word and PNG options, below the PDF option.
+# LLFR-01229: the Word and PNG options, below the PDF option.
 SAVE_DOCX_TEXT_STR = "Save all tabs as Word document (.docx)"
 SAVE_PNG_TEXT_STR = "Save each tab as PNG"
 COPY_TEXT_STR = "Copy"
@@ -385,7 +385,7 @@ class TopPanel(QWidget):
 
     plot_tool_changed = pyqtSignal(str)
     pdf_export_requested = pyqtSignal()
-    # LLFR-01223: the Word and PNG options of the Export menu.
+    # LLFR-01229: the Word and PNG options of the Export menu.
     docx_export_requested = pyqtSignal()
     png_export_requested = pyqtSignal()
     copy_requested = pyqtSignal()
@@ -701,7 +701,7 @@ class TopPanel(QWidget):
             "Save all tabs as Word document (.docx)" and "Save each tab as
             PNG" actions, in this order.
         """
-        # LLFR-00127: the Export menu has the PDF option; LLFR-01223:
+        # LLFR-00127: the Export menu has the PDF option; LLFR-01229:
         # then the Word and PNG options.
         menu = QMenu(self)
         for text_str in (SAVE_PDF_TEXT_STR, SAVE_DOCX_TEXT_STR,
@@ -742,7 +742,7 @@ class TopPanel(QWidget):
             # then returns the button to normal.
             self.pdf_export_requested.emit()
             return
-        # LLFR-01224, LLFR-01227: the Word and PNG exports, likewise.
+        # LLFR-01230, LLFR-01233: the Word and PNG exports, likewise.
         if chosen_text_str == SAVE_DOCX_TEXT_STR:
             self.docx_export_requested.emit()
             return

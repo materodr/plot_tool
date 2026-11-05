@@ -1568,7 +1568,7 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
             window, in pixels, 0 when unknown.
         grid_shown_b: True while the grid is shown (LLFR-01132).
         main_panel_shown_b: True while the main window shows its signal
-            list panel (LLFR-01053, LLFR-01205).
+            list panel (LLFR-01053, LLFR-01211).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
         width, grid shown, main panel shown): one entry (tab_id_i,
         name_str, plot state tuples, row_count_i, column_count_i,
@@ -1600,7 +1600,7 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
                        for area in area_list)
     # LLFR-01055: a drag of the main window's panel border is undoable;
     # LLFR-01132: and so is a click on the Grid button.
-    # LLFR-01053, LLFR-01205: hiding or showing the main window's panel
+    # LLFR-01053, LLFR-01211: hiding or showing the main window's panel
     # is undoable too.
     return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i),
             bool(grid_shown_b), bool(main_panel_shown_b))
@@ -1780,7 +1780,7 @@ class Workspace:
         # LLFR-01055: width of the main window's signal list panel, in
         # pixels, as the view last reported it; 0 while unknown.
         self.main_panel_width_i = 0
-        # LLFR-01206: the main window shows its signal list panel at
+        # LLFR-01212: the main window shows its signal list panel at
         # start; LLFR-01053: hiding or showing it is undoable.
         self.main_panel_shown_b = True
         # LLFR-01015, LLFR-01159: ids of the undocked windows; they only
@@ -1894,7 +1894,7 @@ class Workspace:
         Outputs: the new Tab, named as add_tab names it, shown by the
             window; None for an unknown window, with nothing changed.
         """
-        # LLFR-01197: the "+" button of an undocked window adds the tab
+        # LLFR-01203: the "+" button of an undocked window adds the tab
         # there, after its last tab; LLFR-00210, LLFR-00212: named as
         # any new tab.
         if not self.window_tab_list(window_id_i):

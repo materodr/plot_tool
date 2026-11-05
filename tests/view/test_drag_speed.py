@@ -2,9 +2,9 @@
 
 A plot with 1,000,000 samples is dragged on: the flag, the area, the
 pinned data tip and the text note are drawn over a copy of the image of
-the curves (LLFR-01209), each move shown well within 50 milliseconds
-(LLFR-01210), and the other plots of a flag or area drag are redrawn at
-most once every 30 milliseconds (LLFR-01211).
+the curves (LLFR-01215), each move shown well within 50 milliseconds
+(LLFR-01216), and the other plots of a flag or area drag are redrawn at
+most once every 30 milliseconds (LLFR-01217).
 """
 
 import statistics
@@ -20,7 +20,7 @@ from tests.view.test_markers_view import (
 
 from controller.plot_tools import AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR
 
-# LLFR-01210: the largest delay of a move, and the samples of the plot.
+# LLFR-01216: the largest delay of a move, and the samples of the plot.
 MAXIMUM_MOVE_DELAY_S = 0.05
 BIG_SAMPLE_COUNT_I = 1000000
 MOVE_COUNT_I = 30
@@ -72,18 +72,18 @@ class FastDragTest(MarkerWidgetTestCase):
             duration_list: the seconds of each move.
         Outputs: none.
         """
-        # LLFR-01209: the curves are drawn at the start of the drag
+        # LLFR-01215: the curves are drawn at the start of the drag
         # only, never at the later moves.
         self.assertEqual(len(self.full_draw_list),
                          self.first_move_draw_count_i)
         self.assertGreaterEqual(self.plot_widget.fast_drag_redraw_count_i,
                                 MOVE_COUNT_I - 1)
-        # LLFR-01210: each move shown quickly; the first one makes the
+        # LLFR-01216: each move shown quickly; the first one makes the
         # image of the curves.
         self.assertLess(statistics.median(duration_list[1:]),
                         MAXIMUM_MOVE_DELAY_S)
 
-    @covers("LLFR-01209", "LLFR-01210", "HLFR-00029", "HLFR-00085")
+    @covers("LLFR-01215", "LLFR-01216", "HLFR-00029", "HLFR-00085")
     def test_flag_drag_draws_the_curves_once(self) -> None:
         """A flag dragged 30 times draws the curves once; the release
         draws everything again with the flag as part of the image.
@@ -103,7 +103,7 @@ class FastDragTest(MarkerWidgetTestCase):
         self.assertEqual(self.plot_widget.fast_drag_artist_list, [])
         self.assertEqual(len(self.move_list), 1)
 
-    @covers("LLFR-01209", "LLFR-01210", "HLFR-00067", "HLFR-00085")
+    @covers("LLFR-01215", "LLFR-01216", "HLFR-00067", "HLFR-00085")
     def test_area_drag_draws_the_curves_once(self) -> None:
         """An area moved 30 times draws the curves once.
 
@@ -119,7 +119,7 @@ class FastDragTest(MarkerWidgetTestCase):
         self.mouse("button_release_event", 3.5, 0.0)
         self.assertEqual(self.plot_widget.fast_drag_artist_list, [])
 
-    @covers("LLFR-01209", "LLFR-01210", "HLFR-00041", "HLFR-00085")
+    @covers("LLFR-01215", "LLFR-01216", "HLFR-00041", "HLFR-00085")
     def test_tip_drag_draws_the_curves_once(self) -> None:
         """A pinned data tip dragged with no tool draws the curves once.
 
@@ -150,7 +150,7 @@ class FastDragTest(MarkerWidgetTestCase):
                          center_tuple[1], LEFT_BUTTON_I)
         self.assertEqual(self.plot_widget.fast_drag_artist_list, [])
 
-    @covers("LLFR-01209")
+    @covers("LLFR-01215")
     def test_lost_release_ends_the_session(self) -> None:
         """With no button held, the session ends by itself and every
         artist is part of full draws again.
@@ -198,7 +198,7 @@ class DragRelayTest(unittest.TestCase):
         self.panel.deleteLater()
         self.application.processEvents()
 
-    @covers("LLFR-01211", "HLFR-00029")
+    @covers("LLFR-01217", "HLFR-00029")
     def test_relays_spaced_and_latest_shown(self) -> None:
         """While the button is held, ten places in a row redraw the
         other plots once, then the latest place after 30 ms; with no

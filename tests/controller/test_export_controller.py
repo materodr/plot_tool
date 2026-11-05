@@ -606,7 +606,7 @@ class FilesDescriptionTest(unittest.TestCase):
 
 
 class FakeImageExportView(FakeExportView):
-    """The fake view, with the Word and PNG facade of LLFR-01223."""
+    """The fake view, with the Word and PNG facade of LLFR-01229."""
 
     def __init__(self) -> None:
         """Start with two tabs that hold a plot.
@@ -694,7 +694,7 @@ class FakeImageExportView(FakeExportView):
 
 
 class ImageExportFlowTest(unittest.TestCase):
-    """The Word and PNG exports (LLFR-01223 to LLFR-01231)."""
+    """The Word and PNG exports (LLFR-01229 to LLFR-01237)."""
 
     def setUp(self) -> None:
         """Create the controller with the fake view.
@@ -706,7 +706,7 @@ class ImageExportFlowTest(unittest.TestCase):
         self.controller = ExportController(self.view, lambda: "file1 = a.csv",
                                            lambda: "/data/start")
 
-    @covers("LLFR-01224", "LLFR-01225", "LLFR-01231", "HLFR-00038")
+    @covers("LLFR-01230", "LLFR-01231", "LLFR-01237", "HLFR-00038")
     def test_word_export_saves_with_docx_suffix(self) -> None:
         """The dialog opens in the Open file folder, ".docx" is added,
         the description is passed and the button finishes.
@@ -722,12 +722,12 @@ class ImageExportFlowTest(unittest.TestCase):
         self.assertEqual(self.view.folder_list, ["/data/start"])
         self.assertEqual(self.view.called_names_list()[-1],
                          "finish_export_button")
-        # LLFR-01231: one folder shared by the three exports.
+        # LLFR-01237: one folder shared by the three exports.
         self.view.answer_path_str = ""
         self.controller.on_export_requested()
         self.assertEqual(self.view.folder_list[-1], os.path.abspath("/out"))
 
-    @covers("LLFR-01231", "LLFR-00145", "LLFR-00459", "LLFR-00130",
+    @covers("LLFR-01237", "LLFR-00145", "LLFR-00459", "LLFR-00130",
             "LLFR-00131", "HLFR-00038")
     def test_word_and_png_follow_the_pdf_rules(self) -> None:
         """No plot: the information box and no dialog; a cancel: no
@@ -755,8 +755,8 @@ class ImageExportFlowTest(unittest.TestCase):
                       self.view.call_list)
         self.assertEqual(self.controller.pdf_folder_str, "")
 
-    @covers("LLFR-01227", "LLFR-01228", "LLFR-01229", "LLFR-01230",
-            "LLFR-01231", "HLFR-00038")
+    @covers("LLFR-01233", "LLFR-01234", "LLFR-01235", "LLFR-01236",
+            "LLFR-01237", "HLFR-00038")
     def test_png_export_names_files_and_asks_once(self) -> None:
         """The files are named after the tabs; existing ones are named
         in one question, and a No saves nothing.

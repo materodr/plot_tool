@@ -44,15 +44,15 @@ If an unexpected error occurs while the app handles a user action, the app must 
 
 *Parent: HLFR-00002*
 
-### LLFR-01200 Bold main text of the boxes
+### LLFR-01206 Bold main text of the boxes
 Every information box, error box and question of the app must show its main text in bold letters, including the items of its list (LLFR-00980) and the scrollable text of LLFR-00884, LLFR-00885 and LLFR-01177.
 
 Note: The owner asked for this on 2026-11-05. The window title and the buttons keep their normal letters. The boxes are, for example, the File Open Error box, the Full Tab Notification box (LLFR-00032), the load report (LLFR-00237) and the Close file question (LLFR-00924).
 
 *Parent: HLFR-00002*
 
-### LLFR-01201 One font size in the boxes
-The app must show the main text of every box of LLFR-01200 in the same font size, 13 points.
+### LLFR-01207 One font size in the boxes
+The app must show the main text of every box of LLFR-01206 in the same font size, 13 points.
 
 *Parent: HLFR-00002*
 
@@ -495,22 +495,22 @@ Note: This includes the plot tools, mouse wheel zoom, the pans, the menus of cur
 
 *Parent: HLFR-00124*
 
-### LLFR-01209 Drag drawn over the image of the curves
+### LLFR-01215 Drag drawn over the image of the curves
 While the user drags a flag, an area or an edge of an area, a pinned data tip, a text note or a point of a delta marker, the app must draw each new position of the dragged object over a copy of the image of the plot that it made when the drag started, so that the curves are drawn only once for the whole drag.
 
 Note: The owner reported on 2026-11-05 that these drags lagged behind the mouse and the trackpad. The arrows are already drawn this way while they are dragged (LLFR-00371). The plot is drawn in full again when the button is released.
 
 *Parent: HLFR-00029, HLFR-00067, HLFR-00106, HLFR-00041, HLFR-00074, HLFR-00099, HLFR-00085*
 
-### LLFR-01210 Drag delay
-While the user drags an object of LLFR-01209 in a plot whose curves hold up to 1,000,000 samples in all, the app must show the object at the pointer's new position at most 50 milliseconds after each move of the pointer, on the computer the app is tested on.
+### LLFR-01216 Drag delay
+While the user drags an object of LLFR-01215 in a plot whose curves hold up to 1,000,000 samples in all, the app must show the object at the pointer's new position at most 50 milliseconds after each move of the pointer, on the computer the app is tested on.
 
 *Parent: HLFR-00029, HLFR-00067, HLFR-00106, HLFR-00041, HLFR-00074, HLFR-00099, HLFR-00085*
 
-### LLFR-01211 Dragged flags and areas on the other plots
+### LLFR-01217 Dragged flags and areas on the other plots
 While the user drags a flag or an area, the app must show it at its latest place on the other shown time plots of every window (LLFR-00205, LLFR-00310) with at most one redraw of each of those plots for every 30 milliseconds, and at the place of the release once the button is released.
 
-Note: The other plots are drawn over the image of their curves as in LLFR-01209, so they follow the pointer without slowing the drag.
+Note: The other plots are drawn over the image of their curves as in LLFR-01215, so they follow the pointer without slowing the drag.
 
 *Parent: HLFR-00028, HLFR-00029, HLFR-00066, HLFR-00067*
 
@@ -966,51 +966,51 @@ When the user clicks the Export button, the app must show a menu with a "Save al
 
 *Parent: HLFR-00038*
 
-### LLFR-01223 Export menu Word and PNG options
+### LLFR-01229 Export menu Word and PNG options
 The menu of the Export button (LLFR-00127) must also show, below "Save all tabs as PDF", the options "Save all tabs as Word document (.docx)" and "Save each tab as PNG", in this order.
 
 *Parent: HLFR-00038*
 
-### LLFR-01224 Word save dialog
-When the user chooses "Save all tabs as Word document (.docx)" (LLFR-01223), the app must show a save file dialog for a `.docx` file.
+### LLFR-01230 Word save dialog
+When the user chooses "Save all tabs as Word document (.docx)" (LLFR-01229), the app must show a save file dialog for a `.docx` file.
 
 *Parent: HLFR-00038*
 
-### LLFR-01225 Word document content
+### LLFR-01231 Word document content
 The saved Word document must have one page for each tab that holds at least one plot, docked or undocked, in tab order (LLFR-01091), with the tab's name at the top of the page, the description of the data files of LLFR-00971 below it and, below the description, an image of the tab's plots with the content of LLFR-00129.
 
 *Parent: HLFR-00038*
 
-### LLFR-01226 Word document format
+### LLFR-01232 Word document format
 The app must write the Word document as an Office Open XML (.docx) file that Microsoft Word and LibreOffice Writer open, built with the Python standard library only.
 
 Note: The file is a ZIP archive of XML parts with one PNG image per page, so no new library is needed (COR-00011).
 
 *Parent: HLFR-00038*
 
-### LLFR-01227 PNG folder dialog
-When the user chooses "Save each tab as PNG" (LLFR-01223), the app must show a dialog in which the user chooses the folder of the PNG files.
+### LLFR-01233 PNG folder dialog
+When the user chooses "Save each tab as PNG" (LLFR-01229), the app must show a dialog in which the user chooses the folder of the PNG files.
 
 *Parent: HLFR-00038*
 
-### LLFR-01228 PNG file of each tab
+### LLFR-01234 PNG file of each tab
 The app must save in the chosen folder one PNG image file for each tab that holds at least one plot, docked or undocked, each with the tab's name, the description of LLFR-00971 and the tab's plots, as on the tab's page of the PDF (LLFR-00129).
 
 *Parent: HLFR-00038*
 
-### LLFR-01229 PNG file names
-The app must name each PNG file of LLFR-01228 with the name of its tab, each character other than a letter, a digit, a space, `-` or `_` replaced by `_`, followed by `.png`, and, when that name, compared ignoring uppercase and lowercase, was already given to another file of the same export, with `_2`, `_3` and so on added before `.png`, the smallest number that makes it unique.
+### LLFR-01235 PNG file names
+The app must name each PNG file of LLFR-01234 with the name of its tab, each character other than a letter, a digit, a space, `-` or `_` replaced by `_`, followed by `.png`, and, when that name, compared ignoring uppercase and lowercase, was already given to another file of the same export, with `_2`, `_3` and so on added before `.png`, the smallest number that makes it unique.
 
 Note: For example, the tabs `Tab 1`, `a/b` and `A?b` give `Tab 1.png`, `a_b.png` and `A_b_2.png`. A name left empty becomes `tab`.
 
 *Parent: HLFR-00038*
 
-### LLFR-01230 Existing PNG files
-If any PNG file of LLFR-01229 already exists in the chosen folder, the app must ask the user once, naming those files, whether to replace them, and save the PNG files only if the user agrees.
+### LLFR-01236 Existing PNG files
+If any PNG file of LLFR-01235 already exists in the chosen folder, the app must ask the user once, naming those files, whether to replace them, and save the PNG files only if the user agrees.
 
 *Parent: HLFR-00038*
 
-### LLFR-01231 Rules of the PDF export for every export
+### LLFR-01237 Rules of the PDF export for every export
 The app must apply to "Save all tabs as Word document (.docx)" and "Save each tab as PNG" the rules of "Save all tabs as PDF": the information box when no tab holds a plot, in place of the dialog (LLFR-00145, LLFR-00459), no file saved when the dialog is cancelled (LLFR-00130), the error box when a file cannot be written (LLFR-00131), and the dialog folders of LLFR-01179 and LLFR-01180, with one folder shared by the three exports.
 
 Note: The shared folder is the folder of the last file that any of the three exports saved successfully. Ctrl+P (Cmd+P on macOS) stays the PDF export (LLFR-01139).
@@ -1462,41 +1462,41 @@ When the user clicks the Save layout button, the app must show a save file dialo
 
 *Parent: HLFR-00049*
 
-### LLFR-01212 Layout save options dialog
+### LLFR-01218 Layout save options dialog
 When the user clicks the Save layout button, the app must show, before the save file dialog of LLFR-00219, a dialog with three choices: "Include the markers (data tips, flags, areas and delta markers)", "All tabs" or "Only the current tab", and "Include the names of the open data files".
 
 Note: The text notes and the arrows are not saved in a layout file (LLFR-00226), so the first choice names only the markers that are.
 
-*Parent: HLFR-00155, HLFR-00049*
+*Parent: HLFR-00156, HLFR-00049*
 
-### LLFR-01213 First values of the layout save options
-Each time the dialog of LLFR-01212 opens, it must show "Include the markers" on, "All tabs" chosen and "Include the names of the open data files" off.
+### LLFR-01219 First values of the layout save options
+Each time the dialog of LLFR-01218 opens, it must show "Include the markers" on, "All tabs" chosen and "Include the names of the open data files" off.
 
-*Parent: HLFR-00155*
+*Parent: HLFR-00156*
 
-### LLFR-01214 Layout save options cancelled
-If the user cancels the dialog of LLFR-01212, the app must end the Save layout action there, with no save file dialog, no file written and no message.
+### LLFR-01220 Layout save options cancelled
+If the user cancels the dialog of LLFR-01218, the app must end the Save layout action there, with no save file dialog, no file written and no message.
 
-*Parent: HLFR-00155, HLFR-00049*
+*Parent: HLFR-00156, HLFR-00049*
 
-### LLFR-01215 Layout without the markers
+### LLFR-01221 Layout without the markers
 When the user saves a layout with "Include the markers" off, the layout file must hold no pinned data tip, flag, area or delta marker.
 
-*Parent: HLFR-00155*
+*Parent: HLFR-00156*
 
-### LLFR-01216 Layout of only the current tab
+### LLFR-01222 Layout of only the current tab
 When the user saves a layout with "Only the current tab" chosen, the layout file must hold only the tab that the main window shows, as the docked tab that the main window shows.
 
 Note: The synthetic signals, the flags and the areas are still saved as for all tabs, so that the tab can be rebuilt with them.
 
-*Parent: HLFR-00155*
+*Parent: HLFR-00156*
 
-### LLFR-01217 Data files in the layout file
+### LLFR-01223 Data files in the layout file
 When the user saves a layout with "Include the names of the open data files" on, the layout file must hold, under the key `data_files`, one entry for each open data file, in the order of the file numbers, with its number (LLFR-00900) under `number`, its absolute path under `path` and its path relative to the folder of the layout file under `relative_path`.
 
 Note: `relative_path` is `null` when the data file is on another drive than the layout file, which can happen on Windows.
 
-*Parent: HLFR-00155, HLFR-00156*
+*Parent: HLFR-00156, HLFR-00157*
 
 ### LLFR-00467 Layout file extension
 If the name typed in the dialog of LLFR-00219 has no extension, the app must add `.json`.
@@ -1565,12 +1565,12 @@ The layout file must hold:
 14. for each undocked tab, whether its signal list panel is shown, and the panel's width (LLFR-01047, LLFR-01048);
 15. for each tab, its plot matrix, as its number of rows and its number of columns (HLFR-00146);
 16. for each undocked tab, the number of its undocked window, the same number for the tabs that share a window, numbered from 1 in the tab order (LLFR-01091), so that the order of the tabs in the file gives their order in their window (LLFR-01159);
-17. the open data files, when the user chose it (LLFR-01217).
+17. the open data files, when the user chose it (LLFR-01223).
 
-*Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097, HLFR-00140, HLFR-00152, HLFR-00126, HLFR-00131, HLFR-00155*
+*Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097, HLFR-00140, HLFR-00152, HLFR-00126, HLFR-00131, HLFR-00156*
 
 ### LLFR-00226 Not in the layout file
-The layout file must not hold the names or the paths of the data files, except as in LLFR-01217, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, which data files have their signals hidden in a signal list (LLFR-00997), or the position and size of the main window.
+The layout file must not hold the names or the paths of the data files, except as in LLFR-01223, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, which data files have their signals hidden in a signal list (LLFR-00997), or the position and size of the main window.
 
 *Parent: HLFR-00049, HLFR-00123*
 
@@ -1661,39 +1661,39 @@ When the app loads a layout file, it must build the tabs that hold at least one 
 
 *Parent: HLFR-00050*
 
-### LLFR-01218 Data files opened from a layout
-When the app loads a layout file that holds data files (LLFR-01217), it must, before it rebuilds the layout, open each of them that is not open yet (LLFR-01219), found at its `path` or, when there is no file there, at its `relative_path` from the folder of the layout file, in the steps of the Open file button (LLFR-00328), including the 10-file limit, the time signal window and the boxes of LLFR-00955 and LLFR-00956.
+### LLFR-01224 Data files opened from a layout
+When the app loads a layout file that holds data files (LLFR-01223), it must, before it rebuilds the layout, open each of them that is not open yet (LLFR-01225), found at its `path` or, when there is no file there, at its `relative_path` from the folder of the layout file, in the steps of the Open file button (LLFR-00328), including the 10-file limit, the time signal window and the boxes of LLFR-00955 and LLFR-00956.
 
-*Parent: HLFR-00156, HLFR-00050*
+*Parent: HLFR-00157, HLFR-00050*
 
-### LLFR-01219 Open data file reused by a layout
-When a data file of a layout file (LLFR-01217) is already open, found at its `path` or at its `relative_path`, the app must use that open data file for it.
+### LLFR-01225 Open data file reused by a layout
+When a data file of a layout file (LLFR-01223) is already open, found at its `path` or at its `relative_path`, the app must use that open data file for it.
 
-*Parent: HLFR-00156*
+*Parent: HLFR-00157*
 
-### LLFR-01220 Signal names follow the opened data files
-When the app loads a layout file that holds data files, it must read each signal name of the file that starts with `file<N>_`, where N is the saved number of a data file of the layout file that is open (LLFR-01218, LLFR-01219), and each such prefix inside the name of a product of two signals (HLFR-00104), with the prefix of the number that data file has now.
+### LLFR-01226 Signal names follow the opened data files
+When the app loads a layout file that holds data files, it must read each signal name of the file that starts with `file<N>_`, where N is the saved number of a data file of the layout file that is open (LLFR-01224, LLFR-01225), and each such prefix inside the name of a product of two signals (HLFR-00104), with the prefix of the number that data file has now.
 
 Note: For example, a layout saved with `file1` and `file2` and loaded while `file2` is already open as `file3` reads `file2_Speed` as `file3_Speed`.
 
-*Parent: HLFR-00156, HLFR-00115*
+*Parent: HLFR-00157, HLFR-00115*
 
-### LLFR-01221 Data file not opened from a layout
-When a data file of a layout file (LLFR-01217) is neither open nor opened by LLFR-01218, the load report (LLFR-00237) must list it, under the heading "Data files not opened:", with its saved path and the reason.
+### LLFR-01227 Data file not opened from a layout
+When a data file of a layout file (LLFR-01223) is neither open nor opened by LLFR-01224, the load report (LLFR-00237) must list it, under the heading "Data files not opened:", with its saved path and the reason.
 
 Note: The reason is, for example, that no file is found at either path, that the file could not be read (LLFR-00955), that 10 files are open or that the time signal window was cancelled.
 
-*Parent: HLFR-00156, HLFR-00052*
+*Parent: HLFR-00157, HLFR-00052*
 
-### LLFR-01222 Curves of a data file not opened
-When a data file of a layout file is listed as in LLFR-01221, the app must treat the curves of its signals as curves of missing signals (LLFR-00231), even when another open data file has its saved number.
+### LLFR-01228 Curves of a data file not opened
+When a data file of a layout file is listed as in LLFR-01227, the app must treat the curves of its signals as curves of missing signals (LLFR-00231), even when another open data file has its saved number.
 
-*Parent: HLFR-00156, HLFR-00052*
+*Parent: HLFR-00157, HLFR-00052*
 
 ### LLFR-00949 Curves matched by file number
 When loading a layout, the app must draw each curve with the signal of the signal list whose name is the saved name, so that a saved name that starts with `file<N>_` is drawn with a signal of the data file that has the number N at that moment, except as in LLFR-00963.
 
-Note: A curve whose file number is not open, or whose file has no signal of that name, is a missing signal (LLFR-00231) and is named in the load report (LLFR-00237). The layout file holds the paths of the data files only when the user chooses it (LLFR-01217).
+Note: A curve whose file number is not open, or whose file has no signal of that name, is a missing signal (LLFR-00231) and is named in the load report (LLFR-00237). The layout file holds the paths of the data files only when the user chooses it (LLFR-01223).
 
 *Parent: HLFR-00050, HLFR-00052, HLFR-00115*
 
@@ -1731,7 +1731,7 @@ Note: The panel of each undocked window follows LLFR-01078.
 
 *Parent: HLFR-00050*
 
-### LLFR-01208 Main window signal list panel from a layout
+### LLFR-01214 Main window signal list panel from a layout
 When the app loads a layout file that holds whether the signal list panel of the main window is shown (LLFR-00225, item 9), it must show or hide that panel as saved.
 
 Note: A layout file without that value leaves the panel as it is.
@@ -2884,23 +2884,23 @@ When the user presses Ctrl+F (Cmd+F on macOS) in a window whose signal list pane
 ### LLFR-01044 Signal list button
 Each undocked window must show, at its top-right corner, a signal list button that hides and shows its signal list panel.
 
-Note: The button works like the sidebar button of recent versions of Firefox, mirrored to the right side. The main window has one too (LLFR-01205).
+Note: The button works like the sidebar button of recent versions of Firefox, mirrored to the right side. The main window has one too (LLFR-01211).
 
 *Parent: HLFR-00130*
 
-### LLFR-01205 Signal list button of the main window
+### LLFR-01211 Signal list button of the main window
 The main window must show a signal list button (LLFR-01044) at the top-right corner of the area below the top panel that holds its plot panel and its signal list panel.
 
 Note: The owner asked on 2026-11-05 for the same Firefox-style button as in the undocked windows. LLFR-01045 to LLFR-01049, LLFR-01171, LLFR-01133 and LLFR-01134 apply to it as to the button of an undocked window.
 
 *Parent: HLFR-00131*
 
-### LLFR-01206 Main window signal list panel shown at start
+### LLFR-01212 Main window signal list panel shown at start
 When the app starts, the main window must show its signal list panel.
 
 *Parent: HLFR-00131, HLFR-00001*
 
-### LLFR-01207 Tab row of the main window with a hidden panel
+### LLFR-01213 Tab row of the main window with a hidden panel
 While the signal list panel of the main window is hidden, the tab row of the main window must keep room at its right end for the signal list button, so that the button covers no tab and not the "+" button.
 
 *Parent: HLFR-00131, HLFR-00015*
@@ -4028,15 +4028,15 @@ Note: Each click on the icon itself still toggles the file, so a double-click on
 
 *Parent: HLFR-00123*
 
-### LLFR-01203 Double-click on a file name row during a search
+### LLFR-01209 Double-click on a file name row during a search
 When the user double-clicks a file name row (LLFR-00362) of an open data file anywhere other than its icon while the search box holds text other than spaces, the app must clear the search box of every signal list panel (LLFR-01041).
 
 Note: The owner asked on 2026-11-05 that the double-click also clears the search, so that all the files are shown again.
 
 *Parent: HLFR-00123, HLFR-00033*
 
-### LLFR-01204 File shown after a double-click during a search
-After clearing the search as in LLFR-01203, the app must show the signals of the double-clicked file with the `[-]` icon (LLFR-00994), whatever their state before the search (LLFR-01004).
+### LLFR-01210 File shown after a double-click during a search
+After clearing the search as in LLFR-01209, the app must show the signals of the double-clicked file with the `[-]` icon (LLFR-00994), whatever their state before the search (LLFR-01004).
 
 Note: The user therefore ends up seeing the signals of that file, and the other files go back to their state of before the search.
 
@@ -4115,11 +4115,11 @@ Note: When the tabs are wider than the plot panel and the tab row shows scroll b
 *Parent: HLFR-00015*
 
 ### LLFR-00026 Add tab button action
-When the user clicks the "+" button (LLFR-00025) of the main window, the app must add a new tab after the last docked tab, except as in LLFR-01197.
+When the user clicks the "+" button (LLFR-00025) of the main window, the app must add a new tab after the last docked tab, except as in LLFR-01203.
 
 *Parent: HLFR-00015*
 
-### LLFR-01197 New tab in an undocked window
+### LLFR-01203 New tab in an undocked window
 When the user clicks the "+" button (LLFR-00025) of an undocked window, the app must add the new tab to that window, after its last tab, shown in that window.
 
 Note: The new tab is named as in LLFR-00210 and LLFR-00212, and adding it is an undoable action like any added tab (LLFR-00140).
@@ -4658,7 +4658,7 @@ Note: The tabs that are shown are the tab shown in the main window and the tab s
 
 *Parent: HLFR-00028*
 
-### LLFR-01232 Previews over other objects
+### LLFR-01238 Previews over other objects
 The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow or a delta marker, except the flag preview over an existing flag (LLFR-00203).
 
 Note: The owner asked on 2026-11-05 that previews take priority over the objects under the pointer. The grab rules are kept: a press on a pinned data tip still moves it (LLFR-00153), and a press on a text note still moves it (LLFR-00339), so over them the preview shows where the pointer is while a click grabs the object. Over an existing flag the flag preview stays hidden, so that the flag can be grabbed (LLFR-00086).
@@ -4721,14 +4721,14 @@ The "+" button (LLFR-00025) must have the same height, background, border and co
 
 *Parent: HLFR-00015*
 
-### LLFR-01198 Space between tabs
+### LLFR-01204 Space between tabs
 In each window, the app must leave a space of 2 pixels between the borders of two neighbouring tabs.
 
 Note: The owner asked on 2026-11-05 for smaller spaces than the 3 pixels used before.
 
 *Parent: HLFR-00014*
 
-### LLFR-01199 Space before the "+" button
+### LLFR-01205 Space before the "+" button
 In each window, while the tab row shows no scroll buttons, the app must leave a space of 2 pixels between the right border of the last tab and the left border of the "+" button (LLFR-00025).
 
 Note: The space was 6 pixels before the owner's request of 2026-11-05.
@@ -4811,7 +4811,7 @@ While the user drags a docked tab with the left mouse button along the tab row o
 
 *Parent: HLFR-00143*
 
-### LLFR-01202 Drag preview of a tab
+### LLFR-01208 Drag preview of a tab
 While the user drags a tab of any window with the left mouse button (LLFR-01086, LLFR-01142, LLFR-01143, LLFR-01150, LLFR-01157), the app must show, next to the pointer and following it until the button is released, a semi-transparent image of the contents of that tab, at most 200 pixels wide.
 
 Note: Like the image of a tab dragged in a web browser. The image is removed at the release, wherever the tab is dropped.
@@ -5786,7 +5786,7 @@ A two-finger swipe that does not move more horizontally than vertically must onl
 *Parent: HLFR-00036, HLFR-00027*
 
 ### LLFR-00352 Preview of a delta marker point
-While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, including while the X or Y key is held (LLFR-00197, LLFR-00200), and the mouse pointer is over a curve where a click would take a first point (LLFR-00163, LLFR-00166), or over such a curve where an object of LLFR-01232 lies on it, the app must show a dot on the curve sample nearest to the pointer, in a paler version of the reserved marker color (LLFR-00083).
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, including while the X or Y key is held (LLFR-00197, LLFR-00200), and the mouse pointer is over a curve where a click would take a first point (LLFR-00163, LLFR-00166), or over such a curve where an object of LLFR-01238 lies on it, the app must show a dot on the curve sample nearest to the pointer, in a paler version of the reserved marker color (LLFR-00083).
 
 *Parent: HLFR-00043, HLFR-00044*
 

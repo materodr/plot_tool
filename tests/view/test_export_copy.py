@@ -229,10 +229,10 @@ class ExportCopyTest(unittest.TestCase):
         self.assertLess(self.top_panel.export_button.x(),
                         self.top_panel.copy_button.x())
 
-    @covers("LLFR-00127", "LLFR-01223", "HLFR-00038")
+    @covers("LLFR-00127", "LLFR-01229", "HLFR-00038")
     def test_export_menu_has_pdf_option(self) -> None:
         """The Export menu holds "Save all tabs as PDF", then the Word
-        and PNG options (LLFR-01223).
+        and PNG options (LLFR-01229).
 
         Inputs: none.
         Outputs: none.
@@ -268,7 +268,7 @@ class ExportCopyTest(unittest.TestCase):
     # PDF export
     # ----------------------------------------------------------------
 
-    @covers("LLFR-01224", "LLFR-01225", "LLFR-01226", "LLFR-00001",
+    @covers("LLFR-01230", "LLFR-01231", "LLFR-01232", "LLFR-00001",
             "LLFR-00003", "HLFR-00038")
     def test_word_export_writes_one_page_per_tab(self) -> None:
         """"Save all tabs as Word document (.docx)" shows a .docx save
@@ -314,7 +314,7 @@ class ExportCopyTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
         self.assertFalse(self.top_panel.export_button.is_active())
 
-    @covers("LLFR-01227", "LLFR-01228", "LLFR-01229", "LLFR-01230",
+    @covers("LLFR-01233", "LLFR-01234", "LLFR-01235", "LLFR-01236",
             "HLFR-00038")
     def test_png_export_writes_one_file_per_tab(self) -> None:
         """"Save each tab as PNG" asks for a folder and writes one A4 page
