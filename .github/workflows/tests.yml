@@ -2,7 +2,11 @@ name: Tests
 
 # Runs every test with PyQt6 offscreen, builds the test matrix
 # (PCR-00019 to PCR-00023, PCR-00042) and checks PEP 8 (COR-00002).
-# Every pull request runs every test (PCR-00057, PCR-00058).
+# A pull request runs every test (PCR-00057, PCR-00058) when it changes a
+# file of the list of PCR-00078, and always into main. Otherwise the
+# "Decide" step skips the steps that run or need the tests (PCR-00079),
+# and the job still reports success, so the required check never blocks
+# a merge. The requirement checks run on every pull request (PCR-00080).
 on:
   pull_request:
   push:
@@ -26,7 +30,39 @@ jobs:
         with:
           python-version: "3.12"
 
+      # PCR-00078, PCR-00079: tests/ci_changed_files.py compares the head
+      # of the pull request with its base and writes full_suite=true or
+      # false. A push to main, and a pull request into main, always run
+      # every test (PCR-00058).
+      - name: Decide whether every test runs
+        id: changes
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -z "$BASE_BRANCH" ]; then
+            echo "full_suite=true" >> "$GITHUB_OUTPUT"
+            echo "Result: every test runs (not a pull request)."
+            exit 0
+          fi
+          python tests/ci_changed_files.py --base "$BASE_BRANCH" \
+            --head "$HEAD_COMMIT" --github-output "$GITHUB_OUTPUT" \
+            | tee changed_files.txt
+          if grep -q "^full_suite=false" "$GITHUB_OUTPUT"; then
+            echo "::notice title=Tests skipped (PCR-00079)::every changed file is outside the list of PCR-00078; the requirement checks still run"
+            {
+              echo "## Tests skipped (PCR-00079)"
+              echo
+              echo "Every changed file is outside the list of PCR-00078, so no test runs and the test matrix of develop is kept (PCR-00081). The requirement checks still run (PCR-00080)."
+              echo
+              echo '```'
+              cat changed_files.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Install system libraries for Qt
+        if: steps.changes.outputs.full_suite == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libxkbcommon0 \
@@ -38,8 +74,15 @@ jobs:
       # justification that names the failed install. Any other failed
       # install still fails the job.
       - name: Install Python packages
+        env:
+          FULL_SUITE: ${{ steps.changes.outputs.full_suite }}
         run: |
           python -m pip install --upgrade pip
+          # PCR-00079: with no test to run, only the PEP 8 checker.
+          if [ "$FULL_SUITE" != "true" ]; then
+            pip install pycodestyle
+            exit 0
+          fi
           if pip install -r requirements.txt pycodestyle; then exit 0; fi
           grep -viE '^(pyqt6|h5py)\b' requirements.txt > requirements_core.txt
           pip install -r requirements_core.txt pycodestyle
@@ -64,6 +107,7 @@ jobs:
       # made with the workflow token don't start another run.
       - name: Generate and commit missing HDF5 sample files
         if: >-
+          steps.changes.outputs.full_suite == 'true' &&
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository &&
           env.PLOT_TOOL_ENVIRONMENT_LIMIT == ''
@@ -92,6 +136,7 @@ jobs:
       # also fail the run when an HLFR that the branch affects has no
       # test (PCR-00059).
       - name: Run tests and build the test matrix
+        if: steps.changes.outputs.full_suite == 'true'
         env:
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
           HEAD_COMMIT: ${{ github.event.pull_request.head.sha }}
@@ -111,7 +156,9 @@ jobs:
       # environment Fail* counts as passed (PCR-00064); a Fail* for an
       # HLFR not implemented yet is refused into main (PCR-00069). A test
       # that runs here and fails is still a failure, with or without
-      # --environment-limit.
+      # --environment-limit. When the tests are skipped (PCR-00079), the
+      # script itself skips the checks that need this run's matrix and
+      # the hash of the branch (PCR-00081), and runs the others.
       - name: Check the branch and its committed matrix
         if: >-
           github.event_name == 'pull_request' &&
@@ -182,6 +229,7 @@ jobs:
       - name: Make screenshots of the interface
         if: >-
           always() && github.event_name == 'pull_request' &&
+          steps.changes.outputs.full_suite == 'true' &&
           env.PLOT_TOOL_ENVIRONMENT_LIMIT == ''
         run: python tests/user_tests/make_screenshots.py --output screenshots
 

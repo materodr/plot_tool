@@ -25,6 +25,11 @@ justification, and are listed in its "Fail* (PCR-00070)" section:
   (PCR-00063). It counts as passed (PCR-00064);
 - an HLFR of tests/not_implemented.txt (PCR-00065, PCR-00066). It is
   accepted into develop and refused into main (PCR-00069).
+A pull request into develop whose changed files are all outside the
+list of PCR-00078 runs no test (PCR-00079) and keeps the matrix of
+develop (PCR-00081), so the checks that the matrix was built from the
+branch's code and lists the tests of the CI run are skipped for it;
+the other checks still apply.
 --body-file is for the fail-star-section CI job: when the committed
 matrix has a `Fail*`, the pull request description must start with the
 same section, listing every `Fail*` with its justification (PCR-00070).
@@ -47,6 +52,7 @@ if REPOSITORY_ROOT_STR not in sys.path:
 
 from tests.check_requirement_review import (  # noqa
     API_PULLS_PATTERN_STR, PR_CREATE_PATTERN_STR, option_value)
+from tests.ci_changed_files import branch_needs_full_suite  # noqa
 from tests.find_affected_requirements import run_git  # noqa
 
 MATRIX_PATH_STR = "tests/test_matrix.md"
@@ -172,13 +178,17 @@ def source_hash(head_str: str, folder_str: str) -> str:
 
 
 def matrix_problems(matrix_str: str, expected_hash_str: str,
-                    base_str: str = DEVELOP_BRANCH_STR) -> list:
+                    base_str: str = DEVELOP_BRANCH_STR,
+                    hash_check_b: bool = True) -> list:
     """Check a committed matrix against the code of its branch.
 
     Inputs:
         matrix_str: the text of the matrix.
         expected_hash_str: the hash of the branch's files.
         base_str: the branch the pull request goes into.
+        hash_check_b: False for a pull request that runs no test
+            (PCR-00079), whose matrix is the one of develop (PCR-00081),
+            so that its hash isn't checked.
     Outputs: a list of problem texts, empty when the matrix is good. A
         test shown as Fail* for an environment limit isn't a failed test
         (PCR-00064). An HLFR shown as Fail* because it isn't implemented
@@ -186,7 +196,8 @@ def matrix_problems(matrix_str: str, expected_hash_str: str,
     """
     problem_list = []
     hash_match = re.search(HASH_PATTERN_STR, matrix_str, re.MULTILINE)
-    if not hash_match or hash_match.group(1) != expected_hash_str:
+    if hash_check_b and (not hash_match
+                         or hash_match.group(1) != expected_hash_str):
         problem_list.append(
             "tests/test_matrix.md wasn't built from the code of this branch "
             f"(PCR-00061). Commit the code, run `{MATRIX_COMMAND_STR}` and "
@@ -239,8 +250,12 @@ def branch_problems(base_str: str, head_str: str, folder_str: str) -> list:
                 "implemented yet, which can't go into main (PCR-00069): "
                 + ", ".join(listed_id_list) + ".")
     matrix_str = run_git(folder_str, "show", f"{head_str}:{MATRIX_PATH_STR}")
+    # PCR-00079, PCR-00081: a branch that runs no test keeps the matrix
+    # of develop, so its hash isn't the one of the branch's files.
+    full_suite_b = branch_needs_full_suite(base_str, head_str, folder_str)
     return problem_list + matrix_problems(
-        matrix_str, source_hash(head_str, folder_str), base_str)
+        matrix_str, source_hash(head_str, folder_str), base_str,
+        full_suite_b)
 
 
 def pull_request_target(command_str: str) -> tuple:
@@ -305,7 +320,9 @@ def check_in_ci(base_str: str, head_str: str, matrix_path_str: str) -> int:
         base_str: the branch the pull request goes into.
         head_str: the commit of the pull request.
         matrix_path_str: the matrix that the CI run built.
-    Outputs: the process exit code, 0 when there is no problem.
+    Outputs: the process exit code, 0 when there is no problem. When
+        the pull request runs no test (PCR-00079), there is no matrix of
+        the run to compare, and the other checks still apply.
     """
     try:
         problem_list = branch_problems(base_str, head_str,
@@ -315,12 +332,16 @@ def check_in_ci(base_str: str, head_str: str, matrix_path_str: str) -> int:
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Result: fail, git can't read the branch: {error}")
         return 1
-    with open(matrix_path_str, encoding="utf-8") as matrix_file:
-        ci_matrix_str = matrix_file.read()
-    if (set(re.findall(TEST_CELL_PATTERN_STR, matrix_str))
-            != set(re.findall(TEST_CELL_PATTERN_STR, ci_matrix_str))):
-        problem_list.append("The committed matrix lists other tests than "
-                            "this run (PCR-00061).")
+    if branch_needs_full_suite(base_str, head_str, REPOSITORY_ROOT_STR):
+        with open(matrix_path_str, encoding="utf-8") as matrix_file:
+            ci_matrix_str = matrix_file.read()
+        if (set(re.findall(TEST_CELL_PATTERN_STR, matrix_str))
+                != set(re.findall(TEST_CELL_PATTERN_STR, ci_matrix_str))):
+            problem_list.append("The committed matrix lists other tests "
+                                "than this run (PCR-00061).")
+    else:
+        print("The tests of this pull request are skipped (PCR-00079), so "
+              "the matrix of develop is kept (PCR-00081).")
     for problem_str in problem_list:
         print("Result: fail. " + problem_str)
     if not problem_list:

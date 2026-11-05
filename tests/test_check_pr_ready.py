@@ -1,5 +1,5 @@
 """Self-tests for tests/check_pr_ready.py (PCR-00060 to PCR-00062,
-PCR-00064, PCR-00069, PCR-00070)."""
+PCR-00064, PCR-00069, PCR-00070, PCR-00079, PCR-00081)."""
 
 import os
 import re
@@ -198,8 +198,9 @@ class BranchProblemsTest(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.folder_str = folder.name
         self.git("init", "-q")
-        os.makedirs(os.path.join(self.folder_str, "tests"))
-        self.write_file("code.py", "one\n")
+        for folder_str in ("tests", "src", "docs"):
+            os.makedirs(os.path.join(self.folder_str, folder_str))
+        self.write_file("src/code.py", "one\n")
         self.git("add", "-A")
         self.git("commit", "-q", "-m", "first")
         self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
@@ -257,7 +258,7 @@ class BranchProblemsTest(unittest.TestCase):
         Outputs: none.
         """
         self.commit_current_matrix()
-        self.write_file("code.py", "two\n")
+        self.write_file("src/code.py", "two\n")
         self.git("add", "-A")
         self.git("commit", "-q", "-m", "more")
         self.assertEqual(
@@ -300,6 +301,74 @@ class BranchProblemsTest(unittest.TestCase):
         problem_list = branch_problems("main", "HEAD", self.folder_str)
         self.assertEqual(len(problem_list), 1)
         self.assertIn("HLFR-00014", problem_list[0])
+
+    def commit_docs_change_after_develop_matrix(self) -> None:
+        """Make develop hold a matrix, then change only a PCR-like file.
+
+        Inputs: none.
+        Outputs: none. origin/develop points at the matrix commit, and
+            HEAD is one commit later that changes only docs/process.md.
+        """
+        self.commit_current_matrix()
+        self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
+        self.write_file("docs/process.md", "new rule\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "docs")
+
+    @covers("PCR-00079", "PCR-00081", "PCR-00061")
+    def test_docs_only_branch_keeps_the_develop_matrix(self) -> None:
+        """A branch that runs no test isn't asked for its own matrix.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.commit_docs_change_after_develop_matrix()
+        self.assertEqual(
+            branch_problems("develop", "HEAD", self.folder_str), [])
+
+    @covers("PCR-00058", "PCR-00061")
+    def test_docs_only_branch_into_main_needs_its_matrix(self) -> None:
+        """Into main every test runs, so the old hash is a problem.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.commit_docs_change_after_develop_matrix()
+        problem_list = branch_problems("main", "HEAD", self.folder_str)
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("PCR-00061", problem_list[0])
+
+    @covers("PCR-00078", "PCR-00061")
+    def test_code_branch_after_develop_matrix_is_a_problem(self) -> None:
+        """A change under src after develop's matrix makes it old.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.commit_docs_change_after_develop_matrix()
+        self.write_file("src/code.py", "three\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "code")
+        self.assertEqual(
+            len(branch_problems("develop", "HEAD", self.folder_str)), 1)
+
+    @covers("PCR-00079", "PCR-00062")
+    def test_docs_only_branch_still_checks_failed_tests(self) -> None:
+        """The checks that need no test run still apply.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.write_file(MATRIX_PATH_STR, "Source hash: `0`\n`a.t` failed\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "matrix")
+        self.git("update-ref", "refs/remotes/origin/develop", "HEAD")
+        self.write_file("docs/process.md", "new rule\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "docs")
+        problem_list = branch_problems("develop", "HEAD", self.folder_str)
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("PCR-00062", problem_list[0])
 
 
 if __name__ == "__main__":

@@ -69,6 +69,22 @@ If a new bug is found while creating a feature or fixing a bug, and the bug is c
 ### PCR-00041 Uncorrelated bugs found during work
 If a new bug is found while creating a feature or fixing a bug, and the bug is not correlated with the ongoing work, a new issue must be opened.
 
+### PCR-00074 Edge cases in owner questions
+When an agent asks the owner to decide a rule, it must list, in the same question, the neighbouring cases that the decision also settles.
+
+Note: For example, a question about what a click over one kind of object does also names clicks over name labels and double-clicks on that object.
+
+### PCR-00075 Questions before the pull request
+An implementer agent must send its open questions about the app's behaviour to the owner before it opens its pull request.
+
+Note: Every push to a pull request runs the whole test suite again, so an answer given after the PR is open costs one more full CI run.
+
+### PCR-00076 Questions gathered for one push
+When questions about the app's behaviour come up while a pull request is open, the agent must ask the owner them together, so that his answers go into one push.
+
+### PCR-00077 Direct link for the owner
+When the owner needs to approve or act on something, the agent must give him its direct link.
+
 ### PCR-00014 Pull request preconditions
 A pull request must only be merged if its issue has all the information required by PCR-00006 (fixes) or PCR-00008 (features).
 
@@ -133,7 +149,7 @@ The fourth column of the test matrix must show `Fail*`, followed by the missing 
 Agents must write tests that robustly cover every aspect of the high-level functional requirements.
 
 ### PCR-00057 Tests of a pull request into develop
-A pull request into `develop` must run every test, except as in PCR-00072.
+A pull request into `develop` must run every test, except as in PCR-00072 and PCR-00079.
 
 ### PCR-00058 Tests of a pull request into main
 A pull request from `develop` to `main` must run every test, except as in PCR-00072.
@@ -142,6 +158,24 @@ A pull request from `develop` to `main` must run every test, except as in PCR-00
 For PCR-00057 and PCR-00058, a test shown with the `Fail*` of PCR-00063 must count as run, also when the run on GitHub could not run it either.
 
 Note: The `tests` CI job adds `--environment-limit` only when installing PyQt6 or h5py fails on the runner, with a justification that names the failed install. A test that runs and fails still fails the job.
+
+### PCR-00078 Every test for code and functional requirement changes
+A pull request into `develop` must run every test when its branch changes a file under `src/`, `tests/`, `bin/` or `.github/workflows/`, a build script (`build_executable.py`, `rebuild_and_launch.py`), a `requirements*.txt` file, or the HLFR or LLFR file.
+
+Note: The sample files of PCR-00032 are under `tests/`. A renamed file counts with its old and its new path. A pull request from `develop` to `main` always runs every test (PCR-00058). In the `tests` CI job, `tests/ci_changed_files.py` makes the decision. This follows the owner's decision of 2026-11-05.
+
+### PCR-00079 Tests skipped for other changes
+A pull request into `develop` whose branch changes only files outside the list of PCR-00078 must skip the run of the tests.
+
+Note: For example, a branch that changes only the COR or PCR requirements, `docs/requirements/README.md`, `CLAUDE.md` or the skills in `.claude/skills/`. The `tests` job then skips its test steps and still reports success, so that the required check doesn't block the merge. It still checks PEP 8 and runs the checks of `tests/check_pr_ready.py` that need no test run.
+
+### PCR-00080 Requirement checks on every pull request
+Every pull request into `develop` or `main` must run the requirements quality test (PCR-00037) and the `requirement-validation-section` and `fail-star-section` checks, also when it skips the tests (PCR-00079).
+
+### PCR-00081 Test matrix of a pull request that skips the tests
+A pull request that skips the tests (PCR-00079) must keep on its branch the test matrix of `develop`, unchanged.
+
+Note: Its branch changes nothing under `tests/`, so its matrix is the one of the latest `develop` (PCR-00060). `tests/check_pr_ready.py` then skips the checks of PCR-00061 that compare the matrix with the branch's files and with the CI run, and still makes the others, for example that the matrix shows no failed test (PCR-00062).
 
 ### PCR-00059 Affected requirements without tests
 The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test, except as in PCR-00068.
@@ -152,12 +186,12 @@ Note: A branch affects an HLFR when it changes the text of the HLFR or of a chil
 A branch must contain the latest commit of `develop` when its pull request into `develop` is opened.
 
 ### PCR-00061 Test matrix built from the branch
-The test matrix committed on the branch of a pull request into `develop` or `main` must come from a run of every test on the code of that branch.
+The test matrix committed on the branch of a pull request into `develop` or `main` must come from a run of every test on the code of that branch, except as in PCR-00081.
 
 Note: The matrix holds a hash of the files it was built from, so its own commit doesn't make it old.
 
 ### PCR-00062 Tests passed before a pull request
-A pull request into `develop` or `main` must be opened only when every test of the run of PCR-00061 has passed, except a test of `tests/known_macos_failures.txt` that fails on macOS, and except as in PCR-00064.
+A pull request into `develop` or `main` must be opened only when every test of the run of PCR-00061 has passed, except a test of `tests/known_macos_failures.txt` that fails on macOS, and except as in PCR-00064 and PCR-00081.
 
 Note: Such a test shows as "known macOS failure" in the matrix and doesn't make column 4 show "fail".
 
