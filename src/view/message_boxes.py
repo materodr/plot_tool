@@ -62,10 +62,11 @@ FULL_TAB_TITLE_STR = "Full Tab"
 # LLFR-00032: a full tab whose plot matrix can still grow.
 FULL_TAB_MESSAGE_STR = (
     "This tab is full ({rows} \u00d7 {columns} matrix). Use a new tab, "
-    "or a larger matrix from the tab's menu.")
+    "a larger matrix from the tab's menu, or delete a plot.")
 # LLFR-01127: a full tab whose plot matrix is already 10 x 10.
 FULL_LARGEST_MATRIX_MESSAGE_STR = (
-    "This tab is full (10 \u00d7 10 matrix). Use a new tab.")
+    "This tab is full (10 \u00d7 10 matrix). Use a new tab, or delete a "
+    "plot.")
 
 # LLFR-00211: the information box of a rename to another tab's name.
 TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
@@ -152,6 +153,8 @@ FILE_OPEN_ERROR_TEXT_OBJECT_NAME_STR = "file_open_error_text"
 REFUSED_FILES_TEXT_OBJECT_NAME_STR = "refused_files_text"
 # LLFR-01176: the objectName that QMessageBox gives its text label.
 MESSAGE_BOX_LABEL_OBJECT_NAME_STR = "qt_msgbox_label"
+# LLFR-01200: the objectName of the sentence of a scrollable box.
+SCROLLABLE_INTRO_OBJECT_NAME_STR = "scrollable_box_intro"
 # LLFR-01176: the style of one line of a list box: no space above or
 # below it (LLFR-00982 already puts a blank line between the items),
 # the indent of its wrapped lines on the left, and a negative indent of
@@ -160,11 +163,47 @@ MESSAGE_BOX_LABEL_OBJECT_NAME_STR = "qt_msgbox_label"
 LIST_LINE_STYLE_STR = (
     "margin-top:0px; margin-bottom:0px; margin-left:{margin}px; "
     "margin-right:0px; text-indent:{indent}px; white-space:pre-wrap;")
+# LLFR-01200, LLFR-01201: the main text of every box, in bold letters
+# and in one font size.
+MESSAGE_FONT_POINT_SIZE_I = 13
+MESSAGE_TEXT_STYLE_STR = (
+    f"font-weight: bold; font-size: {MESSAGE_FONT_POINT_SIZE_I}pt;")
 # LLFR-00982: an empty paragraph, as Qt writes one, for a blank line.
 EMPTY_LINE_HTML_STR = (
     '<p style="-qt-paragraph-type:empty; margin-top:0px; '
     'margin-bottom:0px; margin-left:0px; margin-right:0px; '
     'text-indent:0px;"><br /></p>')
+
+
+def message_box_style_sheet() -> str:
+    """Return the style sheet that a message box gives its main text.
+
+    Inputs: none.
+    Outputs: a Qt style sheet for the text label of a QMessageBox
+        (MESSAGE_BOX_LABEL_OBJECT_NAME_STR): bold letters of
+        MESSAGE_FONT_POINT_SIZE_I points.
+    """
+    # LLFR-01200, LLFR-01201: one shared style for every box.
+    return (f"QLabel#{MESSAGE_BOX_LABEL_OBJECT_NAME_STR} "
+            f"{{ {MESSAGE_TEXT_STYLE_STR} }}")
+
+
+def apply_message_text_style(widget, label_only_b: bool = True) -> None:
+    """Give a box, or one of its text widgets, the main text style.
+
+    Inputs:
+        widget: a QMessageBox, or a QLabel or QTextEdit of a box.
+        label_only_b: True for a QMessageBox, whose text label is styled
+            through its objectName; False to style the widget itself.
+    Outputs: none. The style is added to the widget's style sheet.
+    """
+    # LLFR-01200, LLFR-01201: the shared style helper of the boxes.
+    style_str = (message_box_style_sheet() if label_only_b
+                 else MESSAGE_TEXT_STYLE_STR)
+    current_str = widget.styleSheet()
+    if style_str in current_str:
+        return
+    widget.setStyleSheet((current_str + "\n" + style_str).strip())
 
 
 def list_text_html(text_str: str, font) -> str:
@@ -219,6 +258,8 @@ class ListMessageBox(QMessageBox):
         # LLFR-01176: the plain text of the list, kept for text().
         super().__init__(parent)
         self.plain_text_str = ""
+        # LLFR-01200, LLFR-01201: the main text in bold, in one size.
+        apply_message_text_style(self)
 
     def setText(self, text_str: str) -> None:
         """Set the text of the box.
@@ -283,6 +324,9 @@ class ListTextField(QTextEdit):
         # bar when the list is longer than the field.
         super().__init__(parent)
         self.plain_text_str = ""
+        # LLFR-01200, LLFR-01201: the list of a scrollable box in bold,
+        # in the size of the other boxes.
+        apply_message_text_style(self, False)
         self.setReadOnly(True)
         self.setAcceptRichText(False)
         # LLFR-00990: each line is wrapped at the width of the field,
@@ -377,7 +421,7 @@ def build_full_tab_box(parent, row_count_i: int = 5,
     """
     # LLFR-00032, LLFR-01127: information message telling the user to
     # use a new tab or, below 10 x 10, a larger plot matrix.
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(FULL_TAB_TITLE_STR)
     box.setText(full_tab_message_str(row_count_i, column_count_i))
@@ -399,7 +443,7 @@ def build_tab_name_taken_box(parent, name_str: str) -> QMessageBox:
     """
     # LLFR-00211: information message saying that a tab with that name
     # already exists.
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(TAB_NAME_TAKEN_TITLE_STR)
     box.setText(TAB_NAME_TAKEN_MESSAGE_STR.format(name=name_str))
@@ -419,7 +463,7 @@ def build_plot_kind_mismatch_box(parent) -> QMessageBox:
     """
     # LLFR-00257: information message saying that FFT signals and time
     # signals cannot be drawn in the same plot.
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(PLOT_KIND_MISMATCH_TITLE_STR)
     box.setText(PLOT_KIND_MISMATCH_MESSAGE_STR)
@@ -527,7 +571,7 @@ def build_unexpected_error_box(parent, message_str: str) -> QMessageBox:
     """
     # LLFR-00071: an error box titled "Error" that describes the error
     # (HLFR-00002).
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Critical)
     box.setWindowTitle(UNEXPECTED_ERROR_TITLE_STR)
     box.setText(f"{UNEXPECTED_ERROR_INTRO_STR}\n\n{message_str}")
@@ -677,7 +721,7 @@ def build_replace_existing_file_box(parent, path_str: str) -> QMessageBox:
         buttons Yes and No, where No is the default and escape button.
     """
     # LLFR-00128: the user decides whether the existing file is lost.
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Question)
     box.setWindowTitle(REPLACE_EXISTING_TITLE_STR)
     box.setText(REPLACE_EXISTING_MESSAGE_STR.format(path=path_str))
@@ -855,7 +899,10 @@ def build_scrollable_list_box(parent, text_str: str, title_str: str,
     intro_layout.addWidget(icon_label)
     if intro_str:
         intro_label = QLabel(intro_str, dialog)
+        intro_label.setObjectName(SCROLLABLE_INTRO_OBJECT_NAME_STR)
         intro_label.setWordWrap(True)
+        # LLFR-01200, LLFR-01201: the sentence in bold too.
+        apply_message_text_style(intro_label, False)
         intro_layout.addWidget(intro_label, 1)
     else:
         # LLFR-01177: with no sentence, the icon stays on the left.

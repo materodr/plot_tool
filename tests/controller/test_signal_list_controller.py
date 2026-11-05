@@ -1161,6 +1161,47 @@ class FileCollapseTest(unittest.TestCase):
         self.assertEqual(self.view.file_row_list,
                          ["file1_a.csv", "file2_b.csv", "file3_c.csv"])
 
+    @covers("LLFR-01191", "HLFR-00123")
+    def test_row_double_click_without_search_toggles(self) -> None:
+        """With no search, a double-click on a file name row toggles the
+        file once, as its icon does.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.call_list = []
+        self.controller.on_file_row_double_clicked(2)
+        self.assertEqual(self.view.collapsed_number_set, {1, 3})
+        self.assertEqual(self.shown_dict()[2],
+                         ["file2_Time", "file2_voltage"])
+        self.controller.on_file_row_double_clicked(2)
+        self.assertEqual(self.view.collapsed_number_set, {1, 2, 3})
+        self.assertNotIn("clear_search", self.view.call_list)
+
+    @covers("LLFR-01203", "LLFR-01204", "LLFR-01004", "HLFR-00123",
+            "HLFR-00033")
+    def test_row_double_click_during_search_clears_and_shows(self) -> None:
+        """During a search, a double-click on a file name row clears the
+        search and shows that file's signals; the others go back to their
+        state of before the search.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.toggle_file(1)
+        self.view.type_text("speed")
+        # The user hid file 3 during the search: it does not matter.
+        self.controller.toggle_file(3)
+        self.controller.on_file_row_double_clicked(3)
+        self.assertIn("clear_search", self.view.call_list)
+        self.assertFalse(self.controller.is_searching())
+        self.assertEqual(self.view.collapsed_number_set, {2})
+        self.assertEqual(self.shown_dict()[3],
+                         ["file3_Time", "file3_Speed_rear"])
+        self.assertEqual(self.shown_dict()[1], [
+            "file1_Time", "file1_MaxSpeed", "file1_Speed"])
+        self.assertEqual(self.shown_dict()[2], [])
+
     @covers("LLFR-01002", "LLFR-01003", "LLFR-01004", "HLFR-00123",
             "HLFR-00033")
     def test_search_expands_and_then_restores(self) -> None:

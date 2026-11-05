@@ -476,10 +476,12 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.signal_name_list(), [])
 
-    @covers("LLFR-01191", "LLFR-01003", "HLFR-00123", "HLFR-00033")
+    @covers("LLFR-01203", "LLFR-01204", "LLFR-01004", "HLFR-00123",
+            "HLFR-00033")
     def test_double_click_during_a_search(self) -> None:
-        """During a search a double-click hides the matches of its file
-        until the search is cleared.
+        """During a search, a double-click on the text of a file name
+        row clears the search and shows the signals of that file; the
+        other file gets back its state of before the search.
 
         Inputs: none.
         Outputs: none.
@@ -487,12 +489,11 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.panel.search_box.setText("o")
         self.application.processEvents()
         self.assertEqual(self.icons(), ["[-]", "[-]"])
-        self.double_click(self.text_point(FIRST_ROW_STR))
-        self.assertEqual(self.icons(), ["[+]", "[-]"])
-        self.assertEqual(self.panel.signal_name_list(), ["file2_Force"])
-        self.panel.search_box.setText("")
+        self.double_click(self.text_point(SECOND_ROW_STR))
         self.application.processEvents()
-        self.assertEqual(self.icons(), ["[+]", "[+]"])
+        self.assertEqual(self.panel.search_box.text(), "")
+        self.assertEqual(self.icons(), ["[+]", "[-]"])
+        self.assertEqual(self.panel.signal_name_list(), SECOND_SIGNAL_LIST)
 
     @covers("LLFR-01192", "LLFR-01006", "LLFR-00292", "HLFR-00123")
     def test_left_key_on_a_signal_row_goes_to_its_file_row(self) -> None:

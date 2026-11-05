@@ -449,6 +449,11 @@ class MainWindow(QMainWindow):
         panel.file_expand_toggled.connect(
             lambda number_i: self._run_signal_menu_handler(
                 "toggle_file", number_i))
+        # LLFR-01191, LLFR-01203, LLFR-01204: a double-click on a file
+        # name row.
+        panel.file_row_opened.connect(
+            lambda number_i: self._run_signal_menu_handler(
+                "open_file_row", number_i))
 
     def signal_list_panel_list(self) -> list:
         """Return every signal list panel, the main window's first.
@@ -1280,6 +1285,16 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00997, LLFR-00998: hide or show the signals of a file.
         self.signal_menu_handler_dict["toggle_file"] = handler
+
+    def set_file_row_handler(self, handler) -> None:
+        """Set the function called by a double-click on a file name row.
+
+        Inputs:
+            handler: function taking a file number.
+        Outputs: none.
+        """
+        # LLFR-01191, LLFR-01203, LLFR-01204.
+        self.signal_menu_handler_dict["open_file_row"] = handler
 
     def set_search_text_handler(self, handler) -> None:
         """Set the function called when the search box text changes.
