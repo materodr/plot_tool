@@ -28,7 +28,7 @@ from tests.view.test_text_notes_view import (
 
 from controller.plot_tools import (
     AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
-    NO_TOOL_STR, TEXT_TOOL_STR)
+    NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
 
 FILE_TEXT_STR = (
     "Time,speed,force\n"
@@ -322,25 +322,71 @@ class DoubleClickTextNoteTest(TextNoteWidgetTestCase):
                 self.assertFalse(self.editor.isVisible())
                 self.assertEqual(self.edit_list, [])
 
-    @covers("LLFR-01248", "LLFR-00825", "LLFR-00411", "LLFR-00081")
-    def test_double_click_with_the_flag_tool_places_then_edits(self) -> None:
-        """With the Flag tool, the first press of a double-click on a
-        note places the flag of the preview (LLFR-01248), and the second
-        press opens the field of "Edit".
+    def wait_double_click_interval(self) -> None:
+        """Process events until the double-click interval has passed.
 
         Inputs: none.
         Outputs: none.
         """
+        import time
+        from PyQt6.QtWidgets import QApplication
+        interval_s = (
+            QApplication.styleHints().mouseDoubleClickInterval() / 1000.0)
+        deadline_s = time.perf_counter() + interval_s + 0.15
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
+
+    @covers("LLFR-01253", "LLFR-00825", "LLFR-00411", "LLFR-01248")
+    def test_double_click_with_a_preview_tool_only_edits(self) -> None:
+        """With the Flag, Data tip, Delta X or Delta Y tool, a
+        double-click on a note opens the field of "Edit" and places,
+        pins and picks nothing, even after the double-click interval.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for tool_str in (MARKER_TOOL_STR, TIP_TOOL_STR, DELTA_X_TOOL_STR,
+                         DELTA_Y_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                self.plot_widget.set_text_notes([self.note_tuple])
+                self.plot_widget.set_plot_tool(tool_str)
+                self.draw()
+                self.marker_place_list.clear()
+                self.pin_list.clear()
+                self.delta_list.clear()
+                self.send("motion_notify_event", self.note_center())
+                self.double_click_display(self.note_center())
+                self.assertTrue(self.editor.isVisible())
+                self.assertEqual(self.plot_widget.editor_note_index_i, 0)
+                self.wait_double_click_interval()
+                self.assertEqual(self.marker_place_list, [])
+                self.assertEqual(self.pin_list, [])
+                self.assertEqual(self.delta_list, [])
+                self.type_and_press("", "Key_Escape")
+                self.assertEqual(self.edit_list, [])
+
+    @covers("LLFR-01253", "LLFR-01248", "LLFR-00081")
+    def test_single_click_with_the_flag_tool_places_the_flag(self) -> None:
+        """With the Flag tool, a single click on a note places the flag
+        once the double-click interval has passed, and opens no field.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.backend_bases import MouseButton
         self.plot_widget.set_text_notes([self.note_tuple])
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
         self.draw()
         self.marker_place_list.clear()
-        self.double_click_display(self.note_center())
+        self.send("motion_notify_event", self.note_center())
+        self.send("button_press_event", self.note_center(), MouseButton.LEFT)
+        self.send("button_release_event", self.note_center(),
+                  MouseButton.LEFT)
+        self.assertEqual(self.marker_place_list, [])
+        self.wait_double_click_interval()
         self.assertEqual(len(self.marker_place_list), 1)
-        self.assertTrue(self.editor.isVisible())
-        self.assertEqual(self.plot_widget.editor_note_index_i, 0)
-        self.type_and_press("", "Key_Escape")
-        self.assertEqual(self.edit_list, [])
+        self.assertFalse(self.editor.isVisible())
 
     @covers("LLFR-00411", "LLFR-00342", "LLFR-00746")
     def test_double_click_then_enter_edits_the_text(self) -> None:

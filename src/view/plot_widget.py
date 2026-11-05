@@ -1133,6 +1133,13 @@ class PlotWidget(QWidget):
         self.fast_drag_end_timer.setInterval(FAST_DRAG_END_DELAY_MS_I)
         self.fast_drag_end_timer.timeout.connect(
             self.end_fast_drag_if_released)
+        # LLFR-01253: a click on a text note where a preview is shown
+        # waits for the double-click interval; the click that waits is
+        # (widget point, tool, hover point) or ().
+        self.deferred_click_tuple = ()
+        self.deferred_click_timer = QTimer(self)
+        self.deferred_click_timer.setSingleShot(True)
+        self.deferred_click_timer.timeout.connect(self.run_deferred_click)
         self.preview_line = None
         self.preview_time_text = None
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
@@ -1377,6 +1384,9 @@ class PlotWidget(QWidget):
         """
         # LLFR-00042, LLFR-00045: tips only with the Tip tool.
         # LLFR-00078: click zoom only with the Zoom tool.
+        # LLFR-01253: a click of the previous tool that waits is dropped.
+        if str(tool_str) != self.plot_tool_str:
+            self.cancel_deferred_click()
         self.plot_tool_str = str(tool_str)
         if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
@@ -2885,6 +2895,10 @@ class PlotWidget(QWidget):
             return NO_PREVIEW_TIME_S
         if self.marker_at(widget_point) != NO_MARKER_ID_I:
             return NO_PREVIEW_TIME_S
+        # LLFR-01252: a click on a name label changes nothing
+        # (LLFR-00886), so no preview is shown there.
+        if self.name_label_tuple_at(widget_point):
+            return NO_PREVIEW_TIME_S
         return self.time_at(widget_point)
 
     def update_marker_preview(self, widget_point) -> None:
@@ -3486,6 +3500,9 @@ class PlotWidget(QWidget):
             marker or an arrow, the rename of that object is asked for,
             once control is back in Qt; anywhere else nothing happens.
         """
+        # LLFR-01253, LLFR-00825: a click of the first press that waits
+        # is dropped, so the double-click places nothing.
+        self.cancel_deferred_click()
         # LLFR-00411: the first press of the double-click grabbed the
         # note without moving it (LLFR-00339); a grab still held (its
         # release was lost) is dropped here, so the note keeps its place.
@@ -4933,7 +4950,10 @@ class PlotWidget(QWidget):
         # LLFR-01248: where the Flag, Data tip, Delta X or Delta Y tool
         # shows its preview, the press does what the preview shows, so a
         # text note or a pinned tip there is not grabbed.
-        if not self.preview_press_b(widget_point):
+        # LLFR-01253: a click that waits is done before this press.
+        self.flush_deferred_click()
+        preview_b = self.preview_press_b(widget_point)
+        if not preview_b:
             # LLFR-00383: text note first. LLFR-00339: a press on it
             # moves it, with any tool or none, and never pins, zooms,
             # places a flag, picks a delta point or starts a note.
@@ -5000,7 +5020,76 @@ class PlotWidget(QWidget):
         if self.name_label_tuple_at(widget_point):
             self.label_press_point = QPoint(widget_point)
             return
+        # LLFR-01253: on a text note, the click of LLFR-01248 waits, so
+        # that a double-click there only edits the note (LLFR-00825).
+        if (preview_b and self.text_note_at(widget_point)
+                != NO_TEXT_NOTE_INDEX_I):
+            self.defer_click(widget_point)
+            return
         self.click_at(widget_point)
+
+    def defer_click(self, widget_point) -> None:
+        """Wait for the double-click interval before a click on a note.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed on a text note.
+        Outputs: none. run_deferred_click does the click when the
+            interval of the operating system ends with no second press.
+        """
+        # LLFR-01253: the hover point is kept, so that the tip pinned is
+        # the one shown at the press (LLFR-00045).
+        self.deferred_click_tuple = (QPoint(widget_point),
+                                     self.plot_tool_str,
+                                     tuple(self.hover_point_tuple))
+        self.deferred_click_timer.start(
+            int(QApplication.styleHints().mouseDoubleClickInterval()))
+
+    def run_deferred_click(self) -> None:
+        """Do the click that waited for the double-click interval.
+
+        Inputs: none.
+        Outputs: none. Places the flag, pins the tip or picks the delta
+            point of the press, unless the widget was removed or the tool
+            changed meanwhile.
+        """
+        # LLFR-01253, LLFR-01248: no second press came, so the press
+        # does what the preview showed.
+        if sip.isdeleted(self) or not self.deferred_click_tuple:
+            return
+        widget_point, tool_str, hover_tuple = self.deferred_click_tuple
+        self.deferred_click_tuple = ()
+        if self.retired_b or tool_str != self.plot_tool_str:
+            return
+        if tool_str == TIP_TOOL_STR:
+            # LLFR-00045: the point of the hover tip shown at the press.
+            if hover_tuple:
+                self.tip_pin_requested.emit(*hover_tuple)
+            return
+        self.click_at(widget_point)
+
+    def flush_deferred_click(self) -> None:
+        """Do at once a click that waits, if any.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01253: another press, not a double-click, comes first.
+        if not self.deferred_click_tuple:
+            return
+        self.deferred_click_timer.stop()
+        self.run_deferred_click()
+
+    def cancel_deferred_click(self) -> None:
+        """Forget a click that waits, if any.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01253, LLFR-00825: the second press of a double-click on
+        # the note, or a change of tool, drops it: nothing is placed.
+        self.deferred_click_timer.stop()
+        self.deferred_click_tuple = ()
 
     def preview_press_b(self, widget_point) -> bool:
         """Tell whether a press at a point places what a preview shows.
@@ -5473,6 +5562,8 @@ class PlotWidget(QWidget):
         # LLFR-00339: so does a text note drag. LLFR-00333: an open text
         # field writes nothing on a removed plot.
         self.reset_note_drag()
+        # LLFR-01253: a click that waits does nothing on a removed plot.
+        self.cancel_deferred_click()
         self.retired_b = True
         self.close_text_note_editor()
         # LLFR-00203: a removed plot shows no preview.
@@ -7289,6 +7380,8 @@ class PlotWidget(QWidget):
         if event.button == MouseButton.LEFT:
             self.stop_tool_pan()
         if event.button == MouseButton.RIGHT:
+            # LLFR-01253: a click that waits is done before the menu.
+            self.flush_deferred_click()
             # LLFR-00117, LLFR-00086, LLFR-00152: a right press cancels a
             # pan or drag in progress before the menu logic runs.
             self.cancel_drags()
@@ -7557,6 +7650,10 @@ class PlotWidget(QWidget):
             return ()
         # LLFR-01238: the preview stays over a text note or a pinned tip,
         # where a press picks the point it shows (LLFR-01248).
+        # LLFR-01252: none over a name label, where a click changes
+        # nothing (LLFR-00886).
+        if self.name_label_tuple_at(widget_point):
+            return ()
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
         nearest_tuple = self.nearest_curve_tuple(widget_point)
         # LLFR-00432: where the second point would give a value of zero

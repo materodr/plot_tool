@@ -87,6 +87,22 @@ class DeltaPreviewWidgetTestCase(DeltaWidgetTestCase):
         send_mouse_event(self.plot_widget, "motion_notify_event",
                          *display_tuple, LEFT_BUTTON_I)
 
+    def wait_double_click_interval(self) -> None:
+        """Process events until the double-click interval has passed.
+
+        Inputs: none.
+        Outputs: none. A click on a text note that waits (LLFR-01253) is
+            done by then.
+        """
+        import time
+        from PyQt6.QtWidgets import QApplication
+        interval_s = (
+            QApplication.styleHints().mouseDoubleClickInterval() / 1000.0)
+        deadline_s = time.perf_counter() + interval_s + 0.15
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
+
     def note_box_center(self) -> tuple:
         """Return the center of the box of the first text note.
 
@@ -499,11 +515,12 @@ class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
         self.assertAlmostEqual(self.place_list[0][0], preview_s, delta=1e-9)
         self.assertEqual(self.tip_move_list, [])
 
-    @covers("LLFR-01248", "LLFR-00081", "LLFR-00339", "LLFR-00742",
-            "HLFR-00028")
+    @covers("LLFR-01248", "LLFR-01253", "LLFR-00081", "LLFR-00339",
+            "LLFR-00742", "HLFR-00028")
     def test_flag_placed_over_a_text_note(self) -> None:
-        """With the Flag tool, a press on a text note asks for the flag
-        of the preview and does not grab the note.
+        """With the Flag tool, a click on a text note asks for the flag
+        of the preview once the double-click interval has passed, and
+        does not grab the note.
 
         Inputs: none.
         Outputs: none.
@@ -512,13 +529,41 @@ class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
         self.hover_display(center_tuple)
         self.assertTrue(self.plot_widget.marker_preview_shown())
+        preview_s = self.plot_widget.marker_preview_time_s()
         self.press_release_display(center_tuple)
         self.assertEqual(self.press_note_index_i, -1)
+        # LLFR-01253: the click waits for the double-click interval.
+        self.assertEqual(self.place_list, [])
+        self.wait_double_click_interval()
         self.assertEqual(len(self.place_list), 1)
+        self.assertAlmostEqual(self.place_list[0][0], preview_s, delta=1e-9)
         self.assertEqual(self.note_move_list, [])
 
-    @covers("LLFR-01248", "LLFR-00045", "LLFR-00042", "LLFR-00742",
-            "HLFR-00025")
+    @covers("LLFR-01253", "LLFR-01248", "HLFR-00028")
+    def test_waiting_click_done_by_the_next_press(self) -> None:
+        """A click on a note that waits is done at once by another press
+        before the interval ends, and dropped by a change of tool.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_off_curves()
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.press_release_display(center_tuple)
+        self.assertEqual(self.place_list, [])
+        # Another press, away from the note: both flags at once.
+        other_tuple = (center_tuple[0] - 120.0, center_tuple[1])
+        self.press_release_display(other_tuple)
+        self.assertEqual(len(self.place_list), 2)
+        # A change of tool drops a click that waits.
+        self.place_list.clear()
+        self.press_release_display(center_tuple)
+        self.plot_widget.set_plot_tool(NO_TOOL_STR)
+        self.wait_double_click_interval()
+        self.assertEqual(self.place_list, [])
+
+    @covers("LLFR-01248", "LLFR-01253", "LLFR-00045", "LLFR-00042",
+            "LLFR-00742", "HLFR-00025")
     def test_tip_pinned_over_a_text_note(self) -> None:
         """With the Data tip tool, a press on a text note where the hover
         tip is shown pins that point and does not grab the note.
@@ -533,11 +578,16 @@ class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
         self.assertEqual(hover_tuple[0], "Level")
         self.press_release_display(center_tuple)
         self.assertEqual(self.press_note_index_i, -1)
+        # LLFR-01253: the point of the hover tip shown at the press, once
+        # the double-click interval has passed.
+        self.hover_display((center_tuple[0] + 25.0, center_tuple[1]))
+        self.assertEqual(self.pin_list, [])
+        self.wait_double_click_interval()
         self.assertEqual(self.pin_list, [hover_tuple])
         self.assertEqual(self.note_move_list, [])
 
-    @covers("LLFR-01248", "LLFR-00163", "LLFR-00352", "LLFR-00742",
-            "HLFR-00043", "HLFR-00044")
+    @covers("LLFR-01248", "LLFR-01253", "LLFR-00163", "LLFR-00352",
+            "LLFR-00742", "HLFR-00043", "HLFR-00044")
     def test_point_picked_over_a_text_note(self) -> None:
         """With a delta tool, a press on a text note where the dot is
         shown picks the point of the dot and does not grab the note.
@@ -555,6 +605,7 @@ class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
                 target_tuple = self.plot_widget.delta_preview_point_tuple
                 self.press_release_display(center_tuple)
                 self.assertEqual(self.press_note_index_i, -1)
+                self.wait_double_click_interval()
                 self.assertEqual(self.pick_list, [target_tuple])
                 self.assertEqual(target_tuple[0], "Level")
                 self.assertEqual(self.note_move_list, [])

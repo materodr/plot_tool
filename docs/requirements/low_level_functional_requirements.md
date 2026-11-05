@@ -4747,23 +4747,23 @@ While the user drags a flag (LLFR-00086), the app must update the flag's time va
 *Parent: HLFR-00029*
 
 ### LLFR-00203 Flag preview
-While the Flag button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing flag, the app must show a preview of the flag that a click would place on every time plot of every tab that is shown (LLFR-00665): a dashed vertical line at the time under the pointer, in a paler version of the reserved marker color (LLFR-00083), the color of a new flag, with its time value (LLFR-00092).
+While the Flag button (LLFR-00080) is active, including while the Shift key is held (LLFR-00154), and the mouse pointer is over a plot's drawing area but not over an existing flag, the app must show a preview of the flag that a click would place on every time plot of every tab that is shown (LLFR-00665): a dashed vertical line at the time under the pointer, in a paler version of the reserved marker color (LLFR-00083), the color of a new flag, with its time value (LLFR-00092), except as in LLFR-01252.
 
 Note: The tabs that are shown are the tab shown in the main window and the tab shown in each undocked window. The plots of the other tabs don't need the preview.
 
 *Parent: HLFR-00028*
 
 ### LLFR-01238 Previews over other objects
-The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow or a delta marker, except the flag preview over an existing flag (LLFR-00203) and the hover data tip over a pinned data tip (LLFR-01249).
+The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow or a delta marker, except the flag preview over an existing flag (LLFR-00203), the hover data tip over a pinned data tip (LLFR-01249), and the flag preview and the previews of a delta marker over the name in a label (LLFR-01252).
 
-Note: The owner asked on 2026-11-05 that previews take priority over the objects under the pointer. The preview shows what a click does: over a pinned data tip or a text note, a press where the flag preview, the hover data tip or the dot of a delta marker point is shown places what the preview shows (LLFR-01248). Over an existing flag the flag preview stays hidden, so that the flag can be grabbed (LLFR-00086), and over a pinned data tip the hover data tip stays hidden, so that the tip can be grabbed (LLFR-01249).
+Note: The owner asked on 2026-11-05 that previews take priority over the objects under the pointer. The preview shows what a click does: over a pinned data tip or a text note, a press where the flag preview, the hover data tip or the dot of a delta marker point is shown places what the preview shows (LLFR-01248). Over an existing flag the flag preview stays hidden, so that the flag can be grabbed (LLFR-00086), over a pinned data tip the hover data tip stays hidden, so that the tip can be grabbed (LLFR-01249), and over the name in a label the flag and delta previews stay hidden, because a click there changes nothing (LLFR-01252).
 
 *Parent: HLFR-00028, HLFR-00024, HLFR-00027, HLFR-00043, HLFR-00044, HLFR-00066, HLFR-00081*
 
 ### LLFR-01248 Press where a preview is shown
-While the Flag button, the Data tip button, the Delta X button or the Delta Y button is active and the user presses the left mouse button on a pinned data tip or a text note at a point where the active tool shows its preview (the flag preview of LLFR-00203, the hover data tip of LLFR-00042 or the dot of LLFR-00352), the app must act as for a press at that point with no pinned data tip and no text note drawn there: place the flag (LLFR-00081), pin the data tip (LLFR-00045) or pick the delta marker point (LLFR-00163, LLFR-00164).
+While the Flag button, the Data tip button, the Delta X button or the Delta Y button is active and the user presses the left mouse button on a pinned data tip or a text note at a point where the active tool shows its preview (the flag preview of LLFR-00203, the hover data tip of LLFR-00042 or the dot of LLFR-00352), the app must act as for a press at that point with no pinned data tip and no text note drawn there: place the flag (LLFR-00081), pin the data tip (LLFR-00045) or pick the delta marker point (LLFR-00163, LLFR-00164), except as in LLFR-01253.
 
-Note: The owner decided on 2026-11-05 that a click where a preview is shown places the previewed object, because the preview shows what a click does. The pinned data tip or the text note under the pointer is then not grabbed. An object of the active tool's own kind is still grabbed: a flag with the Flag button (LLFR-00086), where the flag preview is hidden (LLFR-00662), a pinned data tip with the Data tip button, where the hover data tip is hidden (LLFR-01249), and a dot of a delta marker with the Delta X or Delta Y button (LLFR-00433, LLFR-00866). The other previews of LLFR-01238 appear only after the press, so they don't change what the press grabs (LLFR-00383). The first press of a double-click is such a press, so a double-click on a text note with one of these buttons first places what the preview shows, then edits the note (LLFR-00411).
+Note: The owner decided on 2026-11-05 that a click where a preview is shown places the previewed object, because the preview shows what a click does. The pinned data tip or the text note under the pointer is then not grabbed. An object of the active tool's own kind is still grabbed: a flag with the Flag button (LLFR-00086), where the flag preview is hidden (LLFR-00662), a pinned data tip with the Data tip button, where the hover data tip is hidden (LLFR-01249), and a dot of a delta marker with the Delta X or Delta Y button (LLFR-00433, LLFR-00866). The other previews of LLFR-01238 appear only after the press, so they don't change what the press grabs (LLFR-00383). The previews are hidden over the name in a label (LLFR-01252), where a click changes nothing (LLFR-00886), so this rule never applies there. On a text note the click waits for the double-click interval (LLFR-01253), so that a double-click on the note only edits it (LLFR-00411, LLFR-00825).
 
 *Parent: HLFR-00028, HLFR-00025, HLFR-00043, HLFR-00044, HLFR-00032*
 
@@ -4771,6 +4771,20 @@ Note: The owner decided on 2026-11-05 that a click where a preview is shown plac
 While the Data tip button (LLFR-00018) is active and the mouse pointer is over a pinned data tip, the app must hide the hover data tip (LLFR-00042), so that the preview is not shown where a press moves the pinned data tip (LLFR-00153).
 
 *Parent: HLFR-00024, HLFR-00041*
+
+### LLFR-01252 Previews hidden over a name label
+While the Flag button, the Delta X button or the Delta Y button is active and the mouse pointer is over the name in the label of a flag, an area, a delta marker or an arrow (LLFR-00420), where a single click changes nothing (LLFR-00886), the app must hide the flag preview (LLFR-00203) and the previews of a delta marker (LLFR-00352, LLFR-00353).
+
+Note: The owner decided on 2026-11-05 that these previews hide there, so that they don't show an object that a click would not place. The hover data tip (LLFR-00042) stays shown there, because a drag of 5 pixels or more from the name pins the tip it shows (LLFR-00798).
+
+*Parent: HLFR-00028, HLFR-00043, HLFR-00044, HLFR-00094*
+
+### LLFR-01253 Click on a text note where a preview is shown
+When the user presses the left mouse button on a text note as in LLFR-01248, the app must do what LLFR-01248 says only once the double-click interval of the operating system has passed with no second press of a double-click, and then for the point of the first press and the hover data tip shown at that press.
+
+Note: The owner decided on 2026-11-05 that a double-click on a text note with the Flag, Delta X or Delta Y button only edits the note (LLFR-00411, LLFR-00825) and places nothing, while a single click still places the flag. Waiting was chosen over removing the object placed by the first click, so that nothing is drawn and then removed, and no undo step is made. The Data tip button follows the same rule, as LLFR-00825 asks. Another press or a right-click before the interval ends does the waiting click at once; a change of plot tool drops it.
+
+*Parent: HLFR-00028, HLFR-00025, HLFR-00043, HLFR-00044, HLFR-00075*
 
 ### LLFR-00662 Flag preview hidden
 The app must hide the flag preview (LLFR-00203) when the pointer leaves the plot's drawing area, moves over an existing flag, or the Flag button is deactivated.
@@ -5902,7 +5916,7 @@ A two-finger swipe that does not move more horizontally than vertically must onl
 *Parent: HLFR-00036, HLFR-00027*
 
 ### LLFR-00352 Preview of a delta marker point
-While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, including while the X or Y key is held (LLFR-00197, LLFR-00200), and the mouse pointer is over a curve where a click would take a first point (LLFR-00163, LLFR-00166), or over such a curve where an object of LLFR-01238 lies on it, the app must show a dot on the curve sample nearest to the pointer, in a paler version of the reserved marker color (LLFR-00083).
+While the Delta X button (LLFR-00161) or the Delta Y button (LLFR-00162) is active, including while the X or Y key is held (LLFR-00197, LLFR-00200), and the mouse pointer is over a curve where a click would take a first point (LLFR-00163, LLFR-00166), or over such a curve where an object of LLFR-01238 lies on it, the app must show a dot on the curve sample nearest to the pointer, in a paler version of the reserved marker color (LLFR-00083), except as in LLFR-01252.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -5912,7 +5926,7 @@ While the dot of LLFR-00352 is shown, the app must move it as the pointer moves.
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00353 Preview of a delta marker
-While a first point is picked (LLFR-00163) and the mouse pointer is over a curve in the same plot, the app must show a preview of the marker that a click would draw (LLFR-00164, LLFR-00682): a Delta X or Delta Y marker, according to the active button, between the first point and the curve sample nearest to the pointer, in a paler version of the reserved marker color, with its value (LLFR-00169, LLFR-00171, LLFR-00261) and without a label (LLFR-00427), except as in LLFR-00432.
+While a first point is picked (LLFR-00163) and the mouse pointer is over a curve in the same plot, the app must show a preview of the marker that a click would draw (LLFR-00164, LLFR-00682): a Delta X or Delta Y marker, according to the active button, between the first point and the curve sample nearest to the pointer, in a paler version of the reserved marker color, with its value (LLFR-00169, LLFR-00171, LLFR-00261) and without a label (LLFR-00427), except as in LLFR-00432 and LLFR-01252.
 
 *Parent: HLFR-00043, HLFR-00044*
 
@@ -6442,7 +6456,9 @@ When the user double-clicks a text note with the left mouse button, whether a pl
 *Parent: HLFR-00075*
 
 ### LLFR-00825 Double-click on a text note does nothing else
-When the user double-clicks a text note with the left mouse button, whether a plot tool is active or not, the app must not pin a data tip, zoom, pan, place a flag, create an area, start another text note, draw an arrow, pick a delta marker point, create a plot or do anything else besides LLFR-00411, except as in LLFR-01248 for its first press.
+When the user double-clicks a text note with the left mouse button, whether a plot tool is active or not, the app must not pin a data tip, zoom, pan, place a flag, create an area, start another text note, draw an arrow, pick a delta marker point, create a plot or do anything else besides LLFR-00411.
+
+Note: With the Flag, Data tip, Delta X or Delta Y button, the click of the first press waits for the double-click interval (LLFR-01253), so the double-click places nothing.
 
 *Parent: HLFR-00075*
 
