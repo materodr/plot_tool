@@ -87,6 +87,9 @@ ADD_BUTTON_WIDTH_I = theme.ADD_BUTTON_WIDTH_I
 # LLFR-00107: one declaration block for background, border and corners,
 # used by both the unselected tab rule and the "+" button rule.
 SHARED_TAB_SHAPE_STR = theme.SHARED_TAB_SHAPE_STR
+# LLFR-01211: the other plots of a dragged flag or area are drawn at
+# most once for this many milliseconds.
+DRAG_RELAY_INTERVAL_MS_I = 30
 # LLFR-00025: events of the tab bar after which the button is moved.
 TAB_BAR_EVENT_TUPLE = (QEvent.Type.Resize, QEvent.Type.Move,
                        QEvent.Type.LayoutRequest, QEvent.Type.Show)
@@ -463,6 +466,14 @@ class PlotPanel(QWidget):
         self.tab_drag_in_progress_b = False
         # LLFR-01202: the image of a dragged tab, shared by every window.
         self.tab_drag_preview = TabDragPreview()
+        # LLFR-01211: the latest place of a dragged flag or area that the
+        # other plots have not shown yet, and the timer that spaces their
+        # redraws.
+        self.pending_relay_tuple = ()
+        self.relay_timer = QTimer(self)
+        self.relay_timer.setSingleShot(True)
+        self.relay_timer.setInterval(DRAG_RELAY_INTERVAL_MS_I)
+        self.relay_timer.timeout.connect(self.flush_drag_relay)
         # LLFR-01097, LLFR-01114: the picker that is open, if any.
         self.open_picker = None
         # LLFR-01015: the undock button of each docked tab, and the
@@ -1561,6 +1572,8 @@ class PlotPanel(QWidget):
         """
         # LLFR-00081, LLFR-00086, LLFR-00091, LLFR-00112, LLFR-00205: the
         # same markers on every plot; hidden plots draw them when shown.
+        # LLFR-01211: a place of a drag not shown yet is out of date.
+        self.drop_drag_relay()
         for plot_widget in self.plot_widget_dict.values():
             plot_widget.set_markers(marker_data_list)
 
@@ -1575,6 +1588,8 @@ class PlotPanel(QWidget):
         # LLFR-00304, LLFR-00312, LLFR-00315, LLFR-00316, LLFR-00310: the
         # same areas on every plot; hidden plots draw them when shown;
         # LLFR-00311: a frequency plot leaves them out by itself.
+        # LLFR-01211: a place of a drag not shown yet is out of date.
+        self.drop_drag_relay()
         for plot_widget in self.plot_widget_dict.values():
             plot_widget.set_areas(area_data_list)
 
@@ -1635,8 +1650,9 @@ class PlotPanel(QWidget):
         # window and in every undocked window; LLFR-00710: the plots of
         # the other tabs get the new span when the button is released
         # (controller).
-        for plot_widget in self.shown_plot_widget_list(plot_id_i):
-            plot_widget.follow_area_drag(area_id_i, start_s, end_s)
+        # LLFR-01211: at most one redraw of the other plots per interval.
+        self.queue_drag_relay(("follow_area_drag", plot_id_i,
+                               (area_id_i, start_s, end_s)))
 
     def relay_marker_drag(self, plot_id_i: int, marker_id_i: int,
                           time_s: float) -> None:
@@ -1653,8 +1669,52 @@ class PlotPanel(QWidget):
         # and in every undocked window; LLFR-00666: the plots of the
         # other tabs get the new time when the button is released
         # (controller).
+        # LLFR-01211: at most one redraw of the other plots per interval.
+        self.queue_drag_relay(("follow_marker_drag", plot_id_i,
+                               (marker_id_i, time_s)))
+
+    def queue_drag_relay(self, relay_tuple: tuple) -> None:
+        """Show a dragged place on the other plots, spaced in time.
+
+        Inputs:
+            relay_tuple: (name of the PlotWidget method, id of the plot
+                where the object is dragged, arguments of the method).
+        Outputs: none. The first place is shown at once; the places that
+            come during the next DRAG_RELAY_INTERVAL_MS_I milliseconds
+            are merged, the latest shown when the interval ends.
+        """
+        # LLFR-01211: the latest place wins. Only a drag with the button
+        # held is spaced in time; a place sent with no button held (a
+        # cancelled drag putting the object back) is shown at once.
+        self.pending_relay_tuple = tuple(relay_tuple)
+        if not self.relay_timer.isActive() or not self.left_button_down():
+            self.flush_drag_relay()
+
+    def flush_drag_relay(self) -> None:
+        """Show the latest place of a dragged object on the other plots.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01211, LLFR-00205, LLFR-00310: the shown time plots of
+        # every window; the next redraw waits for the interval.
+        if not self.pending_relay_tuple:
+            return
+        method_name_str, plot_id_i, argument_tuple = self.pending_relay_tuple
+        self.pending_relay_tuple = ()
         for plot_widget in self.shown_plot_widget_list(plot_id_i):
-            plot_widget.follow_marker_drag(marker_id_i, time_s)
+            getattr(plot_widget, method_name_str)(*argument_tuple)
+        self.relay_timer.start()
+
+    def drop_drag_relay(self) -> None:
+        """Forget a place not shown yet, once the model has the result.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01211: the release shows the stored place on every plot.
+        self.pending_relay_tuple = ()
+        self.relay_timer.stop()
 
     def relay_marker_preview(self, plot_id_i: int, time_s: float) -> None:
         """Show the marker preview of the hovered plot on the others.

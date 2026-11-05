@@ -255,6 +255,11 @@ def plot_image_list(page) -> list:
     page_width_px = float(page.width())
     entry_list = []
     for plot_widget in page.plot_widget_list:
+        # LLFR-01209: a plot still drawn as during a drag draws all its
+        # objects again first.
+        forget_function = getattr(plot_widget, "forget_fast_drag", None)
+        if forget_function is not None:
+            forget_function()
         canvas = plot_widget.canvas
         top_left = canvas.mapTo(page, QPoint(0, 0))
         canvas_rect = QRectF(float(top_left.x()), float(top_left.y()),
