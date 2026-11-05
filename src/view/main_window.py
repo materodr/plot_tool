@@ -198,7 +198,7 @@ class MainWindow(QMainWindow):
         self.lower_splitter.setStretchFactor(0, self.PLOT_PANEL_STRETCH_I)
         self.lower_splitter.setStretchFactor(1, self.SIGNAL_LIST_STRETCH_I)
         # LLFR-00073: a comfortable handle to grab between the panels.
-        # LLFR-01185: the main window's panel has no signal list button;
+        # LLFR-01192: the main window's panel has no signal list button;
         # LLFR-01054: it is never hidden, and its splitter keeps it at
         # least 1 pixel wide, as no child of a PanelSplitter can be
         # collapsed.
@@ -2817,7 +2817,7 @@ class MainWindow(QMainWindow):
         Outputs: none. The two widths are scaled to the room there is,
             as Qt would scale them, and the signal list panel then leaves
             the plot panel at least 100 pixels of that room, so it is at
-            most the window's width minus 100 pixels (LLFR-01184).
+            most the window's width minus 100 pixels (LLFR-01191).
         """
         # LLFR-00230: the panel widths of a loaded layout; the start
         # widths of LLFR-00072 must not be applied over them later.
@@ -2829,7 +2829,7 @@ class MainWindow(QMainWindow):
             # LLFR-00230: the saved share of the room the panels have.
             list_width_i = max(int(round(
                 room_i * list_width_i / (plot_width_i + list_width_i))), 1)
-            # LLFR-01184: the plot panel keeps 100 pixels of the room the
+            # LLFR-01191: the plot panel keeps 100 pixels of the room the
             # panels have, which is narrower than the window, so the
             # window's limit holds too; LLFR-01054: the signal list
             # panel keeps at least 1 pixel.
@@ -2837,7 +2837,7 @@ class MainWindow(QMainWindow):
                                room_i - 1)
             plot_width_i = room_i - list_width_i
         else:
-            # LLFR-01184: the room is not known yet; the window is.
+            # LLFR-01191: the room is not known yet; the window is.
             list_width_i = fitted_panel_width_i(list_width_i, self.width())
         self.lower_splitter.setSizes([plot_width_i, list_width_i])
 
