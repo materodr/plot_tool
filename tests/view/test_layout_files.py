@@ -388,6 +388,19 @@ class LayoutEndToEndTestCase(unittest.TestCase):
         self.report_list = []
         self.main_window.show_layout_report = self.report_list.append
 
+    def restart_app(self) -> None:
+        """Close and delete the window, then start the app again.
+
+        Inputs: none.
+        Outputs: none. The old window is deleted before the new one is
+            made, so that no part of it is destroyed later, during a
+            garbage collection.
+        """
+        self.main_window.close()
+        self.main_window.deleteLater()
+        self.application.processEvents()
+        self.start_app()
+
     def tearDown(self) -> None:
         """Close the main window.
 
@@ -667,8 +680,7 @@ class LayoutOptionsViewTest(LayoutEndToEndTestCase):
             saved_dict = json.load(layout_file)
         self.assertEqual(saved_dict["data_files"][0]["relative_path"],
                          "first.csv")
-        self.main_window.close()
-        self.start_app()
+        self.restart_app()
         self.open_data_file(self.second_path_str)
         self.click_with_dialog_answer(
             self.main_window.top_panel.load_layout_button, layout_path_str)
@@ -712,8 +724,7 @@ class LayoutOptionsViewTest(LayoutEndToEndTestCase):
             self.click_with_dialog_answer(
                 self.main_window.top_panel.save_layout_button,
                 layout_path_str)
-        self.main_window.close()
-        self.start_app()
+        self.restart_app()
         self.assertEqual(
             len(self.controller.file_controller.data_files.file_list), 0)
         self.click_with_dialog_answer(
@@ -749,8 +760,7 @@ class LayoutOptionsViewTest(LayoutEndToEndTestCase):
             self.click_with_dialog_answer(
                 self.main_window.top_panel.save_layout_button,
                 layout_path_str)
-        self.main_window.close()
-        self.start_app()
+        self.restart_app()
         workspace = self.controller.plot_controller.workspace
         tab_name_list = [tab.name_str for tab in workspace.tab_list]
         self.box_record_list.clear()
