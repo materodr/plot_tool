@@ -189,6 +189,43 @@ class NewWindowDropControllerTest(WindowTabsControllerTestCase):
         self.assertEqual(self.window_of(second_id_i), new_window_id_i)
         self.assertNotIn(old_window_id_i, self.view.window_tabs_dict)
 
+    @covers("LLFR-01184", "LLFR-01167", "LLFR-01016", "HLFR-00126",
+            "HLFR-00127", "HLFR-00124")
+    def test_drop_outside_keeps_the_size_of_its_window(self) -> None:
+        """A tab dropped outside the app gets the size its window has at
+        the drop (after the user resized it), at the drop point; the
+        window it came from keeps its size after an undo; an undock from
+        the main window still gets the plot panel's size.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.double_click("s1")
+        second_id_i = self.add_tab()
+        self.double_click("s1")
+        third_id_i = self.add_tab()
+        self.undock(second_id_i)
+        old_window_id_i = self.window_of(second_id_i)
+        # The user resizes the window: only the view knows its new size.
+        self.view.window_dict[second_id_i][0] = (100, 120, 700, 450)
+        self.drop_outside(second_id_i, 1500, 70)
+        self.assertEqual(self.view.window_dict[second_id_i][0],
+                         (1500, 70, 700, 450))
+        self.assertIn(("dropped_window_tuple", 1500, 70),
+                      self.view.call_list)
+        self.undo()
+        self.assertEqual(self.window_of(second_id_i), old_window_id_i)
+        self.assertEqual(self.view.window_dict[second_id_i][0],
+                         (100, 120, 700, 450))
+        # LLFR-01016: a tab of the main window dropped outside the plot
+        # panel gets the size of the plot panel (new_window_answer_tuple).
+        self.view.handler_dict["undock_drop_handler"](third_id_i, 300, 40)
+        self.assertEqual(self.view.window_dict[third_id_i][0],
+                         (300, 40) + tuple(
+                             self.view.new_window_answer_tuple[2:]))
+        self.assertNotEqual(tuple(self.view.new_window_answer_tuple[2:]),
+                            (700, 450))
+
     @covers("LLFR-01167", "LLFR-01168", "LLFR-01156", "HLFR-00126",
             "HLFR-00127")
     def test_one_of_two_tabs_dropped_outside(self) -> None:

@@ -1461,7 +1461,7 @@ class Tab:
 
 # LLFR-01051: the share of an undocked window that its signal list
 # panel takes the first time it is shown.
-FIRST_PANEL_WIDTH_FRACTION_F = 0.25
+FIRST_PANEL_WIDTH_FRACTION_F = 0.20
 
 
 def first_panel_width_i(main_panel_width_i: int, window_width_i: int) -> int:
@@ -1473,11 +1473,12 @@ def first_panel_width_i(main_panel_width_i: int, window_width_i: int) -> int:
             window's width is unknown.
         window_width_i: width of the undocked window, in pixels (0 when
             unknown).
-    Outputs: 25% of the window's width, rounded to whole pixels, or the
+    Outputs: 20% of the window's width, rounded to whole pixels, or the
         main panel's width when the window's width is unknown; at least
         1 pixel.
     """
-    # LLFR-01051: a quarter of the undocked window's width.
+    # LLFR-01051: 20% of the undocked window's width, as the main
+    # window's panel starts at 20% of its window (LLFR-00072).
     if int(window_width_i) > 1:
         return max(int(round(int(window_width_i)
                              * FIRST_PANEL_WIDTH_FRACTION_F)), 1)
@@ -2137,7 +2138,7 @@ class Workspace:
         if tab is None or not tab.undocked_b:
             return False
         # LLFR-01167, LLFR-01020: the tab keeps all it holds, in a window
-        # of a new id, at the drop point, with the size of LLFR-01016.
+        # of a new id, at the drop point, with the size of LLFR-01184.
         tab.window_id_i = self.next_window_id_i
         self.next_window_id_i += 1
         tab.window_shown_b = True

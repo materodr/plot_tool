@@ -271,7 +271,7 @@ class UndockUndoTest(UndockControllerTestCase):
         self.assertEqual(self.view.window_dict, {})
         self.undo()
         self.assertEqual(self.view.window_dict[first_id_i],
-                         [(40, 50, 800, 400), True, 225])
+                         [(40, 50, 800, 400), True, 180])
 
     @covers("LLFR-01073", "LLFR-01074", "LLFR-01068", "LLFR-01069",
             "LLFR-01145", "HLFR-00139", "HLFR-00016")
@@ -338,7 +338,7 @@ class WindowPanelTest(UndockControllerTestCase):
     @covers("LLFR-01047", "LLFR-01048", "LLFR-01051", "LLFR-01053",
             "HLFR-00130")
     def test_show_and_hide_with_first_width(self) -> None:
-        """The first show gives 25% of the window's width; hiding and
+        """The first show gives 20% of the window's width; hiding and
         showing keep the width and are undoable.
 
         Inputs: none.
@@ -350,7 +350,7 @@ class WindowPanelTest(UndockControllerTestCase):
         self.undock(first_id_i)
         toggle = self.view.handler_dict["panel_toggle_handler"]
         toggle(self.window_of(first_id_i))
-        self.assertEqual(self.view.window_dict[first_id_i][1:], [True, 100])
+        self.assertEqual(self.view.window_dict[first_id_i][1:], [True, 80])
         self.view.window_dict[first_id_i][2] = 150
         toggle(self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][1:],
@@ -364,8 +364,8 @@ class WindowPanelTest(UndockControllerTestCase):
         self.assertTrue(self.view.window_dict[first_id_i][1])
 
     @covers("LLFR-01051")
-    def test_first_width_is_a_quarter_of_the_window(self) -> None:
-        """A 900 pixel wide window gets a 225 pixel panel, whatever the
+    def test_first_width_is_a_fifth_of_the_window(self) -> None:
+        """A 900 pixel wide window gets a 180 pixel panel, whatever the
         main panel's width (240).
 
         Inputs: none.
@@ -376,7 +376,7 @@ class WindowPanelTest(UndockControllerTestCase):
         self.undock(first_id_i)
         self.view.handler_dict["panel_toggle_handler"](
             self.window_of(first_id_i))
-        self.assertEqual(self.view.window_dict[first_id_i][2], 225)
+        self.assertEqual(self.view.window_dict[first_id_i][2], 180)
 
     @covers("LLFR-01055", "LLFR-00138", "HLFR-00132", "HLFR-00026")
     def test_main_panel_drag_is_undoable(self) -> None:
@@ -641,7 +641,7 @@ class SearchShortcutPanelTest(UndockControllerTestCase):
         show = self.view.handler_dict["panel_show_handler"]
         show(self.window_of(first_id_i))
         self.assertEqual(self.view.window_dict[first_id_i][1:],
-                         [True, 225])
+                         [True, 180])
         self.assertEqual(self.controller.undo_history.depth(), 1)
         show(self.window_of(first_id_i))
         show(-1)
