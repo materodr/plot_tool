@@ -1519,11 +1519,13 @@ class HiddenSignalsInEveryPanelTest(UndockedWindowTestCase):
             self.assertEqual(panel.file_row_icon_text("file2_b.csv"),
                              "[+]")
 
-    @covers("LLFR-01194", "LLFR-01192", "LLFR-01036", "LLFR-01037",
-            "HLFR-00128", "HLFR-00123", "HLFR-00053")
+    @covers("LLFR-01194", "LLFR-01040", "LLFR-01192", "LLFR-01036",
+            "LLFR-01037", "HLFR-00128", "HLFR-00123", "HLFR-00053",
+            "HLFR-00063")
     def test_selection_and_left_key_in_every_panel(self) -> None:
-        """A new signal is selected alone in every panel, and Left on a
-        signal row of a window's panel goes to its file name row.
+        """A new signal is selected alone only in the panel whose menu
+        created it, and Left on a signal row of a window's panel goes to
+        its file name row.
 
         Inputs: none.
         Outputs: none.
@@ -1538,17 +1540,67 @@ class HiddenSignalsInEveryPanelTest(UndockedWindowTestCase):
         self.process_events()
         panel_list = [self.main_window.signal_list_panel,
                       window.signal_list_panel]
+        panel_list[0].signal_list_widget.select_only(
+            panel_list[0].signal_list_widget.row_items("signal")[0])
         panel_list[1].signal_list_widget.select_only(
             panel_list[1].signal_list_widget.row_items("signal")[2])
+        # A creation started from the window's panel: the controller
+        # selects the new signal while the creation runs (LLFR-01194).
+        selected_list = []
+
+        def create(name_str: str, operation_str: str) -> None:
+            """Stand-in for the synthetic controller's creation.
+
+            Inputs:
+                name_str: the right-clicked signal name.
+                operation_str: the operation id.
+            Outputs: none. The right-clicked name is selected as if it
+                were the new signal.
+            """
+            selected_list.append(self.main_window.creating_panel)
+            self.main_window.select_only_signal(name_str)
+
+        with mock.patch.dict(self.main_window.signal_menu_handler_dict,
+                             {"create": create}):
+            panel_list[1].synthetic_operation_requested.emit(
+                "file1_Speed", "integral")
+            self.assertEqual(selected_list, [panel_list[1]])
+            self.assertEqual(panel_list[1].selected_signal_names(),
+                             ["file1_Speed"])
+            self.assertEqual(
+                panel_list[1].signal_list_widget.currentItem().text(),
+                "file1_Speed")
+            # LLFR-01040: the main window's panel keeps its selection.
+            self.assertEqual(panel_list[0].selected_signal_names(),
+                             ["file1_Time"])
+            # From the main window's panel, the window's panel keeps
+            # its own selection.
+            panel_list[0].synthetic_operation_requested.emit(
+                "file2_Time", "integral")
+            self.assertEqual(selected_list[-1], panel_list[0])
+            self.assertEqual(panel_list[0].selected_signal_names(),
+                             ["file2_Time"])
+            self.assertEqual(panel_list[1].selected_signal_names(),
+                             ["file1_Speed"])
+        self.assertIsNone(self.main_window.creating_panel)
+        # With no creation under way, the main window's panel selects.
         self.main_window.select_only_signal("file1_Speed")
-        for panel in panel_list:
-            self.assertEqual(panel.selected_signal_names(), ["file1_Speed"])
-            self.assertEqual(panel.signal_list_widget.currentItem().text(),
-                             "file1_Speed")
-        # A name that a panel doesn't show changes nothing there.
+        self.assertEqual(panel_list[0].selected_signal_names(),
+                         ["file1_Speed"])
+        self.assertEqual(panel_list[1].selected_signal_names(),
+                         ["file1_Speed"])
+        # A name that the panel doesn't show changes nothing there.
         self.main_window.select_only_signal("file3_x")
-        for panel in panel_list:
-            self.assertEqual(panel.selected_signal_names(), ["file1_Speed"])
+        self.assertEqual(panel_list[0].selected_signal_names(),
+                         ["file1_Speed"])
+        # A handler that fails still ends the creation.
+        with mock.patch.dict(self.main_window.signal_menu_handler_dict,
+                             {"create": mock.Mock(
+                                 side_effect=RuntimeError("test"))}):
+            with self.assertRaises(RuntimeError):
+                self.main_window._create_from_panel(
+                    panel_list[1], "file1_Speed", "integral")
+        self.assertIsNone(self.main_window.creating_panel)
         widget = window.signal_list_panel.signal_list_widget
         for item in widget.row_items("signal"):
             if item.text() == "file2_Time":

@@ -830,6 +830,63 @@ class MultiSelectMainWindowTest(unittest.TestCase):
                          ["file1_force", "file1_temperature",
                           "file1_int_speed"])
 
+    @covers("LLFR-01194", "LLFR-01040", "LLFR-01036", "LLFR-00242",
+            "HLFR-00063", "HLFR-00053", "HLFR-00128")
+    def test_new_signal_selected_only_in_the_window_of_the_menu(
+            self) -> None:
+        """A new synthetic signal is selected only in the panel whose
+        signal menu created it; the other window keeps its selection.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        plot_panel = self.main_window.plot_panel
+        self.main_window.show()
+        plot_panel.add_tab_button.click()
+        self.application.processEvents()
+        second_id_i = plot_panel.current_tab_id()
+        self.main_window.signal_double_click_handler("file1_speed")
+        self.application.processEvents()
+        plot_panel.undock_button_of(second_id_i).click()
+        self.application.processEvents()
+        window = self.main_window.window_of_tab(second_id_i)
+        try:
+            self.assertIsNotNone(window)
+            window_panel = window.signal_list_panel
+            window_widget = window_panel.signal_list_widget
+            self.click_name("file1_force")
+            for item in window_widget.row_items("signal"):
+                if item.text() == "file1_temperature":
+                    window_widget.select_only(item)
+            # The menu of the window's panel: only that panel selects
+            # the new signal (LLFR-01194); the main window's panel keeps
+            # its own selection (LLFR-01040).
+            window_panel.synthetic_operation_requested.emit("file1_speed",
+                                                            "integral")
+            self.application.processEvents()
+            self.assertEqual(window_panel.signal_name_list()[-1],
+                             "file1_int_speed")
+            self.assertEqual(self.panel.signal_name_list()[-1],
+                             "file1_int_speed")
+            self.assertEqual(window_panel.selected_signal_names(),
+                             ["file1_int_speed"])
+            self.assertEqual(window_widget.currentItem().text(),
+                             "file1_int_speed")
+            self.assertEqual(self.selected(), ["file1_force"])
+            # The menu of the main window's panel: the window's panel
+            # keeps the signal it selected before.
+            self.panel.synthetic_operation_requested.emit("file1_force",
+                                                          "integral")
+            self.application.processEvents()
+            self.assertEqual(self.selected(), ["file1_int_force"])
+            self.assertEqual(window_panel.selected_signal_names(),
+                             ["file1_int_speed"])
+            # No creation is under way any more.
+            self.assertIsNone(self.main_window.creating_panel)
+        finally:
+            self.main_window.close_all_undocked_windows()
+            self.application.processEvents()
+
     @covers("LLFR-00292", "LLFR-00266", "HLFR-00063", "HLFR-00060")
     def test_renamed_synthetic_signal_stays_selected(self) -> None:
         """Renaming a selected synthetic signal keeps it selected.

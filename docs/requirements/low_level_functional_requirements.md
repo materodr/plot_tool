@@ -2542,7 +2542,7 @@ The app must let the user drag signals from the signal list panel of any window 
 *Parent: HLFR-00128, HLFR-00013, HLFR-00065*
 
 ### LLFR-01040 Own selection in each panel
-Each signal list panel must keep its own selection of signals (LLFR-00290, LLFR-00625, LLFR-00626), so that selecting signals in one panel leaves the selection of the other panels unchanged, except as in LLFR-01194.
+Each signal list panel must keep its own selection of signals (LLFR-00290, LLFR-00625, LLFR-00626), so that selecting signals in one panel leaves the selection of the other panels unchanged.
 
 Note: The Enter key (LLFR-00295) uses the selection of the panel that has the keyboard focus.
 
@@ -3864,9 +3864,9 @@ Note: The synthetic signals that a layout file creates (LLFR-00262) leave every 
 *Parent: HLFR-00123, HLFR-00053*
 
 ### LLFR-01194 New synthetic signal selected
-When the user creates a synthetic signal from the signal menu (LLFR-00239), the app must select the new synthetic signal alone, deselecting every other signal, in each signal list panel that shows it (LLFR-01036).
+When the user creates a synthetic signal from the signal menu (LLFR-00239), the app must select the new synthetic signal alone, deselecting every other signal, only in the signal list panel whose signal menu the user used, so that every other signal list panel (LLFR-01036) keeps its own selection (LLFR-01040).
 
-Note: A panel whose search text the new signal does not match (LLFR-00095) keeps its selection. The synthetic signals that a layout file creates (LLFR-00262) select nothing.
+Note: When the new signal does not match the search text (LLFR-00095), that panel keeps its selection too. The synthetic signals that a layout file creates (LLFR-00262) select nothing.
 
 *Parent: HLFR-00053, HLFR-00063*
 
