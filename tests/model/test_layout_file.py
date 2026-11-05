@@ -1004,8 +1004,8 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
                           for flag_dict in flag_list],
                          [("Flag 1", 1.0), ("Flag 2", 2.5)])
         for flag_dict in flag_list:
-            self.assertEqual(sorted(flag_dict), ["color", "line_style", "name",
-                                             "time", "width"])
+            self.assertEqual(sorted(flag_dict), [
+                "color", "line_style", "name", "time", "width"])
             self.assertRegex(flag_dict["color"], r"^#[0-9a-f]{6}$")
         # LLFR-00083: a new flag has the reserved marker color.
         self.assertEqual(flag_list[1]["color"], "#ff8000")
