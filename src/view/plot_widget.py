@@ -1135,7 +1135,7 @@ class PlotWidget(QWidget):
             self.end_fast_drag_if_released)
         # LLFR-01253: a click on a text note where a preview is shown
         # waits for the double-click interval; the click that waits is
-        # (widget point, tool, hover point) or ().
+        # (tool, target shown by the preview at the press) or ().
         self.deferred_click_tuple = ()
         self.deferred_click_timer = QTimer(self)
         self.deferred_click_timer.setSingleShot(True)
@@ -1384,9 +1384,10 @@ class PlotWidget(QWidget):
         """
         # LLFR-00042, LLFR-00045: tips only with the Tip tool.
         # LLFR-00078: click zoom only with the Zoom tool.
-        # LLFR-01253: a click of the previous tool that waits is dropped.
+        # LLFR-01254: a click of the previous tool that waits is done at
+        # once, while the widget still has that tool.
         if str(tool_str) != self.plot_tool_str:
-            self.cancel_deferred_click()
+            self.flush_deferred_click()
         self.plot_tool_str = str(tool_str)
         if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
@@ -4950,7 +4951,7 @@ class PlotWidget(QWidget):
         # LLFR-01248: where the Flag, Data tip, Delta X or Delta Y tool
         # shows its preview, the press does what the preview shows, so a
         # text note or a pinned tip there is not grabbed.
-        # LLFR-01253: a click that waits is done before this press.
+        # LLFR-01254: a click that waits is done before this press.
         self.flush_deferred_click()
         preview_b = self.preview_press_b(widget_point)
         if not preview_b:
@@ -5037,11 +5038,19 @@ class PlotWidget(QWidget):
         Outputs: none. run_deferred_click does the click when the
             interval of the operating system ends with no second press.
         """
-        # LLFR-01253: the hover point is kept, so that the tip pinned is
-        # the one shown at the press (LLFR-00045).
-        self.deferred_click_tuple = (QPoint(widget_point),
-                                     self.plot_tool_str,
-                                     tuple(self.hover_point_tuple))
+        # LLFR-01253: what the preview shows at the press is kept, so
+        # that a zoom, a pan or a reset of the zoom during the wait
+        # changes nothing: the time of the flag preview (LLFR-00203), the
+        # point of the hover tip (LLFR-00042) or the sample of the delta
+        # dot (LLFR-00352).
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            target_tuple = (self.marker_preview_time_at(widget_point),)
+        elif self.plot_tool_str == TIP_TOOL_STR:
+            target_tuple = tuple(self.hover_point_tuple)
+        else:
+            target_tuple = tuple(self.delta_preview_target_tuple(
+                widget_point))
+        self.deferred_click_tuple = (self.plot_tool_str, target_tuple)
         self.deferred_click_timer.start(
             int(QApplication.styleHints().mouseDoubleClickInterval()))
 
@@ -5049,24 +5058,33 @@ class PlotWidget(QWidget):
         """Do the click that waited for the double-click interval.
 
         Inputs: none.
-        Outputs: none. Places the flag, pins the tip or picks the delta
-            point of the press, unless the widget was removed or the tool
-            changed meanwhile.
+        Outputs: none. Asks for the flag, the pinned tip or the delta
+            point that the preview showed at the press, as the last step,
+            unless the widget was removed or the tool changed meanwhile.
         """
         # LLFR-01253, LLFR-01248: no second press came, so the press
         # does what the preview showed.
         if sip.isdeleted(self) or not self.deferred_click_tuple:
             return
-        widget_point, tool_str, hover_tuple = self.deferred_click_tuple
+        tool_str, target_tuple = self.deferred_click_tuple
         self.deferred_click_tuple = ()
         if self.retired_b or tool_str != self.plot_tool_str:
             return
+        if tool_str == MARKER_TOOL_STR:
+            # LLFR-00081: the time of the flag preview of the press.
+            if target_tuple and math.isfinite(target_tuple[0]):
+                self.marker_place_requested.emit(float(target_tuple[0]))
+            return
+        if len(target_tuple) != 3:
+            return
         if tool_str == TIP_TOOL_STR:
             # LLFR-00045: the point of the hover tip shown at the press.
-            if hover_tuple:
-                self.tip_pin_requested.emit(*hover_tuple)
+            self.tip_pin_requested.emit(*target_tuple)
             return
-        self.click_at(widget_point)
+        # LLFR-00163, LLFR-00164: the sample of the dot of the press.
+        self.delta_point_picked.emit(str(target_tuple[0]),
+                                     float(target_tuple[1]),
+                                     float(target_tuple[2]))
 
     def flush_deferred_click(self) -> None:
         """Do at once a click that waits, if any.
@@ -5074,7 +5092,8 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01253: another press, not a double-click, comes first.
+        # LLFR-01254: a press, not the second of a double-click, or a
+        # change of plot tool comes first.
         if not self.deferred_click_tuple:
             return
         self.deferred_click_timer.stop()
@@ -5087,7 +5106,8 @@ class PlotWidget(QWidget):
         Outputs: none.
         """
         # LLFR-01253, LLFR-00825: the second press of a double-click on
-        # the note, or a change of tool, drops it: nothing is placed.
+        # the note drops it, so nothing is placed; so does a removed
+        # plot.
         self.deferred_click_timer.stop()
         self.deferred_click_tuple = ()
 
@@ -7371,6 +7391,8 @@ class PlotWidget(QWidget):
         # LLFR-00117: the wheel button starts a pan, with any tool, and
         # never zooms, pins, places or grabs a marker, or opens a menu.
         if event.button == MouseButton.MIDDLE:
+            # LLFR-01254: a click that waits is done before the pan.
+            self.flush_deferred_click()
             # LLFR-00356: not during a pan of the Pan tool.
             if not self.is_tool_pan_b():
                 self.pan_press_at(widget_point)
@@ -7380,7 +7402,7 @@ class PlotWidget(QWidget):
         if event.button == MouseButton.LEFT:
             self.stop_tool_pan()
         if event.button == MouseButton.RIGHT:
-            # LLFR-01253: a click that waits is done before the menu.
+            # LLFR-01254: a click that waits is done before the menu.
             self.flush_deferred_click()
             # LLFR-00117, LLFR-00086, LLFR-00152: a right press cancels a
             # pan or drag in progress before the menu logic runs.

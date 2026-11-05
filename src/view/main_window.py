@@ -1760,6 +1760,18 @@ class MainWindow(QMainWindow):
         # every change of the plot tool.
         self.plot_tool_handler = handler
 
+    def flush_waiting_clicks(self) -> None:
+        """Do at once the click that waits on a text note, if any.
+
+        Inputs: none.
+        Outputs: none. Called before the plot tool changes, while the
+            controller still has the tool of that click.
+        """
+        # LLFR-01254: a change of plot tool does the waiting click of
+        # LLFR-01253 at once, on every plot of every window.
+        for plot_widget in list(self.plot_panel.plot_widget_dict.values()):
+            plot_widget.flush_deferred_click()
+
     def set_plot_tool(self, tool_str: str) -> None:
         """Apply a plot tool to every plot, now and to plots made later.
 

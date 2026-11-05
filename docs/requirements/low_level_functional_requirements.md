@@ -4780,9 +4780,16 @@ Note: The owner decided on 2026-11-05 that these previews hide there, so that th
 *Parent: HLFR-00028, HLFR-00043, HLFR-00044, HLFR-00094*
 
 ### LLFR-01253 Click on a text note where a preview is shown
-When the user presses the left mouse button on a text note as in LLFR-01248, the app must do what LLFR-01248 says only once the double-click interval of the operating system has passed with no second press of a double-click, and then for the point of the first press and the hover data tip shown at that press.
+When the user presses the left mouse button on a text note as in LLFR-01248, the app must do what LLFR-01248 says only once the double-click interval of the operating system has passed with no second press of a double-click, except as in LLFR-01254, and then for what the preview showed at that press: the time of the flag preview, the point of the hover data tip or the sample of the delta marker dot, even when the shown x-axis range changed meanwhile.
 
-Note: The owner decided on 2026-11-05 that a double-click on a text note with the Flag, Delta X or Delta Y button only edits the note (LLFR-00411, LLFR-00825) and places nothing, while a single click still places the flag. Waiting was chosen over removing the object placed by the first click, so that nothing is drawn and then removed, and no undo step is made. The Data tip button follows the same rule, as LLFR-00825 asks. Another press or a right-click before the interval ends does the waiting click at once; a change of plot tool drops it.
+Note: The owner decided on 2026-11-05 that a double-click on a text note with the Flag, Delta X or Delta Y button only edits the note (LLFR-00411, LLFR-00825) and places nothing, while a single click still places the flag. Waiting was chosen over removing the object placed by the first click, so that nothing is drawn and then removed, and no undo step is made. The Data tip button follows the same rule, as LLFR-00825 asks. The owner decided the same day that the object lands exactly where the preview showed it, so that a zoom, a pan or a reset of the zoom during the wait doesn't move it.
+
+*Parent: HLFR-00028, HLFR-00025, HLFR-00043, HLFR-00044, HLFR-00075*
+
+### LLFR-01254 Waiting click done at once
+When the user presses a mouse button, other than the second press of a double-click, or the plot tool changes, while a click of LLFR-01253 waits, the app must do that click at once, for what the preview showed at its press, before it handles the press or the new plot tool.
+
+Note: The owner decided on 2026-11-05 that a press, a right-click or a change of plot tool does the waiting click at once. For example, a click on a text note with the Shift key held places the flag even when the key is released before the double-click interval ends (LLFR-00155).
 
 *Parent: HLFR-00028, HLFR-00025, HLFR-00043, HLFR-00044, HLFR-00075*
 
