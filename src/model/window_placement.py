@@ -14,6 +14,9 @@ position and size to give the window.
   (LLFR-01083).
 - A window larger than the available area of the screen it is placed on
   is made smaller to fit it (LLFR-01084).
+- A signal list panel shown at a width from a layout file or at a width
+  it had before is at most its window's width minus 100 pixels, so that
+  the plot panel keeps room (LLFR-01195).
 """
 
 # LLFR-01128: the offset of a new undocked window from the plot panel.
@@ -22,6 +25,8 @@ NEW_WINDOW_OFFSET_I = 30
 MINIMUM_TOP_EDGE_ON_SCREEN_I = 100
 # LLFR-01081: the smallest usable size of a window or a panel.
 MINIMUM_WINDOW_SIZE_I = 1
+# LLFR-01195: the room a signal list panel leaves to the plot panel.
+MINIMUM_PLOT_PANEL_ROOM_I = 100
 
 
 def new_window_tuple(plot_panel_tuple: tuple) -> tuple:
@@ -131,3 +136,24 @@ def placed_window_tuple(window_tuple: tuple, screen_list: list,
     return nearest_inside_tuple(
         limited_size_tuple(window_tuple, main_screen_tuple),
         main_screen_tuple)
+
+
+def fitted_panel_width_i(panel_width_i: int, window_width_i: int) -> int:
+    """Return a signal list panel width that its window can hold.
+
+    Inputs:
+        panel_width_i: the width the panel would get, in pixels.
+        window_width_i: the width of its window, in pixels (0 or less
+            when unknown).
+    Outputs: panel_width_i, but at most the larger of window_width_i
+        minus 100 pixels and 1 pixel; panel_width_i unchanged (at least
+        1 pixel) when the window's width is unknown.
+    """
+    # LLFR-01195: the plot panel keeps room; LLFR-01054, LLFR-01081: the
+    # panel keeps at least 1 pixel.
+    width_i = max(int(panel_width_i), MINIMUM_WINDOW_SIZE_I)
+    if int(window_width_i) < 1:
+        return width_i
+    largest_i = max(int(window_width_i) - MINIMUM_PLOT_PANEL_ROOM_I,
+                    MINIMUM_WINDOW_SIZE_I)
+    return min(width_i, largest_i)

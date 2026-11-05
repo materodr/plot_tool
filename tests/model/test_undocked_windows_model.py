@@ -18,7 +18,8 @@ from tests.support import covers
 
 from model.layout_file import (
     build_layout_dict, layout_text, parse_layout_text, rebuild_layout)
-from model.window_placement import new_window_tuple, placed_window_tuple
+from model.window_placement import (
+    fitted_panel_width_i, new_window_tuple, placed_window_tuple)
 from model.workspace import Workspace, first_panel_width_i
 
 # Two screens side by side, the second one higher than the first.
@@ -38,6 +39,31 @@ class WindowPlacementTest(unittest.TestCase):
         """
         self.assertEqual(new_window_tuple((12, 90, 950, 640)),
                          (42, 120, 950, 640))
+
+    @covers("LLFR-01195", "LLFR-01054", "HLFR-00050", "HLFR-00141",
+            "HLFR-00130")
+    def test_panel_width_fitted_to_its_window(self) -> None:
+        """A width wider than the window minus 100 pixels is trimmed to
+        it; a width that fits, or a window of unknown width, keeps it;
+        the panel keeps at least 1 pixel.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # Fits: kept as it is, up to the window's width minus 100.
+        self.assertEqual(fitted_panel_width_i(300, 1000), 300)
+        self.assertEqual(fitted_panel_width_i(900, 1000), 900)
+        # Too wide: trimmed so that the plot panel keeps 100 pixels.
+        self.assertEqual(fitted_panel_width_i(901, 1000), 900)
+        self.assertEqual(fitted_panel_width_i(16777215, 600), 500)
+        # A window of 100 pixels or less leaves the panel 1 pixel.
+        self.assertEqual(fitted_panel_width_i(50, 101), 1)
+        self.assertEqual(fitted_panel_width_i(50, 100), 1)
+        self.assertEqual(fitted_panel_width_i(50, 30), 1)
+        # An unknown window width keeps the width, at least 1 pixel.
+        self.assertEqual(fitted_panel_width_i(5000, 0), 5000)
+        self.assertEqual(fitted_panel_width_i(0, 0), 1)
+        self.assertEqual(fitted_panel_width_i(-4, 1000), 1)
 
     @covers("LLFR-01083", "HLFR-00142")
     def test_window_on_a_screen_is_left_where_it_is(self) -> None:
@@ -491,6 +517,28 @@ class LayoutWindowsTest(unittest.TestCase):
         self.assertEqual(placed_window_tuple(
             (90000, -90000, 5000, 4000), [MAIN_SCREEN_TUPLE],
             MAIN_SCREEN_TUPLE), MAIN_SCREEN_TUPLE)
+
+    @covers("LLFR-01085", "LLFR-01195", "LLFR-01078", "LLFR-01081",
+            "HLFR-00142", "HLFR-00141", "HLFR-00052")
+    def test_too_wide_panel_width_is_not_reported(self) -> None:
+        """A panel width in the range Qt takes but wider than its window
+        loads as saved, with no report; the view trims it when it shows
+        the panel (LLFR-01195).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        result = self.rebuild(layout_with_tabs(
+            [{"name": "Docked", "plots": [plot_entry("file1_Speed")]},
+             {"name": "W", "undocked": True,
+              "window": {"x": 10, "y": 20, "width": 600, "height": 400},
+              "signal_list_panel": {"shown": True, "width": 5000},
+              "plots": [plot_entry("file1_Torque")]}]))
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        tab = self.workspace.undocked_tab_list()[0]
+        self.assertEqual(tab.panel_width_i, 5000)
+        self.assertEqual(fitted_panel_width_i(tab.panel_width_i,
+                                              tab.window_tuple[2]), 500)
 
     @covers("LLFR-01079", "LLFR-00475", "LLFR-01080", "HLFR-00141")
     def test_main_window_keeps_a_docked_tab(self) -> None:

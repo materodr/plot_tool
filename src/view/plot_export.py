@@ -150,7 +150,9 @@ def grab_page_image(page):
         # LLFR-00203: the marker preview is never part of an export or a
         # copy; it comes back at the next mouse move over a plot.
         plot_widget.hide_marker_preview()
-        # LLFR-00354: nor are the delta marker previews.
+        # LLFR-00354: nor are the delta marker previews. LLFR-01164: the
+        # previews shown from other plots are blitted only, so the draw
+        # below leaves them out too.
         plot_widget.hide_delta_preview()
         plot_widget.canvas.draw()
     # LLFR-00892: the plots keep their rounded corners and border, with

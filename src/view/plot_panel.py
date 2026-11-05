@@ -1118,7 +1118,9 @@ class PlotPanel(QWidget):
         """
         tab_bar = self.tab_widget.tabBar()
         if self.undock_enabled_b:
-            # LLFR-01012: inside the tab, right of its name.
+            # LLFR-01012: inside the tab, right of its name; LLFR-01155:
+            # the tab bar widens the tab by the button's holder, so the
+            # name and the button never overlap.
             if tab_bar.tabButton(index_i, QTabBar.ButtonPosition.RightSide
                                  ) is not undock_button:
                 tab_bar.setTabButton(index_i,
