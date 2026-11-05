@@ -16,7 +16,7 @@ position and size to give the window.
   is made smaller to fit it (LLFR-01084).
 - A signal list panel shown at a width from a layout file or at a width
   it had before is at most its window's width minus 100 pixels, so that
-  the plot panel keeps room (LLFR-01176).
+  the plot panel keeps room (LLFR-01179).
 """
 
 # LLFR-01128: the offset of a new undocked window from the plot panel.
@@ -25,7 +25,7 @@ NEW_WINDOW_OFFSET_I = 30
 MINIMUM_TOP_EDGE_ON_SCREEN_I = 100
 # LLFR-01081: the smallest usable size of a window or a panel.
 MINIMUM_WINDOW_SIZE_I = 1
-# LLFR-01176: the room a signal list panel leaves to the plot panel.
+# LLFR-01179: the room a signal list panel leaves to the plot panel.
 MINIMUM_PLOT_PANEL_ROOM_I = 100
 
 
@@ -149,7 +149,7 @@ def fitted_panel_width_i(panel_width_i: int, window_width_i: int) -> int:
         minus 100 pixels and 1 pixel; panel_width_i unchanged (at least
         1 pixel) when the window's width is unknown.
     """
-    # LLFR-01176: the plot panel keeps room; LLFR-01054, LLFR-01081: the
+    # LLFR-01179: the plot panel keeps room; LLFR-01054, LLFR-01081: the
     # panel keeps at least 1 pixel.
     width_i = max(int(panel_width_i), MINIMUM_WINDOW_SIZE_I)
     if int(window_width_i) < 1:

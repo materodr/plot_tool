@@ -826,7 +826,7 @@ class UndockedWindow(QWidget):
             width_i: its width in pixels; 0 for the first width
                 (LLFR-01051).
         Outputs: none. A panel shown at a given width gets at most the
-            window's width minus 100 pixels (LLFR-01176).
+            window's width minus 100 pixels (LLFR-01179).
         """
         width_i = int(width_i)
         if not shown_b:
@@ -846,7 +846,7 @@ class UndockedWindow(QWidget):
                             else 0)
             width_i = first_panel_width_i(main_width_i, self.width())
         else:
-            # LLFR-01176: a saved or restored width leaves the plot panel
+            # LLFR-01179: a saved or restored width leaves the plot panel
             # room in the window, which may be narrower than when the
             # width was saved (LLFR-01084).
             width_i = fitted_panel_width_i(width_i, self.width())

@@ -327,7 +327,7 @@ class WindowPartsTest(UndockedWindowTestCase):
         self.assertFalse(self.main_window.window_of_tab(
             second_id_i).is_panel_shown())
 
-    @covers("LLFR-01054", "LLFR-01177", "HLFR-00131")
+    @covers("LLFR-01054", "LLFR-01180", "HLFR-00131")
     def test_main_window_keeps_its_panel(self) -> None:
         """The main window's panel cannot be collapsed or hidden.
 
@@ -788,7 +788,7 @@ class PanelWidthUndoTest(UndockedWindowTestCase):
         self.assertAlmostEqual(self.main_window.window_of_tab(
             second_id_i).panel_width(), start_i, delta=2)
 
-    @covers("LLFR-01176", "LLFR-01048", "LLFR-01047", "HLFR-00130")
+    @covers("LLFR-01179", "LLFR-01048", "LLFR-01047", "HLFR-00130")
     def test_panel_shown_again_fits_a_narrower_window(self) -> None:
         """A panel hidden at a width that the window, made narrower
         since, can no longer hold is shown again at most at the
@@ -1776,7 +1776,7 @@ class LayoutWindowsViewTest(UndockedWindowTestCase):
                              area_tuple[0] + area_tuple[2])
         self.assertEqual(len(loaded.page().plot_widget_list), 1)
 
-    @covers("LLFR-01176", "LLFR-01078", "LLFR-01085", "HLFR-00141",
+    @covers("LLFR-01179", "LLFR-01078", "LLFR-01085", "HLFR-00141",
             "HLFR-00130", "HLFR-00050", "HLFR-00052")
     def test_saved_panel_wider_than_its_window_is_trimmed(self) -> None:
         """A saved panel width that Qt takes but the window cannot hold
