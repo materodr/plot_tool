@@ -21,12 +21,18 @@ The requirements below are loaded into every session. Follow them in all work.
 - Before opening a pull request from `develop` to `main`, run the `requirement-validation` skill on every requirement created or changed since the last merge into `main`, fix what it finds through a fix issue, and put its result in the pull request under the heading "Requirement validation (PCR-00050)" (PCR-00050, PCR-00051).
 - Before opening a pull request into `develop` from a branch that adds requirements, run the `requirement-validation` skill on the requirements it adds, and put its result in the pull request under the heading "Requirement validation (PCR-00052)" (PCR-00052, PCR-00053).
 - The hook in `.claude/settings.json` and the `requirement-validation-section` CI job use `tests/check_requirement_review.py` to check that these results are there. They can't check that the review was good.
-- Before each push, run locally every test your environment can run, and push only when they pass (PCR-00082), for example with `python -m unittest discover -s tests -t .` (first try `pip install PyQt6 h5py`; where they can't be installed, the GUI and HDF5 tests skip locally and CI runs them).
-- Review flow, for every pull request into `develop` (PCR-00088 to PCR-00098):
-  1. The implementer makes the change, commits it, updates the branch from `develop` (PCR-00060) and runs the local tests.
-  2. Before any pull request is opened, an independent reviewer (another agent) reviews the branch's code and requirements, running the `requirement-validation` judgement pass when requirements are new or changed. It adds tests focused on the problem the branch tackles, changing only files under `tests/`, never `src/`, and runs the local tests (PCR-00088 to PCR-00092).
-  3. The reviewer sends its findings to the implementer. After the fixes, it checks only the changes (PCR-00093, PCR-00094).
-  4. Only after the reviewer's green light is the pull request opened, and CI runs (PCR-00095).
+- Implementer loop, before any pull request (PCR-00099 to PCR-00103):
+  1. Before writing code or tests, send the owner, in one batch, every question you have at that moment, each with the neighbouring cases it also settles (PCR-00099, PCR-00074).
+  2. Then loop: questions, requirement revision, code, tests; gather the new questions of each round into one batch; repeat until you have no more questions and are satisfied with the implementation (PCR-00100).
+  3. During the loop, merge `develop` into the branch whenever it is behind (PCR-00101, PCR-00060).
+  4. Before each push, run locally the tests you deem necessary for the change, not necessarily the whole suite (PCR-00082). First try `pip install PyQt6 h5py`; where they can't be installed, the GUI and HDF5 tests skip locally and CI runs them.
+  5. Record each batch of questions, with their neighbouring cases, the owner's answers and the date, in the "Questions and answers" section of the issue (PCR-00103). When creating an issue with `gh`, include that section too.
+  6. Hand the branch to the reviewer only when you have no more questions, are satisfied, and the branch contains the latest `develop`: merge `develop` in right before the handover if it is behind (PCR-00102).
+- Review, before the pull request and CI (PCR-00088 to PCR-00098, PCR-00104):
+  1. An independent reviewer (another agent) reviews the branch's code, requirements and tests, and the "Questions and answers" section of the issue, running the `requirement-validation` judgement pass when requirements are new or changed (PCR-00088, PCR-00089, PCR-00104).
+  2. It may add focused tests of its own, changing only files under `tests/`, never `src/` (PCR-00090, PCR-00091), and runs the tests it deems necessary (PCR-00092).
+  3. Its findings go back into the implementer's loop. After the fixes, it checks only the changes (PCR-00093, PCR-00094).
+  4. Only after the reviewer's green light is the pull request opened; CI then runs the whole suite once (PCR-00095).
   5. If CI passes, with no `Fail*` other than those declared in the Fail* section (into `develop` only), the reviewer merges it with no further review (PCR-00096). If CI fails, the branch goes back to the implementer, and the reviewer checks only the fix before CI runs again (PCR-00097).
   6. The reviewer checks every commit added after its green light, such as a merge of `develop` or a conflict fix, before it merges (PCR-00098).
   7. A release (`develop` to `main`) keeps PCR-00050, and the owner merges it.

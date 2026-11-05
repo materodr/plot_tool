@@ -193,9 +193,9 @@ The branch of a pull request into `develop`, other than a test matrix branch (PC
 Note: Only the matrix pull requests of a release change the file (PCR-00061, PCR-00085), and they put the same matrix in `main` and in `develop`, so the next release pull request merges it without conflicts. Run locally, `tests/build_test_matrix.py` writes `test_matrix_local.md`, which git ignores. `tests/check_pr_ready.py` fails a branch that changes the matrix and names the file to put back, and fails a test matrix branch that changes any other file.
 
 ### PCR-00082 Local tests before each push
-An agent must push a feature or fix branch only after every test that its environment can run has passed locally on the commit it pushes.
+Before each push of a feature or fix branch, an agent must run locally the tests that it deems necessary for the change.
 
-Note: For example, `python -m unittest discover -s tests -t .` or `python tests/build_test_matrix.py`. Where PyQt6 or h5py can't be installed, the tests that need them are skipped locally, and CI runs them.
+Note: This isn't necessarily the whole suite: CI runs every test once on the pull request (PCR-00057). For example, `python -m unittest tests.test_x tests.test_y`, or `python tests/build_test_matrix.py` for the whole suite. Where PyQt6 or h5py can't be installed, the tests that need them are skipped locally, and CI runs them. The owner refined this on 2026-11-05.
 
 ### PCR-00059 Affected requirements without tests
 The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test, except as in PCR-00068.
@@ -264,16 +264,46 @@ Every pull request into `develop` or `main` must start its description with a se
 
 Note: The reviewer then sees every exception first. CI builds the matrix with PyQt6 and h5py, so a normal pull request has the section with `- none`. `tests/build_test_matrix.py` prints the section, ready to paste. The `fail-star-section` CI job checks it against `tests/not_implemented.txt`, and the `tests` job against the matrix of its run, which alone knows an environment `Fail*`. This follows the owner's decision of 2026-11-05.
 
-### PCR-00088 Independent review before the pull request
-Before a pull request into `develop` is opened, an agent other than its implementer must review the branch's code and requirements, except as in PCR-00087.
+### PCR-00099 First question batch
+Before it writes code or tests for a change, the implementer must send the owner, in one batch, every question about the change that it has at that moment.
 
-Note: This is the review of PCR-00016, done before CI. The owner agreed this flow on 2026-11-05. A release keeps PCR-00050, and the owner merges it (PCR-00015).
+Note: Each question names the neighbouring cases it also settles (PCR-00074).
+
+### PCR-00100 Implementer loop
+The implementer must repeat its loop of questions, requirement revision, code and tests, sending the questions of each round to the owner in one batch, until it has no more questions and is satisfied with the implementation.
+
+Note: The owner described this loop on 2026-11-05. The tests of each round are those of PCR-00082.
+
+### PCR-00101 Branch kept up to date during the loop
+During the loop of PCR-00100, the implementer must merge `develop` into the branch each time it finds that the branch doesn't contain the latest commit of `develop`.
+
+Note: PCR-00060 still applies when the pull request is opened.
+
+### PCR-00102 Handover to the reviewer
+The implementer must hand the branch to the reviewer of PCR-00088 only when it has no more questions, is satisfied with the implementation (PCR-00100) and the branch contains the latest commit of `develop`.
+
+Note: The implementer merges `develop` into the branch right before the handover when it is behind (PCR-00101).
+
+### PCR-00103 Questions and answers recorded
+The implementer must record each batch of its questions, with their neighbouring cases (PCR-00074), the owner's answers and the date, in the "Questions and answers" section of the issue of the change.
+
+Note: The Feature and Fix issue templates have this section. The reviewer reads it there (PCR-00104). The owner chose this place on 2026-11-05.
+
+### PCR-00088 Independent review before the pull request
+Before a pull request into `develop` is opened, an agent other than its implementer must review the branch's code, requirements and tests, except as in PCR-00087.
+
+Note: This is the review of PCR-00016, done before CI. The owner agreed this flow on 2026-11-05 and refined it the same day. A release keeps PCR-00050, and the owner merges it (PCR-00015).
+
+### PCR-00104 Questions and answers in the review
+The reviewer of PCR-00088 must read, as part of its review, the "Questions and answers" section of the issue of the change (PCR-00103).
 
 ### PCR-00089 Judgement pass in the review
 When the branch adds or changes requirements, the reviewer of PCR-00088 must run on them the judgement pass of the `requirement-validation` skill.
 
 ### PCR-00090 Tests written by the reviewer
-The reviewer of PCR-00088 must add to the branch tests focused on the problem that the branch tackles.
+Each test that the reviewer of PCR-00088 adds to the branch must focus on the problem that the branch tackles.
+
+Note: The reviewer adds tests of its own when it deems them useful, besides the implementer's.
 
 ### PCR-00091 Reviewer's files
 The reviewer of PCR-00088 must change only files under `tests/`.
@@ -281,10 +311,12 @@ The reviewer of PCR-00088 must change only files under `tests/`.
 Note: The code under `src/` stays the implementer's work.
 
 ### PCR-00092 Reviewer's local tests
-The reviewer of PCR-00088 must run the local tests (PCR-00082) on the branch before it gives its green light.
+Before it gives its green light, the reviewer of PCR-00088 must run locally the tests that it deems necessary for the change.
+
+Note: This isn't necessarily the whole suite: CI runs every test once on the pull request.
 
 ### PCR-00093 Findings to the implementer
-The reviewer of PCR-00088 must send its findings to the implementer.
+The reviewer of PCR-00088 must send its findings to the implementer, whose loop of PCR-00100 then goes on.
 
 ### PCR-00094 Review of the fixes
 After the implementer has fixed the findings, the reviewer of PCR-00088 must check only the changes made since its last review.
@@ -292,7 +324,7 @@ After the implementer has fixed the findings, the reviewer of PCR-00088 must che
 ### PCR-00095 Pull request after the green light
 A pull request into `develop`, other than the pull request of PCR-00085, must be opened only after the green light of the reviewer of PCR-00088.
 
-Note: CI runs once the pull request is open.
+Note: CI then runs the whole suite once on the pull request.
 
 ### PCR-00096 Merge by the reviewer
 When the CI checks of the pull request pass, with no `Fail*` other than those declared in its Fail* section (PCR-00070), the reviewer of PCR-00088 must merge it into `develop` with no further review.

@@ -7,8 +7,8 @@ Usage:
     python tests/check_pr_ready.py --base BRANCH --head COMMIT
         --body-file PATH
 
-The flow is: make the change, run locally the tests the environment can
-run before each push (PCR-00082), bring the branch up to date with
+The flow is: make the change, run locally the tests deemed necessary
+before each push (PCR-00082), bring the branch up to date with
 develop (PCR-00060), and open the pull request. CI is the only builder
 of the test matrix: it builds it on every pull request that runs the
 tests and posts it on the pull request. After a release, an agent opens
