@@ -161,7 +161,7 @@ Note: The small box with a button's name that appears while the mouse pointer is
 ### HLFR-00049 Save a layout
 The user must be able to save the current layout of the plots to a layout file from the top panel.
 
-Note: The **layout** is what the plot panels show and how: the tabs, which of them are undocked and their windows (HLFR-00140), their plot matrices (HLFR-00152), their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. A **layout file** is a file that holds a layout. Each file with time series that the user opens with the Open file button is called a **data file**; several can be open at once (HLFR-00113). The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
+Note: The **layout** is what the plot panels show and how: the tabs, which of them are undocked and their windows (HLFR-00140), their plot matrices (HLFR-00152), their plots, the curves in each plot, the time range, the grid, the flags, the areas, the delta markers and the pinned data tips. When the user chooses it (HLFR-00155), the layout file also holds the names of the open data files. A **layout file** is a file that holds a layout. Each file with time series that the user opens with the Open file button is called a **data file**; several can be open at once (HLFR-00113). The layout is saved with the **Save layout** button and loaded with the **Load layout** button.
 
 ### HLFR-00050 Load a layout
 The user must be able to load a layout file from the top panel and rebuild its layout with the signals of the open data files.
@@ -188,6 +188,14 @@ Note: This happens, for example, when the layout was saved with a second screen 
 
 ### HLFR-00152 Plot matrix in the layout file
 The layout file must hold the plot matrix of each tab.
+
+### HLFR-00155 Layout save options
+When saving a layout, the user must be able to choose whether the layout file holds the markers, all the tabs or only the current tab, and the names of the open data files.
+
+Note: The markers are the data tips, flags, areas, delta markers, text notes and arrows.
+
+### HLFR-00156 Data files from a layout
+When the app loads a layout file that holds the names of data files, it must open those data files that are not open yet.
 
 ### HLFR-00070 Choose the time signal
 When the user opens a file in which no signal is named `Time` (HLFR-00006), the app must ask the user to choose the signal that goes on the x-axis, in a window with the list of the signals and a search box.
@@ -335,9 +343,8 @@ Note: Each window's panels follow the Signal list panel requirements, so the sig
 ### HLFR-00130 Hide the signal list panel of an undocked window
 The user must be able to hide the signal list panel of an undocked window and to show it again at its previous width.
 
-### HLFR-00131 Main window signal list panel always shown
-The main window must always show its signal list panel, which the user can only make narrower or wider.
-
+### HLFR-00131 Hide the signal list panel of the main window
+The user must be able to hide the signal list panel of the main window and to show it again at its previous width.
 
 ## Plot panel
 
@@ -345,7 +352,7 @@ The main window must always show its signal list panel, which the user can only 
 The plot panel must organize the plots in tabs.
 
 ### HLFR-00015 Add a tab
-The user must be able to add a new tab to the plot panel.
+The user must be able to add a new tab to the plot panel of any window.
 
 ### HLFR-00016 Delete a tab
 The user must be able to delete a tab from the plot panel.
@@ -435,8 +442,8 @@ The user must be able to move the time range shown in a zoomed plot along the x-
 ### HLFR-00037 Plot grid
 The user must be able to show and hide a grid on the plots.
 
-### HLFR-00038 Export the plots to PDF
-The user must be able to save the plots of all tabs to a PDF file.
+### HLFR-00038 Export the plots
+The user must be able to save the plots of all tabs to a PDF file or to a Word (.docx) file, and the plots of each tab to a PNG image file of its own.
 
 ### HLFR-00039 Copy the plots as an image
 The user must be able to copy the plots of a tab to the clipboard as an image that can be pasted in other applications.
