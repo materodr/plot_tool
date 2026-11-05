@@ -692,9 +692,9 @@ class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
         self.assertEqual(self.pick_list, [])
 
 
-class HeldKeyWaitingClickTest(SharedMarkerWindowTestCase):
-    """A tool key released while a click on a text note waits does that
-    click at once (LLFR-01254), in the real window."""
+class WaitingClickWindowTestCase(SharedMarkerWindowTestCase):
+    """Helpers for the clicks that wait on a text note, in the real
+    window (LLFR-01253, LLFR-01254)."""
 
     def note_on_sample(self, plot_widget, time_s: float) -> tuple:
         """Draw a text note whose box is centred on a curve sample.
@@ -773,6 +773,26 @@ class HeldKeyWaitingClickTest(SharedMarkerWindowTestCase):
         Outputs: the Plot of the workspace.
         """
         return self.workspace.find_plot(plot_widget.plot_id_i)
+
+    def wait_double_click_interval(self) -> None:
+        """Process events until the double-click interval has passed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QApplication
+        interval_s = (
+            QApplication.styleHints().mouseDoubleClickInterval() / 1000.0)
+        deadline_s = time.perf_counter() + interval_s + 0.15
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
+
+
+@requires_qt
+class HeldKeyWaitingClickTest(WaitingClickWindowTestCase):
+    """A tool key released while a click on a text note waits does that
+    click at once (LLFR-01254), in the real window."""
 
     @covers("LLFR-01254", "LLFR-01253", "LLFR-00154", "LLFR-00155",
             "HLFR-00028")
@@ -868,6 +888,166 @@ class HeldKeyWaitingClickTest(SharedMarkerWindowTestCase):
         self.assertEqual(len(delta_list), 1)
         self.assertEqual(tuple(delta_list[0].second_point_tuple),
                          target_tuple)
+
+
+@requires_qt
+class WaitingClickAcrossPlotsTest(WaitingClickWindowTestCase):
+    """A press on another plot, or in another window, does the click
+    that waits first (LLFR-01254), so the clicks keep their order."""
+
+    def sample_display(self, plot_widget, time_s: float) -> tuple:
+        """Return the display point of a sample of a plot's curve.
+
+        Inputs:
+            plot_widget: the PlotWidget (its first curve is used).
+            time_s: a time of the sample grid (0, 0.1, ..., 4 s).
+        Outputs: (x, y) in display pixels.
+        """
+        time_array, value_array = plot_widget.curve_data_list[0][1:3]
+        index_i = int(round(time_s * 10.0))
+        display_x_px, display_y_px = plot_widget.axes.transData.transform(
+            (float(time_array[index_i]), float(value_array[index_i])))
+        return (float(display_x_px), float(display_y_px))
+
+    def free_display(self, plot_widget, time_s: float) -> tuple:
+        """Return a display point at a time, at mid-height of the axes.
+
+        Inputs:
+            plot_widget: the PlotWidget.
+            time_s: the time, in seconds.
+        Outputs: (x, y) in display pixels.
+        """
+        bottom_f, top_f = plot_widget.axes.get_ylim()
+        display_x_px, display_y_px = plot_widget.axes.transData.transform(
+            (time_s, (bottom_f + top_f) / 2.0))
+        return (float(display_x_px), float(display_y_px))
+
+    def click_tool_button(self, tool_str: str) -> None:
+        """Click a plot tool button of the top panel.
+
+        Inputs:
+            tool_str: the tool of the button.
+        Outputs: none.
+        """
+        self.main_window.top_panel.plot_tool_button_dict[tool_str].click()
+        self.process_events()
+        self.assertEqual(self.plot_controller.plot_tool_str, tool_str)
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00166", "HLFR-00043")
+    def test_delta_picks_arrive_in_order(self) -> None:
+        """With the Delta X tool, a click waiting on a note of plot A and
+        then a click on a curve of plot B: A's point is picked first,
+        then B's, which becomes the first point (LLFR-00166).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click_tool_button(DELTA_X_TOOL_STR)
+        widget_a, widget_b = self.current_widget_list[:2]
+        center_tuple = self.note_on_sample(widget_a, 2.0)
+        order_list = []
+        for name_str, plot_widget in (("A", widget_a), ("B", widget_b)):
+            plot_widget.delta_point_picked.connect(
+                lambda *argument_tuple, name_str=name_str:
+                order_list.append((name_str,) + argument_tuple))
+        send_mouse_event(widget_a, "motion_notify_event", *center_tuple,
+                         LEFT_BUTTON_I)
+        target_a_tuple = widget_a.delta_preview_point()
+        self.assertEqual(len(target_a_tuple), 3)
+        self.click_display(widget_a, center_tuple)
+        self.assertEqual(order_list, [])
+        b_tuple = self.sample_display(widget_b, 1.0)
+        self.click_display(widget_b, b_tuple)
+        self.assertEqual([entry[0] for entry in order_list], ["A", "B"])
+        self.assertEqual(order_list[0][1:], target_a_tuple)
+        self.wait_double_click_interval()
+        self.assertEqual(len(order_list), 2)
+        # B's point is the first point now; A's was replaced.
+        self.assertEqual(self.plot_controller.pending_delta_tuple[0],
+                         widget_b.plot_id_i)
+        self.assertEqual(self.plot_of(widget_a).delta_marker_list, [])
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00081", "LLFR-00138",
+            "HLFR-00028", "HLFR-00040")
+    def test_flags_placed_and_undone_in_order(self) -> None:
+        """With the Flag tool, a click waiting on a note of plot A and
+        then a click on plot B: A's flag is placed first, so Undo
+        removes B's flag first.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click_tool_button(MARKER_TOOL_STR)
+        widget_a, widget_b = self.current_widget_list[:2]
+        center_tuple = self.note_on_sample(widget_a, 2.0)
+        send_mouse_event(widget_a, "motion_notify_event", *center_tuple,
+                         LEFT_BUTTON_I)
+        preview_a_s = widget_a.marker_preview_time_s()
+        self.click_display(widget_a, center_tuple)
+        self.assertEqual(self.workspace.marker_list, [])
+        b_tuple = self.free_display(widget_b, 1.0)
+        send_mouse_event(widget_b, "motion_notify_event", *b_tuple,
+                         LEFT_BUTTON_I)
+        preview_b_s = widget_b.marker_preview_time_s()
+        self.click_display(widget_b, b_tuple)
+        self.process_events()
+        time_list = [marker.time_s for marker in self.workspace.marker_list]
+        self.assertEqual(len(time_list), 2)
+        self.assertAlmostEqual(time_list[0], preview_a_s, delta=1e-9)
+        # Plot B may be drawn again by A's flag before B's click is
+        # handled, so its time is checked to 0.05 s; the flags are 1 s
+        # apart.
+        self.assertAlmostEqual(time_list[1], preview_b_s, delta=0.05)
+        self.wait_double_click_interval()
+        self.assertEqual(len(self.workspace.marker_list), 2)
+        # LLFR-00138: Undo removes the last placed flag, B's.
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertEqual(len(self.workspace.marker_list), 1)
+        self.assertAlmostEqual(self.workspace.marker_list[0].time_s,
+                               preview_a_s, delta=1e-9)
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00081", "HLFR-00028",
+            "HLFR-00126")
+    def test_flags_in_order_across_an_undocked_window(self) -> None:
+        """A click waiting on a note of a plot in an undocked window,
+        then a click on a plot of the main window: the flag of the
+        undocked window is placed first.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.panel.undock_button_of(self.second_tab_id_i).click()
+        self.process_events()
+        window = self.main_window.window_of_tab(self.second_tab_id_i)
+        self.assertIsNotNone(window)
+        undocked_list = [plot_widget for plot_widget
+                         in self.panel.plot_widget_dict.values()
+                         if plot_widget.window() is window]
+        self.assertEqual(len(undocked_list), 1)
+        undocked_widget = undocked_list[0]
+        undocked_widget.canvas.draw()
+        self.click_tool_button(MARKER_TOOL_STR)
+        center_tuple = self.note_on_sample(undocked_widget, 2.0)
+        send_mouse_event(undocked_widget, "motion_notify_event",
+                         *center_tuple, LEFT_BUTTON_I)
+        preview_undocked_s = undocked_widget.marker_preview_time_s()
+        self.click_display(undocked_widget, center_tuple)
+        self.assertEqual(self.workspace.marker_list, [])
+        main_widget = self.panel.page_dict[
+            self.first_tab_id_i].plot_widget_list[0]
+        main_tuple = self.free_display(main_widget, 1.0)
+        send_mouse_event(main_widget, "motion_notify_event", *main_tuple,
+                         LEFT_BUTTON_I)
+        preview_main_s = main_widget.marker_preview_time_s()
+        self.click_display(main_widget, main_tuple)
+        self.process_events()
+        time_list = [marker.time_s for marker in self.workspace.marker_list]
+        self.assertEqual(len(time_list), 2)
+        self.assertAlmostEqual(time_list[0], preview_undocked_s, delta=1e-9)
+        # The main plot may be drawn again by the first flag, so its
+        # time is checked to 0.05 s; the two flags are 1 s apart.
+        self.assertAlmostEqual(time_list[1], preview_main_s, delta=0.05)
 
 
 class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):

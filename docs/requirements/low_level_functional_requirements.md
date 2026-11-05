@@ -4789,7 +4789,7 @@ Note: The owner decided on 2026-11-05 that a double-click on a text note with th
 ### LLFR-01254 Waiting click done at once
 When the user presses a mouse button, other than the second press of a double-click, or the plot tool changes, while a click of LLFR-01253 waits, the app must do that click at once, for what the preview showed at its press, before it handles the press or the new plot tool.
 
-Note: The owner decided on 2026-11-05 that a press, a right-click or a change of plot tool does the waiting click at once. For example, a click on a text note with the Shift key held places the flag even when the key is released before the double-click interval ends (LLFR-00155).
+Note: The owner decided on 2026-11-05 that a press, a right-click or a change of plot tool does the waiting click at once. For example, a click on a text note with the Shift key held places the flag even when the key is released before the double-click interval ends (LLFR-00155). One click at most waits in the whole app, and the press may be on any plot of any window, so that the clicks keep their order: a delta marker point picked on another plot comes after the waiting one (LLFR-00166), and Undo removes the flags in the reverse order of the clicks.
 
 *Parent: HLFR-00028, HLFR-00025, HLFR-00043, HLFR-00044, HLFR-00075*
 

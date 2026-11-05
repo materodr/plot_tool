@@ -869,6 +869,23 @@ def text_note_data_tuple(note_tuple) -> tuple:
             size_i, border_color_str, text_color_str)
 
 
+def flush_app_waiting_click() -> None:
+    """Do at once the click that waits on a plot of any window, if any.
+
+    Inputs: none.
+    Outputs: none.
+    """
+    # LLFR-01254: PlotWidget.waiting_click_widget holds the one plot
+    # where a click waits (LLFR-01253); a deleted plot is forgotten.
+    waiting_widget = PlotWidget.waiting_click_widget
+    if waiting_widget is None:
+        return
+    if sip.isdeleted(waiting_widget):
+        PlotWidget.waiting_click_widget = None
+        return
+    waiting_widget.flush_deferred_click()
+
+
 class PlotWidget(QWidget):
     """One plot: signal curves against time, legend, menus and tips.
 
@@ -978,6 +995,9 @@ class PlotWidget(QWidget):
             the mouse (LLFR-00208); counted by is_mouse_drag_in_progress.
     """
 
+    # LLFR-01254: only one click waits in the whole app (LLFR-01253); this
+    # is the plot, of any window, where it waits, or None.
+    waiting_click_widget = None
     curve_delete_requested = pyqtSignal(str)
     curve_width_requested = pyqtSignal(str, int)
     plot_delete_requested = pyqtSignal()
@@ -5050,7 +5070,11 @@ class PlotWidget(QWidget):
         else:
             target_tuple = tuple(self.delta_preview_target_tuple(
                 widget_point))
+        # LLFR-01254: a click that waits on another plot is done first,
+        # so that one click at most waits in the app.
+        flush_app_waiting_click()
         self.deferred_click_tuple = (self.plot_tool_str, target_tuple)
+        PlotWidget.waiting_click_widget = self
         self.deferred_click_timer.start(
             int(QApplication.styleHints().mouseDoubleClickInterval()))
 
@@ -5068,6 +5092,8 @@ class PlotWidget(QWidget):
             return
         tool_str, target_tuple = self.deferred_click_tuple
         self.deferred_click_tuple = ()
+        if PlotWidget.waiting_click_widget is self:
+            PlotWidget.waiting_click_widget = None
         if self.retired_b or tool_str != self.plot_tool_str:
             return
         if tool_str == MARKER_TOOL_STR:
@@ -5110,6 +5136,8 @@ class PlotWidget(QWidget):
         # plot.
         self.deferred_click_timer.stop()
         self.deferred_click_tuple = ()
+        if PlotWidget.waiting_click_widget is self:
+            PlotWidget.waiting_click_widget = None
 
     def preview_press_b(self, widget_point) -> bool:
         """Tell whether a press at a point places what a preview shows.
@@ -7378,6 +7406,12 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
+        # LLFR-01254: any press, on any plot of any window, does the click
+        # that waits first, so that the clicks keep their order. The
+        # second press of a double-click is left to double_click_at,
+        # which drops the click of its own plot (LLFR-00825).
+        if not event.dblclick:
+            flush_app_waiting_click()
         # LLFR-00334: a press while the text field is open confirms it
         # (the focus leaves the field), and does nothing else.
         editor_closed_b = (self.text_note_editor_open_b
