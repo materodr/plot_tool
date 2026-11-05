@@ -288,6 +288,9 @@ class MainWindow(QMainWindow):
         # LLFR-00239, LLFR-00254, LLFR-00265, LLFR-00277, LLFR-00278:
         # the options of the signal menu go to the synthetic controller.
         self.signal_menu_handler_dict = {}
+        # LLFR-01194: the signal list panel whose signal menu started the
+        # synthetic signal creation under way, or None.
+        self.creating_panel = None
         # LLFR-00019, LLFR-00295, LLFR-00095, LLFR-00239, LLFR-00923:
         # the requests of the main window's panel (tab id -1).
         self.connect_signal_list_panel(self.signal_list_panel, -1)
@@ -418,9 +421,10 @@ class MainWindow(QMainWindow):
         # LLFR-00095, LLFR-01041: the search text, shared by every panel.
         panel.search_text_changed.connect(
             lambda text_str: self._on_search_text_changed(text_str, panel))
+        # LLFR-01194: the creation remembers the panel it started from.
         panel.synthetic_operation_requested.connect(
-            lambda name_str, operation_str: self._run_signal_menu_handler(
-                "create", name_str, operation_str))
+            lambda name_str, operation_str: self._create_from_panel(
+                panel, name_str, operation_str))
         panel.copy_name_requested.connect(
             lambda name_str: self._run_signal_menu_handler(
                 "copy_name", name_str))
@@ -1395,6 +1399,24 @@ class MainWindow(QMainWindow):
         if handler is not None:
             handler(*argument_tuple)
 
+    def _create_from_panel(self, panel, name_str: str,
+                           operation_str: str) -> None:
+        """Pass a synthetic signal creation to its handler.
+
+        Inputs:
+            panel: the SignalListPanel whose signal menu was used.
+            name_str: the right-clicked signal name.
+            operation_str: the operation id chosen in the menu.
+        Outputs: none. While the handler runs, select_only_signal knows
+            the panel the creation started from.
+        """
+        # LLFR-01194: only this panel selects the new synthetic signal.
+        self.creating_panel = panel
+        try:
+            self._run_signal_menu_handler("create", name_str, operation_str)
+        finally:
+            self.creating_panel = None
+
     def run_modal_dialog(self, dialog) -> bool:
         """Run a synthetic signal dialog modally.
 
@@ -1616,16 +1638,22 @@ class MainWindow(QMainWindow):
             panel.rename_shown_signal(old_name_str, new_name_str)
 
     def select_only_signal(self, signal_name_str: str) -> None:
-        """Select one signal of the signal list, alone, in every panel.
+        """Select one signal alone in the panel where it was created.
 
         Inputs:
             signal_name_str: the name of a shown signal.
-        Outputs: none. A panel that doesn't show the name keeps its
-            selection.
+        Outputs: none. The panel whose signal menu started the creation
+            under way selects it, or the main window's panel when no
+            creation is under way. Every other panel keeps its own
+            selection, and so does a panel that doesn't show the name.
         """
-        # LLFR-01194: the new synthetic signal is selected; LLFR-01036:
-        # every panel shows the same list, so each one selects it.
-        for panel in self.signal_list_panel_list():
+        # LLFR-01194, LLFR-01040: only the panel of the window where the
+        # user created the synthetic signal selects it.
+        panel = self.creating_panel
+        if panel is None:
+            panel = self.signal_list_panel
+        # A window closed during the creation selects nothing.
+        if panel in self.signal_list_panel_list():
             panel.select_only_signal(signal_name_str)
 
     def clear_signal_selection(self) -> None:
