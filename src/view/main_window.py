@@ -1760,6 +1760,18 @@ class MainWindow(QMainWindow):
         # every change of the plot tool.
         self.plot_tool_handler = handler
 
+    def flush_waiting_clicks(self) -> None:
+        """Do at once the click that waits on a text note, if any.
+
+        Inputs: none.
+        Outputs: none. Called before the plot tool changes, while the
+            controller still has the tool of that click.
+        """
+        # LLFR-01254: a change of plot tool does the waiting click of
+        # LLFR-01253 at once, on every plot of every window.
+        for plot_widget in list(self.plot_panel.plot_widget_dict.values()):
+            plot_widget.flush_deferred_click()
+
     def set_plot_tool(self, tool_str: str) -> None:
         """Apply a plot tool to every plot, now and to plots made later.
 
@@ -2977,17 +2989,18 @@ class MainWindow(QMainWindow):
         self.save_layout_handler = save_handler
         self.load_layout_handler = load_handler
 
-    def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
-        """Enable the two layout buttons, or disable them and show them
+    def set_save_layout_button_enabled(self, enabled_b: bool) -> None:
+        """Enable the Save layout button, or disable it and show it
         paler.
 
         Inputs:
-            enabled_b: True once a data file is open.
-        Outputs: none.
+            enabled_b: True while a data file is open.
+        Outputs: none. The Load layout button stays enabled
+            (LLFR-01244).
         """
-        # LLFR-00218: disabled, paler and doing nothing without a file.
+        # LLFR-00218, LLFR-00466: disabled, paler and doing nothing
+        # without a file.
         self.top_panel.save_layout_button.setEnabled(bool(enabled_b))
-        self.top_panel.load_layout_button.setEnabled(bool(enabled_b))
 
     def build_layout_save_dialog(self, start_folder_str: str) -> QFileDialog:
         """Build the save file dialog of a layout file, not shown.
@@ -3185,6 +3198,17 @@ class MainWindow(QMainWindow):
             dialog.exec()
         finally:
             dialog.deleteLater()
+
+    def show_layout_needs_data_file(self, message_str: str) -> None:
+        """Show the box saying that the layout needs an open data file.
+
+        Inputs:
+            message_str: the text of the box.
+        Outputs: none.
+        """
+        # LLFR-01245, LLFR-01246: an information box.
+        message_boxes.build_layout_needs_data_file_box(
+            self, message_str).exec()
 
     def finish_save_layout_button(self) -> None:
         """Return the Save layout button to its normal color.

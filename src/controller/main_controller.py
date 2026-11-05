@@ -50,8 +50,8 @@ class MainController:
         # controller listens to opened files and to the plot panel.
         self.plot_controller = PlotController(main_window,
                                               self.file_controller)
-        # LLFR-00216 to LLFR-00218: the Save layout and Load layout
-        # buttons, enabled once a data file is open.
+        # LLFR-00216 to LLFR-00218, LLFR-01244: the Save layout button,
+        # enabled once a data file is open, and the Load layout button.
         self.layout_controller = LayoutController(
             main_window, self.file_controller, self.plot_controller)
         # LLFR-00095, LLFR-00104: the search box filters the signal

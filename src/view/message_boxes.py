@@ -103,6 +103,9 @@ SAVE_LAYOUT_ERROR_INTRO_STR = "The layout file could not be saved."
 LOAD_LAYOUT_ERROR_TITLE_STR = "Load Layout Error"
 # LLFR-00237: the information box of the load report.
 LAYOUT_REPORT_TITLE_STR = "Layout Loaded"
+# LLFR-01245, LLFR-01246: the information box of a layout loaded while no
+# data file is open, when it opens none.
+LAYOUT_NEEDS_DATA_FILE_TITLE_STR = "Load Layout"
 LAYOUT_REPORT_INTRO_STR = (
     "The layout was loaded, but some parts of it could not be rebuilt "
     "as saved:")
@@ -945,6 +948,24 @@ def build_layout_report_box(
         parent, report_text_str, title_str, intro_str,
         text_object_name_str,
         QStyle.StandardPixmap.SP_MessageBoxInformation)
+
+
+def build_layout_needs_data_file_box(parent,
+                                     message_str: str) -> QMessageBox:
+    """Build the box of a layout that needs an open data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the text from the layout controller, which says
+            that the layout needs an open data file, followed by the
+            data files not opened, if any.
+    Outputs: a QMessageBox with the information icon and the title
+        LAYOUT_NEEDS_DATA_FILE_TITLE_STR.
+    """
+    # LLFR-01245, LLFR-01246: an information box, not an error box
+    # (HLFR-00002), like the load report (LLFR-00237).
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             LAYOUT_NEEDS_DATA_FILE_TITLE_STR, message_str)
 
 
 def build_signals_save_error_box(parent, message_str: str) -> QMessageBox:

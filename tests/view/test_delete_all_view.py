@@ -22,13 +22,13 @@ from tests.view.menu_texts import (
     AREA_MENU_TEXT_LIST, DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST,
     TIP_MENU_TEXT_LIST)
 from tests.view.test_plot_tools import (
-    ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
+    ALL_TOOL_TUPLE, GRAB_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 from tests.view.test_text_notes_view import (
     EMPTY_PLACE_TUPLE, TextNoteWidgetTestCase, all_menu_actions)
 
 from controller.plot_tools import (
     AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
-    NO_TOOL_STR, TEXT_TOOL_STR)
+    NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR)
 
 FILE_TEXT_STR = (
     "Time,speed,force\n"
@@ -286,16 +286,17 @@ class DoubleClickTextNoteTest(TextNoteWidgetTestCase):
 
     @covers("LLFR-00411", "LLFR-00342", "LLFR-00339", "LLFR-00825")
     def test_double_click_with_every_tool_opens_edit(self) -> None:
-        """With any plot tool or none, the double-click opens the field
-        of "Edit" over the note, with its text and the keyboard focus,
-        and does nothing else.
+        """With any plot tool or none, except the tools whose preview
+        places an object there (LLFR-01248), the double-click opens the
+        field of "Edit" over the note, with its text and the keyboard
+        focus, and does nothing else.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         self.plot_widget.set_areas([(2, "Area 1", 4.0, 6.0)])
-        for tool_str in ALL_TOOL_TUPLE:
+        for tool_str in GRAB_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_text_notes([self.note_tuple])
                 self.plot_widget.set_plot_tool(tool_str)
@@ -320,6 +321,72 @@ class DoubleClickTextNoteTest(TextNoteWidgetTestCase):
                 self.type_and_press("", "Key_Escape")
                 self.assertFalse(self.editor.isVisible())
                 self.assertEqual(self.edit_list, [])
+
+    def wait_double_click_interval(self) -> None:
+        """Process events until the double-click interval has passed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import time
+        from PyQt6.QtWidgets import QApplication
+        interval_s = (
+            QApplication.styleHints().mouseDoubleClickInterval() / 1000.0)
+        deadline_s = time.perf_counter() + interval_s + 0.15
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
+
+    @covers("LLFR-01253", "LLFR-00825", "LLFR-00411", "LLFR-01248")
+    def test_double_click_with_a_preview_tool_only_edits(self) -> None:
+        """With the Flag, Data tip, Delta X or Delta Y tool, a
+        double-click on a note opens the field of "Edit" and places,
+        pins and picks nothing, even after the double-click interval.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for tool_str in (MARKER_TOOL_STR, TIP_TOOL_STR, DELTA_X_TOOL_STR,
+                         DELTA_Y_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                self.plot_widget.set_text_notes([self.note_tuple])
+                self.plot_widget.set_plot_tool(tool_str)
+                self.draw()
+                self.marker_place_list.clear()
+                self.pin_list.clear()
+                self.delta_list.clear()
+                self.send("motion_notify_event", self.note_center())
+                self.double_click_display(self.note_center())
+                self.assertTrue(self.editor.isVisible())
+                self.assertEqual(self.plot_widget.editor_note_index_i, 0)
+                self.wait_double_click_interval()
+                self.assertEqual(self.marker_place_list, [])
+                self.assertEqual(self.pin_list, [])
+                self.assertEqual(self.delta_list, [])
+                self.type_and_press("", "Key_Escape")
+                self.assertEqual(self.edit_list, [])
+
+    @covers("LLFR-01253", "LLFR-01248", "LLFR-00081")
+    def test_single_click_with_the_flag_tool_places_the_flag(self) -> None:
+        """With the Flag tool, a single click on a note places the flag
+        once the double-click interval has passed, and opens no field.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from matplotlib.backend_bases import MouseButton
+        self.plot_widget.set_text_notes([self.note_tuple])
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.draw()
+        self.marker_place_list.clear()
+        self.send("motion_notify_event", self.note_center())
+        self.send("button_press_event", self.note_center(), MouseButton.LEFT)
+        self.send("button_release_event", self.note_center(),
+                  MouseButton.LEFT)
+        self.assertEqual(self.marker_place_list, [])
+        self.wait_double_click_interval()
+        self.assertEqual(len(self.marker_place_list), 1)
+        self.assertFalse(self.editor.isVisible())
 
     @covers("LLFR-00411", "LLFR-00342", "LLFR-00746")
     def test_double_click_then_enter_edits_the_text(self) -> None:
