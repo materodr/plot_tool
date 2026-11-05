@@ -1910,7 +1910,9 @@ class PlotWidget(QWidget):
                 linestyle=MARKER_LINE_STYLE_TUPLE, zorder=MARKER_ZORDER_F)
             line.set_in_layout(False)
             # LLFR-00084: the name at the top of the line, inside the
-            # axes, shown literally (never as mathtext).
+            # axes, shown literally (never as mathtext). LLFR-01202: on
+            # a box with a contrast of at least 4.5:1 (LLFR-00704).
+            flag_box_dict = theme.contrast_label_box_dict(color_str)
             label = self.axes.annotate(
                 name_str, xy=(time_s, 1.0),
                 xycoords=self.axes.get_xaxis_transform(),
@@ -1919,7 +1921,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
+                bbox=dict(flag_box_dict), zorder=MARKER_ZORDER_F)
             label.set_in_layout(False)
             # LLFR-00092: the time directly below the label. Its anchor
             # is the label's own box, so it follows the label.
@@ -1929,7 +1931,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
+                bbox=dict(flag_box_dict), zorder=MARKER_ZORDER_F)
             time_text.set_in_layout(False)
             self.marker_artist_dict[marker_id_i] = (line, label, time_text)
         self.place_markers()
@@ -1978,7 +1980,9 @@ class PlotWidget(QWidget):
         name_label = self.axes.annotate(
             name_str, xy=(0.0, 0.0), xytext=(0.0, 0.0),
             textcoords="offset points", parse_math=False, color=color_str,
-            fontsize=DELTA_FONT_SIZE_F, bbox=dict(MARKER_TEXT_BOX_DICT),
+            fontsize=DELTA_FONT_SIZE_F,
+            # LLFR-01202: a box with a contrast of at least 4.5:1.
+            bbox=theme.contrast_label_box_dict(color_str),
             horizontalalignment="center", verticalalignment="bottom",
             zorder=DELTA_ZORDER_F + 0.25)
         name_label.set_in_layout(False)
@@ -2036,7 +2040,10 @@ class PlotWidget(QWidget):
             xytext=(0.0, 0.0), textcoords="offset points",
             parse_math=False, color=color_str,
             fontsize=DELTA_FONT_SIZE_F,
-            bbox=dict(DELTA_LABEL_BOX_DICT, edgecolor=color_str),
+            # LLFR-01202: the tip box with its border in the marker's
+            # color, filled for a contrast of at least 4.5:1.
+            bbox=dict(theme.contrast_label_box_dict(
+                color_str, DELTA_LABEL_BOX_DICT), edgecolor=color_str),
             zorder=DELTA_ZORDER_F + 0.2)
         label.set_in_layout(False)
         if kind_str != DELTA_X_KIND_STR:
@@ -2352,8 +2359,10 @@ class PlotWidget(QWidget):
             textcoords="offset points", parse_math=False,
             color=MARKER_PREVIEW_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
             horizontalalignment="left", verticalalignment="top",
-            bbox=dict(MARKER_TEXT_BOX_DICT,
-                      edgecolor=MARKER_PREVIEW_COLOR_STR))
+            # LLFR-01202: the preview reads on its box like a flag.
+            bbox=dict(theme.contrast_label_box_dict(
+                MARKER_PREVIEW_COLOR_STR),
+                edgecolor=MARKER_PREVIEW_COLOR_STR))
         for artist in (self.preview_line, self.preview_time_text):
             artist.set_figure(self.figure)
             artist.axes = self.axes
@@ -6365,13 +6374,15 @@ class PlotWidget(QWidget):
             patch.set_in_layout(False)
             self.arrow_artist_list.append(patch)
             # LLFR-00436, LLFR-00788: the name beside the line, parallel
-            # to it, in the arrow's color, on a label box (LLFR-00704);
+            # to it, in the arrow's color, on a label box with a contrast
+            # of at least 4.5:1 (LLFR-00704);
             # LLFR-00437: placed again at every draw. Not clipped: it is
             # kept inside the drawing area by itself.
             arrow_label = ArrowLabel(
                 patch, self.arrow_name_list[len(self.arrow_label_list)]
                 if len(self.arrow_label_list) < len(self.arrow_name_list)
-                else "", color_str, MARKER_TEXT_BOX_DICT,
+                else "", color_str,
+                theme.contrast_label_box_dict(color_str),
                 zorder=ARROW_ZORDER_F + 0.05)
             self.axes.add_artist(arrow_label)
             arrow_label.set_clip_on(False)
@@ -6399,7 +6410,8 @@ class PlotWidget(QWidget):
         # stretched arrow; it is not added to the axes either.
         self.arrow_preview_label = ArrowLabel(
             self.arrow_preview_patch, "", DEFAULT_ARROW_COLOR_STR,
-            MARKER_TEXT_BOX_DICT, zorder=ARROW_ZORDER_F + 0.05)
+            theme.contrast_label_box_dict(DEFAULT_ARROW_COLOR_STR),
+            zorder=ARROW_ZORDER_F + 0.05)
         self.arrow_preview_label.set_figure(self.figure)
         self.arrow_preview_label.axes = self.axes
         self.arrow_preview_label.set_clip_on(False)
@@ -6444,6 +6456,9 @@ class PlotWidget(QWidget):
                 name_str = self.arrow_name_list[self.arrow_drag_index_i]
             self.arrow_preview_label.set_text(name_str)
             self.arrow_preview_label.set_color(pale_str)
+            # LLFR-00436, LLFR-00704: its box reads with the pale color.
+            self.arrow_preview_label.set_bbox(
+                theme.contrast_label_box_dict(pale_str))
 
     def arrow_threshold_px(self) -> float:
         """Return the 5 pixel distance of the arrow rules, in display px.
@@ -7275,8 +7290,10 @@ class PlotWidget(QWidget):
             "", xy=(0.0, 0.0), xycoords="data", xytext=(0.0, 0.0),
             textcoords="offset points", parse_math=False,
             color=DELTA_PREVIEW_COLOR_STR, fontsize=DELTA_FONT_SIZE_F,
-            bbox=dict(DELTA_LABEL_BOX_DICT,
-                      edgecolor=DELTA_PREVIEW_COLOR_STR))
+            # LLFR-01202: the preview reads on its box like a marker.
+            bbox=dict(theme.contrast_label_box_dict(
+                DELTA_PREVIEW_COLOR_STR, DELTA_LABEL_BOX_DICT),
+                edgecolor=DELTA_PREVIEW_COLOR_STR))
         self.delta_preview_artist_tuple = (leader, bracket, label)
         for artist in (self.delta_preview_dot,) + (
                 self.delta_preview_artist_tuple):

@@ -697,8 +697,27 @@ def area_label_box_dict(area_color_str: str) -> dict:
     """
     # LLFR-00704: an opaque box, so the contrast is that of the two
     # colors whatever is drawn behind the label.
-    return dict(MARKER_TEXT_BOX_DICT,
-                facecolor=area_label_box_color_str(area_color_str),
+    return contrast_label_box_dict(area_color_str)
+
+
+def contrast_label_box_dict(text_color_str: str,
+                            base_box_dict: dict = None) -> dict:
+    """Return an opaque label box that reads with a colored text.
+
+    Inputs:
+        text_color_str: the color of the label's text, "#rrggbb".
+        base_box_dict: the shape and border of the box, for example
+            PINNED_TIP_BOX_DICT; MARKER_TEXT_BOX_DICT when None.
+    Outputs: a matplotlib bbox dict: base_box_dict, opaque, filled with
+        the color of area_label_box_color_str for that text color.
+    """
+    # LLFR-00704, LLFR-00436, LLFR-01202: at least 4.5:1 between the
+    # text and its box, for the labels of areas, arrows, flags and delta
+    # markers and their previews.
+    if base_box_dict is None:
+        base_box_dict = MARKER_TEXT_BOX_DICT
+    return dict(base_box_dict,
+                facecolor=area_label_box_color_str(text_color_str),
                 alpha=1.0)
 
 

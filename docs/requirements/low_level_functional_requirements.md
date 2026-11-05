@@ -5231,6 +5231,13 @@ The text of the label of an area (LLFR-00307) must be drawn in the area's color 
 
 *Parent: HLFR-00066*
 
+### LLFR-01202 Flag and delta marker labels on a contrast box
+The app must draw the name and the time of a flag (LLFR-00084, LLFR-00092) and the time of the flag preview (LLFR-00203), and the name and the value of a delta marker (LLFR-00427, LLFR-00169, LLFR-00171, LLFR-00261) and the value of the delta marker preview (LLFR-00353), each in its own color on a label box as in LLFR-00704.
+
+Note: The box of a delta marker's value keeps its border in the marker's color. The arrow label and its preview get the same box through LLFR-00436 and LLFR-00870. A text note keeps its white box (LLFR-00336).
+
+*Parent: HLFR-00028, HLFR-00089, HLFR-00043, HLFR-00044, HLFR-00092, HLFR-00097*
+
 ### LLFR-00308 Area time values
 The app must show the start and end times of an area, in seconds, directly below its label (LLFR-00307), in the area's color at full opacity on a label box as in LLFR-00704.
 
