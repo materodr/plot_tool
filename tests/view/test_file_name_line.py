@@ -425,7 +425,7 @@ class FileRowMouseTest(FileRowPanelTestCase):
         self.assertNotIn("file2_Time", self.panel.selected_signal_names())
 
     @covers("LLFR-00646", "LLFR-00019", "LLFR-00295", "LLFR-00296",
-            "LLFR-01176")
+            "LLFR-01179")
     def test_double_click_and_enter_ignore_the_row(self) -> None:
         """A double-click on a row plots nothing (it asks to hide or
         show the signals of its file instead); Enter plots signals.
@@ -440,7 +440,7 @@ class FileRowMouseTest(FileRowPanelTestCase):
         self.click(FIRST_ROW_STR, double_b=True)
         self.assertEqual(self.double_clicked_list, [])
         self.assertEqual(self.panel.selected_signal_names(), [])
-        # LLFR-01176: the double-click asks to toggle file 1 once (no
+        # LLFR-01179: the double-click asks to toggle file 1 once (no
         # controller here, so the list stays as it is).
         self.assertEqual(toggled_list, [1])
         self.panel._emit_signal_double_clicked(self.item_of(FIRST_ROW_STR))

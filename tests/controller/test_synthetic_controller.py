@@ -89,7 +89,7 @@ class FakeSyntheticWindow(FakePlotView):
         self.shown_name_list = []
         # (old name, new name) given to rename_shown_signal, in order.
         self.renamed_shown_list = []
-        # The names given to select_only_signal, in order (LLFR-01179).
+        # The names given to select_only_signal, in order (LLFR-01182).
         self.selected_alone_list = []
         self.synthetic_name_set = set()
         self.fft_name_set = set()
@@ -218,7 +218,7 @@ class FakeSyntheticWindow(FakePlotView):
                                 in group_list for name_str in name_list]
 
     def select_only_signal(self, signal_name_str: str) -> None:
-        """Record a signal selected alone (LLFR-01179).
+        """Record a signal selected alone (LLFR-01182).
 
         Inputs:
             signal_name_str: the name to select.
@@ -1198,7 +1198,7 @@ class CreateTest(SyntheticControllerTestCase):
 class NewSignalShownTest(SyntheticControllerTestCase):
     """A new synthetic signal expands its file and is selected."""
 
-    @covers("LLFR-01178", "LLFR-01179", "LLFR-00998", "LLFR-01008",
+    @covers("LLFR-01181", "LLFR-01182", "LLFR-00998", "LLFR-01008",
             "HLFR-00123", "HLFR-00053")
     def test_collapsed_file_is_expanded_and_signal_selected(self) -> None:
         """A creation from the menu of a collapsed file's signal shows
@@ -1225,7 +1225,7 @@ class NewSignalShownTest(SyntheticControllerTestCase):
         self.assertEqual(self.view.selected_alone_list,
                          ["file1_int_Speed", "file1_max_Torque"])
 
-    @covers("LLFR-01178", "LLFR-01003", "LLFR-01004", "HLFR-00123",
+    @covers("LLFR-01181", "LLFR-01003", "LLFR-01004", "HLFR-00123",
             "HLFR-00033")
     def test_creation_during_a_search(self) -> None:
         """During a search the file is shown again, and it stays shown
@@ -1248,7 +1248,7 @@ class NewSignalShownTest(SyntheticControllerTestCase):
         self.assertEqual(signal_list_controller.collapsed_number_set, set())
         self.assertIn("file1_int_Speed", self.view.shown_name_list)
 
-    @covers("LLFR-01178", "LLFR-01179", "HLFR-00123")
+    @covers("LLFR-01181", "LLFR-01182", "HLFR-00123")
     def test_cancelled_or_impossible_creation_changes_nothing(self) -> None:
         """No signal created: the file stays collapsed, nothing is
         selected.

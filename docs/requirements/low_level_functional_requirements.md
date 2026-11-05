@@ -50,8 +50,8 @@ When a box of LLFR-00981 lists two or more items, the app must number them `1.`,
 *Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
 
 ### LLFR-00981 Boxes that list items
-The boxes whose items are shown as in LLFR-00980 to LLFR-00990 must be these boxes, with these items:
-1. the File Open Error box of LLFR-00955: one item for each file that could not be opened, with its reason;
+The boxes whose items are shown as in LLFR-00980 to LLFR-00990 and LLFR-01176 must be these boxes, with these items:
+1. the File Open Error box of LLFR-00955: one item for each file that could not be opened, with its reason, which holds a list of its own for the check of HLFR-00009 (LLFR-01178);
 2. the box of the refused files of LLFR-00956: one item for each refused file, with its reason;
 3. the load report of LLFR-00237: one item for each entry under each of its headings;
 4. the box of the changed names of LLFR-00404: one item for each changed name;
@@ -104,9 +104,32 @@ In the load report of LLFR-00237, the app must leave one blank line between the 
 *Parent: HLFR-00052*
 
 ### LLFR-00990 Wrapped lines in the scrollable boxes
-In the scrollable boxes of LLFR-00884 and LLFR-00885, the app must wrap each line that is wider than the box at the width of the box, also inside a long name, so that the user reads every item without scrolling to the side.
+In the scrollable boxes of LLFR-00884, LLFR-00885 and LLFR-01177, the app must wrap each line that is wider than the box at the width of the box, also inside a long name, so that the user reads every item without scrolling to the side.
 
-*Parent: HLFR-00052, HLFR-00090*
+Note: Each wrapped line starts under the text of its own item (LLFR-01176).
+
+*Parent: HLFR-00052, HLFR-00090, HLFR-00122*
+
+### LLFR-01176 Wrapped lines under the text of their item
+When a box of LLFR-00981 wraps a line that is wider than the box, the app must start each wrapped part of that line where the text of the line starts after its indent (LLFR-00985) and its number (LLFR-00980, LLFR-00986), so that a wrapped line continues under the text of its own item and not at the left edge of the box.
+
+Note: The owner asked for this on 2026-11-04 (answer 23b). The indent and the number are drawn as a hanging indent, measured in the font of the box. A line with no indent and no number, such as the sentence of LLFR-00983, wraps at the left edge of the box as before.
+
+*Parent: HLFR-00002, HLFR-00052, HLFR-00090, HLFR-00122, HLFR-00059, HLFR-00118, HLFR-00119*
+
+### LLFR-01177 Scrollable File Open Error and refused files boxes
+When the text of the File Open Error box of LLFR-00955 or of the box of LLFR-00956 takes more than 15 lines, counting each line of more than 80 characters as one line for every 80 characters or part of them, the app must show that box, with its title and its icon, with its text in a read-only field that is scrollable when the text is longer than the field can show, like the load report (LLFR-00884).
+
+Note: The owner asked for this on 2026-11-04 (answer 23c). A shorter box stays an ordinary message box. The load report and the box of the changed names always show their list in such a field (LLFR-00884, LLFR-00885).
+
+*Parent: HLFR-00002, HLFR-00122, HLFR-00113*
+
+### LLFR-01178 Sample-count error as a list
+When a file fails the check of HLFR-00009, the app must list, in the reason of LLFR-00012, each signal whose number of samples differs from that of the reference signal, which is the time signal or, while the time signal is not chosen yet, the first signal of the file, with its number of samples, as the items of a list (LLFR-00980 to LLFR-00986) below the sentence that names the check and gives the number of samples of the reference signal (LLFR-00983).
+
+Note: The owner asked for this on 2026-11-04 (answer 23d). Inside the File Open Error box this list is part of the item of its file, so its lines are indented under that item (LLFR-00985). One signal alone is shown without a number (LLFR-00984).
+
+*Parent: HLFR-00009, HLFR-00002*
 
 ### LLFR-00072 Initial signal list width
 When the app starts, the signal list panel of the main window must take 20% of the main window's width.
@@ -565,14 +588,14 @@ When 10 data files are open while selected files of LLFR-00952 are still left to
 ### LLFR-00955 One File Open Error box for a selection
 After the app has taken all the selected files (LLFR-00952), if any of them could not be opened at the reading step of LLFR-00328 or met an unexpected error (LLFR-00973), the app must show one File Open Error box that lists each such file by its name, without its folder, with the reason of its error (LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012, LLFR-00064, LLFR-00065, LLFR-00973).
 
-Note: With one file selected, the box lists that one file.
+Note: With one file selected, the box lists that one file. A long box is scrollable (LLFR-01177).
 
 *Parent: HLFR-00122, HLFR-00002, HLFR-00004*
 
 ### LLFR-00956 One information box for the refused files
 After the app has taken all the selected files (LLFR-00952), and after the box of LLFR-00955 when that box is shown, if any selected file was refused (LLFR-00898, LLFR-00954), the app must show one information box that lists each refused file by its name, without its folder, with the reason of LLFR-00898 or LLFR-00954.
 
-Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032).
+Note: The box is an information box, not an error box (HLFR-00002), like the Full Tab Notification box (LLFR-00032). A long box is scrollable (LLFR-01177).
 
 *Parent: HLFR-00122, HLFR-00113*
 
@@ -710,6 +733,8 @@ If the user selects a file whose format is not listed in HLFR-00005, the app mus
 
 ### LLFR-00012 Failed content check message
 If the file fails the check in HLFR-00008 or HLFR-00009, the app must list the file in the File Open Error box of LLFR-00955 with the reason that the file cannot be opened, naming the check that failed.
+
+Note: For the check of HLFR-00009, the reason lists the signals with another number of samples (LLFR-01178).
 
 *Parent: HLFR-00008, HLFR-00009, HLFR-00002*
 
@@ -2407,7 +2432,7 @@ Note: Opening or closing a data file, or creating, renaming or deleting a synthe
 
 
 ### LLFR-01175 Hidden signals in every panel
-When the user hides or shows again the signals of a data file in the signal list panel of one window (LLFR-00997, LLFR-00998, LLFR-01003, LLFR-01006, LLFR-01007, LLFR-01176), or the app shows them for a new synthetic signal (LLFR-01178), the app must hide or show them, with the same icon (LLFR-00994, LLFR-00995), in the signal list panel of every window, including the panel of an undocked window opened later.
+When the user hides or shows again the signals of a data file in the signal list panel of one window (LLFR-00997, LLFR-00998, LLFR-01003, LLFR-01006, LLFR-01007, LLFR-01179), or the app shows them for a new synthetic signal (LLFR-01181), the app must hide or show them, with the same icon (LLFR-00994, LLFR-00995), in the signal list panel of every window, including the panel of an undocked window opened later.
 
 Note: The panels share one state of the data files, as they share the search text (LLFR-01041).
 
@@ -2428,7 +2453,7 @@ The app must let the user drag signals from the signal list panel of any window 
 *Parent: HLFR-00128, HLFR-00013, HLFR-00065*
 
 ### LLFR-01040 Own selection in each panel
-Each signal list panel must keep its own selection of signals (LLFR-00290, LLFR-00625, LLFR-00626), so that selecting signals in one panel leaves the selection of the other panels unchanged.
+Each signal list panel must keep its own selection of signals (LLFR-00290, LLFR-00625, LLFR-00626), so that selecting signals in one panel leaves the selection of the other panels unchanged, except as in LLFR-01182.
 
 Note: The Enter key (LLFR-00295) uses the selection of the panel that has the keyboard focus.
 
@@ -3493,7 +3518,7 @@ A file name row (LLFR-00362) must not be dragged.
 ### LLFR-00646 File name row not plotted
 A file name row (LLFR-00362) must not be plotted, neither by a double-click on it (LLFR-00019) nor by the Enter key (LLFR-00295, LLFR-00629).
 
-Note: A double-click on a file name row hides or shows again the signals of its file instead (LLFR-01176).
+Note: A double-click on a file name row hides or shows again the signals of its file instead (LLFR-01179).
 
 *Parent: HLFR-00079*
 
@@ -3705,7 +3730,7 @@ Note: The click does not change the state that the file gets back when the searc
 *Parent: HLFR-00123, HLFR-00033*
 
 ### LLFR-01004 File states back after a search
-When the search box becomes empty or holds only spaces again, the app must show each data file with the signals shown or hidden as they were just before the search box got its text, as set by LLFR-00997, LLFR-00998 and LLFR-01001.
+When the search box becomes empty or holds only spaces again, the app must show each data file with the signals shown or hidden as they were just before the search box got its text, as set by LLFR-00997, LLFR-00998 and LLFR-01001, except as in LLFR-01181.
 
 *Parent: HLFR-00123, HLFR-00033*
 
@@ -3724,28 +3749,28 @@ When the keyboard focus is in the signal list, the current row is a file name ro
 
 *Parent: HLFR-00123*
 
-### LLFR-01176 Double-click on a file name row
+### LLFR-01179 Double-click on a file name row
 When the user double-clicks a file name row (LLFR-00362) of an open data file anywhere other than its icon (LLFR-00994, LLFR-00995), the app must hide the signals of that file, or show them again, as one click on its icon does (LLFR-00997, LLFR-00998, LLFR-01003).
 
 Note: Each click on the icon itself still toggles the file, so a double-click on the icon toggles it twice.
 
 *Parent: HLFR-00123*
 
-### LLFR-01177 Left key on a signal row
+### LLFR-01180 Left key on a signal row
 When the keyboard focus is in the signal list, the current row is a signal of a data file and the user presses the Left arrow key alone, the app must make the file name row of that signal's file (LLFR-00362) the current row, keeping the selection unchanged.
 
 Note: A second Left then hides the signals of the file (LLFR-01006).
 
 *Parent: HLFR-00123*
 
-### LLFR-01178 New synthetic signal shown
+### LLFR-01181 New synthetic signal shown
 When the user creates a synthetic signal from the signal menu (LLFR-00239) while the signals of its data file (LLFR-00940) are hidden (LLFR-00997, LLFR-01001, LLFR-01003), the app must show again the signals of that file, as a click on its `[+]` icon does (LLFR-00998), also in the state that the file gets back when the search is cleared (LLFR-01004).
 
 Note: The synthetic signals that a layout file creates (LLFR-00262) leave every file hidden or shown as it was, because a layout can create many signals of several files at once.
 
 *Parent: HLFR-00123, HLFR-00053*
 
-### LLFR-01179 New synthetic signal selected
+### LLFR-01182 New synthetic signal selected
 When the user creates a synthetic signal from the signal menu (LLFR-00239), the app must select the new synthetic signal alone, deselecting every other signal, in each signal list panel that shows it (LLFR-01036).
 
 Note: A panel whose search text the new signal does not match (LLFR-00095) keeps its selection. The synthetic signals that a layout file creates (LLFR-00262) select nothing.
@@ -3753,7 +3778,7 @@ Note: A panel whose search text the new signal does not match (LLFR-00095) keeps
 *Parent: HLFR-00053, HLFR-00063*
 
 ### LLFR-01008 Hiding signals is not undoable
-Hiding and showing again the signals of a data file (LLFR-00997, LLFR-00998, LLFR-01001 to LLFR-01007, LLFR-01176, LLFR-01178) must leave the undo and redo history unchanged.
+Hiding and showing again the signals of a data file (LLFR-00997, LLFR-00998, LLFR-01001 to LLFR-01007, LLFR-01179, LLFR-01181) must leave the undo and redo history unchanged.
 
 *Parent: HLFR-00123, HLFR-00040, HLFR-00048*
 

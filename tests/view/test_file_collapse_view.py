@@ -422,7 +422,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
                           Qt.KeyboardModifier.NoModifier, point)
         self.application.processEvents()
 
-    @covers("LLFR-01176", "LLFR-00646", "LLFR-00643", "LLFR-01008",
+    @covers("LLFR-01179", "LLFR-00646", "LLFR-00643", "LLFR-01008",
             "HLFR-00123")
     def test_double_click_on_the_row_text_toggles_the_file(self) -> None:
         """A double-click on the text of a file name row shows its
@@ -450,7 +450,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(
             len(self.controller.plot_controller.all_plot_list()), 0)
 
-    @covers("LLFR-01176", "LLFR-00997", "LLFR-00998", "HLFR-00123")
+    @covers("LLFR-01179", "LLFR-00997", "LLFR-00998", "HLFR-00123")
     def test_double_click_on_the_icon_toggles_twice(self) -> None:
         """Each click of a double-click on the icon toggles the file, so
         the file ends as it was; on the text it toggles once.
@@ -476,7 +476,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.icons(), ["[+]", "[+]"])
         self.assertEqual(self.panel.signal_name_list(), [])
 
-    @covers("LLFR-01176", "LLFR-01003", "HLFR-00123", "HLFR-00033")
+    @covers("LLFR-01179", "LLFR-01003", "HLFR-00123", "HLFR-00033")
     def test_double_click_during_a_search(self) -> None:
         """During a search a double-click hides the matches of its file
         until the search is cleared.
@@ -494,7 +494,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(self.icons(), ["[+]", "[+]"])
 
-    @covers("LLFR-01177", "LLFR-01006", "LLFR-00292", "HLFR-00123")
+    @covers("LLFR-01180", "LLFR-01006", "LLFR-00292", "HLFR-00123")
     def test_left_key_on_a_signal_row_goes_to_its_file_row(self) -> None:
         """Left on a signal makes its file name row current and keeps the
         selection; a second Left collapses the file.
@@ -529,7 +529,7 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.assertEqual(self.panel.selected_signal_names(),
                          ["file1_Torque"])
 
-    @covers("LLFR-01178", "LLFR-01179", "LLFR-00998", "LLFR-00242",
+    @covers("LLFR-01181", "LLFR-01182", "LLFR-00998", "LLFR-00242",
             "HLFR-00123", "HLFR-00053", "HLFR-00063")
     def test_new_synthetic_signal_expands_and_is_selected(self) -> None:
         """Creating an integral from a signal of a collapsed file shows
