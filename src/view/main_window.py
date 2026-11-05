@@ -1605,6 +1605,19 @@ class MainWindow(QMainWindow):
         for panel in self.signal_list_panel_list():
             panel.rename_shown_signal(old_name_str, new_name_str)
 
+    def select_only_signal(self, signal_name_str: str) -> None:
+        """Select one signal of the signal list, alone, in every panel.
+
+        Inputs:
+            signal_name_str: the name of a shown signal.
+        Outputs: none. A panel that doesn't show the name keeps its
+            selection.
+        """
+        # LLFR-01194: the new synthetic signal is selected; LLFR-01036:
+        # every panel shows the same list, so each one selects it.
+        for panel in self.signal_list_panel_list():
+            panel.select_only_signal(signal_name_str)
+
     def clear_signal_selection(self) -> None:
         """Deselect every signal of the signal list.
 

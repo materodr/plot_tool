@@ -259,6 +259,31 @@ class CollapsedFilesNotSavedTest(LayoutSyntheticTestCase):
         self.assertEqual(signal_list_controller.collapsed_number_set, {1})
 
 
+class LayoutSignalsKeepTheFilesTest(LayoutSyntheticTestCase):
+    """Signals created by a layout load expand nothing, select nothing."""
+
+    @covers("LLFR-01193", "LLFR-01194", "LLFR-00262", "HLFR-00123",
+            "HLFR-00053")
+    def test_layout_load_keeps_the_file_collapsed(self) -> None:
+        """A load that creates synthetic signals of a collapsed file
+        leaves it collapsed and selects no signal.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = self.build_synthetic_layout()
+        path_str = self.save("layout.json")
+        self.open_file()
+        signal_list_controller = self.main_controller.signal_list_controller
+        signal_list_controller.toggle_file(1)
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        self.load(path_str)
+        self.assertEqual(self.store.names(), name_list)
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        self.assertEqual(self.view.shown_name_list, [])
+        self.assertEqual(self.view.selected_alone_list, [])
+
+
 class LoadTest(LayoutSyntheticTestCase):
     """Load layout creates the synthetic signals (LLFR-00262)."""
 
