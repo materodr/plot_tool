@@ -362,6 +362,13 @@ Note: As in LLFR-00188, the time is measured from the second launch onward, on t
 
 *Parent: HLFR-00091*
 
+### LLFR-01183 No file name from an earlier use
+Each time the app shows the file selection dialog of the Open file button (LLFR-00005), the save file dialog of "Save all tabs as PDF" (LLFR-00128) or a dialog of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the dialog must open without the file name that the user chose or typed in it at an earlier use, on macOS and on Windows.
+
+Note: In a save dialog, the file name field is then empty; in an open dialog, no file of the earlier use is selected. The app builds each dialog once and shows it again (LLFR-00406), and the system's dialogs would otherwise fill in the file chosen the last time. The Save signals dialog proposes a name on purpose (LLFR-00532).
+
+*Parent: HLFR-00004, HLFR-00038, HLFR-00049, HLFR-00050*
+
 ### LLFR-00977 Identical time signals
 The app must treat two time signals as identical when they have the same number of samples and each pair of samples at the same position differs by at most 1e-8 times the larger of their absolute values, or by at most 1e-8 when both are smaller than 1 in absolute value.
 
@@ -958,6 +965,20 @@ If the PDF file cannot be written, the app must show an error box saying that th
 
 *Parent: HLFR-00038, HLFR-00002*
 
+### LLFR-01179 PDF dialog starting folder
+Until the app has saved a PDF file successfully since it started, the save file dialog of "Save all tabs as PDF" (LLFR-00128) must show the folder that the file selection dialog of the Open file button would show at that moment (LLFR-00204, LLFR-00446, LLFR-00447).
+
+Note: That is the folder of the last data file that the app opened successfully, or the app's folder when the app has opened no data file yet. A cancelled dialog, or a PDF file that could not be saved, does not count.
+
+*Parent: HLFR-00038*
+
+### LLFR-01180 PDF dialog folder of the last PDF file
+Once the app has saved a PDF file successfully since it started (LLFR-01179), the save file dialog of LLFR-00128 must show the folder of the last PDF file that the app saved successfully.
+
+Note: A cancelled dialog, or a PDF file that could not be saved, leaves this folder unchanged.
+
+*Parent: HLFR-00038*
+
 ### LLFR-00132 Copy button
 The top panel must contain a button called "Copy".
 
@@ -1317,12 +1338,16 @@ If the name typed in the dialog of LLFR-00219 has no extension, the app must add
 *Parent: HLFR-00049*
 
 ### LLFR-00220 Layout dialog starting folder
-The first time after the app starts that the user clicks the Save layout or Load layout button, the dialog (LLFR-00219, LLFR-00221) must show the folder that the file selection dialog of the Open file button would show at that moment (LLFR-00204, LLFR-00446, LLFR-00447).
+Until the app has saved or loaded a layout file successfully since it started, the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221) must show the folder that the file selection dialog of the Open file button would show at that moment (LLFR-00204, LLFR-00446, LLFR-00447).
+
+Note: That is the folder of the last data file that the app opened successfully, or the app's folder when the app has opened no data file yet. A cancelled dialog, or a layout file that could not be saved or loaded, does not count.
 
 *Parent: HLFR-00049, HLFR-00050*
 
 ### LLFR-00468 Layout dialog folder of the last layout file
-After the first click on the Save layout or Load layout button since the app started (LLFR-00220), the dialog (LLFR-00219, LLFR-00221) must show the folder of the last layout file that the app saved or loaded successfully.
+Once the app has saved or loaded a layout file successfully since it started (LLFR-00220), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221) must show the folder of the last layout file that the app saved or loaded successfully, with either button.
+
+Note: Save layout and Load layout share this folder. A cancelled dialog, or a layout file that could not be saved or loaded, leaves it unchanged.
 
 *Parent: HLFR-00049, HLFR-00050*
 
@@ -2175,7 +2200,23 @@ When the app saves the signals, it must apply LLFR-00945, LLFR-00946 and LLFR-00
 *Parent: HLFR-00121, HLFR-00090*
 
 ### LLFR-00532 Save signals dialog first values
-The dialog of LLFR-00396 must open in the folder of the open data file with the lowest number (LLFR-00900), with that file's name without its extension, followed by `_signals` and that file's extension, and with that file's format chosen; for example `run1_signals.csv` for `run1.csv`.
+The dialog of LLFR-00396 must open with the name of the open data file with the lowest number (LLFR-00900) without its extension, followed by `_signals` and that file's extension, and with that file's format chosen; for example `run1_signals.csv` for `run1.csv`.
+
+Note: The folder the dialog opens in is given by LLFR-01181 and LLFR-01182. This proposed name is the exception to LLFR-01183.
+
+*Parent: HLFR-00090*
+
+### LLFR-01181 Save signals dialog starting folder
+Until the app has saved a signals file successfully since it started (LLFR-00396), the dialog of LLFR-00396 must show the folder that the file selection dialog of the Open file button would show at that moment (LLFR-00204, LLFR-00446, LLFR-00447).
+
+Note: That is the folder of the last data file that the app opened successfully, which is not always the folder of the data file whose name is proposed (LLFR-00532). A cancelled dialog, or a file that could not be saved, does not count.
+
+*Parent: HLFR-00090*
+
+### LLFR-01182 Save signals dialog folder of the last saved file
+Once the app has saved a signals file successfully since it started (LLFR-01181), the dialog of LLFR-00396 must show the folder of the last signals file that the app saved successfully.
+
+Note: A cancelled dialog, or a file that could not be saved, leaves this folder unchanged.
 
 *Parent: HLFR-00090*
 

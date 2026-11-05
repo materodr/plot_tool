@@ -343,7 +343,7 @@ class FileDialogTimingTest(unittest.TestCase):
 
     @covers("LLFR-00406", "HLFR-00091", "LLFR-00005", "LLFR-00219",
             "LLFR-00221", "LLFR-00128", "LLFR-00204", "LLFR-00220",
-            "LLFR-00396")
+            "LLFR-00396", "LLFR-01179", "LLFR-01181")
     def test_every_dialog_appears_quickly(self) -> None:
         """First and second click of each dialog: shown within 0.65 s.
 
@@ -383,12 +383,10 @@ class FileDialogTimingTest(unittest.TestCase):
                 self.assertLessEqual(elapsed_s, DIALOG_LIMIT_S)
                 # LLFR-00406: the same dialog on every click.
                 self.assertIs(dialog, self.pool.dialog(key_str))
-        # LLFR-00204, LLFR-00220, LLFR-00396: after the open, the
-        # folder of the data file, for the Open file, both layout and the
-        # Save signals dialogs.
+        # LLFR-00204, LLFR-00220, LLFR-01179, LLFR-01181: after the
+        # open, the folder of the data file, for every dialog.
         for record in record_list[1:]:
-            if record[0] != "save_pdf":
-                self.assertEqual(record[4], self.folder_str)
+            self.assertEqual(record[4], self.folder_str)
         # The filters are those of the dialogs before (LLFR-00005,
         # LLFR-00221, LLFR-00128).
         filter_dict = {record[0]: record[5] for record in record_list}
@@ -620,7 +618,7 @@ class FileDialogTimingTest(unittest.TestCase):
 
 
 class FakeSystemPanelDialog:
-    """Stand-in for a reused QFileDialog shown as the macOS panel.
+    """Stand-in for a reused QFileDialog shown as a system dialog.
 
     It keeps the options as Qt 6 keeps them for its macOS helper
     (qfiledialog.cpp, helperPrepareShow; qcocoafiledialoghelper.mm,
@@ -629,7 +627,9 @@ class FakeSystemPanelDialog:
     that list is empty, and are then never replaced except by
     selectFile; the panel opens in the folder of the first of them (the
     path itself when it is a folder), or else in the folder of
-    setDirectory.
+    setDirectory. Its name field shows the name of that first file,
+    unless it is a folder, as the macOS panel and the Windows dialog
+    (qwindowsdialoghelpers.cpp) do (issue #243).
 
     Inputs:
         native_b: False when DontUseNativeDialog is set.
@@ -647,6 +647,7 @@ class FakeSystemPanelDialog:
         self.initially_selected_list = []
         self.user_selected_list = []
         self.shown_folder_list = []
+        self.shown_name_list = []
         self.select_file_list = []
 
     def testOption(self, option) -> bool:
@@ -678,6 +679,23 @@ class FakeSystemPanelDialog:
         if path_str:
             self.initially_selected_list = [path_str]
 
+    def directory(self):
+        """Return the folder of setDirectory, as a QDir would.
+
+        Inputs: none.
+        Outputs: an object whose absolutePath() is that folder.
+        """
+        return mock.Mock(absolutePath=lambda: self.directory_str)
+
+    def selectNameFilter(self, filter_str: str) -> None:
+        """Keep the chosen name filter.
+
+        Inputs:
+            filter_str: the filter.
+        Outputs: none.
+        """
+        self.name_filter_str = filter_str
+
     def nameFilters(self) -> list:
         """Return no name filter.
 
@@ -704,13 +722,18 @@ class FakeSystemPanelDialog:
         """
         if not self.initially_selected_list:
             self.initially_selected_list = list(self.user_selected_list)
+        name_str = ""
         if self.initially_selected_list:
             first_str = self.initially_selected_list[0]
-            folder_str = (first_str if os.path.isdir(first_str)
-                          else os.path.dirname(first_str))
+            if os.path.isdir(first_str):
+                folder_str = first_str
+            else:
+                folder_str = os.path.dirname(first_str) or self.directory_str
+                name_str = os.path.basename(first_str)
         else:
             folder_str = self.directory_str
         self.shown_folder_list.append(os.path.realpath(folder_str))
+        self.shown_name_list.append(name_str)
         self.user_selected_list = list(chosen_list)
         return list(chosen_list)
 
@@ -769,14 +792,23 @@ class ReusedDialogFolderTest(unittest.TestCase):
         self.assertEqual(dialog.shown_folder_list, [
             folder_dict["start"], folder_dict["a"], folder_dict["b"],
             folder_dict["c"]])
-        # "" keeps the panel as it is (the PDF dialog).
-        selected_count_i = len(dialog.select_file_list)
-        pool.prepared_dialog("open_file", "")
-        self.assertEqual(len(dialog.select_file_list), selected_count_i)
+        # LLFR-01183: no reused panel showed the name of the file
+        # chosen in it before.
+        self.assertEqual(dialog.shown_name_list, ["", "", "", ""])
+        # "" keeps the folder the panel shows, and still selects that
+        # folder, so that no file name is left (LLFR-01183).
+        dialog.setDirectory(folder_dict["b"])
+        dialog.user_selected_list = [path_dict["a1.csv"]]
+        dialog.initially_selected_list = [path_dict["a1.csv"]]
+        pool.prepared_dialog("open_file", "").show_panel([])
+        self.assertEqual(dialog.select_file_list[-1], folder_dict["b"])
+        self.assertEqual(dialog.shown_folder_list[-1], folder_dict["b"])
+        self.assertEqual(dialog.shown_name_list[-1], "")
 
-    @covers("LLFR-00447", "LLFR-00204", "LLFR-00406")
-    def test_folder_selected_only_on_the_macos_panel(self) -> None:
-        """Qt's own dialog and other systems only get setDirectory.
+    @covers("LLFR-00447", "LLFR-00204", "LLFR-00406", "LLFR-01183")
+    def test_folder_selected_only_on_the_system_dialogs(self) -> None:
+        """The macOS panel and the Windows dialog get the folder
+        selected; Qt's own dialog and other systems only setDirectory.
 
         Inputs: none.
         Outputs: none.
@@ -785,7 +817,8 @@ class ReusedDialogFolderTest(unittest.TestCase):
         folder_str = self.folder_dict["a"]
         for platform_str, native_b, selected_list in (
                 ("darwin", True, [folder_str]), ("darwin", False, []),
-                ("linux", True, []), ("win32", True, [])):
+                ("linux", True, []), ("win32", True, [folder_str]),
+                ("win32", False, [])):
             with self.subTest(platform_str=platform_str, native_b=native_b):
                 dialog = FakeSystemPanelDialog(native_b)
                 self.assertEqual(file_dialogs.uses_system_panel(
@@ -893,6 +926,205 @@ class ReusedDialogFolderTest(unittest.TestCase):
         self.assertEqual(
             dialog_dict[LOAD_LAYOUT_DIALOG_KEY_STR].shown_folder_list,
             [folder_dict["a"], folder_dict["b"]])
+
+
+@requires_qt
+class ReusedDialogNameAndFolderTest(unittest.TestCase):
+    """No file name of an earlier use, and one folder rule for the
+    dialogs other than Open file (issue #243)."""
+
+    def setUp(self) -> None:
+        """Make the folders a, b, c and d, with a data file in a and b.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+        self.temporary_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_folder.cleanup)
+        root_str = os.path.realpath(self.temporary_folder.name)
+        self.folder_dict = {}
+        for name_str in ("start", "a", "b", "c", "d"):
+            self.folder_dict[name_str] = os.path.join(root_str, name_str)
+            os.makedirs(self.folder_dict[name_str])
+        self.path_dict = {}
+        for name_str in ("a", "b"):
+            path_str = os.path.join(self.folder_dict[name_str],
+                                    f"{name_str}1.csv")
+            with open(path_str, "w", encoding="utf-8") as data_file:
+                data_file.write(FILE_TEXT_STR)
+            self.path_dict[name_str] = path_str
+
+    @covers("LLFR-01183", "LLFR-00406")
+    def test_pool_dialog_shows_no_earlier_name(self) -> None:
+        """On macOS and on Windows, each reused dialog opens with no
+        file name, after a file was chosen in it and with or without a
+        folder from the controllers.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import file_dialogs
+        folder_dict, path_dict = self.folder_dict, self.path_dict
+        for platform_str in ("darwin", "win32"):
+            for key_str in KEY_LIST[:4]:
+                with self.subTest(platform_str=platform_str,
+                                  key_str=key_str):
+                    pool = file_dialogs.FileDialogPool(
+                        platform_str,
+                        lambda panel_tuple, platform_str: "skipped")
+                    dialog = FakeSystemPanelDialog()
+                    pool.register(key_str, lambda: dialog)
+                    pool.is_built = (
+                        lambda name_str, pool=pool:
+                        name_str in pool.dialog_dict)
+                    for folder_str, chosen_list in (
+                            (folder_dict["start"], [path_dict["a"]]),
+                            (folder_dict["c"], [path_dict["b"]]),
+                            ("", [path_dict["a"]]),
+                            (folder_dict["d"], [])):
+                        pool.prepared_dialog(key_str, folder_str).show_panel(
+                            chosen_list)
+                    self.assertEqual(dialog.shown_name_list,
+                                     ["", "", "", ""])
+                    self.assertEqual(dialog.shown_folder_list, [
+                        folder_dict["start"], folder_dict["c"],
+                        folder_dict["c"], folder_dict["d"]])
+        # Without the reset, the stand-in shows the old name, as the
+        # Windows dialog did (issue #243).
+        dialog = FakeSystemPanelDialog()
+        dialog.show_panel([path_dict["a"]])
+        dialog.setDirectory(folder_dict["c"])
+        dialog.show_panel([])
+        self.assertEqual(dialog.shown_name_list, ["", "a1.csv"])
+
+    @covers("LLFR-01179", "LLFR-01180", "LLFR-01181", "LLFR-01182",
+            "LLFR-00220", "LLFR-00468", "LLFR-00532", "LLFR-01183",
+            "LLFR-00204", "LLFR-00447", "LLFR-00406")
+    def test_app_dialog_folders_and_names(self) -> None:
+        """Every dialog of the app, through the controllers, on macOS
+        and on Windows: the folder rule and no file name of an earlier
+        use, except the name Save signals proposes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for platform_str in ("darwin", "win32"):
+            with self.subTest(platform_str=platform_str):
+                self.check_app_dialogs(platform_str)
+
+    def check_app_dialogs(self, platform_str: str) -> None:
+        """Run the dialog sequence of test_app_dialog_folders_and_names.
+
+        Inputs:
+            platform_str: the platform the pool behaves as.
+        Outputs: none.
+        """
+        from controller.main_controller import MainController
+        from view.main_window import MainWindow
+        main_window = MainWindow()
+        self.addCleanup(main_window.deleteLater)
+        self.addCleanup(main_window.close)
+        controller = MainController(main_window)
+        controller.start()
+        folder_dict, path_dict = self.folder_dict, self.path_dict
+        controller.file_controller.dialog_folder_str = folder_dict["start"]
+        pool = main_window.file_dialog_pool
+        pool.platform_str = platform_str
+        dialog_dict = {}
+        for key_str in KEY_LIST:
+            dialog_dict[key_str] = FakeSystemPanelDialog()
+            pool.dialog_dict[key_str] = dialog_dict[key_str]
+        pool.is_built = lambda key_str: key_str in pool.dialog_dict
+        answer_list = []
+
+        def first_answer(dialog) -> str:
+            """Show a stand-in and return its first chosen path.
+
+            Inputs:
+                dialog: a FakeSystemPanelDialog.
+            Outputs: the path, "" for a cancel.
+            """
+            return (dialog.show_panel(answer_list.pop(0)) or [""])[0]
+
+        main_window.run_open_file_dialog = (
+            lambda dialog: dialog.show_panel(answer_list.pop(0)))
+        main_window.run_layout_dialog = first_answer
+        main_window.run_pdf_save_dialog = first_answer
+        main_window.run_signals_save_dialog = (
+            lambda dialog: (first_answer(dialog), "CSV files (*.csv)"))
+        main_window.show_layout_report = lambda *argument_tuple: None
+        main_window.show_changed_signal_names = (
+            lambda *argument_tuple: None)
+        pdf_result_list = []
+        main_window.save_tabs_pdf = (
+            lambda path_str, description_str="": pdf_result_list.pop(0))
+        main_window.show_export_error = lambda *argument_tuple: None
+        # The files of the first platform's run are there for the
+        # second one; replacing them is accepted without a box.
+        main_window.ask_replace_existing_file = lambda path_str: True
+        signals_error_list = []
+        main_window.show_signals_save_error = signals_error_list.append
+        # Open file: a1.csv (file1), then b1.csv (file2), the last data
+        # file opened.
+        for chosen_list in ([path_dict["a"]], [path_dict["b"]]):
+            answer_list.append(chosen_list)
+            controller.file_controller.open_file_requested()
+            self.application.processEvents()
+        main_window.signal_double_click_handler("file1_speed")
+        self.application.processEvents()
+        # PDF: first in b (LLFR-01179), a failed save to c, then saved
+        # to d; then in d (LLFR-01180), cancelled.
+        export_controller = controller.export_controller
+        for path_str, result_tuple in (
+                (os.path.join(folder_dict["c"], "x.pdf"), (False, "full")),
+                (os.path.join(folder_dict["d"], "plots.pdf"), (True, "")),
+                ("", None)):
+            answer_list.append([path_str] if path_str else [])
+            if result_tuple is not None:
+                pdf_result_list.append(result_tuple)
+            export_controller.on_export_requested()
+        # Save signals: first in b (LLFR-01181), with the name of file1
+        # (LLFR-00532); saved to c; then in c (LLFR-01182), cancelled.
+        signals_controller = controller.save_signals_controller
+        for chosen_list in ([os.path.join(folder_dict["c"], "out.csv")],
+                            []):
+            answer_list.append(chosen_list)
+            signals_controller.on_save_signals_requested()
+        self.assertEqual(signals_error_list, [])
+        self.assertTrue(os.path.exists(os.path.join(folder_dict["c"],
+                                                    "out.csv")))
+        # Layout: first in b (LLFR-00220), saved to a; Load layout then
+        # in a, the shared folder (LLFR-00468), cancelled.
+        answer_list.append([os.path.join(folder_dict["a"], "view.json")])
+        controller.layout_controller.on_save_layout_requested()
+        answer_list.append([])
+        controller.layout_controller.on_load_layout_requested()
+        # Open file again: the folder of the last data file (LLFR-00447).
+        answer_list.append([])
+        controller.file_controller.open_file_requested()
+        self.assertEqual(answer_list, [])
+        self.assertEqual(pdf_result_list, [])
+        shown_dict = {key_str: dialog.shown_folder_list
+                      for key_str, dialog in dialog_dict.items()}
+        self.assertEqual(shown_dict, {
+            "open_file": [folder_dict["start"], folder_dict["a"],
+                          folder_dict["b"]],
+            "save_pdf": [folder_dict["b"], folder_dict["b"],
+                         folder_dict["d"]],
+            "save_signals": [folder_dict["b"], folder_dict["c"]],
+            "save_layout": [folder_dict["b"]],
+            "load_layout": [folder_dict["a"]]})
+        # LLFR-01183: no dialog shows the name chosen in it before; Save
+        # signals proposes the name of file1 on every use (LLFR-00532).
+        name_dict = {key_str: dialog.shown_name_list
+                     for key_str, dialog in dialog_dict.items()}
+        self.assertEqual(name_dict, {
+            "open_file": ["", "", ""],
+            "save_pdf": ["", "", ""],
+            "save_signals": ["a1_signals.csv", "a1_signals.csv"],
+            "save_layout": [""],
+            "load_layout": [""]})
 
 
 if __name__ == "__main__":
