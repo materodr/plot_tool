@@ -29,7 +29,9 @@ release, unless the release is less than 5 pixels from the press.
 
 A left press is handled in the same order: on a text note it starts
 moving the note (LLFR-00339), and on a pinned tip it starts moving the
-tip's label (LLFR-00152, LLFR-00153), both with any plot tool or none;
+tip's label (LLFR-00152, LLFR-00153), both with any plot tool or none,
+except where the Flag, Data tip, Delta X or Delta Y tool shows its
+preview: there the press places what the preview shows (LLFR-01248);
 with the Text tool, any other press on the drawing area opens a
 one-line text field at the pressed point (LLFR-00333); with the
 Vertical marker tool, on a marker it starts dragging the marker
@@ -192,7 +194,6 @@ import sys
 
 import numpy as np
 from matplotlib.backend_bases import MouseButton
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
@@ -202,7 +203,7 @@ from matplotlib.transforms import IdentityTransform
 from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QCursor
-from PyQt6.QtWidgets import QMenu, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
     ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, MARKER_TOOL_STR,
@@ -214,11 +215,15 @@ from model.workspace import (
     DEFAULT_TEXT_NOTE_BORDER_COLOR_STR, DEFAULT_TEXT_NOTE_COLOR_STR,
     DEFAULT_TEXT_NOTE_SIZE_I,
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
-    TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR)
+    TEXT_NOTE_SIZE_TUPLE, TIME_PLOT_KIND_STR, delta_value_f,
+    delta_value_zero_b)
 from view import (
     arrow_geometry, color_picker, delta_geometry, theme, value_text)
-from view.arrow_geometry import ArrowPatch
+from view.arrow_geometry import ArrowLabel, ArrowPatch
 from view.delta_geometry import DeltaBracketPatch
+from view.matrix_picker import add_picker_submenu
+from view.menu_title import add_menu_title
+from view.rounded_canvas import RoundedFigureCanvas
 from view.text_note_editor import TextNoteEditor
 
 # LLFR-00068: every plot uses the look of view.theme (spines, ticks,
@@ -238,6 +243,19 @@ WIDTH_PIXELS_DICT = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.5, 5: 6.0}
 PICK_TOLERANCE_PIXELS_I = 6
 
 TIME_AXIS_LABEL_STR = "Time (s)"
+# LLFR-00426: the title of the menu of a plot.
+PLOT_MENU_TITLE_STR = "Plot"
+# LLFR-01112, LLFR-01113: the option that opens the position picker.
+POSITION_TEXT_STR = "Position"
+# LLFR-00420: the kinds of objects whose name label a double-click
+# renames.
+LABEL_KIND_FLAG_STR = "flag"
+LABEL_KIND_AREA_STR = "area"
+LABEL_KIND_DELTA_STR = "delta"
+LABEL_KIND_ARROW_STR = "arrow"
+# LLFR-00886, LLFR-00798: a press on a name label becomes a drag once the
+# pointer is this far from it, in screen pixels.
+LABEL_DRAG_THRESHOLD_PIXELS_F = 5.0
 # LLFR-00256: the x-axis label of a frequency plot.
 FREQUENCY_AXIS_LABEL_STR = "Frequency (Hz)"
 # LLFR-00046, LLFR-00090, LLFR-00175, LLFR-00314: the texts of the
@@ -291,6 +309,9 @@ LEGEND_MAXIMUM_HEIGHT_RATIO_F = 0.4
 LEGEND_USABLE_WIDTH_RATIO_F = 0.95
 POINTS_PER_INCH_F = 72.0
 TIP_OFFSET_POINTS_F = 10.0
+# LLFR-00423: the lines inside a hover or pinned data tip start at the
+# left edge of its box.
+TIP_TEXT_ALIGNMENT_STR = "left"
 DEFAULT_TIP_COLOR_STR = theme.DEFAULT_TIP_COLOR_STR
 # LLFR-00082, LLFR-00083, LLFR-00084, LLFR-00092: look of a vertical
 # marker. The marker is drawn above the curves and below the tips.
@@ -356,13 +377,26 @@ DELTA_DOT_EDGE_WIDTH_F = 1.0
 DELTA_ZORDER_F = 8.5
 # LLFR-00168: room (points) kept above a Delta X marker's higher point
 # for its bracket and its value, at most this part of the plot height.
+# LLFR-00427: gap (points) between the box of the value and the box of
+# the delta marker's name above it.
+DELTA_NAME_GAP_POINTS_F = 1.0
+# LLFR-00427: the name's box pad (MARKER_TEXT_BOX_DICT, "pad=0.2").
+DELTA_NAME_BOX_PAD_POINTS_F = 0.2 * DELTA_FONT_SIZE_F
 DELTA_HEADROOM_POINTS_F = (DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
                            + DELTA_LABEL_GAP_POINTS_F
                            + 1.6 * DELTA_FONT_SIZE_F
                            + 2.0 * DELTA_LABEL_BOX_PAD_POINTS_F)
+# LLFR-00427: the more room (points) kept above a Delta X marker with a
+# name, for the label of its name above its value.
+DELTA_NAME_HEADROOM_POINTS_F = (DELTA_NAME_GAP_POINTS_F
+                                + 1.4 * DELTA_FONT_SIZE_F
+                                + 2.0 * DELTA_NAME_BOX_PAD_POINTS_F)
 DELTA_HEADROOM_MAXIMUM_RATIO_F = 0.45
 # LLFR-00175: no delta marker is under the mouse.
 NO_DELTA_MARKER_ID_I = -1
+# LLFR-00433, LLFR-00866: a press on a dot of a delta marker drags its
+# point once the pointer is this many screen pixels from the press.
+DELTA_DRAG_THRESHOLD_PIXELS_F = 5.0
 # LLFR-00305: an area is drawn see-through in its color with this
 # opacity. Its preview (LLFR-00303) is a little more opaque, so it reads
 # as "in progress".
@@ -425,6 +459,11 @@ ARROW_DRAG_CREATE_STR = "create"
 ARROW_DRAG_MOVE_STR = "move"
 ARROW_DRAG_START_STR = "start"
 ARROW_DRAG_END_STR = "end"
+
+# LLFR-01215, LLFR-01217, LLFR-01239: a drag session ends this long
+# after the last drawn position once no mouse button is held, in case a
+# release was lost; the session ends at the release otherwise.
+FAST_DRAG_END_DELAY_MS_I = 150
 
 
 def mouse_button_held_b(event, qt_button) -> bool:
@@ -830,6 +869,23 @@ def text_note_data_tuple(note_tuple) -> tuple:
             size_i, border_color_str, text_color_str)
 
 
+def flush_app_waiting_click() -> None:
+    """Do at once the click that waits on a plot of any window, if any.
+
+    Inputs: none.
+    Outputs: none.
+    """
+    # LLFR-01254: PlotWidget.waiting_click_widget holds the one plot
+    # where a click waits (LLFR-01253); a deleted plot is forgotten.
+    waiting_widget = PlotWidget.waiting_click_widget
+    if waiting_widget is None:
+        return
+    if sip.isdeleted(waiting_widget):
+        PlotWidget.waiting_click_widget = None
+        return
+    waiting_widget.flush_deferred_click()
+
+
 class PlotWidget(QWidget):
     """One plot: signal curves against time, legend, menus and tips.
 
@@ -842,6 +898,8 @@ class PlotWidget(QWidget):
         curve_delete_requested(str): "Delete signal" chosen for a curve.
         curve_width_requested(str, int): a preset width 1..5 chosen.
         plot_delete_requested(): "Delete plot" chosen.
+        plot_position_requested(): "Position" chosen (LLFR-01112,
+            LLFR-01113); the plot panel opens the position picker.
         signals_dropped(list): signal names were dropped on the plot,
             in the order of the signal list (LLFR-00021, LLFR-00297).
         tip_pin_requested(str, float, float): the shown hover tip
@@ -872,6 +930,12 @@ class PlotWidget(QWidget):
         delta_marker_color_requested(int, str): an entry of the "Color"
             submenu of a delta marker (its id, then a recent color, or
             "" for "Other color...").
+        delta_marker_rename_requested(int): "Rename" chosen on a delta
+            marker, or its label double-clicked (its id).
+        delta_point_move_requested(int, int, float, float): a point of a
+            delta marker was dragged to another sample of its curve and
+            released (marker id, 0 for the first point or 1 for the
+            second, then the x value and the y value of the sample).
         marker_drag_moved(int, float): a dragged marker is now shown at
             this time (marker id, time in s), so that the other plots of
             the tab show it there too (LLFR-00205).
@@ -917,11 +981,13 @@ class PlotWidget(QWidget):
             of an arrow (arrow index, then a recent color, or "" for
             "Other color...").
         arrow_delete_requested(int): "Delete" chosen on an arrow.
+        arrow_rename_requested(int): "Rename" chosen on an arrow, or its
+            label double-clicked (arrow index).
     Attributes:
         plot_id_i: the identifier given at creation.
         frequency_plot_b: True for a frequency plot (HLFR-00058).
         figure: the matplotlib Figure.
-        canvas: the FigureCanvasQTAgg that shows the figure.
+        canvas: the RoundedFigureCanvas that shows the figure.
         axes: the matplotlib Axes where the curves are drawn.
         redraw_pending_b: True when a time range was set while the
             widget was hidden and the canvas still shows the old one.
@@ -929,9 +995,13 @@ class PlotWidget(QWidget):
             the mouse (LLFR-00208); counted by is_mouse_drag_in_progress.
     """
 
+    # LLFR-01254: only one click waits in the whole app (LLFR-01253); this
+    # is the plot, of any window, where it waits, or None.
+    waiting_click_widget = None
     curve_delete_requested = pyqtSignal(str)
     curve_width_requested = pyqtSignal(str, int)
     plot_delete_requested = pyqtSignal()
+    plot_position_requested = pyqtSignal()
     signals_dropped = pyqtSignal(list)
     tip_pin_requested = pyqtSignal(str, float, float)
     pinned_tip_delete_requested = pyqtSignal(int)
@@ -945,8 +1015,15 @@ class PlotWidget(QWidget):
     delta_point_picked = pyqtSignal(str, float, float)
     delta_marker_delete_requested = pyqtSignal(int)
     delta_marker_color_requested = pyqtSignal(int, str)
+    # LLFR-00429, LLFR-00420: "Rename" or a double-click on the label.
+    delta_marker_rename_requested = pyqtSignal(int)
+    delta_point_move_requested = pyqtSignal(int, int, float, float)
     marker_drag_moved = pyqtSignal(int, float)
     marker_preview_changed = pyqtSignal(float)
+    # LLFR-01162, LLFR-01163: the preview of a new area and the time span
+    # selection, (start_s, end_s), NaN when hidden.
+    area_preview_changed = pyqtSignal(float, float)
+    span_preview_changed = pyqtSignal(float, float)
     area_create_requested = pyqtSignal(float, float)
     area_change_requested = pyqtSignal(int, float, float)
     area_rename_requested = pyqtSignal(int)
@@ -964,6 +1041,8 @@ class PlotWidget(QWidget):
     arrow_change_requested = pyqtSignal(int, float, float, float, float)
     arrow_color_requested = pyqtSignal(int, str)
     arrow_delete_requested = pyqtSignal(int)
+    # LLFR-00439, LLFR-00420: "Rename" or a double-click on the label.
+    arrow_rename_requested = pyqtSignal(int)
     # LLFR-00412 to LLFR-00417: the "Delete all ..." menu options.
     plot_pinned_tips_delete_requested = pyqtSignal()
     all_pinned_tips_delete_requested = pyqtSignal()
@@ -1005,6 +1084,17 @@ class PlotWidget(QWidget):
         # (bracket, leader lines, dots, value label).
         self.delta_marker_data_list = []
         self.delta_artist_dict = {}
+        # LLFR-00427: the name of each delta marker by id, and the
+        # annotation of its label, drawn directly above its value.
+        self.delta_name_dict = {}
+        self.delta_name_label_dict = {}
+        # LLFR-00420: the (kind, id or index) of the label double-clicked,
+        # until its rename request is sent.
+        self.pending_rename_tuple = ()
+        # LLFR-00886, LLFR-00798: the widget point of a left press on a
+        # name label with the Data tip, Flag, Text, Delta X or Delta Y
+        # tool, while it may still be a single click; None otherwise.
+        self.label_press_point = None
         # LLFR-00163: the picked first point (signal_name_str, time_s,
         # value_f) and its dot, or () and None.
         self.delta_first_point_tuple = ()
@@ -1019,6 +1109,16 @@ class PlotWidget(QWidget):
         self.delta_preview_state_tuple = ()
         self.delta_preview_dot = None
         self.delta_preview_artist_tuple = ()
+        # LLFR-00433: the delta marker whose point is pressed or dragged
+        # (NO_DELTA_MARKER_ID_I for none), which point (0 or 1), the
+        # press point, whether the pointer got 5 pixels away, the point
+        # where the press found it and where it is shown now.
+        self.delta_drag_id_i = NO_DELTA_MARKER_ID_I
+        self.delta_drag_index_i = 0
+        self.delta_drag_press_point = QPoint()
+        self.delta_drag_moved_b = False
+        self.delta_drag_start_tuple = ()
+        self.delta_drag_point_tuple = ()
         # LLFR-00086, LLFR-00093: the marker being dragged, if any.
         self.drag_marker_id_i = NO_MARKER_ID_I
         self.drag_time_s = 0.0
@@ -1041,6 +1141,25 @@ class PlotWidget(QWidget):
         # rebuild_axes).
         self.preview_time_s = None
         self.overlay_background = None
+        # LLFR-01215, LLFR-01216: while an object is dragged, the image of
+        # the plot without the objects over the curves, the artists drawn
+        # over it, and the number of full draws and of fast redraws.
+        self.fast_drag_background = None
+        self.fast_drag_artist_list = []
+        self.fast_drag_full_draw_count_i = 0
+        self.fast_drag_redraw_count_i = 0
+        self.fast_drag_end_timer = QTimer(self)
+        self.fast_drag_end_timer.setSingleShot(True)
+        self.fast_drag_end_timer.setInterval(FAST_DRAG_END_DELAY_MS_I)
+        self.fast_drag_end_timer.timeout.connect(
+            self.end_fast_drag_if_released)
+        # LLFR-01253: a click on a text note where a preview is shown
+        # waits for the double-click interval; the click that waits is
+        # (tool, target shown by the preview at the press) or ().
+        self.deferred_click_tuple = ()
+        self.deferred_click_timer = QTimer(self)
+        self.deferred_click_timer.setSingleShot(True)
+        self.deferred_click_timer.timeout.connect(self.run_deferred_click)
         self.preview_line = None
         self.preview_time_text = None
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
@@ -1061,9 +1180,9 @@ class PlotWidget(QWidget):
         # SWIPE_PAN_STR, SWIPE_ZOOM_STR, or NO_SWIPE_CHOICE_STR until its
         # first event that moves.
         self.swipe_choice_str = NO_SWIPE_CHOICE_STR
-        # LLFR-00207, LLFR-00208: True while a time span is selected with
+        # LLFR-00454, LLFR-00208: True while a time span is selected with
         # the mouse; the time span selection sets it on this instance, so
-        # that the Z key does nothing during its drag.
+        # that the 0 key does nothing during its drag.
         self.time_span_drag_b = False
         # LLFR-00078, LLFR-00208: where the left button was pressed with
         # the Zoom tool (widget point, time, display y); whether the
@@ -1078,7 +1197,8 @@ class PlotWidget(QWidget):
         self.span_line = None
         self.span_end_ticks = None
         # LLFR-00122, LLFR-00123, LLFR-00125, LLFR-00147: whether the
-        # grid is drawn; hidden until the Grid button is clicked.
+        # grid is drawn; the main window applies its grid choice to
+        # every new plot (shown at start), so it is off only until then.
         self.grid_shown_b = False
         # LLFR-00305, LLFR-00307, LLFR-00308: areas to draw, as tuples
         # (area_id_i, name_str, start_s, end_s, color_str), and their
@@ -1086,6 +1206,10 @@ class PlotWidget(QWidget):
         # as tuples (band, label annotation, times annotation).
         self.area_data_list = []
         self.area_artist_dict = {}
+        # LLFR-00119, LLFR-00916: the time range of the open data files,
+        # () until the controller gives it; a time plot's zooms and pans
+        # stay within it.
+        self.files_time_range_tuple = ()
         # LLFR-00303, LLFR-00312, LLFR-00313: the left press of the Area
         # tool: what it drags (AREA_DRAG_*), the area it drags, where it
         # was pressed (widget point and time), whether the pointer moved
@@ -1102,6 +1226,13 @@ class PlotWidget(QWidget):
         # LLFR-00303: the preview band (made by rebuild_axes), blitted
         # like the time span selection line.
         self.area_preview_band = None
+        # LLFR-01162, LLFR-01163: the area preview and the time span
+        # selection of another shown plot, (start_s, end_s) or ().
+        self.mirror_area_span_tuple = ()
+        self.mirror_span_tuple = ()
+        # LLFR-01114: builds the position picker of the "Position"
+        # submenu; set by the plot panel.
+        self.position_picker_factory = None
         # LLFR-00336, LLFR-00337: text notes to draw, as tuples
         # (text_str, time_s, value_f, size_i, border_color_str,
         # text_color_str), and their annotations.
@@ -1131,6 +1262,12 @@ class PlotWidget(QWidget):
         # color_str), and their ArrowPatch artists.
         self.arrow_list = []
         self.arrow_artist_list = []
+        # LLFR-00436: the name of each arrow, in the order of arrow_list,
+        # and its ArrowLabel; the label of the arrow previews (made by
+        # create_arrow_preview_artist).
+        self.arrow_name_list = []
+        self.arrow_label_list = []
+        self.arrow_preview_label = None
         # LLFR-00371, LLFR-00376, LLFR-00377: the left press on the
         # arrows: what it drags (ARROW_DRAG_*), the arrow it drags, where
         # it was pressed (widget point and display pixels), whether the
@@ -1150,7 +1287,9 @@ class PlotWidget(QWidget):
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
         self.figure = Figure(layout="constrained")
-        self.canvas = FigureCanvasQTAgg(self.figure)
+        # LLFR-00890: the canvas paints rounded corners and a hairline
+        # border over the figure, like the signal list.
+        self.canvas = RoundedFigureCanvas(self.figure)
         self.canvas.setParent(self)
         self.canvas.setAcceptDrops(False)
         # LLFR-00137: a click on the plot takes the keyboard focus away
@@ -1265,6 +1404,10 @@ class PlotWidget(QWidget):
         """
         # LLFR-00042, LLFR-00045: tips only with the Tip tool.
         # LLFR-00078: click zoom only with the Zoom tool.
+        # LLFR-01254: a click of the previous tool that waits is done at
+        # once, while the widget still has that tool.
+        if str(tool_str) != self.plot_tool_str:
+            self.flush_deferred_click()
         self.plot_tool_str = str(tool_str)
         if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
@@ -1307,6 +1450,15 @@ class PlotWidget(QWidget):
         # (for example with a hold key) ends the pan where it is.
         if self.plot_tool_str != PAN_TOOL_STR:
             self.stop_tool_pan()
+        # LLFR-00433, LLFR-00801: a point of a delta marker moves only
+        # with the Delta X or Delta Y tool or with none; any other tool
+        # drops the drag, and the point stays where it was.
+        if not (is_delta_tool(self.plot_tool_str)
+                or self.plot_tool_str == NO_TOOL_STR):
+            self.cancel_delta_point_drag()
+        # LLFR-00886: a press on a name label waits for the tool that was
+        # active; another tool drops it.
+        self.label_press_point = None
         # LLFR-00371: an arrow is only drawn with the Arrow tool;
         # LLFR-00376, LLFR-00377, LLFR-00382: one is moved, rotated or
         # stretched with the Arrow tool or with none. Any other change
@@ -1341,6 +1493,10 @@ class PlotWidget(QWidget):
         if self.drag_marker_id_i not in {
                 marker_tuple[0] for marker_tuple in self.marker_data_list}:
             self.cancel_marker_drag()
+        # LLFR-01215, LLFR-01239: the markers given by the model end a
+        # drawing over the kept image (a plot that followed a drag), so
+        # that the new markers are drawn once, by the full draw below.
+        self.forget_fast_drag()
         # LLFR-00203: a marker may now be under the pointer (one was just
         # placed there); the next mouse move shows the preview again.
         self.hide_marker_preview()
@@ -1367,13 +1523,18 @@ class PlotWidget(QWidget):
         Inputs:
             delta_marker_data_list: list of tuples (delta_marker_id_i,
                 kind_str, first_point_tuple, second_point_tuple, delta_f)
-                or (..., delta_f, color_str) in placing order; each point
+                or (..., delta_f, color_str) or (..., color_str,
+                name_str) in placing order; name_str is the name of its
+                label (LLFR-00427), none without it; each point
                 is (signal_name_str, time_s, value_f), delta_f is the
                 value shown (second minus first) and color_str the
                 marker's color, "#rrggbb"; without a usable color_str the
                 reserved marker color is used (LLFR-00172).
         Outputs: none.
         """
+        # LLFR-00433: new markers from the controller end a drag of a
+        # point; the drawn markers are the ones given here.
+        self.reset_delta_point_drag()
         # LLFR-00164, LLFR-00174, LLFR-00176: draw exactly these.
         # LLFR-00409: each in its own color.
         self.delta_marker_data_list = [
@@ -1386,6 +1547,11 @@ class PlotWidget(QWidget):
              (hex_color_or_none(marker_tuple[5]) if len(marker_tuple) > 5
               else None) or MARKER_COLOR_STR)
             for marker_tuple in delta_marker_data_list]
+        # LLFR-00427: the name of each marker's label.
+        self.delta_name_dict = {
+            int(marker_tuple[0]): (str(marker_tuple[6])
+                                   if len(marker_tuple) > 6 else "")
+            for marker_tuple in delta_marker_data_list}
         self.draw_delta_markers()
         # LLFR-00168: the y range keeps room above the Delta X markers.
         self.apply_time_range()
@@ -1451,12 +1617,18 @@ class PlotWidget(QWidget):
                 end_time_s, end_value_f, color_str), in the order the
                 arrows were drawn, the arrowhead at the end; the x values
                 are in Hz on a frequency plot. color_str may be left out
-                for the color of a new arrow (arrow_data_tuple).
+                for the color of a new arrow (arrow_data_tuple). A sixth
+                item name_str is the name of its label (LLFR-00436);
+                without it the arrow has no label.
         Outputs: none. Only the arrows are drawn again.
         """
         # LLFR-00374, LLFR-00375: draw exactly the arrows of this plot.
         self.arrow_list = [arrow_data_tuple(arrow_tuple)
                            for arrow_tuple in arrow_data_list]
+        # LLFR-00436: and the name of each.
+        self.arrow_name_list = [
+            str(arrow_tuple[5]) if len(arrow_tuple) > 5 else ""
+            for arrow_tuple in arrow_data_list]
         self.draw_arrows()
         self.draw_when_visible()
 
@@ -1511,6 +1683,146 @@ class PlotWidget(QWidget):
         self.overlay_background = None
         if self.overlay_shown() and not self.canvas.is_saving():
             QTimer.singleShot(0, self.blit_overlay)
+        # LLFR-01215: during a drag, the image just drawn, without the
+        # objects over the curves, is the new background they are drawn
+        # on.
+        if self.fast_drag_artist_list and not self.canvas.is_saving():
+            self.fast_drag_background = self.canvas.copy_from_bbox(
+                self.figure.bbox)
+            self.fast_drag_full_draw_count_i += 1
+            QTimer.singleShot(0, self.blit_fast_drag)
+
+    def static_artist_set(self) -> set:
+        """Return the artists of the axes that a drag never changes.
+
+        Inputs: none.
+        Outputs: a set with the curves, the axes background, spines,
+            axis lines and titles, and the legend.
+        """
+        # LLFR-01215: the curves are drawn once for the whole drag.
+        artist_set = set(getattr(self, "curve_line_dict", {}).values())
+        artist_set.update(self.axes.spines.values())
+        artist_set.update((self.axes.xaxis, self.axes.yaxis, self.axes.patch,
+                           self.axes.title, self.axes._left_title,
+                           self.axes._right_title))
+        if self.axes.get_legend() is not None:
+            artist_set.add(self.axes.get_legend())
+        return artist_set
+
+    def start_fast_drag(self) -> None:
+        """Draw the plot once without the objects over its curves.
+
+        Inputs: none.
+        Outputs: none. The objects over the curves (flags, areas, tips,
+            text notes, arrows, delta markers and their labels) are drawn
+            from then on over a copy of that image (fast_drag_redraw).
+        """
+        # LLFR-01215: the artists drawn at each move; the previews that
+        # blit_overlay draws are animated already and are left to it.
+        static_set = self.static_artist_set()
+        self.fast_drag_artist_list = sorted(
+            (artist for artist in self.axes.get_children()
+             if artist not in static_set and not artist.get_animated()),
+            key=lambda artist: artist.get_zorder())
+        for artist in self.fast_drag_artist_list:
+            artist.set_animated(True)
+        # LLFR-01215: one full draw; on_canvas_drawn keeps its image.
+        self.canvas.draw()
+
+    def fast_drag_redraw(self) -> None:
+        """Show a dragged object at its new place, quickly.
+
+        Inputs: none.
+        Outputs: none. The first call of a drag draws the plot once
+            (start_fast_drag); each call then puts that image back and
+            draws only the objects over the curves (LLFR-01215,
+            LLFR-01216). A hidden plot draws when it is shown.
+        """
+        # LLFR-01215: hidden or never drawn plots draw as before.
+        if (sip.isdeleted(self) or self.retired_b or not self.isVisible()
+                or getattr(self.canvas, "renderer", None) is None):
+            self.draw_when_visible()
+            return
+        if not self.fast_drag_artist_list:
+            self.start_fast_drag()
+        self.blit_fast_drag()
+        # LLFR-01215: the session ends at the release, or soon after a
+        # lost one.
+        self.fast_drag_end_timer.start()
+
+    def blit_fast_drag(self) -> None:
+        """Draw the objects over the curves on the kept image.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01215, LLFR-01216: only these artists are drawn.
+        if (not self.fast_drag_artist_list or self.fast_drag_background is None
+                or sip.isdeleted(self)):
+            return
+        # LLFR-01215: artists made again during the drag (for example the
+        # delta markers, drawn again for each sample) join the list.
+        static_set = self.static_artist_set()
+        known_set = set(self.fast_drag_artist_list)
+        new_list = [artist for artist in self.axes.get_children()
+                    if artist not in static_set and artist not in known_set
+                    and not artist.get_animated()]
+        if new_list:
+            for artist in new_list:
+                artist.set_animated(True)
+            self.fast_drag_artist_list = sorted(
+                [artist for artist in self.fast_drag_artist_list
+                 if artist.axes is self.axes] + new_list,
+                key=lambda artist: artist.get_zorder())
+        self.canvas.restore_region(self.fast_drag_background)
+        for artist in self.fast_drag_artist_list:
+            if artist.axes is self.axes:
+                self.axes.draw_artist(artist)
+        self.canvas.blit(self.figure.bbox)
+        self.fast_drag_redraw_count_i += 1
+
+    def forget_fast_drag(self) -> None:
+        """Forget a drag session without drawing.
+
+        Inputs: none.
+        Outputs: none. The artists are drawn by full draws again.
+        """
+        # LLFR-01215: every artist is part of a full draw, the PDF export
+        # and the copied image again (LLFR-00129, LLFR-00133).
+        for artist in self.fast_drag_artist_list:
+            artist.set_animated(False)
+        self.fast_drag_artist_list = []
+        self.fast_drag_background = None
+        if hasattr(self, "fast_drag_end_timer"):
+            self.fast_drag_end_timer.stop()
+
+    def end_fast_drag(self) -> None:
+        """End a drag session and draw the whole plot again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01215: the plot is drawn in full when the button is
+        # released.
+        if not self.fast_drag_artist_list:
+            return
+        self.forget_fast_drag()
+        self.draw_when_visible()
+
+    def end_fast_drag_if_released(self) -> None:
+        """End a drag session whose release was lost.
+
+        Inputs: none.
+        Outputs: none. While a mouse button is held, the session goes on.
+        """
+        # LLFR-01215, LLFR-01217: the other plots of a drag, and a drag
+        # whose release never came, end once no button is held.
+        held_buttons = QApplication.mouseButtons()
+        if held_buttons & (Qt.MouseButton.LeftButton
+                           | Qt.MouseButton.MiddleButton):
+            self.fast_drag_end_timer.start()
+            return
+        self.end_fast_drag()
 
     def time_range_tuple(self) -> tuple:
         """Return the time range currently shown.
@@ -1553,6 +1865,8 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
+        # LLFR-01215: the artists of a drag in progress are thrown away.
+        self.forget_fast_drag()
         # LLFR-00068: the x-axis is time in seconds; LLFR-00256: or the
         # frequency in Hz for a frequency plot.
         self.axes.clear()
@@ -1581,11 +1895,14 @@ class PlotWidget(QWidget):
 
         # LLFR-00042: one hover annotation, hidden until needed. It is
         # left out of the layout so that it never moves the axes.
+        # LLFR-00423: its lines are aligned to the left inside the box,
+        # whichever side of the point the box is placed on.
         self.hover_point_tuple = ()
         self.hover_annotation = self.axes.annotate(
             "", xy=(0.0, 0.0), xytext=(TIP_OFFSET_POINTS_F,
                                        TIP_OFFSET_POINTS_F),
             textcoords="offset points", parse_math=False,
+            multialignment=TIP_TEXT_ALIGNMENT_STR,
             color=theme.TIP_TEXT_COLOR_STR,
             fontsize=theme.PLOT_TIP_FONT_SIZE_F,
             bbox=dict(theme.HOVER_TIP_BOX_DICT),
@@ -1602,6 +1919,8 @@ class PlotWidget(QWidget):
         # LLFR-00168, LLFR-00170, LLFR-00163: the delta markers and the
         # dot of a first point survive the redraw too.
         self.delta_artist_dict = {}
+        # LLFR-00427: so did the labels of the delta marker names.
+        self.delta_name_label_dict = {}
         self.delta_first_point_artist = None
         self.draw_delta_markers()
         self.draw_delta_first_point()
@@ -1611,6 +1930,8 @@ class PlotWidget(QWidget):
         # LLFR-00374: and so do the arrows; LLFR-00373: their preview
         # artist is made again.
         self.arrow_artist_list = []
+        # LLFR-00436: and the arrow labels.
+        self.arrow_label_list = []
         self.draw_arrows()
         self.create_arrow_preview_artist()
         # LLFR-00203: the preview artists went away with axes.clear().
@@ -1719,6 +2040,10 @@ class PlotWidget(QWidget):
                 xy=(time_s, value_f),
                 xytext=(TIP_OFFSET_POINTS_F, TIP_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
+                # LLFR-00423: the lines are aligned to the left inside
+                # the box, also when the box is centred on a moved
+                # position or turned to the left of its point.
+                multialignment=TIP_TEXT_ALIGNMENT_STR,
                 color=theme.TIP_TEXT_COLOR_STR,
                 fontsize=theme.PLOT_TIP_FONT_SIZE_F,
                 bbox=dict(theme.PINNED_TIP_BOX_DICT, edgecolor=color_str),
@@ -1781,7 +2106,9 @@ class PlotWidget(QWidget):
                 linestyle=MARKER_LINE_STYLE_TUPLE, zorder=MARKER_ZORDER_F)
             line.set_in_layout(False)
             # LLFR-00084: the name at the top of the line, inside the
-            # axes, shown literally (never as mathtext).
+            # axes, shown literally (never as mathtext). LLFR-01202: on
+            # a box with a contrast of at least 4.5:1 (LLFR-00704).
+            flag_box_dict = theme.contrast_label_box_dict(color_str)
             label = self.axes.annotate(
                 name_str, xy=(time_s, 1.0),
                 xycoords=self.axes.get_xaxis_transform(),
@@ -1790,7 +2117,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
+                bbox=dict(flag_box_dict), zorder=MARKER_ZORDER_F)
             label.set_in_layout(False)
             # LLFR-00092: the time directly below the label. Its anchor
             # is the label's own box, so it follows the label.
@@ -1800,7 +2127,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=MARKER_ZORDER_F)
+                bbox=dict(flag_box_dict), zorder=MARKER_ZORDER_F)
             time_text.set_in_layout(False)
             self.marker_artist_dict[marker_id_i] = (line, label, time_text)
         self.place_markers()
@@ -1816,17 +2143,51 @@ class PlotWidget(QWidget):
             for artist in artist_tuple:
                 artist.remove()
         self.delta_artist_dict = {}
+        for name_label in self.delta_name_label_dict.values():
+            name_label.remove()
+        self.delta_name_label_dict = {}
         for (delta_marker_id_i, kind_str, first_point_tuple,
              second_point_tuple, delta_f,
              color_str) in self.delta_marker_data_list:
+            # LLFR-00427: the label with the name, in the marker's color.
+            name_label = self.new_delta_name_label(
+                self.delta_name_dict.get(delta_marker_id_i, ""), color_str)
+            if name_label is not None:
+                self.delta_name_label_dict[delta_marker_id_i] = name_label
             self.delta_artist_dict[delta_marker_id_i] = (
                 self.new_delta_artist_tuple(kind_str, first_point_tuple,
                                             second_point_tuple, delta_f,
-                                            color_str))
+                                            color_str, name_label))
+
+    def new_delta_name_label(self, name_str: str, color_str: str):
+        """Create the label with the name of a delta marker.
+
+        Inputs:
+            name_str: the marker's name; "" for no label.
+            color_str: the marker's color, "#rrggbb".
+        Outputs: the matplotlib Annotation, placed at every draw by
+            draw_delta_label above the value, or None for no name.
+        """
+        # LLFR-00427, LLFR-00818: the name in the marker's color, shown
+        # literally, on a label box that keeps it readable; drawn after
+        # the value (higher zorder), whose place it follows.
+        if not name_str:
+            return None
+        name_label = self.axes.annotate(
+            name_str, xy=(0.0, 0.0), xytext=(0.0, 0.0),
+            textcoords="offset points", parse_math=False, color=color_str,
+            fontsize=DELTA_FONT_SIZE_F,
+            # LLFR-01202: a box with a contrast of at least 4.5:1.
+            bbox=theme.contrast_label_box_dict(color_str),
+            horizontalalignment="center", verticalalignment="bottom",
+            zorder=DELTA_ZORDER_F + 0.25)
+        name_label.set_in_layout(False)
+        return name_label
 
     def new_delta_artist_tuple(self, kind_str: str, first_point_tuple: tuple,
                                second_point_tuple: tuple, delta_f: float,
-                               color_str: str = MARKER_COLOR_STR) -> tuple:
+                               color_str: str = MARKER_COLOR_STR,
+                               name_label=None) -> tuple:
         """Create the artists of one delta marker in the axes.
 
         Inputs:
@@ -1836,6 +2197,8 @@ class PlotWidget(QWidget):
             delta_f: the value shown, second minus first.
             color_str: the marker's color, "#rrggbb" (LLFR-00172,
                 LLFR-00409).
+            name_label: the Annotation of its name (LLFR-00427), placed
+                above the value at every draw, or None.
         Outputs: a tuple (bracket, leader lines, dots, value label).
         """
         # LLFR-00172, LLFR-00409: everything in the marker's color, the
@@ -1873,24 +2236,29 @@ class PlotWidget(QWidget):
             xytext=(0.0, 0.0), textcoords="offset points",
             parse_math=False, color=color_str,
             fontsize=DELTA_FONT_SIZE_F,
-            bbox=dict(DELTA_LABEL_BOX_DICT, edgecolor=color_str),
+            # LLFR-01202: the tip box with its border in the marker's
+            # color, filled for a contrast of at least 4.5:1.
+            bbox=dict(theme.contrast_label_box_dict(
+                color_str, DELTA_LABEL_BOX_DICT), edgecolor=color_str),
             zorder=DELTA_ZORDER_F + 0.2)
         label.set_in_layout(False)
         if kind_str != DELTA_X_KIND_STR:
             # LLFR-00170: the bracket, the leader lines and the value
             # always take the same side, chosen again at every draw.
+            # LLFR-00685: the label of the name counts in the room.
             side_function = functools.partial(
                 self.delta_y_side_str, first_point_tuple,
-                second_point_tuple, label)
+                second_point_tuple, label, name_label=name_label)
             bracket.side_function = side_function
             leader.side_function = side_function
         self.place_delta_label(label, kind_str, first_point_tuple,
-                               second_point_tuple)
+                               second_point_tuple, name_label=name_label)
         # LLFR-00173: every draw places the value next to the tip again
-        # and keeps it inside the plot, as for pinned tips.
+        # and keeps it inside the plot, as for pinned tips; LLFR-00427:
+        # with the name directly above it.
         label.draw = functools.partial(
             self.draw_delta_label, label, kind_str, first_point_tuple,
-            second_point_tuple, label.draw)
+            second_point_tuple, label.draw, name_label=name_label)
         return (bracket, leader, dots, label)
 
     def delta_value_text(self, kind_str: str, delta_f: float) -> str:
@@ -1912,7 +2280,7 @@ class PlotWidget(QWidget):
 
     def delta_y_side_str(self, first_point_tuple: tuple,
                          second_point_tuple: tuple, label,
-                         renderer=None) -> str:
+                         renderer=None, name_label=None) -> str:
         """Return the side a Delta Y bracket and its value are drawn on.
 
         Inputs:
@@ -1920,6 +2288,7 @@ class PlotWidget(QWidget):
             second_point_tuple: the same for the second point.
             label: the matplotlib Annotation of the value.
             renderer: the renderer of the draw, or None for the canvas's.
+            name_label: the Annotation of the marker's name, or None.
         Outputs: delta_geometry.RIGHT_SIDE_STR or LEFT_SIDE_STR.
         """
         # LLFR-00170: right of the later point when the gap, the bracket
@@ -1931,6 +2300,11 @@ class PlotWidget(QWidget):
             renderer = self.canvas.get_renderer()
         pixels_per_point_f = float(self.figure.dpi) / POINTS_PER_INCH_F
         label_width_px = float(self.tip_box_extent(label, renderer).width)
+        # LLFR-00685: the bracket, the value and the label must fit; the
+        # label is above the value, so the wider of the two counts.
+        if name_label is not None:
+            label_width_px = max(label_width_px, float(
+                self.tip_box_extent(name_label, renderer).width))
         needed_px = ((DELTA_GAP_POINTS_F + DELTA_DEPTH_POINTS_F
                       + DELTA_LABEL_GAP_POINTS_F) * pixels_per_point_f
                      + label_width_px)
@@ -1945,7 +2319,7 @@ class PlotWidget(QWidget):
 
     def place_delta_label(self, label, kind_str: str,
                           first_point_tuple: tuple, second_point_tuple: tuple,
-                          renderer=None) -> None:
+                          renderer=None, name_label=None) -> None:
         """Put a delta marker's value next to the middle tip of its bracket.
 
         Inputs:
@@ -1954,6 +2328,8 @@ class PlotWidget(QWidget):
             first_point_tuple: (signal_name_str, time_s, value_f).
             second_point_tuple: the same for the second point.
             renderer: the renderer of the draw, or None for the canvas's.
+            name_label: the Annotation of the marker's name, or None; it
+                only counts in the choice of the Delta Y side here.
         Outputs: none.
         """
         if kind_str == DELTA_X_KIND_STR:
@@ -1969,7 +2345,7 @@ class PlotWidget(QWidget):
         middle_value_f = (first_point_tuple[2] + second_point_tuple[2]) / 2.0
         label.set_verticalalignment("center")
         if self.delta_y_side_str(first_point_tuple, second_point_tuple,
-                                 label, renderer) == (
+                                 label, renderer, name_label) == (
                 delta_geometry.RIGHT_SIDE_STR):
             label.xy = (max(first_point_tuple[1], second_point_tuple[1]),
                         middle_value_f)
@@ -1983,7 +2359,7 @@ class PlotWidget(QWidget):
 
     def draw_delta_label(self, label, kind_str: str, first_point_tuple: tuple,
                          second_point_tuple: tuple, original_draw,
-                         renderer) -> None:
+                         renderer, name_label=None) -> None:
         """Draw a delta marker's value beside its tip, inside the axes.
 
         Inputs:
@@ -1993,15 +2369,75 @@ class PlotWidget(QWidget):
             second_point_tuple: the same for the second point.
             original_draw: the Annotation's own draw method.
             renderer: the matplotlib renderer of this draw.
+            name_label: the Annotation of the marker's name, or None; it
+                is placed directly above the value (it is drawn after
+                it).
         Outputs: none.
         """
         # LLFR-00169, LLFR-00171, LLFR-00173: next to the middle tip, on
         # the side of this draw, moved only as far as needed to stay
         # readable in the plot.
         self.place_delta_label(label, kind_str, first_point_tuple,
-                               second_point_tuple, renderer)
+                               second_point_tuple, renderer, name_label)
         self.keep_tip_inside_axes(label, renderer)
+        if name_label is not None:
+            # LLFR-00427: the name directly above the value, both kept
+            # inside the plot together.
+            self.place_delta_name_label(label, name_label, renderer)
         original_draw(renderer)
+
+    def place_delta_name_label(self, label, name_label,
+                               renderer=None) -> None:
+        """Put a delta marker's name directly above its value.
+
+        Inputs:
+            label: the Annotation of the value, already placed.
+            name_label: the Annotation of the name.
+            renderer: the renderer of the draw, or None for the canvas's.
+        Outputs: none. When the two boxes together leave the drawing
+            area, both are moved the shortest way back into it.
+        """
+        # LLFR-00427: same anchor and horizontal alignment as the value,
+        # so the name sits right above it, and it is clipped with it.
+        if renderer is None:
+            renderer = self.canvas.get_renderer()
+        pixels_per_point_f = self.pixels_per_point_f()
+        label.update_positions(renderer)
+        value_box = self.tip_box_extent(label, renderer)
+        name_label.xy = label.xy
+        name_label.set_horizontalalignment(label.get_horizontalalignment())
+        name_label.set_verticalalignment("bottom")
+        value_x_f, _ = label.get_position()
+        name_label.set_position((float(value_x_f), 0.0))
+        name_label.update_positions(renderer)
+        name_box = self.tip_box_extent(name_label, renderer)
+        # The name's box starts DELTA_NAME_GAP_POINTS_F above the value's.
+        rise_px = (float(value_box.y1) - float(name_box.y0)
+                   + DELTA_NAME_GAP_POINTS_F * pixels_per_point_f)
+        name_label.set_position((float(value_x_f),
+                                 rise_px / pixels_per_point_f))
+        name_label.update_positions(renderer)
+        # LLFR-00179, LLFR-00427: only for a marker whose value is shown.
+        point_x_px, point_y_px = self.axes.transData.transform(label.xy)
+        if not self.inside_axes_b(float(point_x_px), float(point_y_px)):
+            return
+        name_box = self.tip_box_extent(name_label, renderer)
+        axes_box = self.axes.bbox
+        shift_x_px = inside_shift_px(
+            min(float(value_box.x0), float(name_box.x0)),
+            max(float(value_box.x1), float(name_box.x1)),
+            float(axes_box.x0), float(axes_box.x1), False)
+        shift_y_px = inside_shift_px(
+            float(value_box.y0), float(name_box.y1), float(axes_box.y0),
+            float(axes_box.y1), True)
+        if shift_x_px == 0.0 and shift_y_px == 0.0:
+            return
+        for annotation in (label, name_label):
+            position_x_f, position_y_f = annotation.get_position()
+            annotation.set_position((
+                float(position_x_f) + shift_x_px / pixels_per_point_f,
+                float(position_y_f) + shift_y_px / pixels_per_point_f))
+            annotation.update_positions(renderer)
 
     def draw_delta_first_point(self) -> None:
         """Draw the dot of the picked first point, or remove it.
@@ -2045,12 +2481,16 @@ class PlotWidget(QWidget):
                                 / self.pixels_per_point_f())
         if axes_height_points_f <= 0.0:
             return (low_f, high_f)
-        ratio_f = min(DELTA_HEADROOM_POINTS_F / axes_height_points_f,
-                      DELTA_HEADROOM_MAXIMUM_RATIO_F)
-        for (_, kind_str, first_point_tuple, second_point_tuple,
-             _, _) in self.delta_marker_data_list:
+        for (delta_marker_id_i, kind_str, first_point_tuple,
+             second_point_tuple, _, _) in self.delta_marker_data_list:
             if kind_str != DELTA_X_KIND_STR:
                 continue
+            # LLFR-00427: with room for the label of its name too.
+            headroom_points_f = DELTA_HEADROOM_POINTS_F
+            if self.delta_name_dict.get(delta_marker_id_i):
+                headroom_points_f += DELTA_NAME_HEADROOM_POINTS_F
+            ratio_f = min(headroom_points_f / axes_height_points_f,
+                          DELTA_HEADROOM_MAXIMUM_RATIO_F)
             first_s, second_s = sorted((first_point_tuple[1],
                                         second_point_tuple[1]))
             # LLFR-00174: only the markers with a visible part.
@@ -2115,8 +2555,10 @@ class PlotWidget(QWidget):
             textcoords="offset points", parse_math=False,
             color=MARKER_PREVIEW_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
             horizontalalignment="left", verticalalignment="top",
-            bbox=dict(MARKER_TEXT_BOX_DICT,
-                      edgecolor=MARKER_PREVIEW_COLOR_STR))
+            # LLFR-01202: the preview reads on its box like a flag.
+            bbox=dict(theme.contrast_label_box_dict(
+                MARKER_PREVIEW_COLOR_STR),
+                edgecolor=MARKER_PREVIEW_COLOR_STR))
         for artist in (self.preview_line, self.preview_time_text):
             artist.set_figure(self.figure)
             artist.axes = self.axes
@@ -2175,6 +2617,81 @@ class PlotWidget(QWidget):
             [y_px - half_tick_px, y_px + half_tick_px, np.nan,
              y_px - half_tick_px, y_px + half_tick_px])
 
+    def place_mirror_span_artists(self) -> None:
+        """Put the selection line at the span of another plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01163: the same ends as the selection on the other plot,
+        # at the middle of this plot's drawing area.
+        start_s, end_s = self.mirror_span_tuple
+        start_x_px = float(self.axes.transData.transform((start_s, 0.0))[0])
+        end_x_px = float(self.axes.transData.transform((end_s, 0.0))[0])
+        y_px = (float(self.axes.bbox.y0) + float(self.axes.bbox.y1)) / 2.0
+        half_tick_px = (SPAN_TICK_HALF_HEIGHT_POINTS_F
+                        * self.pixels_per_point_f())
+        self.span_line.set_data([start_x_px, end_x_px], [y_px, y_px])
+        self.span_end_ticks.set_data(
+            [start_x_px, start_x_px, np.nan, end_x_px, end_x_px],
+            [y_px - half_tick_px, y_px + half_tick_px, np.nan,
+             y_px - half_tick_px, y_px + half_tick_px])
+
+    def show_mirror_area_preview(self, start_s: float,
+                                 end_s: float) -> None:
+        """Show, or hide, the area preview of another shown plot.
+
+        Inputs:
+            start_s, end_s: the span of the preview, in seconds; NaN to
+                hide it.
+        Outputs: none. A frequency plot never shows it (LLFR-00311).
+        """
+        # LLFR-01162: on every other time plot of every shown tab.
+        span_tuple = ()
+        if (not self.frequency_plot_b and np.isfinite(start_s)
+                and np.isfinite(end_s)):
+            span_tuple = (float(start_s), float(end_s))
+        if span_tuple == self.mirror_area_span_tuple:
+            return
+        self.mirror_area_span_tuple = span_tuple
+        self.blit_overlay()
+
+    def show_mirror_span(self, start_s: float, end_s: float) -> None:
+        """Show, or hide, the time span selection of another shown plot.
+
+        Inputs:
+            start_s, end_s: the two ends of the span, in seconds; NaN to
+                hide it.
+        Outputs: none. A frequency plot never shows it (LLFR-01163).
+        """
+        # LLFR-01163: on every other time plot of every shown tab.
+        span_tuple = ()
+        if (not self.frequency_plot_b and np.isfinite(start_s)
+                and np.isfinite(end_s)):
+            span_tuple = (float(start_s), float(end_s))
+        if span_tuple == self.mirror_span_tuple:
+            return
+        self.mirror_span_tuple = span_tuple
+        self.blit_overlay()
+
+    def mirror_area_preview_tuple(self) -> tuple:
+        """Return the area preview of another plot shown here.
+
+        Inputs: none.
+        Outputs: (start_s, end_s), or () while none is shown.
+        """
+        # LLFR-01162: for the tests.
+        return tuple(self.mirror_area_span_tuple)
+
+    def mirror_span_preview_tuple(self) -> tuple:
+        """Return the time span selection of another plot shown here.
+
+        Inputs: none.
+        Outputs: (start_s, end_s), or () while none is shown.
+        """
+        # LLFR-01163: for the tests.
+        return tuple(self.mirror_span_tuple)
+
     def place_preview_artists(self) -> None:
         """Put the preview line and time text at the preview's time.
 
@@ -2208,9 +2725,12 @@ class PlotWidget(QWidget):
         # LLFR-00352, LLFR-00353: and so do the delta marker previews.
         # LLFR-00371, LLFR-00376, LLFR-00377: and so are the arrow
         # previews.
+        # LLFR-01162, LLFR-01163: and the previews of other plots.
         return (self.preview_time_s is not None or self.time_span_shown_b
                 or self.area_preview_shown() or self.delta_preview_shown()
-                or self.arrow_preview_shown())
+                or self.arrow_preview_shown()
+                or bool(self.mirror_area_span_tuple)
+                or bool(self.mirror_span_tuple))
 
     def blit_marker_preview(self) -> None:
         """Draw the marker preview over the last full draw of the canvas.
@@ -2270,6 +2790,22 @@ class PlotWidget(QWidget):
             # LLFR-00303: the preview band of a new area, updated live.
             self.place_area_preview()
             self.axes.draw_artist(self.area_preview_band)
+        elif (self.mirror_area_span_tuple
+              and self.area_preview_band is not None):
+            # LLFR-01162: the area preview of another shown plot;
+            # LLFR-01164: drawn only here, by blitting, so a full draw,
+            # the PDF export and the copied image leave it out.
+            start_s, end_s = self.mirror_area_span_tuple
+            self.area_preview_band.set_x(start_s)
+            self.area_preview_band.set_width(end_s - start_s)
+            self.axes.draw_artist(self.area_preview_band)
+        if self.mirror_span_tuple and not self.time_span_shown_b:
+            # LLFR-01163: the time span selection of another shown plot,
+            # at the middle of the height of the drawing area;
+            # LLFR-01164: like the area preview, never in an export.
+            self.place_mirror_span_artists()
+            self.axes.draw_artist(self.span_line)
+            self.axes.draw_artist(self.span_end_ticks)
         if self.delta_preview_shown():
             # LLFR-00352, LLFR-00353: the delta previews, updated live.
             self.draw_delta_preview()
@@ -2278,6 +2814,9 @@ class PlotWidget(QWidget):
             # updated live.
             self.place_arrow_preview()
             self.axes.draw_artist(self.arrow_preview_patch)
+            # LLFR-00870: and its label.
+            if self.arrow_preview_label is not None:
+                self.axes.draw_artist(self.arrow_preview_label)
         self.canvas.blit(self.figure.bbox)
 
     def show_marker_preview(self, time_s: float) -> None:
@@ -2355,13 +2894,14 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: the time under the point, in seconds, or NaN when a
-            click there would not place a marker: no Vertical marker
-            tool, a drag in progress, outside the drawing area, or on an
-            existing marker or a pinned tip.
+        Outputs: the time under the point, in seconds, or NaN when there
+            is no preview: no Vertical marker tool, a drag in progress,
+            outside the drawing area, or on an existing marker.
         """
         # LLFR-00203: the preview shows the marker a click would place
-        # (LLFR-00081); LLFR-00153: a click on a pinned tip moves it.
+        # (LLFR-00081); LLFR-01238: it stays over the other objects, a
+        # pinned tip and a text note too, where a press places the flag
+        # (LLFR-01248).
         if self.plot_tool_str != MARKER_TOOL_STR or self.retired_b:
             return NO_PREVIEW_TIME_S
         # LLFR-00259: a click on a frequency plot places no marker.
@@ -2376,7 +2916,9 @@ class PlotWidget(QWidget):
             return NO_PREVIEW_TIME_S
         if self.marker_at(widget_point) != NO_MARKER_ID_I:
             return NO_PREVIEW_TIME_S
-        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
+        # LLFR-01252: a click on a name label changes nothing
+        # (LLFR-00886), so no preview is shown there.
+        if self.name_label_tuple_at(widget_point):
             return NO_PREVIEW_TIME_S
         return self.time_at(widget_point)
 
@@ -2447,7 +2989,8 @@ class PlotWidget(QWidget):
             return
         self.hide_marker_preview()
         self.move_marker_artists(int(marker_id_i), float(time_s))
-        self.draw_when_visible()
+        # LLFR-01217: drawn over the image of its curves.
+        self.fast_drag_redraw()
 
     def move_marker_artists(self, marker_id_i: int, time_s: float) -> None:
         """Move a drawn marker's line, label and time to a new time.
@@ -2469,19 +3012,39 @@ class PlotWidget(QWidget):
         time_text.set_text(format_time_text(time_s))
         self.place_markers()
 
+    def set_files_time_range(self, range_tuple: tuple) -> None:
+        """Keep the time range of the open data files.
+
+        Inputs:
+            range_tuple: (start_s, end_s), or () while no file is open.
+        Outputs: none. The shown range is not changed.
+        """
+        # LLFR-00119, LLFR-00676, LLFR-00916: the limits of the zooms
+        # and pans of a time plot.
+        self.files_time_range_tuple = tuple(range_tuple)
+
     def full_time_range_tuple(self) -> tuple:
         """Return the time range that covers all the curves.
 
         Inputs: none.
         Outputs: a tuple (start_s, end_s); (0, 1) when there are no
-            curves. For a frequency plot, the frequency range (start_hz,
-            end_hz) from 0 Hz to the highest frequency of its curves.
+            curves. For a time plot, the time range of the open data
+            files when the controller gave it. For a frequency plot, the
+            frequency range (start_hz, end_hz) from 0 Hz to the highest
+            frequency of its curves.
         """
         # LLFR-00070: the default view shows all samples.
         time_list = [curve_tuple[1] for curve_tuple in self.curve_data_list
                      if curve_tuple[1].size > 0]
         if not time_list:
             return (0.0, 1.0)
+        # LLFR-00916, LLFR-00119: a time plot reaches the times of every
+        # open data file, also of the files none of its curves comes from.
+        if not self.frequency_plot_b and len(
+                self.files_time_range_tuple) == 2:
+            return padded_range_tuple(self.files_time_range_tuple[0],
+                                      self.files_time_range_tuple[1],
+                                      SINGLE_SAMPLE_HALF_RANGE_S)
         start_s = min(float(np.min(time_array)) for time_array in time_list)
         end_s = max(float(np.max(time_array)) for time_array in time_list)
         # LLFR-00258: a frequency plot's range starts at 0 Hz and ends at
@@ -2954,18 +3517,101 @@ class PlotWidget(QWidget):
         Inputs:
             widget_point: QPoint in this widget's coordinates.
         Outputs: none. On a text note, its text field is opened as by
-            "Edit"; anywhere else nothing happens.
+            "Edit"; on the name in the label of a flag, an area, a delta
+            marker or an arrow, the rename of that object is asked for,
+            once control is back in Qt; anywhere else nothing happens.
         """
+        # LLFR-01253, LLFR-00825: a click of the first press that waits
+        # is dropped, so the double-click places nothing.
+        self.cancel_deferred_click()
         # LLFR-00411: the first press of the double-click grabbed the
         # note without moving it (LLFR-00339); a grab still held (its
         # release was lost) is dropped here, so the note keeps its place.
         self.cancel_note_drag()
         note_index_i = self.text_note_at(widget_point)
-        if note_index_i == NO_TEXT_NOTE_INDEX_I:
+        if note_index_i != NO_TEXT_NOTE_INDEX_I:
+            # LLFR-00411, LLFR-00342: the same text field as "Edit"; no
+            # tip, zoom, pan, flag, area, note, arrow or delta point.
+            self.edit_text_note_at(note_index_i)
             return
-        # LLFR-00411, LLFR-00342: the same text field as "Edit"; no tip,
-        # zoom, pan, flag, area, note, arrow or delta point.
-        self.edit_text_note_at(note_index_i)
+        label_tuple = self.name_label_tuple_at(widget_point)
+        if not label_tuple:
+            return
+        # LLFR-00842, LLFR-00843: the first press of the double-click
+        # only grabbed the object without moving it; a grab still held is
+        # dropped, so nothing moves and no value changes.
+        self.cancel_drags()
+        # LLFR-00420: act as "Rename" in the object's menu. The request is
+        # sent once this press has been handled, as for the menus, since
+        # the receiver opens a dialog and redraws this widget.
+        self.pending_rename_tuple = label_tuple
+        QTimer.singleShot(0, self.emit_pending_rename)
+
+    def emit_pending_rename(self) -> None:
+        """Send the rename request asked for by a double-click on a label.
+
+        Inputs: none.
+        Outputs: none. Does nothing if the widget was deleted or removed
+            meanwhile.
+        """
+        # LLFR-00420: "Rename" of the flag, area, delta marker or arrow.
+        if sip.isdeleted(self) or self.retired_b:
+            return
+        label_tuple = self.pending_rename_tuple
+        self.pending_rename_tuple = ()
+        if not label_tuple:
+            return
+        kind_str, item_i = label_tuple
+        rename_signal_dict = {
+            LABEL_KIND_FLAG_STR: self.marker_rename_requested,
+            LABEL_KIND_AREA_STR: self.area_rename_requested,
+            LABEL_KIND_DELTA_STR: self.delta_marker_rename_requested,
+            LABEL_KIND_ARROW_STR: self.arrow_rename_requested}
+        rename_signal_dict[kind_str].emit(int(item_i))
+
+    def name_label_tuple_at(self, widget_point) -> tuple:
+        """Return the object whose name label is under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: (kind_str, item_i): LABEL_KIND_ARROW_STR and the arrow
+            index, LABEL_KIND_DELTA_STR and the delta marker id,
+            LABEL_KIND_FLAG_STR and the flag id, or LABEL_KIND_AREA_STR
+            and the area id; () when the point is on no name label, or
+            on a text note or a pinned tip drawn over it.
+        """
+        # LLFR-00420, LLFR-00422: only the name in a label counts, never
+        # a flag's time, an area's times or a delta marker's value.
+        if self.text_note_at(widget_point) != NO_TEXT_NOTE_INDEX_I:
+            return ()
+        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
+            return ()
+        point_tuple = self.widget_to_display_tuple(widget_point)
+        renderer = self.canvas.get_renderer()
+        # The labels are tried from the one drawn on top: arrows, delta
+        # markers, flags, then areas; the last placed first.
+        for index_i in reversed(range(len(self.arrow_label_list))):
+            if self.arrow_label_at_b(index_i, point_tuple):
+                return (LABEL_KIND_ARROW_STR, index_i)
+        for delta_marker_id_i in reversed(self.delta_marker_id_list()):
+            if self.delta_name_at_b(delta_marker_id_i, point_tuple[0],
+                                    point_tuple[1], renderer):
+                return (LABEL_KIND_DELTA_STR, delta_marker_id_i)
+        for marker_id_i in reversed(self.marker_id_list()):
+            artist_tuple = self.marker_artist_dict.get(marker_id_i)
+            if artist_tuple is None or not artist_tuple[1].get_visible():
+                continue
+            if self.tip_box_extent(artist_tuple[1], renderer).contains(
+                    *point_tuple):
+                return (LABEL_KIND_FLAG_STR, marker_id_i)
+        for area_tuple in reversed(self.area_data_list):
+            artist_tuple = self.area_artist_dict.get(area_tuple[0])
+            if artist_tuple is None or not artist_tuple[1].get_visible():
+                continue
+            if self.tip_box_extent(artist_tuple[1], renderer).contains(
+                    *point_tuple):
+                return (LABEL_KIND_AREA_STR, int(area_tuple[0]))
+        return ()
 
     def open_text_note_editor(self, widget_point, text_str: str,
                               note_index_i: int,
@@ -3175,7 +3821,8 @@ class PlotWidget(QWidget):
         annotation.xy = place_tuple
         # LLFR-00338: kept inside the axes while it is dragged too.
         self.place_text_note(annotation)
-        self.canvas.draw_idle()
+        # LLFR-01215: drawn over the image of the curves.
+        self.fast_drag_redraw()
 
     def note_release_at(self, widget_point) -> None:
         """End a text note drag where the button was released.
@@ -3189,6 +3836,9 @@ class PlotWidget(QWidget):
         if self.drag_note_index_i == NO_TEXT_NOTE_INDEX_I:
             return
         self.note_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_note_drag()
 
     def finish_note_drag(self) -> None:
@@ -3244,7 +3894,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00339, LLFR-00207: no text note is being moved.
+        # LLFR-00339, LLFR-00454: no text note is being moved.
         self.drag_note_index_i = NO_TEXT_NOTE_INDEX_I
         self.note_drag_place_tuple = ()
         self.note_drag_moved_b = False
@@ -3434,6 +4084,27 @@ class PlotWidget(QWidget):
         # LLFR-00169, LLFR-00171: "Δt = ... s" or "Δy = ...".
         artist_tuple = self.delta_artist_dict.get(delta_marker_id_i)
         return artist_tuple[3].get_text() if artist_tuple else ""
+
+    def delta_name_text(self, delta_marker_id_i: int) -> str:
+        """Return the text of the label of a delta marker's name.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: the name shown, or "" when it has no label.
+        """
+        # LLFR-00427, LLFR-00853: the name shown above the value.
+        name_label = self.delta_name_label_dict.get(delta_marker_id_i)
+        return name_label.get_text() if name_label is not None else ""
+
+    def delta_name_label(self, delta_marker_id_i: int):
+        """Return the Annotation of a delta marker's name.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: the matplotlib Annotation, or None when it has none.
+        """
+        # LLFR-00427: for checks of the drawing (place, color).
+        return self.delta_name_label_dict.get(delta_marker_id_i)
 
     def delta_bracket_path(self, delta_marker_id_i: int):
         """Return a delta marker's bracket as it would be drawn now.
@@ -3711,7 +4382,39 @@ class PlotWidget(QWidget):
             if self.tip_box_extent(label, renderer).contains(
                     display_x_px, display_y_px):
                 return delta_marker_id_i
+            # LLFR-00427: the label of its name is part of it too.
+            if self.delta_name_at_b(delta_marker_id_i, display_x_px,
+                                    display_y_px, renderer):
+                return delta_marker_id_i
         return NO_DELTA_MARKER_ID_I
+
+    def delta_name_at_b(self, delta_marker_id_i: int, display_x_px: float,
+                        display_y_px: float, renderer=None) -> bool:
+        """Tell whether a point is on the label of a delta marker's name.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+            display_x_px: x of the point, in display pixels.
+            display_y_px: y of the point.
+            renderer: the canvas renderer, or None to get it.
+        Outputs: True when the marker's value is shown and the point is
+            on the box of its name (not on the box of its value).
+        """
+        # LLFR-00420, LLFR-00422: the name, placed as it is drawn, above
+        # the value; a marker whose value is not shown has no name shown.
+        name_label = self.delta_name_label_dict.get(delta_marker_id_i)
+        artist_tuple = self.delta_artist_dict.get(delta_marker_id_i)
+        if name_label is None or not artist_tuple:
+            return False
+        if renderer is None:
+            renderer = self.canvas.get_renderer()
+        label = artist_tuple[3]
+        point_x_px, point_y_px = self.axes.transData.transform(label.xy)
+        if not self.inside_axes_b(float(point_x_px), float(point_y_px)):
+            return False
+        self.place_delta_name_label(label, name_label, renderer)
+        return bool(self.tip_box_extent(name_label, renderer).contains(
+            display_x_px, display_y_px))
 
     # ----------------------------------------------------------------
     # User actions
@@ -3782,6 +4485,8 @@ class PlotWidget(QWidget):
         # menu has priority over every item under it.
         note_index_i = self.text_note_at(widget_point)
         if note_index_i != NO_TEXT_NOTE_INDEX_I:
+            # LLFR-00425, LLFR-00426: the title is the note's text.
+            add_menu_title(menu, self.text_note_list[note_index_i][0])
             # LLFR-00341: Edit, Size, Border color, Text color, Delete.
             add_request_action(
                 menu, "Edit",
@@ -3816,6 +4521,9 @@ class PlotWidget(QWidget):
         # (and over a marker: tips are drawn on top of markers).
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i >= 0:
+            # LLFR-00425, LLFR-00426: the title is the signal of its
+            # point.
+            add_menu_title(menu, self.pinned_tip_list[tip_index_i][0])
             add_request_action(
                 menu, "Delete",
                 lambda index_i=tip_index_i:
@@ -3833,8 +4541,15 @@ class PlotWidget(QWidget):
         # markers and areas, so its menu has priority over theirs.
         arrow_index_i = self.arrow_at(widget_point)
         if arrow_index_i != NO_ARROW_INDEX_I:
-            # LLFR-00378: "Color" and "Delete". LLFR-00379, LLFR-00388:
-            # "Color" is the color submenu.
+            # LLFR-00425, LLFR-00426: the title is the arrow's name.
+            add_menu_title(menu, self.arrow_name_str(arrow_index_i))
+            # LLFR-00378: "Rename", "Color" and "Delete". LLFR-00439:
+            # "Rename" lets the user type a new name.
+            add_request_action(
+                menu, "Rename",
+                lambda index_i=arrow_index_i:
+                self.arrow_rename_requested.emit(index_i))
+            # LLFR-00379, LLFR-00388: "Color" is the color submenu.
             add_color_option("Color", self.arrow_color_requested,
                              arrow_index_i)
             add_request_action(
@@ -3846,6 +4561,8 @@ class PlotWidget(QWidget):
         # LLFR-00087, LLFR-00090: whatever plot tool is active.
         marker_id_i = self.marker_at(widget_point)
         if marker_id_i != NO_MARKER_ID_I:
+            # LLFR-00425, LLFR-00426: the title is the flag's name.
+            add_menu_title(menu, self.marker_label_text(marker_id_i))
             add_request_action(
                 menu, "Rename",
                 lambda chosen_id_i=marker_id_i:
@@ -3868,7 +4585,16 @@ class PlotWidget(QWidget):
         # curve under it, whatever plot tool is active.
         delta_marker_id_i = self.delta_marker_at(widget_point)
         if delta_marker_id_i != NO_DELTA_MARKER_ID_I:
-            # LLFR-00175: "Color" first; LLFR-00409, LLFR-00388: the
+            # LLFR-00425, LLFR-00426: the title is the marker's name.
+            add_menu_title(menu,
+                           self.delta_name_dict.get(delta_marker_id_i, ""))
+            # LLFR-00175: "Rename" first; LLFR-00429: it lets the user
+            # type a new name.
+            add_request_action(
+                menu, "Rename",
+                lambda chosen_id_i=delta_marker_id_i:
+                self.delta_marker_rename_requested.emit(chosen_id_i))
+            # LLFR-00175: then "Color"; LLFR-00409, LLFR-00388: the
             # color submenu.
             add_color_option("Color", self.delta_marker_color_requested,
                              delta_marker_id_i)
@@ -3887,6 +4613,8 @@ class PlotWidget(QWidget):
             return menu, request_list
         signal_name_str = self.curve_at(widget_point)
         if signal_name_str:
+            # LLFR-00425, LLFR-00426: the title is the curve's signal.
+            add_menu_title(menu, signal_name_str)
             # LLFR-00038: delete the curve.
             add_request_action(
                 menu, "Delete signal",
@@ -3909,6 +4637,8 @@ class PlotWidget(QWidget):
         # at the point (the items above came first), the area menu.
         area_id_i = self.area_at(widget_point)
         if area_id_i != NO_AREA_ID_I:
+            # LLFR-00425, LLFR-00426: the title is the area's name.
+            add_menu_title(menu, self.area_label_text(area_id_i))
             add_request_action(
                 menu, "Rename",
                 lambda chosen_id_i=area_id_i:
@@ -3925,16 +4655,42 @@ class PlotWidget(QWidget):
             add_request_action(
                 menu, DELETE_ALL_AREAS_TEXT_STR,
                 lambda: self.all_areas_delete_requested.emit())
+            # LLFR-01113: "Position", directly above "Delete plot".
+            self.add_position_option(menu, add_request_action)
             # LLFR-00314 Note: a plot covered by an area can be deleted.
             add_request_action(menu, "Delete plot",
                                lambda: self.plot_delete_requested.emit())
             return menu, request_list
         # LLFR-00048: empty area of the plot (no curve, pinned tip,
         # vertical marker, delta marker, area or text note under the
-        # mouse).
+        # mouse). LLFR-00425, LLFR-00426: the title is "Plot".
+        add_menu_title(menu, PLOT_MENU_TITLE_STR)
+        # LLFR-01112: "Position", directly above "Delete plot".
+        self.add_position_option(menu, add_request_action)
         add_request_action(menu, "Delete plot",
                            lambda: self.plot_delete_requested.emit())
         return menu, request_list
+
+    def add_position_option(self, menu, add_request_action) -> None:
+        """Add the "Position" option to the plot or area menu.
+
+        Inputs:
+            menu: the QMenu being built.
+            add_request_action: the function of build_context_menu that
+                adds a plain option.
+        Outputs: none. With a position_picker_factory (set by the plot
+            panel), the option is a submenu that holds the position
+            picker, opened beside the menu with no click (LLFR-01114);
+            without one, a plain option that emits
+            plot_position_requested.
+        """
+        # LLFR-01112, LLFR-01113, LLFR-01114.
+        if self.position_picker_factory is not None:
+            add_picker_submenu(menu, POSITION_TEXT_STR,
+                               self.position_picker_factory)
+            return
+        add_request_action(menu, POSITION_TEXT_STR,
+                           lambda: self.plot_position_requested.emit())
 
     def request_color(self, color_signal, item_i: int,
                       chosen_color_str: str) -> None:
@@ -3961,17 +4717,20 @@ class PlotWidget(QWidget):
         Inputs:
             widget_point: QPoint in this widget's coordinates.
         Outputs: a QMenu (not shown) whose actions emit their request
-            when triggered. On a text note it has "Edit", "Size", "Border
+            when triggered. Every menu starts with a title, the name of
+            the object it acts on, and a separator (LLFR-00425). On a
+            text note it has "Edit", "Size", "Border
             color", "Text color" and "Delete"; on a pinned tip "Delete";
             and "Delete all data tips in this plot" and "... in all
             plots"; on a marker "Rename", "Color", "Delete" and "Delete
-            all flags"; on a delta marker "Color", "Delete" and "Delete
+            all flags"; on a delta marker "Rename", "Color", "Delete" and
+            "Delete
             all delta markers in this plot" and "... in all plots"; on
-            an area "Rename", "Color", "Delete", "Delete all areas" and
-            "Delete plot"; every color option is a submenu of the
-            recent colors and "Other color..."; on a
+            an area "Rename", "Color", "Delete", "Delete all areas",
+            "Position" and "Delete plot"; every color option is a
+            submenu of the recent colors and "Other color..."; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
-            elsewhere "Delete plot".
+            elsewhere "Position" and "Delete plot".
         """
         # LLFR-00038, LLFR-00040, LLFR-00046, LLFR-00048.
         menu, request_list = self.context_menu_and_requests(widget_point)
@@ -4050,10 +4809,16 @@ class PlotWidget(QWidget):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: none.
+        Outputs: none. The tip is shown only with the Tip tool, on a
+            curve and not over a pinned tip (LLFR-01249).
         """
         # LLFR-00042: tips only with the Tip tool and only on a curve.
         if self.plot_tool_str != TIP_TOOL_STR:
+            self.hide_hover_tip()
+            return
+        # LLFR-01249: over a pinned tip a press moves that tip
+        # (LLFR-00153), so no hover tip is shown there.
+        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
             self.hide_hover_tip()
             return
         nearest_tuple = self.nearest_curve_tuple(widget_point)
@@ -4086,18 +4851,29 @@ class PlotWidget(QWidget):
         self.hover_annotation.set_visible(False)
         self.canvas.draw_idle()
 
-    def click_at(self, widget_point) -> None:
+    def click_at(self, widget_point, label_drag_b: bool = False) -> None:
         """Do what a left click at a point does with the active tool.
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
+            label_drag_b: True when the press was on a name label and
+                the pointer then moved 5 pixels or more (LLFR-00798), so
+                that the tool acts as where no object is drawn.
         Outputs: none. With the Tip tool, emits tip_pin_requested when a
             hover tip is shown; with the Zoom tool, zooms in (see
             zoom_click_at); with the Vertical marker tool, emits
             marker_place_requested unless the click is on a marker;
             with the Delta X or Delta Y tool, emits delta_point_picked
-            when the click is on a curve.
+            when the click is on a curve. A click on a name label
+            (name_label_tuple_at) does nothing.
         """
+        # LLFR-00886, LLFR-00842: a click on the name in the label of a
+        # flag, an area, a delta marker or an arrow may be the first click
+        # of a double-click that renames it (LLFR-00420), so it leaves the
+        # plot unchanged: no delta point, zoom, flag, text note or tip. A
+        # drag from it still acts as the tool does (label_drag_b).
+        if not label_drag_b and self.name_label_tuple_at(widget_point):
+            return
         # LLFR-00109: using a tool never changes the active tool.
         if is_delta_tool(self.plot_tool_str):
             # LLFR-00163, LLFR-00164: pick a point of a delta marker.
@@ -4165,11 +4941,13 @@ class PlotWidget(QWidget):
             widget_point: QPoint in this widget's coordinates.
         Outputs: none. The objects at the point are tried in the order
             of LLFR-00383: a press on a text note or a pinned tip starts
-            moving it, with any tool or none. With the Arrow tool, a
-            press on an arrow edits it and any other press draws a new
-            one (arrow_tool_press_at). With no tool active, a press on
-            an arrow, a flag or an area starts moving (or resizing) it,
-            and any other press does nothing (edit_press_at). With the
+            moving it, with any tool or none, except where the active
+            tool shows its preview (preview_press_b, LLFR-01248). With
+            the Arrow tool, a press on an arrow edits it and any other
+            press draws a new one (arrow_tool_press_at). With no tool
+            active, a press on an arrow, a flag or an area starts moving
+            (or resizing) it, and any other press does nothing
+            (edit_press_at). With the
             Pan tool, any other press on the drawing area starts a pan
             (tool_pan_press_at); with the Area tool, it creates, moves
             or resizes an area; with the Flag tool, a press on a flag
@@ -4186,20 +4964,31 @@ class PlotWidget(QWidget):
         self.cancel_area_drag()
         self.cancel_note_drag()
         self.cancel_arrow_drag()
-        # LLFR-00383: text note first. LLFR-00339: a press on it moves
-        # it, with any tool or none, and never pins, zooms, places a
-        # flag, picks a delta point or starts a note.
-        note_index_i = self.text_note_at(widget_point)
-        if note_index_i != NO_TEXT_NOTE_INDEX_I:
-            self.note_press_at(widget_point, note_index_i)
-            return
-        # LLFR-00383: then the pinned data tip. LLFR-00153: a press on it
-        # moves it, with any tool or none, and never pins, zooms or
-        # places a flag.
-        tip_index_i = self.pinned_tip_at(widget_point)
-        if tip_index_i != NO_TIP_INDEX_I:
-            self.tip_press_at(widget_point, tip_index_i)
-            return
+        self.cancel_delta_point_drag()
+        # LLFR-00886: a press on a name label whose release was lost
+        # does nothing.
+        self.label_press_point = None
+        # LLFR-01248: where the Flag, Data tip, Delta X or Delta Y tool
+        # shows its preview, the press does what the preview shows, so a
+        # text note or a pinned tip there is not grabbed.
+        # LLFR-01254: a click that waits is done before this press.
+        self.flush_deferred_click()
+        preview_b = self.preview_press_b(widget_point)
+        if not preview_b:
+            # LLFR-00383: text note first. LLFR-00339: a press on it
+            # moves it, with any tool or none, and never pins, zooms,
+            # places a flag, picks a delta point or starts a note.
+            note_index_i = self.text_note_at(widget_point)
+            if note_index_i != NO_TEXT_NOTE_INDEX_I:
+                self.note_press_at(widget_point, note_index_i)
+                return
+            # LLFR-00383: then the pinned data tip. LLFR-00153: a press
+            # on it moves it, with any tool or none, and never pins,
+            # zooms or places a flag.
+            tip_index_i = self.pinned_tip_at(widget_point)
+            if tip_index_i != NO_TIP_INDEX_I:
+                self.tip_press_at(widget_point, tip_index_i)
+                return
         # LLFR-00383: then the arrow. LLFR-00376, LLFR-00377, LLFR-00384:
         # with the Arrow tool, a press on an arrow edits it, and
         # LLFR-00371: anywhere else, also on a flag or an area, it draws
@@ -4237,7 +5026,145 @@ class PlotWidget(QWidget):
         if self.plot_tool_str == ZOOM_TOOL_STR:
             self.span_press_at(widget_point)
             return
+        # LLFR-00433, LLFR-00801: with the Delta X or Delta Y tool, a
+        # press on a dot of a delta marker may drag its point; whether
+        # it is a drag or a click (LLFR-00866) is known only later.
+        if is_delta_tool(self.plot_tool_str):
+            dot_tuple = self.delta_dot_at(widget_point)
+            if dot_tuple:
+                self.delta_point_press_at(widget_point, *dot_tuple)
+                return
+        # LLFR-00886, LLFR-00798: with the Data tip, Flag, Text, Delta X
+        # or Delta Y tool, a press on a name label waits: a move of 5
+        # pixels or more then acts as the tool does where no object is
+        # drawn (label_drag_to), a release before does nothing.
+        if self.name_label_tuple_at(widget_point):
+            self.label_press_point = QPoint(widget_point)
+            return
+        # LLFR-01253: on a text note, the click of LLFR-01248 waits, so
+        # that a double-click there only edits the note (LLFR-00825).
+        if (preview_b and self.text_note_at(widget_point)
+                != NO_TEXT_NOTE_INDEX_I):
+            self.defer_click(widget_point)
+            return
         self.click_at(widget_point)
+
+    def defer_click(self, widget_point) -> None:
+        """Wait for the double-click interval before a click on a note.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed on a text note.
+        Outputs: none. run_deferred_click does the click when the
+            interval of the operating system ends with no second press.
+        """
+        # LLFR-01253: what the preview shows at the press is kept, so
+        # that a zoom, a pan or a reset of the zoom during the wait
+        # changes nothing: the time of the flag preview (LLFR-00203), the
+        # point of the hover tip (LLFR-00042) or the sample of the delta
+        # dot (LLFR-00352).
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            target_tuple = (self.marker_preview_time_at(widget_point),)
+        elif self.plot_tool_str == TIP_TOOL_STR:
+            target_tuple = tuple(self.hover_point_tuple)
+        else:
+            target_tuple = tuple(self.delta_preview_target_tuple(
+                widget_point))
+        # LLFR-01254: a click that waits on another plot is done first,
+        # so that one click at most waits in the app.
+        flush_app_waiting_click()
+        self.deferred_click_tuple = (self.plot_tool_str, target_tuple)
+        PlotWidget.waiting_click_widget = self
+        self.deferred_click_timer.start(
+            int(QApplication.styleHints().mouseDoubleClickInterval()))
+
+    def run_deferred_click(self) -> None:
+        """Do the click that waited for the double-click interval.
+
+        Inputs: none.
+        Outputs: none. Asks for the flag, the pinned tip or the delta
+            point that the preview showed at the press, as the last step,
+            unless the widget was removed or the tool changed meanwhile.
+        """
+        # LLFR-01253, LLFR-01248: no second press came, so the press
+        # does what the preview showed.
+        if sip.isdeleted(self) or not self.deferred_click_tuple:
+            return
+        tool_str, target_tuple = self.deferred_click_tuple
+        self.deferred_click_tuple = ()
+        if PlotWidget.waiting_click_widget is self:
+            PlotWidget.waiting_click_widget = None
+        if self.retired_b or tool_str != self.plot_tool_str:
+            return
+        if tool_str == MARKER_TOOL_STR:
+            # LLFR-00081: the time of the flag preview of the press.
+            if target_tuple and math.isfinite(target_tuple[0]):
+                self.marker_place_requested.emit(float(target_tuple[0]))
+            return
+        if len(target_tuple) != 3:
+            return
+        if tool_str == TIP_TOOL_STR:
+            # LLFR-00045: the point of the hover tip shown at the press.
+            self.tip_pin_requested.emit(*target_tuple)
+            return
+        # LLFR-00163, LLFR-00164: the sample of the dot of the press.
+        self.delta_point_picked.emit(str(target_tuple[0]),
+                                     float(target_tuple[1]),
+                                     float(target_tuple[2]))
+
+    def flush_deferred_click(self) -> None:
+        """Do at once a click that waits, if any.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01254: a press, not the second of a double-click, or a
+        # change of plot tool comes first.
+        if not self.deferred_click_tuple:
+            return
+        self.deferred_click_timer.stop()
+        self.run_deferred_click()
+
+    def cancel_deferred_click(self) -> None:
+        """Forget a click that waits, if any.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01253, LLFR-00825: the second press of a double-click on
+        # the note drops it, so nothing is placed; so does a removed
+        # plot.
+        self.deferred_click_timer.stop()
+        self.deferred_click_tuple = ()
+        if PlotWidget.waiting_click_widget is self:
+            PlotWidget.waiting_click_widget = None
+
+    def preview_press_b(self, widget_point) -> bool:
+        """Tell whether a press at a point places what a preview shows.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed.
+        Outputs: True when the active tool shows its preview at the
+            point: the flag preview with the Flag tool, the hover data
+            tip with the Data tip tool, or the dot of a delta marker
+            point with the Delta X or Delta Y tool; False otherwise.
+        """
+        # LLFR-01248: a click where a preview is shown places the object
+        # it shows. LLFR-00203, LLFR-00662: the flag preview, hidden over
+        # an existing flag, which a press then drags (LLFR-00086).
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            return not math.isnan(self.marker_preview_time_at(widget_point))
+        # LLFR-00042, LLFR-01249: the hover tip shown, never over a
+        # pinned tip, which a press then moves (LLFR-00153).
+        if self.plot_tool_str == TIP_TOOL_STR:
+            return (bool(self.hover_point_tuple)
+                    and self.pinned_tip_at(widget_point) == NO_TIP_INDEX_I)
+        # LLFR-00352: the dot of the point a click would pick.
+        if is_delta_tool(self.plot_tool_str):
+            return bool(self.delta_preview_target_tuple(widget_point))
+        # LLFR-01238: the other previews appear only after the press.
+        return False
 
     def edit_press_at(self, widget_point) -> None:
         """Start moving the object under a press made with no tool active.
@@ -4249,9 +5176,10 @@ class PlotWidget(QWidget):
         Outputs: none. A press on an arrow starts moving, rotating or
             stretching it; else a press on a flag starts dragging it;
             else a press in an area, or within 5 pixels of its edge,
-            starts moving or resizing it; any other press (on a curve, a
-            delta marker or an empty part of the plot) does nothing and
-            shows nothing.
+            starts moving or resizing it; a press on a dot of a delta
+            marker, after the arrows, may drag its point; any other
+            press (on a curve, the rest of a delta marker or an empty
+            part of the plot) does nothing and shows nothing.
         """
         # LLFR-00383: after the text note and the pinned tip, the arrow
         # (the one drawn last). LLFR-00382, LLFR-00376, LLFR-00377: a
@@ -4259,6 +5187,14 @@ class PlotWidget(QWidget):
         arrow_index_i = self.arrow_at(widget_point)
         if arrow_index_i != NO_ARROW_INDEX_I:
             self.arrow_edit_press_at(widget_point, arrow_index_i)
+            return
+        # LLFR-00383: then the delta marker point, before the flag and
+        # the area. LLFR-00794: a press on a dot of a delta marker may
+        # drag its point (LLFR-00433); a short press does nothing
+        # (LLFR-00867).
+        dot_tuple = self.delta_dot_at(widget_point)
+        if dot_tuple:
+            self.delta_point_press_at(widget_point, *dot_tuple)
             return
         # LLFR-00383: then the flag.
         # LLFR-00382, LLFR-00086: a press on a flag moves it.
@@ -4272,8 +5208,8 @@ class PlotWidget(QWidget):
         area_id_i, _ = self.area_press_part_tuple(widget_point)
         if area_id_i != NO_AREA_ID_I:
             self.area_press_at(widget_point)
-        # LLFR-00382: a delta marker never moves, and a press anywhere
-        # else does nothing and shows no message.
+        # LLFR-00795, LLFR-00796: a press on the rest of a delta marker,
+        # or anywhere else, does nothing and shows no message.
 
     def marker_press_at(self, widget_point, marker_id_i: int) -> None:
         """Start dragging a flag from a pressed point.
@@ -4329,7 +5265,8 @@ class PlotWidget(QWidget):
         self.drag_time_s = time_s
         self.drag_moved_b = True
         self.move_marker_artists(self.drag_marker_id_i, time_s)
-        self.canvas.draw_idle()
+        # LLFR-01215: drawn over the image of the curves.
+        self.fast_drag_redraw()
         # LLFR-00205: the other plots of the tab show the marker here.
         self.marker_drag_moved.emit(self.drag_marker_id_i, time_s)
 
@@ -4346,6 +5283,9 @@ class PlotWidget(QWidget):
         if self.drag_marker_id_i == NO_MARKER_ID_I:
             return
         self.drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_marker_drag()
 
     def finish_marker_drag(self) -> None:
@@ -4505,7 +5445,8 @@ class PlotWidget(QWidget):
         self.tip_drag_moved_b = True
         # LLFR-00151: the leader line follows the label when drawn.
         self.place_tips()
-        self.canvas.draw_idle()
+        # LLFR-01215: drawn over the image of the curves.
+        self.fast_drag_redraw()
 
     def tip_release_at(self, widget_point) -> None:
         """End a pinned tip drag at the point where the button was released.
@@ -4519,6 +5460,9 @@ class PlotWidget(QWidget):
         if self.drag_tip_index_i == NO_TIP_INDEX_I:
             return
         self.tip_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_tip_drag()
 
     def finish_tip_drag(self) -> None:
@@ -4592,6 +5536,31 @@ class PlotWidget(QWidget):
         self.cancel_area_drag()
         # LLFR-00371, LLFR-00376, LLFR-00377: and an arrow drag.
         self.cancel_arrow_drag()
+        # LLFR-00433: and the drag of a delta marker point.
+        self.cancel_delta_point_drag()
+        # LLFR-00886: and a press on a name label that waits.
+        self.label_press_point = None
+
+    def label_drag_to(self, widget_point) -> None:
+        """Follow the pointer after a press on a name label.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Once the pointer is 5 pixels or more from the
+            press, the active tool acts at the press point as where no
+            object is drawn (LLFR-00798), and the wait ends.
+        """
+        # LLFR-00886: under 5 pixels it may still be a single click.
+        press_point = self.label_press_point
+        if press_point is None:
+            return
+        if math.hypot(widget_point.x() - press_point.x(),
+                      widget_point.y() - press_point.y()) < (
+                LABEL_DRAG_THRESHOLD_PIXELS_F):
+            return
+        # LLFR-00798: the tool acts as it does on a press anywhere else.
+        self.label_press_point = None
+        self.click_at(press_point, True)
 
     def is_mouse_drag_in_progress(self) -> bool:
         """Tell whether the user is dragging the mouse on this plot.
@@ -4603,9 +5572,9 @@ class PlotWidget(QWidget):
             selection (LLFR-00208, flag time_span_drag_b), from the
             press to the release.
         """
-        # LLFR-00207: the Z key does nothing while one of these drags is
+        # LLFR-00454: the 0 key does nothing while one of these drags is
         # in progress. A new kind of drag only has to be added here.
-        # LLFR-00207: and an area drag, from the press of the Area tool to
+        # LLFR-00454: and an area drag, from the press of the Area tool to
         # the release.
         return (self.panning_b
                 or self.drag_marker_id_i != NO_MARKER_ID_I
@@ -4613,8 +5582,10 @@ class PlotWidget(QWidget):
                 or self.drag_note_index_i != NO_TEXT_NOTE_INDEX_I
                 or self.time_span_drag_b
                 or self.area_drag_mode_str != AREA_DRAG_NONE_STR
-                # LLFR-00207: and the drawing or the drag of an arrow.
-                or self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR)
+                # LLFR-00454: and the drawing or the drag of an arrow.
+                or self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR
+                # LLFR-00454: and the drag of a delta marker point.
+                or self.delta_drag_id_i != NO_DELTA_MARKER_ID_I)
 
     def retire(self) -> None:
         """Stop all interaction before the widget is removed.
@@ -4639,6 +5610,8 @@ class PlotWidget(QWidget):
         # LLFR-00339: so does a text note drag. LLFR-00333: an open text
         # field writes nothing on a removed plot.
         self.reset_note_drag()
+        # LLFR-01253: a click that waits does nothing on a removed plot.
+        self.cancel_deferred_click()
         self.retired_b = True
         self.close_text_note_editor()
         # LLFR-00203: a removed plot shows no preview.
@@ -4646,8 +5619,8 @@ class PlotWidget(QWidget):
         # LLFR-00354: nor any delta preview.
         self.delta_preview_point_tuple = ()
         self.delta_preview_widget_point = None
-        # LLFR-00207, LLFR-00208: a time span selection stops too, so a
-        # removed plot never blocks the Z key; its line is not drawn
+        # LLFR-00454, LLFR-00208: a time span selection stops too, so a
+        # removed plot never blocks the 0 key; its line is not drawn
         # again.
         self.time_span_drag_b = False
         self.time_span_shown_b = False
@@ -4655,6 +5628,8 @@ class PlotWidget(QWidget):
         self.reset_area_drag()
         # LLFR-00371, LLFR-00376: so does an arrow drag.
         self.reset_arrow_drag()
+        # LLFR-00433: and the drag of a delta marker point.
+        self.reset_delta_point_drag()
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
         self.retired_b = True
         self.blockSignals(True)
@@ -4705,7 +5680,7 @@ class PlotWidget(QWidget):
             widget_point)
         if not self.inside_axes_b(display_x_px, display_y_px):
             return
-        # LLFR-00207: from the press to the release, the Z key does
+        # LLFR-00454: from the press to the release, the 0 key does
         # nothing (is_mouse_drag_in_progress).
         self.time_span_drag_b = True
         self.time_span_shown_b = False
@@ -4771,6 +5746,12 @@ class PlotWidget(QWidget):
         self.span_end_time_s = end_time_s
         # LLFR-00208: updated live, by redrawing only the line.
         self.blit_overlay()
+        # LLFR-01163: a time plot's span applies to every time plot, so
+        # it is shown on the other shown time plots too; a frequency
+        # plot's span applies only to itself (LLFR-00693).
+        if not self.frequency_plot_b:
+            self.span_preview_changed.emit(self.span_press_time_s,
+                                           self.span_end_time_s)
 
     def span_release_at(self, widget_point) -> None:
         """End a click zoom or a time span selection at a release point.
@@ -4839,6 +5820,9 @@ class PlotWidget(QWidget):
         self.time_span_shown_b = False
         if shown_b:
             self.blit_overlay()
+            # LLFR-01163: the other plots hide it too.
+            if not self.frequency_plot_b:
+                self.span_preview_changed.emit(float("nan"), float("nan"))
 
     def time_span_line_shown(self) -> bool:
         """Tell whether the time span selection line is shown.
@@ -5035,9 +6019,10 @@ class PlotWidget(QWidget):
         if not self.inside_axes_b(display_x_px, display_y_px):
             return
         # LLFR-00356, LLFR-00118 to LLFR-00120: the wheel button pan code,
-        # driven by the left button. LLFR-00357: a press and release
-        # without a move shifts nothing and shows nothing. LLFR-00207:
-        # panning_b makes the Z key do nothing until the release.
+        # driven by the left button. LLFR-00357, LLFR-00763: a press and
+        # release without a move shifts nothing; LLFR-00764: and shows no
+        # message, since the pan code never asks the user. LLFR-00454:
+        # panning_b makes the 0 key do nothing until the release.
         self.pan_press_at(widget_point, Qt.MouseButton.LeftButton)
 
     def is_tool_pan_b(self) -> bool:
@@ -5107,6 +6092,10 @@ class PlotWidget(QWidget):
                 and self.area_drag_id_i not in {
                     area_tuple[0] for area_tuple in self.area_data_list}):
             self.reset_area_drag()
+        # LLFR-01215, LLFR-01239: the areas given by the model end a
+        # drawing over the kept image (a plot that followed a drag), so
+        # that the new areas are drawn once, by the full draw below.
+        self.forget_fast_drag()
         self.draw_areas()
         # LLFR-00310: the areas change on every time plot of every tab; a
         # hidden plot draws them only when it is shown (showEvent).
@@ -5138,8 +6127,9 @@ class PlotWidget(QWidget):
             self.axes.add_artist(band)
             band.set_in_layout(False)
             # LLFR-00307, LLFR-00308: the name and the times in the
-            # area's color at full opacity (no alpha), on the label box
-            # that keeps them readable.
+            # area's color at full opacity (no alpha); LLFR-00704: on an
+            # opaque box with a contrast of at least 4.5:1 to that color.
+            label_box_dict = theme.area_label_box_dict(color_str)
             # LLFR-00307: the name in the upper-left corner of the band,
             # inside the drawing area, shown literally (never as
             # mathtext); place_areas keeps it at the left of the part of
@@ -5151,7 +6141,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
+                bbox=dict(label_box_dict), zorder=AREA_LABEL_ZORDER_F)
             label.set_in_layout(False)
             # LLFR-00308: the start and end times directly below the
             # label, anchored on the label's box so that they follow it.
@@ -5162,7 +6152,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
+                bbox=dict(label_box_dict), zorder=AREA_LABEL_ZORDER_F)
             times_text.set_in_layout(False)
             self.area_artist_dict[area_id_i] = (band, label, times_text)
         self.place_areas()
@@ -5382,7 +6372,7 @@ class PlotWidget(QWidget):
             mode_str = AREA_DRAG_CREATE_STR
             self.area_limit_tuple = (lowest_s, highest_s)
             self.area_drag_span_tuple = (press_time_s, press_time_s)
-        # LLFR-00207: from the press to the release, the Z key does
+        # LLFR-00454: from the press to the release, the 0 key does
         # nothing (is_mouse_drag_in_progress).
         self.area_drag_mode_str = mode_str
         self.area_drag_id_i = area_id_i
@@ -5503,6 +6493,8 @@ class PlotWidget(QWidget):
                 widget_point)
             # LLFR-00303: updated live, by redrawing only the preview.
             self.blit_overlay()
+            # LLFR-01162: and on the other shown time plots.
+            self.area_preview_changed.emit(*self.area_drag_span_tuple)
             return
         # LLFR-00312, LLFR-00313: until the mouse leaves the pressed
         # pixel column, nothing moves (a press and release is no drag).
@@ -5516,7 +6508,8 @@ class PlotWidget(QWidget):
         self.area_drag_span_tuple = span_tuple
         # LLFR-00308: the band, the label and the times follow live.
         self.move_area_artists(self.area_drag_id_i, *span_tuple)
-        self.canvas.draw_idle()
+        # LLFR-01215: drawn over the image of the curves.
+        self.fast_drag_redraw()
         # LLFR-00310: the other plots of the tab show the area here.
         self.area_drag_moved.emit(self.area_drag_id_i, span_tuple[0],
                                   span_tuple[1])
@@ -5536,6 +6529,9 @@ class PlotWidget(QWidget):
             self.reset_area_drag()
             return
         self.area_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_area_drag()
 
     def finish_area_drag(self) -> None:
@@ -5575,6 +6571,8 @@ class PlotWidget(QWidget):
         self.area_drag_moved_b = False
         if preview_shown_b and not self.retired_b:
             self.blit_overlay()
+            # LLFR-01162: the other plots hide it too.
+            self.area_preview_changed.emit(float("nan"), float("nan"))
 
     def cancel_area_drag(self) -> None:
         """Forget the area drag in progress, if any.
@@ -5636,7 +6634,8 @@ class PlotWidget(QWidget):
         if int(area_id_i) not in self.area_artist_dict:
             return
         self.move_area_artists(int(area_id_i), float(start_s), float(end_s))
-        self.draw_when_visible()
+        # LLFR-01217: drawn over the image of its curves.
+        self.fast_drag_redraw()
 
     def area_id_list(self) -> list:
         """Return the ids of the areas drawn, in creation order.
@@ -5719,6 +6718,9 @@ class PlotWidget(QWidget):
         for patch in self.arrow_artist_list:
             patch.remove()
         self.arrow_artist_list = []
+        for arrow_label in self.arrow_label_list:
+            arrow_label.remove()
+        self.arrow_label_list = []
         # LLFR-00376, LLFR-00377: the arrows are named by their index,
         # so a drag of one of them cannot go on with a new list.
         if self.arrow_drag_mode_str not in (ARROW_DRAG_NONE_STR,
@@ -5735,6 +6737,21 @@ class PlotWidget(QWidget):
             self.axes.add_artist(patch)
             patch.set_in_layout(False)
             self.arrow_artist_list.append(patch)
+            # LLFR-00436, LLFR-00788: the name beside the line, parallel
+            # to it, in the arrow's color, on a label box with a contrast
+            # of at least 4.5:1 (LLFR-00704);
+            # LLFR-00437: placed again at every draw. Not clipped: it is
+            # kept inside the drawing area by itself.
+            arrow_label = ArrowLabel(
+                patch, self.arrow_name_list[len(self.arrow_label_list)]
+                if len(self.arrow_label_list) < len(self.arrow_name_list)
+                else "", color_str,
+                theme.contrast_label_box_dict(color_str),
+                zorder=ARROW_ZORDER_F + 0.05)
+            self.axes.add_artist(arrow_label)
+            arrow_label.set_clip_on(False)
+            arrow_label.set_in_layout(False)
+            self.arrow_label_list.append(arrow_label)
 
     def create_arrow_preview_artist(self) -> None:
         """Create the hidden artist of the arrow previews.
@@ -5753,6 +6770,15 @@ class PlotWidget(QWidget):
         self.arrow_preview_patch.axes = self.axes
         # LLFR-00374: cut at the edges of the drawing area.
         self.arrow_preview_patch.set_clip_box(self.axes.bbox)
+        # LLFR-00870: the label follows the preview of a moved, turned or
+        # stretched arrow; it is not added to the axes either.
+        self.arrow_preview_label = ArrowLabel(
+            self.arrow_preview_patch, "", DEFAULT_ARROW_COLOR_STR,
+            theme.contrast_label_box_dict(DEFAULT_ARROW_COLOR_STR),
+            zorder=ARROW_ZORDER_F + 0.05)
+        self.arrow_preview_label.set_figure(self.figure)
+        self.arrow_preview_label.axes = self.axes
+        self.arrow_preview_label.set_clip_on(False)
         self.overlay_background = None
 
     def arrow_preview_shown(self) -> bool:
@@ -5783,6 +6809,20 @@ class PlotWidget(QWidget):
                                   ARROW_PREVIEW_PALE_RATIO_F)
         patch.set_facecolor(pale_str)
         patch.set_edgecolor(pale_str)
+        # LLFR-00870: the name of the arrow being moved, turned or
+        # stretched, in the same pale color; LLFR-00774: a new arrow
+        # (the drawing preview of LLFR-00371) has no label yet.
+        if self.arrow_preview_label is not None:
+            name_str = ""
+            if (self.arrow_drag_mode_str != ARROW_DRAG_CREATE_STR
+                    and 0 <= self.arrow_drag_index_i
+                    < len(self.arrow_name_list)):
+                name_str = self.arrow_name_list[self.arrow_drag_index_i]
+            self.arrow_preview_label.set_text(name_str)
+            self.arrow_preview_label.set_color(pale_str)
+            # LLFR-00436, LLFR-00704: its box reads with the pale color.
+            self.arrow_preview_label.set_bbox(
+                theme.contrast_label_box_dict(pale_str))
 
     def arrow_threshold_px(self) -> float:
         """Return the 5 pixel distance of the arrow rules, in display px.
@@ -5821,9 +6861,10 @@ class PlotWidget(QWidget):
         Outputs: the index in the list given to set_arrows of the arrow
             drawn last among those under the point, or NO_ARROW_INDEX_I.
         """
-        # LLFR-00373: on an arrow means within 5 pixels of its line or on
-        # its arrowhead; only the part inside the drawing area is drawn
-        # (LLFR-00374), so a point outside it is on no arrow.
+        # LLFR-01201: on an arrow means within 5 pixels of its line, on
+        # its arrowhead or on its label; only the part inside the
+        # drawing area is drawn (LLFR-00374), so a point outside it is on
+        # no arrow.
         point_tuple = self.widget_to_display_tuple(widget_point)
         if not self.inside_axes_b(*point_tuple):
             return NO_ARROW_INDEX_I
@@ -5831,6 +6872,8 @@ class PlotWidget(QWidget):
         pixels_per_point_f = self.pixels_per_point_f()
         # LLFR-00383: among arrows, the one drawn last.
         for index_i in reversed(range(len(self.arrow_list))):
+            if self.arrow_label_at_b(index_i, point_tuple):
+                return index_i
             start_tuple, end_tuple = self.arrow_display_tuple(index_i)
             if arrow_geometry.segment_distance_f(
                     point_tuple, start_tuple, end_tuple) <= threshold_px:
@@ -5841,6 +6884,75 @@ class PlotWidget(QWidget):
                             start_tuple, end_tuple, pixels_per_point_f))):
                 return index_i
         return NO_ARROW_INDEX_I
+
+    def arrow_label_at_b(self, arrow_index_i: int,
+                         point_tuple: tuple) -> bool:
+        """Tell whether a display point is on the label of an arrow.
+
+        Inputs:
+            arrow_index_i: index in the list given to set_arrows.
+            point_tuple: (x, y) of the point, in display pixels.
+        Outputs: True when the arrow's label is shown and the point is on
+            its box.
+        """
+        # LLFR-00373, LLFR-00420: the label, placed as it is drawn now.
+        if not 0 <= arrow_index_i < len(self.arrow_label_list):
+            return False
+        return self.arrow_label_list[arrow_index_i].contains_point_b(
+            point_tuple, self.canvas.get_renderer())
+
+    def arrow_name_str(self, arrow_index_i: int) -> str:
+        """Return the name of a drawn arrow.
+
+        Inputs:
+            arrow_index_i: index in the list given to set_arrows.
+        Outputs: its name, or "" for an unknown index or no name.
+        """
+        # LLFR-00426, LLFR-00436: the name of its label and menu title.
+        if not 0 <= arrow_index_i < len(self.arrow_name_list):
+            return ""
+        return self.arrow_name_list[arrow_index_i]
+
+    def arrow_label(self, arrow_index_i: int):
+        """Return the label artist of a drawn arrow.
+
+        Inputs:
+            arrow_index_i: index in the list given to set_arrows.
+        Outputs: the ArrowLabel, or None for an unknown index.
+        """
+        # LLFR-00436: for checks of the drawing (text, color, place).
+        if not 0 <= arrow_index_i < len(self.arrow_label_list):
+            return None
+        return self.arrow_label_list[arrow_index_i]
+
+    def arrow_label_place_tuple(self, arrow_index_i: int) -> tuple:
+        """Return where the label of a drawn arrow is shown now.
+
+        Inputs:
+            arrow_index_i: index in the list given to set_arrows.
+        Outputs: (center_x_px, center_y_px, angle_deg, width_px,
+            height_px) in display pixels, or () when the label is hidden
+            or the index is unknown.
+        """
+        # LLFR-00437, LLFR-00871: for checks of the place of the label.
+        arrow_label = self.arrow_label(arrow_index_i)
+        if arrow_label is None:
+            return ()
+        return arrow_label.place_tuple(self.canvas.get_renderer())
+
+    def arrow_preview_label_place_tuple(self) -> tuple:
+        """Return where the label of the arrow preview is shown now.
+
+        Inputs: none.
+        Outputs: as arrow_label_place_tuple, () while no preview with a
+            label is shown.
+        """
+        # LLFR-00870: for checks that the label follows the preview.
+        if not self.arrow_preview_shown() or self.arrow_preview_label is None:
+            return ()
+        self.place_arrow_preview()
+        return self.arrow_preview_label.place_tuple(
+            self.canvas.get_renderer())
 
     def arrow_press_part_str(self, widget_point, arrow_index_i: int) -> str:
         """Tell what a press on an arrow drags.
@@ -5898,7 +7010,7 @@ class PlotWidget(QWidget):
         Outputs: none. Nothing is shown until the pointer is 5 pixels
             from the press.
         """
-        # LLFR-00207: from the press to the release, the Z key does
+        # LLFR-00454: from the press to the release, the 0 key does
         # nothing (is_mouse_drag_in_progress).
         self.arrow_drag_mode_str = mode_str
         self.arrow_drag_index_i = arrow_index_i
@@ -5965,7 +7077,8 @@ class PlotWidget(QWidget):
         Outputs: (x, y) of the nearest point of the drawing area.
         """
         # LLFR-00372, LLFR-00376, LLFR-00377: a release outside the
-        # drawing area counts at its nearest point.
+        # drawing area counts at its nearest point; LLFR-00767 for a new
+        # arrow, LLFR-00780 for a moved one.
         x_px, y_px = self.widget_to_display_tuple(widget_point)
         box = self.axes.bbox
         left_px, right_px = sorted((float(box.x0), float(box.x1)))
@@ -6095,7 +7208,8 @@ class PlotWidget(QWidget):
             when the release was lost.
         """
         # LLFR-00372, LLFR-00376, LLFR-00377: a release less than 5
-        # pixels from the press creates or changes nothing, silently.
+        # pixels from the press creates or changes nothing (LLFR-00768,
+        # LLFR-00781); LLFR-00769: silently, with no message.
         if self.arrow_drag_mode_str == ARROW_DRAG_NONE_STR:
             return
         release_point = QPoint(self.arrow_last_point)
@@ -6146,7 +7260,7 @@ class PlotWidget(QWidget):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00207: no arrow is being drawn or dragged.
+        # LLFR-00454: no arrow is being drawn or dragged.
         self.arrow_drag_mode_str = ARROW_DRAG_NONE_STR
         self.arrow_drag_index_i = NO_ARROW_INDEX_I
         self.arrow_drag_moved_b = False
@@ -6260,6 +7374,24 @@ class PlotWidget(QWidget):
                 return
             self.arrow_drag_to(widget_point)
             return
+        if self.delta_drag_id_i != NO_DELTA_MARKER_ID_I:
+            # LLFR-00433: a move with the left button held after a press
+            # on a dot of a delta marker drags its point. A lost release
+            # leaves it on its last shown sample.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_delta_point_drag()
+                return
+            self.delta_point_drag_to(widget_point)
+            return
+        if self.label_press_point is not None:
+            # LLFR-00886, LLFR-00798: a move with the left button held
+            # after a press on a name label; a lost release was a single
+            # click, which does nothing.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.label_press_point = None
+            else:
+                self.label_drag_to(widget_point)
+                return
         # LLFR-00042: any other move runs the hover code.
         self.hover_at(widget_point)
         # LLFR-00203: and moves the marker preview with the pointer.
@@ -6274,6 +7406,12 @@ class PlotWidget(QWidget):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
+        # LLFR-01254: any press, on any plot of any window, does the click
+        # that waits first, so that the clicks keep their order. The
+        # second press of a double-click is left to double_click_at,
+        # which drops the click of its own plot (LLFR-00825).
+        if not event.dblclick:
+            flush_app_waiting_click()
         # LLFR-00334: a press while the text field is open confirms it
         # (the focus leaves the field), and does nothing else.
         editor_closed_b = (self.text_note_editor_open_b
@@ -6287,6 +7425,8 @@ class PlotWidget(QWidget):
         # LLFR-00117: the wheel button starts a pan, with any tool, and
         # never zooms, pins, places or grabs a marker, or opens a menu.
         if event.button == MouseButton.MIDDLE:
+            # LLFR-01254: a click that waits is done before the pan.
+            self.flush_deferred_click()
             # LLFR-00356: not during a pan of the Pan tool.
             if not self.is_tool_pan_b():
                 self.pan_press_at(widget_point)
@@ -6296,6 +7436,8 @@ class PlotWidget(QWidget):
         if event.button == MouseButton.LEFT:
             self.stop_tool_pan()
         if event.button == MouseButton.RIGHT:
+            # LLFR-01254: a click that waits is done before the menu.
+            self.flush_deferred_click()
             # LLFR-00117, LLFR-00086, LLFR-00152: a right press cancels a
             # pan or drag in progress before the menu logic runs.
             self.cancel_drags()
@@ -6336,6 +7478,9 @@ class PlotWidget(QWidget):
         Outputs: none.
         """
         widget_point = self.display_to_widget_point(event.x, event.y)
+        # LLFR-01215: a drag drawn over its kept image ends here; the
+        # release then draws the result in full.
+        self.end_fast_drag()
         # LLFR-00117: releasing the wheel button ends a pan.
         if event.button == MouseButton.MIDDLE:
             if not self.is_tool_pan_b():
@@ -6368,6 +7513,17 @@ class PlotWidget(QWidget):
         # LLFR-00372, LLFR-00376, LLFR-00377: or ends an arrow drag.
         if self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR:
             self.arrow_release_at(widget_point)
+            return
+        # LLFR-00433, LLFR-00866, LLFR-00867: or ends a press on a dot of
+        # a delta marker.
+        if self.delta_drag_id_i != NO_DELTA_MARKER_ID_I:
+            self.delta_point_release_at(widget_point)
+            return
+        # LLFR-00886: a release less than 5 pixels from a press on a name
+        # label is a single click, which leaves the plot unchanged.
+        if self.label_press_point is not None:
+            self.label_drag_to(widget_point)
+            self.label_press_point = None
             return
         self.release_at(widget_point)
 
@@ -6511,8 +7667,10 @@ class PlotWidget(QWidget):
             "", xy=(0.0, 0.0), xycoords="data", xytext=(0.0, 0.0),
             textcoords="offset points", parse_math=False,
             color=DELTA_PREVIEW_COLOR_STR, fontsize=DELTA_FONT_SIZE_F,
-            bbox=dict(DELTA_LABEL_BOX_DICT,
-                      edgecolor=DELTA_PREVIEW_COLOR_STR))
+            # LLFR-01202: the preview reads on its box like a marker.
+            bbox=dict(theme.contrast_label_box_dict(
+                DELTA_PREVIEW_COLOR_STR, DELTA_LABEL_BOX_DICT),
+                edgecolor=DELTA_PREVIEW_COLOR_STR))
         self.delta_preview_artist_tuple = (leader, bracket, label)
         for artist in (self.delta_preview_dot,) + (
                 self.delta_preview_artist_tuple):
@@ -6546,14 +7704,22 @@ class PlotWidget(QWidget):
         if (widget_point is None or not is_delta_tool(self.plot_tool_str)
                 or self.retired_b):
             return ()
-        # LLFR-00153, LLFR-00339: a press on a text note or a pinned tip
-        # moves it and picks no point.
-        if self.text_note_at(widget_point) != NO_TEXT_NOTE_INDEX_I:
-            return ()
-        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
+        # LLFR-01238: the preview stays over a text note or a pinned tip,
+        # where a press picks the point it shows (LLFR-01248).
+        # LLFR-01252: none over a name label, where a click changes
+        # nothing (LLFR-00886).
+        if self.name_label_tuple_at(widget_point):
             return ()
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
-        return self.nearest_curve_tuple(widget_point)
+        nearest_tuple = self.nearest_curve_tuple(widget_point)
+        # LLFR-00432: where the second point would give a value of zero
+        # (LLFR-00431), the whole preview is hidden, the dot too.
+        if (nearest_tuple and self.delta_first_point_tuple
+                and delta_value_zero_b(self.delta_preview_kind_str(),
+                                       self.delta_first_point_tuple,
+                                       nearest_tuple)):
+            return ()
+        return nearest_tuple
 
     def update_delta_preview(self, widget_point) -> None:
         """Show, move or hide the delta previews for the pointer at a point.
@@ -6751,6 +7917,274 @@ class PlotWidget(QWidget):
             for artist in self.delta_preview_artist_tuple:
                 self.axes.draw_artist(artist)
         self.axes.draw_artist(self.delta_preview_dot)
+
+    # ----------------------------------------------------------------
+    # Dragging the points of a delta marker
+    # ----------------------------------------------------------------
+
+    def delta_dot_at(self, widget_point) -> tuple:
+        """Return the dot of a delta marker under a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: a tuple (delta_marker_id_i, point_index_i), with 0 for
+            the first point and 1 for the second, or () when no dot of a
+            delta marker is within PICK_TOLERANCE_PIXELS_I of the point
+            inside the drawing area.
+        """
+        # LLFR-00433, LLFR-00794: only the two dots, not the bracket, the
+        # leader lines or the value (LLFR-00795); the last placed marker
+        # is on top, and of its two dots the nearer one wins.
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        if not self.inside_axes_b(display_x_px, display_y_px):
+            return ()
+        tolerance_px = PICK_TOLERANCE_PIXELS_I * self.pixel_ratio_f()
+        for marker_tuple in reversed(self.delta_marker_data_list):
+            best_index_i = -1
+            best_distance_px = tolerance_px
+            for point_index_i in (0, 1):
+                point_tuple = marker_tuple[2 + point_index_i]
+                dot_x_px, dot_y_px = self.axes.transData.transform(
+                    (point_tuple[1], point_tuple[2]))
+                # A dot outside the shown range is not drawn.
+                if not self.inside_axes_b(float(dot_x_px), float(dot_y_px)):
+                    continue
+                distance_px = math.hypot(float(dot_x_px) - display_x_px,
+                                         float(dot_y_px) - display_y_px)
+                if distance_px <= best_distance_px:
+                    best_index_i = point_index_i
+                    best_distance_px = distance_px
+            if best_index_i >= 0:
+                return (int(marker_tuple[0]), best_index_i)
+        return ()
+
+    def delta_marker_data_tuple(self, delta_marker_id_i: int) -> tuple:
+        """Return the drawing data of one delta marker.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: its tuple in delta_marker_data_list, or () when it is
+            not drawn in this plot.
+        """
+        # LLFR-00433: the marker whose point is dragged.
+        for marker_tuple in self.delta_marker_data_list:
+            if marker_tuple[0] == delta_marker_id_i:
+                return marker_tuple
+        return ()
+
+    def delta_point_press_at(self, widget_point, delta_marker_id_i: int,
+                             point_index_i: int) -> None:
+        """Start a press on a dot of a delta marker.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+            delta_marker_id_i: id of the pressed delta marker.
+            point_index_i: 0 for its first point, 1 for its second one.
+        Outputs: none. Nothing moves until the pointer is 5 pixels or
+            more from the press point.
+        """
+        # LLFR-00434, LLFR-00865: the press neither pins a data tip nor
+        # picks a delta marker point, so a first point already picked
+        # (delta_first_point_tuple) is kept.
+        marker_tuple = self.delta_marker_data_tuple(delta_marker_id_i)
+        if not marker_tuple:
+            return
+        # LLFR-00042, LLFR-00354: a drag is not a hover over a curve and
+        # shows no preview of a new delta marker.
+        self.hide_hover_tip()
+        self.hide_delta_preview()
+        self.delta_drag_id_i = int(delta_marker_id_i)
+        self.delta_drag_index_i = int(point_index_i)
+        self.delta_drag_press_point = QPoint(widget_point)
+        self.delta_drag_moved_b = False
+        self.delta_drag_start_tuple = tuple(
+            marker_tuple[2 + self.delta_drag_index_i])
+        self.delta_drag_point_tuple = self.delta_drag_start_tuple
+
+    def delta_drag_reached_b(self, widget_point) -> bool:
+        """Tell whether a point is far enough from the press for a drag.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True when the point is 5 pixels or more from the press
+            point (straight-line distance, in screen pixels).
+        """
+        # LLFR-00433, LLFR-00866, LLFR-00867: widget points are Qt
+        # logical pixels, which are screen pixels.
+        distance_px = math.hypot(
+            widget_point.x() - self.delta_drag_press_point.x(),
+            widget_point.y() - self.delta_drag_press_point.y())
+        return distance_px >= DELTA_DRAG_THRESHOLD_PIXELS_F
+
+    def dragged_delta_point_tuple(self, widget_point) -> tuple:
+        """Return the sample the dragged point takes for a pointer point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: (signal_name_str, x_f, y_f): the sample of the point's
+            own curve nearest to the time (the frequency, on a frequency
+            plot) under the pointer, within the shown x-axis range; the
+            point as shown now when its curve is gone or that sample
+            would give a value of zero.
+        """
+        # LLFR-00433, LLFR-00862, LLFR-00863, LLFR-00435: computed by
+        # view.delta_geometry, without Qt.
+        marker_tuple = self.delta_marker_data_tuple(self.delta_drag_id_i)
+        if not marker_tuple:
+            return self.delta_drag_point_tuple
+        signal_name_str = self.delta_drag_point_tuple[0]
+        for curve_tuple in self.curve_data_list:
+            if curve_tuple[0] != signal_name_str:
+                continue
+            start_s, end_s = self.time_range_tuple()
+            return delta_geometry.dragged_point_tuple(
+                [marker_tuple[2], marker_tuple[3]], self.delta_drag_index_i,
+                marker_tuple[1], curve_tuple[1], curve_tuple[2],
+                self.time_at(widget_point), start_s, end_s)
+        return self.delta_drag_point_tuple
+
+    def show_delta_drag_point(self, point_tuple: tuple) -> None:
+        """Draw the dragged delta marker with its point on a sample.
+
+        Inputs:
+            point_tuple: (signal_name_str, x_f, y_f) of the sample.
+        Outputs: none. Only the drawn marker changes; the controller is
+            told at the release.
+        """
+        # LLFR-00864: the bracket and the value follow the point; the
+        # other point (LLFR-00863) and the other markers stay.
+        for list_index_i, marker_tuple in enumerate(
+                self.delta_marker_data_list):
+            if marker_tuple[0] != self.delta_drag_id_i:
+                continue
+            point_list = [marker_tuple[2], marker_tuple[3]]
+            point_list[self.delta_drag_index_i] = tuple(point_tuple)
+            self.delta_marker_data_list[list_index_i] = (
+                marker_tuple[:2] + tuple(point_list)
+                + (delta_value_f(marker_tuple[1], point_list[0],
+                                 point_list[1]),)
+                + marker_tuple[5:])
+        self.delta_drag_point_tuple = tuple(point_tuple)
+        self.draw_delta_markers()
+        # LLFR-01215: drawn over the image of the curves.
+        self.fast_drag_redraw()
+
+    def delta_point_drag_to(self, widget_point) -> None:
+        """Move the dragged point of a delta marker for a pointer point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. Does nothing until the pointer is 5 pixels or
+            more from the press point.
+        """
+        # LLFR-00433: a press that has not moved 5 pixels is no drag yet.
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        if not self.delta_drag_moved_b:
+            if not self.delta_drag_reached_b(widget_point):
+                return
+            self.delta_drag_moved_b = True
+        # LLFR-00433, LLFR-00435: the nearest sample of the curve, or
+        # the last one that gave a value other than zero.
+        point_tuple = self.dragged_delta_point_tuple(widget_point)
+        if point_tuple == self.delta_drag_point_tuple:
+            return
+        self.show_delta_drag_point(point_tuple)
+
+    def delta_point_release_at(self, widget_point) -> None:
+        """End a press on a dot of a delta marker at a point.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: none. After a drag, emits delta_point_move_requested
+            once, as the last step, when the point is on another sample.
+            A release less than 5 pixels from the press is a click on
+            the curve with the Delta X or Delta Y tool (LLFR-00866) and
+            nothing with no tool (LLFR-00867, LLFR-00868).
+        """
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        if self.delta_drag_moved_b:
+            # LLFR-00433: the point is left on the sample chosen at the
+            # release. LLFR-01215: that last place is drawn over the kept
+            # image, so the drawing session ends here and the plot is
+            # drawn in full again.
+            self.delta_point_drag_to(widget_point)
+            self.end_fast_drag()
+            self.finish_delta_point_drag()
+            return
+        press_point = QPoint(self.delta_drag_press_point)
+        self.reset_delta_point_drag()
+        # LLFR-00866: with a delta tool, a short press on a dot is a
+        # click on the curve: it picks the first or the second point.
+        if is_delta_tool(self.plot_tool_str):
+            self.delta_click_at(press_point)
+        # LLFR-00867, LLFR-00868: with no tool, it does nothing and
+        # shows nothing.
+
+    def finish_delta_point_drag(self) -> None:
+        """End the drag of a delta marker point where it is shown now.
+
+        Inputs: none.
+        Outputs: none. Emits delta_point_move_requested once, as the last
+            step, when the point is on another sample than at the press.
+        """
+        # LLFR-00433: also used when the release was lost, so that the
+        # point stays where the user last saw it.
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        delta_marker_id_i = self.delta_drag_id_i
+        point_index_i = self.delta_drag_index_i
+        point_tuple = self.delta_drag_point_tuple
+        moved_b = point_tuple != self.delta_drag_start_tuple
+        self.reset_delta_point_drag()
+        # LLFR-00433, LLFR-00140: a drag that leaves the point on the
+        # sample where it started asks for nothing.
+        if moved_b:
+            # The receiver redraws this widget, so this is the last step.
+            self.delta_point_move_requested.emit(
+                delta_marker_id_i, point_index_i, float(point_tuple[1]),
+                float(point_tuple[2]))
+
+    def cancel_delta_point_drag(self) -> None:
+        """Forget the drag of a delta marker point, if any.
+
+        Inputs: none.
+        Outputs: none. A moved point is drawn back where it was.
+        """
+        # LLFR-00433: without a release, the point is not moved.
+        if self.delta_drag_id_i == NO_DELTA_MARKER_ID_I:
+            return
+        if self.delta_drag_point_tuple != self.delta_drag_start_tuple:
+            self.show_delta_drag_point(self.delta_drag_start_tuple)
+            # LLFR-01215: the point drawn back ends the drawing session.
+            self.end_fast_drag()
+        self.reset_delta_point_drag()
+
+    def reset_delta_point_drag(self) -> None:
+        """Clear the state of a drag of a delta marker point.
+
+        Inputs: none.
+        Outputs: none. Nothing is drawn and nothing is emitted.
+        """
+        # LLFR-00433, LLFR-00454: no drag of a delta marker point.
+        self.delta_drag_id_i = NO_DELTA_MARKER_ID_I
+        self.delta_drag_index_i = 0
+        self.delta_drag_moved_b = False
+        self.delta_drag_start_tuple = ()
+        self.delta_drag_point_tuple = ()
+
+    def delta_point_drag_shown(self) -> bool:
+        """Tell whether a point of a delta marker is being dragged.
+
+        Inputs: none.
+        Outputs: True once a press on a dot has moved 5 pixels or more,
+            until the release.
+        """
+        # LLFR-00433: for checks of the drag.
+        return (self.delta_drag_id_i != NO_DELTA_MARKER_ID_I
+                and self.delta_drag_moved_b)
 
     # ----------------------------------------------------------------
     # Drag and drop

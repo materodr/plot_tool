@@ -109,7 +109,8 @@ class RoundTripTest(unittest.TestCase):
                                         signal_file.signal_array(name_str))
         return signal_file
 
-    @covers("LLFR-00402", "LLFR-00401", "LLFR-00059", "LLFR-00061")
+    @covers("LLFR-00402", "LLFR-00401", "LLFR-00059", "LLFR-00061",
+            "LLFR-00451", "LLFR-00542")
     def test_csv_round_trip(self) -> None:
         """CSV: names in the first row, "," and ".", same order, values
         read back exactly.
@@ -133,7 +134,8 @@ class RoundTripTest(unittest.TestCase):
             CSV_FORMAT_STR).decode("utf-8")
         self.assertEqual(content_str, "Time,a\n0.0,1.25\n0.5,-3.0\n")
 
-    @covers("LLFR-00402", "LLFR-00401", "LLFR-00059", "LLFR-00060")
+    @covers("LLFR-00402", "LLFR-00401", "LLFR-00059", "LLFR-00060",
+            "LLFR-00451", "LLFR-00542")
     def test_excel_round_trip(self) -> None:
         """Excel: one sheet, same order, values read back exactly.
 
@@ -154,7 +156,8 @@ class RoundTripTest(unittest.TestCase):
             self.assertEqual(len(workbook.worksheets), 1)
             workbook.close()
 
-    @covers("LLFR-00402", "LLFR-00401", "LLFR-00062", "LLFR-00064")
+    @covers("LLFR-00402", "LLFR-00401", "LLFR-00062", "LLFR-00064",
+            "LLFR-00542")
     def test_mat_round_trip(self) -> None:
         """MAT: version 5 variables, values read back exactly.
 
@@ -169,7 +172,7 @@ class RoundTripTest(unittest.TestCase):
         self.assertIn(b"MATLAB 5.0 MAT-file", content_bytes[:128])
 
     @requires_h5py
-    @covers("LLFR-00402", "LLFR-00401", "LLFR-00134")
+    @covers("LLFR-00402", "LLFR-00401", "LLFR-00134", "LLFR-00542")
     def test_hdf5_round_trip(self) -> None:
         """HDF5: one 1-D float64 dataset per signal, values read back
         exactly.
@@ -179,7 +182,7 @@ class RoundTripTest(unittest.TestCase):
         """
         self.check_round_trip(HDF5_FORMAT_STR)
 
-    @covers("LLFR-00402", "LLFR-00403")
+    @covers("LLFR-00402", "LLFR-00403", "LLFR-00554")
     def test_csv_and_excel_names_are_not_changed(self) -> None:
         """Names with ",", quotes, "=", spaces, "/" and other letters are
         written and read back as they are in CSV and Excel.
@@ -203,7 +206,8 @@ class RoundTripTest(unittest.TestCase):
                     self.assert_same_values(
                         value_array, signal_file.signal_array(name_str))
 
-    @covers("LLFR-00402", "LLFR-00403")
+    @covers("LLFR-00402", "LLFR-00403", "LLFR-00543", "LLFR-00544",
+            "LLFR-00545", "LLFR-00552", "LLFR-00553")
     def test_mat_names_read_back(self) -> None:
         """The changed MAT names are the variable names read back.
 
@@ -250,7 +254,7 @@ class RoundTripTest(unittest.TestCase):
             self.assert_same_values(value_array,
                                     signal_file.signal_array(new_name_str))
 
-    @covers("LLFR-00407", "LLFR-00053", "LLFR-00324")
+    @covers("LLFR-00407", "LLFR-00053", "LLFR-00324", "LLFR-00557")
     def test_time_signal_written_as_time(self) -> None:
         """A time signal named "time" is saved as "Time"; "TIME" becomes
         "TIME_2"; the saved file needs no time signal choice.
@@ -300,7 +304,7 @@ class WriterRequestTest(unittest.TestCase):
     """Order, blank names and non-finite values (review of PR #158)."""
 
     @requires_h5py
-    @covers("LLFR-00134", "LLFR-00401", "LLFR-00402")
+    @covers("LLFR-00134", "LLFR-00401", "LLFR-00402", "LLFR-00455")
     def test_hdf5_keeps_the_signal_list_order(self) -> None:
         """An HDF5 file of Save signals reopens in the signal-list order,
         also inside a group.
@@ -317,7 +321,8 @@ class WriterRequestTest(unittest.TestCase):
         self.assertEqual(new_name_list, name_list)
         self.assertEqual(signal_file.signal_name_list, name_list)
 
-    @covers("LLFR-00403", "LLFR-00404", "LLFR-00059")
+    @covers("LLFR-00403", "LLFR-00404", "LLFR-00059", "LLFR-00451",
+            "LLFR-00550", "LLFR-00551", "LLFR-00552")
     def test_csv_and_excel_names_without_outer_blanks(self) -> None:
         """" a" and "a" (as in an HDF5 data file) and a name of spaces
         only are saved as "a_2", "a" and "signal" and read back so.
@@ -343,7 +348,7 @@ class WriterRequestTest(unittest.TestCase):
                     changed_name_list(name_list, new_name_list),
                     [(" a", "a_2"), ("   ", "signal_2"), ("b\t", "b")])
 
-    @covers("LLFR-00408")
+    @covers("LLFR-00408", "LLFR-00559")
     def test_non_finite_values_are_refused_in_every_format(self) -> None:
         """inf, -inf and NaN samples make every format refuse, naming the
         signals, so no broken file is made (Excel would be corrupt).
@@ -362,7 +367,8 @@ class WriterRequestTest(unittest.TestCase):
             with self.subTest(format=format_str):
                 with self.assertRaises(SignalWriteError) as context:
                     signal_file_bytes(name_list, array_list, format_str)
-                self.assertIn("'big', 'gap'", str(context.exception))
+                self.assertIn("\n\n1. 'big'\n\n2. 'gap'",
+                              str(context.exception))
                 self.assertIn("not finite numbers", str(context.exception))
         self.assertEqual(file_writer.non_finite_name_list(
             name_list[:2], array_list[:2]), [])
@@ -371,7 +377,7 @@ class WriterRequestTest(unittest.TestCase):
 class NameRuleTest(unittest.TestCase):
     """The name rules of LLFR-00403 and LLFR-00407, without files."""
 
-    @covers("LLFR-00403")
+    @covers("LLFR-00403", "LLFR-00543", "LLFR-00544", "LLFR-00545")
     def test_mat_rules(self) -> None:
         """Invalid characters, the x prefix and the 63-character cut.
 
@@ -387,7 +393,7 @@ class NameRuleTest(unittest.TestCase):
         self.assertEqual(len(file_writer.mat_name("1" * 100)), 63)
         self.assertTrue(file_writer.mat_name("1" * 100).startswith("x1"))
 
-    @covers("LLFR-00403", "LLFR-00241")
+    @covers("LLFR-00403", "LLFR-00241", "LLFR-00552", "LLFR-00553")
     def test_mat_duplicates_stay_within_63_characters(self) -> None:
         """Changed names that collide get _2, _3..., cut to fit in 63.
 
@@ -407,7 +413,7 @@ class NameRuleTest(unittest.TestCase):
         self.assertTrue(all(len(name_str) <= 63
                             for name_str in new_name_list))
 
-    @covers("LLFR-00403")
+    @covers("LLFR-00403", "LLFR-00546", "LLFR-00547")
     def test_hdf5_parts_removed(self) -> None:
         """Empty, "." and ".." parts and outer "/" are removed.
 
@@ -422,7 +428,7 @@ class NameRuleTest(unittest.TestCase):
                 self.assertEqual(file_writer.hdf5_name(name_str),
                                  expected_str)
 
-    @covers("LLFR-00403")
+    @covers("LLFR-00403", "LLFR-00548")
     def test_hdf5_name_that_is_a_group(self) -> None:
         """"engine" with "engine/speed" becomes "engine_2", or a higher
         number when "engine_2" is taken as a name or a group.
@@ -442,7 +448,7 @@ class NameRuleTest(unittest.TestCase):
             ["Time", "a", "a/b", "a/b/c"], "Time", HDF5_FORMAT_STR),
             ["Time", "a_2", "a/b_2", "a/b/c"])
 
-    @covers("LLFR-00403", "LLFR-00241")
+    @covers("LLFR-00403", "LLFR-00241", "LLFR-00546", "LLFR-00552")
     def test_hdf5_duplicates_after_cleaning(self) -> None:
         """"/x" and "x/" both become "x"; the changed one gets "_2".
 
@@ -453,7 +459,7 @@ class NameRuleTest(unittest.TestCase):
             ["Time", "x", "/x", "x/"], "Time", HDF5_FORMAT_STR),
             ["Time", "x", "x_2", "x_3"])
 
-    @covers("LLFR-00407", "LLFR-00330")
+    @covers("LLFR-00407", "LLFR-00330", "LLFR-00557")
     def test_hdf5_time_in_a_group_is_kept(self) -> None:
         """"grp/time" does not match the time signal name in HDF5 and is
         not renamed; "time" at the top level is.
@@ -465,7 +471,7 @@ class NameRuleTest(unittest.TestCase):
             ["Time", "grp/time", "time"], "Time", HDF5_FORMAT_STR),
             ["Time", "grp/time", "time_2"])
 
-    @covers("LLFR-00407", "LLFR-00403")
+    @covers("LLFR-00407", "LLFR-00403", "LLFR-00549")
     def test_hdf5_group_named_time(self) -> None:
         """"Time" stays the time dataset; a name in a group "Time" moves
         to "Time_2/...".
@@ -477,7 +483,7 @@ class NameRuleTest(unittest.TestCase):
             ["Time", "Time/x", "Time/y"], "Time", HDF5_FORMAT_STR),
             ["Time", "Time_2/x", "Time_2/y"])
 
-    @covers("LLFR-00407")
+    @covers("LLFR-00407", "LLFR-00557")
     def test_other_time_names_get_a_number(self) -> None:
         """Every other name matching "Time" in the format gets a number,
         so that the file has exactly one time signal.
@@ -511,7 +517,7 @@ class NameRuleTest(unittest.TestCase):
         change_list = changed_name_list(name_list, new_name_list)
         self.assertEqual(change_list, [("time", "Time"), ("a.b", "a_b")])
         self.assertEqual(changed_names_text(change_list),
-                         "time → Time\na.b → a_b")
+                         "1. time → Time\n\n2. a.b → a_b")
         self.assertEqual(changed_name_list(["Time", "c"], ["Time", "c"]),
                          [])
 
@@ -519,7 +525,7 @@ class NameRuleTest(unittest.TestCase):
 class DialogNameTest(unittest.TestCase):
     """The proposed name, the formats and the added extension."""
 
-    @covers("LLFR-00396")
+    @covers("LLFR-00396", "LLFR-00532")
     def test_proposed_name_and_format(self) -> None:
         """run1.csv proposes run1_signals.csv, in the CSV format.
 
@@ -537,7 +543,7 @@ class DialogNameTest(unittest.TestCase):
                 self.assertEqual(format_of_path(path_str), format_str)
         self.assertEqual(format_of_path("/d/x.txt"), "")
 
-    @covers("LLFR-00396")
+    @covers("LLFR-00396", "LLFR-00533")
     def test_extension_added(self) -> None:
         """An extension of the chosen format is kept; otherwise the
         format's extension is added.

@@ -48,7 +48,7 @@ def expected_segment_list(button_count_i: int) -> list:
 class SegmentStyleTest(unittest.TestCase):
     """LLFR-00348, LLFR-00350: the style rules of joined buttons."""
 
-    @covers("LLFR-00348")
+    @covers("LLFR-00348", "LLFR-00516")
     def test_corner_rule_of_each_position(self) -> None:
         """Only the outer side of the first and last buttons is rounded;
         middle and last buttons have no left border of their own.
@@ -75,7 +75,7 @@ class SegmentStyleTest(unittest.TestCase):
         self.assertEqual(theme.segment_corner_rule(theme.SEGMENT_SINGLE_STR),
                          f"border-radius: {radius_str};")
 
-    @covers("LLFR-00350", "LLFR-00348", "LLFR-00141")
+    @covers("LLFR-00350", "LLFR-00348", "LLFR-00141", "LLFR-00516")
     def test_disabled_button_keeps_the_shared_line_normal(self) -> None:
         """A disabled first or middle button draws the line it shares
         with its right neighbour in the normal border color, so that the
@@ -291,7 +291,7 @@ class ButtonGroupTest(unittest.TestCase):
                 self.assertEqual(gap_i, theme.TOOLBAR_GROUP_GAP_I)
                 self.assertEqual(gap_i, 16)
 
-    @covers("LLFR-00348")
+    @covers("LLFR-00348", "LLFR-00516")
     def test_segment_position_of_every_button(self) -> None:
         """First, middle and last positions in every group, and their
         style sheets carry the matching corner rule.
@@ -307,7 +307,7 @@ class ButtonGroupTest(unittest.TestCase):
                     self.assertIn(theme.segment_corner_rule(segment_str),
                                   button.styleSheet())
 
-    @covers("LLFR-00348", "LLFR-00350")
+    @covers("LLFR-00348", "LLFR-00350", "LLFR-00516")
     def test_shared_border_line_is_drawn_once(self) -> None:
         """The first button draws its right border, the next button
         draws none on its left, so the pair shows one line.

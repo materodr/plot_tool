@@ -105,7 +105,7 @@ class Hdf5FolderTest(unittest.TestCase):
 class H5pyInstalledTest(unittest.TestCase):
     """CI guard: the HDF5 tests must run in GitHub Actions."""
 
-    @covers("LLFR-00134", "HLFR-00005")
+    @covers("LLFR-00134", "HLFR-00005", "PCR-00072")
     def test_h5py_is_installed_in_ci(self) -> None:
         """In GitHub Actions h5py is installed, so no HDF5 test skips.
 
@@ -114,6 +114,11 @@ class H5pyInstalledTest(unittest.TestCase):
         """
         if os.environ.get("GITHUB_ACTIONS") != "true":
             self.skipTest("only checked in GitHub Actions")
+        if not H5PY_AVAILABLE_B and os.environ.get(
+                "PLOT_TOOL_ENVIRONMENT_LIMIT"):
+            # PCR-00072: the install step couldn't install h5py, so the
+            # skip reason makes this test a Fail* like the HDF5 tests.
+            self.skipTest("h5py is not installed")
         self.assertTrue(H5PY_AVAILABLE_B,
                         "h5py must be installed in CI (requirements.txt)")
 
@@ -252,7 +257,7 @@ class Hdf5SignalTest(Hdf5FolderTest):
         for name_str in signal_file.signal_name_list:
             self.assertFalse(name_str.startswith("/"))
 
-    @covers("LLFR-00134")
+    @covers("LLFR-00134", "LLFR-00455")
     def test_signal_order_is_visit_order(self) -> None:
         """Signals keep h5py's visit order: by name, groups recursively.
 
@@ -269,7 +274,7 @@ class Hdf5SignalTest(Hdf5FolderTest):
                          ["Time", "alpha", "beta/a", "beta/b", "zeta"])
 
     @requires_h5py
-    @covers("LLFR-00134")
+    @covers("LLFR-00134", "LLFR-00455")
     def test_tracked_creation_order(self) -> None:
         """A file whose groups track their creation order is read in that
         order; an untracked group inside it is read by name.
@@ -533,7 +538,7 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
                     "Time": time_data, "A": self.time_array()})
                 self.assert_content_check(path_str, SIGNAL_COUNT_CHECK_STR)
 
-    @covers("LLFR-00135", "LLFR-00012", "HLFR-00008")
+    @covers("LLFR-00135", "LLFR-00012", "HLFR-00008", "LLFR-00456")
     def test_only_time_among_the_signals(self) -> None:
         """Only "Time" plus ignored datasets fails the signal count check.
 
@@ -545,7 +550,7 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
             "group/text": "hello", "scalar": 1.0})
         self.assert_content_check(path_str, SIGNAL_COUNT_CHECK_STR)
 
-    @covers("LLFR-00135", "LLFR-00012", "HLFR-00009")
+    @covers("LLFR-00135", "LLFR-00012", "HLFR-00009", "LLFR-00456")
     def test_different_sample_counts(self) -> None:
         """Signals of different lengths fail the sample count check.
 
@@ -560,7 +565,7 @@ class Hdf5IgnoredDatasetTest(Hdf5FolderTest):
                          SAMPLE_COUNT_CHECK_STR)
         self.assertIn("'group/short' has 3", str(context.exception))
 
-    @covers("LLFR-00135", "HLFR-00009")
+    @covers("LLFR-00135", "HLFR-00009", "LLFR-00456")
     def test_ignored_datasets_are_not_counted(self) -> None:
         """Ignored datasets of other lengths don't fail the count check.
 

@@ -14,6 +14,7 @@ from unittest import mock
 
 import numpy as np
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
@@ -69,7 +70,7 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.frequency_array = np.linspace(0.0, 25.0, 251)
         self.amplitude_array = np.exp(-(self.frequency_array - 2.0) ** 2)
         self.plot_widget.set_curves([
-            ("fft_Speed", self.frequency_array, self.amplitude_array,
+            ("file1_fft_Speed", self.frequency_array, self.amplitude_array,
              BLUE_STR, 1)])
         self.draw()
 
@@ -115,7 +116,7 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
             float(self.frequency_array[index_i]),
             float(self.amplitude_array[index_i]))
 
-    @covers("LLFR-00256", "LLFR-00068", "HLFR-00058")
+    @covers("LLFR-00256", "LLFR-00068", "HLFR-00058", "LLFR-00689")
     def test_axis_label_and_curve_in_hz(self) -> None:
         """The x-axis says Hz and the curve is drawn against frequency.
 
@@ -126,7 +127,7 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.assertTrue(self.plot_widget.frequency_plot_b)
         self.assertEqual(self.plot_widget.axes.get_xlabel(),
                          "Frequency (Hz)")
-        line = self.plot_widget.curve_line_dict["fft_Speed"]
+        line = self.plot_widget.curve_line_dict["file1_fft_Speed"]
         np.testing.assert_allclose(line.get_xdata(), self.frequency_array)
         self.assertEqual(self.plot_widget.time_range_tuple(), (0.0, 25.0))
         # A time plot keeps its label; the kind is chosen at creation.
@@ -135,7 +136,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.assertEqual(time_widget.axes.get_xlabel(), "Time (s)")
         time_widget.deleteLater()
 
-    @covers("LLFR-00258", "LLFR-00074", "LLFR-00113", "LLFR-00078")
+    @covers("LLFR-00258", "LLFR-00074", "LLFR-00113", "LLFR-00078",
+            "LLFR-00694", "LLFR-00659")
     def test_wheel_and_click_zoom_stay_in_the_frequency_range(self) -> None:
         """Zoom out stops at 0 Hz to the highest frequency.
 
@@ -156,7 +158,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.plot_widget.wheel_at(center_point, -5.0)
         self.assertEqual(range_list[-1], (0.0, 25.0))
 
-    @covers("LLFR-00258", "LLFR-00117", "LLFR-00118", "LLFR-00119")
+    @covers("LLFR-00258", "LLFR-00117", "LLFR-00118", "LLFR-00119",
+            "LLFR-00694")
     def test_pan_stays_in_the_frequency_range(self) -> None:
         """A pan never goes below 0 Hz or above the highest frequency.
 
@@ -212,7 +215,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.plot_widget.span_release_at(release_point)
         self.draw()
 
-    @covers("LLFR-00258", "LLFR-00209", "LLFR-00208")
+    @covers("LLFR-00258", "LLFR-00209", "LLFR-00208", "LLFR-00676",
+            "LLFR-00694")
     def test_span_zoom_stays_in_the_frequency_range(self) -> None:
         """A span dragged past an edge stops at 0 Hz or at the highest
         frequency.
@@ -253,7 +257,8 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.assertEqual(self.plot_widget.time_range_tuple(),
                          range_list[-1])
 
-    @covers("LLFR-00259", "LLFR-00203", "LLFR-00205", "LLFR-00081")
+    @covers("LLFR-00259", "LLFR-00203", "LLFR-00205", "LLFR-00081",
+            "LLFR-00696")
     def test_no_marker_and_no_preview(self) -> None:
         """Markers are not drawn, previewed or placed on the plot.
 
@@ -290,11 +295,11 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         self.plot_widget.set_plot_tool(TIP_TOOL_STR)
         self.plot_widget.hover_at(self.sample_point(20))
         expected_str = value_text.format_frequency_tip_text(
-            "fft_Speed", 2.0, 1.0)
+            "file1_fft_Speed", 2.0, 1.0)
         self.assertEqual(self.plot_widget.hover_tip_text(), expected_str)
         self.assertTrue(expected_str.startswith("f = 2 Hz\n"))
         self.assertNotIn(" s\n", expected_str)
-        self.plot_widget.set_pinned_tips([("fft_Speed", 2.0, 1.0)])
+        self.plot_widget.set_pinned_tips([("file1_fft_Speed", 2.0, 1.0)])
         self.assertEqual(self.plot_widget.pinned_tip_text(0), expected_str)
 
     @covers("LLFR-00261", "LLFR-00171", "LLFR-00168")
@@ -305,9 +310,11 @@ class FrequencyPlotWidgetTest(unittest.TestCase):
         Outputs: none.
         """
         self.plot_widget.set_delta_markers([
-            (5, "x", ("fft_Speed", 1.0, 0.4), ("fft_Speed", 3.5, 0.1),
+            (5, "x", ("file1_fft_Speed", 1.0, 0.4), ("file1_fft_Speed", 3.5,
+                                                     0.1),
              2.5),
-            (6, "y", ("fft_Speed", 1.0, 0.4), ("fft_Speed", 3.5, 0.1),
+            (6, "y", ("file1_fft_Speed", 1.0, 0.4), ("file1_fft_Speed", 3.5,
+                                                     0.1),
              -0.3)])
         self.draw()
         self.assertEqual(self.plot_widget.delta_label_text(5),
@@ -358,6 +365,9 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
                         return_value=path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
+        # LLFR-01001: the files are collapsed after an open; these
+        # tests read the shown signals.
+        expand_all_files(self.controller)
 
     def tearDown(self) -> None:
         """Close the main window.
@@ -421,14 +431,24 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
     def create_fft(self) -> str:
         """Create the FFT of Speed through the signal list menu.
 
+        An FFT needs a time plot (LLFR-00592): with none, the time signal
+        is first plotted, which shows the whole file, and that plot is
+        undone after the FFT, so that the plots are as before.
+
         Inputs: none.
         Outputs: the name of the FFT signal.
         """
-        self.choose("Speed", "FFT (fft)")
+        if self.plot_controller.time_plot_list():
+            self.choose("file1_Speed", "FFT (fft)")
+            return self.panel.signal_name_list()[-1]
+        self.double_click("file1_Time")
+        self.choose("file1_Speed", "FFT (fft)")
+        self.plot_controller.on_undo()
+        self.application.processEvents()
         return self.panel.signal_name_list()[-1]
 
     @covers("LLFR-00256", "LLFR-00249", "LLFR-00019", "HLFR-00058",
-            "HLFR-00057")
+            "HLFR-00057", "LLFR-00689")
     def test_fft_of_a_sine_peaks_at_its_frequency(self) -> None:
         """The frequency plot of a 2 Hz sine peaks at 2 Hz.
 
@@ -436,7 +456,7 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        self.assertTrue(fft_name_str.startswith("fft_"))
+        self.assertTrue(fft_name_str.startswith("file1_fft_"))
         self.assertTrue(fft_name_str.endswith("s_Speed"))
         plot_widget = self.double_click(fft_name_str)
         self.assertTrue(plot_widget.frequency_plot_b)
@@ -456,7 +476,8 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         self.assertAlmostEqual(end_hz, SAMPLE_RATE_HZ / 2.0)
         self.assertEqual(self.box_record_list, [])
 
-    @covers("LLFR-00257", "LLFR-00258", "LLFR-00070", "LLFR-00115")
+    @covers("LLFR-00257", "LLFR-00258", "LLFR-00070", "LLFR-00115",
+            "LLFR-00691", "LLFR-00693")
     def test_mixing_is_refused_and_ranges_stay_apart(self) -> None:
         """Drops that mix kinds show the box; zooms stay per plot.
 
@@ -464,10 +485,10 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        time_widget = self.double_click("Torque")
+        time_widget = self.double_click("file1_Torque")
         frequency_widget = self.double_click(fft_name_str)
         self.plot_controller.on_signal_dropped(frequency_widget.plot_id_i,
-                                               "Speed")
+                                               "file1_Speed")
         self.plot_controller.on_signal_dropped(time_widget.plot_id_i,
                                                fft_name_str)
         self.application.processEvents()
@@ -478,7 +499,7 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
                           "in the same plot", text_str)
         self.assertEqual(list(frequency_widget.curve_line_dict),
                          [fft_name_str])
-        self.assertEqual(list(time_widget.curve_line_dict), ["Torque"])
+        self.assertEqual(list(time_widget.curve_line_dict), ["file1_Torque"])
         # A wheel zoom of the frequency plot leaves the time plot alone.
         time_range_tuple = time_widget.time_range_tuple()
         frequency_widget.wheel_at(
@@ -500,7 +521,7 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         self.assertAlmostEqual(frequency_widget.time_range_tuple()[1],
                                SAMPLE_RATE_HZ / 2.0)
 
-    @covers("LLFR-00258", "LLFR-00209", "LLFR-00070")
+    @covers("LLFR-00258", "LLFR-00209", "LLFR-00070", "LLFR-00693")
     def test_span_zooms_stay_apart(self) -> None:
         """A span zoom of a frequency plot leaves the time plots alone,
         and a span zoom of a time plot leaves the frequency plot alone.
@@ -509,8 +530,8 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        time_widget = self.double_click("Torque")
-        other_time_widget = self.double_click("Speed")
+        time_widget = self.double_click("file1_Torque")
+        other_time_widget = self.double_click("file1_Speed")
         frequency_widget = self.double_click(fft_name_str)
         self.plot_controller.on_plot_tool_changed(ZOOM_TOOL_STR)
         self.application.processEvents()
@@ -560,7 +581,7 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Outputs: none.
         """
         fft_name_str = self.create_fft()
-        time_widget = self.double_click("Torque")
+        time_widget = self.double_click("file1_Torque")
         frequency_widget = self.double_click(fft_name_str)
         self.plot_controller.on_plot_tool_changed(MARKER_TOOL_STR)
         self.application.processEvents()
@@ -609,6 +630,25 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         copied_b, reason_str = self.main_window.copy_current_tab_image()
         self.assertTrue(copied_b, reason_str)
         self.assertFalse(QApplication.clipboard().image().isNull())
+
+    @covers("LLFR-00592", "LLFR-00979", "HLFR-00057")
+    def test_fft_without_a_time_plot_shows_a_box(self) -> None:
+        """With no time plot, choosing FFT creates nothing and shows an
+        information box with the text of LLFR-00979.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = self.panel.signal_name_list()
+        self.choose("file1_Speed", "FFT (fft)")
+        self.assertEqual(self.panel.signal_name_list(), name_list)
+        self.assertEqual(self.controller.synthetic_controller.store.names(),
+                         [])
+        self.assertEqual(self.box_record_list, [(
+            "Create synthetic signal", self.message_box_class.Icon.Information,
+            "The FFT is computed only over the time range shown on the "
+            "x-axis of the time plots. Plot a signal in a time plot and "
+            "zoom to the time range you want, then create the FFT again.")])
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00192", "LLFR-00039",
             "LLFR-00051")

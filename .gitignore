@@ -220,9 +220,12 @@ __marimo__/
 .streamlit/secrets.toml
 .DS_Store
 
-# Standalone executables built from src (COR-00007)
+# Standalone executables built from src (COR-00007, COR-00021)
 bin/*
 !bin/.gitkeep
+
+# Big sample files written by the build (PCR-00073)
+tests/user_tests/big/
 
 # Test matrix built by CI
 test_matrix_ci.md

@@ -104,7 +104,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         return dialog_mock
 
     @covers("LLFR-00394", "LLFR-00347", "LLFR-00158", "LLFR-00159",
-            "LLFR-00181", "LLFR-00215")
+            "LLFR-00181", "LLFR-00215", "LLFR-00465")
     def test_button_right_of_copy_with_icon_and_name(self) -> None:
         """Save signals is directly right of Copy, the last of its group,
         shows only its icon and its plain name in the button tip.
@@ -132,7 +132,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertFalse(icons.icon_for(
             icon_shapes.SAVE_SIGNALS_ICON_STR).isNull())
 
-    @covers("LLFR-00395", "LLFR-00160", "LLFR-00350")
+    @covers("LLFR-00395", "LLFR-00160", "LLFR-00350", "LLFR-00531")
     def test_disabled_without_a_data_file(self) -> None:
         """Disabled and paler before a file is open, a click does
         nothing; enabled after a file is opened.
@@ -151,7 +151,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.open_data_file()
         self.assertTrue(button.isEnabled())
 
-    @covers("LLFR-00396", "LLFR-00397")
+    @covers("LLFR-00396", "LLFR-00397", "LLFR-00532", "LLFR-00536")
     def test_dialog_with_format_filters(self) -> None:
         """The dialog saves, offers the four formats, opens in the folder
         with the proposed name and format, and leaves the replace
@@ -190,7 +190,7 @@ class SaveSignalsViewTest(unittest.TestCase):
                 self.folder_str, "run1_signals.csv", "csv")[0], "")
 
     @covers("LLFR-00396", "LLFR-00401", "LLFR-00402", "LLFR-00404",
-            "LLFR-00407", "LLFR-00406")
+            "LLFR-00407", "LLFR-00406", "LLFR-00532", "LLFR-00558")
     def test_click_saves_the_file(self) -> None:
         """A click opens the dialog with run1_signals.csv and the CSV
         filter; the file is written and the renamed time signal listed.
@@ -216,9 +216,11 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertEqual(os.path.basename(dialog.selectedFiles()[0]),
                          "run1_signals.csv")
         saved_file = load_signal_file(target_str + ".xlsx")
+        # LLFR-00945: the names are saved without the prefix.
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "force"])
-        self.assertEqual(self.changed_names_list, ["time → Time"])
+        # LLFR-00404, LLFR-00558: the name in the app, then the new one.
+        self.assertEqual(self.changed_names_list, ["file1_time → Time"])
         # LLFR-00003: normal again once the save is done and the minimum
         # active time of an action button has passed.
         from PyQt6.QtTest import QTest
@@ -226,7 +228,7 @@ class SaveSignalsViewTest(unittest.TestCase):
         QTest.qWait(MINIMUM_ACTIVE_TIME_MS_I + 200)
         self.assertFalse(self.top_panel.save_signals_button.is_active())
 
-    @covers("LLFR-00397", "LLFR-00399")
+    @covers("LLFR-00397", "LLFR-00399", "LLFR-00534")
     def test_error_boxes(self) -> None:
         """The opened data file is refused, and a write failure shows
         the error box; both are critical boxes.
@@ -249,7 +251,7 @@ class SaveSignalsViewTest(unittest.TestCase):
                          self.message_box_class.Icon.Critical)
         self.assertIn("could not be saved", self.box_record_list[0][2])
 
-    @covers("LLFR-00408")
+    @covers("LLFR-00408", "LLFR-00559")
     def test_non_finite_values_show_a_critical_box(self) -> None:
         """A synthetic signal with an infinite value: a critical box that
         names it, and no Excel file afterwards.
@@ -262,19 +264,19 @@ class SaveSignalsViewTest(unittest.TestCase):
         from model.synthetic_signals import SyntheticSignal
         self.open_data_file()
         self.controller.synthetic_controller.store.signal_list.append(
-            SyntheticSignal("mul_1e308_speed", operations.MULTIPLY_STR,
-                            ["speed"], 1e308,
+            SyntheticSignal("file1_mul_1e308_speed", operations.MULTIPLY_STR,
+                            ["file1_speed"], 1e308,
                             np.array([0.0, np.inf, np.inf, np.inf, np.inf])))
         target_str = os.path.join(self.folder_str, "bad.xlsx")
         self.click_with_dialog_answer((target_str, "Excel files (*.xlsx)"))
         self.assertEqual(len(self.box_record_list), 1)
         self.assertEqual(self.box_record_list[0][1],
                          self.message_box_class.Icon.Critical)
-        self.assertIn("mul_1e308_speed", self.box_record_list[0][2])
+        self.assertIn("file1_mul_1e308_speed", self.box_record_list[0][2])
         self.assertFalse(os.path.exists(target_str))
         self.assertEqual(self.changed_names_list, [])
 
-    @covers("LLFR-00404")
+    @covers("LLFR-00404", "LLFR-00885")
     def test_changed_names_box_is_scrollable_information(self) -> None:
         """The changed names box is an information box with a long list
         that can be scrolled.
@@ -282,7 +284,6 @@ class SaveSignalsViewTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtWidgets import QPlainTextEdit
         from view import message_boxes
         text_str = "\n".join(f"a.{index_i} → a_{index_i}"
                              for index_i in range(200))
@@ -291,16 +292,17 @@ class SaveSignalsViewTest(unittest.TestCase):
         self.assertEqual(dialog.windowTitle(),
                          message_boxes.CHANGED_NAMES_TITLE_STR)
         field = dialog.findChild(
-            QPlainTextEdit, message_boxes.CHANGED_NAMES_TEXT_OBJECT_NAME_STR)
+            message_boxes.ListTextField,
+            message_boxes.CHANGED_NAMES_TEXT_OBJECT_NAME_STR)
         self.assertTrue(field.isReadOnly())
-        self.assertEqual(field.toPlainText(), text_str)
+        self.assertEqual(field.plain_text(), text_str)
         dialog.show()
         self.application.processEvents()
         self.assertGreater(field.verticalScrollBar().maximum(), 0)
         dialog.close()
         dialog.deleteLater()
 
-    @covers("LLFR-00405")
+    @covers("LLFR-00405", "LLFR-00556")
     def test_saving_keeps_plots_and_undo_history(self) -> None:
         """Saving leaves the plots, the signal list and the undo and redo
         history as they were.
@@ -310,8 +312,8 @@ class SaveSignalsViewTest(unittest.TestCase):
         """
         self.open_data_file()
         plot_controller = self.controller.plot_controller
-        plot_controller.on_signal_double_clicked("speed")
-        plot_controller.on_signal_double_clicked("force")
+        plot_controller.on_signal_double_clicked("file1_speed")
+        plot_controller.on_signal_double_clicked("file1_force")
         plot_controller.on_undo()
         self.application.processEvents()
         undo_depth_i = plot_controller.undo_history.depth()
@@ -335,7 +337,7 @@ class SaveSignalsViewTest(unittest.TestCase):
                          redo_enabled_b)
         self.assertEqual(
             self.controller.synthetic_controller.signal_list_name_list(),
-            ["time", "speed", "force"])
+            ["file1_time", "file1_speed", "file1_force"])
 
 
 if __name__ == "__main__":

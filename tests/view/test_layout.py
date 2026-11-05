@@ -101,7 +101,7 @@ class LayoutTestCase(unittest.TestCase):
 class InitialWidthTest(LayoutTestCase):
     """LLFR-00072: the signal list starts at 20% of the window width."""
 
-    @covers("LLFR-00072", "HLFR-00026", "HLFR-00001")
+    @covers("LLFR-00072", "HLFR-00026", "HLFR-00001", "LLFR-00442")
     def test_signal_list_takes_a_fifth_at_start(self) -> None:
         """At several window sizes the list gets 20%, the plots the 80%.
 
@@ -125,7 +125,7 @@ class InitialWidthTest(LayoutTestCase):
                     plot_width_i + list_width_i + splitter.handleWidth(),
                     splitter.width())
 
-    @covers("LLFR-00072")
+    @covers("LLFR-00072", "LLFR-00442")
     def test_start_size_list_for_a_given_width(self) -> None:
         """The list gets 20% of the window width, the plots the rest.
 
@@ -466,7 +466,9 @@ class TabRowTest(LayoutTestCase):
         self.assertEqual(tab_widget.count(), tab_count_i + 1)
         self.assert_button_in_tab_row()
         # A wide window fits the tabs again: back beside the last tab.
-        self.main_window.resize(4000, 600)
+        # The tabs carry their undock buttons (LLFR-01012), so the window
+        # is wide enough for 26 of them.
+        self.main_window.resize(6000, 600)
         self.process_events()
         self.assertFalse(tab_widget.tabs_overflow())
         self.assert_button_beside_last_tab()
@@ -479,7 +481,7 @@ class TabRowTest(LayoutTestCase):
         self.assertFalse(tab_widget.tabs_overflow())
         self.assert_button_beside_last_tab()
 
-    @covers("LLFR-00107", "HLFR-00015")
+    @covers("LLFR-00107", "HLFR-00015", "LLFR-00669")
     def test_button_has_tab_height_and_is_narrower(self) -> None:
         """"+" is as tall as an unselected tab and narrower than any tab.
 

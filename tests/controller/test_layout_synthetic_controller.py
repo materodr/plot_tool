@@ -17,7 +17,7 @@ from unittest import mock
 
 import numpy as np
 
-from tests.support import covers
+from tests.support import covers, expand_all_files
 from tests.controller.test_layout_controller import FakeLayoutView
 from tests.controller.test_synthetic_controller import (
     FakeSyntheticWindow, make_signal_file)
@@ -42,14 +42,6 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         Outputs: none.
         """
         self.temporary_folder = tempfile.TemporaryDirectory()
-        self.view = FakeAppWindow()
-        self.main_controller = MainController(self.view)
-        self.plot_controller = self.main_controller.plot_controller
-        self.plot_controller.workspace.random_generator = random.Random(3)
-        self.workspace = self.plot_controller.workspace
-        self.synthetic_controller = (
-            self.main_controller.synthetic_controller)
-        self.store = self.synthetic_controller.store
         self.open_file()
 
     def tearDown(self) -> None:
@@ -61,16 +53,31 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         self.temporary_folder.cleanup()
 
     def open_file(self) -> None:
-        """Open (or reopen) the test data file (10 Hz, 0 to 9.9 s).
+        """Start the app again and open the test data file as file 1.
+
+        The test data file is 10 Hz, from 0 to 9.9 s. A new start gives
+        the file the number 1 again (LLFR-00900), so a layout saved
+        before is read with the same signal names.
 
         Inputs: none.
         Outputs: none.
         """
+        self.view = FakeAppWindow()
+        self.main_controller = MainController(self.view)
+        self.plot_controller = self.main_controller.plot_controller
+        self.plot_controller.workspace.random_generator = random.Random(3)
+        self.workspace = self.plot_controller.workspace
+        self.synthetic_controller = (
+            self.main_controller.synthetic_controller)
+        self.store = self.synthetic_controller.store
         file_controller = self.main_controller.file_controller
         file_controller.load_function = (
             lambda path_str: make_signal_file())
         self.view.open_path_str = "test.csv"
         file_controller.open_file_requested()
+        # LLFR-01001: the file is collapsed after the open; these tests
+        # read the shown signals.
+        expand_all_files(self.main_controller)
 
     def path(self, name_str: str) -> str:
         """Return a path in the temporary folder.
@@ -112,17 +119,18 @@ class LayoutSyntheticTestCase(unittest.TestCase):
         Outputs: the names of the synthetic signals, in creation order.
         """
         name_list = [
-            self.create("lowpass", ["Speed"], (1.0, 2, "first_value"))]
+            self.create("lowpass", ["file1_Speed"], (1.0, 2, "first_value"))]
         name_list.append(self.create("highpass", [name_list[0]],
                                      (2.0, 3, "zero")))
         name_list.append(self.create("movingaverage", [name_list[1]], 4))
-        name_list.append(self.create("greaterorequal", ["Torque"], 3.0))
+        name_list.append(self.create("greaterorequal", ["file1_Torque"], 3.0))
         name_list.append(self.create("product",
-                                     [name_list[0], "Torque"]))
+                                     [name_list[0], "file1_Torque"]))
         handler_dict = self.view.handler_dict
         handler_dict["double_click"](name_list[0])
         first_plot = self.workspace.tab_list[0].plot_list[0]
-        handler_dict["signal_drop_handler"](first_plot.plot_id_i, "Speed")
+        handler_dict["signal_drop_handler"](first_plot.plot_id_i,
+                                            "file1_Speed")
         lowpass_array = self.store.get(name_list[0]).value_array
         handler_dict["tip_pin_handler"](first_plot.plot_id_i,
                                         name_list[0], 2.0,
@@ -141,7 +149,7 @@ class LayoutSyntheticTestCase(unittest.TestCase):
             float(product_array[50]))
         handler_dict["plot_tool"]("")
         if with_fft_b:
-            name_list.append(self.create("fft", ["Speed"], (1.0, 8.0)))
+            name_list.append(self.create("fft", ["file1_Speed"], (1.0, 8.0)))
             handler_dict["double_click"](name_list[5])
             self.assertTrue(self.workspace.tab_list[0].plot_list[2]
                             .is_frequency_plot())
@@ -231,6 +239,51 @@ class SaveTest(LayoutSyntheticTestCase):
         self.assertNotIn(name_list[5], self.read_text(path_str))
 
 
+class CollapsedFilesNotSavedTest(LayoutSyntheticTestCase):
+    """The layout file says nothing of the collapsed files."""
+
+    @covers("LLFR-00226", "HLFR-00123", "HLFR-00049")
+    def test_collapse_changes_nothing_in_the_layout_file(self) -> None:
+        """A layout saved with the file collapsed is the same file."""
+        self.build_synthetic_layout()
+        expanded_text_str = self.read_text(self.save("expanded.json"))
+        signal_list_controller = self.main_controller.signal_list_controller
+        signal_list_controller.toggle_file(1)
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        collapsed_text_str = self.read_text(self.save("collapsed.json"))
+        self.assertEqual(collapsed_text_str, expanded_text_str)
+        for word_str in ("collapse", "expand", "hidden"):
+            self.assertNotIn(word_str, collapsed_text_str.lower())
+        # Loading the layout keeps the file collapsed.
+        self.load(self.path("collapsed.json"))
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+
+
+class LayoutSignalsKeepTheFilesTest(LayoutSyntheticTestCase):
+    """Signals created by a layout load expand nothing, select nothing."""
+
+    @covers("LLFR-01193", "LLFR-01194", "LLFR-00262", "HLFR-00123",
+            "HLFR-00053")
+    def test_layout_load_keeps_the_file_collapsed(self) -> None:
+        """A load that creates synthetic signals of a collapsed file
+        leaves it collapsed and selects no signal.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = self.build_synthetic_layout()
+        path_str = self.save("layout.json")
+        self.open_file()
+        signal_list_controller = self.main_controller.signal_list_controller
+        signal_list_controller.toggle_file(1)
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        self.load(path_str)
+        self.assertEqual(self.store.names(), name_list)
+        self.assertEqual(signal_list_controller.collapsed_number_set, {1})
+        self.assertEqual(self.view.shown_name_list, [])
+        self.assertEqual(self.view.selected_alone_list, [])
+
+
 class LoadTest(LayoutSyntheticTestCase):
     """Load layout creates the synthetic signals (LLFR-00262)."""
 
@@ -243,7 +296,7 @@ class LoadTest(LayoutSyntheticTestCase):
         old_curve_list = self.curve_names()
         path_str = self.save("layout.json")
         saved_text_str = self.read_text(path_str)
-        # LLFR-00252: reopening the file removes the synthetic signals.
+        # LLFR-00595: a new start of the app has no synthetic signal.
         self.open_file()
         self.assertEqual(self.store.names(), [])
         self.load(path_str)
@@ -288,7 +341,8 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertEqual(self.curve_names(),
                          [("Tab 1", [[name_list[2]]])])
 
-    @covers("LLFR-00262", "LLFR-00231", "LLFR-00237")
+    @covers("LLFR-00262", "LLFR-00231", "LLFR-00237", "LLFR-00496",
+            "LLFR-00497", "LLFR-00498", "LLFR-00501")
     def test_signals_not_created_are_reported(self) -> None:
         """Not created signals are named with the reason, and their
         curves are treated as missing signals."""
@@ -297,33 +351,34 @@ class LoadTest(LayoutSyntheticTestCase):
         layout_dict = read_layout_file(path_str)
         entry_list = layout_dict[LAYOUT_KEY_STR]
         entry_list[0]["parameter"]["order"] = 12
-        entry_list[3]["name"] = "Torque"
+        entry_list[3]["name"] = "file1_Torque"
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
         # The signals that need lowpass are not created; the entry
         # named like the data signal Torque is renamed (LLFR-00282).
-        self.assertEqual(self.store.names(), ["Torque_2"])
-        self.assertEqual(self.store.get("Torque_2").operation_str,
+        self.assertEqual(self.store.names(), ["file1_Torque_2"])
+        self.assertEqual(self.store.get("file1_Torque_2").operation_str,
                          "greaterorequal")
-        self.assertEqual(self.view.synthetic_name_set, {"Torque_2"})
+        self.assertEqual(self.view.synthetic_name_set, {"file1_Torque_2"})
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
         self.assertIn(SYNTHETIC_HEADING_STR, report_str)
-        self.assertIn(f"  - {name_list[0]}: ", report_str)
+        # LLFR-00987: numbered under the heading of the section.
+        self.assertIn(f"\n1. {name_list[0]}: ", report_str)
         self.assertIn("order", report_str)
-        self.assertIn(f"  - {name_list[1]}: The signal "
+        self.assertIn(f"\n2. {name_list[1]}: The signal "
                       f"\"{name_list[0]}\" it is computed from was not "
                       f"created.", report_str)
         # LLFR-00282, LLFR-00237: the rename is reported.
-        self.assertIn('Renamed:\n  - Synthetic signal "Torque" \u2192 '
-                      '"Torque_2"', report_str)
+        self.assertIn('Renamed:\n\n1. Synthetic signal "file1_Torque" '
+                      '\u2192 "file1_Torque_2"', report_str)
         self.assertIn("Signals not in the data file:", report_str)
         # LLFR-00231: plot 2 lost every curve and was not created.
-        self.assertEqual(self.curve_names(), [("Tab 1", [["Speed"]])])
+        self.assertEqual(self.curve_names(), [("Tab 1", [["file1_Speed"]])])
         self.assertIn("Data tip at 2 s", report_str)
         self.assertIn("Delta X marker between 1 s and 5 s", report_str)
 
-    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229")
+    @covers("LLFR-00283", "LLFR-00231", "LLFR-00229", "LLFR-00484")
     def test_round_trip_with_an_fft_after_reopening(self) -> None:
         """The FFT signal and its frequency plot do not come back, and
         nothing is reported, since the file does not hold them."""
@@ -335,25 +390,27 @@ class LoadTest(LayoutSyntheticTestCase):
         self.assertEqual(self.store.names(), name_list[:5])
         self.assertEqual(len(self.workspace.tab_list[0].plot_list), 2)
 
-    @covers("LLFR-00283", "LLFR-00262", "LLFR-00237", "LLFR-00231")
+    @covers("LLFR-00283", "LLFR-00262", "LLFR-00237", "LLFR-00231",
+            "LLFR-00502", "LLFR-00503", "LLFR-00504")
     def test_fft_entry_in_a_file_is_reported(self) -> None:
         """A hand-added FFT entry is not created; its curve is missing."""
         self.build_synthetic_layout()
         layout_dict = read_layout_file(self.save("layout.json"))
         layout_dict[LAYOUT_KEY_STR].append({
-            "name": "fft_Speed_1s_to_8s", "operation": "fft",
-            "signals": ["Speed"], "parameter": {"start": 1.0, "end": 8.0}})
+            "name": "file1_fft_Speed_1s_to_8s", "operation": "fft",
+            "signals": ["file1_Speed"], "parameter": {"start": 1.0,
+                                                      "end": 8.0}})
         layout_dict["tabs"][0]["plots"][0]["curves"].append(
-            {"signal": "fft_Speed_1s_to_8s", "color": "#00aa00",
+            {"signal": "file1_fft_Speed_1s_to_8s", "color": "#00aa00",
              "width": 1})
         self.open_file()
         self.load(self.write_layout("edited.json", layout_dict))
-        self.assertNotIn("fft_Speed_1s_to_8s", self.store.names())
+        self.assertNotIn("file1_fft_Speed_1s_to_8s", self.store.names())
         report_str = self.view.report_list[0]
-        self.assertIn("  - fft_Speed_1s_to_8s: FFT signals are not "
+        self.assertIn("\n1. file1_fft_Speed_1s_to_8s: FFT signals are not "
                       "loaded from layout files.", report_str)
-        self.assertIn("Signals not in the data file:\n"
-                      "  - fft_Speed_1s_to_8s", report_str)
+        self.assertIn("Signals not in the data file:\n\n"
+                      "1. file1_fft_Speed_1s_to_8s", report_str)
 
     @covers("LLFR-00278", "LLFR-00279", "LLFR-00283")
     def test_no_equation_for_an_fft_signal(self) -> None:
@@ -379,19 +436,19 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
 
     # LLFR-00240: the names build_synthetic_layout gives its signals.
     NEW_NAME_LIST = [
-        "lpf_1Hz_order2_Speed",
-        "hpf_2Hz_order3_lpf_1Hz_order2_Speed",
-        "mavg_4samples_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
-        "ge_3_Torque",
-        "lpf_1Hz_order2_Speed_prod_Torque"]
+        "file1_lpf_1Hz_order2_Speed",
+        "file1_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
+        "file1_mavg_4samples_hpf_2Hz_order3_lpf_1Hz_order2_Speed",
+        "file1_ge_3_Torque",
+        "file1_lpf_1Hz_order2_Speed_prod_file1_Torque"]
     # The names the same signals had before the abbreviations, as an
     # older layout file holds them.
     OLD_NAME_LIST = [
-        "lowpass_Speed",
-        "highpass_lowpass_Speed",
-        "movingaverage_highpass_lowpass_Speed",
-        "greaterorequal_Torque",
-        "product_lowpass_Speed_Torque"]
+        "file1_lowpass_Speed",
+        "file1_highpass_lowpass_Speed",
+        "file1_movingaverage_highpass_lowpass_Speed",
+        "file1_greaterorequal_Torque",
+        "file1_product_lowpass_Speed_Torque"]
 
     @covers("LLFR-00240", "LLFR-00225", "LLFR-00262", "LLFR-00230")
     def test_round_trip_with_the_new_names(self) -> None:
@@ -406,7 +463,7 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
                          ["lowpass", "highpass", "movingaverage",
                           "greaterorequal", "product"])
         self.assertEqual(entry_list[4]["signals"],
-                         ["lpf_1Hz_order2_Speed", "Torque"])
+                         ["file1_lpf_1Hz_order2_Speed", "file1_Torque"])
         curve_list = self.curve_names()
         self.open_file()
         self.load(path_str)
@@ -445,25 +502,25 @@ class SyntheticNameTest(LayoutSyntheticTestCase):
                 self.store.get(old_name_str).value_array,
                 value_dict[new_name_str])
         self.assertEqual(self.curve_names(), [("Tab 1", [
-            ["lowpass_Speed", "Speed"],
-            ["movingaverage_highpass_lowpass_Speed",
-             "product_lowpass_Speed_Torque"]])])
+            ["file1_lowpass_Speed", "file1_Speed"],
+            ["file1_movingaverage_highpass_lowpass_Speed",
+             "file1_product_lowpass_Speed_Torque"]])])
         plot_list = self.workspace.tab_list[0].plot_list
         self.assertEqual(len(plot_list[0].pinned_tip_list), 1)
         self.assertEqual(len(plot_list[1].delta_marker_list), 1)
         # LLFR-00240: a signal created now gets the new name, and the
         # chains of an old name build up from it.
-        self.assertEqual(self.create("integral", ["lowpass_Speed"]),
-                         "int_lowpass_Speed")
-        self.assertEqual(self.create("lowpass", ["Speed"],
+        self.assertEqual(self.create("integral", ["file1_lowpass_Speed"]),
+                         "file1_int_lowpass_Speed")
+        self.assertEqual(self.create("lowpass", ["file1_Speed"],
                                      (1.0, 2, "zero")),
-                         "lpf_1Hz_order2_Speed")
+                         "file1_lpf_1Hz_order2_Speed")
         # The older names are saved as they are.
         entry_list = read_layout_file(self.save("again.json"))[
             LAYOUT_KEY_STR]
         self.assertEqual([entry["name"] for entry in entry_list],
-                         self.OLD_NAME_LIST + ["int_lowpass_Speed",
-                                               "lpf_1Hz_order2_Speed"])
+                         self.OLD_NAME_LIST + ["file1_int_lowpass_Speed",
+                                               "file1_lpf_1Hz_order2_Speed"])
         # LLFR-00282: loading the older file again adds nothing.
         names_before_list = self.store.names()
         self.load(old_path_str)
@@ -475,7 +532,8 @@ class KeptTabsTest(LayoutSyntheticTestCase):
     LLFR-00262); the file's signals are reused or renamed (LLFR-00282).
     """
 
-    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00490",
+            "LLFR-00492")
     def test_same_layout_twice_adds_nothing(self) -> None:
         """Loading the same layout again reuses every signal."""
         name_list = self.build_synthetic_layout(with_fft_b=True)
@@ -487,8 +545,10 @@ class KeptTabsTest(LayoutSyntheticTestCase):
             # LLFR-00237: only the tab name in use is reported; no
             # synthetic signal is renamed.
             self.assertEqual(len(self.view.report_list), 1)
+            # LLFR-00983, LLFR-00984: the heading, a blank line and the
+            # one rename, with no number.
             self.assertTrue(self.view.report_list[0].startswith(
-                'Renamed:\n  - Tab "Tab 1" \u2192 "Tab '))
+                'Renamed:\n\nTab "Tab 1" \u2192 "Tab '))
             self.assertNotIn("Synthetic signal", self.view.report_list[0])
             self.assertEqual(self.store.names(), name_list)
             curve_list = self.curve_names()
@@ -500,7 +560,8 @@ class KeptTabsTest(LayoutSyntheticTestCase):
                              .pinned_tip_list), 1)
         self.assertEqual(self.view.synthetic_name_set, set(name_list))
 
-    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00237")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00237",
+            "LLFR-00473", "LLFR-00499", "LLFR-00500", "LLFR-00501")
     def test_changed_signals_get_new_names(self) -> None:
         """A changed recipe creates "_2" signals; the file's curves and
         later entries use them; the kept tabs are unchanged."""
@@ -513,42 +574,50 @@ class KeptTabsTest(LayoutSyntheticTestCase):
         renamed_list = [name_list[index_i] + "_2"
                         for index_i in (0, 1, 2, 4)]
         # LLFR-00237: every rename, saved and new name, in one section.
-        self.assertEqual(self.view.report_list, ["Renamed:\n" + "\n".join(
-            [f'  - Synthetic signal "{name_list[index_i]}" \u2192 '
+        entry_list = (
+            [f'Synthetic signal "{name_list[index_i]}" \u2192 '
              f'"{name_list[index_i]}_2"' for index_i in (0, 1, 2, 4)]
-            + ['  - Tab "Tab 1" \u2192 "Tab 2"'])])
+            + ['Tab "Tab 1" \u2192 "Tab 2"'])
+        self.assertEqual(self.view.report_list, ["Renamed:\n\n" + "\n\n".join(
+            f"{index_i + 1}. {entry_str}"
+            for index_i, entry_str in enumerate(entry_list))])
         self.assertEqual(self.store.names(), name_list + renamed_list)
         curve_list = self.curve_names()
         self.assertEqual(curve_list[0], old_curve_list[0])
         self.assertEqual(curve_list[1][1], [
-            [renamed_list[0], "Speed"], [renamed_list[2], renamed_list[3]]])
+            [renamed_list[0], "file1_Speed"], [renamed_list[2],
+                                               renamed_list[3]]])
         new_plot_list = self.workspace.tab_list[1].plot_list
         self.assertEqual(new_plot_list[0].pinned_tip_list[0]
                          .signal_name_str, renamed_list[0])
         self.assertEqual(new_plot_list[1].delta_marker_list[0]
                          .first_point_tuple[0], renamed_list[3])
         self.assertEqual(self.store.get(renamed_list[3]).source_name_list,
-                         [renamed_list[0], "Torque"])
+                         [renamed_list[0], "file1_Torque"])
         # The same edited file again: nothing new.
         self.load(path_str)
         self.assertEqual(self.store.names(), name_list + renamed_list)
         self.assert_screen_matches_model()
 
-    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229")
+    @covers("LLFR-00282", "LLFR-00262", "LLFR-00229", "LLFR-00473",
+            "LLFR-00495")
     def test_kept_curves_of_signals_left_out_stay(self) -> None:
         """Signals and curves the file does not hold are kept."""
         name_list = self.build_synthetic_layout(with_fft_b=True)
         old_curve_list = self.curve_names()
         layout_dict = read_layout_file(self.save("layout.json"))
         layout_dict[LAYOUT_KEY_STR] = []
-        layout_dict["tabs"] = [{"name": "Other", "plots": [
-            {"curves": [{"signal": "Torque", "color": "#0000ff",
-                         "width": 1}]}]}]
+        # LLFR-01200: the tab's values are given, so nothing is missing.
+        curve_dict = {"signal": "file1_Torque", "color": "#0000ff",
+                      "width": 1}
+        layout_dict["tabs"] = [{"name": "Other", "undocked": False,
+                                "plot_matrix": {"rows": 5, "columns": 1},
+                                "plots": [{"curves": [curve_dict]}]}]
         self.load(self.write_layout("edited.json", layout_dict))
         self.assertEqual(self.view.report_list, [])
         self.assertEqual(self.store.names(), name_list)
         self.assertEqual(self.curve_names(),
-                         old_curve_list + [("Other", [["Torque"]])])
+                         old_curve_list + [("Other", [["file1_Torque"]])])
 
     def assert_screen_matches_model(self) -> None:
         """Check that every plot is drawn with its own curves.
@@ -578,21 +647,26 @@ class EmptyTabsTest(LayoutSyntheticTestCase):
         layout_dict["tabs"] = tab_list
         return self.write_layout("tabs.json", layout_dict)
 
-    @covers("LLFR-00231", "LLFR-00229", "LLFR-00237")
+    @covers("LLFR-00231", "LLFR-00229", "LLFR-00237", "LLFR-00477",
+            "LLFR-00484")
     def test_shown_tab_is_the_first_created(self) -> None:
         """Empty tabs are skipped; the first created tab is shown."""
         path_str = self.file_with_tabs([
             {"name": "Empty", "plots": []},
-            {"name": "Speed tab", "plots": [{"curves": [
-                {"signal": "Speed", "color": "#0000ff", "width": 1}]}]}])
+            {"name": "file1_Speed tab", "undocked": False,
+             "plot_matrix": {"rows": 5, "columns": 1},
+             "plots": [{"curves": [
+                 {"signal": "file1_Speed", "color": "#0000ff",
+                  "width": 1}]}]}])
         self.load(path_str)
         self.assertEqual(self.view.report_list, [])
         self.assertEqual([tab.name_str for tab in self.workspace.tab_list],
-                         ["Speed tab"])
+                         ["file1_Speed tab"])
         self.assertEqual(self.view.current_tab_id(),
                          self.workspace.tab_list[0].tab_id_i)
 
-    @covers("LLFR-00231", "LLFR-00229", "LLFR-00066")
+    @covers("LLFR-00231", "LLFR-00229", "LLFR-00066", "LLFR-00476",
+            "LLFR-00484")
     def test_no_tab_with_a_plot_keeps_the_current_tabs(self) -> None:
         """When no tab of the file holds a plot, nothing changes."""
         self.view.handler_dict["add_tab"]()
@@ -704,7 +778,7 @@ class FailedLoadTest(LayoutSyntheticTestCase):
         layout_dict[LAYOUT_KEY_STR][0]["parameter"]["order"] = 5
         self.check_failed_load(layout_dict)
 
-    @covers("LLFR-00236", "LLFR-00262")
+    @covers("LLFR-00236", "LLFR-00262", "LLFR-00491")
     def test_unreadable_file_keeps_the_signals(self) -> None:
         """A file that is not a layout changes no synthetic signal."""
         name_list = self.build_synthetic_layout()

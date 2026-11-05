@@ -2,7 +2,7 @@
 
 Usage:
     pip install -r requirements.txt -r requirements-build.txt
-    python build_executable.py
+    python build_executable.py [--no-big-files]
 
 The app is built with PyInstaller as one folder (``--onedir``), not as
 one file (issue #67). A one-file executable unpacks the whole app into
@@ -23,6 +23,13 @@ and ``tests/user_tests/bad`` are copied to ``bin/user_tests/good`` and
 ``bin/user_tests/bad``, replacing any earlier copy (COR-00020), so that
 they are next to the app, in the folder where the Open file dialog
 starts (LLFR-00204). The copy is never committed either.
+
+After the copy, the build writes the big sample files of PCR-00073 into
+``tests/user_tests/big`` (never committed): one file per format with 100
+signals and a time signal of 4 hours sampled every 0.01 s, written by
+``tests/user_tests/make_user_test_files.py --big``. They take a few
+minutes and several GB of disk, so the macOS build job of CI passes
+``--no-big-files`` and leaves them out; a local build writes them.
 
 The app icon (LLFR-00182) is drawn from the same vector drawing as the
 window icon and written to ``build/app_icon`` before PyInstaller runs
@@ -52,6 +59,13 @@ ICON_FOLDER_STR = os.path.join(WORK_FOLDER_STR, "app_icon")
 # COR-00020: the sample folders copied next to the app after the build.
 USER_TESTS_FOLDER_NAME_STR = "user_tests"
 SAMPLE_FOLDER_NAME_TUPLE = ("good", "bad")
+# PCR-00073: the script and flag that write the big sample files, and the
+# flag that leaves them out.
+SAMPLE_SCRIPT_PATH_STR = os.path.join(REPOSITORY_ROOT_STR, "tests",
+                                      "user_tests",
+                                      "make_user_test_files.py")
+BIG_FILES_FLAG_STR = "--big"
+NO_BIG_FILES_FLAG_STR = "--no-big-files"
 
 # Modules that PyInstaller would find through optional imports of the
 # libraries but that the app never uses: other GUI toolkits and their
@@ -163,10 +177,25 @@ def copy_sample_folders(repository_root_str: str = REPOSITORY_ROOT_STR,
     return written_folder_list
 
 
-def main() -> int:
-    """Build the app and print where it is.
+def write_big_sample_files() -> int:
+    """Write the big sample files of PCR-00073 into tests/user_tests/big.
 
     Inputs: none.
+    Outputs: the exit code of the generator, 0 on success.
+    """
+    # PCR-00073: written by the generator in its own process, chunk by
+    # chunk, into the folder that git ignores.
+    return subprocess.run([sys.executable, SAMPLE_SCRIPT_PATH_STR,
+                           BIG_FILES_FLAG_STR], check=False).returncode
+
+
+def main(argument_list=None) -> int:
+    """Build the app and print where it is.
+
+    Inputs:
+        argument_list: the command-line arguments; None reads them from
+            sys.argv. NO_BIG_FILES_FLAG_STR leaves out the big sample
+            files (PCR-00073).
     Outputs: the exit code, 0 on success.
     """
     # LLFR-00182: the icon is written first and passed to PyInstaller.
@@ -189,7 +218,13 @@ def main() -> int:
     # COR-00020: copied only after the build has succeeded.
     for folder_str in copy_sample_folders():
         print(f"Copied the sample files to {folder_str}")
-    return 0
+    # PCR-00073: the big sample files, unless left out.
+    if argument_list is None:
+        argument_list = sys.argv[1:]
+    if NO_BIG_FILES_FLAG_STR in argument_list:
+        print("The big sample files were left out (--no-big-files).")
+        return 0
+    return write_big_sample_files()
 
 
 if __name__ == "__main__":

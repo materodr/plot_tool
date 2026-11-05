@@ -9,6 +9,8 @@ written by tests/user_tests/make_user_test_files.py.
 import os
 import unittest
 
+import pandas as pd
+
 from tests.support import REPOSITORY_ROOT_STR, covers, requires_h5py
 
 from model.errors import FileReadError
@@ -82,6 +84,26 @@ class SampleFileTest(unittest.TestCase):
         self.assertEqual(sorted(extension_list),
                          sorted(SUPPORTED_EXTENSION_TUPLE))
 
+    @covers("PCR-00032", "HLFR-00116")
+    def test_run_files_have_other_signals_over_the_same_time(self) -> None:
+        """The two run files share only Time with each other and signals.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        file_df_list = [
+            pd.read_csv(os.path.join(GOOD_FOLDER_STR, file_name_str))
+            for file_name_str in ("signals_comma.csv", "vehicle_run.csv",
+                                  "solar_inverter_run.csv")]
+        for index_i, first_df in enumerate(file_df_list):
+            for second_df in file_df_list[index_i + 1:]:
+                self.assertEqual(
+                    set(first_df.columns) & set(second_df.columns), {"Time"})
+                self.assertTrue(first_df["Time"].equals(second_df["Time"]))
+        # Both run files hold the same number of signals.
+        self.assertEqual(len(file_df_list[1].columns),
+                         len(file_df_list[2].columns))
+
     @covers("PCR-00032", "HLFR-00005", "LLFR-00059", "LLFR-00061")
     def test_csv_sample_files_open(self) -> None:
         """There is a CSV sample file and every one opens.
@@ -108,6 +130,22 @@ class SampleFileTest(unittest.TestCase):
         Outputs: none.
         """
         self.assert_format_has_good_file("MATLAB")
+
+    @covers("LLFR-00991", "LLFR-00992", "LLFR-00993", "LLFR-00063")
+    def test_nested_structures_sample_content(self) -> None:
+        """nested_structures.mat has its fields named by their path.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        signal_file = load_signal_file(os.path.join(
+            GOOD_FOLDER_STR, "nested_structures.mat"))
+        self.assertEqual(signal_file.signal_name_list, [
+            "Time", "Sine_1Hz", "waves/Cosine_1Hz", "waves/Sine_3Hz",
+            "waves/decaying/Damped_sine", "car/engine/Time",
+            "car/engine/oil/Temperature", "car/engine/Pressure",
+            "car/Ramp"])
+        self.assertEqual(signal_file.time_signal_name_str, "Time")
 
     @requires_h5py
     @covers("PCR-00032", "HLFR-00005", "LLFR-00134", "LLFR-00135")

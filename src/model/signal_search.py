@@ -2,23 +2,28 @@
 
 The typed text is split into search words at spaces (LLFR-00105). Each
 word and each signal name is compared without case (LLFR-00098) and
-without separators (LLFR-00100). A word matches a name when it appears
-anywhere in it (LLFR-00099), or, for words of 4 or more characters,
-when a part of the name is within the typo allowance (LLFR-00101).
-The matching names are returned in the three groups of LLFR-00102.
+without separators, the slash included (LLFR-00100, LLFR-00566). A
+word matches a name when it appears anywhere in it (LLFR-00099), or, for
+words of 4 or more characters, when a part of the name is within the
+typo allowance (LLFR-00101). The matching names are returned in the
+three groups of LLFR-00102.
 
 This module is pure Python and has no user interface code (COR-00009).
 """
 
 import functools
 
+from model.data_files import without_prefix
+
 # LLFR-00097: text the view shows when no signal matches.
 NO_MATCH_TEXT_STR = "No matching signals"
 
-# LLFR-00100: characters ignored in the typed text and in the names.
-# Spaces are also ignored in names; in the typed text they separate the
-# search words (LLFR-00105) before this table is applied.
-IGNORED_CHARACTER_TABLE_DICT = str.maketrans("", "", " _-.")
+# LLFR-00100, LLFR-00566: characters ignored in the typed text and in
+# the names: underscores, hyphens, dots and slashes, so that
+# ``enginespeed`` finds the HDF5 name ``engine/speed``. Spaces are also
+# ignored in names; in the typed text they separate the search words
+# (LLFR-00105) before this table is applied.
+IGNORED_CHARACTER_TABLE_DICT = str.maketrans("", "", " _-./")
 
 # LLFR-00101: one typo is allowed for every full block of this many
 # characters of a search word.
@@ -35,10 +40,11 @@ def normalize_text(text_str: str) -> str:
 
     Inputs:
         text_str: a signal name or a search word.
-    Outputs: the text in lowercase, without spaces, underscores, hyphens
-        and dots.
+    Outputs: the text in lowercase, without spaces, underscores, hyphens,
+        dots and slashes.
     """
-    # LLFR-00098: case is ignored. LLFR-00100: separators are ignored.
+    # LLFR-00098: case is ignored. LLFR-00100, LLFR-00566: separators,
+    # the slash included, are ignored.
     return text_str.lower().translate(IGNORED_CHARACTER_TABLE_DICT)
 
 
@@ -177,12 +183,16 @@ def word_match_kind(word_str: str, normalized_name_str: str) -> str:
     return NO_MATCH_STR
 
 
-def search_signals(signal_name_list: list, text_str: str) -> list:
+def search_signals(signal_name_list: list, text_str: str,
+                   ranking_name_function=None) -> list:
     """Return the signal names that match the typed text, in order.
 
     Inputs:
         signal_name_list: the signal names of the file, in file order.
         text_str: the text typed in the search box.
+        ranking_name_function: function name -> the part of the name
+            that must start with the first word for the first group
+            (LLFR-00102); None uses the whole name.
     Outputs: a list of the matching names: first the names that match
         every word exactly and start with the first word, then the
         other exact matches, then the names that need the typo
@@ -219,10 +229,46 @@ def search_signals(signal_name_list: list, text_str: str) -> list:
         # LLFR-00102: three groups, file order kept inside each group.
         if needs_typo_b:
             typo_list.append(signal_name_str)
-        elif normalized_name_str.startswith(first_word_str):
+        elif ranked_name(signal_name_str, normalized_name_str,
+                         ranking_name_function).startswith(first_word_str):
             starts_with_first_word_list.append(signal_name_str)
         else:
             other_exact_list.append(signal_name_str)
     # LLFR-00097: no match gives an empty list; the view then shows
     # NO_MATCH_TEXT_STR.
     return starts_with_first_word_list + other_exact_list + typo_list
+
+
+def ranked_name(signal_name_str: str, normalized_name_str: str,
+                ranking_name_function) -> str:
+    """Return the normalized name that the first group compares.
+
+    Inputs:
+        signal_name_str: the signal name as shown.
+        normalized_name_str: the same name after normalize_text.
+        ranking_name_function: function name -> the part to compare, or
+            None for the whole name.
+    Outputs: the normalized part of the name that must start with the
+        first search word (LLFR-00102 group 1).
+    """
+    # LLFR-00102: the whole name, unless a part of it is left out.
+    if ranking_name_function is None:
+        return normalized_name_str
+    return normalize_text(str(ranking_name_function(signal_name_str)))
+
+
+def search_prefixed_signals(signal_name_list: list, text_str: str) -> list:
+    """Search names that carry the prefix of their data file.
+
+    Inputs:
+        signal_name_list: prefixed signal names (LLFR-00905), in the
+            order of the signal list.
+        text_str: the text typed in the search box.
+    Outputs: the matching names as search_signals returns them, where
+        the first group compares the name without its ``file<N>_``
+        prefix with the first search word; the words still match the
+        whole name, prefix included (LLFR-00102).
+    """
+    # LLFR-00102: "starts with the first search word, once its prefix of
+    # LLFR-00905 is left out"; matching (LLFR-00099) uses the full name.
+    return search_signals(signal_name_list, text_str, without_prefix)

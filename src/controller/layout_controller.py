@@ -7,7 +7,7 @@ the top panel. It talks to the view only through plain method calls
 COR-00009). The view must offer:
 
 - ``set_layout_handlers(save_handler, load_handler)``;
-- ``set_layout_buttons_enabled(enabled_b)``;
+- ``set_save_layout_button_enabled(enabled_b)``;
 - ``ask_layout_save_path(start_folder_str)``: the chosen path, "" when
   cancelled; the dialog itself asks before replacing the file it
   returns (LLFR-00223);
@@ -19,9 +19,27 @@ COR-00009). The view must offer:
 - ``panel_width_tuple()``: (plot panel width, signal list panel width)
   in pixels; ``set_panel_widths(plot_width_i, list_width_i)``;
 - ``show_layout_save_error(reason_str)``,
-  ``show_layout_load_error(message_str)`` and
-  ``show_layout_report(report_text_str)``;
-- ``finish_save_layout_button()``, ``finish_load_layout_button()``.
+  ``show_layout_load_error(message_str)``,
+  ``show_layout_report(report_text_str)`` and
+  ``show_layout_needs_data_file(message_str)``;
+- ``finish_save_layout_button()``, ``finish_load_layout_button()``;
+- optionally ``ask_layout_save_options()``: the choices of the dialog of
+  LLFR-01218, as a dict with the keys of LAYOUT_OPTION_KEY_TUPLE, or
+  None when the user cancels (LLFR-01220). A view without it saves with
+  the first values of LLFR-01219.
+
+Data files (HLFR-00156, HLFR-00157): a layout saved with the names of the
+open data files holds their numbers and paths (LLFR-01223). Loading it
+opens the files that are not open yet, through the file controller's
+``open_paths`` (LLFR-01224), reuses the open ones (LLFR-01225), reads the
+signal names with the numbers the files have now (LLFR-01226) and lists
+the files it could not open in the load report (LLFR-01227, LLFR-01228).
+
+Load layout works with no data file open (LLFR-01244): a layout with
+the names of its data files opens them; a layout without them, or one
+whose files all fail to open, shows the information box of LLFR-01245
+or LLFR-01246 and changes nothing (LLFR-01247). Save layout needs an
+open data file (LLFR-00218, LLFR-00466).
 
 Dialog folder (LLFR-00220): until a layout file is saved or loaded
 successfully, the dialogs show the folder the Open file dialog would
@@ -33,13 +51,34 @@ loaded successfully.
 import os
 
 from model.layout_file import (
-    LayoutFileError, ensure_layout_suffix, layout_bytes, read_layout_file)
+    DATA_FILES_HEADING_STR, DATA_FILES_KEY_STR, FILE_NOT_FOUND_REASON_STR,
+    FILE_NOT_OPENED_REASON_STR,
+    LayoutFileError, data_file_candidate_list, data_file_entries_of,
+    data_file_entry_list, ensure_layout_suffix, file_number_dict,
+    layout_bytes, layout_with_save_options, read_layout_file,
+    renumber_layout_names)
+
+# LLFR-01218, LLFR-01219: the choices of the save options dialog and
+# their first values.
+MARKERS_OPTION_KEY_STR = "markers"
+ALL_TABS_OPTION_KEY_STR = "all_tabs"
+DATA_FILES_OPTION_KEY_STR = "data_files"
+LAYOUT_OPTION_KEY_TUPLE = (MARKERS_OPTION_KEY_STR, ALL_TABS_OPTION_KEY_STR,
+                           DATA_FILES_OPTION_KEY_STR)
+DEFAULT_LAYOUT_OPTION_DICT = {MARKERS_OPTION_KEY_STR: True,
+                              ALL_TABS_OPTION_KEY_STR: True,
+                              DATA_FILES_OPTION_KEY_STR: False}
 
 # PCR-00025: shown when loading fails in an unexpected way, so the app
 # reports it instead of crashing.
 UNEXPECTED_LOAD_ERROR_STR = (
     "The file '{path}' could not be read as a layout file because of an "
     "unexpected error: {error}")
+# LLFR-01245, LLFR-01246: the information box of a layout loaded while no
+# data file is open, when it opens none.
+LAYOUT_NEEDS_DATA_FILE_STR = (
+    "The layout needs an open data file. Open a data file first, or load "
+    "a layout saved with the names of its data files.")
 
 
 class LayoutController:
@@ -88,21 +127,36 @@ class LayoutController:
         self.synthetic_signal_snapshot_function = None
         view.set_layout_handlers(self.on_save_layout_requested,
                                  self.on_load_layout_requested)
-        # LLFR-00218: disabled while no data file is open.
-        view.set_layout_buttons_enabled(False)
+        # LLFR-00218: Save layout disabled while no data file is open;
+        # LLFR-01244: Load layout is always enabled.
+        view.set_save_layout_button_enabled(False)
         file_controller.add_file_opened_listener(self.on_file_opened)
 
-    def on_file_opened(self, signal_file, replaced_b: bool) -> None:
+    def on_file_opened(self, signal_file, added_file=None) -> None:
         """Enable the layout buttons once a data file is open.
 
         Inputs:
-            signal_file: the SignalFile that was opened.
-            replaced_b: True when it replaced another file.
+            signal_file: the DataFileSet of the open data files (or one
+                SignalFile).
+            added_file: the DataFile just added; not used.
         Outputs: none.
         """
-        # LLFR-00218: enabled after a successful open.
+        # LLFR-00218: Save layout enabled after a successful open.
         self.data_file_open_b = signal_file is not None
-        self.view.set_layout_buttons_enabled(self.data_file_open_b)
+        self.view.set_save_layout_button_enabled(self.data_file_open_b)
+
+    def on_files_closed(self, data_files, closed_file_list: list) -> None:
+        """Disable the layout buttons when no data file is left.
+
+        Inputs:
+            data_files: the DataFileSet of the files left.
+            closed_file_list: the closed DataFile objects.
+        Outputs: none.
+        """
+        # LLFR-00218, LLFR-00936: Save layout disabled while no data file
+        # is open.
+        self.data_file_open_b = len(data_files) > 0
+        self.view.set_save_layout_button_enabled(self.data_file_open_b)
 
     def dialog_folder(self) -> str:
         """Return the folder the next layout dialog shows.
@@ -159,8 +213,13 @@ class LayoutController:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00218: the button does nothing without a data file.
+        # LLFR-00466: the button does nothing without a data file.
         if not self.data_file_open_b:
+            return
+        # LLFR-01218, LLFR-01219: the options first; LLFR-01220: a
+        # cancel ends the action here.
+        option_dict = self.ask_save_options()
+        if option_dict is None:
             return
         # LLFR-00219, LLFR-00220: the save file dialog.
         path_str = self.view.ask_layout_save_path(self.dialog_folder())
@@ -180,6 +239,14 @@ class LayoutController:
         layout_dict = self.plot_controller.layout_dict(
             tuple(self.view.panel_width_tuple()),
             list(self.synthetic_signal_list_function()))
+        # LLFR-01221, LLFR-01222: the markers and the tabs chosen.
+        layout_dict = layout_with_save_options(
+            layout_dict, option_dict[MARKERS_OPTION_KEY_STR],
+            not option_dict[ALL_TABS_OPTION_KEY_STR])
+        # LLFR-01223: the open data files, when chosen.
+        if option_dict[DATA_FILES_OPTION_KEY_STR]:
+            layout_dict[DATA_FILES_KEY_STR] = data_file_entry_list(
+                self.numbered_path_list(), layout_path_str)
         # LLFR-00224: written safely; a failure is reported.
         saved_b, reason_str = self.view.save_layout_bytes(
             layout_path_str, layout_bytes(layout_dict))
@@ -189,16 +256,113 @@ class LayoutController:
         # LLFR-00220: the next dialog shows this folder.
         self.remember_folder(layout_path_str)
 
+    def ask_save_options(self):
+        """Return the choices of the save options dialog.
+
+        Inputs: none.
+        Outputs: a dict with the keys of LAYOUT_OPTION_KEY_TUPLE, or None
+            when the user cancelled (LLFR-01220).
+        """
+        # LLFR-01218, LLFR-01219: a view without the dialog saves with
+        # the first values.
+        ask_function = getattr(self.view, "ask_layout_save_options", None)
+        if ask_function is None:
+            return dict(DEFAULT_LAYOUT_OPTION_DICT)
+        answer_dict = ask_function()
+        if answer_dict is None:
+            return None
+        option_dict = dict(DEFAULT_LAYOUT_OPTION_DICT)
+        option_dict.update({key_str: bool(answer_dict[key_str])
+                            for key_str in LAYOUT_OPTION_KEY_TUPLE
+                            if key_str in answer_dict})
+        return option_dict
+
+    def numbered_path_list(self) -> list:
+        """Return the number and path of each open data file.
+
+        Inputs: none.
+        Outputs: a list of (number, path), in number order.
+        """
+        # LLFR-01223: the open data files.
+        data_files = getattr(self.file_controller, "data_files", None)
+        if data_files is None:
+            return []
+        return sorted((int(data_file.number_i), str(data_file.path_str))
+                      for data_file in data_files.file_list)
+
+    def open_layout_files(self, layout_dict: dict, layout_path_str: str):
+        """Open the data files of a layout file and renumber its names.
+
+        Inputs:
+            layout_dict: the content of the layout file, changed in place
+                (LLFR-01226).
+            layout_path_str: the path of the layout file.
+        Outputs: the lines of the load report for the files that are not
+            open (LLFR-01227).
+        """
+        entry_list = data_file_entries_of(layout_dict)
+        if not entry_list:
+            return []
+        data_files = self.file_controller.data_files
+        line_list = []
+        found_dict = {}
+        to_open_list = []
+        for saved_number_i, entry_dict, reason_str in entry_list:
+            if saved_number_i is None:
+                # LLFR-01227: an entry that cannot be read.
+                line_list.append(reason_str)
+                continue
+            candidate_list = data_file_candidate_list(entry_dict,
+                                                      layout_path_str)
+            # LLFR-01225: a file already open is used as it is.
+            open_number_list = [data_files.open_number(candidate_str)
+                                for candidate_str in candidate_list]
+            open_number_list = [number_value for number_value
+                                in open_number_list
+                                if number_value is not None]
+            if open_number_list:
+                found_dict[saved_number_i] = open_number_list[0]
+                continue
+            # LLFR-01224: at its path, or else at its relative path.
+            existing_list = [candidate_str for candidate_str
+                             in candidate_list
+                             if os.path.isfile(candidate_str)]
+            if not existing_list:
+                line_list.append(FILE_NOT_FOUND_REASON_STR.format(
+                    path=entry_dict.get("path", "")))
+                continue
+            to_open_list.append((saved_number_i, entry_dict,
+                                 existing_list[0]))
+        if to_open_list:
+            # LLFR-01224: as the Open file button does, with its limit,
+            # its time signal window and its boxes.
+            self.file_controller.open_paths(
+                [path_str for _, _, path_str in to_open_list])
+            for saved_number_i, entry_dict, path_str in to_open_list:
+                number_value = data_files.open_number(path_str)
+                if number_value is None:
+                    # LLFR-01227: refused, failed or cancelled.
+                    line_list.append(FILE_NOT_OPENED_REASON_STR.format(
+                        path=entry_dict.get("path", "")))
+                else:
+                    found_dict[saved_number_i] = number_value
+        # LLFR-01226, LLFR-01228: the names follow the open files.
+        open_number_list = [data_file.number_i
+                            for data_file in data_files.file_list]
+        number_dict = file_number_dict(
+            [saved_number_i for saved_number_i, _, _ in entry_list
+             if saved_number_i is not None], found_dict, open_number_list)
+        renumber_layout_names(layout_dict, number_dict)
+        return line_list
+
     def load_layout(self) -> None:
         """Run the steps of the Load layout flow.
 
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00218: the button does nothing without a data file.
-        if not self.data_file_open_b:
-            return
-        # LLFR-00221, LLFR-00220: the file selection dialog for .json.
+        # LLFR-01244: the button works whether a data file is open or
+        # not. LLFR-00221, LLFR-00220: the file selection dialog for .json.
         path_str = self.view.ask_layout_load_path(self.dialog_folder())
         # LLFR-00222: a cancelled dialog loads nothing.
         if not path_str:
@@ -214,6 +378,20 @@ class LayoutController:
             # PCR-00025: reported instead of crashing.
             self.view.show_layout_load_error(
                 UNEXPECTED_LOAD_ERROR_STR.format(path=path_str, error=error))
+            return
+        # LLFR-01245, LLFR-01247: with no data file open, a layout that
+        # names none changes nothing.
+        if not self.data_file_open_b and not data_file_entries_of(
+                layout_dict):
+            self.view.show_layout_needs_data_file(LAYOUT_NEEDS_DATA_FILE_STR)
+            return
+        # LLFR-01224 to LLFR-01228: the data files of the layout first.
+        data_file_line_list = self.open_layout_files(layout_dict, path_str)
+        # LLFR-01246, LLFR-01247: none of them opened, so still no data
+        # file: the same box, with the files not opened, and no change.
+        if not self.data_file_open_b:
+            self.view.show_layout_needs_data_file(
+                needs_data_file_text(data_file_line_list))
             return
         # PCR-00025: the synthetic signals can be put back.
         restore_function = None
@@ -233,12 +411,41 @@ class LayoutController:
             return
         if result is None:
             return
+        # LLFR-01227: the files that are not open, in the load report.
+        for line_str in data_file_line_list:
+            result.report.add_data_file(line_str)
         # LLFR-00220: the next dialog shows this folder.
         self.remember_folder(path_str)
         # LLFR-00230: the file's panel widths.
         if result.panel_width_tuple:
             self.view.set_panel_widths(*result.panel_width_tuple)
+        # LLFR-01214: the main window's panel shown or hidden as saved;
+        # fake views of tests that never hide it may leave it out.
+        set_main_panel = getattr(self.view, "set_main_panel", None)
+        if (getattr(result, "main_panel_shown_b", None) is not None
+                and set_main_panel is not None):
+            width_i = (int(result.panel_width_tuple[1])
+                       if len(result.panel_width_tuple) == 2 else 0)
+            set_main_panel(result.main_panel_shown_b, width_i)
         # LLFR-00237: one information box when something was not
         # rebuilt as saved, none otherwise.
         if not result.report.is_empty():
             self.view.show_layout_report(result.report.text())
+
+
+def needs_data_file_text(data_file_line_list: list) -> str:
+    """Return the text of the box of a layout that opened no data file.
+
+    Inputs:
+        data_file_line_list: the lines of LLFR-01227, one for each data
+            file of the layout that was not opened.
+    Outputs: LAYOUT_NEEDS_DATA_FILE_STR, followed by the heading
+        "Data files not opened:" and the lines, when there are any.
+    """
+    # LLFR-01246: the files not opened, listed as in the load report
+    # (LLFR-01227).
+    if not data_file_line_list:
+        return LAYOUT_NEEDS_DATA_FILE_STR
+    line_list = [DATA_FILES_HEADING_STR] + [
+        str(line_str) for line_str in data_file_line_list]
+    return LAYOUT_NEEDS_DATA_FILE_STR + "\n\n" + "\n".join(line_list)

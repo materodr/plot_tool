@@ -16,10 +16,11 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.menu_texts import FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST
+from tests.view.menu_texts import (
+    FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST, menu_option_texts)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_plot_tools import (
-    ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
+    GRAB_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
@@ -503,16 +504,19 @@ class TipDragWidgetTest(TipDragTestCase):
 class PressOnTipTest(TipDragTestCase):
     """A press on a pinned tip only moves it (LLFR-00153)."""
 
-    @covers("LLFR-00153", "LLFR-00152", "LLFR-00109")
+    @covers("LLFR-00153", "LLFR-00152", "LLFR-00109", "LLFR-00679",
+            "LLFR-01249")
     def test_press_on_tip_with_every_tool_starts_a_move(self) -> None:
-        """With any tool or none: no pin, zoom or marker; the tip moves.
+        """With any tool or none, except the tools whose preview places
+        an object there (LLFR-01248): no pin, zoom or marker; the tip
+        moves.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
         self.draw()
-        for tool_str in ALL_TOOL_TUPLE:
+        for tool_str in GRAB_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_pinned_tips([RAMP_TIP_TUPLE,
                                                   SINE_TIP_TUPLE])
@@ -522,7 +526,8 @@ class PressOnTipTest(TipDragTestCase):
                 range_tuple = self.plot_widget.time_range_tuple()
                 for press_tuple in (self.label_center(),
                                     self.point_display()):
-                    # The hover tip of the Tip tool is shown on the ramp.
+                    # LLFR-01249: no hover tip of the Tip tool over the
+                    # pinned tip.
                     self.plot_widget.hover_at(
                         self.plot_widget.display_to_widget_point(
                             *self.point_display()))
@@ -568,7 +573,7 @@ class PressOnTipTest(TipDragTestCase):
         self.assertEqual(len(self.range_list), 1)
         self.assertEqual(self.move_list, [])
 
-    @covers("LLFR-00153", "LLFR-00117")
+    @covers("LLFR-00153", "LLFR-00117", "LLFR-00679")
     def test_wheel_button_press_during_a_tip_drag_does_not_pan(self) -> None:
         """The wheel button does not start a pan while a tip is held.
 
@@ -694,7 +699,7 @@ class RightPressDuringDragTest(TipDragTestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: None.
             """
-            shown_list.append([action.text() for action in menu.actions()])
+            shown_list.append(menu_option_texts(menu))
             return None
 
         self.plot_widget.execute_menu = fake_execute_menu
@@ -779,7 +784,7 @@ class RightPressDuringDragTest(TipDragTestCase):
 class PixelWheelTest(PlotWidgetToolTestCase):
     """Wheel events that only report pixels still zoom (LLFR-00113)."""
 
-    @covers("LLFR-00113", "LLFR-00074")
+    @covers("LLFR-00113", "LLFR-00074", "LLFR-00671")
     def test_pixel_delta_is_used_when_the_angle_is_zero(self) -> None:
         """120 pixels count as one notch; the angle wins when present.
 
@@ -801,7 +806,7 @@ class PixelWheelTest(PlotWidgetToolTestCase):
         start_s, end_s = self.plot_widget.time_range_tuple()
         self.assertAlmostEqual(end_s - start_s, 10.0 * 0.95 ** 0.5)
 
-    @covers("LLFR-00113")
+    @covers("LLFR-00113", "LLFR-00671")
     def test_real_pixel_only_wheel_event_zooms(self) -> None:
         """A real QWheelEvent with only pixels zooms by its pixels.
 
@@ -874,7 +879,7 @@ class TipMoveEndToEndTest(unittest.TestCase):
                         return_value=path_str):
             self.window.top_panel.open_file_button.click()
             self.process_events()
-        self.window.signal_double_click_handler("speed")
+        self.window.signal_double_click_handler("file1_speed")
         self.process_events()
 
     def tearDown(self) -> None:
@@ -910,7 +915,7 @@ class TipMoveEndToEndTest(unittest.TestCase):
             self.window.plot_panel.plot_widget_dict.values())
         self.assertEqual(len(plot_widget_list), 1)
         plot_widget = plot_widget_list[0]
-        plot_widget.tip_pin_requested.emit("speed", 5.0, 10.0)
+        plot_widget.tip_pin_requested.emit("file1_speed", 5.0, 10.0)
         self.process_events()
         plot_widget.canvas.draw()
         self.assertEqual(plot_widget.pinned_tip_count(), 1)
@@ -930,10 +935,10 @@ class TipMoveEndToEndTest(unittest.TestCase):
             plot_widget.plot_id_i)
         pinned_tip = plot.pinned_tip_list[0]
         self.assertEqual((pinned_tip.signal_name_str, pinned_tip.time_s,
-                          pinned_tip.value_f), ("speed", 5.0, 10.0))
+                          pinned_tip.value_f), ("file1_speed", 5.0, 10.0))
         self.assertEqual(len(pinned_tip.label_offset_tuple), 2)
         self.assertEqual(plot_widget.pinned_tip_text(0),
-                         "t = 5 s\nspeed = 10")
+                         "t = 5 s\nfile1_speed = 10")
         center_tuple = plot_widget.tip_label_center_tuple(0)
         self.assertAlmostEqual(center_tuple[0], end_tuple[0],
                                delta=PIXEL_TOLERANCE_PX)

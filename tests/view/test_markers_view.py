@@ -14,7 +14,8 @@ from unittest import mock
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.menu_texts import FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST
+from tests.view.menu_texts import (
+    FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST, menu_option_texts)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 from controller.plot_tools import (
@@ -207,8 +208,7 @@ class MarkerWidgetTestCase(unittest.TestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.append([action.text() for action in menu.actions()
-                               if not action.isSeparator()])
+            shown_list.append(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str and action.menu() is None:
                     return action
@@ -240,8 +240,7 @@ class MarkerWidgetTestCase(unittest.TestCase):
         from PyQt6 import sip
         menu = self.plot_widget.build_context_menu(
             self.plot_widget.data_to_widget_point(time_s, value_f))
-        text_list = [action.text() for action in menu.actions()
-                     if not action.isSeparator()]
+        text_list = menu_option_texts(menu)
         sip.delete(menu)
         return text_list
 
@@ -597,7 +596,7 @@ class MarkerDragTest(MarkerWidgetTestCase):
         self.mouse("button_release_event", 14.0, 2.0)
         self.assertEqual(self.move_list, [(9, end_s)])
 
-    @covers("LLFR-00086", "LLFR-00078", "LLFR-00384")
+    @covers("LLFR-00086", "LLFR-00078", "LLFR-00384", "LLFR-00799")
     def test_drag_needs_the_marker_tool(self) -> None:
         """With another tool a press on the marker does not grab it
         (LLFR-00384; with no tool it does, LLFR-00382).
@@ -705,7 +704,8 @@ class MarkerMenuTest(MarkerWidgetTestCase):
                     self.assertEqual(text_list, FLAG_MENU_TEXT_LIST)
                     self.assertNotIn("Delete plot", text_list)
         # An empty area away from the marker still offers "Delete plot".
-        self.assertEqual(self.menu_texts_at(8.0, 2.0), ["Delete plot"])
+        self.assertEqual(self.menu_texts_at(8.0, 2.0),
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00048", "LLFR-00087")
     def test_label_shows_marker_menu(self) -> None:
@@ -720,7 +720,7 @@ class MarkerMenuTest(MarkerWidgetTestCase):
         label_point = self.plot_widget.display_to_widget_point(
             label_box.x1 - 2.0, (label_box.y0 + label_box.y1) / 2.0)
         menu = self.plot_widget.build_context_menu(label_point)
-        self.assertEqual([action.text() for action in menu.actions()],
+        self.assertEqual(menu_option_texts(menu),
                          FLAG_MENU_TEXT_LIST)
         sip.delete(menu)
 
@@ -817,7 +817,7 @@ class MarkerEndToEndTest(unittest.TestCase):
             QTest.mouseClick(self.main_window.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.process_events()
-        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("file1_speed")
         self.process_events()
         self.plot_widget = self.only_plot_widget()
 
@@ -890,7 +890,7 @@ class MarkerEndToEndTest(unittest.TestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str:
                     return action

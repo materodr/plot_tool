@@ -267,7 +267,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         """
         return os.path.join(self.folder_str, name_str)
 
-    @covers("LLFR-00395")
+    @covers("LLFR-00395", "LLFR-00531")
     def test_disabled_and_inert_without_a_data_file(self) -> None:
         """The button is disabled at first and does nothing; it is
         enabled once a file is open.
@@ -283,7 +283,59 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.open_data_file()
         self.assertEqual(self.view.enabled_list, [False, True])
 
-    @covers("LLFR-00396")
+    @covers("LLFR-01181", "LLFR-01182", "LLFR-00532", "LLFR-00398",
+            "LLFR-00399")
+    def test_dialog_folder_sequence(self) -> None:
+        """The Open file folder until a signals file is saved, then the
+        folder of the last one saved; the proposed name stays that of
+        the data file; cancels and failures change nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_data_file()
+        # LLFR-01181: the folder the Open file dialog would show (the
+        # last data file opened), not the folder of the proposed file.
+        self.file_controller.dialog_folder_str = "/data/last_opened"
+        first_folder_str = os.path.join(self.folder_str, "first")
+        second_folder_str = os.path.join(self.folder_str, "second")
+        os.mkdir(first_folder_str)
+        os.mkdir(second_folder_str)
+        self.view.dialog_answer_list = [
+            ("", CSV_FORMAT_STR, False),
+            (os.path.join(first_folder_str, "fail.csv"), CSV_FORMAT_STR,
+             False)]
+        self.view.write_failure_str = "full"
+        self.view.handler()
+        self.view.handler()
+        self.view.write_failure_str = ""
+        # LLFR-01182: a successful save moves the folder.
+        self.view.dialog_answer_list = [
+            (os.path.join(first_folder_str, "out"), CSV_FORMAT_STR, False),
+            ("", CSV_FORMAT_STR, False),
+            (os.path.join(second_folder_str, "out.csv"), CSV_FORMAT_STR,
+             False)]
+        self.view.handler()
+        self.view.handler()
+        self.file_controller.dialog_folder_str = "/data/other"
+        self.view.handler()
+        self.view.handler()
+        self.assertTrue(os.path.exists(os.path.join(first_folder_str,
+                                                    "out.csv")))
+        self.assertTrue(os.path.exists(os.path.join(second_folder_str,
+                                                    "out.csv")))
+        self.assertEqual(
+            [call_tuple[0] for call_tuple in self.view.dialog_call_list],
+            ["/data/last_opened", "/data/last_opened", "/data/last_opened",
+             os.path.abspath(first_folder_str),
+             os.path.abspath(first_folder_str),
+             os.path.abspath(second_folder_str)])
+        # LLFR-00532: the proposed name is always the data file's.
+        self.assertEqual(
+            {call_tuple[1] for call_tuple in self.view.dialog_call_list},
+            {"run1_signals.csv"})
+
+    @covers("LLFR-00396", "LLFR-00532")
     def test_dialog_defaults(self) -> None:
         """The dialog opens in the data file's folder, with
         run1_signals.csv and the CSV format.
@@ -298,7 +350,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
              CSV_FORMAT_STR)])
 
     @covers("LLFR-00396", "LLFR-00401", "LLFR-00402", "LLFR-00407",
-            "LLFR-00404", "LLFR-00253")
+            "LLFR-00404", "LLFR-00253", "LLFR-00533", "LLFR-00558")
     def test_saved_file_opens_with_the_same_signals(self) -> None:
         """A name without extension gets ".csv"; the file holds every
         signal but the FFT, in list order, with "time" written as Time,
@@ -326,7 +378,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
                          self.data_bytes)
         self.assertEqual(self.view.finished_count_i, 1)
 
-    @covers("LLFR-00403", "LLFR-00404")
+    @covers("LLFR-00403", "LLFR-00404", "LLFR-00543", "LLFR-00558")
     def test_mat_lists_every_changed_name(self) -> None:
         """MAT: "speed.x2" and the time name change and are listed.
 
@@ -338,12 +390,12 @@ class SaveSignalsFlowTest(unittest.TestCase):
             (self.target("out.mat"), MAT_FORMAT_STR, False)]
         self.view.handler()
         self.assertEqual(self.view.changed_names_list, [
-            "time → Time\nspeed.x2 → speed_x2"])
+            "1. time → Time\n\n2. speed.x2 → speed_x2"])
         saved_file = load_signal_file(self.target("out.mat"))
         self.assertEqual(saved_file.signal_name_list,
                          ["Time", "speed", "speed_x2", "int_speed"])
 
-    @covers("LLFR-00404")
+    @covers("LLFR-00404", "LLFR-00555")
     def test_no_box_when_no_name_changed(self) -> None:
         """With a time signal named Time and valid names, no box.
 
@@ -362,7 +414,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(self.view.changed_names_list, [])
         self.assertTrue(os.path.exists(self.target("ok.xlsx")))
 
-    @covers("LLFR-00396")
+    @covers("LLFR-00396", "LLFR-00533")
     def test_extension_of_another_format_gets_the_chosen_one(self) -> None:
         """"out.csv" saved as Excel becomes "out.csv.xlsx".
 
@@ -377,7 +429,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
                          [self.target("out.csv.xlsx")])
         self.assertFalse(os.path.exists(self.target("out.csv")))
 
-    @covers("LLFR-00398")
+    @covers("LLFR-00398", "LLFR-00539")
     def test_cancelled_dialog(self) -> None:
         """A cancelled dialog saves nothing and shows nothing.
 
@@ -394,7 +446,8 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(self.view.replace_question_list, [])
         self.assertEqual(self.view.finished_count_i, 1)
 
-    @covers("LLFR-00397", "LLFR-00398")
+    @covers("LLFR-00397", "LLFR-00398", "LLFR-00536", "LLFR-00537",
+            "LLFR-00539")
     def test_replace_question(self) -> None:
         """An existing file is replaced only after "Yes"; "No" saves
         nothing and shows nothing.
@@ -422,7 +475,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertIn("speed", load_signal_file(
             existing_str).signal_name_list)
 
-    @covers("LLFR-00397")
+    @covers("LLFR-00397", "LLFR-00536", "LLFR-00538")
     def test_no_second_question_after_the_system_dialog(self) -> None:
         """When the system dialog asked about this path, the app does not
         ask again; when the app added the extension, it asks.
@@ -447,7 +500,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(self.view.replace_question_list,
                          [self.target("new.csv")])
 
-    @covers("LLFR-00397", "LLFR-00253")
+    @covers("LLFR-00397", "LLFR-00253", "LLFR-00534", "LLFR-00535")
     def test_opened_data_file_is_refused(self) -> None:
         """Choosing the opened data file, even as "run1" or through a
         link, writes nothing, the app never asks to replace it, and the
@@ -474,7 +527,8 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(read_bytes(self.data_path_str),
                          self.data_bytes)
 
-    @covers("LLFR-00397", "LLFR-00253")
+    @covers("LLFR-00397", "LLFR-00253", "LLFR-00534", "LLFR-00535",
+            "LLFR-00538")
     def test_data_file_after_the_system_question(self) -> None:
         """When the system dialog (macOS) already asked about the opened
         data file, the app does not ask again, saves nothing and shows
@@ -527,7 +581,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(len(self.view.error_list), 1)
         self.assertIn("could not be saved", self.view.error_list[0])
 
-    @covers("LLFR-00400")
+    @covers("LLFR-00400", "LLFR-00540")
     def test_too_many_samples_for_excel(self) -> None:
         """More than 1048575 samples: no file and an error box.
 
@@ -549,7 +603,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(self.view.written_path_list, [])
         self.assertFalse(os.path.exists(self.target("big.xlsx")))
 
-    @covers("LLFR-00408")
+    @covers("LLFR-00408", "LLFR-00559")
     def test_non_finite_values_refused(self) -> None:
         """A synthetic signal with inf or NaN values makes every format
         refuse: no file, one error box naming the signal.
@@ -577,7 +631,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.assertEqual(self.view.changed_names_list, [])
         self.assertEqual(sorted(os.listdir(self.folder_str)), ["run1.csv"])
 
-    @covers("LLFR-00405", "LLFR-00401")
+    @covers("LLFR-00405", "LLFR-00401", "LLFR-00541")
     def test_nothing_changes_in_the_app(self) -> None:
         """The signal list, the names, the store and the data file stay
         as they were; the FFT signal is left out without a message.

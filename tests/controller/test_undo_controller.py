@@ -499,10 +499,10 @@ class UndoNotRecordedTest(UndoControllerTestCase):
             lambda: self.handler("marker_place_handler")(self.plot_id_i,
                                                          3.0))
 
-    @covers("LLFR-00140", "LLFR-00070", "LLFR-00115", "LLFR-00122",
-            "LLFR-00079")
+    @covers("LLFR-00140", "LLFR-00070", "LLFR-00115", "LLFR-00079")
     def test_view_only_actions_are_not_undoable(self) -> None:
-        """Zoom and pan, reset zoom, grid and plot tools are not recorded.
+        """Zoom and pan, reset zoom and plot tools are not recorded (a
+        Grid click is, LLFR-01132).
 
         Inputs: none.
         Outputs: none.
@@ -511,8 +511,6 @@ class UndoNotRecordedTest(UndoControllerTestCase):
             lambda: self.handler("time_range_handler")(self.plot_id_i,
                                                        2.0, 4.0))
         self.assert_not_recorded(lambda: self.handler("reset_zoom")())
-        self.assert_not_recorded(lambda: self.handler("grid")(True))
-        self.assert_not_recorded(lambda: self.handler("grid")(False))
         self.assert_not_recorded(
             lambda: self.handler("plot_tool")(NO_TOOL_STR))
         self.assertFalse(self.view.undo_enabled_b)
@@ -521,7 +519,7 @@ class UndoNotRecordedTest(UndoControllerTestCase):
 class UndoHistoryBehaviourTest(UndoControllerTestCase):
     """Depth, availability and file opening."""
 
-    @covers("LLFR-00141")
+    @covers("LLFR-00141", "LLFR-00457")
     def test_nothing_to_undo_does_nothing(self) -> None:
         """With an empty history, undo changes neither model nor view.
 
@@ -600,9 +598,9 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
                              state_list[expected_index_i])
             self.assert_view_matches_model()
 
-    @covers("LLFR-00142", "LLFR-00013", "LLFR-00141")
-    def test_opening_a_file_clears_the_history(self) -> None:
-        """A replaced file leaves nothing to undo.
+    @covers("LLFR-00142", "LLFR-00930", "LLFR-00141")
+    def test_opening_keeps_and_closing_clears_the_history(self) -> None:
+        """An added file keeps the history; closing the files clears it.
 
         Inputs: none.
         Outputs: none.
@@ -610,17 +608,20 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
         self.handler("add_tab")()
         self.handler("rename_tab")(self.first_tab_id_i, "Z")
         self.assertTrue(self.view.undo_enabled_b)
-        self.file_controller.open(make_signal_file(3), True)
+        depth_i = self.depth()
+        self.file_controller.open(self.signal_file, None)
+        self.assertEqual(self.depth(), depth_i)
+        self.assertTrue(self.view.undo_enabled_b)
+        self.close_all_files()
         self.assertEqual(self.depth(), 0)
         self.assertFalse(self.view.undo_enabled_b)
         before_tuple = self.workspace.state_tuple()
         self.undo()
         self.assertEqual(self.workspace.state_tuple(), before_tuple)
-        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
 
     @covers("LLFR-00142", "LLFR-00141")
-    def test_first_file_clears_actions_made_before(self) -> None:
-        """Tab actions before the first file are cleared when it opens.
+    def test_first_file_keeps_actions_made_before(self) -> None:
+        """Tab actions made before the first file stay undoable.
 
         Inputs: none.
         Outputs: none.
@@ -634,9 +635,9 @@ class UndoHistoryBehaviourTest(UndoControllerTestCase):
         self.assertFalse(view.undo_enabled_b)
         view.handler_dict["add_tab"]()
         self.assertTrue(view.undo_enabled_b)
-        file_controller.open(make_signal_file(2), False)
-        self.assertFalse(controller.undo_history.can_undo())
-        self.assertFalse(view.undo_enabled_b)
+        file_controller.open(make_signal_file(2), None)
+        self.assertTrue(controller.undo_history.can_undo())
+        self.assertTrue(view.undo_enabled_b)
 
 
 class UndoViewStateTest(UndoControllerTestCase):
@@ -671,7 +672,7 @@ class UndoViewStateTest(UndoControllerTestCase):
         self.assertEqual(self.view.range_dict[self.lone_plot_id_i],
                          (3.0, 4.0))
 
-    @covers("LLFR-00138", "LLFR-00180")
+    @covers("LLFR-00138", "LLFR-00180", "LLFR-00688")
     def test_plots_restored_after_all_were_deleted_show_whole_range(
             self) -> None:
         """With no plot left before the undo, the restored ones are unzoomed.
@@ -693,14 +694,15 @@ class UndoViewStateTest(UndoControllerTestCase):
                           self.lone_plot_id_i):
             self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
 
-    @covers("LLFR-00138", "LLFR-00180")
+    @covers("LLFR-00138", "LLFR-00180", "LLFR-00688")
     def test_undo_to_no_plots_resets_the_shared_range(self) -> None:
         """Undoing the creation of the only plot forgets the shared range.
 
         Inputs: none.
         Outputs: none.
         """
-        self.file_controller.open(make_signal_file(3), True)
+        self.close_all_files()
+        self.file_controller.open(make_signal_file(3), None)
         self.double_click("s1")
         plot_id_i = self.current_plot_ids()[0]
         self.handler("time_range_handler")(plot_id_i, 3.0, 4.0)
@@ -712,7 +714,8 @@ class UndoViewStateTest(UndoControllerTestCase):
 
     @covers("LLFR-00138", "LLFR-00109")
     def test_plot_tool_and_grid_are_kept(self) -> None:
-        """Undo changes neither the plot tool nor the grid.
+        """Undoing another action changes neither the plot tool nor the
+        grid.
 
         Inputs: none.
         Outputs: none.
@@ -722,6 +725,64 @@ class UndoViewStateTest(UndoControllerTestCase):
         self.undo()
         self.assertEqual(self.controller.plot_tool_str, MARKER_TOOL_STR)
         self.assertEqual(self.view.plot_tool_str, MARKER_TOOL_STR)
+        self.assertTrue(self.controller.grid_shown_b)
+
+    @covers("LLFR-01132", "LLFR-00140", "LLFR-00138", "LLFR-00192",
+            "LLFR-00124", "HLFR-00040", "HLFR-00048", "HLFR-00037")
+    def test_grid_click_is_undone_and_redone(self) -> None:
+        """Each Grid click that changes the grid is one undoable action:
+        undo and redo show and hide the grid and the Grid button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertTrue(self.controller.grid_shown_b)
+        self.handler("grid")(False)
+        self.assertEqual(self.depth(), 1)
+        self.handler("grid")(True)
+        self.assertEqual(self.depth(), 2)
+        self.undo()
+        self.assertFalse(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, False)
+        self.undo()
+        self.assertTrue(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, True)
+        self.handler("redo")()
+        self.assertFalse(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, False)
+        self.handler("redo")()
+        self.assertTrue(self.controller.grid_shown_b)
+        self.assertIs(self.view.grid_shown_b, True)
+
+    @covers("LLFR-01132", "LLFR-00140", "HLFR-00040")
+    def test_grid_click_that_changes_nothing_is_not_recorded(self) -> None:
+        """A click that asks for the grid state already shown, and the
+        grid shown at start, are no undoable action.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.depth(), 0)
+        self.handler("grid")(True)
+        self.assertEqual(self.depth(), 0)
+        self.assertFalse(self.controller.undo_history.can_undo())
+
+    @covers("LLFR-01132", "LLFR-00138", "LLFR-00193", "HLFR-00040")
+    def test_grid_undo_keeps_the_other_actions(self) -> None:
+        """A grid click between two other actions is undone on its own,
+        and a new action after an undo drops the grid redo.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tab_count_i = len(self.workspace.tab_list)
+        self.handler("add_tab")()
+        self.handler("grid")(False)
+        self.undo()
+        self.assertTrue(self.controller.grid_shown_b)
+        self.assertEqual(len(self.workspace.tab_list), tab_count_i + 1)
+        self.handler("add_tab")()
+        self.assertFalse(self.controller.undo_history.can_redo())
         self.assertTrue(self.controller.grid_shown_b)
 
     @covers("LLFR-00138")

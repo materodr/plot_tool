@@ -70,7 +70,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
     """The Enter key plots the selection in one new plot."""
 
     @covers("LLFR-00295", "LLFR-00033", "LLFR-00144", "HLFR-00064",
-            "HLFR-00020")
+            "HLFR-00020", "LLFR-00629")
     def test_enter_creates_one_plot_with_every_signal(self) -> None:
         """One new plot draws every selected signal, in list order.
 
@@ -90,7 +90,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         self.assertEqual(self.view.plot_tab_dict[plot_id_i],
                          self.view.current_tab_id())
 
-    @covers("LLFR-00295", "LLFR-00069", "HLFR-00064")
+    @covers("LLFR-00295", "LLFR-01109", "HLFR-00064")
     def test_enter_adds_the_plot_below_the_others(self) -> None:
         """The new plot goes below the existing plots of the tab.
 
@@ -107,7 +107,8 @@ class EnterKeyPlotTest(MultiSelectTestCase):
                          ["s3", "s4"])
         self.assertEqual(self.view.drawn_names(first_plot_id_i), ["s1"])
 
-    @covers("LLFR-00295", "LLFR-00034", "HLFR-00064", "HLFR-00020")
+    @covers("LLFR-00295", "LLFR-00034", "HLFR-00064", "HLFR-00020",
+            "LLFR-00629")
     def test_enter_with_more_than_eight_signals(self) -> None:
         """Signals after the 8th get distinct random colors.
 
@@ -122,7 +123,8 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         self.assertEqual(color_list[:8], list(PALETTE_COLOR_TUPLE[:8]))
         self.assertEqual(len(set(color_list)), len(color_list))
 
-    @covers("LLFR-00295", "LLFR-00031", "LLFR-00032", "HLFR-00018")
+    @covers("LLFR-00295", "LLFR-00031", "LLFR-00032", "HLFR-00018",
+            "LLFR-00630")
     def test_enter_in_a_full_tab_shows_the_full_tab_box(self) -> None:
         """A full tab gets no new plot and the Full Tab box is shown.
 
@@ -138,7 +140,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         self.assertEqual(self.view.full_tab_count_i, 1)
         self.assertFalse(self.controller.undo_history.can_redo())
 
-    @covers("LLFR-00295", "LLFR-00056", "HLFR-00064")
+    @covers("LLFR-00295", "LLFR-00056", "HLFR-00064", "LLFR-00629")
     def test_enter_with_repeated_names_draws_each_once(self) -> None:
         """A name given twice is drawn once; unknown names are skipped.
 
@@ -149,7 +151,7 @@ class EnterKeyPlotTest(MultiSelectTestCase):
         plot_id_i = self.current_plot_ids()[0]
         self.assertEqual(self.view.drawn_names(plot_id_i), ["s1", "s2"])
 
-    @covers("LLFR-00296", "HLFR-00064")
+    @covers("LLFR-00296", "HLFR-00064", "LLFR-00632")
     def test_enter_with_nothing_selected_does_nothing(self) -> None:
         """An empty selection creates no plot and shows no message.
 
@@ -260,7 +262,8 @@ class DropSeveralTest(MultiSelectTestCase):
         self.undo()
         self.assertEqual(self.view.drawn_names(plot_id_i), ["s1"])
 
-    @covers("LLFR-00297", "LLFR-00022", "LLFR-00023", "HLFR-00065")
+    @covers("LLFR-00297", "LLFR-00022", "LLFR-00023", "HLFR-00065",
+            "LLFR-00633")
     def test_drop_on_an_unknown_plot_does_nothing(self) -> None:
         """A drop that is not on a plot creates nothing.
 
@@ -316,9 +319,11 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         Inputs: none.
         Outputs: the two names, in creation order.
         """
-        return [self.create_fft("Speed"), self.create_fft("Torque")]
+        return [self.create_fft("file1_Speed"),
+                self.create_fft("file1_Torque")]
 
-    @covers("LLFR-00295", "LLFR-00256", "HLFR-00064", "HLFR-00058")
+    @covers("LLFR-00295", "LLFR-00256", "HLFR-00064", "HLFR-00058",
+            "LLFR-00631")
     def test_enter_with_only_fft_signals_makes_a_frequency_plot(
             self) -> None:
         """Only FFT signals selected give one frequency plot.
@@ -337,35 +342,38 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         self.assertEqual(self.view.drawn_names(plot_id_i), fft_name_list)
         self.assertEqual(self.view.kind_mismatch_count_i, 0)
 
-    @covers("LLFR-00300", "LLFR-00257", "HLFR-00064", "HLFR-00058")
+    @covers("LLFR-00300", "LLFR-00257", "HLFR-00064", "HLFR-00058",
+            "LLFR-00635", "LLFR-00636")
     def test_enter_with_fft_and_time_signals_is_refused(self) -> None:
         """A mixed selection creates no plot and shows the box.
 
         Inputs: none.
         Outputs: none.
         """
-        fft_name_str = self.create_fft("Speed")
-        self.press_enter(["Speed", fft_name_str])
+        fft_name_str = self.create_fft("file1_Speed")
+        self.press_enter(["file1_Speed", fft_name_str])
         self.assertEqual(self.plot_id_list(), [])
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
         self.assertFalse(self.plot_controller.undo_history.can_undo())
 
-    @covers("LLFR-00300", "LLFR-00257", "HLFR-00065", "HLFR-00058")
+    @covers("LLFR-00300", "LLFR-00257", "HLFR-00065", "HLFR-00058",
+            "LLFR-00636")
     def test_drop_with_an_fft_signal_on_a_time_plot(self) -> None:
         """A drop holding an FFT signal on a time plot draws nothing.
 
         Inputs: none.
         Outputs: none.
         """
-        fft_name_str = self.create_fft("Speed")
-        self.double_click("Time")
+        fft_name_str = self.create_fft("file1_Speed")
+        self.double_click("file1_Time")
         plot_id_i = self.last_plot_id()
-        self.drop_names(plot_id_i, ["Speed", fft_name_str, "Torque"])
-        self.assertEqual(self.view.drawn_names(plot_id_i), ["Time"])
+        self.drop_names(plot_id_i, ["file1_Speed", fft_name_str,
+                                    "file1_Torque"])
+        self.assertEqual(self.view.drawn_names(plot_id_i), ["file1_Time"])
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
 
     @covers("LLFR-00300", "LLFR-00257", "LLFR-00297", "HLFR-00065",
-            "HLFR-00058")
+            "HLFR-00058", "LLFR-00636", "LLFR-00691")
     def test_drop_on_a_frequency_plot(self) -> None:
         """FFT signals are added; one time signal blocks the whole drop.
 
@@ -375,7 +383,7 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
         first_fft_str, second_fft_str = self.two_fft_names()
         self.double_click(first_fft_str)
         plot_id_i = self.last_plot_id()
-        self.drop_names(plot_id_i, [second_fft_str, "Speed"])
+        self.drop_names(plot_id_i, [second_fft_str, "file1_Speed"])
         self.assertEqual(self.view.drawn_names(plot_id_i), [first_fft_str])
         self.assertEqual(self.view.kind_mismatch_count_i, 1)
         self.drop_names(plot_id_i, [first_fft_str, second_fft_str])
@@ -387,32 +395,32 @@ class FrequencySelectionTest(FrequencyPlotTestCase):
 class RenameSelectionTest(FrequencyPlotTestCase):
     """A renamed synthetic signal keeps its place in the selection."""
 
-    @covers("LLFR-00292", "LLFR-00266", "HLFR-00063")
+    @covers("LLFR-00292", "LLFR-00266", "HLFR-00063", "LLFR-00602")
     def test_rename_tells_the_view_before_the_list_is_shown(self) -> None:
         """The view renames the shown name, then shows the new list.
 
         Inputs: none.
         Outputs: none.
         """
-        self.create("Speed", "integral")
+        self.create("file1_Speed", "integral")
         self.view.name_answer_list = ["Distance"]
-        self.menu("rename", "int_Speed")
+        self.menu("rename", "file1_int_Speed")
         self.assertEqual(self.view.renamed_shown_list,
-                         [("int_Speed", "Distance")])
-        self.assertEqual(self.view.shown_name_list[-1], "Distance")
+                         [("file1_int_Speed", "file1_Distance")])
+        self.assertEqual(self.view.shown_name_list[-1], "file1_Distance")
         # A rejected rename tells the view nothing.
         self.view.name_answer_list = ["   "]
-        self.menu("rename", "Distance")
+        self.menu("rename", "file1_Distance")
         self.assertEqual(self.view.renamed_shown_list,
-                         [("int_Speed", "Distance")])
+                         [("file1_int_Speed", "file1_Distance")])
 
 
 class SelectionOnFileOpenTest(unittest.TestCase):
-    """The selection is cleared when a file is opened (LLFR-00292)."""
+    """Opening another data file keeps the selection (LLFR-00292)."""
 
-    @covers("LLFR-00292", "HLFR-00063")
-    def test_opening_a_file_clears_the_selection(self) -> None:
-        """Every open, first or replacing, clears the selection.
+    @covers("LLFR-00292", "LLFR-00921", "HLFR-00063")
+    def test_opening_a_file_keeps_the_selection(self) -> None:
+        """An added file keeps the signals shown, so they stay selected.
 
         Inputs: none.
         Outputs: none.
@@ -420,11 +428,9 @@ class SelectionOnFileOpenTest(unittest.TestCase):
         view = FakeSignalListView()
         file_controller = FakeFileController()
         SignalListController(view, file_controller)
+        file_controller.open(make_signal_file(2), None)
+        file_controller.open(make_signal_file(2), None)
         self.assertEqual(view.selection_clear_count_i, 0)
-        file_controller.open(make_signal_file(2), False)
-        self.assertEqual(view.selection_clear_count_i, 1)
-        file_controller.open(make_signal_file(2), True)
-        self.assertEqual(view.selection_clear_count_i, 2)
 
 
 if __name__ == "__main__":

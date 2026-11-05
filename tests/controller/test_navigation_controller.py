@@ -177,17 +177,22 @@ class GridControllerTest(PlotControllerTestCase):
         self.view.handler_dict["grid"](shown_b)
 
     @covers("LLFR-00147")
-    def test_grid_is_hidden_at_start(self) -> None:
-        """A new controller tells the view to hide the grid.
+    def test_grid_is_shown_at_start(self) -> None:
+        """A new controller tells the view to show the grid, also after
+        an earlier controller hid it.
 
         Inputs: none.
         Outputs: none.
         """
+        # The grid was hidden in the controller of setUp ("last run").
+        self.click_grid(False)
+        self.assertFalse(self.controller.grid_shown_b)
         view = FakePlotView()
         controller = PlotController(view, FakeFileController())
-        self.assertFalse(controller.grid_shown_b)
-        self.assertIs(view.grid_shown_b, False)
-        self.assertIn(("set_grid_shown", False), view.call_list)
+        self.assertTrue(controller.grid_shown_b)
+        self.assertIs(view.grid_shown_b, True)
+        self.assertIn(("set_grid_shown", True), view.call_list)
+        self.assertNotIn(("set_grid_shown", False), view.call_list)
 
     @covers("LLFR-00122", "LLFR-00123", "LLFR-00124")
     def test_grid_clicks_show_and_hide_the_grid(self) -> None:
@@ -226,17 +231,20 @@ class GridControllerTest(PlotControllerTestCase):
     @covers("LLFR-00125", "LLFR-00147")
     def test_grid_choice_is_kept_when_a_file_replaces_another(
             self) -> None:
-        """Opening another file does not reset the grid choice.
+        """Opening another file does not reset the grid choice: a
+        hidden grid stays hidden, a shown grid stays shown.
 
         Inputs: none.
         Outputs: none.
         """
-        self.click_grid(True)
-        self.view.call_list.clear()
-        self.file_controller.open(make_signal_file(2), True)
-        self.assertTrue(self.controller.grid_shown_b)
-        self.assertNotIn(("set_grid_shown", False), self.view.call_list)
-        self.assertTrue(self.view.grid_shown_b)
+        for shown_b in (False, True):
+            self.click_grid(shown_b)
+            self.view.call_list.clear()
+            self.file_controller.open(make_signal_file(2), True)
+            self.assertIs(self.controller.grid_shown_b, shown_b)
+            self.assertNotIn(("set_grid_shown", not shown_b),
+                             self.view.call_list)
+            self.assertIs(self.view.grid_shown_b, shown_b)
 
 
 if __name__ == "__main__":

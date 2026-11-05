@@ -33,6 +33,8 @@ MINIMUM_DIALOG_WIDTH_I = 380
 SEARCH_PLACEHOLDER_TEXT_STR = "Search signals"
 # LLFR-00325: the window title of the time signal window.
 TIME_SIGNAL_TITLE_STR = "Time signal"
+# LLFR-00957: the line of the time signal window that names its file.
+TIME_SIGNAL_FILE_FORMAT_STR = "File: {name}"
 
 
 class ParameterDialog(QDialog):
@@ -268,6 +270,8 @@ class SecondSignalDialog(QDialog):
             can't be accepted, or "" when it can; None accepts every
             name (LLFR-00329).
     Attributes:
+        file_label: the label that names the file of the time signal
+            window (LLFR-00957), hidden without a file name.
         prompt_label: the label with the question.
         search_box: the QLineEdit above the list, with the keyboard
             focus when the dialog opens.
@@ -282,7 +286,7 @@ class SecondSignalDialog(QDialog):
                  name_list: list, selected_name_str: str,
                  search_function=None,
                  no_match_text_str: str = "",
-                 check_function=None) -> None:
+                 check_function=None, file_name_str: str = "") -> None:
         """Create the dialog, not shown.
 
         Inputs:
@@ -294,6 +298,8 @@ class SecondSignalDialog(QDialog):
             search_function: text -> matching names, or None.
             no_match_text_str: the text shown when nothing matches.
             check_function: name -> reason ("" when allowed), or None.
+            file_name_str: the name of the file the time signal window
+                is for (LLFR-00957); "" shows no file line.
         Outputs: none.
         """
         super().__init__(parent)
@@ -306,6 +312,17 @@ class SecondSignalDialog(QDialog):
         # LLFR-00329: the check of the confirmed name, if any.
         self.check_function = check_function
         dialog_layout = QVBoxLayout(self)
+        # LLFR-00957: the name of the file, with its extension and
+        # without its folder, above the question.
+        self.file_label = QLabel(TIME_SIGNAL_FILE_FORMAT_STR.format(
+            name=file_name_str))
+        self.file_label.setObjectName("time_signal_file_label")
+        self.file_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.file_label.setWordWrap(True)
+        file_label_font = self.file_label.font()
+        file_label_font.setBold(True)
+        self.file_label.setFont(file_label_font)
+        self.file_label.setVisible(bool(file_name_str))
         self.prompt_label = QLabel(prompt_str)
         self.prompt_label.setObjectName("second_signal_prompt_label")
         self.prompt_label.setWordWrap(True)
@@ -337,6 +354,7 @@ class SecondSignalDialog(QDialog):
         # LLFR-00275: a double-click chooses the signal at once.
         self.signal_list_widget.itemDoubleClicked.connect(
             lambda *_: self.try_accept())
+        dialog_layout.addWidget(self.file_label)
         dialog_layout.addWidget(self.prompt_label)
         dialog_layout.addWidget(self.search_box)
         dialog_layout.addWidget(self.signal_list_widget, 1)
@@ -526,7 +544,8 @@ def build_second_signal_dialog(parent, title_str: str, prompt_str: str,
 
 def build_time_signal_dialog(parent, prompt_str: str, name_list: list,
                              search_function, no_match_text_str: str,
-                             check_function) -> SecondSignalDialog:
+                             check_function, file_name_str: str = ""
+                             ) -> SecondSignalDialog:
     """Build the time signal window, not shown.
 
     Inputs:
@@ -536,14 +555,18 @@ def build_time_signal_dialog(parent, prompt_str: str, name_list: list,
         search_function: text -> matching names.
         no_match_text_str: the text shown when nothing matches.
         check_function: name -> reason it can't be the time signal.
+        file_name_str: the name of the file the window is for
+            (LLFR-00957).
     Outputs: the SecondSignalDialog used as the time signal window.
     """
     # LLFR-00325: the window works like the second signal dialog
     # (HLFR-00070), with its search box; the first signal is selected.
     # LLFR-00329: check_function keeps it open for a bad signal.
+    # LLFR-00957: the window names its file.
     return SecondSignalDialog(parent, TIME_SIGNAL_TITLE_STR, prompt_str,
                               name_list, "", search_function,
-                              no_match_text_str, check_function)
+                              no_match_text_str, check_function,
+                              file_name_str)
 
 
 def run_dialog(dialog) -> bool:

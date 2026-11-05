@@ -46,7 +46,7 @@ class ArrowGeometryTest(unittest.TestCase):
             (3.0, 4.0), (3.0, 4.0), 1.0)
         self.assertTrue(np.allclose(same_array, 3 * [[3.0, 4.0]]))
 
-    @covers("LLFR-00373")
+    @covers("LLFR-01201", "HLFR-00081")
     def test_points_on_the_line_and_on_the_head(self) -> None:
         """Distances to the segment and points in the head triangle.
 
@@ -68,7 +68,7 @@ class ArrowGeometryTest(unittest.TestCase):
         self.assertFalse(arrow_geometry.point_in_triangle_b(
             (90.0, 8.0), vertex_array))
 
-    @covers("LLFR-00373", "LLFR-00374")
+    @covers("LLFR-00373", "LLFR-00374", "LLFR-00776")
     def test_path_with_and_without_head(self) -> None:
         """With its head, the path is the line to the head's back and the
         closed head; without it, only the line to the end.

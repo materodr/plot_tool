@@ -15,6 +15,7 @@ import numpy as np
 
 from tests.support import button_name, covers, get_qt_application
 from tests.view.menu_texts import (
+    menu_option_texts,
     DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST, TIP_MENU_TEXT_LIST)
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.support import button_tip_line_list, requires_qt
@@ -240,7 +241,7 @@ class DeltaPickTest(DeltaWidgetTestCase):
         self.assertEqual(self.pin_list, [])
         self.assertEqual(self.range_list, [])
 
-    @covers("LLFR-00165")
+    @covers("LLFR-00165", "LLFR-00683")
     def test_click_off_every_curve_reports_nothing(self) -> None:
         """A click on an empty area or outside the axes sends nothing.
 
@@ -280,9 +281,11 @@ class DeltaPickTest(DeltaWidgetTestCase):
         self.assertEqual(self.pick_list, [self.sine_point(2.0)])
         self.assertEqual(self.move_list, [])
 
-    @covers("LLFR-00153", "LLFR-00163")
-    def test_press_on_a_pinned_tip_moves_it_and_never_picks(self) -> None:
-        """A press on a pinned tip's point starts moving the tip.
+    @covers("LLFR-01248", "LLFR-00153", "LLFR-00163", "LLFR-00679")
+    def test_press_on_a_pinned_tip_point_picks_it(self) -> None:
+        """A press on a pinned tip's point, where the dot of the point a
+        click would pick is shown, picks that point and leaves the tip
+        where it is (LLFR-01248).
 
         Inputs: none.
         Outputs: none.
@@ -294,20 +297,23 @@ class DeltaPickTest(DeltaWidgetTestCase):
         for tool_str in DELTA_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
+                self.pick_list.clear()
+                self.plot_widget.set_delta_first_point(())
+                self.mouse("motion_notify_event", time_s, value_f)
+                self.assertTrue(self.plot_widget.delta_preview_shown())
                 self.mouse("button_press_event", time_s, value_f)
-                self.assertEqual(self.plot_widget.drag_tip_index_i, 0)
-                self.mouse("motion_notify_event", time_s + 1.0, value_f)
-                self.mouse("button_release_event", time_s + 1.0, value_f)
-                self.assertEqual(self.pick_list, [])
-                self.assertEqual(len(tip_move_list), 1)
-                tip_move_list.clear()
+                self.assertEqual(self.plot_widget.drag_tip_index_i, -1)
+                self.mouse("button_release_event", time_s, value_f)
+                self.assertEqual(self.pick_list,
+                                 [(name_str, time_s, value_f)])
+                self.assertEqual(tip_move_list, [])
                 self.draw()
 
 
 class DeltaFirstPointTest(DeltaWidgetTestCase):
     """The dot of a picked first point."""
 
-    @covers("LLFR-00163", "LLFR-00172")
+    @covers("LLFR-00163", "LLFR-00172", "LLFR-00686", "LLFR-00680")
     def test_dot_in_marker_color_at_the_point(self) -> None:
         """The dot is drawn at the point in the reserved marker color.
 
@@ -332,7 +338,7 @@ class DeltaFirstPointTest(DeltaWidgetTestCase):
             self.assertNotEqual(to_hex_str(line.get_color()),
                                 MARKER_COLOR_STR)
 
-    @covers("LLFR-00164", "LLFR-00167")
+    @covers("LLFR-00164", "LLFR-00167", "LLFR-00681")
     def test_dot_removed_and_kept_over_redraws(self) -> None:
         """The dot survives a redraw, goes with () or a tool change.
 
@@ -441,7 +447,7 @@ class DeltaDrawingTest(DeltaWidgetTestCase):
         self.assertLessEqual(box.y0, float(tip_px[1]))
         self.assertGreaterEqual(box.y1, float(tip_px[1]))
 
-    @covers("LLFR-00173", "LLFR-00168", "LLFR-00170")
+    @covers("LLFR-00173", "LLFR-00168", "LLFR-00170", "LLFR-00687")
     def test_markers_follow_zoom_pan_and_resize(self) -> None:
         """After a zoom, a pan and a resize, both stay at their points.
 
@@ -473,7 +479,7 @@ class DeltaDrawingTest(DeltaWidgetTestCase):
                                   self.plot_widget.delta_label_text(2)),
                                  text_tuple)
 
-    @covers("LLFR-00170", "LLFR-00171", "LLFR-00173")
+    @covers("LLFR-00170", "LLFR-00171", "LLFR-00173", "LLFR-00685")
     def test_delta_y_near_the_right_edge_is_mirrored_left(self) -> None:
         """No room right of the later point: bracket and value go left.
 
@@ -654,7 +660,8 @@ class DeltaMenuTest(DeltaWidgetTestCase):
                     self.assertEqual(self.menu_texts_at(*data_tuple),
                                      DELTA_MENU_TEXT_LIST)
         # LLFR-00048: an empty area still offers "Delete plot".
-        self.assertEqual(self.menu_texts_at(9.0, -0.5), ["Delete plot"])
+        self.assertEqual(self.menu_texts_at(9.0, -0.5),
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00176")
     def test_delete_requests_the_marker_id_last(self) -> None:
@@ -791,11 +798,11 @@ class DeltaWindowTestCase(unittest.TestCase):
         Inputs: none.
         Outputs: the PlotWidget.
         """
-        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("file1_speed")
         self.process_events()
         plot_id_i = self.main_window.plot_panel.plot_id_list(
             self.main_window.current_tab_id())[0]
-        self.plot_controller.on_signal_dropped(plot_id_i, "force")
+        self.plot_controller.on_signal_dropped(plot_id_i, "file1_force")
         self.process_events()
         return self.main_window.plot_view(plot_id_i)
 
@@ -903,7 +910,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
                 global_point: QPoint in screen coordinates.
             Outputs: the matching QAction, or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             for action in all_menu_actions(menu):
                 if action.text() == text_str:
                     return action
@@ -930,7 +937,8 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         return plot_widget_list[0]
 
     @covers("LLFR-00161", "LLFR-00163", "LLFR-00164", "LLFR-00168",
-            "LLFR-00169", "LLFR-00138", "LLFR-00140", "LLFR-00109")
+            "LLFR-00169", "LLFR-00138", "LLFR-00140", "LLFR-00109",
+            "LLFR-00682")
     def test_measure_delta_x_between_two_curves_and_undo(self) -> None:
         """speed at 0.5 s then force at 1.5 s gives "Δt = 1 s"; undo.
 
@@ -943,7 +951,7 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         # LLFR-00163: the first point's dot.
         plot_widget = self.current_plot_widget()
         self.assertEqual(plot_widget.delta_first_point_tuple,
-                         ("speed", 0.5, 1.0))
+                         ("file1_speed", 0.5, 1.0))
         self.left_click(plot_widget, 1.5, 0.0)
         plot_widget = self.current_plot_widget()
         self.assertEqual(plot_widget.delta_first_point_tuple, ())
@@ -1027,14 +1035,14 @@ class DeltaEndToEndTest(DeltaWindowTestCase):
         plot_widget = self.plot_speed_and_force()
         plot_id_i = plot_widget.plot_id_i
         self.plot_controller.on_plot_tool_changed(DELTA_X_TOOL_STR)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "speed", 0.5,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_speed", 0.5,
                                                  1.0)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "force", 1.5,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_force", 1.5,
                                                  0.0)
         self.plot_controller.on_plot_tool_changed(DELTA_Y_TOOL_STR)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "force", 1.0,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_force", 1.0,
                                                  -1.0)
-        self.plot_controller.on_delta_point_pick(plot_id_i, "speed", 1.0,
+        self.plot_controller.on_delta_point_pick(plot_id_i, "file1_speed", 1.0,
                                                  2.0)
         self.process_events()
 

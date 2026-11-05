@@ -31,6 +31,12 @@ name: macOS build
 #   after the start included, is within 0.65 s
 #   (PLOT_TOOL_DIALOG_PROBE=1); on every launch no file dialog is shown
 #   before a request (issue #165).
+# - LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182: a reused Open
+#   file, Save layout, Load layout, Save all tabs as PDF or Save signals
+#   dialog shows the folder the app asks for, read from the system
+#   panel on screen (PLOT_TOOL_FOLDER_PROBE=1, issue #232);
+# - LLFR-01183: and its name field is empty, without the file chosen at
+#   the earlier use (issue #243).
 on:
   pull_request:
     paths:
@@ -71,8 +77,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-build.txt
 
+      # PCR-00073: the big sample files take minutes and GB of disk, so
+      # the CI build leaves them out; a local build writes them.
       - name: Build the app
-        run: python build_executable.py
+        run: python build_executable.py --no-big-files
 
       - name: Check the app bundle
         run: |
@@ -184,6 +192,34 @@ jobs:
           python tests/user_tests/measure_startup.py --runs 5 \
             --limit-s 1000 --dialog-limit-s 0.65 --turn-limit-s 2 -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
+
+      # LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182 (issue #232):
+      # the Open file, Save layout, Load layout, Save all tabs as PDF
+      # and Save signals dialogs are each shown again in a new folder
+      # after a file of another folder was selected in them; the folder
+      # of the system panel on screen must be the new one, and
+      # (LLFR-01183, issue #243) its name field must be empty.
+      - name: Check the folder of reused file dialogs
+        timeout-minutes: 5
+        env:
+          PYTHONFAULTHANDLER: "1"
+          PLOT_TOOL_STARTUP_PROBE: "1"
+          PLOT_TOOL_FOLDER_PROBE: "1"
+        run: |
+          set +e
+          bin/plot_tool.app/Contents/MacOS/plot_tool > folder_output.txt 2>&1
+          exit_code=$?
+          set -e
+          cat folder_output.txt
+          failed=0
+          fail() { echo "::error title=Dialog folder::$1"; failed=1; }
+          count=$(grep -c '^plot_tool folder:' folder_output.txt || true)
+          [ "$count" -eq 5 ] || fail "$count folder lines instead of 5"
+          grep '^plot_tool folder:' folder_output.txt | grep -v 'source=panel' && fail "a folder was not read from the system panel"
+          grep '^plot_tool folder:' folder_output.txt | grep ' ok=no' && fail "a reused dialog showed another folder"
+          grep '^plot_tool folder:' folder_output.txt | grep 'name_ok=no' && fail "a reused dialog showed the file name of its earlier use"
+          [ "$exit_code" -eq 0 ] || fail "the app exited with $exit_code"
+          exit $failed
 
       - name: Show the kept matplotlib cache
         if: always()

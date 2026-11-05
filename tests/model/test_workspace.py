@@ -53,7 +53,7 @@ class TabTest(unittest.TestCase):
         id_list = [tab.tab_id_i for tab in workspace.tab_list]
         self.assertEqual(len(set(id_list)), 3)
 
-    @covers("LLFR-00210", "LLFR-00026", "HLFR-00015")
+    @covers("LLFR-00210", "LLFR-00026", "HLFR-00015", "LLFR-00653")
     def test_deleted_tab_numbers_are_not_reused(self) -> None:
         """Deleting Tab 2 and adding a tab gives Tab 4, not Tab 2.
 
@@ -85,7 +85,7 @@ class TabTest(unittest.TestCase):
         workspace.rename_tab(first_tab.tab_id_i, "Tab 7")
         self.assertEqual(workspace.add_tab().name_str, "Tab 3")
 
-    @covers("LLFR-00210", "LLFR-00138")
+    @covers("LLFR-00210", "LLFR-00138", "LLFR-00653")
     def test_undone_tab_number_is_not_reused(self) -> None:
         """Restoring a snapshot from before an add keeps the number used.
 
@@ -106,9 +106,10 @@ class TabTest(unittest.TestCase):
         workspace.restore(later_snapshot)
         self.assertEqual(workspace.add_tab().name_str, "Tab 6")
 
-    @covers("LLFR-00210", "LLFR-00016")
+    @covers("LLFR-00210", "LLFR-00024", "LLFR-00654")
     def test_reset_restarts_the_numbering(self) -> None:
-        """After reset (a file opened) the tabs count from Tab 1 again.
+        """After reset, the state at the start of the app, the tabs count
+        from Tab 1 again.
 
         Inputs: none.
         Outputs: none.
@@ -132,7 +133,8 @@ class TabTest(unittest.TestCase):
         self.assertEqual(workspace.next_tab_name(), "Tab 2")
         self.assertEqual(workspace.next_tab_name(), "Tab 2")
 
-    @covers("LLFR-00212", "LLFR-00210", "LLFR-00026", "HLFR-00015")
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00026", "HLFR-00015",
+            "LLFR-00653")
     def test_new_tab_skips_names_in_use(self) -> None:
         """Renamed "Tab 5" is skipped and deleted numbers stay used.
 
@@ -153,7 +155,7 @@ class TabTest(unittest.TestCase):
         workspace.delete_tab(workspace.tab_list[-1].tab_id_i)
         self.assertEqual(workspace.add_tab().name_str, "Tab 8")
 
-    @covers("LLFR-00212", "LLFR-00210")
+    @covers("LLFR-00212", "LLFR-00210", "LLFR-00655")
     def test_skipped_numbers_are_used_up(self) -> None:
         """Numbers skipped for a name in use are not handed out later.
 
@@ -174,7 +176,7 @@ class TabTest(unittest.TestCase):
         # Tab 3 and Tab 4 are free again, but their numbers were used up.
         self.assertEqual(workspace.add_tab().name_str, "Tab 6")
 
-    @covers("LLFR-00212", "LLFR-00016")
+    @covers("LLFR-00212", "LLFR-00024")
     def test_reset_gives_tab_1_whatever_the_names(self) -> None:
         """After reset there is one tab "Tab 1", with no conflict.
 
@@ -188,7 +190,7 @@ class TabTest(unittest.TestCase):
                          ["Tab 1"])
         self.assertEqual(workspace.add_tab().name_str, "Tab 2")
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00658")
     def test_rename_to_another_tab_name_is_refused(self) -> None:
         """Another tab's name, trimmed and exact, keeps the old name.
 
@@ -210,7 +212,7 @@ class TabTest(unittest.TestCase):
         self.assertTrue(workspace.rename_tab(first_tab.tab_id_i, " Tab 1 "))
         self.assertEqual(first_tab.name_str, "Tab 1")
 
-    @covers("LLFR-00211", "LLFR-00212")
+    @covers("LLFR-00211", "LLFR-00212", "LLFR-00658")
     def test_is_tab_name_taken(self) -> None:
         """is_tab_name_taken trims, is exact and can leave a tab out.
 
@@ -315,7 +317,7 @@ class TabTest(unittest.TestCase):
 class PlotInTabTest(unittest.TestCase):
     """Check adding and deleting plots in a tab."""
 
-    @covers("LLFR-00031", "HLFR-00018", "LLFR-00069")
+    @covers("LLFR-00031", "HLFR-00018", "LLFR-01109", "LLFR-01122")
     def test_sixth_plot_is_refused(self) -> None:
         """A tab takes 5 plots in order; the 6th is refused.
 
@@ -682,9 +684,9 @@ class PinnedTipTest(unittest.TestCase):
 
 
 class ResetTest(unittest.TestCase):
-    """Check reset when the file is replaced and id uniqueness."""
+    """Check reset, the state at the start of the app, and the ids."""
 
-    @covers("LLFR-00015", "LLFR-00016", "HLFR-00014")
+    @covers("LLFR-00024", "LLFR-00066", "HLFR-00014")
     def test_reset_after_many_tabs_and_plots(self) -> None:
         """reset leaves one tab "Tab 1" with no plots.
 
@@ -708,7 +710,7 @@ class ResetTest(unittest.TestCase):
             self.assertIsNone(workspace.find_plot(plot.plot_id_i))
         self.assertFalse(workspace.can_delete_tab())
 
-    @covers("LLFR-00015", "LLFR-00016", "LLFR-00026")
+    @covers("LLFR-00024", "LLFR-00026")
     def test_ids_are_never_reused(self) -> None:
         """Tab and plot ids keep counting up after deletes and reset.
 

@@ -102,7 +102,7 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
         for key_name_str, tool_str in KEY_TOOL_TUPLE:
             for other_key_name_str in ("Key_B", "Key_Shift", "Key_Control",
                                        "Key_X", "Key_Y", "Key_A", "Key_T",
-                                       "Key_Z"):
+                                       "Key_Z", "Key_0"):
                 if other_key_name_str == key_name_str:
                     continue
                 with self.subTest(key=key_name_str,
@@ -357,8 +357,8 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
             self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00287", "LLFR-00207")
-    def test_z_still_resets_after_a_and_t(self) -> None:
-        """After A or T is released, Z alone resets the zoom again; Z
+    def test_zero_still_resets_after_a_and_t(self) -> None:
+        """After A or T is released, 0 alone resets the zoom again; 0
         while A or T is held ends the hold and does not reset.
 
         Inputs: none.
@@ -368,13 +368,13 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
         for key_name_str, tool_str in KEY_TOOL_TUPLE:
             self.press_key(key_name_str)
             self.assert_tool_everywhere(tool_str)
-            self.press_key("Key_Z")
+            self.press_key("Key_0")
             self.assert_tool_everywhere(NO_TOOL_STR)
             self.assert_every_range(ZOOMED_RANGE_TUPLE)
-            self.release_key("Key_Z")
+            self.release_key("Key_0")
             self.release_key(key_name_str)
-        self.press_key("Key_Z")
-        self.release_key("Key_Z")
+        self.press_key("Key_0")
+        self.release_key("Key_0")
         self.assert_every_range(FULL_RANGE_TUPLE)
 
 

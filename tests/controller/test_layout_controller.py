@@ -19,7 +19,8 @@ from tests.support import covers
 from controller.layout_controller import LayoutController
 from controller.plot_controller import PlotController
 from controller.plot_tools import DELTA_X_TOOL_STR, MARKER_TOOL_STR
-from model.layout_file import LAYOUT_FORMAT_STR
+from model.data_files import DataFileSet
+from model.layout_file import LAYOUT_FORMAT_STR, LAYOUT_VERSION_I
 from model.signal_file import SignalFile
 from model.workspace import Workspace
 from tests.controller.test_plot_controller import (
@@ -31,16 +32,16 @@ class FakeLayoutView(FakePlotView):
 
     Attributes:
         layout_handler_tuple: (save handler, load handler).
-        layout_buttons_enabled_b: last value given to
-            set_layout_buttons_enabled.
+        save_layout_enabled_b: last value given to
+            set_save_layout_button_enabled.
         save_answer_list: paths returned, in order, by the save dialog
             ("" stands for a cancelled dialog).
         load_answer_list: paths returned, in order, by the load dialog.
         dialog_folder_list: (dialog kind, start folder) of every dialog.
         replace_answer_b: answer of ask_replace_existing_file.
         replace_question_list: paths asked about.
-        save_error_list, load_error_list, report_list: texts of the boxes
-            shown.
+        save_error_list, load_error_list, report_list, needs_file_list:
+            texts of the boxes shown.
         write_failure_str: when not "", save_layout_bytes fails with it.
         panel_widths_tuple: the panel widths of the window.
         finished_list: names of the buttons returned to normal.
@@ -54,7 +55,7 @@ class FakeLayoutView(FakePlotView):
         """
         super().__init__()
         self.layout_handler_tuple = ()
-        self.layout_buttons_enabled_b = None
+        self.save_layout_enabled_b = None
         self.save_answer_list = []
         self.load_answer_list = []
         self.dialog_folder_list = []
@@ -63,6 +64,7 @@ class FakeLayoutView(FakePlotView):
         self.save_error_list = []
         self.load_error_list = []
         self.report_list = []
+        self.needs_file_list = []
         self.write_failure_str = ""
         self.panel_widths_tuple = (900, 300)
         self.finished_list = []
@@ -77,14 +79,14 @@ class FakeLayoutView(FakePlotView):
         """
         self.layout_handler_tuple = (save_handler, load_handler)
 
-    def set_layout_buttons_enabled(self, enabled_b: bool) -> None:
-        """Record whether the layout buttons are enabled.
+    def set_save_layout_button_enabled(self, enabled_b: bool) -> None:
+        """Record whether the Save layout button is enabled.
 
         Inputs:
-            enabled_b: True when they are enabled.
+            enabled_b: True when it is enabled.
         Outputs: none.
         """
-        self.layout_buttons_enabled_b = bool(enabled_b)
+        self.save_layout_enabled_b = bool(enabled_b)
 
     def ask_layout_save_path(self, start_folder_str: str) -> str:
         """Answer the save dialog with the next prepared path.
@@ -176,6 +178,15 @@ class FakeLayoutView(FakePlotView):
         """
         self.report_list.append(report_text_str)
 
+    def show_layout_needs_data_file(self, message_str: str) -> None:
+        """Record the box of a layout that needs a data file.
+
+        Inputs:
+            message_str: the text of the box.
+        Outputs: none.
+        """
+        self.needs_file_list.append(message_str)
+
     def finish_save_layout_button(self) -> None:
         """Record that the Save layout button returned to normal.
 
@@ -227,6 +238,19 @@ class LayoutControllerTestCase(unittest.TestCase):
         self.controller = LayoutController(
             self.view, self.file_controller, self.plot_controller)
         self.file_controller.open(make_data_file(), False)
+
+    def reopen(self, signal_file) -> None:
+        """Close the data file as "Close all files" does, then open one.
+
+        Inputs:
+            signal_file: the SignalFile opened afterwards.
+        Outputs: none.
+        """
+        closed_name_list = list(
+            self.plot_controller.signal_file.signal_name_list)
+        self.plot_controller.signal_file = DataFileSet()
+        self.plot_controller.close_signals(closed_name_list)
+        self.file_controller.open(signal_file, None)
 
     def tearDown(self) -> None:
         """Remove the temporary folder.
@@ -335,11 +359,13 @@ class LayoutControllerTestCase(unittest.TestCase):
 
 
 class LayoutButtonStateTest(LayoutControllerTestCase):
-    """The buttons need a data file (LLFR-00218)."""
+    """Save layout needs a data file (LLFR-00218, LLFR-00466); Load
+    layout does not (LLFR-01244)."""
 
-    @covers("LLFR-00218")
-    def test_buttons_disabled_until_a_file_is_open(self) -> None:
-        """Disabled at start, enabled once a file is open.
+    @covers("LLFR-00218", "LLFR-00466", "LLFR-01244")
+    def test_save_disabled_until_a_file_is_open(self) -> None:
+        """Save layout is disabled at start and does nothing, enabled
+        once a file is open; Load layout shows its dialog with no file.
 
         Inputs: none.
         Outputs: none.
@@ -350,18 +376,207 @@ class LayoutButtonStateTest(LayoutControllerTestCase):
                                          Workspace(random.Random(1)))
         controller = LayoutController(view, file_controller,
                                       plot_controller)
-        self.assertIs(view.layout_buttons_enabled_b, False)
-        # LLFR-00218: neither button does anything without a data file.
+        self.assertIs(view.save_layout_enabled_b, False)
+        # LLFR-00466: Save layout does nothing without a data file.
         view.save_answer_list.append(self.path("never.json"))
-        view.load_answer_list.append(self.path("never.json"))
         view.layout_handler_tuple[0]()
-        view.layout_handler_tuple[1]()
         self.assertEqual(view.dialog_folder_list, [])
         self.assertFalse(os.path.exists(self.path("never.json")))
+        # LLFR-01244: Load layout shows its dialog; a cancel loads
+        # nothing (LLFR-00222).
+        view.load_answer_list.append("")
+        view.layout_handler_tuple[1]()
+        self.assertEqual([kind_str for kind_str, _
+                          in view.dialog_folder_list], ["load"])
         self.assertEqual(view.finished_list, ["save", "load"])
         file_controller.open(make_data_file(), False)
-        self.assertIs(view.layout_buttons_enabled_b, True)
+        self.assertIs(view.save_layout_enabled_b, True)
         self.assertTrue(controller.data_file_open_b)
+
+
+class OpeningFileController(FakeFileController):
+    """A fake file controller whose open_paths opens real data files.
+
+    Attributes:
+        data_files: the DataFileSet of the open files.
+        refused_path_set: paths that open_paths fails to open.
+        opened_path_list: every path given to open_paths.
+    """
+
+    def __init__(self) -> None:
+        """Start with no open file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().__init__()
+        self.data_files = DataFileSet()
+        self.refused_path_set = set()
+        self.opened_path_list = []
+        self.dialog_folder_str = "/data/folder"
+
+    def open_paths(self, path_list: list) -> list:
+        """Open each path not refused and tell the listeners.
+
+        Inputs:
+            path_list: the paths to open.
+        Outputs: the DataFile objects added.
+        """
+        added_list = []
+        for path_str in path_list:
+            self.opened_path_list.append(path_str)
+            if path_str in self.refused_path_set:
+                continue
+            added_file = self.data_files.add(make_data_file(), path_str)
+            added_list.append(added_file)
+            for listener in self.listener_list:
+                listener(self.data_files, added_file)
+        return added_list
+
+
+class LoadWithoutDataFileTest(unittest.TestCase):
+    """Load layout while no data file is open (LLFR-01244 to
+    LLFR-01247)."""
+
+    def setUp(self) -> None:
+        """Create the controllers with no data file open, and a data
+        file on disk.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.temporary_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_folder.cleanup)
+        self.folder_str = self.temporary_folder.name
+        self.data_path_str = os.path.join(self.folder_str, "data.csv")
+        with open(self.data_path_str, "w", encoding="utf-8") as data_file:
+            data_file.write("Time,Speed\n0,1\n")
+        self.view = FakeLayoutView()
+        self.file_controller = OpeningFileController()
+        self.workspace = Workspace(random.Random(3))
+        self.plot_controller = PlotController(
+            self.view, self.file_controller, self.workspace)
+        self.controller = LayoutController(
+            self.view, self.file_controller, self.plot_controller)
+
+    def write_layout(self, name_str: str, data_file_list) -> str:
+        """Write a layout with one tab, one plot of file1_Speed.
+
+        Inputs:
+            name_str: the file name.
+            data_file_list: the entries under "data_files", or None to
+                leave the key out.
+        Outputs: the path.
+        """
+        layout_dict = {"format": LAYOUT_FORMAT_STR,
+                       "version": LAYOUT_VERSION_I,
+                       "tabs": [{"name": "Saved", "plots": [{
+                           "curves": [{"signal": "file1_Speed"}]}]}]}
+        if data_file_list is not None:
+            layout_dict["data_files"] = data_file_list
+        path_str = os.path.join(self.folder_str, name_str)
+        with open(path_str, "w", encoding="utf-8") as output_file:
+            json.dump(layout_dict, output_file)
+        return path_str
+
+    def load(self, path_str: str) -> None:
+        """Click Load layout and answer the dialog with a path.
+
+        Inputs:
+            path_str: the answer.
+        Outputs: none.
+        """
+        self.view.load_answer_list.append(path_str)
+        self.view.layout_handler_tuple[1]()
+
+    def tab_tuple(self) -> tuple:
+        """Return the names and plot counts of the tabs.
+
+        Inputs: none.
+        Outputs: a tuple of (name, number of plots).
+        """
+        return tuple((tab.name_str, len(tab.plot_list))
+                     for tab in self.workspace.tab_list)
+
+    @covers("LLFR-01244", "LLFR-01224", "HLFR-00157", "HLFR-00050")
+    def test_layout_with_file_names_opens_them(self) -> None:
+        """With no data file open, a layout that names its data file
+        opens it and rebuilds its plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        path_str = self.write_layout("files.json", [
+            {"number": 1, "path": self.data_path_str,
+             "relative_path": "data.csv"}])
+        self.load(path_str)
+        self.assertEqual(self.file_controller.opened_path_list,
+                         [self.data_path_str])
+        self.assertEqual(self.view.needs_file_list, [])
+        self.assertEqual(self.view.load_error_list, [])
+        self.assertEqual(self.tab_tuple(), (("Saved", 1),))
+        self.assertEqual(
+            [curve.signal_name_str for curve
+             in self.workspace.tab_list[0].plot_list[0].curve_list],
+            ["file1_Speed"])
+        self.assertEqual(self.controller.layout_folder_str,
+                         self.folder_str)
+
+    @covers("LLFR-01245", "LLFR-01247", "HLFR-00050")
+    def test_layout_without_file_names_changes_nothing(self) -> None:
+        """With no data file open, a layout without data files shows the
+        information box and changes nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.layout_controller import LAYOUT_NEEDS_DATA_FILE_STR
+        before_tuple = self.tab_tuple()
+        path_str = self.write_layout("plain.json", None)
+        self.load(path_str)
+        self.assertEqual(self.view.needs_file_list,
+                         [LAYOUT_NEEDS_DATA_FILE_STR])
+        self.assertIn("needs an open data file", LAYOUT_NEEDS_DATA_FILE_STR)
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual(self.view.load_error_list, [])
+        self.assertEqual(self.tab_tuple(), before_tuple)
+        self.assertEqual(self.file_controller.opened_path_list, [])
+        # LLFR-01247: the dialog folder stays the Open file one.
+        self.assertEqual(self.controller.layout_folder_str, "")
+        self.assertEqual(self.view.finished_list, ["load"])
+        # An empty data_files list names no file either.
+        self.load(self.write_layout("empty.json", []))
+        self.assertEqual(len(self.view.needs_file_list), 2)
+        self.assertEqual(self.tab_tuple(), before_tuple)
+
+    @covers("LLFR-01246", "LLFR-01247", "LLFR-01227", "HLFR-00050",
+            "HLFR-00052")
+    def test_no_file_opened_shows_the_box_with_the_files(self) -> None:
+        """With no data file open, a layout whose data files all fail to
+        open shows the box with the files not opened, and changes
+        nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.layout_controller import LAYOUT_NEEDS_DATA_FILE_STR
+        from model.layout_file import DATA_FILES_HEADING_STR
+        self.file_controller.refused_path_set.add(self.data_path_str)
+        before_tuple = self.tab_tuple()
+        path_str = self.write_layout("refused.json", [
+            {"number": 1, "path": self.data_path_str,
+             "relative_path": None},
+            {"number": 2, "path": "/nowhere/z.csv", "relative_path": None}])
+        self.load(path_str)
+        self.assertEqual(len(self.view.needs_file_list), 1)
+        text_str = self.view.needs_file_list[0]
+        self.assertTrue(text_str.startswith(LAYOUT_NEEDS_DATA_FILE_STR))
+        self.assertIn(DATA_FILES_HEADING_STR, text_str)
+        self.assertIn(self.data_path_str, text_str)
+        self.assertIn("/nowhere/z.csv", text_str)
+        self.assertEqual(self.view.report_list, [])
+        self.assertEqual(self.tab_tuple(), before_tuple)
+        self.assertEqual(self.controller.layout_folder_str, "")
 
 
 class SaveLayoutTest(LayoutControllerTestCase):
@@ -410,7 +625,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.assertEqual(layout_dict["time_range"],
                          {"start": 0.0, "end": 10.0})
 
-    @covers("LLFR-00219")
+    @covers("LLFR-00219", "LLFR-00467")
     def test_json_suffix_added_without_extension(self) -> None:
         """A name typed without an extension gets ".json".
 
@@ -423,7 +638,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.save(self.path("other.txt"))
         self.assertTrue(os.path.exists(self.path("other.txt")))
 
-    @covers("LLFR-00223")
+    @covers("LLFR-00223", "LLFR-00470")
     def test_replace_asked_when_suffix_names_an_existing_file(self) -> None:
         """The added ".json" names an existing file: replace is asked.
 
@@ -446,7 +661,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.save(existing_str)
         self.assertEqual(len(self.view.replace_question_list), 2)
 
-    @covers("LLFR-00222")
+    @covers("LLFR-00222", "LLFR-00469")
     def test_cancel_saves_nothing(self) -> None:
         """A cancelled dialog writes no file and changes nothing.
 
@@ -473,7 +688,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
                          ["Permission denied: x.json"])
         self.assertEqual(self.view.finished_list, ["save"])
 
-    @covers("LLFR-00238")
+    @covers("LLFR-00238", "LLFR-00494")
     def test_saving_is_not_undoable(self) -> None:
         """Saving records nothing for undo and keeps the history.
 
@@ -489,7 +704,7 @@ class SaveLayoutTest(LayoutControllerTestCase):
 class DialogFolderTest(LayoutControllerTestCase):
     """The folder the layout dialogs show (LLFR-00220)."""
 
-    @covers("LLFR-00220", "LLFR-00204")
+    @covers("LLFR-00220", "LLFR-00204", "LLFR-00468")
     def test_folder_sequence(self) -> None:
         """First the Open file folder, then the last layout's folder.
 
@@ -537,12 +752,14 @@ class LoadLayoutTest(LayoutControllerTestCase):
         path_str = self.path("layout.json")
         self.save(path_str)
         self.saved_content_tuple = self.content()
-        self.file_controller.open(make_data_file(signal_name_list), True)
+        self.reopen(make_data_file(signal_name_list))
         return path_str
 
-    @covers("LLFR-00221", "LLFR-00230", "LLFR-00229", "LLFR-00237")
-    def test_round_trip_after_replacing_the_file(self) -> None:
-        """Loading into a new file rebuilds everything, with no report.
+    @covers("LLFR-00221", "LLFR-00230", "LLFR-00229", "LLFR-00237",
+            "LLFR-00478", "LLFR-00480", "LLFR-00481", "LLFR-00493")
+    def test_round_trip_after_closing_the_file(self) -> None:
+        """Loading after the file was closed and opened again rebuilds
+        everything, with no report.
 
         Inputs: none.
         Outputs: none.
@@ -567,7 +784,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
                          self.workspace.tab_list[0].tab_id_i)
         self.assertEqual(self.view.finished_list[-1], "load")
 
-    @covers("LLFR-00229")
+    @covers("LLFR-00229", "LLFR-00473", "LLFR-00474", "LLFR-00477")
     def test_tabs_added_after_tabs_with_plots(self) -> None:
         """Current tabs with plots are kept; the first new tab is shown.
 
@@ -575,6 +792,10 @@ class LoadLayoutTest(LayoutControllerTestCase):
         Outputs: none.
         """
         path_str = self.save_and_reopen()
+        # LLFR-00961: the close kept the emptied tab "Main"; it is named
+        # "Tab 1" here, so that the file's "Main" is not renamed.
+        self.view.handler_dict["rename_tab"](
+            self.workspace.tab_list[0].tab_id_i, "Tab 1")
         self.view.handler_dict["double_click"]("Torque")
         kept_tab_tuple = self.content()[0][0]
         self.load(path_str)
@@ -591,7 +812,8 @@ class LoadLayoutTest(LayoutControllerTestCase):
             self.assertEqual(len(self.view.marker_drawn_dict[plot_id_i]), 1)
         self.assertEqual(self.view.report_list, [])
 
-    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00229", "LLFR-00489",
+            "LLFR-00490")
     def test_add_mode_with_default_tab_names_reports_renames(self) -> None:
         """Loading a layout of the same file after its own tabs renames
         the clashing default names and lists them in the box.
@@ -617,8 +839,8 @@ class LoadLayoutTest(LayoutControllerTestCase):
                          self.workspace.tab_list[2].tab_id_i)
         # LLFR-00237: one box with the two renames, nothing else.
         self.assertEqual(self.view.report_list, [
-            'Renamed:\n  - Tab "Tab 1" \u2192 "Tab 3"\n'
-            '  - Tab "Tab 2" \u2192 "Tab 4"'])
+            'Renamed:\n\n1. Tab "Tab 1" \u2192 "Tab 3"\n\n'
+            '2. Tab "Tab 2" \u2192 "Tab 4"'])
         self.assertEqual(self.view.load_error_list, [])
 
     @covers("LLFR-00231", "LLFR-00232", "LLFR-00237")
@@ -639,9 +861,10 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(first_plot_tuple[2], ())
         self.assertEqual(len(self.view.report_list), 1)
         report_str = self.view.report_list[0]
-        self.assertIn("Signals not in the data file:\n  - Torque",
+        # LLFR-00987, LLFR-00988: numbered under its own heading.
+        self.assertIn("Signals not in the data file:\n\n1. Torque\n",
                       report_str)
-        self.assertEqual(report_str.count("  - Torque"), 1)
+        self.assertEqual(report_str.count("1. Torque\n"), 1)
         self.assertIn("Delta X marker between 1 s and 3 s", report_str)
 
     @covers("LLFR-00233", "LLFR-00234", "LLFR-00237")
@@ -655,7 +878,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         short_dict = {"Time": np.linspace(0.0, 3.0, 31)}
         for index_i, name_str in enumerate(("Speed", "Torque", "Power")):
             short_dict[name_str] = short_dict["Time"] * (index_i + 1)
-        self.file_controller.open(SignalFile("short.csv", short_dict), True)
+        self.reopen(SignalFile("short.csv", short_dict))
         self.load(path_str)
         self.assertEqual(self.plot_controller.shared_time_range_tuple,
                          (1.0, 3.0))
@@ -664,7 +887,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertIn("limited to 1 s to 3 s", report_str)
         self.assertIn("Flag \"Flag 1\" at 4 s", report_str)
 
-    @covers("LLFR-00234")
+    @covers("LLFR-00234", "LLFR-00487")
     def test_range_without_overlap_shows_the_whole_file(self) -> None:
         """A range outside the file shows the whole range in every plot.
 
@@ -682,7 +905,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
             self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
         self.assertIn("whole time range", self.view.report_list[0])
 
-    @covers("LLFR-00235", "LLFR-00237", "LLFR-00032")
+    @covers("LLFR-00235", "LLFR-00237", "LLFR-00032", "LLFR-00488")
     def test_replaced_values_and_sixth_plot(self) -> None:
         """Bad widths and colors are replaced; a 6th plot is skipped, and
         no Full Tab box is shown for it.
@@ -697,7 +920,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         plot_list.append({"curves": [{"signal": "Power",
                                       "color": "#1f77b4", "width": 1}]})
         path_str = self.write_json("full.json", {
-            "format": LAYOUT_FORMAT_STR, "version": 1,
+            "format": LAYOUT_FORMAT_STR, "version": LAYOUT_VERSION_I,
             "tabs": [{"name": "", "plots": plot_list}]})
         self.load(path_str)
         tab = self.workspace.tab_list[0]
@@ -714,7 +937,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertIn("is empty", report_str)
         self.assertIn("at most 5 plots", report_str)
 
-    @covers("LLFR-00237")
+    @covers("LLFR-00237", "LLFR-00493")
     def test_no_report_when_everything_is_rebuilt(self) -> None:
         """A layout rebuilt as saved shows no box at all.
 
@@ -726,7 +949,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(self.view.report_list, [])
         self.assertEqual(self.view.load_error_list, [])
 
-    @covers("LLFR-00238", "LLFR-00140")
+    @covers("LLFR-00238", "LLFR-00140", "LLFR-00494")
     def test_load_clears_undo_and_redo(self) -> None:
         """Loading clears both histories and is not undoable itself.
 
@@ -748,7 +971,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.view.handler_dict["undo"]()
         self.assertEqual(self.content(), before_tuple)
 
-    @covers("LLFR-00222")
+    @covers("LLFR-00222", "LLFR-00469")
     def test_cancel_loads_nothing(self) -> None:
         """A cancelled dialog keeps the layout unchanged.
 
@@ -764,7 +987,7 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertEqual(self.view.report_list, [])
         self.assertEqual(self.view.finished_list, ["load"])
 
-    @covers("LLFR-00236")
+    @covers("LLFR-00236", "LLFR-00491")
     def test_unreadable_files_keep_the_layout(self) -> None:
         """A missing file, bad JSON or another JSON file is refused.
 
@@ -816,6 +1039,252 @@ class LoadLayoutTest(LayoutControllerTestCase):
         self.assertIn("broken", self.view.load_error_list[-1])
         self.assertEqual(self.content(), before_tuple)
         self.assertEqual(self.view.finished_list[-1], "load")
+
+
+class LayoutSaveOptionsTest(LayoutControllerTestCase):
+    """The save options of a layout (LLFR-01218 to LLFR-01223)."""
+
+    def save_with(self, option_dict, path_str: str) -> None:
+        """Save with the save options dialog answering option_dict.
+
+        Inputs:
+            option_dict: the answer of the dialog, None for a cancel.
+            path_str: the answer of the save file dialog.
+        Outputs: none.
+        """
+        self.view.ask_layout_save_options = lambda: option_dict
+        self.save(path_str)
+
+    @covers("LLFR-01219", "LLFR-01221", "LLFR-01222", "LLFR-01223",
+            "LLFR-00226", "HLFR-00156")
+    def test_default_options_keep_everything_and_no_files(self) -> None:
+        """With the first values, the file is as before: the markers,
+        every tab and no data file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.build_layout()
+        path_str = self.path("default.json")
+        self.save_with({"markers": True, "all_tabs": True,
+                        "data_files": False}, path_str)
+        with open(path_str, encoding="utf-8") as layout_file:
+            layout_dict = json.load(layout_file)
+        self.assertEqual(len(layout_dict["flags"]), 1)
+        self.assertEqual(len(layout_dict["tabs"][0]["plots"][0]
+                             ["data_tips"]), 1)
+        self.assertNotIn("data_files", layout_dict)
+
+    @covers("LLFR-01218", "LLFR-01221", "LLFR-01222", "LLFR-01223",
+            "HLFR-00156", "HLFR-00049")
+    def test_no_markers_current_tab_and_file_names(self) -> None:
+        """Markers off, only the current tab and the data files: no tip,
+        flag, area or delta marker, one docked tab, and the number,
+        absolute path and relative path of each open data file.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.build_layout()
+        handler_dict = self.view.handler_dict
+        handler_dict["add_tab"]()
+        handler_dict["double_click"]("Power")
+        self.view.set_current_tab(self.workspace.tab_list[0].tab_id_i)
+        data_files = DataFileSet()
+        first_path_str = self.path("run_a.csv")
+        second_path_str = os.path.join(self.folder_str, "sub", "run_b.mat")
+        data_files.add(make_data_file(), first_path_str)
+        data_files.add(make_data_file(), second_path_str)
+        self.file_controller.data_files = data_files
+        path_str = self.path("options.json")
+        self.save_with({"markers": False, "all_tabs": False,
+                        "data_files": True}, path_str)
+        with open(path_str, encoding="utf-8") as layout_file:
+            layout_dict = json.load(layout_file)
+        self.assertEqual(layout_dict["flags"], [])
+        self.assertEqual(layout_dict["areas"], [])
+        self.assertEqual([tab["name"] for tab in layout_dict["tabs"]],
+                         ["Main"])
+        self.assertIs(layout_dict["tabs"][0]["undocked"], False)
+        self.assertEqual(layout_dict["shown_tab"], 0)
+        for plot_dict in layout_dict["tabs"][0]["plots"]:
+            self.assertEqual(plot_dict["data_tips"], [])
+            self.assertEqual(plot_dict["delta_markers"], [])
+        self.assertEqual(layout_dict["data_files"], [
+            {"number": 1, "path": os.path.abspath(first_path_str),
+             "relative_path": "run_a.csv"},
+            {"number": 2, "path": os.path.abspath(second_path_str),
+             "relative_path": "sub/run_b.mat"}])
+
+    @covers("LLFR-01220", "HLFR-00156")
+    def test_cancelled_options_save_nothing(self) -> None:
+        """A cancel of the options dialog shows no save dialog and
+        writes nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        path_str = self.path("never.json")
+        self.save_with(None, path_str)
+        self.assertEqual(self.view.dialog_folder_list, [])
+        self.assertFalse(os.path.exists(path_str))
+        self.assertEqual(self.view.finished_list, ["save"])
+
+
+class StubFileController:
+    """A file controller with real data files and a recorded open.
+
+    Inputs:
+        data_files: the DataFileSet of the open files.
+    """
+
+    def __init__(self, data_files) -> None:
+        """Keep the data files.
+
+        Inputs:
+            data_files: the DataFileSet.
+        Outputs: none.
+        """
+        self.data_files = data_files
+        self.opened_path_list = []
+        self.refused_path_set = set()
+
+    def open_paths(self, path_list: list) -> list:
+        """Open each path not refused, as the next data file.
+
+        Inputs:
+            path_list: the paths to open.
+        Outputs: the DataFile objects added.
+        """
+        added_list = []
+        for path_str in path_list:
+            self.opened_path_list.append(path_str)
+            if path_str not in self.refused_path_set:
+                added_list.append(self.data_files.add(make_data_file(),
+                                                      path_str))
+        return added_list
+
+
+class LayoutDataFilesTest(unittest.TestCase):
+    """Loading the data files of a layout (LLFR-01224 to LLFR-01228)."""
+
+    def setUp(self) -> None:
+        """Make files on disk: b.csv is open as file 3, a.csv is not.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.temporary_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_folder.cleanup)
+        self.folder_str = self.temporary_folder.name
+        os.mkdir(os.path.join(self.folder_str, "data"))
+        for name_str in ("a.csv", "b.csv", "c.csv"):
+            with open(os.path.join(self.folder_str, "data", name_str), "w",
+                      encoding="utf-8") as data_file:
+                data_file.write("Time,x\n0,1\n")
+        data_files = DataFileSet()
+        data_files.add(make_data_file(), self.data_path("other.csv"))
+        data_files.add(make_data_file(), self.data_path("third.csv"))
+        data_files.add(make_data_file(), self.data_path("b.csv"))
+        self.file_controller = StubFileController(data_files)
+        self.controller = LayoutController.__new__(LayoutController)
+        self.controller.file_controller = self.file_controller
+        self.layout_path_str = os.path.join(self.folder_str, "l.json")
+
+    def data_path(self, name_str: str) -> str:
+        """Return the path of a file of the data folder.
+
+        Inputs:
+            name_str: the file name.
+        Outputs: the path.
+        """
+        return os.path.join(self.folder_str, "data", name_str)
+
+    def layout_dict(self, entry_list: list) -> dict:
+        """Return a layout whose curves use files 1, 2 and 5.
+
+        Inputs:
+            entry_list: its data file entries.
+        Outputs: the layout dict.
+        """
+        return {"data_files": entry_list,
+                "synthetic_signals": [{
+                    "name": "file1_x_prod_file2_x",
+                    "signals": ["file1_x", "file2_x"]}],
+                "tabs": [{"plots": [{
+                    "curves": [{"signal": "file1_x"}, {"signal": "file2_x"},
+                               {"signal": "file5_x"}],
+                    "data_tips": [{"signal": "file2_x"}],
+                    "delta_markers": [{"first_point": {"signal": "file1_x"},
+                                       "second_point": {
+                                           "signal": "file2_x"}}]}]}]}
+
+    @covers("LLFR-01224", "LLFR-01225", "LLFR-01226", "LLFR-01227",
+            "LLFR-01228", "HLFR-00157", "HLFR-00050")
+    def test_files_opened_reused_renumbered_and_reported(self) -> None:
+        """Saved file 1 (a.csv, found by its relative path) is opened as
+        file 4; saved file 2 (b.csv) is already open as file 3; saved
+        file 5 is found nowhere and reported, its curves missing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        layout_dict = self.layout_dict([
+            {"number": 1, "path": "/nowhere/a.csv",
+             "relative_path": "data/a.csv"},
+            {"number": 2, "path": self.data_path("b.csv"),
+             "relative_path": None},
+            {"number": 5, "path": "/nowhere/z.csv", "relative_path": None},
+            {"number": "x"}])
+        line_list = self.controller.open_layout_files(layout_dict,
+                                                      self.layout_path_str)
+        self.assertEqual(self.file_controller.opened_path_list,
+                         [self.data_path("a.csv")])
+        plot_dict = layout_dict["tabs"][0]["plots"][0]
+        self.assertEqual([curve["signal"] for curve in plot_dict["curves"]],
+                         ["file4_x", "file3_x", "file5_x"])
+        self.assertEqual(plot_dict["data_tips"][0]["signal"], "file3_x")
+        self.assertEqual(plot_dict["delta_markers"][0]["first_point"]
+                         ["signal"], "file4_x")
+        self.assertEqual(layout_dict["synthetic_signals"][0], {
+            "name": "file4_x_prod_file3_x",
+            "signals": ["file4_x", "file3_x"]})
+        self.assertEqual(len(line_list), 2)
+        self.assertIn("/nowhere/z.csv", line_list[0])
+        self.assertIn("no usable number", line_list[1])
+
+    @covers("LLFR-01227", "LLFR-01228", "HLFR-00157")
+    def test_file_not_opened_keeps_its_curves_missing(self) -> None:
+        """A file that fails to open is reported, and its saved number,
+        which another open file has, is read as no file's.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.file_controller.refused_path_set.add(self.data_path("c.csv"))
+        layout_dict = self.layout_dict([
+            {"number": 1, "path": self.data_path("c.csv"),
+             "relative_path": "data/c.csv"}])
+        line_list = self.controller.open_layout_files(layout_dict,
+                                                      self.layout_path_str)
+        self.assertEqual(line_list, [
+            f"{self.data_path('c.csv')}: the file could not be opened."])
+        self.assertEqual(layout_dict["tabs"][0]["plots"][0]["curves"][0]
+                         ["signal"], "file0_x")
+
+    @covers("LLFR-01227", "HLFR-00052")
+    def test_report_lists_the_files_first(self) -> None:
+        """The heading of the files not opened comes first.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.layout_file import LayoutReport
+        report = LayoutReport()
+        report.add_missing_signal("file0_x")
+        report.add_data_file("/a.csv: the file could not be opened.")
+        self.assertFalse(report.is_empty())
+        self.assertTrue(report.text().startswith("Data files not opened:"))
 
 
 if __name__ == "__main__":

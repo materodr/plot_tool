@@ -39,17 +39,17 @@ OPEN_FILE_DIALOG_TARGET_STR = (
     "view.main_window.MainWindow.run_open_file_dialog")
 # Signals of each plot of the first tab, from top to bottom.
 FIRST_TAB_PLOT_LIST = [
-    ["Sine_1Hz", "Cosine_1Hz", "Sine_3Hz"],
-    ["Damped_sine", "Square_0p5Hz"],
-    ["Temperature"],
+    ["file1_Sine_1Hz", "file1_Cosine_1Hz", "file1_Sine_3Hz"],
+    ["file1_Damped_sine", "file1_Square_0p5Hz"],
+    ["file1_Temperature"],
 ]
-SECOND_TAB_PLOT_LIST = [["Pressure"], ["Noise", "Ramp"]]
+SECOND_TAB_PLOT_LIST = [["file1_Pressure"], ["file1_Noise", "file1_Ramp"]]
 FIRST_TAB_NAME_STR = "Oscillations"
 SECOND_TAB_NAME_STR = "Environment"
 SEARCH_TEXT_STR = "sine"
 NO_MATCH_SEARCH_TEXT_STR = "voltage"
 # Time (s) and signal of the pinned tip, on the first plot.
-PINNED_TIP_SIGNAL_STR = "Sine_1Hz"
+PINNED_TIP_SIGNAL_STR = "file1_Sine_1Hz"
 PINNED_TIP_TIME_S = 2.25
 # Times (s) of the two vertical markers, on the first plot.
 MARKER_TIME_TUPLE = (4.5, 8.0)
@@ -58,17 +58,18 @@ MARKER_TIME_TUPLE = (4.5, 8.0)
 # ends on the highest sample of Sine_1Hz, so the room kept above it is
 # visible; the last Delta Y has its later point near the right edge.
 DELTA_MARKER_LIST = [
-    ("delta_x", 0, ("Sine_1Hz", 1.25), ("Cosine_1Hz", 2.0)),
-    ("delta_x", 0, ("Sine_3Hz", 7.0833), ("Sine_3Hz", 7.4167)),
-    ("delta_y", 0, ("Sine_1Hz", 3.25), ("Cosine_1Hz", 3.5)),
-    ("delta_y", 1, ("Damped_sine", 0.124), ("Damped_sine", 0.374)),
-    ("delta_x", 1, ("Damped_sine", 6.25), ("Square_0p5Hz", 8.5)),
-    ("delta_y", 1, ("Square_0p5Hz", 9.0), ("Damped_sine", 9.75)),
+    ("delta_x", 0, ("file1_Sine_1Hz", 1.25), ("file1_Cosine_1Hz", 2.0)),
+    ("delta_x", 0, ("file1_Sine_3Hz", 7.0833), ("file1_Sine_3Hz", 7.4167)),
+    ("delta_y", 0, ("file1_Sine_1Hz", 3.25), ("file1_Cosine_1Hz", 3.5)),
+    ("delta_y", 1, ("file1_Damped_sine", 0.124), ("file1_Damped_sine", 0.374)),
+    ("delta_x", 1, ("file1_Damped_sine", 6.25), ("file1_Square_0p5Hz", 8.5)),
+    ("delta_y", 1, ("file1_Square_0p5Hz", 9.0), ("file1_Damped_sine", 9.75)),
 ]
 # The pending first point of a measurement, on the second plot.
-DELTA_PENDING_POINT_TUPLE = ("Temperature", 3.0)
-DELTA_PLOT_LIST = [["Sine_1Hz", "Cosine_1Hz", "Sine_3Hz"],
-                   ["Damped_sine", "Square_0p5Hz"], ["Temperature"]]
+DELTA_PENDING_POINT_TUPLE = ("file1_Temperature", 3.0)
+DELTA_PLOT_LIST = [["file1_Sine_1Hz", "file1_Cosine_1Hz", "file1_Sine_3Hz"],
+                   ["file1_Damped_sine", "file1_Square_0p5Hz"],
+                   ["file1_Temperature"]]
 
 
 def process_events(application, repeat_count_i: int = 5) -> None:
@@ -160,9 +161,8 @@ def build_window(size_tuple: tuple):
     main_window.top_panel.marker_button.click()
     for marker_time_s in MARKER_TIME_TUPLE:
         plot_controller.on_marker_place(first_plot_id_i, marker_time_s)
-    # The Grid and Tip buttons are clicked like a user would; Tip ends
-    # the Vertical marker tool.
-    main_window.top_panel.grid_button.click()
+    # The grid is shown from the start (LLFR-00147). The Tip button is
+    # clicked like a user would; it ends the Vertical marker tool.
     main_window.top_panel.tip_button.click()
     main_window.signal_list_panel.search_box.setText(SEARCH_TEXT_STR)
     return main_window, controller

@@ -16,13 +16,15 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 
-NAME_LIST = ["Time", "speed", "force", "temperature", "pressure"]
+NAME_LIST = ["file1_Time", "file1_speed", "file1_force", "file1_temperature",
+             "pressure"]
 FILE_TEXT_STR = ("Time,speed,force,temperature\n"
                  "0,1,2,3\n0.5,2,3,4\n1,3,4,5\n")
 
@@ -137,14 +139,14 @@ class SelectionPanelTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.select(["Time", "force"])
+        self.select(["file1_Time", "file1_force"])
         self.click(3)
-        self.assertEqual(self.selected(), ["temperature"])
+        self.assertEqual(self.selected(), ["file1_temperature"])
         self.assertTrue(self.widget.item(3).isSelected())
         self.assertEqual([item.text() for item in
-                          self.widget.selectedItems()], ["temperature"])
+                          self.widget.selectedItems()], ["file1_temperature"])
 
-    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063", "LLFR-00625")
     def test_data_tip_key_click_toggles(self) -> None:
         """Ctrl (Cmd on macOS) + click adds or removes one signal.
 
@@ -153,13 +155,14 @@ class SelectionPanelTest(unittest.TestCase):
         """
         self.click(1)
         self.click(3, "ControlModifier")
-        self.assertEqual(self.selected(), ["speed", "temperature"])
+        self.assertEqual(self.selected(), ["file1_speed", "file1_temperature"])
         self.click(0, "ControlModifier")
-        self.assertEqual(self.selected(), ["Time", "speed", "temperature"])
+        self.assertEqual(self.selected(), ["file1_Time", "file1_speed",
+                                           "file1_temperature"])
         self.click(1, "ControlModifier")
-        self.assertEqual(self.selected(), ["Time", "temperature"])
+        self.assertEqual(self.selected(), ["file1_Time", "file1_temperature"])
 
-    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00291", "HLFR-00063", "LLFR-00626")
     def test_shift_click_selects_a_range(self) -> None:
         """Shift + click selects from the last clicked signal.
 
@@ -168,57 +171,59 @@ class SelectionPanelTest(unittest.TestCase):
         """
         self.click(1)
         self.click(3, "ShiftModifier")
-        self.assertEqual(self.selected(), ["speed", "force", "temperature"])
+        self.assertEqual(self.selected(), ["file1_speed", "file1_force",
+                                           "file1_temperature"])
         self.click(4)
         self.click(2, "ShiftModifier")
         self.assertEqual(self.selected(),
-                         ["force", "temperature", "pressure"])
+                         ["file1_force", "file1_temperature", "pressure"])
 
-    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033")
+    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033",
+            "LLFR-00627")
     def test_hidden_signals_are_deselected_for_good(self) -> None:
         """Hidden names lose the selection; shown names keep it.
 
         Inputs: none.
         Outputs: none.
         """
-        self.select(["speed", "force", "pressure"])
+        self.select(["file1_speed", "file1_force", "pressure"])
         # A search that hides "force".
-        self.panel.show_signal_names(["speed", "pressure", "Time"])
-        self.assertEqual(self.selected(), ["speed", "pressure"])
+        self.panel.show_signal_names(["file1_speed", "pressure", "file1_Time"])
+        self.assertEqual(self.selected(), ["file1_speed", "pressure"])
         # Shown again, it stays unselected.
         self.panel.show_signal_names(NAME_LIST)
-        self.assertEqual(self.selected(), ["speed", "pressure"])
+        self.assertEqual(self.selected(), ["file1_speed", "pressure"])
         # A deleted synthetic signal is a name no longer shown.
-        self.panel.show_signal_names(["Time", "speed"])
+        self.panel.show_signal_names(["file1_Time", "file1_speed"])
         self.panel.show_signal_names(NAME_LIST)
-        self.assertEqual(self.selected(), ["speed"])
+        self.assertEqual(self.selected(), ["file1_speed"])
         self.panel.clear_signal_selection()
         self.assertEqual(self.selected(), [])
 
-    @covers("LLFR-00293", "LLFR-00239", "HLFR-00063")
+    @covers("LLFR-00293", "LLFR-00239", "HLFR-00063", "LLFR-00628")
     def test_right_click_selects_only_the_clicked_signal(self) -> None:
         """The menu is for the right-clicked signal, then alone selected.
 
         Inputs: none.
         Outputs: none.
         """
-        self.select(["Time", "speed", "force"])
+        self.select(["file1_Time", "file1_speed", "file1_force"])
         menu_name_list = []
         self.panel.show_signal_menu = (
             lambda name_str, point: menu_name_list.append(name_str))
         self.panel.request_signal_menu(self.row_point(3))
-        self.assertEqual(self.selected(), ["temperature"])
+        self.assertEqual(self.selected(), ["file1_temperature"])
         self.application.processEvents()
-        self.assertEqual(menu_name_list, ["temperature"])
+        self.assertEqual(menu_name_list, ["file1_temperature"])
 
-    @covers("LLFR-00293", "LLFR-00277", "HLFR-00063")
+    @covers("LLFR-00293", "LLFR-00277", "HLFR-00063", "LLFR-00628")
     def test_right_click_on_a_selected_signal(self) -> None:
         """Right-clicking one of several selected keeps only that one.
 
         Inputs: none.
         Outputs: none.
         """
-        self.select(["speed", "force"])
+        self.select(["file1_speed", "file1_force"])
         copied_list = []
         self.panel.copy_name_requested.connect(copied_list.append)
         self.panel.execute_menu = lambda menu, point: next(
@@ -226,8 +231,8 @@ class SelectionPanelTest(unittest.TestCase):
             if action.text() == self.panel_module.COPY_NAME_TEXT_STR)
         self.panel.request_signal_menu(self.row_point(2))
         self.application.processEvents()
-        self.assertEqual(self.selected(), ["force"])
-        self.assertEqual(copied_list, ["force"])
+        self.assertEqual(self.selected(), ["file1_force"])
+        self.assertEqual(copied_list, ["file1_force"])
 
     @covers("LLFR-00294", "LLFR-00019", "HLFR-00063", "HLFR-00012")
     def test_double_click_reports_only_that_signal(self) -> None:
@@ -238,22 +243,23 @@ class SelectionPanelTest(unittest.TestCase):
         """
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
-        self.select(["Time", "speed", "temperature"])
+        self.select(["file1_Time", "file1_speed", "file1_temperature"])
         self.widget.itemDoubleClicked.emit(self.widget.item(1))
-        self.assertEqual(self.double_clicked_list, ["speed"])
-        self.select(["Time", "temperature"])
+        self.assertEqual(self.double_clicked_list, ["file1_speed"])
+        self.select(["file1_Time", "file1_temperature"])
         # A press on the item first, as a real double-click starts with
         # one; the item view only reports a double-click on the item
         # that was pressed. That click leaves only "force" selected.
         self.click(2)
-        self.select(["Time", "force", "temperature"])
+        self.select(["file1_Time", "file1_force", "file1_temperature"])
         QTest.mouseDClick(self.widget.viewport(), Qt.MouseButton.LeftButton,
                           Qt.KeyboardModifier.NoModifier, self.row_point(2))
         self.application.processEvents()
-        self.assertEqual(self.double_clicked_list, ["speed", "force"])
+        self.assertEqual(self.double_clicked_list, ["file1_speed",
+                                                    "file1_force"])
         self.assertEqual(self.plot_request_list, [])
 
-    @covers("LLFR-00295", "HLFR-00064")
+    @covers("LLFR-00295", "HLFR-00064", "LLFR-00629")
     def test_enter_and_return_request_the_selection(self) -> None:
         """Enter or Return in the list sends the selection in list order.
 
@@ -270,7 +276,8 @@ class SelectionPanelTest(unittest.TestCase):
                        Qt.KeyboardModifier.KeypadModifier)
         self.application.processEvents()
         self.assertEqual(self.plot_request_list,
-                         [["speed", "temperature", "pressure"]] * 2)
+                         [["file1_speed", "file1_temperature",
+                           "pressure"]] * 2)
 
     @covers("LLFR-00296", "LLFR-00094", "HLFR-00064")
     def test_enter_with_nothing_or_in_the_search_box(self) -> None:
@@ -283,7 +290,7 @@ class SelectionPanelTest(unittest.TestCase):
         from PyQt6.QtTest import QTest
         self.widget.clearSelection()
         QTest.keyClick(self.widget, Qt.Key.Key_Return)
-        self.select(["speed"])
+        self.select(["file1_speed"])
         QTest.keyClick(self.panel.search_box, Qt.Key.Key_Return)
         QTest.keyClick(self.panel.search_box, Qt.Key.Key_Enter)
         self.application.processEvents()
@@ -301,7 +308,7 @@ class SelectionPanelTest(unittest.TestCase):
         self.click(1)
         QTest.keyClick(self.widget, Qt.Key.Key_Down)
         self.application.processEvents()
-        self.assertEqual(self.selected(), ["force"])
+        self.assertEqual(self.selected(), ["file1_force"])
         self.assertEqual(self.plot_request_list, [])
 
     @covers("LLFR-00295", "HLFR-00064")
@@ -314,15 +321,16 @@ class SelectionPanelTest(unittest.TestCase):
         from PyQt6.QtCore import QEvent, Qt
         from PyQt6.QtGui import QKeyEvent
         from PyQt6.QtWidgets import QApplication
-        self.select(["speed", "force"])
+        self.select(["file1_speed", "file1_force"])
         for auto_repeat_b in (False, True, True, True):
             QApplication.sendEvent(self.widget, QKeyEvent(
                 QEvent.Type.KeyPress, int(Qt.Key.Key_Return.value),
                 Qt.KeyboardModifier.NoModifier, "", auto_repeat_b))
         self.application.processEvents()
-        self.assertEqual(self.plot_request_list, [["speed", "force"]])
+        self.assertEqual(self.plot_request_list, [["file1_speed",
+                                                   "file1_force"]])
 
-    @covers("LLFR-00290", "LLFR-00292", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00292", "HLFR-00063", "LLFR-00626")
     def test_shift_click_range_starts_at_the_last_click_after_refill(
             self) -> None:
         """A refill of the list keeps the start of the Shift range.
@@ -332,21 +340,22 @@ class SelectionPanelTest(unittest.TestCase):
         """
         self.click(2)
         # The list is refilled (a search, a synthetic signal created).
-        self.panel.show_signal_names(NAME_LIST + ["int_speed"])
+        self.panel.show_signal_names(NAME_LIST + ["file1_int_speed"])
         self.widget.doItemsLayout()
         self.application.processEvents()
-        self.assertEqual(self.widget.currentItem().text(), "force")
-        self.assertEqual(self.selected(), ["force"])
+        self.assertEqual(self.widget.currentItem().text(), "file1_force")
+        self.assertEqual(self.selected(), ["file1_force"])
         self.click(4, "ShiftModifier")
         self.assertEqual(self.selected(),
-                         ["force", "temperature", "pressure"])
+                         ["file1_force", "file1_temperature", "pressure"])
         # The current item moved with its name to another row.
         self.click(3)
-        self.panel.show_signal_names(["Time", "temperature", "pressure"])
+        self.panel.show_signal_names(["file1_Time", "file1_temperature",
+                                      "pressure"])
         self.widget.doItemsLayout()
         self.application.processEvents()
         self.click(0, "ShiftModifier")
-        self.assertEqual(self.selected(), ["Time", "temperature"])
+        self.assertEqual(self.selected(), ["file1_Time", "file1_temperature"])
 
     @covers("LLFR-00292", "LLFR-00266", "HLFR-00063")
     def test_renamed_signal_stays_selected(self) -> None:
@@ -355,12 +364,12 @@ class SelectionPanelTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.panel.show_signal_names(NAME_LIST + ["int_speed"])
-        self.select(["force", "int_speed"])
-        self.panel.rename_shown_signal("int_speed", "distance")
+        self.panel.show_signal_names(NAME_LIST + ["file1_int_speed"])
+        self.select(["file1_force", "file1_int_speed"])
+        self.panel.rename_shown_signal("file1_int_speed", "distance")
         self.panel.rename_shown_signal("missing", "other")
         self.panel.show_signal_names(NAME_LIST + ["distance"])
-        self.assertEqual(self.selected(), ["force", "distance"])
+        self.assertEqual(self.selected(), ["file1_force", "distance"])
 
     @covers("LLFR-00297", "LLFR-00021", "HLFR-00065")
     def test_drag_data_holds_every_name_in_list_order(self) -> None:
@@ -378,18 +387,19 @@ class SelectionPanelTest(unittest.TestCase):
         self.assertTrue(mime_data.hasFormat(list_type_str))
         self.assertEqual(
             json.loads(bytes(mime_data.data(list_type_str)).decode(
-                "utf-8")), ["Time", "speed", "temperature"])
+                "utf-8")), ["file1_Time", "file1_speed", "file1_temperature"])
         self.assertEqual(bytes(mime_data.data(
             self.panel_module.SIGNAL_MIME_TYPE_STR)).decode("utf-8"),
-            "Time")
-        self.assertEqual(mime_data.text(), "Time\nspeed\ntemperature")
+            "file1_Time")
+        self.assertEqual(mime_data.text(),
+                         "file1_Time\nfile1_speed\nfile1_temperature")
         model = self.widget.model()
         self.assertIn(list_type_str, model.mimeTypes())
         model_mime_data = model.mimeData([model.index(4, 0),
                                           model.index(2, 0)])
         self.assertEqual(
             json.loads(bytes(model_mime_data.data(list_type_str)).decode(
-                "utf-8")), ["force", "pressure"])
+                "utf-8")), ["file1_force", "pressure"])
 
     @covers("LLFR-00297", "HLFR-00065")
     def test_press_on_a_selected_signal_keeps_the_selection(self) -> None:
@@ -408,11 +418,12 @@ class SelectionPanelTest(unittest.TestCase):
         self.application.processEvents()
         self.assertTrue(self.widget.pressed_item_was_selected_b)
         self.widget.drag_selection_check()
-        self.assertEqual(self.selected(), ["speed", "force", "pressure"])
+        self.assertEqual(self.selected(), ["file1_speed", "file1_force",
+                                           "pressure"])
         mime_data = self.widget.mimeData(self.widget.selectedItems())
         self.assertEqual(json.loads(bytes(mime_data.data(
             self.panel_module.SIGNAL_LIST_MIME_TYPE_STR)).decode("utf-8")),
-            ["speed", "force", "pressure"])
+            ["file1_speed", "file1_force", "pressure"])
         # A drag is never finished here, so the release goes through.
         self.widget.pressed_item = None
         QTest.mouseRelease(self.widget.viewport(), Qt.MouseButton.LeftButton,
@@ -420,7 +431,8 @@ class SelectionPanelTest(unittest.TestCase):
                            self.row_point(2))
         self.application.processEvents()
 
-    @covers("LLFR-00298", "LLFR-00021", "HLFR-00063", "HLFR-00013")
+    @covers("LLFR-00298", "LLFR-00021", "HLFR-00063", "HLFR-00013",
+            "LLFR-00634")
     def test_drag_from_an_unselected_signal_drags_it_alone(self) -> None:
         """A drag from an unselected signal selects only that signal.
 
@@ -432,14 +444,14 @@ class SelectionPanelTest(unittest.TestCase):
         for modifier in (Qt.KeyboardModifier.NoModifier,
                          Qt.KeyboardModifier.ControlModifier):
             with self.subTest(modifier=modifier):
-                self.select(["speed", "force"])
+                self.select(["file1_speed", "file1_force"])
                 QTest.mousePress(self.widget.viewport(),
                                  Qt.MouseButton.LeftButton, modifier,
                                  self.row_point(3))
                 self.application.processEvents()
                 self.assertFalse(self.widget.pressed_item_was_selected_b)
                 self.widget.drag_selection_check()
-                self.assertEqual(self.selected(), ["temperature"])
+                self.assertEqual(self.selected(), ["file1_temperature"])
                 QTest.mouseRelease(self.widget.viewport(),
                                    Qt.MouseButton.LeftButton, modifier,
                                    self.row_point(3))
@@ -484,7 +496,7 @@ class SelectionAreaKeyFilterTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00063",
-            "HLFR-00032")
+            "HLFR-00032", "LLFR-00637")
     def test_tip_key_and_shift_do_nothing_over_the_list(self) -> None:
         """Over the list, Ctrl and Shift neither activate nor release.
 
@@ -598,6 +610,9 @@ class MultiSelectMainWindowTest(unittest.TestCase):
             QTest.mouseClick(self.top_panel.open_file_button,
                              Qt.MouseButton.LeftButton)
             self.application.processEvents()
+            # LLFR-01001: the files are collapsed after an open; these
+            # tests read the shown signals.
+            expand_all_files(self.controller)
 
     def select(self, name_list: list) -> None:
         """Select exactly the given names in the signal list.
@@ -662,7 +677,8 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         plot_widget.dropEvent(drop_event)
         self.application.processEvents()
 
-    @covers("LLFR-00295", "LLFR-00301", "HLFR-00064", "HLFR-00040")
+    @covers("LLFR-00295", "LLFR-00301", "HLFR-00064", "HLFR-00040",
+            "LLFR-00629")
     def test_enter_plots_the_selection_and_one_undo_removes_it(
             self) -> None:
         """Enter makes one plot of the selection; one undo removes it.
@@ -670,18 +686,18 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.select(["temperature", "speed"])
+        self.select(["file1_temperature", "file1_speed"])
         self.press_enter_in_list()
         plot_widget_list = self.plot_widgets()
         self.assertEqual(len(plot_widget_list), 1)
         self.assertEqual(self.model_names(plot_widget_list[0]),
-                         ["speed", "temperature"])
+                         ["file1_speed", "file1_temperature"])
         self.assertEqual(self.box_record_list, [])
         self.main_window.undo_handler()
         self.application.processEvents()
         self.assertEqual(self.plot_widgets(), [])
 
-    @covers("LLFR-00296", "HLFR-00064")
+    @covers("LLFR-00296", "HLFR-00064", "LLFR-00632")
     def test_enter_in_the_search_box_plots_nothing(self) -> None:
         """Enter in the search box creates no plot and no message.
 
@@ -690,7 +706,7 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         """
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
-        self.select(["speed"])
+        self.select(["file1_speed"])
         QTest.keyClick(self.panel.search_box, Qt.Key.Key_Return)
         self.widget.clearSelection()
         self.press_enter_in_list()
@@ -704,46 +720,51 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.main_window.signal_double_click_handler("force")
+        self.main_window.signal_double_click_handler("file1_force")
         self.application.processEvents()
         plot_widget = self.plot_widgets()[0]
-        self.select(["Time", "force", "temperature"])
+        self.select(["file1_Time", "file1_force", "file1_temperature"])
         self.drop_selection(plot_widget)
         self.assertEqual(self.model_names(plot_widget),
-                         ["force", "Time", "temperature"])
+                         ["file1_force", "file1_Time", "file1_temperature"])
         self.assertEqual(self.box_record_list, [])
         self.main_window.undo_handler()
         self.application.processEvents()
         plot_widget = self.plot_widgets()[0]
-        self.assertEqual(self.model_names(plot_widget), ["force"])
+        self.assertEqual(self.model_names(plot_widget), ["file1_force"])
 
-    @covers("LLFR-00292", "LLFR-00017", "HLFR-00063")
-    def test_replacing_the_file_clears_the_selection(self) -> None:
-        """After a replace no signal is selected, even same names.
+    @covers("LLFR-00292", "LLFR-00926", "HLFR-00063", "LLFR-00627")
+    def test_closing_the_file_clears_the_selection(self) -> None:
+        """After a close no signal of the closed file stays selected.
 
         Inputs: none.
         Outputs: none.
         """
-        self.select(["speed", "force"])
+        self.select(["file1_speed", "file1_force"])
+        self.controller.file_controller.close_all_files()
+        self.application.processEvents()
+        self.assertEqual(self.panel.signal_name_list(), [])
+        self.assertEqual(self.panel.selected_signal_names(), [])
         self.open_file()
-        self.assertEqual(self.panel.signal_name_list(),
-                         ["Time", "speed", "force", "temperature"])
+        self.assertEqual(self.panel.signal_name_list(), [
+            "file2_Time", "file2_speed", "file2_force", "file2_temperature"])
         self.assertEqual(self.panel.selected_signal_names(), [])
 
-    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033")
+    @covers("LLFR-00292", "LLFR-00095", "HLFR-00063", "HLFR-00033",
+            "LLFR-00627")
     def test_search_keeps_only_shown_signals_selected(self) -> None:
         """A search drops the hidden signals from the selection.
 
         Inputs: none.
         Outputs: none.
         """
-        self.select(["speed", "force"])
-        self.panel.search_box.setText("speed")
+        self.select(["file1_speed", "file1_force"])
+        self.panel.search_box.setText("file1_speed")
         self.application.processEvents()
-        self.assertEqual(self.panel.selected_signal_names(), ["speed"])
+        self.assertEqual(self.panel.selected_signal_names(), ["file1_speed"])
         self.panel.search_box.clear()
         self.application.processEvents()
-        self.assertEqual(self.panel.selected_signal_names(), ["speed"])
+        self.assertEqual(self.panel.selected_signal_names(), ["file1_speed"])
 
     def click_name(self, name_str: str,
                    modifier_name_str: str = "NoModifier") -> None:
@@ -758,15 +779,19 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         from PyQt6.QtTest import QTest
         self.widget.doItemsLayout()
         self.application.processEvents()
+        from view.signal_list_panel import SIGNAL_ROW_STR
+        # The rows of the signals only: the file name row is above them.
         row_i = self.panel.signal_name_list().index(name_str)
-        item_rect = self.widget.visualItemRect(self.widget.item(row_i))
+        item = self.widget.row_items(SIGNAL_ROW_STR)[row_i]
+        item_rect = self.widget.visualItemRect(item)
         self.assertFalse(item_rect.isEmpty())
         QTest.mouseClick(self.widget.viewport(), Qt.MouseButton.LeftButton,
                          getattr(Qt.KeyboardModifier, modifier_name_str),
                          item_rect.center())
         self.application.processEvents()
 
-    @covers("LLFR-00290", "LLFR-00292", "LLFR-00095", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00292", "LLFR-00095", "HLFR-00063",
+            "LLFR-00626")
     def test_shift_click_after_a_search_starts_at_the_last_click(
             self) -> None:
         """Typing a search between the clicks keeps the range start.
@@ -774,29 +799,95 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.click_name("speed")
+        self.click_name("file1_speed")
         self.panel.search_box.setText("e")
         self.application.processEvents()
         self.assertEqual(self.panel.signal_name_list(),
-                         ["Time", "speed", "force", "temperature"])
-        self.click_name("temperature", "ShiftModifier")
+                         ["file1_Time", "file1_speed", "file1_force",
+                          "file1_temperature"])
+        self.click_name("file1_temperature", "ShiftModifier")
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["speed", "force", "temperature"])
+                         ["file1_speed", "file1_force", "file1_temperature"])
 
-    @covers("LLFR-00290", "LLFR-00292", "LLFR-00242", "HLFR-00063")
+    @covers("LLFR-00290", "LLFR-00242", "HLFR-00063", "LLFR-00626",
+            "LLFR-01194")
     def test_shift_click_after_a_synthetic_signal_is_created(self) -> None:
-        """Creating a synthetic signal between the clicks keeps the start.
+        """A new synthetic signal is selected alone (LLFR-01194) and is
+        the start of the next Shift + click range.
 
         Inputs: none.
         Outputs: none.
         """
-        self.click_name("force")
-        self.panel.synthetic_operation_requested.emit("speed", "integral")
+        self.click_name("file1_force")
+        self.panel.synthetic_operation_requested.emit("file1_speed",
+                                                      "integral")
         self.application.processEvents()
-        self.assertEqual(self.panel.signal_name_list()[-1], "int_speed")
-        self.click_name("int_speed", "ShiftModifier")
+        self.assertEqual(self.panel.signal_name_list()[-1], "file1_int_speed")
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["force", "temperature", "int_speed"])
+                         ["file1_int_speed"])
+        self.click_name("file1_force", "ShiftModifier")
+        self.assertEqual(self.panel.selected_signal_names(),
+                         ["file1_force", "file1_temperature",
+                          "file1_int_speed"])
+
+    @covers("LLFR-01194", "LLFR-01040", "LLFR-01036", "LLFR-00242",
+            "HLFR-00063", "HLFR-00053", "HLFR-00128")
+    def test_new_signal_selected_only_in_the_window_of_the_menu(
+            self) -> None:
+        """A new synthetic signal is selected only in the panel whose
+        signal menu created it; the other window keeps its selection.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        plot_panel = self.main_window.plot_panel
+        self.main_window.show()
+        plot_panel.add_tab_button.click()
+        self.application.processEvents()
+        second_id_i = plot_panel.current_tab_id()
+        self.main_window.signal_double_click_handler("file1_speed")
+        self.application.processEvents()
+        plot_panel.undock_button_of(second_id_i).click()
+        self.application.processEvents()
+        window = self.main_window.window_of_tab(second_id_i)
+        try:
+            self.assertIsNotNone(window)
+            window_panel = window.signal_list_panel
+            window_widget = window_panel.signal_list_widget
+            self.click_name("file1_force")
+            for item in window_widget.row_items("signal"):
+                if item.text() == "file1_temperature":
+                    window_widget.select_only(item)
+            # The menu of the window's panel: only that panel selects
+            # the new signal (LLFR-01194); the main window's panel keeps
+            # its own selection (LLFR-01040).
+            window_panel.synthetic_operation_requested.emit("file1_speed",
+                                                            "integral")
+            self.application.processEvents()
+            self.assertEqual(window_panel.signal_name_list()[-1],
+                             "file1_int_speed")
+            self.assertEqual(self.panel.signal_name_list()[-1],
+                             "file1_int_speed")
+            self.assertEqual(window_panel.selected_signal_names(),
+                             ["file1_int_speed"])
+            self.assertEqual(window_widget.currentItem().text(),
+                             "file1_int_speed")
+            self.assertEqual(self.panel.selected_signal_names(),
+                             ["file1_force"])
+            # The menu of the main window's panel: the window's panel
+            # keeps the signal it selected before.
+            self.panel.synthetic_operation_requested.emit("file1_force",
+                                                          "integral")
+            self.application.processEvents()
+            self.assertEqual(self.panel.selected_signal_names(),
+                             ["file1_int_force"])
+            self.assertEqual(window_panel.selected_signal_names(),
+                             ["file1_int_speed"])
+            # No creation is under way any more.
+            self.assertIsNone(self.main_window.creating_panel)
+        finally:
+            self.main_window.close_all_undocked_windows()
+            self.application.processEvents()
 
     @covers("LLFR-00292", "LLFR-00266", "HLFR-00063", "HLFR-00060")
     def test_renamed_synthetic_signal_stays_selected(self) -> None:
@@ -806,18 +897,20 @@ class MultiSelectMainWindowTest(unittest.TestCase):
         Outputs: none.
         """
         from PyQt6.QtWidgets import QInputDialog
-        self.panel.synthetic_operation_requested.emit("speed", "integral")
+        self.panel.synthetic_operation_requested.emit("file1_speed",
+                                                      "integral")
         self.application.processEvents()
-        self.select(["force", "int_speed"])
+        self.select(["file1_force", "file1_int_speed"])
         with mock.patch.object(QInputDialog, "getText",
                                return_value=("distance", True)):
-            self.panel.rename_signal_requested.emit("int_speed")
+            self.panel.rename_signal_requested.emit("file1_int_speed")
             self.application.processEvents()
-        self.assertEqual(self.panel.signal_name_list()[-1], "distance")
+        self.assertEqual(self.panel.signal_name_list()[-1], "file1_distance")
         self.assertEqual(self.panel.selected_signal_names(),
-                         ["force", "distance"])
+                         ["file1_force", "file1_distance"])
 
-    @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00032")
+    @covers("LLFR-00302", "LLFR-00148", "LLFR-00154", "HLFR-00032",
+            "LLFR-00637")
     def test_tool_keys_over_the_list_keep_the_active_tool(self) -> None:
         """Ctrl and Shift over the list leave the Zoom tool active.
 

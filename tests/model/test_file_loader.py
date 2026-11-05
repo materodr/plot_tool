@@ -138,7 +138,7 @@ class TemporaryFolderTest(unittest.TestCase):
 class CsvLoadingTest(TemporaryFolderTest):
     """CSV layout and style detection (LLFR-00059, LLFR-00061)."""
 
-    @covers("LLFR-00059", "LLFR-00061", "HLFR-00005")
+    @covers("LLFR-00059", "LLFR-00061", "HLFR-00005", "LLFR-00451")
     def test_comma_style_columns_are_signals(self) -> None:
         """A ","/"." CSV gives one signal per column, names from row 1.
 
@@ -188,7 +188,7 @@ class CsvLoadingTest(TemporaryFolderTest):
         path_str = self.write_text("data.csv", "Time;Speed\n0;1.5\n")
         self.assert_read_error(path_str, "'1.5'", "Speed", "row 2")
 
-    @covers("LLFR-00061", "LLFR-00059")
+    @covers("LLFR-00061", "LLFR-00059", "LLFR-00451")
     def test_quoted_names_with_separators(self) -> None:
         """Quoted names may contain the other style's separator.
 
@@ -203,7 +203,7 @@ class CsvLoadingTest(TemporaryFolderTest):
         np.testing.assert_array_equal(
             signal_file.signal_array("Speed, front"), [1.5, 2.0])
 
-    @covers("LLFR-00059")
+    @covers("LLFR-00059", "LLFR-00451")
     def test_bom_spaces_and_trailing_blank_lines(self) -> None:
         """BOM, spaces around names and empty end lines are ignored.
 
@@ -468,7 +468,7 @@ class MatLoadingTest(TemporaryFolderTest):
             "Column": np.array([[4.5], [5.5], [6.5]], dtype=np.float32),
             "Matrix": np.ones((3, 3)),
             "Label": "abc",
-            "Settings": {"gain": 2.0},
+            "Settings": {"table": np.ones((3, 3))},
             "Complex": np.array([1 + 2j, 3, 4]),
             "Empty": np.array([]),
         })
@@ -484,7 +484,7 @@ class MatLoadingTest(TemporaryFolderTest):
                              np.float64)
             self.assertEqual(signal_file.signal_array(name_str).shape, (3,))
 
-    @covers("LLFR-00063", "HLFR-00009")
+    @covers("LLFR-00063", "HLFR-00009", "LLFR-00452")
     def test_ignored_variables_skip_sample_count_check(self) -> None:
         """Ignored variables of other lengths don't fail HLFR-00009.
 
@@ -508,7 +508,7 @@ class MatLoadingTest(TemporaryFolderTest):
         signal_file = load_signal_file(path_str)
         np.testing.assert_array_equal(signal_file.signal_array("A"), [5.0])
 
-    @covers("LLFR-00063", "LLFR-00012", "HLFR-00009")
+    @covers("LLFR-00063", "LLFR-00012", "HLFR-00009", "LLFR-00452")
     def test_unequal_lengths_fail_sample_count_check(self) -> None:
         """MAT signals of different lengths fail HLFR-00009.
 
@@ -523,6 +523,40 @@ class MatLoadingTest(TemporaryFolderTest):
         self.assertIn("'Time' has 5", message_str)
         self.assertIn("'B' has 3", message_str)
         self.assertNotIn("'A' has", message_str)
+
+    @covers("LLFR-01178", "LLFR-00012", "LLFR-00980", "LLFR-00983",
+            "LLFR-00984", "HLFR-00009")
+    def test_sample_count_error_lists_the_signals(self) -> None:
+        """The signals with another sample count are a numbered list
+        below the sentence that names the check; one signal alone has no
+        number.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model import file_loader
+        from model.message_lists import list_text
+        path_str = self.write_mat("data.mat", {
+            "Time": np.arange(5.0), "A": np.arange(2.0),
+            "B": np.arange(5.0), "C": np.arange(3.0)})
+        message_str = self.assert_check_error(path_str,
+                                              SAMPLE_COUNT_CHECK_STR)
+        prefix_str = "The file 'data.mat' cannot be opened because"
+        heading_str = file_loader.SAMPLE_COUNT_HEADING_STR.format(
+            prefix=prefix_str, reference="Time", count=5)
+        self.assertEqual(message_str, list_text(
+            ["'A' has 2 samples.", "'C' has 3 samples."], heading_str))
+        self.assertEqual(message_str, heading_str + "\n\n"
+                         "1. 'A' has 2 samples.\n\n2. 'C' has 3 samples.")
+        self.assertIn("different sample counts", message_str)
+        alone_path_str = self.write_mat("alone.mat", {
+            "Time": np.arange(5.0), "A": np.arange(2.0)})
+        alone_str = self.assert_check_error(alone_path_str,
+                                            SAMPLE_COUNT_CHECK_STR)
+        self.assertEqual(alone_str, file_loader.ONE_SAMPLE_COUNT_HEADING_STR
+                         .format(prefix="The file 'alone.mat' cannot be "
+                                 "opened because", reference="Time",
+                                 count=5) + "\n\n'A' has 2 samples.")
 
     @covers("LLFR-00064", "HLFR-00002")
     def test_v73_file_is_not_supported(self) -> None:
@@ -751,7 +785,7 @@ class TimeSignalChoiceTest(unittest.TestCase):
             "t_s": np.array([0.0, 0.5, 1.5]),
             "Flat": np.array([0.0, 0.0, 1.0])})
 
-    @covers("LLFR-00329")
+    @covers("LLFR-00329", "LLFR-00514")
     def test_increasing_check_reason(self) -> None:
         """Only signals whose samples always increase are accepted.
 
@@ -792,7 +826,7 @@ class TimeSignalChoiceTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.make_file().choose_time_signal("Missing")
 
-    @covers("LLFR-00331", "HLFR-00072")
+    @covers("LLFR-00331", "LLFR-00515", "HLFR-00072")
     def test_time_signal_cannot_change(self) -> None:
         """Once set, the time signal can't be chosen again.
 

@@ -11,6 +11,7 @@ from unittest import mock
 
 import numpy as np
 
+from tests.support import expand_all_files
 from tests.support import button_name, covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 
@@ -65,8 +66,10 @@ class UndoWindowTestCase(unittest.TestCase):
         """Return the plain-value state of the workspace.
 
         Inputs: none.
-        Outputs: the Workspace.state_tuple().
+        Outputs: the Workspace.state_tuple(), with the panel widths
+            shown now (LLFR-01055): the model learns them from the view.
         """
+        self.plot_controller.sync_window_state()
         return self.plot_controller.workspace.state_tuple()
 
     def current_plot_ids(self) -> list:
@@ -172,7 +175,7 @@ class UndoButtonTest(UndoWindowTestCase):
         self.assertEqual(self.current_plot_ids(), [])
         self.assertEqual(self.state(), start_state)
 
-    @covers("LLFR-00141")
+    @covers("LLFR-00141", "LLFR-00457")
     def test_disabled_button_does_nothing(self) -> None:
         """Clicks on the disabled button change nothing.
 
@@ -230,7 +233,7 @@ class UndoButtonTest(UndoWindowTestCase):
                 expected_color_str)
         self.assertEqual(len(color_during_list), 2)
 
-    @covers("LLFR-00138", "LLFR-00125", "LLFR-00109")
+    @covers("LLFR-00138", "LLFR-00125", "LLFR-00109", "LLFR-00147")
     def test_rebuilt_plots_keep_grid_and_plot_tool(self) -> None:
         """Plots rebuilt by undo show the grid and use the active tool.
 
@@ -240,7 +243,8 @@ class UndoButtonTest(UndoWindowTestCase):
         from controller.plot_tools import ZOOM_TOOL_STR
         self.main_window.signal_double_click_handler("speed")
         self.main_window.signal_double_click_handler("force")
-        self.top_panel.grid_button.click()
+        # LLFR-00147: the grid is shown from the start.
+        self.assertTrue(self.top_panel.grid_button.is_active())
         self.top_panel.zoom_button.click()
         self.click_undo()
         plot_widget = self.plot_panel.plot_view(self.current_plot_ids()[0])
@@ -248,6 +252,45 @@ class UndoButtonTest(UndoWindowTestCase):
         self.assertTrue(plot_widget.grid_shown_b)
         self.assertTrue(self.top_panel.zoom_button.is_active())
         self.assertTrue(self.top_panel.grid_button.is_active())
+
+    @covers("LLFR-01132", "LLFR-00138", "LLFR-00192", "LLFR-00124",
+            "LLFR-00122", "LLFR-00123", "HLFR-00040", "HLFR-00048",
+            "HLFR-00037")
+    def test_grid_click_is_undone_and_redone(self) -> None:
+        """A Grid click is undone and redone: the grid of every plot and
+        the Grid button follow.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.signal_double_click_handler("speed")
+        self.main_window.signal_double_click_handler("force")
+        self.application.processEvents()
+        grid_button = self.top_panel.grid_button
+        self.assertTrue(grid_button.is_active())
+        grid_button.click()
+        self.application.processEvents()
+        self.assertFalse(grid_button.is_active())
+        self.assertTrue(self.main_window.is_undo_enabled())
+
+        def plot_grids() -> list:
+            """Return whether each plot of the tab shows the grid.
+
+            Inputs: none.
+            Outputs: a list of bool.
+            """
+            return [self.plot_panel.plot_view(plot_id_i).grid_shown_b
+                    for plot_id_i in self.current_plot_ids()]
+
+        self.assertEqual(plot_grids(), [False, False])
+        self.undo_button.click()
+        self.application.processEvents()
+        self.assertTrue(grid_button.is_active())
+        self.assertEqual(plot_grids(), [True, True])
+        self.top_panel.redo_button.click()
+        self.application.processEvents()
+        self.assertFalse(grid_button.is_active())
+        self.assertEqual(plot_grids(), [False, False])
 
     @covers("LLFR-00138", "LLFR-00070")
     def test_zoomed_range_is_kept(self) -> None:
@@ -292,7 +335,7 @@ class UndoShortcutTest(UndoWindowTestCase):
         self.assertEqual(self.current_plot_ids(), [])
         self.assertFalse(self.undo_button.isEnabled())
 
-    @covers("LLFR-00141", "LLFR-00137")
+    @covers("LLFR-00141", "LLFR-00137", "LLFR-00457")
     def test_ctrl_z_does_nothing_when_nothing_to_undo(self) -> None:
         """With nothing to undo, Ctrl+Z changes nothing.
 
@@ -383,6 +426,9 @@ class UndoEndToEndTest(unittest.TestCase):
         with mock.patch(OPEN_FILE_DIALOG_TARGET_STR,
                         return_value=self.path_str):
             self.click(self.main_window.top_panel.open_file_button)
+            # LLFR-01001: the files are collapsed after an open; these
+            # tests read the shown signals.
+            expand_all_files(self.controller)
 
     def double_click_signal(self, signal_name_str: str) -> None:
         """Double-click a name in the signal list.
@@ -399,7 +445,7 @@ class UndoEndToEndTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00138", "LLFR-00140", "LLFR-00141", "LLFR-00136",
-            "LLFR-00142")
+            "LLFR-00142", "LLFR-00930")
     def test_open_act_and_undo_everything(self) -> None:
         """Two plots, a marker and a tab rename are undone in 4 clicks.
 
@@ -412,11 +458,12 @@ class UndoEndToEndTest(unittest.TestCase):
         undo_button = top_panel.undo_button
         self.open_file()
         self.assertEqual(self.main_window.signal_list_panel
-                         .signal_name_list(), ["Time", "speed", "force"])
+                         .signal_name_list(), ["file1_Time", "file1_speed",
+                                               "file1_force"])
         self.assertFalse(undo_button.isEnabled())
         tab_id_i = plot_panel.current_tab_id()
-        self.double_click_signal("speed")
-        self.double_click_signal("force")
+        self.double_click_signal("file1_speed")
+        self.double_click_signal("file1_force")
         first_id_i, second_id_i = plot_panel.plot_id_list(tab_id_i)
         self.click(top_panel.marker_button)
         plot_panel.plot_view(first_id_i).marker_place_requested.emit(0.5)
@@ -439,19 +486,28 @@ class UndoEndToEndTest(unittest.TestCase):
         self.assertEqual(
             [entry[0] for entry in
              plot_panel.plot_view(first_id_i).legend_entry_list()],
-            ["speed"])
+            ["file1_speed"])
         self.click(undo_button)
         self.assertEqual(self.main_window.tab_name_list(), ["Tab 1"])
         self.assertEqual(plot_panel.plot_id_list(
             plot_panel.current_tab_id()), [])
         self.assertFalse(undo_button.isEnabled())
-        # LLFR-00142: opening the file again leaves nothing to undo.
-        self.double_click_signal("speed")
+        # LLFR-00142: opening another file keeps what can be undone.
+        self.double_click_signal("file1_speed")
         self.assertTrue(undo_button.isEnabled())
-        with mock.patch.object(QInputDialog, "getText"), \
-                mock.patch("view.message_boxes.ask_replace_file",
-                           return_value=True):
-            self.open_file()
+        other_path_str = os.path.join(self.temporary_folder.name,
+                                      "other.csv")
+        with open(other_path_str, "w", encoding="utf-8") as file:
+            file.write("Time,torque\n0,1\n1,2\n")
+        self.path_str = other_path_str
+        self.open_file()
+        self.assertEqual(self.main_window.signal_list_panel
+                         .signal_name_list()[-2:],
+                         ["file2_Time", "file2_torque"])
+        self.assertTrue(undo_button.isEnabled())
+        # LLFR-00930: closing the files leaves nothing to undo.
+        self.controller.file_controller.close_all_files()
+        self.application.processEvents()
         self.assertFalse(undo_button.isEnabled())
 
 

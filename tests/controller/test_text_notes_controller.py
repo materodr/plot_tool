@@ -100,7 +100,7 @@ class CreateTextNoteTest(TextNoteControllerTestCase):
         self.undo()
         self.assertEqual(self.drawn(), [])
 
-    @covers("LLFR-00334")
+    @covers("LLFR-00334", "LLFR-00735", "LLFR-00736")
     def test_blank_text_writes_nothing_silently(self) -> None:
         """An empty or blank text creates no note and no undo step.
 
@@ -116,7 +116,7 @@ class CreateTextNoteTest(TextNoteControllerTestCase):
         # No message box (or any other call) was made.
         self.assertEqual(len(self.view.call_list), call_count_i)
 
-    @covers("LLFR-00333")
+    @covers("LLFR-00333", "LLFR-00733")
     def test_tool_deactivated_while_typing_still_writes(self) -> None:
         """A text confirmed after the Text tool was deactivated counts.
 
@@ -161,7 +161,7 @@ class CreateTextNoteTest(TextNoteControllerTestCase):
         self.drop(other_plot_id_i, "s3")
         self.assertEqual(self.drawn(other_plot_id_i), [])
 
-    @covers("LLFR-00340")
+    @covers("LLFR-00340", "LLFR-00745")
     def test_any_number_of_notes(self) -> None:
         """A plot holds many notes, all drawn in writing order.
 
@@ -201,7 +201,7 @@ class ChangeTextNoteTest(TextNoteControllerTestCase):
         self.create("first", 1.0, 1.0)
         self.create("second", 2.0, 2.0)
 
-    @covers("LLFR-00339")
+    @covers("LLFR-00339", "LLFR-00742")
     def test_move_with_any_tool(self) -> None:
         """A dropped note takes the values of the drop place, whatever
         tool is active.
@@ -247,7 +247,7 @@ class ChangeTextNoteTest(TextNoteControllerTestCase):
             self.plot_id_i, 1, "renamed")
         self.assertEqual(self.drawn()[1], ("renamed", 2.0, 2.0))
 
-    @covers("LLFR-00342")
+    @covers("LLFR-00342", "LLFR-00746", "LLFR-00747")
     def test_blank_edit_keeps_the_text_silently(self) -> None:
         """A blank text keeps the previous text, with no message.
 
@@ -279,7 +279,7 @@ class ChangeTextNoteTest(TextNoteControllerTestCase):
                                                            5)
         self.assertEqual(len(self.drawn()), 1)
 
-    @covers("LLFR-00340", "LLFR-00049")
+    @covers("LLFR-00340", "LLFR-00049", "LLFR-00744")
     def test_notes_removed_with_the_plot(self) -> None:
         """Deleting the plot removes its notes; undo brings them back.
 
@@ -294,7 +294,7 @@ class ChangeTextNoteTest(TextNoteControllerTestCase):
                          ["first", "second"])
         self.assertEqual(len(self.drawn()), 2)
 
-    @covers("LLFR-00340", "LLFR-00051")
+    @covers("LLFR-00340", "LLFR-00051", "LLFR-00744")
     def test_notes_removed_when_last_curve_goes(self) -> None:
         """Removing the last curve deletes the plot with its notes.
 
@@ -379,7 +379,7 @@ class TextNoteLayoutTest(LayoutControllerTestCase):
         self.assertNotIn("my private remark", text_str)
         self.assertNotIn("note", text_str.lower())
 
-    @covers("LLFR-00229", "LLFR-00226")
+    @covers("LLFR-00229", "LLFR-00226", "LLFR-00473")
     def test_kept_tabs_keep_their_notes(self) -> None:
         """Loading a layout keeps the notes of the current tabs; the new
         tabs have none.

@@ -39,6 +39,28 @@ A FileDialogPool keeps these dialogs:
 - ``run_file_dialog(dialog)`` shows a dialog modally and returns the
   chosen path ("" when cancelled).
 
+A reused dialog must show the folder the controllers ask for on every
+use (LLFR-00447, LLFR-00468, issue #232). Qt keeps, in the options it
+gives the system panel, the files selected at the earlier use: before
+the second show it stores them as the "initially selected files", and
+it never replaces them while that list is not empty. The macOS panel
+then opens in the folder of the first of those files and ignores the
+folder of setDirectory, so every later dialog of a run showed the
+folder of the first file chosen in it. reset_for_new_use therefore also
+selects the new folder itself (selectFile with the folder's path) on
+the macOS panel, which replaces that stale list: Qt's macOS helper
+opens a selected folder as the panel's folder, with no file name.
+
+The same stale list made a reused dialog fill in the file name chosen
+at its earlier use (LLFR-01183, issue #243): the Windows dialog, which
+Qt builds again at every show from those options, puts the name of the
+first of those files in its name field, unless that path is a folder.
+The folder is therefore selected on the Windows dialog too, and on
+every use, also when the controllers give no folder (then the folder
+the dialog shows now is selected). Qt's own dialog has its name field
+cleared instead. Only the Save signals dialog proposes a name, on
+purpose, after this reset (LLFR-00532).
+
 Any other file dialog is made fast the same way: register its factory
 function with a new key and ask for it with prepared_dialog, as the
 Save signals dialog does.
@@ -46,13 +68,14 @@ Save signals dialog does.
 
 import ctypes
 import ctypes.util
+import os
 import sys
 import time
 import traceback
 
 from PyQt6 import sip
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QDialog, QLineEdit
+from PyQt6.QtWidgets import QDialog, QFileDialog, QLineEdit
 
 # LLFR-00406: the name of the field where a file name is typed in Qt's
 # own file dialog (used where the system has no file dialog, as in the
@@ -61,6 +84,9 @@ FILE_NAME_FIELD_NAME_STR = "fileNameEdit"
 # LLFR-00406: the platform whose system file panels are slow on their
 # first use in a process.
 MACOS_PLATFORM_STR = "darwin"
+# LLFR-00447, LLFR-01183: the platforms whose system file dialogs open
+# with the files selected at an earlier use (issues #232 and #243).
+REMEMBERING_PLATFORM_TUPLE = (MACOS_PLATFORM_STR, "win32")
 # LLFR-00406, LLFR-00188: the preparation starts this long after the
 # window is shown, so that the window is drawn and answers first.
 PREPARE_START_DELAY_MS_I = 250
@@ -152,7 +178,55 @@ def run_file_dialog(dialog) -> str:
     return str(selected_file_list[0])
 
 
-def reset_for_new_use(dialog, start_folder_str: str) -> None:
+def run_file_dialog_paths(dialog) -> list:
+    """Show a file dialog modally and return every chosen path.
+
+    Inputs:
+        dialog: a QFileDialog, for example one that selects several
+            existing files.
+    Outputs: the selected paths, in the order the dialog gives them, or
+        [] when the user cancelled (LLFR-00007).
+    """
+    # LLFR-00951: the Open file dialog may return several files; the
+    # file controller takes them in the order of LLFR-00952.
+    if dialog.exec() != QDialog.DialogCode.Accepted.value:
+        return []
+    return [str(path_str) for path_str in dialog.selectedFiles()
+            if path_str]
+
+
+def uses_system_panel(dialog, platform_str: str = sys.platform) -> bool:
+    """Tell whether a dialog is shown as a system dialog that remembers.
+
+    Inputs:
+        dialog: a QFileDialog.
+        platform_str: the platform name, as sys.platform.
+    Outputs: True on macOS and on Windows when the dialog may use the
+        system's own dialog (DontUseNativeDialog is not set).
+    """
+    # LLFR-00447, LLFR-00468: the macOS panel opens in the folder of the
+    # files selected at an earlier use (issue #232). LLFR-01183: the
+    # Windows dialog fills in the name of the first of them (issue
+    # #243).
+    return (platform_str in REMEMBERING_PLATFORM_TUPLE
+            and not dialog.testOption(
+                QFileDialog.Option.DontUseNativeDialog))
+
+
+def shown_folder_str(dialog) -> str:
+    """Return the folder a dialog shows now.
+
+    Inputs:
+        dialog: a QFileDialog.
+    Outputs: the absolute path of its folder, or "" when it has none.
+    """
+    # LLFR-01183: the folder kept when the controllers give none.
+    folder_str = str(dialog.directory().absolutePath())
+    return os.path.abspath(folder_str) if folder_str else ""
+
+
+def reset_for_new_use(dialog, start_folder_str: str,
+                      platform_str: str = sys.platform) -> None:
     """Make a dialog shown before look as a newly built one.
 
     Inputs:
@@ -160,10 +234,22 @@ def reset_for_new_use(dialog, start_folder_str: str) -> None:
         start_folder_str: the folder to show; "" keeps the folder the
             dialog shows now (the folder Qt chose when it was built, or
             the one it showed last).
-    Outputs: none. The first name filter is chosen and the typed file
-        name of an earlier use is cleared.
+        platform_str: the platform name, as sys.platform.
+    Outputs: none. The first name filter is chosen and no file name of
+        an earlier use is left (LLFR-01183).
     """
-    # LLFR-00204, LLFR-00220: the folder chosen by the controllers.
+    # LLFR-00204, LLFR-00220, LLFR-01179, LLFR-01181: the folder chosen
+    # by the controllers.
+    # LLFR-00447, LLFR-00468, LLFR-01183: on the macOS panel and the
+    # Windows dialog the folder is also selected, so that the file
+    # chosen at the earlier use decides neither the folder nor the name
+    # (issues #232 and #243).
+    if uses_system_panel(dialog, platform_str):
+        selected_folder_str = (os.path.abspath(start_folder_str)
+                               if start_folder_str
+                               else shown_folder_str(dialog))
+        if selected_folder_str:
+            dialog.selectFile(selected_folder_str)
     if start_folder_str:
         dialog.setDirectory(start_folder_str)
     # LLFR-00128, LLFR-00219, LLFR-00221: the filters are kept as they
@@ -171,7 +257,8 @@ def reset_for_new_use(dialog, start_folder_str: str) -> None:
     name_filter_list = dialog.nameFilters()
     if name_filter_list:
         dialog.selectNameFilter(name_filter_list[0])
-    # LLFR-00219, LLFR-00406: a name typed before a cancel is not kept.
+    # LLFR-00219, LLFR-00406, LLFR-01183: in Qt's own dialog, a name
+    # typed or chosen at an earlier use is not kept.
     file_name_field = dialog.findChild(QLineEdit, FILE_NAME_FIELD_NAME_STR)
     if file_name_field is not None:
         file_name_field.clear()
@@ -279,10 +366,11 @@ class FileDialogPool:
                 its current folder.
         Outputs: the QFileDialog, reset as by reset_for_new_use.
         """
-        # LLFR-00406, LLFR-00204, LLFR-00220: the same dialog, in the
-        # folder the controller chose.
+        # LLFR-00406, LLFR-00204, LLFR-00220, LLFR-00447, LLFR-00468,
+        # LLFR-01179 to LLFR-01183: the same dialog, in the folder the
+        # controller chose, with no file name of an earlier use.
         dialog = self.dialog(key_str)
-        reset_for_new_use(dialog, start_folder_str)
+        reset_for_new_use(dialog, start_folder_str, self.platform_str)
         return dialog
 
     def build_and_polish(self, key_str: str) -> None:

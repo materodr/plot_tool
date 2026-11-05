@@ -67,7 +67,7 @@ class BracketShapeTest(unittest.TestCase):
                          [(300.0, 50.0), (305.0, 50.0),
                           (100.0, 80.0), (305.0, 80.0)])
 
-    @covers("LLFR-00170")
+    @covers("LLFR-00170", "LLFR-00685")
     def test_delta_y_mirrored_left_of_the_earlier_point(self) -> None:
         """On the left side: left of the earlier point, tip left.
 
@@ -93,7 +93,7 @@ class BracketShapeTest(unittest.TestCase):
             DEPTH_PX_F, delta_geometry.LEFT_SIDE_STR)
         self.assertEqual(tuple(x_path.vertices[0]), (100.0, 85.0))
 
-    @covers("LLFR-00170")
+    @covers("LLFR-00170", "LLFR-00685")
     def test_side_choice(self) -> None:
         """Right when it fits, else left when it fits, else more room.
 
@@ -220,6 +220,98 @@ class ValueTextTest(unittest.TestCase):
                          "Δy = 0.333333")
         tip_str = value_text.format_tip_text("speed", 1.0, 1.0 / 3.0)
         self.assertEqual(tip_str, "t = 1 s\nspeed = 0.333333")
+
+
+class DraggedPointTest(unittest.TestCase):
+    """The sample a dragged delta marker point moves to (LLFR-00433)."""
+
+    def setUp(self) -> None:
+        """Make a curve "a" sampled every 0.5 s from 0 to 10 s.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.x_array = np.arange(0.0, 10.5, 0.5)
+        self.y_array = self.x_array ** 2
+
+    def drag(self, target_x_f: float, point_index_i: int = 1,
+             kind_str: str = DELTA_X_KIND_STR, shown_tuple=(0.0, 10.0),
+             point_list=None) -> tuple:
+        """Return the sample for a pointer at an x value.
+
+        Inputs:
+            target_x_f: x under the pointer.
+            point_index_i: the dragged point.
+            kind_str: the marker kind.
+            shown_tuple: the shown x range.
+            point_list: the marker's points (default: "a" at 1 s and
+                "a" at 4 s).
+        Outputs: the point tuple.
+        """
+        if point_list is None:
+            point_list = [("a", 1.0, 1.0), ("a", 4.0, 16.0)]
+        return delta_geometry.dragged_point_tuple(
+            point_list, point_index_i, kind_str, self.x_array,
+            self.y_array, target_x_f, *shown_tuple)
+
+    @covers("LLFR-00433", "LLFR-00862", "LLFR-00863", "HLFR-00099")
+    def test_nearest_sample_of_the_same_curve(self) -> None:
+        """The nearest sample to the pointer's x, on the point's curve.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.drag(6.2), ("a", 6.0, 36.0))
+        self.assertEqual(self.drag(6.3), ("a", 6.5, 42.25))
+        self.assertEqual(self.drag(2.1, point_index_i=0), ("a", 2.0, 4.0))
+        # The name of the dragged point is kept (LLFR-00862).
+        self.assertEqual(self.drag(
+            3.0, point_list=[("a", 1.0, 1.0), ("b", 4.0, 16.0)])[0], "b")
+
+    @covers("LLFR-00433")
+    def test_limited_to_the_shown_range(self) -> None:
+        """A pointer outside the shown range takes the nearest sample
+        inside it; no sample inside keeps the point.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(self.drag(50.0, shown_tuple=(2.0, 7.2)),
+                         ("a", 7.0, 49.0))
+        self.assertEqual(self.drag(-3.0, shown_tuple=(7.2, 2.2)),
+                         ("a", 2.5, 6.25))
+        self.assertEqual(self.drag(5.0, shown_tuple=(5.1, 5.2)),
+                         ("a", 4.0, 16.0))
+
+    @covers("LLFR-00435", "HLFR-00098")
+    def test_zero_value_keeps_the_last_other_sample(self) -> None:
+        """A sample that would give zero keeps the point where it is.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # Delta X: onto the time of the other point.
+        self.assertEqual(self.drag(1.1), ("a", 4.0, 16.0))
+        # Delta Y: onto the value of the other point (16 at 4 s).
+        self.assertEqual(self.drag(
+            4.0, point_index_i=0, kind_str=DELTA_Y_KIND_STR,
+            point_list=[("a", 1.0, 1.0), ("b", 9.0, 16.0)]),
+            ("a", 1.0, 1.0))
+        # Delta Y with the same time is allowed.
+        self.assertEqual(self.drag(
+            9.0, point_index_i=0, kind_str=DELTA_Y_KIND_STR,
+            point_list=[("a", 1.0, 1.0), ("b", 9.0, 16.0)]),
+            ("a", 9.0, 81.0))
+
+    @covers("LLFR-00433")
+    def test_samples_that_are_not_finite_are_skipped(self) -> None:
+        """A NaN sample is never chosen.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.y_array[12] = np.nan
+        self.assertEqual(self.drag(5.9), ("a", 5.5, 30.25))
 
 
 if __name__ == "__main__":

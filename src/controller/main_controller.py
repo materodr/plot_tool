@@ -46,12 +46,12 @@ class MainController:
         self.file_controller = FileController(main_window)
         main_window.set_open_file_handler(
             self.file_controller.open_file_requested)
-        # LLFR-00015, LLFR-00019, LLFR-00026, LLFR-00042: the plot
+        # LLFR-00920, LLFR-00019, LLFR-00026, LLFR-00042: the plot
         # controller listens to opened files and to the plot panel.
         self.plot_controller = PlotController(main_window,
                                               self.file_controller)
-        # LLFR-00216 to LLFR-00218: the Save layout and Load layout
-        # buttons, enabled once a data file is open.
+        # LLFR-00216 to LLFR-00218, LLFR-01244: the Save layout button,
+        # enabled once a data file is open, and the Load layout button.
         self.layout_controller = LayoutController(
             main_window, self.file_controller, self.plot_controller)
         # LLFR-00095, LLFR-00104: the search box filters the signal
@@ -59,8 +59,8 @@ class MainController:
         # the FileController has shown all names of a new file.
         self.signal_list_controller = SignalListController(
             main_window, self.file_controller)
-        # LLFR-00239, LLFR-00252: the signal list menu and the synthetic
-        # signals, removed when a data file is opened.
+        # LLFR-00239, LLFR-00926: the signal list menu and the synthetic
+        # signals, removed with the data file they come from.
         self.synthetic_controller = SyntheticController(
             main_window, self.file_controller, self.plot_controller,
             self.signal_list_controller)
@@ -76,12 +76,45 @@ class MainController:
         # signals of the signal list, enabled once a data file is open.
         self.save_signals_controller = SaveSignalsController(
             main_window, self.file_controller, self.synthetic_controller)
+        # LLFR-00926 to LLFR-00937: closing data files. The synthetic
+        # controller goes first: it removes the synthetic signals of the
+        # closed files and has the plot controller remove their curves;
+        # then the signal list and the buttons follow.
+        self.file_controller.add_files_closed_listener(
+            self.synthetic_controller.on_files_closed)
+        self.file_controller.add_files_closed_listener(
+            self.signal_list_controller.on_files_closed)
+        self.file_controller.add_files_closed_listener(
+            self.layout_controller.on_files_closed)
+        self.file_controller.add_files_closed_listener(
+            self.save_signals_controller.on_files_closed)
         # LLFR-00128, LLFR-00133: the Export menu and the Copy button
         # run the export controller's flows.
-        self.export_controller = ExportController(main_window)
+        # LLFR-00971, LLFR-00972: the pages and the image describe the
+        # open data files.
+        # LLFR-01179: the PDF dialog first shows the Open file folder.
+        self.export_controller = ExportController(
+            main_window,
+            lambda: self.file_controller.data_files.description_str,
+            lambda: self.file_controller.dialog_folder_str)
+        # LLFR-01136: Ctrl+C (Cmd+C) copies the tab of its window.
         main_window.set_export_handlers(
             self.export_controller.on_export_requested,
-            self.export_controller.on_copy_requested)
+            self.export_controller.on_copy_requested,
+            self.export_controller.on_copy_shortcut)
+        # LLFR-01229: the Word and PNG options of the Export menu; fake
+        # views of tests that do not export may leave the method out.
+        set_image_export_handlers = getattr(
+            main_window, "set_image_export_handlers", None)
+        if set_image_export_handlers is not None:
+            set_image_export_handlers(
+                self.export_controller.on_docx_export_requested,
+                self.export_controller.on_png_export_requested)
+
+        # LLFR-00923: the file menu of the file name rows.
+        main_window.set_file_menu_handlers(
+            self.file_controller.close_file_requested,
+            self.file_controller.close_all_files_requested)
 
     def start(self) -> None:
         """Show the main window.

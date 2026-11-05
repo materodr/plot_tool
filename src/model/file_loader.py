@@ -17,6 +17,7 @@ import numpy as np
 from model.errors import (
     SAMPLE_COUNT_CHECK_STR, SIGNAL_COUNT_CHECK_STR, ContentCheckError,
     FileAccessError, FileReadError, UnsupportedFormatError)
+from model.message_lists import list_text
 from model.signal_file import SignalFile, matching_time_signal_name
 
 # HLFR-00005: the file formats the app opens, by extension.
@@ -25,6 +26,16 @@ SUPPORTED_EXTENSION_TUPLE = (".csv", ".xlsx", ".mat", ".h5", ".hdf5")
 # LLFR-00065: a sample written as text must be a plain finite number,
 # such as "-2", "3.5", ".5" or "1e-3" (no "nan", "inf" or "1_000").
 NUMBER_PATTERN_STR = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+
+# LLFR-00012, LLFR-01178: the sentence above the list of the signals
+# whose sample count differs, for several signals or for one.
+SAMPLE_COUNT_HEADING_STR = (
+    "{prefix} its signals have different sample counts. '{reference}' "
+    "has {count} samples, and these signals have another count:")
+ONE_SAMPLE_COUNT_HEADING_STR = (
+    "{prefix} its signals have different sample counts. '{reference}' "
+    "has {count} samples, and this signal has another count:")
+SAMPLE_COUNT_ITEM_STR = "'{name}' has {count} samples."
 
 # LLFR-00061: (separator, decimal mark) of the two CSV styles.
 COMMA_STYLE_TUPLE = (",", ".")
@@ -399,15 +410,21 @@ def read_mat_signals(path_str: str) -> dict:
 
     Inputs:
         path_str: path of the .mat file.
-    Outputs: a dict variable name -> float64 array, in file order, with
-        only the one-dimensional numeric variables. Raises FileReadError
-        for v7.3, corrupt files and missing (NaN) or infinite values.
+    Outputs: a dict signal name -> float64 array, in file order, with
+        the one-dimensional numeric variables and the one-dimensional
+        numeric fields of scalar structures, named by their path (for
+        example "car/engine/speed"). Raises FileReadError for v7.3,
+        corrupt files and missing (NaN) or infinite values.
     """
     file_name_str = os.path.basename(path_str)
     # LLFR-00062: scipy.io is imported on the first MAT file.
     import scipy.io
     try:
-        variable_dict = scipy.io.loadmat(path_str)
+        # LLFR-00991: squeeze_me stays off, because squeezing makes a
+        # 1x1 cell array that holds a structure look like the structure
+        # itself, and cell arrays must be ignored (LLFR-00063).
+        variable_dict = scipy.io.loadmat(path_str, squeeze_me=False,
+                                         struct_as_record=True)
     except NotImplementedError as error:
         # LLFR-00064: v7.3 files need an extra library (COR-00011).
         raise read_error(file_name_str,
@@ -420,13 +437,91 @@ def read_mat_signals(path_str: str) -> dict:
                          "the file is empty or corrupt") from error
     signal_dict = {}
     for name_str, value in variable_dict.items():
-        # LLFR-00063: skip the file header entries and non-signals.
-        if name_str.startswith("__") or not is_mat_signal(value):
+        # LLFR-00063: skip the file header entries.
+        if name_str.startswith("__"):
             continue
-        # LLFR-00062: a 1xN or Nx1 numeric array is one signal.
-        signal_dict[name_str] = finite_signal_array(file_name_str,
-                                                    name_str, value)
+        # LLFR-00062, LLFR-00991, LLFR-00992: the variable, or the
+        # fields of its structure, in the file's order.
+        collect_mat_signals(file_name_str, name_str, value, signal_dict)
     return signal_dict
+
+
+def collect_mat_signals(file_name_str: str, path_str: str, value: object,
+                        signal_dict: dict) -> None:
+    """Add a MAT variable or structure field to the signals read.
+
+    A one-dimensional numeric array is one signal. A scalar (1x1)
+    structure is walked field by field, at any depth, and each field's
+    path joins the names with "/". Everything else (struct arrays, cell
+    arrays, matrices, text, ...) is ignored with all it holds.
+
+    Inputs:
+        file_name_str: name of the file, for error messages.
+        path_str: the variable's name, or the field's path.
+        value: the variable or field, as returned by scipy.io.loadmat.
+        signal_dict: the dict signal name -> float64 array that receives
+            the signals, in the order they are found.
+    Outputs: none. Adds to signal_dict. Raises FileReadError for NaN or
+        infinite samples.
+    """
+    # LLFR-00062, LLFR-00991: a 1xN or Nx1 numeric array is one signal.
+    if is_mat_signal(value):
+        signal_dict[path_str] = finite_signal_array(file_name_str,
+                                                    path_str, value)
+        return
+    # LLFR-00063: only scalar structures are walked; anything else is
+    # ignored, at any level.
+    field_list = mat_structure_field_list(value)
+    if field_list is None:
+        return
+    # LLFR-00991, LLFR-00992: the fields in the structure's order, each
+    # named by its path, so that "car/engine/speed" is the field "speed"
+    # of the structure "engine" of the variable "car".
+    for field_name_str, field_value in field_list:
+        collect_mat_signals(file_name_str, f"{path_str}/{field_name_str}",
+                            field_value, signal_dict)
+
+
+def mat_structure_field_list(value: object):
+    """Return the fields of a scalar MAT structure.
+
+    scipy.io.loadmat gives a structure either as a numpy record array
+    (struct_as_record=True) or as an object array that holds a
+    ``mat_struct`` (struct_as_record=False); both forms are read here,
+    also when squeezed into a single record or ``mat_struct``.
+
+    Inputs:
+        value: a variable or field returned by scipy.io.loadmat.
+    Outputs: a list of (field name, field value) tuples in the
+        structure's field order, or None when the value is not a scalar
+        (1x1) structure, for example a struct array, a cell array, a
+        matrix, a text or a MATLAB object.
+    """
+    # LLFR-00991: scipy.io is already imported by read_mat_signals.
+    from scipy.io.matlab import mat_struct
+    # LLFR-00991: a squeezed structure is a single record or mat_struct.
+    if isinstance(value, mat_struct):
+        return [(name_str, getattr(value, name_str))
+                for name_str in value._fieldnames]
+    if isinstance(value, np.void) and value.dtype.names is not None:
+        return [(name_str, value[name_str])
+                for name_str in value.dtype.names]
+    # LLFR-00063: subclasses of ndarray are MATLAB objects and function
+    # handles, and an array of several elements is a struct array or a
+    # cell array; none of them is walked.
+    if type(value) is not np.ndarray or value.size != 1:
+        return None
+    element = value.reshape(-1)[0]
+    # LLFR-00991: a 1x1 record array (struct_as_record=True).
+    if value.dtype.names is not None:
+        return [(name_str, element[name_str])
+                for name_str in value.dtype.names]
+    # LLFR-00991: a 1x1 object array that holds a mat_struct; a 1x1 cell
+    # array holds an array instead and is ignored (LLFR-00063).
+    if value.dtype.kind == "O" and isinstance(element, mat_struct):
+        return [(name_str, getattr(element, name_str))
+                for name_str in element._fieldnames]
+    return None
 
 
 def finite_signal_array(file_name_str: str, name_str: str,
@@ -456,12 +551,14 @@ def is_mat_signal(value: object) -> bool:
     """Tell whether a MAT variable is a one-dimensional numeric array.
 
     Inputs:
-        value: a variable returned by scipy.io.loadmat.
+        value: a variable or structure field returned by
+            scipy.io.loadmat.
     Outputs: True for a non-empty int, uint or float array of shape
         (N,), (1, N) or (N, 1); False for anything else (matrices, text,
         structs, cells, complex or boolean values).
     """
-    # LLFR-00062, LLFR-00063: only 1-D numeric arrays are signals.
+    # LLFR-00062, LLFR-00063, LLFR-00991: only 1-D numeric arrays are
+    # signals.
     if not isinstance(value, np.ndarray) or value.dtype.kind not in "iuf":
         return False
     if value.size < 1:
@@ -613,11 +710,18 @@ def check_signal_content(file_name_str: str, signal_dict: dict) -> None:
         reference_name_str = next(iter(signal_dict))
     reference_count_i = len(signal_dict[reference_name_str])
     different_list = [
-        f"'{name_str}' has {len(signal_array)}"
+        SAMPLE_COUNT_ITEM_STR.format(name=name_str,
+                                     count=len(signal_array))
         for name_str, signal_array in signal_dict.items()
         if len(signal_array) != reference_count_i]
     if different_list:
-        raise ContentCheckError(
-            f"{prefix_str} its signals have different sample counts: "
-            f"'{reference_name_str}' has {reference_count_i} samples, but "
-            f"{', '.join(different_list)}.", SAMPLE_COUNT_CHECK_STR)
+        # LLFR-01178: the signals with another count, as a list below
+        # the sentence that names the check (LLFR-00980 to LLFR-00984).
+        heading_format_str = (SAMPLE_COUNT_HEADING_STR
+                              if len(different_list) >= 2
+                              else ONE_SAMPLE_COUNT_HEADING_STR)
+        heading_str = heading_format_str.format(
+            prefix=prefix_str, reference=reference_name_str,
+            count=reference_count_i)
+        raise ContentCheckError(list_text(different_list, heading_str),
+                                SAMPLE_COUNT_CHECK_STR)

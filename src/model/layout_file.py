@@ -18,7 +18,7 @@ An example of a layout file::
 
     {
       "format": "plot_tool layout",
-      "version": 2,
+      "version": 3,
       "shown_tab": 0,
       "time_range": {"start": 0.5, "end": 2.25},
       "grid": true,
@@ -35,7 +35,8 @@ An example of a layout file::
             "data_tips": [{"signal": "Speed", "time": 1.5,
                            "label_position": {"right_points": 20.0,
                                               "up_points": 15.0}}],
-            "delta_markers": [{"kind": "delta_x",
+            "delta_markers": [{"name": "Delta X 1",
+                               "kind": "delta_x",
                                "first_point": {"signal": "Speed",
                                                "time": 0.5},
                                "second_point": {"signal": "Speed",
@@ -45,11 +46,12 @@ An example of a layout file::
 
 (The app writes every value on its own line, indented by 2 spaces.)
 Colors of flags, delta markers and areas are written as "#rrggbb" in
-lowercase (LLFR-00225 items 6, 8 and 11). A delta marker saved without a
-color (a file written before delta markers had one) gets the default
-color, with no report (LLFR-00410). A file of an earlier version is read with
-the same rules (LLFR-00228): for example, its flags, saved under the
-key ``vertical_markers`` in version 1, are not rebuilt.
+lowercase (LLFR-00225 items 6, 8 and 11). A value whose key is missing
+from the file, for example the color of a delta marker, gets its default
+value and is listed in the report as a replaced value (LLFR-01200). A
+file of an earlier version is read with the same rules (LLFR-00228):
+for example, its flags, saved under the key ``vertical_markers`` in
+version 1, are not rebuilt.
 
 A ``label_position`` of ``null`` means that the data tip was never
 moved, so the app places its label beside the point by itself.
@@ -81,21 +83,33 @@ This module holds no Qt code (COR-00009).
 
 import json
 import math
+import os
 import re
 
 import numpy as np
 
 from model.curve_colors import hex_color_or_none, is_far_from_marker_color
+from model.message_lists import sections_text
 from model.workspace import (
     AUTOMATIC_LABEL_OFFSET_TUPLE, DEFAULT_AREA_COLOR_STR,
     DEFAULT_DELTA_MARKER_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
+    DEFAULT_MATRIX_COLUMNS_I, DEFAULT_MATRIX_ROWS_I,
     DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
-    DELTA_Y_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, PRESET_WIDTH_TUPLE,
-    spans_overlap_b)
+    DELTA_Y_KIND_STR, PRESET_WIDTH_TUPLE, delta_value_zero_b,
+    first_panel_width_i, is_matrix_size, spans_overlap_b)
 
-# LLFR-00228: the identification of a layout file; the version is 2.
+# LLFR-00228, LLFR-00471: the identification of a layout file; the
+# version is 3, whose signal names carry the file prefix (LLFR-00948).
 LAYOUT_FORMAT_STR = "plot_tool layout"
-LAYOUT_VERSION_I = 2
+LAYOUT_VERSION_I = 3
+# LLFR-00963: the first version whose names carry the file prefix, and
+# the prefix that the names of an older file are read with.
+PREFIXED_NAMES_VERSION_I = 3
+OLDER_LAYOUT_PREFIX_STR = "file1_"
+# LLFR-00225 item 10: the keys of the name and the sources of a
+# synthetic signal entry (model.synthetic_signals).
+SYNTHETIC_NAME_KEY_STR = "name"
+SYNTHETIC_SOURCES_KEY_STR = "signals"
 # LLFR-00219, LLFR-00221: the extension of a layout file.
 LAYOUT_SUFFIX_STR = ".json"
 # LLFR-00227: the JSON text is indented by 2 spaces.
@@ -114,6 +128,12 @@ START_KEY_STR = "start"
 END_KEY_STR = "end"
 GRID_KEY_STR = "grid"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
+# LLFR-00225 item 9, LLFR-01214: whether the main window shows its signal
+# list panel.
+MAIN_PANEL_SHOWN_KEY_STR = "signal_list_panel_shown"
+# LLFR-01081, LLFR-01146: the largest size of a Qt window (QWIDGETSIZE_MAX),
+# the limit of every window position, size and panel width of a file.
+MAXIMUM_WINDOW_PIXELS_I = 16777215
 PLOT_PANEL_KEY_STR = "plot_panel"
 SIGNAL_LIST_PANEL_KEY_STR = "signal_list_panel"
 # LLFR-00225 item 6: the list of flags, each with "name", "time" and
@@ -124,6 +144,20 @@ FLAGS_KEY_STR = "flags"
 # COLOR_KEY_STR, LLFR-00351). A file without it has no area.
 AREAS_KEY_STR = "areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
+# LLFR-00225 items 12 to 15, LLFR-01075: the keys of the undocked state,
+# the window, its signal list panel and the plot matrix of a tab.
+UNDOCKED_KEY_STR = "undocked"
+WINDOW_KEY_STR = "window"
+# LLFR-00225 item 16, LLFR-01159: the number of the undocked window of a
+# tab, the same for the tabs that share a window.
+WINDOW_NUMBER_KEY_STR = "window_number"
+X_KEY_STR = "x"
+Y_KEY_STR = "y"
+HEIGHT_KEY_STR = "height"
+SHOWN_KEY_STR = "shown"
+PLOT_MATRIX_KEY_STR = "plot_matrix"
+ROWS_KEY_STR = "rows"
+COLUMNS_KEY_STR = "columns"
 TABS_KEY_STR = "tabs"
 NAME_KEY_STR = "name"
 PLOTS_KEY_STR = "plots"
@@ -166,6 +200,9 @@ NEWER_VERSION_REASON_STR = (
     "only versions up to {supported}.")
 
 # LLFR-00237: the headings of the load report.
+# LLFR-01227: the heading of the data files of the layout file that are
+# not open.
+DATA_FILES_HEADING_STR = "Data files not opened:"
 SYNTHETIC_HEADING_STR = "Synthetic signals not created:"
 RENAMED_HEADING_STR = "Renamed:"
 # LLFR-00237: how a renamed tab or synthetic signal is listed.
@@ -175,7 +212,11 @@ MISSING_HEADING_STR = "Signals not in the data file:"
 NOT_REBUILT_HEADING_STR = "Not rebuilt:"
 TIME_RANGE_HEADING_STR = "Time range:"
 REPLACED_HEADING_STR = "Values replaced:"
-REPORT_ITEM_PREFIX_STR = "  - "
+# LLFR-01200: the reason given for a value whose key is missing.
+MISSING_REASON_STR = "is missing"
+# LLFR-01200, LLFR-00235: what saved_color found instead of a color.
+COLOR_MISSING_STR = "missing"
+COLOR_UNUSABLE_STR = "unusable"
 
 
 class LayoutFileError(Exception):
@@ -219,6 +260,18 @@ class LayoutReport:
         self.not_rebuilt_line_list = []
         self.time_range_line_list = []
         self.replaced_line_list = []
+        # LLFR-01227: the data files of the file that are not open.
+        self.data_file_line_list = []
+
+    def add_data_file(self, line_str: str) -> None:
+        """Note a data file of the layout file that is not open.
+
+        Inputs:
+            line_str: the text of the entry, with the path and reason.
+        Outputs: none.
+        """
+        # LLFR-01227: listed under "Data files not opened:".
+        self.data_file_line_list.append(str(line_str))
 
     def add_missing_signal(self, signal_name_str: str) -> None:
         """Note a signal that is not in the data file, once.
@@ -289,7 +342,8 @@ class LayoutReport:
         Outputs: True when there is nothing to report.
         """
         # LLFR-00237: then no message is shown.
-        return not (self.synthetic_line_list or self.renamed_line_list
+        return not (self.data_file_line_list
+                    or self.synthetic_line_list or self.renamed_line_list
                     or self.missing_signal_list
                     or self.not_rebuilt_line_list
                     or self.time_range_line_list or self.replaced_line_list)
@@ -304,7 +358,10 @@ class LayoutReport:
         # LLFR-00237: synthetic signals, missing signals, items not
         # rebuilt, the time range and the replaced values; the renamed
         # tabs and synthetic signals.
+        # LLFR-01227: the data files that are not open come first, as
+        # they explain the signals missing below.
         section_list = [
+            (DATA_FILES_HEADING_STR, self.data_file_line_list),
             (SYNTHETIC_HEADING_STR, self.synthetic_line_list),
             (RENAMED_HEADING_STR, self.renamed_line_list),
             (MISSING_HEADING_STR, self.missing_signal_list),
@@ -318,20 +375,15 @@ class LayoutReport:
         """Return the report as the text of the information box.
 
         Inputs: none.
-        Outputs: the text, one entry per line under its heading; "" when
-            the report is empty.
+        Outputs: the text, each heading followed by its entries, numbered
+            when the report holds two or more entries (LLFR-00987,
+            LLFR-00988); "" when the report is empty.
         """
-        # LLFR-00237: one box that lists everything.
+        # LLFR-00237: one box that lists everything; LLFR-00980 to
+        # LLFR-00989: in the shared format of the boxes with a list.
         if self.is_empty():
             return ""
-        line_list = []
-        for heading_str, entry_list in self.section_list():
-            if line_list:
-                line_list.append("")
-            line_list.append(heading_str)
-            line_list += [REPORT_ITEM_PREFIX_STR + entry_str
-                          for entry_str in entry_list]
-        return "\n".join(line_list)
+        return sections_text(self.section_list())
 
 
 class LayoutResult:
@@ -366,6 +418,9 @@ class LayoutResult:
         self.grid_shown_b = grid_shown_b
         self.panel_width_tuple = tuple(panel_width_tuple)
         self.tabs_replaced_b = bool(tabs_replaced_b)
+        # LLFR-01214: whether the main window shows its signal list
+        # panel, None when the file does not say.
+        self.main_panel_shown_b = None
 
 
 # ----------------------------------------------------------------------
@@ -478,19 +533,23 @@ def saved_color(entry_dict: dict, default_color_str: str) -> tuple:
         default_color_str: the color of a new item of that kind
             (DEFAULT_FLAG_COLOR_STR, DEFAULT_DELTA_MARKER_COLOR_STR or
             DEFAULT_AREA_COLOR_STR).
-    Outputs: a tuple (color_str, replaced_b): the lowercase "#rrggbb"
-        color to use, and True when a saved value that is not written as
+    Outputs: a tuple (color_str, state_str): the lowercase "#rrggbb"
+        color to use, and "" when it is the saved color,
+        COLOR_MISSING_STR when the color is missing, or
+        COLOR_UNUSABLE_STR when a saved value that is not written as
         "#rrggbb" was replaced by the default color.
     """
-    # LLFR-00393, LLFR-00410, LLFR-00319: a missing color is the default
-    # color; a "#rrggbb" color, in uppercase or lowercase, is used as it
-    # is; anything else is replaced by the default color and reported.
+    # LLFR-00815, LLFR-00822, LLFR-00726, LLFR-01200: a missing color is
+    # the default color, listed as a replaced value.
     if COLOR_KEY_STR not in entry_dict:
-        return default_color_str, False
+        return default_color_str, COLOR_MISSING_STR
+    # LLFR-00393, LLFR-00410, LLFR-00319: a "#rrggbb" color, in
+    # uppercase or lowercase, is used as it is; anything else is
+    # replaced by the default color and reported.
     color_str = hex_color_or_none(entry_dict.get(COLOR_KEY_STR))
     if color_str is None:
-        return default_color_str, True
-    return color_str, False
+        return default_color_str, COLOR_UNUSABLE_STR
+    return color_str, ""
 
 
 # ----------------------------------------------------------------------
@@ -536,10 +595,12 @@ def plot_entry(plot) -> dict:
         data_tip_list.append({SIGNAL_KEY_STR: pinned_tip.signal_name_str,
                               TIME_KEY_STR: float(pinned_tip.time_s),
                               LABEL_POSITION_KEY_STR: label_position_dict})
-    # LLFR-00225 item 8: the kind, the two points and the color
-    # ("#rrggbb" in lowercase, LLFR-00409) of each delta marker.
+    # LLFR-00225 item 8: the name (LLFR-00427), the kind, the two points
+    # and the color ("#rrggbb" in lowercase, LLFR-00409) of each delta
+    # marker.
     delta_marker_list = [
-        {KIND_KEY_STR: KIND_NAME_DICT[delta_marker.kind_str],
+        {NAME_KEY_STR: delta_marker.name_str,
+         KIND_KEY_STR: KIND_NAME_DICT[delta_marker.kind_str],
          FIRST_POINT_KEY_STR: point_entry(delta_marker.first_point_tuple),
          SECOND_POINT_KEY_STR: point_entry(delta_marker.second_point_tuple),
          COLOR_KEY_STR: delta_marker.color_str.lower()}
@@ -595,6 +656,10 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
             SIGNAL_LIST_PANEL_KEY_STR: int(panel_width_tuple[1])}
     else:
         layout_dict[PANEL_WIDTHS_KEY_STR] = None
+    # LLFR-00225 item 9, LLFR-01211: whether the main window shows its
+    # signal list panel.
+    layout_dict[MAIN_PANEL_SHOWN_KEY_STR] = bool(
+        getattr(workspace, "main_panel_shown_b", True))
     # LLFR-00225 item 6: under "flags", each flag with its name, time
     # and color ("#rrggbb" in lowercase).
     layout_dict[FLAGS_KEY_STR] = [
@@ -612,12 +677,71 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     # LLFR-00225 items 1 and 2: the tabs in order, each with its time
     # plots from top to bottom; LLFR-00283: no frequency plot, but a tab
     # of only frequency plots is still saved.
+    # LLFR-00225 item 16: the undocked windows numbered from 1, in the
+    # tab order (LLFR-01091).
+    window_number_dict = {window_id_i: number_i + 1
+                          for number_i, window_id_i
+                          in enumerate(workspace.window_id_list())}
     layout_dict[TABS_KEY_STR] = [
-        {NAME_KEY_STR: tab.name_str,
-         PLOTS_KEY_STR: [plot_entry(plot) for plot in tab.plot_list
-                         if not plot.is_frequency_plot()]}
+        tab_entry(tab, workspace.main_panel_width_i,
+                  window_number_dict.get(tab.window_id_i, 0))
         for tab in workspace.tab_list]
     return layout_dict
+
+
+def tab_entry(tab, main_panel_width_i: int = 0,
+              window_number_i: int = 0) -> dict:
+    """Return the file entry of a tab.
+
+    Inputs:
+        tab: a model Tab.
+        main_panel_width_i: width of the main window's signal list
+            panel, in pixels, used as the first width of a panel that
+            was never shown (LLFR-01051).
+        window_number_i: the number of its undocked window in the file,
+            from 1 (LLFR-00225 item 16); 0 for a docked tab.
+    Outputs: a dict with its name, whether it is undocked, its plot
+        matrix and its time plots, and, for an undocked tab, its window
+        and the window's signal list panel.
+    """
+    # LLFR-00225 items 1 and 2: the name and the time plots, in fill
+    # order; LLFR-00283: no frequency plot.
+    entry_dict = {NAME_KEY_STR: tab.name_str,
+                  # LLFR-00225 item 12: whether the tab is undocked.
+                  UNDOCKED_KEY_STR: bool(tab.undocked_b),
+                  # LLFR-00225 item 15: the plot matrix of the tab.
+                  PLOT_MATRIX_KEY_STR: {
+                      ROWS_KEY_STR: int(tab.row_count_i),
+                      COLUMNS_KEY_STR: int(tab.column_count_i)}}
+    if tab.undocked_b:
+        # LLFR-00225 item 13, LLFR-01075: the window's position and size
+        # in whole desktop pixels.
+        if len(tab.window_tuple) == 4:
+            x_i, y_i, width_i, height_i = (int(value_i) for value_i
+                                           in tab.window_tuple)
+            entry_dict[WINDOW_KEY_STR] = {
+                X_KEY_STR: x_i, Y_KEY_STR: y_i, WIDTH_KEY_STR: width_i,
+                HEIGHT_KEY_STR: height_i}
+        else:
+            entry_dict[WINDOW_KEY_STR] = None
+        # LLFR-00225 item 16, LLFR-01159: the tabs that share a window
+        # have the same number; their order in the file is their order
+        # in the window.
+        entry_dict[WINDOW_NUMBER_KEY_STR] = max(int(window_number_i), 1)
+        # LLFR-00225 item 14: whether its panel is shown, and its width;
+        # a panel never shown gets the width it would first get.
+        panel_width_i = int(tab.panel_width_i)
+        if panel_width_i < 1:
+            window_width_i = (int(tab.window_tuple[2])
+                              if len(tab.window_tuple) == 4 else 0)
+            panel_width_i = first_panel_width_i(main_panel_width_i,
+                                                window_width_i)
+        entry_dict[SIGNAL_LIST_PANEL_KEY_STR] = {
+            SHOWN_KEY_STR: bool(tab.panel_shown_b),
+            WIDTH_KEY_STR: panel_width_i}
+    entry_dict[PLOTS_KEY_STR] = [plot_entry(plot) for plot in tab.plot_list
+                                 if not plot.is_frequency_plot()]
+    return entry_dict
 
 
 def layout_text(layout_dict: dict) -> str:
@@ -692,7 +816,78 @@ def parse_layout_text(text_str: str, path_str: str = "") -> dict:
         raise LayoutFileError(UNREADABLE_MESSAGE_STR.format(
             path=path_str, reason=NEWER_VERSION_REASON_STR.format(
                 version=version_i, supported=LAYOUT_VERSION_I)))
+    # LLFR-00963, LLFR-00472: the names of an older file mean file 1.
+    if version_i < PREFIXED_NAMES_VERSION_I:
+        prefix_older_names(layout_dict)
     return layout_dict
+
+
+def prefixed_older_name(name_value):
+    """Return a signal name of an older layout file as read now.
+
+    Inputs:
+        name_value: a value saved as a signal name.
+    Outputs: ``file1_`` followed by the name for a text (LLFR-00963);
+        any other value unchanged, so that the load report names it as
+        it would without this reading.
+    """
+    # LLFR-00963: `Speed` means `file1_Speed`.
+    if isinstance(name_value, str):
+        return OLDER_LAYOUT_PREFIX_STR + name_value
+    return name_value
+
+
+def prefix_older_point(entry) -> None:
+    """Prefix the signal name of a data tip or delta marker point.
+
+    Inputs:
+        entry: a data tip entry or a point entry of a delta marker, as
+            read by json; any value is accepted.
+    Outputs: none; the "signal" value of a dict is changed in place.
+    """
+    # LLFR-00963: the names of the pinned data tips and delta markers.
+    if isinstance(entry, dict) and SIGNAL_KEY_STR in entry:
+        entry[SIGNAL_KEY_STR] = prefixed_older_name(entry[SIGNAL_KEY_STR])
+
+
+def prefix_older_names(layout_dict: dict) -> None:
+    """Read the signal names of an older layout file as names of file 1.
+
+    Inputs:
+        layout_dict: the content of a layout file whose version is lower
+            than 3 (LLFR-00471); hand-edited values are accepted.
+    Outputs: none; every signal name of its curves, pinned data tips,
+        delta markers and synthetic signal entries (the names of the
+        synthetic signals and of the signals they are computed from) is
+        given the prefix ``file1_`` in place (LLFR-00963). The names are
+        then used as if they had been saved so, so the load report does
+        not list them (LLFR-00964).
+    """
+    # LLFR-00963: the curves, data tips and delta markers of each plot.
+    for tab_entry in list_entry(layout_dict, TABS_KEY_STR):
+        for plot_entry_value in list_entry(tab_entry, PLOTS_KEY_STR):
+            for curve_entry in list_entry(plot_entry_value, CURVES_KEY_STR):
+                prefix_older_point(curve_entry)
+            for tip_entry in list_entry(plot_entry_value,
+                                        DATA_TIPS_KEY_STR):
+                prefix_older_point(tip_entry)
+            for delta_entry in list_entry(plot_entry_value,
+                                          DELTA_MARKERS_KEY_STR):
+                if isinstance(delta_entry, dict):
+                    prefix_older_point(delta_entry.get(FIRST_POINT_KEY_STR))
+                    prefix_older_point(delta_entry.get(SECOND_POINT_KEY_STR))
+    # LLFR-00963: the synthetic signals and the signals they come from.
+    for signal_entry in list_entry(layout_dict, SYNTHETIC_SIGNALS_KEY_STR):
+        if not isinstance(signal_entry, dict):
+            continue
+        if SYNTHETIC_NAME_KEY_STR in signal_entry:
+            signal_entry[SYNTHETIC_NAME_KEY_STR] = prefixed_older_name(
+                signal_entry[SYNTHETIC_NAME_KEY_STR])
+        source_value = signal_entry.get(SYNTHETIC_SOURCES_KEY_STR)
+        if isinstance(source_value, list):
+            signal_entry[SYNTHETIC_SOURCES_KEY_STR] = [
+                prefixed_older_name(name_value)
+                for name_value in source_value]
 
 
 def read_layout_file(path_str: str) -> dict:
@@ -747,12 +942,20 @@ class LayoutBuilder:
         signal_dict: signal name -> numpy array of the open data file;
             the builder copies it and adds the synthetic signals the
             file can draw (LLFR-00230, LLFR-00262).
-        time_array: the values of the time signal, in seconds.
+        time_array: the values of the time signal, in seconds, or a
+            function that takes a signal name and returns the time
+            signal of that signal's data file (LLFR-00912).
+        files_range_tuple: the time range of the open data files
+            (LLFR-00916); None takes the range of time_array.
+        new_window_tuple: (x, y, width, height) that an undock would
+            give a new window (LLFR-01016, LLFR-01128), used for an
+            unusable saved window (LLFR-01081); () when unknown.
     Attributes:
         report: the LayoutReport being filled.
     """
 
-    def __init__(self, workspace, signal_dict: dict, time_array) -> None:
+    def __init__(self, workspace, signal_dict: dict, time_array,
+                 files_range_tuple=None, new_window_tuple=()) -> None:
         """Store the workspace and the signals.
 
         Inputs: see the class docstring.
@@ -767,9 +970,45 @@ class LayoutBuilder:
         # LLFR-00282: signal name of the file -> (name drawn, samples),
         # or None for a synthetic signal of the file not created.
         self.synthetic_name_dict = {}
-        self.time_array = np.asarray(time_array, dtype=float)
-        self.file_range_tuple = file_time_range(self.time_array)
+        # LLFR-00912: each signal has the time signal of its own file.
+        if callable(time_array):
+            self.time_function = time_array
+            self.time_array = None
+        else:
+            self.time_array = np.asarray(time_array, dtype=float)
+            self.time_function = None
+        # LLFR-00916, LLFR-00233, LLFR-00234: the time range of the open
+        # data files.
+        if files_range_tuple is not None:
+            self.file_range_tuple = tuple(files_range_tuple)
+        elif self.time_array is not None:
+            self.file_range_tuple = file_time_range(self.time_array)
+        else:
+            self.file_range_tuple = ()
+        # LLFR-01081: the values of an undock, for unusable values.
+        self.new_window_tuple = tuple(int(value_i)
+                                      for value_i in new_window_tuple)
+        # LLFR-01159: window number of the file -> the first created tab
+        # of that window.
+        self.window_first_tab_dict = {}
         self.report = LayoutReport()
+
+    def time_of(self, signal_name_str: str):
+        """Return the time signal a signal is drawn against.
+
+        Inputs:
+            signal_name_str: a signal name of the signal list.
+        Outputs: a numpy float array of times, in seconds; empty when
+            the time of the signal is not known.
+        """
+        # LLFR-00912, LLFR-00232: the times of the signal's own file.
+        if self.time_function is None:
+            return self.time_array
+        try:
+            return np.asarray(self.time_function(signal_name_str),
+                              dtype=float)
+        except KeyError:
+            return np.asarray([], dtype=float)
 
     # Signals and points ---------------------------------------------
 
@@ -842,7 +1081,8 @@ class LayoutBuilder:
         if not plot.has_signal(signal_value):
             return ((), time_s,
                     f"the signal {signal_value} is not drawn in its plot")
-        difference_array = np.abs(self.time_array - time_s)
+        signal_time_array = self.time_of(signal_value)
+        difference_array = np.abs(signal_time_array - time_s)
         if not np.any(np.isfinite(difference_array)):
             return ((), time_s, "the data file has no valid time")
         sample_index_i = int(np.nanargmin(difference_array))
@@ -850,7 +1090,7 @@ class LayoutBuilder:
             return ((), time_s,
                     f"the signal {signal_value} has no sample within 1 "
                     f"microsecond of this time")
-        sample_time_s = float(self.time_array[sample_index_i])
+        sample_time_s = float(signal_time_array[sample_index_i])
         value_array = np.asarray(self.signal_dict[signal_value],
                                  dtype=float)
         if sample_index_i >= value_array.size:
@@ -998,8 +1238,16 @@ class LayoutBuilder:
             (then reported as replaced, LLFR-00235).
         """
         # LLFR-00225 item 7: the position relative to the point.
+        if LABEL_POSITION_KEY_STR not in tip_entry_dict:
+            # LLFR-01200: a missing position is listed as replaced.
+            self.report.add_replaced(
+                f"Label position of the data tip at {format_time(time_s)} "
+                f"in {owner_str} {MISSING_REASON_STR}; the label is placed "
+                f"beside its point.")
+            return AUTOMATIC_LABEL_OFFSET_TUPLE
         position_value = tip_entry_dict.get(LABEL_POSITION_KEY_STR)
         if position_value is None:
+            # LLFR-00225 item 7: null, a data tip that was never moved.
             return AUTOMATIC_LABEL_OFFSET_TUPLE
         if isinstance(position_value, dict):
             right_f = finite_number(position_value.get(RIGHT_POINTS_KEY_STR))
@@ -1111,15 +1359,50 @@ class LayoutBuilder:
                 # LLFR-00232, LLFR-00237: not rebuilt, times and reason.
                 self.report.add_not_rebuilt(f"{label_str}: {reason_str}.")
                 continue
-            # LLFR-00410: the saved color; a missing one is the default
-            # color, with no report.
-            color_str, color_replaced_b = saved_color(
+            if delta_value_zero_b(kind_str, point_list[0], point_list[1]):
+                # LLFR-00486, LLFR-00237: no delta marker of value zero.
+                self.report.add_not_rebuilt(
+                    f"{label_str}: its value on the samples of the data "
+                    f"file would be zero.")
+                continue
+            # LLFR-00410: the saved color; LLFR-00822, LLFR-00823: a
+            # missing or unusable one is the default color, reported.
+            color_str, color_reason_str = saved_color(
                 delta_entry, DEFAULT_DELTA_MARKER_COLOR_STR)
+            # LLFR-00430: the saved name. LLFR-00857: a missing name
+            # gets the name of a new delta marker, reported (LLFR-01200).
+            # LLFR-00858: so does a name that is empty or not a text.
+            name_value = delta_entry.get(NAME_KEY_STR)
+            name_usable_b = (isinstance(name_value, str)
+                             and bool(name_value.strip()))
+            if name_usable_b:
+                name_str = name_value.strip()
+            else:
+                name_str = self.workspace.take_delta_marker_name(kind_str)
             # LLFR-00232: both points are placed on their samples.
             plot.add_delta_marker(kind_str, point_list[0], point_list[1],
-                                  color_str)
-            if color_replaced_b:
-                # LLFR-00410, LLFR-00235, LLFR-00237: a color not written
+                                  color_str, name_str)
+            if NAME_KEY_STR not in delta_entry:
+                # LLFR-00857, LLFR-01200: a missing name is listed with
+                # the replaced values.
+                self.report.add_replaced(
+                    f"Name of the {label_str} {MISSING_REASON_STR}; "
+                    f"replaced by \"{name_str}\".")
+            elif not name_usable_b:
+                # LLFR-00859, LLFR-00235, LLFR-00237: the replaced name
+                # is listed with the replaced values.
+                self.report.add_replaced(
+                    f"Name {describe_value(name_value)} of the "
+                    f"{label_str} is empty or not a text; replaced by "
+                    f"\"{name_str}\".")
+            if color_reason_str == COLOR_MISSING_STR:
+                # LLFR-00822, LLFR-01200, LLFR-00237: a missing color is
+                # listed as replaced by the default color.
+                self.report.add_replaced(
+                    f"Color of the {label_str} {MISSING_REASON_STR}; "
+                    f"replaced by \"{DEFAULT_DELTA_MARKER_COLOR_STR}\".")
+            elif color_reason_str:
+                # LLFR-00824, LLFR-00235, LLFR-00237: a color not written
                 # as "#rrggbb" is replaced by the default color.
                 self.report.add_replaced(
                     f"Color {describe_value(delta_entry[COLOR_KEY_STR])} "
@@ -1155,11 +1438,13 @@ class LayoutBuilder:
             self.report_lost_items(plot_entry_value, owner_str, reason_str)
             return False
         if tab.is_full():
-            # LLFR-00235, HLFR-00018: at most 5 plots in a tab.
+            # LLFR-00488, HLFR-00018: no plot beyond the slots of the
+            # tab's plot matrix.
             self.report.add_not_rebuilt(
                 f"{owner_str[0].upper()}{owner_str[1:]}: not created, "
-                f"because a tab holds at most {MAXIMUM_PLOTS_PER_TAB_I} "
-                f"plots.")
+                f"because the {tab.row_count_i} \u00d7 "
+                f"{tab.column_count_i} plot matrix of the tab holds at "
+                f"most {tab.slot_count()} plots.")
             self.report_lost_items(
                 plot_entry_value, owner_str,
                 "its plot was not created, because the tab is full")
@@ -1297,15 +1582,227 @@ class LayoutBuilder:
                 tab = self.workspace.add_named_tab(name_str)
             else:
                 tab = self.workspace.add_tab()
-            if first_tab_id_i < 0:
+            # LLFR-01123 to LLFR-01126: the saved plot matrix, before the
+            # plots, so that it limits them (LLFR-00488).
+            self.apply_plot_matrix(tab, tab_entry)
+            # LLFR-01076, LLFR-01077: docked or undocked, with its window.
+            self.apply_window(tab, tab_entry)
+            if first_tab_id_i < 0 and not tab.undocked_b:
+                # LLFR-00477: the first docked tab added is shown.
                 first_tab_id_i = tab.tab_id_i
-            # LLFR-00230: the plots from top to bottom.
+            # LLFR-00230: the plots in the fill order.
             for plot_index_i, plot_entry_value in enumerate(
                     list_entry(tab_entry, PLOTS_KEY_STR)):
                 owner_str = (f"plot {plot_index_i + 1} of tab "
                              f"\"{tab.name_str}\"")
                 self.rebuild_plot(tab, plot_entry_value, owner_str)
         return first_tab_id_i
+
+    def apply_plot_matrix(self, tab, tab_entry) -> None:
+        """Give a created tab its saved plot matrix.
+
+        Inputs:
+            tab: the new model Tab.
+            tab_entry: its entry of the file.
+        Outputs: none. A missing matrix (LLFR-01124, LLFR-01200) or an
+            unusable one (LLFR-01125, LLFR-01126) gives the default and
+            is reported.
+        """
+        if not isinstance(tab_entry, dict):
+            return
+        if PLOT_MATRIX_KEY_STR not in tab_entry:
+            # LLFR-01124, LLFR-01200: the default 5 x 1 matrix, listed as
+            # a replaced value; the new tab already has it.
+            self.report.add_replaced(
+                f"Plot matrix of tab \"{tab.name_str}\" "
+                f"{MISSING_REASON_STR}; replaced by {DEFAULT_MATRIX_ROWS_I} "
+                f"\u00d7 {DEFAULT_MATRIX_COLUMNS_I}.")
+            return
+        matrix_value = tab_entry[PLOT_MATRIX_KEY_STR]
+        if isinstance(matrix_value, dict):
+            row_value = matrix_value.get(ROWS_KEY_STR)
+            column_value = matrix_value.get(COLUMNS_KEY_STR)
+            if is_matrix_size(row_value) and is_matrix_size(column_value):
+                # LLFR-01123: the saved matrix.
+                tab.row_count_i = int(row_value)
+                tab.column_count_i = int(column_value)
+                return
+        # LLFR-01125, LLFR-01126: the default, as a replaced value.
+        tab.row_count_i = DEFAULT_MATRIX_ROWS_I
+        tab.column_count_i = DEFAULT_MATRIX_COLUMNS_I
+        self.report.add_replaced(
+            f"Plot matrix {describe_value(matrix_value)} of tab "
+            f"\"{tab.name_str}\" is not a number of rows and a number of "
+            f"columns, each a whole number from 1 to 10; replaced by "
+            f"{DEFAULT_MATRIX_ROWS_I} \u00d7 {DEFAULT_MATRIX_COLUMNS_I}.")
+
+    def report_window_value(self, tab, what_str: str, value,
+                            replacement_str: str) -> None:
+        """Report an unusable window value of an undocked tab.
+
+        Inputs:
+            tab: the model Tab.
+            what_str: what the value is, for example "Window position".
+            value: the saved value.
+            replacement_str: what replaced it.
+        Outputs: none.
+        """
+        # LLFR-01082: listed as a replaced value.
+        self.report.add_replaced(
+            f"{what_str} {describe_value(value)} of tab \"{tab.name_str}\" "
+            f"cannot be used; replaced by {replacement_str}.")
+
+    def apply_window(self, tab, tab_entry) -> None:
+        """Make a created tab docked or undocked, as the file saved it.
+
+        Inputs:
+            tab: the new model Tab, docked.
+            tab_entry: its entry of the file.
+        Outputs: none. An undocked tab gets the saved window and panel,
+            each unusable value replaced as an undock would set it
+            (LLFR-01081) and reported (LLFR-01082).
+        """
+        if not isinstance(tab_entry, dict):
+            return
+        if UNDOCKED_KEY_STR not in tab_entry:
+            # LLFR-01077, LLFR-01200: a tab with no entry is docked, and
+            # the missing value is listed as replaced.
+            self.report.add_replaced(
+                f"Undocked value of tab \"{tab.name_str}\" "
+                f"{MISSING_REASON_STR}; the tab was docked.")
+            return
+        undocked_value = tab_entry.get(UNDOCKED_KEY_STR)
+        # LLFR-01077: a tab saved as docked is docked.
+        if undocked_value is False:
+            return
+        if undocked_value is not True:
+            # LLFR-00235: neither true nor false; the tab stays docked.
+            self.report.add_replaced(
+                f"Undocked value {describe_value(undocked_value)} of tab "
+                f"\"{tab.name_str}\" is neither true nor false; the tab "
+                f"was docked.")
+            return
+        if self.joins_window(tab_entry):
+            # LLFR-01159: the window values of the first tab of its
+            # window are used, so this tab's own are not read.
+            self.place_in_window(tab, tab_entry, ())
+            return
+        default_tuple = self.new_window_tuple
+        window_value = tab_entry.get(WINDOW_KEY_STR)
+        window_dict = window_value if isinstance(window_value, dict) else {}
+        # LLFR-01075, LLFR-01081: whole numbers that Qt can take, sizes of
+        # 1 pixel or more.
+        position_list = [window_dict.get(X_KEY_STR),
+                         window_dict.get(Y_KEY_STR)]
+        size_list = [window_dict.get(WIDTH_KEY_STR),
+                     window_dict.get(HEIGHT_KEY_STR)]
+        if all(is_window_coordinate(value) for value in position_list):
+            position_tuple = tuple(int(value) for value in position_list)
+        else:
+            position_tuple = tuple(default_tuple[:2])
+            self.report_window_value(
+                tab, "Window position", window_value,
+                "the position of a new undocked window")
+        if all(is_window_length(value) for value in size_list):
+            size_tuple = tuple(int(value) for value in size_list)
+        else:
+            size_tuple = tuple(default_tuple[2:])
+            self.report_window_value(
+                tab, "Window size", window_value,
+                "the size of a new undocked window")
+        window_tuple = position_tuple + size_tuple
+        if len(window_tuple) != 4:
+            window_tuple = ()
+        panel_value = tab_entry.get(SIGNAL_LIST_PANEL_KEY_STR)
+        panel_dict = panel_value if isinstance(panel_value, dict) else {}
+        shown_value = panel_dict.get(SHOWN_KEY_STR)
+        width_value = panel_dict.get(WIDTH_KEY_STR)
+        if isinstance(shown_value, bool):
+            shown_b = shown_value
+        else:
+            # LLFR-01081, LLFR-01050: hidden, as after an undock.
+            shown_b = False
+            self.report_window_value(tab, "Signal list panel state",
+                                     shown_value, "hidden")
+        if is_window_length(width_value):
+            width_i = int(width_value)
+        else:
+            # LLFR-01081, LLFR-01051: the first width of a new panel.
+            width_i = 0
+            self.report_window_value(
+                tab, "Signal list panel width", width_value,
+                "the width a new panel gets when it is first shown")
+        self.place_in_window(tab, tab_entry, (window_tuple, shown_b,
+                                              width_i))
+
+    def joins_window(self, tab_entry) -> bool:
+        """Tell whether an undocked tab joins a window created before.
+
+        Inputs:
+            tab_entry: the entry of an undocked tab of the file.
+        Outputs: True when its window number is that of a tab created
+            earlier in this load (LLFR-01159).
+        """
+        # LLFR-01159: the same window number, the same window.
+        number_value = tab_entry.get(WINDOW_NUMBER_KEY_STR)
+        if not (is_whole_number(number_value) and number_value >= 1):
+            return False
+        first_tab = self.window_first_tab_dict.get(number_value)
+        return (first_tab is not None and self.workspace.find_tab(
+            first_tab.tab_id_i) is not None and first_tab.undocked_b)
+
+    def place_in_window(self, tab, tab_entry,
+                        value_tuple: tuple) -> None:
+        """Put an undocked tab of the file in its undocked window.
+
+        Inputs:
+            tab: the new model Tab, docked.
+            tab_entry: its entry of the file.
+            value_tuple: (window_tuple, panel_shown_b, panel_width_i), the
+                usable window values of the entry.
+        Outputs: none. A tab with the window number of a tab created
+            before goes into that tab's window, after its last tab
+            (LLFR-01159); a tab with no window number, or an unusable
+            one, gets a window of its own (LLFR-01160, LLFR-01165).
+        """
+        number_value = tab_entry.get(WINDOW_NUMBER_KEY_STR)
+        if WINDOW_NUMBER_KEY_STR not in tab_entry:
+            # LLFR-01160, LLFR-01200: a window of its own; the missing
+            # number is listed as a replaced value.
+            self.report.add_replaced(
+                f"Window number of tab \"{tab.name_str}\" "
+                f"{MISSING_REASON_STR}; replaced by a window of its own.")
+        elif not (is_whole_number(number_value) and number_value >= 1):
+            # LLFR-01165, LLFR-01082: a window of its own, reported.
+            self.report_window_value(tab, "Window number", number_value,
+                                     "a window of its own")
+            number_value = None
+        first_tab = self.window_first_tab_dict.get(number_value)
+        if number_value is not None and first_tab is not None and (
+                self.workspace.find_tab(first_tab.tab_id_i) is not None):
+            # LLFR-01159: the window of the first tab of that number,
+            # with its values; LLFR-01091: in the file's order.
+            last_tab = self.workspace.window_tab_list(
+                first_tab.window_id_i)[-1]
+            self.workspace.tab_list.remove(tab)
+            self.workspace.tab_list.insert(
+                self.workspace.tab_list.index(last_tab) + 1, tab)
+            tab.copy_window_values(first_tab)
+            tab.window_shown_b = False
+            return
+        # LLFR-01076, LLFR-01160: the tab opens a new undocked window;
+        # LLFR-01161: which shows its first tab.
+        window_tuple, shown_b, width_i = value_tuple
+        self.workspace.tab_list.remove(tab)
+        self.workspace.tab_list.append(tab)
+        tab.window_id_i = self.workspace.next_window_id_i
+        self.workspace.next_window_id_i += 1
+        tab.window_shown_b = True
+        tab.window_tuple = window_tuple
+        tab.panel_shown_b = shown_b
+        tab.panel_width_i = width_i
+        if number_value is not None:
+            self.window_first_tab_dict[number_value] = tab
 
     # Markers, range, grid and widths ------------------------------------
 
@@ -1360,8 +1857,9 @@ class LayoutBuilder:
                 self.report.add_not_rebuilt(
                     f"{label_str}: no plot was rebuilt to show it on.")
                 continue
-            # LLFR-00393: the saved color, the default when it is missing.
-            color_str, color_replaced_b = saved_color(
+            # LLFR-00393: the saved color; LLFR-00815, LLFR-00816: the
+            # default when it is missing or unusable, reported.
+            color_str, color_reason_str = saved_color(
                 marker_entry, DEFAULT_FLAG_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another flag
@@ -1376,8 +1874,15 @@ class LayoutBuilder:
                     f"Name {describe_value(name_value)} of the flag at "
                     f"{format_time(time_s)} is empty or not a text; "
                     f"replaced by \"{marker.name_str}\".")
-            if color_replaced_b:
-                # LLFR-00393, LLFR-00235, LLFR-00237: a color not written
+            if color_reason_str == COLOR_MISSING_STR:
+                # LLFR-00815, LLFR-01200, LLFR-00237: a missing color is
+                # listed as replaced by the default color.
+                self.report.add_replaced(
+                    f"Color of the flag \"{marker.name_str}\" at "
+                    f"{format_time(time_s)} {MISSING_REASON_STR}; "
+                    f"replaced by \"{DEFAULT_FLAG_COLOR_STR}\".")
+            elif color_reason_str:
+                # LLFR-00817, LLFR-00235, LLFR-00237: a color not written
                 # as "#rrggbb" is replaced by the default color.
                 self.report.add_replaced(
                     f"Color {describe_value(marker_entry[COLOR_KEY_STR])} "
@@ -1441,10 +1946,10 @@ class LayoutBuilder:
                     f"{label_str}: it overlaps {owner_str}, "
                     f"\"{overlapped.name_str}\".")
                 continue
-            # LLFR-00319, LLFR-00351: the saved color; a missing one is
-            # the default color, one not written as "#rrggbb" is replaced
-            # and reported.
-            color_str, color_replaced_b = saved_color(
+            # LLFR-00319, LLFR-00351: the saved color; LLFR-00726,
+            # LLFR-00728: a missing one, or one not written as
+            # "#rrggbb", is replaced by the default color and reported.
+            color_str, color_reason_str = saved_color(
                 entry_dict, DEFAULT_AREA_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another area
@@ -1461,9 +1966,16 @@ class LayoutBuilder:
                     f"{format_time(start_s)} to {format_time(end_s)} is "
                     f"empty or not a text; replaced by "
                     f"\"{area.name_str}\".")
-            if color_replaced_b:
-                # LLFR-00235, LLFR-00237: a color not written as
-                # "#rrggbb" is replaced by the default color.
+            if color_reason_str == COLOR_MISSING_STR:
+                # LLFR-00726, LLFR-01200, LLFR-00237: a missing color is
+                # listed as replaced by the default color.
+                self.report.add_replaced(
+                    f"Color of the area \"{area.name_str}\" "
+                    f"{MISSING_REASON_STR}; replaced by "
+                    f"\"{DEFAULT_AREA_COLOR_STR}\".")
+            elif color_reason_str:
+                # LLFR-00729, LLFR-00235, LLFR-00237: a color not written
+                # as "#rrggbb" is replaced by the default color.
                 self.report.add_replaced(
                     f"Color {describe_value(entry_dict[COLOR_KEY_STR])} of "
                     f"the area \"{area.name_str}\" is not written as "
@@ -1563,16 +2075,15 @@ class LayoutBuilder:
         if isinstance(widths_value, dict):
             for key_str in (PLOT_PANEL_KEY_STR, SIGNAL_LIST_PANEL_KEY_STR):
                 width_value = widths_value.get(key_str)
-                if (isinstance(width_value, int)
-                        and not isinstance(width_value, bool)
-                        and width_value > 0):
+                # LLFR-01146: a width Qt can take.
+                if is_window_length(width_value):
                     width_list.append(int(width_value))
         if len(width_list) == 2:
             return tuple(width_list)
         self.report.add_replaced(
             f"Panel widths {describe_value(widths_value)} are not two "
-            f"positive whole numbers of pixels; the panels kept their "
-            f"widths.")
+            f"whole numbers of pixels from 1 to {MAXIMUM_WINDOW_PIXELS_I}; "
+            f"the panels kept their widths.")
         return ()
 
     def add_synthetic_signals(self, built_value) -> None:
@@ -1640,44 +2151,377 @@ class LayoutBuilder:
                     for tab_entry in tab_entry_list))
         # LLFR-00229: kept tabs keep their plots as they are, with their
         # text notes, which a layout file never holds (LLFR-00226).
+        kept_docked_tab = None
         if tabs_replaced_b:
+            # LLFR-01079: the first current docked tab, kept if every tab
+            # of the file turns out to be undocked.
+            kept_docked_tab = self.workspace.docked_tab_list()[0]
             self.workspace.remove_all_tabs()
         first_tab_id_i = self.rebuild_tabs(tab_entry_list)
+        if kept_docked_tab is not None and not (
+                self.workspace.docked_tab_list()):
+            # LLFR-01079: the main window keeps a docked tab, with no
+            # plot; LLFR-01080: the windows of the other tabs close.
+            self.workspace.tab_list.insert(0, kept_docked_tab)
         # LLFR-00230, LLFR-00233: the flags of the file; LLFR-00228: only
         # under "flags", also in a file of an earlier version.
         self.rebuild_flags(list_entry(layout_dict, FLAGS_KEY_STR))
         # LLFR-00230, LLFR-00319: the areas of the file.
         self.rebuild_areas(list_entry(layout_dict, AREAS_KEY_STR))
         # LLFR-00234: the time range, limited to the data file.
+        # LLFR-01200: a missing entry shows the whole time range, and is
+        # listed as a replaced value.
+        if TIME_RANGE_KEY_STR not in layout_dict:
+            self.report.add_replaced(
+                f"Time range {MISSING_REASON_STR}; the whole time range of "
+                f"the data file{self.file_range_text()} is shown.")
         time_range_tuple = self.time_range(
             layout_dict.get(TIME_RANGE_KEY_STR))
-        # LLFR-00230: the grid and the panel widths.
-        # A missing "grid" or "panel_widths" entry leaves the grid or the
-        # widths as they are, without a report; a value that is there but
-        # cannot be used is reported (LLFR-00235).
+        # LLFR-00230: the grid and the panel widths. LLFR-01200: a
+        # missing "grid" or "panel_widths" entry leaves the grid or the
+        # widths as they are, and is listed as a replaced value; a value
+        # that is there but cannot be used is reported (LLFR-00235).
         grid_shown_b = None
         if GRID_KEY_STR in layout_dict:
             grid_shown_b = self.grid_setting(layout_dict[GRID_KEY_STR])
+        else:
+            self.report.add_replaced(
+                f"Grid setting {MISSING_REASON_STR}; the grid was left as "
+                f"it was.")
+        if PANEL_WIDTHS_KEY_STR not in layout_dict:
+            self.report.add_replaced(
+                "Panel widths are missing; the panels kept their widths.")
         panel_width_tuple = self.panel_widths(
             layout_dict.get(PANEL_WIDTHS_KEY_STR))
-        return LayoutResult(self.report, first_tab_id_i, time_range_tuple,
-                            grid_shown_b, panel_width_tuple,
-                            tabs_replaced_b)
+        result = LayoutResult(self.report, first_tab_id_i, time_range_tuple,
+                              grid_shown_b, panel_width_tuple,
+                              tabs_replaced_b)
+        # LLFR-01214: the main window's panel shown or hidden as saved; a
+        # file without the value leaves it as it is.
+        shown_value = layout_dict.get(MAIN_PANEL_SHOWN_KEY_STR)
+        if isinstance(shown_value, bool):
+            self.workspace.main_panel_shown_b = shown_value
+            result.main_panel_shown_b = shown_value
+        elif shown_value is not None:
+            self.report.add_replaced(
+                f"Signal list panel shown {describe_value(shown_value)} is "
+                f"neither true nor false; the panel was left as it was.")
+        return result
+
+
+def is_whole_number(value) -> bool:
+    """Tell whether a value of the file is a whole number.
+
+    Inputs:
+        value: a value read from the JSON text.
+    Outputs: True for an int that is not a bool (LLFR-01075).
+    """
+    # LLFR-01081: a value that is not a whole number cannot be used.
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def is_window_coordinate(value) -> bool:
+    """Tell whether a value of the file is a usable window coordinate.
+
+    Inputs:
+        value: a value read from the JSON text.
+    Outputs: True for a whole number from -MAXIMUM_WINDOW_PIXELS_I to
+        MAXIMUM_WINDOW_PIXELS_I (LLFR-01081).
+    """
+    # LLFR-01081: a position Qt can take, also once a size is added.
+    return (is_whole_number(value)
+            and -MAXIMUM_WINDOW_PIXELS_I <= value
+            <= MAXIMUM_WINDOW_PIXELS_I)
+
+
+def is_window_length(value) -> bool:
+    """Tell whether a value of the file is a usable size or width.
+
+    Inputs:
+        value: a value read from the JSON text.
+    Outputs: True for a whole number from 1 to MAXIMUM_WINDOW_PIXELS_I
+        (LLFR-01081, LLFR-01146).
+    """
+    # LLFR-01081, LLFR-01146: a size Qt can take; a larger number (for
+    # example above 2**31 - 1) would make Qt raise OverflowError.
+    return is_whole_number(value) and 1 <= value <= MAXIMUM_WINDOW_PIXELS_I
 
 
 def rebuild_layout(workspace, layout_dict: dict, signal_dict: dict,
-                   time_array, synthetic_signal_builder=None):
+                   time_array, synthetic_signal_builder=None,
+                   files_range_tuple=None, new_window_tuple=()):
     """Rebuild the layout of a file in a workspace.
 
     Inputs:
         workspace: the Workspace to add the layout to.
         layout_dict: the content of the file (parse_layout_text).
         signal_dict: signal name -> numpy array of the open data file.
-        time_array: the values of the time signal, in seconds.
+        time_array: the values of the time signal, in seconds, or a
+            function signal name -> time signal of its file.
         synthetic_signal_builder: optional function of LayoutBuilder.
             rebuild for the synthetic signals (LLFR-00262).
+        files_range_tuple: the time range of the open data files, or
+            None for the range of time_array (LLFR-00916).
+        new_window_tuple: the window an undock would open (LLFR-01081).
     Outputs: the LayoutResult.
     """
     # LLFR-00229 to LLFR-00235: see LayoutBuilder.
-    return LayoutBuilder(workspace, signal_dict, time_array).rebuild(
+    return LayoutBuilder(workspace, signal_dict, time_array,
+                         files_range_tuple, new_window_tuple).rebuild(
         layout_dict, synthetic_signal_builder)
+
+
+# ----------------------------------------------------------------------
+# Save options and data files of a layout (HLFR-00156, HLFR-00157)
+# ----------------------------------------------------------------------
+
+# LLFR-01223: the keys of the data files of the layout file.
+DATA_FILES_KEY_STR = "data_files"
+NUMBER_KEY_STR = "number"
+PATH_KEY_STR = "path"
+RELATIVE_PATH_KEY_STR = "relative_path"
+# LLFR-01226: a file prefix at the start of a name, or after the
+# operation of a product of two signals (HLFR-00104).
+FILE_PREFIX_PATTERN_STR = r"(^|_prod_)file([0-9]+)_"
+# LLFR-01228: the number given to the prefix of a data file of the
+# layout file that is not open; no data file ever has it (LLFR-00900).
+UNUSED_FILE_NUMBER_I = 0
+# LLFR-01227: the reasons of the load report.
+FILE_NOT_FOUND_REASON_STR = (
+    "{path}: no file at this path or at the path relative to the layout "
+    "file.")
+FILE_NOT_OPENED_REASON_STR = "{path}: the file could not be opened."
+FILE_ENTRY_UNREADABLE_STR = (
+    "Data file entry {entry} has no usable number and path.")
+
+
+def layout_with_save_options(layout_dict: dict, markers_b: bool = True,
+                             current_tab_only_b: bool = False) -> dict:
+    """Return the content of a layout file with the save options applied.
+
+    Inputs:
+        layout_dict: the content built by build_layout_dict.
+        markers_b: False to leave out the pinned data tips, flags, areas
+            and delta markers (LLFR-01221).
+        current_tab_only_b: True to keep only the tab that the main
+            window shows, as its shown docked tab (LLFR-01222).
+    Outputs: a new dict; layout_dict is not changed.
+    """
+    result_dict = json.loads(json.dumps(layout_dict))
+    if not markers_b:
+        # LLFR-01221: no marker of any kind in the file.
+        result_dict[FLAGS_KEY_STR] = []
+        result_dict[AREAS_KEY_STR] = []
+        for tab_entry_dict in list_entry(result_dict, TABS_KEY_STR):
+            for plot_entry_dict in list_entry(tab_entry_dict, PLOTS_KEY_STR):
+                plot_entry_dict[DATA_TIPS_KEY_STR] = []
+                plot_entry_dict[DELTA_MARKERS_KEY_STR] = []
+    if current_tab_only_b:
+        # LLFR-01222: the tab the main window shows (LLFR-00225 item 1),
+        # docked, and shown.
+        tab_list = list_entry(result_dict, TABS_KEY_STR)
+        shown_index_i = result_dict.get(SHOWN_TAB_KEY_STR, 0)
+        if (not isinstance(shown_index_i, int)
+                or not 0 <= shown_index_i < len(tab_list)):
+            shown_index_i = 0
+        kept_list = tab_list[shown_index_i:shown_index_i + 1]
+        for tab_entry_dict in kept_list:
+            tab_entry_dict[UNDOCKED_KEY_STR] = False
+            for key_str in (WINDOW_KEY_STR, WINDOW_NUMBER_KEY_STR,
+                            SIGNAL_LIST_PANEL_KEY_STR):
+                tab_entry_dict.pop(key_str, None)
+        result_dict[TABS_KEY_STR] = kept_list
+        result_dict[SHOWN_TAB_KEY_STR] = 0
+    return result_dict
+
+
+def relative_path_str(path_str: str, layout_path_str: str):
+    """Return a path relative to the folder of a layout file.
+
+    Inputs:
+        path_str: the absolute path of a data file.
+        layout_path_str: the path of the layout file.
+    Outputs: the relative path, with "/" separators, or None when there
+        is none (another drive on Windows).
+    """
+    # LLFR-01223: relative to the folder of the layout file.
+    try:
+        relative_str = os.path.relpath(
+            path_str, os.path.dirname(os.path.abspath(layout_path_str)))
+    except ValueError:
+        return None
+    return relative_str.replace(os.sep, "/")
+
+
+def data_file_entry_list(numbered_path_list: list,
+                         layout_path_str: str) -> list:
+    """Return the entries of the open data files for the layout file.
+
+    Inputs:
+        numbered_path_list: one (number, path) per open data file.
+        layout_path_str: the path of the layout file.
+    Outputs: one dict per file, in the order of the numbers, with its
+        number, absolute path and relative path (LLFR-01223).
+    """
+    # LLFR-01223: the number, the absolute and the relative path.
+    entry_list = []
+    for number_i, path_str in sorted(numbered_path_list):
+        absolute_str = os.path.abspath(str(path_str))
+        entry_list.append({
+            NUMBER_KEY_STR: int(number_i),
+            PATH_KEY_STR: absolute_str,
+            RELATIVE_PATH_KEY_STR: relative_path_str(absolute_str,
+                                                     layout_path_str)})
+    return entry_list
+
+
+def data_file_candidate_list(entry_dict: dict, layout_path_str: str) -> list:
+    """Return the paths where a data file of a layout file may be.
+
+    Inputs:
+        entry_dict: an entry of the `data_files` list.
+        layout_path_str: the path of the layout file being loaded.
+    Outputs: its `path`, then its `relative_path` from the folder of the
+        layout file, each when it is a text.
+    """
+    # LLFR-01224: the absolute path first, then the relative one.
+    candidate_list = []
+    path_value = entry_dict.get(PATH_KEY_STR)
+    if isinstance(path_value, str) and path_value:
+        candidate_list.append(path_value)
+    relative_value = entry_dict.get(RELATIVE_PATH_KEY_STR)
+    if isinstance(relative_value, str) and relative_value:
+        candidate_list.append(os.path.normpath(os.path.join(
+            os.path.dirname(os.path.abspath(layout_path_str)),
+            relative_value.replace("/", os.sep))))
+    return candidate_list
+
+
+def renamed_file_prefix(name_value, number_dict: dict):
+    """Return a signal name with its file prefixes renumbered.
+
+    Inputs:
+        name_value: a name of the layout file (any value).
+        number_dict: saved file number -> number of that file now.
+    Outputs: the name with each `file<N>_` at its start, or after
+        `_prod_`, given the new number of N when number_dict has one; any
+        other value unchanged.
+    """
+    # LLFR-01226: the prefix of the number the data file has now.
+    if not isinstance(name_value, str):
+        return name_value
+
+    def new_prefix(match) -> str:
+        """Return the prefix with its new number.
+
+        Inputs:
+            match: the re match of FILE_PREFIX_PATTERN_STR.
+        Outputs: the replacement text.
+        """
+        # LLFR-01226, LLFR-01228.
+        number_i = int(match.group(2))
+        return (f"{match.group(1)}file"
+                f"{number_dict.get(number_i, number_i)}_")
+
+    return re.sub(FILE_PREFIX_PATTERN_STR, new_prefix, name_value)
+
+
+def renumber_point(entry, number_dict: dict) -> None:
+    """Renumber the signal of a curve, data tip or delta marker point.
+
+    Inputs:
+        entry: a dict of the file with a `signal` key, or another value.
+        number_dict: saved file number -> number now.
+    Outputs: none; the entry is changed in place.
+    """
+    # LLFR-01226: the curves, data tips and delta marker points.
+    if isinstance(entry, dict) and SIGNAL_KEY_STR in entry:
+        entry[SIGNAL_KEY_STR] = renamed_file_prefix(entry[SIGNAL_KEY_STR],
+                                                    number_dict)
+
+
+def renumber_layout_names(layout_dict: dict, number_dict: dict) -> None:
+    """Give the signal names of a layout the numbers of the open files.
+
+    Inputs:
+        layout_dict: the content of a layout file.
+        number_dict: saved file number -> number of that file now; a
+            saved number missing from it is kept.
+    Outputs: none; the names of the curves, pinned data tips, delta
+        markers and synthetic signal entries are changed in place
+        (LLFR-01226, LLFR-01228).
+    """
+    # LLFR-01226: every name that a load matches with the signal list.
+    for tab_entry_dict in list_entry(layout_dict, TABS_KEY_STR):
+        for plot_entry_dict in list_entry(tab_entry_dict, PLOTS_KEY_STR):
+            for curve_entry in list_entry(plot_entry_dict, CURVES_KEY_STR):
+                renumber_point(curve_entry, number_dict)
+            for tip_entry in list_entry(plot_entry_dict, DATA_TIPS_KEY_STR):
+                renumber_point(tip_entry, number_dict)
+            for delta_entry in list_entry(plot_entry_dict,
+                                          DELTA_MARKERS_KEY_STR):
+                if isinstance(delta_entry, dict):
+                    renumber_point(delta_entry.get(FIRST_POINT_KEY_STR),
+                                   number_dict)
+                    renumber_point(delta_entry.get(SECOND_POINT_KEY_STR),
+                                   number_dict)
+    for signal_entry in list_entry(layout_dict, SYNTHETIC_SIGNALS_KEY_STR):
+        if not isinstance(signal_entry, dict):
+            continue
+        if SYNTHETIC_NAME_KEY_STR in signal_entry:
+            signal_entry[SYNTHETIC_NAME_KEY_STR] = renamed_file_prefix(
+                signal_entry[SYNTHETIC_NAME_KEY_STR], number_dict)
+        source_value = signal_entry.get(SYNTHETIC_SOURCES_KEY_STR)
+        if isinstance(source_value, list):
+            signal_entry[SYNTHETIC_SOURCES_KEY_STR] = [
+                renamed_file_prefix(name_value, number_dict)
+                for name_value in source_value]
+
+
+def file_number_dict(saved_number_list: list, found_dict: dict,
+                     open_number_list: list) -> dict:
+    """Return the new number of each saved data file number.
+
+    Inputs:
+        saved_number_list: the numbers of the data files of the layout
+            file.
+        found_dict: saved number -> number of the open data file used
+            for it (LLFR-01224, LLFR-01225).
+        open_number_list: the numbers of the open data files.
+    Outputs: saved number -> number to read its names with: the found
+        file's number, or UNUSED_FILE_NUMBER_I for a saved file that is
+        not open while another open file has its saved number
+        (LLFR-01228); a saved number that no open file has is kept.
+    """
+    # LLFR-01226, LLFR-01228.
+    number_dict = {}
+    for saved_number_i in saved_number_list:
+        if saved_number_i in found_dict:
+            number_dict[saved_number_i] = int(found_dict[saved_number_i])
+        elif saved_number_i in open_number_list:
+            number_dict[saved_number_i] = UNUSED_FILE_NUMBER_I
+    return number_dict
+
+
+def data_file_entries_of(layout_dict: dict) -> list:
+    """Return the readable entries of the data files of a layout file.
+
+    Inputs:
+        layout_dict: the content of a layout file.
+    Outputs: a list of (saved number, entry dict, None) for each entry
+        with a whole number of 1 or more, and (None, entry, reason) for
+        each other entry.
+    """
+    # LLFR-01223, LLFR-01224: hand-edited values are reported.
+    result_list = []
+    for entry_value in list_entry(layout_dict, DATA_FILES_KEY_STR):
+        number_value = (entry_value.get(NUMBER_KEY_STR)
+                        if isinstance(entry_value, dict) else None)
+        if (isinstance(entry_value, dict) and is_whole_number(number_value)
+                and number_value >= 1):
+            result_list.append((int(number_value), entry_value, None))
+        else:
+            result_list.append((None, entry_value,
+                                FILE_ENTRY_UNREADABLE_STR.format(
+                                    entry=describe_value(entry_value))))
+    return result_list

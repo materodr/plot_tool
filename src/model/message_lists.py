@@ -1,0 +1,242 @@
+"""Text of the boxes that list several separate items.
+
+Every information, error or question box that lists several separate
+items (LLFR-00981) shows them in the same way, built here so that all
+the boxes look the same:
+
+- two or more items are numbered ``1.``, ``2.`` and so on (LLFR-00980),
+  with one blank line between one item and the next (LLFR-00982);
+- the sentence that introduces the list, when there is one, stays above
+  it, followed by one blank line (LLFR-00983);
+- one item alone is shown without a number (LLFR-00984);
+- the lines after the first line of an item are indented below the
+  start of its text (LLFR-00985);
+- the numbers are aligned on their right side (LLFR-00986);
+- the load report numbers the items under each of its headings as their
+  own list (LLFR-00987, LLFR-00988, LLFR-00989);
+- ``list_line_list`` splits such a text back into its lines, each with
+  the blank indent and the number in front of its text, so that the
+  view can draw a wrapped line under the text of its own item
+  (LLFR-01176);
+- ``is_long_list_text`` tells when a message box is too long to be
+  shown without a scroll bar (LLFR-01177).
+
+The functions only build or read plain text, so the model, the
+controllers and the view can all use them (COR-00003).
+"""
+
+import math
+import re
+
+# LLFR-00986: a figure space has the width of a digit in the fonts of
+# the boxes, so that a number padded with it on its left ends where the
+# longest number of the list ends.
+FIGURE_SPACE_STR = " "
+# LLFR-00985: a punctuation space has the width of the period after the
+# number, so that a sub-line starts where the text of the first line
+# starts.
+PUNCTUATION_SPACE_STR = " "
+# LLFR-00980: the number of an item, followed by a period and a space.
+NUMBER_FORMAT_STR = "{number}. "
+# LLFR-00982, LLFR-00983, LLFR-00989: one blank line between the parts.
+BLANK_LINE_SEPARATOR_STR = "\n\n"
+LINE_SEPARATOR_STR = "\n"
+# LLFR-01176: the blank characters that indent a line of a list (the
+# figure spaces and the punctuation space of LLFR-00985 and LLFR-00986,
+# and ordinary spaces), followed by an optional number of LLFR-00980.
+LIST_LINE_PATTERN = re.compile(
+    "^([" + FIGURE_SPACE_STR + PUNCTUATION_SPACE_STR
+    + r" ]*)(\d+\. )?(.*)$", re.DOTALL)
+# LLFR-01177: a message box shows at most this many lines without a
+# scroll bar, counting a line of more than LONG_LINE_CHARACTERS_I
+# characters as one line for every LONG_LINE_CHARACTERS_I characters or
+# part of them.
+LONG_BOX_LINE_COUNT_I = 15
+LONG_LINE_CHARACTERS_I = 80
+
+
+def number_prefix(number_i: int, width_i: int) -> str:
+    """Return the number written in front of an item.
+
+    Inputs:
+        number_i: the number of the item, from 1.
+        width_i: the number of digits of the largest number of the list.
+    Outputs: the number, padded on its left with figure spaces up to
+        width_i digits, a period and a space, for example " 1. "
+        with width 2.
+    """
+    # LLFR-00980, LLFR-00986: the numbers end at the same place.
+    number_str = str(int(number_i))
+    padding_str = FIGURE_SPACE_STR * max(0, int(width_i) - len(number_str))
+    return padding_str + NUMBER_FORMAT_STR.format(number=number_str)
+
+
+def sub_line_indent(width_i: int) -> str:
+    """Return the indent of the lines after the first line of an item.
+
+    Inputs:
+        width_i: the number of digits of the largest number of the list.
+    Outputs: blank characters as wide as the number of LLFR-00980 with
+        its period and its space.
+    """
+    # LLFR-00985: the sub-lines start below the text of the first line.
+    return FIGURE_SPACE_STR * int(width_i) + PUNCTUATION_SPACE_STR + " "
+
+
+def numbered_item_text(item_str: str, number_i: int, width_i: int) -> str:
+    """Return one item with its number and its indented sub-lines.
+
+    Inputs:
+        item_str: the text of the item; it may hold several lines.
+        number_i: the number of the item, from 1.
+        width_i: the number of digits of the largest number of the list.
+    Outputs: the first line after its number, and every other line
+        after the indent of LLFR-00985.
+    """
+    # LLFR-00980, LLFR-00985: number the first line, indent the others.
+    line_list = str(item_str).split(LINE_SEPARATOR_STR)
+    indent_str = sub_line_indent(width_i)
+    # LLFR-00982: a blank line inside an item stays blank.
+    return LINE_SEPARATOR_STR.join(
+        [number_prefix(number_i, width_i) + line_list[0]]
+        + [indent_str + line_str if line_str else ""
+           for line_str in line_list[1:]])
+
+
+def list_body_text(item_list: list, numbered_b: bool = None) -> str:
+    """Return the items of one list, without a heading.
+
+    Inputs:
+        item_list: the texts of the items, in the order of the list.
+        numbered_b: True to number the items, False to leave them
+            unnumbered; None numbers them only when there are two or
+            more (LLFR-00980, LLFR-00984).
+    Outputs: the items separated by one blank line (LLFR-00982); "" for
+        an empty list.
+    """
+    # LLFR-00980, LLFR-00984: two or more items are numbered.
+    text_list = [str(item_str) for item_str in item_list]
+    if numbered_b is None:
+        numbered_b = len(text_list) >= 2
+    if not numbered_b:
+        # LLFR-00984: one item alone keeps its text as it is.
+        return BLANK_LINE_SEPARATOR_STR.join(text_list)
+    # LLFR-00986: every number is as wide as the largest one.
+    width_i = len(str(len(text_list)))
+    # LLFR-00982: one blank line between one item and the next.
+    return BLANK_LINE_SEPARATOR_STR.join(
+        numbered_item_text(item_str, index_i + 1, width_i)
+        for index_i, item_str in enumerate(text_list))
+
+
+def list_text(item_list: list, heading_str: str = "",
+              numbered_b: bool = None) -> str:
+    """Return the text of a box that lists several separate items.
+
+    Inputs:
+        item_list: the texts of the items, in the order of the list.
+        heading_str: the sentence that introduces the list, or "".
+        numbered_b: as in list_body_text.
+    Outputs: the heading, one blank line and the items of
+        list_body_text (LLFR-00983); only the items when there is no
+        heading; only the heading when there is no item.
+    """
+    # LLFR-00983: the heading stays above the list, then a blank line.
+    body_str = list_body_text(item_list, numbered_b)
+    part_list = [part_str for part_str in (str(heading_str), body_str)
+                 if part_str]
+    return BLANK_LINE_SEPARATOR_STR.join(part_list)
+
+
+def sections_text(section_list: list) -> str:
+    """Return the text of a box whose items are grouped under headings.
+
+    Inputs:
+        section_list: (heading_str, item list) tuples, in the order of
+            the box; a section with no item is left out.
+    Outputs: each heading followed by its own list (LLFR-00987), with
+        one blank line between one section and the next (LLFR-00989);
+        every item is numbered when the box lists two or more items in
+        all (LLFR-00988), and none when it lists only one (LLFR-00984).
+    """
+    # LLFR-00988, LLFR-00984: the count of the whole box decides.
+    kept_list = [(str(heading_str), list(item_list))
+                 for heading_str, item_list in section_list if item_list]
+    item_count_i = sum(len(item_list) for _, item_list in kept_list)
+    numbered_b = item_count_i >= 2
+    # LLFR-00987, LLFR-00989: each heading starts its own numbering, and
+    # one blank line separates the sections.
+    return BLANK_LINE_SEPARATOR_STR.join(
+        list_text(item_list, heading_str, numbered_b)
+        for heading_str, item_list in kept_list)
+
+
+def list_line_list(text_str: str) -> list:
+    """Split the text of a list box into its lines and their indents.
+
+    Inputs:
+        text_str: the plain text of a box of LLFR-00981, as built by
+            list_text, list_body_text or sections_text, possibly with a
+            list inside an item (LLFR-01178).
+    Outputs: one (indent_str, number_str, rest_str) tuple per line, in
+        order: indent_str is the blank characters at the start of the
+        line, number_str is the number of LLFR-00980 that follows them
+        with its period and its space ("" when the line has none), and
+        rest_str is the rest of the line. A blank line gives
+        ("", "", "").
+    """
+    # LLFR-01176: the part in front of the text of each line is the
+    # indent and the number; a wrapped line goes under what follows.
+    line_tuple_list = []
+    for line_str in str(text_str).split(LINE_SEPARATOR_STR):
+        match = LIST_LINE_PATTERN.match(line_str)
+        indent_str, number_str, rest_str = (
+            match.group(1), match.group(2) or "", match.group(3))
+        if not number_str and not rest_str:
+            # LLFR-00982: a blank line between items.
+            line_tuple_list.append(("", "", ""))
+            continue
+        line_tuple_list.append((indent_str, number_str, rest_str))
+    return line_tuple_list
+
+
+def has_hanging_line_b(text_str: str) -> bool:
+    """Tell whether a box text has a line with an indent or a number.
+
+    Inputs:
+        text_str: the plain text of a box.
+    Outputs: True when at least one line starts with blank characters or
+        with a number of LLFR-00980, so that its wrapped lines must be
+        drawn under its text (LLFR-01176).
+    """
+    # LLFR-01176: only such lines need a hanging indent.
+    return any(indent_str or number_str
+               for indent_str, number_str, _ in list_line_list(text_str))
+
+
+def display_line_count(text_str: str) -> int:
+    """Return the number of lines a box text takes, for LLFR-01177.
+
+    Inputs:
+        text_str: the plain text of a box.
+    Outputs: the number of its lines, a line of more than
+        LONG_LINE_CHARACTERS_I characters counting as one line for every
+        LONG_LINE_CHARACTERS_I characters or part of them, and an empty
+        line as one line.
+    """
+    # LLFR-01177: a long line takes several lines once wrapped.
+    return sum(max(1, math.ceil(len(line_str) / LONG_LINE_CHARACTERS_I))
+               for line_str in str(text_str).split(LINE_SEPARATOR_STR))
+
+
+def is_long_list_text(text_str: str) -> bool:
+    """Tell whether a box text must be shown in a scrollable box.
+
+    Inputs:
+        text_str: the plain text of the File Open Error box or of the
+            refused files box (LLFR-00955, LLFR-00956).
+    Outputs: True when it takes more than LONG_BOX_LINE_COUNT_I lines
+        (display_line_count).
+    """
+    # LLFR-01177: more lines than a message box shows.
+    return display_line_count(text_str) > LONG_BOX_LINE_COUNT_I

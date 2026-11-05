@@ -63,11 +63,24 @@ class ArrowControllerTestCase(PlotControllerTestCase):
         Inputs:
             plot_id_i: the plot (default: the plot of the setup).
         Outputs: the list of (start_time_s, start_value_f, end_time_s,
-            end_value_f, color_str).
+            end_value_f, color_str); the names are left out (see
+            drawn_names).
         """
         if plot_id_i is None:
             plot_id_i = self.plot_id_i
-        return [tuple(arrow_tuple) for arrow_tuple in
+        return [tuple(arrow_tuple)[:5] for arrow_tuple in
+                self.view.arrow_drawn_dict.get(plot_id_i, [])]
+
+    def drawn_names(self, plot_id_i: int = None) -> list:
+        """Return the names of the arrows last drawn in a plot.
+
+        Inputs:
+            plot_id_i: the plot (default: the plot of the setup).
+        Outputs: the list of name_str, in drawing order.
+        """
+        if plot_id_i is None:
+            plot_id_i = self.plot_id_i
+        return [tuple(arrow_tuple)[5] for arrow_tuple in
                 self.view.arrow_drawn_dict.get(plot_id_i, [])]
 
     def undo_depth(self) -> int:
@@ -99,7 +112,7 @@ class CreateArrowTest(ArrowControllerTestCase):
     """Drawing an arrow (LLFR-00372, LLFR-00373)."""
 
     @covers("LLFR-00372", "LLFR-00373", "LLFR-00140", "LLFR-00138",
-            "LLFR-00192", "HLFR-00081")
+            "LLFR-00192", "HLFR-00081", "LLFR-00770")
     def test_create_is_drawn_and_undoable(self) -> None:
         """A drawn arrow is kept in the default color and drawn on its
         plot; Undo removes it and Redo brings it back.
@@ -134,7 +147,7 @@ class CreateArrowTest(ArrowControllerTestCase):
             self.workspace.find_plot(self.plot_id_i).arrow_list, [])
         self.assertEqual(self.undo_depth(), depth_i)
 
-    @covers("LLFR-00375", "LLFR-00049")
+    @covers("LLFR-00375", "LLFR-00049", "LLFR-00777")
     def test_arrows_only_on_their_plot_and_removed_with_it(self) -> None:
         """An arrow is drawn only on its plot; deleting the plot removes
         it, and undoing the deletion brings it back.
@@ -189,7 +202,7 @@ class ChangeArrowTest(ArrowControllerTestCase):
 
     @covers("LLFR-00376", "LLFR-00377", "LLFR-00140", "LLFR-00138",
             "LLFR-00192", "LLFR-00382", "HLFR-00082", "HLFR-00083",
-            "HLFR-00085")
+            "HLFR-00085", "LLFR-00793")
     def test_change_is_undoable_with_the_tool_or_none(self) -> None:
         """New ends are kept and drawn as one undoable action, also with
         no tool active; Undo and Redo go back and forth.
@@ -249,7 +262,8 @@ class ArrowColorAndDeleteTest(ArrowControllerTestCase):
         self.create((5.0, 6.0, 7.0, 8.0))
 
     @covers("LLFR-00379", "LLFR-00388", "LLFR-00389", "LLFR-00390",
-            "LLFR-00140", "LLFR-00138", "LLFR-00192", "HLFR-00088")
+            "LLFR-00140", "LLFR-00138", "LLFR-00192", "HLFR-00088",
+            "LLFR-00809", "LLFR-00788")
     def test_color_uses_the_shared_picker(self) -> None:
         """"Color" opens the picker at the arrow's color; a confirmed new
         color is drawn as one undoable action; Undo and Redo work.
@@ -272,7 +286,7 @@ class ArrowColorAndDeleteTest(ArrowControllerTestCase):
         self.redo()
         self.assertEqual(self.drawn()[1][4], "#ff0080")
 
-    @covers("LLFR-00390", "LLFR-00140")
+    @covers("LLFR-00390", "LLFR-00140", "LLFR-00811", "LLFR-00812")
     def test_cancel_or_same_color_records_nothing(self) -> None:
         """A cancelled picker, the arrow's own color or an unknown arrow
         changes nothing and adds no undoable action.

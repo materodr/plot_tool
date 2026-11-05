@@ -18,6 +18,7 @@ import re
 import numpy as np
 
 from model.file_loader import hdf5_library
+from model.message_lists import list_body_text, list_text
 from model.signal_file import TIME_SIGNAL_NAME_STR, is_time_signal_name
 
 # LLFR-00396: the formats of the save dialog (HLFR-00005), each with its
@@ -61,7 +62,7 @@ TABLE_EMPTY_NAME_STR = "signal"
 # finite numbers.
 NON_FINITE_REASON_STR = (
     "These signals have values that are not finite numbers (infinite or "
-    "NaN), which a data file cannot hold: {names}.")
+    "NaN), which a data file cannot hold:")
 # LLFR-00241, LLFR-00403: the first number added to a name in use.
 FIRST_SUFFIX_NUMBER_I = 2
 # LLFR-00399: the reason given when h5py is not installed.
@@ -299,21 +300,75 @@ def move_out_of_time_group(name_list: list, time_index_i: int) -> list:
             for index_i, name_str in enumerate(name_list)]
 
 
+def numbered_plain_name_list(plain_name_list: list, number_list: list,
+                             time_index_i: int) -> list:
+    """Give the file number to the plain names that several signals share.
+
+    Inputs:
+        plain_name_list: the plain names of the signals to save, in the
+            order of the signal list (LLFR-00945).
+        number_list: the number of the data file of each signal
+            (LLFR-00940), or None.
+        time_index_i: the index of the one time signal (LLFR-00944), or
+            -1; it keeps its name.
+    Outputs: the names, where a plain name of two or more signals other
+        than the time signal gets ``_<file number>`` on each of them
+        (LLFR-00946), and a name still taken by an earlier signal gets
+        ``_2``, ``_3``... (LLFR-00965), all different apart from the
+        time signal.
+    """
+    # LLFR-00946: every signal of a shared plain name gets the number of
+    # its own data file.
+    count_dict = {}
+    for index_i, plain_str in enumerate(plain_name_list):
+        if index_i != time_index_i:
+            count_dict[plain_str] = count_dict.get(plain_str, 0) + 1
+    name_list = []
+    for index_i, plain_str in enumerate(plain_name_list):
+        number_i = number_list[index_i]
+        if (index_i != time_index_i and count_dict[plain_str] > 1
+                and number_i is not None):
+            name_list.append(f"{plain_str}_{int(number_i)}")
+        else:
+            name_list.append(plain_str)
+    # LLFR-00965: the later of two signals that still share a name gets
+    # the smallest number from 2 up that makes it unique.
+    taken_set = {name_str for index_i, name_str in enumerate(name_list)
+                 if index_i != time_index_i}
+    seen_set = set()
+    result_list = list(name_list)
+    for index_i, name_str in enumerate(name_list):
+        if index_i == time_index_i:
+            continue
+        if name_str in seen_set:
+            suffix_i = FIRST_SUFFIX_NUMBER_I
+            while f"{name_str}_{suffix_i}" in taken_set:
+                suffix_i += 1
+            name_str = f"{name_str}_{suffix_i}"
+            taken_set.add(name_str)
+        seen_set.add(name_str)
+        result_list[index_i] = name_str
+    return result_list
+
+
 def saved_name_list(name_list: list, time_name_str: str,
-                    format_str: str) -> list:
+                    format_str: str, time_index_i: int = None) -> list:
     """Return the names under which the signals are saved.
 
     Inputs:
         name_list: the names of the signals to save, in list order; they
-            are unique.
+            are unique, apart from the time signal.
         time_name_str: the name of the time signal (HLFR-00006).
         format_str: one of FORMAT_ORDER_TUPLE.
+        time_index_i: the index of the time signal in name_list; None
+            finds it by time_name_str.
     Outputs: a list of saved names, one per name of name_list, in the
         same order and all different.
     """
     # LLFR-00407: the time signal is always saved as "Time".
-    time_index_i = (name_list.index(time_name_str)
-                    if time_name_str in name_list else -1)
+    if time_index_i is None:
+        time_index_i = (name_list.index(time_name_str)
+                        if time_name_str in name_list else -1)
     # LLFR-00403 items 1 and 2: the names the format can store.
     wanted_list = [TIME_SIGNAL_NAME_STR if index_i == time_index_i
                    else format_name(name_str, format_str)
@@ -391,11 +446,12 @@ def non_finite_reason(name_list: list) -> str:
 
     Inputs:
         name_list: the names of the signals with non-finite values.
-    Outputs: the sentence that names them.
+    Outputs: the sentence followed by the list of the signals.
     """
-    # LLFR-00408: each signal is named.
-    return NON_FINITE_REASON_STR.format(
-        names=", ".join(f"'{name_str}'" for name_str in name_list))
+    # LLFR-00408, LLFR-00559: each signal is named, as one item of the
+    # list below the sentence (LLFR-00980, LLFR-00983).
+    return list_text([f"'{name_str}'" for name_str in name_list],
+                     NON_FINITE_REASON_STR)
 
 
 def changed_name_list(name_list: list, new_name_list: list) -> list:
@@ -417,11 +473,13 @@ def changed_names_text(change_list: list) -> str:
 
     Inputs:
         change_list: (old name, new name) tuples.
-    Outputs: one line "<old name> → <new name>" per change.
+    Outputs: one item "<old name> → <new name>" per change, numbered
+        and separated by blank lines when there are two or more
+        (LLFR-00980, LLFR-00982).
     """
     # LLFR-00404: each changed name as "<old name> → <new name>".
-    return "\n".join(f"{old_str} → {new_str}"
-                     for old_str, new_str in change_list)
+    return list_body_text([f"{old_str} → {new_str}"
+                           for old_str, new_str in change_list])
 
 
 # ----------------------------------------------------------------------

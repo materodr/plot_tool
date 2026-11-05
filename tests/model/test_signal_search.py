@@ -8,7 +8,8 @@ from tests.support import covers
 
 from model.signal_search import (
     NO_MATCH_TEXT_STR, allowed_typo_count, has_close_substring,
-    normalize_text, search_signals, split_search_words, word_match_kind)
+    normalize_text, search_prefixed_signals, search_signals,
+    split_search_words, word_match_kind)
 
 
 def reference_substring_distance(word_str: str, name_str: str) -> int:
@@ -49,7 +50,7 @@ class NormalizeTest(unittest.TestCase):
         """
         self.assertEqual(normalize_text("EnGiNe"), "engine")
 
-    @covers("LLFR-00100", "HLFR-00034")
+    @covers("LLFR-00100", "HLFR-00034", "LLFR-00566")
     def test_separators_removed(self) -> None:
         """Spaces, underscores, hyphens and dots are removed.
 
@@ -57,6 +58,18 @@ class NormalizeTest(unittest.TestCase):
         Outputs: none.
         """
         self.assertEqual(normalize_text("a_b-c.d e"), "abcde")
+
+    @covers("LLFR-00100", "LLFR-00566", "HLFR-00034")
+    def test_slashes_removed(self) -> None:
+        """Slashes are removed like the other separators.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(normalize_text("Engine/Speed"), "enginespeed")
+        self.assertEqual(normalize_text("a/b_c/-d./e f"), "abcdef")
+        self.assertEqual(split_search_words("engine/ /speed /"),
+                         ["engine", "speed"])
 
     @covers("LLFR-00105", "LLFR-00100", "HLFR-00034")
     def test_split_search_words(self) -> None:
@@ -181,7 +194,7 @@ class SearchSignalsTest(unittest.TestCase):
             self.assertEqual(result_list, name_list)
             self.assertIsNot(result_list, name_list)
 
-    @covers("LLFR-00097", "HLFR-00033")
+    @covers("LLFR-00097", "HLFR-00033", "LLFR-00565")
     def test_no_match(self) -> None:
         """No match gives an empty list and the no-match text is fixed.
 
@@ -214,7 +227,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "speed"),
                          ["SpeedFront", "FrontSpeedLeft", "WheelSpeed"])
 
-    @covers("LLFR-00100", "HLFR-00034")
+    @covers("LLFR-00100", "HLFR-00034", "LLFR-00566")
     def test_separators(self) -> None:
         """Separators are ignored in text and names, spaces in names.
 
@@ -232,7 +245,40 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(["Engine-Speed.A"], "speeda"),
                          ["Engine-Speed.A"])
 
-    @covers("LLFR-00105", "HLFR-00034")
+    @covers("LLFR-00100", "LLFR-00566", "LLFR-00102", "LLFR-00101",
+            "HLFR-00034")
+    def test_slashes_in_names_and_text(self) -> None:
+        """``enginespeed`` finds the HDF5 name ``engine/speed``, a typed
+        slash is ignored, and the ranking and the typo allowance use the
+        names without slashes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        name_list = ["Time", "gear/engine/speed", "engine/speed",
+                     "engine/torque"]
+        # LLFR-00102: group 1 starts with the first word once the slash
+        # is left out; group 2 holds the other exact match.
+        self.assertEqual(search_signals(name_list, "enginespeed"),
+                         ["engine/speed", "gear/engine/speed"])
+        self.assertEqual(search_signals(name_list, "engine/speed"),
+                         ["engine/speed", "gear/engine/speed"])
+        self.assertEqual(search_signals(name_list, "/torque"),
+                         ["engine/torque"])
+        self.assertEqual(search_signals(name_list, "gearengine"),
+                         ["gear/engine/speed"])
+        # LLFR-00101: two typos are allowed in 8 to 11 characters,
+        # and the typo group keeps the file order;
+        # the slash doesn't count as a character of the name.
+        self.assertEqual(search_signals(name_list, "engnspeed"),
+                         ["gear/engine/speed", "engine/speed"])
+        self.assertEqual(search_signals(name_list, "/"), name_list)
+        # The prefixed names of the signal list (LLFR-00905).
+        self.assertEqual(search_prefixed_signals(
+            ["file1_Time", "file1_engine/speed"], "enginespeed"),
+            ["file1_engine/speed"])
+
+    @covers("LLFR-00105", "HLFR-00034", "LLFR-00567")
     def test_requirement_multi_word_example(self) -> None:
         """mate so 25 finds only mateus_soares_rodrigues 2025.
 
@@ -244,7 +290,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "mate so 25"),
                          ["mateus_soares_rodrigues 2025"])
 
-    @covers("LLFR-00105", "HLFR-00034")
+    @covers("LLFR-00105", "HLFR-00034", "LLFR-00567")
     def test_every_word_any_order(self) -> None:
         """Every word must match; the order of the words is free.
 
@@ -258,7 +304,7 @@ class SearchSignalsTest(unittest.TestCase):
                          ["Front_Left_Speed"])
         self.assertEqual(search_signals(name_list, "left voltage"), [])
 
-    @covers("LLFR-00105", "HLFR-00034")
+    @covers("LLFR-00105", "HLFR-00034", "LLFR-00567")
     def test_repeated_words(self) -> None:
         """A repeated word matches like the single word.
 
@@ -269,7 +315,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "speed speed"),
                          ["Speed", "Speed_Speed"])
 
-    @covers("LLFR-00105", "LLFR-00101", "HLFR-00034")
+    @covers("LLFR-00105", "LLFR-00101", "HLFR-00034", "LLFR-00567")
     def test_typo_per_word(self) -> None:
         """Each word gets its own typo allowance.
 
@@ -321,7 +367,7 @@ class SearchSignalsTest(unittest.TestCase):
         self.assertEqual(search_signals(name_list, "speed rear"),
                          ["Wheel_Speed_Rear", "Speed_Reer"])
 
-    @covers("LLFR-00102", "LLFR-00100", "HLFR-00034")
+    @covers("LLFR-00102", "LLFR-00100", "HLFR-00034", "LLFR-00566")
     def test_starts_with_uses_normalized_name(self) -> None:
         """Group 1 compares the normalized name with the first word.
 
@@ -381,6 +427,68 @@ class SearchSignalsTest(unittest.TestCase):
         elapsed_s = time.perf_counter() - start_s
         self.assertEqual(result_list, name_list)
         self.assertLess(elapsed_s, 0.5)
+
+
+class PrefixedSearchTest(unittest.TestCase):
+    """The "starts with" group leaves the file prefix out (LLFR-00102)."""
+
+    @covers("LLFR-00102", "HLFR-00034", "HLFR-00113")
+    def test_starts_with_ignores_the_prefix(self) -> None:
+        """`speed` ranks `file1_Speed` before `file1_MaxSpeed`.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_prefixed_signals
+        name_list = ["file1_MaxSpeed", "file1_Speed", "file1_Time"]
+        self.assertEqual(search_prefixed_signals(name_list, "speed"),
+                         ["file1_Speed", "file1_MaxSpeed"])
+        # The plain search compares the whole name, prefix included, so
+        # no name starts with "speed" there and the list order is kept.
+        self.assertEqual(search_signals(name_list, "speed"),
+                         ["file1_MaxSpeed", "file1_Speed"])
+
+    @covers("LLFR-00102", "LLFR-00099", "LLFR-00567", "HLFR-00034")
+    def test_matching_still_uses_the_whole_name(self) -> None:
+        """The prefix can still be searched for; only ranking skips it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_prefixed_signals
+        name_list = ["file1_Speed", "file2_Speed", "file2_file1_x"]
+        # file1_Speed comes last: "file1" is one typo away (LLFR-00101).
+        self.assertEqual(search_prefixed_signals(name_list, "file2"),
+                         ["file2_Speed", "file2_file1_x", "file1_Speed"])
+        self.assertEqual(search_prefixed_signals(name_list, "file2 speed"),
+                         ["file2_Speed", "file1_Speed"])
+        # Words shorter than 4 characters match exactly only.
+        self.assertEqual(search_prefixed_signals(name_list, "e2 sp"),
+                         ["file2_Speed"])
+        # "file1" starts the plain part of file2_file1_x only.
+        self.assertEqual(search_prefixed_signals(name_list, "file1"),
+                         ["file2_file1_x", "file1_Speed", "file2_Speed"])
+
+    @covers("LLFR-00102", "LLFR-00101", "HLFR-00034")
+    def test_three_groups_with_prefixed_names(self) -> None:
+        """Starts-with, other exact matches, then typo matches.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from model.signal_search import search_prefixed_signals
+        name_list = ["file3_Inlet_Pressure", "file3_Presure_raw",
+                     "file3_Pressure", "file3_int_Pressure"]
+        self.assertEqual(
+            search_prefixed_signals(name_list, "pressure"),
+            ["file3_Pressure", "file3_Inlet_Pressure",
+             "file3_int_Pressure", "file3_Presure_raw"])
+        # A name with no prefix is compared whole.
+        self.assertEqual(search_prefixed_signals(["Speed", "MaxSpeed"],
+                                                 "speed"),
+                         ["Speed", "MaxSpeed"])
+        self.assertEqual(search_prefixed_signals(name_list, "  "),
+                         name_list)
 
 
 if __name__ == "__main__":

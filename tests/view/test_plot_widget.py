@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
-from tests.view.menu_texts import TIP_MENU_TEXT_LIST
+from tests.view.menu_texts import TIP_MENU_TEXT_LIST, menu_option_texts
 
 from controller.plot_tools import NO_TOOL_STR, TIP_TOOL_STR
 
@@ -21,10 +21,10 @@ def menu_action_text_list(menu) -> list:
 
     Inputs:
         menu: a QMenu.
-    Outputs: list of action texts, separators left out.
+    Outputs: list of action texts, the title of a plot menu
+        (LLFR-00425) and separators left out.
     """
-    return [action.text() for action in menu.actions()
-            if not action.isSeparator()]
+    return menu_option_texts(menu)
 
 
 def find_action(menu, text_str: str):
@@ -553,7 +553,7 @@ class ContextMenuTest(PlotWidgetTestCase):
         self.assertGreater(self.plot_widget.curve_line_width("Sine"),
                            WIDTH_PIXELS_DICT[1])
 
-    @covers("LLFR-00048", "LLFR-00049")
+    @covers("LLFR-00048", "LLFR-00049", "LLFR-01112", "HLFR-00150")
     def test_empty_area_menu_delete_plot(self) -> None:
         """"Delete plot" on an empty area emits plot_delete_requested.
 
@@ -564,13 +564,20 @@ class ContextMenuTest(PlotWidgetTestCase):
         self.set_two_curves()
         record_list = self.recorder(self.plot_widget.plot_delete_requested)
         menu = self.plot_widget.build_context_menu(self.empty_point())
-        self.assertEqual(menu_action_text_list(menu), ["Delete plot"])
+        self.assertEqual(menu_action_text_list(menu),
+                         ["Position", "Delete plot"])
         find_action(menu, "Delete plot").trigger()
         self.assertEqual(record_list, [()])
+        # LLFR-01112: "Position" asks for the position picker.
+        position_list = self.recorder(
+            self.plot_widget.plot_position_requested)
+        menu = self.plot_widget.build_context_menu(self.empty_point())
+        find_action(menu, "Position").trigger()
+        self.assertEqual(position_list, [()])
         # Outside the axes (margins) is also an empty area of the plot.
         margin_menu = self.plot_widget.build_context_menu(QPoint(2, 2))
         self.assertEqual(menu_action_text_list(margin_menu),
-                         ["Delete plot"])
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00048")
     def test_menu_of_plot_without_curves(self) -> None:
@@ -582,7 +589,8 @@ class ContextMenuTest(PlotWidgetTestCase):
         self.draw()
         menu = self.plot_widget.build_context_menu(
             self.plot_widget.data_to_widget_point(0.5, 0.5))
-        self.assertEqual(menu_action_text_list(menu), ["Delete plot"])
+        self.assertEqual(menu_action_text_list(menu),
+                         ["Position", "Delete plot"])
 
     @covers("LLFR-00046", "LLFR-00047")
     def test_pinned_tip_menu_delete(self) -> None:
@@ -712,7 +720,7 @@ class DeferredMenuTest(PlotWidgetTestCase):
         self.assertEqual(shown_list, [])
         for _ in range(3):
             self.application.processEvents()
-        self.assertEqual(shown_list, [["Delete plot"]])
+        self.assertEqual(shown_list, [["Position", "Delete plot"]])
         self.assertEqual(record_list, ["deleted"])
         self.assertTrue(sip.isdeleted(self.plot_widget))
 
@@ -780,7 +788,7 @@ class DeferredMenuTest(PlotWidgetTestCase):
         shown_list = self.choose_action_text("")
         self.right_press(self.empty_point())
         self.application.processEvents()
-        self.assertEqual(shown_list, [["Delete plot"]])
+        self.assertEqual(shown_list, [["Position", "Delete plot"]])
         self.assertEqual(record_list, [])
 
 

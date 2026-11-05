@@ -125,7 +125,8 @@ class EscapeKeyFilterTest(unittest.TestCase):
                 self.assertEqual(self.call_list, [tool_str, "release"])
                 self.assertFalse(self.tool_key_filter.is_activation_on())
 
-    @covers("LLFR-00370", "LLFR-00157", "LLFR-00335")
+    @covers("LLFR-00370", "LLFR-00157", "LLFR-00335", "LLFR-00528",
+            "LLFR-00529")
     def test_nothing_while_a_text_field_has_focus(self) -> None:
         """Esc sent to a text field, or with the focus in one, runs
         nothing, and the event reaches the field.
@@ -182,7 +183,7 @@ class EscapeKeyMainWindowTest(XyzKeyWindowTestCase):
                 self.assert_tool_everywhere(NO_TOOL_STR)
         self.assertEqual(undo_history.depth(), depth_i)
 
-    @covers("LLFR-00370")
+    @covers("LLFR-00370", "LLFR-00526", "LLFR-00527")
     def test_escape_with_no_tool_does_nothing(self) -> None:
         """With no tool active, Esc changes nothing and shows no box.
 
@@ -221,7 +222,7 @@ class EscapeKeyMainWindowTest(XyzKeyWindowTestCase):
         self.release_key("Key_A")
         self.assert_tool_everywhere(NO_TOOL_STR)
 
-    @covers("LLFR-00370", "LLFR-00157")
+    @covers("LLFR-00370", "LLFR-00157", "LLFR-00529")
     def test_escape_in_the_search_box_keeps_the_tool(self) -> None:
         """Esc in the search box keeps the active tool.
 
@@ -239,7 +240,8 @@ class EscapeKeyMainWindowTest(XyzKeyWindowTestCase):
         self.press_escape()
         self.assert_tool_everywhere(ZOOM_TOOL_STR)
 
-    @covers("LLFR-00370", "LLFR-00335", "LLFR-00333", "LLFR-00157")
+    @covers("LLFR-00370", "LLFR-00335", "LLFR-00333", "LLFR-00157",
+            "LLFR-00528", "LLFR-00529")
     def test_escape_in_a_text_note_field_cancels_it_only(self) -> None:
         """With the Text tool, Esc in the open text field removes the
         field and keeps the Text tool; a second Esc, out of the field,
@@ -266,7 +268,7 @@ class EscapeKeyMainWindowTest(XyzKeyWindowTestCase):
         self.press_escape()
         self.assert_tool_everywhere(NO_TOOL_STR)
 
-    @covers("LLFR-00370")
+    @covers("LLFR-00370", "LLFR-00528", "LLFR-00529")
     def test_escape_in_a_menu_or_a_dialog_keeps_the_tool(self) -> None:
         """Esc sent to an open menu or modal dialog keeps the active
         tool; once they are closed, Esc switches it off.
@@ -301,7 +303,7 @@ class EscapeKeyMainWindowTest(XyzKeyWindowTestCase):
         self.press_escape()
         self.assert_tool_everywhere(NO_TOOL_STR)
 
-    @covers("LLFR-00370", "LLFR-00207", "LLFR-00086")
+    @covers("LLFR-00370", "LLFR-00207", "LLFR-00086", "LLFR-00530")
     def test_escape_does_nothing_during_a_drag(self) -> None:
         """Esc while a flag is held with the mouse keeps the Flag tool;
         after the release it switches the tool off.

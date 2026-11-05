@@ -25,7 +25,7 @@ Contents:
   sizes (LLFR-00158 to LLFR-00160), and the colors of the app icon
   (LLFR-00183);
 - ``tab_style_sheet``: the tab bar and "+" button rules (LLFR-00106,
-  LLFR-00107);
+  LLFR-00107) and the rounded plot well (LLFR-00893);
 - ``MATPLOTLIB_STYLE_DICT``, ``apply_matplotlib_style`` and the
   annotation box dicts: the look of the plots;
 - ``contrast_ratio_f``: the WCAG contrast ratio of two colors.
@@ -107,6 +107,12 @@ SEGMENT_LAST_STR = "last"
 # LLFR-00158: the buttons are squares that show only their icon.
 ICON_BUTTON_SIZE_I = 32
 ICON_SIZE_I = 20
+# LLFR-01044, LLFR-01049: the signal list button of an undocked window,
+# like the sidebar button of Firefox: a round button with a pale round
+# highlight while its panel is shown (active), and a paler one on hover.
+SIDEBAR_BUTTON_SIZE_I = 28
+SIDEBAR_BUTTON_ACTIVE_COLOR_STR = "#d8dde2"
+SIDEBAR_BUTTON_HOVER_COLOR_STR = "#e4e8ec"
 # LLFR-00160: the icon is drawn in the button's text color in each
 # state: dark ink on the light normal button, white on the dark active
 # button, and a paler grey on the disabled button that still keeps a
@@ -168,6 +174,25 @@ SIGNAL_PANEL_SPACING_I = 8
 SPLITTER_HANDLE_WIDTH_I = 8
 PLOT_SPACING_I = 6
 CONTROL_RADIUS_I = 6
+# LLFR-00890: the corners and border of the signal list, which the plots
+# share (PLOT_CORNER_RADIUS_I, PLOT_BORDER_WIDTH_I, PLOT_BORDER_COLOR_STR).
+SIGNAL_LIST_RADIUS_I = CONTROL_RADIUS_I
+SIGNAL_LIST_BORDER_WIDTH_I = 1
+SIGNAL_LIST_BORDER_COLOR_STR = HAIRLINE_COLOR_STR
+# LLFR-00893: the plot well, the pane of the tab widget that holds the
+# plots below the tab row, has the radius, border width and border color
+# of the signal list, on all four corners. The first tab still starts at
+# the panel's left edge (LLFR-00106) and sits on the well's top edge; the
+# tabs keep their own border color (LLFR-00107). The padding keeps the
+# rounded plots (LLFR-00890) off the well's rounded corners: with a
+# radius of 6 px and a 1 px border, the inner edge of a corner reaches
+# about 2.5 px in from the outer corner, so 2 px of padding (3 px with
+# the border) keep each plot's cut corner inside the rounding. It is
+# kept that small so that the plots lose as little height as possible.
+PLOT_WELL_RADIUS_I = SIGNAL_LIST_RADIUS_I
+PLOT_WELL_BORDER_WIDTH_I = SIGNAL_LIST_BORDER_WIDTH_I
+PLOT_WELL_BORDER_COLOR_STR = SIGNAL_LIST_BORDER_COLOR_STR
+PLOT_WELL_PADDING_I = 2
 MENU_RADIUS_I = 6
 TOOLTIP_RADIUS_I = 4
 
@@ -189,13 +214,30 @@ TAB_CORNER_RADIUS_I = 6
 TAB_MINIMUM_TEXT_WIDTH_I = 48
 TAB_HORIZONTAL_PADDING_I = 14
 TAB_VERTICAL_PADDING_I = 5
-TAB_SPACING_I = 3
+# LLFR-01204: the space between the borders of two neighbouring tabs,
+# which is the right margin of each tab.
+TAB_SPACING_I = 2
 ADD_BUTTON_WIDTH_I = 30
+# LLFR-01148: the pale rounded highlight behind the icon of an undock or
+# dock button under the pointer, a little darker than a hovered tab, and
+# darker still while pressed.
+TAB_BUTTON_HOVER_COLOR_STR = "#c9d0d7"
+TAB_BUTTON_PRESSED_COLOR_STR = "#bcc4cc"
 
 # ----------------------------------------------------------------------
 # Plots (matplotlib)
 # ----------------------------------------------------------------------
 PLOT_BACKGROUND_COLOR_STR = "#ffffff"
+# LLFR-00890: each plot has the rounded corners and the hairline border
+# of the signal list; the corners outside the rounding show the plot
+# well behind the plots (the pane of the tab widget).
+PLOT_CORNER_RADIUS_I = SIGNAL_LIST_RADIUS_I
+PLOT_BORDER_WIDTH_I = SIGNAL_LIST_BORDER_WIDTH_I
+PLOT_BORDER_COLOR_STR = SIGNAL_LIST_BORDER_COLOR_STR
+PLOT_CORNER_COLOR_STR = PLOT_WELL_COLOR_STR
+# LLFR-00891: the white paper of the PDF pages, which the plot corners
+# show in the PDF export.
+PDF_PAPER_COLOR_STR = "#ffffff"
 PLOT_SPINE_COLOR_STR = "#b8c1ca"
 PLOT_TICK_COLOR_STR = "#5f6c78"
 PLOT_GRID_COLOR_STR = "#e3e7ec"
@@ -259,6 +301,15 @@ PINNED_TIP_BOX_DICT = {"boxstyle": "round,pad=0.45,rounding_size=0.35",
 MARKER_TEXT_BOX_DICT = {"boxstyle": "round,pad=0.2,rounding_size=0.25",
                         "facecolor": PLOT_BACKGROUND_COLOR_STR,
                         "edgecolor": "none", "alpha": 0.92}
+# LLFR-00704: the smallest contrast between the text of an area label,
+# drawn in the area's color, and its box (WCAG 2.x).
+MINIMUM_AREA_LABEL_CONTRAST_F = 4.5
+# LLFR-00704: the box of an area label is opaque, so that the band and
+# the curves behind it never change its color. It is the plot background
+# when the area's color reads on it, and black otherwise: every color
+# has a contrast of at least 4.5:1 with one of the two.
+AREA_LABEL_LIGHT_BOX_COLOR_STR = PLOT_BACKGROUND_COLOR_STR
+AREA_LABEL_DARK_BOX_COLOR_STR = "#000000"
 
 # LLFR-00336: a text note is its text on a white rounded box with a
 # border, like a pinned data tip (PINNED_TIP_BOX_DICT), with no other
@@ -412,8 +463,13 @@ def tab_style_sheet(tab_widget_name_str: str, tab_bar_name_str: str,
     button_str = f"QToolButton#{add_button_name_str}"
     rule_list = [
         f"{tab_widget_str}::tab-bar {{ alignment: left; left: 0px; }}",
+        # LLFR-00893: the plot well has the signal list's four rounded
+        # corners and its border.
         f"{tab_widget_str}::pane {{ background: {PLOT_WELL_COLOR_STR}; "
-        f"border: {TAB_BORDER_WIDTH_I}px solid {TAB_BORDER_COLOR_STR}; "
+        f"border: {PLOT_WELL_BORDER_WIDTH_I}px solid "
+        f"{PLOT_WELL_BORDER_COLOR_STR}; "
+        f"border-radius: {PLOT_WELL_RADIUS_I}px; "
+        f"padding: {PLOT_WELL_PADDING_I}px; "
         f"top: -{TAB_BORDER_WIDTH_I}px; }}",
         # LLFR-00107: size of every tab; the "+" gets the tab height
         # from its geometry (PlotTabWidget.reposition_add_button).
@@ -501,11 +557,14 @@ def application_style_sheet() -> str:
         f"QLabel {{ color: {TEXT_COLOR_STR}; }}",
         # Signal list panel.
         f"QLabel#signal_list_title {{ color: {TEXT_COLOR_STR}; "
-        "font-weight: 600; padding: 6px 2px 0px 2px; }",
+        # LLFR-00894: no vertical padding; the title's height is set so
+        # that the list starts at the top of the plot well.
+        "font-weight: 600; padding: 0px 2px; }",
         f"QListWidget#signal_list_widget {{ background: "
         f"{SURFACE_COLOR_STR}; color: {TEXT_COLOR_STR}; "
-        f"border: 1px solid {HAIRLINE_COLOR_STR}; border-radius: "
-        f"{radius_str}; padding: 4px; outline: none; }}",
+        f"border: {SIGNAL_LIST_BORDER_WIDTH_I}px solid "
+        f"{SIGNAL_LIST_BORDER_COLOR_STR}; border-radius: "
+        f"{SIGNAL_LIST_RADIUS_I}px; padding: 4px; outline: none; }}",
         f"QListWidget#signal_list_widget:focus {{ border-color: "
         f"{FOCUS_COLOR_STR}; }}",
         "QListWidget#signal_list_widget::item { padding: 4px 8px; "
@@ -517,8 +576,6 @@ def application_style_sheet() -> str:
         # list's item delegate draws a selected name in its own color.
         f"QListWidget#signal_list_widget::item:selected {{ background: "
         f"{ROW_SELECTED_COLOR_STR}; }}",
-        f"QLabel#no_match_label {{ color: {MUTED_TEXT_COLOR_STR}; "
-        "padding-top: 16px; }",
         f"QLineEdit {{ background: {SURFACE_COLOR_STR}; "
         f"color: {TEXT_COLOR_STR}; border: 1px solid "
         f"{CONTROL_BORDER_COLOR_STR}; border-radius: {radius_str}; "
@@ -613,6 +670,57 @@ def relative_luminance_f(color_str: str) -> float:
             channel_list.append(((channel_f + 0.055) / 1.055) ** 2.4)
     return (0.2126 * channel_list[0] + 0.7152 * channel_list[1]
             + 0.0722 * channel_list[2])
+
+
+def area_label_box_color_str(area_color_str: str) -> str:
+    """Return the color of the box of an area label.
+
+    Inputs:
+        area_color_str: the area's color, "#rrggbb", in which the label
+            text is drawn.
+    Outputs: AREA_LABEL_LIGHT_BOX_COLOR_STR when the text has a contrast
+        of at least MINIMUM_AREA_LABEL_CONTRAST_F on it, else
+        AREA_LABEL_DARK_BOX_COLOR_STR.
+    """
+    # LLFR-00704: at least 4.5:1 between the text and its box.
+    if contrast_ratio_f(area_color_str, AREA_LABEL_LIGHT_BOX_COLOR_STR) >= (
+            MINIMUM_AREA_LABEL_CONTRAST_F):
+        return AREA_LABEL_LIGHT_BOX_COLOR_STR
+    return AREA_LABEL_DARK_BOX_COLOR_STR
+
+
+def area_label_box_dict(area_color_str: str) -> dict:
+    """Return the style of the box of an area label.
+
+    Inputs:
+        area_color_str: the area's color, "#rrggbb".
+    Outputs: a matplotlib bbox dict: the shape of MARKER_TEXT_BOX_DICT,
+        opaque, in the color of area_label_box_color_str.
+    """
+    # LLFR-00704: an opaque box, so the contrast is that of the two
+    # colors whatever is drawn behind the label.
+    return contrast_label_box_dict(area_color_str)
+
+
+def contrast_label_box_dict(text_color_str: str,
+                            base_box_dict: dict = None) -> dict:
+    """Return an opaque label box that reads with a colored text.
+
+    Inputs:
+        text_color_str: the color of the label's text, "#rrggbb".
+        base_box_dict: the shape and border of the box, for example
+            PINNED_TIP_BOX_DICT; MARKER_TEXT_BOX_DICT when None.
+    Outputs: a matplotlib bbox dict: base_box_dict, opaque, filled with
+        the color of area_label_box_color_str for that text color.
+    """
+    # LLFR-00704, LLFR-00436, LLFR-01202: at least 4.5:1 between the
+    # text and its box, for the labels of areas, arrows, flags and delta
+    # markers and their previews.
+    if base_box_dict is None:
+        base_box_dict = MARKER_TEXT_BOX_DICT
+    return dict(base_box_dict,
+                facecolor=area_label_box_color_str(text_color_str),
+                alpha=1.0)
 
 
 def contrast_ratio_f(first_color_str: str, second_color_str: str) -> float:

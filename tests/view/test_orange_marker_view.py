@@ -39,7 +39,7 @@ def hue_degree_f(color_str: str) -> float:
 class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
     """Markers, delta markers, the span line and areas are orange."""
 
-    @covers("LLFR-00083", "LLFR-00172", "LLFR-00365")
+    @covers("LLFR-00083", "LLFR-00172", "LLFR-00365", "LLFR-00660")
     def test_vertical_and_delta_markers_are_ff8000(self) -> None:
         """A vertical marker and a Delta Y marker, with its dots and
         value, are drawn in #ff8000; the curves are far from it.
@@ -66,7 +66,8 @@ class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
             self.assertGreaterEqual(
                 color_distance(palette_color_str, ORANGE_STR), 70.0)
 
-    @covers("LLFR-00203", "LLFR-00352", "LLFR-00353", "LLFR-00083")
+    @covers("LLFR-00203", "LLFR-00352", "LLFR-00353", "LLFR-00083",
+            "LLFR-00660")
     def test_previews_are_a_paler_orange(self) -> None:
         """The marker preview color is #ff8000 mixed with the white plot
         background: still an orange hue, lighter, and not the marker
@@ -87,7 +88,7 @@ class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
         self.assertGreater(int(preview_str[3:5], 16), 0x44)
         self.assertGreater(int(preview_str[5:7], 16), 0x00)
 
-    @covers("LLFR-00305", "LLFR-00351", "LLFR-00083")
+    @covers("LLFR-00305", "LLFR-00351", "LLFR-00083", "LLFR-00731")
     def test_default_area_is_see_through_ff8000(self) -> None:
         """A new area, and the area preview, use #ff8000 drawn
         see-through.
@@ -113,7 +114,7 @@ class OrangeMarkerDrawingTest(DeltaWidgetTestCase):
 class OrangeSpanLineTest(SpanWidgetTestCase):
     """The time span selection line is orange (LLFR-00208)."""
 
-    @covers("LLFR-00208", "LLFR-00083")
+    @covers("LLFR-00208", "LLFR-00083", "LLFR-00660")
     def test_span_selection_line_is_ff8000(self) -> None:
         """While the Zoom tool drags a span, the line and its end ticks
         are drawn in #ff8000.
@@ -136,7 +137,7 @@ class OrangeSpanLineTest(SpanWidgetTestCase):
 class AppIconRedTest(unittest.TestCase):
     """The app icon keeps a blue and a red curve (LLFR-00183)."""
 
-    @covers("LLFR-00183", "LLFR-00144")
+    @covers("LLFR-00183", "LLFR-00144", "LLFR-00445")
     def test_icon_red_is_the_new_dark_red(self) -> None:
         """The icon's red curve follows the palette's dark red, which is
         still red, and stays far from the dark axes and the light

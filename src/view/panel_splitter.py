@@ -140,6 +140,8 @@ class PanelSplitterHandle(QSplitterHandle):
         super().mousePressEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             self.set_highlight_state(True, True)
+            # LLFR-01055: the width of the signal list panel at the press.
+            self.splitter().start_drag()
 
     def mouseReleaseEvent(self, event) -> None:
         """End a drag: keep the line only if the pointer is still over it.
@@ -153,6 +155,8 @@ class PanelSplitterHandle(QSplitterHandle):
         super().mouseReleaseEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             self.set_highlight_state(self.pointer_inside(event), False)
+            # LLFR-01055: the drag is reported with both widths.
+            self.splitter().finish_drag()
 
     def paintEvent(self, event) -> None:
         """Draw the blue line while it is shown, nothing otherwise.
@@ -183,6 +187,11 @@ class PanelSplitter(QSplitter):
     Attributes:
         last_widget_fraction_f: the share given to the last widget.
         initial_sizes_set_b: True once the start sizes were applied.
+        drag_finished_handler: function taking the width of the last
+            widget at the press and at the release of a drag of the
+            handle (LLFR-01055), or None.
+        drag_start_width_i: the width of the last widget at the press,
+            -1 while no drag is in progress.
     """
 
     def __init__(self, last_widget_fraction_f: float =
@@ -198,6 +207,9 @@ class PanelSplitter(QSplitter):
         # LLFR-00072: start share of the signal list panel.
         self.last_widget_fraction_f = float(last_widget_fraction_f)
         self.initial_sizes_set_b = False
+        # LLFR-01055: a drag of the handle is reported when it ends.
+        self.drag_finished_handler = None
+        self.drag_start_width_i = -1
         # LLFR-00073: the handle can be dragged, but no panel can be
         # pushed to zero width (each keeps its minimum width).
         self.setChildrenCollapsible(False)
@@ -255,6 +267,39 @@ class PanelSplitter(QSplitter):
         self.initial_sizes_set_b = True
         self.setSizes(self.initial_size_list(self.width(),
                                              self.window().width()))
+
+    def last_widget_width(self) -> int:
+        """Return the width of the last widget (the signal list panel).
+
+        Inputs: none.
+        Outputs: the width in pixels, 0 when the splitter is empty.
+        """
+        # LLFR-01055: the width that a drag changes.
+        size_list = self.sizes()
+        return int(size_list[-1]) if size_list else 0
+
+    def start_drag(self) -> None:
+        """Remember the width of the last widget at the press.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01055: the width at the start of the drag.
+        self.drag_start_width_i = self.last_widget_width()
+
+    def finish_drag(self) -> None:
+        """Report a drag of the handle with its start and end widths.
+
+        Inputs: none.
+        Outputs: none. The handler decides whether the width changed.
+        """
+        # LLFR-01055: one report per drag; LLFR-01056: a window resize
+        # never comes here.
+        start_width_i = self.drag_start_width_i
+        self.drag_start_width_i = -1
+        if start_width_i < 0 or self.drag_finished_handler is None:
+            return
+        self.drag_finished_handler(start_width_i, self.last_widget_width())
 
     def createHandle(self) -> QSplitterHandle:
         """Return the handle placed between two widgets.

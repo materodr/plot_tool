@@ -75,6 +75,70 @@ class ThemeTokenTestCase(unittest.TestCase):
         self.assertAlmostEqual(
             theme.contrast_ratio_f("#808080", "#808080"), 1.0)
 
+    @covers("LLFR-00704", "HLFR-00066")
+    def test_area_label_box_contrast_for_every_color(self) -> None:
+        """For every area color, the label box gives the text a WCAG
+        contrast of at least 4.5:1, with an opaque box: the plot
+        background when the color reads on it, else black.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00704: the WCAG 2.x formula, checked on known values: the
+        # reserved orange is 2.52:1 on white and 8.34:1 on black.
+        self.assertAlmostEqual(
+            theme.contrast_ratio_f(MARKER_COLOR_STR, "#ffffff"), 2.52,
+            places=2)
+        self.assertAlmostEqual(
+            theme.contrast_ratio_f(MARKER_COLOR_STR, "#000000"), 8.34,
+            places=2)
+        self.assertEqual(theme.area_label_box_color_str(MARKER_COLOR_STR),
+                         "#000000")
+        self.assertEqual(theme.area_label_box_color_str("#1f3b8c"),
+                         theme.PLOT_BACKGROUND_COLOR_STR)
+        worst_f = 21.0
+        for red_i in range(0, 256, 15):
+            for green_i in range(0, 256, 15):
+                for blue_i in range(0, 256, 15):
+                    color_str = f"#{red_i:02x}{green_i:02x}{blue_i:02x}"
+                    worst_f = min(worst_f, theme.contrast_ratio_f(
+                        color_str, theme.area_label_box_color_str(
+                            color_str)))
+        self.assertGreaterEqual(worst_f,
+                                theme.MINIMUM_AREA_LABEL_CONTRAST_F)
+        self.assertEqual(theme.MINIMUM_AREA_LABEL_CONTRAST_F, 4.5)
+        box_dict = theme.area_label_box_dict("#ffff00")
+        self.assertEqual(box_dict["alpha"], 1.0)
+        self.assertEqual(box_dict["facecolor"], "#000000")
+        self.assertEqual(box_dict["boxstyle"],
+                         theme.MARKER_TEXT_BOX_DICT["boxstyle"])
+
+    @covers("LLFR-00160", "LLFR-00332", "HLFR-00042", "HLFR-00071")
+    def test_icon_and_green_name_contrast_limits(self) -> None:
+        """The icons have at least 3:1 on the normal, active and
+        disabled button backgrounds, and the green time signal name at
+        least 4.5:1 on a plain, hovered and selected row (WCAG 2.x).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-00160: the three states of a top panel button.
+        self.assertEqual(theme.MINIMUM_ICON_CONTRAST_F, 3.0)
+        for icon_str, background_str in (
+                (theme.ICON_COLOR_STR, theme.NORMAL_COLOR_STR),
+                (theme.ICON_ACTIVE_COLOR_STR, theme.ACTIVE_COLOR_STR),
+                (theme.ICON_DISABLED_COLOR_STR, theme.DISABLED_COLOR_STR)):
+            with self.subTest(icon=icon_str, background=background_str):
+                self.assertGreaterEqual(
+                    theme.contrast_ratio_f(icon_str, background_str), 3.0)
+        # LLFR-00332: the rows the green name is drawn on.
+        for background_str in (theme.SURFACE_COLOR_STR,
+                               theme.ROW_HOVER_COLOR_STR,
+                               theme.ROW_SELECTED_COLOR_STR):
+            with self.subTest(row=background_str):
+                self.assertGreaterEqual(theme.contrast_ratio_f(
+                    theme.TIME_SIGNAL_TEXT_COLOR_STR, background_str), 4.5)
+
     @covers("LLFR-00001", "LLFR-00002", "LLFR-00003")
     def test_button_style_sheet_follows_the_state(self) -> None:
         """The state style sheets use only their own state's colors.

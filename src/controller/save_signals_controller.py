@@ -32,9 +32,11 @@ import os
 from model.file_writer import (
     SignalWriteError, changed_name_list, changed_names_text,
     ensure_format_extension, excel_limit_reason, format_of_path,
-    non_finite_name_list, non_finite_reason, proposed_file_name,
-    saved_name_list, signal_file_bytes,
+    non_finite_name_list, non_finite_reason, numbered_plain_name_list,
+    proposed_file_name, saved_name_list, signal_file_bytes,
     CSV_FORMAT_STR, EXCEL_FORMAT_STR)
+from model.data_files import TIME_TOLERANCE_F
+from model.synthetic_signals import ordered_signal_names
 
 # LLFR-00397: the text of the error box shown for the opened data file.
 DATA_FILE_REFUSED_STR = (
@@ -43,6 +45,18 @@ DATA_FILE_REFUSED_STR = (
     "signals.")
 # LLFR-00399, LLFR-00400: the start of the error box text.
 SAVE_FAILED_STR = "The signals could not be saved to '{name}'."
+# LLFR-00942, LLFR-00977: the error box shown in place of the save file
+# dialog, which states the time tolerance, built from TIME_TOLERANCE_F so
+# that the text always matches the comparison.
+DIFFERENT_TIME_SIGNALS_STR = (
+    "The signals of the open data files cannot be saved together: the "
+    "files need the same time signals, within a tolerance, to be saved in "
+    "one file. The time signals must have the same number of samples, and "
+    "the samples at the same position must differ by at most "
+    f"{TIME_TOLERANCE_F:g} times the larger of their absolute values, or "
+    f"by at most {TIME_TOLERANCE_F:g} s when both are smaller than 1 s in "
+    "absolute value. Close the files whose time signal is different, then "
+    "save the signals again.")
 
 
 def same_file(first_path_str: str, second_path_str: str) -> bool:
@@ -76,6 +90,10 @@ class SaveSignalsController:
             and store hold the signals of the signal list.
     Attributes:
         data_file_open_b: True once a data file is open.
+        file_controller: the FileController, whose dialog folder is the
+            first folder of the dialog (LLFR-01181).
+        signals_folder_str: folder of the last signals file saved
+            successfully, "" before the first one (LLFR-01182).
     """
 
     def __init__(self, view, file_controller, synthetic_controller) -> None:
@@ -91,22 +109,60 @@ class SaveSignalsController:
         self.view = view
         self.synthetic_controller = synthetic_controller
         self.data_file_open_b = False
+        # LLFR-01181, LLFR-01182: the folders of the dialog.
+        self.file_controller = file_controller
+        self.signals_folder_str = ""
         view.set_save_signals_handler(self.on_save_signals_requested)
         # LLFR-00395: disabled while no data file is open.
         view.set_save_signals_button_enabled(False)
         file_controller.add_file_opened_listener(self.on_file_opened)
 
-    def on_file_opened(self, signal_file, replaced_b: bool) -> None:
+    def on_file_opened(self, signal_file, added_file=None) -> None:
         """Enable the Save signals button once a data file is open.
 
         Inputs:
-            signal_file: the SignalFile that was opened.
-            replaced_b: True when it replaced another file.
+            signal_file: the DataFileSet of the open data files (or one
+                SignalFile).
+            added_file: the DataFile just added; not used.
         Outputs: none.
         """
         # LLFR-00395: enabled after a successful open.
         self.data_file_open_b = signal_file is not None
         self.view.set_save_signals_button_enabled(self.data_file_open_b)
+
+    def on_files_closed(self, data_files, closed_file_list: list) -> None:
+        """Disable the Save signals button when no data file is left.
+
+        Inputs:
+            data_files: the DataFileSet of the files left.
+            closed_file_list: the closed DataFile objects.
+        Outputs: none.
+        """
+        # LLFR-00395, LLFR-00936: disabled while no data file is open.
+        self.data_file_open_b = len(data_files) > 0
+        self.view.set_save_signals_button_enabled(self.data_file_open_b)
+
+    def dialog_folder(self, data_path_str: str) -> str:
+        """Return the folder the next Save signals dialog shows.
+
+        Inputs:
+            data_path_str: the path of the open data file with the
+                lowest number, used only when the file controller gives
+                no folder.
+        Outputs: the folder of the last signals file saved
+            successfully, or else the folder the Open file dialog would
+            show now.
+        """
+        # LLFR-01182: after a save, the folder of the last saved file.
+        if self.signals_folder_str:
+            return self.signals_folder_str
+        # LLFR-01181: before, the folder of the last data file opened
+        # (LLFR-00447, LLFR-01011), as the Open file dialog would show.
+        open_folder_str = str(getattr(self.file_controller,
+                                      "dialog_folder_str", "") or "")
+        if open_folder_str:
+            return open_folder_str
+        return os.path.dirname(os.path.abspath(data_path_str))
 
     def on_save_signals_requested(self) -> None:
         """Save the signals to a file chosen by the user.
@@ -124,20 +180,40 @@ class SaveSignalsController:
         """Return the signals to save.
 
         Inputs: none.
-        Outputs: a list of (name, samples) tuples: every signal of the
-            signal list, in its order, except the FFT signals.
+        Outputs: a list of (name in the app, plain name, file number,
+            samples) tuples: every signal of the signal list, in its
+            order, except the FFT signals and the time signals of the
+            files other than the lowest-numbered one.
         """
-        # LLFR-00401: the data file signals, then the synthetic signals
-        # in creation order, without the FFT signals and without a
-        # message about them.
+        # LLFR-00401, LLFR-00939: file after file, each file's signals
+        # then its synthetic signals, without the FFT signals and
+        # without a message about them (LLFR-00541).
         signal_file = self.synthetic_controller.signal_file
         store = self.synthetic_controller.store
-        signal_list = [(name_str, signal_file.signal_array(name_str))
-                       for name_str in signal_file.signal_name_list]
-        for name_str in store.names():
-            synthetic_signal = store.get(name_str)
-            if not synthetic_signal.is_fft_b:
-                signal_list.append((name_str, synthetic_signal.value_array))
+        data_name_set = set(signal_file.signal_name_list)
+        # LLFR-00944: one time signal, the lowest-numbered file's.
+        kept_time_str = signal_file.time_signal_name_str
+        other_time_set = set(getattr(signal_file, "time_signal_name_list",
+                                     [kept_time_str])) - {kept_time_str}
+        file_number_dict = {signal.name_str: signal.file_number_i
+                            for signal in store.signal_list}
+        signal_list = []
+        for name_str in ordered_signal_names(signal_file, store.names(),
+                                             file_number_dict):
+            if name_str in other_time_set:
+                continue
+            if name_str in data_name_set:
+                value_array = signal_file.signal_array(name_str)
+            else:
+                synthetic_signal = store.get(name_str)
+                if synthetic_signal.is_fft_b:
+                    continue
+                value_array = synthetic_signal.value_array
+            # LLFR-00945: the name with every prefix the app put into it
+            # removed; LLFR-00946: with the number of its data file.
+            signal_list.append((name_str, store.plain_name_of(name_str),
+                                store.file_number_of(name_str),
+                                value_array))
         return signal_list
 
     def save_signals(self) -> None:
@@ -150,12 +226,20 @@ class SaveSignalsController:
         signal_file = self.synthetic_controller.signal_file
         if not self.data_file_open_b or signal_file is None:
             return
-        # LLFR-00396: the dialog opens in the folder of the data file,
-        # with "<name>_signals.<extension>" and its format chosen.
+        # LLFR-00942, LLFR-00943: different time signals show an error
+        # box in place of the save file dialog, and nothing is written.
+        same_time_function = getattr(signal_file, "same_time_signals_b",
+                                     None)
+        if same_time_function is not None and not same_time_function():
+            self.view.show_signals_save_error(DIFFERENT_TIME_SIGNALS_STR)
+            return
+        # LLFR-01181, LLFR-01182: the folder of the dialog. LLFR-00532:
+        # "<name>_signals.<extension>" of the lowest-numbered data file,
+        # with its format chosen.
         data_path_str = signal_file.path_str
         data_format_str = format_of_path(data_path_str) or CSV_FORMAT_STR
         path_str, format_str, confirmed_b = self.view.ask_signals_save_path(
-            os.path.dirname(os.path.abspath(data_path_str)),
+            self.dialog_folder(data_path_str),
             proposed_file_name(data_path_str), data_format_str)
         # LLFR-00398: a cancelled dialog saves nothing and says nothing.
         if not path_str:
@@ -164,13 +248,16 @@ class SaveSignalsController:
         # name that does not end with one.
         save_path_str = ensure_format_extension(path_str, format_str)
         file_name_str = os.path.basename(save_path_str)
-        # LLFR-00397, LLFR-00253: the opened data file is never written,
-        # and the app never asks to replace it (the native macOS dialog
-        # may already have asked; the app does not ask again).
-        if same_file(save_path_str, data_path_str):
-            self.view.show_signals_save_error(DATA_FILE_REFUSED_STR.format(
-                name=os.path.basename(data_path_str)))
-            return
+        # LLFR-00397, LLFR-00253: no open data file is ever written, and
+        # the app never asks to replace one (the native macOS dialog may
+        # already have asked; the app does not ask again).
+        for open_path_str in getattr(signal_file, "path_list",
+                                     [data_path_str]):
+            if same_file(save_path_str, open_path_str):
+                self.view.show_signals_save_error(
+                    DATA_FILE_REFUSED_STR.format(
+                        name=os.path.basename(open_path_str)))
+                return
         # LLFR-00397: ask before replacing a file, unless the system's
         # dialog already asked about this very path. LLFR-00398: "No"
         # saves nothing and says nothing.
@@ -180,8 +267,9 @@ class SaveSignalsController:
             return
         # LLFR-00401: the signals of the signal list, without the FFTs.
         signal_list = self.signal_tuple_list()
-        name_list = [name_str for name_str, _ in signal_list]
-        array_list = [value_array for _, value_array in signal_list]
+        name_list = [signal_tuple[0] for signal_tuple in signal_list]
+        plain_name_list = [signal_tuple[1] for signal_tuple in signal_list]
+        array_list = [signal_tuple[3] for signal_tuple in signal_list]
         failed_str = SAVE_FAILED_STR.format(name=file_name_str)
         # LLFR-00400: refused before anything is written.
         if format_str == EXCEL_FORMAT_STR:
@@ -198,10 +286,18 @@ class SaveSignalsController:
             self.view.show_signals_save_error(
                 f"{failed_str}\n\n{non_finite_reason(bad_name_list)}")
             return
-        # LLFR-00403, LLFR-00407: the names the format can store, with
+        # LLFR-00947: LLFR-00945, LLFR-00946 and LLFR-00965 first, then
+        # LLFR-00403 and LLFR-00407: the names the format can store, with
         # the time signal as "Time".
+        time_name_str = signal_file.time_signal_name_str
+        time_index_i = (name_list.index(time_name_str)
+                        if time_name_str in name_list else -1)
+        numbered_list = numbered_plain_name_list(
+            plain_name_list, [signal_tuple[2] for signal_tuple
+                              in signal_list], time_index_i)
         new_name_list = saved_name_list(
-            name_list, signal_file.time_signal_name_str, format_str)
+            numbered_list, numbered_list[time_index_i]
+            if time_index_i >= 0 else "", format_str, time_index_i)
         # LLFR-00402: the content, then a safe write (LLFR-00399).
         try:
             content_bytes = signal_file_bytes(new_name_list, array_list,
@@ -216,8 +312,15 @@ class SaveSignalsController:
                 f"{failed_str}\n\n{reason_str}" if reason_str
                 else failed_str)
             return
-        # LLFR-00404: one box with the changed names, none otherwise.
-        change_list = changed_name_list(name_list, new_name_list)
+        # LLFR-01182: only a successful save moves the dialog folder.
+        self.signals_folder_str = os.path.dirname(
+            os.path.abspath(save_path_str))
+        # LLFR-00404: one box with the changed names, none otherwise;
+        # the removal of the prefix alone is not a change (LLFR-00945).
+        change_list = [
+            (name_str, new_str) for name_str, new_str
+            in changed_name_list(name_list, new_name_list)
+            if new_str != plain_name_list[name_list.index(name_str)]]
         if change_list:
             self.view.show_changed_signal_names(
                 changed_names_text(change_list))

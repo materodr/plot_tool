@@ -13,6 +13,7 @@ from tests.support import covers
 
 from controller.plot_controller import PlotController
 from model.curve_colors import PALETTE_COLOR_TUPLE
+from model.data_files import DataFileSet
 from model.signal_file import SignalFile
 from model.workspace import DEFAULT_WIDTH_I, Workspace
 
@@ -131,6 +132,33 @@ class FakePlotView:
         self.arrow_drawn_dict = {}
         self.color_answer_list = []
         self.color_question_list = []
+        # LLFR-00429, LLFR-00439: answers of the delta marker and arrow
+        # rename dialogs, and the names they started with.
+        self.delta_name_answer_list = []
+        self.delta_name_question_list = []
+        self.arrow_name_answer_list = []
+        self.arrow_name_question_list = []
+        # LLFR-00032, LLFR-01127: the matrix each Full Tab box named.
+        self.full_tab_matrix_list = []
+        # LLFR-01100: tab id -> (rows, columns) shown.
+        self.tab_matrix_dict = {}
+        # LLFR-01118: tab id -> plot ids in fill order, after a swap.
+        self.plot_order_dict = {}
+        # LLFR-01015: tab id -> [window_tuple, panel_shown_b,
+        # panel_width_i] of each open undocked window.
+        self.window_dict = {}
+        # LLFR-01091: the undocked tabs, window by window.
+        self.undocked_order_list = []
+        # LLFR-01063: window id -> [window_tuple, panel_shown_b,
+        # panel_width_i], its tabs in order and the tab it shows.
+        self.window_entry_dict = {}
+        self.window_tabs_dict = {}
+        self.window_shown_dict = {}
+        # LLFR-01016, LLFR-01128: what new_window_tuple returns.
+        self.new_window_answer_tuple = (130, 160, 900, 600)
+        # LLFR-01055: the main panel width the view reports.
+        self.main_panel_width_i = 240
+        self.undock_enabled_b = None
 
     def set_signal_double_click_handler(self, handler) -> None:
         """Record the double-click handler.
@@ -259,6 +287,7 @@ class FakePlotView:
         """
         self.call_list.append(("clear_tab_views",))
         self.tab_dict = {}
+        self.tab_matrix_dict = {}
         self.plot_tab_dict = {}
         self.drawn_dict = {}
         self.range_dict = {}
@@ -284,6 +313,10 @@ class FakePlotView:
         """
         self.call_list.append(("remove_tab_view", tab_id_i))
         del self.tab_dict[tab_id_i]
+        for tab_id_list in self.window_tabs_dict.values():
+            if tab_id_i in tab_id_list:
+                tab_id_list.remove(tab_id_i)
+        self.refresh_window_dict()
         for plot_id_i in [plot_id_i for plot_id_i, owner_i
                           in self.plot_tab_dict.items()
                           if owner_i == tab_id_i]:
@@ -475,6 +508,15 @@ class FakePlotView:
             return None
         return self.area_name_answer_list.pop(0)
 
+    def set_files_time_range(self, range_tuple: tuple) -> None:
+        """Record the time range of the open data files.
+
+        Inputs:
+            range_tuple: (start_s, end_s), or ().
+        Outputs: none. Not added to call_list.
+        """
+        self.files_time_range_tuple = tuple(range_tuple)
+
     def set_plot_time_range(self, plot_id_i: int, start_s: float,
                             end_s: float) -> None:
         """Set the time range of a plot.
@@ -522,14 +564,73 @@ class FakePlotView:
                                tuple(point_tuple)))
         self.delta_first_point_dict[plot_id_i] = tuple(point_tuple)
 
-    def show_full_tab_notification(self) -> None:
-        """Count a Full Tab box.
+    def show_full_tab_notification(self, row_count_i: int = 5,
+                                   column_count_i: int = 1) -> None:
+        """Count a Full Tab box and record the matrix it names.
 
-        Inputs: none.
+        Inputs:
+            row_count_i: rows of the full tab's plot matrix.
+            column_count_i: columns of the full tab's plot matrix.
         Outputs: none.
         """
         self.call_list.append(("show_full_tab_notification",))
         self.full_tab_count_i += 1
+        self.full_tab_matrix_list.append((row_count_i, column_count_i))
+
+    def set_tab_arrangement_handlers(self, move_tab_handler,
+                                     plot_matrix_handler) -> None:
+        """Record the tab move and plot matrix handlers.
+
+        Inputs:
+            move_tab_handler: function taking a tab id and a place.
+            plot_matrix_handler: function taking a tab id, rows and
+                columns.
+        Outputs: none.
+        """
+        self.handler_dict["move_tab"] = move_tab_handler
+        self.handler_dict["plot_matrix"] = plot_matrix_handler
+
+    def set_tab_matrix_view(self, tab_id_i: int, row_count_i: int,
+                            column_count_i: int) -> None:
+        """Record the plot matrix shown for a tab.
+
+        Not added to call_list, so that tests of the call order of other
+        actions are not affected.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            row_count_i: number of rows.
+            column_count_i: number of columns.
+        Outputs: none.
+        """
+        self.tab_matrix_dict[tab_id_i] = (row_count_i, column_count_i)
+
+    def set_plot_order_view(self, tab_id_i: int,
+                            plot_id_list: list) -> None:
+        """Record the fill order of the plots of a tab.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            plot_id_list: the plot ids in fill order.
+        Outputs: none.
+        """
+        self.call_list.append(("set_plot_order_view", tab_id_i,
+                               list(plot_id_list)))
+        self.plot_order_dict[tab_id_i] = list(plot_id_list)
+
+    def move_tab_view(self, tab_id_i: int, index_i: int) -> None:
+        """Move a shown tab to a place in the tab row.
+
+        Inputs:
+            tab_id_i: id of the tab.
+            index_i: its new place, from 0.
+        Outputs: none.
+        """
+        self.call_list.append(("move_tab_view", tab_id_i, index_i))
+        item_list = [item for item in self.tab_dict.items()
+                     if item[0] != tab_id_i]
+        item_list.insert(index_i, (tab_id_i, self.tab_dict[tab_id_i]))
+        self.tab_dict = dict(item_list)
 
     def show_plot_kind_mismatch_notification(self) -> None:
         """Count a box of LLFR-00257 (FFT and time signals mixed).
@@ -550,6 +651,32 @@ class FakePlotView:
         self.call_list.append(("show_tab_name_taken_notification",
                                name_str))
         self.tab_name_taken_list.append(name_str)
+
+    def ask_delta_marker_name(self, current_name_str: str):
+        """Answer a delta marker name question with the next answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of delta_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.delta_name_question_list.append(current_name_str)
+        if not self.delta_name_answer_list:
+            return None
+        return self.delta_name_answer_list.pop(0)
+
+    def ask_arrow_name(self, current_name_str: str):
+        """Answer an arrow name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer of arrow_name_answer_list, or None
+            (cancelled) when there is none.
+        """
+        self.arrow_name_question_list.append(current_name_str)
+        if not self.arrow_name_answer_list:
+            return None
+        return self.arrow_name_answer_list.pop(0)
 
     def ask_marker_name(self, current_name_str: str):
         """Answer a marker name question with the next prepared answer.
@@ -584,6 +711,176 @@ class FakePlotView:
         """
         return [curve_tuple[0]
                 for curve_tuple in self.drawn_dict[plot_id_i][0]]
+
+    def set_window_handlers(self, **handler_dict) -> None:
+        """Record the handlers of the undocked windows.
+
+        Inputs:
+            handler_dict: handler name -> function.
+        Outputs: none.
+        """
+        self.handler_dict.update(handler_dict)
+
+    def new_window_tuple(self) -> tuple:
+        """Return the window an undock opens.
+
+        Inputs: none.
+        Outputs: new_window_answer_tuple.
+        """
+        return tuple(self.new_window_answer_tuple)
+
+    def dropped_window_tuple(self, x_i: int, y_i: int) -> tuple:
+        """Return the window a drop outside the main window opens.
+
+        Inputs:
+            x_i, y_i: the point of the drop.
+        Outputs: (x_i, y_i) with the size of new_window_answer_tuple.
+        """
+        self.call_list.append(("dropped_window_tuple", x_i, y_i))
+        return (int(x_i), int(y_i)) + tuple(
+            self.new_window_answer_tuple[2:])
+
+    def window_state_dict(self) -> dict:
+        """Return the windows as the fake shows them.
+
+        Inputs: none.
+        Outputs: the dict of MainWindow.window_state_dict.
+        """
+        return {"main_panel_width": self.main_panel_width_i,
+                "windows": {window_id_i: tuple(entry_list[0])
+                            + (entry_list[2],)
+                            for window_id_i, entry_list
+                            in self.window_entry_dict.items()
+                            if len(entry_list[0]) == 4},
+                "shown": dict(self.window_shown_dict)}
+
+    def refresh_window_dict(self) -> None:
+        """Rebuild window_dict and undocked_order_list from the windows.
+
+        Inputs: none.
+        Outputs: none. Each undocked tab maps to the entry list of its
+            window, the same list object for the tabs of one window.
+        """
+        self.window_dict = {}
+        self.undocked_order_list = []
+        for window_id_i, tab_id_list in self.window_tabs_dict.items():
+            for tab_id_i in tab_id_list:
+                self.window_dict[tab_id_i] = self.window_entry_dict[
+                    window_id_i]
+                self.undocked_order_list.append(tab_id_i)
+
+    def set_window_tabs(self, window_id_i: int, tab_id_list: list,
+                        window_tuple: tuple, panel_shown_b: bool,
+                        panel_width_i: int, shown_tab_id_i: int) -> None:
+        """Show an undocked window with its tabs.
+
+        Inputs:
+            window_id_i: id of the window.
+            tab_id_list: its tabs, in order.
+            window_tuple: (x, y, width, height) for a new window.
+            panel_shown_b: whether its panel is shown.
+            panel_width_i: the panel width.
+            shown_tab_id_i: the tab it shows.
+        Outputs: none. An open window keeps its position and size.
+        """
+        self.call_list.append(("set_window_tabs", window_id_i,
+                               list(tab_id_list), tuple(window_tuple),
+                               panel_shown_b, panel_width_i,
+                               shown_tab_id_i))
+        if window_id_i in self.window_entry_dict:
+            window_tuple = self.window_entry_dict[window_id_i][0]
+        self.window_entry_dict[window_id_i] = [tuple(window_tuple),
+                                               bool(panel_shown_b),
+                                               int(panel_width_i)]
+        for other_id_i, other_list in self.window_tabs_dict.items():
+            if other_id_i != window_id_i:
+                self.window_tabs_dict[other_id_i] = [
+                    tab_id_i for tab_id_i in other_list
+                    if tab_id_i not in tab_id_list]
+        self.window_tabs_dict[window_id_i] = list(tab_id_list)
+        self.window_shown_dict[window_id_i] = shown_tab_id_i
+        self.refresh_window_dict()
+
+    def dock_tab_view(self, tab_id_i: int) -> None:
+        """Put a tab back into the main window.
+
+        Inputs:
+            tab_id_i: id of the tab.
+        Outputs: none.
+        """
+        self.call_list.append(("dock_tab_view", tab_id_i))
+        for window_id_i, tab_id_list in self.window_tabs_dict.items():
+            if tab_id_i in tab_id_list:
+                tab_id_list.remove(tab_id_i)
+        self.refresh_window_dict()
+
+    def set_undocked_windows(self, window_id_list: list) -> None:
+        """Close the windows that are not open in the model.
+
+        Inputs:
+            window_id_list: the open windows, in tab order.
+        Outputs: none.
+        """
+        self.call_list.append(("set_undocked_windows", list(window_id_list)))
+        for window_id_i in list(self.window_tabs_dict):
+            if window_id_i not in window_id_list:
+                del self.window_tabs_dict[window_id_i]
+                self.window_entry_dict.pop(window_id_i, None)
+                self.window_shown_dict.pop(window_id_i, None)
+        self.window_tabs_dict = {
+            window_id_i: self.window_tabs_dict[window_id_i]
+            for window_id_i in window_id_list
+            if window_id_i in self.window_tabs_dict}
+        self.refresh_window_dict()
+
+    def set_window_panel(self, window_id_i: int, shown_b: bool,
+                         width_i: int) -> None:
+        """Show or hide the panel of a window.
+
+        Inputs:
+            window_id_i: id of the window.
+            shown_b: whether the panel is shown.
+            width_i: its width.
+        Outputs: none.
+        """
+        self.call_list.append(("set_window_panel", window_id_i, shown_b,
+                               width_i))
+        if window_id_i in self.window_entry_dict:
+            self.window_entry_dict[window_id_i][1:] = [bool(shown_b),
+                                                       int(width_i)]
+
+    def set_main_panel_width(self, width_i: int) -> None:
+        """Set the main window's panel width.
+
+        Inputs:
+            width_i: the width.
+        Outputs: none.
+        """
+        self.call_list.append(("set_main_panel_width", width_i))
+        self.main_panel_width_i = int(width_i)
+
+    def set_main_panel(self, shown_b: bool, width_i: int) -> None:
+        """Show or hide the main window's panel.
+
+        Inputs:
+            shown_b: True to show it.
+            width_i: its width, 0 to keep the one it had.
+        Outputs: none.
+        """
+        self.call_list.append(("set_main_panel", bool(shown_b),
+                               int(width_i)))
+        self.main_panel_shown_b = bool(shown_b)
+        if int(width_i) > 0:
+            self.main_panel_width_i = int(width_i)
+
+    def set_undock_enabled(self, enabled_b: bool) -> None:
+        """Record whether the undock buttons are enabled.
+
+        Inputs:
+            enabled_b: the new state.
+        Outputs: none.
+        """
+        self.undock_enabled_b = enabled_b
 
     def method_names(self) -> list:
         """Return the names of the recorded calls.
@@ -624,6 +921,17 @@ class PlotControllerTestCase(unittest.TestCase):
                                          self.workspace)
         self.signal_file = make_signal_file(10)
         self.file_controller.open(self.signal_file, False)
+
+    def close_all_files(self) -> None:
+        """Close the open data file as "Close all files" does.
+
+        Inputs: none.
+        Outputs: none. The controller then has no open data file, as
+            after LLFR-00936.
+        """
+        closed_name_list = list(self.controller.signal_file.signal_name_list)
+        self.controller.signal_file = DataFileSet()
+        self.controller.close_signals(closed_name_list)
 
     def first_tab_id(self) -> int:
         """Return the id of the first tab of the workspace.
@@ -679,9 +987,9 @@ class StartAndFileTest(PlotControllerTestCase):
         self.assertEqual(view.current_tab_id_i, next(iter(view.tab_dict)))
         self.assertFalse(view.delete_enabled_b)
 
-    @covers("LLFR-00015", "LLFR-00016", "HLFR-00010")
-    def test_new_file_closes_tabs_and_plots(self) -> None:
-        """A replaced file leaves one empty tab and no plots.
+    @covers("LLFR-00921", "LLFR-00920", "HLFR-00117")
+    def test_new_file_keeps_tabs_and_plots(self) -> None:
+        """An added file keeps every tab and plot.
 
         Inputs: none.
         Outputs: none.
@@ -691,32 +999,30 @@ class StartAndFileTest(PlotControllerTestCase):
         self.double_click("s2")
         self.view.handler_dict["rename_tab"](self.view.current_tab_id(),
                                              "Mine")
-        self.assertEqual(len(self.view.plot_tab_dict), 2)
+        state_tuple = self.workspace.state_tuple()
         new_file = make_signal_file(1)
-        self.file_controller.open(new_file, True)
-        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
-        self.assertEqual(self.view.plot_tab_dict, {})
-        self.assertEqual(len(self.workspace.tab_list), 1)
-        self.assertEqual(self.workspace.tab_list[0].plot_list, [])
-        self.assertFalse(self.view.delete_enabled_b)
+        self.file_controller.open(new_file, None)
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Mine"])
+        self.assertEqual(len(self.view.plot_tab_dict), 2)
+        self.assertEqual(self.workspace.state_tuple(), state_tuple)
         self.assertIs(self.controller.signal_file, new_file)
-        self.assertIn(self.view.current_tab_id(), self.view.tab_dict)
 
-    @covers("LLFR-00015", "LLFR-00016")
-    def test_old_plot_ids_are_ignored_after_replace(self) -> None:
-        """Requests for plots of the previous file do nothing.
+    @covers("LLFR-00921", "LLFR-00021")
+    def test_plots_still_answer_after_a_file_is_opened(self) -> None:
+        """A plot shown before a file is added still takes drops.
 
         Inputs: none.
         Outputs: none.
         """
         self.double_click("s1")
         old_plot_id_i = self.current_plot_ids()[0]
-        self.file_controller.open(make_signal_file(2), True)
-        call_count_i = len(self.view.call_list)
+        self.file_controller.open(make_signal_file(2), None)
         self.drop(old_plot_id_i, "s2")
-        self.view.handler_dict["curve_delete_handler"](old_plot_id_i, "s1")
-        self.view.handler_dict["plot_delete_handler"](old_plot_id_i)
-        self.assertEqual(len(self.view.call_list), call_count_i)
+        self.assertEqual(
+            [curve.signal_name_str for curve in
+             self.workspace.find_plot(old_plot_id_i).curve_list],
+            ["s1", "s2"])
 
     @covers("LLFR-00019")
     def test_double_click_without_file_does_nothing(self) -> None:
@@ -776,7 +1082,7 @@ class DoubleClickTest(PlotControllerTestCase):
             plot_id_i][0][0]
         np.testing.assert_array_equal(time_array, value_array)
 
-    @covers("LLFR-00019", "LLFR-00069")
+    @covers("LLFR-00019", "LLFR-01109")
     def test_plots_go_in_order_into_current_tab(self) -> None:
         """Each double-click adds a plot below, in the current tab.
 
@@ -876,7 +1182,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(self.controller.shared_time_range_tuple,
                          (1.5, 3.0))
 
-    @covers("LLFR-00070", "LLFR-00180")
+    @covers("LLFR-00070", "LLFR-00180", "LLFR-00688")
     def test_first_plot_keeps_full_range(self) -> None:
         """The first plot of the workspace shows the whole time range.
 
@@ -888,7 +1194,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertNotIn("set_plot_time_range", self.view.method_names())
         self.assertEqual(self.view.range_dict[plot_id_i], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00049")
+    @covers("LLFR-00180", "LLFR-00049", "LLFR-00688")
     def test_plot_after_deleting_every_plot_shows_whole_range(
             self) -> None:
         """Once every plot is gone, the next plot starts unzoomed.
@@ -913,7 +1219,7 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertNotIn("set_plot_time_range", self.view.method_names())
         self.assertEqual(self.view.range_dict[new_plot_id_i], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00051", "LLFR-00028")
+    @covers("LLFR-00180", "LLFR-00051", "LLFR-00028", "LLFR-00688")
     def test_last_plot_removed_by_curve_or_tab_resets_range(self) -> None:
         """Removing the last curve, or the last tab with plots, also resets.
 
@@ -937,9 +1243,9 @@ class DoubleClickTest(PlotControllerTestCase):
         self.assertEqual(
             self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
 
-    @covers("LLFR-00180", "LLFR-00015")
-    def test_file_replace_resets_the_shared_range(self) -> None:
-        """A newly opened file starts with the whole time range.
+    @covers("LLFR-00180", "LLFR-00917", "LLFR-00921")
+    def test_opening_a_file_keeps_the_shared_range(self) -> None:
+        """An added file keeps the x-axis range of the time plots.
 
         Inputs: none.
         Outputs: none.
@@ -947,13 +1253,11 @@ class DoubleClickTest(PlotControllerTestCase):
         self.double_click("s1")
         plot_id_i = self.current_plot_ids()[0]
         self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 3.0)
-        self.file_controller.open(make_signal_file(3), True)
-        self.assertEqual(self.controller.shared_time_range_tuple, ())
-        self.view.call_list.clear()
-        self.double_click("s1")
-        self.assertNotIn("set_plot_time_range", self.view.method_names())
+        self.file_controller.open(make_signal_file(3), None)
+        self.assertEqual(self.controller.shared_time_range_tuple, (2.0, 3.0))
+        self.double_click("s2")
         self.assertEqual(
-            self.view.range_dict[self.current_plot_ids()[0]], (0.0, 10.0))
+            self.view.range_dict[self.current_plot_ids()[1]], (2.0, 3.0))
 
 
 class DropTest(PlotControllerTestCase):
@@ -1365,9 +1669,9 @@ class TabActionTest(PlotControllerTestCase):
         self.assertTrue(self.view.delete_enabled_b)
 
     @covers("LLFR-00210", "LLFR-00026", "LLFR-00028", "LLFR-00138",
-            "LLFR-00016", "HLFR-00015")
-    def test_tab_numbers_not_reused_until_a_file_opens(self) -> None:
-        """Deleted and undone tab numbers stay used; a file restarts them.
+            "HLFR-00015", "LLFR-00653", "LLFR-00654")
+    def test_tab_numbers_not_reused_while_the_app_runs(self) -> None:
+        """Deleted and undone tab numbers stay used; files change nothing.
 
         Inputs: none.
         Outputs: none.
@@ -1386,12 +1690,13 @@ class TabActionTest(PlotControllerTestCase):
         self.view.handler_dict["add_tab"]()
         self.assertEqual(list(self.view.tab_dict.values()),
                          ["Tab 1", "Tab 3", "Tab 5"])
-        # LLFR-00210, LLFR-00016: a replaced file restarts at Tab 1.
-        self.file_controller.open(make_signal_file(2), True)
-        self.assertEqual(list(self.view.tab_dict.values()), ["Tab 1"])
+        # LLFR-00654: opening a file never restarts the numbering.
+        self.file_controller.open(make_signal_file(2), None)
+        self.assertEqual(list(self.view.tab_dict.values()),
+                         ["Tab 1", "Tab 3", "Tab 5"])
         self.view.handler_dict["add_tab"]()
         self.assertEqual(list(self.view.tab_dict.values()),
-                         ["Tab 1", "Tab 2"])
+                         ["Tab 1", "Tab 3", "Tab 5", "Tab 6"])
 
     @covers("LLFR-00028", "LLFR-00066", "HLFR-00016")
     def test_delete_tab_removes_it_but_never_the_last(self) -> None:
@@ -1427,7 +1732,7 @@ class TabActionTest(PlotControllerTestCase):
         self.assertEqual(self.workspace.find_tab(tab_id_i).name_str,
                          "Speeds")
 
-    @covers("LLFR-00067", "HLFR-00017")
+    @covers("LLFR-00067", "HLFR-00017", "LLFR-00656")
     def test_empty_name_keeps_old_name(self) -> None:
         """Empty or blank names keep the old name and show nothing.
 
@@ -1466,7 +1771,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
         """
         self.view.handler_dict["rename_tab"](tab_id_i, name_str)
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00657")
     def test_rename_to_another_tab_name_is_refused(self) -> None:
         """The previous name is kept and the box names the taken name.
 
@@ -1483,7 +1788,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
             self.workspace.find_tab(self.second_tab_id_i).name_str, "Tab 2")
         self.assertEqual(self.view.full_tab_count_i, 0)
 
-    @covers("LLFR-00211", "HLFR-00017")
+    @covers("LLFR-00211", "HLFR-00017", "LLFR-00657")
     def test_surrounding_spaces_do_not_avoid_the_conflict(self) -> None:
         """"  Tab 1 " is the name of Tab 1; the box shows it trimmed.
 
@@ -1496,7 +1801,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
         self.assertEqual(list(self.view.tab_dict.values()),
                          ["Engine", "Tab 2"])
 
-    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017")
+    @covers("LLFR-00211", "LLFR-00030", "HLFR-00017", "LLFR-00658")
     def test_own_name_and_other_case_are_accepted(self) -> None:
         """A tab's own name and a name differing only in case are free.
 
@@ -1512,7 +1817,7 @@ class UniqueTabNameTest(PlotControllerTestCase):
         self.assertEqual(self.view.tab_dict[self.second_tab_id_i], "TAB 1")
         self.assertEqual(self.view.tab_name_taken_list, [])
 
-    @covers("LLFR-00211", "LLFR-00067")
+    @covers("LLFR-00211", "LLFR-00067", "LLFR-00656")
     def test_blank_name_shows_no_box(self) -> None:
         """A blank name is still refused silently, not as a conflict.
 

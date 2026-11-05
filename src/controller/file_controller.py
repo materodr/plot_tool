@@ -1,21 +1,36 @@
-"""File controller: runs the open-file flow (HLFR-00004, HLFR-00010).
+"""File controller: opens and closes the data files (HLFR-00004).
+
+Several data files can be open at the same time (HLFR-00113). Opening a
+file adds it to the open files, with no question (HLFR-00117), and each
+file gets a number (HLFR-00114) and a prefix for its signal names
+(HLFR-00115); the files are kept in a model.data_files.DataFileSet.
+Closing a file, or all files (HLFR-00118, HLFR-00119), removes them from
+the set and tells the listeners, which remove the signals, the synthetic
+signals and the curves.
 
 It talks to the view only through plain method calls (no Qt code), so
 it can be tested with a fake view (COR-00003, COR-00009). The view must
-offer ``ask_open_file_path(start_folder_str)``, ``show_file_open_error``,
-``ask_time_signal_name``, ``ask_replace_file``, ``set_time_signal_name``,
-``show_signal_names``, ``finish_open_file_button``,
-``show_loading_indication(text_str)`` and ``hide_loading_indication()``.
+offer ``ask_open_file_path(start_folder_str)`` (a path, "" when
+cancelled, or a list of paths), ``show_file_open_error``,
+``show_open_files_limit_notification``,
+``show_refused_files_notification``, ``ask_time_signal_name``,
+``finish_open_file_button``, ``show_loading_indication()``,
+``hide_loading_indication()``, and, for the file menu of the signal
+list (LLFR-00923), ``ask_close_file(question_str)`` and
+``ask_close_all_files(question_str)``, which return True when the user
+proceeds (LLFR-00924, LLFR-00934).
 
-``show_loading_indication`` shows the busy pointer and the text in the
-status line of the signal list panel, and ``hide_loading_indication``
-restores the normal pointer and empties the status line (LLFR-00418).
+``show_loading_indication`` shows the busy pointer and the loading title
+of the main window, and ``hide_loading_indication`` restores the normal
+pointer and the normal title (LLFR-00418, LLFR-00560, LLFR-00562).
 
 ``ask_time_signal_name(prompt_str, name_list, search_function,
-no_match_text_str, check_function)`` shows the time signal window
-(LLFR-00325) and returns the confirmed name, or None when the user
-cancels. ``search_function(text_str)`` returns the names that match the
-search box text, in the order to show them; ``check_function(name_str)``
+no_match_text_str, check_function, file_name_str=...)`` shows the time
+signal window (LLFR-00325) for the file named file_name_str (its name
+with its extension, without its folder, LLFR-00957) and returns the
+confirmed name, or None when the user cancels.
+``search_function(text_str)`` returns the names that match the search
+box text, in the order to show them; ``check_function(name_str)``
 returns the reason a name can't be the time signal ("" when it can), and
 the window stays open while there is one (LLFR-00329).
 """
@@ -23,21 +38,48 @@ the window stays open while there is one (LLFR-00329).
 import os
 import sys
 
+from model.data_files import DataFileSet, selection_order_list
 from model.errors import FileOpenError
 from model.file_loader import load_signal_file
+from model.message_lists import list_body_text, list_text
 from model.signal_file import increasing_check_reason
 from model.signal_search import NO_MATCH_TEXT_STR, search_signals
 
-# LLFR-00418: the text of the status line while a file is read.
-LOADING_TEXT_STR = "Loading..."
 # LLFR-00325: the text of the time signal window.
 TIME_SIGNAL_PROMPT_STR = "Choose the signal that goes on the x-axis"
 
 # PCR-00025: start of the message shown when the loader fails in an
 # unexpected way, so the app reports it instead of crashing.
 UNEXPECTED_ERROR_MESSAGE_STR = (
-    "The file '{path}' could not be read because of an unexpected "
+    "The file '{name}' could not be read because of an unexpected "
     "error: {error}")
+# LLFR-00896: the box shown in place of the dialog with 10 files open.
+OPEN_FILES_LIMIT_MESSAGE_STR = (
+    "10 files are already open. Close one of them to make room for "
+    "another file.")
+# LLFR-00898, LLFR-00954, LLFR-00956: the lines of the box that lists
+# the refused files.
+ALREADY_OPEN_REASON_STR = "{name}: already open as file{number}."
+LIMIT_REASON_STR = "{name}: not opened, because 10 files are already open."
+# LLFR-00924: the question asked before one data file is closed. The
+# third point depends on whether other files are left.
+CLOSE_FILE_QUESTION_STR = "Do you want to close {row}?"
+CLOSE_FILE_SIGNALS_POINT_STR = (
+    "Its signals and the synthetic signals computed from them will be "
+    "removed from the signal list and from the plots.")
+CLOSE_TABS_POINT_STR = "The tabs left with no plot will be closed."
+CLOSE_FILE_MARKERS_POINT_STR = (
+    "The flags and areas outside the time range of the files left will "
+    "be deleted.")
+CLOSE_LAST_FILE_MARKERS_POINT_STR = (
+    "Every flag and every area will be deleted, because no file is left.")
+CLOSE_HISTORY_POINT_STR = "The undo and redo history will be cleared."
+# LLFR-00934: the question asked once before every data file is closed.
+CLOSE_ALL_FILES_QUESTION_STR = "Do you want to close all the files?"
+CLOSE_ALL_FILES_POINT_STR = "All the open data files will be closed."
+CLOSE_ALL_SIGNALS_POINT_STR = (
+    "Their signals and synthetic signals will be removed from the signal "
+    "list and from the plots.")
 # LLFR-00204: suffix of a macOS app bundle folder (plot_tool.app).
 APP_BUNDLE_SUFFIX_STR = ".app"
 # LLFR-00204: folders between the bundle and its executable
@@ -95,19 +137,67 @@ def first_start_folder_str(frozen_b: bool = None,
     return executable_folder_str
 
 
-class FileController:
-    """Opens files chosen by the user and keeps the current file.
+def question_text(question_str: str, point_list: list) -> str:
+    """Return the text of a question with the points it says.
 
     Inputs:
-        view: the object that shows dialogs and the signal list.
+        question_str: the question, for example "Do you want to close
+            file1_run.csv?".
+        point_list: the sentences that say what proceeding does.
+    Outputs: the question, an empty line and the points, numbered and
+        separated by blank lines (LLFR-00980, LLFR-00982, LLFR-00983).
+    """
+    # LLFR-00924, LLFR-00934: the consequences, as the items of a list
+    # below the question.
+    return list_text(point_list, question_str)
+
+
+def close_file_question(row_str: str, last_file_b: bool) -> str:
+    """Return the question asked before one data file is closed.
+
+    Inputs:
+        row_str: the file as its file name row shows it, for example
+            "file1_run_A.csv" (LLFR-00362).
+        last_file_b: True when no other data file is open, so that no
+            file is left after the close.
+    Outputs: the text of the question of LLFR-00924.
+    """
+    # LLFR-00924: the flags and areas outside the files left, or every
+    # flag and area when no file is left.
+    markers_point_str = (CLOSE_LAST_FILE_MARKERS_POINT_STR if last_file_b
+                         else CLOSE_FILE_MARKERS_POINT_STR)
+    return question_text(
+        CLOSE_FILE_QUESTION_STR.format(row=row_str),
+        [CLOSE_FILE_SIGNALS_POINT_STR, CLOSE_TABS_POINT_STR,
+         markers_point_str, CLOSE_HISTORY_POINT_STR])
+
+
+def close_all_files_question() -> str:
+    """Return the question asked before every data file is closed.
+
+    Inputs: none.
+    Outputs: the text of the question of LLFR-00934.
+    """
+    # LLFR-00934: the five points, in the order of the requirement.
+    return question_text(
+        CLOSE_ALL_FILES_QUESTION_STR,
+        [CLOSE_ALL_FILES_POINT_STR, CLOSE_ALL_SIGNALS_POINT_STR,
+         CLOSE_TABS_POINT_STR, CLOSE_LAST_FILE_MARKERS_POINT_STR,
+         CLOSE_HISTORY_POINT_STR])
+
+
+class FileController:
+    """Opens files chosen by the user and keeps the open data files.
+
+    Inputs:
+        view: the object that shows dialogs and boxes.
         load_function: function that takes a path and returns a
             SignalFile or raises FileOpenError; load_signal_file by
             default.
         start_folder_str: folder the first file selection dialog shows;
             first_start_folder_str() when None.
     Attributes:
-        current_file: the open SignalFile, or None before the first
-            file is opened.
+        data_files: the DataFileSet of the open data files.
         dialog_folder_str: folder the next file selection dialog shows.
     """
 
@@ -125,32 +215,65 @@ class FileController:
         # LLFR-00006: the function used to open the selected file.
         self.view = view
         self.load_function = load_function
-        self.current_file = None
+        # LLFR-00895, LLFR-00900: the open data files and their numbers.
+        self.data_files = DataFileSet()
         # LLFR-00204: the first dialog shows the folder of the app.
         if start_folder_str is None:
             start_folder_str = first_start_folder_str()
         self.dialog_folder_str = start_folder_str
         self.file_opened_listener_list = []
+        self.files_closed_listener_list = []
+        # LLFR-00071: the listener errors of the selection being opened.
+        self.listener_error_list = []
+
+    @property
+    def current_file(self):
+        """Return the open data files, or None while none is open.
+
+        Inputs: none.
+        Outputs: the DataFileSet when at least one data file is open.
+        """
+        # LLFR-00218, LLFR-00395: a data file is open or not.
+        if len(self.data_files) == 0:
+            return None
+        return self.data_files
 
     def add_file_opened_listener(self, listener) -> None:
-        """Register a function called after a file has been opened.
+        """Register a function called after a data file was added.
 
         Inputs:
-            listener: a function taking (signal_file, replaced_b), where
-                replaced_b is True when the new file replaced another.
+            listener: a function taking (data_files, data_file): the
+                DataFileSet of the open files and the DataFile just
+                added.
         Outputs: none.
         """
-        # LLFR-00015, LLFR-00016: the plot controller resets the tabs
-        # and plots when a file is replaced.
+        # LLFR-00920, LLFR-00921: the other controllers add the new file
+        # and keep everything they show.
         self.file_opened_listener_list.append(listener)
+
+    def add_files_closed_listener(self, listener) -> None:
+        """Register a function called after data files were closed.
+
+        Inputs:
+            listener: a function taking (data_files, closed_file_list):
+                the DataFileSet of the files left and the closed
+                DataFile objects.
+        Outputs: none.
+        """
+        # LLFR-00926 to LLFR-00930: the other controllers remove what
+        # belonged to the closed files.
+        self.files_closed_listener_list.append(listener)
+
+    # ----------------------------------------------------------------
+    # Open
+    # ----------------------------------------------------------------
 
     def open_file_requested(self) -> None:
         """Run the open-file flow started by the Open file button.
 
-        Asks for a path, asks for confirmation when another file is
-        open, reads the file while the loading indication is shown, and
-        shows the new signal names (LLFR-00328). The button always
-        returns to normal at the end.
+        Shows the limit box with 10 files open, or else the file
+        selection dialog, and opens each selected file in the steps of
+        LLFR-00328. The button always returns to normal at the end.
 
         Inputs: none.
         Outputs: none.
@@ -168,49 +291,133 @@ class FileController:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00005, LLFR-00204: show the file selection dialog in the
-        # folder of the app, or of the last file opened successfully.
-        path_str = self.view.ask_open_file_path(self.dialog_folder_str)
-        if not path_str:
-            # LLFR-00007: cancelled, keep the file and the list.
+        # LLFR-00896, LLFR-00897: with 10 files open, a box in place of
+        # the dialog, and nothing changes.
+        if self.data_files.is_full_b:
+            self.view.show_open_files_limit_notification(
+                OPEN_FILES_LIMIT_MESSAGE_STR)
             return
-        # LLFR-00328 step 1, HLFR-00010: when another file is open, ask
-        # right away, before the selected file is read.
-        replaced_b = self.current_file is not None
-        if replaced_b and not self.view.ask_replace_file():
-            # LLFR-00014: declined, keep the current file open, do not
-            # read the selected file and show no other message.
+        # LLFR-00005, LLFR-00204, LLFR-00447: the file selection dialog
+        # in the folder of the app, or of the last file opened.
+        path_value = self.view.ask_open_file_path(self.dialog_folder_str)
+        if isinstance(path_value, (list, tuple)):
+            path_list = [str(path_str) for path_str in path_value
+                         if path_str]
+        else:
+            path_list = [str(path_value)] if path_value else []
+        if not path_list:
+            # LLFR-00007: cancelled, keep the files and the list.
             return
-        # LLFR-00006, LLFR-00328 step 2: read and check the file.
+        # LLFR-00006: open each selected file.
+        self.open_paths(path_list)
+
+    def open_paths(self, path_list: list) -> list:
+        """Open selected files one after the other.
+
+        Inputs:
+            path_list: the paths selected in the dialog.
+        Outputs: the DataFile objects added, in the order they were
+            opened. After the last file, one File Open Error box lists
+            the files that could not be read (LLFR-00955), and then one
+            information box lists the refused files (LLFR-00956).
+        """
+        # LLFR-00952, LLFR-00974: in the order of the file names.
+        error_message_list = []
+        refused_line_list = []
+        added_file_list = []
+        # LLFR-00071: an error of a listener, after the file was added.
+        self.listener_error_list = []
+        for path_str in selection_order_list(path_list):
+            # LLFR-00953: whatever happens to one file, the next one is
+            # taken.
+            try:
+                data_file = self.open_one_path(
+                    path_str, error_message_list, refused_line_list)
+            except Exception as error:
+                # LLFR-00973: an unexpected error is a reading error of
+                # that file, listed with a description of the error.
+                error_message_list.append(
+                    UNEXPECTED_ERROR_MESSAGE_STR.format(
+                        name=os.path.basename(path_str), error=error))
+                continue
+            if data_file is not None:
+                added_file_list.append(data_file)
+        # LLFR-00955: one File Open Error box for the whole selection,
+        # one numbered item per file (LLFR-00980, LLFR-00981, LLFR-00982).
+        if error_message_list:
+            self.view.show_file_open_error(
+                list_body_text(error_message_list))
+        # LLFR-00956: then one information box for the refused files,
+        # in the same format.
+        if refused_line_list:
+            self.view.show_refused_files_notification(
+                list_body_text(refused_line_list))
+        # LLFR-00071: a listener that failed after its file was added is
+        # an unexpected error of the app, not a reading error of the
+        # file, which stays open; it reaches the unexpected error box.
+        if self.listener_error_list:
+            raise self.listener_error_list[0]
+        return added_file_list
+
+    def open_one_path(self, path_str: str, error_message_list: list,
+                      refused_line_list: list):
+        """Take one selected file through the steps of LLFR-00328.
+
+        Inputs:
+            path_str: the path of the selected file.
+            error_message_list: the reasons of the files that could not
+                be read; this file's reason is added to it.
+            refused_line_list: the lines of the refused files; this
+                file's line is added to it.
+        Outputs: the added DataFile, or None when the file was not
+            opened (LLFR-00010: nothing changed for it).
+        """
+        file_name_str = os.path.basename(path_str)
+        # LLFR-00328 step 1, LLFR-00954: 10 files open, refused.
+        if self.data_files.is_full_b:
+            refused_line_list.append(LIMIT_REASON_STR.format(
+                name=file_name_str))
+            return None
+        # LLFR-00328 step 2, LLFR-00898, LLFR-00899: the same file on
+        # disk is already open, refused before it is read.
+        open_number_i = self.data_files.open_number(path_str)
+        if open_number_i is not None:
+            refused_line_list.append(ALREADY_OPEN_REASON_STR.format(
+                name=file_name_str, number=open_number_i))
+            return None
+        # LLFR-00922, LLFR-00328 step 3: read and check it right away,
+        # with no question.
         signal_file, error_message_str = self._read_file(path_str)
         if signal_file is None:
-            # LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012: show the
-            # File Open Error box, after the loading indication is gone
-            # (LLFR-00418). LLFR-00010: keep the previous file, its
-            # plots, signal list, synthetic signals and undo history.
-            self.view.show_file_open_error(error_message_str)
-            return
-        # LLFR-00328 step 3: the user chooses the time signal when no
+            # LLFR-00510, LLFR-00511: kept for the File Open Error box;
+            # the open data files are kept (LLFR-00010).
+            error_message_list.append(error_message_str)
+            return None
+        # LLFR-00328 step 4: the user chooses the time signal when no
         # signal is named "Time".
         if (signal_file.needs_time_signal_choice_b
-                and not self._choose_time_signal(signal_file)):
-            # LLFR-00327: cancelled, nothing is opened and no message is
-            # shown; the current file and its list are kept (LLFR-00010).
-            return
-        # LLFR-00328 step 4, LLFR-00013: only now close the current
-        # file and open the selected one.
-        self.current_file = signal_file
-        # LLFR-00204: only a successful open moves the dialog folder;
-        # a cancel, a failed open or a declined replace keeps it.
+                and not self._choose_time_signal(signal_file,
+                                                 file_name_str)):
+            # LLFR-00327, LLFR-00509, LLFR-00512, LLFR-00513: cancelled,
+            # nothing is opened and no message is shown.
+            return None
+        # LLFR-00328 step 5, LLFR-00920, LLFR-00900: only now the file
+        # is added, with the next number.
+        data_file = self.data_files.add(signal_file, path_str)
+        # LLFR-00447: only a successful open moves the dialog folder.
+        # LLFR-01011: with several files selected, they open in the order
+        # of LLFR-00952, so the last one that opens sets the folder.
         self.dialog_folder_str = os.path.dirname(os.path.abspath(path_str))
-        # LLFR-00332: the time signal name is shown in green.
-        self.view.set_time_signal_name(signal_file.time_signal_name_str)
-        # LLFR-00017, LLFR-00054: show the new names, including the time
-        # signal.
-        self.view.show_signal_names(signal_file.signal_name_list)
-        # LLFR-00015, LLFR-00016: tell the listeners about the new file.
+        # LLFR-00921, LLFR-00650: the listeners add the new file and
+        # keep everything else.
         for listener in list(self.file_opened_listener_list):
-            listener(signal_file, replaced_b)
+            try:
+                listener(self.data_files, data_file)
+            except Exception as error:
+                # LLFR-00071: the file is open; the error is raised after
+                # the boxes of the selection (open_paths).
+                getattr(self, "listener_error_list", []).append(error)
+        return data_file
 
     def _read_file(self, path_str: str) -> tuple:
         """Read and check a file while the loading indication is shown.
@@ -221,36 +428,41 @@ class FileController:
             (None, message_str) with the text of the File Open Error box
             when it can't.
         """
-        # LLFR-00418: the busy pointer and "Loading..." while the file
-        # is read and checked, for the first file as for a replacement.
-        self.view.show_loading_indication(LOADING_TEXT_STR)
+        # LLFR-00418, LLFR-00560: the busy pointer and the loading title
+        # while the file is read and checked, whether or not other files
+        # are open.
+        self.view.show_loading_indication()
         try:
             # LLFR-00006: try to open the selected file.
             return self.load_function(path_str), ""
         except FileOpenError as error:
             # LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012: the reason
-            # given by the loader.
+            # given by the loader, which names the file.
             return None, str(error)
         except Exception as error:
-            # LLFR-00008, LLFR-00010: an unexpected failure is reported
-            # as an unreadable file instead of crashing (PCR-00025).
+            # LLFR-00973: an unexpected failure is reported as a reading
+            # error of the file instead of crashing (PCR-00025).
             return None, UNEXPECTED_ERROR_MESSAGE_STR.format(
-                path=path_str, error=error)
+                name=os.path.basename(path_str), error=error)
         finally:
-            # LLFR-00418: reading ended, whatever the result; remove the
-            # indication before any box or window is shown.
+            # LLFR-00561, LLFR-00562: reading ended, whatever the result;
+            # remove the indication before any box or window is shown.
             self.view.hide_loading_indication()
 
-    def _choose_time_signal(self, signal_file) -> bool:
+    def _choose_time_signal(self, signal_file,
+                            file_name_str: str = "") -> bool:
         """Ask the user for the time signal of a file.
 
         Inputs:
             signal_file: the SignalFile just read, with no signal that
                 matches the time signal name.
+            file_name_str: the name of the file, with its extension and
+                without its folder, shown in the window (LLFR-00957).
         Outputs: True when the user confirmed a signal, which is now the
             file's time signal; False when the user cancelled.
         """
-        # LLFR-00325: every signal of the file, in the file's order.
+        # LLFR-00325, LLFR-00910: every signal of the file, in the
+        # file's order, with its name in the file, without a prefix.
         name_list = list(signal_file.signal_name_list)
 
         def matching_names(text_str: str) -> list:
@@ -275,9 +487,10 @@ class FileController:
             return increasing_check_reason(
                 name_str, signal_file.signal_array(name_str))
 
+        # LLFR-00957: the window names the file it is for.
         chosen_name_str = self.view.ask_time_signal_name(
             TIME_SIGNAL_PROMPT_STR, name_list, matching_names,
-            NO_MATCH_TEXT_STR, check_name)
+            NO_MATCH_TEXT_STR, check_name, file_name_str=file_name_str)
         if not chosen_name_str:
             # LLFR-00327: the window was cancelled.
             return False
@@ -285,3 +498,92 @@ class FileController:
         # signal; a signal that does not increase is never used, even
         # when a window let it through.
         return signal_file.choose_time_signal(str(chosen_name_str)) == ""
+
+    # ----------------------------------------------------------------
+    # Close
+    # ----------------------------------------------------------------
+
+    def close_file_requested(self, number_i: int) -> bool:
+        """Ask whether to close a data file, and close it if so.
+
+        Called when the user chooses "Close file" in the file menu of
+        the file's name row (LLFR-00923).
+
+        Inputs:
+            number_i: the number of the data file (LLFR-00900).
+        Outputs: True when the user proceeded and the file was closed.
+        """
+        # LLFR-00924: the question names the file as its row shows it,
+        # also when none of its signals is drawn.
+        data_file = self.data_files.find(int(number_i))
+        if data_file is None:
+            return False
+        last_file_b = len(self.data_files) == 1
+        if not self.view.ask_close_file(close_file_question(
+                data_file.file_name_row_str, last_file_b)):
+            # LLFR-00925: declined, nothing changes.
+            return False
+        # LLFR-00926 to LLFR-00933, LLFR-00950: the close itself.
+        return self.close_file(number_i)
+
+    def close_all_files_requested(self) -> list:
+        """Ask once whether to close every data file, and close them.
+
+        Called when the user chooses "Close all files" in the file menu
+        (LLFR-00923).
+
+        Inputs: none.
+        Outputs: the closed DataFile objects; [] when the user declined
+            or no file was open.
+        """
+        # LLFR-00934: one question for all the files.
+        if len(self.data_files) == 0:
+            return []
+        if not self.view.ask_close_all_files(close_all_files_question()):
+            # LLFR-00935: declined, nothing changes.
+            return []
+        # LLFR-00936: every file, with no further question.
+        return self.close_all_files()
+
+    def close_file(self, number_i: int) -> bool:
+        """Close one open data file, after the user proceeded.
+
+        Inputs:
+            number_i: the number of the data file (LLFR-00900).
+        Outputs: True when the file was open and is now closed. The
+            listeners remove its signals, the synthetic signals computed
+            from them and their curves (LLFR-00926 to LLFR-00930).
+        """
+        # LLFR-00926, LLFR-00931: only that file; the others keep their
+        # numbers; LLFR-00902: its number stays used up.
+        data_file = self.data_files.remove(int(number_i))
+        if data_file is None:
+            return False
+        self.notify_closed([data_file])
+        return True
+
+    def close_all_files(self) -> list:
+        """Close every open data file, after the user proceeded.
+
+        Inputs: none.
+        Outputs: the closed DataFile objects, in number order; [] when
+            no file was open.
+        """
+        # LLFR-00936, LLFR-00904: every file, with no further question;
+        # the numbering goes on.
+        closed_file_list = self.data_files.remove_all()
+        if closed_file_list:
+            self.notify_closed(closed_file_list)
+        return closed_file_list
+
+    def notify_closed(self, closed_file_list: list) -> None:
+        """Tell the listeners that data files were closed.
+
+        Inputs:
+            closed_file_list: the closed DataFile objects.
+        Outputs: none.
+        """
+        # LLFR-00926 to LLFR-00930, LLFR-00932 to LLFR-00937: each
+        # controller removes what belonged to the closed files.
+        for listener in list(self.files_closed_listener_list):
+            listener(self.data_files, list(closed_file_list))

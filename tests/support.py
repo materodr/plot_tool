@@ -101,6 +101,23 @@ def install_file_dialog_guard() -> None:
 
     QFileDialog.exec = cancel_unanswered_dialog
 
+    # LLFR-01218: the save options dialog of Save layout, shown before
+    # its file dialog, is confirmed with its first values (LLFR-01219),
+    # so the tests of the file dialog see the layout saved as before. A
+    # test of the options patches MainWindow.run_layout_options_dialog.
+    from view.layout_options_dialog import LayoutOptionsDialog
+
+    def accept_options_dialog(dialog) -> int:
+        """Confirm the save options dialog with the values it shows.
+
+        Inputs:
+            dialog: the LayoutOptionsDialog a test showed.
+        Outputs: the int value of QDialog.DialogCode.Accepted.
+        """
+        return QDialog.DialogCode.Accepted.value
+
+    LayoutOptionsDialog.exec = accept_options_dialog
+
 
 def button_name(button) -> str:
     """Return the name a top panel button is called by.
@@ -137,3 +154,21 @@ def button_tip_line_list(button) -> list:
     document = QTextDocument()
     document.setHtml(tip_str)
     return document.toPlainText().split("\n")
+
+
+def expand_all_files(controller) -> None:
+    """Show the signals of every open data file in the signal list.
+
+    Opening a file shows every file name row collapsed (LLFR-01001).
+    Tests of other features that read or click the shown signals expand
+    the files first, as clicks on each [+] icon would (LLFR-00998).
+
+    Inputs:
+        controller: a MainController, or its SignalListController.
+    Outputs: none.
+    """
+    signal_list_controller = getattr(controller, "signal_list_controller",
+                                     controller)
+    signal_list_controller.collapsed_number_set.clear()
+    signal_list_controller.search_collapsed_number_set.clear()
+    signal_list_controller.show_filtered_names()

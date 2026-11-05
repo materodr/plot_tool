@@ -24,15 +24,17 @@ def is_time_signal_name(signal_name_str: str) -> bool:
 
     The whole name must be ``Time`` in any letter case. In HDF5 files a
     signal is named after its dataset path (LLFR-00134), so a dataset in
-    a group, such as ``engine/time``, never matches (LLFR-00330).
+    a group, such as ``engine/time``, never matches (LLFR-00330). The
+    same holds for a field of a MAT structure, such as ``engine/Time``
+    (LLFR-00991, LLFR-00993).
 
     Inputs:
         signal_name_str: a signal name.
     Outputs: True when the name is "Time", "time", "TIME" and so on.
     """
     # LLFR-00053: ignore the difference between uppercase and lowercase.
-    # LLFR-00330: the path of a dataset in a group has a "/" and so is
-    # never equal to "time".
+    # LLFR-00330, LLFR-00993: the path of a dataset in a group, or of a
+    # field of a MAT structure, has a "/" and so is never "time".
     return (str(signal_name_str).casefold()
             == TIME_SIGNAL_NAME_STR.casefold())
 
@@ -171,6 +173,58 @@ class SignalFile:
         if self.time_signal_name_str is None:
             raise KeyError("no time signal")
         return self.signal_dict[self.time_signal_name_str]
+
+    def time_array_for_signal(self, signal_name_str: str):
+        """Return the time signal a signal of this file is drawn against.
+
+        Inputs:
+            signal_name_str: name of a signal of the file.
+        Outputs: the time signal of the file (LLFR-00912). Raises
+            KeyError for an unknown name.
+        """
+        # LLFR-00912: every signal of a file uses the time of its file;
+        # the same reading method as model.data_files.DataFileSet.
+        if signal_name_str not in self.signal_dict:
+            raise KeyError(signal_name_str)
+        return self.time_array
+
+    def time_range_tuple(self) -> tuple:
+        """Return the time range of the file.
+
+        Inputs: none.
+        Outputs: (first time, last time) in seconds, or () when no
+            sample is finite or no time signal is set.
+        """
+        # LLFR-00916: from the first to the last time sample.
+        if self.time_signal_name_str is None:
+            return ()
+        sample_array = np.asarray(self.time_array, dtype=float)
+        sample_array = sample_array[np.isfinite(sample_array)]
+        if sample_array.size == 0:
+            return ()
+        return (float(np.min(sample_array)), float(np.max(sample_array)))
+
+    @property
+    def time_signal_name_list(self) -> list:
+        """Return the names of the time signals, as DataFileSet does.
+
+        Inputs: none.
+        Outputs: [the time signal name], or [] when none is set.
+        """
+        # LLFR-00332: the time signal of the file.
+        if self.time_signal_name_str is None:
+            return []
+        return [self.time_signal_name_str]
+
+    @property
+    def path_list(self) -> list:
+        """Return the paths of the file, as DataFileSet does.
+
+        Inputs: none.
+        Outputs: [path_str].
+        """
+        # LLFR-00397: the path of the open data file.
+        return [self.path_str]
 
     def signal_array(self, signal_name_str: str):
         """Return the values of one signal.

@@ -4,8 +4,9 @@ Covers LLFR-00358 (the Report a bug button), LLFR-00359 (it opens the
 "New issue" page), LLFR-00360 (its active color for at least 0.3 s),
 LLFR-00361 (the error box when the browser cannot be opened), its icon
 and button tip (LLFR-00159, LLFR-00215) and group (LLFR-00347), and
-LLFR-00364 (the credit text "Designed by materodr"). The browser is
-never really opened: QDesktopServices.openUrl is patched.
+LLFR-00364 (the credit text "Designed by materodr") and LLFR-00889
+(only "materodr" underlined). The browser is never really opened:
+QDesktopServices.openUrl is patched.
 """
 
 import os
@@ -14,6 +15,7 @@ import time
 import unittest
 from unittest import mock
 
+from tests.support import expand_all_files
 from tests.support import (
     button_name, button_tip_line_list, covers, get_qt_application,
     requires_qt)
@@ -25,9 +27,25 @@ from view import icon_shapes, theme
 EXPECTED_URL_STR = "https://github.com/materodr/plot_tool/issues/new/choose"
 # LLFR-00364: the credit text.
 EXPECTED_CREDIT_STR = "Designed by materodr"
+# LLFR-00889: the only underlined word of the credit text.
+EXPECTED_UNDERLINED_STR = "materodr"
 # LLFR-00360: the shortest active time of the button.
 MINIMUM_ACTIVE_TIME_S = 0.3
 MAXIMUM_WAIT_TIME_S = 3.0
+
+
+def credit_plain_text_str(label) -> str:
+    """Return the text a credit label shows, without its markup.
+
+    Inputs:
+        label: the QLabel of the credit text, whose text is rich text.
+    Outputs: the plain text the label shows.
+    """
+    # LLFR-00364: the rich text of LLFR-00889 shows this plain text.
+    from PyQt6.QtGui import QTextDocument
+    document = QTextDocument()
+    document.setHtml(label.text())
+    return document.toPlainText()
 
 
 class ReportBugDataTest(unittest.TestCase):
@@ -58,7 +76,7 @@ class ReportBugDataTest(unittest.TestCase):
         self.assertEqual(len(left_leg_list), 3)
         self.assertEqual(len(right_leg_list), 3)
 
-    @covers("LLFR-00364")
+    @covers("LLFR-00364", "LLFR-00521")
     def test_credit_color_is_paler_than_the_normal_text(self) -> None:
         """The credit color is lighter than the panel's normal text, and
         its style sheet has no hover rule.
@@ -106,7 +124,8 @@ class ReportBugButtonTest(unittest.TestCase):
         self.application.processEvents()
 
     @covers("LLFR-00358", "LLFR-00347", "LLFR-00349", "LLFR-00348",
-            "LLFR-00158", "LLFR-00159", "LLFR-00215", "LLFR-00181")
+            "LLFR-00158", "LLFR-00159", "LLFR-00215", "LLFR-00181",
+            "LLFR-00465")
     def test_button_alone_in_the_last_group(self) -> None:
         """"Report a bug" is the last button, alone in its group, 16 px
         right of Redo, with only the bug icon and its name as the tip.
@@ -142,7 +161,7 @@ class ReportBugButtonTest(unittest.TestCase):
         self.assertNotIn(button,
                          self.top_panel.plot_tool_button_dict.values())
 
-    @covers("LLFR-00358")
+    @covers("LLFR-00358", "LLFR-00517")
     def test_button_enabled_without_a_data_file(self) -> None:
         """The button is enabled when the panel is created, while the
         layout buttons are still disabled.
@@ -180,7 +199,7 @@ class ReportBugButtonTest(unittest.TestCase):
         Outputs: none.
         """
         label = self.top_panel.credit_label
-        self.assertEqual(label.text(), EXPECTED_CREDIT_STR)
+        self.assertEqual(credit_plain_text_str(label), EXPECTED_CREDIT_STR)
         self.assertIs(label.parentWidget(), self.top_panel)
         self.assertTrue(label.isVisible())
         self.assertEqual(label.geometry().right(),
@@ -197,7 +216,44 @@ class ReportBugButtonTest(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(label.geometry().right(), 1399)
 
-    @covers("LLFR-00364")
+    @covers("LLFR-00889", "LLFR-00364")
+    def test_only_the_author_name_is_underlined(self) -> None:
+        """In the credit text, every character of "materodr" is
+        underlined and no character of "Designed by " is; the label font
+        itself is not underlined.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QTextCursor, QTextDocument
+        label = self.top_panel.credit_label
+        self.assertEqual(label.textFormat(), Qt.TextFormat.RichText)
+        self.assertFalse(label.font().underline())
+        document = QTextDocument()
+        document.setDefaultFont(label.font())
+        document.setHtml(label.text())
+        plain_str = document.toPlainText()
+        self.assertEqual(plain_str, EXPECTED_CREDIT_STR)
+        cursor = QTextCursor(document)
+        underlined_list = []
+        for position_i in range(len(plain_str)):
+            # The format at position_i + 1 is that of the character just
+            # before it.
+            cursor.setPosition(position_i + 1)
+            underlined_list.append(cursor.charFormat().fontUnderline())
+        name_start_i = plain_str.index(EXPECTED_UNDERLINED_STR)
+        expected_list = [
+            name_start_i <= position_i
+            < name_start_i + len(EXPECTED_UNDERLINED_STR)
+            for position_i in range(len(plain_str))]
+        self.assertEqual(underlined_list, expected_list)
+        self.assertEqual(
+            "".join(character_str for character_str, underlined_b
+                    in zip(plain_str, underlined_list) if underlined_b),
+            EXPECTED_UNDERLINED_STR)
+
+    @covers("LLFR-00364", "LLFR-00520", "LLFR-00521")
     def test_credit_text_is_pale_and_not_a_button(self) -> None:
         """The text is drawn in the pale credit color, is not a button,
         lets the mouse through and takes no focus.
@@ -226,7 +282,7 @@ class ReportBugButtonTest(unittest.TestCase):
         center_point = label.geometry().center()
         self.assertIsNot(self.top_panel.childAt(center_point), label)
 
-    @covers("LLFR-00364", "LLFR-00349")
+    @covers("LLFR-00364", "LLFR-00349", "LLFR-00522", "LLFR-00523")
     def test_credit_hidden_when_narrow_and_buttons_unmoved(self) -> None:
         """When the panel is too narrow, the text is hidden, and the
         buttons keep their places and sizes.
@@ -332,6 +388,9 @@ class ReportBugWindowTest(unittest.TestCase):
                         return_value=path_str):
             self.main_window._on_open_file_activated()
         self.application.processEvents()
+        # LLFR-01001: the files are collapsed after an open; these
+        # tests read the shown signals.
+        expand_all_files(self.controller)
 
     def wait_until_normal(self) -> float:
         """Process events until the button is normal; return the time.
@@ -347,7 +406,8 @@ class ReportBugWindowTest(unittest.TestCase):
             time.sleep(0.01)
         return time.monotonic() - start_s
 
-    @covers("LLFR-00359", "LLFR-00360", "LLFR-00358", "LLFR-00003")
+    @covers("LLFR-00359", "LLFR-00360", "LLFR-00358", "LLFR-00003",
+            "LLFR-00519")
     def test_click_opens_the_new_issue_page(self) -> None:
         """A click asks the browser once for the exact page, while the
         button is active, and the button turns normal after >= 0.3 s;
@@ -371,7 +431,7 @@ class ReportBugWindowTest(unittest.TestCase):
         self.assertLess(normal_after_s, MAXIMUM_WAIT_TIME_S)
         self.assertEqual(self.box_list, [])
 
-    @covers("LLFR-00359", "LLFR-00358")
+    @covers("LLFR-00359", "LLFR-00358", "LLFR-00518")
     def test_click_with_a_file_changes_nothing_else(self) -> None:
         """With a file open and plotted, the click leaves the signal
         list, the plots, the time range and the undo and redo history
@@ -382,7 +442,7 @@ class ReportBugWindowTest(unittest.TestCase):
         """
         self.open_file()
         self.main_window.signal_list_panel.signal_double_clicked.emit(
-            "Speed")
+            "file1_Speed")
         self.application.processEvents()
         self.assertTrue(self.top_panel.report_bug_button.isEnabled())
         plot_panel = self.main_window.plot_panel
@@ -409,7 +469,7 @@ class ReportBugWindowTest(unittest.TestCase):
         self.assertEqual(self.opened_url_list, [(EXPECTED_URL_STR, True)])
         self.assertEqual(self.box_list, [])
 
-    @covers("LLFR-00361", "LLFR-00360", "HLFR-00002")
+    @covers("LLFR-00361", "LLFR-00360", "HLFR-00002", "LLFR-00519")
     def test_error_box_when_the_browser_cannot_be_opened(self) -> None:
         """When openUrl fails, an error box says that the page could
         not be opened, with its address, and the button turns normal.
@@ -460,7 +520,7 @@ class ReportBugWindowTest(unittest.TestCase):
         """
         label = self.top_panel.credit_label
         self.assertTrue(label.isVisible())
-        self.assertEqual(label.text(), EXPECTED_CREDIT_STR)
+        self.assertEqual(credit_plain_text_str(label), EXPECTED_CREDIT_STR)
         label_right_point = label.mapTo(
             self.main_window, label.rect().topRight())
         central_right_i = self.main_window.centralWidget().width()

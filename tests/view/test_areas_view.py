@@ -9,11 +9,13 @@ with the real controllers. No modal dialog or menu is ever opened.
 """
 
 import unittest
+from unittest import mock
 
 import numpy as np
 
 from tests.support import covers, get_qt_application, requires_qt
 from tests.view.menu_texts import (
+    menu_option_texts,
     AREA_MENU_TEXT_LIST, DELTA_MENU_TEXT_LIST, FLAG_MENU_TEXT_LIST,
     TIP_MENU_TEXT_LIST)
 from tests.view.test_plot_tools import recorder
@@ -87,7 +89,8 @@ class AreaWidgetTestCase(SpanWidgetTestCase):
 class AreaCreateTest(AreaWidgetTestCase):
     """Preview and creation of a new area (LLFR-00303, LLFR-00304)."""
 
-    @covers("LLFR-00303", "LLFR-00304", "LLFR-00207")
+    @covers("LLFR-00303", "LLFR-00304", "LLFR-00207", "LLFR-00454",
+            "LLFR-00698")
     def test_drag_shows_a_preview_and_release_creates(self) -> None:
         """No preview before 5 pixels; then a preview from the press to
         the pointer; the release asks once for the area and removes the
@@ -129,7 +132,7 @@ class AreaCreateTest(AreaWidgetTestCase):
         self.assertTrue(self.plot_widget.area_preview_span_tuple())
         self.left_release(self.at(5.0))
 
-    @covers("LLFR-00304")
+    @covers("LLFR-00304", "LLFR-00700", "LLFR-00701")
     def test_release_less_than_5_pixels_away_creates_nothing(self) -> None:
         """A release 4 pixels from the press, even after a longer move,
         creates nothing and shows no message.
@@ -181,7 +184,7 @@ class AreaCreateTest(AreaWidgetTestCase):
                 self.left_release(press_point + QPoint(60, 0))
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00303", "LLFR-00304")
+    @covers("LLFR-00303", "LLFR-00304", "LLFR-00697", "LLFR-00702")
     def test_preview_stops_at_the_nearest_area(self) -> None:
         """A new area stops at the edge of the area on either side, so
         that it may share the edge but never overlaps.
@@ -201,7 +204,7 @@ class AreaCreateTest(AreaWidgetTestCase):
         self.assertEqual(self.create_list[0][0], 1.5)
         self.assert_span(self.create_list[0], 1.5, 3.0)
 
-    @covers("LLFR-00304", "LLFR-00119")
+    @covers("LLFR-00304", "LLFR-00119", "LLFR-00699")
     def test_release_outside_ends_at_the_nearer_edge(self) -> None:
         """A release right or left of the drawing area ends the area at
         that edge of the shown range.
@@ -216,7 +219,7 @@ class AreaCreateTest(AreaWidgetTestCase):
         self.drag(self.at(3.0), self.axes_edge_point(False, 30))
         self.assert_span(self.create_list[-1], 2.0, 3.0)
 
-    @covers("LLFR-00311")
+    @covers("LLFR-00311", "LLFR-00712")
     def test_frequency_plot_shows_and_creates_no_area(self) -> None:
         """A frequency plot draws no area and a drag on it with the Area
         tool asks for none.
@@ -253,10 +256,83 @@ class AreaCreateTest(AreaWidgetTestCase):
 
 
 @requires_qt
+class PreviewOverObjectsTest(AreaWidgetTestCase):
+    """The drawing previews stay over other objects (LLFR-01238)."""
+
+    def tip_label_point(self):
+        """Pin a data tip on the first curve and return its label centre.
+
+        Inputs: none.
+        Outputs: the QPoint of the centre of the tip's label, in widget
+            coordinates, where pinned_tip_at finds the tip.
+        """
+        name_str, time_array, value_array = (
+            self.plot_widget.curve_data_list[0][:3])
+        index_i = len(time_array) // 2
+        self.plot_widget.set_pinned_tips([
+            (name_str, float(time_array[index_i]),
+             float(value_array[index_i]))])
+        self.draw()
+        box = self.plot_widget.tip_box_extent(
+            self.plot_widget.pinned_tip_annotation(0))
+        point = self.plot_widget.display_to_widget_point(
+            (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+        self.assertEqual(self.plot_widget.pinned_tip_at(point), 0)
+        return point
+
+    @covers("LLFR-01238", "LLFR-00303", "HLFR-00066")
+    def test_area_preview_over_a_pinned_tip(self) -> None:
+        """The preview of a new area follows the pointer over a tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tip_point = self.tip_label_point()
+        self.left_press(self.at(1.0))
+        self.move_to(self.at(1.5))
+        self.move_to(tip_point)
+        self.assertEqual(len(self.plot_widget.area_preview_span_tuple()), 2)
+        self.assertTrue(self.plot_widget.area_preview_shown())
+        self.left_release(tip_point)
+
+    @covers("LLFR-01238", "LLFR-00208", "HLFR-00027")
+    def test_span_selection_over_a_pinned_tip(self) -> None:
+        """The time span line of the Zoom tool follows over a tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        tip_point = self.tip_label_point()
+        self.plot_widget.set_plot_tool(ZOOM_TOOL_STR)
+        self.left_press(self.at(1.0))
+        self.move_to(self.at(1.5))
+        self.move_to(tip_point)
+        self.assertTrue(self.plot_widget.time_span_shown_b)
+        self.left_release(tip_point)
+
+    @covers("LLFR-01238", "LLFR-00371", "HLFR-00081")
+    def test_arrow_preview_over_a_pinned_tip(self) -> None:
+        """The preview of a new arrow follows over a tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import ARROW_TOOL_STR
+        tip_point = self.tip_label_point()
+        self.plot_widget.set_plot_tool(ARROW_TOOL_STR)
+        self.left_press(self.at(1.0))
+        self.move_to(self.at(1.5))
+        self.move_to(tip_point)
+        self.assertTrue(self.plot_widget.arrow_preview_shown())
+        self.left_release(tip_point)
+
+
+@requires_qt
 class AreaLookTest(AreaWidgetTestCase):
     """How an area is drawn (LLFR-00305 to LLFR-00308)."""
 
-    @covers("LLFR-00305", "LLFR-00306", "LLFR-00307", "LLFR-00308")
+    @covers("LLFR-00305", "LLFR-00306", "LLFR-00307", "LLFR-00308",
+            "LLFR-00703")
     def test_band_label_and_times(self) -> None:
         """A see-through band in the orange marker color, shown paler
         because it is see-through, over the whole y range, behind the
@@ -327,7 +403,8 @@ class AreaLookTest(AreaWidgetTestCase):
         self.assertLess(times_box.y1, label_box.y1)
         self.assertLessEqual(times_box.y1, label_box.y0 + 1.0)
 
-    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306", "LLFR-00388")
+    @covers("LLFR-00351", "LLFR-00305", "LLFR-00306", "LLFR-00388",
+            "LLFR-00730", "LLFR-00732", "LLFR-00810")
     def test_each_color_drawn_with_the_same_opacity(self) -> None:
         """Every area is drawn in its own color, any "#rrggbb" color, with
         the same see-through opacity; a color that is not "#rrggbb" (a
@@ -429,7 +506,8 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         super().setUp()
         self.set_areas([(1, "Area 1", 3.0, 5.0), (2, "Area 2", 7.0, 8.0)])
 
-    @covers("LLFR-00312", "LLFR-00308", "LLFR-00310", "LLFR-00207")
+    @covers("LLFR-00312", "LLFR-00308", "LLFR-00310", "LLFR-00207",
+            "LLFR-00454", "LLFR-00705")
     def test_press_inside_moves_the_area_keeping_its_width(self) -> None:
         """A drag from inside the area moves it with the pointer, its
         times update live, and the release asks once for the new span.
@@ -467,7 +545,7 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         return value_text.format_area_times_text(
             *self.plot_widget.area_drawn_span_tuple(area_id_i))
 
-    @covers("LLFR-00312", "LLFR-00119")
+    @covers("LLFR-00312", "LLFR-00119", "LLFR-00713", "LLFR-00714")
     def test_move_stops_at_the_next_area_and_the_file_range(self) -> None:
         """A moved area stops at the next area's edge and at the start of
         the file.
@@ -500,7 +578,8 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         self.assert_span(self.change_list[-1][1:], 3.0, 6.0)
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00313", "LLFR-00119")
+    @covers("LLFR-00313", "LLFR-00119", "LLFR-00715", "LLFR-00716",
+            "LLFR-00717")
     def test_resize_limits(self) -> None:
         """An edge stops at the next area, at the file's range and 5
         pixels before the other edge.
@@ -536,7 +615,7 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         self.assertEqual(self.change_list, [])
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00312", "LLFR-00310")
+    @covers("LLFR-00312", "LLFR-00310", "LLFR-00709")
     def test_tool_change_cancels_a_move(self) -> None:
         """Leaving the Area tool mid-drag puts the area back and asks for
         nothing; the other plots are told to put it back too.
@@ -554,7 +633,7 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
         self.assertEqual(self.change_list, [])
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
 
-    @covers("LLFR-00310")
+    @covers("LLFR-00310", "LLFR-00709")
     def test_follow_drag_moves_only_the_drawing(self) -> None:
         """follow_area_drag (another plot of the tab) moves the band and
         its times, not the stored areas.
@@ -575,7 +654,8 @@ class AreaMoveResizeTest(AreaWidgetTestCase):
 class AreaOtherToolsTest(AreaWidgetTestCase):
     """Areas change nothing for the other tools (LLFR-00318)."""
 
-    @covers("LLFR-00318", "LLFR-00208", "LLFR-00384")
+    @covers("LLFR-00318", "LLFR-00208", "LLFR-00384", "LLFR-00722",
+            "LLFR-00798", "LLFR-00799")
     def test_other_tools_never_move_or_resize_an_area(self) -> None:
         """With every other tool (not with none, LLFR-00382), a drag
         inside an area or on its edge asks for no area change; the Zoom
@@ -614,7 +694,7 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         self.assertEqual(self.create_list, [])
         self.assertEqual(self.drag_list, [])
 
-    @covers("LLFR-00339", "LLFR-00318")
+    @covers("LLFR-00339", "LLFR-00318", "LLFR-00742", "LLFR-00743")
     def test_press_on_a_text_note_moves_the_note(self) -> None:
         """With the Area tool, a press on a text note inside an area
         moves the note, not the area.
@@ -637,7 +717,7 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         self.assertEqual(self.create_list, [])
         self.assertEqual(self.drag_list, [])
 
-    @covers("LLFR-00341", "LLFR-00317", "LLFR-00314")
+    @covers("LLFR-00341", "LLFR-00317", "LLFR-00314", "LLFR-00721")
     def test_text_note_inside_an_area_takes_the_menu(self) -> None:
         """A right-click on a text note inside an area shows the text
         note menu, not the area menu.
@@ -652,11 +732,11 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         note_point = self.plot_widget.display_to_widget_point(
             (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
         menu, _ = self.plot_widget.context_menu_and_requests(note_point)
-        self.assertEqual([action.text() for action in menu.actions()],
+        self.assertEqual(menu_option_texts(menu),
                          ["Edit", "Size", "Border color", "Text color",
                           "Delete"])
 
-    @covers("LLFR-00153", "LLFR-00318")
+    @covers("LLFR-00153", "LLFR-00318", "LLFR-00679")
     def test_press_on_a_pinned_tip_moves_the_tip(self) -> None:
         """With the Area tool, a press on a pinned tip inside an area
         moves the tip, not the area.
@@ -712,7 +792,7 @@ class AreaMenuTest(AreaWidgetTestCase):
                 global_point: unused.
             Outputs: the chosen QAction or None.
             """
-            shown_list.extend(action.text() for action in menu.actions())
+            shown_list.extend(menu_option_texts(menu))
             action_list = list(menu.actions())
             for action in list(action_list):
                 if action.menu() is not None:
@@ -731,10 +811,12 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.plot_widget.show_context_menu(widget_point)
         return shown_list
 
-    @covers("LLFR-00314", "LLFR-00315", "LLFR-00316", "LLFR-00317")
+    @covers("LLFR-00314", "LLFR-00315", "LLFR-00316", "LLFR-00317",
+            "LLFR-00721", "LLFR-01113", "HLFR-00150")
     def test_area_menu_and_its_requests(self) -> None:
         """Inside the area, away from every other item, the menu has
-        Rename, Color, Delete and Delete plot, each emitting its request,
+        Rename, Color, Delete, Position and Delete plot, each emitting
+        its request,
         with any tool.
 
         Inputs: none.
@@ -750,11 +832,15 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.menu_texts(self.at(4.0), "Rename")
         self.menu_texts(self.at(4.0), "Delete")
         self.menu_texts(self.at(4.0), "Delete plot")
+        # LLFR-01113: "Position" asks for the position picker.
+        position_list = recorder(self.plot_widget.plot_position_requested)
+        self.menu_texts(self.at(4.0), "Position")
         self.assertEqual(rename_list, [(1,)])
         self.assertEqual(delete_list, [(1,)])
         self.assertEqual(plot_delete_list, [()])
+        self.assertEqual(position_list, [()])
 
-    @covers("LLFR-00351", "LLFR-00314", "LLFR-00388")
+    @covers("LLFR-00351", "LLFR-00314", "LLFR-00388", "LLFR-00809")
     def test_color_option_asks_for_the_picker(self) -> None:
         """"Color" is the shared color submenu, with no list of fixed
         colors: with no recent color only "Other color...", which emits
@@ -775,7 +861,7 @@ class AreaMenuTest(AreaWidgetTestCase):
         self.assertEqual(color_list, [(1, "")])
 
     @covers("LLFR-00317", "LLFR-00110", "LLFR-00038", "LLFR-00046",
-            "LLFR-00175")
+            "LLFR-00175", "LLFR-00721")
     def test_items_inside_the_area_take_the_menu(self) -> None:
         """A curve, a vertical marker, a pinned tip or a delta marker
         inside the area shows its own menu.
@@ -814,7 +900,8 @@ class AreaMenuTest(AreaWidgetTestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.assertEqual(self.menu_texts(self.at(8.0)), ["Delete plot"])
+        self.assertEqual(self.menu_texts(self.at(8.0)),
+                         ["Position", "Delete plot"])
         self.assertEqual(self.plot_widget.area_at(self.at(8.0)), -1)
         self.assertEqual(self.plot_widget.area_at(self.at(4.0)), 1)
 
@@ -922,10 +1009,11 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         for plot_widget in self.all_plot_widgets():
             self.assertEqual(plot_widget.area_id_list(), [])
 
-    @covers("LLFR-00312", "LLFR-00310", "LLFR-00207", "LLFR-00140")
-    def test_move_follows_on_the_tab_and_z_waits(self) -> None:
+    @covers("LLFR-00312", "LLFR-00310", "LLFR-00207", "LLFR-00140",
+            "LLFR-00454", "LLFR-00708", "LLFR-00709")
+    def test_move_follows_on_the_tab_and_zero_waits(self) -> None:
         """Moving an area shows it moving on the other plot of the tab
-        before the release; the Z key does nothing during the drag; the
+        before the release; the 0 key does nothing during the drag; the
         move is one undoable action.
 
         Inputs: none.
@@ -944,7 +1032,7 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         middle_s = (start_s + end_s) / 2.0
 
         def check_during_drag() -> None:
-            """Check the other plot and the Z key mid-drag.
+            """Check the other plot and the 0 key mid-drag.
 
             Inputs: none.
             Outputs: none.
@@ -954,8 +1042,8 @@ class AreaWindowTest(XyzKeyWindowTestCase):
                 area_id_i)[0]
             self.assertAlmostEqual(drawn_start_s, start_s + 0.3,
                                    delta=0.03)
-            self.press_key("Key_Z", first_widget.canvas)
-            self.release_key("Key_Z", first_widget.canvas)
+            self.press_key("Key_0", first_widget.canvas)
+            self.release_key("Key_0", first_widget.canvas)
             self.assert_every_range(self.zoomed_range())
 
         self.drag_area(first_widget, middle_s, middle_s + 0.3,
@@ -977,7 +1065,8 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         return ZOOMED_RANGE_TUPLE
 
     @covers("LLFR-00351", "LLFR-00310", "LLFR-00138", "LLFR-00192",
-            "LLFR-00388", "LLFR-00389", "LLFR-00390")
+            "LLFR-00388", "LLFR-00389", "LLFR-00390", "LLFR-00708",
+            "LLFR-00730", "LLFR-00809")
     def test_color_from_the_menu_on_every_plot_of_every_tab(self) -> None:
         """Choosing "Color" in the area menu of one plot opens the picker
         at the area's color; the confirmed blue is drawn on every time
@@ -1047,6 +1136,120 @@ class AreaWindowTest(XyzKeyWindowTestCase):
         self.controller.plot_controller.on_redo()
         self.application.processEvents()
         assert_color("#2f7dff")
+
+    def model_span(self) -> tuple:
+        """Return the (start, end) of the first area of the model.
+
+        Inputs: none.
+        Outputs: a tuple (start_s, end_s).
+        """
+        return tuple(self.area_list()[0][1:])
+
+    @covers("LLFR-00710", "LLFR-00312", "LLFR-00313", "LLFR-00310",
+            "LLFR-00709", "HLFR-00067", "HLFR-00106")
+    def test_dragged_area_is_moved_in_the_other_tabs(self) -> None:
+        """An area moved, then resized, on a plot of the first tab is,
+        once the button is released, at its new place on the time plot
+        of a second tab, which was not shown during the drag.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.top_panel.plot_tool_button_dict[AREA_TOOL_STR].click()
+        self.application.processEvents()
+        self.drag_area(self.plot_widgets()[0], 1.0, 2.0)
+        area_id_i = (self.controller.plot_controller.workspace
+                     .area_list[0].area_id_i)
+        first_tab_id_i = self.main_window.current_tab_id()
+        self.main_window.plot_panel.request_add_tab()
+        self.main_window.signal_double_click_handler("speed")
+        self.application.processEvents()
+        second_tab_id_i = self.main_window.current_tab_id()
+        (other_tab_widget,) = self.plot_widgets()
+        self.main_window.set_current_tab(first_tab_id_i)
+        self.application.processEvents()
+        first_widget = self.plot_widgets()[0]
+        first_widget.canvas.draw()
+        start_s, end_s = self.model_span()
+        middle_s = (start_s + end_s) / 2.0
+        # LLFR-00312: a move from the middle of the area.
+        self.drag_area(first_widget, middle_s, middle_s + 0.4)
+        moved_tuple = self.model_span()
+        self.assertAlmostEqual(moved_tuple[0], start_s + 0.4, delta=0.03)
+        self.assertAlmostEqual(moved_tuple[1] - moved_tuple[0],
+                               end_s - start_s)
+        # LLFR-00710: the plot of the other tab has the new place as soon
+        # as the button is released, before the tab is shown.
+        for drawn_s, model_s in zip(
+                other_tab_widget.area_drawn_span_tuple(area_id_i),
+                moved_tuple):
+            self.assertAlmostEqual(drawn_s, model_s)
+        # LLFR-00313: a resize from the end edge.
+        first_widget.canvas.draw()
+        self.drag_area(first_widget, moved_tuple[1], moved_tuple[1] + 0.5)
+        resized_tuple = self.model_span()
+        self.assertAlmostEqual(resized_tuple[0], moved_tuple[0])
+        self.assertAlmostEqual(resized_tuple[1], moved_tuple[1] + 0.5,
+                               delta=0.03)
+        for drawn_s, model_s in zip(
+                other_tab_widget.area_drawn_span_tuple(area_id_i),
+                resized_tuple):
+            self.assertAlmostEqual(drawn_s, model_s)
+        # Shown, the other tab draws the area there too.
+        self.main_window.set_current_tab(second_tab_id_i)
+        self.application.processEvents()
+        other_tab_widget.canvas.draw()
+        for drawn_s, model_s in zip(
+                other_tab_widget.area_drawn_span_tuple(area_id_i),
+                resized_tuple):
+            self.assertAlmostEqual(drawn_s, model_s)
+
+    @covers("LLFR-00720", "LLFR-00315", "LLFR-00314", "HLFR-00068")
+    def test_empty_area_name_shows_no_message(self) -> None:
+        """Renaming an area to an empty name or to spaces, through its
+        menu and the real rename dialog function, keeps the name, records
+        no undo step and shows no message box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QDialog, QInputDialog, QMessageBox
+        self.top_panel.plot_tool_button_dict[AREA_TOOL_STR].click()
+        self.application.processEvents()
+        first_widget = self.plot_widgets()[0]
+        self.drag_area(first_widget, 1.0, 2.0)
+        first_widget.canvas.draw()
+        undo_history = self.controller.plot_controller.undo_history
+        depth_i = undo_history.depth()
+        bottom_f, top_f = first_widget.axes.get_ylim()
+        point = first_widget.data_to_widget_point(
+            1.5, bottom_f + 0.8 * (top_f - bottom_f))
+        shown_box_list = []
+        for answer_str in ("", "   ", " \t "):
+            with self.subTest(answer=answer_str), \
+                    mock.patch.object(QInputDialog, "getText",
+                                      return_value=(answer_str, True)
+                                      ) as dialog_mock, \
+                    mock.patch.object(
+                        QMessageBox, "exec",
+                        new=lambda box: shown_box_list.append(box) or 0), \
+                    mock.patch.object(
+                        QDialog, "exec",
+                        new=lambda dialog: shown_box_list.append(dialog)
+                        or 0):
+                menu, request_list = first_widget.context_menu_and_requests(
+                    point)
+                rename_action = next(action for action in menu.actions()
+                                     if action.text() == "Rename")
+                request_list[rename_action.data()]()
+                self.application.processEvents()
+                self.assertEqual(dialog_mock.call_count, 1)
+            self.assertEqual(self.area_list()[0][0], "Area 1")
+            self.assertEqual(first_widget.area_label_text(
+                self.controller.plot_controller.workspace.area_list[0]
+                .area_id_i), "Area 1")
+        self.assertEqual(shown_box_list, [])
+        self.assertEqual(undo_history.depth(), depth_i)
 
     @covers("LLFR-00129", "LLFR-00305")
     def test_export_draws_the_areas(self) -> None:

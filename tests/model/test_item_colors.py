@@ -14,6 +14,7 @@ from model.curve_colors import (
     MARKER_COLOR_STR, PALETTE_COLOR_TUPLE, hex_color_or_none)
 from model.workspace import (
     DEFAULT_FLAG_COLOR_STR, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
+    DELTA_X_KIND_STR,
     DEFAULT_TEXT_NOTE_COLOR_STR,
     DEFAULT_TEXT_NOTE_SIZE_I, TEXT_NOTE_SIZE_TUPLE, Workspace,
     plot_state_tuple)
@@ -22,7 +23,8 @@ from model.workspace import (
 class HexColorTest(unittest.TestCase):
     """The "#rrggbb" check shared by the picker, the model and layouts."""
 
-    @covers("LLFR-00388", "LLFR-00319", "LLFR-00393")
+    @covers("LLFR-00388", "LLFR-00319", "LLFR-00393", "LLFR-00727",
+            "LLFR-00810", "LLFR-00814")
     def test_six_hexadecimal_digits_in_any_case(self) -> None:
         """A "#rrggbb" text, in uppercase or lowercase, is kept in
         lowercase; every other value gives None.
@@ -77,7 +79,29 @@ class FlagColorModelTest(WorkspaceTestCase):
         self.assertEqual(self.workspace.add_named_marker(
             "Odd", 4.0, "Blue").color_str, DEFAULT_FLAG_COLOR_STR)
 
-    @covers("LLFR-00393", "LLFR-00392")
+    @covers("LLFR-01197", "LLFR-00392", "LLFR-00409", "HLFR-00089",
+            "HLFR-00092")
+    def test_flag_and_delta_marker_take_any_color(self) -> None:
+        """A flag and a delta marker can be given any color, including
+        every color of the curve palette, and keep it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        delta_marker = self.plot.add_delta_marker(
+            DELTA_X_KIND_STR, ("Speed", 1.0, 1.0), ("Speed", 3.0, 3.0))
+        for color_str in PALETTE_COLOR_TUPLE + ("#000000", "#ffffff",
+                                                "#12ab34"):
+            with self.subTest(color=color_str):
+                self.workspace.set_marker_color(self.flag.marker_id_i,
+                                                color_str)
+                self.assertEqual(self.flag.color_str, color_str.lower())
+                self.plot.set_delta_marker_color(
+                    delta_marker.delta_marker_id_i, color_str)
+                self.assertEqual(delta_marker.color_str,
+                                 color_str.lower())
+
+    @covers("LLFR-00393", "LLFR-00392", "LLFR-00814")
     def test_flag_of_a_layout_keeps_its_color(self) -> None:
         """A flag added with a "#rrggbb" color keeps it, in lowercase.
 
@@ -90,7 +114,7 @@ class FlagColorModelTest(WorkspaceTestCase):
                          (flag.marker_id_i, "Saved", 3.0, "#1f77b4"))
 
     @covers("LLFR-00392", "LLFR-00390", "LLFR-00140", "LLFR-00138",
-            "LLFR-00205", "LLFR-00083")
+            "LLFR-00205", "LLFR-00083", "LLFR-00664", "LLFR-00811")
     def test_color_change_is_part_of_the_undo_state(self) -> None:
         """Any "#rrggbb" color, a palette color included, changes the
         shared flag; the same color in any case, an unusable value or an
@@ -135,7 +159,8 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
         super().setUp()
         self.note = self.plot.add_text_note("Peak", 1.0, 2.0)
 
-    @covers("LLFR-00336", "LLFR-00385")
+    @covers("LLFR-00336", "LLFR-00385", "LLFR-00660", "LLFR-00740",
+            "LLFR-00803")
     def test_new_note_has_the_text_color_and_size_12(self) -> None:
         """A new note has #24303b as text color, the orange #ff8000 as
         border color and 12 points.
@@ -172,7 +197,7 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
         self.assertFalse(self.plot.set_text_note_size(5, 8))
         self.assertEqual(self.note.size_i, 32)
 
-    @covers("LLFR-00387", "LLFR-00390")
+    @covers("LLFR-00387", "LLFR-00390", "LLFR-00811", "LLFR-00808")
     def test_border_and_text_colors_change_separately(self) -> None:
         """The border and the text take their own "#rrggbb" color; the
         same color or an unusable value changes nothing.
@@ -191,7 +216,7 @@ class TextNoteStyleModelTest(WorkspaceTestCase):
         self.assertEqual((self.note.border_color_str,
                           self.note.text_color_str), ("#ff0000", "#0000ff"))
 
-    @covers("LLFR-00342")
+    @covers("LLFR-00342", "LLFR-00748")
     def test_edit_and_move_keep_the_size_and_colors(self) -> None:
         """Editing the text or moving the note keeps its style.
 

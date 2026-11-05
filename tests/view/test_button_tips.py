@@ -28,16 +28,20 @@ EXPECTED_TIP_DICT = {
     "area_button": ("Area", ["Hold A"], ["Hold A"]),
     "text_button": ("Text", ["Hold T"], ["Hold T"]),
     "arrow_button": ("Arrow", ["Hold R"], ["Hold R"]),
-    "reset_zoom_button": ("Reset zoom", ["Z"], ["Z"]),
+    # LLFR-00215, LLFR-00207: "0".
+    "reset_zoom_button": ("Reset zoom", ["0"], ["0"]),
+    # LLFR-00463: "Hold Z", then the two mouse lines.
     "zoom_button": ("Zoom",
-                    ["Click or drag to zoom in",
+                    ["Hold Z", "Click or drag to zoom in",
                      "Wheel or two-finger swipe to zoom in or out"],
-                    ["Click or drag to zoom in",
+                    ["Hold Z", "Click or drag to zoom in",
                      "Wheel or two-finger swipe to zoom in or out"]),
     "open_file_button": ("Open file", [], []),
     "grid_button": ("Grid", [], []),
-    "export_button": ("Export", [], []),
-    "copy_button": ("Copy", [], []),
+    # LLFR-00215, LLFR-01139: the PDF shortcut of the Export menu.
+    "export_button": ("Export", ["Cmd+P"], ["Ctrl+P"]),
+    # LLFR-00215, LLFR-01136: the Copy shortcut.
+    "copy_button": ("Copy", ["Cmd+C"], ["Ctrl+C"]),
     # LLFR-00356, LLFR-00214: the Pan tool is used with the mouse.
     "pan_button": ("Pan", ["Drag on a plot to pan"],
                    ["Drag on a plot to pan"]),
@@ -48,7 +52,6 @@ EXPECTED_TIP_DICT = {
 }
 # LLFR-00215: the buttons whose tip shows only the name.
 NAME_ONLY_ATTRIBUTE_TUPLE = ("open_file_button", "grid_button",
-                             "export_button", "copy_button",
                              "report_bug_button", "save_signals_button")
 # LLFR-00213: minimum WCAG contrast of the paler line on the tip
 # background, so that it stays readable.
@@ -139,7 +142,9 @@ class ButtonTipTest(unittest.TestCase):
             block = block.next()
         return color_list
 
-    @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181")
+    @covers("LLFR-00215", "LLFR-00213", "LLFR-00214", "LLFR-00181",
+            "LLFR-00463", "LLFR-00464", "LLFR-00465", "LLFR-01136",
+            "LLFR-01139", "HLFR-00042", "HLFR-00144", "HLFR-00145")
     def test_tip_texts_on_macos_and_windows(self) -> None:
         """Each button tip has the lines of the table, on both systems.
 
@@ -155,9 +160,10 @@ class ButtonTipTest(unittest.TestCase):
                         button_tip_line_list(button),
                         [expected_tuple[0]] + expected_tuple[column_i])
 
-    @covers("LLFR-00215", "LLFR-00181")
+    @covers("LLFR-00215", "LLFR-00181", "LLFR-00465")
     def test_name_only_buttons(self) -> None:
-        """Open file, Grid, Export and Copy show only their plain name.
+        """Open file, Grid, Report a bug and Save signals show only their
+        plain name.
 
         Inputs: none.
         Outputs: none.
@@ -172,7 +178,7 @@ class ButtonTipTest(unittest.TestCase):
                     self.assertEqual(button.toolTip(), name_str)
                     self.assertFalse(Qt.mightBeRichText(button.toolTip()))
 
-    @covers("LLFR-00215")
+    @covers("LLFR-00215", "LLFR-00465")
     def test_unknown_button_shows_only_its_name(self) -> None:
         """A button not in the table (e.g. Save layout) has no detail.
 
@@ -210,7 +216,7 @@ class ButtonTipTest(unittest.TestCase):
                             color_str,
                             theme.TOOLTIP_DETAIL_COLOR_STR.lower())
 
-    @covers("LLFR-00213", "LLFR-00214", "LLFR-00181")
+    @covers("LLFR-00213", "LLFR-00214", "LLFR-00181", "LLFR-00462")
     def test_tip_shows_on_hover_with_all_lines(self) -> None:
         """The shown tip is the rich tip, and it hides on leave.
 
@@ -295,7 +301,8 @@ class ButtonTipTest(unittest.TestCase):
             self.application.processEvents()
 
     @covers("LLFR-00215", "LLFR-00148", "LLFR-00154", "LLFR-00197",
-            "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321")
+            "LLFR-00200", "LLFR-00207", "LLFR-00287", "LLFR-00321",
+            "LLFR-01092", "LLFR-00883", "HLFR-00144", "HLFR-00145")
     def test_key_names_follow_the_tool_keys(self) -> None:
         """The held and pressed keys are named from the filter's keys.
 
@@ -312,7 +319,8 @@ class ButtonTipTest(unittest.TestCase):
                 (tip_key_filter.AREA_KEY_I, "A", "A"),
                 (tip_key_filter.TEXT_KEY_I, "T", "T"),
                 (tip_key_filter.ARROW_KEY_I, "R", "R"),
-                (tip_key_filter.RESET_ZOOM_KEY_I, "Z", "Z")):
+                (tip_key_filter.ZOOM_KEY_I, "Z", "Z"),
+                (tip_key_filter.RESET_ZOOM_KEY_I, "0", "0")):
             with self.subTest(key_i=key_i):
                 self.assertEqual(key_name_str(key_i, True), macos_str)
                 self.assertEqual(key_name_str(key_i, False), windows_str)
@@ -352,6 +360,193 @@ class ResizeBorderColorTokenTest(unittest.TestCase):
         self.assertLessEqual(hue_f * 360.0, 245.0)
         self.assertGreater(saturation_f, 0.3)
         self.assertEqual(theme.RESIZE_BORDER_WIDTH_I, 2)
+
+
+@requires_qt
+class ButtonTipSourceTest(unittest.TestCase):
+    """LLFR-00883: each button tip names the shortcut or mouse use that
+    the app really uses, from one source of truth, so that a change of a
+    shortcut changes its button tip with it."""
+
+    def setUp(self) -> None:
+        """Create a main window, whose filter and shortcuts are the keys
+        the app really uses.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.application = get_qt_application()
+        from view.main_window import MainWindow
+        self.main_window = MainWindow()
+        self.panel_list = []
+
+    def tearDown(self) -> None:
+        """Close the main window and the extra panels.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for widget in [self.main_window] + self.panel_list:
+            widget.close()
+            widget.deleteLater()
+        self.application.processEvents()
+
+    def shortcut_line_str(self, shortcut, macos_b: bool) -> str:
+        """Return how a QShortcut of the window is written on a system.
+
+        Inputs:
+            shortcut: a QShortcut of the main window.
+            macos_b: True for the macOS text, where Ctrl is Cmd.
+        Outputs: the text, e.g. "Ctrl+Z" or "Cmd+Z".
+        """
+        from PyQt6.QtGui import QKeySequence
+        text_str = shortcut.key().toString(
+            QKeySequence.SequenceFormat.PortableText)
+        if macos_b:
+            text_str = text_str.replace("Ctrl+", "Cmd+")
+        return text_str
+
+    def keyboard_lines_of_the_window(self, macos_b: bool) -> dict:
+        """Return the line each button tip must show, worked out from the
+        keys and shortcuts the window really uses.
+
+        Inputs:
+            macos_b: True for the macOS texts.
+        Outputs: a dict from button name to its list of lines below the
+            name.
+        """
+        from view import top_panel as top_panel_module
+        from view.top_panel import key_name_str
+        top_panel = self.main_window.top_panel
+        tool_key_filter = self.main_window.tool_key_filter
+        expected_dict = {}
+        # LLFR-00213: a held key keeps a plot tool active.
+        for key_i, tool_str in tool_key_filter.key_tool_dict.items():
+            button = top_panel.plot_tool_button_dict[tool_str]
+            expected_dict[button_name(button)] = [
+                "Hold " + key_name_str(key_i, macos_b)]
+        # LLFR-00213: a key pressed alone runs the action of a button;
+        # the Esc key has no button (LLFR-00370 Note).
+        for key_i, action in tool_key_filter.key_action_dict.items():
+            if action == self.main_window.on_reset_zoom_key:
+                expected_dict[button_name(top_panel.reset_zoom_button)] = [
+                    key_name_str(key_i, macos_b)]
+        # LLFR-00213: the window shortcuts of Undo and Redo.
+        expected_dict[button_name(top_panel.undo_button)] = [
+            self.shortcut_line_str(self.main_window.undo_shortcut, macos_b)]
+        expected_dict[button_name(top_panel.redo_button)] = [
+            self.shortcut_line_str(self.main_window.redo_shortcut, macos_b)]
+        # LLFR-01136, LLFR-01139: the window shortcuts of Copy and of
+        # the Export button's "Save all tabs as PDF".
+        expected_dict[button_name(top_panel.copy_button)] = [
+            self.shortcut_line_str(self.main_window.copy_shortcut, macos_b)]
+        expected_dict[button_name(top_panel.export_button)] = [
+            self.shortcut_line_str(self.main_window.pdf_shortcut, macos_b)]
+        # LLFR-00463: the Zoom tool has a held key and, below it, the
+        # two lines of its mouse use.
+        zoom_name_str = button_name(top_panel.zoom_button)
+        if zoom_name_str in expected_dict:
+            expected_dict[zoom_name_str] = expected_dict[zoom_name_str] + (
+                list(top_panel_module.ZOOM_MOUSE_LINE_TUPLE))
+        return expected_dict
+
+    @covers("LLFR-00883", "LLFR-00213", "LLFR-00214", "LLFR-00215",
+            "LLFR-00463", "LLFR-01136", "LLFR-01139")
+    def test_every_tip_line_names_what_the_app_uses(self) -> None:
+        """On both systems, the line below the name of each button with
+        a keyboard shortcut is the key or shortcut that the window's key
+        filter and QShortcuts use for that button; every other plot tool
+        button shows its mouse use; no button tip names a key the window
+        does not use.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import top_panel as top_panel_module
+        top_panel = self.main_window.top_panel
+        system_macos_b = top_panel_module.running_on_macos()
+        for macos_b in (True, False):
+            expected_dict = self.keyboard_lines_of_the_window(macos_b)
+            keyboard_name_set = set()
+            for name_str, (kind_str, _) in (
+                    top_panel_module.BUTTON_TIP_SHORTCUT_DICT.items()):
+                if kind_str != top_panel_module.MOUSE_USE_STR:
+                    keyboard_name_set.add(name_str)
+            with self.subTest(macos_b=macos_b):
+                # Exactly the buttons the window gives a key to.
+                self.assertEqual(keyboard_name_set, set(expected_dict))
+                for name_str, line_list in expected_dict.items():
+                    self.assertEqual(
+                        top_panel_module.button_tip_detail_list(
+                            name_str, macos_b), line_list, name_str)
+            # LLFR-00214: a plot tool with no held key shows its mouse
+            # use, from the same table.
+            for tool_str, button in top_panel.plot_tool_button_dict.items():
+                name_str = button_name(button)
+                if name_str in expected_dict:
+                    continue
+                with self.subTest(macos_b=macos_b, button=name_str):
+                    kind_str, line_tuple = (
+                        top_panel_module.BUTTON_TIP_SHORTCUT_DICT[name_str])
+                    self.assertEqual(kind_str, top_panel_module.MOUSE_USE_STR)
+                    self.assertEqual(
+                        top_panel_module.button_tip_detail_list(
+                            name_str, macos_b), list(line_tuple))
+        # The tips the window really shows are those of its system.
+        from PyQt6.QtWidgets import QPushButton
+        expected_dict = self.keyboard_lines_of_the_window(system_macos_b)
+        shown_name_set = set()
+        for button in top_panel.findChildren(QPushButton):
+            name_str = button_name(button)
+            if name_str in expected_dict:
+                shown_name_set.add(name_str)
+                with self.subTest(shown=name_str):
+                    self.assertEqual(button_tip_line_list(button),
+                                     [name_str] + expected_dict[name_str])
+        self.assertEqual(shown_name_set, set(expected_dict))
+
+    @covers("LLFR-00883", "LLFR-00213", "LLFR-00214")
+    def test_tips_change_with_their_source(self) -> None:
+        """When the shortcut or mouse use of a button changes in the one
+        table the tips are built from, a new top panel shows the new
+        text, for each kind of line, on both systems.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from view import top_panel as top_panel_module
+        changed_dict = {
+            top_panel_module.ARROW_TEXT_STR: (
+                top_panel_module.SHORTCUT_HOLD_STR, int(Qt.Key.Key_W.value)),
+            top_panel_module.RESET_ZOOM_TEXT_STR: (
+                top_panel_module.SHORTCUT_PRESS_STR,
+                int(Qt.Key.Key_Q.value)),
+            top_panel_module.REDO_TEXT_STR: (
+                top_panel_module.SHORTCUT_SEQUENCE_STR, "Ctrl+Shift+Z"),
+            top_panel_module.PAN_TEXT_STR: (
+                top_panel_module.MOUSE_USE_STR, ("Drag anywhere",)),
+        }
+        expected_dict = {
+            "arrow_button": (["Hold W"], ["Hold W"]),
+            "reset_zoom_button": (["Q"], ["Q"]),
+            "redo_button": (["Cmd+Shift+Z"], ["Ctrl+Shift+Z"]),
+            "pan_button": (["Drag anywhere"], ["Drag anywhere"]),
+        }
+        with mock.patch.dict(top_panel_module.BUTTON_TIP_SHORTCUT_DICT,
+                             changed_dict):
+            for macos_b, column_i in ((True, 0), (False, 1)):
+                with mock.patch.object(top_panel_module, "running_on_macos",
+                                       return_value=macos_b):
+                    top_panel = top_panel_module.TopPanel()
+                self.panel_list.append(top_panel)
+                for attribute_str, line_tuple in expected_dict.items():
+                    button = getattr(top_panel, attribute_str)
+                    with self.subTest(macos_b=macos_b,
+                                      button=attribute_str):
+                        self.assertEqual(
+                            button_tip_line_list(button),
+                            [button_name(button)] + line_tuple[column_i])
 
 
 if __name__ == "__main__":

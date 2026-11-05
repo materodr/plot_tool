@@ -10,7 +10,8 @@ import unittest
 from tests.support import covers
 
 from model.workspace import (
-    DELTA_X_KIND_STR, DELTA_Y_KIND_STR, DeltaMarker, Workspace)
+    DELTA_X_KIND_STR, DELTA_Y_KIND_STR, DeltaMarker, Workspace,
+    delta_value_f, delta_value_zero_b)
 
 
 class DeltaMarkerModelTestCase(unittest.TestCase):
@@ -32,7 +33,7 @@ class DeltaMarkerModelTestCase(unittest.TestCase):
 class DeltaMarkerTest(DeltaMarkerModelTestCase):
     """Placing, measuring and removing delta markers."""
 
-    @covers("LLFR-00164", "LLFR-00168", "LLFR-00170")
+    @covers("LLFR-00164", "LLFR-00168", "LLFR-00170", "LLFR-00682")
     def test_add_keeps_kind_and_exact_points(self) -> None:
         """A new marker keeps its kind and both points as given.
 
@@ -64,7 +65,7 @@ class DeltaMarkerTest(DeltaMarkerModelTestCase):
             DELTA_Y_KIND_STR, ("b", 1.5, 9.0), ("a", 5.0, 2.0))
         self.assertEqual(reverse_y.delta_f(), -7.0)
 
-    @covers("LLFR-00164")
+    @covers("LLFR-00164", "LLFR-00682")
     def test_both_points_may_be_on_the_same_curve(self) -> None:
         """Two points of one curve make a valid marker.
 
@@ -107,9 +108,11 @@ class DeltaMarkerTest(DeltaMarkerModelTestCase):
         """
         for index_i in range(50):
             self.plot.add_delta_marker(
-                DELTA_X_KIND_STR, ("a", 0.0, 0.0), ("b", index_i, 1.0))
+                DELTA_X_KIND_STR, ("a", 0.0, 0.0),
+                ("b", index_i + 1.0, 1.0))
             self.plot.add_delta_marker(
-                DELTA_Y_KIND_STR, ("b", 0.0, 0.0), ("a", 1.0, index_i))
+                DELTA_Y_KIND_STR, ("b", 0.0, 0.0),
+                ("a", 1.0, index_i + 1.0))
         self.assertEqual(len(self.plot.delta_marker_list), 100)
         id_list = [delta_marker.delta_marker_id_i
                    for delta_marker in self.plot.delta_marker_list]
@@ -204,6 +207,124 @@ class DeltaMarkerTest(DeltaMarkerModelTestCase):
         self.workspace.restore(with_marker_snapshot)
         self.assertEqual(len(self.workspace.find_plot(
             self.plot.plot_id_i).delta_marker_list), 1)
+
+
+class ZeroValueTest(DeltaMarkerModelTestCase):
+    """No delta marker of value zero (HLFR-00098)."""
+
+    @covers("LLFR-00431", "HLFR-00098")
+    def test_zero_value_tells_the_measured_coordinate(self) -> None:
+        """Delta X compares the times, Delta Y the values, exactly.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        same_time_tuple = (("a", 2.0, 1.0), ("b", 2.0, 5.0))
+        same_value_tuple = (("a", 1.0, 3.0), ("b", 4.0, 3.0))
+        self.assertTrue(delta_value_zero_b(DELTA_X_KIND_STR,
+                                           *same_time_tuple))
+        self.assertFalse(delta_value_zero_b(DELTA_Y_KIND_STR,
+                                            *same_time_tuple))
+        self.assertTrue(delta_value_zero_b(DELTA_Y_KIND_STR,
+                                           *same_value_tuple))
+        self.assertFalse(delta_value_zero_b(DELTA_X_KIND_STR,
+                                            *same_value_tuple))
+        # Only exactly the same coordinate is zero.
+        self.assertFalse(delta_value_zero_b(
+            DELTA_X_KIND_STR, ("a", 2.0, 1.0), ("a", 2.0 + 1e-12, 1.0)))
+        self.assertEqual(delta_value_f(DELTA_X_KIND_STR, ("a", 1.0, 2.0),
+                                       ("b", 4.0, -1.0)), 3.0)
+        self.assertEqual(delta_value_f(DELTA_Y_KIND_STR, ("a", 1.0, 2.0),
+                                       ("b", 4.0, -1.0)), -3.0)
+
+    @covers("LLFR-00431", "HLFR-00098")
+    def test_marker_of_value_zero_is_refused(self) -> None:
+        """Two points with the same measured coordinate raise ValueError
+        and add nothing, also on two different curves.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for kind_str, first_tuple, second_tuple in (
+                (DELTA_X_KIND_STR, ("a", 2.0, 1.0), ("a", 2.0, 1.0)),
+                (DELTA_X_KIND_STR, ("a", 2.0, 1.0), ("b", 2.0, 7.0)),
+                (DELTA_Y_KIND_STR, ("a", 1.0, 4.0), ("b", 3.0, 4.0))):
+            with self.subTest(kind=kind_str, first=first_tuple,
+                              second=second_tuple):
+                with self.assertRaises(ValueError):
+                    self.plot.add_delta_marker(kind_str, first_tuple,
+                                               second_tuple)
+        self.assertEqual(self.plot.delta_marker_list, [])
+
+
+class MovePointTest(DeltaMarkerModelTestCase):
+    """Moving one point of a delta marker (HLFR-00099)."""
+
+    @covers("LLFR-00433", "LLFR-00862", "LLFR-00863", "HLFR-00099")
+    def test_move_keeps_the_curve_and_the_other_point(self) -> None:
+        """The moved point keeps its signal; the other point stays.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        delta_marker = self.plot.add_delta_marker(
+            DELTA_X_KIND_STR, ("a", 1.0, 2.0), ("b", 4.0, 5.0))
+        self.assertTrue(self.plot.move_delta_marker_point(
+            delta_marker.delta_marker_id_i, 1, 6.0, 8.0))
+        self.assertEqual(delta_marker.first_point_tuple, ("a", 1.0, 2.0))
+        self.assertEqual(delta_marker.second_point_tuple, ("b", 6.0, 8.0))
+        self.assertEqual(delta_marker.delta_f(), 5.0)
+        self.assertTrue(self.plot.move_delta_marker_point(
+            delta_marker.delta_marker_id_i, 0, 0.5, -1.0))
+        self.assertEqual(delta_marker.first_point_tuple, ("a", 0.5, -1.0))
+        self.assertEqual(delta_marker.second_point_tuple, ("b", 6.0, 8.0))
+        self.assertEqual(delta_marker.kind_str, DELTA_X_KIND_STR)
+
+    @covers("LLFR-00435", "LLFR-00433", "HLFR-00098")
+    def test_move_to_a_zero_value_changes_nothing(self) -> None:
+        """A point moved onto the other one's time (Delta X) or value
+        (Delta Y) is refused and the marker keeps its points.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        delta_x = self.plot.add_delta_marker(
+            DELTA_X_KIND_STR, ("a", 1.0, 2.0), ("b", 4.0, 5.0))
+        self.assertFalse(self.plot.move_delta_marker_point(
+            delta_x.delta_marker_id_i, 1, 1.0, 9.0))
+        self.assertEqual(delta_x.second_point_tuple, ("b", 4.0, 5.0))
+        delta_y = self.plot.add_delta_marker(
+            DELTA_Y_KIND_STR, ("a", 1.0, 2.0), ("b", 4.0, 5.0))
+        self.assertFalse(self.plot.move_delta_marker_point(
+            delta_y.delta_marker_id_i, 0, 3.0, 5.0))
+        self.assertEqual(delta_y.first_point_tuple, ("a", 1.0, 2.0))
+        # A move that keeps the value other than zero is fine.
+        self.assertTrue(self.plot.move_delta_marker_point(
+            delta_y.delta_marker_id_i, 0, 4.0, 1.0))
+
+    @covers("LLFR-00433")
+    def test_invalid_moves_are_refused(self) -> None:
+        """Unknown ids or indices, non-finite numbers and a move onto
+        the same sample change nothing and return False.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        delta_marker = self.plot.add_delta_marker(
+            DELTA_Y_KIND_STR, ("a", 1.0, 2.0), ("b", 4.0, 5.0))
+        marker_id_i = delta_marker.delta_marker_id_i
+        for argument_tuple in (
+                (marker_id_i + 99, 0, 2.0, 3.0),
+                (marker_id_i, 2, 2.0, 3.0),
+                (marker_id_i, -1, 2.0, 3.0),
+                (marker_id_i, 0, math.nan, 3.0),
+                (marker_id_i, 1, 2.0, math.inf),
+                (marker_id_i, 0, 1.0, 2.0)):
+            with self.subTest(arguments=argument_tuple):
+                self.assertFalse(
+                    self.plot.move_delta_marker_point(*argument_tuple))
+        self.assertEqual(delta_marker.first_point_tuple, ("a", 1.0, 2.0))
+        self.assertEqual(delta_marker.second_point_tuple, ("b", 4.0, 5.0))
 
 
 if __name__ == "__main__":

@@ -250,7 +250,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 6.5)
         self.assertEqual(self.controller.plot_tool_str, MARKER_TOOL_STR)
 
-    @covers("LLFR-00086", "LLFR-00384")
+    @covers("LLFR-00086", "LLFR-00384", "LLFR-00799")
     def test_move_needs_the_marker_tool(self) -> None:
         """With another tool active, a move request is ignored.
 
@@ -269,7 +269,8 @@ class MoveMarkerTest(MarkerControllerTestCase):
                 self.assertEqual(
                     self.workspace.find_marker(marker_id_i).time_s, 2.0)
 
-    @covers("LLFR-00382", "LLFR-00086", "LLFR-00140", "LLFR-00205")
+    @covers("LLFR-00382", "LLFR-00086", "LLFR-00140", "LLFR-00205",
+            "LLFR-00664")
     def test_move_with_no_tool_is_undoable(self) -> None:
         """With no plot tool active, a move request moves the flag on
         every plot as one undoable action; a new flag is not placed.
@@ -309,7 +310,7 @@ class MoveMarkerTest(MarkerControllerTestCase):
         self.assertEqual(self.draw_count(), draw_count_i)
         self.assertEqual(self.workspace.find_marker(marker_id_i).time_s, 2.0)
 
-    @covers("LLFR-00086", "LLFR-00205")
+    @covers("LLFR-00086", "LLFR-00205", "LLFR-00664", "LLFR-00666")
     def test_move_on_another_plot_moves_it_everywhere(self) -> None:
         """A marker dragged on any plot moves on every plot of every tab.
 
@@ -364,7 +365,7 @@ class RenameMarkerTest(MarkerControllerTestCase):
                          ["Flag 1", "Start $x$"])
         self.assertEqual(self.drawn_names(), ["Stop"])
 
-    @covers("LLFR-00089")
+    @covers("LLFR-00089", "LLFR-00661")
     def test_blank_name_keeps_old_name_without_message(self) -> None:
         """Empty or space-only names keep the name and draw nothing.
 
@@ -506,9 +507,9 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         delete_handler(self.plot_id_i, 999)
         self.assertEqual(self.draw_count(), draw_count_i)
 
-    @covers("LLFR-00091", "LLFR-00015")
-    def test_markers_are_cleared_on_file_replace(self) -> None:
-        """Opening a new file closes the plots and their markers.
+    @covers("LLFR-00091", "LLFR-00667", "LLFR-00936", "LLFR-00928")
+    def test_markers_are_deleted_by_close_all_files(self) -> None:
+        """Closing every file deletes the plots and their flags.
 
         Inputs: none.
         Outputs: none.
@@ -516,12 +517,14 @@ class DeleteMarkerTest(MarkerControllerTestCase):
         self.place(1.0)
         marker_id_i = self.marker_id("Flag 1")
         old_plot_id_i = self.plot_id_i
-        self.file_controller.open(self.signal_file, True)
+        self.close_all_files()
         self.assertIsNone(self.workspace.find_plot(old_plot_id_i))
+        self.assertEqual(self.workspace.marker_list, [])
         # Requests for the old plot are ignored.
         self.view.handler_dict["marker_delete_handler"](old_plot_id_i,
                                                         marker_id_i)
         self.place(1.0, old_plot_id_i)
+        self.file_controller.open(self.signal_file, None)
         self.double_click("s1")
         new_plot_id_i = self.current_plot_ids()[0]
         self.assertEqual(self.markers_of(new_plot_id_i), [])
@@ -587,7 +590,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.assertEqual(self.markers_of(second_plot_id_i),
                          expected_list)
 
-    @covers("LLFR-00088", "LLFR-00112", "LLFR-00205")
+    @covers("LLFR-00088", "LLFR-00112", "LLFR-00205", "LLFR-00664")
     def test_rename_on_one_plot_renames_everywhere(self) -> None:
         """A rename chosen on plot B changes the label on plot A.
 
@@ -602,7 +605,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.assertEqual(self.marker_names_of(self.plot_id_i), ["Start"])
         self.assertEqual(self.marker_names_of(other_plot_id_i), ["Start"])
 
-    @covers("LLFR-00091", "LLFR-00205")
+    @covers("LLFR-00091", "LLFR-00205", "LLFR-00664")
     def test_delete_on_one_plot_deletes_everywhere(self) -> None:
         """Delete chosen on plot B removes the marker from every plot.
 
@@ -623,7 +626,7 @@ class SharedMarkersTest(MarkerControllerTestCase):
                          ["Flag 2"])
 
     @covers("LLFR-00140", "LLFR-00205", "LLFR-00081", "LLFR-00086",
-            "LLFR-00088", "LLFR-00091")
+            "LLFR-00088", "LLFR-00091", "LLFR-00664")
     def test_each_marker_action_is_one_undo_step(self) -> None:
         """Place, move, rename and delete are each one undo, everywhere.
 
@@ -669,7 +672,8 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.place(3.0)
         self.assertEqual(self.drawn_names(), ["Flag 1", "Flag 3"])
 
-    @covers("LLFR-00205", "LLFR-00049", "LLFR-00140")
+    @covers("LLFR-00205", "LLFR-00049", "LLFR-00140", "LLFR-00667",
+            "LLFR-00668")
     def test_deleting_the_last_plot_deletes_markers_undoably(self) -> None:
         """The last plot takes the markers along; undo brings both back.
 
@@ -698,7 +702,8 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.place(3.0)
         self.assertEqual(self.drawn_names()[-1], "Flag 3")
 
-    @covers("LLFR-00205", "LLFR-00051", "LLFR-00140")
+    @covers("LLFR-00205", "LLFR-00051", "LLFR-00140", "LLFR-00667",
+            "LLFR-00668")
     def test_removing_the_last_curve_deletes_markers_undoably(self) -> None:
         """Removing the last curve of the last plot deletes the markers.
 
@@ -715,7 +720,8 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.assertEqual(self.markers_of(self.plot_id_i),
                          saved_list)
 
-    @covers("LLFR-00205", "LLFR-00028", "LLFR-00140")
+    @covers("LLFR-00205", "LLFR-00028", "LLFR-00140", "LLFR-00667",
+            "LLFR-00668")
     def test_deleting_the_tab_of_the_last_plots_deletes_markers(self) -> None:
         """A tab delete that leaves no plot deletes the markers undoably.
 
@@ -740,25 +746,34 @@ class SharedMarkersTest(MarkerControllerTestCase):
         self.assertEqual(self.markers_of(self.plot_id_i),
                          saved_list)
 
-    @covers("LLFR-00205", "LLFR-00085", "LLFR-00111", "LLFR-00015")
-    def test_file_open_clears_markers_and_restarts_numbering(self) -> None:
-        """A file open deletes the markers and restarts at "Flag 1".
+    @covers("LLFR-00205", "LLFR-00085", "LLFR-00111", "LLFR-00667",
+            "LLFR-00930", "LLFR-00921", "LLFR-00142")
+    def test_files_keep_the_flag_numbering(self) -> None:
+        """An open keeps the flags; a close deletes them, not the count.
 
         Inputs: none.
         Outputs: none.
         """
         self.place(1.0)
         self.place(2.0)
-        self.file_controller.open(self.signal_file, True)
+        # LLFR-00921, LLFR-00142: an added file keeps the flags and the
+        # history.
+        self.file_controller.open(self.signal_file, None)
+        self.assertEqual(len(self.workspace.marker_list), 2)
+        self.assertTrue(self.controller.undo_history.can_undo())
+        # LLFR-00667, LLFR-00930: closing every file deletes the flags,
+        # and the history is cleared.
+        self.close_all_files()
         self.assertEqual(self.workspace.marker_list, [])
-        # LLFR-00142: not undoable; the history is empty.
         self.assertFalse(self.controller.undo_history.can_undo())
+        # LLFR-00085, LLFR-00111: the numbering goes on.
+        self.file_controller.open(self.signal_file, None)
         self.view.handler_dict["plot_tool"](MARKER_TOOL_STR)
         self.double_click("s1")
         new_plot_id_i = self.current_plot_ids()[0]
         self.assertEqual(self.markers_of(new_plot_id_i), [])
         self.place(1.5, new_plot_id_i)
-        self.assertEqual(self.marker_names_of(new_plot_id_i), ["Flag 1"])
+        self.assertEqual(self.marker_names_of(new_plot_id_i), ["Flag 3"])
 
 
 if __name__ == "__main__":

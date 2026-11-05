@@ -6,8 +6,11 @@
   holds the maximum number of plots (LLFR-00032).
 - Tab Name Taken box: information box shown when the user renames a
   tab to the name of another tab (LLFR-00211).
-- Replace File box: question asked before an open file is replaced
-  (HLFR-00010).
+- Open Files Limit box: information box shown in place of the file
+  selection dialog while 10 data files are open (LLFR-00896).
+- Refused Files box: information box that lists the selected files that
+  were not opened because they are already open or because 10 files are
+  open (LLFR-00956).
 - Unexpected Error box: error box shown when an unexpected error
   reaches the event loop, instead of letting the app abort
   (HLFR-00002, PCR-00025).
@@ -28,22 +31,43 @@
 - Report a Bug Error box: error box shown when the web browser could not
   open the page of a new issue (LLFR-00361).
 
+The boxes that list items (LLFR-00981) draw each wrapped line under the
+text of its own item (LLFR-01176): ``list_text_html`` turns their plain
+text into rich text with a hanging indent for each line, the message
+boxes are ``ListMessageBox`` objects and the scrollable boxes hold a
+``ListTextField``. Both keep the plain text, which their ``text()`` and
+``plain_text()`` return, so tests and the clipboard read the list as
+it is written. The File Open Error box and the refused files box are
+scrollable when they are long (LLFR-01177).
+
 Each box is made by a ``build_*`` function, so tests can inspect it
 without opening a modal dialog. The ``show_*`` and ``ask_*`` functions
 build the box and run it.
 """
 
+import html
+
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFontMetricsF, QTextOption
 from PyQt6.QtWidgets import (
-    QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox,
-    QPlainTextEdit, QStyle, QVBoxLayout)
+    QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox, QStyle,
+    QTextEdit, QVBoxLayout)
+
+from model.message_lists import (
+    has_hanging_line_b, is_long_list_text, list_line_list, list_text)
+from model.workspace import MAXIMUM_MATRIX_SIZE_I
 
 FILE_OPEN_ERROR_TITLE_STR = "File Open Error"
 FULL_TAB_TITLE_STR = "Full Tab"
+# LLFR-00032: a full tab whose plot matrix can still grow.
 FULL_TAB_MESSAGE_STR = (
-    "This tab already holds the maximum of 5 plots, so no new plot was "
-    "created. Add a new tab or delete a plot from this tab."
-)
+    "This tab is full ({rows} \u00d7 {columns} matrix). Use a new tab, "
+    "a larger matrix from the tab's menu, or delete a plot.")
+# LLFR-01127: a full tab whose plot matrix is already 10 x 10.
+FULL_LARGEST_MATRIX_MESSAGE_STR = (
+    "This tab is full (10 \u00d7 10 matrix). Use a new tab, or delete a "
+    "plot.")
+
 # LLFR-00211: the information box of a rename to another tab's name.
 TAB_NAME_TAKEN_TITLE_STR = "Rename Tab"
 TAB_NAME_TAKEN_MESSAGE_STR = (
@@ -55,11 +79,10 @@ PLOT_KIND_MISMATCH_TITLE_STR = "Frequency Plot"
 PLOT_KIND_MISMATCH_MESSAGE_STR = (
     "FFT signals and time signals cannot be drawn in the same plot. "
     "Double-click the signal to draw it in a new plot.")
-REPLACE_FILE_TITLE_STR = "Replace File"
-REPLACE_FILE_MESSAGE_STR = (
-    "Another file is already open. Proceeding will close the current "
-    "file and all its plots. Do you want to proceed?"
-)
+# LLFR-00896, LLFR-00956: the titles of the information boxes of the
+# open-file flow.
+OPEN_FILES_LIMIT_TITLE_STR = "Open file"
+REFUSED_FILES_TITLE_STR = "Files not opened"
 UNEXPECTED_ERROR_TITLE_STR = "Error"
 UNEXPECTED_ERROR_INTRO_STR = (
     "An unexpected error occurred. The app keeps running, but the last "
@@ -80,6 +103,9 @@ SAVE_LAYOUT_ERROR_INTRO_STR = "The layout file could not be saved."
 LOAD_LAYOUT_ERROR_TITLE_STR = "Load Layout Error"
 # LLFR-00237: the information box of the load report.
 LAYOUT_REPORT_TITLE_STR = "Layout Loaded"
+# LLFR-01245, LLFR-01246: the information box of a layout loaded while no
+# data file is open, when it opens none.
+LAYOUT_NEEDS_DATA_FILE_TITLE_STR = "Load Layout"
 LAYOUT_REPORT_INTRO_STR = (
     "The layout was loaded, but some parts of it could not be rebuilt "
     "as saved:")
@@ -120,18 +146,243 @@ DELETE_ONE_CONSEQUENCE_MESSAGE_STR = (
     "history is cleared. This cannot be undone.")
 
 
-def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
+# LLFR-00924, LLFR-00934: the titles of the questions of the file menu.
+CLOSE_FILE_TITLE_STR = "Close file"
+CLOSE_ALL_FILES_TITLE_STR = "Close all files"
+
+# LLFR-01177: the objectName of the text field of the File Open Error box
+# and of the refused files box when they are scrollable.
+FILE_OPEN_ERROR_TEXT_OBJECT_NAME_STR = "file_open_error_text"
+REFUSED_FILES_TEXT_OBJECT_NAME_STR = "refused_files_text"
+# LLFR-01176: the objectName that QMessageBox gives its text label.
+MESSAGE_BOX_LABEL_OBJECT_NAME_STR = "qt_msgbox_label"
+# LLFR-01206: the objectName of the sentence of a scrollable box.
+SCROLLABLE_INTRO_OBJECT_NAME_STR = "scrollable_box_intro"
+# LLFR-01176: the style of one line of a list box: no space above or
+# below it (LLFR-00982 already puts a blank line between the items),
+# the indent of its wrapped lines on the left, and a negative indent of
+# its first line, so that the indent and the number stand out on the
+# left of the text (a hanging indent). Spaces are kept as typed.
+LIST_LINE_STYLE_STR = (
+    "margin-top:0px; margin-bottom:0px; margin-left:{margin}px; "
+    "margin-right:0px; text-indent:{indent}px; white-space:pre-wrap;")
+# LLFR-01206, LLFR-01207: the main text of every box, in bold letters
+# and in one font size.
+MESSAGE_FONT_POINT_SIZE_I = 13
+MESSAGE_TEXT_STYLE_STR = (
+    f"font-weight: bold; font-size: {MESSAGE_FONT_POINT_SIZE_I}pt;")
+# LLFR-00982: an empty paragraph, as Qt writes one, for a blank line.
+EMPTY_LINE_HTML_STR = (
+    '<p style="-qt-paragraph-type:empty; margin-top:0px; '
+    'margin-bottom:0px; margin-left:0px; margin-right:0px; '
+    'text-indent:0px;"><br /></p>')
+
+
+def message_box_style_sheet() -> str:
+    """Return the style sheet that a message box gives its main text.
+
+    Inputs: none.
+    Outputs: a Qt style sheet for the text label of a QMessageBox
+        (MESSAGE_BOX_LABEL_OBJECT_NAME_STR): bold letters of
+        MESSAGE_FONT_POINT_SIZE_I points.
+    """
+    # LLFR-01206, LLFR-01207: one shared style for every box.
+    return (f"QLabel#{MESSAGE_BOX_LABEL_OBJECT_NAME_STR} "
+            f"{{ {MESSAGE_TEXT_STYLE_STR} }}")
+
+
+def apply_message_text_style(widget, label_only_b: bool = True) -> None:
+    """Give a box, or one of its text widgets, the main text style.
+
+    Inputs:
+        widget: a QMessageBox, or a QLabel or QTextEdit of a box.
+        label_only_b: True for a QMessageBox, whose text label is styled
+            through its objectName; False to style the widget itself.
+    Outputs: none. The style is added to the widget's style sheet.
+    """
+    # LLFR-01206, LLFR-01207: the shared style helper of the boxes.
+    style_str = (message_box_style_sheet() if label_only_b
+                 else MESSAGE_TEXT_STYLE_STR)
+    current_str = widget.styleSheet()
+    if style_str in current_str:
+        return
+    widget.setStyleSheet((current_str + "\n" + style_str).strip())
+
+
+def list_text_html(text_str: str, font) -> str:
+    """Return the rich text of a list box with hanging indents.
+
+    Inputs:
+        text_str: the plain text of a box of LLFR-00981.
+        font: the QFont the text is drawn with.
+    Outputs: an HTML text with one paragraph per line of text_str. Each
+        paragraph starts its first line at the width of the line's blank
+        indent, with its number, and draws its text and every wrapped
+        line at the width of the indent and the number together, so that
+        a wrapped line continues under the text of its own item.
+    """
+    # LLFR-01176: measure the indent and the number in the box's font.
+    font_metrics = QFontMetricsF(font)
+    paragraph_list = []
+    for indent_str, number_str, rest_str in list_line_list(text_str):
+        if not (number_str or rest_str):
+            # LLFR-00982: the blank line between two items.
+            paragraph_list.append(EMPTY_LINE_HTML_STR)
+            continue
+        # LLFR-01176, LLFR-00985, LLFR-00986: the text of every line of
+        # an item starts where the text after its number starts.
+        margin_f = font_metrics.horizontalAdvance(indent_str + number_str)
+        indent_f = -font_metrics.horizontalAdvance(number_str)
+        style_str = LIST_LINE_STYLE_STR.format(
+            margin=f"{margin_f:.2f}", indent=f"{indent_f:.2f}")
+        paragraph_list.append(
+            f'<p style="{style_str}">'
+            f"{html.escape(number_str + rest_str, quote=False)}</p>")
+    return "<html><body>" + "".join(paragraph_list) + "</body></html>"
+
+
+class ListMessageBox(QMessageBox):
+    """A message box that draws its list with hanging indents.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+    Outputs: a QMessageBox whose ``text()`` is the plain text set with
+        ``setText``, while the box draws it as the rich text of
+        list_text_html when a line has an indent or a number.
+    """
+
+    def __init__(self, parent=None) -> None:
+        """Create the box with no text.
+
+        Inputs:
+            parent: parent widget of the box, or None.
+        Outputs: none.
+        """
+        # LLFR-01176: the plain text of the list, kept for text().
+        super().__init__(parent)
+        self.plain_text_str = ""
+        # LLFR-01206, LLFR-01207: the main text in bold, in one size.
+        apply_message_text_style(self)
+
+    def setText(self, text_str: str) -> None:
+        """Set the text of the box.
+
+        Inputs:
+            text_str: the plain text of the box.
+        Outputs: none. A text with an indented or numbered line is drawn
+            as rich text with hanging indents (LLFR-01176); any other
+            text is drawn as plain text, as before.
+        """
+        # LLFR-01176: keep the plain text and draw the hanging indents.
+        self.plain_text_str = str(text_str)
+        if not has_hanging_line_b(self.plain_text_str):
+            self.setTextFormat(Qt.TextFormat.PlainText)
+            super().setText(self.plain_text_str)
+            return
+        label = self.findChild(QLabel, MESSAGE_BOX_LABEL_OBJECT_NAME_STR)
+        text_widget = label if label is not None else self
+        text_widget.ensurePolished()
+        self.setTextFormat(Qt.TextFormat.RichText)
+        super().setText(list_text_html(self.plain_text_str,
+                                       text_widget.font()))
+
+    def text(self) -> str:
+        """Return the plain text of the box, as setText received it.
+
+        Inputs: none.
+        Outputs: the plain text; rich_text() returns what is drawn.
+        """
+        # LLFR-01176: the list as it is written, without the HTML.
+        return self.plain_text_str
+
+    def rich_text(self) -> str:
+        """Return the text that the box draws.
+
+        Inputs: none.
+        Outputs: the rich text of list_text_html, or the plain text when
+            no line has an indent or a number.
+        """
+        # LLFR-01176: what the box's label holds.
+        return super().text()
+
+
+class ListTextField(QTextEdit):
+    """A read-only, scrollable text field that draws a list box text.
+
+    Inputs:
+        parent: parent widget of the field, or None.
+    Outputs: a QTextEdit that shows the text of set_list_text with the
+        hanging indents of LLFR-01176 and wraps its lines at its width,
+        also inside a long name (LLFR-00990).
+    """
+
+    def __init__(self, parent=None) -> None:
+        """Create the empty, read-only field.
+
+        Inputs:
+            parent: parent widget of the field, or None.
+        Outputs: none.
+        """
+        # LLFR-00884, LLFR-00885, LLFR-01177: read-only, with a scroll
+        # bar when the list is longer than the field.
+        super().__init__(parent)
+        self.plain_text_str = ""
+        # LLFR-01206, LLFR-01207: the list of a scrollable box in bold,
+        # in the size of the other boxes.
+        apply_message_text_style(self, False)
+        self.setReadOnly(True)
+        self.setAcceptRichText(False)
+        # LLFR-00990: each line is wrapped at the width of the field,
+        # also inside a long signal name, so that nothing needs a
+        # horizontal scroll.
+        self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.setWordWrapMode(
+            QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+
+    def set_list_text(self, text_str: str) -> None:
+        """Show the plain text of a list box.
+
+        Inputs:
+            text_str: the plain text of a box of LLFR-00981.
+        Outputs: none.
+        """
+        # LLFR-01176: each wrapped line under the text of its item.
+        self.plain_text_str = str(text_str)
+        self.ensurePolished()
+        self.document().setDefaultFont(self.font())
+        self.setHtml(list_text_html(self.plain_text_str, self.font()))
+
+    def plain_text(self) -> str:
+        """Return the plain text that set_list_text received.
+
+        Inputs: none.
+        Outputs: the list as it is written.
+        """
+        # LLFR-01176: the list as it is written, without the HTML.
+        return self.plain_text_str
+
+
+def build_file_open_error_box(parent, message_str: str):
     """Build the File Open Error box.
 
     Inputs:
         parent: parent widget of the box, or None.
         message_str: the description of the error shown to the user.
-    Outputs: a QMessageBox with the critical icon, the title
-        FILE_OPEN_ERROR_TITLE_STR, the given text and an OK button.
+    Outputs: a ListMessageBox with the critical icon, the title
+        FILE_OPEN_ERROR_TITLE_STR, the given text and an OK button; or,
+        when the text is long (LLFR-01177), a scrollable QDialog with the
+        same title and icon, the text in a ListTextField (objectName
+        FILE_OPEN_ERROR_TEXT_OBJECT_NAME_STR) and an OK button.
     """
+    # LLFR-01177: a long box is scrollable, like the load report.
+    if is_long_list_text(message_str):
+        return build_scrollable_list_box(
+            parent, message_str, FILE_OPEN_ERROR_TITLE_STR, "",
+            FILE_OPEN_ERROR_TEXT_OBJECT_NAME_STR,
+            QStyle.StandardPixmap.SP_MessageBoxCritical)
     # LLFR-00008, LLFR-00009, LLFR-00011, LLFR-00012: the File Open
     # Error box is an error box that describes the error (HLFR-00002).
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Critical)
     box.setWindowTitle(FILE_OPEN_ERROR_TITLE_STR)
     box.setText(message_str)
@@ -140,21 +391,43 @@ def build_file_open_error_box(parent, message_str: str) -> QMessageBox:
     return box
 
 
-def build_full_tab_box(parent) -> QMessageBox:
+def full_tab_message_str(row_count_i: int = 5,
+                         column_count_i: int = 1) -> str:
+    """Return the text of the Full Tab Notification box.
+
+    Inputs:
+        row_count_i: rows of the full tab's plot matrix.
+        column_count_i: columns of the full tab's plot matrix.
+    Outputs: FULL_TAB_MESSAGE_STR with the matrix filled in, or
+        FULL_LARGEST_MATRIX_MESSAGE_STR for a 10 x 10 matrix.
+    """
+    # LLFR-01127: with a 10 x 10 matrix, only "use a new tab".
+    if (row_count_i >= MAXIMUM_MATRIX_SIZE_I
+            and column_count_i >= MAXIMUM_MATRIX_SIZE_I):
+        return FULL_LARGEST_MATRIX_MESSAGE_STR
+    # LLFR-00032: use a new tab or choose a larger plot matrix.
+    return FULL_TAB_MESSAGE_STR.format(rows=int(row_count_i),
+                                       columns=int(column_count_i))
+
+
+def build_full_tab_box(parent, row_count_i: int = 5,
+                       column_count_i: int = 1) -> QMessageBox:
     """Build the Full Tab Notification box.
 
     Inputs:
         parent: parent widget of the box, or None.
+        row_count_i: rows of the full tab's plot matrix.
+        column_count_i: columns of the full tab's plot matrix.
     Outputs: a QMessageBox with the information icon (it is not an error
-        box), the title FULL_TAB_TITLE_STR, the text FULL_TAB_MESSAGE_STR
-        and an OK button.
+        box), the title FULL_TAB_TITLE_STR, the text of
+        full_tab_message_str and an OK button.
     """
-    # LLFR-00032: information message telling the user to add a new tab
-    # or delete a plot.
-    box = QMessageBox(parent)
+    # LLFR-00032, LLFR-01127: information message telling the user to
+    # use a new tab or, below 10 x 10, a larger plot matrix.
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(FULL_TAB_TITLE_STR)
-    box.setText(FULL_TAB_MESSAGE_STR)
+    box.setText(full_tab_message_str(row_count_i, column_count_i))
     box.setStandardButtons(QMessageBox.StandardButton.Ok)
     box.setDefaultButton(QMessageBox.StandardButton.Ok)
     return box
@@ -173,7 +446,7 @@ def build_tab_name_taken_box(parent, name_str: str) -> QMessageBox:
     """
     # LLFR-00211: information message saying that a tab with that name
     # already exists.
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(TAB_NAME_TAKEN_TITLE_STR)
     box.setText(TAB_NAME_TAKEN_MESSAGE_STR.format(name=name_str))
@@ -193,34 +466,12 @@ def build_plot_kind_mismatch_box(parent) -> QMessageBox:
     """
     # LLFR-00257: information message saying that FFT signals and time
     # signals cannot be drawn in the same plot.
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
     box.setWindowTitle(PLOT_KIND_MISMATCH_TITLE_STR)
     box.setText(PLOT_KIND_MISMATCH_MESSAGE_STR)
     box.setStandardButtons(QMessageBox.StandardButton.Ok)
     box.setDefaultButton(QMessageBox.StandardButton.Ok)
-    return box
-
-
-def build_replace_file_box(parent) -> QMessageBox:
-    """Build the Replace File confirmation box.
-
-    Inputs:
-        parent: parent widget of the box, or None.
-    Outputs: a QMessageBox with the question icon, the title
-        REPLACE_FILE_TITLE_STR, the text REPLACE_FILE_MESSAGE_STR and the
-        buttons Yes and No, where No is the default and escape button.
-    """
-    # LLFR-00013, LLFR-00014: ask whether to proceed, stating that
-    # proceeding closes the current file (HLFR-00010).
-    box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Icon.Question)
-    box.setWindowTitle(REPLACE_FILE_TITLE_STR)
-    box.setText(REPLACE_FILE_MESSAGE_STR)
-    box.setStandardButtons(QMessageBox.StandardButton.Yes
-                           | QMessageBox.StandardButton.No)
-    box.setDefaultButton(QMessageBox.StandardButton.No)
-    box.setEscapeButton(QMessageBox.StandardButton.No)
     return box
 
 
@@ -236,15 +487,18 @@ def show_file_open_error(parent, message_str: str) -> None:
     build_file_open_error_box(parent, message_str).exec()
 
 
-def show_full_tab_notification(parent) -> None:
+def show_full_tab_notification(parent, row_count_i: int = 5,
+                               column_count_i: int = 1) -> None:
     """Show the Full Tab Notification box and wait until it is closed.
 
     Inputs:
         parent: parent widget of the box, or None.
+        row_count_i: rows of the full tab's plot matrix.
+        column_count_i: columns of the full tab's plot matrix.
     Outputs: none.
     """
-    # LLFR-00032: notify that the tab is full.
-    build_full_tab_box(parent).exec()
+    # LLFR-00032, LLFR-01127: notify that the tab is full.
+    build_full_tab_box(parent, row_count_i, column_count_i).exec()
 
 
 def show_tab_name_taken_notification(parent, name_str: str) -> None:
@@ -270,23 +524,41 @@ def show_plot_kind_mismatch_notification(parent) -> None:
     build_plot_kind_mismatch_box(parent).exec()
 
 
-def ask_replace_file(parent) -> bool:
-    """Ask the user whether to replace the open file.
+def build_open_files_limit_box(parent, message_str: str) -> QMessageBox:
+    """Build the box shown at the Open file click with 10 files open.
 
     Inputs:
         parent: parent widget of the box, or None.
-    Outputs: True when the user chose Yes, False otherwise (No, or the
-        box closed without choosing).
+        message_str: the sentence of the box (from the controller).
+    Outputs: a QMessageBox with the information icon (not an error box)
+        and an OK button.
     """
-    # LLFR-00013: Yes means the user proceeds.
-    # LLFR-00014: any other answer keeps the current file open.
-    result = build_replace_file_box(parent).exec()
-    # exec() returns an int in PyQt6; accept a StandardButton as well.
-    if isinstance(result, QMessageBox.StandardButton):
-        result_value_i = int(result.value)
-    else:
-        result_value_i = int(result)
-    return result_value_i == QMessageBox.StandardButton.Yes.value
+    # LLFR-00896: an information box in place of the dialog.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             OPEN_FILES_LIMIT_TITLE_STR, message_str)
+
+
+def build_refused_files_box(parent, message_str: str):
+    """Build the box that lists the selected files that were refused.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: one item per refused file, with its reason.
+    Outputs: a ListMessageBox with the information icon (not an error
+        box) and an OK button; or, when the text is long (LLFR-01177), a
+        scrollable QDialog with the same title and icon, the text in a
+        ListTextField (objectName REFUSED_FILES_TEXT_OBJECT_NAME_STR)
+        and an OK button.
+    """
+    # LLFR-01177: a long box is scrollable, like the load report.
+    if is_long_list_text(message_str):
+        return build_scrollable_list_box(
+            parent, message_str, REFUSED_FILES_TITLE_STR, "",
+            REFUSED_FILES_TEXT_OBJECT_NAME_STR,
+            QStyle.StandardPixmap.SP_MessageBoxInformation)
+    # LLFR-00956: one information box for the refused files.
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             REFUSED_FILES_TITLE_STR, message_str)
 
 
 def build_unexpected_error_box(parent, message_str: str) -> QMessageBox:
@@ -302,7 +574,7 @@ def build_unexpected_error_box(parent, message_str: str) -> QMessageBox:
     """
     # LLFR-00071: an error box titled "Error" that describes the error
     # (HLFR-00002).
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Critical)
     box.setWindowTitle(UNEXPECTED_ERROR_TITLE_STR)
     box.setText(f"{UNEXPECTED_ERROR_INTRO_STR}\n\n{message_str}")
@@ -332,10 +604,11 @@ def build_message_box(parent, icon, title_str: str,
         icon: the QMessageBox.Icon of the box.
         title_str: the window title.
         message_str: the text of the box.
-    Outputs: the QMessageBox, not shown.
+    Outputs: the ListMessageBox, not shown.
     """
     # LLFR-00131, LLFR-00145, LLFR-00146: the boxes of the export.
-    box = QMessageBox(parent)
+    # LLFR-01176: a list in the text keeps its hanging indents.
+    box = ListMessageBox(parent)
     box.setIcon(icon)
     box.setWindowTitle(title_str)
     box.setText(message_str)
@@ -451,7 +724,7 @@ def build_replace_existing_file_box(parent, path_str: str) -> QMessageBox:
         buttons Yes and No, where No is the default and escape button.
     """
     # LLFR-00128: the user decides whether the existing file is lost.
-    box = QMessageBox(parent)
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Question)
     box.setWindowTitle(REPLACE_EXISTING_TITLE_STR)
     box.setText(REPLACE_EXISTING_MESSAGE_STR.format(path=path_str))
@@ -493,11 +766,12 @@ def delete_synthetic_signal_text(name_str: str,
     text_str = DELETE_SYNTHETIC_MESSAGE_STR.format(name=name_str)
     if not dependent_name_list:
         return f"{text_str}\n\n{DELETE_ONE_CONSEQUENCE_MESSAGE_STR}"
-    dependent_text_str = "\n".join(
-        f"  - {dependent_name_str}"
-        for dependent_name_str in dependent_name_list)
-    return (f"{text_str}\n\n{DELETE_DEPENDENTS_MESSAGE_STR}\n"
-            f"{dependent_text_str}\n\n{DELETE_CONSEQUENCE_MESSAGE_STR}")
+    # LLFR-00980 to LLFR-00984: the dependents as the items of a list
+    # below the sentence that introduces them.
+    dependent_text_str = list_text(dependent_name_list,
+                                   DELETE_DEPENDENTS_MESSAGE_STR)
+    return (f"{text_str}\n\n{dependent_text_str}\n\n"
+            f"{DELETE_CONSEQUENCE_MESSAGE_STR}")
 
 
 def build_delete_synthetic_signal_box(parent, name_str: str,
@@ -515,7 +789,8 @@ def build_delete_synthetic_signal_box(parent, name_str: str,
         and escape button.
     """
     # LLFR-00255: the user decides whether to proceed.
-    box = QMessageBox(parent)
+    # LLFR-01176: the list of the dependents keeps its hanging indents.
+    box = ListMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Question)
     box.setWindowTitle(DELETE_SYNTHETIC_TITLE_STR)
     box.setText(delete_synthetic_signal_text(name_str, dependent_name_list))
@@ -557,7 +832,8 @@ def build_signal_information_box(parent, title_str: str,
     Outputs: a QMessageBox with the information icon (not an error box)
         and an OK button.
     """
-    # LLFR-00247, LLFR-00250, LLFR-00267: information, not errors.
+    # LLFR-00247, LLFR-00250, LLFR-00267, LLFR-00979: information, not
+    # errors.
     return build_message_box(parent, QMessageBox.Icon.Information,
                              title_str, message_str)
 
@@ -596,6 +872,58 @@ def build_layout_load_error_box(parent, message_str: str) -> QMessageBox:
                              LOAD_LAYOUT_ERROR_TITLE_STR, message_str)
 
 
+def build_scrollable_list_box(parent, text_str: str, title_str: str,
+                              intro_str: str, text_object_name_str: str,
+                              icon_pixmap) -> QDialog:
+    """Build a box whose list is shown in a scrollable text field.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        text_str: the plain text of the list (LLFR-00981).
+        title_str: the window title.
+        intro_str: the sentence above the list, or "" for none.
+        text_object_name_str: the objectName of the text field.
+        icon_pixmap: the QStyle.StandardPixmap of the box's icon.
+    Outputs: a QDialog titled title_str with the icon, the text
+        intro_str when there is one, the list in a read-only, scrollable
+        ListTextField (objectName text_object_name_str) and an OK
+        button.
+    """
+    # LLFR-00884, LLFR-00885, LLFR-01177: a long list can be scrolled.
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(title_str)
+    dialog.setMinimumSize(LAYOUT_REPORT_MINIMUM_WIDTH_I,
+                          LAYOUT_REPORT_MINIMUM_HEIGHT_I)
+    dialog_layout = QVBoxLayout(dialog)
+    intro_layout = QHBoxLayout()
+    icon_label = QLabel(dialog)
+    icon_label.setPixmap(dialog.style().standardIcon(icon_pixmap).pixmap(
+        LAYOUT_REPORT_ICON_SIZE_I, LAYOUT_REPORT_ICON_SIZE_I))
+    intro_layout.addWidget(icon_label)
+    if intro_str:
+        intro_label = QLabel(intro_str, dialog)
+        intro_label.setObjectName(SCROLLABLE_INTRO_OBJECT_NAME_STR)
+        intro_label.setWordWrap(True)
+        # LLFR-01206, LLFR-01207: the sentence in bold too.
+        apply_message_text_style(intro_label, False)
+        intro_layout.addWidget(intro_label, 1)
+    else:
+        # LLFR-01177: with no sentence, the icon stays on the left.
+        intro_layout.addStretch(1)
+    dialog_layout.addLayout(intro_layout)
+    # LLFR-00990, LLFR-01176: wrapped at the width of the field, each
+    # wrapped line under the text of its own item.
+    text_field = ListTextField(dialog)
+    text_field.setObjectName(text_object_name_str)
+    text_field.set_list_text(text_str)
+    dialog_layout.addWidget(text_field, 1)
+    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok,
+                                  dialog)
+    button_box.accepted.connect(dialog.accept)
+    dialog_layout.addWidget(button_box)
+    return dialog
+
+
 def build_layout_report_box(
         parent, report_text_str: str,
         title_str: str = LAYOUT_REPORT_TITLE_STR,
@@ -606,42 +934,38 @@ def build_layout_report_box(
 
     Inputs:
         parent: parent widget of the box, or None.
-        report_text_str: the list of what was not rebuilt or changed, one
-            entry per line.
+        report_text_str: the list of what was not rebuilt or changed.
         title_str: the window title.
         intro_str: the sentence above the list.
         text_object_name_str: the objectName of the text field.
-    Outputs: a QDialog titled title_str with the information icon, the
-        text intro_str, the report in a read-only, scrollable text field
-        (objectName text_object_name_str) and an OK button.
+    Outputs: the QDialog of build_scrollable_list_box, with the
+        information icon.
     """
     # LLFR-00237, LLFR-00404: an information box, not an error box, like
-    # the Full Tab Notification box; a long list can be scrolled.
-    dialog = QDialog(parent)
-    dialog.setWindowTitle(title_str)
-    dialog.setMinimumSize(LAYOUT_REPORT_MINIMUM_WIDTH_I,
-                          LAYOUT_REPORT_MINIMUM_HEIGHT_I)
-    dialog_layout = QVBoxLayout(dialog)
-    intro_layout = QHBoxLayout()
-    icon_label = QLabel(dialog)
-    icon_label.setPixmap(dialog.style().standardIcon(
-        QStyle.StandardPixmap.SP_MessageBoxInformation).pixmap(
-            LAYOUT_REPORT_ICON_SIZE_I, LAYOUT_REPORT_ICON_SIZE_I))
-    intro_label = QLabel(intro_str, dialog)
-    intro_label.setWordWrap(True)
-    intro_layout.addWidget(icon_label)
-    intro_layout.addWidget(intro_label, 1)
-    dialog_layout.addLayout(intro_layout)
-    report_field = QPlainTextEdit(dialog)
-    report_field.setObjectName(text_object_name_str)
-    report_field.setReadOnly(True)
-    report_field.setPlainText(report_text_str)
-    dialog_layout.addWidget(report_field, 1)
-    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok,
-                                  dialog)
-    button_box.accepted.connect(dialog.accept)
-    dialog_layout.addWidget(button_box)
-    return dialog
+    # the Full Tab Notification box; a long list can be scrolled
+    # (LLFR-00884, LLFR-00885).
+    return build_scrollable_list_box(
+        parent, report_text_str, title_str, intro_str,
+        text_object_name_str,
+        QStyle.StandardPixmap.SP_MessageBoxInformation)
+
+
+def build_layout_needs_data_file_box(parent,
+                                     message_str: str) -> QMessageBox:
+    """Build the box of a layout that needs an open data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        message_str: the text from the layout controller, which says
+            that the layout needs an open data file, followed by the
+            data files not opened, if any.
+    Outputs: a QMessageBox with the information icon and the title
+        LAYOUT_NEEDS_DATA_FILE_TITLE_STR.
+    """
+    # LLFR-01245, LLFR-01246: an information box, not an error box
+    # (HLFR-00002), like the load report (LLFR-00237).
+    return build_message_box(parent, QMessageBox.Icon.Information,
+                             LAYOUT_NEEDS_DATA_FILE_TITLE_STR, message_str)
 
 
 def build_signals_save_error_box(parent, message_str: str) -> QMessageBox:
@@ -676,3 +1000,93 @@ def build_changed_names_box(parent, changed_names_text_str: str) -> QDialog:
     return build_layout_report_box(
         parent, changed_names_text_str, CHANGED_NAMES_TITLE_STR,
         CHANGED_NAMES_INTRO_STR, CHANGED_NAMES_TEXT_OBJECT_NAME_STR)
+
+
+def build_question_box(parent, title_str: str,
+                       question_str: str) -> QMessageBox:
+    """Build a question box with the buttons Yes and No.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        title_str: the window title.
+        question_str: the question and what proceeding does.
+    Outputs: a QMessageBox with the question icon and the buttons Yes
+        and No, where No is the default and escape button.
+    """
+    # LLFR-00924, LLFR-00934: the user decides whether to proceed.
+    # LLFR-01176: the list of the consequences keeps its hanging indents.
+    box = ListMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(title_str)
+    box.setText(question_str)
+    box.setStandardButtons(QMessageBox.StandardButton.Yes
+                           | QMessageBox.StandardButton.No)
+    box.setDefaultButton(QMessageBox.StandardButton.No)
+    box.setEscapeButton(QMessageBox.StandardButton.No)
+    return box
+
+
+def build_close_file_box(parent, question_str: str) -> QMessageBox:
+    """Build the question asked before one data file is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller, which names
+            the file as its file name row shows it.
+    Outputs: the question box, titled CLOSE_FILE_TITLE_STR.
+    """
+    # LLFR-00924: Yes closes the file, No keeps everything (LLFR-00925).
+    return build_question_box(parent, CLOSE_FILE_TITLE_STR, question_str)
+
+
+def build_close_all_files_box(parent, question_str: str) -> QMessageBox:
+    """Build the question asked once before every data file is closed.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: the question box, titled CLOSE_ALL_FILES_TITLE_STR.
+    """
+    # LLFR-00934: one question for all the files (LLFR-00935).
+    return build_question_box(parent, CLOSE_ALL_FILES_TITLE_STR,
+                              question_str)
+
+
+def answered_yes(box) -> bool:
+    """Run a question box modally and tell whether Yes was chosen.
+
+    Inputs:
+        box: a QMessageBox with the buttons Yes and No.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00925, LLFR-00935: anything but Yes declines.
+    result = box.exec()
+    if isinstance(result, QMessageBox.StandardButton):
+        result_value_i = int(result.value)
+    else:
+        result_value_i = int(result)
+    return result_value_i == QMessageBox.StandardButton.Yes.value
+
+
+def ask_close_file(parent, question_str: str) -> bool:
+    """Ask whether to close one data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00924: only Yes closes the file.
+    return answered_yes(build_close_file_box(parent, question_str))
+
+
+def ask_close_all_files(parent, question_str: str) -> bool:
+    """Ask once whether to close every data file.
+
+    Inputs:
+        parent: parent widget of the box, or None.
+        question_str: the question of the file controller.
+    Outputs: True when the user chose Yes.
+    """
+    # LLFR-00934: only Yes closes the files.
+    return answered_yes(build_close_all_files_box(parent, question_str))

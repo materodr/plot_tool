@@ -36,6 +36,11 @@ class FakeExportView:
         self.save_error = None
         self.replace_answer_b = False
         self.call_list = []
+        self.description_list = []
+        # LLFR-01179, LLFR-01180: the folder of every PDF dialog.
+        self.folder_list = []
+        # LLFR-01136: the plot count of the tab shown in each window.
+        self.window_plot_count_dict = {}
 
     def ask_replace_existing_file(self, path_str: str) -> bool:
         """Record the question and return the prepared answer.
@@ -65,35 +70,75 @@ class FakeExportView:
         self.call_list.append("current_tab_plot_count")
         return self.current_plot_count_i
 
-    def ask_pdf_save_path(self) -> str:
+    def ask_pdf_save_path(self, start_folder_str: str = "") -> str:
         """Record the dialog and return the prepared answer.
 
-        Inputs: none.
+        Inputs:
+            start_folder_str: the folder the dialog would show.
         Outputs: answer_path_str.
         """
         self.call_list.append("ask_pdf_save_path")
+        self.folder_list.append(start_folder_str)
         return self.answer_path_str
 
-    def save_tabs_pdf(self, path_str: str) -> tuple:
+    def save_tabs_pdf(self, path_str: str,
+                      description_str: str = "") -> tuple:
         """Record the save and return the prepared result.
 
         Inputs:
             path_str: the path to save to.
+            description_str: the description of the data files.
         Outputs: save_result_tuple. Raises save_error when it is set.
         """
         self.call_list.append(("save_tabs_pdf", path_str))
+        self.description_list.append(description_str)
         if self.save_error is not None:
             raise self.save_error
         return self.save_result_tuple
 
-    def copy_current_tab_image(self) -> tuple:
+    def copy_current_tab_image(self, description_str: str = "") -> tuple:
         """Record the copy and return the prepared result.
 
-        Inputs: none.
+        Inputs:
+            description_str: the description of the data files.
         Outputs: copy_result_tuple.
         """
         self.call_list.append("copy_current_tab_image")
+        self.description_list.append(description_str)
         return self.copy_result_tuple
+
+    def window_tab_plot_count(self, tab_id_i: int) -> int:
+        """Return the number of plots of the tab shown in a window.
+
+        Inputs:
+            tab_id_i: the tab of the undocked window, -1 for the main
+                window.
+        Outputs: window_plot_count_dict.get(tab_id_i, 1).
+        """
+        self.call_list.append(("window_tab_plot_count", tab_id_i))
+        return self.window_plot_count_dict.get(tab_id_i, 1)
+
+    def copy_window_tab_image(self, description_str: str,
+                              tab_id_i: int) -> tuple:
+        """Record the copy of a window's tab and return the result.
+
+        Inputs:
+            description_str: the description of the data files.
+            tab_id_i: the tab of the window, -1 for the main window.
+        Outputs: copy_result_tuple.
+        """
+        self.call_list.append(("copy_window_tab_image", tab_id_i))
+        self.description_list.append(description_str)
+        return self.copy_result_tuple
+
+    def show_nothing_to_copy_in(self, tab_id_i: int) -> None:
+        """Record the information box over a window.
+
+        Inputs:
+            tab_id_i: the tab of the window, -1 for the main window.
+        Outputs: none.
+        """
+        self.call_list.append(("show_nothing_to_copy_in", tab_id_i))
 
     def show_nothing_to_export(self) -> None:
         """Record the information box.
@@ -170,6 +215,77 @@ class EnsurePdfSuffixTest(unittest.TestCase):
                          "/a/plots.txt.pdf")
         self.assertEqual(ensure_pdf_suffix("/a/plots.pdf"), "/a/plots.pdf")
         self.assertEqual(ensure_pdf_suffix("/a/plots.PDF"), "/a/plots.PDF")
+
+
+class PdfDialogFolderTest(unittest.TestCase):
+    """The folder the PDF save dialog shows (LLFR-01179, LLFR-01180)."""
+
+    def setUp(self) -> None:
+        """Create the controller with a fake view and an Open file folder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportView()
+        self.open_folder_str = "/data/start"
+        self.controller = ExportController(
+            self.view, lambda: "", lambda: self.open_folder_str)
+
+    def export_to(self, path_str: str, saved_b: bool = True) -> None:
+        """Run one export that answers the dialog with a path.
+
+        Inputs:
+            path_str: the answer of the dialog, "" for a cancel.
+            saved_b: False when the PDF file cannot be written.
+        Outputs: none.
+        """
+        self.view.answer_path_str = path_str
+        self.view.save_result_tuple = (saved_b, "" if saved_b else "full")
+        self.controller.on_export_requested()
+
+    @covers("LLFR-01179", "LLFR-01180", "LLFR-00130", "LLFR-00131")
+    def test_folder_sequence(self) -> None:
+        """The Open file folder until a PDF is saved, then the folder of
+        the last PDF saved; cancels and failures change nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01179: a cancel and a failed save keep the first folder,
+        # which follows the Open file dialog (a data file opened from
+        # another folder meanwhile).
+        self.export_to("")
+        self.export_to("/broken/a.pdf", saved_b=False)
+        self.open_folder_str = "/data/opened"
+        # LLFR-01180: the folder of the saved PDF, also when ".pdf" was
+        # added to the typed name.
+        self.export_to("/pdf/first/report")
+        self.export_to("")
+        self.export_to("/broken/b.pdf", saved_b=False)
+        self.open_folder_str = "/data/other"
+        self.export_to("/pdf/second/plots.pdf")
+        self.export_to("")
+        self.assertEqual(self.view.folder_list, [
+            "/data/start", "/data/start", "/data/opened",
+            "/pdf/first", "/pdf/first", "/pdf/first", "/pdf/second"])
+        self.assertEqual(self.controller.pdf_folder_str,
+                         os.path.abspath("/pdf/second"))
+
+    @covers("LLFR-01179", "LLFR-00145")
+    def test_no_dialog_no_folder_change(self) -> None:
+        """Without plots no dialog is shown; without an Open file folder
+        function the dialog keeps its own folder ("").
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.exportable_tab_count_i = 0
+        self.export_to("/pdf/x.pdf")
+        self.assertEqual(self.view.folder_list, [])
+        self.assertEqual(self.controller.pdf_folder_str, "")
+        plain_view = FakeExportView()
+        ExportController(plain_view).on_export_requested()
+        self.assertEqual(plain_view.folder_list, [""])
 
 
 class ExportFlowTest(unittest.TestCase):
@@ -287,7 +403,7 @@ class ExportFlowTest(unittest.TestCase):
         self.assertNotIn("show_export_error",
                          self.view.called_names_list())
 
-    @covers("LLFR-00145", "LLFR-00003")
+    @covers("LLFR-00145", "LLFR-00003", "LLFR-00459")
     def test_no_plots_shows_information_and_no_dialog(self) -> None:
         """With no plot in any tab, only the information box is shown.
 
@@ -339,7 +455,7 @@ class CopyFlowTest(unittest.TestCase):
             "current_tab_plot_count", "copy_current_tab_image",
             "finish_copy_button"])
 
-    @covers("LLFR-00146", "LLFR-00003")
+    @covers("LLFR-00146", "LLFR-00003", "LLFR-00460")
     def test_copy_without_plots_shows_information(self) -> None:
         """With no plot in the current tab, nothing is copied.
 
@@ -363,6 +479,313 @@ class CopyFlowTest(unittest.TestCase):
         self.controller.on_copy_requested()
         self.assertIn(("show_copy_error", "no image"), self.view.call_list)
         self.assertEqual(self.view.call_list[-1], "finish_copy_button")
+
+
+class CopyShortcutTest(unittest.TestCase):
+    """Check Ctrl+C (Cmd+C): the tab shown in the window of the key."""
+
+    def setUp(self) -> None:
+        """Create the controller with a fake view.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportView()
+        self.controller = ExportController(self.view, lambda: "file1 = a")
+
+    @covers("LLFR-01136", "LLFR-00972", "HLFR-00039")
+    def test_shortcut_copies_the_tab_of_its_window(self) -> None:
+        """The image is of the tab shown in the window of the key, with
+        the data files strip, and the Copy button is not touched.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for tab_id_i in (-1, 7):
+            self.view.call_list.clear()
+            self.controller.on_copy_shortcut(tab_id_i)
+            self.assertEqual(self.view.call_list,
+                             [("window_tab_plot_count", tab_id_i),
+                              ("copy_window_tab_image", tab_id_i)])
+        self.assertEqual(self.view.description_list[-1], "file1 = a")
+        self.assertNotIn("finish_copy_button",
+                         self.view.called_names_list())
+
+    @covers("LLFR-01138", "LLFR-00146", "HLFR-00039")
+    def test_shortcut_with_no_plot_shows_box_over_its_window(self) -> None:
+        """A tab with no plot shows the box over that window and copies
+        nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.window_plot_count_dict[7] = 0
+        self.controller.on_copy_shortcut(7)
+        self.assertEqual(self.view.call_list,
+                         [("window_tab_plot_count", 7),
+                          ("show_nothing_to_copy_in", 7)])
+
+    @covers("LLFR-01136", "LLFR-00133")
+    def test_shortcut_copy_failure_is_reported(self) -> None:
+        """A failed copy shows the copy error box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.copy_result_tuple = (False, "no clipboard")
+        self.controller.on_copy_shortcut(-1)
+        self.assertEqual(self.view.call_list[-1],
+                         ("show_copy_error", "no clipboard"))
+
+
+class FilesDescriptionTest(unittest.TestCase):
+    """The PDF and the copied image describe the open data files."""
+
+    def setUp(self) -> None:
+        """Create the controller with a fake view and a description.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportView()
+        self.description_str = "file1 = run_A.csv, file2 = run_B.mat"
+        self.controller = ExportController(
+            self.view, lambda: self.description_str)
+
+    @covers("LLFR-00971", "LLFR-00129", "HLFR-00038", "HLFR-00113")
+    def test_pdf_gets_the_description_of_all_files(self) -> None:
+        """The view saves the PDF with the description at that moment.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.on_export_requested()
+        self.assertEqual(self.view.description_list,
+                         ["file1 = run_A.csv, file2 = run_B.mat"])
+        # Taken again at each export: the files open at that moment.
+        self.description_str = "file2 = run_B.mat"
+        self.controller.on_export_requested()
+        self.assertEqual(self.view.description_list[-1],
+                         "file2 = run_B.mat")
+
+    @covers("LLFR-00972", "LLFR-00133", "HLFR-00039", "HLFR-00113")
+    def test_copy_gets_the_description_of_all_files(self) -> None:
+        """The view copies the image with the same description.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.on_copy_requested()
+        self.assertEqual(self.view.description_list,
+                         ["file1 = run_A.csv, file2 = run_B.mat"])
+
+    @covers("LLFR-00972", "LLFR-00146", "LLFR-00460")
+    def test_nothing_to_copy_needs_no_description(self) -> None:
+        """With no plot, nothing is copied, so there is no strip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.current_plot_count_i = 0
+        self.controller.on_copy_requested()
+        self.assertEqual(self.view.description_list, [])
+        self.assertNotIn("copy_current_tab_image",
+                         self.view.called_names_list())
+
+    @covers("LLFR-00971")
+    def test_no_description_function_gives_empty_text(self) -> None:
+        """Without a function the description is empty.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        controller = ExportController(self.view)
+        self.assertEqual(controller.files_description(), "")
+        controller.on_export_requested()
+        self.assertEqual(self.view.description_list, [""])
+
+
+class FakeImageExportView(FakeExportView):
+    """The fake view, with the Word and PNG facade of LLFR-01229."""
+
+    def __init__(self) -> None:
+        """Start with two tabs that hold a plot.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().__init__()
+        self.exportable_tab_count_i = 2
+        self.tab_name_list = ["Tab 1", "a/b"]
+        self.docx_answer_str = "/folder/plots.docx"
+        self.png_folder_str = ""
+        self.replace_files_answer_b = True
+
+    def ask_docx_save_path(self, start_folder_str: str = "") -> str:
+        """Record the dialog and return the prepared answer.
+
+        Inputs:
+            start_folder_str: the folder the dialog would show.
+        Outputs: docx_answer_str.
+        """
+        self.call_list.append("ask_docx_save_path")
+        self.folder_list.append(start_folder_str)
+        return self.docx_answer_str
+
+    def save_tabs_docx(self, path_str: str,
+                       description_str: str = "") -> tuple:
+        """Record the save and return the prepared result.
+
+        Inputs:
+            path_str: the path to save to.
+            description_str: the description of the data files.
+        Outputs: save_result_tuple.
+        """
+        self.call_list.append(("save_tabs_docx", path_str))
+        self.description_list.append(description_str)
+        return self.save_result_tuple
+
+    def ask_png_folder(self, start_folder_str: str = "") -> str:
+        """Record the dialog and return the prepared folder.
+
+        Inputs:
+            start_folder_str: the folder the dialog would show.
+        Outputs: png_folder_str.
+        """
+        self.call_list.append("ask_png_folder")
+        self.folder_list.append(start_folder_str)
+        return self.png_folder_str
+
+    def exportable_tab_name_list(self) -> list:
+        """Return the names of the tabs that hold a plot.
+
+        Inputs: none.
+        Outputs: tab_name_list.
+        """
+        return list(self.tab_name_list)
+
+    def ask_replace_existing_files(self, folder_str: str,
+                                   file_name_list: list) -> bool:
+        """Record the question and return the prepared answer.
+
+        Inputs:
+            folder_str: the chosen folder.
+            file_name_list: the existing files.
+        Outputs: replace_files_answer_b.
+        """
+        self.call_list.append(("ask_replace_existing_files",
+                               list(file_name_list)))
+        return self.replace_files_answer_b
+
+    def save_tab_png_files(self, folder_str: str, file_name_list: list,
+                           description_str: str = "") -> tuple:
+        """Record the save and return the prepared result.
+
+        Inputs:
+            folder_str: the chosen folder.
+            file_name_list: the file names.
+            description_str: the description of the data files.
+        Outputs: save_result_tuple.
+        """
+        self.call_list.append(("save_tab_png_files", folder_str,
+                               list(file_name_list)))
+        self.description_list.append(description_str)
+        return self.save_result_tuple
+
+
+class ImageExportFlowTest(unittest.TestCase):
+    """The Word and PNG exports (LLFR-01229 to LLFR-01243)."""
+
+    def setUp(self) -> None:
+        """Create the controller with the fake view.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeImageExportView()
+        self.controller = ExportController(self.view, lambda: "file1 = a.csv",
+                                           lambda: "/data/start")
+
+    @covers("LLFR-01230", "LLFR-01231", "LLFR-01243", "HLFR-00038")
+    def test_word_export_saves_with_docx_suffix(self) -> None:
+        """The dialog opens in the Open file folder, ".docx" is added,
+        the description is passed and the button finishes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.docx_answer_str = "/out/report"
+        self.controller.on_docx_export_requested()
+        self.assertIn(("save_tabs_docx", "/out/report.docx"),
+                      self.view.call_list)
+        self.assertEqual(self.view.description_list, ["file1 = a.csv"])
+        self.assertEqual(self.view.folder_list, ["/data/start"])
+        self.assertEqual(self.view.called_names_list()[-1],
+                         "finish_export_button")
+        # LLFR-01243: one folder shared by the three exports.
+        self.view.answer_path_str = ""
+        self.controller.on_export_requested()
+        self.assertEqual(self.view.folder_list[-1], os.path.abspath("/out"))
+
+    @covers("LLFR-01237", "LLFR-01241", "LLFR-01242", "LLFR-00145",
+            "LLFR-00459", "LLFR-00130",
+            "LLFR-00131", "HLFR-00038")
+    def test_word_and_png_follow_the_pdf_rules(self) -> None:
+        """No plot: the information box and no dialog; a cancel: no
+        file; a failed write: the error box; the folder kept.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.exportable_tab_count_i = 0
+        self.controller.on_docx_export_requested()
+        self.controller.on_png_export_requested()
+        self.assertEqual(self.view.called_names_list().count(
+            "show_nothing_to_export"), 2)
+        self.assertEqual(self.view.folder_list, [])
+        self.view.exportable_tab_count_i = 2
+        self.view.docx_answer_str = ""
+        self.controller.on_docx_export_requested()
+        self.controller.on_png_export_requested()
+        self.assertNotIn("save_tabs_docx", self.view.called_names_list())
+        self.assertNotIn("save_tab_png_files", self.view.called_names_list())
+        self.view.docx_answer_str = "/x/a.docx"
+        self.view.save_result_tuple = (False, "disk full")
+        self.controller.on_docx_export_requested()
+        self.assertIn(("show_export_error", "disk full"),
+                      self.view.call_list)
+        self.assertEqual(self.controller.pdf_folder_str, "")
+
+    @covers("LLFR-01233", "LLFR-01234", "LLFR-01235", "LLFR-01236",
+            "LLFR-01240", "LLFR-01243", "HLFR-00038")
+    def test_png_export_names_files_and_asks_once(self) -> None:
+        """The files are named after the tabs; existing ones are named
+        in one question, and a No saves nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        with tempfile.TemporaryDirectory() as folder_str:
+            self.view.png_folder_str = folder_str
+            self.controller.on_png_export_requested()
+            self.assertIn(("save_tab_png_files", folder_str,
+                           ["Tab 1.png", "a_b.png"]), self.view.call_list)
+            self.assertNotIn("ask_replace_existing_files",
+                             self.view.called_names_list())
+            self.assertEqual(self.controller.pdf_folder_str,
+                             os.path.abspath(folder_str))
+            open(os.path.join(folder_str, "a_b.png"), "wb").close()
+            self.view.call_list = []
+            self.view.replace_files_answer_b = False
+            self.controller.on_png_export_requested()
+            self.assertIn(("ask_replace_existing_files", ["a_b.png"]),
+                          self.view.call_list)
+            self.assertNotIn("save_tab_png_files",
+                             self.view.called_names_list())
+            self.view.replace_files_answer_b = True
+            self.controller.on_png_export_requested()
+            self.assertIn("save_tab_png_files",
+                          self.view.called_names_list())
 
 
 if __name__ == "__main__":

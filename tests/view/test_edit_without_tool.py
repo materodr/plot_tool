@@ -23,6 +23,7 @@ from tests.view.test_xyz_keys import XyzKeyWindowTestCase
 from controller.plot_tools import (
     AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, PAN_TOOL_STR,
     PLOT_TOOL_TUPLE, TEXT_TOOL_STR, ZOOM_TOOL_STR)
+from tests.view.test_plot_tools import GRAB_TOOL_TUPLE
 from model.workspace import DELTA_X_KIND_STR
 
 
@@ -139,7 +140,7 @@ class NoToolDragTest(EditWidgetTestCase):
     (LLFR-00382)."""
 
     @covers("LLFR-00382", "LLFR-00086", "LLFR-00093", "LLFR-00205",
-            "LLFR-00207")
+            "LLFR-00207", "LLFR-00454", "LLFR-00665", "LLFR-00666")
     def test_drag_moves_a_flag(self) -> None:
         """A drag on a flag moves it with the pointer, its time value
         follows, the other plots are told live, a drag is in progress
@@ -170,7 +171,8 @@ class NoToolDragTest(EditWidgetTestCase):
         self.assertEqual(self.range_list, [])
 
     @covers("LLFR-00382", "LLFR-00312", "LLFR-00308", "LLFR-00310",
-            "LLFR-00207")
+            "LLFR-00207", "LLFR-00454", "LLFR-00709", "LLFR-00723",
+            "LLFR-00790")
     def test_drag_inside_an_area_moves_it(self) -> None:
         """A drag from inside an area moves it keeping its width, live
         on the other plots, and the release asks once for the new span;
@@ -194,7 +196,7 @@ class NoToolDragTest(EditWidgetTestCase):
         self.assertEqual(self.create_list, [])
         self.assertFalse(self.plot_widget.is_mouse_drag_in_progress())
 
-    @covers("LLFR-00382", "LLFR-00313")
+    @covers("LLFR-00382", "LLFR-00313", "LLFR-00724", "LLFR-00790")
     def test_drag_near_either_edge_resizes_the_area(self) -> None:
         """A drag within 5 pixels of the start or the end edge moves only
         that edge.
@@ -214,7 +216,7 @@ class NoToolDragTest(EditWidgetTestCase):
         self.assertEqual(len(self.change_list), 2)
         self.assertEqual(self.create_list, [])
 
-    @covers("LLFR-00382", "LLFR-00152", "LLFR-00153")
+    @covers("LLFR-00382", "LLFR-00152", "LLFR-00153", "LLFR-00791")
     def test_drag_moves_a_pinned_tip(self) -> None:
         """A drag on a pinned tip's label moves the label.
 
@@ -228,7 +230,7 @@ class NoToolDragTest(EditWidgetTestCase):
         self.assertEqual(self.tip_move_list[0][0], 0)
         self.assertEqual(self.pin_list, [])
 
-    @covers("LLFR-00382", "LLFR-00339")
+    @covers("LLFR-00382", "LLFR-00339", "LLFR-00792")
     def test_drag_moves_a_text_note(self) -> None:
         """A drag on a text note moves it.
 
@@ -243,7 +245,7 @@ class NoToolDragTest(EditWidgetTestCase):
         self.assertEqual(self.note_move_list[0][0], 0)
         self.assertEqual(self.note_create_list, [])
 
-    @covers("LLFR-00382", "LLFR-00203", "LLFR-00303")
+    @covers("LLFR-00382", "LLFR-00203", "LLFR-00303", "LLFR-00795")
     def test_press_on_empty_space_or_a_curve_does_nothing(self) -> None:
         """A press and drag where no object is drawn, or on a curve,
         does nothing: no drag, no zoom, no pin, no new flag or area, no
@@ -274,7 +276,7 @@ class NoToolDragTest(EditWidgetTestCase):
                          (3.0, 5.0))
         self.assert_nothing_requested()
 
-    @covers("LLFR-00382", "LLFR-00384")
+    @covers("LLFR-00382", "LLFR-00384", "LLFR-00795")
     def test_delta_marker_is_never_moved(self) -> None:
         """A press and drag on a delta marker's label with no tool active
         does nothing: the marker stays where it is.
@@ -312,7 +314,8 @@ class NoToolDragTest(EditWidgetTestCase):
             self.left_release(press_point)
         self.assert_nothing_requested()
 
-    @covers("LLFR-00382", "LLFR-00205", "LLFR-00310")
+    @covers("LLFR-00382", "LLFR-00205", "LLFR-00310", "LLFR-00665",
+            "LLFR-00709", "LLFR-00790")
     def test_follow_on_another_plot_with_no_tool(self) -> None:
         """A plot with no tool active shows a flag or an area dragged on
         another plot of the tab where the drag puts it.
@@ -331,7 +334,7 @@ class NoToolDragTest(EditWidgetTestCase):
 class ObjectOrderTest(EditWidgetTestCase):
     """The first object at a pressed point reacts (LLFR-00383)."""
 
-    @covers("LLFR-00383", "LLFR-00382", "LLFR-00318")
+    @covers("LLFR-00383", "LLFR-00382", "LLFR-00318", "LLFR-00723")
     def test_flag_inside_an_area_moves_the_flag(self) -> None:
         """A press on a flag drawn inside an area moves the flag, not
         the area, with no tool active.
@@ -349,7 +352,7 @@ class ObjectOrderTest(EditWidgetTestCase):
         self.assertEqual(self.plot_widget.area_drawn_span_tuple(1),
                          (3.0, 5.0))
 
-    @covers("LLFR-00383", "LLFR-00153")
+    @covers("LLFR-00383", "LLFR-00153", "LLFR-00679")
     def test_pinned_tip_over_a_flag_and_an_area_moves_the_tip(
             self) -> None:
         """A press on a pinned tip drawn over a flag inside an area
@@ -371,7 +374,7 @@ class ObjectOrderTest(EditWidgetTestCase):
         self.assertEqual(self.marker_drag_list, [])
         self.assertEqual(self.change_list, [])
 
-    @covers("LLFR-00383", "LLFR-00339")
+    @covers("LLFR-00383", "LLFR-00339", "LLFR-00743")
     def test_text_note_over_a_pinned_tip_moves_the_note(self) -> None:
         """A press where a text note and a pinned tip overlap, over a
         flag and an area, moves the note only.
@@ -399,7 +402,7 @@ class ObjectOrderTest(EditWidgetTestCase):
         self.assertEqual(self.move_list, [])
         self.assertEqual(self.change_list, [])
 
-    @covers("LLFR-00383", "LLFR-00086", "LLFR-00313")
+    @covers("LLFR-00383", "LLFR-00086", "LLFR-00313", "LLFR-00797")
     def test_among_the_same_kind_the_last_drawn_reacts(self) -> None:
         """Of two flags at the same time, the last placed moves; at the
         edge shared by two areas, the last created is resized.
@@ -450,7 +453,8 @@ class ActiveToolObjectsTest(EditWidgetTestCase):
         self.plot_widget.set_time_range(0.0, 10.0)
         self.draw()
 
-    @covers("LLFR-00384", "LLFR-00086", "LLFR-00357", "LLFR-00078")
+    @covers("LLFR-00384", "LLFR-00086", "LLFR-00357", "LLFR-00078",
+            "LLFR-00762", "LLFR-00798", "LLFR-00799")
     def test_only_the_flag_tool_moves_a_flag(self) -> None:
         """With every tool but Flag, a drag on a flag leaves it where it
         is and acts as the tool does elsewhere (the Zoom tool zooms);
@@ -478,7 +482,7 @@ class ActiveToolObjectsTest(EditWidgetTestCase):
         self.assertEqual(self.place_list, [])
 
     @covers("LLFR-00384", "LLFR-00318", "LLFR-00312", "LLFR-00313",
-            "LLFR-00357")
+            "LLFR-00357", "LLFR-00722", "LLFR-00762", "LLFR-00799")
     def test_only_the_area_tool_moves_or_resizes_an_area(self) -> None:
         """With every tool but Area, a drag inside an area or on its edge
         leaves it where it is; with the Area tool it moves; with the Area
@@ -507,12 +511,15 @@ class ActiveToolObjectsTest(EditWidgetTestCase):
         self.drag(self.at(4.0), self.at(4.5))
         self.assertEqual(len(self.change_list), 1)
 
-    @covers("LLFR-00384", "LLFR-00153", "LLFR-00339", "LLFR-00357")
+    @covers("LLFR-00384", "LLFR-00153", "LLFR-00339", "LLFR-00357",
+            "LLFR-00679", "LLFR-00742", "LLFR-00743", "LLFR-00760",
+            "LLFR-00791", "LLFR-00792", "LLFR-00800")
     def test_tips_and_notes_move_with_every_tool(self) -> None:
-        """With every tool, and with none, a drag on a pinned tip moves
-        the tip and a drag on a text note moves the note, and the tool
-        does nothing else (no zoom, no pan, no new flag, area, note or
-        pick).
+        """With every tool, and with none, except the tools whose
+        preview places an object there (LLFR-01248), a drag on a pinned
+        tip moves the tip and a drag on a text note moves the note, and
+        the tool does nothing else (no zoom, no pan, no new flag, area,
+        note or pick).
 
         Inputs: none.
         Outputs: none.
@@ -520,8 +527,7 @@ class ActiveToolObjectsTest(EditWidgetTestCase):
         from PyQt6.QtCore import QPoint
         self.add_tip(1.0)
         self.add_note_at(self.at(6.5))
-        for count_i, tool_str in enumerate(
-                PLOT_TOOL_TUPLE + (NO_TOOL_STR,), start=1):
+        for count_i, tool_str in enumerate(GRAB_TOOL_TUPLE, start=1):
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
                 # The objects are found again where they are drawn now;
@@ -549,7 +555,8 @@ class ActiveToolObjectsTest(EditWidgetTestCase):
         self.assertEqual(self.pick_list, [])
         self.assertEqual(self.pin_list, [])
 
-    @covers("LLFR-00384", "LLFR-00357", "LLFR-00356")
+    @covers("LLFR-00384", "LLFR-00357", "LLFR-00356", "LLFR-00761",
+            "LLFR-00762", "LLFR-00798", "LLFR-00799")
     def test_pan_tool_pans_over_a_flag_and_an_area(self) -> None:
         """With the Pan tool and a zoomed plot, a drag on a flag or in an
         area pans and changes neither.
@@ -612,10 +619,11 @@ class EditWindowTest(XyzKeyWindowTestCase):
             0].time_s
 
     @covers("LLFR-00382", "LLFR-00086", "LLFR-00205", "LLFR-00207",
-            "LLFR-00138", "LLFR-00140")
+            "LLFR-00138", "LLFR-00140", "LLFR-00454", "LLFR-00664",
+            "LLFR-00665")
     def test_flag_drag_moves_it_on_every_time_plot(self) -> None:
         """With no tool, a drag moves the flag on the other plot of the
-        tab before the release; Z does nothing during it; the move is one
+        tab before the release; 0 does nothing during it; the move is one
         undoable action.
 
         Inputs: none.
@@ -632,7 +640,7 @@ class EditWindowTest(XyzKeyWindowTestCase):
         depth_i = undo_history.depth()
 
         def check_during_drag() -> None:
-            """Check the other plot and the Z key mid-drag.
+            """Check the other plot and the 0 key mid-drag.
 
             Inputs: none.
             Outputs: none.
@@ -641,8 +649,8 @@ class EditWindowTest(XyzKeyWindowTestCase):
             self.assertAlmostEqual(
                 second_widget.marker_time_s(self.marker_id_i), 3.4,
                 delta=0.03)
-            self.press_key("Key_Z", first_widget.canvas)
-            self.release_key("Key_Z", first_widget.canvas)
+            self.press_key("Key_0", first_widget.canvas)
+            self.release_key("Key_0", first_widget.canvas)
             self.assert_every_range(zoomed_range_tuple)
 
         self.drag_area(first_widget, 3.0, 3.4, check_during_drag)
@@ -658,7 +666,7 @@ class EditWindowTest(XyzKeyWindowTestCase):
                              3.0)
 
     @covers("LLFR-00382", "LLFR-00312", "LLFR-00310", "LLFR-00138",
-            "LLFR-00140")
+            "LLFR-00140", "LLFR-00708", "LLFR-00723", "LLFR-00790")
     def test_area_move_is_one_undoable_action(self) -> None:
         """With no tool, a drag inside the area moves it on every plot as
         one undoable action, and creates no area.
@@ -681,7 +689,8 @@ class EditWindowTest(XyzKeyWindowTestCase):
         self.application.processEvents()
         self.assertEqual(self.area_list(), [(name_str, 1.0, 2.0)])
 
-    @covers("LLFR-00382", "LLFR-00313", "LLFR-00140")
+    @covers("LLFR-00382", "LLFR-00313", "LLFR-00140", "LLFR-00724",
+            "LLFR-00790")
     def test_area_resize_with_no_tool(self) -> None:
         """With no tool, a drag on the end edge of the area resizes it.
 
@@ -694,7 +703,8 @@ class EditWindowTest(XyzKeyWindowTestCase):
         self.assertEqual(start_s, 1.0)
         self.assertAlmostEqual(end_s, 2.5, delta=0.03)
 
-    @covers("LLFR-00382", "LLFR-00384")
+    @covers("LLFR-00382", "LLFR-00384", "LLFR-00795", "LLFR-00798",
+            "LLFR-00799")
     def test_empty_press_and_other_tools_change_nothing(self) -> None:
         """With no tool, a drag on an empty part of the plot changes
         nothing and records nothing; with the Zoom tool, a drag on the
