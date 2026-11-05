@@ -474,11 +474,12 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.process_events()
         self.assert_no_preview()
 
-    @covers("LLFR-01238", "LLFR-00203", "LLFR-00153", "HLFR-00028")
+    @covers("LLFR-01238", "LLFR-00203", "LLFR-01248", "LLFR-00081",
+            "HLFR-00028")
     def test_preview_stays_over_a_pinned_tip(self) -> None:
         """Over the label of a pinned data tip the flag preview stays
-        shown and follows the pointer; a press there still moves the tip
-        and places no flag.
+        shown and follows the pointer; a press there places the flag the
+        preview shows and leaves the tip where it is (LLFR-01248).
 
         Inputs: none.
         Outputs: none.
@@ -506,15 +507,23 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
                          float(center_tuple[0]) + 4.0, float(center_tuple[1]),
                          LEFT_BUTTON_I)
         self.assertGreater(plot_widget.marker_preview_time_s(), preview_s)
-        # LLFR-00153: the press grabs the tip, so no flag is placed.
+        # LLFR-01248: the press places the flag of the preview, at the
+        # time under the pointer, and does not grab the tip.
+        send_mouse_event(plot_widget, "motion_notify_event",
+                         float(center_tuple[0]), float(center_tuple[1]),
+                         LEFT_BUTTON_I)
+        preview_s = plot_widget.marker_preview_time_s()
         send_mouse_event(plot_widget, "button_press_event",
                          float(center_tuple[0]), float(center_tuple[1]),
                          LEFT_BUTTON_I)
+        self.assertEqual(plot_widget.drag_tip_index_i, -1)
         send_mouse_event(plot_widget, "button_release_event",
                          float(center_tuple[0]), float(center_tuple[1]),
                          LEFT_BUTTON_I)
         self.process_events()
-        self.assertEqual(self.workspace.marker_list, [])
+        self.assertEqual(len(self.workspace.marker_list), 1)
+        self.assertAlmostEqual(self.workspace.marker_list[0].time_s,
+                               preview_s, delta=1e-6)
 
     @covers("LLFR-00203")
     def test_preview_moves_redraw_only_the_preview(self) -> None:

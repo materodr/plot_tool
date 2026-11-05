@@ -9,6 +9,7 @@ import json
 import os
 import re
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -87,8 +88,8 @@ class LayoutButtonTest(unittest.TestCase):
                 previous_button = button
 
     @covers("LLFR-00218", "LLFR-00160", "LLFR-00466")
-    def test_disabled_and_paler_without_a_data_file(self) -> None:
-        """Both buttons are disabled before a file is open, and a click
+    def test_save_disabled_and_paler_without_a_data_file(self) -> None:
+        """Save layout is disabled before a file is open, and a click
         does nothing.
 
         Inputs: none.
@@ -97,21 +98,43 @@ class LayoutButtonTest(unittest.TestCase):
         from PyQt6.QtCore import Qt
         from PyQt6.QtTest import QTest
         from view import theme
-        for button in (self.top_panel.save_layout_button,
-                       self.top_panel.load_layout_button):
-            with self.subTest(button=button_name(button)):
-                self.assertFalse(button.isEnabled())
-                self.assertEqual(button.current_background_color_str(),
-                                 theme.DISABLED_COLOR_STR)
-                with mock.patch.object(self.main_window,
-                                       "run_layout_dialog") as dialog_mock:
-                    QTest.mouseClick(button, Qt.MouseButton.LeftButton)
-                    for _ in range(3):
-                        self.application.processEvents()
-                dialog_mock.assert_not_called()
-                self.assertFalse(button.is_active())
+        button = self.top_panel.save_layout_button
+        self.assertFalse(button.isEnabled())
+        self.assertEqual(button.current_background_color_str(),
+                         theme.DISABLED_COLOR_STR)
+        with mock.patch.object(self.main_window,
+                               "run_layout_dialog") as dialog_mock:
+            QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+            for _ in range(3):
+                self.application.processEvents()
+        dialog_mock.assert_not_called()
+        self.assertFalse(button.is_active())
 
-    @covers("LLFR-00218")
+    @covers("LLFR-01244", "LLFR-00221")
+    def test_load_enabled_without_a_data_file(self) -> None:
+        """Load layout is enabled before a file is open, in its normal
+        color, and a click shows its dialog.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        from view import theme
+        button = self.top_panel.load_layout_button
+        self.assertTrue(button.isEnabled())
+        self.assertNotEqual(button.current_background_color_str(),
+                            theme.DISABLED_COLOR_STR)
+        with mock.patch.object(self.main_window, "run_layout_dialog",
+                               return_value="") as dialog_mock:
+            QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+            deadline_s = time.perf_counter() + 1.0
+            while (not dialog_mock.called
+                   and time.perf_counter() < deadline_s):
+                self.application.processEvents()
+        dialog_mock.assert_called_once()
+
+    @covers("LLFR-00218", "LLFR-01244")
     def test_enabled_after_a_file_is_opened(self) -> None:
         """A successful open enables both buttons.
 
@@ -364,6 +387,19 @@ class LayoutEndToEndTestCase(unittest.TestCase):
         self.application.processEvents()
         self.report_list = []
         self.main_window.show_layout_report = self.report_list.append
+
+    def restart_app(self) -> None:
+        """Close and delete the window, then start the app again.
+
+        Inputs: none.
+        Outputs: none. The old window is deleted before the new one is
+            made, so that no part of it is destroyed later, during a
+            garbage collection.
+        """
+        self.main_window.close()
+        self.main_window.deleteLater()
+        self.application.processEvents()
+        self.start_app()
 
     def tearDown(self) -> None:
         """Close the main window.
@@ -644,8 +680,7 @@ class LayoutOptionsViewTest(LayoutEndToEndTestCase):
             saved_dict = json.load(layout_file)
         self.assertEqual(saved_dict["data_files"][0]["relative_path"],
                          "first.csv")
-        self.main_window.close()
-        self.start_app()
+        self.restart_app()
         self.open_data_file(self.second_path_str)
         self.click_with_dialog_answer(
             self.main_window.top_panel.load_layout_button, layout_path_str)
@@ -659,6 +694,89 @@ class LayoutOptionsViewTest(LayoutEndToEndTestCase):
                            for plot in tab.plot_list
                            for curve in plot.curve_list]
         self.assertIn("file2_speed", curve_name_list)
+
+    @covers("LLFR-01244", "LLFR-01224", "HLFR-00157", "HLFR-00050")
+    def test_layout_with_file_names_opens_it_in_an_empty_app(self) -> None:
+        """A layout saved with the names of the data files, loaded in a
+        new start of the app with no data file open, opens its file and
+        draws its curve.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.signal_double_click_handler("file1_speed")
+        self.application.processEvents()
+        layout_path_str = os.path.join(self.folder_str, "empty_app.json")
+
+        def answer_options(dialog) -> bool:
+            """Choose the names of the data files.
+
+            Inputs:
+                dialog: the LayoutOptionsDialog.
+            Outputs: True, as OK.
+            """
+            dialog.data_files_box.setChecked(True)
+            return True
+
+        with mock.patch.object(self.main_window,
+                               "run_layout_options_dialog",
+                               side_effect=answer_options):
+            self.click_with_dialog_answer(
+                self.main_window.top_panel.save_layout_button,
+                layout_path_str)
+        self.restart_app()
+        self.assertEqual(
+            len(self.controller.file_controller.data_files.file_list), 0)
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.load_layout_button, layout_path_str)
+        data_files = self.controller.file_controller.data_files
+        self.assertEqual([os.path.basename(data_file.path_str)
+                          for data_file in data_files.file_list],
+                         ["first.csv"])
+        workspace = self.controller.plot_controller.workspace
+        curve_name_list = [curve.signal_name_str for tab in workspace.tab_list
+                           for plot in tab.plot_list
+                           for curve in plot.curve_list]
+        self.assertEqual(curve_name_list, ["file1_speed"])
+        self.assertTrue(
+            self.main_window.top_panel.save_layout_button.isEnabled())
+
+    @covers("LLFR-01245", "LLFR-01247", "HLFR-00050")
+    def test_layout_without_file_names_in_an_empty_app(self) -> None:
+        """A layout saved without the names of the data files, loaded
+        with no data file open, shows the information box and changes
+        nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view.message_boxes import LAYOUT_NEEDS_DATA_FILE_TITLE_STR
+        self.main_window.signal_double_click_handler("file1_speed")
+        self.application.processEvents()
+        layout_path_str = os.path.join(self.folder_str, "no_names.json")
+        with mock.patch.object(self.main_window,
+                               "run_layout_options_dialog",
+                               return_value=True):
+            self.click_with_dialog_answer(
+                self.main_window.top_panel.save_layout_button,
+                layout_path_str)
+        self.restart_app()
+        workspace = self.controller.plot_controller.workspace
+        tab_name_list = [tab.name_str for tab in workspace.tab_list]
+        self.box_record_list.clear()
+        self.click_with_dialog_answer(
+            self.main_window.top_panel.load_layout_button, layout_path_str)
+        self.assertEqual(len(self.box_record_list), 1)
+        title_str, text_str = self.box_record_list[0]
+        self.assertEqual(title_str, LAYOUT_NEEDS_DATA_FILE_TITLE_STR)
+        self.assertIn("needs an open data file", text_str)
+        self.assertEqual(self.report_list, [])
+        self.assertEqual([tab.name_str for tab in workspace.tab_list],
+                         tab_name_list)
+        self.assertEqual([plot for tab in workspace.tab_list
+                          for plot in tab.plot_list], [])
+        self.assertEqual(
+            len(self.controller.file_controller.data_files.file_list), 0)
 
 
 if __name__ == "__main__":

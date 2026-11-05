@@ -22,10 +22,19 @@ from xml.sax.saxutils import escape
 
 # LLFR-01230: the extension of the Word document.
 DOCX_SUFFIX_STR = ".docx"
-# LLFR-01235: the extension of the PNG files and the name of a tab left
-# empty by the replaced characters.
+# LLFR-01235: the extension of the PNG files and the name used for a tab
+# whose name is empty.
 PNG_SUFFIX_STR = ".png"
 EMPTY_PNG_NAME_STR = "tab"
+# LLFR-01250: the names Windows reserves for devices, compared ignoring
+# case, and what is added to them.
+WINDOWS_RESERVED_NAME_SET = frozenset(
+    ["con", "prn", "aux", "nul"]
+    + [f"com{number_i}" for number_i in range(1, 10)]
+    + [f"lpt{number_i}" for number_i in range(1, 10)])
+RESERVED_NAME_SUFFIX_STR = "_tab"
+# LLFR-01251: the longest PNG file name before ".png" and the numbers.
+MAXIMUM_PNG_NAME_LENGTH_I = 100
 # LLFR-01235: the characters replaced in a PNG file name: all but
 # letters, digits, "_", spaces and "-".
 UNSAFE_NAME_CHARACTER_PATTERN_STR = r"[^\w \-]"
@@ -294,9 +303,11 @@ def png_file_name_list(tab_name_list: list) -> list:
         tab_name_list: the names of the exported tabs, in tab order.
     Outputs: one file name per tab: the name with every character
         other than a letter, a digit, a space or ``-`` replaced by
-        ``_`` (``_`` itself is kept), ``tab`` for an empty result, then
-        ``_2``, ``_3`` and so on for a name already given in the export,
-        compared ignoring case, and ``.png``.
+        ``_`` (``_`` itself is kept), ``tab`` for an empty name, cut to
+        its first 100 characters, with ``_tab`` added to a name that
+        Windows reserves, then ``_2``, ``_3`` and so on for a name
+        already given in the export, compared ignoring case, and
+        ``.png``.
     """
     # LLFR-01235: names safe on macOS and on Windows, unique in the
     # folder even on a file system that ignores case.
@@ -304,9 +315,16 @@ def png_file_name_list(tab_name_list: list) -> list:
     file_name_list = []
     for tab_name_str in tab_name_list:
         base_str = re.sub(UNSAFE_NAME_CHARACTER_PATTERN_STR, "_",
-                          str(tab_name_str)).strip()
-        if not base_str.strip("_ "):
+                          str(tab_name_str))
+        if not base_str:
             base_str = EMPTY_PNG_NAME_STR
+        # LLFR-01251: a long name keeps its first 100 characters, without
+        # the spaces left at its end.
+        if len(base_str) > MAXIMUM_PNG_NAME_LENGTH_I:
+            base_str = base_str[:MAXIMUM_PNG_NAME_LENGTH_I].rstrip(" ")
+        # LLFR-01250: a device name of Windows can't be a file name.
+        if base_str.casefold() in WINDOWS_RESERVED_NAME_SET:
+            base_str += RESERVED_NAME_SUFFIX_STR
         candidate_str = base_str
         number_i = 2
         while candidate_str.casefold() in used_set:

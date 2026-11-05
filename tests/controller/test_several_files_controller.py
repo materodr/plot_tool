@@ -471,7 +471,7 @@ class FlagsAndAreasAfterCloseTest(SeveralFilesTestCase):
         # LLFR-00937: no file name row is left.
         self.assertEqual(self.view.file_row_list, [])
         self.assertEqual(self.view.plot_tab_dict, {})
-        self.assertFalse(self.view.layout_buttons_enabled_b)
+        self.assertFalse(self.view.save_layout_enabled_b)
         self.assertFalse(self.view.save_signals_enabled_b)
         self.assertEqual(self.view.files_time_range_tuple, ())
         self.assertEqual(self.plot_controller.shared_time_range_tuple, ())

@@ -17,7 +17,7 @@ import numpy as np
 from tests.view.menu_texts import menu_option_texts
 from tests.support import covers, get_qt_application, requires_qt
 from tests.view.test_plot_tools import (
-    ALL_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
+    ALL_TOOL_TUPLE, GRAB_TOOL_TUPLE, PlotWidgetToolTestCase, recorder)
 
 from controller.plot_tools import (
     MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, ZOOM_TOOL_STR)
@@ -573,14 +573,15 @@ class TextNoteDragTest(TextNoteWidgetTestCase):
 
     @covers("LLFR-00339", "LLFR-00109", "LLFR-00742", "LLFR-00743")
     def test_drag_with_every_tool(self) -> None:
-        """With any tool or none, a press on the note moves it, and does
-        nothing else.
+        """With any tool or none, except the tools whose preview places
+        an object there (LLFR-01248), a press on the note moves it, and
+        does nothing else.
 
         Inputs: none.
         Outputs: none.
         """
         self.plot_widget.set_markers([(1, "Flag 1", 5.0)])
-        for tool_str in ALL_TOOL_TUPLE:
+        for tool_str in GRAB_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_text_notes(
                     [("drag me",) + EMPTY_PLACE_TUPLE])

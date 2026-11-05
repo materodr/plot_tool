@@ -472,6 +472,9 @@ class PlotPanel(QWidget):
         self.pending_relay_tuple = ()
         self.relay_timer = QTimer(self)
         self.relay_timer.setSingleShot(True)
+        # LLFR-01217: a precise timer never ends early, so two redraws
+        # are always at least the interval apart.
+        self.relay_timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.relay_timer.setInterval(DRAG_RELAY_INTERVAL_MS_I)
         self.relay_timer.timeout.connect(self.flush_drag_relay)
         # LLFR-01097, LLFR-01114: the picker that is open, if any.
@@ -1681,7 +1684,9 @@ class PlotPanel(QWidget):
                 where the object is dragged, arguments of the method).
         Outputs: none. The first place is shown at once; the places that
             come during the next DRAG_RELAY_INTERVAL_MS_I milliseconds
-            are merged, the latest shown when the interval ends.
+            are merged, the latest shown when the interval ends, so that
+            while the pointer moves the other plots are redrawn about
+            once in every interval, and at most once.
         """
         # LLFR-01217: the latest place wins. Only a drag with the button
         # held is spaced in time; a place sent with no button held (a

@@ -23,6 +23,7 @@ from tests.view.test_xyz_keys import XyzKeyWindowTestCase
 from controller.plot_tools import (
     AREA_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, PAN_TOOL_STR,
     PLOT_TOOL_TUPLE, TEXT_TOOL_STR, ZOOM_TOOL_STR)
+from tests.view.test_plot_tools import GRAB_TOOL_TUPLE
 from model.workspace import DELTA_X_KIND_STR
 
 
@@ -514,10 +515,11 @@ class ActiveToolObjectsTest(EditWidgetTestCase):
             "LLFR-00679", "LLFR-00742", "LLFR-00743", "LLFR-00760",
             "LLFR-00791", "LLFR-00792", "LLFR-00800")
     def test_tips_and_notes_move_with_every_tool(self) -> None:
-        """With every tool, and with none, a drag on a pinned tip moves
-        the tip and a drag on a text note moves the note, and the tool
-        does nothing else (no zoom, no pan, no new flag, area, note or
-        pick).
+        """With every tool, and with none, except the tools whose
+        preview places an object there (LLFR-01248), a drag on a pinned
+        tip moves the tip and a drag on a text note moves the note, and
+        the tool does nothing else (no zoom, no pan, no new flag, area,
+        note or pick).
 
         Inputs: none.
         Outputs: none.
@@ -525,8 +527,7 @@ class ActiveToolObjectsTest(EditWidgetTestCase):
         from PyQt6.QtCore import QPoint
         self.add_tip(1.0)
         self.add_note_at(self.at(6.5))
-        for count_i, tool_str in enumerate(
-                PLOT_TOOL_TUPLE + (NO_TOOL_STR,), start=1):
+        for count_i, tool_str in enumerate(GRAB_TOOL_TUPLE, start=1):
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
                 # The objects are found again where they are drawn now;

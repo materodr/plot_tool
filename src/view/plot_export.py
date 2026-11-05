@@ -256,7 +256,9 @@ def plot_image_list(page) -> list:
     entry_list = []
     for plot_widget in page.plot_widget_list:
         # LLFR-01215: a plot still drawn as during a drag draws all its
-        # objects again first.
+        # objects again first. An export started while a drag button is
+        # still held draws the dragged object at its place of the moment;
+        # the next move of that drag makes a new image of the curves.
         forget_function = getattr(plot_widget, "forget_fast_drag", None)
         if forget_function is not None:
             forget_function()

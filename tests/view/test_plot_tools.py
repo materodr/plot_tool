@@ -13,14 +13,21 @@ import numpy as np
 from tests.support import button_name, covers, get_qt_application, requires_qt
 
 from controller.plot_tools import (
-    MARKER_TOOL_STR, NO_TOOL_STR, PLOT_TOOL_TUPLE, TIP_TOOL_STR,
-    ZOOM_TOOL_STR)
+    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    PLOT_TOOL_TUPLE, TIP_TOOL_STR, ZOOM_TOOL_STR)
 
 WIDGET_WIDTH_I = 600
 WIDGET_HEIGHT_I = 400
 RED_STR = "#ff0000"
 BLUE_STR = "#0000ff"
 ALL_TOOL_TUPLE = PLOT_TOOL_TUPLE + (NO_TOOL_STR,)
+# LLFR-01248: every tool or none, except the Flag, Delta X and Delta Y
+# tools, whose preview can decide a press on a pinned data tip or a text
+# note (tested in test_delta_previews_view.PressWherePreviewShownTest).
+GRAB_TOOL_TUPLE = tuple(
+    tool_str for tool_str in ALL_TOOL_TUPLE
+    if tool_str not in (MARKER_TOOL_STR, DELTA_X_TOOL_STR,
+                        DELTA_Y_TOOL_STR))
 CURVE_CHECK_SAMPLE_COUNT_I = 2001
 
 

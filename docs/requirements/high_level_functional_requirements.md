@@ -195,7 +195,7 @@ The layout file must hold the plot matrix of each tab.
 ### HLFR-00156 Layout save options
 When saving a layout, the user must be able to choose whether the layout file holds the markers, all the tabs or only the current tab, and the names of the open data files.
 
-Note: The markers are the data tips, flags, areas, delta markers, text notes and arrows.
+Note: The markers are the data tips, flags, areas and delta markers.
 
 ### HLFR-00157 Data files from a layout
 When the app loads a layout file that holds the names of data files, it must open those data files that are not open yet.
