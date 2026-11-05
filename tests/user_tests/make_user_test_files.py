@@ -2,7 +2,7 @@
 
 Run from the repository root:
 
-    python tests/user_tests/make_user_test_files.py [--hdf5-only]
+    python tests/user_tests/make_user_test_files.py [--hdf5-only | --big]
 
 It writes two folders next to this script:
 - ``good/``: files the app must open (at least one per supported format,
@@ -15,6 +15,17 @@ and the HDF5 ones are skipped with a message. ``--hdf5-only`` writes only
 the HDF5 files; CI uses it to add them to a pull request branch when
 ``good/signals.h5`` is missing (see .github/workflows/tests.yml).
 
+``--big`` writes instead, into ``big/`` (ignored by git), one big file
+per format of HLFR-00005, each with a ``Time`` signal of 4 hours sampled
+every 0.01 s and 100 other signals (PCR-00073): ``big_comma.csv``,
+``big_semicolon.csv``, ``big.xlsx`` (as many samples as an Excel sheet
+holds, 1,048,575, about 2.9 hours), ``big.mat`` (MATLAB 5 format, whose
+variables may hold up to 2**31 bytes each, so 1,440,001 doubles fit) and
+``big.h5`` (when h5py is installed). They are written in chunks, with
+the standard library and numpy, so that the memory used stays small:
+about 12 MB per signal column for the MAT and HDF5 files. The build of
+the executable runs it (build_executable.py).
+
 The files are generated, not tested, so this script is not named
 ``test_*.py`` and is not run by tests/build_test_matrix.py.
 """
@@ -22,6 +33,8 @@ The files are generated, not tested, so this script is not named
 import argparse
 import importlib.util
 import os
+import struct
+import zipfile
 
 import numpy as np
 import pandas as pd
@@ -33,6 +46,22 @@ DURATION_S = 10.0
 RANDOM_SEED_I = 1
 # LLFR-00134: the good HDF5 file keeps "Time" and these signals at the
 # top level; the other signals go into groups, by this group path.
+# PCR-00073: the big sample files.
+BIG_FOLDER_NAME_STR = "big"
+BIG_SIGNAL_COUNT_I = 100
+BIG_DURATION_S = 4 * 3600.0
+BIG_STEP_S = 0.01
+BIG_CHUNK_ROW_COUNT_I = 50000
+# PCR-00073 Note: an Excel sheet holds 1,048,576 rows, the first of which
+# holds the names.
+EXCEL_MAXIMUM_ROW_COUNT_I = 1048576
+# The MAT 5 format: data types and the class of a double array.
+MAT_INT8_I = 1
+MAT_INT32_I = 5
+MAT_UINT32_I = 6
+MAT_DOUBLE_I = 9
+MAT_MATRIX_I = 14
+MAT_DOUBLE_CLASS_I = 6
 HDF5_TOP_LEVEL_SET = {"Time", "Sine_1Hz", "Cosine_1Hz", "Ramp", "Noise"}
 HDF5_GROUP_DICT = {
     "Sine_3Hz": "waves", "Square_0p5Hz": "waves", "Sawtooth_2Hz": "waves",
@@ -360,16 +389,324 @@ def write_hdf5_files(good_folder_str: str, bad_folder_str: str,
         binary_file.write(b"not an hdf5 file " * 50)
 
 
+def big_sample_count(duration_s: float = BIG_DURATION_S,
+                     step_s: float = BIG_STEP_S) -> int:
+    """Return the number of samples of the big files.
+
+    Inputs:
+        duration_s: the duration of the time signal, in seconds.
+        step_s: the time between two samples, in seconds.
+    Outputs: the number of samples, both ends included.
+    """
+    # PCR-00073: 4 hours every 0.01 s, so 1,440,001 samples.
+    return int(round(duration_s / step_s)) + 1
+
+
+def big_signal_name_list(signal_count_i: int = BIG_SIGNAL_COUNT_I) -> list:
+    """Return the names of the signals of the big files.
+
+    Inputs:
+        signal_count_i: the number of signals besides Time.
+    Outputs: ["Time", "Signal_001", "Signal_002", ...].
+    """
+    # PCR-00073: the time signal and 100 other signals.
+    return ["Time"] + [f"Signal_{index_i:03d}"
+                       for index_i in range(1, signal_count_i + 1)]
+
+
+def big_chunk_array(start_i: int, stop_i: int, step_s: float,
+                    signal_count_i: int):
+    """Return the samples of some rows of the big files.
+
+    Inputs:
+        start_i: the first row, from 0.
+        stop_i: the row after the last one.
+        step_s: the time between two samples, in seconds.
+        signal_count_i: the number of signals besides Time.
+    Outputs: an array of (stop_i - start_i) rows and signal_count_i + 1
+        columns: the time in seconds, then each signal, a sine of its own
+        frequency, amplitude and offset.
+    """
+    # PCR-00073: the same values in every format.
+    time_array = np.arange(start_i, stop_i, dtype=float) * step_s
+    index_array = np.arange(1, signal_count_i + 1, dtype=float)
+    value_array = ((index_array % 7 + 1)
+                   * np.sin(2.0 * np.pi * 0.002 * index_array
+                            * time_array[:, None] + index_array)
+                   + 0.1 * index_array)
+    return np.column_stack([time_array, value_array])
+
+
+def big_column_array(column_i: int, row_count_i: int, step_s: float):
+    """Return all the samples of one column of the big files.
+
+    Inputs:
+        column_i: 0 for Time, k for the k-th signal.
+        row_count_i: the number of samples.
+        step_s: the time between two samples, in seconds.
+    Outputs: a 1-D array of row_count_i doubles.
+    """
+    # PCR-00073: the same values as big_chunk_array, one column at once.
+    time_array = np.arange(row_count_i, dtype=float) * step_s
+    if column_i == 0:
+        return time_array
+    index_f = float(column_i)
+    return ((index_f % 7 + 1)
+            * np.sin(2.0 * np.pi * 0.002 * index_f * time_array + index_f)
+            + 0.1 * index_f)
+
+
+def write_big_csv(path_str: str, row_count_i: int, step_s: float,
+                  signal_count_i: int, separator_str: str = ",",
+                  decimal_str: str = ".") -> None:
+    """Write a big CSV file, chunk by chunk.
+
+    Inputs:
+        path_str: the path of the file.
+        row_count_i: the number of samples.
+        step_s: the time between two samples, in seconds.
+        signal_count_i: the number of signals besides Time.
+        separator_str: "," or ";" (LLFR-00061).
+        decimal_str: "." or "," (LLFR-00061).
+    Outputs: none.
+    """
+    # PCR-00073, LLFR-00059, LLFR-00451: the names, then one row per
+    # sample.
+    with open(path_str, "w", encoding="utf-8", newline="\n") as csv_file:
+        csv_file.write(separator_str.join(big_signal_name_list(
+            signal_count_i)) + "\n")
+        format_str = separator_str.join(["%.2f"] + ["%.6g"] * signal_count_i)
+        for start_i in range(0, row_count_i, BIG_CHUNK_ROW_COUNT_I):
+            stop_i = min(start_i + BIG_CHUNK_ROW_COUNT_I, row_count_i)
+            chunk_array = big_chunk_array(start_i, stop_i, step_s,
+                                          signal_count_i)
+            line_list = [format_str % tuple(row)
+                         for row in chunk_array.tolist()]
+            text_str = "\n".join(line_list) + "\n"
+            if decimal_str != ".":
+                text_str = text_str.replace(".", decimal_str)
+            csv_file.write(text_str)
+
+
+def excel_column_name(column_i: int) -> str:
+    """Return the Excel letters of a column.
+
+    Inputs:
+        column_i: the column, from 0.
+    Outputs: "A", "B", ..., "Z", "AA", ...
+    """
+    # PCR-00073: the cell references of the sheet.
+    name_str = ""
+    column_i += 1
+    while column_i > 0:
+        column_i, remainder_i = divmod(column_i - 1, 26)
+        name_str = chr(ord("A") + remainder_i) + name_str
+    return name_str
+
+
+def write_big_xlsx(path_str: str, row_count_i: int, step_s: float,
+                   signal_count_i: int) -> None:
+    """Write a big Excel file, streamed row by row into the archive.
+
+    Inputs:
+        path_str: the path of the file.
+        row_count_i: the number of samples, at most 1,048,575.
+        step_s: the time between two samples, in seconds.
+        signal_count_i: the number of signals besides Time.
+    Outputs: none. The workbook holds one sheet with the names in the
+        first row (LLFR-00059, LLFR-00060).
+    """
+    # PCR-00073: Office Open XML with the standard library; openpyxl
+    # would keep every cell in memory.
+    row_count_i = min(row_count_i, EXCEL_MAXIMUM_ROW_COUNT_I - 1)
+    last_cell_str = (f"{excel_column_name(signal_count_i)}"
+                     f"{row_count_i + 1}")
+    content_types_str = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/'
+        'content-types"><Default Extension="rels" ContentType="'
+        'application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/'
+        'vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="'
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.'
+        'worksheet+xml"/></Types>')
+    package_rels_str = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/'
+        '2006/relationships"><Relationship Id="rId1" Type="http://'
+        'schemas.openxmlformats.org/officeDocument/2006/relationships/'
+        'officeDocument" Target="xl/workbook.xml"/></Relationships>')
+    workbook_str = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<workbook xmlns="http://schemas.openxmlformats.org/'
+        'spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.'
+        'org/officeDocument/2006/relationships"><sheets><sheet name="'
+        'Signals" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    workbook_rels_str = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/'
+        '2006/relationships"><Relationship Id="rId1" Type="http://'
+        'schemas.openxmlformats.org/officeDocument/2006/relationships/'
+        'worksheet" Target="worksheets/sheet1.xml"/></Relationships>')
+    with zipfile.ZipFile(path_str, "w", zipfile.ZIP_DEFLATED,
+                         allowZip64=True) as archive:
+        archive.writestr("[Content_Types].xml", content_types_str)
+        archive.writestr("_rels/.rels", package_rels_str)
+        archive.writestr("xl/workbook.xml", workbook_str)
+        archive.writestr("xl/_rels/workbook.xml.rels", workbook_rels_str)
+        with archive.open("xl/worksheets/sheet1.xml", "w",
+                          force_zip64=True) as sheet_file:
+            header_str = "".join(
+                f'<c t="inlineStr"><is><t>{name_str}</t></is></c>'
+                for name_str in big_signal_name_list(signal_count_i))
+            sheet_file.write((
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                '<worksheet xmlns="http://schemas.openxmlformats.org/'
+                'spreadsheetml/2006/main">'
+                f'<dimension ref="A1:{last_cell_str}"/><sheetData>'
+                f'<row>{header_str}</row>').encode("utf-8"))
+            row_format_str = ("<row><c><v>%.2f</v></c>"
+                              + "<c><v>%.6g</v></c>" * signal_count_i
+                              + "</row>")
+            for start_i in range(0, row_count_i, BIG_CHUNK_ROW_COUNT_I):
+                stop_i = min(start_i + BIG_CHUNK_ROW_COUNT_I, row_count_i)
+                chunk_array = big_chunk_array(start_i, stop_i, step_s,
+                                              signal_count_i)
+                sheet_file.write("".join(
+                    row_format_str % tuple(row)
+                    for row in chunk_array.tolist()).encode("utf-8"))
+            sheet_file.write(b"</sheetData></worksheet>")
+
+
+def mat_element_bytes(type_i: int, data_bytes: bytes) -> bytes:
+    """Return one data element of a MAT 5 file, padded to 8 bytes.
+
+    Inputs:
+        type_i: the MAT data type.
+        data_bytes: the data.
+    Outputs: the tag (type and size) followed by the data and padding.
+    """
+    # PCR-00073, LLFR-00062: the little-endian MAT 5 layout.
+    padding_i = (-len(data_bytes)) % 8
+    return (struct.pack("<II", type_i, len(data_bytes)) + data_bytes
+            + b"\0" * padding_i)
+
+
+def write_big_mat(path_str: str, row_count_i: int, step_s: float,
+                  signal_count_i: int) -> None:
+    """Write a big MAT file (MATLAB 5 format), one variable at a time.
+
+    Inputs:
+        path_str: the path of the file.
+        row_count_i: the number of samples.
+        step_s: the time between two samples, in seconds.
+        signal_count_i: the number of signals besides Time.
+    Outputs: none. Each signal is a top-level 1xN double array named
+        after the signal (LLFR-00062), not in the v7.3 format
+        (LLFR-00064).
+    """
+    # PCR-00073: a 128-byte header, then one miMATRIX per variable.
+    header_bytes = ("MATLAB 5.0 MAT-file, written by plot_tool's sample "
+                    "file generator").encode("ascii").ljust(116, b" ")
+    with open(path_str, "wb") as mat_file:
+        mat_file.write(header_bytes + b"\0" * 8
+                       + struct.pack("<H", 0x0100) + b"IM")
+        for column_i, name_str in enumerate(
+                big_signal_name_list(signal_count_i)):
+            value_array = big_column_array(column_i, row_count_i, step_s)
+            matrix_bytes = (
+                mat_element_bytes(MAT_UINT32_I, struct.pack(
+                    "<II", MAT_DOUBLE_CLASS_I, 0))
+                + mat_element_bytes(MAT_INT32_I, struct.pack(
+                    "<ii", 1, row_count_i))
+                + mat_element_bytes(MAT_INT8_I, name_str.encode("ascii"))
+                + mat_element_bytes(MAT_DOUBLE_I, value_array.astype(
+                    "<f8").tobytes()))
+            mat_file.write(struct.pack("<II", MAT_MATRIX_I,
+                                       len(matrix_bytes)))
+            mat_file.write(matrix_bytes)
+
+
+def write_big_hdf5(path_str: str, row_count_i: int, step_s: float,
+                   signal_count_i: int) -> None:
+    """Write a big HDF5 file, one dataset at a time. Needs h5py.
+
+    Inputs:
+        path_str: the path of the file.
+        row_count_i: the number of samples.
+        step_s: the time between two samples, in seconds.
+        signal_count_i: the number of signals besides Time.
+    Outputs: none. Each signal is a top-level dataset (LLFR-00134).
+    """
+    # PCR-00073: the HDF5 file of the big files.
+    import h5py
+    with h5py.File(path_str, "w") as hdf5_file:
+        for column_i, name_str in enumerate(
+                big_signal_name_list(signal_count_i)):
+            hdf5_file.create_dataset(
+                name_str, data=big_column_array(column_i, row_count_i,
+                                                step_s),
+                track_times=False)
+
+
+def write_big_files(folder_str: str, duration_s: float = BIG_DURATION_S,
+                    step_s: float = BIG_STEP_S,
+                    signal_count_i: int = BIG_SIGNAL_COUNT_I) -> list:
+    """Write one big sample file per format of HLFR-00005.
+
+    Inputs:
+        folder_str: the folder to write into; it is created if needed.
+        duration_s: the duration of the time signal, in seconds.
+        step_s: the time between two samples, in seconds.
+        signal_count_i: the number of signals besides Time.
+    Outputs: the paths written, in this order: CSV with ",", CSV with
+        ";", Excel, MAT and, with h5py, HDF5.
+    """
+    # PCR-00073: the files of the executable build.
+    os.makedirs(folder_str, exist_ok=True)
+    row_count_i = big_sample_count(duration_s, step_s)
+    path_list = []
+    for name_str, separator_str, decimal_str in (
+            ("big_comma.csv", ",", "."), ("big_semicolon.csv", ";", ",")):
+        path_str = os.path.join(folder_str, name_str)
+        write_big_csv(path_str, row_count_i, step_s, signal_count_i,
+                      separator_str, decimal_str)
+        path_list.append(path_str)
+    for name_str, write_function in (("big.xlsx", write_big_xlsx),
+                                     ("big.mat", write_big_mat)):
+        path_str = os.path.join(folder_str, name_str)
+        write_function(path_str, row_count_i, step_s, signal_count_i)
+        path_list.append(path_str)
+    if importlib.util.find_spec("h5py") is not None:
+        path_str = os.path.join(folder_str, "big.h5")
+        write_big_hdf5(path_str, row_count_i, step_s, signal_count_i)
+        path_list.append(path_str)
+    else:
+        print("h5py is not installed: big.h5 was not written.")
+    return path_list
+
+
 def main() -> None:
     """Create the good/ and bad/ folders and write the sample files.
 
-    Inputs: the optional command-line flag --hdf5-only.
+    Inputs: the optional command-line flags --hdf5-only and --big.
     Outputs: none. Prints the folder the files were written to.
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--hdf5-only", action="store_true",
                         help="write only the HDF5 sample files")
+    parser.add_argument("--big", action="store_true",
+                        help="write only the big sample files into big/")
     argument_namespace = parser.parse_args()
+    if argument_namespace.big:
+        # PCR-00073: the big files, in the folder git ignores.
+        big_folder_str = os.path.join(USER_TESTS_FOLDER_STR,
+                                      BIG_FOLDER_NAME_STR)
+        for path_str in write_big_files(big_folder_str):
+            print(f"Wrote {path_str}")
+        return
     signal_dict = sample_signals()
     good_folder_str = os.path.join(USER_TESTS_FOLDER_STR, "good")
     bad_folder_str = os.path.join(USER_TESTS_FOLDER_STR, "bad")
