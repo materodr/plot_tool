@@ -38,7 +38,7 @@ def line_width_f(base_width_f: float, width_i: int) -> float:
         width_i: the preset width 1 to 5; any other value counts as 1.
     Outputs: the thickness, in points.
     """
-    # LLFR-01361, LLFR-01362: width 1 is the former thickness.
+    # LLFR-01373, LLFR-01362: width 1 is the former thickness.
     if width_i not in PRESET_WIDTH_TUPLE:
         width_i = 1
     return float(base_width_f) * WIDTH_FACTOR_DICT[width_i]

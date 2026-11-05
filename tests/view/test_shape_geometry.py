@@ -98,7 +98,7 @@ class ShapeGeometryTest(unittest.TestCase):
 class LineLooksTest(unittest.TestCase):
     """The widths and the styles of the lines."""
 
-    @covers("LLFR-01362", "LLFR-01361", "HLFR-00159")
+    @covers("LLFR-01362", "LLFR-01361", "LLFR-01373", "HLFR-00159")
     def test_width_factors(self) -> None:
         """Width N is width 1 times 1, 2, 3, 4.5 or 6.
 

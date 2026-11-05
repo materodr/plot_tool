@@ -153,7 +153,7 @@ MINIMUM_WINDOW_I = 2
 
 UNEVEN_STEP_MESSAGE_STR = (
     "The operation needs evenly spaced time samples.")
-# LLFR-01301: the reason of a statistic range that holds no sample.
+# LLFR-01301, LLFR-01372: the reason of a statistic range that holds no sample.
 EMPTY_RANGE_MESSAGE_STR = (
     "The x-axis range shown in the time plots holds no sample of the "
     "signal. Move the x-axis to a range where the signal has samples.")

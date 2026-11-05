@@ -105,7 +105,7 @@ WHOLE_RANGE_ID_STR = "whole"
 SHOWN_RANGE_ID_STR = "shown"
 RANGE_CHOICE_LIST = [(WHOLE_RANGE_ID_STR, "Whole signal"),
                      (SHOWN_RANGE_ID_STR, "Shown x-axis range")]
-# LLFR-01300: the reason of a shown range chosen with no time plot.
+# LLFR-01300, LLFR-01371: the reason of a shown range chosen with no time plot.
 STATISTIC_NEEDS_TIME_PLOT_STR = (
     "The shown x-axis range needs a time plot. Plot a signal in a time "
     "plot and zoom to the time range you want, or choose the whole "
@@ -474,7 +474,7 @@ class SyntheticController:
                 text_list: the texts of the fields.
             Outputs: the reason, or "" when they are allowed.
             """
-            # LLFR-01281: the dialog stays open and says why.
+            # LLFR-01281, LLFR-01369: the dialog stays open and says why.
             try:
                 parameter_of(text_list)
             except SyntheticSignalError as error:
@@ -514,7 +514,7 @@ class SyntheticController:
         Outputs: a tuple (parameter,): None for the whole signal or the
             time range (start_s, end_s); () when the user cancelled.
         """
-        # LLFR-01297: the range dialog, "Whole signal" chosen at first.
+        # LLFR-01297, LLFR-01370: the range dialog, "Whole signal" first.
 
         def parameter_of(text_list):
             """Return the range of the choice of the dialog.
@@ -548,7 +548,8 @@ class SyntheticController:
                 text_list: the values of the dialog.
             Outputs: the reason, or "".
             """
-            # LLFR-01300, LLFR-01301: the dialog stays open and says why.
+            # LLFR-01300, LLFR-01301, LLFR-01371, LLFR-01372: the dialog
+            # stays open and says why.
             try:
                 parameter_of(text_list)
             except SyntheticSignalError as error:

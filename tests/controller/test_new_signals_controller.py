@@ -138,7 +138,8 @@ class CreateSignalTest(NewSignalTestCase):
                      in self.view.parameter_question_list[0][2]],
                     label_list)
 
-    @covers("LLFR-01280", "LLFR-01281", "LLFR-01282", "HLFR-00162")
+    @covers("LLFR-01280", "LLFR-01281", "LLFR-01369", "LLFR-01282",
+            "HLFR-00162")
     def test_invalid_values_keep_the_dialog_open(self) -> None:
         """A text that is not a number or a frequency of 0 is refused
         with a reason; a cancel creates nothing.
@@ -174,7 +175,8 @@ class StatisticRangeTest(NewSignalTestCase):
         plot_id_i = self.plot_controller.time_plot_list()[0].plot_id_i
         self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 4.0)
 
-    @covers("LLFR-01297", "LLFR-01298", "LLFR-00271", "HLFR-00164")
+    @covers("LLFR-01297", "LLFR-01370", "LLFR-01298", "LLFR-00271",
+            "HLFR-00164")
     def test_whole_signal_is_chosen_at_first(self) -> None:
         """The dialog offers both ranges, the whole signal first, and
         creates a constant of the whole signal.
@@ -207,7 +209,8 @@ class StatisticRangeTest(NewSignalTestCase):
             "file1_median_2s_to_4s_Torque").value_array
         np.testing.assert_allclose(value_array, np.full(100, 6.0))
 
-    @covers("LLFR-01300", "LLFR-01301", "LLFR-01302", "HLFR-00164")
+    @covers("LLFR-01300", "LLFR-01371", "LLFR-01301", "LLFR-01302",
+            "HLFR-00164")
     def test_shown_range_refused_or_cancelled(self) -> None:
         """With no time plot the dialog says a time plot is needed; a
         cancel creates nothing.
@@ -223,7 +226,7 @@ class StatisticRangeTest(NewSignalTestCase):
         self.create("file1_Torque", "std")
         self.assertEqual(self.store_names(), ["file1_rms_Torque"])
 
-    @covers("LLFR-01301", "HLFR-00164")
+    @covers("LLFR-01301", "LLFR-01372", "HLFR-00164")
     def test_range_with_no_sample_of_the_signal(self) -> None:
         """A shown range outside the signal's file keeps the dialog
         open with the reason.
@@ -236,6 +239,7 @@ class StatisticRangeTest(NewSignalTestCase):
         self.view.parameter_answer_list = [[["shown"]]]
         self.create("file1_Torque", "max")
         self.assertEqual(len(self.view.parameter_reason_list), 1)
+        self.assertIn("no sample", self.view.parameter_reason_list[0])
         self.assertEqual(self.store_names(), [])
 
 

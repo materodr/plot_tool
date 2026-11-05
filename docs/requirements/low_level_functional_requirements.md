@@ -4304,7 +4304,12 @@ The app must create the signal of LLFR-01279 only when every field holds a numbe
 *Parent: HLFR-00162*
 
 ### LLFR-01281 Values not allowed
-If a field of the dialog of LLFR-01279 holds a value that LLFR-01280 does not allow, the dialog must stay open and say why.
+If a field of the dialog of LLFR-01279 holds a value that LLFR-01280 does not allow, the dialog must stay open.
+
+*Parent: HLFR-00162*
+
+### LLFR-01369 Reason for values not allowed
+If a field of the dialog of LLFR-01279 holds a value that LLFR-01280 does not allow, the dialog must say why the value is not allowed.
 
 *Parent: HLFR-00162*
 
@@ -4375,9 +4380,9 @@ The app must list, plot, rename, delete and copy a signal of LLFR-01279, copy it
 *Parent: HLFR-00162, HLFR-00053*
 
 ### LLFR-01293 New signals in a layout
-The layout file and the equation of Copy equation (LLFR-00279) must hold a signal of LLFR-01279 as a synthetic signal entry (LLFR-00225, item 10) whose operation is `constant`, `step`, `ramp`, `polynomial`, `sine` or `cosine`, whose signals are the time signal of its data file alone, and whose parameter is an object with the values of its dialog under the keys `value`; `time`, `before`, `after`; `start_time`, `slope`, `start_value`; `a`, `b`, `c`; or `amplitude`, `frequency`, `phase`, `offset`.
+The layout file must hold a signal of LLFR-01279 as a synthetic signal entry (LLFR-00225, item 10) whose operation is `constant`, `step`, `ramp`, `polynomial`, `sine` or `cosine`, whose signals are the time signal of its data file alone, and whose parameter is an object with the values of its dialog under the keys `value`; `time`, `before`, `after`; `start_time`, `slope`, `start_value`; `a`, `b`, `c`; or `amplitude`, `frequency`, `phase`, `offset`.
 
-Note: So a layout file or a pasted equation creates the signal again (LLFR-00262).
+Note: Copy equation writes the same entry (LLFR-00279), so a layout file or a pasted equation creates the signal again (LLFR-00262).
 
 *Parent: HLFR-00162, HLFR-00056, HLFR-00062*
 
@@ -4397,7 +4402,12 @@ The RMS, the Mean, the Standard deviation and the Median of a signal must have, 
 *Parent: HLFR-00164*
 
 ### LLFR-01297 Statistic range dialog
-When the user chooses "Max", "Min", "RMS", "Mean", "Standard deviation" or "Median" (LLFR-00268), the app must show a dialog that asks for the range, "Whole signal" or "Shown x-axis range", with "Whole signal" chosen at first.
+When the user chooses "Max", "Min", "RMS", "Mean", "Standard deviation" or "Median" (LLFR-00268), the app must show a dialog that asks for the range, "Whole signal" or "Shown x-axis range".
+
+*Parent: HLFR-00164*
+
+### LLFR-01370 First choice of the statistic range dialog
+Each time the dialog of LLFR-01297 opens, it must show "Whole signal" chosen.
 
 *Parent: HLFR-00164*
 
@@ -4414,12 +4424,22 @@ Note: A later change of the time range leaves the signal unchanged.
 *Parent: HLFR-00164*
 
 ### LLFR-01300 Shown range with no time plot
-If the user confirms "Shown x-axis range" (LLFR-01297) while no time plot exists, the dialog must stay open and say that a time plot is needed, as for an FFT (LLFR-00592).
+If the user confirms "Shown x-axis range" (LLFR-01297) while no time plot exists, the dialog must stay open, as for an FFT (LLFR-00592).
+
+*Parent: HLFR-00164*
+
+### LLFR-01371 Reason for a shown range with no time plot
+If the user confirms "Shown x-axis range" (LLFR-01297) while no time plot exists, the dialog must say that a time plot is needed, as for an FFT (LLFR-00592).
 
 *Parent: HLFR-00164*
 
 ### LLFR-01301 Shown range with no sample
-If the user confirms "Shown x-axis range" (LLFR-01297) while no sample of the signal is within the range of LLFR-01299, the dialog must stay open and say why.
+If the user confirms "Shown x-axis range" (LLFR-01297) while no sample of the signal is within the range of LLFR-01299, the dialog must stay open.
+
+*Parent: HLFR-00164*
+
+### LLFR-01372 Reason for a shown range with no sample
+If the user confirms "Shown x-axis range" (LLFR-01297) while no sample of the signal is within the range of LLFR-01299, the dialog must say that the range holds no sample of the signal.
 
 *Parent: HLFR-00164*
 
@@ -7500,7 +7520,14 @@ When the user chooses a preset width in the "Width" option of LLFR-01359, the ap
 *Parent: HLFR-00159*
 
 ### LLFR-01361 Default object width
-Every new flag, delta marker, arrow, text note and shape must have preset width 1, which the app draws as thick as each of them was drawn before HLFR-00159 was added.
+Every new flag, delta marker, arrow, text note and shape must have preset width 1.
+
+*Parent: HLFR-00159*
+
+### LLFR-01373 Thickness of preset width 1
+The app must draw the line of preset width 1 of a flag, a delta marker, an arrow, a text note or a shape as thick as that line was drawn before HLFR-00159 was added.
+
+Note: So the current widths are the defaults (HLFR-00159).
 
 *Parent: HLFR-00159*
 
