@@ -8,8 +8,8 @@ method calls (no Qt code), so it can be tested with a fake view
 - ``exportable_tab_count()``: number of tabs that hold a plot;
 - ``current_tab_plot_count()``: number of plots in the current tab;
 - ``ask_pdf_save_path(start_folder_str)``: the chosen path, "" when
-  cancelled; the dialog shows start_folder_str (LLFR-01176,
-  LLFR-01177);
+  cancelled; the dialog shows start_folder_str (LLFR-01179,
+  LLFR-01180);
 - ``ask_replace_existing_file(path_str)``: True to replace the file;
 - ``save_tabs_pdf(path_str, description_str)``: a tuple (saved_b,
   reason_str); each page shows description_str below the tab's name
@@ -80,7 +80,7 @@ class ExportController:
         self.view = view
         # LLFR-00971, LLFR-00972: the open data files, at export time.
         self.description_function = description_function
-        # LLFR-01176, LLFR-01177: the folders of the PDF dialog.
+        # LLFR-01179, LLFR-01180: the folders of the PDF dialog.
         self.open_folder_function = open_folder_function
         self.pdf_folder_str = ""
 
@@ -91,10 +91,10 @@ class ExportController:
         Outputs: the folder of the last PDF file saved successfully, or
             else the folder the Open file dialog would show now.
         """
-        # LLFR-01177: after a PDF was saved, the folder of the last one.
+        # LLFR-01180: after a PDF was saved, the folder of the last one.
         if self.pdf_folder_str:
             return self.pdf_folder_str
-        # LLFR-01176: before, the folder of the last data file opened,
+        # LLFR-01179: before, the folder of the last data file opened,
         # or the app's folder before any (LLFR-00204, LLFR-00447).
         if self.open_folder_function is None:
             return ""
@@ -170,7 +170,7 @@ class ExportController:
             self.view.show_nothing_to_export()
             return
         # LLFR-00128: ask where to save the .pdf file.
-        # LLFR-01176, LLFR-01177: in the folder of the PDF dialog.
+        # LLFR-01179, LLFR-01180: in the folder of the PDF dialog.
         path_str = self.view.ask_pdf_save_path(self.dialog_folder())
         # LLFR-00130: a cancelled dialog saves nothing.
         if not path_str:
@@ -190,7 +190,7 @@ class ExportController:
         if not saved_b:
             self.view.show_export_error(reason_str)
             return
-        # LLFR-01177: only a successful save moves the dialog folder.
+        # LLFR-01180: only a successful save moves the dialog folder.
         self.pdf_folder_str = os.path.dirname(os.path.abspath(pdf_path_str))
 
     def _copy_image(self) -> None:

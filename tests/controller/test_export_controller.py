@@ -37,7 +37,7 @@ class FakeExportView:
         self.replace_answer_b = False
         self.call_list = []
         self.description_list = []
-        # LLFR-01176, LLFR-01177: the folder of every PDF dialog.
+        # LLFR-01179, LLFR-01180: the folder of every PDF dialog.
         self.folder_list = []
         # LLFR-01136: the plot count of the tab shown in each window.
         self.window_plot_count_dict = {}
@@ -218,7 +218,7 @@ class EnsurePdfSuffixTest(unittest.TestCase):
 
 
 class PdfDialogFolderTest(unittest.TestCase):
-    """The folder the PDF save dialog shows (LLFR-01176, LLFR-01177)."""
+    """The folder the PDF save dialog shows (LLFR-01179, LLFR-01180)."""
 
     def setUp(self) -> None:
         """Create the controller with a fake view and an Open file folder.
@@ -243,7 +243,7 @@ class PdfDialogFolderTest(unittest.TestCase):
         self.view.save_result_tuple = (saved_b, "" if saved_b else "full")
         self.controller.on_export_requested()
 
-    @covers("LLFR-01176", "LLFR-01177", "LLFR-00130", "LLFR-00131")
+    @covers("LLFR-01179", "LLFR-01180", "LLFR-00130", "LLFR-00131")
     def test_folder_sequence(self) -> None:
         """The Open file folder until a PDF is saved, then the folder of
         the last PDF saved; cancels and failures change nothing.
@@ -251,13 +251,13 @@ class PdfDialogFolderTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01176: a cancel and a failed save keep the first folder,
+        # LLFR-01179: a cancel and a failed save keep the first folder,
         # which follows the Open file dialog (a data file opened from
         # another folder meanwhile).
         self.export_to("")
         self.export_to("/broken/a.pdf", saved_b=False)
         self.open_folder_str = "/data/opened"
-        # LLFR-01177: the folder of the saved PDF, also when ".pdf" was
+        # LLFR-01180: the folder of the saved PDF, also when ".pdf" was
         # added to the typed name.
         self.export_to("/pdf/first/report")
         self.export_to("")
@@ -271,7 +271,7 @@ class PdfDialogFolderTest(unittest.TestCase):
         self.assertEqual(self.controller.pdf_folder_str,
                          os.path.abspath("/pdf/second"))
 
-    @covers("LLFR-01176", "LLFR-00145")
+    @covers("LLFR-01179", "LLFR-00145")
     def test_no_dialog_no_folder_change(self) -> None:
         """Without plots no dialog is shown; without an Open file folder
         function the dialog keeps its own folder ("").

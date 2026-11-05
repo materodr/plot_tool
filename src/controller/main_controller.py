@@ -92,7 +92,7 @@ class MainController:
         # run the export controller's flows.
         # LLFR-00971, LLFR-00972: the pages and the image describe the
         # open data files.
-        # LLFR-01176: the PDF dialog first shows the Open file folder.
+        # LLFR-01179: the PDF dialog first shows the Open file folder.
         self.export_controller = ExportController(
             main_window,
             lambda: self.file_controller.data_files.description_str,

@@ -31,11 +31,11 @@ name: macOS build
 #   after the start included, is within 0.65 s
 #   (PLOT_TOOL_DIALOG_PROBE=1); on every launch no file dialog is shown
 #   before a request (issue #165).
-# - LLFR-00447, LLFR-00468, LLFR-01177, LLFR-01179: a reused Open
+# - LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182: a reused Open
 #   file, Save layout, Load layout, Save all tabs as PDF or Save signals
 #   dialog shows the folder the app asks for, read from the system
 #   panel on screen (PLOT_TOOL_FOLDER_PROBE=1, issue #232);
-# - LLFR-01180: and its name field is empty, without the file chosen at
+# - LLFR-01183: and its name field is empty, without the file chosen at
 #   the earlier use (issue #243).
 on:
   pull_request:
@@ -191,12 +191,12 @@ jobs:
             --limit-s 1000 --dialog-limit-s 0.65 --turn-limit-s 2 -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
 
-      # LLFR-00447, LLFR-00468, LLFR-01177, LLFR-01179 (issue #232):
+      # LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182 (issue #232):
       # the Open file, Save layout, Load layout, Save all tabs as PDF
       # and Save signals dialogs are each shown again in a new folder
       # after a file of another folder was selected in them; the folder
       # of the system panel on screen must be the new one, and
-      # (LLFR-01180, issue #243) its name field must be empty.
+      # (LLFR-01183, issue #243) its name field must be empty.
       - name: Check the folder of reused file dialogs
         timeout-minutes: 5
         env:

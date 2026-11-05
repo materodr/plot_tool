@@ -283,7 +283,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.open_data_file()
         self.assertEqual(self.view.enabled_list, [False, True])
 
-    @covers("LLFR-01178", "LLFR-01179", "LLFR-00532", "LLFR-00398",
+    @covers("LLFR-01181", "LLFR-01182", "LLFR-00532", "LLFR-00398",
             "LLFR-00399")
     def test_dialog_folder_sequence(self) -> None:
         """The Open file folder until a signals file is saved, then the
@@ -294,7 +294,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         Outputs: none.
         """
         self.open_data_file()
-        # LLFR-01178: the folder the Open file dialog would show (the
+        # LLFR-01181: the folder the Open file dialog would show (the
         # last data file opened), not the folder of the proposed file.
         self.file_controller.dialog_folder_str = "/data/last_opened"
         first_folder_str = os.path.join(self.folder_str, "first")
@@ -309,7 +309,7 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.view.handler()
         self.view.handler()
         self.view.write_failure_str = ""
-        # LLFR-01179: a successful save moves the folder.
+        # LLFR-01182: a successful save moves the folder.
         self.view.dialog_answer_list = [
             (os.path.join(first_folder_str, "out"), CSV_FORMAT_STR, False),
             ("", CSV_FORMAT_STR, False),

@@ -2456,8 +2456,8 @@ class MainWindow(QMainWindow):
         # LLFR-00128: a save file dialog for a .pdf file.
         # LLFR-00130: an empty path means the dialog was cancelled.
         # LLFR-00406: the dialog built once, shown again, in the folder
-        # of LLFR-01176 and LLFR-01177, with no file name of an earlier
-        # use (LLFR-01180).
+        # of LLFR-01179 and LLFR-01180, with no file name of an earlier
+        # use (LLFR-01183).
         dialog = self.file_dialog_pool.prepared_dialog(
             SAVE_PDF_DIALOG_KEY_STR, start_folder_str)
         return self.run_pdf_save_dialog(dialog) or ""
@@ -2753,7 +2753,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00219, LLFR-00222, LLFR-00223. LLFR-00406: the dialog
         # built once, shown again in the folder of LLFR-00220 and
-        # LLFR-00468, with no file name of an earlier use (LLFR-01180).
+        # LLFR-00468, with no file name of an earlier use (LLFR-01183).
         dialog = self.file_dialog_pool.prepared_dialog(
             SAVE_LAYOUT_DIALOG_KEY_STR, start_folder_str)
         return self.run_layout_dialog(dialog) or ""
@@ -2767,7 +2767,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00221, LLFR-00222. LLFR-00406: the dialog built once,
         # shown again in the folder of LLFR-00220 and LLFR-00468, with
-        # no file selected at an earlier use (LLFR-01180).
+        # no file selected at an earlier use (LLFR-01183).
         dialog = self.file_dialog_pool.prepared_dialog(
             LOAD_LAYOUT_DIALOG_KEY_STR, start_folder_str)
         return self.run_layout_dialog(dialog) or ""
@@ -3004,9 +3004,9 @@ class MainWindow(QMainWindow):
             the dialog itself asked before replacing an existing file.
         """
         # LLFR-00396, LLFR-00397, LLFR-00398. LLFR-00406: the dialog
-        # built once, shown again in the folder of LLFR-01178 and
-        # LLFR-01179; the name of LLFR-00532 is proposed after the reset
-        # that clears the name of an earlier use (LLFR-01180).
+        # built once, shown again in the folder of LLFR-01181 and
+        # LLFR-01182; the name of LLFR-00532 is proposed after the reset
+        # that clears the name of an earlier use (LLFR-01183).
         dialog = self.file_dialog_pool.prepared_dialog(
             SAVE_SIGNALS_DIALOG_KEY_STR, start_folder_str)
         self.propose_signals_file(dialog, file_name_str, format_str)

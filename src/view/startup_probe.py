@@ -55,10 +55,10 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
    a folder ``first`` with a file of it selected, as after a user chose
    that file, then in a folder ``second``; the folder the second dialog
    really shows (on macOS the folder of the system panel on screen) is
-   compared with ``second`` (LLFR-00447, LLFR-00468, LLFR-01177,
-   LLFR-01179, issue #232), its file name field must be empty in a save
+   compared with ``second`` (LLFR-00447, LLFR-00468, LLFR-01180,
+   LLFR-01182, issue #232), its file name field must be empty in a save
    dialog and must not hold the earlier file in an open dialog
-   (LLFR-01180, issue #243, name_is_clean), and a line is printed::
+   (LLFR-01183, issue #243, name_is_clean), and a line is printed::
 
        plot_tool folder: name=<dialog> expected=<second folder>
        shown=<folder shown> source=<panel|dialog> ok=<yes|no>
@@ -69,7 +69,7 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
    folder line is not ok (ok or name_ok).
 
 Code traced to LLFR-00058, LLFR-00184, LLFR-00186, LLFR-00188,
-LLFR-00406, LLFR-00447, LLFR-00468 and LLFR-01176 to LLFR-01180: the
+LLFR-00406, LLFR-00447, LLFR-00468 and LLFR-01179 to LLFR-01183: the
 probe only watches the splash screen, the main window with its three
 panels and the file dialogs being shown; it is a build check, not a
 function.
@@ -113,10 +113,10 @@ PROBE_PAUSE_S = 0.5
 # the dialogs that show the folder chosen by the controllers.
 FOLDER_PROBE_VARIABLE_STR = "PLOT_TOOL_FOLDER_PROBE"
 FOLDER_LINE_PREFIX_STR = "plot_tool folder:"
-# LLFR-01176 to LLFR-01180: the PDF and Save signals dialogs too.
+# LLFR-01179 to LLFR-01183: the PDF and Save signals dialogs too.
 FOLDER_PROBE_KEY_TUPLE = ("open_file", "save_layout", "load_layout",
                           "save_pdf", "save_signals")
-# LLFR-01180: the field of Qt's own dialog where a file name is typed.
+# LLFR-01183: the field of Qt's own dialog where a file name is typed.
 FILE_NAME_FIELD_NAME_STR = "fileNameEdit"
 FIRST_FOLDER_NAME_STR = "first"
 SECOND_FOLDER_NAME_STR = "second"
@@ -540,7 +540,7 @@ def visible_panel_text_str(selector_name_bytes: bytes, url_b: bool,
         when none is shown, on other systems, or when the system could
         not be asked.
     """
-    # LLFR-00447, LLFR-00468, LLFR-01180: what the user really sees,
+    # LLFR-00447, LLFR-00468, LLFR-01183: what the user really sees,
     # read from the panel itself (an open panel is a save panel too),
     # not from Qt.
     if platform_str != MACOS_PLATFORM_STR:
@@ -597,7 +597,7 @@ def visible_panel_name_str(platform_str: str = sys.platform) -> str:
         or "" when it is empty, when none is shown, on other systems, or
         when the system could not be asked.
     """
-    # LLFR-01180: [NSSavePanel nameFieldStringValue].
+    # LLFR-01183: [NSSavePanel nameFieldStringValue].
     return visible_panel_text_str(b"nameFieldStringValue", False,
                                   platform_str)
 
@@ -609,7 +609,7 @@ def dialog_name_str(dialog) -> str:
         dialog: a QFileDialog.
     Outputs: the text of its file name field, or "" when it has none.
     """
-    # LLFR-01180: Qt's own dialog, used where the system has none.
+    # LLFR-01183: Qt's own dialog, used where the system has none.
     from PyQt6.QtWidgets import QLineEdit
     name_field = dialog.findChild(QLineEdit, FILE_NAME_FIELD_NAME_STR)
     return str(name_field.text()) if name_field is not None else ""
@@ -657,7 +657,7 @@ def shown_folder_tuple(main_window, application, key_str: str,
         if time.perf_counter() > deadline_s:
             break
         time.sleep(POLL_INTERVAL_MS_I / 1000.0)
-    # LLFR-01180: the file name the user would see.
+    # LLFR-01183: the file name the user would see.
     if shown_str:
         source_str = "panel"
         name_str = visible_panel_name_str(platform_str)
@@ -695,7 +695,7 @@ def name_is_clean(main_window, key_str: str, name_str: str) -> bool:
         of the file selected at the earlier use; macOS keeps "Untitled"
         in the hidden name field of its open panel.
     """
-    # LLFR-01180: the user types a name only in a save dialog; an open
+    # LLFR-01183: the user types a name only in a save dialog; an open
     # dialog must not bring back the file chosen before.
     from PyQt6.QtWidgets import QFileDialog
     dialog = main_window.file_dialog_pool.dialog(key_str)
@@ -715,9 +715,9 @@ def folder_line_list(main_window, application, output_stream=None,
         platform_str: the platform name, as sys.platform.
     Outputs: a tuple (the report lines, True when every line is ok).
     """
-    # LLFR-00447, LLFR-00468, LLFR-01177, LLFR-01179, issue #232: a
+    # LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182, issue #232: a
     # dialog shown again must show the new folder, even when a file of
-    # another folder was chosen in it at its earlier use. LLFR-01180,
+    # another folder was chosen in it at its earlier use. LLFR-01183,
     # issue #243: and without the name of that file.
     line_list = []
     all_ok_b = True
@@ -742,7 +742,7 @@ def folder_line_list(main_window, application, output_stream=None,
             ok_b = same_folder(shown_str, second_folder_str)
             name_ok_b = name_is_clean(main_window, key_str, name_str)
             all_ok_b = all_ok_b and ok_b and name_ok_b
-            # LLFR-01180: a name with spaces is shown as one field.
+            # LLFR-01183: a name with spaces is shown as one field.
             shown_name_str = name_str.replace(" ", "_") or "-"
             line_str = (f"{FOLDER_LINE_PREFIX_STR} name={key_str} "
                         f"expected={os.path.realpath(second_folder_str)} "

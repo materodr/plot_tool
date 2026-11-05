@@ -298,8 +298,8 @@ class StartupProbeTest(unittest.TestCase):
             main_window.deleteLater()
             self.application.processEvents()
 
-    @covers("LLFR-00447", "LLFR-00468", "LLFR-01177", "LLFR-01179",
-            "LLFR-01180")
+    @covers("LLFR-00447", "LLFR-00468", "LLFR-01180", "LLFR-01182",
+            "LLFR-01183")
     def test_folder_probe_reports_each_reused_dialog(self) -> None:
         """With the folder probe on, five folder lines, all ok here.
 
@@ -351,7 +351,7 @@ class StartupProbeTest(unittest.TestCase):
                                   for part in line_str.split()[2:])
                 self.assertEqual(field_dict["name"], key_str)
                 self.assertEqual(field_dict["ok"], "yes", line_str)
-                # LLFR-01180: the name chosen at the first show is gone.
+                # LLFR-01183: the name chosen at the first show is gone.
                 self.assertEqual(field_dict["file_name"], "-", line_str)
                 self.assertEqual(field_dict["name_ok"], "yes", line_str)
                 self.assertEqual(field_dict["source"], "dialog")
@@ -367,7 +367,7 @@ class StartupProbeTest(unittest.TestCase):
                     {"PLOT_TOOL_FOLDER_PROBE": "1"}, io.StringIO(),
                     main_window=main_window)
             self.assertEqual(fake_application.exit_code_list, [1])
-            # LLFR-01180: a name left from the earlier use fails the run.
+            # LLFR-01183: a name left from the earlier use fails the run.
             with mock.patch.object(probe, "dialog_name_str",
                                    return_value="earlier copy.csv"):
                 output_stream = io.StringIO()
@@ -380,7 +380,7 @@ class StartupProbeTest(unittest.TestCase):
             self.assertIn("file_name=earlier_copy.csv name_ok=no",
                           output_stream.getvalue())
             self.assertEqual(probe.visible_panel_name_str("linux"), "")
-            # LLFR-01180: the hidden name field of the macOS open panel
+            # LLFR-01183: the hidden name field of the macOS open panel
             # says "Untitled"; only the earlier file's name fails there.
             self.assertTrue(probe.name_is_clean(main_window, "open_file",
                                                 "Untitled"))

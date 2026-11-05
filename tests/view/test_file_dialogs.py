@@ -343,7 +343,7 @@ class FileDialogTimingTest(unittest.TestCase):
 
     @covers("LLFR-00406", "HLFR-00091", "LLFR-00005", "LLFR-00219",
             "LLFR-00221", "LLFR-00128", "LLFR-00204", "LLFR-00220",
-            "LLFR-00396", "LLFR-01176", "LLFR-01178")
+            "LLFR-00396", "LLFR-01179", "LLFR-01181")
     def test_every_dialog_appears_quickly(self) -> None:
         """First and second click of each dialog: shown within 0.65 s.
 
@@ -383,7 +383,7 @@ class FileDialogTimingTest(unittest.TestCase):
                 self.assertLessEqual(elapsed_s, DIALOG_LIMIT_S)
                 # LLFR-00406: the same dialog on every click.
                 self.assertIs(dialog, self.pool.dialog(key_str))
-        # LLFR-00204, LLFR-00220, LLFR-01176, LLFR-01178: after the
+        # LLFR-00204, LLFR-00220, LLFR-01179, LLFR-01181: after the
         # open, the folder of the data file, for every dialog.
         for record in record_list[1:]:
             self.assertEqual(record[4], self.folder_str)
@@ -792,11 +792,11 @@ class ReusedDialogFolderTest(unittest.TestCase):
         self.assertEqual(dialog.shown_folder_list, [
             folder_dict["start"], folder_dict["a"], folder_dict["b"],
             folder_dict["c"]])
-        # LLFR-01180: no reused panel showed the name of the file
+        # LLFR-01183: no reused panel showed the name of the file
         # chosen in it before.
         self.assertEqual(dialog.shown_name_list, ["", "", "", ""])
         # "" keeps the folder the panel shows, and still selects that
-        # folder, so that no file name is left (LLFR-01180).
+        # folder, so that no file name is left (LLFR-01183).
         dialog.setDirectory(folder_dict["b"])
         dialog.user_selected_list = [path_dict["a1.csv"]]
         dialog.initially_selected_list = [path_dict["a1.csv"]]
@@ -805,7 +805,7 @@ class ReusedDialogFolderTest(unittest.TestCase):
         self.assertEqual(dialog.shown_folder_list[-1], folder_dict["b"])
         self.assertEqual(dialog.shown_name_list[-1], "")
 
-    @covers("LLFR-00447", "LLFR-00204", "LLFR-00406", "LLFR-01180")
+    @covers("LLFR-00447", "LLFR-00204", "LLFR-00406", "LLFR-01183")
     def test_folder_selected_only_on_the_system_dialogs(self) -> None:
         """The macOS panel and the Windows dialog get the folder
         selected; Qt's own dialog and other systems only setDirectory.
@@ -955,7 +955,7 @@ class ReusedDialogNameAndFolderTest(unittest.TestCase):
                 data_file.write(FILE_TEXT_STR)
             self.path_dict[name_str] = path_str
 
-    @covers("LLFR-01180", "LLFR-00406")
+    @covers("LLFR-01183", "LLFR-00406")
     def test_pool_dialog_shows_no_earlier_name(self) -> None:
         """On macOS and on Windows, each reused dialog opens with no
         file name, after a file was chosen in it and with or without a
@@ -998,8 +998,8 @@ class ReusedDialogNameAndFolderTest(unittest.TestCase):
         dialog.show_panel([])
         self.assertEqual(dialog.shown_name_list, ["", "a1.csv"])
 
-    @covers("LLFR-01176", "LLFR-01177", "LLFR-01178", "LLFR-01179",
-            "LLFR-00220", "LLFR-00468", "LLFR-00532", "LLFR-01180",
+    @covers("LLFR-01179", "LLFR-01180", "LLFR-01181", "LLFR-01182",
+            "LLFR-00220", "LLFR-00468", "LLFR-00532", "LLFR-01183",
             "LLFR-00204", "LLFR-00447", "LLFR-00406")
     def test_app_dialog_folders_and_names(self) -> None:
         """Every dialog of the app, through the controllers, on macOS
@@ -1073,8 +1073,8 @@ class ReusedDialogNameAndFolderTest(unittest.TestCase):
             self.application.processEvents()
         main_window.signal_double_click_handler("file1_speed")
         self.application.processEvents()
-        # PDF: first in b (LLFR-01176), a failed save to c, then saved
-        # to d; then in d (LLFR-01177), cancelled.
+        # PDF: first in b (LLFR-01179), a failed save to c, then saved
+        # to d; then in d (LLFR-01180), cancelled.
         export_controller = controller.export_controller
         for path_str, result_tuple in (
                 (os.path.join(folder_dict["c"], "x.pdf"), (False, "full")),
@@ -1084,8 +1084,8 @@ class ReusedDialogNameAndFolderTest(unittest.TestCase):
             if result_tuple is not None:
                 pdf_result_list.append(result_tuple)
             export_controller.on_export_requested()
-        # Save signals: first in b (LLFR-01178), with the name of file1
-        # (LLFR-00532); saved to c; then in c (LLFR-01179), cancelled.
+        # Save signals: first in b (LLFR-01181), with the name of file1
+        # (LLFR-00532); saved to c; then in c (LLFR-01182), cancelled.
         signals_controller = controller.save_signals_controller
         for chosen_list in ([os.path.join(folder_dict["c"], "out.csv")],
                             []):
@@ -1115,7 +1115,7 @@ class ReusedDialogNameAndFolderTest(unittest.TestCase):
             "save_signals": [folder_dict["b"], folder_dict["c"]],
             "save_layout": [folder_dict["b"]],
             "load_layout": [folder_dict["a"]]})
-        # LLFR-01180: no dialog shows the name chosen in it before; Save
+        # LLFR-01183: no dialog shows the name chosen in it before; Save
         # signals proposes the name of file1 on every use (LLFR-00532).
         name_dict = {key_str: dialog.shown_name_list
                      for key_str, dialog in dialog_dict.items()}
