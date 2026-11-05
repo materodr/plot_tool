@@ -240,6 +240,9 @@ The app must save each signal under its name without the prefix of HLFR-00115, a
 
 Note: For example, `file1_Speed` is saved as `Speed`, and `file1_int_Speed` as `int_Speed`.
 
+### HLFR-00161 Hide labels
+The user must be able to hide and show again all the labels of the objects on the plots in one action, from the top panel.
+
 ## Signal list panel
 
 ### HLFR-00011 Signal list
@@ -348,6 +351,17 @@ The user must be able to hide the signal list panel of an undocked window and to
 
 ### HLFR-00131 Hide the signal list panel of the main window
 The user must be able to hide the signal list panel of the main window and to show it again at its previous width.
+
+### HLFR-00162 Signal from scratch
+The user must be able to create, from a data file, a synthetic signal that is not computed from another signal: a constant, a step, a ramp, a second-degree polynomial of time, a sine or a cosine.
+
+### HLFR-00163 Trigonometric operations
+The user must be able to create a synthetic signal that is the sine, cosine or tangent of a signal, taking its values as degrees.
+
+### HLFR-00164 Statistics
+The user must be able to create a synthetic signal that holds a statistic of a signal (RMS, mean, standard deviation, median, max, min), computed over the whole time range of the file or over the time range shown in the plots.
+
+Note: A range-based signal shows its time range in its name, as an FFT does.
 
 ## Plot panel
 
@@ -586,3 +600,15 @@ An undocked window must show the buttons of its tabs, which work like the tabs o
 ### HLFR-00143 Reorder the tabs
 The user must be able to change the order of the tabs by dragging a tab.
 
+### HLFR-00158 Shapes
+The user must be able to draw circles and rectangles on a plot, and move, rename, recolor and delete them as arrows are.
+
+### HLFR-00159 Line width
+The user must be able to change the line width of flags, curves, delta markers, arrows and text note boxes.
+
+Note: The current widths are the defaults.
+
+### HLFR-00160 Line style
+The user must be able to choose the line style of flags, curves, delta markers, arrows and text note boxes among continuous, dashed, dotted and dash-dotted.
+
+Note: Each keeps today's style as its default.
