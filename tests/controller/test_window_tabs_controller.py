@@ -189,7 +189,7 @@ class NewWindowDropControllerTest(WindowTabsControllerTestCase):
         self.assertEqual(self.window_of(second_id_i), new_window_id_i)
         self.assertNotIn(old_window_id_i, self.view.window_tabs_dict)
 
-    @covers("LLFR-01179", "LLFR-01167", "LLFR-01016", "HLFR-00126",
+    @covers("LLFR-01184", "LLFR-01167", "LLFR-01016", "HLFR-00126",
             "HLFR-00127", "HLFR-00124")
     def test_drop_outside_keeps_the_size_of_its_window(self) -> None:
         """A tab dropped outside the app gets the size its window has at

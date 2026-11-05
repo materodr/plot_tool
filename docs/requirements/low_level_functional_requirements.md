@@ -400,11 +400,11 @@ When the user clicks the undock button of a docked tab, the app must move that t
 ### LLFR-01016 Size of a new undocked window
 When the app opens an undocked window by an undock (LLFR-01015, LLFR-01142), it must give the window the width and height of the main window's plot panel, limited to the screen as in LLFR-01084.
 
-Note: A window opened by a drop of a tab of an undocked window outside the app gets the size of LLFR-01179.
+Note: A window opened by a drop of a tab of an undocked window outside the app gets the size of LLFR-01184.
 
 *Parent: HLFR-00124*
 
-### LLFR-01179 Size of a window opened by a drop outside the app
+### LLFR-01184 Size of a window opened by a drop outside the app
 When the app opens an undocked window by a drop of a tab of an undocked window outside the app (LLFR-01167), it must give the new window the width and height that the window the tab was dragged from had at the drop, limited to the screen as in LLFR-01084.
 
 Note: The owner's answer of 2026-11-04 (27a): the tab keeps the size of the window it came from. A tab dragged out of the main window still gets the size of the plot panel (LLFR-01016).
@@ -934,7 +934,7 @@ When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a s
 *Parent: HLFR-00038*
 
 ### LLFR-01139 PDF shortcut
-The app must run "Save all tabs as PDF" (LLFR-00128) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01180), after leaving that field as in LLFR-01181, LLFR-01185 and LLFR-01182 or that dialog as in LLFR-01180, except as in LLFR-01172 and LLFR-01184.
+The app must run "Save all tabs as PDF" (LLFR-00128) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01185), after leaving that field as in LLFR-01186, LLFR-01190 and LLFR-01187 or that dialog as in LLFR-01185, except as in LLFR-01172 and LLFR-01189.
 
 Note: Text fields give Ctrl+P no meaning of their own. The boxes and the dialog of the export are shown over the main window, as for the Export button. For example, a tab being renamed takes the name typed so far, and then the PDF dialog opens (the owner's answer of 2026-11-04, 21b).
 
@@ -948,38 +948,38 @@ Note: As the 0 key (LLFR-00454) and the Esc key (LLFR-00530), so that no dialog 
 
 *Parent: HLFR-00038*
 
-### LLFR-01180 Shortcuts in a name dialog
+### LLFR-01185 Shortcuts in a name dialog
 When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) in a name dialog, which is the dialog in which the user types a new name for a tab, a flag, an area, a delta marker, an arrow or a synthetic signal (LLFR-00030, LLFR-00088, LLFR-00315, LLFR-00429, LLFR-00439, LLFR-00266), the app must close the dialog with the name typed so far accepted, as its OK button does, before it runs the action of LLFR-01139 or LLFR-01140.
 
 Note: The rename is applied first, with its usual checks (for example LLFR-00067 and LLFR-00211), and then the PDF dialog opens or the focus goes to the search box of the window the dialog was shown over (LLFR-01140).
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
-### LLFR-01181 Text field left by a shortcut
-When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) while the keyboard focus is in a text field of a window (LLFR-00157), such as a search box or the field of a text note (LLFR-00333), the app must take the keyboard focus out of the field before it runs the action of LLFR-01139 or LLFR-01140, except as in LLFR-01183.
+### LLFR-01186 Text field left by a shortcut
+When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) while the keyboard focus is in a text field of a window (LLFR-00157), such as a search box or the field of a text note (LLFR-00333), the app must take the keyboard focus out of the field before it runs the action of LLFR-01139 or LLFR-01140, except as in LLFR-01188.
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
-### LLFR-01185 Selection cleared by a shortcut
-When the app takes the keyboard focus out of a text field for a shortcut (LLFR-01181), it must first clear the field's selection.
+### LLFR-01190 Selection cleared by a shortcut
+When the app takes the keyboard focus out of a text field for a shortcut (LLFR-01186), it must first clear the field's selection.
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
-### LLFR-01182 Text note written by a shortcut
-When the app takes the keyboard focus out of the field of a text note for a shortcut (LLFR-01181), it must write the text typed so far into the note, as the Enter key does (LLFR-00334), before it runs the shortcut's action.
+### LLFR-01187 Text note written by a shortcut
+When the app takes the keyboard focus out of the field of a text note for a shortcut (LLFR-01186), it must write the text typed so far into the note, as the Enter key does (LLFR-00334), before it runs the shortcut's action.
 
 Note: The search box has nothing to accept: its text is applied while it is typed (LLFR-00095).
 
 *Parent: HLFR-00073, HLFR-00075, HLFR-00038, HLFR-00033*
 
-### LLFR-01183 Search shortcut in the search box
+### LLFR-01188 Search shortcut in the search box
 When the user presses Ctrl+F (Cmd+F on macOS) while the keyboard focus is already in the search box of the signal list panel of that window, the app must keep the keyboard focus in that search box while it selects the whole search text (LLFR-01140).
 
 Note: A second Ctrl+F therefore lets the user type a new search over the old one.
 
 *Parent: HLFR-00033*
 
-### LLFR-01184 Shortcuts in the signal dialogs
+### LLFR-01189 Shortcuts in the signal dialogs
 While the second signal dialog (LLFR-00275), the time signal window (LLFR-00325) or a dialog that asks for the parameter of a synthetic signal (LLFR-00245, LLFR-00269, LLFR-00272) is open, the app must keep that dialog open, with its typed text and its choice unchanged, when the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS).
 
 Note: Accepting these dialogs would create a signal or choose the time signal, so the shortcuts leave them to the user.
@@ -2656,9 +2656,9 @@ When the app opens an undocked window, the search box of its signal list panel m
 *Parent: HLFR-00129*
 
 ### LLFR-01140 Search shortcut
-When the user presses Ctrl+F (Cmd+F on macOS) in a window, the app must put the keyboard focus in the search box of that window's signal list panel, with the whole search text selected, also while the keyboard focus is in another text field of the window (LLFR-00157) or in a name dialog shown over the window (LLFR-01180), after leaving that field as in LLFR-01181, LLFR-01185 and LLFR-01182 or that dialog as in LLFR-01180, except as in LLFR-01174 and LLFR-01184.
+When the user presses Ctrl+F (Cmd+F on macOS) in a window, the app must put the keyboard focus in the search box of that window's signal list panel, with the whole search text selected, also while the keyboard focus is in another text field of the window (LLFR-00157) or in a name dialog shown over the window (LLFR-01185), after leaving that field as in LLFR-01186, LLFR-01190 and LLFR-01187 or that dialog as in LLFR-01185, except as in LLFR-01174 and LLFR-01189.
 
-Note: With the focus already in that search box, the focus stays there (LLFR-01183).
+Note: With the focus already in that search box, the focus stays there (LLFR-01188).
 
 *Parent: HLFR-00033, HLFR-00128*
 
@@ -4575,7 +4575,7 @@ Note: The window it leaves closes when the tab was its last tab (LLFR-01031), an
 ### LLFR-01167 Tab of an undocked window dropped outside the app
 When the user drags a tab of an undocked window and releases it with the pointer outside every window of the app, the app must move the tab into a new undocked window whose top-left corner is at the pointer, kept on a screen as in LLFR-01083, as LLFR-01142 does for a docked tab.
 
-Note: The new window gets the size of LLFR-01179 and its panel is hidden (LLFR-01050). A drop over the main window, away from its tab row, or over the tab's own window, away from its tab row, changes nothing (LLFR-01067).
+Note: The new window gets the size of LLFR-01184 and its panel is hidden (LLFR-01050). A drop over the main window, away from its tab row, or over the tab's own window, away from its tab row, changes nothing (LLFR-01067).
 
 *Parent: HLFR-00126, HLFR-00127*
 

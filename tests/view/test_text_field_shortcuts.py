@@ -3,10 +3,10 @@
 A real MainWindow and MainController are used (the setup of
 test_undocked_windows_view). They check that the PDF and search
 shortcuts leave a text field first, clearing its selection and taking
-its typed text (LLFR-01181, LLFR-01185, LLFR-01182), that they close a
-name dialog with the typed name and then run (LLFR-01180), that Ctrl+F in the
-window's own search box selects its text (LLFR-01183), and that the
-dialogs that create a signal are left alone (LLFR-01184).
+its typed text (LLFR-01186, LLFR-01190, LLFR-01187), that they close a
+name dialog with the typed name and then run (LLFR-01185), that Ctrl+F in the
+window's own search box selects its text (LLFR-01188), and that the
+dialogs that create a signal are left alone (LLFR-01189).
 
 No modal dialog is ever opened: QInputDialog.getText is replaced by a
 function that shows a QInputDialog without exec and sends it the keys.
@@ -82,9 +82,9 @@ def fake_get_text(key_name_str: str, typed_str: str, call_list: list):
 
 @requires_qt
 class NameDialogShortcutTest(UndockedWindowTestCase):
-    """Ctrl+P and Ctrl+F in the dialogs that rename (LLFR-01180)."""
+    """Ctrl+P and Ctrl+F in the dialogs that rename (LLFR-01185)."""
 
-    @covers("LLFR-01180", "HLFR-00038", "HLFR-00033")
+    @covers("LLFR-01185", "HLFR-00038", "HLFR-00033")
     def test_filter_accepts_the_dialog_on_ctrl_p_and_ctrl_f(self) -> None:
         """The filter takes Ctrl+P and Ctrl+F in a QInputDialog: the
         override is taken so no other shortcut gets the key, the press
@@ -126,7 +126,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         self.assertFalse(NameDialogShortcutFilter().eventFilter(
             search_box, key_event("P")))
 
-    @covers("LLFR-01180", "LLFR-01139", "LLFR-00030", "HLFR-00038",
+    @covers("LLFR-01185", "LLFR-01139", "LLFR-00030", "HLFR-00038",
             "HLFR-00017")
     def test_tab_rename_takes_the_name_then_saves_the_pdf(self) -> None:
         """Ctrl+P in the tab rename dialog renames the tab with the text
@@ -152,7 +152,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         self.assertEqual(len(call_list), 1)
         self.assertEqual(name_at_export_list, ["Typed name"])
 
-    @covers("LLFR-01180", "LLFR-01140", "LLFR-01141", "LLFR-00088",
+    @covers("LLFR-01185", "LLFR-01140", "LLFR-01141", "LLFR-00088",
             "HLFR-00033", "HLFR-00138")
     def test_name_dialog_over_a_window_searches_in_that_window(
             self) -> None:
@@ -189,7 +189,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         main_box = self.main_window.signal_list_panel.search_box
         self.assertIs(self.main_window.focusWidget(), main_box)
 
-    @covers("LLFR-01180", "LLFR-01139", "HLFR-00038")
+    @covers("LLFR-01185", "LLFR-01139", "HLFR-00038")
     def test_no_action_without_the_shortcut(self) -> None:
         """A name dialog closed with OK or cancelled runs no shortcut
         action.
@@ -217,7 +217,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
 class TextFieldShortcutTest(UndockedWindowTestCase):
     """Ctrl+P and Ctrl+F leave a text field of a window first."""
 
-    @covers("LLFR-01181", "LLFR-01185", "LLFR-01139", "HLFR-00038")
+    @covers("LLFR-01186", "LLFR-01190", "LLFR-01139", "HLFR-00038")
     def test_pdf_shortcut_leaves_the_search_box(self) -> None:
         """Ctrl+P with the focus in the search box clears its selection,
         takes the focus out of it, keeps its text, then runs the export.
@@ -243,7 +243,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         self.assertEqual(order_list, [("left", None), ("export", False)])
         self.assertEqual(box.text(), "speed")
 
-    @covers("LLFR-01182", "LLFR-01181", "LLFR-01185", "LLFR-01139",
+    @covers("LLFR-01187", "LLFR-01186", "LLFR-01190", "LLFR-01139",
             "LLFR-01140", "LLFR-00334", "HLFR-00073", "HLFR-00038",
             "HLFR-00033")
     def test_shortcuts_write_the_text_note_first(self) -> None:
@@ -280,7 +280,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         self.assertIs(window.focusWidget(),
                       window.signal_list_panel.search_box)
 
-    @covers("LLFR-01181", "LLFR-01185", "LLFR-01140", "HLFR-00033",
+    @covers("LLFR-01186", "LLFR-01190", "LLFR-01140", "HLFR-00033",
             "HLFR-00138")
     def test_search_shortcut_leaves_another_search_box(self) -> None:
         """Ctrl+F in an undocked window, with the focus in the main
@@ -305,7 +305,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         self.assertIs(window.focusWidget(), box)
         self.assertEqual(box.selectedText(), "speed")
 
-    @covers("LLFR-01183", "LLFR-01140", "HLFR-00033")
+    @covers("LLFR-01188", "LLFR-01140", "HLFR-00033")
     def test_search_shortcut_in_its_own_search_box(self) -> None:
         """Ctrl+F with the focus already in the window's search box keeps
         the focus there and selects the whole text, without leaving it.
@@ -327,7 +327,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         self.assertIs(self.main_window.focusWidget(), box)
         self.assertEqual(box.selectedText(), "speed")
 
-    @covers("LLFR-01184", "LLFR-01180", "HLFR-00053", "HLFR-00070")
+    @covers("LLFR-01189", "LLFR-01185", "HLFR-00053", "HLFR-00070")
     def test_signal_dialogs_are_left_alone(self) -> None:
         """The dialogs that create a signal or choose the time signal are
         not name dialogs: Ctrl+P and Ctrl+F in their fields neither

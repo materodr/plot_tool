@@ -2138,7 +2138,7 @@ class Workspace:
         if tab is None or not tab.undocked_b:
             return False
         # LLFR-01167, LLFR-01020: the tab keeps all it holds, in a window
-        # of a new id, at the drop point, with the size of LLFR-01179.
+        # of a new id, at the drop point, with the size of LLFR-01184.
         tab.window_id_i = self.next_window_id_i
         self.next_window_id_i += 1
         tab.window_shown_b = True

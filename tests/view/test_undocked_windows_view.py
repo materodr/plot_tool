@@ -1244,7 +1244,7 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
         old_window_id_i = window.window_id_i
         depth_i = self.plot_controller.undo_history.depth()
         drop_point = self.point_outside_the_app()
-        # LLFR-01179: the size of the window the tab came from.
+        # LLFR-01184: the size of the window the tab came from.
         expected_tuple = placed_window_tuple(
             (drop_point.x(), drop_point.y()) + window.window_tuple()[2:],
             self.main_window.screen_area_list(),
@@ -1272,7 +1272,7 @@ class DropOutsideTheAppTest(UndockedWindowTestCase):
                             old_window_id_i)
         self.assertEqual(len(self.main_window.undocked_window_dict), 1)
 
-    @covers("LLFR-01179", "LLFR-01167", "LLFR-01084", "HLFR-00126",
+    @covers("LLFR-01184", "LLFR-01167", "LLFR-01084", "HLFR-00126",
             "HLFR-00127")
     def test_tab_dropped_outside_keeps_its_window_size(self) -> None:
         """A tab of a window the user resized opens, after a drop outside

@@ -221,7 +221,7 @@ class MainWindow(QMainWindow):
         # LLFR-01015, LLFR-01028, LLFR-01073, LLFR-01047, LLFR-01055:
         # the handlers of the windows, set by the plot controller.
         self.window_handler_dict = {}
-        # LLFR-01180: Ctrl+P and Ctrl+F in the tab rename dialog.
+        # LLFR-01185: Ctrl+P and Ctrl+F in the tab rename dialog.
         self.plot_panel.name_dialog_shortcut_handler = (
             self.run_name_dialog_shortcut)
         self.plot_panel.undock_handler = (
@@ -1539,7 +1539,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-00266, LLFR-00959: the dialog starts from the current
         # name without its prefix.
-        # LLFR-01180: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
         new_name_str, accepted_b = name_dialog.ask_name_text(
             self.dialog_parent(), RENAME_SIGNAL_DIALOG_TITLE_STR,
             RENAME_SIGNAL_DIALOG_LABEL_STR, current_name_str,
@@ -2237,7 +2237,7 @@ class MainWindow(QMainWindow):
         # LLFR-00315: the dialog starts from the current name; a blank
         # answer is returned as typed, and the controller keeps the old
         # name without a message (LLFR-00720).
-        # LLFR-01180: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
         new_name_str, accepted_b = name_dialog.ask_name_text(
             self.dialog_parent(), RENAME_AREA_DIALOG_TITLE_STR,
             RENAME_AREA_DIALOG_LABEL_STR, current_name_str,
@@ -2287,7 +2287,7 @@ class MainWindow(QMainWindow):
         Outputs: the typed text, or None when the user cancelled.
         """
         # LLFR-00429, LLFR-00439: the same dialog as for flags and areas.
-        # LLFR-01180: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
         new_name_str, accepted_b = name_dialog.ask_name_text(
             self.dialog_parent(), title_str, label_str, current_name_str,
             self.run_name_dialog_shortcut)
@@ -2363,7 +2363,7 @@ class MainWindow(QMainWindow):
         # LLFR-00088: the dialog starts from the current name.
         # LLFR-00089: a blank answer is returned as typed; the
         # controller keeps the old name without a message.
-        # LLFR-01180: Ctrl+P and Ctrl+F in the dialog take the typed name.
+        # LLFR-01185: Ctrl+P and Ctrl+F in the dialog take the typed name.
         new_name_str, accepted_b = name_dialog.ask_name_text(
             self.dialog_parent(), RENAME_MARKER_DIALOG_TITLE_STR,
             RENAME_MARKER_DIALOG_LABEL_STR, current_name_str,
@@ -3250,7 +3250,7 @@ class MainWindow(QMainWindow):
         # LLFR-01172: during a mouse drag, Ctrl+P does nothing.
         if self.is_mouse_drag_in_progress():
             return
-        # LLFR-01181, LLFR-01185, LLFR-01182: a text field is left
+        # LLFR-01186, LLFR-01190, LLFR-01187: a text field is left
         # first, its selection cleared and its typed text accepted.
         self.leave_text_field()
         # LLFR-01139: as the Export menu option, from any window, also
@@ -3268,8 +3268,8 @@ class MainWindow(QMainWindow):
         # LLFR-01174: during a mouse drag, Ctrl+F does nothing.
         if self.is_mouse_drag_in_progress():
             return
-        # LLFR-01183: in the window's own search box, the focus stays
-        # there; LLFR-01181, LLFR-01185, LLFR-01182: another field is left
+        # LLFR-01188: in the window's own search box, the focus stays
+        # there; LLFR-01186, LLFR-01190, LLFR-01187: another field is left
         # first, its selection cleared and its typed text accepted.
         if QApplication.focusWidget() is not self.search_box_of_window(
                 window_id_i):
@@ -3301,7 +3301,7 @@ class MainWindow(QMainWindow):
                 window.
         Outputs: the QLineEdit, or None for an unknown window.
         """
-        # LLFR-01140, LLFR-01183: the search box that Ctrl+F goes to.
+        # LLFR-01140, LLFR-01188: the search box that Ctrl+F goes to.
         if window_id_i < 0:
             return self.signal_list_panel.search_box
         window = self.undocked_window_dict.get(window_id_i)
@@ -3322,20 +3322,20 @@ class MainWindow(QMainWindow):
         focus_widget = QApplication.focusWidget()
         if not isinstance(focus_widget, TEXT_INPUT_WIDGET_TUPLE):
             return
-        # LLFR-01185: the selection is cleared first.
+        # LLFR-01190: the selection is cleared first.
         if isinstance(focus_widget, QLineEdit):
             focus_widget.deselect()
         elif isinstance(focus_widget, (QTextEdit, QPlainTextEdit)):
             text_cursor = focus_widget.textCursor()
             text_cursor.clearSelection()
             focus_widget.setTextCursor(text_cursor)
-        # LLFR-01182: the typed text is accepted, as Enter does
+        # LLFR-01187: the typed text is accepted, as Enter does
         # (LLFR-00334). The search box has nothing to accept: its text
         # is applied while it is typed (LLFR-00095).
         confirm_signal = getattr(focus_widget, "confirm_requested", None)
         if confirm_signal is not None:
             confirm_signal.emit()
-        # LLFR-01181: the focus leaves the field, unless accepting it
+        # LLFR-01186: the focus leaves the field, unless accepting it
         # already closed it.
         if not sip.isdeleted(focus_widget) and focus_widget.hasFocus():
             focus_widget.clearFocus()
@@ -3348,7 +3348,7 @@ class MainWindow(QMainWindow):
             parent: the window the dialog was shown over.
         Outputs: none.
         """
-        # LLFR-01180: the action of the shortcut, for the window the
+        # LLFR-01185: the action of the shortcut, for the window the
         # dialog was shown over (the main window when it is unknown).
         window_id_i = -1
         for undocked_id_i, window in self.undocked_window_dict.items():
