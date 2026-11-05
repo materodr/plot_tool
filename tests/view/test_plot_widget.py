@@ -510,7 +510,8 @@ class ContextMenuTest(PlotWidgetTestCase):
         menu = self.plot_widget.build_context_menu(
             self.sample_point("Ramp", 30))
         self.assertEqual(menu_action_text_list(menu),
-                         ["Delete signal", "Width"])
+                         ["Delete signal", "Width",
+                          "Line style"])
         find_action(menu, "Delete signal").trigger()
         self.assertEqual(record_list, [("Ramp",)])
 

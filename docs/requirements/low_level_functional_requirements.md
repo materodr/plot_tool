@@ -1517,7 +1517,7 @@ When the user clicks the Save layout button, the app must show a save file dialo
 *Parent: HLFR-00049*
 
 ### LLFR-01218 Layout save options dialog
-When the user clicks the Save layout button, the app must show, before the save file dialog of LLFR-00219, a dialog with three choices: "Include the markers (data tips, flags, areas and delta markers)", "All tabs" or "Only the current tab", and "Include the names of the open data files".
+When the user clicks the Save layout button, the app must show, before the save file dialog of LLFR-00219, a dialog with three choices: "Include the markers (data tips, flags, areas, delta markers and shapes)", "All tabs" or "Only the current tab", and "Include the names of the open data files".
 
 Note: The text notes and the arrows are not saved in a layout file (LLFR-00226), so the first choice names only the markers that are.
 
@@ -1534,7 +1534,7 @@ If the user cancels the dialog of LLFR-01218, the app must end the Save layout a
 *Parent: HLFR-00156, HLFR-00049*
 
 ### LLFR-01221 Layout without the markers
-When the user saves a layout with "Include the markers" off, the layout file must hold no pinned data tip, flag, area or delta marker.
+When the user saves a layout with "Include the markers" off, the layout file must hold no pinned data tip, flag, area, delta marker or shape.
 
 *Parent: HLFR-00156*
 

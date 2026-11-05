@@ -974,7 +974,8 @@ class ArrowMenuTest(ArrowWidgetTestCase):
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
                 self.assertEqual(self.choose_menu(on_curve_tuple, ""),
-                                 ["Rename", "Color", "Delete"])
+                                 ["Rename", "Color", "Width",
+                                  "Line style", "Delete"])
         self.choose_menu(on_curve_tuple, "Other color...")
         self.assertEqual(self.color_list, [(1, "")])
         self.choose_menu(self.display_of(4.0, 2.0), "Delete")

@@ -14,8 +14,9 @@ from PyQt6.QtWidgets import (
 # LLFR-01218: the texts of the dialog.
 DIALOG_TITLE_STR = "Save layout"
 INTRO_TEXT_STR = "Choose what the layout file holds:"
-MARKERS_TEXT_STR = ("Include the markers (data tips, flags, areas and "
-                    "delta markers)")
+# LLFR-01218: with the shapes, which a layout file holds too.
+MARKERS_TEXT_STR = ("Include the markers (data tips, flags, areas, delta "
+                    "markers and shapes)")
 ALL_TABS_TEXT_STR = "All tabs"
 CURRENT_TAB_TEXT_STR = "Only the current tab"
 DATA_FILES_TEXT_STR = "Include the names of the open data files"

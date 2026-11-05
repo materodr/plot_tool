@@ -691,7 +691,8 @@ class DeltaMenuTest(DeltaWidgetTestCase):
         self.assertNotIn("Width", text_list)
         # Away from the marker the curve menu is back.
         self.assertEqual(self.menu_texts_at(8.0, float(np.sin(8.0))),
-                         ["Delete signal", "Width"])
+                         ["Delete signal", "Width",
+                          "Line style"])
 
     @covers("LLFR-00110", "LLFR-00177")
     def test_vertical_marker_and_pinned_tip_come_first(self) -> None:

@@ -153,7 +153,7 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
                                           ("Sine", 2.0, float(np.sin(2.0)))])
         self.draw()
         self.check_menu(5.0, 3.5, TIP_MENU_TEXT_LIST)
-        self.assertEqual(TIP_MENU_TEXT_LIST[:3],
+        self.assertEqual(TIP_MENU_TEXT_LIST[1:4],
                          ["Delete", "Delete all data tips in this plot",
                           "Delete all data tips in all plots"])
 
@@ -212,7 +212,8 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
         Outputs: none.
         """
         self.assertEqual(self.menu_texts(8.0, 3.8),
-                         ["Delete signal", "Width"])
+                         ["Delete signal", "Width",
+                          "Line style"])
         self.assertEqual(self.menu_texts(8.0, 2.0),
                          ["Position", "Delete plot"])
 

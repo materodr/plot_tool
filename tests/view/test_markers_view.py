@@ -687,7 +687,8 @@ class MarkerMenuTest(MarkerWidgetTestCase):
                          FLAG_MENU_TEXT_LIST)
         # Away from the marker the same curve shows the curve menu.
         self.assertEqual(self.menu_texts_at(8.0, 3.8),
-                         ["Delete signal", "Width"])
+                         ["Delete signal", "Width",
+                          "Line style"])
 
     @covers("LLFR-00087", "LLFR-00090", "LLFR-00048")
     def test_marker_menu_with_every_tool_and_no_delete_plot(self) -> None:

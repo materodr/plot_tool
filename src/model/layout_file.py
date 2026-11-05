@@ -2457,6 +2457,8 @@ def layout_with_save_options(layout_dict: dict, markers_b: bool = True,
             for plot_entry_dict in list_entry(tab_entry_dict, PLOTS_KEY_STR):
                 plot_entry_dict[DATA_TIPS_KEY_STR] = []
                 plot_entry_dict[DELTA_MARKERS_KEY_STR] = []
+                # LLFR-01221: nor any shape.
+                plot_entry_dict[SHAPES_KEY_STR] = []
     if current_tab_only_b:
         # LLFR-01222: the tab the main window shows (LLFR-00225 item 1),
         # docked, and shown.

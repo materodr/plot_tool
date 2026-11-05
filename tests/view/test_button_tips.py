@@ -28,6 +28,11 @@ EXPECTED_TIP_DICT = {
     "area_button": ("Area", ["Hold A"], ["Hold A"]),
     "text_button": ("Text", ["Hold T"], ["Hold T"]),
     "arrow_button": ("Arrow", ["Hold R"], ["Hold R"]),
+    # LLFR-00215: "Hold O" and "Hold B" for the shape tools.
+    "circle_button": ("Circle", ["Hold O"], ["Hold O"]),
+    "rectangle_button": ("Rectangle", ["Hold B"], ["Hold B"]),
+    # LLFR-00465: Hide labels shows only its name.
+    "labels_button": ("Hide labels", [], []),
     # LLFR-00215, LLFR-00207: "0".
     "reset_zoom_button": ("Reset zoom", ["0"], ["0"]),
     # LLFR-00463: "Hold Z", then the two mouse lines.
