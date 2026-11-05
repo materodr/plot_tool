@@ -23,6 +23,7 @@ from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     color_picker, file_dialogs, file_writing, icons, message_boxes,
     name_dialog, plot_export, synthetic_dialogs, theme)
+from view.layout_options_dialog import LayoutOptionsDialog
 from view.main_panel_button import MainPanelButton
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
@@ -3084,6 +3085,34 @@ class MainWindow(QMainWindow):
             # LLFR-01195: the room is not known yet; the window is.
             list_width_i = fitted_panel_width_i(list_width_i, self.width())
         self.lower_splitter.setSizes([plot_width_i, list_width_i])
+
+    def ask_layout_save_options(self):
+        """Show the save options dialog of the Save layout button.
+
+        Inputs: none.
+        Outputs: the dict of LayoutOptionsDialog.answer_dict, or None
+            when the user cancelled (LLFR-01214).
+        """
+        # LLFR-01212, LLFR-01213: a new dialog each time, with the first
+        # values.
+        dialog = LayoutOptionsDialog(self)
+        try:
+            if not self.run_layout_options_dialog(dialog):
+                return None
+            return dialog.answer_dict()
+        finally:
+            dialog.deleteLater()
+
+    def run_layout_options_dialog(self, dialog) -> bool:
+        """Run the save options dialog modally.
+
+        Inputs:
+            dialog: the LayoutOptionsDialog.
+        Outputs: True when the user confirmed it. Tests replace this
+            method to answer without a modal dialog.
+        """
+        # LLFR-01212, LLFR-01214.
+        return dialog.exec() == QDialog.DialogCode.Accepted.value
 
     def show_layout_save_error(self, reason_str: str) -> None:
         """Show the error box saying that the layout file was not saved.
