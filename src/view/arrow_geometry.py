@@ -100,7 +100,7 @@ def point_in_triangle_b(point_tuple: tuple, vertex_array) -> bool:
         vertex_array: numpy array of shape (3, 2), the corners.
     Outputs: True when the point is inside or on the border.
     """
-    # LLFR-00373: a point on the arrowhead is on the arrow.
+    # LLFR-01201: a point on the arrowhead is on the arrow.
     point_array = np.asarray(point_tuple, dtype=float)
     sign_list = []
     for index_i in range(3):
@@ -126,7 +126,7 @@ def segment_distance_f(point_tuple: tuple, start_tuple: tuple,
         end_tuple: (x, y) of its other end.
     Outputs: the shortest distance, in the units of the inputs.
     """
-    # LLFR-00373: a point within 5 pixels of the line is on the arrow.
+    # LLFR-01201: a point within 5 pixels of the line is on the arrow.
     point_array = np.asarray(point_tuple, dtype=float)
     start_array = np.asarray(start_tuple, dtype=float)
     direction_array = np.asarray(end_tuple, dtype=float) - start_array
@@ -448,7 +448,7 @@ def point_in_label_b(point_tuple: tuple, place_tuple: tuple,
         height_px: height of the box, across the line.
     Outputs: True when the point is inside the box or on its border.
     """
-    # LLFR-00373: a point on the label is on the arrow. LLFR-00420: a
+    # LLFR-01201: a point on the label is on the arrow. LLFR-00420: a
     # double-click on it renames the arrow.
     if not place_tuple:
         return False
@@ -561,7 +561,7 @@ class ArrowLabel(Text):
         Outputs: True when the label is shown and the point is on its
             box.
         """
-        # LLFR-00373, LLFR-00420: the label is part of the arrow.
+        # LLFR-01201, LLFR-00420: the label is part of the arrow.
         place_tuple = self.place_tuple(renderer)
         if not place_tuple:
             return False

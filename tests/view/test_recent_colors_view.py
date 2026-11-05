@@ -438,13 +438,14 @@ class AreaLabelColorViewTest(PlotWidgetToolTestCase):
             "LLFR-00704")
     def test_label_and_times_follow_the_area_color(self) -> None:
         """The name and the times are drawn in the area's color at full
-        opacity, on the white label box, while the band stays
-        see-through; a light yellow keeps its box.
+        opacity, on an opaque label box with a contrast of at least
+        4.5:1 to that color, while the band stays see-through.
 
         Inputs: none.
         Outputs: none.
         """
-        from view.plot_widget import AREA_ALPHA_F, MARKER_TEXT_BOX_DICT
+        from view import theme
+        from view.plot_widget import AREA_ALPHA_F
         self.plot_widget.set_areas([(1, "Area 1", 2.0, 4.0, "#FFFF00"),
                                     (2, "Area 2", 6.0, 8.0)])
         self.draw()
@@ -459,15 +460,26 @@ class AreaLabelColorViewTest(PlotWidgetToolTestCase):
                     self.assertEqual(to_hex_str(text.get_color()),
                                      color_str)
                     self.assertIn(text.get_alpha(), (None, 1.0))
-                    self.assertEqual(
-                        to_hex_str(text.get_bbox_patch().get_facecolor()),
-                        to_hex_str(MARKER_TEXT_BOX_DICT["facecolor"]))
-        # A new color draws the label and times again in that color.
-        self.plot_widget.set_areas([(1, "Area 1", 2.0, 4.0, "#2f7dff")])
+                    # LLFR-00704: an opaque box, 4.5:1 to the text.
+                    box_patch = text.get_bbox_patch()
+                    box_color_str = to_hex_str(box_patch.get_facecolor())
+                    self.assertEqual(box_color_str,
+                                     theme.area_label_box_color_str(
+                                         color_str))
+                    self.assertIn(box_patch.get_alpha(), (None, 1.0))
+                    self.assertGreaterEqual(
+                        theme.contrast_ratio_f(color_str, box_color_str),
+                        4.5)
+        # A new color draws the label and times again in that color, on
+        # a box that reads with it: white for a dark blue.
+        self.plot_widget.set_areas([(1, "Area 1", 2.0, 4.0, "#1f3b8c")])
         self.draw()
         _, label, times_text = self.plot_widget.area_artist_tuple(1)
-        self.assertEqual(to_hex_str(label.get_color()), "#2f7dff")
-        self.assertEqual(to_hex_str(times_text.get_color()), "#2f7dff")
+        for text in (label, times_text):
+            self.assertEqual(to_hex_str(text.get_color()), "#1f3b8c")
+            self.assertEqual(
+                to_hex_str(text.get_bbox_patch().get_facecolor()),
+                "#ffffff")
 
 
 @requires_qt

@@ -234,6 +234,25 @@ def plot_entry(signal_name_str: str) -> dict:
                         "width": 1}], "data_tips": [], "delta_markers": []}
 
 
+def complete_tab_list(tab_list: list) -> list:
+    """Give each tab entry the values a test leaves out.
+
+    Inputs:
+        tab_list: the "tabs" entry; each dict is changed in place.
+    Outputs: the same list. A tab without "undocked" is docked, every
+        tab gets a 5 x 1 plot matrix, and each undocked tab without a
+        window number gets a window of its own, as the app writes them,
+        so that the report lists only what a test changes (LLFR-01200).
+    """
+    # LLFR-01200: the values the app always writes (LLFR-00225).
+    for number_i, tab_dict in enumerate(tab_list):
+        tab_dict.setdefault("undocked", False)
+        tab_dict.setdefault("plot_matrix", {"rows": 5, "columns": 1})
+        if tab_dict["undocked"] is True:
+            tab_dict.setdefault("window_number", number_i + 1)
+    return tab_list
+
+
 def layout_with_tabs(tab_list: list) -> dict:
     """Return the content of a version 3 layout file.
 
@@ -353,16 +372,21 @@ class LayoutWindowsTest(unittest.TestCase):
         self.assertEqual((window_tab.row_count_i, window_tab.column_count_i),
                          (1, 2))
 
-    @covers("LLFR-01124", "LLFR-01077")
-    def test_older_file_gives_docked_tabs_and_default_matrix(self) -> None:
-        """No undocked or plot_matrix entry: docked, 5 x 1, no report.
+    @covers("LLFR-01124", "LLFR-01077", "LLFR-01200", "LLFR-00237")
+    def test_missing_entries_give_docked_tab_and_default_matrix(
+            self) -> None:
+        """No undocked or plot_matrix entry: docked, 5 x 1, and both
+        missing values are listed as replaced.
 
         Inputs: none.
         Outputs: none.
         """
         result = self.rebuild(layout_with_tabs(
             [{"name": "A", "plots": [plot_entry("file1_Speed")]}]))
-        self.assertTrue(result.report.is_empty(), result.report.text())
+        self.assertEqual(result.report.replaced_line_list, [
+            'Plot matrix of tab "A" is missing; replaced by 5 \u00d7 1.',
+            'Undocked value of tab "A" is missing; the tab was docked.'])
+        self.assertEqual(result.report.not_rebuilt_line_list, [])
         tab = self.workspace.tab_list[0]
         self.assertFalse(tab.undocked_b)
         self.assertEqual((tab.row_count_i, tab.column_count_i), (5, 1))
@@ -379,9 +403,9 @@ class LayoutWindowsTest(unittest.TestCase):
                              {"rows": True, "columns": 2}, [2, 2], None):
             with self.subTest(matrix=matrix_value):
                 self.workspace = Workspace(random.Random(4))
-                result = self.rebuild(layout_with_tabs(
+                result = self.rebuild(layout_with_tabs(complete_tab_list(
                     [{"name": "A", "plot_matrix": matrix_value,
-                      "plots": [plot_entry("file1_Speed")]}]))
+                      "plots": [plot_entry("file1_Speed")]}])))
                 tab = self.workspace.tab_list[0]
                 self.assertEqual((tab.row_count_i, tab.column_count_i),
                                  (5, 1))
@@ -394,10 +418,10 @@ class LayoutWindowsTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        result = self.rebuild(layout_with_tabs(
+        result = self.rebuild(layout_with_tabs(complete_tab_list(
             [{"name": "A", "plot_matrix": {"rows": 1, "columns": 2},
               "plots": [plot_entry("file1_Speed"), plot_entry("file1_Torque"),
-                        plot_entry("file1_Speed")]}]))
+                        plot_entry("file1_Speed")]}])))
         self.assertEqual(len(self.workspace.tab_list[0].plot_list), 2)
         self.assertIn("Plot 3 of tab \"A\"", result.report.text())
         self.assertIn("1 × 2 plot matrix", result.report.text())
@@ -410,12 +434,12 @@ class LayoutWindowsTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        result = self.rebuild(layout_with_tabs(
+        result = self.rebuild(layout_with_tabs(complete_tab_list(
             [{"name": "Docked", "plots": [plot_entry("file1_Speed")]},
              {"name": "W", "undocked": True,
               "window": {"x": 1.5, "y": 2, "width": 0, "height": 300},
               "signal_list_panel": {"shown": "yes", "width": -4},
-              "plots": [plot_entry("file1_Torque")]}]))
+              "plots": [plot_entry("file1_Torque")]}])))
         tab = self.workspace.undocked_tab_list()[0]
         self.assertEqual(tab.window_tuple, (30, 40, 900, 700))
         self.assertEqual((tab.panel_shown_b, tab.panel_width_i), (False, 0))
@@ -452,14 +476,14 @@ class LayoutWindowsTest(unittest.TestCase):
                   "height": 600}, 200, ("Window position",))):
             with self.subTest(window=window_dict, width=panel_width_value):
                 self.setUp()
-                result = self.rebuild(layout_with_tabs(
+                result = self.rebuild(layout_with_tabs(complete_tab_list(
                     [{"name": "Docked",
                       "plots": [plot_entry("file1_Speed")]},
                      {"name": "W", "undocked": True,
                       "window": window_dict,
                       "signal_list_panel": {"shown": True,
                                             "width": panel_width_value},
-                      "plots": [plot_entry("file1_Torque")]}]))
+                      "plots": [plot_entry("file1_Torque")]}])))
                 tab = self.workspace.undocked_tab_list()[0]
                 report_str = result.report.text()
                 for what_str in what_tuple:
@@ -483,13 +507,13 @@ class LayoutWindowsTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        result = self.rebuild(layout_with_tabs(
+        result = self.rebuild(layout_with_tabs(complete_tab_list(
             [{"name": "Docked", "plots": [plot_entry("file1_Speed")]},
              {"name": "W", "undocked": True,
               "window": {"x": -16777215, "y": 16777215,
                          "width": 16777215, "height": 1},
               "signal_list_panel": {"shown": True, "width": 16777215},
-              "plots": [plot_entry("file1_Torque")]}]))
+              "plots": [plot_entry("file1_Torque")]}])))
         self.assertTrue(result.report.is_empty(), result.report.text())
         tab = self.workspace.undocked_tab_list()[0]
         self.assertEqual(tab.window_tuple,
@@ -504,13 +528,13 @@ class LayoutWindowsTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        result = self.rebuild(layout_with_tabs(
+        result = self.rebuild(layout_with_tabs(complete_tab_list(
             [{"name": "Docked", "plots": [plot_entry("file1_Speed")]},
              {"name": "W", "undocked": True,
               "window": {"x": 90000, "y": -90000, "width": 5000,
                          "height": 4000},
               "signal_list_panel": {"shown": True, "width": 150},
-              "plots": [plot_entry("file1_Torque")]}]))
+              "plots": [plot_entry("file1_Torque")]}])))
         self.assertTrue(result.report.is_empty(), result.report.text())
         self.assertEqual(self.workspace.undocked_tab_list()[0].window_tuple,
                          (90000, -90000, 5000, 4000))
@@ -528,12 +552,12 @@ class LayoutWindowsTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        result = self.rebuild(layout_with_tabs(
+        result = self.rebuild(layout_with_tabs(complete_tab_list(
             [{"name": "Docked", "plots": [plot_entry("file1_Speed")]},
              {"name": "W", "undocked": True,
               "window": {"x": 10, "y": 20, "width": 600, "height": 400},
               "signal_list_panel": {"shown": True, "width": 5000},
-              "plots": [plot_entry("file1_Torque")]}]))
+              "plots": [plot_entry("file1_Torque")]}])))
         self.assertTrue(result.report.is_empty(), result.report.text())
         tab = self.workspace.undocked_tab_list()[0]
         self.assertEqual(tab.panel_width_i, 5000)

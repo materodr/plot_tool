@@ -333,6 +333,9 @@ class MainWindow(QMainWindow):
         # and copies the image.
         self.pdf_export_handler = None
         self.copy_handler = None
+        # LLFR-01139, LLFR-01023: the window where Ctrl+P was pressed,
+        # while its export runs; None for the Export button.
+        self.pdf_shortcut_window = None
         self.top_panel.pdf_export_requested.connect(
             self._on_pdf_export_requested)
         # LLFR-01229: the Word and PNG options of the Export menu.
@@ -728,7 +731,7 @@ class MainWindow(QMainWindow):
             "copy": (QKeySequence(top_panel.COPY_SHORTCUT_STR),
                      partial(self._on_copy_shortcut, window_id_i)),
             "pdf": (QKeySequence(top_panel.PDF_SHORTCUT_STR),
-                    self._on_pdf_shortcut),
+                    partial(self._on_pdf_shortcut, window_id_i)),
             "search": (QKeySequence(top_panel.SEARCH_SHORTCUT_STR),
                        partial(self._on_search_shortcut, window_id_i)),
         }
@@ -2712,7 +2715,35 @@ class MainWindow(QMainWindow):
         # use (LLFR-01183).
         dialog = self.file_dialog_pool.prepared_dialog(
             SAVE_PDF_DIALOG_KEY_STR, start_folder_str)
-        return self.run_pdf_save_dialog(dialog) or ""
+        # LLFR-01139, LLFR-01023: over the window of the Ctrl+P, and over
+        # the main window again afterwards.
+        # A stand-in dialog of the tests, which is no widget, keeps its
+        # place.
+        movable_b = isinstance(dialog, QWidget)
+        parent = self.export_box_parent()
+        if movable_b and dialog.parent() is not parent:
+            dialog.setParent(parent, dialog.windowFlags())
+        try:
+            return self.run_pdf_save_dialog(dialog) or ""
+        finally:
+            if movable_b and dialog.parent() is not self:
+                dialog.setParent(self, dialog.windowFlags())
+
+    def export_box_parent(self):
+        """Return the window that the boxes of the PDF export are over.
+
+        Inputs: none.
+        Outputs: the window where Ctrl+P was pressed while its export
+            runs, else this main window (the Export button).
+        """
+        # LLFR-01139, LLFR-01023: the window of the action; the Export
+        # button of the top panel keeps the main window.
+        window = self.pdf_shortcut_window
+        if window is None or (
+                window is not self
+                and window not in self.undocked_window_dict.values()):
+            return self
+        return window
 
     def build_pdf_save_dialog(self) -> QFileDialog:
         """Build the save file dialog of the PDF export, not shown.
@@ -2750,8 +2781,10 @@ class MainWindow(QMainWindow):
         Outputs: True when the user chose to replace it.
         """
         # LLFR-00128: asked when ".pdf" was added after the dialog and
-        # the resulting file already exists.
-        return message_boxes.ask_replace_existing_file(self, path_str)
+        # the resulting file already exists; LLFR-01139: over the window
+        # of a Ctrl+P (the main window for the other save dialogs).
+        return message_boxes.ask_replace_existing_file(
+            self.export_box_parent(), path_str)
 
     def save_tabs_pdf(self, path_str: str,
                       description_str: str = "") -> tuple:
@@ -2874,8 +2907,10 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-00145: an information box.
-        message_boxes.build_nothing_to_export_box(self).exec()
+        # LLFR-00145: an information box; LLFR-01139, LLFR-01023: over
+        # the window where Ctrl+P was pressed.
+        message_boxes.build_nothing_to_export_box(
+            self.export_box_parent()).exec()
 
     def show_nothing_to_copy(self) -> None:
         """Show the box saying that there are no plots to copy.
@@ -2893,8 +2928,10 @@ class MainWindow(QMainWindow):
             reason_str: why the file could not be written.
         Outputs: none.
         """
-        # LLFR-00131: an error box (HLFR-00002).
-        message_boxes.build_export_error_box(self, reason_str).exec()
+        # LLFR-00131: an error box (HLFR-00002); LLFR-01139, LLFR-01023:
+        # over the window where Ctrl+P was pressed.
+        message_boxes.build_export_error_box(
+            self.export_box_parent(), reason_str).exec()
 
     def show_copy_error(self, reason_str: str) -> None:
         """Show the error box saying that the image could not be copied.
@@ -3547,11 +3584,14 @@ class MainWindow(QMainWindow):
         if self.copy_shortcut_handler is not None:
             self.copy_shortcut_handler(self.window_shown_tab_id(window_id_i))
 
-    def _on_pdf_shortcut(self) -> None:
+    def _on_pdf_shortcut(self, window_id_i: int = -1) -> None:
         """Run "Save all tabs as PDF" when Ctrl+P (Cmd+P) is pressed.
 
-        Inputs: none.
-        Outputs: none.
+        Inputs:
+            window_id_i: id of the undocked window where it was pressed,
+                -1 for the main window.
+        Outputs: none. The dialog and the boxes of the export are shown
+            over that window.
         """
         # LLFR-01172: during a mouse drag, Ctrl+P does nothing.
         if self.is_mouse_drag_in_progress():
@@ -3560,8 +3600,14 @@ class MainWindow(QMainWindow):
         # first, its selection cleared and its typed text accepted.
         self.leave_text_field()
         # LLFR-01139: as the Export menu option, from any window, also
-        # in a text field (which gives Ctrl+P no meaning of its own).
-        self._on_pdf_export_requested()
+        # in a text field (which gives Ctrl+P no meaning of its own);
+        # LLFR-01023: its dialog and boxes over that window.
+        self.pdf_shortcut_window = self.undocked_window_dict.get(
+            window_id_i, self)
+        try:
+            self._on_pdf_export_requested()
+        finally:
+            self.pdf_shortcut_window = None
 
     def _on_search_shortcut(self, window_id_i: int) -> None:
         """Put the focus in the search box of a window (Ctrl+F, Cmd+F).
@@ -3666,7 +3712,7 @@ class MainWindow(QMainWindow):
             if window is parent:
                 window_id_i = undocked_id_i
         if action_str == name_dialog.PDF_ACTION_STR:
-            self._on_pdf_shortcut()
+            self._on_pdf_shortcut(window_id_i)
         elif action_str == name_dialog.SEARCH_ACTION_STR:
             self._on_search_shortcut(window_id_i)
 

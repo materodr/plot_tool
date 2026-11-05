@@ -14,6 +14,7 @@ from model.curve_colors import (
     MARKER_COLOR_STR, PALETTE_COLOR_TUPLE, hex_color_or_none)
 from model.workspace import (
     DEFAULT_FLAG_COLOR_STR, DEFAULT_TEXT_NOTE_BORDER_COLOR_STR,
+    DELTA_X_KIND_STR,
     DEFAULT_TEXT_NOTE_COLOR_STR,
     DEFAULT_TEXT_NOTE_SIZE_I, TEXT_NOTE_SIZE_TUPLE, Workspace,
     plot_state_tuple)
@@ -77,6 +78,28 @@ class FlagColorModelTest(WorkspaceTestCase):
             "Saved", 3.0).color_str, DEFAULT_FLAG_COLOR_STR)
         self.assertEqual(self.workspace.add_named_marker(
             "Odd", 4.0, "Blue").color_str, DEFAULT_FLAG_COLOR_STR)
+
+    @covers("LLFR-01197", "LLFR-00392", "LLFR-00409", "HLFR-00089",
+            "HLFR-00092")
+    def test_flag_and_delta_marker_take_any_color(self) -> None:
+        """A flag and a delta marker can be given any color, including
+        every color of the curve palette, and keep it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        delta_marker = self.plot.add_delta_marker(
+            DELTA_X_KIND_STR, ("Speed", 1.0, 1.0), ("Speed", 3.0, 3.0))
+        for color_str in PALETTE_COLOR_TUPLE + ("#000000", "#ffffff",
+                                                "#12ab34"):
+            with self.subTest(color=color_str):
+                self.workspace.set_marker_color(self.flag.marker_id_i,
+                                                color_str)
+                self.assertEqual(self.flag.color_str, color_str.lower())
+                self.plot.set_delta_marker_color(
+                    delta_marker.delta_marker_id_i, color_str)
+                self.assertEqual(delta_marker.color_str,
+                                 color_str.lower())
 
     @covers("LLFR-00393", "LLFR-00392", "LLFR-00814")
     def test_flag_of_a_layout_keeps_its_color(self) -> None:

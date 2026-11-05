@@ -46,11 +46,12 @@ An example of a layout file::
 
 (The app writes every value on its own line, indented by 2 spaces.)
 Colors of flags, delta markers and areas are written as "#rrggbb" in
-lowercase (LLFR-00225 items 6, 8 and 11). A delta marker saved without a
-color (a file written before delta markers had one) gets the default
-color, with no report (LLFR-00410). A file of an earlier version is read with
-the same rules (LLFR-00228): for example, its flags, saved under the
-key ``vertical_markers`` in version 1, are not rebuilt.
+lowercase (LLFR-00225 items 6, 8 and 11). A value whose key is missing
+from the file, for example the color of a delta marker, gets its default
+value and is listed in the report as a replaced value (LLFR-01200). A
+file of an earlier version is read with the same rules (LLFR-00228):
+for example, its flags, saved under the key ``vertical_markers`` in
+version 1, are not rebuilt.
 
 A ``label_position`` of ``null`` means that the data tip was never
 moved, so the app places its label beside the point by itself.
@@ -212,6 +213,11 @@ MISSING_HEADING_STR = "Signals not in the data file:"
 NOT_REBUILT_HEADING_STR = "Not rebuilt:"
 TIME_RANGE_HEADING_STR = "Time range:"
 REPLACED_HEADING_STR = "Values replaced:"
+# LLFR-01200: the reason given for a value whose key is missing.
+MISSING_REASON_STR = "is missing"
+# LLFR-01200, LLFR-00235: what saved_color found instead of a color.
+COLOR_MISSING_STR = "missing"
+COLOR_UNUSABLE_STR = "unusable"
 
 
 class LayoutFileError(Exception):
@@ -528,19 +534,23 @@ def saved_color(entry_dict: dict, default_color_str: str) -> tuple:
         default_color_str: the color of a new item of that kind
             (DEFAULT_FLAG_COLOR_STR, DEFAULT_DELTA_MARKER_COLOR_STR or
             DEFAULT_AREA_COLOR_STR).
-    Outputs: a tuple (color_str, replaced_b): the lowercase "#rrggbb"
-        color to use, and True when a saved value that is not written as
+    Outputs: a tuple (color_str, state_str): the lowercase "#rrggbb"
+        color to use, and "" when it is the saved color,
+        COLOR_MISSING_STR when the color is missing, or
+        COLOR_UNUSABLE_STR when a saved value that is not written as
         "#rrggbb" was replaced by the default color.
     """
-    # LLFR-00393, LLFR-00410, LLFR-00319: a missing color is the default
-    # color; a "#rrggbb" color, in uppercase or lowercase, is used as it
-    # is; anything else is replaced by the default color and reported.
+    # LLFR-00815, LLFR-00822, LLFR-00726, LLFR-01200: a missing color is
+    # the default color, listed as a replaced value.
     if COLOR_KEY_STR not in entry_dict:
-        return default_color_str, False
+        return default_color_str, COLOR_MISSING_STR
+    # LLFR-00393, LLFR-00410, LLFR-00319: a "#rrggbb" color, in
+    # uppercase or lowercase, is used as it is; anything else is
+    # replaced by the default color and reported.
     color_str = hex_color_or_none(entry_dict.get(COLOR_KEY_STR))
     if color_str is None:
-        return default_color_str, True
-    return color_str, False
+        return default_color_str, COLOR_UNUSABLE_STR
+    return color_str, ""
 
 
 # ----------------------------------------------------------------------
@@ -1229,8 +1239,16 @@ class LayoutBuilder:
             (then reported as replaced, LLFR-00235).
         """
         # LLFR-00225 item 7: the position relative to the point.
+        if LABEL_POSITION_KEY_STR not in tip_entry_dict:
+            # LLFR-01200: a missing position is listed as replaced.
+            self.report.add_replaced(
+                f"Label position of the data tip at {format_time(time_s)} "
+                f"in {owner_str} {MISSING_REASON_STR}; the label is placed "
+                f"beside its point.")
+            return AUTOMATIC_LABEL_OFFSET_TUPLE
         position_value = tip_entry_dict.get(LABEL_POSITION_KEY_STR)
         if position_value is None:
+            # LLFR-00225 item 7: null, a data tip that was never moved.
             return AUTOMATIC_LABEL_OFFSET_TUPLE
         if isinstance(position_value, dict):
             right_f = finite_number(position_value.get(RIGHT_POINTS_KEY_STR))
@@ -1348,12 +1366,12 @@ class LayoutBuilder:
                     f"{label_str}: its value on the samples of the data "
                     f"file would be zero.")
                 continue
-            # LLFR-00410: the saved color; a missing one is the default
-            # color, with no report.
-            color_str, color_replaced_b = saved_color(
+            # LLFR-00410: the saved color; LLFR-00822, LLFR-00823: a
+            # missing or unusable one is the default color, reported.
+            color_str, color_reason_str = saved_color(
                 delta_entry, DEFAULT_DELTA_MARKER_COLOR_STR)
             # LLFR-00430: the saved name. LLFR-00857: a missing name
-            # gets the name of a new delta marker, with no report.
+            # gets the name of a new delta marker, reported (LLFR-01200).
             # LLFR-00858: so does a name that is empty or not a text.
             name_value = delta_entry.get(NAME_KEY_STR)
             name_usable_b = (isinstance(name_value, str)
@@ -1365,15 +1383,27 @@ class LayoutBuilder:
             # LLFR-00232: both points are placed on their samples.
             plot.add_delta_marker(kind_str, point_list[0], point_list[1],
                                   color_str, name_str)
-            if NAME_KEY_STR in delta_entry and not name_usable_b:
+            if NAME_KEY_STR not in delta_entry:
+                # LLFR-00857, LLFR-01200: a missing name is listed with
+                # the replaced values.
+                self.report.add_replaced(
+                    f"Name of the {label_str} {MISSING_REASON_STR}; "
+                    f"replaced by \"{name_str}\".")
+            elif not name_usable_b:
                 # LLFR-00859, LLFR-00235, LLFR-00237: the replaced name
                 # is listed with the replaced values.
                 self.report.add_replaced(
                     f"Name {describe_value(name_value)} of the "
                     f"{label_str} is empty or not a text; replaced by "
                     f"\"{name_str}\".")
-            if color_replaced_b:
-                # LLFR-00410, LLFR-00235, LLFR-00237: a color not written
+            if color_reason_str == COLOR_MISSING_STR:
+                # LLFR-00822, LLFR-01200, LLFR-00237: a missing color is
+                # listed as replaced by the default color.
+                self.report.add_replaced(
+                    f"Color of the {label_str} {MISSING_REASON_STR}; "
+                    f"replaced by \"{DEFAULT_DELTA_MARKER_COLOR_STR}\".")
+            elif color_reason_str:
+                # LLFR-00824, LLFR-00235, LLFR-00237: a color not written
                 # as "#rrggbb" is replaced by the default color.
                 self.report.add_replaced(
                     f"Color {describe_value(delta_entry[COLOR_KEY_STR])} "
@@ -1575,13 +1605,19 @@ class LayoutBuilder:
         Inputs:
             tab: the new model Tab.
             tab_entry: its entry of the file.
-        Outputs: none. A missing matrix gives the default with no report
-            (LLFR-01124); an unusable one gives the default and is
-            reported (LLFR-01125, LLFR-01126).
+        Outputs: none. A missing matrix (LLFR-01124, LLFR-01200) or an
+            unusable one (LLFR-01125, LLFR-01126) gives the default and
+            is reported.
         """
-        if not isinstance(tab_entry, dict) or (
-                PLOT_MATRIX_KEY_STR not in tab_entry):
-            # LLFR-01124: an older file; the default 5 x 1 matrix.
+        if not isinstance(tab_entry, dict):
+            return
+        if PLOT_MATRIX_KEY_STR not in tab_entry:
+            # LLFR-01124, LLFR-01200: the default 5 x 1 matrix, listed as
+            # a replaced value; the new tab already has it.
+            self.report.add_replaced(
+                f"Plot matrix of tab \"{tab.name_str}\" "
+                f"{MISSING_REASON_STR}; replaced by {DEFAULT_MATRIX_ROWS_I} "
+                f"\u00d7 {DEFAULT_MATRIX_COLUMNS_I}.")
             return
         matrix_value = tab_entry[PLOT_MATRIX_KEY_STR]
         if isinstance(matrix_value, dict):
@@ -1629,9 +1665,16 @@ class LayoutBuilder:
         """
         if not isinstance(tab_entry, dict):
             return
+        if UNDOCKED_KEY_STR not in tab_entry:
+            # LLFR-01077, LLFR-01200: a tab with no entry is docked, and
+            # the missing value is listed as replaced.
+            self.report.add_replaced(
+                f"Undocked value of tab \"{tab.name_str}\" "
+                f"{MISSING_REASON_STR}; the tab was docked.")
+            return
         undocked_value = tab_entry.get(UNDOCKED_KEY_STR)
-        # LLFR-01077: a tab saved as docked, or with no entry, is docked.
-        if undocked_value is None or undocked_value is False:
+        # LLFR-01077: a tab saved as docked is docked.
+        if undocked_value is False:
             return
         if undocked_value is not True:
             # LLFR-00235: neither true nor false; the tab stays docked.
@@ -1724,8 +1767,13 @@ class LayoutBuilder:
             one, gets a window of its own (LLFR-01160, LLFR-01165).
         """
         number_value = tab_entry.get(WINDOW_NUMBER_KEY_STR)
-        if number_value is not None and not (
-                is_whole_number(number_value) and number_value >= 1):
+        if WINDOW_NUMBER_KEY_STR not in tab_entry:
+            # LLFR-01160, LLFR-01200: a window of its own; the missing
+            # number is listed as a replaced value.
+            self.report.add_replaced(
+                f"Window number of tab \"{tab.name_str}\" "
+                f"{MISSING_REASON_STR}; replaced by a window of its own.")
+        elif not (is_whole_number(number_value) and number_value >= 1):
             # LLFR-01165, LLFR-01082: a window of its own, reported.
             self.report_window_value(tab, "Window number", number_value,
                                      "a window of its own")
@@ -1810,8 +1858,9 @@ class LayoutBuilder:
                 self.report.add_not_rebuilt(
                     f"{label_str}: no plot was rebuilt to show it on.")
                 continue
-            # LLFR-00393: the saved color, the default when it is missing.
-            color_str, color_replaced_b = saved_color(
+            # LLFR-00393: the saved color; LLFR-00815, LLFR-00816: the
+            # default when it is missing or unusable, reported.
+            color_str, color_reason_str = saved_color(
                 marker_entry, DEFAULT_FLAG_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another flag
@@ -1826,8 +1875,15 @@ class LayoutBuilder:
                     f"Name {describe_value(name_value)} of the flag at "
                     f"{format_time(time_s)} is empty or not a text; "
                     f"replaced by \"{marker.name_str}\".")
-            if color_replaced_b:
-                # LLFR-00393, LLFR-00235, LLFR-00237: a color not written
+            if color_reason_str == COLOR_MISSING_STR:
+                # LLFR-00815, LLFR-01200, LLFR-00237: a missing color is
+                # listed as replaced by the default color.
+                self.report.add_replaced(
+                    f"Color of the flag \"{marker.name_str}\" at "
+                    f"{format_time(time_s)} {MISSING_REASON_STR}; "
+                    f"replaced by \"{DEFAULT_FLAG_COLOR_STR}\".")
+            elif color_reason_str:
+                # LLFR-00817, LLFR-00235, LLFR-00237: a color not written
                 # as "#rrggbb" is replaced by the default color.
                 self.report.add_replaced(
                     f"Color {describe_value(marker_entry[COLOR_KEY_STR])} "
@@ -1891,10 +1947,10 @@ class LayoutBuilder:
                     f"{label_str}: it overlaps {owner_str}, "
                     f"\"{overlapped.name_str}\".")
                 continue
-            # LLFR-00319, LLFR-00351: the saved color; a missing one is
-            # the default color, one not written as "#rrggbb" is replaced
-            # and reported.
-            color_str, color_replaced_b = saved_color(
+            # LLFR-00319, LLFR-00351: the saved color; LLFR-00726,
+            # LLFR-00728: a missing one, or one not written as
+            # "#rrggbb", is replaced by the default color and reported.
+            color_str, color_reason_str = saved_color(
                 entry_dict, DEFAULT_AREA_COLOR_STR)
             if isinstance(name_value, str) and name_value.strip():
                 # LLFR-00230: the saved name, kept even when another area
@@ -1911,9 +1967,16 @@ class LayoutBuilder:
                     f"{format_time(start_s)} to {format_time(end_s)} is "
                     f"empty or not a text; replaced by "
                     f"\"{area.name_str}\".")
-            if color_replaced_b:
-                # LLFR-00235, LLFR-00237: a color not written as
-                # "#rrggbb" is replaced by the default color.
+            if color_reason_str == COLOR_MISSING_STR:
+                # LLFR-00726, LLFR-01200, LLFR-00237: a missing color is
+                # listed as replaced by the default color.
+                self.report.add_replaced(
+                    f"Color of the area \"{area.name_str}\" "
+                    f"{MISSING_REASON_STR}; replaced by "
+                    f"\"{DEFAULT_AREA_COLOR_STR}\".")
+            elif color_reason_str:
+                # LLFR-00729, LLFR-00235, LLFR-00237: a color not written
+                # as "#rrggbb" is replaced by the default color.
                 self.report.add_replaced(
                     f"Color {describe_value(entry_dict[COLOR_KEY_STR])} of "
                     f"the area \"{area.name_str}\" is not written as "
@@ -2107,15 +2170,28 @@ class LayoutBuilder:
         # LLFR-00230, LLFR-00319: the areas of the file.
         self.rebuild_areas(list_entry(layout_dict, AREAS_KEY_STR))
         # LLFR-00234: the time range, limited to the data file.
+        # LLFR-01200: a missing entry shows the whole time range, and is
+        # listed as a replaced value.
+        if TIME_RANGE_KEY_STR not in layout_dict:
+            self.report.add_replaced(
+                f"Time range {MISSING_REASON_STR}; the whole time range of "
+                f"the data file{self.file_range_text()} is shown.")
         time_range_tuple = self.time_range(
             layout_dict.get(TIME_RANGE_KEY_STR))
-        # LLFR-00230: the grid and the panel widths.
-        # A missing "grid" or "panel_widths" entry leaves the grid or the
-        # widths as they are, without a report; a value that is there but
-        # cannot be used is reported (LLFR-00235).
+        # LLFR-00230: the grid and the panel widths. LLFR-01200: a
+        # missing "grid" or "panel_widths" entry leaves the grid or the
+        # widths as they are, and is listed as a replaced value; a value
+        # that is there but cannot be used is reported (LLFR-00235).
         grid_shown_b = None
         if GRID_KEY_STR in layout_dict:
             grid_shown_b = self.grid_setting(layout_dict[GRID_KEY_STR])
+        else:
+            self.report.add_replaced(
+                f"Grid setting {MISSING_REASON_STR}; the grid was left as "
+                f"it was.")
+        if PANEL_WIDTHS_KEY_STR not in layout_dict:
+            self.report.add_replaced(
+                "Panel widths are missing; the panels kept their widths.")
         panel_width_tuple = self.panel_widths(
             layout_dict.get(PANEL_WIDTHS_KEY_STR))
         result = LayoutResult(self.report, first_tab_id_i, time_range_tuple,

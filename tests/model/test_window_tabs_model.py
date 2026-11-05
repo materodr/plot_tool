@@ -453,10 +453,11 @@ class LayoutWindowNumberTest(WindowTabsTestCase):
         second_list = new_workspace.window_tab_list(window_id_list[1])
         self.assertEqual([tab.name_str for tab in second_list], ["Tab 4"])
 
-    @covers("LLFR-01160", "LLFR-01077", "HLFR-00141")
+    @covers("LLFR-01160", "LLFR-01077", "LLFR-01200", "LLFR-00237",
+            "HLFR-00141")
     def test_file_without_numbers_opens_a_window_per_tab(self) -> None:
-        """Undocked tabs with no window number get a window each, with
-        nothing reported.
+        """Undocked tabs with no window number get a window each, and
+        each missing number is listed as a replaced value.
 
         Inputs: none.
         Outputs: none.
@@ -467,7 +468,11 @@ class LayoutWindowNumberTest(WindowTabsTestCase):
         for entry_dict in layout_dict["tabs"]:
             entry_dict.pop("window_number", None)
         new_workspace, result = self.rebuild(layout_dict)
-        self.assertTrue(result.report.is_empty(), result.report.text())
+        self.assertEqual(result.report.replaced_line_list, [
+            f"Window number of tab \"{name_str}\" is missing; replaced by "
+            f"a window of its own." for name_str in ("Tab 2", "Tab 3",
+                                                     "Tab 4")])
+        self.assertEqual(result.report.not_rebuilt_line_list, [])
         self.assertEqual(len(new_workspace.window_id_list()), 3)
 
     @covers("LLFR-01165", "LLFR-01082", "LLFR-00237", "HLFR-00141",

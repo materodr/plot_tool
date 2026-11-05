@@ -162,10 +162,12 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         Inputs: none.
         Outputs: none.
         """
+        # LLFR-01200: the colors are given, so that only the names are
+        # reported.
         result = self.rebuild(self.layout_with_areas([
-            {"name": "Area 4", "start": 1.0, "end": 2.0},
-            {"name": "  ", "start": 3.0, "end": 4.0},
-            {"start": 5.0, "end": 6.0}]))
+            {"name": "Area 4", "start": 1.0, "end": 2.0, "color": "#ff8000"},
+            {"name": "  ", "start": 3.0, "end": 4.0, "color": "#ff8000"},
+            {"start": 5.0, "end": 6.0, "color": "#ff8000"}]))
         self.assertEqual([name_str for name_str, _, _
                           in area_tuple_list(self.workspace)],
                          ["Area 4", "Area 5", "Area 6"])
@@ -174,12 +176,14 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
                       result.report.replaced_line_list[0])
 
     @covers("LLFR-00319", "LLFR-00351", "LLFR-00235", "LLFR-00237",
-            "LLFR-00726", "LLFR-00727", "LLFR-00728", "LLFR-00729")
+            "LLFR-00726", "LLFR-00727", "LLFR-00728", "LLFR-00729",
+            "LLFR-01200")
     def test_missing_or_unusable_color_gives_the_default(self) -> None:
-        """An area without "color" (an older file) gets the default color
-        silently; a color written as "#rrggbb", in any case, is kept; a
-        color not written as "#rrggbb" (also a former color name) gets
-        the default and is reported as a replaced value.
+        """An area without "color" gets the default color and is
+        reported as a replaced value; a color written as "#rrggbb", in
+        any case, is kept; a color not written as "#rrggbb" (also a
+        former color name) gets the default and is reported as a
+        replaced value.
 
         Inputs: none.
         Outputs: none.
@@ -196,12 +200,16 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
                          [DEFAULT_AREA_COLOR_STR] * 4
                          + ["#12ab34", "#2f7dff"])
         replaced_list = result.report.replaced_line_list
-        self.assertEqual(len(replaced_list), 3)
-        self.assertIn('Color "Purple" of the area "Odd"', replaced_list[0])
+        self.assertEqual(len(replaced_list), 4)
+        # LLFR-00726, LLFR-01200: the missing color is listed too.
+        self.assertEqual(replaced_list[0],
+                         'Color of the area "Old" is missing; replaced by '
+                         f'"{DEFAULT_AREA_COLOR_STR}".')
+        self.assertIn('Color "Purple" of the area "Odd"', replaced_list[1])
         self.assertIn(f'replaced by "{DEFAULT_AREA_COLOR_STR}"',
-                      replaced_list[0])
-        self.assertIn('Color 3 of the area "Num"', replaced_list[1])
-        self.assertIn('Color "#abc" of the area "Short"', replaced_list[2])
+                      replaced_list[1])
+        self.assertIn('Color 3 of the area "Num"', replaced_list[2])
+        self.assertIn('Color "#abc" of the area "Short"', replaced_list[3])
         self.assertIn("Values replaced:", result.report.text())
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
@@ -234,8 +242,8 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
 
     @covers("LLFR-00319", "LLFR-00230", "LLFR-00479")
     def test_file_without_areas_entry_adds_none(self) -> None:
-        """An older file without "areas", or with a value that is not a
-        list, adds no area and keeps the current ones.
+        """A file without "areas", or with a value that is not a list,
+        adds no area and keeps the current ones.
 
         Inputs: none.
         Outputs: none.

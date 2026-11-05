@@ -262,11 +262,11 @@ The quality of the requirements must be tested before every merge, in the same w
 
 Note: `tests/check_requirements.py` tests it and runs on every pull request.
 
-### PCR-00048 Review of changed requirements
-A reviewer must read every requirement that changed in a pull request, to check the part of PCR-00036 that a script can't check (whether a requirement talks about only one thing).
+### PCR-00048 Review of new and changed requirements
+A reviewer must read every requirement that was created or changed in a pull request, to check the part of PCR-00036 that a script can't check (whether a requirement talks about only one thing).
 
-### PCR-00056 Clarity review of changed requirements
-A reviewer must read every requirement that changed in a pull request, to check that it is clear and unambiguous (PCR-00054).
+### PCR-00056 Clarity review of new and changed requirements
+A reviewer must read every requirement that was created or changed in a pull request, to check that it is clear and unambiguous (PCR-00054).
 
 ### PCR-00038 Requirements quality result on the pull request
 The result of the requirements quality test (PCR-00037) must be added to the pull request.
