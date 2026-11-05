@@ -2524,13 +2524,16 @@ class MainWindow(QMainWindow):
             SAVE_PDF_DIALOG_KEY_STR, start_folder_str)
         # LLFR-01139, LLFR-01023: over the window of the Ctrl+P, and over
         # the main window again afterwards.
+        # A stand-in dialog of the tests, which is no widget, keeps its
+        # place.
+        movable_b = isinstance(dialog, QWidget)
         parent = self.export_box_parent()
-        if dialog.parent() is not parent:
+        if movable_b and dialog.parent() is not parent:
             dialog.setParent(parent, dialog.windowFlags())
         try:
             return self.run_pdf_save_dialog(dialog) or ""
         finally:
-            if dialog.parent() is not self:
+            if movable_b and dialog.parent() is not self:
                 dialog.setParent(self, dialog.windowFlags())
 
     def export_box_parent(self):
