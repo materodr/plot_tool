@@ -31,9 +31,12 @@ name: macOS build
 #   after the start included, is within 0.65 s
 #   (PLOT_TOOL_DIALOG_PROBE=1); on every launch no file dialog is shown
 #   before a request (issue #165).
-# - LLFR-00447, LLFR-00468: a reused Open file, Save layout or Load
-#   layout dialog shows the folder the app asks for, read from the
-#   system panel on screen (PLOT_TOOL_FOLDER_PROBE=1, issue #232).
+# - LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182: a reused Open
+#   file, Save layout, Load layout, Save all tabs as PDF or Save signals
+#   dialog shows the folder the app asks for, read from the system
+#   panel on screen (PLOT_TOOL_FOLDER_PROBE=1, issue #232);
+# - LLFR-01183: and its name field is empty, without the file chosen at
+#   the earlier use (issue #243).
 on:
   pull_request:
     paths:
@@ -188,10 +191,12 @@ jobs:
             --limit-s 1000 --dialog-limit-s 0.65 --turn-limit-s 2 -- \
             bin/plot_tool.app/Contents/MacOS/plot_tool
 
-      # LLFR-00447, LLFR-00468 (issue #232): the Open file, Save layout
-      # and Load layout dialogs are each shown again in a new folder
+      # LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182 (issue #232):
+      # the Open file, Save layout, Load layout, Save all tabs as PDF
+      # and Save signals dialogs are each shown again in a new folder
       # after a file of another folder was selected in them; the folder
-      # of the system panel on screen must be the new one.
+      # of the system panel on screen must be the new one, and
+      # (LLFR-01183, issue #243) its name field must be empty.
       - name: Check the folder of reused file dialogs
         timeout-minutes: 5
         env:
@@ -207,9 +212,10 @@ jobs:
           failed=0
           fail() { echo "::error title=Dialog folder::$1"; failed=1; }
           count=$(grep -c '^plot_tool folder:' folder_output.txt || true)
-          [ "$count" -eq 3 ] || fail "$count folder lines instead of 3"
+          [ "$count" -eq 5 ] || fail "$count folder lines instead of 5"
           grep '^plot_tool folder:' folder_output.txt | grep -v 'source=panel' && fail "a folder was not read from the system panel"
-          grep '^plot_tool folder:' folder_output.txt | grep 'ok=no' && fail "a reused dialog showed another folder"
+          grep '^plot_tool folder:' folder_output.txt | grep ' ok=no' && fail "a reused dialog showed another folder"
+          grep '^plot_tool folder:' folder_output.txt | grep 'name_ok=no' && fail "a reused dialog showed the file name of its earlier use"
           [ "$exit_code" -eq 0 ] || fail "the app exited with $exit_code"
           exit $failed
 

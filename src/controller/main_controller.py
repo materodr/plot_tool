@@ -92,9 +92,11 @@ class MainController:
         # run the export controller's flows.
         # LLFR-00971, LLFR-00972: the pages and the image describe the
         # open data files.
+        # LLFR-01179: the PDF dialog first shows the Open file folder.
         self.export_controller = ExportController(
             main_window,
-            lambda: self.file_controller.data_files.description_str)
+            lambda: self.file_controller.data_files.description_str,
+            lambda: self.file_controller.dialog_folder_str)
         # LLFR-01136: Ctrl+C (Cmd+C) copies the tab of its window.
         main_window.set_export_handlers(
             self.export_controller.on_export_requested,

@@ -50,24 +50,29 @@ off unless the environment variable ``PLOT_TOOL_STARTUP_PROBE`` is
    (all on one line; dialog_seen tells whether a file dialog was
    visible before the first request, which must never happen);
 5. if ``PLOT_TOOL_FOLDER_PROBE`` is ``"1"``, the Open file, Save
-   layout and Load layout dialogs are each shown twice, as by two
-   clicks (folder_line_list): first in a folder ``first`` with a file of
-   it selected, as after a user chose that file, then in a folder
-   ``second``; the folder the second dialog really shows (on macOS the
-   folder of the system panel on screen) is compared with ``second``
-   (LLFR-00447, LLFR-00468, issue #232) and a line is printed::
+   layout, Load layout, Save all tabs as PDF and Save signals dialogs
+   are each shown twice, as by two clicks (folder_line_list): first in
+   a folder ``first`` with a file of it selected, as after a user chose
+   that file, then in a folder ``second``; the folder the second dialog
+   really shows (on macOS the folder of the system panel on screen) is
+   compared with ``second`` (LLFR-00447, LLFR-00468, LLFR-01180,
+   LLFR-01182, issue #232), its file name field must be empty in a save
+   dialog and must not hold the earlier file in an open dialog
+   (LLFR-01183, issue #243, name_is_clean), and a line is printed::
 
        plot_tool folder: name=<dialog> expected=<second folder>
        shown=<folder shown> source=<panel|dialog> ok=<yes|no>
+       file_name=<name shown, or -> name_ok=<yes|no>
 
    (all on one line);
 6. the app quits, with exit code 0, or 1 when a probe file failed or a
-   folder line is not ok.
+   folder line is not ok (ok or name_ok).
 
 Code traced to LLFR-00058, LLFR-00184, LLFR-00186, LLFR-00188,
-LLFR-00406, LLFR-00447 and LLFR-00468: the probe only watches the
-splash screen, the main window with its three panels and the file
-dialogs being shown; it is a build check, not a function.
+LLFR-00406, LLFR-00447, LLFR-00468 and LLFR-01179 to LLFR-01183: the
+probe only watches the splash screen, the main window with its three
+panels and the file dialogs being shown; it is a build check, not a
+function.
 """
 
 import ctypes
@@ -108,7 +113,11 @@ PROBE_PAUSE_S = 0.5
 # the dialogs that show the folder chosen by the controllers.
 FOLDER_PROBE_VARIABLE_STR = "PLOT_TOOL_FOLDER_PROBE"
 FOLDER_LINE_PREFIX_STR = "plot_tool folder:"
-FOLDER_PROBE_KEY_TUPLE = ("open_file", "save_layout", "load_layout")
+# LLFR-01179 to LLFR-01183: the PDF and Save signals dialogs too.
+FOLDER_PROBE_KEY_TUPLE = ("open_file", "save_layout", "load_layout",
+                          "save_pdf", "save_signals")
+# LLFR-01183: the field of Qt's own dialog where a file name is typed.
+FILE_NAME_FIELD_NAME_STR = "fileNameEdit"
 FIRST_FOLDER_NAME_STR = "first"
 SECOND_FOLDER_NAME_STR = "second"
 EARLIER_FILE_NAME_STR = "earlier.csv"
@@ -518,18 +527,22 @@ def message_functions() -> tuple:
     return runtime, runtime.sel_registerName, function_dict
 
 
-def visible_panel_folder_str(platform_str: str = sys.platform) -> str:
-    """Return the folder of the system file panel shown on screen.
+def visible_panel_text_str(selector_name_bytes: bytes, url_b: bool,
+                           platform_str: str = sys.platform) -> str:
+    """Read one text of the system file panel shown on screen.
 
     Inputs:
+        selector_name_bytes: the NSSavePanel message that gives the
+            text, for example b"directoryURL" or b"nameFieldStringValue".
+        url_b: True when the message gives an NSURL, whose path is read.
         platform_str: the platform name, as sys.platform.
-    Outputs: the path of the folder shown by the visible open or save
-        panel of macOS, or "" when none is shown, on other systems, or
-        when the system could not be asked.
+    Outputs: the text of the visible open or save panel of macOS, or ""
+        when none is shown, on other systems, or when the system could
+        not be asked.
     """
-    # LLFR-00447, LLFR-00468: the folder the user really sees, read
-    # from the panel itself ([NSSavePanel directoryURL]; an open panel
-    # is a save panel too), not from Qt.
+    # LLFR-00447, LLFR-00468, LLFR-01183: what the user really sees,
+    # read from the panel itself (an open panel is a save panel too),
+    # not from Qt.
     if platform_str != MACOS_PLATFORM_STR:
         return ""
     try:
@@ -549,16 +562,57 @@ def visible_panel_folder_str(platform_str: str = sys.platform) -> str:
                 continue
             if not function_dict["flag"](window_i, selector(b"isVisible")):
                 continue
-            url_i = send_object(window_i, selector(b"directoryURL"))
-            if not url_i:
-                continue
-            path_i = send_object(url_i, selector(b"path"))
-            path_bytes = function_dict["text"](path_i, selector(b"UTF8String"))
-            if path_bytes:
-                return path_bytes.decode("utf-8")
+            value_i = send_object(window_i, selector(selector_name_bytes))
+            if not value_i:
+                return ""
+            if url_b:
+                value_i = send_object(value_i, selector(b"path"))
+            text_bytes = function_dict["text"](value_i,
+                                               selector(b"UTF8String"))
+            return text_bytes.decode("utf-8") if text_bytes else ""
     except (OSError, AttributeError, ValueError, TypeError):
         return ""
     return ""
+
+
+def visible_panel_folder_str(platform_str: str = sys.platform) -> str:
+    """Return the folder of the system file panel shown on screen.
+
+    Inputs:
+        platform_str: the platform name, as sys.platform.
+    Outputs: the path of the folder shown by the visible open or save
+        panel of macOS, or "" when none is shown, on other systems, or
+        when the system could not be asked.
+    """
+    # LLFR-00447, LLFR-00468: [NSSavePanel directoryURL].
+    return visible_panel_text_str(b"directoryURL", True, platform_str)
+
+
+def visible_panel_name_str(platform_str: str = sys.platform) -> str:
+    """Return the file name typed in the system file panel on screen.
+
+    Inputs:
+        platform_str: the platform name, as sys.platform.
+    Outputs: the text of the name field of the visible panel of macOS,
+        or "" when it is empty, when none is shown, on other systems, or
+        when the system could not be asked.
+    """
+    # LLFR-01183: [NSSavePanel nameFieldStringValue].
+    return visible_panel_text_str(b"nameFieldStringValue", False,
+                                  platform_str)
+
+
+def dialog_name_str(dialog) -> str:
+    """Return the file name typed in Qt's own file dialog.
+
+    Inputs:
+        dialog: a QFileDialog.
+    Outputs: the text of its file name field, or "" when it has none.
+    """
+    # LLFR-01183: Qt's own dialog, used where the system has none.
+    from PyQt6.QtWidgets import QLineEdit
+    name_field = dialog.findChild(QLineEdit, FILE_NAME_FIELD_NAME_STR)
+    return str(name_field.text()) if name_field is not None else ""
 
 
 def shown_folder_tuple(main_window, application, key_str: str,
@@ -576,7 +630,8 @@ def shown_folder_tuple(main_window, application, key_str: str,
             none.
         platform_str: the platform name, as sys.platform.
     Outputs: a tuple (the folder shown, "panel" when it was read from
-        the macOS panel on screen or "dialog" when read from Qt).
+        the macOS panel on screen or "dialog" when read from Qt, the
+        file name shown in its name field).
     """
     # LLFR-00447, LLFR-00468: shown as measure_dialog shows it, so that
     # the probe never waits in a modal loop.
@@ -602,14 +657,17 @@ def shown_folder_tuple(main_window, application, key_str: str,
         if time.perf_counter() > deadline_s:
             break
         time.sleep(POLL_INTERVAL_MS_I / 1000.0)
+    # LLFR-01183: the file name the user would see.
     if shown_str:
         source_str = "panel"
+        name_str = visible_panel_name_str(platform_str)
     else:
         shown_str = dialog.directory().absolutePath()
+        name_str = dialog_name_str(dialog)
     dialog.reject()
     dialog.setWindowModality(modality)
     application.processEvents()
-    return shown_str, source_str
+    return shown_str, source_str, name_str
 
 
 def same_folder(first_str: str, second_str: str) -> bool:
@@ -625,6 +683,27 @@ def same_folder(first_str: str, second_str: str) -> bool:
             and os.path.realpath(first_str) == os.path.realpath(second_str))
 
 
+def name_is_clean(main_window, key_str: str, name_str: str) -> bool:
+    """Tell whether a reused dialog shows no name of its earlier use.
+
+    Inputs:
+        main_window: the app's MainWindow.
+        key_str: the key of the dialog in main_window.file_dialog_pool.
+        name_str: the text of its name field when it was shown again.
+    Outputs: True when a save dialog's name field is empty, or when an
+        open dialog's (hidden) name field holds anything but the name
+        of the file selected at the earlier use; macOS keeps "Untitled"
+        in the hidden name field of its open panel.
+    """
+    # LLFR-01183: the user types a name only in a save dialog; an open
+    # dialog must not bring back the file chosen before.
+    from PyQt6.QtWidgets import QFileDialog
+    dialog = main_window.file_dialog_pool.dialog(key_str)
+    if dialog.acceptMode() == QFileDialog.AcceptMode.AcceptSave:
+        return not name_str
+    return name_str != EARLIER_FILE_NAME_STR
+
+
 def folder_line_list(main_window, application, output_stream=None,
                      platform_str: str = sys.platform) -> tuple:
     """Check that reused dialogs show the folder the controller asks for.
@@ -636,9 +715,10 @@ def folder_line_list(main_window, application, output_stream=None,
         platform_str: the platform name, as sys.platform.
     Outputs: a tuple (the report lines, True when every line is ok).
     """
-    # LLFR-00447, LLFR-00468, issue #232: a dialog shown again must
-    # show the new folder, even when a file of another folder was
-    # chosen in it at its earlier use.
+    # LLFR-00447, LLFR-00468, LLFR-01180, LLFR-01182, issue #232: a
+    # dialog shown again must show the new folder, even when a file of
+    # another folder was chosen in it at its earlier use. LLFR-01183,
+    # issue #243: and without the name of that file.
     line_list = []
     all_ok_b = True
     with tempfile.TemporaryDirectory() as root_folder_str:
@@ -656,15 +736,19 @@ def folder_line_list(main_window, application, output_stream=None,
             shown_folder_tuple(main_window, application, key_str,
                                first_folder_str, earlier_path_str,
                                platform_str)
-            shown_str, source_str = shown_folder_tuple(
+            shown_str, source_str, name_str = shown_folder_tuple(
                 main_window, application, key_str, second_folder_str,
                 "", platform_str)
             ok_b = same_folder(shown_str, second_folder_str)
-            all_ok_b = all_ok_b and ok_b
+            name_ok_b = name_is_clean(main_window, key_str, name_str)
+            all_ok_b = all_ok_b and ok_b and name_ok_b
+            # LLFR-01183: a name with spaces is shown as one field.
+            shown_name_str = name_str.replace(" ", "_") or "-"
             line_str = (f"{FOLDER_LINE_PREFIX_STR} name={key_str} "
                         f"expected={os.path.realpath(second_folder_str)} "
                         f"shown={shown_str or '-'} source={source_str} "
-                        f"ok={yes_no_str(ok_b)}")
+                        f"ok={yes_no_str(ok_b)} file_name={shown_name_str} "
+                        f"name_ok={yes_no_str(name_ok_b)}")
             line_list.append(line_str)
             if output_stream is not None:
                 print(line_str, file=output_stream)

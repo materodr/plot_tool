@@ -283,6 +283,58 @@ class SaveSignalsFlowTest(unittest.TestCase):
         self.open_data_file()
         self.assertEqual(self.view.enabled_list, [False, True])
 
+    @covers("LLFR-01181", "LLFR-01182", "LLFR-00532", "LLFR-00398",
+            "LLFR-00399")
+    def test_dialog_folder_sequence(self) -> None:
+        """The Open file folder until a signals file is saved, then the
+        folder of the last one saved; the proposed name stays that of
+        the data file; cancels and failures change nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_data_file()
+        # LLFR-01181: the folder the Open file dialog would show (the
+        # last data file opened), not the folder of the proposed file.
+        self.file_controller.dialog_folder_str = "/data/last_opened"
+        first_folder_str = os.path.join(self.folder_str, "first")
+        second_folder_str = os.path.join(self.folder_str, "second")
+        os.mkdir(first_folder_str)
+        os.mkdir(second_folder_str)
+        self.view.dialog_answer_list = [
+            ("", CSV_FORMAT_STR, False),
+            (os.path.join(first_folder_str, "fail.csv"), CSV_FORMAT_STR,
+             False)]
+        self.view.write_failure_str = "full"
+        self.view.handler()
+        self.view.handler()
+        self.view.write_failure_str = ""
+        # LLFR-01182: a successful save moves the folder.
+        self.view.dialog_answer_list = [
+            (os.path.join(first_folder_str, "out"), CSV_FORMAT_STR, False),
+            ("", CSV_FORMAT_STR, False),
+            (os.path.join(second_folder_str, "out.csv"), CSV_FORMAT_STR,
+             False)]
+        self.view.handler()
+        self.view.handler()
+        self.file_controller.dialog_folder_str = "/data/other"
+        self.view.handler()
+        self.view.handler()
+        self.assertTrue(os.path.exists(os.path.join(first_folder_str,
+                                                    "out.csv")))
+        self.assertTrue(os.path.exists(os.path.join(second_folder_str,
+                                                    "out.csv")))
+        self.assertEqual(
+            [call_tuple[0] for call_tuple in self.view.dialog_call_list],
+            ["/data/last_opened", "/data/last_opened", "/data/last_opened",
+             os.path.abspath(first_folder_str),
+             os.path.abspath(first_folder_str),
+             os.path.abspath(second_folder_str)])
+        # LLFR-00532: the proposed name is always the data file's.
+        self.assertEqual(
+            {call_tuple[1] for call_tuple in self.view.dialog_call_list},
+            {"run1_signals.csv"})
+
     @covers("LLFR-00396", "LLFR-00532")
     def test_dialog_defaults(self) -> None:
         """The dialog opens in the data file's folder, with
