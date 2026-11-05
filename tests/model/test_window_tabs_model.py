@@ -489,5 +489,55 @@ class LayoutWindowNumberTest(WindowTabsTestCase):
         self.assertIn("a window of its own", result.report.text())
 
 
+class MainPanelLayoutTest(WindowTabsTestCase):
+    """Whether the main window shows its signal list panel, in the layout
+    file (LLFR-00225 item 9, LLFR-01208)."""
+
+    # The same rebuild as for the window numbers.
+    rebuild = LayoutWindowNumberTest.rebuild
+
+    @covers("LLFR-00225", "LLFR-01208", "LLFR-01053", "HLFR-00131",
+            "HLFR-00049", "HLFR-00050")
+    def test_main_panel_state_saved_and_loaded(self) -> None:
+        """The file holds the state; loading it sets the model and the
+        result; a file without it leaves the panel as it is; a value that
+        is no bool is reported.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.workspace.main_panel_shown_b = False
+        layout_dict = parse_layout_text(layout_text(build_layout_dict(
+            self.workspace, self.id_list[0], (), True)))
+        self.assertIs(layout_dict["signal_list_panel_shown"], False)
+        new_workspace, result = self.rebuild(layout_dict)
+        self.assertFalse(new_workspace.main_panel_shown_b)
+        self.assertIs(result.main_panel_shown_b, False)
+        self.assertTrue(result.report.is_empty(), result.report.text())
+        layout_dict.pop("signal_list_panel_shown")
+        new_workspace, result = self.rebuild(layout_dict)
+        self.assertTrue(new_workspace.main_panel_shown_b)
+        self.assertIsNone(result.main_panel_shown_b)
+        layout_dict["signal_list_panel_shown"] = "yes"
+        _, result = self.rebuild(layout_dict)
+        self.assertIsNone(result.main_panel_shown_b)
+        self.assertIn("Signal list panel shown", result.report.text())
+
+    @covers("LLFR-01053", "HLFR-00131")
+    def test_main_panel_state_is_part_of_the_undo_state(self) -> None:
+        """Hiding the main window's panel changes the state an undo
+        restores, and a restore puts it back.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        snapshot = self.workspace.snapshot()
+        self.workspace.main_panel_shown_b = False
+        self.assertFalse(self.workspace.is_unchanged_since(snapshot))
+        self.workspace.restore(snapshot)
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertTrue(self.workspace.is_unchanged_since(snapshot))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -126,6 +126,9 @@ START_KEY_STR = "start"
 END_KEY_STR = "end"
 GRID_KEY_STR = "grid"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
+# LLFR-00225 item 9, LLFR-01208: whether the main window shows its signal
+# list panel.
+MAIN_PANEL_SHOWN_KEY_STR = "signal_list_panel_shown"
 # LLFR-01081, LLFR-01146: the largest size of a Qt window (QWIDGETSIZE_MAX),
 # the limit of every window position, size and panel width of a file.
 MAXIMUM_WINDOW_PIXELS_I = 16777215
@@ -389,6 +392,9 @@ class LayoutResult:
         self.grid_shown_b = grid_shown_b
         self.panel_width_tuple = tuple(panel_width_tuple)
         self.tabs_replaced_b = bool(tabs_replaced_b)
+        # LLFR-01208: whether the main window shows its signal list
+        # panel, None when the file does not say.
+        self.main_panel_shown_b = None
 
 
 # ----------------------------------------------------------------------
@@ -620,6 +626,10 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
             SIGNAL_LIST_PANEL_KEY_STR: int(panel_width_tuple[1])}
     else:
         layout_dict[PANEL_WIDTHS_KEY_STR] = None
+    # LLFR-00225 item 9, LLFR-01205: whether the main window shows its
+    # signal list panel.
+    layout_dict[MAIN_PANEL_SHOWN_KEY_STR] = bool(
+        getattr(workspace, "main_panel_shown_b", True))
     # LLFR-00225 item 6: under "flags", each flag with its name, time
     # and color ("#rrggbb" in lowercase).
     layout_dict[FLAGS_KEY_STR] = [
@@ -2087,9 +2097,20 @@ class LayoutBuilder:
             grid_shown_b = self.grid_setting(layout_dict[GRID_KEY_STR])
         panel_width_tuple = self.panel_widths(
             layout_dict.get(PANEL_WIDTHS_KEY_STR))
-        return LayoutResult(self.report, first_tab_id_i, time_range_tuple,
-                            grid_shown_b, panel_width_tuple,
-                            tabs_replaced_b)
+        result = LayoutResult(self.report, first_tab_id_i, time_range_tuple,
+                              grid_shown_b, panel_width_tuple,
+                              tabs_replaced_b)
+        # LLFR-01208: the main window's panel shown or hidden as saved; a
+        # file without the value leaves it as it is.
+        shown_value = layout_dict.get(MAIN_PANEL_SHOWN_KEY_STR)
+        if isinstance(shown_value, bool):
+            self.workspace.main_panel_shown_b = shown_value
+            result.main_panel_shown_b = shown_value
+        elif shown_value is not None:
+            self.report.add_replaced(
+                f"Signal list panel shown {describe_value(shown_value)} is "
+                f"neither true nor false; the panel was left as it was.")
+        return result
 
 
 def is_whole_number(value) -> bool:

@@ -251,6 +251,14 @@ class LayoutController:
         # LLFR-00230: the file's panel widths.
         if result.panel_width_tuple:
             self.view.set_panel_widths(*result.panel_width_tuple)
+        # LLFR-01208: the main window's panel shown or hidden as saved;
+        # fake views of tests that never hide it may leave it out.
+        set_main_panel = getattr(self.view, "set_main_panel", None)
+        if (getattr(result, "main_panel_shown_b", None) is not None
+                and set_main_panel is not None):
+            width_i = (int(result.panel_width_tuple[1])
+                       if len(result.panel_width_tuple) == 2 else 0)
+            set_main_panel(result.main_panel_shown_b, width_i)
         # LLFR-00237: one information box when something was not
         # rebuilt as saved, none otherwise.
         if not result.report.is_empty():

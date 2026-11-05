@@ -2349,9 +2349,12 @@ class PlotController:
 
         Inputs:
             window_id_i: id of the window whose signal list button was
-                clicked.
+                clicked, -1 for the main window (LLFR-01205).
         Outputs: none.
         """
+        if int(window_id_i) < 0:
+            self.toggle_main_panel()
+            return
         tab_list = self.workspace.window_tab_list(window_id_i)
         if not tab_list:
             return
@@ -2373,17 +2376,38 @@ class PlotController:
         self.record_undo(snapshot)
         self.view.set_window_panel(window_id_i, shown_b, width_i)
 
+    def toggle_main_panel(self) -> None:
+        """Hide or show the signal list panel of the main window.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01053: one undoable action; the snapshot holds the width
+        # the panel had, which it gets back when shown (LLFR-01048).
+        snapshot = self.take_snapshot()
+        shown_b = not self.workspace.main_panel_shown_b
+        width_i = int(self.workspace.main_panel_width_i)
+        # LLFR-01047, LLFR-01048, LLFR-01205: hidden, or shown at its
+        # width.
+        self.workspace.main_panel_shown_b = shown_b
+        self.record_undo(snapshot)
+        self.view.set_main_panel(shown_b, width_i)
+
     def on_panel_show_requested(self, window_id_i: int) -> None:
-        """Show the hidden signal list panel of an undocked window.
+        """Show the hidden signal list panel of a window.
 
         Inputs:
             window_id_i: id of the window where Ctrl+F (Cmd+F) was
-                pressed.
-        Outputs: none. A shown panel, or the main window's, is left as
-            it is.
+                pressed, -1 for the main window.
+        Outputs: none. A shown panel is left as it is.
         """
         # LLFR-01141: as a click on the signal list button, one undoable
-        # action, only while the panel is hidden.
+        # action, only while the panel is hidden; the main window's too
+        # (LLFR-01205).
+        if int(window_id_i) < 0:
+            if not self.workspace.main_panel_shown_b:
+                self.toggle_main_panel()
+            return
         tab_list = self.workspace.window_tab_list(window_id_i)
         if not tab_list or tab_list[0].panel_shown_b:
             return
@@ -3178,6 +3202,13 @@ class PlotController:
         # width of that state.
         if self.workspace.main_panel_width_i > 0:
             self.view.set_main_panel_width(self.workspace.main_panel_width_i)
+        # LLFR-01053, LLFR-00138, LLFR-00192: the main window's panel
+        # shown or hidden as in that state; fake views of tests that do
+        # not hide it may leave the method out.
+        set_main_panel = getattr(self.view, "set_main_panel", None)
+        if set_main_panel is not None:
+            set_main_panel(self.workspace.main_panel_shown_b,
+                           self.workspace.main_panel_width_i)
 
     def rebuild_all_views(self, current_tab_id_i: int) -> None:
         """Show every tab, plot, curve, tip and marker of the workspace.

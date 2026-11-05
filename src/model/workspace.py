@@ -1556,7 +1556,8 @@ def plot_state_tuple(plot) -> tuple:
 
 def tabs_state_tuple(tab_list: list, marker_list: list,
                      area_list=(), main_panel_width_i: int = 0,
-                     grid_shown_b: bool = True) -> tuple:
+                     grid_shown_b: bool = True,
+                     main_panel_shown_b: bool = True) -> tuple:
     """Return tabs, vertical markers and areas as plain values.
 
     Inputs:
@@ -1566,10 +1567,12 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
         main_panel_width_i: width of the signal list panel of the main
             window, in pixels, 0 when unknown.
         grid_shown_b: True while the grid is shown (LLFR-01132).
+        main_panel_shown_b: True while the main window shows its signal
+            list panel (LLFR-01053, LLFR-01205).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
-        width, grid shown): one entry (tab_id_i, name_str, plot state tuples,
-        row_count_i, column_count_i, window state tuple) per tab, in
-        tab order, one entry
+        width, grid shown, main panel shown): one entry (tab_id_i,
+        name_str, plot state tuples, row_count_i, column_count_i,
+        window state tuple) per tab, in tab order, one entry
         (marker_id_i, name_str, time_s, color_str) per marker and one
         entry (area_id_i, name_str, start_s, end_s, color_str) per area;
         two states with equal tuples show the same thing (LLFR-00140).
@@ -1597,8 +1600,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
                        for area in area_list)
     # LLFR-01055: a drag of the main window's panel border is undoable;
     # LLFR-01132: and so is a click on the Grid button.
+    # LLFR-01053, LLFR-01205: hiding or showing the main window's panel
+    # is undoable too.
     return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i),
-            bool(grid_shown_b))
+            bool(grid_shown_b), bool(main_panel_shown_b))
 
 
 def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
@@ -1674,7 +1679,8 @@ class WorkspaceSnapshot:
     def __init__(self, tab_list: list, state_tuple: tuple,
                  current_tab_id_i: int = -1, marker_list=(),
                  area_list=(), main_panel_width_i: int = 0,
-                 grid_shown_b: bool = True) -> None:
+                 grid_shown_b: bool = True,
+                 main_panel_shown_b: bool = True) -> None:
         """Store the saved state.
 
         Inputs:
@@ -1697,6 +1703,9 @@ class WorkspaceSnapshot:
         self.main_panel_width_i = int(main_panel_width_i)
         # LLFR-01132, LLFR-00138: and whether the grid was shown.
         self.grid_shown_b = bool(grid_shown_b)
+        # LLFR-01053, LLFR-00138: and whether the main window showed its
+        # signal list panel.
+        self.main_panel_shown_b = bool(main_panel_shown_b)
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
         """Rename a signal in the saved state.
@@ -1715,7 +1724,8 @@ class WorkspaceSnapshot:
                                             self.marker_list,
                                             self.area_list,
                                             self.main_panel_width_i,
-                                            self.grid_shown_b)
+                                            self.grid_shown_b,
+                                            self.main_panel_shown_b)
 
 
 class Workspace:
@@ -1770,6 +1780,9 @@ class Workspace:
         # LLFR-01055: width of the main window's signal list panel, in
         # pixels, as the view last reported it; 0 while unknown.
         self.main_panel_width_i = 0
+        # LLFR-01206: the main window shows its signal list panel at
+        # start; LLFR-01053: hiding or showing it is undoable.
+        self.main_panel_shown_b = True
         # LLFR-01015, LLFR-01159: ids of the undocked windows; they only
         # grow, also after an undo.
         self.next_window_id_i = 1
@@ -2851,7 +2864,7 @@ class Workspace:
         # they only grow (LLFR-00111, LLFR-00309).
         return tabs_state_tuple(self.tab_list, self.marker_list,
                                 self.area_list, self.main_panel_width_i,
-                                self.grid_shown_b)
+                                self.grid_shown_b, self.main_panel_shown_b)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -2888,7 +2901,8 @@ class Workspace:
                                  copy.deepcopy(self.marker_list),
                                  copy.deepcopy(self.area_list),
                                  self.main_panel_width_i,
-                                 self.grid_shown_b)
+                                 self.grid_shown_b,
+                                 self.main_panel_shown_b)
 
     def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
         """Tell whether the workspace still holds a saved state.
@@ -2923,6 +2937,9 @@ class Workspace:
         # LLFR-01055, LLFR-00138: the main window's panel width.
         self.main_panel_width_i = int(getattr(snapshot,
                                               "main_panel_width_i", 0))
+        # LLFR-01053, LLFR-00138: the main window's panel shown or not.
+        self.main_panel_shown_b = bool(getattr(snapshot,
+                                               "main_panel_shown_b", True))
         # LLFR-01132, LLFR-00138: the grid of that state.
         self.grid_shown_b = bool(getattr(snapshot, "grid_shown_b", True))
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.

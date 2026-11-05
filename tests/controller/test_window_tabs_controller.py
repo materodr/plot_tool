@@ -459,5 +459,56 @@ class WindowTabsActionTest(WindowTabsControllerTestCase):
             self.assertTrue(self.workspace.find_tab(tab_id_i).panel_shown_b)
 
 
+class MainPanelToggleControllerTest(WindowTabsControllerTestCase):
+    """The signal list button of the main window (LLFR-01205)."""
+
+    @covers("LLFR-01205", "LLFR-01206", "LLFR-01047", "LLFR-01048",
+            "LLFR-01053", "LLFR-00140", "HLFR-00131", "HLFR-00040",
+            "HLFR-00048")
+    def test_main_panel_hidden_and_shown_as_undoable_actions(self) -> None:
+        """The panel starts shown; the button of window -1 hides it, the
+        width kept, then shows it; each click is one undoable action.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        depth_i = self.controller.undo_history.depth()
+        self.view.handler_dict["panel_toggle_handler"](-1)
+        self.assertFalse(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.view.call_list[-1],
+                         ("set_main_panel", False, 240))
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 1)
+        self.view.handler_dict["panel_toggle_handler"](-1)
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.view.call_list[-1],
+                         ("set_main_panel", True, 240))
+        self.undo()
+        self.assertFalse(self.workspace.main_panel_shown_b)
+        self.assertFalse(self.view.main_panel_shown_b)
+        self.undo()
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertTrue(self.view.main_panel_shown_b)
+        self.redo()
+        self.assertFalse(self.view.main_panel_shown_b)
+
+    @covers("LLFR-01141", "HLFR-00131")
+    def test_search_shortcut_shows_only_a_hidden_main_panel(self) -> None:
+        """Ctrl+F in the main window shows its hidden panel, as one
+        undoable action, and does nothing while it is shown.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        depth_i = self.controller.undo_history.depth()
+        self.view.handler_dict["panel_show_handler"](-1)
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i)
+        self.view.handler_dict["panel_toggle_handler"](-1)
+        self.view.handler_dict["panel_show_handler"](-1)
+        self.assertTrue(self.workspace.main_panel_shown_b)
+        self.assertEqual(self.controller.undo_history.depth(), depth_i + 2)
+
+
 if __name__ == "__main__":
     unittest.main()

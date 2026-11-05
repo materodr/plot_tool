@@ -859,6 +859,20 @@ class FakePlotView:
         self.call_list.append(("set_main_panel_width", width_i))
         self.main_panel_width_i = int(width_i)
 
+    def set_main_panel(self, shown_b: bool, width_i: int) -> None:
+        """Show or hide the main window's panel.
+
+        Inputs:
+            shown_b: True to show it.
+            width_i: its width, 0 to keep the one it had.
+        Outputs: none.
+        """
+        self.call_list.append(("set_main_panel", bool(shown_b),
+                               int(width_i)))
+        self.main_panel_shown_b = bool(shown_b)
+        if int(width_i) > 0:
+            self.main_panel_width_i = int(width_i)
+
     def set_undock_enabled(self, enabled_b: bool) -> None:
         """Record whether the undock buttons are enabled.
 

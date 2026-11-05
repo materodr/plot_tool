@@ -202,6 +202,10 @@ class PlotTabWidget(QTabWidget):
         """
         super().__init__(parent)
         self.setObjectName(TAB_WIDGET_OBJECT_NAME_STR)
+        # LLFR-01207: room kept at the right end of the tab row, for the
+        # signal list button of the main window while its panel is
+        # hidden.
+        self.reserved_right_width_i = 0
         # LLFR-00106: left-aligned tabs; when they do not fit, the tab
         # bar scrolls instead of squeezing or centring them.
         tab_bar = QTabBar(self)
@@ -270,7 +274,9 @@ class PlotTabWidget(QTabWidget):
                            self.add_tab_button.sizeHint().height())
         button_width_i = ADD_BUTTON_WIDTH_I
         left_i = bar_geometry.x() + right_edge_i + ADD_BUTTON_GAP_I
-        left_i = max(0, min(left_i, self.width() - button_width_i))
+        # LLFR-01207: the "+" button stays left of the kept room.
+        left_i = max(0, min(left_i, self.width() - button_width_i
+                            - getattr(self, "reserved_right_width_i", 0)))
         self.add_tab_button.setGeometry(left_i, bar_geometry.y() + top_i,
                                         button_width_i, height_i)
         self.add_tab_button.raise_()
@@ -299,9 +305,23 @@ class PlotTabWidget(QTabWidget):
         # LLFR-00025: a corner widget would not do this, because the
         # style sheet position of the tab bar (LLFR-00106) ignores
         # corner widgets; QWidget.setGeometry respects the maximum width.
-        reserved_width_i = ADD_BUTTON_WIDTH_I + 2 * ADD_BUTTON_GAP_I
+        # LLFR-01207: and for the signal list button of the main window.
+        reserved_width_i = (ADD_BUTTON_WIDTH_I + 2 * ADD_BUTTON_GAP_I
+                            + getattr(self, "reserved_right_width_i", 0))
         self.tabBar().setMaximumWidth(max(0, self.width()
                                           - reserved_width_i))
+
+    def set_reserved_right_width(self, width_i: int) -> None:
+        """Keep room at the right end of the tab row.
+
+        Inputs:
+            width_i: the room in pixels, 0 for none.
+        Outputs: none. The tabs and the "+" button stay left of it.
+        """
+        # LLFR-01207: while the main window's panel is hidden.
+        self.reserved_right_width_i = max(int(width_i), 0)
+        self.limit_tab_bar_width()
+        self.schedule_reposition()
 
     def tabs_overflow(self) -> bool:
         """Return whether the tabs are wider than the tab bar.

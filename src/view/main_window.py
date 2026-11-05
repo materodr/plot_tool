@@ -22,6 +22,7 @@ from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     color_picker, file_dialogs, file_writing, icons, message_boxes,
     name_dialog, plot_export, synthetic_dialogs, theme)
+from view.main_panel_button import MainPanelButton
 from view.panel_splitter import PanelSplitter
 from view.plot_panel import PlotPanel
 from view.search_box_alignment import SearchBoxAligner
@@ -198,11 +199,9 @@ class MainWindow(QMainWindow):
         self.lower_splitter.addWidget(self.signal_list_panel)
         self.lower_splitter.setStretchFactor(0, self.PLOT_PANEL_STRETCH_I)
         self.lower_splitter.setStretchFactor(1, self.SIGNAL_LIST_STRETCH_I)
-        # LLFR-00073: a comfortable handle to grab between the panels.
-        # LLFR-01196: the main window's panel has no signal list button;
-        # LLFR-01054: it is never hidden, and its splitter keeps it at
-        # least 1 pixel wide, as no child of a PanelSplitter can be
-        # collapsed.
+        # LLFR-00073: a comfortable handle to grab between the panels;
+        # no child of a PanelSplitter can be collapsed by a drag, so the
+        # panel is hidden only by its signal list button (LLFR-01205).
         self.lower_splitter.setHandleWidth(theme.SPLITTER_HANDLE_WIDTH_I)
 
         # LLFR-00058: the top panel is above the other two panels.
@@ -215,6 +214,13 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.top_panel)
         central_layout.addWidget(self.lower_splitter, 1)
         self.setCentralWidget(central_widget)
+        # LLFR-01205, LLFR-01206: the signal list button of the main
+        # window; the panel starts shown.
+        self.main_panel_button = MainPanelButton(
+            central_widget, self.lower_splitter, self.plot_panel,
+            self.signal_list_panel)
+        self.main_panel_button.toggle_handler = (
+            lambda: self._run_window_handler("panel_toggle_handler", -1))
         # LLFR-00424, LLFR-00652: the bottom edge of the search box
         # follows the bottom edge of the lowest plot of the current tab.
         self.search_box_aligner = SearchBoxAligner(
@@ -598,8 +604,9 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: the width in pixels.
         """
-        # LLFR-01051, LLFR-01055: the main window's panel.
-        return self.lower_splitter.last_widget_width()
+        # LLFR-01051, LLFR-01055: the main window's panel; LLFR-01048:
+        # while hidden, the width it gets back.
+        return self.main_panel_button.panel_width()
 
     def window_state_dict(self) -> dict:
         """Return the windows and panel widths as shown now.
@@ -1034,6 +1041,26 @@ class MainWindow(QMainWindow):
         window = self.undocked_window_dict.get(window_id_i)
         if window is not None:
             window.set_panel(shown_b, width_i)
+
+    def set_main_panel(self, shown_b: bool, width_i: int) -> None:
+        """Show or hide the main window's signal list panel.
+
+        Inputs:
+            shown_b: True to show it.
+            width_i: its width in pixels, 0 to keep the one it had.
+        Outputs: none.
+        """
+        # LLFR-01047, LLFR-01048, LLFR-01205, LLFR-01208.
+        self.main_panel_button.set_panel(shown_b, width_i)
+
+    def is_main_panel_shown(self) -> bool:
+        """Tell whether the main window shows its signal list panel.
+
+        Inputs: none.
+        Outputs: True when it is shown.
+        """
+        # LLFR-01205.
+        return self.main_panel_button.is_panel_shown()
 
     def set_main_panel_width(self, width_i: int) -> None:
         """Give the main window's signal list panel a width.
@@ -2873,6 +2900,10 @@ class MainWindow(QMainWindow):
         size_list = list(self.lower_splitter.sizes())
         if len(size_list) < 2:
             return ()
+        if not self.is_main_panel_shown():
+            # LLFR-01048: a hidden panel keeps the width it gets back.
+            list_width_i = max(self.main_panel_width(), 1)
+            return (max(int(size_list[0]) - list_width_i, 1), list_width_i)
         return (int(size_list[0]), int(size_list[1]))
 
     def set_panel_widths(self, plot_width_i: int, list_width_i: int) -> None:
@@ -2898,8 +2929,8 @@ class MainWindow(QMainWindow):
                 room_i * list_width_i / (plot_width_i + list_width_i))), 1)
             # LLFR-01195: the plot panel keeps 100 pixels of the room the
             # panels have, which is narrower than the window, so the
-            # window's limit holds too; LLFR-01054: the signal list
-            # panel keeps at least 1 pixel.
+            # window's limit holds too; the signal list panel keeps at
+            # least 1 pixel.
             list_width_i = min(fitted_panel_width_i(list_width_i, room_i),
                                room_i - 1)
             plot_width_i = room_i - list_width_i
@@ -3388,6 +3419,11 @@ class MainWindow(QMainWindow):
             panel = window.signal_list_panel
             window.activateWindow()
         else:
+            if not self.is_main_panel_shown():
+                # LLFR-01141: the hidden panel of the main window too.
+                self._run_window_handler("panel_show_handler", -1)
+            if not self.is_main_panel_shown():
+                return
             panel = self.signal_list_panel
         # LLFR-01140: the focus in the search box, its text selected.
         panel.search_box.setFocus(Qt.FocusReason.ShortcutFocusReason)
