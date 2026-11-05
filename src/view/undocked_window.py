@@ -471,7 +471,7 @@ class UndockedWindow(QWidget):
         self.fit_add_tab_button()
 
     def fit_add_tab_button(self) -> None:
-        """Give the "+" button the height of the tabs.
+        """Give the "+" button, and the tab bar, the height of the tabs.
 
         Inputs: none.
         Outputs: none.
@@ -483,6 +483,10 @@ class UndockedWindow(QWidget):
             height_i = self.tab_bar.sizeHint().height()
         if height_i > 0:
             self.add_tab_button.setFixedHeight(height_i)
+            # LLFR-01063: the bar, as wide as its tabs and aligned to the
+            # bottom of the row, keeps the height of its tabs even when
+            # the row is laid out before its tabs are (LLFR-01151).
+            self.tab_bar.setMinimumHeight(height_i)
 
     def request_add_tab(self) -> None:
         """Ask the controller for a new tab in this window.
