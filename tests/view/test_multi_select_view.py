@@ -872,13 +872,15 @@ class MultiSelectMainWindowTest(unittest.TestCase):
                              ["file1_int_speed"])
             self.assertEqual(window_widget.currentItem().text(),
                              "file1_int_speed")
-            self.assertEqual(self.selected(), ["file1_force"])
+            self.assertEqual(self.panel.selected_signal_names(),
+                             ["file1_force"])
             # The menu of the main window's panel: the window's panel
             # keeps the signal it selected before.
             self.panel.synthetic_operation_requested.emit("file1_force",
                                                           "integral")
             self.application.processEvents()
-            self.assertEqual(self.selected(), ["file1_int_force"])
+            self.assertEqual(self.panel.selected_signal_names(),
+                             ["file1_int_force"])
             self.assertEqual(window_panel.selected_signal_names(),
                              ["file1_int_speed"])
             # No creation is under way any more.
