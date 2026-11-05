@@ -5759,8 +5759,9 @@ class PlotWidget(QWidget):
             self.axes.add_artist(band)
             band.set_in_layout(False)
             # LLFR-00307, LLFR-00308: the name and the times in the
-            # area's color at full opacity (no alpha), on the label box
-            # that keeps them readable.
+            # area's color at full opacity (no alpha); LLFR-00704: on an
+            # opaque box with a contrast of at least 4.5:1 to that color.
+            label_box_dict = theme.area_label_box_dict(color_str)
             # LLFR-00307: the name in the upper-left corner of the band,
             # inside the drawing area, shown literally (never as
             # mathtext); place_areas keeps it at the left of the part of
@@ -5772,7 +5773,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
+                bbox=dict(label_box_dict), zorder=AREA_LABEL_ZORDER_F)
             label.set_in_layout(False)
             # LLFR-00308: the start and end times directly below the
             # label, anchored on the label's box so that they follow it.
@@ -5783,7 +5784,7 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 color=color_str, fontsize=MARKER_FONT_SIZE_F,
                 horizontalalignment="left", verticalalignment="top",
-                bbox=dict(MARKER_TEXT_BOX_DICT), zorder=AREA_LABEL_ZORDER_F)
+                bbox=dict(label_box_dict), zorder=AREA_LABEL_ZORDER_F)
             times_text.set_in_layout(False)
             self.area_artist_dict[area_id_i] = (band, label, times_text)
         self.place_areas()
@@ -6481,7 +6482,7 @@ class PlotWidget(QWidget):
         Outputs: the index in the list given to set_arrows of the arrow
             drawn last among those under the point, or NO_ARROW_INDEX_I.
         """
-        # LLFR-00373: on an arrow means within 5 pixels of its line, on
+        # LLFR-01201: on an arrow means within 5 pixels of its line, on
         # its arrowhead or on its label; only the part inside the
         # drawing area is drawn (LLFR-00374), so a point outside it is on
         # no arrow.

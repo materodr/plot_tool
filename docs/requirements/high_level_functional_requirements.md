@@ -52,8 +52,11 @@ Note: The **main window** is the app window that has the top panel. A window tha
 ### HLFR-00125 Dock a tab
 The user must be able to put a tab of an undocked window back into the main window.
 
-### HLFR-00153 Undock and dock a tab by dragging it
-The user must be able to undock a tab by dragging it out of the main window's tab row and dropping it outside the main window's plot panel, and to dock an undocked tab by dragging its tab button onto the main window's tab row.
+### HLFR-00153 Undock a tab by dragging it
+The user must be able to undock a tab by dragging it out of the main window's tab row and dropping it outside the main window's plot panel.
+
+### HLFR-00155 Dock a tab by dragging it
+The user must be able to dock an undocked tab by dragging it onto the main window's tab row.
 
 ### HLFR-00126 Tabs of an undocked window
 Each undocked window must hold one or more tabs.
@@ -179,7 +182,7 @@ The layout file must hold what the app needs to create again the synthetic signa
 The layout file must hold which tabs are undocked and, for each undocked window, its position and size, whether its signal list panel is shown and the panel's width.
 
 ### HLFR-00141 Rebuild the windows from a layout
-When the app loads a layout file, it must open each undocked tab of the file in an undocked window of its own, as saved.
+When the app loads a layout file, it must open the undocked tabs of the file in undocked windows, as saved.
 
 ### HLFR-00142 Windows moved onto a screen
 When the app loads a layout file, it must move onto a screen every undocked window whose saved position is off-screen.
@@ -190,7 +193,7 @@ Note: This happens, for example, when the layout was saved with a second screen 
 The layout file must hold the plot matrix of each tab.
 
 ### HLFR-00070 Choose the time signal
-When the user opens a file in which no signal is named `Time` (HLFR-00006), the app must ask the user to choose the signal that goes on the x-axis, in a window with the list of the signals and a search box.
+When the user opens a file in which no signal is the time signal by its name (HLFR-00006), the app must ask the user to choose the signal that goes on the x-axis, in a window with the list of the signals and a search box.
 
 Note: The window works like the second signal window of the Product with signal operation.
 
@@ -264,7 +267,7 @@ The user must be able to create, from a signal in the signal list, including a s
 Note: Such a signal is called a **synthetic signal**. The operations that create one are Integral, Derivative, Low-pass filter, High-pass filter, Moving average, Max, Min, Greater than, Less than, Greater than or equal, Less than or equal, Add constant, Subtract constant, Multiply by constant, Divide by constant, Absolute value, Product with signal and FFT. Product with signal multiplies two signals sample by sample; the Comparison operations and the other Arithmetic operations, except Absolute value, use a constant number. An FFT signal is a synthetic signal created by the FFT operation.
 
 ### HLFR-00054 Synthetic signal name
-Except for the product of two signals (HLFR-00104), the app must name each synthetic signal with the prefix of its data file (HLFR-00115), the abbreviation of its operation shown in the menu, an underscore, the value of its parameter when it has one, an underscore and the name, without its prefix, of the signal it was computed from. The parameter of an FFT signal is the time range it was computed from (HLFR-00057).
+Except for the product of two signals (HLFR-00104), the app must name each synthetic signal with the prefix of its data file (HLFR-00115), the abbreviation of its operation shown in the menu, then, when the operation has a parameter, an underscore and the value of the parameter, then an underscore and the name, without its prefix, of the signal it was computed from. The parameter of an FFT signal is the time range it was computed from (HLFR-00057).
 
 Note: For example, `file1_int_Speed`, and `file1_int_lpf_2Hz_order2_Speed` for the Integral of a Low-pass filter of `file1_Speed`.
 

@@ -423,7 +423,7 @@ class ArrowLabelViewTest(LabelWidgetTestCase):
         return angle_deg
 
     @covers("LLFR-00436", "LLFR-00869", "LLFR-00887", "LLFR-00373",
-            "LLFR-00788", "HLFR-00100")
+            "LLFR-01201", "LLFR-00788", "HLFR-00100")
     def test_label_parallel_readable_and_part_of_the_arrow(self) -> None:
         """The name is drawn next to the middle of the line, parallel to
         it as shown, never upside down, in the arrow's color; a point on

@@ -256,10 +256,10 @@ class DeltaMarkerNameLayoutTest(unittest.TestCase):
         self.assertEqual(name_list, ["Lap"])
         self.assertNotIn("Lap", report_str)
 
-    @covers("LLFR-00857", "HLFR-00097")
-    def test_missing_name_gets_a_default_name_silently(self) -> None:
-        """A file without the name (saved before delta markers had one)
-        gives the default name and reports nothing.
+    @covers("LLFR-00857", "LLFR-01200", "LLFR-00237", "HLFR-00097")
+    def test_missing_name_gets_a_default_name_reported(self) -> None:
+        """A delta marker with no saved name gets the default name, and
+        the report lists it as a replaced value.
 
         Inputs: none.
         Outputs: none.
@@ -268,7 +268,10 @@ class DeltaMarkerNameLayoutTest(unittest.TestCase):
         del self.delta_entry(layout_dict)["name"]
         name_list, report_str = self.load(layout_dict)
         self.assertEqual(name_list, ["Delta X 1"])
-        self.assertEqual(report_str, "")
+        self.assertEqual(
+            report_str, "Values replaced:\n\nName of the Delta X marker "
+            "between 1 s and 3 s in plot 1 of tab \"Tab 1\" is missing; "
+            "replaced by \"Delta X 1\".")
 
     @covers("LLFR-00858", "LLFR-00859", "HLFR-00097")
     def test_unusable_name_is_replaced_and_reported(self) -> None:

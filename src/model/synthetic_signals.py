@@ -966,25 +966,28 @@ def own_prefix_name(name_str: str, file_number_i) -> str:
     return prefix_str + without_prefix(name_str)
 
 
-def name_sequence(base_name_str: str, last_name_str: str) -> list:
-    """Return the names LLFR-00241 tries, up to the one it chose.
+def is_numbered_name(name_str: str, base_name_str: str) -> bool:
+    """Tell whether a name is a name, or that name and a number.
 
     Inputs:
-        base_name_str: the wanted name.
-        last_name_str: the name unique_name returned for it.
-    Outputs: [base, base_2, base_3, ...] up to, but without,
-        last_name_str; [] when last_name_str is base_name_str.
+        name_str: a name of the signal list.
+        base_name_str: the corrected name of a synthetic signal of a
+            layout file (LLFR-01198).
+    Outputs: True when name_str is base_name_str, or base_name_str, an
+        underscore and a whole number from 2 up written without leading
+        zeros, as LLFR-00241 makes names.
     """
-    # LLFR-00282: the names an earlier load may have given to a signal
-    # of the same saved name.
-    name_list = []
-    candidate_name_str = base_name_str
-    number_i = FIRST_SUFFIX_NUMBER_I
-    while candidate_name_str != last_name_str:
-        name_list.append(candidate_name_str)
-        candidate_name_str = f"{base_name_str}_{number_i}"
-        number_i += 1
-    return name_list
+    # LLFR-00282, LLFR-00241: the names an earlier load may have given
+    # to a signal of the same saved name.
+    if name_str == base_name_str:
+        return True
+    prefix_str = base_name_str + "_"
+    if not name_str.startswith(prefix_str):
+        return False
+    number_str = name_str[len(prefix_str):]
+    return (number_str.isdigit() and number_str.isascii()
+            and not number_str.startswith("0")
+            and int(number_str) >= FIRST_SUFFIX_NUMBER_I)
 
 
 def recipe(store: SyntheticSignalStore, signal: SyntheticSignal) -> dict:
@@ -1126,17 +1129,19 @@ class LayoutSignalLoader:
             self.time_array, self.data_name_set,
             unique_name(name_str, used_name_set))
         signal_recipe_dict = recipe(self.store, signal)
-        for candidate_name_str in name_sequence(name_str,
-                                                signal.name_str):
-            if (self.store.contains(candidate_name_str)
-                    and recipe(self.store,
-                               self.store.get(candidate_name_str))
+        # LLFR-01198: name_str is now the corrected name.
+        # LLFR-01199: the candidates in the order of the signal list.
+        for candidate in list(self.store.signal_list):
+            if (candidate is not signal
+                    and is_numbered_name(candidate.name_str, name_str)
+                    and recipe(self.store, candidate)
                     == signal_recipe_dict):
                 # LLFR-00282: the same signal already exists under the
-                # saved name, or under a name an earlier load made unique
-                # from it: it is used, and nothing is created.
+                # corrected name, or under that name and a number: it is
+                # used, and nothing is created; LLFR-01199: the first
+                # one in the order of the signal list.
                 self.store.signal_list.remove(signal)
-                return candidate_name_str
+                return candidate.name_str
         if signal.name_str != saved_name_str:
             # LLFR-00499, LLFR-00970, LLFR-00501: the rename is reported,
             # with the saved and the new name.

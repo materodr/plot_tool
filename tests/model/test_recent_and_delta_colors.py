@@ -198,7 +198,9 @@ class DeltaMarkerColorLayoutTest(LayoutRebuildTestCase):
             entry_dict: entries to add, for example color.
         Outputs: the delta marker entry.
         """
-        delta_dict = {"kind": "delta_x",
+        # LLFR-01200: a name is given, so that only a test's own
+        # missing or changed values are reported.
+        delta_dict = {"name": "Gap", "kind": "delta_x",
                       "first_point": {"signal": "Speed", "time": 1.0},
                       "second_point": {"signal": "Speed", "time": 2.0}}
         delta_dict.update(entry_dict)
@@ -229,11 +231,12 @@ class DeltaMarkerColorLayoutTest(LayoutRebuildTestCase):
                          [MARKER_COLOR_STR, "#abcdef"])
 
     @covers("LLFR-00410", "LLFR-00235", "LLFR-00237", "LLFR-00172",
-            "LLFR-00821", "LLFR-00822", "LLFR-00823", "LLFR-00824")
+            "LLFR-00821", "LLFR-00822", "LLFR-00823", "LLFR-00824",
+            "LLFR-01200")
     def test_saved_colors_read_back(self) -> None:
-        """A "#rrggbb" color in any case is used; a missing one is the
-        default color with no report; any other value is replaced by
-        the default color and listed as a replaced value.
+        """A "#rrggbb" color in any case is used; a missing one, or any
+        other value, is replaced by the default color and listed as a
+        replaced value.
 
         Inputs: none.
         Outputs: none.
@@ -249,8 +252,13 @@ class DeltaMarkerColorLayoutTest(LayoutRebuildTestCase):
                          ["#00aa11", MARKER_COLOR_STR, MARKER_COLOR_STR,
                           MARKER_COLOR_STR])
         replaced_list = result.report.replaced_line_list
-        self.assertEqual(len(replaced_list), 2)
-        for replaced_str, value_str in zip(replaced_list,
+        self.assertEqual(len(replaced_list), 3)
+        # LLFR-00822, LLFR-01200: the missing color is listed first.
+        self.assertEqual(
+            replaced_list[0], "Color of the Delta X marker between "
+            "1 s and 2 s in plot 1 of tab \"Tab A\" is missing; replaced "
+            f"by \"{MARKER_COLOR_STR}\".")
+        for replaced_str, value_str in zip(replaced_list[1:],
                                            ('"Blue"', "255")):
             self.assertIn(f"Color {value_str} of the Delta X marker",
                           replaced_str)
@@ -259,17 +267,21 @@ class DeltaMarkerColorLayoutTest(LayoutRebuildTestCase):
                           replaced_str)
         self.assertEqual(result.report.not_rebuilt_line_list, [])
 
-    @covers("LLFR-00410", "LLFR-00228", "LLFR-00822")
-    def test_file_without_delta_colors_reports_nothing(self) -> None:
-        """A version 2 file saved before delta markers had a color is
-        rebuilt with the default color and an empty report.
+    @covers("LLFR-00410", "LLFR-00822", "LLFR-01200", "LLFR-00237")
+    def test_file_without_delta_colors_reports_the_default(self) -> None:
+        """A delta marker with no saved color is rebuilt with the default
+        color, and the load report lists it as a replaced value.
 
         Inputs: none.
         Outputs: none.
         """
         result = self.rebuild(minimal_layout([one_plot_tab(
             [curve("Speed")], delta_marker_list=[self.delta_entry()])]))
-        self.assertTrue(result.report.is_empty(), result.report.text())
+        self.assertEqual(result.report.replaced_line_list, [
+            "Color of the Delta X marker between 1 s and 2 s in "
+            "plot 1 of tab \"Tab A\" is missing; replaced by "
+            f"\"{MARKER_COLOR_STR}\"."])
+        self.assertEqual(result.report.not_rebuilt_line_list, [])
         self.assertEqual(self.only_plot().delta_marker_list[0].color_str,
                          MARKER_COLOR_STR)
 

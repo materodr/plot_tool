@@ -424,6 +424,66 @@ class CreateEntriesTest(unittest.TestCase):
         drawn_dict = loader.drawn_name_dict()
         self.assertEqual(drawn_dict["Torque"][0], "Torque_2")
 
+    @covers("LLFR-00282", "LLFR-01198", "LLFR-01199", "LLFR-00241",
+            "LLFR-00262")
+    def test_first_matching_signal_in_list_order_is_used(self) -> None:
+        """Of several signals named with the corrected name and a number
+        that have the same recipe, the first in the order of the signal
+        list is used, also when the corrected name itself is free and
+        the numbers are not in order; nothing is created.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        data_file = DataFile()
+        loader = LayoutSignalLoader(data_file.store, data_file.lookup,
+                                    data_file.time_array,
+                                    data_file.data_name_set())
+        loader.load([valid_entry("a", "integral"),
+                     valid_entry("b", "integral"),
+                     valid_entry("c", "derivative")])
+        data_name_set = data_file.data_name_set()
+        # LLFR-00241: names an earlier load could have given, in an order
+        # that differs from their numbers; "s_4" has another recipe.
+        data_file.store.rename("a", "s_3", data_name_set)
+        data_file.store.rename("b", "s_2", data_name_set)
+        data_file.store.rename("c", "s_4", data_name_set)
+        self.assertEqual(data_file.store.names(), ["s_3", "s_2", "s_4"])
+        loader = LayoutSignalLoader(data_file.store, data_file.lookup,
+                                    data_file.time_array, data_name_set)
+        loader.load([valid_entry("s", "integral"),
+                     valid_entry("s", "derivative"),
+                     valid_entry("s", "max")])
+        # LLFR-01199: "s_3" comes first in the list; LLFR-00282: "s_4"
+        # is used for the derivative; the Max is new, under the free
+        # corrected name "s".
+        self.assertEqual(loader.name_dict["s"], "s")
+        self.assertEqual(data_file.store.names(),
+                         ["s_3", "s_2", "s_4", "s"])
+        self.assertEqual(data_file.store.get("s").operation_str, "max")
+        self.assertEqual(loader.not_created_list, [])
+        self.assertEqual(loader.renamed_list, [])
+        # Each entry alone: which signal it uses.
+        for operation_str, expected_str in (("integral", "s_3"),
+                                            ("derivative", "s_4")):
+            with self.subTest(operation=operation_str):
+                single_loader = LayoutSignalLoader(
+                    data_file.store, data_file.lookup,
+                    data_file.time_array, data_name_set)
+                single_loader.load([valid_entry("s", operation_str)])
+                self.assertEqual(single_loader.name_dict["s"],
+                                 expected_str)
+                self.assertEqual(data_file.store.names(),
+                                 ["s_3", "s_2", "s_4", "s"])
+        # Names that only look numbered are not candidates.
+        loader = LayoutSignalLoader(data_file.store, data_file.lookup,
+                                    data_file.time_array, data_name_set)
+        data_file.store.rename("s_2", "t_02", data_name_set)
+        data_file.store.rename("s_3", "t_x", data_name_set)
+        loader.load([valid_entry("t", "integral")])
+        self.assertEqual(loader.name_dict["t"], "t")
+        self.assertIn("t", data_file.store.names())
+
     @covers("LLFR-00282", "LLFR-00262", "LLFR-00499")
     def test_duplicate_names_in_the_file(self) -> None:
         """The same entry twice is created once; another recipe under
