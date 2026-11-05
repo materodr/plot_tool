@@ -3798,6 +3798,9 @@ class PlotWidget(QWidget):
         if self.drag_note_index_i == NO_TEXT_NOTE_INDEX_I:
             return
         self.note_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_note_drag()
 
     def finish_note_drag(self) -> None:
@@ -5143,6 +5146,9 @@ class PlotWidget(QWidget):
         if self.drag_marker_id_i == NO_MARKER_ID_I:
             return
         self.drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_marker_drag()
 
     def finish_marker_drag(self) -> None:
@@ -5317,6 +5323,9 @@ class PlotWidget(QWidget):
         if self.drag_tip_index_i == NO_TIP_INDEX_I:
             return
         self.tip_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_tip_drag()
 
     def finish_tip_drag(self) -> None:
@@ -6381,6 +6390,9 @@ class PlotWidget(QWidget):
             self.reset_area_drag()
             return
         self.area_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_area_drag()
 
     def finish_area_drag(self) -> None:
@@ -7942,8 +7954,11 @@ class PlotWidget(QWidget):
             return
         if self.delta_drag_moved_b:
             # LLFR-00433: the point is left on the sample chosen at the
-            # release.
+            # release. LLFR-01215: that last place is drawn over the kept
+            # image, so the drawing session ends here and the plot is
+            # drawn in full again.
             self.delta_point_drag_to(widget_point)
+            self.end_fast_drag()
             self.finish_delta_point_drag()
             return
         press_point = QPoint(self.delta_drag_press_point)
@@ -7990,6 +8005,8 @@ class PlotWidget(QWidget):
             return
         if self.delta_drag_point_tuple != self.delta_drag_start_tuple:
             self.show_delta_drag_point(self.delta_drag_start_tuple)
+            # LLFR-01215: the point drawn back ends the drawing session.
+            self.end_fast_drag()
         self.reset_delta_point_drag()
 
     def reset_delta_point_drag(self) -> None:

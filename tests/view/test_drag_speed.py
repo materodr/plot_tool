@@ -269,6 +269,40 @@ class FastDragTest(MarkerWidgetTestCase):
                 self.first_move_draw_count_i = len(self.full_draw_list)
         return duration_list
 
+    @covers("LLFR-01215", "HLFR-00029", "HLFR-00041", "HLFR-00074")
+    def test_release_away_from_the_last_move_ends_the_session(self) -> None:
+        """A release 10 pixels away from the last move draws the object
+        there and ends the drawing over the kept image, for a flag, a
+        pinned tip and a text note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_markers([(9, "Flag 1", 2.0)])
+        self.plot_widget.set_pinned_tips([("Big", 5.0, float(np.sin(200.0)))])
+        self.plot_widget.set_text_notes([("Note", 8.0, 0.5)])
+        self.draw()
+        flag_tuple = self.display_tuple(2.0, 0.0)
+        tip_box = self.plot_widget.tip_box_extent(
+            self.plot_widget.pinned_tip_annotation(0))
+        note_box = self.plot_widget.text_note_box_extent(0)
+        for name_str, tool_str, start_tuple in (
+                ("flag", MARKER_TOOL_STR, flag_tuple),
+                ("tip", NO_TOOL_STR, ((tip_box.x0 + tip_box.x1) / 2.0,
+                                      (tip_box.y0 + tip_box.y1) / 2.0)),
+                ("note", NO_TOOL_STR, ((note_box.x0 + note_box.x1) / 2.0,
+                                       (note_box.y0 + note_box.y1) / 2.0))):
+            with self.subTest(item=name_str):
+                self.plot_widget.set_plot_tool(tool_str)
+                self.drag_display_and_time(start_tuple)
+                self.assertTrue(self.plot_widget.fast_drag_artist_list)
+                send_mouse_event(self.plot_widget, "button_release_event",
+                                 start_tuple[0] + 2.0 * MOVE_COUNT_I + 10.0,
+                                 start_tuple[1], LEFT_BUTTON_I)
+                self.assertEqual(self.plot_widget.fast_drag_artist_list, [])
+                self.assertIsNone(self.plot_widget.fast_drag_background)
+                self.draw()
+
     @covers("LLFR-01215")
     def test_lost_release_ends_the_session(self) -> None:
         """With no button held, the session ends by itself and every
