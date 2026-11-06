@@ -1,4 +1,4 @@
-"""Tests for the sample files in tests/user_tests (PCR-00032).
+"""Tests for the sample files in tests/user_tests (COR-00023).
 
 Every file format of HLFR-00005 must have at least one file in
 tests/user_tests/good that the app opens. The HDF5 check needs h5py and
@@ -70,7 +70,7 @@ class SampleFileTest(unittest.TestCase):
                 self.assertIn(signal_file.time_signal_name_str,
                               signal_file.signal_name_list)
 
-    @covers("PCR-00032", "HLFR-00005")
+    @covers("COR-00023", "HLFR-00005")
     def test_formats_cover_supported_extensions(self) -> None:
         """The formats checked here are exactly the supported extensions.
 
@@ -84,7 +84,7 @@ class SampleFileTest(unittest.TestCase):
         self.assertEqual(sorted(extension_list),
                          sorted(SUPPORTED_EXTENSION_TUPLE))
 
-    @covers("PCR-00032", "HLFR-00116")
+    @covers("COR-00023", "HLFR-00116")
     def test_run_files_have_other_signals_over_the_same_time(self) -> None:
         """The two run files share only Time with each other and signals.
 
@@ -104,7 +104,7 @@ class SampleFileTest(unittest.TestCase):
         self.assertEqual(len(file_df_list[1].columns),
                          len(file_df_list[2].columns))
 
-    @covers("PCR-00032", "HLFR-00005", "LLFR-00059", "LLFR-00061")
+    @covers("COR-00023", "HLFR-00005", "LLFR-00059", "LLFR-00061")
     def test_csv_sample_files_open(self) -> None:
         """There is a CSV sample file and every one opens.
 
@@ -113,7 +113,7 @@ class SampleFileTest(unittest.TestCase):
         """
         self.assert_format_has_good_file("CSV")
 
-    @covers("PCR-00032", "HLFR-00005", "LLFR-00059", "LLFR-00060")
+    @covers("COR-00023", "HLFR-00005", "LLFR-00059", "LLFR-00060")
     def test_excel_sample_files_open(self) -> None:
         """There is an Excel sample file and every one opens.
 
@@ -122,7 +122,7 @@ class SampleFileTest(unittest.TestCase):
         """
         self.assert_format_has_good_file("Excel")
 
-    @covers("PCR-00032", "HLFR-00005", "LLFR-00062", "LLFR-00063")
+    @covers("COR-00023", "HLFR-00005", "LLFR-00062", "LLFR-00063")
     def test_matlab_sample_files_open(self) -> None:
         """There is a MATLAB sample file and every one opens.
 
@@ -148,7 +148,7 @@ class SampleFileTest(unittest.TestCase):
         self.assertEqual(signal_file.time_signal_name_str, "Time")
 
     @requires_h5py
-    @covers("PCR-00032", "HLFR-00005", "LLFR-00134", "LLFR-00135")
+    @covers("COR-00023", "HLFR-00005", "LLFR-00134", "LLFR-00135")
     def test_hdf5_sample_files_open(self) -> None:
         """There is an HDF5 sample file and every one opens.
 

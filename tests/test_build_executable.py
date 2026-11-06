@@ -185,7 +185,7 @@ class SampleCopyTest(unittest.TestCase):
                 self.assertEqual(file.read(), "xlsx")
             self.assertTrue(os.path.isdir(app_path_str))
 
-    @covers("COR-00020", "PCR-00032")
+    @covers("COR-00020", "COR-00023")
     def test_real_samples_cover_every_format(self) -> None:
         """The real good samples hold every format of HLFR-00005.
 
@@ -235,7 +235,7 @@ class SampleCopyTest(unittest.TestCase):
                     cwd=REPOSITORY_ROOT_STR, check=False)
                 self.assertEqual(result.returncode, 0)
 
-    @covers("COR-00020", "PCR-00032")
+    @covers("COR-00020", "COR-00023")
     def test_macos_job_checks_the_copy(self) -> None:
         """The macOS build job checks the copy and one sample per format.
 
@@ -256,9 +256,9 @@ class SampleCopyTest(unittest.TestCase):
 
 
 class BigSampleBuildTest(unittest.TestCase):
-    """The build writes the big sample files (PCR-00073)."""
+    """The build writes the big sample files (COR-00025)."""
 
-    @covers("PCR-00073")
+    @covers("COR-00025")
     def test_main_writes_big_files_unless_left_out(self) -> None:
         """main() runs the generator with --big after the copy, unless
         --no-big-files is given, which the macOS CI job passes.
