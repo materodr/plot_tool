@@ -22,7 +22,7 @@ def menu_option_texts(menu) -> list:
             if not action.isSeparator() and not is_menu_title(action)]
 
 
-# LLFR-01414: every object menu below holds "Text background" (the
+# LLFR-01418: every object menu below holds "Text background" (the
 # owner's answers of 2026-11-06 in #270).
 # LLFR-00046, LLFR-00412, LLFR-00413: the pinned data tip menu.
 TIP_MENU_TEXT_LIST = ["Rename", "Text background", "Delete",

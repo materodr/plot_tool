@@ -851,7 +851,7 @@ DELTA_PREVIEW_COLOR_STR = MARKER_PREVIEW_COLOR_STR
 AREA_COLOR_STR = DEFAULT_AREA_COLOR_STR
 
 
-# LLFR-01414: the option of the object menus.
+# LLFR-01418: the option of the object menus.
 TEXT_BACKGROUND_OPTION_TEXT_STR = "Text background"
 
 
@@ -861,7 +861,7 @@ def delta_preview_box_dict() -> dict:
     Inputs: none.
     Outputs: a bbox dict of matplotlib, with the text background.
     """
-    # LLFR-01202, LLFR-01417: like the box of a delta marker's value.
+    # LLFR-01202, LLFR-01421: like the box of a delta marker's value.
     return theme.contrast_label_box_dict(
         DELTA_PREVIEW_COLOR_STR, DELTA_LABEL_BOX_DICT,
         edgecolor=DELTA_PREVIEW_COLOR_STR)
@@ -1093,7 +1093,7 @@ class PlotWidget(QWidget, ShapeLayer):
     shape_color_requested = pyqtSignal(int, str)
     shape_delete_requested = pyqtSignal(int)
     shape_rename_requested = pyqtSignal(int)
-    # LLFR-01414, LLFR-01416: a choice of the "Text background" submenu.
+    # LLFR-01418, LLFR-01420: a choice of the "Text background" submenu.
     text_background_requested = pyqtSignal(str)
     # LLFR-01266: "Rename" in the menu of a pinned data tip (its index).
     pinned_tip_rename_requested = pyqtSignal(int)
@@ -2254,7 +2254,7 @@ class PlotWidget(QWidget, ShapeLayer):
                 multialignment=TIP_TEXT_ALIGNMENT_STR,
                 color=theme.TIP_TEXT_COLOR_STR,
                 fontsize=theme.PLOT_TIP_FONT_SIZE_F,
-                # LLFR-01417, LLFR-01418 to LLFR-01420: the text
+                # LLFR-01421, LLFR-01422 to LLFR-01424: the text
                 # background, with the border in the curve's color.
                 bbox=theme.bordered_text_box_dict(
                     theme.TIP_TEXT_COLOR_STR, theme.PINNED_TIP_BOX_DICT,
@@ -2325,7 +2325,7 @@ class PlotWidget(QWidget, ShapeLayer):
             line.set_in_layout(False)
             # LLFR-00084: the name at the top of the line, inside the
             # axes, shown literally (never as mathtext). LLFR-01202,
-            # LLFR-01417: on the text background (LLFR-00704).
+            # LLFR-01421: on the text background (LLFR-00704).
             flag_box_dict = theme.contrast_label_box_dict(color_str)
             # LLFR-01281: no name while the labels are hidden; the time
             # stays (LLFR-01281 Note).
@@ -2408,7 +2408,7 @@ class PlotWidget(QWidget, ShapeLayer):
             name_str, xy=(0.0, 0.0), xytext=(0.0, 0.0),
             textcoords="offset points", parse_math=False, color=color_str,
             fontsize=DELTA_FONT_SIZE_F,
-            # LLFR-01202, LLFR-01417: on the text background.
+            # LLFR-01202, LLFR-01421: on the text background.
             bbox=theme.contrast_label_box_dict(color_str),
             horizontalalignment="center", verticalalignment="bottom",
             zorder=DELTA_ZORDER_F + 0.25)
@@ -2468,7 +2468,7 @@ class PlotWidget(QWidget, ShapeLayer):
             parse_math=False, color=color_str,
             fontsize=DELTA_FONT_SIZE_F,
             # LLFR-01202: the tip box with its border in the marker's
-            # color (LLFR-01420), on the text background (LLFR-01417).
+            # color (LLFR-01424), on the text background (LLFR-01421).
             bbox=theme.contrast_label_box_dict(
                 color_str, DELTA_LABEL_BOX_DICT, edgecolor=color_str),
             zorder=DELTA_ZORDER_F + 0.2)
@@ -2787,7 +2787,7 @@ class PlotWidget(QWidget, ShapeLayer):
             color=MARKER_PREVIEW_COLOR_STR, fontsize=MARKER_FONT_SIZE_F,
             horizontalalignment="left", verticalalignment="top",
             # LLFR-01202: the preview reads on its box like a flag;
-            # LLFR-01417: on the text background.
+            # LLFR-01421: on the text background.
             bbox=self.marker_preview_box_dict())
         for artist in (self.preview_line, self.preview_time_text):
             artist.set_figure(self.figure)
@@ -3496,7 +3496,7 @@ class PlotWidget(QWidget, ShapeLayer):
             note_index_i: index of the note.
             border_color_str: the color of its border.
             text_color_str: the color of its text, for the background
-                of LLFR-01419.
+                of LLFR-01423.
         Outputs: a bbox dict of matplotlib.
         """
         # LLFR-01371, LLFR-01376: the border in its width and style.
@@ -3505,7 +3505,7 @@ class PlotWidget(QWidget, ShapeLayer):
             if 0 <= note_index_i < len(self.text_note_look_list)
             else (1, DEFAULT_TEXT_NOTE_STYLE_STR))
         base_width_f = float(theme.TEXT_NOTE_BOX_DICT.get("linewidth", 1.0))
-        # LLFR-00336, LLFR-01417 to LLFR-01420: the text background, the
+        # LLFR-00336, LLFR-01421 to LLFR-01424: the text background, the
         # border kept with "Auto contrast".
         return theme.bordered_text_box_dict(
             text_color_str, theme.TEXT_NOTE_BOX_DICT,
@@ -4393,7 +4393,7 @@ class PlotWidget(QWidget, ShapeLayer):
         Inputs: none.
         Outputs: a bbox dict of matplotlib, with the text background.
         """
-        # LLFR-01202, LLFR-01417: like the box of a flag's time.
+        # LLFR-01202, LLFR-01421: like the box of a flag's time.
         return theme.contrast_label_box_dict(
             MARKER_PREVIEW_COLOR_STR, edgecolor=MARKER_PREVIEW_COLOR_STR)
 
@@ -4404,8 +4404,8 @@ class PlotWidget(QWidget, ShapeLayer):
         Outputs: none. The objects and the previews made once get the
             current choice of view.theme.
         """
-        # LLFR-01416, LLFR-01417: every text of the objects of the plot;
-        # LLFR-01426: the exports draw these same artists.
+        # LLFR-01420, LLFR-01421: every text of the objects of the plot;
+        # LLFR-01430: the exports draw these same artists.
         if self.preview_time_text is not None:
             self.preview_time_text.set_bbox(self.marker_preview_box_dict())
         if len(self.delta_preview_artist_tuple) == 3:
@@ -4921,8 +4921,8 @@ class PlotWidget(QWidget, ShapeLayer):
             Inputs: none.
             Outputs: none. The current choice is checked.
             """
-            # LLFR-01414: "Transparent" and "Auto contrast", in this
-            # order; LLFR-01415: a check mark next to the current one.
+            # LLFR-01418: "Transparent" and "Auto contrast", in this
+            # order; LLFR-01419: a check mark next to the current one.
             background_menu = menu.addMenu(TEXT_BACKGROUND_OPTION_TEXT_STR)
             for choice_str in TEXT_BACKGROUND_TUPLE:
                 choice_action = add_request_action(
@@ -4999,7 +4999,7 @@ class PlotWidget(QWidget, ShapeLayer):
             add_color_option("Text color",
                              self.text_note_text_color_requested,
                              note_index_i)
-            # LLFR-01414: "Text background" below "Text color".
+            # LLFR-01418: "Text background" below "Text color".
             add_text_background_option()
             # LLFR-01370, LLFR-01375: "Width" and "Line style" of the box.
             note_width_i, note_style_str = (
@@ -5025,7 +5025,7 @@ class PlotWidget(QWidget, ShapeLayer):
                 menu, "Rename",
                 lambda index_i=tip_index_i:
                 self.pinned_tip_rename_requested.emit(index_i))
-            # LLFR-01414: "Text background" below "Rename".
+            # LLFR-01418: "Text background" below "Rename".
             add_text_background_option()
             add_request_action(
                 menu, "Delete",
@@ -5056,7 +5056,7 @@ class PlotWidget(QWidget, ShapeLayer):
             # LLFR-00379, LLFR-00388: "Color" is the color submenu.
             add_color_option("Color", self.arrow_color_requested,
                              arrow_index_i)
-            # LLFR-01414: "Text background" below "Color".
+            # LLFR-01418: "Text background" below "Color".
             add_text_background_option()
             # LLFR-00378, LLFR-01370, LLFR-01375: "Width", "Line style".
             arrow_width_i, arrow_style_str = (
@@ -5085,7 +5085,7 @@ class PlotWidget(QWidget, ShapeLayer):
                 self.shape_rename_requested.emit(index_i))
             add_color_option("Color", self.shape_color_requested,
                              shape_index_i)
-            # LLFR-01414: "Text background" below "Color".
+            # LLFR-01418: "Text background" below "Color".
             add_text_background_option()
             add_line_options(SHAPE_LINE_KIND_STR, shape_index_i,
                              shape_tuple[7], shape_tuple[8])
@@ -5110,7 +5110,7 @@ class PlotWidget(QWidget, ShapeLayer):
             # LLFR-00388: the color submenu.
             add_color_option("Color", self.marker_color_requested,
                              marker_id_i)
-            # LLFR-01414: "Text background" below "Color".
+            # LLFR-01418: "Text background" below "Color".
             add_text_background_option()
             # LLFR-01370, LLFR-01375: "Width" and "Line style".
             flag_width_i, flag_style_str = self.marker_look_dict.get(
@@ -5145,7 +5145,7 @@ class PlotWidget(QWidget, ShapeLayer):
             # color submenu.
             add_color_option("Color", self.delta_marker_color_requested,
                              delta_marker_id_i)
-            # LLFR-01414: "Text background" below "Color".
+            # LLFR-01418: "Text background" below "Color".
             add_text_background_option()
             # LLFR-00175, LLFR-01370, LLFR-01375: "Width", "Line style".
             delta_width_i, delta_style_str = self.delta_look_dict.get(
@@ -5206,7 +5206,7 @@ class PlotWidget(QWidget, ShapeLayer):
             # LLFR-00351, LLFR-00388: "Color" is the color submenu.
             add_color_option("Color", self.area_color_requested,
                              area_id_i)
-            # LLFR-01414: "Text background" below "Color".
+            # LLFR-01418: "Text background" below "Color".
             add_text_background_option()
             add_request_action(
                 menu, "Delete",
@@ -6733,7 +6733,7 @@ class PlotWidget(QWidget, ShapeLayer):
             band.set_in_layout(False)
             # LLFR-00307, LLFR-00308: the name and the times in the
             # area's color at full opacity (no alpha); LLFR-00704,
-            # LLFR-01417: on the text background of that color.
+            # LLFR-01421: on the text background of that color.
             label_box_dict = theme.area_label_box_dict(color_str)
             # LLFR-00307: the name in the upper-left corner of the band,
             # inside the drawing area, shown literally (never as
@@ -7357,7 +7357,7 @@ class PlotWidget(QWidget, ShapeLayer):
             self.arrow_artist_list.append(patch)
             # LLFR-00436, LLFR-00788: the name beside the line, parallel
             # to it, in the arrow's color, on the text background
-            # (LLFR-00704, LLFR-01417);
+            # (LLFR-00704, LLFR-01421);
             # LLFR-00437: placed again at every draw. Not clipped: it is
             # kept inside the drawing area by itself.
             # LLFR-01281: no name while the labels are hidden.
@@ -8301,7 +8301,7 @@ class PlotWidget(QWidget, ShapeLayer):
             textcoords="offset points", parse_math=False,
             color=DELTA_PREVIEW_COLOR_STR, fontsize=DELTA_FONT_SIZE_F,
             # LLFR-01202: the preview reads on its box like a marker;
-            # LLFR-01417: on the text background.
+            # LLFR-01421: on the text background.
             bbox=delta_preview_box_dict())
         self.delta_preview_artist_tuple = (leader, bracket, label)
         for artist in (self.delta_preview_dot,) + (

@@ -518,7 +518,7 @@ class ArrowLabelViewTest(LabelWidgetTestCase):
 class LabelContrastBoxTest(LabelWidgetTestCase):
     """Colored labels on an opaque box with a WCAG contrast of at least
     2.5:1 with "Auto contrast" (LLFR-00704, LLFR-00436, LLFR-01202,
-    LLFR-01419; the owner's answers of 2026-11-06 in #270)."""
+    LLFR-01423; the owner's answers of 2026-11-06 in #270)."""
 
     def assert_contrast_box(self, text) -> None:
         """Check that a text is drawn on an opaque box that reads with it.
@@ -543,7 +543,7 @@ class LabelContrastBoxTest(LabelWidgetTestCase):
     def test_arrow_label_and_preview_on_a_contrast_box(self) -> None:
         """The label of an arrow in the default orange, in green and in
         a dark blue, and the label of the move preview in its pale
-        color, each reach 2.5:1 on their "Auto contrast" box (LLFR-01419);
+        color, each reach 2.5:1 on their "Auto contrast" box (LLFR-01423);
         orange and the dark blue get a white box (the owner's examples of
         2026-11-06 in #270: orange is white, no longer black).
 

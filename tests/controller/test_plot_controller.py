@@ -478,7 +478,7 @@ class FakePlotView:
 
         Inputs: none.
         Outputs: remembered_text_background_str, "auto_contrast" unless a
-            test set another value (LLFR-01421, LLFR-01422).
+            test set another value (LLFR-01425, LLFR-01426).
         """
         return getattr(self, "remembered_text_background_str",
                        "auto_contrast")
@@ -487,7 +487,7 @@ class FakePlotView:
         """Record the text background of every plot.
 
         Inputs:
-            choice_str: the choice (LLFR-01416).
+            choice_str: the choice (LLFR-01420).
         Outputs: none. Each call is kept in text_background_list.
         """
         self.text_background_str = choice_str

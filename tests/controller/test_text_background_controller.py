@@ -21,7 +21,7 @@ from model.text_background import (
 class TextBackgroundModelTest(unittest.TestCase):
     """The two choices and the value read from the settings."""
 
-    @covers("LLFR-01414", "LLFR-01421", "HLFR-00167")
+    @covers("LLFR-01418", "LLFR-01425", "HLFR-00167")
     def test_choices_and_default(self) -> None:
         """"Transparent" then "Auto contrast"; anything else gives "Auto
         contrast".
@@ -55,7 +55,7 @@ class TextBackgroundControllerTest(PlotControllerTestCase):
         """
         self.view.handler_dict["text_background_handler"](1, choice_str)
 
-    @covers("LLFR-01421", "LLFR-01422", "HLFR-00167")
+    @covers("LLFR-01425", "LLFR-01426", "HLFR-00167")
     def test_start_uses_the_remembered_choice(self) -> None:
         """At start, the view gets the choice kept in the settings, and
         "Auto contrast" when none is kept.
@@ -76,7 +76,7 @@ class TextBackgroundControllerTest(PlotControllerTestCase):
         self.assertEqual(view.text_background_list, [TRANSPARENT_STR])
         self.assertEqual(workspace.text_background_str, TRANSPARENT_STR)
 
-    @covers("LLFR-01416", "LLFR-01423", "LLFR-00140", "LLFR-00138",
+    @covers("LLFR-01420", "LLFR-01427", "LLFR-00140", "LLFR-00138",
             "LLFR-00192", "HLFR-00167", "HLFR-00040", "HLFR-00048")
     def test_change_is_undoable_and_redoable(self) -> None:
         """A change is one undoable action; undo puts back the previous
@@ -109,7 +109,7 @@ class TextBackgroundControllerTest(PlotControllerTestCase):
         self.assertEqual(self.view.text_background_list[-1],
                          TRANSPARENT_STR)
 
-    @covers("LLFR-01424", "LLFR-00930", "HLFR-00167")
+    @covers("LLFR-01428", "LLFR-00930", "HLFR-00167")
     def test_cleared_history_keeps_the_choice(self) -> None:
         """Closing the data files clears the undo history and keeps the
         choice.
@@ -125,7 +125,7 @@ class TextBackgroundControllerTest(PlotControllerTestCase):
         self.assertEqual(self.view.text_background_list[-1],
                          TRANSPARENT_STR)
 
-    @covers("LLFR-01425", "LLFR-00226", "HLFR-00167", "HLFR-00050",
+    @covers("LLFR-01429", "LLFR-00226", "HLFR-00167", "HLFR-00050",
             "HLFR-00049")
     def test_layout_neither_holds_nor_changes_the_choice(self) -> None:
         """The layout file holds no text background, and loading a

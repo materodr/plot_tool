@@ -75,7 +75,7 @@ class ThemeTokenTestCase(unittest.TestCase):
         self.assertAlmostEqual(
             theme.contrast_ratio_f("#808080", "#808080"), 1.0)
 
-    @covers("LLFR-00704", "LLFR-01419", "HLFR-00066", "HLFR-00167")
+    @covers("LLFR-00704", "LLFR-01423", "HLFR-00066", "HLFR-00167")
     def test_area_label_box_contrast_for_every_color(self) -> None:
         """For every color, the "Auto contrast" box is the lightest grey,
         from white down, that gives the text a WCAG contrast of at least
@@ -94,7 +94,7 @@ class ThemeTokenTestCase(unittest.TestCase):
             theme.contrast_ratio_f(MARKER_COLOR_STR, "#000000"), 8.34,
             places=2)
         self.assertEqual(theme.MINIMUM_AREA_LABEL_CONTRAST_F, 2.5)
-        # LLFR-01419: the owner's examples.
+        # LLFR-01423: the owner's examples.
         for color_str, grey_str in (("#ff8000", "#ffffff"),
                                     ("#ffff00", "#9d9d9d"),
                                     ("#00ff00", "#8a8a8a"),
@@ -122,7 +122,7 @@ class ThemeTokenTestCase(unittest.TestCase):
                             theme.contrast_ratio_f(color_str, lighter_str),
                             2.5)
 
-    @covers("LLFR-01418", "LLFR-01419", "LLFR-01420", "LLFR-01416",
+    @covers("LLFR-01422", "LLFR-01423", "LLFR-01424", "LLFR-01420",
             "HLFR-00167")
     def test_boxes_follow_the_text_background(self) -> None:
         """"Auto contrast" fills the label boxes with the grey and keeps
@@ -170,7 +170,7 @@ class ThemeTokenTestCase(unittest.TestCase):
                 self.assertEqual(box_dict["facecolor"], "none")
                 self.assertEqual(box_dict["edgecolor"], "none")
                 self.assertEqual(box_dict["linewidth"], 0.0)
-        # LLFR-01421: an unknown value gives "Auto contrast".
+        # LLFR-01425: an unknown value gives "Auto contrast".
         theme.set_text_background("something else")
         self.assertEqual(theme.text_background_str, "auto_contrast")
 

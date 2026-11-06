@@ -439,7 +439,7 @@ class AreaLabelColorViewTest(PlotWidgetToolTestCase):
     def test_label_and_times_follow_the_area_color(self) -> None:
         """The name and the times are drawn in the area's color at full
         opacity, on an opaque label box with a contrast of at least
-        2.5:1 to that color ("Auto contrast", LLFR-01419), while the band
+        2.5:1 to that color ("Auto contrast", LLFR-01423), while the band
         stays see-through.
 
         Inputs: none.
@@ -461,7 +461,7 @@ class AreaLabelColorViewTest(PlotWidgetToolTestCase):
                     self.assertEqual(to_hex_str(text.get_color()),
                                      color_str)
                     self.assertIn(text.get_alpha(), (None, 1.0))
-                    # LLFR-00704, LLFR-01419: an opaque box, 2.5:1.
+                    # LLFR-00704, LLFR-01423: an opaque box, 2.5:1.
                     box_patch = text.get_bbox_patch()
                     box_color_str = to_hex_str(box_patch.get_facecolor())
                     self.assertEqual(box_color_str,

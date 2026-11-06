@@ -1915,7 +1915,7 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
         main_panel_shown_b: True while the main window shows its signal
             list panel (LLFR-01053, LLFR-01211).
         labels_hidden_b: True while the labels are hidden (LLFR-01281).
-        text_background_str: the text background (LLFR-01423).
+        text_background_str: the text background (LLFR-01427).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
         width, grid shown, main panel shown, labels hidden, text
         background): one entry
@@ -1953,7 +1953,7 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
     # LLFR-01053, LLFR-01211: hiding or showing the main window's panel
     # is undoable too.
     # LLFR-00140: and so is a click on the Hide labels button.
-    # LLFR-01423: and a change of the text background.
+    # LLFR-01427: and a change of the text background.
     return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i),
             bool(grid_shown_b), bool(main_panel_shown_b),
             bool(labels_hidden_b), str(text_background_str))
@@ -2064,7 +2064,7 @@ class WorkspaceSnapshot:
         self.main_panel_shown_b = bool(main_panel_shown_b)
         # LLFR-01281, LLFR-00138: and whether the labels were hidden.
         self.labels_hidden_b = bool(labels_hidden_b)
-        # LLFR-01423, LLFR-00138: and the text background.
+        # LLFR-01427, LLFR-00138: and the text background.
         self.text_background_str = cleaned_text_background(
             text_background_str)
 
@@ -2149,9 +2149,9 @@ class Workspace:
         # LLFR-01284: the labels are shown at start; LLFR-00140: hiding
         # or showing them is undoable.
         self.labels_hidden_b = False
-        # LLFR-01421: "Auto contrast" until the controller reads the
-        # settings (LLFR-01422); LLFR-01423: a change is undoable;
-        # LLFR-01424, LLFR-01425: reset() and a layout load keep it.
+        # LLFR-01425: "Auto contrast" until the controller reads the
+        # settings (LLFR-01426); LLFR-01427: a change is undoable;
+        # LLFR-01428, LLFR-01429: reset() and a layout load keep it.
         self.text_background_str = DEFAULT_TEXT_BACKGROUND_STR
         # LLFR-01055: width of the main window's signal list panel, in
         # pixels, as the view last reported it; 0 while unknown.
@@ -3399,7 +3399,7 @@ class Workspace:
         # LLFR-01281, LLFR-00138: the labels of that state.
         self.labels_hidden_b = bool(getattr(snapshot, "labels_hidden_b",
                                             False))
-        # LLFR-01423, LLFR-00138: the text background of that state.
+        # LLFR-01427, LLFR-00138: the text background of that state.
         self.text_background_str = cleaned_text_background(
             getattr(snapshot, "text_background_str",
                     self.text_background_str))

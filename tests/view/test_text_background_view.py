@@ -2,7 +2,7 @@
 
 They use a shown plot widget (tests.view.test_labels_view) and, for the
 settings and every window, a real MainWindow. The settings are an INI
-file of the test (LLFR-01422), and the choice of view.theme is put back
+file of the test (LLFR-01426), and the choice of view.theme is put back
 after each test, so no other test sees it. The rules follow the owner's
 answers of 2026-11-06 in #270, batches 1 to 3.
 """
@@ -94,7 +94,7 @@ class TextBackgroundWidgetTest(LabelWidgetTestCase):
             "tip": center_of(self.box_of(widget.pinned_tip_annotation(0))),
         }
 
-    @covers("LLFR-01414", "LLFR-01415", "HLFR-00167")
+    @covers("LLFR-01418", "LLFR-01419", "HLFR-00167")
     def test_option_in_every_object_menu(self) -> None:
         """Each object menu has "Text background" with "Transparent" and
         "Auto contrast", the current one checked; the curve and plot
@@ -124,7 +124,7 @@ class TextBackgroundWidgetTest(LabelWidgetTestCase):
         self.assertIsNone(self.submenu_entries(
             self.data_display(9.0, -0.5)))
 
-    @covers("LLFR-01414", "LLFR-01416", "HLFR-00167")
+    @covers("LLFR-01418", "LLFR-01420", "HLFR-00167")
     def test_choice_asks_for_the_background(self) -> None:
         """Choosing an entry emits text_background_requested with it.
 
@@ -143,7 +143,7 @@ class TextBackgroundWidgetTest(LabelWidgetTestCase):
         sip.delete(menu)
         self.assertEqual(chosen_list, [TRANSPARENT_STR])
 
-    @covers("LLFR-01417", "LLFR-01418", "LLFR-01419", "LLFR-01420",
+    @covers("LLFR-01421", "LLFR-01422", "LLFR-01423", "LLFR-01424",
             "LLFR-00704", "LLFR-00336", "HLFR-00167")
     def test_boxes_follow_the_choice(self) -> None:
         """"Transparent" leaves every text of the objects with no fill
@@ -183,7 +183,7 @@ class TextBackgroundWidgetTest(LabelWidgetTestCase):
         self.assertGreater(tip_patch.get_linewidth(), 0.0)
         self.assertEqual(to_hex(tip_patch.get_facecolor()), "#ffffff")
 
-    @covers("LLFR-01417", "LLFR-01418", "HLFR-00167")
+    @covers("LLFR-01421", "LLFR-01422", "HLFR-00167")
     def test_previews_follow_the_choice(self) -> None:
         """The time of the flag preview and the value of the delta
         preview follow the choice.
@@ -242,7 +242,7 @@ class TextBackgroundWindowTest(unittest.TestCase):
         self.addCleanup(main_window.close)
         return main_window, controller
 
-    @covers("LLFR-01421", "LLFR-01422", "LLFR-01416", "HLFR-00167")
+    @covers("LLFR-01425", "LLFR-01426", "LLFR-01420", "HLFR-00167")
     def test_choice_kept_between_launches(self) -> None:
         """The first launch uses "Auto contrast"; a choice is written to
         the settings and is the choice of the next launch.
@@ -266,7 +266,7 @@ class TextBackgroundWindowTest(unittest.TestCase):
             second_controller.plot_controller.workspace.text_background_str,
             TRANSPARENT_STR)
 
-    @covers("LLFR-01423", "LLFR-01422", "HLFR-00167", "HLFR-00040")
+    @covers("LLFR-01427", "LLFR-01426", "HLFR-00167", "HLFR-00040")
     def test_undo_puts_back_the_remembered_choice(self) -> None:
         """Undoing the change puts the previous choice back in the theme
         and in the settings; redoing applies it again.
@@ -286,7 +286,7 @@ class TextBackgroundWindowTest(unittest.TestCase):
         self.assertEqual(self.settings_module.remembered_text_background(),
                          TRANSPARENT_STR)
 
-    @covers("LLFR-01421", "LLFR-01422", "HLFR-00167")
+    @covers("LLFR-01425", "LLFR-01426", "HLFR-00167")
     def test_unreadable_settings_give_auto_contrast(self) -> None:
         """A value that is no choice, or settings that cannot be read,
         give "Auto contrast"; a failed write is ignored.

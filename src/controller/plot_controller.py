@@ -355,7 +355,7 @@ class PlotController:
             object_width_handler=self.on_object_width,
             object_line_style_handler=self.on_object_line_style,
             text_background_handler=self.on_text_background)
-        # LLFR-01421, LLFR-01422: the text background kept in the
+        # LLFR-01425, LLFR-01426: the text background kept in the
         # settings, on every plot from the start.
         self.workspace.text_background_str = cleaned_text_background(
             view.remembered_text_background())
@@ -2239,7 +2239,7 @@ class PlotController:
         Outputs: none. A choice that changes the text background is one
             undoable action; the current choice changes nothing.
         """
-        # LLFR-01423: undoable; choosing the current choice is no action.
+        # LLFR-01427: undoable; choosing the current choice is no action.
         new_choice_str = cleaned_text_background(choice_str)
         if new_choice_str == self.workspace.text_background_str:
             return
@@ -2254,8 +2254,8 @@ class PlotController:
             choice_str: one of model.text_background.TEXT_BACKGROUND_TUPLE.
         Outputs: none.
         """
-        # LLFR-01416: every text of every plot of every window;
-        # LLFR-01422: the view keeps it in the settings.
+        # LLFR-01420: every text of every plot of every window;
+        # LLFR-01426: the view keeps it in the settings.
         self.workspace.text_background_str = cleaned_text_background(
             choice_str)
         self.view.set_text_background(self.workspace.text_background_str)
@@ -3576,7 +3576,7 @@ class PlotController:
         self.view.set_grid_shown(self.grid_shown_b)
         # LLFR-00138, LLFR-01283: and the labels of that state.
         self.view.set_labels_hidden(self.workspace.labels_hidden_b)
-        # LLFR-01423: and its text background, also in the settings.
+        # LLFR-01427: and its text background, also in the settings.
         self.view.set_text_background(self.workspace.text_background_str)
         # LLFR-00138, LLFR-00192, LLFR-01055: the main window's panel
         # width of that state.

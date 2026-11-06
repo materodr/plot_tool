@@ -2411,7 +2411,7 @@ class MainWindow(QMainWindow):
         Inputs: none.
         Outputs: one of model.text_background.TEXT_BACKGROUND_TUPLE.
         """
-        # LLFR-01421, LLFR-01422: read once at start by the controller.
+        # LLFR-01425, LLFR-01426: read once at start by the controller.
         return text_background_settings.remembered_text_background()
 
     def set_text_background(self, choice_str: str) -> None:
@@ -2421,9 +2421,9 @@ class MainWindow(QMainWindow):
             choice_str: one of model.text_background.TEXT_BACKGROUND_TUPLE.
         Outputs: none. The choice is also kept in the settings.
         """
-        # LLFR-01416: one choice for every plot of every window, now and
-        # on later plots (they read view.theme); LLFR-01422: kept in the
-        # settings, also after an undo or a redo (LLFR-01423).
+        # LLFR-01420: one choice for every plot of every window, now and
+        # on later plots (they read view.theme); LLFR-01426: kept in the
+        # settings, also after an undo or a redo (LLFR-01427).
         theme.set_text_background(choice_str)
         text_background_settings.remember_text_background(
             theme.text_background_str)
