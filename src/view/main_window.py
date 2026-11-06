@@ -23,6 +23,7 @@ from model.workspace import TIME_PLOT_KIND_STR
 from view import (
     color_picker, file_dialogs, file_writing, icons, message_boxes,
     name_dialog, plot_export, synthetic_dialogs, theme)
+from view import text_background_settings
 from view.layout_options_dialog import LayoutOptionsDialog
 from view.main_panel_button import MainPanelButton
 from view.panel_splitter import PanelSplitter
@@ -2403,6 +2404,31 @@ class MainWindow(QMainWindow):
         # LLFR-01281, LLFR-01282: every plot of every window.
         for plot_widget in self.plot_panel.plot_widget_dict.values():
             plot_widget.set_labels_hidden(self.labels_hidden_b)
+
+    def remembered_text_background(self) -> str:
+        """Return the text background kept in the app's settings.
+
+        Inputs: none.
+        Outputs: one of model.text_background.TEXT_BACKGROUND_TUPLE.
+        """
+        # LLFR-01421, LLFR-01422: read once at start by the controller.
+        return text_background_settings.remembered_text_background()
+
+    def set_text_background(self, choice_str: str) -> None:
+        """Draw every text of every plot with a text background.
+
+        Inputs:
+            choice_str: one of model.text_background.TEXT_BACKGROUND_TUPLE.
+        Outputs: none. The choice is also kept in the settings.
+        """
+        # LLFR-01416: one choice for every plot of every window, now and
+        # on later plots (they read view.theme); LLFR-01422: kept in the
+        # settings, also after an undo or a redo (LLFR-01423).
+        theme.set_text_background(choice_str)
+        text_background_settings.remember_text_background(
+            theme.text_background_str)
+        for plot_widget in self.plot_panel.plot_widget_dict.values():
+            plot_widget.refresh_text_background()
 
     def _on_labels_clicked(self, hidden_b: bool) -> None:
         """Pass a click on the Hide labels button to its handler.

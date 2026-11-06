@@ -182,6 +182,7 @@ from controller.plot_tools import (
     is_delta_tool, is_known_plot_tool)
 from model.layout_file import build_layout_dict, rebuild_layout
 from model.undo_history import UndoHistory
+from model.text_background import cleaned_text_background
 from model.workspace import (
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
     TIME_PLOT_KIND_STR, WHOLE_FREQUENCY_RANGE_TUPLE, Workspace,
@@ -352,7 +353,13 @@ class PlotController:
             shape_rename_handler=self.on_shape_rename,
             shape_delete_handler=self.on_shape_delete,
             object_width_handler=self.on_object_width,
-            object_line_style_handler=self.on_object_line_style)
+            object_line_style_handler=self.on_object_line_style,
+            text_background_handler=self.on_text_background)
+        # LLFR-01421, LLFR-01422: the text background kept in the
+        # settings, on every plot from the start.
+        self.workspace.text_background_str = cleaned_text_background(
+            view.remembered_text_background())
+        view.set_text_background(self.workspace.text_background_str)
         # LLFR-01281, LLFR-01282: the Hide labels button; LLFR-01284:
         # the labels are shown at start.
         view.set_labels_handler(self.on_labels_toggled)
@@ -2218,6 +2225,41 @@ class PlotController:
         self.workspace.labels_hidden_b = bool(hidden_b)
         self.view.set_labels_hidden(self.workspace.labels_hidden_b)
 
+    # ----------------------------------------------------------------
+    # Text background
+    # ----------------------------------------------------------------
+
+    def on_text_background(self, plot_id_i: int, choice_str: str) -> None:
+        """Apply a choice of the "Text background" submenu.
+
+        Inputs:
+            plot_id_i: id of the plot whose object menu was used; every
+                plot gets the choice.
+            choice_str: one of model.text_background.TEXT_BACKGROUND_TUPLE.
+        Outputs: none. A choice that changes the text background is one
+            undoable action; the current choice changes nothing.
+        """
+        # LLFR-01423: undoable; choosing the current choice is no action.
+        new_choice_str = cleaned_text_background(choice_str)
+        if new_choice_str == self.workspace.text_background_str:
+            return
+        snapshot = self.take_snapshot()
+        self.apply_text_background(new_choice_str)
+        self.record_undo(snapshot)
+
+    def apply_text_background(self, choice_str: str) -> None:
+        """Set the text background, with no undo record.
+
+        Inputs:
+            choice_str: one of model.text_background.TEXT_BACKGROUND_TUPLE.
+        Outputs: none.
+        """
+        # LLFR-01416: every text of every plot of every window;
+        # LLFR-01422: the view keeps it in the settings.
+        self.workspace.text_background_str = cleaned_text_background(
+            choice_str)
+        self.view.set_text_background(self.workspace.text_background_str)
+
     def show_arrows(self, plot) -> None:
         """Draw the arrows of a plot again, and nothing else.
 
@@ -3534,6 +3576,8 @@ class PlotController:
         self.view.set_grid_shown(self.grid_shown_b)
         # LLFR-00138, LLFR-01283: and the labels of that state.
         self.view.set_labels_hidden(self.workspace.labels_hidden_b)
+        # LLFR-01423: and its text background, also in the settings.
+        self.view.set_text_background(self.workspace.text_background_str)
         # LLFR-00138, LLFR-00192, LLFR-01055: the main window's panel
         # width of that state.
         if self.workspace.main_panel_width_i > 0:

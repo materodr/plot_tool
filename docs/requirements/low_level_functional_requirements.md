@@ -178,7 +178,7 @@ While the mouse pointer is over the part of the border of LLFR-00280, and while 
 *Parent: HLFR-00026*
 
 ### LLFR-00138 Undo action
-When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the undo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, shapes (circles and rectangles), the grid and whether the labels are hidden (LLFR-01281) to the state they were in before that action.
+When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the undo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, shapes (circles and rectangles), the grid, whether the labels are hidden (LLFR-01281) and the text background (LLFR-01423) to the state they were in before that action.
 
 *Parent: HLFR-00040*
 
@@ -188,7 +188,7 @@ The app must keep only the 30 most recent undoable actions for undo, so that the
 *Parent: HLFR-00040*
 
 ### LLFR-00140 Undoable actions
-The app must treat these actions as undoable: adding a tab, deleting a tab, including deleting all the tabs of an undocked window by closing it (LLFR-01073), renaming a tab, moving a tab by a drag (LLFR-01089), moving a tab into an undocked window (LLFR-01153), moving a tab of an undocked window into a new undocked window (LLFR-01169), changing a tab's plot matrix (LLFR-01103), showing or hiding the grid with the Grid button (LLFR-01132), undocking a tab, docking a tab (LLFR-01060), changing the width of a signal list panel by dragging its border (LLFR-01055), hiding or showing the signal list panel of a window (LLFR-01053), creating a plot, deleting a plot, moving a plot to another slot (LLFR-01120), adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating a vertical area, moving or resizing a vertical area, renaming a vertical area, changing a vertical area's color, deleting a vertical area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, renaming a pinned data tip (LLFR-01266), drawing, moving, resizing, renaming, recoloring and deleting a shape, changing the width or the line style of a curve, a flag, a delta marker, an arrow, a text note or a shape (LLFR-01371, LLFR-01376), hiding or showing the labels with the Hide labels button (LLFR-01281, LLFR-01282), and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the vertical areas).
+The app must treat these actions as undoable: adding a tab, deleting a tab, including deleting all the tabs of an undocked window by closing it (LLFR-01073), renaming a tab, moving a tab by a drag (LLFR-01089), moving a tab into an undocked window (LLFR-01153), moving a tab of an undocked window into a new undocked window (LLFR-01169), changing a tab's plot matrix (LLFR-01103), showing or hiding the grid with the Grid button (LLFR-01132), undocking a tab, docking a tab (LLFR-01060), changing the width of a signal list panel by dragging its border (LLFR-01055), hiding or showing the signal list panel of a window (LLFR-01053), creating a plot, deleting a plot, moving a plot to another slot (LLFR-01120), adding a curve to a plot, removing a curve from a plot, changing a curve's width, pinning a data tip, moving a pinned data tip, deleting a pinned data tip, placing a flag, moving a flag, renaming a flag, changing a flag's color, deleting a flag, placing a delta marker, renaming a delta marker, moving a point of a delta marker, changing a delta marker's color, deleting a delta marker, creating a vertical area, moving or resizing a vertical area, renaming a vertical area, changing a vertical area's color, deleting a vertical area, creating a text note, moving a text note, editing a text note, changing a text note's size, border color or text color, deleting a text note, drawing an arrow, moving an arrow, rotating or stretching an arrow, renaming an arrow, changing an arrow's color, deleting an arrow, renaming a pinned data tip (LLFR-01266), drawing, moving, resizing, renaming, recoloring and deleting a shape, changing the width or the line style of a curve, a flag, a delta marker, an arrow, a text note or a shape (LLFR-01371, LLFR-01376), hiding or showing the labels with the Hide labels button (LLFR-01281, LLFR-01282), changing the text background (LLFR-01423), and each of the deletions of LLFR-00412 to LLFR-00417 (all the pinned data tips of a plot or of all plots, all the delta markers of a plot or of all plots, all the flags, all the vertical areas).
 
 Note: Removing a curve also removes its delta markers (LLFR-00178), and undoing the removal brings them back. The grid shown at app start (LLFR-00147) is not an action, and the grid setting of a loaded layout file (LLFR-00481) is part of the layout load. Opening a file, closing a file or all files (LLFR-00924, LLFR-00934), hiding or showing the signals of a data file in a signal list (LLFR-01008), zooming, panning, resetting the zoom, exporting, copying, searching, and moving or resizing a window (LLFR-01056) are not undoable. Saving and loading a layout (LLFR-00494) and saving the signals (LLFR-00556) are not undoable either. Creating and deleting a synthetic signal (LLFR-00255) are not undoable either. Activating or deactivating a plot tool, including with the Esc key (LLFR-00370), is not undoable either. Cancelling the color picker, or confirming or choosing from the recent colors (LLFR-00419) the color an item already has, is not an undoable action (LLFR-00812).
 
@@ -286,7 +286,7 @@ Note: Closing a data file clears them (LLFR-00930).
 *Parent: HLFR-00040, HLFR-00048, HLFR-00117*
 
 ### LLFR-00192 Redo action
-When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the redo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, shapes (circles and rectangles), the grid and whether the labels are hidden (LLFR-01281) to the state they were in after that action.
+When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the redo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, shapes (circles and rectangles), the grid, whether the labels are hidden (LLFR-01281) and the text background (LLFR-01423) to the state they were in after that action.
 
 Note: The user can redo, one by one, every action undone since the last new undoable action, so at most 30 (LLFR-00139).
 
@@ -1661,7 +1661,7 @@ The layout file must hold:
 *Parent: HLFR-00049, HLFR-00056, HLFR-00092, HLFR-00097, HLFR-00140, HLFR-00152, HLFR-00126, HLFR-00131, HLFR-00156, HLFR-00159, HLFR-00160, HLFR-00161, HLFR-00162, HLFR-00164*
 
 ### LLFR-00226 Not in the layout file
-The layout file must not hold the names or the paths of the data files, except as in LLFR-01223, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, the shapes, the widths and line styles of the text notes, arrows and shapes, which data files have their signals hidden in a signal list (LLFR-00997), or the position and size of the main window.
+The layout file must not hold the names or the paths of the data files, except as in LLFR-01223, the undo and redo history, the active plot tool, the text of the search box, the text notes, the arrows, the shapes, the widths and line styles of the text notes, arrows and shapes, which data files have their signals hidden in a signal list (LLFR-00997), the text background (LLFR-01416), or the position and size of the main window.
 
 Note: The owner decided on 2026-11-05 that the shapes, like the arrows and the text notes, are not saved in a layout file, so their widths and line styles are not either. The flags, curves and delta markers are saved with their widths and line styles (LLFR-00225).
 
@@ -4776,7 +4776,7 @@ If the user left-clicks a curve while the hover data tip (LLFR-00042) is shown, 
 *Parent: HLFR-00025*
 
 ### LLFR-00046 Pinned data tip menu
-When the user right-clicks a pinned data tip, the app must show a menu with the options "Rename", "Delete", "Delete all data tips in this plot" and "Delete all data tips in all plots", in this order.
+When the user right-clicks a pinned data tip, the app must show a menu with the options "Rename", "Text background", "Delete", "Delete all data tips in this plot" and "Delete all data tips in all plots", in this order.
 
 *Parent: HLFR-00025, HLFR-00093*
 
@@ -5721,7 +5721,7 @@ A plot must be able to hold any number of Delta X and Delta Y markers at the sam
 *Parent: HLFR-00043, HLFR-00044*
 
 ### LLFR-00175 Delta marker menu
-When the user right-clicks a delta marker, the app must show a menu with the options "Rename", "Color", "Width", "Line style", "Delete", "Delete all delta markers in this plot" and "Delete all delta markers in all plots", in this order (LLFR-01370, LLFR-01375).
+When the user right-clicks a delta marker, the app must show a menu with the options "Rename", "Color", "Text background", "Width", "Line style", "Delete", "Delete all delta markers in this plot" and "Delete all delta markers in all plots", in this order (LLFR-01370, LLFR-01375).
 
 *Parent: HLFR-00043, HLFR-00044, HLFR-00092, HLFR-00093, HLFR-00110*
 
@@ -5897,9 +5897,88 @@ Note: When the start of the vertical area is left of the shown time range, the l
 *Parent: HLFR-00066*
 
 ### LLFR-00704 Vertical area label color
-The text of the label of a vertical area (LLFR-00307) must be drawn in the vertical area's color (LLFR-00351) at full opacity, on a label box against which the text has a contrast ratio of at least 4.5:1, by the relative luminance formula of WCAG 2.x, while the band stays see-through (LLFR-00305).
+The text of the label of a vertical area (LLFR-00307) must be drawn in the vertical area's color (LLFR-00351) at full opacity, on a label box filled as in LLFR-01418 and LLFR-01419, while the band stays see-through (LLFR-00305).
 
 *Parent: HLFR-00066*
+
+### LLFR-01414 Text background option
+The right-click menu of a flag, a vertical area, an arrow, a delta marker, a pinned data tip, a text note, a circle and a rectangle must show a "Text background" option, whose submenu shows "Transparent" and "Auto contrast", in this order, directly below the "Color" option, below "Text color" for a text note and below "Rename" for a pinned data tip.
+
+Note: The submenu opens on hover, like the color options (LLFR-00388) (the owner's answers of 2026-11-06 in #270, batch 2). The plot menu, the curve menu and the tab menu have no such option.
+
+*Parent: HLFR-00167*
+
+### LLFR-01415 Current text background marked
+The submenu of LLFR-01414 must show a check mark next to the current choice only.
+
+*Parent: HLFR-00167*
+
+### LLFR-01416 One text background for every text
+When the user chooses "Transparent" or "Auto contrast" (LLFR-01414), the app must draw the texts of LLFR-01417 on every plot of every window with that background.
+
+Note: One choice for all the texts of all the plots (the owner's answers of 2026-11-06 in #270, batch 1).
+
+*Parent: HLFR-00167*
+
+### LLFR-01417 Texts that follow the text background
+The choice of LLFR-01414 must apply to these texts: the name and the time of a flag and the time of the flag preview; the label and the times of a vertical area; the label of an arrow and of the arrow preview; the name and the value of a delta marker and the value of the delta marker preview; the box of a pinned data tip; the box of a text note; the label of a circle, of a rectangle and of their previews.
+
+Note: The legend, the axis labels, the menu titles and the hover data tip (LLFR-00042) keep their look. Only the backgrounds change: lines, borders, arrows, dots and shape outlines keep their colors (the owner's answers of 2026-11-06 in #270, batch 2).
+
+*Parent: HLFR-00167*
+
+### LLFR-01418 Transparent text background
+While "Transparent" is chosen, the app must draw each text of LLFR-01417 in its own color with no fill and no border behind it.
+
+Note: A pinned data tip keeps its dashed leader line (LLFR-00151).
+
+*Parent: HLFR-00167*
+
+### LLFR-01419 Auto contrast background
+While "Auto contrast" is chosen, the app must fill the background of each text of LLFR-01417 with the lightest grey, with equal red, green and blue values from 255 down, against which the color of the text has a contrast ratio of at least 2.5:1, by the relative luminance formula of WCAG 2.x.
+
+Note: The owner's examples of 2026-11-06: #ff8000 gives white, #ffff00 gives #9d9d9d, #00ff00 gives #8a8a8a, #00bfff gives #6b6b6b, and the red and the blue of the palette give white. Such a grey always exists. It replaced the white or black box of 4.5:1.
+
+*Parent: HLFR-00167, HLFR-00066*
+
+### LLFR-01420 Borders kept with auto contrast
+While "Auto contrast" is chosen, the app must draw the border of a pinned data tip, the border of a text note in its border color (LLFR-00387) and the border of a delta marker's value in the marker's color, as before the text background was added.
+
+*Parent: HLFR-00167, HLFR-00073, HLFR-00087*
+
+### LLFR-01421 Text background at the first launch
+When the settings hold no text background choice, or hold a value that is neither "Transparent" nor "Auto contrast", the app must use "Auto contrast".
+
+*Parent: HLFR-00167*
+
+### LLFR-01422 Text background kept between launches
+The app must keep the text background choice in its settings, like the recent colors (LLFR-00419), so that the same choice applies after the app is closed and started again.
+
+*Parent: HLFR-00167*
+
+### LLFR-01423 Text background change undoable
+Each choice in the submenu of LLFR-01414 that changes the text background must be one undoable action (LLFR-00140).
+
+Note: Undoing it puts back the previous choice on every plot and in the settings (LLFR-01422); redoing it applies the choice again (the owner's answers of 2026-11-06 in #270, batch 2). Choosing the current choice changes nothing and is no action.
+
+*Parent: HLFR-00167, HLFR-00040, HLFR-00048*
+
+### LLFR-01424 Text background kept when the history is cleared
+When the app clears the undo and redo history (for example LLFR-00238 and LLFR-00930), it must keep the current text background choice.
+
+*Parent: HLFR-00167, HLFR-00040*
+
+### LLFR-01425 Text background kept on layout load
+When the app loads a layout file, it must keep the current text background choice.
+
+Note: The layout file does not hold it (LLFR-00226).
+
+*Parent: HLFR-00167, HLFR-00050*
+
+### LLFR-01426 Text background in the exports
+The PDF, the Word document, the PNG files and the copied image (LLFR-00129, LLFR-01231, LLFR-01234, LLFR-00133) must show the texts of LLFR-01417 with the current text background choice.
+
+*Parent: HLFR-00167, HLFR-00038, HLFR-00039*
 
 ### LLFR-01202 Flag and delta marker labels on a contrast box
 The app must draw the name and the time of a flag (LLFR-00084, LLFR-00092) and the time of the flag preview (LLFR-00203), and the name and the value of a delta marker (LLFR-00427, LLFR-00169, LLFR-00171, LLFR-00261) and the value of the delta marker preview (LLFR-00353), each in its own color on a label box as in LLFR-00704.
@@ -6010,7 +6089,7 @@ While the user resizes a vertical area (LLFR-00313), the moved edge must stop at
 *Parent: HLFR-00106*
 
 ### LLFR-00314 Vertical area menu
-When the user right-clicks a vertical area, the app must show a menu with the options "Rename", "Color", "Delete", "Delete all vertical areas", "Position" and "Delete plot", in this order.
+When the user right-clicks a vertical area, the app must show a menu with the options "Rename", "Color", "Text background", "Delete", "Delete all vertical areas", "Position" and "Delete plot", in this order.
 
 Note: "Delete plot" acts as in LLFR-00049, so a plot whose whole shown range is covered by a vertical area can still be deleted.
 
@@ -6169,7 +6248,7 @@ When the user presses the Esc key in the text field of LLFR-00333, the app must 
 *Parent: HLFR-00073*
 
 ### LLFR-00336 Text note appearance
-The app must show a text note as its text on a white rounded box with a border, like a pinned data tip (LLFR-00045), with no other fill color, so that it is easy to read over the curves and the grid.
+The app must show a text note as its text on a rounded box with a border, like a pinned data tip (LLFR-00045), filled and bordered as in LLFR-01418, LLFR-01419 and LLFR-01420.
 
 *Parent: HLFR-00073*
 
@@ -6229,7 +6308,7 @@ A plot must be able to hold any number of text notes.
 *Parent: HLFR-00073*
 
 ### LLFR-00341 Text note menu
-When the user right-clicks a text note, the app must show a menu with the options "Edit", "Size", "Border color", "Text color", "Width", "Line style" and "Delete", in this order (LLFR-01370, LLFR-01375), and not the menu of a curve, a flag, a delta marker, a vertical area or an arrow under it.
+When the user right-clicks a text note, the app must show a menu with the options "Edit", "Size", "Border color", "Text color", "Text background", "Width", "Line style" and "Delete", in this order (LLFR-01370, LLFR-01375), and not the menu of a curve, a flag, a delta marker, a vertical area or an arrow under it.
 
 *Parent: HLFR-00075, HLFR-00076, HLFR-00086, HLFR-00087*
 
@@ -6538,7 +6617,7 @@ In the drag of LLFR-00377, a release less than 5 pixels from the press must not 
 *Parent: HLFR-00083*
 
 ### LLFR-00378 Arrow menu
-When the user right-clicks an arrow, the app must show a menu with the options "Rename", "Color", "Width", "Line style" and "Delete", in this order (LLFR-01370, LLFR-01375).
+When the user right-clicks an arrow, the app must show a menu with the options "Rename", "Color", "Text background", "Width", "Line style" and "Delete", in this order (LLFR-01370, LLFR-01375).
 
 *Parent: HLFR-00084, HLFR-00088, HLFR-00100, HLFR-00111*
 
@@ -7524,7 +7603,7 @@ Note: For example, with the Circle button active, a press on a rectangle starts 
 *Parent: HLFR-00158, HLFR-00032*
 
 ### LLFR-01347 Shape menu
-When the user right-clicks a shape, the app must show a menu with the options "Rename", "Color", "Width", "Line style" and "Delete", in this order.
+When the user right-clicks a shape, the app must show a menu with the options "Rename", "Color", "Text background", "Width", "Line style" and "Delete", in this order.
 
 *Parent: HLFR-00158, HLFR-00159, HLFR-00160*
 

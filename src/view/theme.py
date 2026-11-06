@@ -31,6 +31,11 @@ Contents:
 - ``contrast_ratio_f``: the WCAG contrast ratio of two colors.
 """
 
+import functools
+
+from model.text_background import (
+    DEFAULT_TEXT_BACKGROUND_STR, TRANSPARENT_STR, cleaned_text_background)
+
 # ----------------------------------------------------------------------
 # Colors of the chrome
 # ----------------------------------------------------------------------
@@ -304,15 +309,22 @@ PINNED_TIP_BOX_DICT = {"boxstyle": "round,pad=0.45,rounding_size=0.35",
 MARKER_TEXT_BOX_DICT = {"boxstyle": "round,pad=0.2,rounding_size=0.25",
                         "facecolor": PLOT_BACKGROUND_COLOR_STR,
                         "edgecolor": "none", "alpha": 0.92}
-# LLFR-00704: the smallest contrast between the text of an area label,
-# drawn in the area's color, and its box (WCAG 2.x).
-MINIMUM_AREA_LABEL_CONTRAST_F = 4.5
-# LLFR-00704: the box of an area label is opaque, so that the band and
-# the curves behind it never change its color. It is the plot background
-# when the area's color reads on it, and black otherwise: every color
-# has a contrast of at least 4.5:1 with one of the two.
-AREA_LABEL_LIGHT_BOX_COLOR_STR = PLOT_BACKGROUND_COLOR_STR
-AREA_LABEL_DARK_BOX_COLOR_STR = "#000000"
+# LLFR-01419: the smallest contrast between a text and its "Auto
+# contrast" background (WCAG 2.x); the background is the lightest grey
+# that gives it, from white down. It was 4.5:1 with a white or black box
+# before #270.
+MINIMUM_AREA_LABEL_CONTRAST_F = 2.5
+# LLFR-01419: the lightest and the darkest grey of the search, as the
+# value of each of red, green and blue.
+LIGHTEST_GREY_VALUE_I = 255
+DARKEST_GREY_VALUE_I = 0
+# LLFR-01418: a transparent text background: no fill and no border.
+TRANSPARENT_BOX_OVERRIDE_DICT = {"facecolor": "none", "edgecolor": "none",
+                                 "linewidth": 0.0, "alpha": 1.0}
+# LLFR-01416, LLFR-01421: the text background of every text of every
+# plot, set by the view (MainWindow.set_text_background); "Auto
+# contrast" until the settings are read.
+text_background_str = DEFAULT_TEXT_BACKGROUND_STR
 
 # LLFR-00336: a text note is its text on a white rounded box with a
 # border, like a pinned data tip (PINNED_TIP_BOX_DICT), with no other
@@ -675,21 +687,59 @@ def relative_luminance_f(color_str: str) -> float:
             + 0.0722 * channel_list[2])
 
 
-def area_label_box_color_str(area_color_str: str) -> str:
-    """Return the color of the box of an area label.
+def set_text_background(choice_str: str) -> None:
+    """Set the text background of every text of every plot.
 
     Inputs:
-        area_color_str: the area's color, "#rrggbb", in which the label
-            text is drawn.
-    Outputs: AREA_LABEL_LIGHT_BOX_COLOR_STR when the text has a contrast
-        of at least MINIMUM_AREA_LABEL_CONTRAST_F on it, else
-        AREA_LABEL_DARK_BOX_COLOR_STR.
+        choice_str: one of model.text_background.TEXT_BACKGROUND_TUPLE;
+            another value gives "Auto contrast".
+    Outputs: none. The plots must be drawn again to show it.
     """
-    # LLFR-00704: at least 4.5:1 between the text and its box.
-    if contrast_ratio_f(area_color_str, AREA_LABEL_LIGHT_BOX_COLOR_STR) >= (
-            MINIMUM_AREA_LABEL_CONTRAST_F):
-        return AREA_LABEL_LIGHT_BOX_COLOR_STR
-    return AREA_LABEL_DARK_BOX_COLOR_STR
+    # LLFR-01416: one choice for all the texts; LLFR-01421: the default.
+    global text_background_str
+    text_background_str = cleaned_text_background(choice_str)
+
+
+def is_text_background_transparent() -> bool:
+    """Tell whether the texts have no background.
+
+    Inputs: none.
+    Outputs: True while "Transparent" is chosen (LLFR-01418).
+    """
+    # LLFR-01418.
+    return text_background_str == TRANSPARENT_STR
+
+
+@functools.lru_cache(maxsize=512)
+def auto_contrast_grey_str(text_color_str: str) -> str:
+    """Return the "Auto contrast" background of a text color.
+
+    Inputs:
+        text_color_str: the color of the text, "#rrggbb".
+    Outputs: the lightest grey "#vvvvvv", from white down, against which
+        the text has a contrast of at least MINIMUM_AREA_LABEL_CONTRAST_F.
+    """
+    # LLFR-01419: equal red, green and blue values, from 255 down; such
+    # a grey always exists for a contrast of 2.5:1.
+    for value_i in range(LIGHTEST_GREY_VALUE_I, DARKEST_GREY_VALUE_I - 1,
+                         -1):
+        grey_str = f"#{value_i:02x}{value_i:02x}{value_i:02x}"
+        if contrast_ratio_f(text_color_str, grey_str) >= (
+                MINIMUM_AREA_LABEL_CONTRAST_F):
+            return grey_str
+    return "#{0:02x}{0:02x}{0:02x}".format(DARKEST_GREY_VALUE_I)
+
+
+def area_label_box_color_str(area_color_str: str) -> str:
+    """Return the "Auto contrast" color of the box of a label.
+
+    Inputs:
+        area_color_str: the color in which the label text is drawn,
+            "#rrggbb".
+    Outputs: the grey of auto_contrast_grey_str.
+    """
+    # LLFR-00704, LLFR-01419: the lightest grey with at least 2.5:1.
+    return auto_contrast_grey_str(str(area_color_str).lower())
 
 
 def area_label_box_dict(area_color_str: str) -> dict:
@@ -706,24 +756,57 @@ def area_label_box_dict(area_color_str: str) -> dict:
 
 
 def contrast_label_box_dict(text_color_str: str,
-                            base_box_dict: dict = None) -> dict:
-    """Return an opaque label box that reads with a colored text.
+                            base_box_dict: dict = None,
+                            **override_dict) -> dict:
+    """Return the label box of a colored text, with the text background.
 
     Inputs:
         text_color_str: the color of the label's text, "#rrggbb".
         base_box_dict: the shape and border of the box, for example
             PINNED_TIP_BOX_DICT; MARKER_TEXT_BOX_DICT when None.
-    Outputs: a matplotlib bbox dict: base_box_dict, opaque, filled with
-        the color of area_label_box_color_str for that text color.
+        override_dict: keys that replace those of base_box_dict, for
+            example the border color of a delta marker's value box.
+    Outputs: a matplotlib bbox dict: with "Transparent", base_box_dict
+        with no fill and no border; with "Auto contrast", base_box_dict,
+        opaque, filled with the grey of area_label_box_color_str.
     """
-    # LLFR-00704, LLFR-00436, LLFR-01202: at least 4.5:1 between the
-    # text and its box, for the labels of areas, arrows, flags and delta
-    # markers and their previews.
+    # LLFR-01417: the labels of areas, arrows, flags, delta markers and
+    # shapes and their previews (LLFR-00704, LLFR-00436, LLFR-01202).
     if base_box_dict is None:
         base_box_dict = MARKER_TEXT_BOX_DICT
+    base_box_dict = dict(base_box_dict, **override_dict)
+    # LLFR-01418: no fill and no border.
+    if is_text_background_transparent():
+        return dict(base_box_dict, **TRANSPARENT_BOX_OVERRIDE_DICT)
+    # LLFR-01419: the lightest grey with at least 2.5:1; LLFR-01420: the
+    # border of base_box_dict is kept.
     return dict(base_box_dict,
                 facecolor=area_label_box_color_str(text_color_str),
                 alpha=1.0)
+
+
+def bordered_text_box_dict(text_color_str: str, base_box_dict: dict,
+                           **override_dict) -> dict:
+    """Return the box of a pinned data tip or a text note.
+
+    Inputs:
+        text_color_str: the color of the text in the box, "#rrggbb".
+        base_box_dict: the shape, border and opacity of the box, for
+            example PINNED_TIP_BOX_DICT or TEXT_NOTE_BOX_DICT.
+        override_dict: keys that replace those of base_box_dict, for
+            example the border color of a text note.
+    Outputs: a matplotlib bbox dict: with "Transparent", no fill and no
+        border; with "Auto contrast", the box with its border, filled
+        with the grey of area_label_box_color_str.
+    """
+    # LLFR-01417: the boxes of pinned data tips and text notes.
+    box_dict = dict(base_box_dict, **override_dict)
+    # LLFR-01418: no fill and no border.
+    if is_text_background_transparent():
+        return dict(box_dict, **TRANSPARENT_BOX_OVERRIDE_DICT)
+    # LLFR-01419, LLFR-01420: the grey fill, the border kept.
+    box_dict["facecolor"] = area_label_box_color_str(text_color_str)
+    return box_dict
 
 
 def contrast_ratio_f(first_color_str: str, second_color_str: str) -> float:
