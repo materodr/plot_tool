@@ -186,6 +186,64 @@ class PngNameTest(unittest.TestCase):
         self.assertEqual(png_file_name_list(["Tab", "tab", "TAB"]),
                          ["Tab.png", "tab_2.png", "TAB_3.png"])
 
+    @covers("LLFR-01235", "HLFR-00038")
+    def test_names_made_only_of_replaced_characters(self) -> None:
+        """A name made only of replaced characters, or of "_", keeps one
+        "_" for each character, as the statement says; only an empty
+        name becomes "tab", and "tab" given twice is numbered.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(
+            png_file_name_list(["///", "__", "...", "a/", "", "tab"]),
+            ["___.png", "__.png", "____2.png", "a_.png", "tab.png",
+             "tab_2.png"])
+        # Accented letters are letters, kept as they are.
+        self.assertEqual(png_file_name_list(["Medição"]),
+                         ["Medição.png"])
+
+    @covers("LLFR-01250", "LLFR-01235", "HLFR-00038")
+    def test_windows_reserved_names_get_a_suffix(self) -> None:
+        """CON, PRN, AUX, NUL, COM1 to COM9 and LPT1 to LPT9, in any
+        case, get "_tab"; longer names that start like them don't.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        reserved_list = (["CON", "prn", "Aux", "nul"]
+                         + [f"COM{number_i}" for number_i in range(1, 10)]
+                         + [f"lpt{number_i}" for number_i in range(1, 10)])
+        self.assertEqual(png_file_name_list(reserved_list),
+                         [name_str + "_tab.png" for name_str
+                          in reserved_list])
+        self.assertEqual(
+            png_file_name_list(["CONSOLE", "COM10", "LPT0", "NUL 1",
+                                "con.x"]),
+            ["CONSOLE.png", "COM10.png", "LPT0.png", "NUL 1.png",
+             "con_x.png"])
+        # The suffix comes before the number that makes a name unique.
+        self.assertEqual(png_file_name_list(["CON", "con", "CON_tab"]),
+                         ["CON_tab.png", "con_tab_2.png", "CON_tab_3.png"])
+
+    @covers("LLFR-01251", "LLFR-01235", "HLFR-00038")
+    def test_long_names_are_cut_to_100_characters(self) -> None:
+        """A name longer than 100 characters keeps its first 100, without
+        the spaces left at the end, before the number and ".png".
+
+        Inputs: none.
+        Outputs: none.
+        """
+        long_str = "x" * 150
+        self.assertEqual(png_file_name_list([long_str, long_str]),
+                         ["x" * 100 + ".png", "x" * 100 + "_2.png"])
+        spaced_str = "y" * 98 + "   z"
+        self.assertEqual(png_file_name_list([spaced_str]),
+                         ["y" * 98 + ".png"])
+        exact_str = "w" * 100
+        self.assertEqual(png_file_name_list([exact_str]),
+                         [exact_str + ".png"])
+
 
 if __name__ == "__main__":
     unittest.main()

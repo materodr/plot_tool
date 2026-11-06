@@ -1419,6 +1419,13 @@ class PlotController:
         # consistent and reports the tool that is now active.
         if not is_known_plot_tool(tool_str):
             return
+        # LLFR-01254: a click that waits on a text note (LLFR-01253) is
+        # done first, while its tool is still the active one, so that a
+        # held key released quickly loses no click. Fake views of tests
+        # without that wait may leave the method out.
+        flush_function = getattr(self.view, "flush_waiting_clicks", None)
+        if tool_str != self.plot_tool_str and flush_function is not None:
+            flush_function()
         # LLFR-00167: deactivating the Delta X or Delta Y tool, in any
         # way (its button, another tool, the Tip or Shift key),
         # discards the first point and its dot.

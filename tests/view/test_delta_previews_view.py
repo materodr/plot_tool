@@ -10,6 +10,7 @@ far from the plots, so that activating a tool never shows a preview by
 itself; a test moves it where it needs it.
 """
 
+import time
 import unittest
 from unittest import mock
 
@@ -19,12 +20,13 @@ from tests.support import covers, get_qt_application, requires_qt
 from tests.view.test_delta_markers_view import (
     DeltaWidgetTestCase, to_hex_str)
 from tests.view.test_markers_view import LEFT_BUTTON_I, send_mouse_event
+from tests.view.test_plot_tools import recorder
 from tests.view.test_shared_markers_view import (
     PREVIEW_MOVE_COUNT_I, SharedMarkerWindowTestCase)
 
 from controller.plot_tools import (
-    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, NO_TOOL_STR, TIP_TOOL_STR,
-    ZOOM_TOOL_STR)
+    DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR,
+    TIP_TOOL_STR, ZOOM_TOOL_STR)
 from model.curve_colors import MARKER_COLOR_STR
 from model.workspace import (
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR)
@@ -75,6 +77,84 @@ class DeltaPreviewWidgetTestCase(DeltaWidgetTestCase):
         Outputs: none.
         """
         self.mouse("motion_notify_event", time_s, value_f)
+
+    def hover_display(self, display_tuple: tuple) -> None:
+        """Move the mouse, with no button held, to a display point.
+
+        Inputs:
+            display_tuple: (x, y) in display pixels.
+        Outputs: none.
+        """
+        send_mouse_event(self.plot_widget, "motion_notify_event",
+                         *display_tuple, LEFT_BUTTON_I)
+
+    def wait_double_click_interval(self) -> None:
+        """Process events until the double-click interval has passed.
+
+        Inputs: none.
+        Outputs: none. A click on a text note that waits (LLFR-01253) is
+            done by then.
+        """
+        import time
+        from PyQt6.QtWidgets import QApplication
+        interval_s = (
+            QApplication.styleHints().mouseDoubleClickInterval() / 1000.0)
+        deadline_s = time.perf_counter() + interval_s + 0.15
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
+
+    def note_box_center(self) -> tuple:
+        """Return the center of the box of the first text note.
+
+        Inputs: none.
+        Outputs: (x, y) in display pixels.
+        """
+        box = self.plot_widget.text_note_box_extent(0)
+        return ((box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+
+    def note_off_curves(self) -> tuple:
+        """Write a text note between the sine and the ramp.
+
+        Inputs: none.
+        Outputs: (x, y) of the center of its box, in display pixels,
+            where text_note_at finds it and no curve is near.
+        """
+        self.plot_widget.set_text_notes([("Note", 5.0, 2.0)])
+        self.draw()
+        center_tuple = self.note_box_center()
+        widget_point = self.plot_widget.display_to_widget_point(
+            *center_tuple)
+        self.assertEqual(self.plot_widget.text_note_at(widget_point), 0)
+        self.assertEqual(self.plot_widget.nearest_curve_tuple(widget_point),
+                         ())
+        return center_tuple
+
+    def note_on_level_curve(self) -> tuple:
+        """Write a text note with a constant curve "Level" through it.
+
+        Inputs: none.
+        Outputs: (x, y) of the center of the note's box, in display
+            pixels, where text_note_at finds the note and the nearest
+            curve is "Level".
+        """
+        self.note_off_curves()
+        level_f = float(self.plot_widget.axes.transData.inverted().transform(
+            self.note_box_center())[1])
+        self.plot_widget.set_curves([
+            ("Sine", self.time_array, self.sine_array, "#ff0000", 1),
+            ("Ramp", self.time_array, self.ramp_array, "#0000ff", 1),
+            ("Level", self.time_array,
+             np.full_like(self.time_array, level_f), "#00aa00", 1)])
+        self.plot_widget.set_text_notes([("Note", 5.0, 2.0)])
+        self.draw()
+        center_tuple = self.note_box_center()
+        widget_point = self.plot_widget.display_to_widget_point(
+            *center_tuple)
+        self.assertEqual(self.plot_widget.text_note_at(widget_point), 0)
+        self.assertEqual(
+            self.plot_widget.nearest_curve_tuple(widget_point)[0], "Level")
+        return center_tuple
 
     def assert_no_delta_preview(self) -> None:
         """Check that no delta preview is shown.
@@ -285,11 +365,12 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.plot_widget.on_mouse_leave(None)
         self.assert_no_delta_preview()
 
-    @covers("LLFR-00352", "LLFR-01238", "LLFR-00153", "LLFR-00679",
+    @covers("LLFR-00352", "LLFR-01238", "LLFR-01248", "LLFR-00163",
             "HLFR-00043")
     def test_dot_stays_over_a_pinned_tip(self) -> None:
-        """Over a pinned tip the dot stays shown (LLFR-01238); a press on
-        the tip still moves it and picks no point (LLFR-00153).
+        """Over a pinned tip the dot stays shown (LLFR-01238); a press
+        there picks the point of the dot and does not move the tip
+        (LLFR-01248).
 
         Inputs: none.
         Outputs: none.
@@ -303,38 +384,670 @@ class DeltaPointPreviewTest(DeltaPreviewWidgetTestCase):
         self.assertTrue(self.plot_widget.delta_preview_shown())
         self.hover(*self.sine_point(7.0)[1:])
         self.assertTrue(self.plot_widget.delta_preview_shown())
-        # A press on the tip starts its drag and hides the preview.
+        # LLFR-01248: the press picks the point of the dot.
         self.hover(*point_tuple[1:])
         self.mouse("button_press_event", *point_tuple[1:])
-        self.assert_no_delta_preview()
+        self.assertEqual(self.plot_widget.drag_tip_index_i, -1)
         self.mouse("button_release_event", *point_tuple[1:])
-        self.assertEqual(self.pick_list, [])
+        self.assertEqual(self.pick_list, [point_tuple])
 
 
 class HoverTipOverObjectsTest(DeltaPreviewWidgetTestCase):
-    """The hover data tip stays over other objects (LLFR-01238)."""
+    """The hover data tip stays over other objects (LLFR-01238), except
+    over a pinned tip (LLFR-01249)."""
 
-    @covers("LLFR-01238", "LLFR-00042", "HLFR-00024")
-    def test_hover_tip_over_a_pinned_tip(self) -> None:
-        """With the Data tip tool, the hover tip is shown on a curve
-        point where a pinned tip is, and follows the pointer.
+    @covers("LLFR-01249", "LLFR-01238", "LLFR-00042", "LLFR-00153",
+            "HLFR-00024", "HLFR-00041")
+    def test_hover_tip_hidden_over_a_pinned_tip(self) -> None:
+        """With the Data tip tool, the hover tip is hidden where a pinned
+        tip is, shown again off it, and a press on the pinned tip moves
+        it and pins nothing.
 
         Inputs: none.
         Outputs: none.
         """
-        from controller.plot_tools import TIP_TOOL_STR
         point_tuple = self.sine_point(4.0)
         self.plot_widget.set_pinned_tips([point_tuple + ((),)])
         self.draw()
         self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        point_widget = self.plot_widget.display_to_widget_point(
+            *self.display_tuple(*point_tuple[1:]))
+        self.assertEqual(self.plot_widget.pinned_tip_at(point_widget), 0)
         self.hover(*point_tuple[1:])
+        self.assertFalse(self.plot_widget.hover_annotation.get_visible())
+        self.assertEqual(self.plot_widget.hover_point_tuple, ())
+        next_tuple = self.sine_point(7.0)
+        self.hover(*next_tuple[1:])
         self.assertTrue(self.plot_widget.hover_annotation.get_visible())
         self.assertEqual(self.plot_widget.hover_point_tuple[:2],
-                         point_tuple[:2])
-        next_tuple = self.sine_point(4.5)
-        self.hover(*next_tuple[1:])
-        self.assertEqual(self.plot_widget.hover_point_tuple[:2],
                          next_tuple[:2])
+        self.hover(*point_tuple[1:])
+        self.assertFalse(self.plot_widget.hover_annotation.get_visible())
+        # LLFR-00153: the press moves the pinned tip, own kind of the
+        # Data tip tool, and pins nothing.
+        self.mouse("button_press_event", *point_tuple[1:])
+        self.assertEqual(self.plot_widget.drag_tip_index_i, 0)
+        self.mouse("button_release_event", *point_tuple[1:])
+        self.assertEqual(self.pin_list, [])
+
+    @covers("LLFR-01238", "LLFR-00042", "HLFR-00024")
+    def test_hover_tip_over_a_text_note(self) -> None:
+        """With the Data tip tool, the hover tip is shown on a curve
+        where a text note is, and follows the pointer.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_on_level_curve()
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        self.hover_display(center_tuple)
+        self.assertTrue(self.plot_widget.hover_annotation.get_visible())
+        self.assertEqual(self.plot_widget.hover_point_tuple[0], "Level")
+        first_s = self.plot_widget.hover_point_tuple[1]
+        self.hover_display((center_tuple[0] + 15.0, center_tuple[1]))
+        self.assertGreater(self.plot_widget.hover_point_tuple[1], first_s)
+
+
+class PressWherePreviewShownTest(DeltaPreviewWidgetTestCase):
+    """A press where the preview of the active tool is shown places what
+    the preview shows, also on a pinned tip or a text note
+    (LLFR-01248)."""
+
+    def setUp(self) -> None:
+        """Create the widget and record the moves of tips and notes.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().setUp()
+        self.tip_move_list = recorder(
+            self.plot_widget.pinned_tip_move_requested)
+        self.note_move_list = recorder(
+            self.plot_widget.text_note_move_requested)
+
+    def press_release_display(self, display_tuple: tuple) -> None:
+        """Hover a display point, press there and release there.
+
+        Inputs:
+            display_tuple: (x, y) in display pixels.
+        Outputs: none.
+        """
+        self.hover_display(display_tuple)
+        send_mouse_event(self.plot_widget, "button_press_event",
+                         *display_tuple, LEFT_BUTTON_I)
+        self.press_tip_index_i = self.plot_widget.drag_tip_index_i
+        self.press_note_index_i = self.plot_widget.drag_note_index_i
+        send_mouse_event(self.plot_widget, "button_release_event",
+                         *display_tuple, LEFT_BUTTON_I)
+
+    def tip_point_display(self) -> tuple:
+        """Pin a tip on the sine at 4 s and return its point.
+
+        Inputs: none.
+        Outputs: (x, y) of the tip's point, in display pixels, where
+            pinned_tip_at finds the tip.
+        """
+        point_tuple = self.sine_point(4.0)
+        self.plot_widget.set_pinned_tips([point_tuple + ((),)])
+        self.draw()
+        display_tuple = self.display_tuple(*point_tuple[1:])
+        self.assertEqual(self.plot_widget.pinned_tip_at(
+            self.plot_widget.display_to_widget_point(*display_tuple)), 0)
+        return display_tuple
+
+    @covers("LLFR-01248", "LLFR-00081", "LLFR-00203", "LLFR-00153",
+            "HLFR-00028")
+    def test_flag_placed_over_a_pinned_tip(self) -> None:
+        """With the Flag tool, a press on a pinned tip where the flag
+        preview is shown asks for the flag of the preview and does not
+        grab the tip.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        display_tuple = self.tip_point_display()
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.hover_display(display_tuple)
+        self.assertTrue(self.plot_widget.marker_preview_shown())
+        preview_s = self.plot_widget.marker_preview_time_s()
+        self.press_release_display(display_tuple)
+        self.assertEqual(self.press_tip_index_i, -1)
+        self.assertEqual(len(self.place_list), 1)
+        self.assertAlmostEqual(self.place_list[0][0], preview_s, delta=1e-9)
+        self.assertEqual(self.tip_move_list, [])
+
+    @covers("LLFR-01248", "LLFR-01253", "LLFR-00081", "LLFR-00339",
+            "LLFR-00742", "HLFR-00028")
+    def test_flag_placed_over_a_text_note(self) -> None:
+        """With the Flag tool, a click on a text note asks for the flag
+        of the preview once the double-click interval has passed, and
+        does not grab the note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_off_curves()
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.hover_display(center_tuple)
+        self.assertTrue(self.plot_widget.marker_preview_shown())
+        preview_s = self.plot_widget.marker_preview_time_s()
+        self.press_release_display(center_tuple)
+        self.assertEqual(self.press_note_index_i, -1)
+        # LLFR-01253: the click waits for the double-click interval.
+        self.assertEqual(self.place_list, [])
+        self.wait_double_click_interval()
+        self.assertEqual(len(self.place_list), 1)
+        self.assertAlmostEqual(self.place_list[0][0], preview_s, delta=1e-9)
+        self.assertEqual(self.note_move_list, [])
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-01248", "HLFR-00028")
+    def test_waiting_click_done_by_the_next_press(self) -> None:
+        """A click on a note that waits is done at once by another left
+        press, a right press, a wheel press or a change of tool, before
+        the interval ends, and only once.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_off_curves()
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        # The time the preview shows once the pointer is there.
+        self.hover_display(center_tuple)
+        preview_s = self.plot_widget.marker_preview_time_s()
+        self.press_release_display(center_tuple)
+        self.assertEqual(self.place_list, [])
+        # Another left press, away from the note: both flags at once,
+        # the waiting one first.
+        other_tuple = (center_tuple[0] - 120.0, center_tuple[1])
+        self.press_release_display(other_tuple)
+        self.assertEqual(len(self.place_list), 2)
+        self.assertAlmostEqual(self.place_list[0][0], preview_s, delta=1e-9)
+        # A right press and a wheel press do it at once too.
+        for button_i in (3, 2):
+            with self.subTest(button=button_i):
+                self.place_list.clear()
+                self.press_release_display(center_tuple)
+                with mock.patch.object(self.plot_widget,
+                                       "request_context_menu"):
+                    send_mouse_event(self.plot_widget, "button_press_event",
+                                     *other_tuple, button_i)
+                    self.assertEqual(len(self.place_list), 1)
+                    send_mouse_event(self.plot_widget,
+                                     "button_release_event", *other_tuple,
+                                     button_i)
+        # A change of tool does it at once, while the widget still has
+        # the Flag tool, and the end of the interval adds nothing.
+        self.place_list.clear()
+        self.press_release_display(center_tuple)
+        self.plot_widget.set_plot_tool(NO_TOOL_STR)
+        self.assertEqual(len(self.place_list), 1)
+        self.wait_double_click_interval()
+        self.assertEqual(len(self.place_list), 1)
+
+    @covers("LLFR-01253", "LLFR-01248", "HLFR-00028", "HLFR-00043")
+    def test_waiting_click_lands_where_the_preview_showed(self) -> None:
+        """A zoom during the wait doesn't move the flag or the delta
+        point away from what the preview showed at the press.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # The flag: the time of the preview at the press.
+        center_tuple = self.note_off_curves()
+        self.plot_widget.set_plot_tool(MARKER_TOOL_STR)
+        self.hover_display(center_tuple)
+        preview_s = self.plot_widget.marker_preview_time_s()
+        self.press_release_display(center_tuple)
+        self.plot_widget.set_time_range(1.0, 3.0)
+        self.draw()
+        self.assertNotAlmostEqual(
+            self.plot_widget.time_at(self.plot_widget
+                                     .display_to_widget_point(*center_tuple)),
+            preview_s, delta=0.05)
+        self.wait_double_click_interval()
+        self.assertEqual(len(self.place_list), 1)
+        self.assertAlmostEqual(self.place_list[0][0], preview_s, delta=1e-9)
+        # The delta point: the sample of the dot at the press.
+        self.plot_widget.set_time_range(0.0, 10.0)
+        center_tuple = self.note_on_level_curve()
+        self.plot_widget.set_plot_tool(DELTA_X_TOOL_STR)
+        self.hover_display(center_tuple)
+        target_tuple = self.plot_widget.delta_preview_point_tuple
+        self.press_release_display(center_tuple)
+        self.plot_widget.set_time_range(2.0, 3.0)
+        self.draw()
+        self.wait_double_click_interval()
+        self.assertEqual(self.pick_list, [target_tuple])
+
+    @covers("LLFR-01248", "LLFR-01253", "LLFR-00045", "LLFR-00042",
+            "LLFR-00742", "HLFR-00025")
+    def test_tip_pinned_over_a_text_note(self) -> None:
+        """With the Data tip tool, a press on a text note where the hover
+        tip is shown pins that point and does not grab the note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_on_level_curve()
+        self.plot_widget.set_plot_tool(TIP_TOOL_STR)
+        self.hover_display(center_tuple)
+        hover_tuple = self.plot_widget.hover_point_tuple
+        self.assertEqual(hover_tuple[0], "Level")
+        self.press_release_display(center_tuple)
+        self.assertEqual(self.press_note_index_i, -1)
+        # LLFR-01253: the point of the hover tip shown at the press, once
+        # the double-click interval has passed.
+        self.hover_display((center_tuple[0] + 25.0, center_tuple[1]))
+        self.assertEqual(self.pin_list, [])
+        self.wait_double_click_interval()
+        self.assertEqual(self.pin_list, [hover_tuple])
+        self.assertEqual(self.note_move_list, [])
+
+    @covers("LLFR-01248", "LLFR-01253", "LLFR-00163", "LLFR-00352",
+            "LLFR-00742", "HLFR-00043", "HLFR-00044")
+    def test_point_picked_over_a_text_note(self) -> None:
+        """With a delta tool, a press on a text note where the dot is
+        shown picks the point of the dot and does not grab the note.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_on_level_curve()
+        for tool_str in (DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                self.pick_list.clear()
+                self.plot_widget.set_plot_tool(tool_str)
+                self.hover_display(center_tuple)
+                self.assertTrue(self.plot_widget.delta_preview_shown())
+                target_tuple = self.plot_widget.delta_preview_point_tuple
+                self.press_release_display(center_tuple)
+                self.assertEqual(self.press_note_index_i, -1)
+                self.wait_double_click_interval()
+                self.assertEqual(self.pick_list, [target_tuple])
+                self.assertEqual(target_tuple[0], "Level")
+                self.assertEqual(self.note_move_list, [])
+
+    @covers("LLFR-01248", "LLFR-00742", "LLFR-00339", "LLFR-00354")
+    def test_note_grabbed_where_no_dot_is_shown(self) -> None:
+        """With a delta tool, a press on a text note off every curve,
+        where no dot is shown, still grabs the note and picks nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        center_tuple = self.note_off_curves()
+        self.plot_widget.set_plot_tool(DELTA_X_TOOL_STR)
+        self.hover_display(center_tuple)
+        self.assertFalse(self.plot_widget.delta_preview_shown())
+        self.hover_display(center_tuple)
+        send_mouse_event(self.plot_widget, "button_press_event",
+                         *center_tuple, LEFT_BUTTON_I)
+        self.assertEqual(self.plot_widget.drag_note_index_i, 0)
+        end_tuple = (center_tuple[0] + 30.0, center_tuple[1])
+        send_mouse_event(self.plot_widget, "motion_notify_event",
+                         *end_tuple, LEFT_BUTTON_I)
+        send_mouse_event(self.plot_widget, "button_release_event",
+                         *end_tuple, LEFT_BUTTON_I)
+        self.assertEqual(len(self.note_move_list), 1)
+        self.assertEqual(self.pick_list, [])
+
+
+class WaitingClickWindowTestCase(SharedMarkerWindowTestCase):
+    """Helpers for the clicks that wait on a text note, in the real
+    window (LLFR-01253, LLFR-01254)."""
+
+    def note_on_sample(self, plot_widget, time_s: float) -> tuple:
+        """Draw a text note whose box is centred on a curve sample.
+
+        Inputs:
+            plot_widget: the PlotWidget (its first curve is used).
+            time_s: a time of the sample grid (0, 0.1, ..., 4 s).
+        Outputs: (x, y) of the centre of the note's box, in display
+            pixels, where the note and the curve are both found.
+        """
+        signal_name_str, time_array, value_array = (
+            plot_widget.curve_data_list[0][:3])
+        index_i = int(round(time_s * 10.0))
+        sample_tuple = (float(time_array[index_i]),
+                        float(value_array[index_i]))
+        plot_widget.set_text_notes([("Note",) + sample_tuple])
+        plot_widget.canvas.draw()
+        box = plot_widget.text_note_box_extent(0)
+        place_x_px, place_y_px = plot_widget.axes.transData.transform(
+            sample_tuple)
+        offset_tuple = ((box.x0 + box.x1) / 2.0 - float(place_x_px),
+                        (box.y0 + box.y1) / 2.0 - float(place_y_px))
+        place_tuple = plot_widget.axes.transData.inverted().transform(
+            (float(place_x_px) - offset_tuple[0],
+             float(place_y_px) - offset_tuple[1]))
+        plot_widget.set_text_notes([("Note", float(place_tuple[0]),
+                                     float(place_tuple[1]))])
+        plot_widget.canvas.draw()
+        box = plot_widget.text_note_box_extent(0)
+        center_tuple = ((box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0)
+        widget_point = plot_widget.display_to_widget_point(*center_tuple)
+        self.assertEqual(plot_widget.text_note_at(widget_point), 0)
+        self.assertEqual(plot_widget.nearest_curve_tuple(widget_point)[0],
+                         signal_name_str)
+        return center_tuple
+
+    def press_key(self, key_name_str: str) -> None:
+        """Press a key on the window, as Qt does.
+
+        Inputs:
+            key_name_str: name of a Qt.Key.
+        Outputs: none.
+        """
+        from tests.view.test_tip_key import send_key
+        for event_name_str in ("ShortcutOverride", "KeyPress"):
+            send_key(self.main_window, event_name_str, key_name_str)
+
+    def release_key(self, key_name_str: str) -> None:
+        """Release a key on the window.
+
+        Inputs:
+            key_name_str: name of a Qt.Key.
+        Outputs: none.
+        """
+        from tests.view.test_tip_key import send_key
+        send_key(self.main_window, "KeyRelease", key_name_str)
+
+    def click_display(self, plot_widget, display_tuple: tuple) -> None:
+        """Hover a display point, then press and release there.
+
+        Inputs:
+            plot_widget: the PlotWidget.
+            display_tuple: (x, y) in display pixels.
+        Outputs: none.
+        """
+        for event_name_str in ("motion_notify_event", "button_press_event",
+                               "button_release_event"):
+            send_mouse_event(plot_widget, event_name_str, *display_tuple,
+                             LEFT_BUTTON_I)
+
+    def plot_of(self, plot_widget):
+        """Return the model plot drawn by a widget.
+
+        Inputs:
+            plot_widget: the PlotWidget.
+        Outputs: the Plot of the workspace.
+        """
+        return self.workspace.find_plot(plot_widget.plot_id_i)
+
+    def wait_double_click_interval(self) -> None:
+        """Process events until the double-click interval has passed.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QApplication
+        interval_s = (
+            QApplication.styleHints().mouseDoubleClickInterval() / 1000.0)
+        deadline_s = time.perf_counter() + interval_s + 0.15
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
+
+
+@requires_qt
+class HeldKeyWaitingClickTest(WaitingClickWindowTestCase):
+    """A tool key released while a click on a text note waits does that
+    click at once (LLFR-01254), in the real window."""
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00154", "LLFR-00155",
+            "HLFR-00028")
+    def test_shift_released_at_once_places_the_flag(self) -> None:
+        """Shift held, a click on a note, Shift released before the
+        double-click interval ends: exactly one flag, at the time of the
+        preview.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        plot_widget = self.current_widget_list[0]
+        center_tuple = self.note_on_sample(plot_widget, 2.0)
+        self.press_key("Key_Shift")
+        self.assertEqual(self.plot_controller.plot_tool_str, MARKER_TOOL_STR)
+        send_mouse_event(plot_widget, "motion_notify_event", *center_tuple,
+                         LEFT_BUTTON_I)
+        self.assertTrue(plot_widget.marker_preview_shown())
+        preview_s = plot_widget.marker_preview_time_s()
+        self.click_display(plot_widget, center_tuple)
+        self.assertEqual(self.workspace.marker_list, [])
+        self.release_key("Key_Shift")
+        self.assertEqual(self.plot_controller.plot_tool_str, NO_TOOL_STR)
+        self.assertEqual(len(self.workspace.marker_list), 1)
+        self.assertAlmostEqual(self.workspace.marker_list[0].time_s,
+                               preview_s, delta=1e-9)
+        # The end of the double-click interval adds no second flag.
+        deadline_s = time.perf_counter() + 0.7
+        while time.perf_counter() < deadline_s:
+            self.application.processEvents()
+            time.sleep(0.01)
+        self.assertEqual(len(self.workspace.marker_list), 1)
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00148", "LLFR-00149",
+            "HLFR-00025")
+    def test_tip_key_released_at_once_pins_the_tip(self) -> None:
+        """The Data tip key held, a click on a note over the curve, the
+        key released at once: exactly one pinned tip, at the point of
+        the hover tip of the press.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        plot_widget = self.current_widget_list[0]
+        center_tuple = self.note_on_sample(plot_widget, 2.0)
+        self.press_key("Key_Control")
+        self.assertEqual(self.plot_controller.plot_tool_str, TIP_TOOL_STR)
+        send_mouse_event(plot_widget, "motion_notify_event", *center_tuple,
+                         LEFT_BUTTON_I)
+        hover_tuple = tuple(plot_widget.hover_point_tuple)
+        self.assertEqual(len(hover_tuple), 3)
+        self.click_display(plot_widget, center_tuple)
+        self.assertEqual(self.plot_of(plot_widget).pinned_tip_list, [])
+        self.release_key("Key_Control")
+        self.assertEqual(self.plot_controller.plot_tool_str, NO_TOOL_STR)
+        tip_list = self.plot_of(plot_widget).pinned_tip_list
+        self.assertEqual(len(tip_list), 1)
+        self.assertEqual((tip_list[0].signal_name_str, tip_list[0].time_s,
+                          tip_list[0].value_f), hover_tuple)
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00197", "LLFR-00198",
+            "LLFR-00164", "HLFR-00043")
+    def test_x_key_released_at_once_draws_the_marker(self) -> None:
+        """X held, a first point picked on the curve, then a click on a
+        note over the curve and X released at once: the Delta X marker
+        of the two points is drawn.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        plot_widget = self.current_widget_list[0]
+        self.press_key("Key_X")
+        self.assertEqual(self.plot_controller.plot_tool_str,
+                         DELTA_X_TOOL_STR)
+        time_array, value_array = plot_widget.curve_data_list[0][1:3]
+        first_x_px, first_y_px = plot_widget.axes.transData.transform(
+            (float(time_array[10]), float(value_array[10])))
+        self.click_display(plot_widget, (float(first_x_px),
+                                         float(first_y_px)))
+        self.application.processEvents()
+        # The note is drawn after the first point, whose pick may draw
+        # the plot again from the model.
+        center_tuple = self.note_on_sample(plot_widget, 2.0)
+        send_mouse_event(plot_widget, "motion_notify_event", *center_tuple,
+                         LEFT_BUTTON_I)
+        target_tuple = plot_widget.delta_preview_point()
+        self.assertEqual(len(target_tuple), 3)
+        self.click_display(plot_widget, center_tuple)
+        self.assertEqual(self.plot_of(plot_widget).delta_marker_list, [])
+        self.release_key("Key_X")
+        self.assertEqual(self.plot_controller.plot_tool_str, NO_TOOL_STR)
+        delta_list = self.plot_of(plot_widget).delta_marker_list
+        self.assertEqual(len(delta_list), 1)
+        self.assertEqual(tuple(delta_list[0].second_point_tuple),
+                         target_tuple)
+
+
+@requires_qt
+class WaitingClickAcrossPlotsTest(WaitingClickWindowTestCase):
+    """A press on another plot, or in another window, does the click
+    that waits first (LLFR-01254), so the clicks keep their order."""
+
+    def sample_display(self, plot_widget, time_s: float) -> tuple:
+        """Return the display point of a sample of a plot's curve.
+
+        Inputs:
+            plot_widget: the PlotWidget (its first curve is used).
+            time_s: a time of the sample grid (0, 0.1, ..., 4 s).
+        Outputs: (x, y) in display pixels.
+        """
+        time_array, value_array = plot_widget.curve_data_list[0][1:3]
+        index_i = int(round(time_s * 10.0))
+        display_x_px, display_y_px = plot_widget.axes.transData.transform(
+            (float(time_array[index_i]), float(value_array[index_i])))
+        return (float(display_x_px), float(display_y_px))
+
+    def free_display(self, plot_widget, time_s: float) -> tuple:
+        """Return a display point at a time, at mid-height of the axes.
+
+        Inputs:
+            plot_widget: the PlotWidget.
+            time_s: the time, in seconds.
+        Outputs: (x, y) in display pixels.
+        """
+        bottom_f, top_f = plot_widget.axes.get_ylim()
+        display_x_px, display_y_px = plot_widget.axes.transData.transform(
+            (time_s, (bottom_f + top_f) / 2.0))
+        return (float(display_x_px), float(display_y_px))
+
+    def click_tool_button(self, tool_str: str) -> None:
+        """Click a plot tool button of the top panel.
+
+        Inputs:
+            tool_str: the tool of the button.
+        Outputs: none.
+        """
+        self.main_window.top_panel.plot_tool_button_dict[tool_str].click()
+        self.process_events()
+        self.assertEqual(self.plot_controller.plot_tool_str, tool_str)
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00166", "HLFR-00043")
+    def test_delta_picks_arrive_in_order(self) -> None:
+        """With the Delta X tool, a click waiting on a note of plot A and
+        then a click on a curve of plot B: A's point is picked first,
+        then B's, which becomes the first point (LLFR-00166).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click_tool_button(DELTA_X_TOOL_STR)
+        widget_a, widget_b = self.current_widget_list[:2]
+        center_tuple = self.note_on_sample(widget_a, 2.0)
+        order_list = []
+        for name_str, plot_widget in (("A", widget_a), ("B", widget_b)):
+            plot_widget.delta_point_picked.connect(
+                lambda *argument_tuple, name_str=name_str:
+                order_list.append((name_str,) + argument_tuple))
+        send_mouse_event(widget_a, "motion_notify_event", *center_tuple,
+                         LEFT_BUTTON_I)
+        target_a_tuple = widget_a.delta_preview_point()
+        self.assertEqual(len(target_a_tuple), 3)
+        self.click_display(widget_a, center_tuple)
+        self.assertEqual(order_list, [])
+        b_tuple = self.sample_display(widget_b, 1.0)
+        self.click_display(widget_b, b_tuple)
+        self.assertEqual([entry[0] for entry in order_list], ["A", "B"])
+        self.assertEqual(order_list[0][1:], target_a_tuple)
+        self.wait_double_click_interval()
+        self.assertEqual(len(order_list), 2)
+        # B's point is the first point now; A's was replaced.
+        self.assertEqual(self.plot_controller.pending_delta_tuple[0],
+                         widget_b.plot_id_i)
+        self.assertEqual(self.plot_of(widget_a).delta_marker_list, [])
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00081", "LLFR-00138",
+            "HLFR-00028", "HLFR-00040")
+    def test_flags_placed_and_undone_in_order(self) -> None:
+        """With the Flag tool, a click waiting on a note of plot A and
+        then a click on plot B: A's flag is placed first, so Undo
+        removes B's flag first.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.click_tool_button(MARKER_TOOL_STR)
+        widget_a, widget_b = self.current_widget_list[:2]
+        center_tuple = self.note_on_sample(widget_a, 2.0)
+        send_mouse_event(widget_a, "motion_notify_event", *center_tuple,
+                         LEFT_BUTTON_I)
+        preview_a_s = widget_a.marker_preview_time_s()
+        self.click_display(widget_a, center_tuple)
+        self.assertEqual(self.workspace.marker_list, [])
+        b_tuple = self.free_display(widget_b, 1.0)
+        send_mouse_event(widget_b, "motion_notify_event", *b_tuple,
+                         LEFT_BUTTON_I)
+        preview_b_s = widget_b.marker_preview_time_s()
+        self.click_display(widget_b, b_tuple)
+        self.process_events()
+        time_list = [marker.time_s for marker in self.workspace.marker_list]
+        self.assertEqual(len(time_list), 2)
+        self.assertAlmostEqual(time_list[0], preview_a_s, delta=1e-9)
+        # Plot B may be drawn again by A's flag before B's click is
+        # handled, so its time is checked to 0.05 s; the flags are 1 s
+        # apart.
+        self.assertAlmostEqual(time_list[1], preview_b_s, delta=0.05)
+        self.wait_double_click_interval()
+        self.assertEqual(len(self.workspace.marker_list), 2)
+        # LLFR-00138: Undo removes the last placed flag, B's.
+        self.plot_controller.on_undo()
+        self.process_events()
+        self.assertEqual(len(self.workspace.marker_list), 1)
+        self.assertAlmostEqual(self.workspace.marker_list[0].time_s,
+                               preview_a_s, delta=1e-9)
+
+    @covers("LLFR-01254", "LLFR-01253", "LLFR-00081", "HLFR-00028",
+            "HLFR-00126")
+    def test_flags_in_order_across_an_undocked_window(self) -> None:
+        """A click waiting on a note of a plot in an undocked window,
+        then a click on a plot of the main window: the flag of the
+        undocked window is placed first.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.panel.undock_button_of(self.second_tab_id_i).click()
+        self.process_events()
+        window = self.main_window.window_of_tab(self.second_tab_id_i)
+        self.assertIsNotNone(window)
+        undocked_list = [plot_widget for plot_widget
+                         in self.panel.plot_widget_dict.values()
+                         if plot_widget.window() is window]
+        self.assertEqual(len(undocked_list), 1)
+        undocked_widget = undocked_list[0]
+        undocked_widget.canvas.draw()
+        self.click_tool_button(MARKER_TOOL_STR)
+        center_tuple = self.note_on_sample(undocked_widget, 2.0)
+        send_mouse_event(undocked_widget, "motion_notify_event",
+                         *center_tuple, LEFT_BUTTON_I)
+        preview_undocked_s = undocked_widget.marker_preview_time_s()
+        self.click_display(undocked_widget, center_tuple)
+        self.assertEqual(self.workspace.marker_list, [])
+        main_widget = self.panel.page_dict[
+            self.first_tab_id_i].plot_widget_list[0]
+        main_tuple = self.free_display(main_widget, 1.0)
+        send_mouse_event(main_widget, "motion_notify_event", *main_tuple,
+                         LEFT_BUTTON_I)
+        preview_main_s = main_widget.marker_preview_time_s()
+        self.click_display(main_widget, main_tuple)
+        self.process_events()
+        time_list = [marker.time_s for marker in self.workspace.marker_list]
+        self.assertEqual(len(time_list), 2)
+        self.assertAlmostEqual(time_list[0], preview_undocked_s, delta=1e-9)
+        # The main plot may be drawn again by the first flag, so its
+        # time is checked to 0.05 s; the two flags are 1 s apart.
+        self.assertAlmostEqual(time_list[1], preview_main_s, delta=0.05)
 
 
 class DeltaMarkerPreviewTest(DeltaPreviewWidgetTestCase):

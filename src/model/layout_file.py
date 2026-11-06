@@ -82,9 +82,8 @@ This module holds no Qt code (COR-00009).
 """
 
 import json
-import os
-import re
 import math
+import os
 import re
 
 import numpy as np

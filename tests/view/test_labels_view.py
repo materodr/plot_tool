@@ -803,6 +803,50 @@ class LabelDoubleClickTest(LabelWidgetTestCase):
                 self.application.processEvents()
                 self.assertEqual(pick_list, [])
 
+    @covers("LLFR-01252", "LLFR-00203", "LLFR-00352", "LLFR-01238",
+            "HLFR-00028", "HLFR-00043", "HLFR-00094")
+    def test_previews_hidden_over_a_name(self) -> None:
+        """With the Flag tool the flag preview, and with a delta tool the
+        dot, is hidden over the name of a flag, an area, a delta marker
+        or an arrow; the hover data tip stays shown there.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import (
+            DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR, MARKER_TOOL_STR,
+            TIP_TOOL_STR)
+        widget = self.plot_widget
+        point_dict = self.label_point_dict()
+        axes_box = widget.axes.bbox
+        free_tuple = (float(axes_box.x0) + 0.3 * float(axes_box.width),
+                      float(axes_box.y0) + 0.5 * float(axes_box.height))
+        self.assertEqual(widget.name_label_tuple_at(
+            self.widget_point(free_tuple)), ())
+        widget.set_plot_tool(MARKER_TOOL_STR)
+        for kind_str, (display_tuple, _) in point_dict.items():
+            with self.subTest(tool="flag", label=kind_str):
+                self.send("motion_notify_event", free_tuple, None)
+                self.assertTrue(widget.marker_preview_shown())
+                self.send("motion_notify_event", display_tuple, None)
+                self.assertFalse(widget.marker_preview_shown())
+        # The delta dot over a name lying on the "Level" curve.
+        center_tuple = self.name_on_curve_tuple()
+        level_tuple = (float(axes_box.x0) + 0.1 * float(axes_box.width),
+                       center_tuple[1])
+        for tool_str in (DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR):
+            with self.subTest(tool=tool_str):
+                widget.set_plot_tool(tool_str)
+                self.send("motion_notify_event", level_tuple, None)
+                self.assertTrue(widget.delta_preview_shown())
+                self.send("motion_notify_event", center_tuple, None)
+                self.assertFalse(widget.delta_preview_shown())
+        # LLFR-01252 note: the hover data tip stays, since a drag from
+        # the name pins it (LLFR-00798).
+        widget.set_plot_tool(TIP_TOOL_STR)
+        self.send("motion_notify_event", center_tuple, None)
+        self.assertTrue(widget.hover_annotation.get_visible())
+
     @covers("LLFR-00886", "LLFR-00798", "LLFR-00081", "HLFR-00094")
     def test_drag_from_a_name_places_a_flag(self) -> None:
         """With the Flag tool, a drag of 5 pixels or more from the name of

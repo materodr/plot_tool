@@ -281,9 +281,11 @@ class DeltaPickTest(DeltaWidgetTestCase):
         self.assertEqual(self.pick_list, [self.sine_point(2.0)])
         self.assertEqual(self.move_list, [])
 
-    @covers("LLFR-00153", "LLFR-00163", "LLFR-00679")
-    def test_press_on_a_pinned_tip_moves_it_and_never_picks(self) -> None:
-        """A press on a pinned tip's point starts moving the tip.
+    @covers("LLFR-01248", "LLFR-00153", "LLFR-00163", "LLFR-00679")
+    def test_press_on_a_pinned_tip_point_picks_it(self) -> None:
+        """A press on a pinned tip's point, where the dot of the point a
+        click would pick is shown, picks that point and leaves the tip
+        where it is (LLFR-01248).
 
         Inputs: none.
         Outputs: none.
@@ -295,13 +297,16 @@ class DeltaPickTest(DeltaWidgetTestCase):
         for tool_str in DELTA_TOOL_TUPLE:
             with self.subTest(tool=tool_str):
                 self.plot_widget.set_plot_tool(tool_str)
+                self.pick_list.clear()
+                self.plot_widget.set_delta_first_point(())
+                self.mouse("motion_notify_event", time_s, value_f)
+                self.assertTrue(self.plot_widget.delta_preview_shown())
                 self.mouse("button_press_event", time_s, value_f)
-                self.assertEqual(self.plot_widget.drag_tip_index_i, 0)
-                self.mouse("motion_notify_event", time_s + 1.0, value_f)
-                self.mouse("button_release_event", time_s + 1.0, value_f)
-                self.assertEqual(self.pick_list, [])
-                self.assertEqual(len(tip_move_list), 1)
-                tip_move_list.clear()
+                self.assertEqual(self.plot_widget.drag_tip_index_i, -1)
+                self.mouse("button_release_event", time_s, value_f)
+                self.assertEqual(self.pick_list,
+                                 [(name_str, time_s, value_f)])
+                self.assertEqual(tip_move_list, [])
                 self.draw()
 
 

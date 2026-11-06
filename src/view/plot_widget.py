@@ -29,7 +29,9 @@ release, unless the release is less than 5 pixels from the press.
 
 A left press is handled in the same order: on a text note it starts
 moving the note (LLFR-00339), and on a pinned tip it starts moving the
-tip's label (LLFR-00152, LLFR-00153), both with any plot tool or none;
+tip's label (LLFR-00152, LLFR-00153), both with any plot tool or none,
+except where the Flag, Data tip, Delta X or Delta Y tool shows its
+preview: there the press places what the preview shows (LLFR-01248);
 with the Text tool, any other press on the drawing area opens a
 one-line text field at the pressed point (LLFR-00333); with the
 Vertical marker tool, on a marker it starts dragging the marker
@@ -878,6 +880,23 @@ def text_note_data_tuple(note_tuple) -> tuple:
             size_i, border_color_str, text_color_str)
 
 
+def flush_app_waiting_click() -> None:
+    """Do at once the click that waits on a plot of any window, if any.
+
+    Inputs: none.
+    Outputs: none.
+    """
+    # LLFR-01254: PlotWidget.waiting_click_widget holds the one plot
+    # where a click waits (LLFR-01253); a deleted plot is forgotten.
+    waiting_widget = PlotWidget.waiting_click_widget
+    if waiting_widget is None:
+        return
+    if sip.isdeleted(waiting_widget):
+        PlotWidget.waiting_click_widget = None
+        return
+    waiting_widget.flush_deferred_click()
+
+
 class PlotWidget(QWidget, ShapeLayer):
     """One plot: signal curves against time, legend, menus and tips.
 
@@ -987,6 +1006,9 @@ class PlotWidget(QWidget, ShapeLayer):
             the mouse (LLFR-00208); counted by is_mouse_drag_in_progress.
     """
 
+    # LLFR-01254: only one click waits in the whole app (LLFR-01253); this
+    # is the plot, of any window, where it waits, or None.
+    waiting_click_widget = None
     curve_delete_requested = pyqtSignal(str)
     curve_width_requested = pyqtSignal(str, int)
     plot_delete_requested = pyqtSignal()
@@ -1157,6 +1179,13 @@ class PlotWidget(QWidget, ShapeLayer):
         self.fast_drag_end_timer.setInterval(FAST_DRAG_END_DELAY_MS_I)
         self.fast_drag_end_timer.timeout.connect(
             self.end_fast_drag_if_released)
+        # LLFR-01253: a click on a text note where a preview is shown
+        # waits for the double-click interval; the click that waits is
+        # (tool, target shown by the preview at the press) or ().
+        self.deferred_click_tuple = ()
+        self.deferred_click_timer = QTimer(self)
+        self.deferred_click_timer.setSingleShot(True)
+        self.deferred_click_timer.timeout.connect(self.run_deferred_click)
         self.preview_line = None
         self.preview_time_text = None
         # LLFR-00042, LLFR-00045, LLFR-00078: the active plot tool.
@@ -1427,6 +1456,10 @@ class PlotWidget(QWidget, ShapeLayer):
         """
         # LLFR-00042, LLFR-00045: tips only with the Tip tool.
         # LLFR-00078: click zoom only with the Zoom tool.
+        # LLFR-01254: a click of the previous tool that waits is done at
+        # once, while the widget still has that tool.
+        if str(tool_str) != self.plot_tool_str:
+            self.flush_deferred_click()
         self.plot_tool_str = str(tool_str)
         if self.plot_tool_str != TIP_TOOL_STR:
             self.hide_hover_tip()
@@ -1529,6 +1562,10 @@ class PlotWidget(QWidget, ShapeLayer):
         if self.drag_marker_id_i not in {
                 marker_tuple[0] for marker_tuple in self.marker_data_list}:
             self.cancel_marker_drag()
+        # LLFR-01215, LLFR-01239: the markers given by the model end a
+        # drawing over the kept image (a plot that followed a drag), so
+        # that the new markers are drawn once, by the full draw below.
+        self.forget_fast_drag()
         # LLFR-00203: a marker may now be under the pointer (one was just
         # placed there); the next mouse move shows the preview again.
         self.hide_marker_preview()
@@ -2985,8 +3022,8 @@ class PlotWidget(QWidget, ShapeLayer):
         """
         # LLFR-00203: the preview shows the marker a click would place
         # (LLFR-00081); LLFR-01238: it stays over the other objects, a
-        # pinned tip too, although a press on a tip moves it
-        # (LLFR-00153).
+        # pinned tip and a text note too, where a press places the flag
+        # (LLFR-01248).
         if self.plot_tool_str != MARKER_TOOL_STR or self.retired_b:
             return NO_PREVIEW_TIME_S
         # LLFR-00259: a click on a frequency plot places no marker.
@@ -3000,6 +3037,10 @@ class PlotWidget(QWidget, ShapeLayer):
         if not self.inside_axes_b(display_x_px, display_y_px):
             return NO_PREVIEW_TIME_S
         if self.marker_at(widget_point) != NO_MARKER_ID_I:
+            return NO_PREVIEW_TIME_S
+        # LLFR-01252: a click on a name label changes nothing
+        # (LLFR-00886), so no preview is shown there.
+        if self.name_label_tuple_at(widget_point):
             return NO_PREVIEW_TIME_S
         return self.time_at(widget_point)
 
@@ -3621,6 +3662,9 @@ class PlotWidget(QWidget, ShapeLayer):
             marker or an arrow, the rename of that object is asked for,
             once control is back in Qt; anywhere else nothing happens.
         """
+        # LLFR-01253, LLFR-00825: a click of the first press that waits
+        # is dropped, so the double-click places nothing.
+        self.cancel_deferred_click()
         # LLFR-00411: the first press of the double-click grabbed the
         # note without moving it (LLFR-00339); a grab still held (its
         # release was lost) is dropped here, so the note keeps its place.
@@ -3939,6 +3983,9 @@ class PlotWidget(QWidget, ShapeLayer):
         if self.drag_note_index_i == NO_TEXT_NOTE_INDEX_I:
             return
         self.note_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_note_drag()
 
     def finish_note_drag(self) -> None:
@@ -5099,10 +5146,16 @@ class PlotWidget(QWidget, ShapeLayer):
 
         Inputs:
             widget_point: QPoint in this widget's coordinates.
-        Outputs: none.
+        Outputs: none. The tip is shown only with the Tip tool, on a
+            curve and not over a pinned tip (LLFR-01249).
         """
         # LLFR-00042: tips only with the Tip tool and only on a curve.
         if self.plot_tool_str != TIP_TOOL_STR:
+            self.hide_hover_tip()
+            return
+        # LLFR-01249: over a pinned tip a press moves that tip
+        # (LLFR-00153), so no hover tip is shown there.
+        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
             self.hide_hover_tip()
             return
         nearest_tuple = self.nearest_curve_tuple(widget_point)
@@ -5225,11 +5278,13 @@ class PlotWidget(QWidget, ShapeLayer):
             widget_point: QPoint in this widget's coordinates.
         Outputs: none. The objects at the point are tried in the order
             of LLFR-00383: a press on a text note or a pinned tip starts
-            moving it, with any tool or none. With the Arrow tool, a
-            press on an arrow edits it and any other press draws a new
-            one (arrow_tool_press_at). With no tool active, a press on
-            an arrow, a flag or an area starts moving (or resizing) it,
-            and any other press does nothing (edit_press_at). With the
+            moving it, with any tool or none, except where the active
+            tool shows its preview (preview_press_b, LLFR-01248). With
+            the Arrow tool, a press on an arrow edits it and any other
+            press draws a new one (arrow_tool_press_at). With no tool
+            active, a press on an arrow, a flag or an area starts moving
+            (or resizing) it, and any other press does nothing
+            (edit_press_at). With the
             Pan tool, any other press on the drawing area starts a pan
             (tool_pan_press_at); with the Area tool, it creates, moves
             or resizes an area; with the Flag tool, a press on a flag
@@ -5252,20 +5307,27 @@ class PlotWidget(QWidget, ShapeLayer):
         # LLFR-00886: a press on a name label whose release was lost
         # does nothing.
         self.label_press_point = None
-        # LLFR-00383: text note first. LLFR-00339: a press on it moves
-        # it, with any tool or none, and never pins, zooms, places a
-        # flag, picks a delta point or starts a note.
-        note_index_i = self.text_note_at(widget_point)
-        if note_index_i != NO_TEXT_NOTE_INDEX_I:
-            self.note_press_at(widget_point, note_index_i)
-            return
-        # LLFR-00383: then the pinned data tip. LLFR-00153: a press on it
-        # moves it, with any tool or none, and never pins, zooms or
-        # places a flag.
-        tip_index_i = self.pinned_tip_at(widget_point)
-        if tip_index_i != NO_TIP_INDEX_I:
-            self.tip_press_at(widget_point, tip_index_i)
-            return
+        # LLFR-01248: where the Flag, Data tip, Delta X or Delta Y tool
+        # shows its preview, the press does what the preview shows, so a
+        # text note or a pinned tip there is not grabbed.
+        # LLFR-01254: a click that waits is done before this press.
+        self.flush_deferred_click()
+        preview_b = self.preview_press_b(widget_point)
+        if not preview_b:
+            # LLFR-00383: text note first. LLFR-00339: a press on it
+            # moves it, with any tool or none, and never pins, zooms,
+            # places a flag, picks a delta point or starts a note.
+            note_index_i = self.text_note_at(widget_point)
+            if note_index_i != NO_TEXT_NOTE_INDEX_I:
+                self.note_press_at(widget_point, note_index_i)
+                return
+            # LLFR-00383: then the pinned data tip. LLFR-00153: a press
+            # on it moves it, with any tool or none, and never pins,
+            # zooms or places a flag.
+            tip_index_i = self.pinned_tip_at(widget_point)
+            if tip_index_i != NO_TIP_INDEX_I:
+                self.tip_press_at(widget_point, tip_index_i)
+                return
         # LLFR-00383: then the arrow. LLFR-00376, LLFR-00377, LLFR-00384:
         # with the Arrow tool, a press on an arrow edits it, and
         # LLFR-00371: anywhere else, also on a flag or an area, it draws
@@ -5324,7 +5386,130 @@ class PlotWidget(QWidget, ShapeLayer):
         if self.name_label_tuple_at(widget_point):
             self.label_press_point = QPoint(widget_point)
             return
+        # LLFR-01253: on a text note, the click of LLFR-01248 waits, so
+        # that a double-click there only edits the note (LLFR-00825).
+        if (preview_b and self.text_note_at(widget_point)
+                != NO_TEXT_NOTE_INDEX_I):
+            self.defer_click(widget_point)
+            return
         self.click_at(widget_point)
+
+    def defer_click(self, widget_point) -> None:
+        """Wait for the double-click interval before a click on a note.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed on a text note.
+        Outputs: none. run_deferred_click does the click when the
+            interval of the operating system ends with no second press.
+        """
+        # LLFR-01253: what the preview shows at the press is kept, so
+        # that a zoom, a pan or a reset of the zoom during the wait
+        # changes nothing: the time of the flag preview (LLFR-00203), the
+        # point of the hover tip (LLFR-00042) or the sample of the delta
+        # dot (LLFR-00352).
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            target_tuple = (self.marker_preview_time_at(widget_point),)
+        elif self.plot_tool_str == TIP_TOOL_STR:
+            target_tuple = tuple(self.hover_point_tuple)
+        else:
+            target_tuple = tuple(self.delta_preview_target_tuple(
+                widget_point))
+        # LLFR-01254: a click that waits on another plot is done first,
+        # so that one click at most waits in the app.
+        flush_app_waiting_click()
+        self.deferred_click_tuple = (self.plot_tool_str, target_tuple)
+        PlotWidget.waiting_click_widget = self
+        self.deferred_click_timer.start(
+            int(QApplication.styleHints().mouseDoubleClickInterval()))
+
+    def run_deferred_click(self) -> None:
+        """Do the click that waited for the double-click interval.
+
+        Inputs: none.
+        Outputs: none. Asks for the flag, the pinned tip or the delta
+            point that the preview showed at the press, as the last step,
+            unless the widget was removed or the tool changed meanwhile.
+        """
+        # LLFR-01253, LLFR-01248: no second press came, so the press
+        # does what the preview showed.
+        if sip.isdeleted(self) or not self.deferred_click_tuple:
+            return
+        tool_str, target_tuple = self.deferred_click_tuple
+        self.deferred_click_tuple = ()
+        if PlotWidget.waiting_click_widget is self:
+            PlotWidget.waiting_click_widget = None
+        if self.retired_b or tool_str != self.plot_tool_str:
+            return
+        if tool_str == MARKER_TOOL_STR:
+            # LLFR-00081: the time of the flag preview of the press.
+            if target_tuple and math.isfinite(target_tuple[0]):
+                self.marker_place_requested.emit(float(target_tuple[0]))
+            return
+        if len(target_tuple) != 3:
+            return
+        if tool_str == TIP_TOOL_STR:
+            # LLFR-00045: the point of the hover tip shown at the press.
+            self.tip_pin_requested.emit(*target_tuple)
+            return
+        # LLFR-00163, LLFR-00164: the sample of the dot of the press.
+        self.delta_point_picked.emit(str(target_tuple[0]),
+                                     float(target_tuple[1]),
+                                     float(target_tuple[2]))
+
+    def flush_deferred_click(self) -> None:
+        """Do at once a click that waits, if any.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01254: a press, not the second of a double-click, or a
+        # change of plot tool comes first.
+        if not self.deferred_click_tuple:
+            return
+        self.deferred_click_timer.stop()
+        self.run_deferred_click()
+
+    def cancel_deferred_click(self) -> None:
+        """Forget a click that waits, if any.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        # LLFR-01253, LLFR-00825: the second press of a double-click on
+        # the note drops it, so nothing is placed; so does a removed
+        # plot.
+        self.deferred_click_timer.stop()
+        self.deferred_click_tuple = ()
+        if PlotWidget.waiting_click_widget is self:
+            PlotWidget.waiting_click_widget = None
+
+    def preview_press_b(self, widget_point) -> bool:
+        """Tell whether a press at a point places what a preview shows.
+
+        Inputs:
+            widget_point: QPoint in this widget's coordinates, where the
+                left button was pressed.
+        Outputs: True when the active tool shows its preview at the
+            point: the flag preview with the Flag tool, the hover data
+            tip with the Data tip tool, or the dot of a delta marker
+            point with the Delta X or Delta Y tool; False otherwise.
+        """
+        # LLFR-01248: a click where a preview is shown places the object
+        # it shows. LLFR-00203, LLFR-00662: the flag preview, hidden over
+        # an existing flag, which a press then drags (LLFR-00086).
+        if self.plot_tool_str == MARKER_TOOL_STR:
+            return not math.isnan(self.marker_preview_time_at(widget_point))
+        # LLFR-00042, LLFR-01249: the hover tip shown, never over a
+        # pinned tip, which a press then moves (LLFR-00153).
+        if self.plot_tool_str == TIP_TOOL_STR:
+            return (bool(self.hover_point_tuple)
+                    and self.pinned_tip_at(widget_point) == NO_TIP_INDEX_I)
+        # LLFR-00352: the dot of the point a click would pick.
+        if is_delta_tool(self.plot_tool_str):
+            return bool(self.delta_preview_target_tuple(widget_point))
+        # LLFR-01238: the other previews appear only after the press.
+        return False
 
     def edit_press_at(self, widget_point) -> None:
         """Start moving the object under a press made with no tool active.
@@ -5449,6 +5634,9 @@ class PlotWidget(QWidget, ShapeLayer):
         if self.drag_marker_id_i == NO_MARKER_ID_I:
             return
         self.drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_marker_drag()
 
     def finish_marker_drag(self) -> None:
@@ -5623,6 +5811,9 @@ class PlotWidget(QWidget, ShapeLayer):
         if self.drag_tip_index_i == NO_TIP_INDEX_I:
             return
         self.tip_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_tip_drag()
 
     def finish_tip_drag(self) -> None:
@@ -5774,6 +5965,8 @@ class PlotWidget(QWidget, ShapeLayer):
         # LLFR-00339: so does a text note drag. LLFR-00333: an open text
         # field writes nothing on a removed plot.
         self.reset_note_drag()
+        # LLFR-01253: a click that waits does nothing on a removed plot.
+        self.cancel_deferred_click()
         self.retired_b = True
         self.close_text_note_editor()
         # LLFR-00203: a removed plot shows no preview.
@@ -6256,6 +6449,10 @@ class PlotWidget(QWidget, ShapeLayer):
                 and self.area_drag_id_i not in {
                     area_tuple[0] for area_tuple in self.area_data_list}):
             self.reset_area_drag()
+        # LLFR-01215, LLFR-01239: the areas given by the model end a
+        # drawing over the kept image (a plot that followed a drag), so
+        # that the new areas are drawn once, by the full draw below.
+        self.forget_fast_drag()
         self.draw_areas()
         # LLFR-00310: the areas change on every time plot of every tab; a
         # hidden plot draws them only when it is shown (showEvent).
@@ -6692,6 +6889,9 @@ class PlotWidget(QWidget, ShapeLayer):
             self.reset_area_drag()
             return
         self.area_drag_to(widget_point)
+        # LLFR-01215: a last move to the release point is drawn over the
+        # kept image; the session ends and the plot is drawn in full.
+        self.end_fast_drag()
         self.finish_area_drag()
 
     def finish_area_drag(self) -> None:
@@ -7587,6 +7787,12 @@ class PlotWidget(QWidget, ShapeLayer):
             event: the matplotlib MouseEvent.
         Outputs: none.
         """
+        # LLFR-01254: any press, on any plot of any window, does the click
+        # that waits first, so that the clicks keep their order. The
+        # second press of a double-click is left to double_click_at,
+        # which drops the click of its own plot (LLFR-00825).
+        if not event.dblclick:
+            flush_app_waiting_click()
         # LLFR-00334: a press while the text field is open confirms it
         # (the focus leaves the field), and does nothing else.
         editor_closed_b = (self.text_note_editor_open_b
@@ -7600,6 +7806,8 @@ class PlotWidget(QWidget, ShapeLayer):
         # LLFR-00117: the wheel button starts a pan, with any tool, and
         # never zooms, pins, places or grabs a marker, or opens a menu.
         if event.button == MouseButton.MIDDLE:
+            # LLFR-01254: a click that waits is done before the pan.
+            self.flush_deferred_click()
             # LLFR-00356: not during a pan of the Pan tool.
             if not self.is_tool_pan_b():
                 self.pan_press_at(widget_point)
@@ -7609,6 +7817,8 @@ class PlotWidget(QWidget, ShapeLayer):
         if event.button == MouseButton.LEFT:
             self.stop_tool_pan()
         if event.button == MouseButton.RIGHT:
+            # LLFR-01254: a click that waits is done before the menu.
+            self.flush_deferred_click()
             # LLFR-00117, LLFR-00086, LLFR-00152: a right press cancels a
             # pan or drag in progress before the menu logic runs.
             self.cancel_drags()
@@ -7880,7 +8090,11 @@ class PlotWidget(QWidget, ShapeLayer):
                 or self.retired_b):
             return ()
         # LLFR-01238: the preview stays over a text note or a pinned tip,
-        # although a press there moves them (LLFR-00153, LLFR-00339).
+        # where a press picks the point it shows (LLFR-01248).
+        # LLFR-01252: none over a name label, where a click changes
+        # nothing (LLFR-00886).
+        if self.name_label_tuple_at(widget_point):
+            return ()
         # LLFR-00163, LLFR-00164: the same sample delta_click_at picks.
         nearest_tuple = self.nearest_curve_tuple(widget_point)
         # LLFR-00432: where the second point would give a value of zero
@@ -8278,8 +8492,11 @@ class PlotWidget(QWidget, ShapeLayer):
             return
         if self.delta_drag_moved_b:
             # LLFR-00433: the point is left on the sample chosen at the
-            # release.
+            # release. LLFR-01215: that last place is drawn over the kept
+            # image, so the drawing session ends here and the plot is
+            # drawn in full again.
             self.delta_point_drag_to(widget_point)
+            self.end_fast_drag()
             self.finish_delta_point_drag()
             return
         press_point = QPoint(self.delta_drag_press_point)
@@ -8326,6 +8543,8 @@ class PlotWidget(QWidget, ShapeLayer):
             return
         if self.delta_drag_point_tuple != self.delta_drag_start_tuple:
             self.show_delta_drag_point(self.delta_drag_start_tuple)
+            # LLFR-01215: the point drawn back ends the drawing session.
+            self.end_fast_drag()
         self.reset_delta_point_drag()
 
     def reset_delta_point_drag(self) -> None:

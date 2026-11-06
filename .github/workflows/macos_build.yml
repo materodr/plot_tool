@@ -10,7 +10,7 @@ name: macOS build
 # can read every image of it. It also checks that the build copied the
 # sample files next to the app (COR-00020): bin/user_tests/good and
 # bin/user_tests/bad hold the same files as tests/user_tests, with at
-# least one good sample of every format of HLFR-00005 (PCR-00032).
+# least one good sample of every format of HLFR-00005 (COR-00023).
 # The main test workflow
 # (tests.yml) is not changed.
 #
@@ -37,6 +37,10 @@ name: macOS build
 #   panel on screen (PLOT_TOOL_FOLDER_PROBE=1, issue #232);
 # - LLFR-01183: and its name field is empty, without the file chosen at
 #   the earlier use (issue #243).
+# PCR-00121: the build runs on pull requests only, not on pushes: the run
+# of a pull request already built exactly the code that is merged,
+# because its branch is up to date (PCR-00060). workflow_dispatch lets
+# the owner start it by hand.
 on:
   pull_request:
     paths:
@@ -55,8 +59,6 @@ on:
       - src/view/app_icon_files.py
       - tests/user_tests/measure_startup.py
       - .github/workflows/macos_build.yml
-  push:
-    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -77,7 +79,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-build.txt
 
-      # PCR-00073: the big sample files take minutes and GB of disk, so
+      # COR-00025: the big sample files take minutes and GB of disk, so
       # the CI build leaves them out; a local build writes them.
       - name: Build the app
         run: python build_executable.py --no-big-files
@@ -111,7 +113,7 @@ jobs:
           echo "::notice title=Bundle::one-folder bundle $app, $bundle_size, $file_count files, launcher $launcher_bytes bytes, ad-hoc signed"
           exit $failed
 
-      # COR-00020, PCR-00032: the sample files are copied next to the
+      # COR-00020, COR-00023: the sample files are copied next to the
       # app, one good sample at least for every format of HLFR-00005.
       - name: Check the sample files next to the app
         run: |

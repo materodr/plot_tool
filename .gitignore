@@ -224,8 +224,11 @@ __marimo__/
 bin/*
 !bin/.gitkeep
 
-# Big sample files written by the build (PCR-00073)
+# Big sample files written by the build (COR-00025)
 tests/user_tests/big/
 
 # Test matrix built by CI
 test_matrix_ci.md
+
+# Test matrix built locally (PCR-00081: only CI writes tests/test_matrix.md)
+test_matrix_local.md

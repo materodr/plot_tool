@@ -150,9 +150,13 @@ class SearchBoxAligner(QObject):
             _ignored_tuple: the arguments of the destroyed signal.
         Outputs: none.
         """
-        # LLFR-00424: a deleted tab no longer counts.
-        if page in self.watched_page_list:
-            self.watched_page_list.remove(page)
+        # LLFR-00424: a deleted tab no longer counts. PCR-00025: a page
+        # destroyed while this aligner is being garbage collected (its
+        # window was closed and dropped) finds no list, and nothing is
+        # left to do.
+        watched_page_list = getattr(self, "watched_page_list", None)
+        if watched_page_list is not None and page in watched_page_list:
+            watched_page_list.remove(page)
 
     def target_widget(self):
         """Return the widget whose bottom edge the search box follows.

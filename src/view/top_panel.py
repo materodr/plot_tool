@@ -358,8 +358,7 @@ class TopPanel(QWidget):
             directly right of Open file; disabled while no data file is
             open (LLFR-00218).
         load_layout_button: the "Load layout" UndoButton (LLFR-00217),
-            directly right of Save layout; disabled while no data file
-            is open (LLFR-00218).
+            directly right of Save layout; always enabled (LLFR-01244).
         tip_button: the "Data tip" ToggleButton (LLFR-00018).
         zoom_button: the "Zoom" ToggleButton (LLFR-00077).
         pan_button: the "Pan" ToggleButton (LLFR-00355), right of Zoom.
@@ -430,14 +429,13 @@ class TopPanel(QWidget):
         self.open_file_button = new_icon_button(
             ToggleButton, OPEN_FILE_TEXT_STR, "open_file_button")
         # LLFR-00216, LLFR-00217: Save layout and Load layout, right of
-        # Open file. LLFR-00218: disabled, and paler, until a data file
-        # is open.
+        # Open file. LLFR-00218: Save layout disabled, and paler, until a
+        # data file is open; LLFR-01244: Load layout always enabled.
         self.save_layout_button = new_icon_button(
             UndoButton, SAVE_LAYOUT_TEXT_STR, "save_layout_button")
         self.load_layout_button = new_icon_button(
             UndoButton, LOAD_LAYOUT_TEXT_STR, "load_layout_button")
         self.save_layout_button.setEnabled(False)
-        self.load_layout_button.setEnabled(False)
         # LLFR-00018, LLFR-00077, LLFR-00080, LLFR-00161, LLFR-00162,
         # LLFR-00286, LLFR-00320: the plot tool buttons.
         self.tip_button = new_icon_button(

@@ -16,7 +16,7 @@ from model.file_loader import load_signal_file
 from model.signal_file import SignalFile
 from model.synthetic_signals import ordered_signal_names
 
-# The sample files of PCR-00032.
+# The sample files of COR-00023.
 GOOD_FOLDER_STR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "user_tests", "good")

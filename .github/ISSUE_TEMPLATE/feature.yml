@@ -38,6 +38,14 @@ body:
       required: true
 
   - type: textarea
+    id: questions_and_answers
+    attributes:
+      label: Questions and answers
+      description: Each batch of the implementer's questions to the owner, with the neighbouring cases each one also settles, the owner's answers and the date (PCR-00103, PCR-00074). The reviewer reads them here (PCR-00104).
+    validations:
+      required: false
+
+  - type: textarea
     id: implementation
     attributes:
       label: How the implementation was done
