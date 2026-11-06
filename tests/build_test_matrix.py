@@ -6,6 +6,13 @@ Usage:
                                       [--require-h5py]
                                       [--environment-limit [TEXT]]
                                       [--base BRANCH --head COMMIT]
+    python tests/build_test_matrix.py --shard K/N --results-output FILE
+                                      [--require-qt] [--require-h5py]
+                                      [--environment-limit [TEXT]]
+    python tests/build_test_matrix.py --from-results FOLDER
+                                      [--output PATH]
+                                      [--durations-output FILE]
+                                      [--base BRANCH --head COMMIT]
 
 The matrix has one row per HLFR with four columns:
 1. the HLFR (PCR-00020);
@@ -45,12 +52,23 @@ table, and the script prints that section, ready to paste at the top of
 the pull request description, or the section with the single entry
 `none` when there is no Fail* (PCR-00070).
 
-CI runs this script with --output test_matrix_ci.md and posts that
-file on each pull request. After a release, an agent opens two pull
-requests, one into main and one into develop, that put the release
-run's file in tests/test_matrix.md (PCR-00061, PCR-00085). Run locally,
-the script writes
-test_matrix_local.md at the repository root by default, which git
+Parallel shards (PCR-00127, PCR-00128): with --shard K/N the script
+runs only the test modules of shard K of N (tests/ci_shards.py) and
+writes their statuses and timings to the JSON file of
+--results-output, with no matrix; it exits with code 1 when one of its
+tests fails. With --from-results the script runs no test: it reads the
+shard files below FOLDER, checks that every shard reported and that
+every test ran in exactly one shard, and builds the matrix from them,
+with the same checks as a whole run. --durations-output then writes the
+measured seconds of each module, ready to replace
+tests/ci_test_durations.json. Every run prints the 30 slowest tests.
+
+CI runs the shards and then this script with --from-results and
+--output test_matrix_ci.md, and posts that file on each pull request.
+After a release, an agent opens two pull requests, one into main and
+one into develop, that put the release run's file in
+tests/test_matrix.md (PCR-00061, PCR-00085). Run locally, the script
+writes test_matrix_local.md at the repository root by default, which git
 ignores, so that a branch leaves tests/test_matrix.md unchanged
 (PCR-00081).
 """
@@ -60,6 +78,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import unittest
 
 TESTS_FOLDER_STR = os.path.dirname(os.path.abspath(__file__))
@@ -67,6 +86,7 @@ REPOSITORY_ROOT_STR = os.path.dirname(TESTS_FOLDER_STR)
 if REPOSITORY_ROOT_STR not in sys.path:
     sys.path.insert(0, REPOSITORY_ROOT_STR)
 
+from tests import ci_shards  # noqa
 from tests.check_pr_ready import (  # noqa
     ENVIRONMENT_ENTRY_START_STR, FAIL_STAR_HEADING_STR, FAIL_STAR_STR,
     MAIN_BRANCH_STR, NO_FAIL_STAR_SECTION_STR, NOT_IMPLEMENTED_TEXT_STR,
@@ -157,6 +177,13 @@ class RecordingResult(unittest.TextTestResult):
         super().__init__(*argument_tuple, **keyword_dict)
         self.status_dict = {}
         self.skip_reason_dict = {}
+        # PCR-00127: the timings that balance the shards and the list of
+        # the slowest tests. The time between the end of one test and the
+        # end of the next goes to the module of the next one, so that the
+        # module's imports and class set-ups count too.
+        self.test_seconds_list = []
+        self.module_seconds_dict = {}
+        self.last_stop_s = time.perf_counter()
 
     @property
     def status_list(self) -> list:
@@ -184,6 +211,32 @@ class RecordingResult(unittest.TextTestResult):
         if previous_tuple and previous_tuple[1] == FAILED_STR:
             return
         self.status_dict[test.id()] = (requirement_list, status_str)
+
+    def stopTest(self, test) -> None:
+        """Add the time since the previous test to the test's module.
+
+        Inputs:
+            test: the finished test.
+        Outputs: none.
+        """
+        super().stopTest(test)
+        now_s = time.perf_counter()
+        module_str = ci_shards.module_of(test)
+        self.module_seconds_dict[module_str] = (
+            self.module_seconds_dict.get(module_str, 0.0)
+            + now_s - self.last_stop_s)
+        self.last_stop_s = now_s
+
+    def addDuration(self, test, elapsed_s: float) -> None:
+        """Keep the duration of a test (Python 3.12 and later).
+
+        Inputs:
+            test: the finished test.
+            elapsed_s: its run time, set-up and tear-down included.
+        Outputs: none.
+        """
+        super().addDuration(test, elapsed_s)
+        self.test_seconds_list.append((test.id(), elapsed_s))
 
     def addSuccess(self, test) -> None:
         """Record a passed test.
@@ -243,18 +296,47 @@ class RecordingResult(unittest.TextTestResult):
             self.record(test, FAILED_STR)
 
 
+def discover_suite():
+    """Discover every test in the tests folder.
+
+    Inputs: none.
+    Outputs: the unittest.TestSuite of every test_*.py module.
+    """
+    loader = unittest.TestLoader()
+    return loader.discover(TESTS_FOLDER_STR, pattern="test_*.py",
+                           top_level_dir=REPOSITORY_ROOT_STR)
+
+
+def run_suite(suite):
+    """Run a test suite through RecordingResult.
+
+    Inputs:
+        suite: the unittest.TestSuite to run.
+    Outputs: the RecordingResult of the run.
+    """
+    runner = unittest.TextTestRunner(resultclass=RecordingResult,
+                                     verbosity=1)
+    return runner.run(suite)
+
+
 def run_all_tests():
     """Discover and run every test in the tests folder.
 
     Inputs: none.
     Outputs: the RecordingResult of the run.
     """
-    loader = unittest.TestLoader()
-    suite = loader.discover(TESTS_FOLDER_STR, pattern="test_*.py",
-                            top_level_dir=REPOSITORY_ROOT_STR)
-    runner = unittest.TextTestRunner(resultclass=RecordingResult,
-                                     verbosity=1)
-    return runner.run(suite)
+    return run_suite(discover_suite())
+
+
+def test_seconds_of(test_result) -> list:
+    """Read the test durations of a test result, if it has them.
+
+    Inputs:
+        test_result: a RecordingResult, or a stand-in in the self-tests.
+    Outputs: the list of (test ID, seconds) pairs, or an empty list.
+    """
+    value = getattr(test_result, "test_seconds_list", [])
+    return value if isinstance(value, list) else []
 
 
 def read_known_failures() -> set:
@@ -465,7 +547,8 @@ def fail_star_section(test_status_list: list, explanation_dict: dict,
 
 def build_matrix(test_status_list: list, hash_str: str = "",
                  explanation_dict: dict = None,
-                 extra_text_str: str = "") -> tuple:
+                 extra_text_str: str = "",
+                 qt_available_b: bool = None) -> tuple:
     """Build the test matrix table and the list of untested LLFRs.
 
     Inputs:
@@ -475,6 +558,9 @@ def build_matrix(test_status_list: list, hash_str: str = "",
         explanation_dict: the HLFRs of read_not_implemented (PCR-00066),
             none by default.
         extra_text_str: the text of --environment-limit, maybe empty.
+        qt_available_b: whether the runs had PyQt6; by default, whether
+            this run has it. The shards of a CI run tell it to the run
+            that merges them (PCR-00127), which needs no PyQt6 itself.
     Outputs: a tuple (markdown text, list of LLFR IDs without tests).
         The text holds the Fail* section (PCR-00070) above the table
         when there is a Fail*.
@@ -509,7 +595,9 @@ def build_matrix(test_status_list: list, hash_str: str = "",
         for hlfr_id_str, _ in hlfr_list if hlfr_id_str in explanation_dict}
     section_str = fail_star_section(test_status_list, shown_explanation_dict,
                                     extra_text_str)
-    environment_str = ("PyQt6 installed" if QT_AVAILABLE_B
+    if qt_available_b is None:
+        qt_available_b = QT_AVAILABLE_B
+    environment_str = ("PyQt6 installed" if qt_available_b
                        else "PyQt6 not installed: GUI tests skipped")
     if any(environment_capability(status_str)
            for _, _, status_str in test_status_list):
@@ -600,6 +688,139 @@ def report_to_github(test_status_list: list, untested_list: list) -> None:
               + ", ".join(untested_list))
 
 
+def check_libraries(argument_namespace, environment_limit_b: bool) -> bool:
+    """Check that the libraries the run requires are installed.
+
+    Inputs:
+        argument_namespace: the parsed command-line arguments.
+        environment_limit_b: True when --environment-limit was given.
+    Outputs: True when the run may go on (PCR-00063).
+    """
+    for required_b, available_b, name_str in (
+            (argument_namespace.require_qt, QT_AVAILABLE_B, "PyQt6"),
+            (argument_namespace.require_h5py, H5PY_AVAILABLE_B, "h5py")):
+        if required_b and not available_b and not environment_limit_b:
+            print(f"{name_str} is required but not installed. If it can't "
+                  "be installed here, add --environment-limit (PCR-00063).",
+                  file=sys.stderr)
+            return False
+    return True
+
+
+def marked_statuses(test_result, environment_limit_b: bool) -> list:
+    """Return the statuses of a run with the justified exceptions marked.
+
+    Inputs:
+        test_result: the RecordingResult of the run.
+        environment_limit_b: True when --environment-limit was given.
+    Outputs: the (test ID, requirement list, status) tuples, with the
+        known macOS failures (PCR-00062) and, with the option, the
+        environment Fail* (PCR-00063) marked.
+    """
+    test_status_list = mark_known_failures(
+        test_result.status_list, sys.platform, read_known_failures())
+    if environment_limit_b:
+        test_status_list = mark_environment_limits(
+            test_status_list, test_result.skip_reason_dict)
+    return test_status_list
+
+
+def run_shard(shard_str: str, results_path_str: str,
+              environment_limit_b: bool, extra_text_str: str) -> int:
+    """Run the tests of one CI shard and write its results (PCR-00127).
+
+    Inputs:
+        shard_str: the shard as K/N.
+        results_path_str: the JSON file to write.
+        environment_limit_b: True when --environment-limit was given.
+        extra_text_str: the text of --environment-limit, maybe empty.
+    Outputs: the process exit code: 0 when every test of the shard
+        passed, 1 when one failed or the arguments are wrong.
+    """
+    try:
+        shard_index_i, shard_count_i = ci_shards.parse_shard(shard_str)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
+    if not results_path_str:
+        print("--shard needs --results-output.", file=sys.stderr)
+        return 1
+    test_list = ci_shards.iterate_tests(discover_suite())
+    suite, module_list, expected_s = ci_shards.select_shard(
+        test_list, shard_index_i, shard_count_i, ci_shards.read_durations())
+    print(f"Shard {shard_index_i} of {shard_count_i}: {len(module_list)} "
+          f"modules, {suite.countTestCases()} tests, about "
+          f"{expected_s:.0f} s expected.")
+    # unittest empties a suite while it runs it, so the planned tests are
+    # listed first.
+    planned_id_list = [test.id() for test in ci_shards.iterate_tests(suite)]
+    start_s = time.perf_counter()
+    test_result = run_suite(suite)
+    run_s = time.perf_counter() - start_s
+    test_status_list = marked_statuses(test_result, environment_limit_b)
+    test_seconds_list = test_seconds_of(test_result)
+    ci_shards.write_results(results_path_str, {
+        "shard_index": shard_index_i,
+        "shard_count": shard_count_i,
+        "discovered_test_ids": [test.id() for test in test_list],
+        "planned_test_ids": planned_id_list,
+        "modules": module_list,
+        "statuses": [list(status_tuple) for status_tuple
+                     in test_status_list],
+        "environment_text": extra_text_str if environment_limit_b else None,
+        "qt_available": QT_AVAILABLE_B,
+        "module_seconds": {module_str: round(seconds_f, 3)
+                           for module_str, seconds_f in sorted(
+                               test_result.module_seconds_dict.items())},
+        "test_seconds": [[test_id_str, round(seconds_f, 3)]
+                         for test_id_str, seconds_f in test_seconds_list],
+        "expected_seconds": round(expected_s, 1),
+        "run_seconds": round(run_s, 1)})
+    print(f"Shard results written to {results_path_str} ({run_s:.0f} s).")
+    print(ci_shards.slowest_tests_report(test_seconds_list))
+    failed_b = any(status_str == FAILED_STR
+                   for _, _, status_str in test_status_list)
+    return 1 if failed_b else 0
+
+
+def read_shard_results(folder_str: str, durations_path_str: str) -> tuple:
+    """Read the results of every CI shard (PCR-00127, PCR-00128).
+
+    Inputs:
+        folder_str: the folder of --from-results.
+        durations_path_str: the file of --durations-output, maybe empty.
+    Outputs: the tuple (statuses, environment limited, environment text,
+        PyQt6 available, problems): the merged (test ID, requirement
+        list, status) tuples, whether a shard ran with
+        --environment-limit, their joined texts, whether every shard had
+        PyQt6, and the problems of ci_shards.shard_problems, or of a file
+        that can't be read. Prints the timing report and writes the
+        durations file.
+    """
+    try:
+        result_list = ci_shards.read_results_folder(folder_str)
+    except (OSError, ValueError) as error:
+        return [], False, "", False, [str(error)]
+    problem_list = ci_shards.shard_problems(result_list)
+    environment_limit_b, extra_text_str = (
+        ci_shards.merged_environment_text(result_list))
+    report_str = ci_shards.timing_report(result_list)
+    print(report_str)
+    summary_path_str = os.environ.get("GITHUB_STEP_SUMMARY", "")
+    if summary_path_str:
+        with open(summary_path_str, "a", encoding="utf-8") as summary_file:
+            summary_file.write(report_str + "\n")
+    if durations_path_str:
+        with open(durations_path_str, "w",
+                  encoding="utf-8") as durations_file:
+            durations_file.write(ci_shards.durations_file_text(
+                ci_shards.merged_module_seconds(result_list)))
+    qt_available_b = bool(result_list) and all(
+        content_dict.get("qt_available") for content_dict in result_list)
+    return (ci_shards.merged_statuses(result_list), environment_limit_b,
+            extra_text_str, qt_available_b, problem_list)
+
+
 def main() -> int:
     """Run the tests, write the matrix and report the result.
 
@@ -614,21 +835,25 @@ def main() -> int:
                         default=None, metavar="TEXT")
     parser.add_argument("--base", default="")
     parser.add_argument("--head", default="")
+    parser.add_argument("--shard", default="", metavar="K/N")
+    parser.add_argument("--results-output", default="", metavar="FILE")
+    parser.add_argument("--from-results", default="", metavar="FOLDER")
+    parser.add_argument("--durations-output", default="", metavar="FILE")
     argument_namespace = parser.parse_args()
     environment_limit_b = argument_namespace.environment_limit is not None
     extra_text_str = argument_namespace.environment_limit or ""
-    if (argument_namespace.require_qt and not QT_AVAILABLE_B
-            and not environment_limit_b):
-        print("PyQt6 is required but not installed. If it can't be "
-              "installed here, add --environment-limit (PCR-00063).",
-              file=sys.stderr)
+    if argument_namespace.shard and argument_namespace.from_results:
+        print("Give --shard or --from-results, not both.", file=sys.stderr)
         return 1
-    if (argument_namespace.require_h5py and not H5PY_AVAILABLE_B
-            and not environment_limit_b):
-        print("h5py is required but not installed. If it can't be "
-              "installed here, add --environment-limit (PCR-00063).",
-              file=sys.stderr)
+    # The --from-results run runs no test, so it needs no library.
+    if (not argument_namespace.from_results
+            and not check_libraries(argument_namespace,
+                                    environment_limit_b)):
         return 1
+    if argument_namespace.shard:
+        return run_shard(argument_namespace.shard,
+                         argument_namespace.results_output,
+                         environment_limit_b, extra_text_str)
     try:
         explanation_dict = read_not_implemented()
     except ValueError as error:
@@ -640,18 +865,24 @@ def main() -> int:
         print("tests/not_implemented.txt lists IDs that aren't HLFRs: "
               + ", ".join(unknown_list), file=sys.stderr)
         return 1
-    test_result = run_all_tests()
-    test_status_list = mark_known_failures(
-        test_result.status_list, sys.platform, read_known_failures())
-    if environment_limit_b:
-        test_status_list = mark_environment_limits(
-            test_status_list, test_result.skip_reason_dict)
+    problem_list = []
+    qt_available_b = None
+    if argument_namespace.from_results:
+        (test_status_list, environment_limit_b, extra_text_str,
+         qt_available_b, problem_list) = read_shard_results(
+            argument_namespace.from_results,
+            argument_namespace.durations_output)
+    else:
+        test_result = run_all_tests()
+        test_status_list = marked_statuses(test_result, environment_limit_b)
+        print(ci_shards.slowest_tests_report(test_seconds_of(test_result)))
     try:
         hash_str = source_hash("HEAD", REPOSITORY_ROOT_STR)
     except (OSError, subprocess.CalledProcessError):
         hash_str = ""
     matrix_str, untested_list = build_matrix(
-        test_status_list, hash_str, explanation_dict, extra_text_str)
+        test_status_list, hash_str, explanation_dict, extra_text_str,
+        qt_available_b)
     with open(argument_namespace.output, "w",
               encoding="utf-8") as matrix_file:
         matrix_file.write(matrix_str)
@@ -670,6 +901,13 @@ def main() -> int:
         print("LLFRs without tests: " + ", ".join(untested_list))
     failed_b = any(status_str == FAILED_STR
                    for _, _, status_str in test_status_list)
+    # PCR-00128: a shard that didn't report, or a test that ran in no
+    # shard or in two, fails the run.
+    for problem_str in problem_list:
+        failed_b = True
+        print(f"Shard problem (PCR-00128): {problem_str}", file=sys.stderr)
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::error title=Shard problem (PCR-00128)::{problem_str}")
     if argument_namespace.base and not affected_hlfrs_have_tests(
             test_status_list, argument_namespace.base,
             argument_namespace.head, set(explanation_dict)):
