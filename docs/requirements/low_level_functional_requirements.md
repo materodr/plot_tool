@@ -1555,7 +1555,7 @@ When the user clicks the Save layout button, the app must show a save file dialo
 ### LLFR-01218 Layout save options dialog
 When the user clicks the Save layout button, the app must show, before the save file dialog of LLFR-00219, a dialog with three choices: "Include the markers (data tips, flags, areas, delta markers and shapes)", "All tabs" or "Only the current tab", and "Include the names of the open data files".
 
-Note: The markers are the data tips, flags, areas and delta markers (HLFR-00156). The text notes and the arrows are not markers and are not saved in a layout file (LLFR-00226).
+Note: The markers are the data tips, flags, areas and delta markers (HLFR-00156). The shapes are saved or left out with them (LLFR-01221). The text notes and the arrows are not markers and are not saved in a layout file (LLFR-00226).
 
 *Parent: HLFR-00156, HLFR-00049*
 
@@ -5055,11 +5055,11 @@ Note: The tabs that are shown are the tab shown in the main window and the tab s
 *Parent: HLFR-00028*
 
 ### LLFR-01238 Previews over other objects
-The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow or a delta marker, except the flag preview over an existing flag (LLFR-00203), the hover data tip over a pinned data tip (LLFR-01249), and the flag preview and the previews of a delta marker over the name in a label (LLFR-01252).
+The app must keep showing the flag preview (LLFR-00203), the time span selection of the Zoom tool (LLFR-00208), the preview of a new area (LLFR-00303), the previews of a delta marker (LLFR-00352, LLFR-00353), the preview of a new arrow (LLFR-00371), the preview of a new shape (LLFR-01314) and the hover data tip (LLFR-00042), following the pointer, while the pointer is over a pinned data tip, a flag label, an area, a text note, an arrow, a shape or a delta marker, except the flag preview over an existing flag (LLFR-00203), the hover data tip over a pinned data tip (LLFR-01249), and the flag preview and the previews of a delta marker over the name in a label (LLFR-01252).
 
 Note: The owner asked on 2026-11-05 that previews take priority over the objects under the pointer. The preview shows what a click does: over a pinned data tip or a text note, a press where the flag preview, the hover data tip or the dot of a delta marker point is shown places what the preview shows (LLFR-01248). Over an existing flag the flag preview stays hidden, so that the flag can be grabbed (LLFR-00086), over a pinned data tip the hover data tip stays hidden, so that the tip can be grabbed (LLFR-01249), and over the name in a label the flag and delta previews stay hidden, because a click there changes nothing (LLFR-01252).
 
-*Parent: HLFR-00028, HLFR-00024, HLFR-00027, HLFR-00043, HLFR-00044, HLFR-00066, HLFR-00081*
+*Parent: HLFR-00028, HLFR-00024, HLFR-00027, HLFR-00043, HLFR-00044, HLFR-00066, HLFR-00081, HLFR-00158*
 
 ### LLFR-01248 Press where a preview is shown
 While the Flag button, the Data tip button, the Delta X button or the Delta Y button is active and the user presses the left mouse button on a pinned data tip or a text note at a point where the active tool shows its preview (the flag preview of LLFR-00203, the hover data tip of LLFR-00042 or the dot of LLFR-00352), the app must act as for a press at that point with no pinned data tip and no text note drawn there: place the flag (LLFR-00081), pin the data tip (LLFR-00045) or pick the delta marker point (LLFR-00163, LLFR-00164), except as in LLFR-01253.
@@ -5074,11 +5074,11 @@ While the Data tip button (LLFR-00018) is active and the mouse pointer is over a
 *Parent: HLFR-00024, HLFR-00041*
 
 ### LLFR-01252 Previews hidden over a name label
-While the Flag button, the Delta X button or the Delta Y button is active and the mouse pointer is over the name in the label of a flag, an area, a delta marker or an arrow (LLFR-00420), where a single click changes nothing (LLFR-00886), the app must hide the flag preview (LLFR-00203) and the previews of a delta marker (LLFR-00352, LLFR-00353).
+While the Flag button, the Delta X button or the Delta Y button is active and the mouse pointer is over the name in the label of a flag, an area, a delta marker or an arrow (LLFR-00420), or of a shape (LLFR-01364), where a single click changes nothing (LLFR-00886), the app must hide the flag preview (LLFR-00203) and the previews of a delta marker (LLFR-00352, LLFR-00353).
 
 Note: The owner decided on 2026-11-05 that these previews hide there, so that they don't show an object that a click would not place. The hover data tip (LLFR-00042) stays shown there, because a drag of 5 pixels or more from the name pins the tip it shows (LLFR-00798).
 
-*Parent: HLFR-00028, HLFR-00043, HLFR-00044, HLFR-00094*
+*Parent: HLFR-00028, HLFR-00043, HLFR-00044, HLFR-00094, HLFR-00158*
 
 ### LLFR-01253 Click on a text note where a preview is shown
 When the user presses the left mouse button on a text note as in LLFR-01248, the app must do what LLFR-01248 says only once the double-click interval of the operating system has passed with no second press of a double-click, except as in LLFR-01254, and then for what the preview showed at that press: the time of the flag preview, the point of the hover data tip or the sample of the delta marker dot, even when the shown x-axis range changed meanwhile.
@@ -6930,11 +6930,11 @@ When the user double-clicks with the left mouse button the name in the label of 
 *Parent: HLFR-00094*
 
 ### LLFR-00886 Single click on a name label
-When the user presses and releases the left mouse button less than 5 pixels apart on the name in the label of a flag, an area, a delta marker or an arrow (LLFR-00420), whether a plot tool is active or not, the app must leave the plot unchanged, so that the double-click of LLFR-00842 changes only the name.
+When the user presses and releases the left mouse button less than 5 pixels apart on the name in the label of a flag, an area, a delta marker or an arrow (LLFR-00420), or of a shape (LLFR-01364), whether a plot tool is active or not, the app must leave the plot unchanged, so that the double-click of LLFR-00842 changes only the name.
 
 Note: A press on the name followed by a drag of 5 pixels or more still acts as the active tool does, for example a time span selection with the Zoom button (LLFR-00208), a pan with the Pan button (LLFR-00356), or a move of the object with its own tool or with no tool (LLFR-00384, LLFR-00382).
 
-*Parent: HLFR-00094*
+*Parent: HLFR-00094, HLFR-00158*
 
 ### LLFR-00421 Double-click a tab
 When the user double-clicks a tab with the left mouse button, the app must act as when the user chooses "Rename" in the tab menu (LLFR-00030, LLFR-00067, LLFR-00656, LLFR-00211, LLFR-00657, LLFR-00658).
@@ -7459,7 +7459,7 @@ While a plot tool is active, a press on a shape must edit the shape only when th
 *Parent: HLFR-00158, HLFR-00032*
 
 ### LLFR-01346 Other plot tools on a shape
-While a plot tool other than the button of the shape's kind is active, a press on a shape must act as the active tool does where no object is drawn, leaving the shape unchanged.
+While a plot tool other than the button of the shape's kind is active, a press on a shape must act as the active tool does where no object is drawn, leaving the shape unchanged, except as in LLFR-00886 on the name in its label.
 
 Note: For example, with the Circle button active, a press on a rectangle starts a new circle.
 
