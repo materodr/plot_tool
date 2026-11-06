@@ -153,7 +153,7 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
                                           ("Sine", 2.0, float(np.sin(2.0)))])
         self.draw()
         self.check_menu(5.0, 3.5, TIP_MENU_TEXT_LIST)
-        self.assertEqual(TIP_MENU_TEXT_LIST[1:4],
+        self.assertEqual(TIP_MENU_TEXT_LIST[2:5],
                          ["Delete", "Delete all data tips in this plot",
                           "Delete all data tips in all plots"])
 
@@ -202,9 +202,9 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
         self.draw()
         self.check_menu(4.0, 2.0, AREA_MENU_TEXT_LIST)
         self.assertEqual(AREA_MENU_TEXT_LIST,
-                         ["Rename", "Color", "Delete",
-                          "Delete all vertical areas", "Position",
-                          "Delete plot"])
+                         ["Rename", "Color", "Text background",
+                          "Delete", "Delete all vertical areas",
+                          "Position", "Delete plot"])
 
     @covers("LLFR-00048", "LLFR-00038")
     def test_other_menus_have_no_delete_all(self) -> None:

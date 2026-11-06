@@ -175,6 +175,8 @@ PLOT_SIGNAL_HANDLER_DICT = {
     # object.
     "object_width_requested": "object_width_handler",
     "object_line_style_requested": "object_line_style_handler",
+    # LLFR-01418, LLFR-01420: a choice of the "Text background" submenu.
+    "text_background_requested": "text_background_handler",
 }
 
 

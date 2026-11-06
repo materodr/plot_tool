@@ -75,11 +75,12 @@ class ThemeTokenTestCase(unittest.TestCase):
         self.assertAlmostEqual(
             theme.contrast_ratio_f("#808080", "#808080"), 1.0)
 
-    @covers("LLFR-00704", "HLFR-00066")
+    @covers("LLFR-00704", "LLFR-01423", "HLFR-00066", "HLFR-00167")
     def test_area_label_box_contrast_for_every_color(self) -> None:
-        """For every area color, the label box gives the text a WCAG
-        contrast of at least 4.5:1, with an opaque box: the plot
-        background when the color reads on it, else black.
+        """For every color, the "Auto contrast" box is the lightest grey,
+        from white down, that gives the text a WCAG contrast of at least
+        2.5:1 (the owner's answers of 2026-11-06 in #270, which replaced
+        the white or black box of 4.5:1).
 
         Inputs: none.
         Outputs: none.
@@ -92,26 +93,86 @@ class ThemeTokenTestCase(unittest.TestCase):
         self.assertAlmostEqual(
             theme.contrast_ratio_f(MARKER_COLOR_STR, "#000000"), 8.34,
             places=2)
-        self.assertEqual(theme.area_label_box_color_str(MARKER_COLOR_STR),
-                         "#000000")
-        self.assertEqual(theme.area_label_box_color_str("#1f3b8c"),
-                         theme.PLOT_BACKGROUND_COLOR_STR)
-        worst_f = 21.0
+        self.assertEqual(theme.MINIMUM_AREA_LABEL_CONTRAST_F, 2.5)
+        # LLFR-01423: the owner's examples.
+        for color_str, grey_str in (("#ff8000", "#ffffff"),
+                                    ("#ffff00", "#9d9d9d"),
+                                    ("#00ff00", "#8a8a8a"),
+                                    ("#00bfff", "#6b6b6b"),
+                                    (PALETTE_COLOR_TUPLE[0], "#ffffff"),
+                                    (PALETTE_COLOR_TUPLE[2], "#ffffff"),
+                                    ("#1f3b8c", "#ffffff"),
+                                    ("#FFFF00", "#9d9d9d")):
+            with self.subTest(color=color_str):
+                self.assertEqual(theme.area_label_box_color_str(color_str),
+                                 grey_str)
         for red_i in range(0, 256, 15):
             for green_i in range(0, 256, 15):
                 for blue_i in range(0, 256, 15):
                     color_str = f"#{red_i:02x}{green_i:02x}{blue_i:02x}"
-                    worst_f = min(worst_f, theme.contrast_ratio_f(
-                        color_str, theme.area_label_box_color_str(
-                            color_str)))
-        self.assertGreaterEqual(worst_f,
-                                theme.MINIMUM_AREA_LABEL_CONTRAST_F)
-        self.assertEqual(theme.MINIMUM_AREA_LABEL_CONTRAST_F, 4.5)
+                    grey_str = theme.area_label_box_color_str(color_str)
+                    value_i = int(grey_str[1:3], 16)
+                    self.assertEqual(grey_str, "#" + grey_str[1:3] * 3)
+                    self.assertGreaterEqual(
+                        theme.contrast_ratio_f(color_str, grey_str), 2.5)
+                    # The lightest one: one step lighter is not enough.
+                    if value_i < 255:
+                        lighter_str = "#" + f"{value_i + 1:02x}" * 3
+                        self.assertLess(
+                            theme.contrast_ratio_f(color_str, lighter_str),
+                            2.5)
+
+    @covers("LLFR-01422", "LLFR-01423", "LLFR-01424", "LLFR-01420",
+            "HLFR-00167")
+    def test_boxes_follow_the_text_background(self) -> None:
+        """"Auto contrast" fills the label boxes with the grey and keeps
+        the borders; "Transparent" gives no fill and no border, also
+        where a border color is given.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.addCleanup(theme.set_text_background,
+                        theme.text_background_str)
+        theme.set_text_background("auto_contrast")
+        self.assertFalse(theme.is_text_background_transparent())
         box_dict = theme.area_label_box_dict("#ffff00")
         self.assertEqual(box_dict["alpha"], 1.0)
-        self.assertEqual(box_dict["facecolor"], "#000000")
+        self.assertEqual(box_dict["facecolor"], "#9d9d9d")
         self.assertEqual(box_dict["boxstyle"],
                          theme.MARKER_TEXT_BOX_DICT["boxstyle"])
+        value_dict = theme.contrast_label_box_dict(
+            "#00ff00", theme.PINNED_TIP_BOX_DICT, edgecolor="#00ff00")
+        self.assertEqual(value_dict["facecolor"], "#8a8a8a")
+        self.assertEqual(value_dict["edgecolor"], "#00ff00")
+        tip_dict = theme.bordered_text_box_dict(
+            theme.TIP_TEXT_COLOR_STR, theme.PINNED_TIP_BOX_DICT,
+            edgecolor="#123456")
+        self.assertEqual(tip_dict["edgecolor"], "#123456")
+        self.assertEqual(tip_dict["facecolor"], "#ffffff")
+        self.assertEqual(tip_dict["linewidth"],
+                         theme.PINNED_TIP_BOX_DICT["linewidth"])
+        note_dict = theme.bordered_text_box_dict(
+            "#ffff00", theme.TEXT_NOTE_BOX_DICT, edgecolor="#ff0000")
+        self.assertEqual(note_dict["facecolor"], "#9d9d9d")
+        self.assertEqual(note_dict["edgecolor"], "#ff0000")
+        theme.set_text_background("transparent")
+        self.assertTrue(theme.is_text_background_transparent())
+        for box_dict in (
+                theme.area_label_box_dict("#ffff00"),
+                theme.contrast_label_box_dict(
+                    "#00ff00", theme.PINNED_TIP_BOX_DICT,
+                    edgecolor="#00ff00"),
+                theme.bordered_text_box_dict(
+                    "#ffff00", theme.TEXT_NOTE_BOX_DICT,
+                    edgecolor="#ff0000")):
+            with self.subTest(box=box_dict):
+                self.assertEqual(box_dict["facecolor"], "none")
+                self.assertEqual(box_dict["edgecolor"], "none")
+                self.assertEqual(box_dict["linewidth"], 0.0)
+        # LLFR-01425: an unknown value gives "Auto contrast".
+        theme.set_text_background("something else")
+        self.assertEqual(theme.text_background_str, "auto_contrast")
 
     @covers("LLFR-00160", "LLFR-00332", "HLFR-00042", "HLFR-00071")
     def test_icon_and_green_name_contrast_limits(self) -> None:

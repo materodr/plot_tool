@@ -473,6 +473,28 @@ class FakePlotView:
         """
         self.labels_hidden_b = bool(hidden_b)
 
+    def remembered_text_background(self) -> str:
+        """Return the text background "kept in the settings".
+
+        Inputs: none.
+        Outputs: remembered_text_background_str, "auto_contrast" unless a
+            test set another value (LLFR-01425, LLFR-01426).
+        """
+        return getattr(self, "remembered_text_background_str",
+                       "auto_contrast")
+
+    def set_text_background(self, choice_str: str) -> None:
+        """Record the text background of every plot.
+
+        Inputs:
+            choice_str: the choice (LLFR-01420).
+        Outputs: none. Each call is kept in text_background_list.
+        """
+        self.text_background_str = choice_str
+        if not hasattr(self, "text_background_list"):
+            self.text_background_list = []
+        self.text_background_list.append(choice_str)
+
     def set_labels_handler(self, handler) -> None:
         """Keep the handler of the Hide labels button.
 

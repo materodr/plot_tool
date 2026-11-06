@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from model.curve_colors import (
     MARKER_COLOR_STR, PALETTE_COLOR_TUPLE, hex_color_or_none,
     next_curve_color)
+from model.text_background import (
+    DEFAULT_TEXT_BACKGROUND_STR, cleaned_text_background)
 
 # LLFR-01122: the plot matrix of a new tab, 5 rows and 1 column
 # (HLFR-00151).
@@ -1898,7 +1900,9 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
                      area_list=(), main_panel_width_i: int = 0,
                      grid_shown_b: bool = True,
                      main_panel_shown_b: bool = True,
-                     labels_hidden_b: bool = False) -> tuple:
+                     labels_hidden_b: bool = False,
+                     text_background_str: str = DEFAULT_TEXT_BACKGROUND_STR
+                     ) -> tuple:
     """Return tabs, vertical markers and areas as plain values.
 
     Inputs:
@@ -1911,8 +1915,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
         main_panel_shown_b: True while the main window shows its signal
             list panel (LLFR-01053, LLFR-01211).
         labels_hidden_b: True while the labels are hidden (LLFR-01281).
+        text_background_str: the text background (LLFR-01427).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
-        width, grid shown, main panel shown, labels hidden): one entry
+        width, grid shown, main panel shown, labels hidden, text
+        background): one entry
         (tab_id_i, name_str, plot state tuples, row_count_i, column_count_i,
         window state tuple) per tab, in tab order, one entry
         (marker_id_i, name_str, time_s, color_str) per marker and one
@@ -1947,9 +1953,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
     # LLFR-01053, LLFR-01211: hiding or showing the main window's panel
     # is undoable too.
     # LLFR-00140: and so is a click on the Hide labels button.
+    # LLFR-01427: and a change of the text background.
     return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i),
             bool(grid_shown_b), bool(main_panel_shown_b),
-            bool(labels_hidden_b))
+            bool(labels_hidden_b), str(text_background_str))
 
 
 def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
@@ -2027,7 +2034,9 @@ class WorkspaceSnapshot:
                  area_list=(), main_panel_width_i: int = 0,
                  grid_shown_b: bool = True,
                  main_panel_shown_b: bool = True,
-                 labels_hidden_b: bool = False) -> None:
+                 labels_hidden_b: bool = False,
+                 text_background_str: str = DEFAULT_TEXT_BACKGROUND_STR
+                 ) -> None:
         """Store the saved state.
 
         Inputs:
@@ -2055,6 +2064,9 @@ class WorkspaceSnapshot:
         self.main_panel_shown_b = bool(main_panel_shown_b)
         # LLFR-01281, LLFR-00138: and whether the labels were hidden.
         self.labels_hidden_b = bool(labels_hidden_b)
+        # LLFR-01427, LLFR-00138: and the text background.
+        self.text_background_str = cleaned_text_background(
+            text_background_str)
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
         """Rename a signal in the saved state.
@@ -2075,7 +2087,8 @@ class WorkspaceSnapshot:
                                             self.main_panel_width_i,
                                             self.grid_shown_b,
                                             self.main_panel_shown_b,
-                                            self.labels_hidden_b)
+                                            self.labels_hidden_b,
+                                            self.text_background_str)
 
 
 class Workspace:
@@ -2136,6 +2149,10 @@ class Workspace:
         # LLFR-01284: the labels are shown at start; LLFR-00140: hiding
         # or showing them is undoable.
         self.labels_hidden_b = False
+        # LLFR-01425: "Auto contrast" until the controller reads the
+        # settings (LLFR-01426); LLFR-01427: a change is undoable;
+        # LLFR-01428, LLFR-01429: reset() and a layout load keep it.
+        self.text_background_str = DEFAULT_TEXT_BACKGROUND_STR
         # LLFR-01055: width of the main window's signal list panel, in
         # pixels, as the view last reported it; 0 while unknown.
         self.main_panel_width_i = 0
@@ -3298,7 +3315,8 @@ class Workspace:
         return tabs_state_tuple(self.tab_list, self.marker_list,
                                 self.area_list, self.main_panel_width_i,
                                 self.grid_shown_b, self.main_panel_shown_b,
-                                self.labels_hidden_b)
+                                self.labels_hidden_b,
+                                self.text_background_str)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -3337,7 +3355,8 @@ class Workspace:
                                  self.main_panel_width_i,
                                  self.grid_shown_b,
                                  self.main_panel_shown_b,
-                                 self.labels_hidden_b)
+                                 self.labels_hidden_b,
+                                 self.text_background_str)
 
     def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
         """Tell whether the workspace still holds a saved state.
@@ -3380,6 +3399,10 @@ class Workspace:
         # LLFR-01281, LLFR-00138: the labels of that state.
         self.labels_hidden_b = bool(getattr(snapshot, "labels_hidden_b",
                                             False))
+        # LLFR-01427, LLFR-00138: the text background of that state.
+        self.text_background_str = cleaned_text_background(
+            getattr(snapshot, "text_background_str",
+                    self.text_background_str))
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.
         highest_tab_id_i = max((tab.tab_id_i for tab in self.tab_list),
                                default=0)
