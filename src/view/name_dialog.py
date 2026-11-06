@@ -20,12 +20,12 @@ from PyQt6.QtWidgets import QApplication, QInputDialog, QLineEdit, QWidget
 from view import top_panel
 
 # LLFR-01185: the actions that the shortcuts of the dialog ask for.
-PDF_ACTION_STR = "pdf"
+EXPORT_ACTION_STR = "export"
 SEARCH_ACTION_STR = "search"
 # LLFR-01185, LLFR-01139, LLFR-01140: the key sequence of each action,
 # the same as the shortcuts of the windows.
 ACTION_SEQUENCE_DICT = {
-    PDF_ACTION_STR: top_panel.EXPORT_SHORTCUT_STR,
+    EXPORT_ACTION_STR: top_panel.EXPORT_SHORTCUT_STR,
     SEARCH_ACTION_STR: top_panel.SEARCH_SHORTCUT_STR,
 }
 
@@ -35,7 +35,7 @@ def shortcut_action_of(event) -> str:
 
     Inputs:
         event: a QKeyEvent.
-    Outputs: PDF_ACTION_STR, SEARCH_ACTION_STR, or "" for any other key.
+    Outputs: EXPORT_ACTION_STR, SEARCH_ACTION_STR, or "" for any other key.
     """
     # LLFR-01185: Ctrl+P and Ctrl+F, Cmd+P and Cmd+F on macOS (Qt names
     # the Command key Ctrl in a portable key sequence).
@@ -52,7 +52,7 @@ class NameDialogShortcutFilter(QObject):
 
     Attributes:
         action_str: the action of the shortcut that accepted a dialog
-            (PDF_ACTION_STR or SEARCH_ACTION_STR), or "" when none did.
+            (EXPORT_ACTION_STR or SEARCH_ACTION_STR), or "" when none did.
     """
 
     def __init__(self) -> None:

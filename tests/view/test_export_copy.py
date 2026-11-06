@@ -74,9 +74,13 @@ class ExportCopyTest(unittest.TestCase):
         # LLFR-00127: the Export window is answered by the test; the
         # owner's answer of 2026-11-06 in #268 replaced the menu by it.
         from view import export_window
+        # The settings file is in a folder of its own, so that no test
+        # that lists the files of self.folder_str finds it.
+        settings_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(settings_folder.cleanup)
         settings_patch = mock.patch.object(
             export_window, "settings_file_path_str",
-            os.path.join(self.folder_str, "settings.ini"))
+            os.path.join(settings_folder.name, "settings.ini"))
         settings_patch.start()
         self.addCleanup(settings_patch.stop)
         self.window_record_list = []

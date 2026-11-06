@@ -96,8 +96,8 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         """
         from PyQt6.QtWidgets import QDialog, QInputDialog, QLineEdit
         from view.name_dialog import (
-            PDF_ACTION_STR, SEARCH_ACTION_STR, NameDialogShortcutFilter)
-        for key_str, action_str in (("P", PDF_ACTION_STR),
+            EXPORT_ACTION_STR, SEARCH_ACTION_STR, NameDialogShortcutFilter)
+        for key_str, action_str in (("P", EXPORT_ACTION_STR),
                                     ("F", SEARCH_ACTION_STR)):
             dialog = QInputDialog(self.main_window)
             dialog.setInputMode(QInputDialog.InputMode.TextInput)

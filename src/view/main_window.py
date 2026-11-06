@@ -3874,7 +3874,7 @@ class MainWindow(QMainWindow):
         """Run Ctrl+P or Ctrl+F pressed in a name dialog, after it closed.
 
         Inputs:
-            action_str: name_dialog.PDF_ACTION_STR or SEARCH_ACTION_STR.
+            action_str: name_dialog.EXPORT_ACTION_STR or SEARCH_ACTION_STR.
             parent: the window the dialog was shown over.
         Outputs: none.
         """
@@ -3884,7 +3884,7 @@ class MainWindow(QMainWindow):
         for undocked_id_i, window in self.undocked_window_dict.items():
             if window is parent:
                 window_id_i = undocked_id_i
-        if action_str == name_dialog.PDF_ACTION_STR:
+        if action_str == name_dialog.EXPORT_ACTION_STR:
             self._on_export_shortcut(window_id_i)
         elif action_str == name_dialog.SEARCH_ACTION_STR:
             self._on_search_shortcut(window_id_i)
