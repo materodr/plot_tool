@@ -15,7 +15,10 @@ from tests.check_requirement_review import (DEVELOP_HEADING_STR,
                                             MATRIX_SCOPE_DICT,
                                             NOT_APPLICABLE_TEXT_STR,
                                             added_requirement_ids,
+                                            DEVELOP_APPROVAL_SCOPE_DICT,
                                             check_body_file,
+                                            needs_approval,
+                                            touched_requirement_ids,
                                             has_review_section, main,
                                             missing_scope, run_hook,
                                             scope_satisfied)
@@ -194,6 +197,47 @@ class AddedRequirementsTest(unittest.TestCase):
         self.commit()
         self.assertEqual(self.added(), [])
 
+    @covers("PCR-00052", "PCR-00053")
+    def test_changed_and_added_requirements_are_touched(self) -> None:
+        """A changed text and a new requirement both need the section.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.write_file("### PCR-00001 Host\nChanged.\n\n"
+                        "### PCR-00002 Other\nOld.\n\n"
+                        "### PCR-00003 New\nNew.\n")
+        self.commit()
+        self.assertEqual(
+            touched_requirement_ids("develop", "HEAD", self.folder_str),
+            ["PCR-00001", "PCR-00003"])
+
+    @covers("PCR-00052")
+    def test_removed_line_touches_its_requirement(self) -> None:
+        """Removing a line of a requirement's text touches it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.write_file("### PCR-00001 Host\nOld.\n\n"
+                        "### PCR-00002 Other\n")
+        self.commit()
+        self.assertEqual(
+            touched_requirement_ids("develop", "HEAD", self.folder_str),
+            ["PCR-00002"])
+
+    @covers("PCR-00052")
+    def test_untouched_branch_touches_nothing(self) -> None:
+        """A branch that leaves the requirements alone touches none.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(
+            touched_requirement_ids("develop", "HEAD", self.folder_str), [])
+        self.assertIsNone(
+            touched_requirement_ids("develop", "missing", self.folder_str))
+
     @covers("PCR-00052")
     def test_readme_examples_do_not_count(self) -> None:
         """The examples in the requirements README aren't requirements.
@@ -244,7 +288,7 @@ class CommandTest(unittest.TestCase):
             added_id_list: what the branch adds, by default nothing.
         Outputs: the scope whose section is missing, or an empty dict.
         """
-        with mock.patch(f"{MODULE_STR}.added_requirement_ids",
+        with mock.patch(f"{MODULE_STR}.touched_requirement_ids",
                         return_value=added_id_list or []):
             return missing_scope(command_str, self.folder_str)
 
@@ -332,7 +376,7 @@ class CommandTest(unittest.TestCase):
                             "gh pr create -B develop --fill",
                             "gh api repos/a/b/pulls -f base=develop"):
             with self.subTest(command_str=command_str):
-                self.assertEqual(self.missing(command_str, ["PCR-00052"]),
+                self.assertEqual(self.missing(command_str, ["LLFR-00001"]),
                                  DEVELOP_SCOPE_DICT)
 
     @covers("PCR-00053")
@@ -350,7 +394,7 @@ class CommandTest(unittest.TestCase):
                             "gh api repos/a/b/pulls -f base=develop "
                             "-F body=@develop.md"):
             with self.subTest(command_str=command_str):
-                self.assertEqual(self.missing(command_str, ["PCR-00052"]), {})
+                self.assertEqual(self.missing(command_str, ["LLFR-00001"]), {})
 
     @covers("PCR-00053")
     def test_head_option_names_the_branch_to_compare(self) -> None:
@@ -359,7 +403,7 @@ class CommandTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        with mock.patch(f"{MODULE_STR}.added_requirement_ids",
+        with mock.patch(f"{MODULE_STR}.touched_requirement_ids",
                         return_value=[]) as added_mock:
             missing_scope("gh pr create --base develop --head feature/1-x "
                           "--fill", self.folder_str)
@@ -374,7 +418,7 @@ class CommandTest(unittest.TestCase):
         Outputs: none.
         """
         self.assertEqual(self.missing("gh pr create --base feature/1-x --fill",
-                                      ["PCR-00052"]), {})
+                                      ["LLFR-00001"]), {})
 
     @covers("PCR-00051", "PCR-00053")
     def test_api_input_file_is_read(self) -> None:
@@ -396,8 +440,40 @@ class CommandTest(unittest.TestCase):
             with self.subTest(name_str=name_str):
                 self.assertEqual(
                     self.missing(f"gh api repos/a/b/pulls --input {name_str}",
-                                 ["PCR-00052"]),
+                                 ["LLFR-00001"]),
                     expected_dict)
+
+
+class ApprovalTest(unittest.TestCase):
+    """Check the owner's approval in the section (PCR-00126)."""
+
+    @covers("PCR-00126", "PCR-00123", "PCR-00124", "PCR-00029")
+    def test_hlfr_pcr_and_cor_need_approval(self) -> None:
+        """HLFR, PCR and COR changes need it; LLFR changes don't.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for id_str in ("HLFR-00001", "PCR-00001", "COR-00001"):
+            with self.subTest(id_str=id_str):
+                self.assertTrue(needs_approval(["LLFR-00001", id_str]))
+        self.assertFalse(needs_approval(["LLFR-00001", "LLFR-00002"]))
+
+    @covers("PCR-00126", "PCR-00053")
+    def test_section_must_state_the_approval(self) -> None:
+        """With an HLFR, PCR or COR change, the section names an approval.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        approved_body_str = (f"## {DEVELOP_HEADING_STR}\nScope: PCR-00001. "
+                             "The owner approved PCR-00001 on 2026-11-05.\n")
+        self.assertTrue(scope_satisfied(approved_body_str,
+                                        DEVELOP_APPROVAL_SCOPE_DICT))
+        self.assertFalse(scope_satisfied(DEVELOP_BODY_STR,
+                                         DEVELOP_APPROVAL_SCOPE_DICT))
+        self.assertTrue(scope_satisfied(DEVELOP_BODY_STR,
+                                        DEVELOP_SCOPE_DICT))
 
 
 class MatrixPullRequestTest(unittest.TestCase):
@@ -502,7 +578,7 @@ class EntryPointTest(unittest.TestCase):
                          "--head", "abc"]
         with mock.patch("sys.argv", argument_list), \
                 mock.patch("sys.stdout", io.StringIO()), \
-                mock.patch(f"{MODULE_STR}.added_requirement_ids",
+                mock.patch(f"{MODULE_STR}.touched_requirement_ids",
                            return_value=added_id_list):
             return main()
 
@@ -528,8 +604,8 @@ class EntryPointTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        with mock.patch(f"{MODULE_STR}.added_requirement_ids",
-                        return_value=["PCR-00052"]):
+        with mock.patch(f"{MODULE_STR}.touched_requirement_ids",
+                        return_value=["LLFR-00001"]):
             exit_code_i, error_str = self.run_hook_with(json.dumps(
                 {"tool_input": {
                     "command": "gh pr create --base develop --fill"}}))
@@ -569,11 +645,11 @@ class EntryPointTest(unittest.TestCase):
         """
         self.assertEqual(self.run_body_check(BAD_BODY_STR, "develop", []), 0)
         self.assertEqual(self.run_body_check(DEVELOP_BODY_STR, "develop",
-                                             ["PCR-00052"]), 0)
+                                             ["LLFR-00001"]), 0)
         self.assertEqual(self.run_body_check(BAD_BODY_STR, "develop",
-                                             ["PCR-00052"]), 1)
+                                             ["LLFR-00001"]), 1)
         self.assertEqual(self.run_body_check(MAIN_BODY_STR, "develop",
-                                             ["PCR-00052"]), 1)
+                                             ["LLFR-00001"]), 1)
 
     @covers("PCR-00053")
     def test_ci_check_fails_when_git_cannot_tell(self) -> None:

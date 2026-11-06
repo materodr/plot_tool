@@ -122,12 +122,14 @@ Note: "The last merge into `main`" means the merge of the last release pull requ
 A pull request from `develop` to `main` must show the result of the requirements review of PCR-00050.
 
 ### PCR-00052 Requirements review before a pull request into develop
-Before a pull request into `develop` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement that its branch adds.
+Before a pull request into `develop` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement that its branch adds or changes.
 
-Note: A branch that adds no requirement has nothing to review, so its pull request has no result to show (PCR-00053).
+Note: A branch that adds or changes no requirement has nothing to review, so its pull request has no result to show (PCR-00053). The owner extended this from added to changed requirements on 2026-11-05.
 
 ### PCR-00053 Requirements review result for a pull request into develop
-A pull request into `develop` whose branch adds a requirement must show the result of the requirements review of PCR-00052.
+A pull request into `develop` whose branch adds or changes a requirement must show the result of the requirements review of PCR-00052.
+
+Note: `tests/check_requirement_review.py` and its hook check that the section is there, under the heading "Requirement validation (PCR-00052)".
 
 ### PCR-00019 Test matrix
 A table named test matrix must be permanently kept in the `tests` folder.
@@ -186,7 +188,7 @@ Note: The branch is compared with its base branch. The sample files of PCR-00032
 ### PCR-00121 Pushes run only the requirement checks
 A push to `develop` or `main` must run only the requirement checks, with no run of the tests.
 
-Note: The run of the pull request already tested the merged code, because its branch was up to date (PCR-00060). The owner decided this on 2026-11-05.
+Note: The run of the pull request already tested the merged code, because its branch was up to date (PCR-00060). The macOS build of `macos_build.yml` therefore runs only on pull requests too. The owner decided this on 2026-11-05.
 
 ### PCR-00079 Tests skipped for other changes
 A pull request into `develop` whose branch changes only files outside the list of PCR-00078 must skip the run of the tests.
@@ -446,6 +448,8 @@ Each code and organization requirement (COR) that is created or changed must hav
 
 ### PCR-00126 Approval stated in the pull request
 The requirement validation section of a pull request (PCR-00051, PCR-00053) must state the owner's approval of each HLFR, PCR or COR requirement that its branch creates or changes (PCR-00029, PCR-00123, PCR-00124).
+
+Note: A pull request into `develop` whose branch adds or changes any requirement has that section (PCR-00053). An LLFR needs no approval line (PCR-00030). Into `develop`, `tests/check_requirement_review.py` checks that the section mentions an approval when an HLFR, PCR or COR requirement changed; it can't check the approval itself.
 
 ### PCR-00030 LLFR ownership
 Low-level functional requirements must be created and edited by agents during development.

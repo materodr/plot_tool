@@ -436,6 +436,26 @@ class BranchProblemsTest(unittest.TestCase):
         self.assertEqual(len(problem_list), 1)
         self.assertIn("PCR-00085", problem_list[0])
 
+    @covers("PCR-00061")
+    def test_test_matrix_branch_into_main_changes_only_the_matrix(
+            self) -> None:
+        """The matrix pull request into main changes only the matrix.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.write_file(MATRIX_PATH_STR, "# Matrix of the release run\n")
+        self.commit("Update the test matrix from the release #254")
+        self.assertEqual(branch_problems(
+            "main", "HEAD", self.folder_str, "test-matrix/254-main"), [])
+        self.write_file("src/code.py", "sneaked in\n")
+        self.commit("code")
+        problem_list = branch_problems("main", "HEAD", self.folder_str,
+                                       "test-matrix/254-main")
+        self.assertEqual(len(problem_list), 1)
+        self.assertIn("PCR-00061", problem_list[0])
+
     @covers("PCR-00070", "PCR-00065")
     def test_expected_entries_come_from_the_list_and_the_run(self) -> None:
         """The list of the head and the environment Fail* of the run.

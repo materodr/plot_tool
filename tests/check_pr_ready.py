@@ -359,6 +359,17 @@ def branch_problems(base_str: str, head_str: str, folder_str: str,
                 "PCR-00081, PCR-00085). Put it back as develop has it: "
                 f"`git checkout origin/develop -- {MATRIX_PATH_STR}`, then "
                 "commit.")
+    if base_str == MAIN_BRANCH_STR and is_test_matrix_branch(
+            head_branch_str):
+        # PCR-00061: the matrix pull request into main changes only the
+        # matrix.
+        main_path_list = run_git(
+            folder_str, "diff", "--name-only", "--no-renames",
+            f"origin/{base_str}...{head_str}").split()
+        if any(path_str != MATRIX_PATH_STR for path_str in main_path_list):
+            problem_list.append(
+                f"A test matrix branch changes only {MATRIX_PATH_STR} "
+                "(PCR-00061), but this one changes other files too.")
     if base_str == MAIN_BRANCH_STR:
         # PCR-00069: the list itself, so that no HLFR that isn't
         # implemented yet goes into main.

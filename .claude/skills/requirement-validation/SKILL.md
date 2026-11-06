@@ -1,6 +1,6 @@
 ---
 name: "requirement-validation"
-description: "Check, validate and correct the plot_tool requirements so each states one obligation about one thing. Required before every develop-to-main PR (PCR-00050) and before every PR into develop whose branch adds requirements (PCR-00052)."
+description: "Check, validate and correct the plot_tool requirements so each states one obligation about one thing. Required before every develop-to-main PR (PCR-00050) and before every PR into develop whose branch adds or changes requirements (PCR-00052)."
 ---
 
 # Requirement validation (plot_tool)
@@ -9,7 +9,7 @@ This skill checks, validates by independent review, and corrects the requirement
 
 **When to run it**
 - **Before every pull request from `develop` to `main`** (PCR-00050). The scope is every requirement created or changed since the last merge into `main`, and the release PR must show the result (PCR-00051).
-- **Before every pull request into `develop` whose branch adds requirements** (PCR-00052). The scope is the requirements that the branch adds, and the PR must show the result (PCR-00053).
+- **Before every pull request into `develop` whose branch adds or changes requirements** (PCR-00052). The scope is the requirements that the branch adds or changes, and the PR must show the result (PCR-00053).
 - Whenever the owner asks for a requirements quality check, or the `requirements-quality` CI job fails.
 
 **Owner's ground rules (never break them)**
@@ -200,8 +200,8 @@ Corrections follow the flow of `docs/process/feature_fix_flow.md` (PCR-00120): t
   - the matrix counts (pass, fail, no tests), with the reason for each HLFR that doesn't pass;
   - the untested new parts;
   - known points.
-- **For a develop to main PR (PCR-00051):** add a "Requirement validation (PCR-00050)" section. **For a PR into develop whose branch adds requirements (PCR-00053):** add a "Requirement validation (PCR-00052)" section instead. `tests/check_requirement_review.py` looks for these headings. The section has:
-  - the scope (the IDs created or changed since the last merge into `main`, or the IDs the branch adds);
+- **For a develop to main PR (PCR-00051):** add a "Requirement validation (PCR-00050)" section. **For a PR into develop whose branch adds or changes requirements (PCR-00053):** add a "Requirement validation (PCR-00052)" section instead. `tests/check_requirement_review.py` looks for these headings. The section has:
+  - the scope (the IDs created or changed since the last merge into `main`, or the IDs the branch adds or changes);
   - the check result;
   - the judgement-pass findings and how each was resolved, with links to the fix issue and PR;
   - the owner's approval of each HLFR, PCR or COR text that was created or changed (PCR-00126);

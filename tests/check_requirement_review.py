@@ -9,9 +9,12 @@ The requirement-validation skill reviews the requirements, and the pull
 request has to show the result in a section with its own heading:
 - into main: every requirement created or changed since the last merge
   into main, under MAIN_HEADING_STR (PCR-00050, PCR-00051);
-- into develop: the requirements that the branch adds, under
-  DEVELOP_HEADING_STR (PCR-00052, PCR-00053). A branch that adds no
-  requirement needs no section;
+- into develop: the requirements that the branch adds or changes, under
+  DEVELOP_HEADING_STR (PCR-00052, PCR-00053). A branch that adds or
+  changes no requirement needs no section. When it adds or changes an
+  HLFR, PCR or COR requirement, the section must also state the owner's
+  approval (PCR-00126): this script checks that it mentions an
+  approval;
 - the matrix pull request into main, from a test-matrix/ branch: the
   section MAIN_HEADING_STR with exactly NOT_APPLICABLE_TEXT_STR
   (PCR-00125). That text is accepted only there.
@@ -41,6 +44,14 @@ import subprocess
 import sys
 from typing import Optional
 
+TESTS_FOLDER_STR = os.path.dirname(os.path.abspath(__file__))
+REPOSITORY_ROOT_STR = os.path.dirname(TESTS_FOLDER_STR)
+if REPOSITORY_ROOT_STR not in sys.path:
+    sys.path.insert(0, REPOSITORY_ROOT_STR)
+
+from tests.find_affected_requirements import (  # noqa
+    FILE_PATTERN_STR, HUNK_PATTERN_STR)
+
 MAIN_BRANCH_STR = "main"
 DEVELOP_BRANCH_STR = "develop"
 MAIN_HEADING_STR = "Requirement validation (PCR-00050)"
@@ -59,6 +70,11 @@ REQUIREMENT_FILE_LIST = [
     "docs/requirements/low_level_functional_requirements.md",
 ]
 DIFF_ID_PATTERN_STR = r"^([+-])### ((?:COR|PCR|HLFR|LLFR)-\d{5})\b"
+HEADING_ID_PATTERN_STR = r"^### ((?:COR|PCR|HLFR|LLFR)-\d{5})\b"
+# PCR-00123, PCR-00124, PCR-00029: the requirements whose text needs the
+# owner's approval, and the word that the section uses to state it.
+APPROVAL_PREFIX_TUPLE = ("HLFR-", "PCR-", "COR-")
+APPROVAL_WORD_STR = "approv"
 # The start of a shell command, with any VARIABLE=value before it, so
 # that a mention of the command inside other text doesn't count.
 COMMAND_START_STR = r"(?:^|[;&|(])\s*(?:\w+=\S*\s+)*"
@@ -80,8 +96,16 @@ MAIN_SCOPE_DICT = {"scope": "PCR-00050, PCR-00051",
                                 "the last merge into main"),
                    "heading": MAIN_HEADING_STR}
 DEVELOP_SCOPE_DICT = {"scope": "PCR-00052, PCR-00053",
-                      "reviewed": "every requirement that this branch adds",
+                      "reviewed": ("every requirement that this branch adds "
+                                   "or changes"),
                       "heading": DEVELOP_HEADING_STR}
+DEVELOP_APPROVAL_SCOPE_DICT = {
+    "scope": "PCR-00052, PCR-00053, PCR-00126",
+    "reviewed": ("every requirement that this branch adds or changes, and "
+                 "state in the section the owner's approval of each HLFR, "
+                 "PCR or COR text"),
+    "heading": DEVELOP_HEADING_STR,
+    "approval_b": True}
 MATRIX_SCOPE_DICT = {"scope": "PCR-00125",
                      "reviewed": ("nothing, as this pull request changes only "
                                   "the matrix; write exactly \""
@@ -151,6 +175,9 @@ def scope_satisfied(body_str: str, scope_dict: dict) -> bool:
     text_str = section_text(body_str, scope_dict["heading"])
     if "required_text" in scope_dict:
         return text_str == scope_dict["required_text"]
+    if (scope_dict.get("approval_b")
+            and APPROVAL_WORD_STR not in text_str.lower()):
+        return False
     if scope_dict is MAIN_SCOPE_DICT and text_str == NOT_APPLICABLE_TEXT_STR:
         return False
     return has_review_section(body_str, scope_dict["heading"])
@@ -207,6 +234,104 @@ def added_requirement_ids(base_str: str, head_str: str,
     return None
 
 
+def touched_requirement_ids(base_str: str, head_str: str,
+                            folder_str: str) -> Optional[list]:
+    """Find the requirements that a branch adds or changes (PCR-00052).
+
+    Inputs:
+        base_str: the branch the pull request goes into.
+        head_str: the branch or commit of the pull request.
+        folder_str: a folder of the git checkout.
+    Outputs: the sorted IDs whose heading or text changed since the
+        branch left the base, or None when git can't tell. An added or
+        changed line counts unless it is blank; a removal counts for the
+        requirement of the line before it, or after it when that line is
+        blank.
+    """
+    for head_try_str in (head_str, f"origin/{head_str}"):
+        try:
+            diff_str = subprocess.run(
+                ["git", "-C", folder_str, "diff", "--unified=0",
+                 f"origin/{base_str}...{head_try_str}", "--"]
+                + REQUIREMENT_FILE_LIST,
+                check=True, capture_output=True, text=True,
+                encoding="utf-8").stdout
+        except (OSError, subprocess.CalledProcessError):
+            continue
+        touched_id_set = set()
+        for path_str, hunk_list in changed_hunks(diff_str).items():
+            try:
+                text_str = subprocess.run(
+                    ["git", "-C", folder_str, "show",
+                     f"{head_try_str}:{path_str}"],
+                    check=True, capture_output=True, text=True,
+                    encoding="utf-8").stdout
+            except (OSError, subprocess.CalledProcessError):
+                continue
+            line_list = text_str.splitlines()
+            line_set = set()
+            for start_i, count_i in hunk_list:
+                if count_i:
+                    line_set.update(
+                        number_i for number_i in range(start_i,
+                                                       start_i + count_i)
+                        if line_list[number_i - 1].strip())
+                elif 0 < start_i <= len(line_list) and line_list[
+                        start_i - 1].strip():
+                    line_set.add(start_i)
+                else:
+                    line_set.add(start_i + 1)
+            current_id_str = ""
+            for line_number_i, line_str in enumerate(line_list, start=1):
+                heading_match = re.match(HEADING_ID_PATTERN_STR, line_str)
+                if heading_match:
+                    current_id_str = heading_match.group(1)
+                if current_id_str and line_number_i in line_set:
+                    touched_id_set.add(current_id_str)
+        return sorted(touched_id_set)
+    return None
+
+
+def changed_hunks(diff_str: str) -> dict:
+    """Read the hunks of a diff, on the side of the head.
+
+    Inputs:
+        diff_str: the output of git diff --unified=0.
+    Outputs: a dict from each file path to a list of (first line, number
+        of lines) of its hunks at the head. A pure removal has 0 lines and
+        the number of the line before it.
+    """
+    hunk_dict = {}
+    path_str = ""
+    for line_str in diff_str.splitlines():
+        file_match = re.match(FILE_PATTERN_STR, line_str)
+        if file_match:
+            path_str = file_match.group(1)
+            hunk_dict[path_str] = []
+            continue
+        if line_str.startswith("+++ "):
+            path_str = ""
+            continue
+        hunk_match = re.match(HUNK_PATTERN_STR, line_str)
+        if hunk_match and path_str:
+            count_str = hunk_match.group(2)
+            hunk_dict[path_str].append(
+                (int(hunk_match.group(1)),
+                 1 if count_str is None else int(count_str)))
+    return hunk_dict
+
+
+def needs_approval(id_list: list) -> bool:
+    """Tell whether requirements need the owner's approval (PCR-00126).
+
+    Inputs:
+        id_list: requirement IDs that a branch adds or changes.
+    Outputs: True when one of them is an HLFR, a PCR or a COR
+        requirement; LLFRs are the agents' work (PCR-00030).
+    """
+    return any(id_str.startswith(APPROVAL_PREFIX_TUPLE) for id_str in id_list)
+
+
 def needed_scope(base_str: str, head_str: str, folder_str: str,
                  head_branch_str: str = "") -> dict:
     """Choose the review section that a pull request needs.
@@ -219,7 +344,9 @@ def needed_scope(base_str: str, head_str: str, folder_str: str,
             from head_str (branch_name).
     Outputs: MATRIX_SCOPE_DICT for a test-matrix/ branch into main
         (PCR-00125), MAIN_SCOPE_DICT for any other pull request into main,
-        DEVELOP_SCOPE_DICT, or an empty dict when it needs no section.
+        DEVELOP_APPROVAL_SCOPE_DICT or DEVELOP_SCOPE_DICT into develop when
+        the branch adds or changes requirements, with or without an HLFR,
+        PCR or COR one, or an empty dict when it needs no section.
         When git can't tell what the branch adds, it needs none here,
         because the CI job still checks the pull request.
     """
@@ -228,9 +355,12 @@ def needed_scope(base_str: str, head_str: str, folder_str: str,
                 TEST_MATRIX_BRANCH_PREFIX_STR):
             return MATRIX_SCOPE_DICT
         return MAIN_SCOPE_DICT
-    if base_str == DEVELOP_BRANCH_STR and added_requirement_ids(
-            base_str, head_str, folder_str):
-        return DEVELOP_SCOPE_DICT
+    if base_str == DEVELOP_BRANCH_STR:
+        touched_id_list = touched_requirement_ids(base_str, head_str,
+                                                  folder_str)
+        if touched_id_list:
+            return (DEVELOP_APPROVAL_SCOPE_DICT
+                    if needs_approval(touched_id_list) else DEVELOP_SCOPE_DICT)
     return {}
 
 
@@ -293,7 +423,9 @@ def check_pr_create(command_str: str, folder_str: str) -> dict:
         found_b = (re.search(HEADING_PATTERN_STR
                              + re.escape(scope_dict["heading"]),
                              command_str) is not None
-                   and scope_dict.get("required_text", "") in command_str)
+                   and scope_dict.get("required_text", "") in command_str
+                   and (not scope_dict.get("approval_b")
+                        or APPROVAL_WORD_STR in command_str.lower()))
     return {} if found_b else scope_dict
 
 
@@ -340,7 +472,9 @@ def check_api_pulls(command_str: str, folder_str: str) -> dict:
         found_b = (re.search(HEADING_PATTERN_STR
                              + re.escape(scope_dict["heading"]),
                              command_str) is not None
-                   and scope_dict.get("required_text", "") in command_str)
+                   and scope_dict.get("required_text", "") in command_str
+                   and (not scope_dict.get("approval_b")
+                        or APPROVAL_WORD_STR in command_str.lower()))
     return {} if found_b else scope_dict
 
 
@@ -405,16 +539,19 @@ def check_body_file(body_path_str: str, base_str: str, head_str: str,
         scope_dict = needed_scope(base_str, head_str, os.getcwd(),
                                   head_branch_str or head_str)
     else:
-        added_id_list = added_requirement_ids(base_str, head_str, os.getcwd())
-        if added_id_list is None:
+        touched_id_list = touched_requirement_ids(base_str, head_str,
+                                                  os.getcwd())
+        if touched_id_list is None:
             print("Result: fail, git can't tell which requirements this "
-                  "branch adds.")
+                  "branch adds or changes.")
             return 1
-        if not added_id_list:
-            print("Result: pass, this branch adds no requirement.")
+        if not touched_id_list:
+            print("Result: pass, this branch adds or changes no requirement.")
             return 0
-        print("This branch adds: " + ", ".join(added_id_list))
-        scope_dict = DEVELOP_SCOPE_DICT
+        print("This branch adds or changes: " + ", ".join(touched_id_list))
+        scope_dict = (DEVELOP_APPROVAL_SCOPE_DICT
+                      if needs_approval(touched_id_list)
+                      else DEVELOP_SCOPE_DICT)
     if scope_satisfied(body_str, scope_dict):
         print(f"Result: pass, the section \"{scope_dict['heading']}\" is "
               "there.")
