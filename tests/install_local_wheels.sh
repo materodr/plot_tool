@@ -25,7 +25,7 @@
 # When the branch doesn't exist yet, can't be fetched, or a step fails,
 # the script prints why and what to do, and exits with code 1: the agent
 # reports it and carries on as before, with the GUI and HDF5 tests
-# skipped locally and run in CI (PCR-00131). It uses bash, git, tar,
+# skipped locally and run in CI (PCR-00131). It uses bash, git, tar, realpath,
 # sha256sum and the Python of $PYTHON (python3 by default).
 
 set -uo pipefail
@@ -71,14 +71,22 @@ REPOSITORY_ROOT="$(git -C "$SCRIPT_FOLDER" rev-parse --show-toplevel 2>/dev/null
     || fail "$SCRIPT_FOLDER is not in a git checkout"
 
 # The folder must be outside the worktree, so that the wheels are never
-# committed.
-mkdir -p "$WHEELS_FOLDER" || fail "can't create $WHEELS_FOLDER"
-WHEELS_FOLDER="$(cd "$WHEELS_FOLDER" && pwd)"
+# committed. The path is checked before the folder is created, so that
+# a refused path leaves nothing behind: it is made absolute and its "."
+# and ".." parts are resolved without touching the disk.
+case "$WHEELS_FOLDER" in
+    /*) ;;
+    *) WHEELS_FOLDER="$PWD/$WHEELS_FOLDER" ;;
+esac
+WHEELS_FOLDER="$(realpath -m "$WHEELS_FOLDER")" \
+    || fail "can't resolve the folder $WHEELS_FOLDER"
+REPOSITORY_ROOT="$(realpath -m "$REPOSITORY_ROOT")"
 case "$WHEELS_FOLDER/" in
     "$REPOSITORY_ROOT/"*)
         fail "the folder $WHEELS_FOLDER is inside the worktree $REPOSITORY_ROOT; choose one outside it"
         ;;
 esac
+mkdir -p "$WHEELS_FOLDER" || fail "can't create $WHEELS_FOLDER"
 
 # Step 1: fetch only ci-wheels, into its remote-tracking ref.
 echo "Fetching origin $BRANCH_NAME ..."
@@ -160,4 +168,4 @@ from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
 import h5py
 print(f"PyQt6 {PYQT_VERSION_STR} (Qt {QT_VERSION_STR}), h5py {h5py.__version__}")
 PYTHON
-echo "Run the tests with QT_QPA_PLATFORM=offscreen, for example: QT_QPA_PLATFORM=offscreen python tests/build_test_matrix.py"
+echo "Run the tests you deem necessary with QT_QPA_PLATFORM=offscreen, for example: QT_QPA_PLATFORM=offscreen python -m unittest tests.test_x (PCR-00082, PCR-00092)"

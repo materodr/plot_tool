@@ -9,6 +9,7 @@ read the files of .github/workflows.
 """
 
 import hashlib
+import importlib.util
 import os
 import re
 import shutil
@@ -16,8 +17,6 @@ import stat
 import subprocess
 import tempfile
 import unittest
-
-import yaml
 
 from tests.support import REPOSITORY_ROOT_STR, covers
 
@@ -28,6 +27,11 @@ WORKFLOW_FOLDER_STR = os.path.join(REPOSITORY_ROOT_STR, ".github",
 SMALL_WHEEL_STR = ("h5py-3.12.1-cp313-cp313-manylinux_2_17_x86_64."
                    "manylinux2014_x86_64.whl")
 BIG_WHEEL_STR = "PyQt6_Qt6-6.9.0-py3-none-manylinux_2_28_x86_64.whl"
+# PyYAML isn't in requirements.txt, so CI's shards may not have it: the
+# tests that read the workflows skip there, as in tests/test_ci_shards.py.
+YAML_AVAILABLE_B = importlib.util.find_spec("yaml") is not None
+requires_yaml = unittest.skipUnless(YAML_AVAILABLE_B,
+                                    "PyYAML is not installed")
 BIG_CONTENT_BYTES = b"0123456789abcdefghijklmnopqrstuvwxyz" * 3
 PART_SIZE_I = 40
 REQUIREMENTS_TEXT_STR = ("PyQt6>=6.5        # user interface\n"
@@ -311,9 +315,11 @@ class InstallScriptTest(unittest.TestCase):
         Outputs: none.
         """
         self.push_wheel_branch(wheel_branch_files())
-        result = self.run_script(
-            "--no-install", folder_str=os.path.join(self.clone_str, "w"))
+        inside_str = os.path.join(self.clone_str, "w", "..", "w", "x")
+        result = self.run_script("--no-install", folder_str=inside_str)
         self.assert_failed_with(result, "is inside the worktree")
+        # The path is checked before the folder is created.
+        self.assertFalse(os.path.exists(os.path.join(self.clone_str, "w")))
 
     @covers("PCR-00131")
     def test_foreign_folder_is_not_emptied(self) -> None:
@@ -381,11 +387,13 @@ def read_workflow(name_str: str) -> dict:
         name_str: the file name, for example ``wheels.yml``.
     Outputs: the workflow as a dict. PyYAML reads the key ``on`` as True.
     """
+    import yaml
     with open(os.path.join(WORKFLOW_FOLDER_STR, name_str),
               encoding="utf-8") as workflow_file:
         return yaml.safe_load(workflow_file)
 
 
+@requires_yaml
 class WheelsWorkflowTest(unittest.TestCase):
     """Check .github/workflows/wheels.yml."""
 
@@ -456,6 +464,7 @@ class WheelsWorkflowTest(unittest.TestCase):
 class CheckoutTest(unittest.TestCase):
     """The CI checkouts don't fetch ci-wheels (PCR-00130)."""
 
+    @requires_yaml
     @covers("PCR-00130")
     def test_no_checkout_fetches_every_branch(self) -> None:
         """No workflow uses fetch-depth 0, which fetches every branch.
@@ -473,6 +482,7 @@ class CheckoutTest(unittest.TestCase):
                             "fetch-depth", 1))
                         self.assertNotEqual(depth_str, "0", name_str)
 
+    @requires_yaml
     @covers("PCR-00130")
     def test_history_fetched_with_only_the_base_branch(self) -> None:
         """Each job that compares with the base fetches only that branch.
