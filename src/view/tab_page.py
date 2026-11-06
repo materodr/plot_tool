@@ -1,7 +1,7 @@
 """Tab page: the plots of one tab, laid out in its plot matrix."""
 
 from PyQt6.QtCore import QPoint, QSize, Qt
-from PyQt6.QtGui import QPalette, QPixmap, QRegion
+from PyQt6.QtGui import QPainter, QPalette, QPixmap
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget)
 
@@ -306,11 +306,22 @@ class TabPage(QWidget):
         pixmap = QPixmap(QSize(max(1, round(area_size.width() * ratio_f)),
                                max(1, round(area_size.height() * ratio_f))))
         pixmap.setDevicePixelRatio(ratio_f)
-        # LLFR-00892: the gaps between the plots and the corners around
-        # them get the page's own Window color, as a grab of the page
-        # gave them, whatever palette or style sheet the widgets inside
-        # the scroll area take.
+        # LLFR-00892: the gaps between the plots get the page's own
+        # Window color, as a grab of the page gave them. Only the plots
+        # are drawn over it, each from its own grab at its place in the
+        # plot area: the widgets inside the scroll area are not drawn,
+        # so no background of theirs can cover the gaps. The canvases
+        # paint their corners opaque in the color corners_in_color gives
+        # them (LLFR-00892).
         pixmap.fill(self.palette().color(QPalette.ColorRole.Window))
-        self.plot_area.render(pixmap, QPoint(0, 0), QRegion(),
-                              QWidget.RenderFlag.DrawChildren)
+        painter = QPainter(pixmap)
+        try:
+            for plot_widget in self.plot_widget_list:
+                if plot_widget.isHidden():
+                    continue
+                painter.drawPixmap(plot_widget.mapTo(self.plot_area,
+                                                     QPoint(0, 0)),
+                                   plot_widget.grab())
+        finally:
+            painter.end()
         return pixmap
