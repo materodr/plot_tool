@@ -364,8 +364,10 @@ class MainWindow(QMainWindow):
         # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
         # Vertical marker tool active; LLFR-00197 to LLFR-00202: holding
         # X or Y keeps the Delta X or Delta Y tool active; LLFR-00287,
-        # LLFR-00321: holding A or T keeps the Area or Text tool active;
-        # LLFR-00367: holding R keeps the Arrow tool active;
+        # LLFR-00321: holding V or T keeps the Vert. Area or Text tool
+        # active; LLFR-00367: holding A keeps the Arrow tool active;
+        # LLFR-01274, LLFR-01277: holding C or R keeps the Circle or
+        # Rectangle tool active;
         # LLFR-01092: holding Z keeps the Zoom tool active;
         # LLFR-00207, LLFR-01095: 0 alone, of the main keyboard or of
         # the keypad, resets the zoom; LLFR-00370: Esc alone

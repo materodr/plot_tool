@@ -369,7 +369,8 @@ class ToolKeyFilter(QObject):
         # of Cmd+Z or the Y of Cmd+Y), so every held key except the
         # modifier tool keys is forgotten here; otherwise such a key
         # would stay "held" and block the next tool or action key press
-        # alone. Letter tool keys (X, Y, A, T, R, Z) are no exception.
+        # alone. Letter tool keys (X, Y, V, T, A, C, R, Z) are no
+        # exception.
         self.held_key_set.intersection_update(OWN_MODIFIER_DICT)
         # LLFR-00149, LLFR-00155: releasing the tool key ends its
         # activation; LLFR-01093: the Z key's too.

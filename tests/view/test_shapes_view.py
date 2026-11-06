@@ -10,7 +10,7 @@ LLFR-01327), the "Width" and "Line style" options (LLFR-01370,
 LLFR-01371, LLFR-01373, LLFR-01375, LLFR-01376, LLFR-01378), the data tip
 name line (LLFR-01263) and the hidden labels (LLFR-01281, LLFR-01285,
 LLFR-01286, LLFR-01287); through MainWindow and the real controllers,
-the Circle and Rectangle buttons and the O and B keys (LLFR-01272 to
+the Circle and Rectangle buttons and the C and R keys (LLFR-01272 to
 LLFR-01279), the Hide labels button (LLFR-01280 to LLFR-01284) and the
 titles of the tab, signal and file menus with "Create signal"
 (LLFR-01257 to LLFR-01262, LLFR-01289). No modal dialog or menu is ever

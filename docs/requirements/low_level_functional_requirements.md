@@ -178,7 +178,7 @@ While the mouse pointer is over the part of the border of LLFR-00280, and while 
 *Parent: HLFR-00026*
 
 ### LLFR-00138 Undo action
-When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the undo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows and the grid to the state they were in before that action.
+When the user clicks the Undo button (LLFR-00136) or presses its shortcut (LLFR-00137), the app must reverse the most recent undoable action (LLFR-00140) that has not been undone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the undo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, shapes (circles and rectangles), the grid and whether the labels are hidden (LLFR-01281) to the state they were in before that action.
 
 *Parent: HLFR-00040*
 
@@ -286,7 +286,7 @@ Note: Closing a data file clears them (LLFR-00930).
 *Parent: HLFR-00040, HLFR-00048, HLFR-00117*
 
 ### LLFR-00192 Redo action
-When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the redo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows and the grid to the state they were in after that action.
+When the user clicks the Redo button (LLFR-00190) or presses its shortcut (LLFR-00191), the app must reapply the most recently undone action (LLFR-00138) that has not been redone yet, returning the tabs, their order, their plot matrices and their windows (docked or undocked, which tabs share an undocked window and their order in it, with the position and size of each undocked window that the redo opens again (LLFR-01059) and the shown state and width of the signal list panel of each window), the signal list panel widths, the plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, shapes (circles and rectangles), the grid and whether the labels are hidden (LLFR-01281) to the state they were in after that action.
 
 Note: The user can redo, one by one, every action undone since the last new undoable action, so at most 30 (LLFR-00139).
 
@@ -6050,12 +6050,12 @@ The app must show the vertical area menu (LLFR-00314) only when the right-clicke
 *Parent: HLFR-00068, HLFR-00069*
 
 ### LLFR-00318 Other plot tools over a vertical area
-While the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Text or Arrow button is active, a press inside a vertical area must act as it does outside one, so that a vertical area does not change what the other plot tools do with a press inside it.
+While the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Text, Arrow, Circle or Rectangle button is active, a press inside a vertical area must act as it does outside one, so that a vertical area does not change what the other plot tools do with a press inside it.
 
 *Parent: HLFR-00066, HLFR-00032, HLFR-00085*
 
 ### LLFR-00722 No vertical area edit with the other plot tools
-While the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Text or Arrow button is active, a press inside a vertical area must not move or resize the vertical area (LLFR-00799).
+While the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Text, Arrow, Circle or Rectangle button is active, a press inside a vertical area must not move or resize the vertical area (LLFR-00799).
 
 *Parent: HLFR-00066, HLFR-00032, HLFR-00085*
 
@@ -7680,7 +7680,9 @@ Note: These are the styles they had before HLFR-00160 was added; shapes are new.
 *Parent: HLFR-00160*
 
 ### LLFR-01378 Look of the line styles
-The app must draw a dashed line with the dash pattern that the object's kind had before HLFR-00160 was added (a dash pattern of 6 on and 4 off, in points, for a text note and a shape), a dotted line as a row of dots, and a dash-dotted line as dashes separated by dots.
+The app must draw a dashed line with these dash patterns, in points of line and points of gap: 6 and 4 for a curve, a flag, a text note box and a shape; 3 and 1.6 for a delta marker; 4 and 2 for an arrow; a dotted line as dots of 1 point with gaps of 2 points; and a dash-dotted line as dashes of 6 points and dots of 1 point, with gaps of 2.5 points.
+
+Note: The patterns of the flags, delta markers and arrows are the ones they had before HLFR-00160 was added.
 
 *Parent: HLFR-00160*
 

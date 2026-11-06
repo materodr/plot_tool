@@ -27,7 +27,7 @@ Note: This applies to every button, including the button that opens a file.
 The user must be able to change the widths of the plot panel and the signal list panel of each window.
 
 ### HLFR-00040 Undo
-The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows and grid.
+The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, circles, rectangles, grid and hidden labels.
 
 ### HLFR-00048 Redo
 The user must be able to redo the actions they have undone (HLFR-00040).
@@ -146,7 +146,7 @@ If a selected file cannot be opened, the app must keep the data files already op
 ### HLFR-00032 One plot tool at a time
 The app must allow only one plot tool to be active at a time.
 
-Note: The **plot tools** are the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Vert. Area, Text and Arrow functions. Each one is started from its own button in the top panel.
+Note: The **plot tools** are the Data tip, Zoom, Pan, Flag, Delta X, Delta Y, Vert. Area, Text, Arrow, Circle and Rectangle functions. Each one is started from its own button in the top panel.
 
 ### HLFR-00144 Hold Z for Zoom
 The user must be able to use the Zoom tool by holding the Z key, in the same way as the other held tool keys.
@@ -534,7 +534,7 @@ The user must be able to turn an arrow around one of its ends and to make it lon
 The user must be able to delete an arrow.
 
 ### HLFR-00085 Edit the objects with no tool active
-When no plot tool is active, the user must be able to move flags, vertical areas, pinned data tips, text notes, arrows and the points of delta markers, to resize vertical areas and to rotate and stretch arrows, by dragging them with the mouse.
+When no plot tool is active, the user must be able to move flags, vertical areas, pinned data tips, text notes, arrows, circles, rectangles and the points of delta markers, to resize vertical areas, circles and rectangles and to rotate and stretch arrows, by dragging them with the mouse.
 
 ### HLFR-00086 Text note size
 The user must be able to change the size of the text of a text note.
