@@ -130,7 +130,8 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
             "HLFR-00017")
     def test_tab_rename_takes_the_name_then_saves_the_pdf(self) -> None:
         """Ctrl+P in the tab rename dialog renames the tab with the text
-        typed so far, and only then runs "Save all tabs as PDF", once.
+        typed so far, and only then starts the export (the Export window
+        since the owner's answer of 2026-11-06 in #268), once.
 
         Inputs: none.
         Outputs: none.
@@ -139,7 +140,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         self.main_window.show()
         tab_id_i = self.panel.current_tab_id()
         name_at_export_list = []
-        self.main_window.pdf_export_handler = (
+        self.main_window.export_handler = (
             lambda: name_at_export_list.append(self.tab(tab_id_i).name_str))
         call_list = []
         with mock.patch.object(QInputDialog, "getText", side_effect=(
@@ -200,7 +201,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         from PyQt6.QtWidgets import QInputDialog
         self.main_window.show()
         handler = mock.Mock()
-        self.main_window.pdf_export_handler = handler
+        self.main_window.export_handler = handler
         with mock.patch.object(QInputDialog, "getText", side_effect=(
                 fake_get_text("", "New", []))):
             self.assertEqual(self.main_window.ask_name("T", "L", "x"),
@@ -231,7 +232,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         box = self.main_window.signal_list_panel.search_box
         box.setText("speed")
         box.setSelection(0, 3)
-        self.main_window.pdf_export_handler = (
+        self.main_window.export_handler = (
             lambda: order_list.append(("export", box.hasSelectedText())))
         with mock.patch.object(QApplication, "focusWidget",
                                return_value=box), \
@@ -265,7 +266,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         editor.confirm_requested.connect(
             lambda: order_list.append(("confirm", editor.text(),
                                        editor.hasSelectedText())))
-        self.main_window.pdf_export_handler = (
+        self.main_window.export_handler = (
             lambda: order_list.append(("export",)))
         with mock.patch.object(QApplication, "focusWidget",
                                return_value=editor):

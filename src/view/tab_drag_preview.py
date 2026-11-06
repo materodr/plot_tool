@@ -7,6 +7,13 @@ their own movable-tab behaviour (LLFR-01086, LLFR-01157), so the image
 is a frameless tool window that ignores the mouse, moved on each mouse
 move of the drag and hidden at the release; no QDrag is started, which
 would take the mouse from the tab bar.
+
+The image's top-left pixel is at the tip of the pointer (LLFR-01264),
+in the logical pixels in which Qt gives the pointer's position, so the
+two coincide on high-density screens too; at a screen edge the image is
+cut by the edge, never moved to the other side of the pointer
+(LLFR-01265). The image never takes the mouse, and the drop lookup
+leaves it out (LLFR-01266, MainWindow.window_at_point).
 """
 
 from PyQt6.QtCore import QPoint, Qt
@@ -16,9 +23,9 @@ from PyQt6.QtWidgets import QLabel
 PREVIEW_MAXIMUM_WIDTH_I = 200
 # LLFR-01208: semi-transparent.
 PREVIEW_OPACITY_F = 0.6
-# LLFR-01208: the image's top-left corner, from the pointer, in pixels,
-# so that the pointer stays visible beside it.
-PREVIEW_OFFSET_I = 12
+# LLFR-01264: the image's top-left corner, from the pointer tip, in
+# logical pixels: none, so that it is at the tip.
+PREVIEW_OFFSET_I = 0
 PREVIEW_OBJECT_NAME_STR = "tab_drag_preview"
 
 
@@ -88,13 +95,16 @@ class TabDragPreview(QLabel):
         self.show()
 
     def follow(self, global_point) -> None:
-        """Move the image next to the pointer.
+        """Move the image so that its top-left pixel is at the pointer.
 
         Inputs:
-            global_point: the QPoint of the pointer, in desktop pixels.
+            global_point: the QPoint of the pointer tip, in the logical
+                desktop pixels of Qt.
         Outputs: none.
         """
-        # LLFR-01208: it follows the pointer until the release.
+        # LLFR-01208: it follows the pointer until the release;
+        # LLFR-01264: its top-left pixel at the pointer tip; LLFR-01265:
+        # never moved away from a screen edge, so the edge cuts it.
         if self.dragged_page is None:
             return
         self.move(global_point + QPoint(PREVIEW_OFFSET_I, PREVIEW_OFFSET_I))

@@ -61,7 +61,17 @@ class FileDialogTimingTest(unittest.TestCase):
         self.pool = self.main_window.file_dialog_pool
         self.shown_list = []
         self.top_panel = self.main_window.top_panel
-        self.top_panel.execute_export_menu = self.choose_pdf_option
+        # LLFR-00127, LLFR-01256: the Export window answers "PDF (all
+        # tabs)" at once (the owner's answer of 2026-11-06 in #268 put
+        # this window in place of the menu); LLFR-01259: in settings of
+        # the test.
+        from view import export_window
+        settings_patch = mock.patch.object(
+            export_window, "settings_file_path_str",
+            os.path.join(self.folder_str, "settings.ini"))
+        settings_patch.start()
+        self.addCleanup(settings_patch.stop)
+        self.main_window.run_export_window = self.choose_pdf_format
 
     def tearDown(self) -> None:
         """Close the main window.
@@ -95,17 +105,14 @@ class FileDialogTimingTest(unittest.TestCase):
             self.application.processEvents()
             time.sleep(0.005)
 
-    def choose_pdf_option(self, menu):
-        """Stand-in for the modal Export menu: choose the PDF option.
+    def choose_pdf_format(self, dialog) -> str:
+        """Stand-in for the modal Export window: click "PDF (all tabs)".
 
         Inputs:
-            menu: the QMenu the Export button would show.
-        Outputs: the "Save all tabs as PDF" action.
+            dialog: the ExportWindow the Export button would show.
+        Outputs: "pdf".
         """
-        for action in menu.actions():
-            if action.text() == "Save all tabs as PDF":
-                return action
-        return None
+        return "pdf"
 
     def watch_dialog(self, key_str: str) -> None:
         """Replace a pooled dialog's exec to time its showing.

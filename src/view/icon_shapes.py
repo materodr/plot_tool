@@ -657,12 +657,94 @@ WINDOW_ICON_SHAPE_FUNCTION_DICT = {
 }
 
 
+# LLFR-01263: the icons of the format buttons of the Export window,
+# which are not top panel buttons.
+PDF_FORMAT_ICON_STR = "pdf_format"
+DOCX_FORMAT_ICON_STR = "docx_format"
+PNG_FORMAT_ICON_STR = "png_format"
+
+
+def folded_sheet_layer_list(left_f: float, top_f: float) -> list:
+    """Return a sheet of paper with a folded top-right corner.
+
+    Inputs:
+        left_f: the x of the sheet's left edge, in grid units.
+        top_f: the y of the sheet's top edge, in grid units.
+    Outputs: the layers of a sheet 13 units wide and 17 high: its
+        outline and the fold of its corner.
+    """
+    # LLFR-01263: the sheet of the PDF and Word icons.
+    right_f = left_f + 13.0
+    bottom_f = top_f + 17.0
+    fold_f = 4.5
+    outline_list = [("M", right_f - fold_f, top_f),
+                    ("L", left_f + 2.0, top_f),
+                    ("Q", left_f, top_f, left_f, top_f + 2.0),
+                    ("L", left_f, bottom_f - 2.0),
+                    ("Q", left_f, bottom_f, left_f + 2.0, bottom_f),
+                    ("L", right_f - 2.0, bottom_f),
+                    ("Q", right_f, bottom_f, right_f, bottom_f - 2.0),
+                    ("L", right_f, top_f + fold_f), ("Z",)]
+    fold_list = polyline([(right_f - fold_f, top_f),
+                          (right_f - fold_f, top_f + fold_f),
+                          (right_f, top_f + fold_f)])
+    return [ink_layer(outline_list), ink_layer(fold_list)]
+
+
+def pdf_format_shape() -> list:
+    """Return the PDF icon: two stacked sheets, the front one folded.
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-01263: "PDF (all tabs)": a stack of pages; of the sheet
+    # behind only the part that shows is drawn.
+    back_list = polyline([(5.0, 18.0), (5.0, 4.5), (6.5, 3.0),
+                          (14.0, 3.0)])
+    return [ink_layer(back_list)] + folded_sheet_layer_list(8.0, 5.5)
+
+
+def docx_format_shape() -> list:
+    """Return the Word icon: a folded sheet with a large letter W.
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-01263: "Word .docx (all tabs)".
+    letter_list = polyline([(7.75, 10.0), (9.5, 17.5), (12.0, 12.0),
+                            (14.5, 17.5), (16.25, 10.0)])
+    return folded_sheet_layer_list(5.5, 3.5) + [ink_layer(letter_list)]
+
+
+def png_format_shape() -> list:
+    """Return the PNG icon: a picture frame with a mountain and a sun.
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-01263: "PNG (one file per tab)".
+    mountain_list = polyline([(3.5, 17.5), (9.0, 11.0), (12.5, 14.5),
+                              (15.0, 12.5), (20.5, 17.5)])
+    return [ink_layer([("R", 2.5, 4.5, 19.0, 15.0, 2.5)]),
+            ink_layer(mountain_list),
+            ink_layer([("O", 15.5, 8.75, 1.75)])]
+
+
+# LLFR-01263: name -> function of the layers.
+EXPORT_FORMAT_ICON_SHAPE_FUNCTION_DICT = {
+    PDF_FORMAT_ICON_STR: pdf_format_shape,
+    DOCX_FORMAT_ICON_STR: docx_format_shape,
+    PNG_FORMAT_ICON_STR: png_format_shape,
+}
+
+
 def icon_layer_list(icon_name_str: str) -> list:
     """Return the layers of one button icon.
 
     Inputs:
         icon_name_str: one of ICON_NAME_TUPLE, or a name of
-            WINDOW_ICON_SHAPE_FUNCTION_DICT.
+            WINDOW_ICON_SHAPE_FUNCTION_DICT or of
+            EXPORT_FORMAT_ICON_SHAPE_FUNCTION_DICT.
     Outputs: the list of layers, on the 24 by 24 grid. Raises KeyError
         for an unknown name.
     """
@@ -670,6 +752,9 @@ def icon_layer_list(icon_name_str: str) -> list:
     # LLFR-01045: and the icons of the undocked windows.
     if icon_name_str in WINDOW_ICON_SHAPE_FUNCTION_DICT:
         return WINDOW_ICON_SHAPE_FUNCTION_DICT[icon_name_str]()
+    # LLFR-01263: the icons of the Export window.
+    if icon_name_str in EXPORT_FORMAT_ICON_SHAPE_FUNCTION_DICT:
+        return EXPORT_FORMAT_ICON_SHAPE_FUNCTION_DICT[icon_name_str]()
     return ICON_SHAPE_FUNCTION_DICT[icon_name_str]()
 
 

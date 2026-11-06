@@ -437,7 +437,8 @@ class ButtonTipSourceTest(unittest.TestCase):
         expected_dict[button_name(top_panel.redo_button)] = [
             self.shortcut_line_str(self.main_window.redo_shortcut, macos_b)]
         # LLFR-01136, LLFR-01139: the window shortcuts of Copy and of
-        # the Export button's "Save all tabs as PDF".
+        # the Export button, whose tip stays "Ctrl+P" (Cmd+P) with the
+        # Export window (the owner's answer of 2026-11-06 in #268).
         expected_dict[button_name(top_panel.copy_button)] = [
             self.shortcut_line_str(self.main_window.copy_shortcut, macos_b)]
         expected_dict[button_name(top_panel.export_button)] = [

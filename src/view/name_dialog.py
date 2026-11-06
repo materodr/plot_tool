@@ -127,8 +127,8 @@ def ask_name_text(parent, title_str: str, label_str: str, text_str: str,
         if application is not None:
             application.removeEventFilter(shortcut_filter)
     # LLFR-01185: the shortcut's action runs after the caller has used
-    # the name (the rename comes first, then for example the PDF dialog
-    # opens); the timer fires once the caller has returned to Qt.
+    # the name (the rename comes first, then for example the Export
+    # window opens); the timer fires once the caller has returned to Qt.
     if (accepted_b and shortcut_filter.action_str
             and shortcut_handler is not None):
         QTimer.singleShot(0, partial(shortcut_handler,

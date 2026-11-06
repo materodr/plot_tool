@@ -368,14 +368,14 @@ Note: For example, the cache of fonts used to draw text in the plots is built on
 *Parent: HLFR-00047*
 
 ### LLFR-00406 Dialog opening time limit
-The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of "Save all tabs as PDF" (LLFR-00128) and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.65 seconds after the user's click, including the first click after the app starts.
+The file selection dialog of the Open file button (LLFR-00005), the dialogs of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the save file dialog of the PDF export (LLFR-00128), after the click on "PDF (all tabs)", and the save file dialog of the Save signals button (LLFR-00396) must each appear at most 0.65 seconds after the user's click, including the first click after the app starts.
 
 Note: As in LLFR-00188, the time is measured from the second launch onward, on the computer the app is tested on, so that work done only once on the first launch does not count. The limit is checked against the median time of each dialog over the launches from the second one onward.
 
 *Parent: HLFR-00091*
 
 ### LLFR-01183 No file name from an earlier use
-Each time the app shows the file selection dialog of the Open file button (LLFR-00005), the save file dialog of "Save all tabs as PDF" (LLFR-00128) or a dialog of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the dialog must open without the file name that the user chose or typed in it at an earlier use, on macOS and on Windows.
+Each time the app shows the file selection dialog of the Open file button (LLFR-00005), the save file dialog of the PDF export (LLFR-00128) or a dialog of the Save layout and Load layout buttons (LLFR-00219, LLFR-00221), the dialog must open without the file name that the user chose or typed in it at an earlier use, on macOS and on Windows.
 
 Note: In a save dialog, the file name field is then empty; in an open dialog, no file of the earlier use is selected. The app builds each dialog once and shows it again (LLFR-00406), and the system's dialogs would otherwise fill in the file chosen the last time. The Save signals dialog proposes a name on purpose (LLFR-00532).
 
@@ -968,18 +968,73 @@ The top panel must contain a button called "Export".
 
 *Parent: HLFR-00038*
 
-### LLFR-00127 Export menu PDF option
-When the user clicks the Export button, the app must show a menu with a "Save all tabs as PDF" option.
+### LLFR-00127 Export window
+When the user clicks the Export button, the app must show a separate window titled "Export", except as in LLFR-01260.
+
+Note: The Export window takes the place of the menu that the Export button showed before (the owner's answer of 2026-11-06 in #268).
 
 *Parent: HLFR-00038*
 
-### LLFR-01229 Export menu Word and PNG options
-The menu of the Export button (LLFR-00127) must also show, below "Save all tabs as PDF", the options "Save all tabs as Word document (.docx)" and "Save each tab as PNG", in this order.
+### LLFR-01229 Format buttons of the Export window
+The Export window (LLFR-00127) must show three large buttons side by side, each with an icon (LLFR-01263) and a text, from left to right "PDF (all tabs)", "Word .docx (all tabs)" and "PNG (one file per tab)".
 
 *Parent: HLFR-00038*
+
+### LLFR-01255 Cancel button of the Export window
+The Export window must show a "Cancel" button below its format buttons (LLFR-01229).
+
+*Parent: HLFR-00038*
+
+### LLFR-01256 Format chosen in the Export window
+When the user clicks a format button of the Export window (LLFR-01229), the app must close the window and then run the export of that format: the PDF (LLFR-00128), the Word document (LLFR-01230) or the PNG files (LLFR-01233).
+
+*Parent: HLFR-00038*
+
+### LLFR-01257 Export window closed without a choice
+When the user clicks the "Cancel" button of the Export window (LLFR-01255), presses Esc in it or closes it, the app must close the window and leave every file unchanged, with no message.
+
+Note: The Export button then returns to its normal color (LLFR-00003).
+
+*Parent: HLFR-00038*
+
+### LLFR-01258 Last export format highlighted
+The Export window must open with the format button of the last format that the user clicked in it (LLFR-01256) as its default button, which the Enter key clicks, and with the "PDF (all tabs)" button as its default button when no format is remembered (LLFR-01259).
+
+Note: The format counts as used once its button is clicked, also when the user then cancels the dialog of that format.
+
+*Parent: HLFR-00038*
+
+### LLFR-01259 Last export format kept between launches
+The app must keep the last format of LLFR-01258 in its settings, as one value shared by the Export button and Ctrl+P (Cmd+P on macOS) in every window, so that the same format is highlighted after the app is closed and started again.
+
+Note: As the recent colors (LLFR-00419). A value in the settings that is not one of the three formats counts as no remembered format.
+
+*Parent: HLFR-00038*
+
+### LLFR-01260 Nothing to export without the Export window
+If no tab holds a plot when the user clicks the Export button or presses Ctrl+P (Cmd+P on macOS), the app must show the information box of LLFR-00145 in place of the Export window.
+
+*Parent: HLFR-00038*
+
+### LLFR-01261 Export shortcut while the Export window is open
+While the Export window is open, the app must ignore Ctrl+P (Cmd+P on macOS) in every window.
+
+*Parent: HLFR-00038, HLFR-00138*
+
+### LLFR-01262 Export window over the window of the shortcut
+The app must show the Export window, and the dialogs and boxes of the export that follow it, over the window where the user pressed Ctrl+P (Cmd+P on macOS), and over the main window after a click on the Export button.
+
+Note: As LLFR-01023: the save file dialog, the folder dialog, the question of LLFR-01236, the box of LLFR-00145 and the error boxes of LLFR-00131 and LLFR-01242.
+
+*Parent: HLFR-00038, HLFR-00124*
+
+### LLFR-01263 Icons of the Export window
+The format buttons of the Export window (LLFR-01229) must show these icons, in the line style of the top panel icons (LLFR-00159): "PDF (all tabs)" two stacked sheets of paper, the front one with a folded corner; "Word .docx (all tabs)" a sheet of paper with a folded corner and a large letter W; "PNG (one file per tab)" a picture frame with a mountain and a sun.
+
+*Parent: HLFR-00038, HLFR-00042*
 
 ### LLFR-01230 Word save dialog
-When the user chooses "Save all tabs as Word document (.docx)" (LLFR-01229), the app must show a save file dialog for a `.docx` file.
+When the user clicks "Word .docx (all tabs)" in the Export window (LLFR-01229, LLFR-01256), the app must show a save file dialog for a `.docx` file.
 
 *Parent: HLFR-00038*
 
@@ -996,7 +1051,7 @@ Note: The file is a ZIP archive of XML parts with one PNG image per page, so no 
 *Parent: HLFR-00038*
 
 ### LLFR-01233 PNG folder dialog
-When the user chooses "Save each tab as PNG" (LLFR-01229), the app must show a dialog in which the user chooses the folder of the PNG files.
+When the user clicks "PNG (one file per tab)" in the Export window (LLFR-01229, LLFR-01256), the app must show a dialog in which the user chooses the folder of the PNG files.
 
 *Parent: HLFR-00038*
 
@@ -1035,7 +1090,7 @@ When the app asks whether to replace existing PNG files (LLFR-01236), it must sa
 *Parent: HLFR-00038*
 
 ### LLFR-01237 Nothing to export as Word or PNG
-If no tab holds a plot when the user chooses "Save all tabs as Word document (.docx)" or "Save each tab as PNG", the app must show, in place of the dialog of LLFR-01230 or LLFR-01233, the information box of LLFR-00145 saying that there are no plots to export, as for the PDF (LLFR-00459).
+If no tab holds a plot when the user asks for an export (LLFR-01260), the app must show the information box of LLFR-00145 without the dialog of LLFR-01230 or LLFR-01233, as for the PDF (LLFR-00459).
 
 *Parent: HLFR-00038*
 
@@ -1050,21 +1105,21 @@ If the Word document or a PNG file cannot be written, the app must show an error
 *Parent: HLFR-00038, HLFR-00002*
 
 ### LLFR-01243 One dialog folder for every export
-The dialogs of "Save all tabs as PDF", "Save all tabs as Word document (.docx)" and "Save each tab as PNG" (LLFR-00128, LLFR-01230, LLFR-01233) must show the folder of LLFR-01179 and LLFR-01180, where the last file saved successfully is the last file that any of the three exports saved successfully.
+The dialogs of the PDF, Word and PNG exports (LLFR-00128, LLFR-01230, LLFR-01233) must show the folder of LLFR-01179 and LLFR-01180, where the last file saved successfully is the last file that any of the three exports saved successfully.
 
-Note: Ctrl+P (Cmd+P on macOS) stays the PDF export (LLFR-01139).
+Note: Ctrl+P (Cmd+P on macOS) opens the Export window, as the Export button does (LLFR-01139).
 
 *Parent: HLFR-00038*
 
 ### LLFR-00128 PDF save dialog
-When the user chooses "Save all tabs as PDF" (LLFR-00127), the app must show a save file dialog for a `.pdf` file.
+When the user clicks "PDF (all tabs)" in the Export window (LLFR-01229, LLFR-01256), the app must show a save file dialog for a `.pdf` file.
 
 *Parent: HLFR-00038*
 
-### LLFR-01139 PDF shortcut
-The app must run "Save all tabs as PDF" (LLFR-00128) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01185), after leaving that field as in LLFR-01186, LLFR-01190 and LLFR-01187 or that dialog as in LLFR-01185, except as in LLFR-01172 and LLFR-01189.
+### LLFR-01139 Export shortcut
+The app must show the Export window (LLFR-00127) when the user presses Ctrl+P (Cmd+P on macOS) in any window, also while the keyboard focus is in a text field of the window (LLFR-00157) or in a name dialog (LLFR-01185), after leaving that field as in LLFR-01186, LLFR-01190 and LLFR-01187 or that dialog as in LLFR-01185, except as in LLFR-01172, LLFR-01189, LLFR-01260 and LLFR-01261.
 
-Note: Text fields give Ctrl+P no meaning of their own. The boxes and the dialog of the export are shown over the window where Ctrl+P was pressed (LLFR-01023, the owner's answer of 2026-11-05); after a click on the Export button, they are shown over the main window. For example, a tab being renamed takes the name typed so far, and then the PDF dialog opens (the owner's answer of 2026-11-04, 21b).
+Note: Text fields give Ctrl+P no meaning of their own. The Export window, and the boxes and the dialog of the export, are shown over the window where Ctrl+P was pressed (LLFR-01262, LLFR-01023). For example, a tab being renamed takes the name typed so far, and then the Export window opens (the owner's answer of 2026-11-04, 21b, and the owner's answer of 2026-11-06 in #268). Before the owner's answer of 2026-11-06 in #268, Ctrl+P opened the PDF dialog directly.
 
 *Parent: HLFR-00038*
 
@@ -1079,7 +1134,7 @@ Note: As the 0 key (LLFR-00454) and the Esc key (LLFR-00530), so that no dialog 
 ### LLFR-01185 Shortcuts in a name dialog
 When the user presses Ctrl+P or Ctrl+F (Cmd+P or Cmd+F on macOS) in a name dialog, which is the dialog in which the user types a new name for a tab, a flag, an area, a delta marker, an arrow or a synthetic signal (LLFR-00030, LLFR-00088, LLFR-00315, LLFR-00429, LLFR-00439, LLFR-00266), the app must close the dialog with the name typed so far accepted, as its OK button does, before it runs the action of LLFR-01139 or LLFR-01140.
 
-Note: The rename is applied first, with its usual checks (for example LLFR-00067 and LLFR-00211), and then the PDF dialog opens or the focus goes to the search box of the window the dialog was shown over (LLFR-01140).
+Note: The rename is applied first, with its usual checks (for example LLFR-00067 and LLFR-00211), and then the Export window opens or the focus goes to the search box of the window the dialog was shown over (LLFR-01140).
 
 *Parent: HLFR-00038, HLFR-00033, HLFR-00138*
 
@@ -1135,7 +1190,7 @@ If the PDF file cannot be written, the app must show an error box saying that th
 *Parent: HLFR-00038, HLFR-00002*
 
 ### LLFR-01179 PDF dialog starting folder
-Until the app has saved a PDF file successfully since it started, the save file dialog of "Save all tabs as PDF" (LLFR-00128) must show the folder that the file selection dialog of the Open file button would show at that moment (LLFR-00204, LLFR-00446, LLFR-00447).
+Until the app has saved a PDF file successfully since it started, the save file dialog of the PDF export (LLFR-00128) must show the folder that the file selection dialog of the Open file button would show at that moment (LLFR-00204, LLFR-00446, LLFR-00447).
 
 Note: That is the folder of the last data file that the app opened successfully, or the app's folder when the app has opened no data file yet. A cancelled dialog, or a PDF file that could not be saved, does not count.
 
@@ -1228,12 +1283,12 @@ When no undone action is left to redo, neither the Redo button nor its shortcut 
 *Parent: HLFR-00048*
 
 ### LLFR-00145 Nothing to export
-If no tab holds a plot when the user chooses "Save all tabs as PDF", the app must show an information box saying that there are no plots to export.
+If no tab holds a plot when the user asks for an export with the Export button or Ctrl+P (Cmd+P on macOS) (LLFR-01260), the app must show an information box saying that there are no plots to export.
 
 *Parent: HLFR-00038*
 
 ### LLFR-00459 No save dialog when nothing to export
-If no tab holds a plot when the user chooses "Save all tabs as PDF", the app must not show the save file dialog (LLFR-00128).
+If no tab holds a plot when the user asks for an export (LLFR-01260), the app must not show the save file dialog (LLFR-00128).
 
 *Parent: HLFR-00038*
 
@@ -1450,7 +1505,7 @@ The line below the name in the button tip of each button with a shortcut (LLFR-0
 | Copy | Cmd+C | Ctrl+C |
 | Export | Cmd+P | Ctrl+P |
 
-Note: The texts of LLFR-00215, LLFR-00463, LLFR-00464 and LLFR-00465 follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-01092, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00367, LLFR-01136, LLFR-01139, LLFR-00078, LLFR-00208, LLFR-00074, LLFR-00659, LLFR-00206, LLFR-00672 and LLFR-00356. The Cmd+P (Ctrl+P) of the Export button runs its "Save all tabs as PDF" option.
+Note: The texts of LLFR-00215, LLFR-00463, LLFR-00464 and LLFR-00465 follow LLFR-00137, LLFR-00191, LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-01092, LLFR-00207, LLFR-00287, LLFR-00321, LLFR-00367, LLFR-01136, LLFR-01139, LLFR-00078, LLFR-00208, LLFR-00074, LLFR-00659, LLFR-00206, LLFR-00672 and LLFR-00356. The Cmd+P (Ctrl+P) of the Export button opens the Export window, as the button does (LLFR-01139).
 
 *Parent: HLFR-00042, HLFR-00144, HLFR-00145*
 
@@ -4940,11 +4995,32 @@ While the user drags a docked tab with the left mouse button along the tab row o
 *Parent: HLFR-00143*
 
 ### LLFR-01208 Drag preview of a tab
-While the user drags a tab of any window with the left mouse button (LLFR-01086, LLFR-01142, LLFR-01143, LLFR-01150, LLFR-01157), the app must show, next to the pointer and following it until the button is released, a semi-transparent image of the contents of that tab, at most 200 pixels wide.
+While the user drags a tab of any window with the left mouse button (LLFR-01086, LLFR-01142, LLFR-01143, LLFR-01150, LLFR-01157), the app must show, following the pointer until the button is released, a semi-transparent image of the contents of that tab, at most 200 pixels wide, placed as in LLFR-01264.
 
 Note: Like the image of a tab dragged in a web browser. The image is removed at the release, wherever the tab is dropped.
 
 *Parent: HLFR-00143, HLFR-00153, HLFR-00154*
+
+### LLFR-01264 Drag preview at the pointer tip
+The app must place the top-left pixel of the image of LLFR-01208 at the tip of the mouse pointer (the pointer's hotspot), measured in the screen's logical pixels, so that the two coincide on high-density screens too.
+
+Note: The owner asked for this on 2026-11-06 (the owner's answer of 2026-11-06 in #268); the image was 12 pixels right of and below the pointer before. The pointer is drawn over the image.
+
+*Parent: HLFR-00143, HLFR-00153, HLFR-00154, HLFR-00155*
+
+### LLFR-01265 Drag preview at a screen edge
+When the image of LLFR-01208 reaches the right or bottom edge of a screen, the app must keep its top-left pixel at the pointer tip (LLFR-01264), with the part beyond the edge cut off.
+
+Note: The image is never moved to the other side of the pointer (the owner's answer of 2026-11-06 in #268).
+
+*Parent: HLFR-00143, HLFR-00153, HLFR-00154, HLFR-00155*
+
+### LLFR-01266 Drop place under the drag preview
+The app must decide where a dragged tab is dropped (LLFR-01087, LLFR-01142, LLFR-01143, LLFR-01150, LLFR-01152, LLFR-01166, LLFR-01167) from the windows of the app under the pointer, leaving out the image of LLFR-01208, on every operating system.
+
+Note: The image is under the pointer tip (LLFR-01264), and it never takes the mouse.
+
+*Parent: HLFR-00143, HLFR-00153, HLFR-00154, HLFR-00155*
 
 ### LLFR-01087 Tab left where it is dropped
 When the user releases the left mouse button after LLFR-01086, the app must leave the tab at the place where it was released, between the tabs on either side of it.

@@ -1,8 +1,9 @@
 """End-to-end tests of the PDF export and the copy (HLFR-00038, HLFR-00039).
 
-A real MainWindow and MainController are used. The Export menu, the
+A real MainWindow and MainController are used. The Export window, the
 save file dialog and the message boxes are patched, so no modal dialog
-is ever left open.
+is ever left open, and the settings that keep the last export format are
+an INI file of the test (LLFR-01259).
 """
 
 import os
@@ -70,9 +71,17 @@ class ExportCopyTest(unittest.TestCase):
             self.controller.file_controller.open_file_requested()
         self.application.processEvents()
         self.top_panel = self.main_window.top_panel
-        self.menu_text_list = []
-        self.menu_choice_str = ""
-        self.top_panel.execute_export_menu = self.fake_execute_menu
+        # LLFR-00127: the Export window is answered by the test; the
+        # owner's answer of 2026-11-06 in #268 replaced the menu by it.
+        from view import export_window
+        settings_patch = mock.patch.object(
+            export_window, "settings_file_path_str",
+            os.path.join(self.folder_str, "settings.ini"))
+        settings_patch.start()
+        self.addCleanup(settings_patch.stop)
+        self.window_record_list = []
+        self.format_choice_str = ""
+        self.main_window.run_export_window = self.fake_run_export_window
 
     def tearDown(self) -> None:
         """Close the main window.
@@ -95,18 +104,19 @@ class ExportCopyTest(unittest.TestCase):
             (box.windowTitle(), box.icon(), box.text()))
         return self.message_box_class.StandardButton.Ok.value
 
-    def fake_execute_menu(self, menu):
-        """Stand-in for the modal Export menu.
+    def fake_run_export_window(self, dialog) -> str:
+        """Stand-in for the modal Export window.
 
         Inputs:
-            menu: the QMenu the Export button would show.
-        Outputs: the action whose text is menu_choice_str, or None.
+            dialog: the ExportWindow that would be shown.
+        Outputs: format_choice_str ("" = closed with no format).
         """
-        self.menu_text_list = [action.text() for action in menu.actions()]
-        for action in menu.actions():
-            if action.text() == self.menu_choice_str:
-                return action
-        return None
+        self.window_record_list.append(
+            (dialog.windowTitle(),
+             [button.text() for button in dialog.format_button_dict.values()],
+             dialog.default_format(), dialog.parent(),
+             self.top_panel.export_button.is_active()))
+        return self.format_choice_str
 
     def plot_signal(self, signal_name_str: str) -> None:
         """Plot a signal in a new plot of the current tab.
@@ -148,13 +158,14 @@ class ExportCopyTest(unittest.TestCase):
             self.application.processEvents()
 
     def export_to(self, answer_path_str: str):
-        """Choose "Save all tabs as PDF" with a patched save dialog.
+        """Click "PDF (all tabs)" in the Export window, with a patched
+        save dialog.
 
         Inputs:
             answer_path_str: the path the dialog returns ("" = cancel).
         Outputs: the mock of MainWindow.run_pdf_save_dialog.
         """
-        self.menu_choice_str = "Save all tabs as PDF"
+        self.format_choice_str = "pdf"
         with mock.patch.object(self.main_window, "run_pdf_save_dialog",
                                return_value=answer_path_str) as dialog_mock:
             self.click(self.top_panel.export_button)
@@ -208,7 +219,7 @@ class ExportCopyTest(unittest.TestCase):
         return [record[0] for record in self.box_record_list]
 
     # ----------------------------------------------------------------
-    # Buttons and menu
+    # Buttons and Export window
     # ----------------------------------------------------------------
 
     @covers("LLFR-00126", "LLFR-00132", "LLFR-00001")
@@ -229,40 +240,82 @@ class ExportCopyTest(unittest.TestCase):
         self.assertLess(self.top_panel.export_button.x(),
                         self.top_panel.copy_button.x())
 
-    @covers("LLFR-00127", "LLFR-01229", "HLFR-00038")
-    def test_export_menu_has_pdf_option(self) -> None:
-        """The Export menu holds "Save all tabs as PDF", then the Word
-        and PNG options (LLFR-01229).
+    @covers("LLFR-00127", "LLFR-01229", "LLFR-01258", "LLFR-00001",
+            "HLFR-00038")
+    def test_click_shows_the_export_window(self) -> None:
+        """A click on Export, with a plot, shows the Export window over
+        the main window, titled "Export", with the three format buttons
+        in order and the PDF as the default the first time; the button is
+        active while it is shown (the owner's answer of 2026-11-06 in
+        #268, which replaced the Export menu).
 
         Inputs: none.
         Outputs: none.
         """
-        menu = self.top_panel.build_export_menu()
-        self.assertEqual([action.text() for action in menu.actions()],
-                         ["Save all tabs as PDF",
-                          "Save all tabs as Word document (.docx)",
-                          "Save each tab as PNG"])
-        menu.deleteLater()
+        self.plot_signal("file1_speed")
+        self.click(self.top_panel.export_button)
+        self.assertEqual(self.window_record_list, [
+            ("Export", ["PDF (all tabs)", "Word .docx (all tabs)",
+                        "PNG (one file per tab)"], "pdf", self.main_window,
+             True)])
 
-    @covers("LLFR-00127", "LLFR-00001", "LLFR-00003")
-    def test_click_shows_menu_and_closed_menu_finishes(self) -> None:
-        """A click shows the menu; closing it resets the button.
+    @covers("LLFR-01257", "LLFR-00003", "LLFR-00130")
+    def test_closed_export_window_saves_nothing(self) -> None:
+        """Closing the Export window with no format saves nothing, shows
+        no box and resets the button.
 
         Inputs: none.
         Outputs: none.
         """
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtTest import QTest
-        self.menu_choice_str = ""
-        QTest.mouseClick(self.top_panel.export_button,
-                         Qt.MouseButton.LeftButton)
-        # LLFR-00001: active once clicked, while the menu is pending.
-        self.assertTrue(self.top_panel.export_button.is_active())
-        for _ in range(3):
-            self.application.processEvents()
-        self.assertEqual(self.menu_text_list[0], "Save all tabs as PDF")
-        self.assertFalse(self.top_panel.export_button.is_active())
+        self.plot_signal("file1_speed")
+        before_list = sorted(os.listdir(self.folder_str))
+        self.format_choice_str = ""
+        with mock.patch.object(self.main_window,
+                               "run_pdf_save_dialog") as dialog_mock:
+            self.click(self.top_panel.export_button)
+        self.assertEqual(len(self.window_record_list), 1)
+        dialog_mock.assert_not_called()
+        self.assertEqual(sorted(os.listdir(self.folder_str)), before_list)
         self.assertEqual(self.box_record_list, [])
+        self.assertFalse(self.top_panel.export_button.is_active())
+
+    @covers("LLFR-01258", "LLFR-01259", "HLFR-00038")
+    def test_last_format_is_the_next_default(self) -> None:
+        """The format clicked becomes the default of the next Export
+        window, also after a cancelled save dialog, and it is kept in the
+        settings.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from view import export_window
+        self.plot_signal("file1_speed")
+        self.format_choice_str = "png"
+        with mock.patch.object(self.main_window, "run_export_dialog",
+                               return_value=""):
+            self.click(self.top_panel.export_button)
+        self.format_choice_str = ""
+        self.click(self.top_panel.export_button)
+        self.assertEqual([record[2] for record in self.window_record_list],
+                         ["pdf", "png"])
+        self.assertEqual(export_window.remembered_export_format(), "png")
+
+    @covers("LLFR-01260", "LLFR-00145", "LLFR-00003")
+    def test_no_plots_shows_the_box_without_the_window(self) -> None:
+        """With no plot in any tab, the click shows the nothing-to-export
+        box at once, with no Export window (the owner's answer of
+        2026-11-06 in #268).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.format_choice_str = "pdf"
+        self.click(self.top_panel.export_button)
+        self.assertEqual(self.window_record_list, [])
+        self.assertEqual(self.box_record_list, [
+            ("Export", self.message_box_class.Icon.Information,
+             "There are no plots to export.")])
+        self.assertFalse(self.top_panel.export_button.is_active())
 
     # ----------------------------------------------------------------
     # PDF export
@@ -294,7 +347,7 @@ class ExportCopyTest(unittest.TestCase):
                                dialog.nameFilters()))
             return os.path.join(self.folder_str, "plots")
 
-        self.menu_choice_str = "Save all tabs as Word document (.docx)"
+        self.format_choice_str = "docx"
         with mock.patch.object(self.main_window, "run_export_dialog",
                                side_effect=answer_dialog):
             self.click(self.top_panel.export_button)
@@ -332,7 +385,7 @@ class ExportCopyTest(unittest.TestCase):
         self.add_tab("empty")
         output_str = os.path.join(self.folder_str, "png")
         os.mkdir(output_str)
-        self.menu_choice_str = "Save each tab as PNG"
+        self.format_choice_str = "png"
         with mock.patch.object(self.main_window, "run_export_dialog",
                                return_value=output_str):
             self.click(self.top_panel.export_button)
@@ -374,7 +427,7 @@ class ExportCopyTest(unittest.TestCase):
                  self.top_panel.export_button.is_active()))
             return os.path.join(self.folder_str, "plots")
 
-        self.menu_choice_str = "Save all tabs as PDF"
+        self.format_choice_str = "pdf"
         with mock.patch.object(self.main_window, "run_pdf_save_dialog",
                                side_effect=answer_dialog):
             self.click(self.top_panel.export_button)

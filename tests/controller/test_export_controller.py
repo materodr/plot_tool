@@ -289,7 +289,7 @@ class PdfDialogFolderTest(unittest.TestCase):
 
 
 class ExportFlowTest(unittest.TestCase):
-    """Check the "Save all tabs as PDF" flow."""
+    """Check the PDF export flow."""
 
     def setUp(self) -> None:
         """Create the controller with a fake view.
@@ -786,6 +786,122 @@ class ImageExportFlowTest(unittest.TestCase):
             self.controller.on_png_export_requested()
             self.assertIn("save_tab_png_files",
                           self.view.called_names_list())
+
+
+class FakeExportWindowView(FakeImageExportView):
+    """The fake view, with the Export window of LLFR-00127."""
+
+    def __init__(self) -> None:
+        """Start with the Export window answering no format.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().__init__()
+        self.format_answer_str = ""
+
+    def ask_export_format(self) -> str:
+        """Record the Export window and return the prepared format.
+
+        Inputs: none.
+        Outputs: format_answer_str.
+        """
+        self.call_list.append("ask_export_format")
+        return self.format_answer_str
+
+
+class ExportWindowFlowTest(unittest.TestCase):
+    """The Export window starts the export of the chosen format
+    (LLFR-00127, LLFR-01256, LLFR-01257, LLFR-01260; the owner's answers
+    of 2026-11-06 in #268)."""
+
+    def setUp(self) -> None:
+        """Create the controller with the fake view.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportWindowView()
+        self.controller = ExportController(self.view, lambda: "file1 = a.csv",
+                                           lambda: "/data/start")
+
+    @covers("LLFR-01256", "LLFR-00128", "LLFR-01230", "LLFR-01233",
+            "LLFR-00003", "HLFR-00038")
+    def test_each_format_runs_its_export(self) -> None:
+        """"pdf", "docx" and "png" run the PDF, Word and PNG exports,
+        after the window, and the button finishes each time.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for format_str, dialog_name_str in (
+                ("pdf", "ask_pdf_save_path"),
+                ("docx", "ask_docx_save_path"),
+                ("png", "ask_png_folder")):
+            with self.subTest(format_str=format_str):
+                self.view.call_list = []
+                # Every dialog is cancelled, so only the dialog shows.
+                self.view.answer_path_str = ""
+                self.view.docx_answer_str = ""
+                self.view.png_folder_str = ""
+                self.view.format_answer_str = format_str
+                self.controller.on_export_window_requested()
+                name_list = self.view.called_names_list()
+                self.assertEqual(name_list, [
+                    "exportable_tab_count", "ask_export_format",
+                    "exportable_tab_count", dialog_name_str,
+                    "finish_export_button"])
+
+    @covers("LLFR-01257", "LLFR-00003", "HLFR-00038")
+    def test_no_format_saves_nothing(self) -> None:
+        """A window closed with no format opens no dialog, shows no box
+        and finishes the button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.on_export_window_requested()
+        self.assertEqual(self.view.called_names_list(), [
+            "exportable_tab_count", "ask_export_format",
+            "finish_export_button"])
+
+    @covers("LLFR-01260", "LLFR-00145", "LLFR-00459", "LLFR-01237",
+            "HLFR-00038")
+    def test_nothing_to_export_shows_the_box_without_the_window(
+            self) -> None:
+        """With no plot in any tab, the box is shown and the Export window
+        is not (the owner's answer of 2026-11-06 in #268, item 4).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.exportable_tab_count_i = 0
+        self.view.format_answer_str = "pdf"
+        self.controller.on_export_window_requested()
+        self.assertEqual(self.view.called_names_list(), [
+            "exportable_tab_count", "show_nothing_to_export",
+            "finish_export_button"])
+
+    @covers("LLFR-00003", "HLFR-00038")
+    def test_button_finishes_after_an_error_in_the_window(self) -> None:
+        """An unexpected error in the Export window still finishes the
+        button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        def fail() -> str:
+            """Raise an unexpected error.
+
+            Inputs: none.
+            Outputs: none; raises RuntimeError.
+            """
+            raise RuntimeError("boom")
+
+        self.view.ask_export_format = fail
+        with self.assertRaises(RuntimeError):
+            self.controller.on_export_window_requested()
+        self.assertEqual(self.view.call_list[-1], "finish_export_button")
 
 
 if __name__ == "__main__":

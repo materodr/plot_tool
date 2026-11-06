@@ -25,7 +25,7 @@ class MainController:
         signal_list_controller: the SignalListController of the search.
         synthetic_controller: the SyntheticController of the signal list
             menu and the synthetic signals.
-        export_controller: the ExportController of the Export menu and
+        export_controller: the ExportController of the Export window and
             the Copy button.
         layout_controller: the LayoutController of the Save layout and
             Load layout buttons.
@@ -88,8 +88,8 @@ class MainController:
             self.layout_controller.on_files_closed)
         self.file_controller.add_files_closed_listener(
             self.save_signals_controller.on_files_closed)
-        # LLFR-00128, LLFR-00133: the Export menu and the Copy button
-        # run the export controller's flows.
+        # LLFR-00127, LLFR-00133: the Export button, Ctrl+P and the Copy
+        # button run the export controller's flows.
         # LLFR-00971, LLFR-00972: the pages and the image describe the
         # open data files.
         # LLFR-01179: the PDF dialog first shows the Open file folder.
@@ -97,19 +97,12 @@ class MainController:
             main_window,
             lambda: self.file_controller.data_files.description_str,
             lambda: self.file_controller.dialog_folder_str)
-        # LLFR-01136: Ctrl+C (Cmd+C) copies the tab of its window.
+        # LLFR-01136: Ctrl+C (Cmd+C) copies the tab of its window;
+        # LLFR-00127, LLFR-01139: the Export window and its exports.
         main_window.set_export_handlers(
-            self.export_controller.on_export_requested,
+            self.export_controller.on_export_window_requested,
             self.export_controller.on_copy_requested,
             self.export_controller.on_copy_shortcut)
-        # LLFR-01229: the Word and PNG options of the Export menu; fake
-        # views of tests that do not export may leave the method out.
-        set_image_export_handlers = getattr(
-            main_window, "set_image_export_handlers", None)
-        if set_image_export_handlers is not None:
-            set_image_export_handlers(
-                self.export_controller.on_docx_export_requested,
-                self.export_controller.on_png_export_requested)
 
         # LLFR-00923: the file menu of the file name rows.
         main_window.set_file_menu_handlers(

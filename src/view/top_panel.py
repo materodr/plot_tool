@@ -18,9 +18,9 @@ import html
 import sys
 
 from PyQt6 import sip
-from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QKeySequence
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QMenu, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from controller.plot_tools import (
     ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
@@ -57,12 +57,9 @@ TEXT_TEXT_STR = "Text"
 ARROW_TEXT_STR = "Arrow"
 RESET_ZOOM_TEXT_STR = "Reset zoom"
 GRID_TEXT_STR = "Grid"
-# LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
+# LLFR-00126, LLFR-00132: the export buttons; LLFR-00127: the Export
+# button opens the Export window (view.export_window).
 EXPORT_TEXT_STR = "Export"
-SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
-# LLFR-01229: the Word and PNG options, below the PDF option.
-SAVE_DOCX_TEXT_STR = "Save all tabs as Word document (.docx)"
-SAVE_PNG_TEXT_STR = "Save each tab as PNG"
 COPY_TEXT_STR = "Copy"
 # LLFR-00394: the Save signals button, right of Copy.
 SAVE_SIGNALS_TEXT_STR = "Save signals"
@@ -157,7 +154,8 @@ BUTTON_TIP_SHORTCUT_DICT = {
     UNDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, UNDO_STANDARD_KEY),
     REDO_TEXT_STR: (SHORTCUT_SEQUENCE_STR, REDO_SHORTCUT_STR),
     # LLFR-00215, LLFR-01136: "Cmd+C" or "Ctrl+C"; LLFR-01139: the
-    # Export button's "Save all tabs as PDF" has "Cmd+P" or "Ctrl+P".
+    # Export button, which opens the Export window, has "Cmd+P" or
+    # "Ctrl+P".
     COPY_TEXT_STR: (SHORTCUT_SEQUENCE_STR, COPY_SHORTCUT_STR),
     EXPORT_TEXT_STR: (SHORTCUT_SEQUENCE_STR, PDF_SHORTCUT_STR),
     TIP_TEXT_STR: (SHORTCUT_HOLD_STR, TIP_KEY_I),
@@ -383,10 +381,9 @@ class TopPanel(QWidget):
     """
 
     plot_tool_changed = pyqtSignal(str)
-    pdf_export_requested = pyqtSignal()
-    # LLFR-01229: the Word and PNG options of the Export menu.
-    docx_export_requested = pyqtSignal()
-    png_export_requested = pyqtSignal()
+    # LLFR-00127: a click on the Export button asks for the Export
+    # window.
+    export_requested = pyqtSignal()
     copy_requested = pyqtSignal()
     save_layout_requested = pyqtSignal()
     load_layout_requested = pyqtSignal()
@@ -554,10 +551,10 @@ class TopPanel(QWidget):
         # so the active color is painted first (LLFR-00001).
         self.save_signals_button.triggered.connect(
             lambda: QTimer.singleShot(0, self.emit_pending_save_signals))
-        # LLFR-00127, LLFR-00133: the menu and the copy run once control
-        # is back in Qt, so the active color is painted first.
+        # LLFR-00127, LLFR-00133: the Export window and the copy run once
+        # control is back in Qt, so the active color is painted first.
         self.export_button.activated.connect(
-            lambda: QTimer.singleShot(0, self.show_pending_export_menu))
+            lambda: QTimer.singleShot(0, self.emit_pending_export))
         self.copy_button.activated.connect(
             lambda: QTimer.singleShot(0, self.emit_pending_copy))
 
@@ -691,76 +688,18 @@ class TopPanel(QWidget):
                 return tool_str
         return NO_TOOL_STR
 
-    def build_export_menu(self) -> QMenu:
-        """Build the menu shown by the Export button.
+    def emit_pending_export(self) -> None:
+        """Report the click on the Export button.
 
         Inputs: none.
-        Outputs: a QMenu (not shown) with the "Save all tabs as PDF",
-            "Save all tabs as Word document (.docx)" and "Save each tab as
-            PNG" actions, in this order.
+        Outputs: none. Emits export_requested unless the panel was
+            deleted meanwhile.
         """
-        # LLFR-00127: the Export menu has the PDF option; LLFR-01229:
-        # then the Word and PNG options.
-        menu = QMenu(self)
-        for text_str in (SAVE_PDF_TEXT_STR, SAVE_DOCX_TEXT_STR,
-                         SAVE_PNG_TEXT_STR):
-            menu.addAction(text_str)
-        return menu
-
-    def execute_export_menu(self, menu):
-        """Run the Export menu modally below the Export button.
-
-        Inputs:
-            menu: the QMenu built by build_export_menu.
-        Outputs: the chosen QAction, or None when the menu was closed
-            without a choice. Tests replace this method to choose an
-            action without a real modal menu.
-        """
-        # LLFR-00127: the menu opens below the button.
-        below_button_point = self.export_button.mapToGlobal(
-            QPoint(0, self.export_button.height()))
-        return menu.exec(below_button_point)
-
-    def show_export_menu(self) -> None:
-        """Show the Export menu and report the chosen option.
-
-        Inputs: none.
-        Outputs: none. Emits pdf_export_requested when "Save all tabs as
-            PDF" was chosen; otherwise the Export button returns to its
-            normal color.
-        """
-        # LLFR-00127: show the menu and read the choice.
-        menu = self.build_export_menu()
-        chosen_action = self.execute_export_menu(menu)
-        chosen_text_str = (chosen_action.text() if chosen_action is not None
-                           else "")
-        sip.delete(menu)
-        if chosen_text_str == SAVE_PDF_TEXT_STR:
-            # LLFR-00128: the controller asks for the file and saves it,
-            # then returns the button to normal.
-            self.pdf_export_requested.emit()
-            return
-        # LLFR-01230, LLFR-01233: the Word and PNG exports, likewise.
-        if chosen_text_str == SAVE_DOCX_TEXT_STR:
-            self.docx_export_requested.emit()
-            return
-        if chosen_text_str == SAVE_PNG_TEXT_STR:
-            self.png_export_requested.emit()
-            return
-        # LLFR-00003: the menu was closed without a choice, so the
-        # function of the button has finished.
-        self.export_button.finish()
-
-    def show_pending_export_menu(self) -> None:
-        """Show the Export menu asked for by a click on the button.
-
-        Inputs: none.
-        Outputs: none. Does nothing if the panel was deleted meanwhile.
-        """
-        # LLFR-00127: deferred, so the click handling has finished.
+        # LLFR-00127: the Export window opens after the active color is
+        # shown; LLFR-01260: or the box when there is nothing to export.
         if sip.isdeleted(self):
             return
-        self.show_export_menu()
+        self.export_requested.emit()
 
     def emit_pending_copy(self) -> None:
         """Report the click on the Copy button.

@@ -448,18 +448,20 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
                              tab_drag_preview.PREVIEW_MAXIMUM_WIDTH_I)
         self.assertGreater(preview.width(), 0)
         self.assertLess(preview.windowOpacity(), 1.0)
-        offset_i = tab_drag_preview.PREVIEW_OFFSET_I
-        self.assertEqual(preview.pos(),
-                         second_point + QPoint(offset_i, offset_i))
+        # LLFR-01264: the top-left pixel at the pointer tip (the owner's
+        # answer of 2026-11-06 in #268; it was 12 pixels away before).
+        self.assertEqual(tab_drag_preview.PREVIEW_OFFSET_I, 0)
+        self.assertEqual(preview.pos(), second_point)
+        self.assertEqual(preview.geometry().topLeft(), second_point)
         send_mouse(tab_bar, "MouseButtonRelease", second_point, "NoButton")
         self.process_events()
         self.assertFalse(preview.is_shown())
 
-    @covers("LLFR-01208", "HLFR-00143", "HLFR-00153")
+    @covers("LLFR-01208", "LLFR-01264", "HLFR-00143", "HLFR-00153")
     def test_image_follows_a_dragged_docked_tab(self) -> None:
         """A tab of the main window dragged with the left button shows a
-        small semi-transparent image next to the pointer until the
-        release.
+        small semi-transparent image, its top-left pixel at the pointer
+        tip, until the release.
 
         Inputs: none.
         Outputs: none.
@@ -471,7 +473,8 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
         tab_bar = self.panel.tab_widget.tabBar()
         self.press_move_and_check(tab_bar, 1, self.panel.tab_drag_preview)
 
-    @covers("LLFR-01208", "HLFR-00143", "HLFR-00154")
+    @covers("LLFR-01208", "LLFR-01264", "HLFR-00143", "HLFR-00154",
+            "HLFR-00155")
     def test_image_follows_a_dragged_window_tab(self) -> None:
         """A tab of an undocked window dragged with the left button
         shows the same image until the release.
@@ -486,6 +489,63 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
             window.tab_drop_handler = lambda *argument_tuple: None
             self.press_move_and_check(window.tab_bar, 0,
                                       self.panel.tab_drag_preview)
+
+    @covers("LLFR-01265", "LLFR-01264", "HLFR-00143")
+    def test_image_is_cut_at_the_screen_edge(self) -> None:
+        """Near the bottom-right corner of the screen, the image keeps its
+        top-left pixel at the pointer tip, so the screen edge cuts it; it
+        is never moved to the other side of the pointer.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+        self.main_window.show()
+        self.process_events()
+        preview = self.panel.tab_drag_preview
+        page = self.panel.page_dict[self.panel.current_tab_id()]
+        screen_rect = self.main_window.screen().geometry()
+        edge_point = screen_rect.bottomRight() - QPoint(10, 10)
+        preview.start(page, edge_point)
+        self.process_events()
+        self.addCleanup(preview.stop)
+        self.assertTrue(preview.is_shown())
+        self.assertGreater(preview.width(), 10)
+        self.assertEqual(preview.pos(), edge_point)
+        preview.follow(edge_point + QPoint(5, 5))
+        self.assertEqual(preview.pos(), edge_point + QPoint(5, 5))
+
+    @covers("LLFR-01266", "LLFR-01150", "LLFR-01152", "HLFR-00154")
+    def test_drop_lookup_leaves_the_image_out(self) -> None:
+        """When the system names the image of the dragged tab as the
+        window at the drop point (as it can, since the image is at the
+        pointer tip), the window below it is used, and the image is shown
+        again while the drag goes on.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QApplication
+        _, _, _, window = self.two_tabs_in_one_window()
+        window.show()
+        self.process_events()
+        preview = self.panel.tab_drag_preview
+        page = self.panel.page_dict[self.panel.current_tab_id()]
+        point = window.mapToGlobal(window.rect().center())
+        preview.start(page, point)
+        self.addCleanup(preview.stop)
+        with mock.patch.object(QApplication, "topLevelAt",
+                               side_effect=[preview, window]) as lookup:
+            found_window = self.main_window.window_at_point(point.x(),
+                                                            point.y())
+        self.assertIs(found_window, window)
+        self.assertEqual(lookup.call_count, 2)
+        self.assertTrue(preview.is_shown())
+        # A point on the image over no window gives no window.
+        with mock.patch.object(QApplication, "topLevelAt",
+                               side_effect=[preview, None]):
+            self.assertIsNone(self.main_window.window_at_point(point.x(),
+                                                               point.y()))
 
     @covers("LLFR-01208")
     def test_image_is_scaled_to_200_pixels(self) -> None:
