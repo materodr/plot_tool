@@ -6,11 +6,15 @@ must open in the app with the same samples. The sizes of the real files
 are checked from the generator's constants.
 """
 
+import contextlib
 import importlib.util
+import io
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -87,18 +91,66 @@ class BigSampleFileTest(unittest.TestCase):
         self.assertEqual(generator.excel_column_name(0), "A")
         self.assertEqual(generator.excel_column_name(100), "CW")
 
-    @covers("COR-00025")
-    def test_big_folder_is_never_committed(self) -> None:
-        """tests/user_tests/big is ignored by git.
+    @covers("COR-00025", "COR-00007")
+    def test_big_folder_is_next_to_the_app_and_never_committed(
+            self) -> None:
+        """--big writes into bin/user_tests/big by default, and git
+        ignores that folder (COR-00021).
 
         Inputs: none.
         Outputs: none.
         """
+        generator = load_generator()
+        self.assertEqual(
+            os.path.normpath(generator.BIG_FOLDER_STR),
+            os.path.join(REPOSITORY_ROOT_STR, "bin", "user_tests", "big"))
         result = subprocess.run(
             ["git", "check-ignore", "--no-index", "-q",
-             "tests/user_tests/big/big.csv"],
+             "bin/user_tests/big/big.csv"],
             cwd=REPOSITORY_ROOT_STR, check=False)
         self.assertEqual(result.returncode, 0)
+
+    @covers("COR-00025")
+    def test_earlier_files_are_replaced(self) -> None:
+        """Writing the big files removes the files of an earlier run
+        from the folder, so that it holds only the new ones.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        generator = load_generator()
+        with tempfile.TemporaryDirectory() as parent_str:
+            folder_str = os.path.join(parent_str, "big")
+            os.makedirs(folder_str)
+            old_path_str = os.path.join(folder_str, "old_big.csv")
+            with open(old_path_str, "w", encoding="utf-8") as file:
+                file.write("Time,a\n0,1\n")
+            path_list = generator.write_big_files(folder_str, 0.1, 0.01, 2)
+            self.assertFalse(os.path.exists(old_path_str))
+            self.assertEqual(sorted(os.listdir(folder_str)),
+                             sorted(os.path.basename(path_str)
+                                    for path_str in path_list))
+
+    @covers("COR-00025")
+    def test_big_folder_flag(self) -> None:
+        """--big --big-folder <folder> writes the files into that
+        folder.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        generator = load_generator()
+        # A short time signal keeps the test quick.
+        generator.write_big_files.__defaults__ = (0.1, 0.01, 2)
+        with tempfile.TemporaryDirectory() as parent_str:
+            folder_str = os.path.join(parent_str, "big")
+            with mock.patch.object(sys, "argv", [
+                    GENERATOR_PATH_STR, "--big", "--big-folder",
+                    folder_str]), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                generator.main()
+            self.assertIn("big_comma.csv", os.listdir(folder_str))
+            self.assertIn("big.mat", os.listdir(folder_str))
 
 
 if __name__ == "__main__":
