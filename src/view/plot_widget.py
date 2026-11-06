@@ -198,7 +198,7 @@ from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
-from matplotlib.text import Annotation
+from matplotlib.text import Annotation, Text
 from matplotlib.transforms import IdentityTransform
 from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
@@ -325,6 +325,17 @@ TIP_OFFSET_POINTS_F = 10.0
 # LLFR-00423: the lines inside a hover or pinned data tip start at the
 # left edge of its box.
 TIP_TEXT_ALIGNMENT_STR = "left"
+# LLFR-01394: the drawing area is at least this many times as tall as
+# the box of a pinned data tip with a name line, an x value line and a
+# y value line; the sample text below has those three lines.
+MINIMUM_HEIGHT_TIP_COUNT_I = 3
+MINIMUM_HEIGHT_TIP_TEXT_STR = "Name\nx = 0 s\ny = 0"
+# LLFR-01394: the height of the legend, the x-axis numbers and labels
+# around the drawing area, guessed until a first draw measures it.
+FIRST_PLOT_FRAME_GUESS_PX_I = 60
+# LLFR-01394: a change of the minimum height smaller than this is
+# ignored, so rounding never starts a loop of resizes and draws.
+MINIMUM_HEIGHT_TOLERANCE_PX_I = 1
 DEFAULT_TIP_COLOR_STR = theme.DEFAULT_TIP_COLOR_STR
 # LLFR-00082, LLFR-00083, LLFR-00084, LLFR-00092: look of a vertical
 # marker. The marker is drawn above the curves and below the tips.
@@ -1377,7 +1388,11 @@ class PlotWidget(QWidget, ShapeLayer):
         # also on widgets that never take the focus.
         self.text_note_editor.outside_pressed.connect(
             self.confirm_text_note_editor_by_press)
+        # LLFR-01394: the height of the tip box, by figure dpi.
+        self.tip_box_height_cache_dict = {}
         self.rebuild_axes()
+        # LLFR-01394: a first minimum height before the first draw.
+        self.update_minimum_height(None, FIRST_PLOT_FRAME_GUESS_PX_I)
 
     # ----------------------------------------------------------------
     # Drawing
@@ -1782,6 +1797,79 @@ class PlotWidget(QWidget, ShapeLayer):
                 self.figure.bbox)
             self.fast_drag_full_draw_count_i += 1
             QTimer.singleShot(0, self.blit_fast_drag)
+        # LLFR-01394: the draw gave the axes their size, so the space
+        # around the drawing area is known. Not inside an export, which
+        # draws at another size and dpi.
+        if not self.canvas.is_saving():
+            self.update_minimum_height(getattr(event, "renderer", None))
+
+    def tip_box_height_px(self, renderer=None) -> float:
+        """Return the height of a pinned data tip box with a name line.
+
+        Inputs:
+            renderer: the matplotlib renderer, or None for the canvas's.
+        Outputs: the height in widget pixels of the box that a pinned
+            data tip with a name line, an x value line and a y value line
+            has, with the font, font size and padding of the pinned data
+            tips (LLFR-01263, LLFR-00423).
+        """
+        # LLFR-01394: measured with the real font, so it follows it. The
+        # text is never added to the figure, so it is never drawn and
+        # never asks for a draw.
+        dpi_f = float(self.figure.dpi)
+        if dpi_f not in self.tip_box_height_cache_dict:
+            if renderer is None:
+                renderer = self.canvas.get_renderer()
+            sample_text = Text(
+                0.0, 0.0, MINIMUM_HEIGHT_TIP_TEXT_STR,
+                multialignment=TIP_TEXT_ALIGNMENT_STR,
+                fontsize=theme.PLOT_TIP_FONT_SIZE_F,
+                bbox=dict(theme.PINNED_TIP_BOX_DICT), parse_math=False)
+            sample_text.set_figure(self.figure)
+            sample_text.update_bbox_position_size(renderer)
+            box_height_f = float(sample_text.get_bbox_patch()
+                                 .get_window_extent(renderer).height)
+            self.tip_box_height_cache_dict[dpi_f] = (
+                box_height_f / self.pixel_ratio_f())
+        return self.tip_box_height_cache_dict[dpi_f]
+
+    def minimum_axes_height_px(self, renderer=None) -> float:
+        """Return the smallest height of the drawing area.
+
+        Inputs:
+            renderer: the matplotlib renderer, or None for the canvas's.
+        Outputs: three times the height of tip_box_height_px, in widget
+            pixels (LLFR-01394).
+        """
+        # LLFR-01394, HLFR-00165.
+        return MINIMUM_HEIGHT_TIP_COUNT_I * self.tip_box_height_px(renderer)
+
+    def update_minimum_height(self, renderer=None,
+                              frame_height_px_i=None) -> None:
+        """Ask the tab for the height that the drawing area needs.
+
+        Inputs:
+            renderer: the matplotlib renderer, or None for the canvas's.
+            frame_height_px_i: the height of the plot outside its drawing
+                area, in widget pixels, or None to measure it from the
+                last draw.
+        Outputs: none. The widget's minimum height becomes the minimum
+            height of the drawing area (LLFR-01394) plus the height of
+            the legend, the numbers and the labels around it, so the tab
+            gives the plot that height or scrolls (LLFR-01396).
+        """
+        # LLFR-01394: the space around the drawing area, as constrained
+        # layout drew it.
+        if frame_height_px_i is None:
+            axes_height_px_f = (float(self.axes.bbox.height)
+                                / self.pixel_ratio_f())
+            frame_height_px_i = max(
+                0, int(math.ceil(self.canvas.height() - axes_height_px_f)))
+        minimum_height_i = int(math.ceil(
+            self.minimum_axes_height_px(renderer) + frame_height_px_i))
+        if (abs(minimum_height_i - self.minimumHeight())
+                > MINIMUM_HEIGHT_TOLERANCE_PX_I):
+            self.setMinimumHeight(minimum_height_i)
 
     def static_artist_set(self) -> set:
         """Return the artists of the axes that a drag never changes.

@@ -148,6 +148,23 @@ def page_background_color_str(page) -> str:
     return page.palette().color(QPalette.ColorRole.Window).name()
 
 
+def full_plot_area(page):
+    """Return the widget that holds every plot of a page at full height.
+
+    Inputs:
+        page: a TabPage, or a widget that has no plot area of its own.
+    Outputs: the page's plot area, laid out at its size inside the
+        scroll area, or the page itself when it has no plot area.
+    """
+    # LLFR-01398: a tab that scrolls is exported whole, at the heights
+    # its plots have, whatever part of it is in view, and without the
+    # scroll bar, which is outside the plot area.
+    fit_function = getattr(page, "fit_plot_area", None)
+    if fit_function is not None:
+        fit_function()
+    return getattr(page, "plot_area", page)
+
+
 def grab_page_image(page):
     """Return an image of a tab page as it is shown on screen.
 
@@ -155,6 +172,9 @@ def grab_page_image(page):
         page: a visible TabPage.
     Outputs: a QImage of the page with all its plots.
     """
+    # LLFR-01398: every plot, also the ones scrolled out of view, at its
+    # size in the tab; the size is set before the plots are drawn.
+    plot_area = full_plot_area(page)
     # LLFR-00129, LLFR-00133: every plot is drawn with its current
     # state before the page is grabbed, so nothing pending is missed.
     for plot_widget in page.plot_widget_list:
@@ -171,7 +191,7 @@ def grab_page_image(page):
     canvas_list = [plot_widget.canvas
                    for plot_widget in page.plot_widget_list]
     with corners_in_color(canvas_list, page_background_color_str(page)):
-        return page.grab().toImage()
+        return plot_area.grab().toImage()
 
 
 def lay_out_page_like(page, reference_size) -> None:
@@ -188,6 +208,8 @@ def lay_out_page_like(page, reference_size) -> None:
     if page.size() != reference_size and not reference_size.isEmpty():
         page.resize(reference_size)
     page.page_layout.activate()
+    # LLFR-01398: the plot area takes its size in the scroll area.
+    full_plot_area(page)
     QApplication.processEvents()
 
 
@@ -248,11 +270,14 @@ def plot_image_list(page) -> list:
 
     Inputs:
         page: a visible TabPage, already laid out.
-    Outputs: a list of tuples (QRectF of the canvas in the page's
-        logical pixels, QImage of the figure).
+    Outputs: a list of tuples (QRectF of the canvas in the logical
+        pixels of the page's whole plot area, QImage of the figure).
     """
     # LLFR-00129: every plot of the tab, at its on-screen position.
-    page_width_px = float(page.width())
+    # LLFR-01398: the places are taken in the whole plot area, also
+    # for the plots scrolled out of view.
+    plot_area = full_plot_area(page)
+    page_width_px = float(plot_area.width())
     entry_list = []
     for plot_widget in page.plot_widget_list:
         # LLFR-01215: a plot still drawn as during a drag draws all its
@@ -263,7 +288,7 @@ def plot_image_list(page) -> list:
         if forget_function is not None:
             forget_function()
         canvas = plot_widget.canvas
-        top_left = canvas.mapTo(page, QPoint(0, 0))
+        top_left = canvas.mapTo(plot_area, QPoint(0, 0))
         canvas_rect = QRectF(float(top_left.x()), float(top_left.y()),
                              float(canvas.width()), float(canvas.height()))
         dpi_f = figure_export_dpi_f(plot_widget.figure,

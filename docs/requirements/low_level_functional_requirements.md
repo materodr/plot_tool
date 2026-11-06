@@ -7690,3 +7690,53 @@ Note: The patterns of the flags, delta markers and arrows are the ones they had 
 When loading a layout, the app must give the default line style of LLFR-01377 to a flag, a curve or a delta marker whose saved line style is missing or not one of `continuous`, `dashed`, `dotted` and `dash_dotted`.
 
 *Parent: HLFR-00160, HLFR-00050*
+
+### LLFR-01394 Minimum height of the drawing area
+The app must give the drawing area of each plot a height of at least three times the height of the box of a pinned data tip that has a name line (LLFR-01263), an x value line and a y value line, measured with the font, font size and box padding that the app draws pinned data tips with.
+
+Note: The height follows the font, so a larger font gives taller plots. The other parts of the plot (legend, x-axis numbers and labels) come on top of this height.
+
+*Parent: HLFR-00165*
+
+### LLFR-01395 Plots that fit in the tab
+When every shown row of a tab (LLFR-01110) can have the height of LLFR-01394 in the plot area of the tab, the app must share the height of the plot area among the shown rows as in LLFR-01110, with no scroll bar.
+
+*Parent: HLFR-00165, HLFR-00166*
+
+### LLFR-01396 Plots that do not fit in the tab
+When the shown rows of a tab can't all have the height of LLFR-01394 in the plot area of the tab, the app must give each shown row the smallest height that gives each of its plots the height of LLFR-01394.
+
+Note: The 5 plots per tab of HLFR-00018 and the plot titles (LLFR-01390) don't change.
+
+*Parent: HLFR-00165, HLFR-00166*
+
+### LLFR-01397 Mouse wheel over a plot in a scrolled tab
+While a tab shows the scroll bar of LLFR-01401, the mouse wheel and the two-finger swipe over a plot must zoom that plot as in LLFR-00074, LLFR-00113 and LLFR-00206, with the plots of the tab staying where they are.
+
+Note: The user scrolls the plots with the scroll bar, or with the mouse wheel over the scroll bar or the gaps between the plots. Shift+wheel does not scroll, because holding Shift keeps the Flag tool active (LLFR-00154).
+
+*Parent: HLFR-00166, HLFR-00027*
+
+### LLFR-01398 Scrolled tabs in the exports
+The PDF export, the Word and PNG exports and the copied image (LLFR-00129, LLFR-01231, LLFR-01234, LLFR-00133) must show every plot of a tab whole, with the height it has in the tab (LLFR-01395, LLFR-01396), whatever part of the tab is scrolled into view, and without the scroll bar.
+
+*Parent: HLFR-00166, HLFR-00038, HLFR-00039*
+
+### LLFR-01399 Plot height in undocked windows
+The app must apply LLFR-01394 to LLFR-01397 and LLFR-01401 to the tab shown in an undocked window in the same way as to the tab shown in the main window.
+
+*Parent: HLFR-00165, HLFR-00166*
+
+### LLFR-01400 Search box beside a scrolled tab
+While the tab that a window shows has the scroll bar of LLFR-01401, the bottom edge of the search box (LLFR-00094) of that window must be at the height of the bottom edge of the visible part of the tab's plot area.
+
+Note: When the tab is scrolled to its end, that is the bottom edge of the last row of plots (LLFR-00424).
+
+*Parent: HLFR-00095, HLFR-00166*
+
+### LLFR-01401 Scroll bar of a tab
+While the shown rows of a tab, with the heights of LLFR-01396, are taller in all than the plot area of the tab, the app must show a vertical scroll bar at the right edge of the plot area, with which the user scrolls the plots of the tab up and down.
+
+Note: The scroll bar is shown only while it is needed: it disappears as soon as the plots fit again (LLFR-01395), for example when the window grows or a plot is deleted. There is never a horizontal scroll bar. The app window still opens at 800 × 600 pixels and can be made as small as before, because the scroll bar takes up the height the plots don't fit in.
+
+*Parent: HLFR-00166*

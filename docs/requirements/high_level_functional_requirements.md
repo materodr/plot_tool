@@ -612,3 +612,9 @@ Note: The current widths are the defaults.
 The user must be able to choose the line style of flags, curves, delta markers, arrows and text note boxes among continuous, dashed, dotted and dash-dotted.
 
 Note: Each keeps today's style as its default.
+
+### HLFR-00165 Minimum plot height
+The drawing area of each plot must be at least three times as tall as a pinned data tip with its name line.
+
+### HLFR-00166 Scroll the plots of a tab
+When the plots of a tab can't have the height of HLFR-00165 in the space the tab gives them, the user must be able to scroll the plots of the tab vertically.
