@@ -178,22 +178,37 @@ Note: An environment `Fail*` counts as run only into `develop` (PCR-00072), so a
 ### PCR-00072 Environment Fail* counts as run
 For PCR-00057, a test shown with the `Fail*` of PCR-00063 must count as run, also when the run on GitHub could not run it either.
 
-Note: The `tests` CI job adds `--environment-limit` only when installing PyQt6 or h5py fails on the runner, with a justification that names the failed install. A test that runs and fails still fails the job. An environment `Fail*` is accepted into `develop` only: a pull request into `main` carries no `Fail*` (PCR-00069).
+Note: Each shard job (PCR-00127) adds `--environment-limit` only when installing PyQt6 or h5py fails on its runner, with a justification that names the failed install, and the `tests` job carries it into the matrix. A test that runs and fails still fails the run. An environment `Fail*` is accepted into `develop` only: a pull request into `main` carries no `Fail*` (PCR-00069).
+
+### PCR-00127 Parallel test shards
+The Tests workflow must run the tests of a pull request in parallel shard jobs, each test in exactly one shard.
+
+Note: The shards are balanced by the expected time of each test file, read from `tests/ci_test_durations.json`. The `tests` job collects the results of every shard and builds the one test matrix of the run. The owner decided this on 2026-11-06.
+
+### PCR-00128 The `tests` check covers every shard
+The `tests` check of a pull request must fail when a shard job fails or is cancelled, or when a test ran in no shard or in more than one.
+
+Note: `tests` is the check that the rulesets require. GitHub names matrix jobs `<name> (<value>)`, so the shard jobs have other names, and `tests` runs also when a shard fails, because a skipped job counts as a success.
 
 ### PCR-00078 Every test for code and functional requirement changes
 A pull request into `develop` must run every test when its branch changes a file under `src/`, `tests/`, `bin/` or `.github/workflows/`, a build script (`build_executable.py`, `rebuild_and_launch.py`), a `requirements*.txt` file, or the HLFR or LLFR file, except as in PCR-00083.
 
-Note: The branch is compared with its base branch. The sample files of COR-00023 are under `tests/`. A renamed file counts with its old and its new path, and a deleted file counts too. A pull request from `develop` to `main` always runs every test (PCR-00058). A push runs no test (PCR-00121). In the `tests` CI job, `tests/ci_changed_files.py` makes the decision, and only an explicit decision to skip skips. This follows the owner's decisions of 2026-11-05.
+Note: The branch is compared with its base branch. The sample files of COR-00023 are under `tests/`. A renamed file counts with its old and its new path, and a deleted file counts too. A pull request from `develop` to `main` always runs every test (PCR-00058). A push runs no test (PCR-00121). In the `changes` job of the Tests workflow, `tests/ci_changed_files.py` makes the decision for every shard, and only an explicit decision to skip skips. This follows the owner's decisions of 2026-11-05.
 
 ### PCR-00121 Pushes run only the requirement checks
 A push to `develop` or `main` must run only the requirement checks, with no run of the tests.
 
 Note: The run of the pull request already tested the merged code, because its branch was up to date (PCR-00060). The macOS build of `macos_build.yml` therefore runs only on pull requests too. The owner decided this on 2026-11-05.
 
+### PCR-00129 Screenshots on release pull requests only
+CI must make and post the screenshots of the interface only on pull requests into `main`.
+
+Note: `tests/user_tests/make_screenshots.py` makes them; run it locally to see a change of the interface before the release. The owner decided this on 2026-11-06.
+
 ### PCR-00079 Tests skipped for other changes
 A pull request into `develop` whose branch changes only files outside the list of PCR-00078 must skip the run of the tests.
 
-Note: For example, a branch that changes only the COR or PCR requirements, `docs/requirements/README.md`, `CLAUDE.md` or the skills in `.claude/skills/`. The `tests` job then skips its test steps and still reports success, so that the required check doesn't block the merge. It still checks PEP 8 and runs the checks of `tests/check_pr_ready.py` that need no test run.
+Note: For example, a branch that changes only the COR or PCR requirements, `docs/requirements/README.md`, `CLAUDE.md` or the skills in `.claude/skills/`. The shard jobs (PCR-00127) are then skipped, and the `tests` job still reports success, so that the required check doesn't block the merge. It still checks PEP 8 and runs the checks of `tests/check_pr_ready.py` that need no test run.
 
 ### PCR-00080 Requirement checks on every pull request
 Every pull request into `develop` or `main` must run the requirements quality test (PCR-00037) and the `requirement-validation-section` and `fail-star-section` checks, also when it skips the tests (PCR-00079, PCR-00083).
@@ -237,7 +252,7 @@ Note: `tests/check_requirement_review.py` and its hook accept this form only for
 ### PCR-00083 Matrix-only changes skip the tests
 A pull request into `develop` that changes only `tests/test_matrix.md`, and the pull request of PCR-00061, must skip the run of the tests.
 
-Note: A pull request into `main` from `develop` runs every test even when it changes only the matrix (PCR-00058). Like PCR-00079, the `tests` job then skips its test steps and still reports success.
+Note: A pull request into `main` from `develop` runs every test even when it changes only the matrix (PCR-00058). Like PCR-00079, the shard jobs are then skipped and the `tests` job still reports success.
 
 ### PCR-00084 Merge of the matrix pull request into main
 The owner must approve, as code owner, and merge the pull request of PCR-00061.
@@ -384,9 +399,9 @@ When a commit is added to the branch after the green light, for example after CI
 Note: The `green-light` check fails such a pull request (PCR-00112), and the commit cancels the CI run of the earlier commit (PCR-00107).
 
 ### PCR-00107 CI stopped by a new commit
-When a commit is added to the branch of a pull request, CI must cancel the `tests` run of the earlier commit.
+When a commit is added to the branch of a pull request, CI must cancel every job of the Tests workflow run of the earlier commit.
 
-Note: The `tests` workflow has a `concurrency` group per pull request with `cancel-in-progress: true`.
+Note: The `tests` workflow has a `concurrency` group per pull request with `cancel-in-progress: true`, which covers the `changes` job, every shard job and the `tests` job.
 
 ### PCR-00108 Green light only on an up-to-date branch
 The reviewer of PCR-00088 must give its green light only when it has no findings left and the branch contains the latest commit of `develop`.

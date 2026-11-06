@@ -1,5 +1,5 @@
 {
-  "comment": "Seconds of each test module in a CI run, used to balance the CI shards (PCR-00127). Seeded on 2026-11-06 from a local run (modules without PyQt6 and h5py) and, for the tests that need them, from the CI run 42251219070 (11 min 10 s for 2835 tests). Copy the test_durations.json artifact of a recent run here when the shards drift apart.",
+  "comment": "Seconds of each test module in a CI run, used to balance the CI shards (PCR-00127). Seeded on 2026-11-06 from a local run (modules without PyQt6 and h5py) and, for the tests that need them, from the CI run 42251219070 (11 min 10 s for 2835 tests). The modules added later by #273 are estimated at 0.5 s per test. Copy the test_durations.json artifact of a recent run here when the shards drift apart.",
   "seconds_by_module": {
     "tests.controller.test_areas_controller": 0.0,
     "tests.controller.test_arrows_controller": 0.0,
@@ -29,6 +29,8 @@
     "tests.controller.test_signal_list_controller": 0.0,
     "tests.controller.test_synthetic_controller": 0.0,
     "tests.controller.test_synthetic_files_controller": 1.4,
+    "tests.controller.test_text_background_controller": 2.5,
+    "tests.controller.test_text_background_review": 2.0,
     "tests.controller.test_text_notes_controller": 0.0,
     "tests.controller.test_tip_move_controller": 0.0,
     "tests.controller.test_undo_controller": 0.0,
@@ -149,6 +151,8 @@
     "tests.view.test_startup_probe": 4.5,
     "tests.view.test_swipe_pan": 12.9,
     "tests.view.test_synthetic_signals_view": 8.9,
+    "tests.view.test_text_background_review": 3.0,
+    "tests.view.test_text_background_view": 3.5,
     "tests.view.test_text_field_shortcuts": 4.5,
     "tests.view.test_text_notes_view": 16.9,
     "tests.view.test_theme": 2.1,

@@ -57,8 +57,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements*.txt
 
       # tests/ci_changed_files.py compares the head of the pull request
       # with its base and writes full_suite=true or false. pipefail makes
@@ -148,6 +146,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Issue #274: the downloaded packages (PyQt6, h5py, ...) are cached
+      # between runs, under a key made from requirements*.txt.
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -240,11 +240,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      # No pip cache here: setup-python gives every job of the run the
+      # same cache key, and the first job to finish saves its cache, so
+      # this job, which installs only pycodestyle (and the packages of
+      # the screenshots into main), would hide the packages of the
+      # shards. The "changes" job doesn't cache either, for the same
+      # reason.
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements*.txt
 
       # Merging the shards needs only the standard library, so only the
       # PEP 8 checker is installed.
