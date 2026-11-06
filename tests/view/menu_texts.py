@@ -22,26 +22,30 @@ def menu_option_texts(menu) -> list:
             if not action.isSeparator() and not is_menu_title(action)]
 
 
+# LLFR-01418: every object menu below holds "Text background" (the
+# owner's answers of 2026-11-06 in #270).
 # LLFR-00046, LLFR-00412, LLFR-00413: the pinned data tip menu.
-TIP_MENU_TEXT_LIST = ["Rename", "Delete",
+TIP_MENU_TEXT_LIST = ["Rename", "Text background", "Delete",
                       "Delete all data tips in this plot",
                       "Delete all data tips in all plots"]
 # LLFR-00087, LLFR-00391, LLFR-00090, LLFR-00416: the flag menu.
-FLAG_MENU_TEXT_LIST = ["Rename", "Color", "Width", "Line style", "Delete",
-                       "Delete all flags"]
+FLAG_MENU_TEXT_LIST = ["Rename", "Color", "Text background", "Width",
+                       "Line style", "Delete", "Delete all flags"]
 # LLFR-00175, LLFR-00429, LLFR-00409, LLFR-00414, LLFR-00415: the delta
 # marker menu.
-DELTA_MENU_TEXT_LIST = ["Rename", "Color", "Width", "Line style", "Delete",
+DELTA_MENU_TEXT_LIST = ["Rename", "Color", "Text background", "Width",
+                        "Line style", "Delete",
                         "Delete all delta markers in this plot",
                         "Delete all delta markers in all plots"]
 # LLFR-00314, LLFR-00417, LLFR-01113: the area menu.
-AREA_MENU_TEXT_LIST = ["Rename", "Color", "Delete",
+AREA_MENU_TEXT_LIST = ["Rename", "Color", "Text background", "Delete",
                        "Delete all vertical areas", "Position",
                        "Delete plot"]
 # LLFR-00048, LLFR-01112: the plot menu of an empty area of a plot.
 PLOT_MENU_TEXT_LIST = ["Position", "Delete plot"]
 # LLFR-00378: the arrow menu.
-ARROW_MENU_TEXT_LIST = ["Rename", "Color", "Width", "Line style",
-                        "Delete"]
+ARROW_MENU_TEXT_LIST = ["Rename", "Color", "Text background", "Width",
+                        "Line style", "Delete"]
 # LLFR-01347: the shape menu.
-SHAPE_MENU_TEXT_LIST = ["Rename", "Color", "Width", "Line style", "Delete"]
+SHAPE_MENU_TEXT_LIST = ["Rename", "Color", "Text background", "Width",
+                        "Line style", "Delete"]

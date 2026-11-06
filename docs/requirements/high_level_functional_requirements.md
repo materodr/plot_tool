@@ -27,7 +27,7 @@ Note: This applies to every button, including the button that opens a file.
 The user must be able to change the widths of the plot panel and the signal list panel of each window.
 
 ### HLFR-00040 Undo
-The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, circles, rectangles, grid and hidden labels.
+The user must be able to undo their most recent actions on the tabs, plots, curves, data tips, flags, delta markers, vertical areas, text notes, arrows, circles, rectangles, grid, hidden labels and text background.
 
 ### HLFR-00048 Redo
 The user must be able to redo the actions they have undone (HLFR-00040).
@@ -618,3 +618,8 @@ The drawing area of each plot must be at least three times as tall as a pinned d
 
 ### HLFR-00166 Scroll the plots of a tab
 When the plots of a tab can't have the height of HLFR-00165 in the space the tab gives them, the user must be able to scroll the plots of the tab vertically.
+
+### HLFR-00167 Text background
+The user must be able to choose, from the right-click menu of any object that shows text on a plot, whether the texts of all the objects on the plots have a transparent background or a background that contrasts with the color of the text.
+
+Note: The choice is kept after the app is closed.

@@ -70,7 +70,33 @@ def get_qt_application():
     if application is None:
         application = QApplication([])
         install_file_dialog_guard()
+        isolate_text_background_settings()
     return application
+
+
+def isolate_text_background_settings() -> None:
+    """Keep the text background of the tests out of the user's settings.
+
+    Every MainController start reads the text background from the app's
+    settings and writes it back (LLFR-01425, LLFR-01426), and view.theme
+    keeps it for every later plot of the test run. So that no test reads
+    or changes the choice of the user's real app, and every test starts
+    from "Auto contrast" whatever the user chose, the tests use an INI
+    file of their own, removed at the end of the run. A test that needs
+    its own file still patches settings_file_path_str (#270 review).
+
+    Inputs: none.
+    Outputs: none.
+    """
+    import atexit
+    import tempfile
+    from view import text_background_settings
+    if text_background_settings.settings_file_path_str:
+        return
+    folder = tempfile.TemporaryDirectory()
+    atexit.register(folder.cleanup)
+    text_background_settings.settings_file_path_str = os.path.join(
+        folder.name, "text_background_settings.ini")
 
 
 def install_file_dialog_guard() -> None:

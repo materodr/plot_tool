@@ -241,7 +241,8 @@ class MenuTitleTest(LabelWidgetTestCase):
             box = widget.text_note_box_extent(0)
             self.check_title(center_of(box), "Text: Note\u2026",
                              ["Edit", "Size", "Border color", "Text color",
-                              "Width", "Line style", "Delete"])
+                              "Text background", "Width", "Line style",
+                              "Delete"])
             widget.set_text_notes([])
         with self.subTest(menu="arrow"):
             widget.set_arrows([ARROW_TUPLE])
@@ -516,7 +517,8 @@ class ArrowLabelViewTest(LabelWidgetTestCase):
 
 class LabelContrastBoxTest(LabelWidgetTestCase):
     """Colored labels on an opaque box with a WCAG contrast of at least
-    4.5:1 (LLFR-00704, LLFR-00436, LLFR-01202)."""
+    2.5:1 with "Auto contrast" (LLFR-00704, LLFR-00436, LLFR-01202,
+    LLFR-01423; the owner's answers of 2026-11-06 in #270)."""
 
     def assert_contrast_box(self, text) -> None:
         """Check that a text is drawn on an opaque box that reads with it.
@@ -535,14 +537,15 @@ class LabelContrastBoxTest(LabelWidgetTestCase):
                          theme.area_label_box_color_str(text_color_str))
         self.assertIn(box_patch.get_alpha(), (None, 1.0))
         self.assertGreaterEqual(
-            theme.contrast_ratio_f(text_color_str, box_color_str), 4.5)
+            theme.contrast_ratio_f(text_color_str, box_color_str), 2.5)
 
     @covers("LLFR-00436", "LLFR-00704", "LLFR-00870", "HLFR-00100")
     def test_arrow_label_and_preview_on_a_contrast_box(self) -> None:
         """The label of an arrow in the default orange, in green and in
         a dark blue, and the label of the move preview in its pale
-        color, each reach 4.5:1 on their box; orange gets a black box,
-        the dark blue a white one.
+        color, each reach 2.5:1 on their "Auto contrast" box (LLFR-01423);
+        orange and the dark blue get a white box (the owner's examples of
+        2026-11-06 in #270: orange is white, no longer black).
 
         Inputs: none.
         Outputs: none.
@@ -558,7 +561,7 @@ class LabelContrastBoxTest(LabelWidgetTestCase):
             with self.subTest(arrow=index_i):
                 self.assert_contrast_box(widget.arrow_label(index_i))
         self.assertEqual(to_hex(widget.arrow_label(0).get_bbox_patch()
-                                .get_facecolor()), "#000000")
+                                .get_facecolor()), "#ffffff")
         self.assertEqual(to_hex(widget.arrow_label(2).get_bbox_patch()
                                 .get_facecolor()), "#ffffff")
         press_tuple = self.data_display(2.0, 2.0)
