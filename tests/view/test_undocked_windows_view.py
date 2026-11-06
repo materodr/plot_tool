@@ -1535,8 +1535,8 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
             window.pdf_shortcut.activated.emit()
         self.assertEqual(handler.call_count, 3)
 
-    @covers("LLFR-01139", "LLFR-01262", "LLFR-01023", "LLFR-00128",
-            "LLFR-00145", "LLFR-01260", "LLFR-00131", "HLFR-00038",
+    @covers("LLFR-01139", "LLFR-01409", "LLFR-01023", "LLFR-00128",
+            "LLFR-00145", "LLFR-01407", "LLFR-00131", "HLFR-00038",
             "HLFR-00124")
     def test_pdf_shortcut_boxes_over_the_window_of_the_key(self) -> None:
         """Ctrl+P in an undocked window shows the Export window, the PDF
@@ -1600,7 +1600,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         self.assertIs(self.main_window.file_dialog_pool.dialog(
             SAVE_PDF_DIALOG_KEY_STR).parent(), self.main_window)
         self.assertIsNone(self.main_window.pdf_shortcut_window)
-        # LLFR-01262: the Word and PNG dialogs over the window too.
+        # LLFR-01409: the Word and PNG dialogs over the window too.
         dialog_parent_list = []
 
         def record_export_dialog(dialog) -> str:
@@ -1620,7 +1620,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
             window.pdf_shortcut.activated.emit()
         self.assertEqual(dialog_parent_list, [window, window])
         self.main_window.run_export_window = answer_window
-        # LLFR-01260, LLFR-00145: the nothing-to-export box over the
+        # LLFR-01407, LLFR-00145: the nothing-to-export box over the
         # window, with no Export window.
         window_parent_list.clear()
         with mock.patch.object(self.main_window, "exportable_tab_count",
@@ -1643,7 +1643,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         self.assertEqual(error_box.call_args.args[1], "disk full")
         self.assertIsNone(self.main_window.pdf_shortcut_window)
 
-    @covers("LLFR-01261", "HLFR-00038", "HLFR-00138")
+    @covers("LLFR-01408", "HLFR-00038", "HLFR-00138")
     def test_pdf_shortcut_ignored_while_the_export_window_is_open(
             self) -> None:
         """While the Export window is open, Ctrl+P in any window opens no

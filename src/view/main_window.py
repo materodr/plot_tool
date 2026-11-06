@@ -333,10 +333,10 @@ class MainWindow(QMainWindow):
         # window and its exports, and copies the image.
         self.export_handler = None
         self.copy_handler = None
-        # LLFR-01262, LLFR-01023: the window where Ctrl+P was pressed,
+        # LLFR-01409, LLFR-01023: the window where Ctrl+P was pressed,
         # while its export runs; None for the Export button.
         self.pdf_shortcut_window = None
-        # LLFR-01261: True while the Export window is open.
+        # LLFR-01408: True while the Export window is open.
         self.export_window_open_b = False
         self.top_panel.export_requested.connect(self._on_export_requested)
         self.top_panel.copy_requested.connect(self._on_copy_requested)
@@ -764,8 +764,8 @@ class MainWindow(QMainWindow):
         top_window = QApplication.topLevelAt(point)
         preview = self.plot_panel.tab_drag_preview
         if top_window is preview:
-            # LLFR-01266: the image of a dragged tab, at the pointer tip
-            # (LLFR-01264), is left out on every operating system: it is
+            # LLFR-01413: the image of a dragged tab, at the pointer tip
+            # (LLFR-01411), is left out on every operating system: it is
             # hidden and the window below it is looked up.
             shown_page = preview.dragged_page
             preview.hide()
@@ -2576,22 +2576,22 @@ class MainWindow(QMainWindow):
 
         Inputs: none.
         Outputs: one of model.export_files.EXPORT_FORMAT_TUPLE, or ""
-            when the window was closed with no format (LLFR-01257).
+            when the window was closed with no format (LLFR-01404).
         """
-        # LLFR-00127, LLFR-01139: the Export window; LLFR-01262: over the
+        # LLFR-00127, LLFR-01139: the Export window; LLFR-01409: over the
         # window where Ctrl+P was pressed, else over the main window;
-        # LLFR-01258: the last format used is the default button.
+        # LLFR-01405: the last format used is the default button.
         dialog = export_window.ExportWindow(
             self.export_box_parent(),
             export_window.remembered_export_format())
-        # LLFR-01261: Ctrl+P does nothing while the window is open.
+        # LLFR-01408: Ctrl+P does nothing while the window is open.
         self.export_window_open_b = True
         try:
             format_str = self.run_export_window(dialog) or ""
         finally:
             self.export_window_open_b = False
             dialog.deleteLater()
-        # LLFR-01259: the format clicked is kept for the next window.
+        # LLFR-01406: the format clicked is kept for the next window.
         if format_str:
             export_window.remember_export_format(format_str)
         return format_str
@@ -2605,7 +2605,7 @@ class MainWindow(QMainWindow):
             with no format. Tests replace this method to answer without
             a modal window.
         """
-        # LLFR-01256, LLFR-01257: the window closes on a format or on
+        # LLFR-01403, LLFR-01404: the window closes on a format or on
         # Cancel, Esc or the close button.
         dialog.exec()
         return dialog.chosen_format_str
@@ -2630,7 +2630,7 @@ class MainWindow(QMainWindow):
         """
         # LLFR-01230: a save file dialog for a .docx file, in the folder
         # of LLFR-01243; the system asks before replacing the file.
-        # LLFR-01262: over the window where Ctrl+P was pressed.
+        # LLFR-01409: over the window where Ctrl+P was pressed.
         dialog = QFileDialog(self.export_box_parent(),
                              SAVE_DOCX_DIALOG_TITLE_STR,
                              str(start_folder_str), SAVE_DOCX_FILTER_STR)
@@ -2647,7 +2647,7 @@ class MainWindow(QMainWindow):
         Outputs: the chosen folder, or "" when the user cancelled.
         """
         # LLFR-01233: a folder dialog, in the folder of LLFR-01243.
-        # LLFR-01262: over the window where Ctrl+P was pressed.
+        # LLFR-01409: over the window where Ctrl+P was pressed.
         dialog = QFileDialog(self.export_box_parent(),
                              SAVE_PNG_DIALOG_TITLE_STR, str(start_folder_str))
         dialog.setFileMode(QFileDialog.FileMode.Directory)
@@ -2674,7 +2674,7 @@ class MainWindow(QMainWindow):
             file_name_list: the names of the existing files.
         Outputs: True when the user chose Yes.
         """
-        # LLFR-01236: one question that names the files; LLFR-01262: over
+        # LLFR-01236: one question that names the files; LLFR-01409: over
         # the window where Ctrl+P was pressed.
         question_str = list_text(
             [str(name_str) for name_str in file_name_list],
@@ -3469,7 +3469,7 @@ class MainWindow(QMainWindow):
         Outputs: none.
         """
         # LLFR-00127, LLFR-01139: the controller shows the Export window,
-        # or the box of LLFR-01260, and runs the chosen export.
+        # or the box of LLFR-01407, and runs the chosen export.
         if self.export_handler is None:
             # LLFR-00003: nothing to run, so the function is finished.
             self.finish_export_button()
@@ -3638,7 +3638,7 @@ class MainWindow(QMainWindow):
         Outputs: none. The Export window, and the dialogs and boxes of
             the export, are shown over that window.
         """
-        # LLFR-01261: while the Export window is open, nothing.
+        # LLFR-01408: while the Export window is open, nothing.
         if self.export_window_open_b:
             return
         # LLFR-01172: during a mouse drag, Ctrl+P does nothing.
@@ -3649,7 +3649,7 @@ class MainWindow(QMainWindow):
         self.leave_text_field()
         # LLFR-01139: as the Export button, from any window, also in a
         # text field (which gives Ctrl+P no meaning of its own);
-        # LLFR-01262, LLFR-01023: its window, dialogs and boxes over that
+        # LLFR-01409, LLFR-01023: its window, dialogs and boxes over that
         # window.
         self.pdf_shortcut_window = self.undocked_window_dict.get(
             window_id_i, self)

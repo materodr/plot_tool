@@ -61,9 +61,9 @@ class FileDialogTimingTest(unittest.TestCase):
         self.pool = self.main_window.file_dialog_pool
         self.shown_list = []
         self.top_panel = self.main_window.top_panel
-        # LLFR-00127, LLFR-01256: the Export window answers "PDF (all
+        # LLFR-00127, LLFR-01403: the Export window answers "PDF (all
         # tabs)" at once (the owner's answer of 2026-11-06 in #268 put
-        # this window in place of the menu); LLFR-01259: in settings of
+        # this window in place of the menu); LLFR-01406: in settings of
         # the test.
         from view import export_window
         settings_patch = mock.patch.object(

@@ -13,7 +13,7 @@
 - ``png_file_name_list`` names the PNG file of each tab (LLFR-01235).
 - ``png_size_tuple`` reads the size of a PNG image from its header.
 - ``cleaned_export_format`` reads the last format of the Export window
-  kept in the settings (LLFR-01258, LLFR-01259).
+  kept in the settings (LLFR-01405, LLFR-01406).
 """
 
 import re
@@ -25,7 +25,7 @@ from xml.sax.saxutils import escape
 # LLFR-01230: the extension of the Word document.
 DOCX_SUFFIX_STR = ".docx"
 # LLFR-01229: the three formats of the Export window, from left to
-# right; LLFR-01258: the PDF is highlighted when none is remembered.
+# right; LLFR-01405: the PDF is highlighted when none is remembered.
 PDF_FORMAT_STR = "pdf"
 DOCX_FORMAT_STR = "docx"
 PNG_FORMAT_STR = "png"
@@ -300,8 +300,8 @@ def cleaned_export_format(stored_value) -> str:
     Outputs: one of EXPORT_FORMAT_TUPLE; DEFAULT_EXPORT_FORMAT_STR when
         the value is not one of them.
     """
-    # LLFR-01259: a value that is not one of the three formats counts as
-    # no remembered format; LLFR-01258: the PDF is highlighted then.
+    # LLFR-01406: a value that is not one of the three formats counts as
+    # no remembered format; LLFR-01405: the PDF is highlighted then.
     if isinstance(stored_value, str):
         format_str = stored_value.strip().lower()
         if format_str in EXPORT_FORMAT_TUPLE:

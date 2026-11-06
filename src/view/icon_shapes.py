@@ -657,7 +657,7 @@ WINDOW_ICON_SHAPE_FUNCTION_DICT = {
 }
 
 
-# LLFR-01263: the icons of the format buttons of the Export window,
+# LLFR-01410: the icons of the format buttons of the Export window,
 # which are not top panel buttons.
 PDF_FORMAT_ICON_STR = "pdf_format"
 DOCX_FORMAT_ICON_STR = "docx_format"
@@ -673,7 +673,7 @@ def folded_sheet_layer_list(left_f: float, top_f: float) -> list:
     Outputs: the layers of a sheet 13 units wide and 17 high: its
         outline and the fold of its corner.
     """
-    # LLFR-01263: the sheet of the PDF and Word icons.
+    # LLFR-01410: the sheet of the PDF and Word icons.
     right_f = left_f + 13.0
     bottom_f = top_f + 17.0
     fold_f = 4.5
@@ -697,7 +697,7 @@ def pdf_format_shape() -> list:
     Inputs: none.
     Outputs: the list of layers.
     """
-    # LLFR-01263: "PDF (all tabs)": a stack of pages; of the sheet
+    # LLFR-01410: "PDF (all tabs)": a stack of pages; of the sheet
     # behind only the part that shows is drawn.
     back_list = polyline([(5.0, 18.0), (5.0, 4.5), (6.5, 3.0),
                           (14.0, 3.0)])
@@ -710,7 +710,7 @@ def docx_format_shape() -> list:
     Inputs: none.
     Outputs: the list of layers.
     """
-    # LLFR-01263: "Word .docx (all tabs)".
+    # LLFR-01410: "Word .docx (all tabs)".
     letter_list = polyline([(7.75, 10.0), (9.5, 17.5), (12.0, 12.0),
                             (14.5, 17.5), (16.25, 10.0)])
     return folded_sheet_layer_list(5.5, 3.5) + [ink_layer(letter_list)]
@@ -722,7 +722,7 @@ def png_format_shape() -> list:
     Inputs: none.
     Outputs: the list of layers.
     """
-    # LLFR-01263: "PNG (one file per tab)".
+    # LLFR-01410: "PNG (one file per tab)".
     mountain_list = polyline([(3.5, 17.5), (9.0, 11.0), (12.5, 14.5),
                               (15.0, 12.5), (20.5, 17.5)])
     return [ink_layer([("R", 2.5, 4.5, 19.0, 15.0, 2.5)]),
@@ -730,7 +730,7 @@ def png_format_shape() -> list:
             ink_layer([("O", 15.5, 8.75, 1.75)])]
 
 
-# LLFR-01263: name -> function of the layers.
+# LLFR-01410: name -> function of the layers.
 EXPORT_FORMAT_ICON_SHAPE_FUNCTION_DICT = {
     PDF_FORMAT_ICON_STR: pdf_format_shape,
     DOCX_FORMAT_ICON_STR: docx_format_shape,
@@ -752,7 +752,7 @@ def icon_layer_list(icon_name_str: str) -> list:
     # LLFR-01045: and the icons of the undocked windows.
     if icon_name_str in WINDOW_ICON_SHAPE_FUNCTION_DICT:
         return WINDOW_ICON_SHAPE_FUNCTION_DICT[icon_name_str]()
-    # LLFR-01263: the icons of the Export window.
+    # LLFR-01410: the icons of the Export window.
     if icon_name_str in EXPORT_FORMAT_ICON_SHAPE_FUNCTION_DICT:
         return EXPORT_FORMAT_ICON_SHAPE_FUNCTION_DICT[icon_name_str]()
     return ICON_SHAPE_FUNCTION_DICT[icon_name_str]()

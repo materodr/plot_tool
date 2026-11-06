@@ -696,7 +696,7 @@ class TopPanel(QWidget):
             deleted meanwhile.
         """
         # LLFR-00127: the Export window opens after the active color is
-        # shown; LLFR-01260: or the box when there is nothing to export.
+        # shown; LLFR-01407: or the box when there is nothing to export.
         if sip.isdeleted(self):
             return
         self.export_requested.emit()

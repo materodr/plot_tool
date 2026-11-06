@@ -248,9 +248,9 @@ class PngNameTest(unittest.TestCase):
 
 class ExportFormatTest(unittest.TestCase):
     """The last format of the Export window read from the settings
-    (LLFR-01229, LLFR-01258, LLFR-01259)."""
+    (LLFR-01229, LLFR-01405, LLFR-01406)."""
 
-    @covers("LLFR-01229", "LLFR-01258", "LLFR-01259", "HLFR-00038")
+    @covers("LLFR-01229", "LLFR-01405", "LLFR-01406", "HLFR-00038")
     def test_formats_and_their_order(self) -> None:
         """The three formats, from left to right, and each one is kept.
 
@@ -262,7 +262,7 @@ class ExportFormatTest(unittest.TestCase):
             self.assertEqual(cleaned_export_format(format_str), format_str)
         self.assertEqual(cleaned_export_format(" PNG "), "png")
 
-    @covers("LLFR-01258", "LLFR-01259", "HLFR-00038")
+    @covers("LLFR-01405", "LLFR-01406", "HLFR-00038")
     def test_unknown_value_gives_the_pdf(self) -> None:
         """No value, another text or another type counts as no
         remembered format, so the PDF is highlighted.

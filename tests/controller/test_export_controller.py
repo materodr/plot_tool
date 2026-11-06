@@ -812,7 +812,7 @@ class FakeExportWindowView(FakeImageExportView):
 
 class ExportWindowFlowTest(unittest.TestCase):
     """The Export window starts the export of the chosen format
-    (LLFR-00127, LLFR-01256, LLFR-01257, LLFR-01260; the owner's answers
+    (LLFR-00127, LLFR-01403, LLFR-01404, LLFR-01407; the owner's answers
     of 2026-11-06 in #268)."""
 
     def setUp(self) -> None:
@@ -825,7 +825,7 @@ class ExportWindowFlowTest(unittest.TestCase):
         self.controller = ExportController(self.view, lambda: "file1 = a.csv",
                                            lambda: "/data/start")
 
-    @covers("LLFR-01256", "LLFR-00128", "LLFR-01230", "LLFR-01233",
+    @covers("LLFR-01403", "LLFR-00128", "LLFR-01230", "LLFR-01233",
             "LLFR-00003", "HLFR-00038")
     def test_each_format_runs_its_export(self) -> None:
         """"pdf", "docx" and "png" run the PDF, Word and PNG exports,
@@ -852,7 +852,7 @@ class ExportWindowFlowTest(unittest.TestCase):
                     "exportable_tab_count", dialog_name_str,
                     "finish_export_button"])
 
-    @covers("LLFR-01257", "LLFR-00003", "HLFR-00038")
+    @covers("LLFR-01404", "LLFR-00003", "HLFR-00038")
     def test_no_format_saves_nothing(self) -> None:
         """A window closed with no format opens no dialog, shows no box
         and finishes the button.
@@ -865,7 +865,7 @@ class ExportWindowFlowTest(unittest.TestCase):
             "exportable_tab_count", "ask_export_format",
             "finish_export_button"])
 
-    @covers("LLFR-01260", "LLFR-00145", "LLFR-00459", "LLFR-01237",
+    @covers("LLFR-01407", "LLFR-00145", "LLFR-00459", "LLFR-01237",
             "HLFR-00038")
     def test_nothing_to_export_shows_the_box_without_the_window(
             self) -> None:

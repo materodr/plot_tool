@@ -3,7 +3,7 @@
 A real MainWindow and MainController are used. The Export window, the
 save file dialog and the message boxes are patched, so no modal dialog
 is ever left open, and the settings that keep the last export format are
-an INI file of the test (LLFR-01259).
+an INI file of the test (LLFR-01406).
 """
 
 import os
@@ -240,7 +240,7 @@ class ExportCopyTest(unittest.TestCase):
         self.assertLess(self.top_panel.export_button.x(),
                         self.top_panel.copy_button.x())
 
-    @covers("LLFR-00127", "LLFR-01229", "LLFR-01258", "LLFR-00001",
+    @covers("LLFR-00127", "LLFR-01229", "LLFR-01405", "LLFR-00001",
             "HLFR-00038")
     def test_click_shows_the_export_window(self) -> None:
         """A click on Export, with a plot, shows the Export window over
@@ -259,7 +259,7 @@ class ExportCopyTest(unittest.TestCase):
                         "PNG (one file per tab)"], "pdf", self.main_window,
              True)])
 
-    @covers("LLFR-01257", "LLFR-00003", "LLFR-00130")
+    @covers("LLFR-01404", "LLFR-00003", "LLFR-00130")
     def test_closed_export_window_saves_nothing(self) -> None:
         """Closing the Export window with no format saves nothing, shows
         no box and resets the button.
@@ -279,7 +279,7 @@ class ExportCopyTest(unittest.TestCase):
         self.assertEqual(self.box_record_list, [])
         self.assertFalse(self.top_panel.export_button.is_active())
 
-    @covers("LLFR-01258", "LLFR-01259", "HLFR-00038")
+    @covers("LLFR-01405", "LLFR-01406", "HLFR-00038")
     def test_last_format_is_the_next_default(self) -> None:
         """The format clicked becomes the default of the next Export
         window, also after a cancelled save dialog, and it is kept in the
@@ -300,7 +300,7 @@ class ExportCopyTest(unittest.TestCase):
                          ["pdf", "png"])
         self.assertEqual(export_window.remembered_export_format(), "png")
 
-    @covers("LLFR-01260", "LLFR-00145", "LLFR-00003")
+    @covers("LLFR-01407", "LLFR-00145", "LLFR-00003")
     def test_no_plots_shows_the_box_without_the_window(self) -> None:
         """With no plot in any tab, the click shows the nothing-to-export
         box at once, with no Export window (the owner's answer of

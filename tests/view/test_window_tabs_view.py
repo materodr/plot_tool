@@ -448,7 +448,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
                              tab_drag_preview.PREVIEW_MAXIMUM_WIDTH_I)
         self.assertGreater(preview.width(), 0)
         self.assertLess(preview.windowOpacity(), 1.0)
-        # LLFR-01264: the top-left pixel at the pointer tip (the owner's
+        # LLFR-01411: the top-left pixel at the pointer tip (the owner's
         # answer of 2026-11-06 in #268; it was 12 pixels away before).
         self.assertEqual(tab_drag_preview.PREVIEW_OFFSET_I, 0)
         self.assertEqual(preview.pos(), second_point)
@@ -457,7 +457,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
         self.process_events()
         self.assertFalse(preview.is_shown())
 
-    @covers("LLFR-01208", "LLFR-01264", "HLFR-00143", "HLFR-00153")
+    @covers("LLFR-01208", "LLFR-01411", "HLFR-00143", "HLFR-00153")
     def test_image_follows_a_dragged_docked_tab(self) -> None:
         """A tab of the main window dragged with the left button shows a
         small semi-transparent image, its top-left pixel at the pointer
@@ -473,7 +473,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
         tab_bar = self.panel.tab_widget.tabBar()
         self.press_move_and_check(tab_bar, 1, self.panel.tab_drag_preview)
 
-    @covers("LLFR-01208", "LLFR-01264", "HLFR-00143", "HLFR-00154",
+    @covers("LLFR-01208", "LLFR-01411", "HLFR-00143", "HLFR-00154",
             "HLFR-00155")
     def test_image_follows_a_dragged_window_tab(self) -> None:
         """A tab of an undocked window dragged with the left button
@@ -490,7 +490,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
             self.press_move_and_check(window.tab_bar, 0,
                                       self.panel.tab_drag_preview)
 
-    @covers("LLFR-01265", "LLFR-01264", "HLFR-00143")
+    @covers("LLFR-01412", "LLFR-01411", "HLFR-00143")
     def test_image_is_cut_at_the_screen_edge(self) -> None:
         """Near the bottom-right corner of the screen, the image keeps its
         top-left pixel at the pointer tip, so the screen edge cuts it; it
@@ -515,7 +515,7 @@ class TabDragPreviewTest(WindowTabsViewTestCase):
         preview.follow(edge_point + QPoint(5, 5))
         self.assertEqual(preview.pos(), edge_point + QPoint(5, 5))
 
-    @covers("LLFR-01266", "LLFR-01150", "LLFR-01152", "HLFR-00154")
+    @covers("LLFR-01413", "LLFR-01150", "LLFR-01152", "HLFR-00154")
     def test_drop_lookup_leaves_the_image_out(self) -> None:
         """When the system names the image of the dragged tab as the
         window at the drop point (as it can, since the image is at the

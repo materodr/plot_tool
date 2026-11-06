@@ -8,12 +8,12 @@ is a frameless tool window that ignores the mouse, moved on each mouse
 move of the drag and hidden at the release; no QDrag is started, which
 would take the mouse from the tab bar.
 
-The image's top-left pixel is at the tip of the pointer (LLFR-01264),
+The image's top-left pixel is at the tip of the pointer (LLFR-01411),
 in the logical pixels in which Qt gives the pointer's position, so the
 two coincide on high-density screens too; at a screen edge the image is
 cut by the edge, never moved to the other side of the pointer
-(LLFR-01265). The image never takes the mouse, and the drop lookup
-leaves it out (LLFR-01266, MainWindow.window_at_point).
+(LLFR-01412). The image never takes the mouse, and the drop lookup
+leaves it out (LLFR-01413, MainWindow.window_at_point).
 """
 
 from PyQt6.QtCore import QPoint, Qt
@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import QLabel
 PREVIEW_MAXIMUM_WIDTH_I = 200
 # LLFR-01208: semi-transparent.
 PREVIEW_OPACITY_F = 0.6
-# LLFR-01264: the image's top-left corner, from the pointer tip, in
+# LLFR-01411: the image's top-left corner, from the pointer tip, in
 # logical pixels: none, so that it is at the tip.
 PREVIEW_OFFSET_I = 0
 PREVIEW_OBJECT_NAME_STR = "tab_drag_preview"
@@ -103,7 +103,7 @@ class TabDragPreview(QLabel):
         Outputs: none.
         """
         # LLFR-01208: it follows the pointer until the release;
-        # LLFR-01264: its top-left pixel at the pointer tip; LLFR-01265:
+        # LLFR-01411: its top-left pixel at the pointer tip; LLFR-01412:
         # never moved away from a screen edge, so the edge cuts it.
         if self.dragged_page is None:
             return

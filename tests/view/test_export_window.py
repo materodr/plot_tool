@@ -3,7 +3,7 @@
 The window is built on its own, with no main window, and never shown
 modally: the tests click its buttons and send it keys directly. The
 settings that keep the last format are an INI file of the test
-(LLFR-01259), so the settings of the user are never read or changed.
+(LLFR-01406), so the settings of the user are never read or changed.
 The behaviour follows the owner's answers of 2026-11-06 in #268.
 """
 
@@ -52,7 +52,7 @@ class ExportWindowTest(unittest.TestCase):
         self.addCleanup(window.close)
         return window
 
-    @covers("LLFR-00127", "LLFR-01229", "LLFR-01255", "HLFR-00038")
+    @covers("LLFR-00127", "LLFR-01229", "LLFR-01402", "HLFR-00038")
     def test_title_buttons_and_their_order(self) -> None:
         """The window is titled "Export" and shows the three large format
         buttons side by side, each with an icon and its text, from left
@@ -89,7 +89,7 @@ class ExportWindowTest(unittest.TestCase):
         self.assertGreater(cancel_top_i, top_list[0] + button_list[0]
                            .height() - 1)
 
-    @covers("LLFR-01256", "HLFR-00038")
+    @covers("LLFR-01403", "HLFR-00038")
     def test_click_on_a_format_closes_with_that_format(self) -> None:
         """A click on a format button accepts the window with its format.
 
@@ -107,7 +107,7 @@ class ExportWindowTest(unittest.TestCase):
                                  QDialog.DialogCode.Accepted.value)
                 self.assertFalse(window.isVisible())
 
-    @covers("LLFR-01257", "HLFR-00038")
+    @covers("LLFR-01404", "HLFR-00038")
     def test_cancel_esc_and_close_choose_nothing(self) -> None:
         """Cancel, Esc and the close button close the window with no
         format.
@@ -133,7 +133,7 @@ class ExportWindowTest(unittest.TestCase):
                                  QDialog.DialogCode.Rejected.value)
                 self.assertFalse(window.isVisible())
 
-    @covers("LLFR-01258", "HLFR-00038")
+    @covers("LLFR-01405", "HLFR-00038")
     def test_default_button_and_enter(self) -> None:
         """The given format is the one default button, which Enter
         clicks; an unknown format gives the PDF.
@@ -159,7 +159,7 @@ class ExportWindowTest(unittest.TestCase):
                 self.application.processEvents()
                 self.assertEqual(window.chosen_format_str, default_str)
 
-    @covers("LLFR-01259", "LLFR-01258", "HLFR-00038")
+    @covers("LLFR-01406", "LLFR-01405", "HLFR-00038")
     def test_last_format_kept_in_the_settings(self) -> None:
         """The format is written to the settings file and read back, as
         after a new launch; nothing remembered, or an unknown value,
@@ -185,7 +185,7 @@ class ExportWindowTest(unittest.TestCase):
         settings.sync()
         self.assertEqual(export_window.remembered_export_format(), "pdf")
 
-    @covers("LLFR-01259", "HLFR-00038")
+    @covers("LLFR-01406", "HLFR-00038")
     def test_settings_failure_keeps_the_app_running(self) -> None:
         """Settings that cannot be read give the PDF, and a failed write
         is ignored.
@@ -200,7 +200,7 @@ class ExportWindowTest(unittest.TestCase):
                              "pdf")
             export_window.remember_export_format("png")
 
-    @covers("LLFR-01259", "HLFR-00038")
+    @covers("LLFR-01406", "HLFR-00038")
     def test_main_window_remembers_the_clicked_format(self) -> None:
         """MainWindow.ask_export_format shows the window with the
         remembered default, keeps the clicked format and blocks Ctrl+P
@@ -241,9 +241,9 @@ class ExportWindowTest(unittest.TestCase):
 
 @requires_qt
 class ExportWindowIconTest(unittest.TestCase):
-    """The icons of the format buttons (LLFR-01263)."""
+    """The icons of the format buttons (LLFR-01410)."""
 
-    @covers("LLFR-01263", "HLFR-00038", "HLFR-00042")
+    @covers("LLFR-01410", "HLFR-00038", "HLFR-00042")
     def test_each_format_has_its_own_drawn_icon(self) -> None:
         """Each of the three icons is drawn on the 24 by 24 grid with the
         pen of the top panel icons, is not a top panel icon, and the

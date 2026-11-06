@@ -9,8 +9,8 @@ tested with a fake view (COR-00003, COR-00009). The view must offer:
 - ``exportable_tab_count()``: number of tabs that hold a plot;
 - ``ask_export_format()``: shows the Export window and returns the
   format clicked, one of model.export_files.EXPORT_FORMAT_TUPLE, or ""
-  when it was closed with no format (LLFR-00127, LLFR-01256,
-  LLFR-01257);
+  when it was closed with no format (LLFR-00127, LLFR-01403,
+  LLFR-01404);
 - ``current_tab_plot_count()``: number of plots in the current tab;
 - ``ask_pdf_save_path(start_folder_str)``: the chosen path, "" when
   cancelled; the dialog shows start_folder_str (LLFR-01179,
@@ -138,14 +138,14 @@ class ExportController:
             end.
         """
         try:
-            # LLFR-01260, LLFR-00145, LLFR-00459, LLFR-01237: nothing to
+            # LLFR-01407, LLFR-00145, LLFR-00459, LLFR-01237: nothing to
             # export, so the box and no Export window.
             if self.view.exportable_tab_count() <= 0:
                 self.view.show_nothing_to_export()
                 return
             # LLFR-00127, LLFR-01139: the Export window.
             format_str = self.view.ask_export_format()
-            # LLFR-01256: the export of the format clicked; LLFR-01257: no
+            # LLFR-01403: the export of the format clicked; LLFR-01404: no
             # format, nothing saved and no message.
             export_function = {
                 PDF_FORMAT_STR: self._export_pdf,
