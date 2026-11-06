@@ -12,9 +12,15 @@ The repository must use the following branch types:
 2. a permanent `develop` branch;
 3. feature branches, created as needed;
 4. fix branches, created as needed;
-5. test matrix branches, which an agent creates after each release (PCR-00061, PCR-00085).
+5. test matrix branches, which an agent creates after each release (PCR-00061, PCR-00085);
+6. a permanent `ci-wheels` branch, an orphan branch that holds Python wheels (PCR-00130).
 
-Note: A test matrix branch is named `test-matrix/<release pull request number>-main` or `test-matrix/<release pull request number>-develop`. It isn't a feature or a fix, so it has no issue (PCR-00004, PCR-00005, PCR-00014).
+Note: A test matrix branch is named `test-matrix/<release pull request number>-main` or `test-matrix/<release pull request number>-develop`. It isn't a feature or a fix, so it has no issue (PCR-00004, PCR-00005, PCR-00014). The `ci-wheels` branch isn't a feature or a fix, so it has no issue or pull request.
+
+### PCR-00130 Wheels branch
+The `ci-wheels` branch must hold the wheels of the packages of `requirements.txt` that an agent's workspace can't install from PyPI.
+
+Note: A GitHub Actions workflow downloads the wheels and replaces the content of the branch with one commit, so that it keeps no history. The CI checkouts don't fetch it.
 
 ### PCR-00003 Branch names
 The name of each branch must clearly refer to one of the allowed branch types.
@@ -222,6 +228,11 @@ Note: Only the matrix pull requests of a release change the file (PCR-00061, PCR
 Before each push of a feature or fix branch, an agent must run locally the tests that it deems necessary for the change.
 
 Note: This isn't necessarily the whole suite: CI runs every test once on the pull request (PCR-00057). For example, `python -m unittest tests.test_x tests.test_y`, or `python tests/build_test_matrix.py` for the whole suite. Where PyQt6 or h5py can't be installed, the tests that need them are skipped locally, and CI runs them. The owner refined this on 2026-11-05.
+
+### PCR-00131 Packages from the wheels branch
+When an agent's workspace can't install a package of `requirements.txt` from PyPI, the agent must install it from the `ci-wheels` branch before it runs the tests.
+
+Note: `tests/install_local_wheels.sh` installs them. With PyQt6 installed, the agent runs the GUI tests locally (PCR-00082, PCR-00092).
 
 ### PCR-00059 Affected requirements without tests
 The test check of a pull request must fail when a high-level functional requirement that its branch affects has no test, except as in PCR-00068.

@@ -27,8 +27,19 @@ jobs:
     steps:
       # The whole history, to find what the branch adds to its base.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
+      # Issue #278 (PCR-00130): not fetch-depth 0, which fetches every
+      # branch, ci-wheels included. The whole history of the checked-out
+      # merge commit (so the head commit of the pull request too) and the
+      # base branch as origin/<base> are what tests/ci_changed_files.py,
+      # tests/check_pr_ready.py and tests/check_requirement_review.py
+      # compare.
+      - name: Fetch the history and the base branch
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags --unshallow origin \
+            "+refs/heads/$BASE_BRANCH:refs/remotes/origin/$BASE_BRANCH"
 
       - uses: actions/setup-python@v5
         with:
@@ -56,8 +67,19 @@ jobs:
     steps:
       # The whole history, to read tests/not_implemented.txt of the head.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
+      # Issue #278 (PCR-00130): not fetch-depth 0, which fetches every
+      # branch, ci-wheels included. The whole history of the checked-out
+      # merge commit (so the head commit of the pull request too) and the
+      # base branch as origin/<base> are what tests/ci_changed_files.py,
+      # tests/check_pr_ready.py and tests/check_requirement_review.py
+      # compare.
+      - name: Fetch the history and the base branch
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags --unshallow origin \
+            "+refs/heads/$BASE_BRANCH:refs/remotes/origin/$BASE_BRANCH"
 
       - uses: actions/setup-python@v5
         with:
