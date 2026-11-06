@@ -190,8 +190,10 @@ def grab_page_image(page):
     # the corners in the color of the image around the plots.
     canvas_list = [plot_widget.canvas
                    for plot_widget in page.plot_widget_list]
+    # LLFR-01398: a TabPage grabs its whole plot area itself.
+    grab_function = getattr(page, "grab_plot_area", plot_area.grab)
     with corners_in_color(canvas_list, page_background_color_str(page)):
-        return plot_area.grab().toImage()
+        return grab_function().toImage()
 
 
 def lay_out_page_like(page, reference_size) -> None:

@@ -30,6 +30,13 @@ EDGE_TOLERANCE_PX = 0.5
 SHORT_HEIGHT_I = 150
 # Offset (points) that fits above the low sine tip only in a tall plot.
 HIGH_OFFSET_TUPLE = (0.0, 80.0)
+# Offset (points) high enough that the low sine tip still reaches the
+# top edge of a plot at its minimum height (LLFR-01394, #260 batch 4):
+# a plot no longer gets as short as SHORT_HEIGHT_I.
+TOP_EDGE_OFFSET_TUPLE = (0.0, 160.0)
+# Allowed error, in widget pixels, of the drawing area against its
+# minimum height (LLFR-01394).
+MINIMUM_HEIGHT_TOLERANCE_PX = 2.0
 # A tip at the sine's lowest sample, near the bottom of the axes (the
 # y range covers the sine, -1 to 1, and the ramp, 3 to 4).
 LOW_SINE_TIP_TUPLE = ("Sine", 4.7, float(np.sin(4.7)))
@@ -158,30 +165,39 @@ class TipInsideWidgetTest(TipInsideAssertions, TipDragTestCase):
                 f"widget {self.plot_widget.width()}x"
                 f"{self.plot_widget.height()}")
 
-    def pin_high_ramp_tip(self) -> None:
+    def pin_high_ramp_tip(self, offset_tuple=HIGH_OFFSET_TUPLE) -> None:
         """Pin a low sine tip with an offset far above its point.
 
-        Inputs: none.
+        Inputs:
+            offset_tuple: the label offset of the tip, in points.
         Outputs: none.
         """
         self.plot_widget.set_pinned_tips([
-            LOW_SINE_TIP_TUPLE + (HIGH_OFFSET_TUPLE,), SINE_TIP_TUPLE])
+            LOW_SINE_TIP_TUPLE + (offset_tuple,), SINE_TIP_TUPLE])
         self.draw()
 
-    @covers("LLFR-00179", "LLFR-00151", "HLFR-00025")
+    @covers("LLFR-00179", "LLFR-00151", "LLFR-01394", "HLFR-00025",
+            "HLFR-00165")
     def test_shrunk_plot_keeps_tips_inside_and_grows_back(self) -> None:
         """A shorter plot moves the label in; a taller one moves it back.
 
         Inputs: none.
         Outputs: none.
         """
-        self.pin_high_ramp_tip()
+        self.pin_high_ramp_tip(TOP_EDGE_OFFSET_TUPLE)
         # Tall plot: the label is where the user put it.
         self.assert_tip_inside(self.plot_widget, 0)
-        self.assert_label_at_offset(self.plot_widget, 0, HIGH_OFFSET_TUPLE)
+        self.assert_label_at_offset(self.plot_widget, 0,
+                                    TOP_EDGE_OFFSET_TUPLE)
+        # LLFR-01394 (#260 batch 4): the plot shrinks only down to its
+        # minimum height, so the drawing area stays 3 tip boxes tall.
         self.resize_plot(WIDGET_WIDTH_I, SHORT_HEIGHT_I)
         box, axes_box = tip_box_and_axes_box(self.plot_widget, 0)
         self.assertLess(axes_box.height, WIDGET_HEIGHT_I / 2.0)
+        self.assertGreaterEqual(
+            axes_box.height / self.plot_widget.pixel_ratio_f()
+            + MINIMUM_HEIGHT_TOLERANCE_PX,
+            self.plot_widget.minimum_axes_height_px())
         for tip_index_i in range(2):
             self.assert_tip_inside(self.plot_widget, tip_index_i)
             self.assert_leader_connected(tip_index_i)
@@ -192,12 +208,13 @@ class TipInsideWidgetTest(TipInsideAssertions, TipDragTestCase):
                                delta=PIXEL_TOLERANCE_PX)
         # The stored offset is not changed by the clamping.
         self.assertEqual(self.plot_widget.tip_label_offset_tuple(0),
-                         HIGH_OFFSET_TUPLE)
+                         TOP_EDGE_OFFSET_TUPLE)
         self.assertEqual(self.plot_widget.pinned_tip_list[0][3],
-                         HIGH_OFFSET_TUPLE)
+                         TOP_EDGE_OFFSET_TUPLE)
         # Grown again, the label is back at the user's position.
         self.resize_plot(WIDGET_WIDTH_I, WIDGET_HEIGHT_I)
-        self.assert_label_at_offset(self.plot_widget, 0, HIGH_OFFSET_TUPLE)
+        self.assert_label_at_offset(self.plot_widget, 0,
+                                    TOP_EDGE_OFFSET_TUPLE)
         self.assert_tip_inside(self.plot_widget, 0)
         self.assert_leader_connected(0)
 

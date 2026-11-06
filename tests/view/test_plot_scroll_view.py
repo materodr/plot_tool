@@ -34,6 +34,21 @@ FULL_TAB_PLOT_COUNT_I = 5
 class PlotScrollTestCase(UndockedWindowTestCase):
     """Minimum plot height and scrolled tabs."""
 
+    def add_plots(self, count_i: int) -> list:
+        """Double-click signals to add plots to the current tab.
+
+        Inputs:
+            count_i: how many plots to add, up to 5.
+        Outputs: the plot widgets of the current tab, top to bottom.
+        """
+        # The signals of the file of PlotPanelTestCase.setUp.
+        name_list = ["speed", "force", "angle", "Time", "speed"]
+        for name_str in name_list[:count_i]:
+            self.main_window.signal_double_click_handler(name_str)
+        self.main_window.show()
+        self.process_events()
+        return list(self.current_page().plot_widget_list)
+
     def settle(self, page) -> None:
         """Draw the plots of a page until their minimum heights settle.
 
@@ -113,11 +128,10 @@ class PlotScrollTestCase(UndockedWindowTestCase):
             self.assertGreaterEqual(
                 self.axes_height_px_f(plot_widget) + TOLERANCE_PX_I,
                 plot_widget.minimum_axes_height_px())
-        # LLFR-01110: the rows are still one below the other, equal.
-        height_list = [plot_widget.height()
-                       for plot_widget in page.plot_widget_list]
-        self.assertLessEqual(max(height_list) - min(height_list),
-                             TOLERANCE_PX_I)
+        # LLFR-00069: the rows are still one below the other.
+        for upper, lower in zip(page.plot_widget_list,
+                                page.plot_widget_list[1:]):
+            self.assertLessEqual(upper.y() + upper.height(), lower.y())
 
     @covers("LLFR-01395", "LLFR-01401", "HLFR-00166")
     def test_scroll_bar_only_while_needed(self) -> None:
@@ -180,7 +194,7 @@ class PlotScrollTestCase(UndockedWindowTestCase):
         scroll_event_list = []
         plot_widget.canvas.mpl_connect("scroll_event",
                                        scroll_event_list.append)
-        old_range_tuple = tuple(plot_widget.axes.get_xlim())
+        old_range_tuple = plot_widget.time_range_tuple()
         center = QPointF(plot_widget.canvas.width() / 2.0,
                          plot_widget.canvas.height() / 2.0)
         wheel_event = QWheelEvent(
@@ -192,7 +206,7 @@ class PlotScrollTestCase(UndockedWindowTestCase):
         self.process_events()
         self.assertTrue(scroll_event_list)
         self.assertEqual(scroll_bar.value(), scroll_value_i)
-        new_range_tuple = tuple(plot_widget.axes.get_xlim())
+        new_range_tuple = plot_widget.time_range_tuple()
         self.assertLess(new_range_tuple[1] - new_range_tuple[0],
                         old_range_tuple[1] - old_range_tuple[0])
 

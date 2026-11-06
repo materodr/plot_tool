@@ -596,13 +596,15 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         self.hover(plot_widget, 2.5)
         self.assert_preview_on_current_tab(2.5)
         shown_at_grab_list = []
-        original_grab = page.grab
+        # LLFR-01398 (#260 batch 4): the exports grab the page's whole
+        # plot area through grab_plot_area, so the hook is there.
+        original_grab = page.grab_plot_area
 
         def recording_grab(*argument_tuple):
             """Record which plots show the preview, then grab.
 
             Inputs:
-                argument_tuple: the arguments of QWidget.grab.
+                argument_tuple: the arguments of TabPage.grab_plot_area.
             Outputs: the QPixmap of the grab.
             """
             shown_at_grab_list.append(
@@ -610,7 +612,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
                  for page_widget in page.plot_widget_list])
             return original_grab(*argument_tuple)
 
-        page.grab = recording_grab
+        page.grab_plot_area = recording_grab
         preview_artist_list = []
         patcher_list = [mock.patch.object(
             page_widget.axes, "draw_artist",
@@ -623,7 +625,7 @@ class MarkerPreviewTest(SharedMarkerWindowTestCase):
         finally:
             for patcher in patcher_list:
                 patcher.stop()
-            del page.grab
+            del page.grab_plot_area
         for page_widget in page.plot_widget_list:
             preview_artist_list.extend((page_widget.preview_line,
                                         page_widget.preview_time_text))

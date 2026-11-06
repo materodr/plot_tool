@@ -1,6 +1,7 @@
 """Tab page: the plots of one tab, laid out in its plot matrix."""
 
 from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget)
 
@@ -79,11 +80,18 @@ class TabPage(QWidget):
         self.scroll_area.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         # LLFR-00890: the corners around the plots show the plot well.
+        # A scroll area paints its viewport in the Base color, and its
+        # children take that role; the page's Window color is kept, so
+        # that the grab of the exports fills the gaps and the corners
+        # around the plots with it (LLFR-00892).
         self.scroll_area.setAutoFillBackground(False)
         self.scroll_area.viewport().setAutoFillBackground(False)
+        self.scroll_area.viewport().setBackgroundRole(
+            QPalette.ColorRole.Window)
         self.scroll_area.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.plot_area = QWidget()
         self.plot_area.setAutoFillBackground(False)
+        self.plot_area.setBackgroundRole(QPalette.ColorRole.Window)
         self.scroll_area.setWidget(self.plot_area)
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -281,3 +289,15 @@ class TabPage(QWidget):
         """
         # LLFR-01400: the bottom of the visible part of the plot area.
         return self.scroll_area.viewport()
+
+    def grab_plot_area(self):
+        """Return an image of every plot of the page at full height.
+
+        Inputs: none.
+        Outputs: a QPixmap of the whole plot area, laid out at its size
+            in the scroll area, also the part scrolled out of view, and
+            without the scroll bar (LLFR-01398).
+        """
+        # LLFR-01398, LLFR-00129, LLFR-00133: the exports and Copy.
+        self.fit_plot_area()
+        return self.plot_area.grab()

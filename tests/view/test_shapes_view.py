@@ -919,6 +919,11 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
         self.assertFalse(signal_menu.actions()[0].isEnabled())
         from view.signal_list_panel import FILE_NUMBER_ROLE_I, FILE_ROW_STR
         # LLFR-01262: the menu of the file row shown, by its own number.
+        # The setup opens one SignalFile without a DataFileSet, which
+        # shows no file name row, so the list is given one here.
+        signal_panel.show_signal_groups(
+            [(1, "file1_memory.csv", ["speed", "force"], "")])
+        self.application.processEvents()
         file_row_list = signal_panel.signal_list_widget.row_items(
             FILE_ROW_STR)
         self.assertTrue(file_row_list)
