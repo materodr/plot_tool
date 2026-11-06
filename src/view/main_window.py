@@ -349,7 +349,7 @@ class MainWindow(QMainWindow):
         self.copy_handler = None
         # LLFR-01409, LLFR-01023: the window where Ctrl+P was pressed,
         # while its export runs; None for the Export button.
-        self.pdf_shortcut_window = None
+        self.export_shortcut_window = None
         # LLFR-01408: True while the Export window is open.
         self.export_window_open_b = False
         self.top_panel.export_requested.connect(self._on_export_requested)
@@ -418,7 +418,7 @@ class MainWindow(QMainWindow):
         self.undo_shortcut = shortcut_dict["undo"]
         self.redo_shortcut = shortcut_dict["redo"]
         self.copy_shortcut = shortcut_dict["copy"]
-        self.pdf_shortcut = shortcut_dict["pdf"]
+        self.export_shortcut = shortcut_dict["export"]
         self.search_shortcut = shortcut_dict["search"]
         # LLFR-00216, LLFR-00217: the layout buttons go to the layout
         # controller.
@@ -695,13 +695,13 @@ class MainWindow(QMainWindow):
         # LLFR-01143, LLFR-01151, LLFR-01152, LLFR-01157: a drag of one
         # of its tabs, dropped somewhere.
         window.tab_drop_handler = self.request_window_tab_drop
-        # LLFR-01071: the Undo, Redo, Copy, PDF and search shortcuts in
+        # LLFR-01071: the Undo, Redo, Copy, Export and search shortcuts in
         # the window too.
         shortcut_dict = self.install_window_shortcuts(window, window_id_i)
         window.undo_shortcut = shortcut_dict["undo"]
         window.redo_shortcut = shortcut_dict["redo"]
         window.copy_shortcut = shortcut_dict["copy"]
-        window.pdf_shortcut = shortcut_dict["pdf"]
+        window.export_shortcut = shortcut_dict["export"]
         window.search_shortcut = shortcut_dict["search"]
         # LLFR-01035, LLFR-01036, LLFR-01037: its own panel, the same
         # list, the same requests.
@@ -733,7 +733,7 @@ class MainWindow(QMainWindow):
             window: the MainWindow or an UndockedWindow.
             window_id_i: id of the undocked window, -1 for the main
                 window.
-        Outputs: {"undo", "redo", "copy", "pdf", "search"} -> the
+        Outputs: {"undo", "redo", "copy", "export", "search"} -> the
             QShortcut, each acting while the window is active.
         """
         # LLFR-00137, LLFR-00191: Undo and Redo; LLFR-01136: Copy, of
@@ -747,8 +747,8 @@ class MainWindow(QMainWindow):
                      self._on_redo_shortcut),
             "copy": (QKeySequence(top_panel.COPY_SHORTCUT_STR),
                      partial(self._on_copy_shortcut, window_id_i)),
-            "pdf": (QKeySequence(top_panel.PDF_SHORTCUT_STR),
-                    partial(self._on_pdf_shortcut, window_id_i)),
+            "export": (QKeySequence(top_panel.EXPORT_SHORTCUT_STR),
+                       partial(self._on_export_shortcut, window_id_i)),
             "search": (QKeySequence(top_panel.SEARCH_SHORTCUT_STR),
                        partial(self._on_search_shortcut, window_id_i)),
         }
@@ -2885,15 +2885,16 @@ class MainWindow(QMainWindow):
                 dialog.setParent(self, dialog.windowFlags())
 
     def export_box_parent(self):
-        """Return the window that the boxes of the PDF export are over.
+        """Return the window that the Export window and the dialogs and
+        boxes of the export are shown over.
 
         Inputs: none.
         Outputs: the window where Ctrl+P was pressed while its export
             runs, else this main window (the Export button).
         """
-        # LLFR-01139, LLFR-01023: the window of the action; the Export
-        # button of the top panel keeps the main window.
-        window = self.pdf_shortcut_window
+        # LLFR-01409, LLFR-01023: the window of the shortcut; LLFR-01417:
+        # the Export button of the top panel keeps the main window.
+        window = self.export_shortcut_window
         if window is None or (
                 window is not self
                 and window not in self.undocked_window_dict.values()):
@@ -3752,7 +3753,7 @@ class MainWindow(QMainWindow):
         if self.copy_shortcut_handler is not None:
             self.copy_shortcut_handler(self.window_shown_tab_id(window_id_i))
 
-    def _on_pdf_shortcut(self, window_id_i: int = -1) -> None:
+    def _on_export_shortcut(self, window_id_i: int = -1) -> None:
         """Show the Export window when Ctrl+P (Cmd+P) is pressed.
 
         Inputs:
@@ -3774,12 +3775,12 @@ class MainWindow(QMainWindow):
         # text field (which gives Ctrl+P no meaning of its own);
         # LLFR-01409, LLFR-01023: its window, dialogs and boxes over that
         # window.
-        self.pdf_shortcut_window = self.undocked_window_dict.get(
+        self.export_shortcut_window = self.undocked_window_dict.get(
             window_id_i, self)
         try:
             self._on_export_requested()
         finally:
-            self.pdf_shortcut_window = None
+            self.export_shortcut_window = None
 
     def _on_search_shortcut(self, window_id_i: int) -> None:
         """Put the focus in the search box of a window (Ctrl+F, Cmd+F).
@@ -3884,7 +3885,7 @@ class MainWindow(QMainWindow):
             if window is parent:
                 window_id_i = undocked_id_i
         if action_str == name_dialog.PDF_ACTION_STR:
-            self._on_pdf_shortcut(window_id_i)
+            self._on_export_shortcut(window_id_i)
         elif action_str == name_dialog.SEARCH_ACTION_STR:
             self._on_search_shortcut(window_id_i)
 

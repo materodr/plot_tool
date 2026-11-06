@@ -184,7 +184,7 @@ class ExportWindow(QDialog):
         Outputs: none. The button also takes the keyboard focus, so the
             highlight shows and Enter or Space clicks it.
         """
-        # LLFR-01405: the last format used, or the PDF.
+        # LLFR-01405: the last format used; LLFR-01416: or the PDF.
         default_str = cleaned_export_format(format_str)
         for button_format_str, button in self.format_button_dict.items():
             button.setDefault(button_format_str == default_str)
@@ -222,6 +222,7 @@ class ExportWindow(QDialog):
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01404: nothing chosen, nothing saved.
+        # LLFR-01404: the window closes; LLFR-01414, LLFR-01415: nothing
+        # chosen, so nothing saved and no message.
         self.chosen_format_str = ""
         super().reject()

@@ -1058,6 +1058,9 @@ class ReusedDialogNameAndFolderTest(unittest.TestCase):
             lambda dialog: dialog.show_panel(answer_list.pop(0)))
         main_window.run_layout_dialog = first_answer
         main_window.run_pdf_save_dialog = first_answer
+        # LLFR-01403: "PDF (all tabs)" clicked in the Export window, with
+        # no modal window and no settings written.
+        main_window.ask_export_format = lambda: "pdf"
         main_window.run_signals_save_dialog = (
             lambda dialog: (first_answer(dialog), "CSV files (*.csv)"))
         main_window.show_layout_report = lambda *argument_tuple: None
@@ -1090,7 +1093,7 @@ class ReusedDialogNameAndFolderTest(unittest.TestCase):
             answer_list.append([path_str] if path_str else [])
             if result_tuple is not None:
                 pdf_result_list.append(result_tuple)
-            export_controller.on_export_requested()
+            export_controller.on_export_window_requested()
         # Save signals: first in b (LLFR-01181), with the name of file1
         # (LLFR-00532); saved to c; then in c (LLFR-01182), cancelled.
         signals_controller = controller.save_signals_controller

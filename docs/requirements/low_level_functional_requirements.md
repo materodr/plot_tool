@@ -253,7 +253,7 @@ An undocked window must hold, side by side, its plot panel, with its tab row (LL
 *Parent: HLFR-00137, HLFR-00001*
 
 ### LLFR-01071 Shortcuts in an undocked window
-While an undocked window is the active window, the app must apply every keyboard shortcut as in the main window: Undo and Redo (LLFR-00137, LLFR-00191), the held plot tool keys (LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00287, LLFR-00321, LLFR-00367, LLFR-01274, LLFR-01277, LLFR-01092), the 0 key (LLFR-00207), the Esc key (LLFR-00370), the Enter key of its signal list (LLFR-00295) and the Copy, PDF and search shortcuts (LLFR-01136, LLFR-01139, LLFR-01140), with the exceptions of LLFR-00157, LLFR-00195, LLFR-00196, LLFR-00302 and LLFR-01137.
+While an undocked window is the active window, the app must apply every keyboard shortcut as in the main window: Undo and Redo (LLFR-00137, LLFR-00191), the held plot tool keys (LLFR-00148, LLFR-00154, LLFR-00197, LLFR-00200, LLFR-00287, LLFR-00321, LLFR-00367, LLFR-01274, LLFR-01277, LLFR-01092), the 0 key (LLFR-00207), the Esc key (LLFR-00370), the Enter key of its signal list (LLFR-00295) and the Copy, Export and search shortcuts (LLFR-01136, LLFR-01139, LLFR-01140), with the exceptions of LLFR-00157, LLFR-00195, LLFR-00196, LLFR-00302 and LLFR-01137.
 
 *Parent: HLFR-00138*
 
@@ -1015,16 +1015,31 @@ When the user clicks a format button of the Export window (LLFR-01229), the app 
 *Parent: HLFR-00038*
 
 ### LLFR-01404 Export window closed without a choice
-When the user clicks the "Cancel" button of the Export window (LLFR-01402), presses Esc in it or closes it, the app must close the window and leave every file unchanged, with no message.
+When the user clicks the "Cancel" button of the Export window (LLFR-01402), presses Esc in it or closes it, the app must close the window.
 
-Note: The Export button then returns to its normal color (LLFR-00003).
+Note: The Export button then returns to its normal color (LLFR-00003). Nothing is saved (LLFR-01414) and no message is shown (LLFR-01415).
+
+*Parent: HLFR-00038*
+
+### LLFR-01414 No file changed by a closed Export window
+When the user closes the Export window as in LLFR-01404, the app must leave every file unchanged.
+
+*Parent: HLFR-00038*
+
+### LLFR-01415 No message after a closed Export window
+When the user closes the Export window as in LLFR-01404, the app must show no message.
 
 *Parent: HLFR-00038*
 
 ### LLFR-01405 Last export format highlighted
-The Export window must open with the format button of the last format that the user clicked in it (LLFR-01403) as its default button, which the Enter key clicks, and with the "PDF (all tabs)" button as its default button when no format is remembered (LLFR-01406).
+The Export window must open with the format button of the last format that the user clicked in it (LLFR-01403) as its default button, which the Enter key clicks, except as in LLFR-01416.
 
 Note: The format counts as used once its button is clicked, also when the user then cancels the dialog of that format.
+
+*Parent: HLFR-00038*
+
+### LLFR-01416 PDF as the default with no remembered format
+When no export format is remembered (LLFR-01406), the Export window must open with the "PDF (all tabs)" button as its default button.
 
 *Parent: HLFR-00038*
 
@@ -1046,11 +1061,16 @@ While the Export window is open, the app must ignore Ctrl+P (Cmd+P on macOS) in 
 *Parent: HLFR-00038, HLFR-00138*
 
 ### LLFR-01409 Export window over the window of the shortcut
-The app must show the Export window, and the dialogs and boxes of the export that follow it, over the window where the user pressed Ctrl+P (Cmd+P on macOS), and over the main window after a click on the Export button.
+The app must show the Export window, and the dialogs and boxes of the export that follow it, over the window where the user pressed Ctrl+P (Cmd+P on macOS), except as in LLFR-01417.
 
 Note: As LLFR-01023: the save file dialog, the folder dialog, the question of LLFR-01236, the box of LLFR-00145 and the error boxes of LLFR-00131 and LLFR-01242.
 
 *Parent: HLFR-00038, HLFR-00124*
+
+### LLFR-01417 Export window over the main window for the Export button
+After a click on the Export button, the app must show the Export window, and the dialogs and boxes of the export that follow it, over the main window.
+
+*Parent: HLFR-00038*
 
 ### LLFR-01410 Icons of the Export window
 The format buttons of the Export window (LLFR-01229) must show these icons, in the line style of the top panel icons (LLFR-00159): "PDF (all tabs)" two stacked sheets of paper, the front one with a folded corner; "Word .docx (all tabs)" a sheet of paper with a folded corner and a large letter W; "PNG (one file per tab)" a picture frame with a mountain and a sun.
@@ -1148,7 +1168,7 @@ Note: Text fields give Ctrl+P no meaning of their own. The Export window, and th
 *Parent: HLFR-00038*
 
 
-### LLFR-01172 PDF shortcut while dragging
+### LLFR-01172 Export shortcut while dragging
 While the user is dragging the mouse (LLFR-00454), Ctrl+P (Cmd+P on macOS) must do nothing.
 
 Note: As the 0 key (LLFR-00454) and the Esc key (LLFR-00530), so that no dialog opens while the mouse button is held.

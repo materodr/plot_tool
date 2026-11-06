@@ -219,7 +219,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
     """Ctrl+P and Ctrl+F leave a text field of a window first."""
 
     @covers("LLFR-01186", "LLFR-01190", "LLFR-01139", "HLFR-00038")
-    def test_pdf_shortcut_leaves_the_search_box(self) -> None:
+    def test_export_shortcut_leaves_the_search_box(self) -> None:
         """Ctrl+P with the focus in the search box clears its selection,
         takes the focus out of it, keeps its text, then runs the export.
 
@@ -240,7 +240,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
                 mock.patch.object(box, "clearFocus",
                                   side_effect=lambda: order_list.append(
                                       ("left", None))):
-            self.main_window.pdf_shortcut.activated.emit()
+            self.main_window.export_shortcut.activated.emit()
         self.assertEqual(order_list, [("left", None), ("export", False)])
         self.assertEqual(box.text(), "speed")
 
@@ -270,7 +270,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
             lambda: order_list.append(("export",)))
         with mock.patch.object(QApplication, "focusWidget",
                                return_value=editor):
-            window.pdf_shortcut.activated.emit()
+            window.export_shortcut.activated.emit()
             self.assertEqual(order_list, [("confirm", "note text", False),
                                           ("export",)])
             order_list.clear()

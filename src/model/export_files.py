@@ -25,7 +25,7 @@ from xml.sax.saxutils import escape
 # LLFR-01230: the extension of the Word document.
 DOCX_SUFFIX_STR = ".docx"
 # LLFR-01229: the three formats of the Export window, from left to
-# right; LLFR-01405: the PDF is highlighted when none is remembered.
+# right; LLFR-01416: the PDF is highlighted when none is remembered.
 PDF_FORMAT_STR = "pdf"
 DOCX_FORMAT_STR = "docx"
 PNG_FORMAT_STR = "png"
@@ -301,7 +301,7 @@ def cleaned_export_format(stored_value) -> str:
         the value is not one of them.
     """
     # LLFR-01406: a value that is not one of the three formats counts as
-    # no remembered format; LLFR-01405: the PDF is highlighted then.
+    # no remembered format; LLFR-01416: the PDF is highlighted then.
     if isinstance(stored_value, str):
         format_str = stored_value.strip().lower()
         if format_str in EXPORT_FORMAT_TUPLE:

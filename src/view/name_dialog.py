@@ -25,7 +25,7 @@ SEARCH_ACTION_STR = "search"
 # LLFR-01185, LLFR-01139, LLFR-01140: the key sequence of each action,
 # the same as the shortcuts of the windows.
 ACTION_SEQUENCE_DICT = {
-    PDF_ACTION_STR: top_panel.PDF_SHORTCUT_STR,
+    PDF_ACTION_STR: top_panel.EXPORT_SHORTCUT_STR,
     SEARCH_ACTION_STR: top_panel.SEARCH_SHORTCUT_STR,
 }
 

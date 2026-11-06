@@ -107,7 +107,7 @@ class ExportWindowTest(unittest.TestCase):
                                  QDialog.DialogCode.Accepted.value)
                 self.assertFalse(window.isVisible())
 
-    @covers("LLFR-01404", "HLFR-00038")
+    @covers("LLFR-01404", "LLFR-01414", "HLFR-00038")
     def test_cancel_esc_and_close_choose_nothing(self) -> None:
         """Cancel, Esc and the close button close the window with no
         format.
@@ -133,7 +133,7 @@ class ExportWindowTest(unittest.TestCase):
                                  QDialog.DialogCode.Rejected.value)
                 self.assertFalse(window.isVisible())
 
-    @covers("LLFR-01405", "HLFR-00038")
+    @covers("LLFR-01405", "LLFR-01416", "HLFR-00038")
     def test_default_button_and_enter(self) -> None:
         """The given format is the one default button, which Enter
         clicks; an unknown format gives the PDF.

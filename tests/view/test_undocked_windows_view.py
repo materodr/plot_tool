@@ -1517,7 +1517,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         self.assertEqual(QApplication.clipboard().text(), "speed")
 
     @covers("LLFR-01139", "LLFR-01071", "HLFR-00038", "HLFR-00138")
-    def test_pdf_shortcut_in_every_window(self) -> None:
+    def test_export_shortcut_in_every_window(self) -> None:
         """Ctrl+P starts the export (the Export window, the owner's answer
         of 2026-11-06 in #268) from every window, also with the focus in
         a text field.
@@ -1531,19 +1531,20 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         handler = mock.Mock()
         self.main_window.export_handler = handler
         for owner in (self.main_window, window):
-            self.assertEqual(owner.pdf_shortcut.key(),
+            self.assertEqual(owner.export_shortcut.key(),
                              QKeySequence("Ctrl+P"))
-            owner.pdf_shortcut.activated.emit()
+            owner.export_shortcut.activated.emit()
         with mock.patch.object(
                 QApplication, "focusWidget",
                 return_value=self.main_window.signal_list_panel.search_box):
-            window.pdf_shortcut.activated.emit()
+            window.export_shortcut.activated.emit()
         self.assertEqual(handler.call_count, 3)
 
-    @covers("LLFR-01139", "LLFR-01409", "LLFR-01023", "LLFR-00128",
+    @covers("LLFR-01139", "LLFR-01409", "LLFR-01417", "LLFR-01023",
+            "LLFR-00128",
             "LLFR-00145", "LLFR-01407", "LLFR-00131", "HLFR-00038",
             "HLFR-00124")
-    def test_pdf_shortcut_boxes_over_the_window_of_the_key(self) -> None:
+    def test_export_shortcut_boxes_over_the_window_of_the_key(self) -> None:
         """Ctrl+P in an undocked window shows the Export window, the PDF
         dialog, the nothing-to-export box (with no Export window) and the
         save error box over that window; the dialog goes back to the main
@@ -1590,8 +1591,8 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
 
         self.main_window.run_export_window = answer_window
         self.main_window.run_pdf_save_dialog = answer_dialog
-        window.pdf_shortcut.activated.emit()
-        self.main_window.pdf_shortcut.activated.emit()
+        window.export_shortcut.activated.emit()
+        self.main_window.export_shortcut.activated.emit()
         self.main_window._on_export_requested()
         self.assertEqual(len(window_parent_list), 3)
         self.assertIs(window_parent_list[0], window)
@@ -1604,7 +1605,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         from view.main_window import SAVE_PDF_DIALOG_KEY_STR
         self.assertIs(self.main_window.file_dialog_pool.dialog(
             SAVE_PDF_DIALOG_KEY_STR).parent(), self.main_window)
-        self.assertIsNone(self.main_window.pdf_shortcut_window)
+        self.assertIsNone(self.main_window.export_shortcut_window)
         # LLFR-01409: the Word and PNG dialogs over the window too.
         dialog_parent_list = []
 
@@ -1622,7 +1623,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         for format_str in ("docx", "png"):
             self.main_window.run_export_window = (
                 lambda dialog, chosen_str=format_str: chosen_str)
-            window.pdf_shortcut.activated.emit()
+            window.export_shortcut.activated.emit()
         self.assertEqual(dialog_parent_list, [window, window])
         self.main_window.run_export_window = answer_window
         # LLFR-01407, LLFR-00145: the nothing-to-export box over the
@@ -1631,7 +1632,7 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
         with mock.patch.object(self.main_window, "exportable_tab_count",
                                return_value=0), mock.patch(
                 "view.message_boxes.build_nothing_to_export_box") as box:
-            window.pdf_shortcut.activated.emit()
+            window.export_shortcut.activated.emit()
             self.main_window._on_export_requested()
         self.assertEqual(window_parent_list, [])
         self.assertIs(box.call_args_list[0].args[0], window)
@@ -1643,13 +1644,13 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
                                return_value=(False, "disk full")), \
                 mock.patch("view.message_boxes.build_export_error_box") \
                 as error_box:
-            window.pdf_shortcut.activated.emit()
+            window.export_shortcut.activated.emit()
         self.assertIs(error_box.call_args.args[0], window)
         self.assertEqual(error_box.call_args.args[1], "disk full")
-        self.assertIsNone(self.main_window.pdf_shortcut_window)
+        self.assertIsNone(self.main_window.export_shortcut_window)
 
     @covers("LLFR-01408", "HLFR-00038", "HLFR-00138")
-    def test_pdf_shortcut_ignored_while_the_export_window_is_open(
+    def test_export_shortcut_ignored_while_the_export_window_is_open(
             self) -> None:
         """While the Export window is open, Ctrl+P in any window opens no
         second one (the owner's answer of 2026-11-06 in #268, item 1).
@@ -1680,16 +1681,16 @@ class CopyPdfSearchShortcutTest(UndockedWindowTestCase):
             shown_list.append(dialog)
             if len(shown_list) == 1:
                 self.assertTrue(self.main_window.export_window_open_b)
-                self.main_window.pdf_shortcut.activated.emit()
-                window.pdf_shortcut.activated.emit()
+                self.main_window.export_shortcut.activated.emit()
+                window.export_shortcut.activated.emit()
             return ""
 
         self.main_window.run_export_window = press_while_open
-        window.pdf_shortcut.activated.emit()
+        window.export_shortcut.activated.emit()
         self.assertEqual(len(shown_list), 1)
         self.assertFalse(self.main_window.export_window_open_b)
         # Once it is closed, Ctrl+P opens it again.
-        self.main_window.pdf_shortcut.activated.emit()
+        self.main_window.export_shortcut.activated.emit()
         self.assertEqual(len(shown_list), 2)
 
     @covers("LLFR-01140", "LLFR-01141", "LLFR-01053", "LLFR-01071",
@@ -1870,7 +1871,7 @@ class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
     """Ctrl+P, Ctrl+C and Ctrl+F do nothing during a mouse drag."""
 
     @covers("LLFR-01172", "HLFR-00038")
-    def test_pdf_shortcut_ignored_while_dragging(self) -> None:
+    def test_export_shortcut_ignored_while_dragging(self) -> None:
         """Ctrl+P in any window runs no export while the mouse is
         dragged, and runs it again once the drag is over.
 
@@ -1884,9 +1885,9 @@ class ShortcutsWhileDraggingTest(UndockedWindowTestCase):
                                "is_mouse_drag_in_progress",
                                return_value=True):
             for owner in (self.main_window, window):
-                owner.pdf_shortcut.activated.emit()
+                owner.export_shortcut.activated.emit()
         self.assertEqual(handler.call_count, 0)
-        window.pdf_shortcut.activated.emit()
+        window.export_shortcut.activated.emit()
         self.assertEqual(handler.call_count, 1)
 
     @covers("LLFR-01173", "LLFR-01137", "HLFR-00039")

@@ -240,7 +240,8 @@ class ExportCopyTest(unittest.TestCase):
         self.assertLess(self.top_panel.export_button.x(),
                         self.top_panel.copy_button.x())
 
-    @covers("LLFR-00127", "LLFR-01229", "LLFR-01405", "LLFR-00001",
+    @covers("LLFR-00127", "LLFR-01229", "LLFR-01416", "LLFR-01417",
+            "LLFR-00001",
             "HLFR-00038")
     def test_click_shows_the_export_window(self) -> None:
         """A click on Export, with a plot, shows the Export window over
@@ -259,7 +260,8 @@ class ExportCopyTest(unittest.TestCase):
                         "PNG (one file per tab)"], "pdf", self.main_window,
              True)])
 
-    @covers("LLFR-01404", "LLFR-00003", "LLFR-00130")
+    @covers("LLFR-01404", "LLFR-01414", "LLFR-01415", "LLFR-00003",
+            "LLFR-00130")
     def test_closed_export_window_saves_nothing(self) -> None:
         """Closing the Export window with no format saves nothing, shows
         no box and resets the button.

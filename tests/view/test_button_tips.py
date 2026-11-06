@@ -449,7 +449,7 @@ class ButtonTipSourceTest(unittest.TestCase):
         expected_dict[button_name(top_panel.copy_button)] = [
             self.shortcut_line_str(self.main_window.copy_shortcut, macos_b)]
         expected_dict[button_name(top_panel.export_button)] = [
-            self.shortcut_line_str(self.main_window.pdf_shortcut, macos_b)]
+            self.shortcut_line_str(self.main_window.export_shortcut, macos_b)]
         # LLFR-00463: the Zoom tool has a held key and, below it, the
         # two lines of its mouse use.
         zoom_name_str = button_name(top_panel.zoom_button)

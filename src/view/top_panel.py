@@ -119,11 +119,11 @@ BUTTON_ICON_DICT = {
 # QShortcut from this constant, so the shortcut and its tip text change
 # together (LLFR-00215 Note).
 REDO_SHORTCUT_STR = "Ctrl+Y"
-# LLFR-01136, LLFR-01139, LLFR-01140: the Copy, PDF and search
+# LLFR-01136, LLFR-01139, LLFR-01140: the Copy, Export and search
 # shortcuts, Ctrl on Windows and Cmd on macOS, kept here with the button
 # tip texts so that a shortcut and its tip change together (LLFR-00215).
 COPY_SHORTCUT_STR = "Ctrl+C"
-PDF_SHORTCUT_STR = "Ctrl+P"
+EXPORT_SHORTCUT_STR = "Ctrl+P"
 SEARCH_SHORTCUT_STR = "Ctrl+F"
 # LLFR-00137: the Undo shortcut is Qt's standard Undo key (Ctrl+Z, or
 # Cmd+Z on macOS); MainWindow builds its QShortcut from it.
@@ -166,7 +166,7 @@ BUTTON_TIP_SHORTCUT_DICT = {
     # Export button, which opens the Export window, has "Cmd+P" or
     # "Ctrl+P".
     COPY_TEXT_STR: (SHORTCUT_SEQUENCE_STR, COPY_SHORTCUT_STR),
-    EXPORT_TEXT_STR: (SHORTCUT_SEQUENCE_STR, PDF_SHORTCUT_STR),
+    EXPORT_TEXT_STR: (SHORTCUT_SEQUENCE_STR, EXPORT_SHORTCUT_STR),
     TIP_TEXT_STR: (SHORTCUT_HOLD_STR, TIP_KEY_I),
     MARKER_TEXT_STR: (SHORTCUT_HOLD_STR, MARKER_KEY_I),
     DELTA_X_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_X_KEY_I),

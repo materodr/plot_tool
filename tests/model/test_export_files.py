@@ -262,7 +262,7 @@ class ExportFormatTest(unittest.TestCase):
             self.assertEqual(cleaned_export_format(format_str), format_str)
         self.assertEqual(cleaned_export_format(" PNG "), "png")
 
-    @covers("LLFR-01405", "LLFR-01406", "HLFR-00038")
+    @covers("LLFR-01405", "LLFR-01406", "LLFR-01416", "HLFR-00038")
     def test_unknown_value_gives_the_pdf(self) -> None:
         """No value, another text or another type counts as no
         remembered format, so the PDF is highlighted.
