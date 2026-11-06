@@ -2,6 +2,8 @@
 
 Every requirement in this folder follows the format below.
 
+The process from a feature or fix issue to its merge into `develop`, and the release steps, is drawn in [docs/process/feature_fix_flow.md](../process/feature_fix_flow.md), with the PCRs that state each step.
+
 ## Requirement IDs
 
 An ID is a prefix, a hyphen and a 5-digit integer padded with zeros: `<PREFIX>-<NNNNN>`.

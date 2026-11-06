@@ -29,7 +29,7 @@ python src/main.py
 The tests use the standard library `unittest`. Each test is tagged with the requirement IDs it checks, so the test matrix can be built from the results:
 
 ```bash
-python tests/build_test_matrix.py        # runs every test, writes tests/test_matrix.md
+python tests/build_test_matrix.py        # runs every test, writes test_matrix_local.md
 python -m pycodestyle src tests          # PEP 8 check
 python tests/check_requirements.py       # requirements quality (PCR-00037)
 ```

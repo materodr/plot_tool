@@ -37,6 +37,10 @@ name: macOS build
 #   panel on screen (PLOT_TOOL_FOLDER_PROBE=1, issue #232);
 # - LLFR-01183: and its name field is empty, without the file chosen at
 #   the earlier use (issue #243).
+# PCR-00121: the build runs on pull requests only, not on pushes: the run
+# of a pull request already built exactly the code that is merged,
+# because its branch is up to date (PCR-00060). workflow_dispatch lets
+# the owner start it by hand.
 on:
   pull_request:
     paths:
@@ -55,8 +59,6 @@ on:
       - src/view/app_icon_files.py
       - tests/user_tests/measure_startup.py
       - .github/workflows/macos_build.yml
-  push:
-    branches: [develop]
   workflow_dispatch:
 
 permissions:
