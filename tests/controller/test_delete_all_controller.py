@@ -400,7 +400,7 @@ class DeleteAllDeltaMarkersTest(DeleteAllTestCase):
 
 
 class DeleteAllFlagsAndAreasTest(DeleteAllTestCase):
-    """"Delete all flags" and "Delete all areas" (LLFR-00416,
+    """"Delete all flags" and "Delete all vertical areas" (LLFR-00416,
     LLFR-00417)."""
 
     @covers("LLFR-00416", "LLFR-00205", "LLFR-00140", "LLFR-00138",

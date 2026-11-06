@@ -3156,7 +3156,8 @@ class PlotController:
         """Remove every area from every time plot of every tab.
 
         Inputs:
-            plot_id_i: id of the plot where "Delete all areas" was chosen.
+            plot_id_i: id of the plot where "Delete all vertical areas"
+                was chosen.
         Outputs: none. An unknown plot is ignored.
         """
         # LLFR-00417, LLFR-00310: every area, with its label and time

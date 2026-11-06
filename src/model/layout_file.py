@@ -24,7 +24,7 @@ An example of a layout file::
       "grid": true,
       "panel_widths": {"plot_panel": 900, "signal_list_panel": 300},
       "flags": [{"name": "Flag 1", "time": 1.0, "color": "#ff8000"}],
-      "areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
+      "vertical_areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
                  "color": "#ff8000"}],
       "synthetic_signals": [],
       "tabs": [
@@ -98,8 +98,7 @@ from model.workspace import (
     DELTA_Y_KIND_STR, PRESET_WIDTH_TUPLE, delta_value_zero_b,
     first_panel_width_i, is_matrix_size, spans_overlap_b,
     DEFAULT_CURVE_STYLE_STR, DEFAULT_DELTA_STYLE_STR, DEFAULT_FLAG_STYLE_STR,
-    DEFAULT_OBJECT_WIDTH_I, DEFAULT_SHAPE_COLOR_STR, DEFAULT_SHAPE_STYLE_STR,
-    SHAPE_KIND_TUPLE, is_line_style, is_preset_width, shape_box_tuple)
+    DEFAULT_OBJECT_WIDTH_I, is_line_style, is_preset_width)
 
 # LLFR-00228, LLFR-00471: the identification of a layout file; the
 # version is 3, whose signal names carry the file prefix (LLFR-00948).
@@ -130,13 +129,10 @@ TIME_RANGE_KEY_STR = "time_range"
 START_KEY_STR = "start"
 END_KEY_STR = "end"
 GRID_KEY_STR = "grid"
-# LLFR-00225 items 18 and 19: the shapes of a plot and whether the
-# labels are hidden; the line style of a curve, flag, delta marker and
-# shape; the name of a data tip.
+# LLFR-00225 item 18: whether the labels are hidden; the line style of
+# a curve, flag and delta marker; the name of a data tip.
 LABELS_SHOWN_KEY_STR = "labels_shown"
-SHAPES_KEY_STR = "shapes"
 LINE_STYLE_KEY_STR = "line_style"
-CORNERS_KEY_STR = "corners"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
 # LLFR-00225 item 9, LLFR-01214: whether the main window shows its signal
 # list panel.
@@ -152,7 +148,7 @@ FLAGS_KEY_STR = "flags"
 # LLFR-00225 item 11: the list of areas, each with "name", "start",
 # "end" (START_KEY_STR, END_KEY_STR) and "color" ("#rrggbb",
 # COLOR_KEY_STR, LLFR-00351). A file without it has no area.
-AREAS_KEY_STR = "areas"
+AREAS_KEY_STR = "vertical_areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
 # LLFR-00225 items 12 to 15, LLFR-01075: the keys of the undocked state,
 # the window, its signal list panel and the plot matrix of a tab.
@@ -625,21 +621,11 @@ def plot_entry(plot) -> dict:
          WIDTH_KEY_STR: int(delta_marker.width_i),
          LINE_STYLE_KEY_STR: delta_marker.line_style_str}
         for delta_marker in plot.delta_marker_list]
-    # LLFR-00225 item 18: the shapes, in drawing order, each with its
-    # kind, name, two opposite corners, color, width and line style.
-    shape_list = [
-        {KIND_KEY_STR: shape.kind_str, NAME_KEY_STR: shape.name_str,
-         CORNERS_KEY_STR: [float(value_f)
-                           for value_f in shape_box_tuple(shape)],
-         COLOR_KEY_STR: shape.color_str.lower(),
-         WIDTH_KEY_STR: int(shape.width_i),
-         LINE_STYLE_KEY_STR: shape.line_style_str}
-        for shape in plot.shape_list]
-    # LLFR-00226: the text notes of the plot (Plot.text_note_list) and
-    # its arrows (Plot.arrow_list) are never written to the layout file.
+    # LLFR-00226: the text notes of the plot (Plot.text_note_list), its
+    # arrows (Plot.arrow_list) and its shapes (Plot.shape_list) are never
+    # written to the layout file, nor their widths and line styles.
     return {CURVES_KEY_STR: curve_list, DATA_TIPS_KEY_STR: data_tip_list,
-            DELTA_MARKERS_KEY_STR: delta_marker_list,
-            SHAPES_KEY_STR: shape_list}
+            DELTA_MARKERS_KEY_STR: delta_marker_list}
 
 
 def build_layout_dict(workspace, shown_tab_id_i: int,
@@ -680,7 +666,7 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
         layout_dict[TIME_RANGE_KEY_STR] = None
     # LLFR-00225 item 5: whether the grid is shown.
     layout_dict[GRID_KEY_STR] = bool(grid_shown_b)
-    # LLFR-00225 item 19: whether the labels are hidden, written as
+    # LLFR-00225 item 18: whether the labels are hidden, written as
     # whether they are shown.
     layout_dict[LABELS_SHOWN_KEY_STR] = not bool(
         getattr(workspace, "labels_hidden_b", False))
@@ -1519,8 +1505,6 @@ class LayoutBuilder:
         # LLFR-00230, LLFR-00232: then its data tips and delta markers.
         self.rebuild_data_tips(plot, plot_entry_value, owner_str)
         self.rebuild_delta_markers(plot, plot_entry_value, owner_str)
-        # LLFR-01366: and its shapes.
-        self.rebuild_shapes(plot, plot_entry_value, owner_str)
         return True
 
     @staticmethod
@@ -1529,7 +1513,7 @@ class LayoutBuilder:
         """Give a rebuilt object its saved width and line style.
 
         Inputs:
-            line_object: the rebuilt flag, delta marker or shape.
+            line_object: the rebuilt flag or delta marker.
             entry_value: its entry of the file.
             label_str: how the report names it; not used.
             default_style_str: its default line style (LLFR-01377).
@@ -1546,54 +1530,6 @@ class LayoutBuilder:
                        if isinstance(entry_value, dict) else None)
         line_object.line_style_str = (style_value if is_line_style(
             style_value) else default_style_str)
-
-    def rebuild_shapes(self, plot, plot_entry_value,
-                       owner_str: str) -> None:
-        """Draw the saved shapes of a plot again.
-
-        Inputs:
-            plot: the rebuilt model Plot.
-            plot_entry_value: the plot entry of the file.
-            owner_str: the plot, for the report.
-        Outputs: none. Each shape that is not rebuilt is reported with
-            its name and the reason (LLFR-01368).
-        """
-        # LLFR-01366: the shapes in the file's order.
-        for shape_entry in list_entry(plot_entry_value, SHAPES_KEY_STR):
-            entry_dict = shape_entry if isinstance(shape_entry, dict) else {}
-            name_value = entry_dict.get(NAME_KEY_STR)
-            label_str = f"Shape {describe_value(name_value)} in {owner_str}"
-            kind_value = entry_dict.get(KIND_KEY_STR)
-            if not isinstance(kind_value, str) or (
-                    kind_value not in SHAPE_KIND_TUPLE):
-                # LLFR-01367, LLFR-01368: an unknown kind.
-                self.report.add_not_rebuilt(
-                    f"{label_str}: its kind {describe_value(kind_value)} "
-                    f"is neither \"circle\" nor \"rectangle\".")
-                continue
-            corner_value = entry_dict.get(CORNERS_KEY_STR)
-            corner_list = (list(corner_value)
-                           if isinstance(corner_value, list) else [])
-            number_list = [finite_number(value) for value in corner_list]
-            if len(number_list) != 4 or None in number_list or (
-                    number_list[0] == number_list[2]
-                    or number_list[1] == number_list[3]):
-                # LLFR-01367, LLFR-01368: corners that give no box.
-                self.report.add_not_rebuilt(
-                    f"{label_str}: its corners are not four numbers that "
-                    f"give a box with a width and a height.")
-                continue
-            # LLFR-01369: a missing or unusable name is a new name.
-            if isinstance(name_value, str) and name_value.strip():
-                name_str = name_value.strip()
-            else:
-                name_str = self.workspace.take_shape_name(kind_value)
-            shape = plot.add_shape(kind_value, *number_list, name_str)
-            # LLFR-01369: the saved color, or the default color.
-            color_str, _ = saved_color(entry_dict, DEFAULT_SHAPE_COLOR_STR)
-            shape.color_str = color_str
-            self.apply_line_look(shape, entry_dict, label_str,
-                                 DEFAULT_SHAPE_STYLE_STR)
 
     def tab_name(self, tab_entry, tab_number_i: int,
                  file_name_set: set) -> str:
@@ -2025,7 +1961,7 @@ class LayoutBuilder:
         """Add the saved areas to the current ones.
 
         Inputs:
-            area_entry_list: the "areas" list of the file.
+            area_entry_list: the "vertical_areas" list of the file.
         Outputs: none. Each area that is not rebuilt is reported with
             its times and the reason (LLFR-00319, LLFR-00237).
         """
@@ -2456,8 +2392,6 @@ def layout_with_save_options(layout_dict: dict, markers_b: bool = True,
             for plot_entry_dict in list_entry(tab_entry_dict, PLOTS_KEY_STR):
                 plot_entry_dict[DATA_TIPS_KEY_STR] = []
                 plot_entry_dict[DELTA_MARKERS_KEY_STR] = []
-                # LLFR-01221: nor any shape.
-                plot_entry_dict[SHAPES_KEY_STR] = []
     if current_tab_only_b:
         # LLFR-01222: the tab the main window shows (LLFR-00225 item 1),
         # docked, and shown.

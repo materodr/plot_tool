@@ -108,16 +108,17 @@ MARKER_KEY_I = int(Qt.Key.Key_Shift.value)
 DELTA_X_KEY_I = int(Qt.Key.Key_X.value)
 # LLFR-00200: the key that holds the Delta Y tool.
 DELTA_Y_KEY_I = int(Qt.Key.Key_Y.value)
-# LLFR-00287: the key that holds the Area tool.
-AREA_KEY_I = int(Qt.Key.Key_A.value)
+# LLFR-00287: the key that holds the Vert. Area tool.
+AREA_KEY_I = int(Qt.Key.Key_V.value)
 # LLFR-00321: the key that holds the Text tool.
 TEXT_KEY_I = int(Qt.Key.Key_T.value)
 # LLFR-00367: the key that holds the Arrow tool.
-ARROW_KEY_I = int(Qt.Key.Key_R.value)
+ARROW_KEY_I = int(Qt.Key.Key_A.value)
 # LLFR-01274, LLFR-01277: the keys held for the Circle and Rectangle
-# tools.
-CIRCLE_KEY_I = int(Qt.Key.Key_O.value)
-RECTANGLE_KEY_I = int(Qt.Key.Key_B.value)
+# tools. LLFR-01274 Note: C held with Ctrl or Cmd is not alone, so
+# Ctrl+C (Cmd+C) stays Copy.
+CIRCLE_KEY_I = int(Qt.Key.Key_C.value)
+RECTANGLE_KEY_I = int(Qt.Key.Key_R.value)
 # LLFR-01092: the key that holds the Zoom tool.
 ZOOM_KEY_I = int(Qt.Key.Key_Z.value)
 # LLFR-00207, LLFR-01095: the key that resets the zoom; the 0 of the

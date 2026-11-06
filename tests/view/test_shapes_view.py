@@ -526,6 +526,58 @@ class LabelsAndTipNamesTest(ShapeWidgetTestCase):
         self.double_click(center_tuple)
         self.assertEqual(self.shape_rename_list, [])
 
+    @covers("LLFR-01388", "LLFR-01389", "LLFR-01287", "HLFR-00094",
+            "HLFR-00025")
+    def test_double_click_on_a_data_tip_name(self) -> None:
+        """A double-click on the name line of a pinned tip asks for its
+        rename; on its value lines, or while the labels are hidden, it
+        asks nothing.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        import numpy as np
+        widget = self.plot_widget
+        rename_list = recorder(widget.pinned_tip_rename_requested)
+        widget.set_pinned_tips([("Sine", 2.0, float(np.sin(2.0)), (),
+                                 "Peak")])
+        self.draw()
+        annotation = widget.pinned_annotation_list[0]
+        text_box = annotation.get_window_extent(
+            widget.canvas.get_renderer())
+        line_count_i = annotation.get_text().count("\n") + 1
+        line_height_f = text_box.height / line_count_i
+        center_x_f = (text_box.x0 + text_box.x1) / 2.0
+        name_tuple = (center_x_f, text_box.y1 - line_height_f / 2.0)
+        value_tuple = (center_x_f, text_box.y0 + line_height_f / 2.0)
+        # LLFR-01389: the value lines rename nothing.
+        self.double_click(value_tuple)
+        self.application.processEvents()
+        self.assertEqual(rename_list, [])
+        # LLFR-01388: the name line acts as "Rename".
+        self.double_click(name_tuple)
+        self.application.processEvents()
+        self.assertEqual(rename_list, [(0,)])
+        # LLFR-01287: no name line while the labels are hidden.
+        widget.set_labels_hidden(True)
+        self.draw()
+        self.double_click(name_tuple)
+        self.application.processEvents()
+        self.assertEqual(rename_list, [(0,)])
+
+    @covers("LLFR-01391", "LLFR-01364", "HLFR-00094", "HLFR-00158")
+    def test_double_click_on_a_shape_line_renames_nothing(self) -> None:
+        """A double-click on the line of a shape, away from its label,
+        asks no rename.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.set_one_shape(name_str="Zone")
+        self.double_click(self.display_of(EMPTY_BOX_TUPLE[2], 2.0))
+        self.application.processEvents()
+        self.assertEqual(self.shape_rename_list, [])
+
     @covers("LLFR-01252", "LLFR-01385", "LLFR-01238", "LLFR-00886",
             "LLFR-01346", "LLFR-01287", "HLFR-00158", "HLFR-00161",
             "HLFR-00028")
@@ -758,16 +810,16 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-01274", "LLFR-01275", "LLFR-01276", "LLFR-01277",
             "LLFR-01278", "LLFR-01279", "LLFR-01071", "HLFR-00158")
-    def test_hold_o_and_b(self) -> None:
-        """Holding O or B keeps Circle or Rectangle active; the release
-        or another key leaves no tool.
+    def test_hold_c_and_r(self) -> None:
+        """Holding C or R keeps Circle or Rectangle active; the release
+        or another key leaves no tool; Ctrl+C or Cmd+C activates none.
 
         Inputs: none.
         Outputs: none.
         """
         canvas = self.plot_widgets()[0].canvas
-        for key_name_str, tool_str in (("Key_O", CIRCLE_TOOL_STR),
-                                       ("Key_B", RECTANGLE_TOOL_STR)):
+        for key_name_str, tool_str in (("Key_C", CIRCLE_TOOL_STR),
+                                       ("Key_R", RECTANGLE_TOOL_STR)):
             with self.subTest(key=key_name_str):
                 self.press_key(key_name_str, canvas)
                 self.assert_tool_everywhere(tool_str)
@@ -779,6 +831,12 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
                 self.release_key("Key_Q")
                 self.release_key(key_name_str)
                 self.assert_tool_everywhere(NO_TOOL_STR)
+        # LLFR-01274 Note: C with Ctrl (Cmd on macOS) is the Copy
+        # shortcut, not a held C.
+        self.press_key("Key_C", modifier_name_str="ControlModifier")
+        self.assert_tool_everywhere(NO_TOOL_STR)
+        self.release_key("Key_C")
+        self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-01316", "LLFR-01357", "LLFR-01331", "LLFR-00140",
             "LLFR-00138", "HLFR-00158", "HLFR-00040")
@@ -870,6 +928,43 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
                           "Cosine"])
         self.assertTrue(set(all_menu_actions(create_menu))
                         <= set(all_menu_actions(file_menu)))
+
+    @covers("LLFR-01390", "LLFR-00426", "LLFR-00425", "HLFR-00096")
+    def test_plot_menu_title_is_its_place(self) -> None:
+        """The plot menu title is "Plot: <row>x<column>": the second plot
+        of a one-column tab is 2x1, and of a 2 x 2 matrix 1x2.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint
+
+        def plot_title_str(plot_widget) -> str:
+            """Return the title of the menu of an empty point of a plot.
+
+            Inputs:
+                plot_widget: a PlotWidget of the current tab.
+            Outputs: the text of the title action.
+            """
+            box = plot_widget.axes.bbox
+            display_tuple = (float(box.x0) + 0.02 * float(box.width),
+                             float(box.y0) + 0.98 * float(box.height))
+            widget_point = plot_widget.display_to_widget_point(
+                *display_tuple)
+            menu = plot_widget.build_context_menu(
+                QPoint(widget_point.x(), widget_point.y()))
+            return menu.actions()[0].text()
+
+        plot_widget_list = self.plot_widgets()
+        self.assertGreaterEqual(len(plot_widget_list), 2)
+        self.assertEqual(plot_title_str(plot_widget_list[0]), "Plot: 1x1")
+        self.assertEqual(plot_title_str(plot_widget_list[1]), "Plot: 2x1")
+        plot_panel = self.main_window.plot_panel
+        self.controller.plot_controller.on_plot_matrix(
+            plot_panel.current_tab_id(), 2, 2)
+        self.application.processEvents()
+        plot_widget_list = self.plot_widgets()
+        self.assertEqual(plot_title_str(plot_widget_list[1]), "Plot: 1x2")
 
     @covers("LLFR-01257", "LLFR-01260", "HLFR-00096")
     def test_long_signal_name_tip(self) -> None:

@@ -24,7 +24,7 @@ class TypeNameTest(unittest.TestCase):
         Outputs: none.
         """
         self.assertEqual(object_names.TYPE_NAME_DICT, {
-            "flag": "Flag", "area": "Vert Area", "delta_x": "Delta X",
+            "flag": "Flag", "area": "Vert. Area", "delta_x": "Delta X",
             "delta_y": "Delta Y", "arrow": "Arrow", "circle": "Circle",
             "rectangle": "Rectangle", "text_note": "Text",
             "data_tip": "Data Tip", "curve": "Curve", "plot": "Plot",
@@ -43,7 +43,7 @@ class TypeNameTest(unittest.TestCase):
         self.assertEqual(object_names.menu_title_text("flag", "Marker 1"),
                          "Flag: Marker 1")
         self.assertEqual(object_names.menu_title_text("area", "Warm-up"),
-                         "Vert Area: Warm-up")
+                         "Vert. Area: Warm-up")
         self.assertEqual(object_names.menu_title_text("tab", "Tab 1"),
                          "Tab: Tab 1")
         self.assertEqual(object_names.menu_title_text("file", "file1: a.csv"),

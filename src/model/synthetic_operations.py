@@ -856,6 +856,12 @@ def statistic(operation_str: str, time_array, value_array,
     # LLFR-00271, LLFR-01307: computed from the samples of the range,
     # the same value at every time sample.
     selected_array = range_values(time_array, value_array, range_tuple)
+    # LLFR-01386: the NaN samples are left out; LLFR-01387: with only
+    # NaN samples, the statistic is NaN.
+    number_array = np.asarray(selected_array, dtype=float)
+    number_array = number_array[~np.isnan(number_array)]
+    if number_array.size == 0:
+        return constant_like(value_array, float("nan"))
     statistic_function_dict = {
         MAXIMUM_STR: np.max, MINIMUM_STR: np.min,
         RMS_STR: lambda array: np.sqrt(np.mean(np.square(array))),
@@ -864,7 +870,7 @@ def statistic(operation_str: str, time_array, value_array,
         STANDARD_DEVIATION_STR: lambda array: np.std(array, ddof=0),
         MEDIAN_STR: np.median}
     return constant_like(value_array, float(
-        statistic_function_dict[operation_str](selected_array)))
+        statistic_function_dict[operation_str](number_array)))
 
 
 def generated_signal(operation_str: str, time_array,

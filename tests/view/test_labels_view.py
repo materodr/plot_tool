@@ -227,7 +227,7 @@ class MenuTitleTest(LabelWidgetTestCase):
             widget.set_areas([(1, "Warm-up", 6.0, 8.0, ORANGE_STR)])
             self.draw()
             self.check_title(self.data_display(7.0, 1.6),
-                             "Vert Area: Warm-up", AREA_MENU_TEXT_LIST)
+                             "Vert. Area: Warm-up", AREA_MENU_TEXT_LIST)
             widget.set_areas([])
         with self.subTest(menu="delta"):
             widget.set_delta_markers([DELTA_X_TUPLE])

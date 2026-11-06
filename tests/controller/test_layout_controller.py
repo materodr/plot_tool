@@ -1103,7 +1103,7 @@ class LayoutSaveOptionsTest(LayoutControllerTestCase):
         with open(path_str, encoding="utf-8") as layout_file:
             layout_dict = json.load(layout_file)
         self.assertEqual(layout_dict["flags"], [])
-        self.assertEqual(layout_dict["areas"], [])
+        self.assertEqual(layout_dict["vertical_areas"], [])
         self.assertEqual([tab["name"] for tab in layout_dict["tabs"]],
                          ["Main"])
         self.assertIs(layout_dict["tabs"][0]["undocked"], False)

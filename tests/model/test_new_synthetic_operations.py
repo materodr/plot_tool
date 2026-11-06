@@ -141,6 +141,40 @@ class StatisticTest(StoreTestCase):
             value_array, None)
         np.testing.assert_allclose(result_array, [1.0, 1.0])
 
+    @covers("LLFR-01386", "LLFR-01387", "LLFR-01306", "HLFR-00164",
+            "HLFR-00163")
+    def test_nan_samples_are_left_out(self) -> None:
+        """The statistics skip NaN samples, as in a Tangent with gaps;
+        a range of NaN samples only gives NaN.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        time_array = np.array([0.0, 1.0, 2.0, 3.0])
+        value_array = np.array([1.0, np.nan, 3.0, np.nan])
+        expected_dict = {
+            operations.RMS_STR: np.sqrt(5.0), operations.MEAN_STR: 2.0,
+            operations.STANDARD_DEVIATION_STR: 1.0,
+            operations.MEDIAN_STR: 2.0, operations.MAXIMUM_STR: 3.0,
+            operations.MINIMUM_STR: 1.0}
+        for operation_str, expected_f in expected_dict.items():
+            with self.subTest(operation=operation_str):
+                np.testing.assert_allclose(
+                    operations.statistic(operation_str, time_array,
+                                         value_array, None),
+                    np.full(4, expected_f))
+                # LLFR-01387: only NaN samples within the shown range.
+                nan_only_array = operations.statistic(
+                    operation_str, time_array, value_array, (0.5, 1.5))
+                self.assertEqual(nan_only_array.size, 4)
+                self.assertTrue(np.all(np.isnan(nan_only_array)))
+        # The tangent of the Angle signal holds NaN gaps (LLFR-01306), and
+        # its mean is still a number.
+        tangent = self.create(operations.TANGENT_DEGREES_STR, "file1_Angle",
+                              None)
+        mean = self.create(operations.MEAN_STR, tangent.name_str, None)
+        self.assertTrue(np.all(np.isfinite(mean.value_array)))
+
     @covers("LLFR-01310", "LLFR-00240", "LLFR-00225", "HLFR-00164")
     def test_shown_range_statistics(self) -> None:
         """A range gives the statistic of its samples, its range in the

@@ -1146,7 +1146,7 @@ class ArrowButtonTest(unittest.TestCase):
             "LLFR-00213", "LLFR-00215")
     def test_button_icon_tip_and_place(self) -> None:
         """The Arrow button shows only the arrow icon, its tip says
-        "Hold R", and it is the last plot tool, right of Text.
+        "Hold A", and it is the last plot tool, right of Text.
 
         Inputs: none.
         Outputs: none.
@@ -1156,7 +1156,7 @@ class ArrowButtonTest(unittest.TestCase):
         self.assertEqual(button_name(button), "Arrow")
         self.assertEqual(button.text(), "")
         self.assertEqual(button.icon_name_str, icon_shapes.ARROW_ICON_STR)
-        self.assertEqual(button_tip_line_list(button), ["Arrow", "Hold R"])
+        self.assertEqual(button_tip_line_list(button), ["Arrow", "Hold A"])
         tool_button_list = list(
             self.top_panel.plot_tool_button_dict.values())
         self.assertIs(tool_button_list[-1], button)
@@ -1253,8 +1253,8 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
                         "LeftButton", "NoButton")
 
     @covers("LLFR-00367", "LLFR-00368", "LLFR-00079")
-    def test_hold_r_and_release(self) -> None:
-        """R alone makes Arrow the only active tool, whatever tool was
+    def test_hold_a_and_release(self) -> None:
+        """A alone makes Arrow the only active tool, whatever tool was
         active; the release leaves no tool active.
 
         Inputs: none.
@@ -1262,7 +1262,7 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         """
         from PyQt6.QtCore import Qt
         from view import tip_key_filter
-        self.assertEqual(tip_key_filter.ARROW_KEY_I, int(Qt.Key.Key_R.value))
+        self.assertEqual(tip_key_filter.ARROW_KEY_I, int(Qt.Key.Key_A.value))
         self.assertNotIn(tip_key_filter.ARROW_KEY_I,
                          tip_key_filter.OWN_MODIFIER_DICT)
         canvas = self.plot_widgets()[0].canvas
@@ -1272,14 +1272,14 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
                     self.top_panel.plot_tool_button_dict[
                         previous_tool_str].click()
                     self.application.processEvents()
-                self.press_key("Key_R", canvas)
+                self.press_key("Key_A", canvas)
                 self.assert_tool_everywhere(ARROW_TOOL_STR)
-                self.release_key("Key_R", canvas)
+                self.release_key("Key_A", canvas)
                 self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00369", "LLFR-00367")
     def test_other_key_or_modifier_ends_the_hold(self) -> None:
-        """Another key while R is held leaves no tool active; R with a
+        """Another key while A is held leaves no tool active; A with a
         modifier or with another key held activates nothing; auto-repeat
         keeps the hold.
 
@@ -1287,36 +1287,36 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         Outputs: none.
         """
         for other_key_name_str in ("Key_Q", "Key_Shift", "Key_Control",
-                                   "Key_X", "Key_A", "Key_T", "Key_Z"):
+                                   "Key_X", "Key_V", "Key_T", "Key_Z"):
             with self.subTest(other=other_key_name_str):
-                self.press_key("Key_R")
+                self.press_key("Key_A")
                 self.assert_tool_everywhere(ARROW_TOOL_STR)
                 self.press_key(other_key_name_str)
                 self.assert_tool_everywhere(NO_TOOL_STR)
                 self.release_key(other_key_name_str)
-                self.release_key("Key_R")
+                self.release_key("Key_A")
                 self.assert_tool_everywhere(NO_TOOL_STR)
         for modifier_name_str in ("ControlModifier", "ShiftModifier",
                                   "AltModifier"):
-            self.press_key("Key_R", modifier_name_str=modifier_name_str)
+            self.press_key("Key_A", modifier_name_str=modifier_name_str)
             self.assert_tool_everywhere(NO_TOOL_STR)
-            self.release_key("Key_R")
+            self.release_key("Key_A")
         self.press_key("Key_Q")
-        self.press_key("Key_R")
+        self.press_key("Key_A")
         self.assert_tool_everywhere(NO_TOOL_STR)
-        self.release_key("Key_R")
+        self.release_key("Key_A")
         self.release_key("Key_Q")
-        self.press_key("Key_R")
+        self.press_key("Key_A")
         for _ in range(3):
-            self.release_key("Key_R", auto_repeat_b=True)
-            self.press_key("Key_R", auto_repeat_b=True)
+            self.release_key("Key_A", auto_repeat_b=True)
+            self.press_key("Key_A", auto_repeat_b=True)
             self.assert_tool_everywhere(ARROW_TOOL_STR)
-        self.release_key("Key_R")
+        self.release_key("Key_A")
         self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00157", "LLFR-00367")
-    def test_r_typed_in_the_search_box(self) -> None:
-        """In the search box r and R are typed and change no tool.
+    def test_a_typed_in_the_search_box(self) -> None:
+        """In the search box a and A are typed and change no tool.
 
         Inputs: none.
         Outputs: none.
@@ -1325,12 +1325,12 @@ class ArrowKeyAndEndToEndTest(XyzKeyWindowTestCase):
         self.activate_window()
         self.search_box.setFocus()
         self.application.processEvents()
-        QTest.keyClicks(self.search_box, "rR")
+        QTest.keyClicks(self.search_box, "aA")
         self.application.processEvents()
-        self.assertEqual(self.search_box.text(), "rR")
-        self.press_key("Key_R", self.search_box)
+        self.assertEqual(self.search_box.text(), "aA")
+        self.press_key("Key_A", self.search_box)
         self.assert_tool_everywhere(NO_TOOL_STR)
-        self.release_key("Key_R", self.search_box)
+        self.release_key("Key_A", self.search_box)
 
     @covers("LLFR-00372", "LLFR-00375", "LLFR-00140", "LLFR-00138",
             "LLFR-00192", "HLFR-00081", "HLFR-00040", "HLFR-00048")

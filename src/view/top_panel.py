@@ -51,8 +51,8 @@ MARKER_TEXT_STR = "Flag"
 # LLFR-00161, LLFR-00162: the delta marker tool buttons.
 DELTA_X_TEXT_STR = "Delta X"
 DELTA_Y_TEXT_STR = "Delta Y"
-# LLFR-00286, LLFR-00320: the Area and Text tool buttons.
-AREA_TEXT_STR = "Area"
+# LLFR-00286, LLFR-00320: the Vert. Area and Text tool buttons.
+AREA_TEXT_STR = "Vert. Area"
 TEXT_TEXT_STR = "Text"
 # LLFR-00366: the Arrow tool button.
 ARROW_TEXT_STR = "Arrow"
@@ -173,12 +173,12 @@ BUTTON_TIP_SHORTCUT_DICT = {
     MARKER_TEXT_STR: (SHORTCUT_HOLD_STR, MARKER_KEY_I),
     DELTA_X_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_X_KEY_I),
     DELTA_Y_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_Y_KEY_I),
-    # LLFR-00287, LLFR-00321: "Hold A" and "Hold T".
+    # LLFR-00287, LLFR-00321: "Hold V" and "Hold T".
     AREA_TEXT_STR: (SHORTCUT_HOLD_STR, AREA_KEY_I),
     TEXT_TEXT_STR: (SHORTCUT_HOLD_STR, TEXT_KEY_I),
-    # LLFR-00367: "Hold R".
+    # LLFR-00367: "Hold A".
     ARROW_TEXT_STR: (SHORTCUT_HOLD_STR, ARROW_KEY_I),
-    # LLFR-00215: "Hold O" and "Hold B".
+    # LLFR-00215: "Hold C" and "Hold R".
     CIRCLE_TEXT_STR: (SHORTCUT_HOLD_STR, CIRCLE_KEY_I),
     RECTANGLE_TEXT_STR: (SHORTCUT_HOLD_STR, RECTANGLE_KEY_I),
     # LLFR-00215, LLFR-00207: "0".
@@ -365,7 +365,7 @@ class TopPanel(QWidget):
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
         delta_x_button: the "Delta X" ToggleButton (LLFR-00161).
         delta_y_button: the "Delta Y" ToggleButton (LLFR-00162).
-        area_button: the "Area" ToggleButton (LLFR-00286).
+        area_button: the "Vert. Area" ToggleButton (LLFR-00286).
         text_button: the "Text" ToggleButton (LLFR-00320).
         arrow_button: the "Arrow" ToggleButton (LLFR-00366), right of
             Text.

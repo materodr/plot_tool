@@ -27,7 +27,7 @@ FILE_OBJECT_STR = "file"
 # LLFR-01255: the one table of the type names.
 TYPE_NAME_DICT = {
     FLAG_OBJECT_STR: "Flag",
-    AREA_OBJECT_STR: "Vert Area",
+    AREA_OBJECT_STR: "Vert. Area",
     DELTA_X_OBJECT_STR: "Delta X",
     DELTA_Y_OBJECT_STR: "Delta Y",
     ARROW_OBJECT_STR: "Arrow",
@@ -54,7 +54,7 @@ def type_name(object_kind_str: str) -> str:
 
     Inputs:
         object_kind_str: one of the *_OBJECT_STR kinds.
-    Outputs: its type name, for example "Vert Area" for an area.
+    Outputs: its type name, for example "Vert. Area" for a vertical area.
     Raises: KeyError for an unknown kind.
     """
     # LLFR-01255: one name per kind, from the one table.

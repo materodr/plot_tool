@@ -7,7 +7,7 @@ LLFR-01350, LLFR-01357 to LLFR-01363), the widths and line styles of
 the plot objects (HLFR-00159, HLFR-00160: LLFR-01370 to LLFR-01379),
 the names of the pinned data tips (LLFR-01263 to LLFR-01271), the
 hidden labels (LLFR-01281 to LLFR-01288), their undo states (LLFR-00140)
-and their layout file entries (LLFR-00225, LLFR-01221).
+and that the layout file leaves them out (LLFR-00226).
 """
 
 import json
@@ -18,8 +18,7 @@ import numpy as np
 from tests.support import covers
 
 from model.layout_file import (
-    LayoutReport, build_layout_dict, layout_text, layout_with_save_options,
-    rebuild_layout)
+    LayoutReport, build_layout_dict, layout_text, rebuild_layout)
 from model.workspace import (
     ARROW_LINE_KIND_STR, CIRCLE_KIND_STR, CURVE_LINE_KIND_STR,
     DELTA_LINE_KIND_STR, DELTA_X_KIND_STR, FLAG_LINE_KIND_STR,
@@ -68,7 +67,7 @@ class ShapeModelTest(unittest.TestCase):
             self.plot.add_shape(CIRCLE_KIND_STR, 0.0, 0.0, 1.0, 1.0)
         self.assertEqual(len(self.plot.shape_list), 7)
 
-    @covers("LLFR-01319", "LLFR-01367", "HLFR-00158")
+    @covers("LLFR-01319", "LLFR-01329", "HLFR-00158")
     def test_unusable_boxes_and_kinds_are_refused(self) -> None:
         """A box without a width or a height, a value that is not finite
         or an unknown kind gives no shape.
@@ -379,11 +378,11 @@ class LayoutLooksTest(unittest.TestCase):
             self.workspace, self.workspace.tab_list[0].tab_id_i, (),
             True)))
 
-    @covers("LLFR-00225", "LLFR-00227", "HLFR-00158", "HLFR-00159",
-            "HLFR-00160", "HLFR-00161", "LLFR-01263")
+    @covers("LLFR-00225", "LLFR-00227", "LLFR-00226", "HLFR-00158",
+            "HLFR-00159", "HLFR-00160", "HLFR-00161", "LLFR-01263")
     def test_file_holds_the_new_values(self) -> None:
-        """Curve style, tip name, delta and flag looks, shapes and the
-        labels setting are written with English keys.
+        """Curve style, tip name, delta and flag looks and the labels
+        setting are written with English keys; the shapes are not.
 
         Inputs: none.
         Outputs: none.
@@ -398,36 +397,28 @@ class LayoutLooksTest(unittest.TestCase):
         self.assertEqual((layout_dict["flags"][0]["width"],
                           layout_dict["flags"][0]["line_style"]),
                          (5, "dotted"))
-        self.assertEqual(plot_dict["shapes"], [
-            {"kind": "rectangle", "name": "Zone",
-             "corners": [1.0, 1.0, 3.0, 5.0], "color": "#00aa00",
-             "width": 2, "line_style": "dashed"}])
+        # LLFR-00226: no shape, so neither its width nor its style.
+        self.assertNotIn("shapes", plot_dict)
+        self.assertNotIn("Zone", layout_text(layout_dict))
         self.assertIs(layout_dict["labels_shown"], False)
 
-    @covers("LLFR-01221", "HLFR-00156")
-    def test_markers_off_leaves_out_the_shapes(self) -> None:
-        """Without the markers, the file holds no shape.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        layout_dict = layout_with_save_options(self.saved_dict(), False)
-        self.assertEqual(layout_dict["tabs"][0]["plots"][0]["shapes"], [])
-
-    @covers("LLFR-01366", "LLFR-01271", "LLFR-01288", "LLFR-01374",
-            "LLFR-01379", "HLFR-00158", "HLFR-00050")
+    @covers("LLFR-01271", "LLFR-01288", "LLFR-01374", "LLFR-01379",
+            "LLFR-00226", "HLFR-00050")
     def test_load_rebuilds_the_new_values(self) -> None:
-        """A load rebuilds the shapes, tip names, looks and the labels
-        setting as saved.
+        """A load rebuilds the tip names, looks and the labels setting
+        as saved, and no shape, even from a hand-written entry.
 
         Inputs: none.
         Outputs: none.
         """
         layout_dict = self.saved_dict()
+        layout_dict["tabs"][0]["plots"][0]["shapes"] = [
+            {"kind": "circle", "name": "Hand", "corners": [0, 0, 2, 2]}]
         workspace = Workspace()
         result = rebuild_layout(workspace, layout_dict, self.signal_dict,
                                 self.time_array)
         plot = workspace.tab_list[0].plot_list[0]
+        self.assertEqual(plot.shape_list, [])
         self.assertEqual(plot.curve_list[0].line_style_str, "dotted")
         self.assertEqual(plot.pinned_tip_list[0].name_str, "Peak")
         self.assertEqual((plot.delta_marker_list[0].width_i,
@@ -436,30 +427,18 @@ class LayoutLooksTest(unittest.TestCase):
         self.assertEqual((workspace.marker_list[0].width_i,
                           workspace.marker_list[0].line_style_str),
                          (5, "dotted"))
-        shape = plot.shape_list[0]
-        self.assertEqual((shape.kind_str, shape.name_str, shape.color_str,
-                          shape.width_i, shape.line_style_str,
-                          shape.end_value_f),
-                         ("rectangle", "Zone", "#00aa00", 2, "dashed", 5.0))
         self.assertIs(result.labels_hidden_b, True)
 
-    @covers("LLFR-01367", "LLFR-01368", "LLFR-01369", "LLFR-01374",
-            "LLFR-01379", "LLFR-01271", "LLFR-01288", "HLFR-00052")
-    def test_unusable_values_are_replaced_or_reported(self) -> None:
-        """Unknown kinds and boxes are left out and reported; unusable
-        names, widths and styles get the defaults.
+    @covers("LLFR-01374", "LLFR-01379", "LLFR-01271", "LLFR-01288",
+            "HLFR-00052")
+    def test_unusable_values_are_replaced(self) -> None:
+        """Unusable names, widths and styles get the defaults.
 
         Inputs: none.
         Outputs: none.
         """
         layout_dict = self.saved_dict()
         plot_dict = layout_dict["tabs"][0]["plots"][0]
-        plot_dict["shapes"] = [
-            {"kind": "star", "name": "S", "corners": [0, 0, 1, 1]},
-            {"kind": "circle", "name": "Flat", "corners": [0, 1, 2, 1]},
-            {"kind": "circle", "corners": [0, 0, "a", 1]},
-            {"kind": "circle", "name": "  ", "corners": [0, 0, 2, 2],
-             "color": "red", "width": 9, "line_style": "wavy"}]
         plot_dict["curves"][0]["line_style"] = 3
         plot_dict["data_tips"][0]["name"] = ""
         plot_dict["delta_markers"][0].pop("width")
@@ -469,20 +448,12 @@ class LayoutLooksTest(unittest.TestCase):
         result = rebuild_layout(workspace, layout_dict, self.signal_dict,
                                 self.time_array)
         plot = workspace.tab_list[0].plot_list[0]
-        self.assertEqual(len(plot.shape_list), 1)
-        shape = plot.shape_list[0]
-        self.assertEqual((shape.name_str, shape.color_str, shape.width_i,
-                          shape.line_style_str),
-                         ("Circle 1", "#ff8000", 1, "continuous"))
         self.assertEqual(plot.curve_list[0].line_style_str, "continuous")
         self.assertEqual(plot.pinned_tip_list[0].name_str, "Data tip 1")
         self.assertEqual(plot.delta_marker_list[0].width_i, 1)
         self.assertEqual(workspace.marker_list[0].line_style_str, "dashed")
         self.assertIsNone(result.labels_hidden_b)
-        report_text_str = result.report.text()
-        for name_str in ('"star"', '"Flat"'):
-            self.assertIn(name_str, report_text_str)
-        self.assertEqual(report_text_str.count("Shape "), 3)
+        self.assertNotIn("Shape ", result.report.text())
         self.assertIsInstance(result.report, LayoutReport)
 
 

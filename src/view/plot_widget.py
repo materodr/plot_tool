@@ -264,6 +264,8 @@ LABEL_KIND_DELTA_STR = "delta"
 LABEL_KIND_ARROW_STR = "arrow"
 # LLFR-01364: and of a shape.
 LABEL_KIND_SHAPE_STR = "shape"
+# LLFR-01388: the name line of a pinned data tip.
+LABEL_KIND_TIP_STR = "tip"
 # LLFR-00886, LLFR-00798: a press on a name label becomes a drag once the
 # pointer is this far from it, in screen pixels.
 LABEL_DRAG_THRESHOLD_PIXELS_F = 5.0
@@ -277,7 +279,7 @@ DELETE_ALL_DELTAS_IN_PLOT_TEXT_STR = "Delete all delta markers in this plot"
 DELETE_ALL_DELTAS_IN_ALL_PLOTS_TEXT_STR = (
     "Delete all delta markers in all plots")
 DELETE_ALL_FLAGS_TEXT_STR = "Delete all flags"
-DELETE_ALL_AREAS_TEXT_STR = "Delete all areas"
+DELETE_ALL_AREAS_TEXT_STR = "Delete all vertical areas"
 # LLFR-00074, LLFR-00113: range width kept per forward wheel notch
 # (narrow to 95%; a backward notch widens to 1/0.95).
 ZOOM_IN_FACTOR_F = 0.95
@@ -3708,7 +3710,9 @@ class PlotWidget(QWidget, ShapeLayer):
             LABEL_KIND_AREA_STR: self.area_rename_requested,
             LABEL_KIND_DELTA_STR: self.delta_marker_rename_requested,
             LABEL_KIND_ARROW_STR: self.arrow_rename_requested,
-            LABEL_KIND_SHAPE_STR: self.shape_rename_requested}
+            LABEL_KIND_SHAPE_STR: self.shape_rename_requested,
+            # LLFR-01388: "Rename" of a pinned data tip.
+            LABEL_KIND_TIP_STR: self.pinned_tip_rename_requested}
         rename_signal_dict[kind_str].emit(int(item_i))
 
     def name_label_tuple_at(self, widget_point) -> tuple:
@@ -3726,7 +3730,12 @@ class PlotWidget(QWidget, ShapeLayer):
         # a flag's time, an area's times or a delta marker's value.
         if self.text_note_at(widget_point) != NO_TEXT_NOTE_INDEX_I:
             return ()
-        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
+        tip_index_i = self.pinned_tip_at(widget_point)
+        if tip_index_i != NO_TIP_INDEX_I:
+            # LLFR-01388, LLFR-01389: on a pinned tip, only its name line
+            # counts, never its value lines.
+            if self.tip_name_line_at_b(tip_index_i, widget_point):
+                return (LABEL_KIND_TIP_STR, tip_index_i)
             return ()
         point_tuple = self.widget_to_display_tuple(widget_point)
         renderer = self.canvas.get_renderer()
@@ -4113,6 +4122,36 @@ class PlotWidget(QWidget, ShapeLayer):
         if not name_str or self.labels_hidden_b:
             return value_str
         return name_str + "\n" + value_str
+
+    def tip_name_line_at_b(self, tip_index_i: int, widget_point) -> bool:
+        """Tell whether a point is on the name line of a pinned data tip.
+
+        Inputs:
+            tip_index_i: index of the tip in the list of set_pinned_tips.
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True when the tip shows its name (LLFR-01263) and the
+            point is on its box, at the height of its first line.
+        """
+        # LLFR-01263: the name is the first line of the box; LLFR-01281,
+        # LLFR-01287: there is none while the labels are hidden.
+        if not 0 <= tip_index_i < len(self.pinned_annotation_list):
+            return False
+        annotation = self.pinned_annotation_list[tip_index_i]
+        text_str = annotation.get_text()
+        if (self.labels_hidden_b or not self.pinned_tip_name(tip_index_i)
+                or "\n" not in text_str):
+            return False
+        renderer = self.canvas.get_renderer()
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        box = self.tip_box_extent(annotation, renderer)
+        if not box.contains(display_x_px, display_y_px):
+            return False
+        # The lines share the height of the text; the box's padding
+        # above the first line counts with it.
+        text_box = annotation.get_window_extent(renderer)
+        line_height_f = text_box.height / (text_str.count("\n") + 1)
+        return display_y_px >= text_box.y1 - line_height_f
 
     def pinned_tip_name(self, tip_index_i: int) -> str:
         """Return the name of a pinned data tip.
@@ -4974,7 +5013,7 @@ class PlotWidget(QWidget, ShapeLayer):
         # at the point (the items above came first), the area menu.
         area_id_i = self.area_at(widget_point)
         if area_id_i != NO_AREA_ID_I:
-            # LLFR-00425, LLFR-00426: "Vert Area: <its name>".
+            # LLFR-00425, LLFR-00426: "Vert. Area: <its name>".
             add_menu_title(menu, object_names.AREA_OBJECT_STR,
                            self.area_name_str(area_id_i))
             add_request_action(
@@ -4988,8 +5027,8 @@ class PlotWidget(QWidget, ShapeLayer):
                 menu, "Delete",
                 lambda chosen_id_i=area_id_i:
                 self.area_delete_requested.emit(chosen_id_i))
-            # LLFR-00314, LLFR-00417: "Delete all areas" before "Delete
-            # plot".
+            # LLFR-00314, LLFR-00417: "Delete all vertical areas" before
+            # "Delete plot".
             add_request_action(
                 menu, DELETE_ALL_AREAS_TEXT_STR,
                 lambda: self.all_areas_delete_requested.emit())
@@ -5001,8 +5040,10 @@ class PlotWidget(QWidget, ShapeLayer):
             return menu, request_list
         # LLFR-00048: empty area of the plot (no curve, pinned tip,
         # vertical marker, delta marker, area or text note under the
-        # mouse). LLFR-00425, LLFR-00426: the title is "Plot".
-        add_menu_title(menu, object_names.PLOT_OBJECT_STR)
+        # mouse). LLFR-00425, LLFR-00426: the title is "Plot: <row>x<column>"
+        # (LLFR-01390).
+        add_menu_title(menu, object_names.PLOT_OBJECT_STR,
+                       self.plot_place_str())
         # LLFR-01112: "Position", directly above "Delete plot".
         self.add_position_option(menu, add_request_action)
         add_request_action(menu, "Delete plot",
@@ -5064,7 +5105,7 @@ class PlotWidget(QWidget, ShapeLayer):
             all flags"; on a delta marker "Rename", "Color", "Delete" and
             "Delete
             all delta markers in this plot" and "... in all plots"; on
-            an area "Rename", "Color", "Delete", "Delete all areas",
+            an area "Rename", "Color", "Delete", "Delete all vertical areas",
             "Position" and "Delete plot"; every color option is a
             submenu of the recent colors and "Other color..."; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
@@ -5082,6 +5123,27 @@ class PlotWidget(QWidget, ShapeLayer):
                     lambda checked_b=False,
                     request=request_list[action.data()]: request())
         return menu
+
+    def plot_place_str(self) -> str:
+        """Return the place of this plot in its tab, for its menu title.
+
+        Inputs: none.
+        Outputs: "<row>x<column>", both counted from 1, the row from the
+            top and the column from the left, for example "2x1" for the
+            second plot of a one-column matrix; "" when the plot is not
+            on a tab page.
+        """
+        # LLFR-01390: the slot of the plot in its tab's plot matrix, in
+        # the fill order (LLFR-01108), for time and frequency plots.
+        page = self.parentWidget()
+        while page is not None and not hasattr(page, "plot_slot_tuple"):
+            page = page.parentWidget()
+        if page is None:
+            return ""
+        slot_tuple = page.plot_slot_tuple(self)
+        if not slot_tuple:
+            return ""
+        return f"{slot_tuple[0] + 1}x{slot_tuple[1] + 1}"
 
     def request_context_menu(self, widget_point) -> None:
         """Open the context menu for a point once control is back in Qt.

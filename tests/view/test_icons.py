@@ -25,7 +25,7 @@ BUTTON_NAME_DICT = {
     "marker_button": "Flag",
     "delta_x_button": "Delta X",
     "delta_y_button": "Delta Y",
-    "area_button": "Area",
+    "area_button": "Vert. Area",
     "text_button": "Text",
     "arrow_button": "Arrow",
     "reset_zoom_button": "Reset zoom",

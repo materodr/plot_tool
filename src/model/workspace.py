@@ -285,7 +285,7 @@ def finite_box_tuple(start_time_s: float, start_value_f: float,
         is not finite, or when the two x values or the two y values are
         equal, which gives no box.
     """
-    # LLFR-01316, LLFR-01329, LLFR-01367: a box of two different x
+    # LLFR-01316, LLFR-01329: a box of two different x
     # values and two different y values, at finite places.
     box_tuple = (float(start_time_s), float(start_value_f),
                  float(end_time_s), float(end_value_f))

@@ -44,7 +44,7 @@ DELETE_ALL_SIGNAL_DICT = {
     "Delete all delta markers in all plots":
         "all_delta_markers_delete_requested",
     "Delete all flags": "all_markers_delete_requested",
-    "Delete all areas": "all_areas_delete_requested",
+    "Delete all vertical areas": "all_areas_delete_requested",
 }
 
 
@@ -191,7 +191,8 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
 
     @covers("LLFR-00314", "LLFR-00417")
     def test_area_menu(self) -> None:
-        """Rename, Color, Delete, Delete all areas, Position, Delete plot.
+        """Rename, Color, Delete, Delete all vertical areas, Position,
+        Delete plot.
 
         Inputs: none.
         Outputs: none.
@@ -201,8 +202,9 @@ class DeleteAllMenuTest(PlotWidgetToolTestCase):
         self.draw()
         self.check_menu(4.0, 2.0, AREA_MENU_TEXT_LIST)
         self.assertEqual(AREA_MENU_TEXT_LIST,
-                         ["Rename", "Color", "Delete", "Delete all areas",
-                          "Position", "Delete plot"])
+                         ["Rename", "Color", "Delete",
+                          "Delete all vertical areas", "Position",
+                          "Delete plot"])
 
     @covers("LLFR-00048", "LLFR-00038")
     def test_other_menus_have_no_delete_all(self) -> None:
