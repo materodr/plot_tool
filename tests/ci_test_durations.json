@@ -78,6 +78,7 @@
     "tests.test_check_requirement_review": 0.9,
     "tests.test_check_requirements": 0.0,
     "tests.test_ci_changed_files": 0.5,
+    "tests.test_ci_shards": 0.5,
     "tests.test_code_conventions": 4.1,
     "tests.test_find_affected_requirements": 0.9,
     "tests.test_rebuild_and_launch": 1.1,
