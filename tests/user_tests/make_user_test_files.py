@@ -15,7 +15,9 @@ and the HDF5 ones are skipped with a message. ``--hdf5-only`` writes only
 the HDF5 files; CI uses it to add them to a pull request branch when
 ``good/signals.h5`` is missing (see .github/workflows/tests.yml).
 
-``--big`` writes instead, into ``big/`` (ignored by git), one big file
+``--big`` writes instead, into ``bin/user_tests/big`` of the repository
+(never committed, COR-00021), or into the folder given with
+``--big-folder``, replacing any earlier files there, one big file
 per format of HLFR-00005, each with a ``Time`` signal of 4 hours sampled
 every 0.01 s and 100 other signals (COR-00025): ``big_comma.csv``,
 ``big_semicolon.csv``, ``big.xlsx`` (as many samples as an Excel sheet
@@ -33,6 +35,7 @@ The files are generated, not tested, so this script is not named
 import argparse
 import importlib.util
 import os
+import shutil
 import struct
 import zipfile
 
@@ -41,6 +44,7 @@ import pandas as pd
 import scipy.io
 
 USER_TESTS_FOLDER_STR = os.path.dirname(os.path.abspath(__file__))
+REPOSITORY_ROOT_STR = os.path.dirname(os.path.dirname(USER_TESTS_FOLDER_STR))
 SAMPLE_COUNT_I = 5000
 DURATION_S = 10.0
 RANDOM_SEED_I = 1
@@ -48,6 +52,10 @@ RANDOM_SEED_I = 1
 # top level; the other signals go into groups, by this group path.
 # COR-00025: the big sample files.
 BIG_FOLDER_NAME_STR = "big"
+# COR-00025, COR-00007: next to the app, in the folder where the Open
+# file dialog starts (LLFR-00204).
+BIG_FOLDER_STR = os.path.join(REPOSITORY_ROOT_STR, "bin", "user_tests",
+                              BIG_FOLDER_NAME_STR)
 BIG_SIGNAL_COUNT_I = 100
 BIG_DURATION_S = 4 * 3600.0
 BIG_STEP_S = 0.01
@@ -659,15 +667,19 @@ def write_big_files(folder_str: str, duration_s: float = BIG_DURATION_S,
     """Write one big sample file per format of HLFR-00005.
 
     Inputs:
-        folder_str: the folder to write into; it is created if needed.
+        folder_str: the folder to write into. It is first removed, so
+            that it holds only the files of this run, then created.
         duration_s: the duration of the time signal, in seconds.
         step_s: the time between two samples, in seconds.
         signal_count_i: the number of signals besides Time.
     Outputs: the paths written, in this order: CSV with ",", CSV with
         ";", Excel, MAT and, with h5py, HDF5.
     """
-    # COR-00025: the files of the executable build.
-    os.makedirs(folder_str, exist_ok=True)
+    # COR-00025: the files of the executable build replace any earlier
+    # files of the folder.
+    if os.path.isdir(folder_str):
+        shutil.rmtree(folder_str)
+    os.makedirs(folder_str)
     row_count_i = big_sample_count(duration_s, step_s)
     path_list = []
     for name_str, separator_str, decimal_str in (
@@ -693,20 +705,23 @@ def write_big_files(folder_str: str, duration_s: float = BIG_DURATION_S,
 def main() -> None:
     """Create the good/ and bad/ folders and write the sample files.
 
-    Inputs: the optional command-line flags --hdf5-only and --big.
+    Inputs: the optional command-line flags --hdf5-only, --big and
+        --big-folder.
     Outputs: none. Prints the folder the files were written to.
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--hdf5-only", action="store_true",
                         help="write only the HDF5 sample files")
     parser.add_argument("--big", action="store_true",
-                        help="write only the big sample files into big/")
+                        help="write only the big sample files into "
+                        "bin/user_tests/big")
+    parser.add_argument("--big-folder", default=BIG_FOLDER_STR,
+                        help="the folder of the big sample files")
     argument_namespace = parser.parse_args()
     if argument_namespace.big:
-        # COR-00025: the big files, in the folder git ignores.
-        big_folder_str = os.path.join(USER_TESTS_FOLDER_STR,
-                                      BIG_FOLDER_NAME_STR)
-        for path_str in write_big_files(big_folder_str):
+        # COR-00025: the big files, in bin/user_tests/big, which git
+        # ignores (COR-00021).
+        for path_str in write_big_files(argument_namespace.big_folder):
             print(f"Wrote {path_str}")
         return
     signal_dict = sample_signals()

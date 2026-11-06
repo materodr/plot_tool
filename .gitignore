@@ -224,7 +224,8 @@ __marimo__/
 bin/*
 !bin/.gitkeep
 
-# Big sample files written by the build (COR-00025)
+# Big sample files written by earlier builds; the build now writes them
+# into bin/user_tests/big, which bin/* ignores (COR-00025, COR-00021)
 tests/user_tests/big/
 
 # Test matrix built by CI
