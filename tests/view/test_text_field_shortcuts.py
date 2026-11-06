@@ -96,8 +96,8 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         """
         from PyQt6.QtWidgets import QDialog, QInputDialog, QLineEdit
         from view.name_dialog import (
-            PDF_ACTION_STR, SEARCH_ACTION_STR, NameDialogShortcutFilter)
-        for key_str, action_str in (("P", PDF_ACTION_STR),
+            EXPORT_ACTION_STR, SEARCH_ACTION_STR, NameDialogShortcutFilter)
+        for key_str, action_str in (("P", EXPORT_ACTION_STR),
                                     ("F", SEARCH_ACTION_STR)):
             dialog = QInputDialog(self.main_window)
             dialog.setInputMode(QInputDialog.InputMode.TextInput)
@@ -130,7 +130,8 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
             "HLFR-00017")
     def test_tab_rename_takes_the_name_then_saves_the_pdf(self) -> None:
         """Ctrl+P in the tab rename dialog renames the tab with the text
-        typed so far, and only then runs "Save all tabs as PDF", once.
+        typed so far, and only then starts the export (the Export window
+        since the owner's answer of 2026-11-06 in #268), once.
 
         Inputs: none.
         Outputs: none.
@@ -139,7 +140,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         self.main_window.show()
         tab_id_i = self.panel.current_tab_id()
         name_at_export_list = []
-        self.main_window.pdf_export_handler = (
+        self.main_window.export_handler = (
             lambda: name_at_export_list.append(self.tab(tab_id_i).name_str))
         call_list = []
         with mock.patch.object(QInputDialog, "getText", side_effect=(
@@ -200,7 +201,7 @@ class NameDialogShortcutTest(UndockedWindowTestCase):
         from PyQt6.QtWidgets import QInputDialog
         self.main_window.show()
         handler = mock.Mock()
-        self.main_window.pdf_export_handler = handler
+        self.main_window.export_handler = handler
         with mock.patch.object(QInputDialog, "getText", side_effect=(
                 fake_get_text("", "New", []))):
             self.assertEqual(self.main_window.ask_name("T", "L", "x"),
@@ -218,7 +219,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
     """Ctrl+P and Ctrl+F leave a text field of a window first."""
 
     @covers("LLFR-01186", "LLFR-01190", "LLFR-01139", "HLFR-00038")
-    def test_pdf_shortcut_leaves_the_search_box(self) -> None:
+    def test_export_shortcut_leaves_the_search_box(self) -> None:
         """Ctrl+P with the focus in the search box clears its selection,
         takes the focus out of it, keeps its text, then runs the export.
 
@@ -231,7 +232,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         box = self.main_window.signal_list_panel.search_box
         box.setText("speed")
         box.setSelection(0, 3)
-        self.main_window.pdf_export_handler = (
+        self.main_window.export_handler = (
             lambda: order_list.append(("export", box.hasSelectedText())))
         with mock.patch.object(QApplication, "focusWidget",
                                return_value=box), \
@@ -239,7 +240,7 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
                 mock.patch.object(box, "clearFocus",
                                   side_effect=lambda: order_list.append(
                                       ("left", None))):
-            self.main_window.pdf_shortcut.activated.emit()
+            self.main_window.export_shortcut.activated.emit()
         self.assertEqual(order_list, [("left", None), ("export", False)])
         self.assertEqual(box.text(), "speed")
 
@@ -265,11 +266,11 @@ class TextFieldShortcutTest(UndockedWindowTestCase):
         editor.confirm_requested.connect(
             lambda: order_list.append(("confirm", editor.text(),
                                        editor.hasSelectedText())))
-        self.main_window.pdf_export_handler = (
+        self.main_window.export_handler = (
             lambda: order_list.append(("export",)))
         with mock.patch.object(QApplication, "focusWidget",
                                return_value=editor):
-            window.pdf_shortcut.activated.emit()
+            window.export_shortcut.activated.emit()
             self.assertEqual(order_list, [("confirm", "note text", False),
                                           ("export",)])
             order_list.clear()
