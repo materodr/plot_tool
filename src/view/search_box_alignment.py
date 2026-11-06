@@ -183,8 +183,9 @@ class SearchBoxAligner(QObject):
             plot_widget for plot_widget
             in getattr(page, "plot_widget_list", [])
             if not plot_widget.isHidden()]
-        # LLFR-01400: while the plots scroll, the last row may be out of
-        # view; the visible part of the plot area ends lowest.
+        # LLFR-01400, HLFR-00095: while the plots scroll, the last row may
+        # be out of view; the container of the plots is the visible part
+        # of the scroll area, which doesn't move while they scroll.
         scrolls_function = getattr(page, "scrolls_b", None)
         if (plot_widget_list and scrolls_function is not None
                 and scrolls_function()):

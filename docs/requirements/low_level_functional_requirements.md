@@ -4348,7 +4348,9 @@ When the time signal of a data file matches the text in the search box, the app 
 *Parent: HLFR-00033, HLFR-00079, HLFR-00006*
 
 ### LLFR-00424 Search box bottom edge
-In each window, the bottom edge of the search box (LLFR-00094) must be at the same height as the bottom edge of the plots of the last shown row (LLFR-01110) of the tab that the window shows, including their x-axis numbers and labels, at any window size.
+In each window, the bottom edge of the search box (LLFR-00094) must be at the same height as the bottom edge of the plots of the last shown row (LLFR-01110) of the tab that the window shows, including their x-axis numbers and labels, at any window size, except as in LLFR-01400.
+
+Note: While the plots fit in the tab (LLFR-01395), the bottom edge of the last shown row is the bottom edge of the container of HLFR-00095.
 
 *Parent: HLFR-00095*
 
@@ -4923,7 +4925,7 @@ The app must place each new plot of a tab after the last plot of the tab in the 
 *Parent: HLFR-00148, HLFR-00012, HLFR-00064*
 
 ### LLFR-01110 Only the rows in use
-The app must show only the rows of a tab's plot matrix that hold at least one plot, each with an equal share of the height of the tab's plot area.
+The app must show only the rows of a tab's plot matrix that hold at least one plot, each with an equal share of the height of the tab's plot area, except as in LLFR-01396.
 
 Note: For example, 4 plots in a 3 × 3 matrix use 2 rows, each half the height.
 
@@ -7706,7 +7708,7 @@ When every shown row of a tab (LLFR-01110) can have the height of LLFR-01394 in 
 ### LLFR-01396 Plots that do not fit in the tab
 When the shown rows of a tab can't all have the height of LLFR-01394 in the plot area of the tab, the app must give each shown row the smallest height that gives each of its plots the height of LLFR-01394.
 
-Note: The 5 plots per tab of HLFR-00018 and the plot titles (LLFR-01390) don't change.
+Note: The number of plots a tab can hold (HLFR-00018), which its plot matrix sets, and the plot titles (LLFR-01390) don't change.
 
 *Parent: HLFR-00165, HLFR-00166*
 
@@ -7728,9 +7730,9 @@ The app must apply LLFR-01394 to LLFR-01397 and LLFR-01401 to the tab shown in a
 *Parent: HLFR-00165, HLFR-00166*
 
 ### LLFR-01400 Search box beside a scrolled tab
-While the tab that a window shows has the scroll bar of LLFR-01401, the bottom edge of the search box (LLFR-00094) of that window must be at the height of the bottom edge of the visible part of the tab's plot area.
+While the tab that a window shows has the scroll bar of LLFR-01401, the bottom edge of the search box (LLFR-00094) of that window must be at the height of the bottom edge of the visible part of the scroll area that holds the tab's plots, which stays where it is while the plots scroll.
 
-Note: When the tab is scrolled to its end, that is the bottom edge of the last row of plots (LLFR-00424).
+Note: The visible part of that scroll area is the container of HLFR-00095. While the plots fit (LLFR-01395), it ends at the bottom edge of the last shown row, so LLFR-00424 applies.
 
 *Parent: HLFR-00095, HLFR-00166*
 

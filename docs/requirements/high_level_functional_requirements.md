@@ -339,7 +339,7 @@ The user must be able to hide and show again the signals of each data file in th
 Note: The file row has a [-] icon on its left while its signals are shown and [+] while they are hidden.
 
 ### HLFR-00095 Search box aligned with the plots
-In each window, the bottom of the search box must be aligned with the bottom of the last row of plots of the tab that the window shows.
+In each window, the bottom of the search box must be aligned with the bottom of the container that holds the plots of the tab that the window shows.
 
 ### HLFR-00128 Signal list panel in every undocked window
 Each undocked window must have a signal list panel of its own that shows the same data files, signals and synthetic signals as the signal list panel of the main window, at every moment.
