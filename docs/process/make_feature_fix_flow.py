@@ -66,7 +66,8 @@ STEP_LIST = [
     ("13", "rev", "box", ["13. Open the PR into develop",
                           "Fail* section (or 'none') · Req. validation",
                           "Closes #n · Green light: <SHA>"]),
-    ("14", "ci", "dec", ["14. CI: full suite once + requirement checks",
+    ("14", "ci", "dec", ["14. CI: full suite once, in parallel shards",
+                         "collected by 'tests' + requirement checks",
                          "(docs-only PR: suite skipped)"]),
     ("18", "rev", "box", ["18. Issue sections filled",
                           "Feature: How · Tests used · Evidence  |  Fix: "
