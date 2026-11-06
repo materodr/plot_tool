@@ -389,6 +389,91 @@ class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
             window.tab_row, QPoint(window.add_tab_button.width(), 0)).x()
         self.assertLess(button_right_i, window.tab_row.width() // 2)
 
+    def plus_gap_i(self, window) -> int:
+        """Return the space between the last tab and the "+" button.
+
+        Inputs:
+            window: the UndockedWindow, shown.
+        Outputs: the pixels between the right border of the window's last
+            tab and the left border of its "+" button.
+        """
+        from PyQt6.QtCore import QPoint
+        last_rect = self.border_rect(window.tab_bar,
+                                     window.tab_bar.count() - 1)
+        right_i = window.tab_bar.mapTo(window.tab_row,
+                                       last_rect.topRight()).x()
+        left_i = window.add_tab_button.mapTo(window.tab_row,
+                                             QPoint(0, 0)).x()
+        return left_i - right_i - 1
+
+    @covers("LLFR-01205", "LLFR-01063", "HLFR-00015", "HLFR-00126")
+    def test_plus_button_two_pixels_after_a_single_tab(self) -> None:
+        """#269: in an undocked window with only one tab, the "+" button
+        is 2 pixels after the tab, as with several tabs; before the fix
+        the tab bar took Qt's minimum width of its scroll buttons, wider
+        than one tab, and the "+" stood far from it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.show()
+        second_id_i = self.add_tab()
+        self.main_window.signal_double_click_handler("speed")
+        self.process_events()
+        window = self.undock(second_id_i)
+        window.resize(900, 500)
+        window.show()
+        self.process_events()
+        self.assertEqual(window.tab_bar.count(), 1)
+        # The bug: the gap was the bar's minimum width less the tab's.
+        self.assertEqual(self.plus_gap_i(window), 2)
+        self.assertLessEqual(window.tab_bar.width(),
+                             window.tab_bar.tabRect(0).width())
+        # With a second tab and back to one tab, still 2 pixels.
+        window.add_tab_button.click()
+        self.process_events()
+        self.assertEqual(window.tab_bar.count(), 2)
+        self.assertEqual(self.plus_gap_i(window), 2)
+        third_id_i = window.tab_id_list()[1]
+        self.plot_controller.on_rename_tab(third_id_i, "x")
+        self.process_events()
+        self.assertEqual(self.plus_gap_i(window), 2)
+        window.dock_button_dict[third_id_i].button.click()
+        self.process_events()
+        window = self.main_window.window_of_tab(second_id_i)
+        self.assertEqual(window.tab_bar.count(), 1)
+        self.assertEqual(self.plus_gap_i(window), 2)
+        # A longer name and a shorter name of the single tab.
+        for name_str in ("A much longer name for the only tab", "y"):
+            with self.subTest(name_str=name_str):
+                self.plot_controller.on_rename_tab(second_id_i, name_str)
+                self.process_events()
+                self.assertEqual(self.plus_gap_i(window), 2)
+
+    @covers("LLFR-01205", "LLFR-01063", "HLFR-00015")
+    def test_single_tab_bar_still_scrolls_when_narrow(self) -> None:
+        """The bar of one tab asks for no more than its tab, and a tab
+        wider than the row still lets the bar shrink to its scroll
+        buttons.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.main_window.show()
+        second_id_i = self.add_tab()
+        self.main_window.signal_double_click_handler("speed")
+        self.process_events()
+        window = self.undock(second_id_i)
+        window.show()
+        self.process_events()
+        tab_bar = window.tab_bar
+        self.assertLessEqual(tab_bar.minimumSizeHint().width(),
+                             tab_bar.sizeHint().width())
+        self.plot_controller.on_rename_tab(second_id_i, "W" * 120)
+        self.process_events()
+        self.assertLess(tab_bar.minimumSizeHint().width(),
+                        tab_bar.sizeHint().width())
+
     @covers("LLFR-01204", "LLFR-01205", "HLFR-00014", "HLFR-00015")
     def test_main_window_tabs_two_pixels_apart(self) -> None:
         """In the main window too, the tabs are 2 pixels apart and the
