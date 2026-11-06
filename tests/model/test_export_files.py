@@ -14,6 +14,7 @@ from xml.etree import ElementTree
 from tests.support import covers
 
 from model.export_files import (
+    EXPORT_FORMAT_TUPLE, cleaned_export_format,
     build_docx_bytes, ensure_docx_suffix, fitted_image_emu_tuple,
     png_file_name_list, png_size_tuple)
 
@@ -243,6 +244,35 @@ class PngNameTest(unittest.TestCase):
         exact_str = "w" * 100
         self.assertEqual(png_file_name_list([exact_str]),
                          [exact_str + ".png"])
+
+
+class ExportFormatTest(unittest.TestCase):
+    """The last format of the Export window read from the settings
+    (LLFR-01229, LLFR-01405, LLFR-01406)."""
+
+    @covers("LLFR-01229", "LLFR-01405", "LLFR-01406", "HLFR-00038")
+    def test_formats_and_their_order(self) -> None:
+        """The three formats, from left to right, and each one is kept.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertEqual(EXPORT_FORMAT_TUPLE, ("pdf", "docx", "png"))
+        for format_str in EXPORT_FORMAT_TUPLE:
+            self.assertEqual(cleaned_export_format(format_str), format_str)
+        self.assertEqual(cleaned_export_format(" PNG "), "png")
+
+    @covers("LLFR-01405", "LLFR-01406", "LLFR-01416", "HLFR-00038")
+    def test_unknown_value_gives_the_pdf(self) -> None:
+        """No value, another text or another type counts as no
+        remembered format, so the PDF is highlighted.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for stored_value in (None, "", "xlsx", 3, ["pdf"], b"png"):
+            with self.subTest(stored_value=stored_value):
+                self.assertEqual(cleaned_export_format(stored_value), "pdf")
 
 
 if __name__ == "__main__":

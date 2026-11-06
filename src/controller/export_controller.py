@@ -1,11 +1,16 @@
-"""Export controller: saves the plots to PDF and copies them as an image.
+"""Export controller: exports the plots and copies them as an image.
 
 It runs the flows started by the Export and Copy buttons of the top
-panel (HLFR-00038, HLFR-00039). It talks to the view only through plain
-method calls (no Qt code), so it can be tested with a fake view
-(COR-00003, COR-00009). The view must offer:
+panel and by Ctrl+P (HLFR-00038, HLFR-00039): the Export window, then
+the PDF, Word or PNG export of the format chosen in it. It talks to
+the view only through plain method calls (no Qt code), so it can be
+tested with a fake view (COR-00003, COR-00009). The view must offer:
 
 - ``exportable_tab_count()``: number of tabs that hold a plot;
+- ``ask_export_format()``: shows the Export window and returns the
+  format clicked, one of model.export_files.EXPORT_FORMAT_TUPLE, or ""
+  when it was closed with no format (LLFR-00127, LLFR-01403,
+  LLFR-01404);
 - ``current_tab_plot_count()``: number of plots in the current tab;
 - ``ask_pdf_save_path(start_folder_str)``: the chosen path, "" when
   cancelled; the dialog shows start_folder_str (LLFR-01179,
@@ -37,7 +42,9 @@ folder the Open file dialog would show (LLFR-01179, LLFR-01180).
 
 import os
 
-from model.export_files import ensure_docx_suffix, png_file_name_list
+from model.export_files import (
+    DOCX_FORMAT_STR, PDF_FORMAT_STR, PNG_FORMAT_STR, ensure_docx_suffix,
+    png_file_name_list)
 
 # LLFR-00128: the extension of the saved file.
 PDF_SUFFIX_STR = ".pdf"
@@ -58,7 +65,7 @@ def ensure_pdf_suffix(path_str: str) -> str:
 
 
 class ExportController:
-    """Runs the "Save all tabs as PDF" and "Copy" flows.
+    """Runs the flows of the Export window and of "Copy".
 
     Inputs:
         view: the view facade described in the module docstring.
@@ -87,7 +94,7 @@ class ExportController:
         Outputs: none.
         """
         # LLFR-00127, LLFR-00132: the view calls this controller when
-        # the menu option or the Copy button is chosen.
+        # the Export button, Ctrl+P or the Copy button is used.
         self.view = view
         # LLFR-00971, LLFR-00972: the open data files, at export time.
         self.description_function = description_function
@@ -122,15 +129,32 @@ class ExportController:
             return ""
         return str(self.description_function() or "")
 
-    def on_export_requested(self) -> None:
-        """Save the plots of all tabs to a PDF file chosen by the user.
+    def on_export_window_requested(self) -> None:
+        """Show the Export window and run the export of the chosen format.
 
         Inputs: none.
-        Outputs: none. The Export button always returns to normal at
-            the end.
+        Outputs: none. With no plot in any tab, only the box of LLFR-00145
+            is shown. The Export button always returns to normal at the
+            end.
         """
         try:
-            self._export_pdf()
+            # LLFR-01407, LLFR-00145, LLFR-00459, LLFR-01237: nothing to
+            # export, so the box and no Export window.
+            if self.view.exportable_tab_count() <= 0:
+                self.view.show_nothing_to_export()
+                return
+            # LLFR-00127, LLFR-01139: the Export window.
+            format_str = self.view.ask_export_format()
+            # LLFR-01403: the export of the format clicked; LLFR-01404,
+            # LLFR-01414, LLFR-01415: no format, nothing saved and no
+            # message.
+            export_function = {
+                PDF_FORMAT_STR: self._export_pdf,
+                DOCX_FORMAT_STR: self._export_docx,
+                PNG_FORMAT_STR: self._export_png,
+            }.get(format_str)
+            if export_function is not None:
+                export_function()
         finally:
             # LLFR-00003: the function started by the button finished,
             # whatever happened.
@@ -170,16 +194,12 @@ class ExportController:
             self.view.show_copy_error(reason_str)
 
     def _export_pdf(self) -> None:
-        """Run the steps of the PDF export.
+        """Run the steps of the PDF export, after the Export window.
 
         Inputs: none.
-        Outputs: none.
+        Outputs: none. The caller has checked that a tab holds a plot
+            (LLFR-01407) and returns the Export button to normal.
         """
-        # LLFR-00145: with no plot in any tab, there is nothing to save
-        # and the save file dialog is not shown.
-        if self.view.exportable_tab_count() <= 0:
-            self.view.show_nothing_to_export()
-            return
         # LLFR-00128: ask where to save the .pdf file.
         # LLFR-01179, LLFR-01180: in the folder of the PDF dialog.
         path_str = self.view.ask_pdf_save_path(self.dialog_folder())
@@ -204,42 +224,13 @@ class ExportController:
         # LLFR-01180: only a successful save moves the dialog folder.
         self.pdf_folder_str = os.path.dirname(os.path.abspath(pdf_path_str))
 
-    def on_docx_export_requested(self) -> None:
-        """Save the plots of all tabs to a Word document.
-
-        Inputs: none.
-        Outputs: none. The Export button always returns to normal at
-            the end.
-        """
-        try:
-            self._export_docx()
-        finally:
-            # LLFR-00003: the function started by the button finished.
-            self.view.finish_export_button()
-
-    def on_png_export_requested(self) -> None:
-        """Save one PNG file per tab that holds a plot.
-
-        Inputs: none.
-        Outputs: none. The Export button always returns to normal at
-            the end.
-        """
-        try:
-            self._export_png()
-        finally:
-            # LLFR-00003: the function started by the button finished.
-            self.view.finish_export_button()
-
     def _export_docx(self) -> None:
-        """Run the steps of the Word export.
+        """Run the steps of the Word export, after the Export window.
 
         Inputs: none.
-        Outputs: none.
+        Outputs: none. The caller has checked that a tab holds a plot
+            (LLFR-01407).
         """
-        # LLFR-01237, LLFR-00145, LLFR-00459: nothing to save, no dialog.
-        if self.view.exportable_tab_count() <= 0:
-            self.view.show_nothing_to_export()
-            return
         # LLFR-01230, LLFR-01243: the dialog in the shared folder.
         path_str = self.view.ask_docx_save_path(self.dialog_folder())
         # LLFR-01241, LLFR-00130: a cancelled dialog saves nothing.
@@ -260,15 +251,12 @@ class ExportController:
         self.pdf_folder_str = os.path.dirname(os.path.abspath(docx_path_str))
 
     def _export_png(self) -> None:
-        """Run the steps of the PNG export.
+        """Run the steps of the PNG export, after the Export window.
 
         Inputs: none.
-        Outputs: none.
+        Outputs: none. The caller has checked that a tab holds a plot
+            (LLFR-01407).
         """
-        # LLFR-01237, LLFR-00145, LLFR-00459: nothing to save, no dialog.
-        if self.view.exportable_tab_count() <= 0:
-            self.view.show_nothing_to_export()
-            return
         # LLFR-01233, LLFR-01243: the folder dialog in the shared folder.
         folder_str = self.view.ask_png_folder(self.dialog_folder())
         # LLFR-01241, LLFR-00130: a cancelled dialog saves nothing.

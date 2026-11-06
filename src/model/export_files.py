@@ -12,6 +12,8 @@
   properties.
 - ``png_file_name_list`` names the PNG file of each tab (LLFR-01235).
 - ``png_size_tuple`` reads the size of a PNG image from its header.
+- ``cleaned_export_format`` reads the last format of the Export window
+  kept in the settings (LLFR-01405, LLFR-01406).
 """
 
 import re
@@ -22,6 +24,13 @@ from xml.sax.saxutils import escape
 
 # LLFR-01230: the extension of the Word document.
 DOCX_SUFFIX_STR = ".docx"
+# LLFR-01229: the three formats of the Export window, from left to
+# right; LLFR-01416: the PDF is highlighted when none is remembered.
+PDF_FORMAT_STR = "pdf"
+DOCX_FORMAT_STR = "docx"
+PNG_FORMAT_STR = "png"
+EXPORT_FORMAT_TUPLE = (PDF_FORMAT_STR, DOCX_FORMAT_STR, PNG_FORMAT_STR)
+DEFAULT_EXPORT_FORMAT_STR = PDF_FORMAT_STR
 # LLFR-01235: the extension of the PNG files and the name used for a tab
 # whose name is empty.
 PNG_SUFFIX_STR = ".png"
@@ -280,6 +289,24 @@ def build_docx_bytes(page_list: list) -> bytes:
                 zipfile.ZipInfo(f"word/media/image{page_index_i + 1}.png"),
                 bytes(page_tuple[2]))
     return buffer.getvalue()
+
+
+def cleaned_export_format(stored_value) -> str:
+    """Return the format of the Export window kept in the settings.
+
+    Inputs:
+        stored_value: the value read from the settings: any type, or
+            None when there is none.
+    Outputs: one of EXPORT_FORMAT_TUPLE; DEFAULT_EXPORT_FORMAT_STR when
+        the value is not one of them.
+    """
+    # LLFR-01406: a value that is not one of the three formats counts as
+    # no remembered format; LLFR-01416: the PDF is highlighted then.
+    if isinstance(stored_value, str):
+        format_str = stored_value.strip().lower()
+        if format_str in EXPORT_FORMAT_TUPLE:
+            return format_str
+    return DEFAULT_EXPORT_FORMAT_STR
 
 
 def ensure_docx_suffix(path_str: str) -> str:

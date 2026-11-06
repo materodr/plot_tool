@@ -274,12 +274,12 @@ class FakeSyntheticWindow(FakePlotView):
         """
         self.renamed_shown_list.append((old_name_str, new_name_str))
 
-    def set_export_handlers(self, pdf_export_handler, copy_handler,
+    def set_export_handlers(self, export_handler, copy_handler,
                             copy_shortcut_handler=None) -> None:
         """Ignore the export handlers.
 
         Inputs:
-            pdf_export_handler: ignored.
+            export_handler: ignored.
             copy_handler: ignored.
             copy_shortcut_handler: ignored.
         Outputs: none.

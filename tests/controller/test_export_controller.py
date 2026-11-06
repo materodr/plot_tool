@@ -41,6 +41,17 @@ class FakeExportView:
         self.folder_list = []
         # LLFR-01136: the plot count of the tab shown in each window.
         self.window_plot_count_dict = {}
+        # LLFR-01403: the format clicked in the Export window.
+        self.format_answer_str = "pdf"
+
+    def ask_export_format(self) -> str:
+        """Return the format "clicked" in the Export window.
+
+        Inputs: none.
+        Outputs: format_answer_str. Not recorded in call_list, so that
+            the call lists show the steps of the export itself.
+        """
+        return self.format_answer_str
 
     def ask_replace_existing_file(self, path_str: str) -> bool:
         """Record the question and return the prepared answer.
@@ -241,7 +252,7 @@ class PdfDialogFolderTest(unittest.TestCase):
         """
         self.view.answer_path_str = path_str
         self.view.save_result_tuple = (saved_b, "" if saved_b else "full")
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
 
     @covers("LLFR-01179", "LLFR-01180", "LLFR-00130", "LLFR-00131")
     def test_folder_sequence(self) -> None:
@@ -284,12 +295,12 @@ class PdfDialogFolderTest(unittest.TestCase):
         self.assertEqual(self.view.folder_list, [])
         self.assertEqual(self.controller.pdf_folder_str, "")
         plain_view = FakeExportView()
-        ExportController(plain_view).on_export_requested()
+        ExportController(plain_view).on_export_window_requested()
         self.assertEqual(plain_view.folder_list, [""])
 
 
 class ExportFlowTest(unittest.TestCase):
-    """Check the "Save all tabs as PDF" flow."""
+    """Check the PDF export flow."""
 
     def setUp(self) -> None:
         """Create the controller with a fake view.
@@ -307,7 +318,7 @@ class ExportFlowTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertEqual(self.view.call_list, [
             "exportable_tab_count", "ask_pdf_save_path",
             ("save_tabs_pdf", "/folder/plots.pdf"),
@@ -321,7 +332,7 @@ class ExportFlowTest(unittest.TestCase):
         Outputs: none.
         """
         self.view.answer_path_str = "/folder/report"
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertIn(("save_tabs_pdf", "/folder/report.pdf"),
                       self.view.call_list)
 
@@ -337,14 +348,14 @@ class ExportFlowTest(unittest.TestCase):
             with open(existing_path_str, "wb") as existing_file:
                 existing_file.write(b"old")
             self.view.answer_path_str = os.path.join(folder_str, "report")
-            self.controller.on_export_requested()
+            self.controller.on_export_window_requested()
             self.assertIn(("ask_replace_existing_file", existing_path_str),
                           self.view.call_list)
             self.assertNotIn("save_tabs_pdf", self.view.called_names_list())
             self.assertEqual(self.view.call_list[-1], "finish_export_button")
             self.view.call_list.clear()
             self.view.replace_answer_b = True
-            self.controller.on_export_requested()
+            self.controller.on_export_window_requested()
             self.assertIn(("save_tabs_pdf", existing_path_str),
                           self.view.call_list)
 
@@ -360,7 +371,7 @@ class ExportFlowTest(unittest.TestCase):
             with open(existing_path_str, "wb") as existing_file:
                 existing_file.write(b"old")
             self.view.answer_path_str = existing_path_str
-            self.controller.on_export_requested()
+            self.controller.on_export_window_requested()
         self.assertNotIn("ask_replace_existing_file",
                          self.view.called_names_list())
         self.assertIn(("save_tabs_pdf", existing_path_str),
@@ -374,7 +385,7 @@ class ExportFlowTest(unittest.TestCase):
         Outputs: none.
         """
         self.view.answer_path_str = ""
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertEqual(self.view.call_list, [
             "exportable_tab_count", "ask_pdf_save_path",
             "finish_export_button"])
@@ -387,7 +398,7 @@ class ExportFlowTest(unittest.TestCase):
         Outputs: none.
         """
         self.view.save_result_tuple = (False, "Permission denied")
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertEqual(self.view.call_list[-2:], [
             ("show_export_error", "Permission denied"),
             "finish_export_button"])
@@ -399,7 +410,7 @@ class ExportFlowTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertNotIn("show_export_error",
                          self.view.called_names_list())
 
@@ -411,7 +422,7 @@ class ExportFlowTest(unittest.TestCase):
         Outputs: none.
         """
         self.view.exportable_tab_count_i = 0
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertEqual(self.view.call_list, [
             "exportable_tab_count", "show_nothing_to_export",
             "finish_export_button"])
@@ -427,7 +438,7 @@ class ExportFlowTest(unittest.TestCase):
         """
         self.view.save_error = RuntimeError("boom")
         with self.assertRaises(RuntimeError):
-            self.controller.on_export_requested()
+            self.controller.on_export_window_requested()
         self.assertEqual(self.view.call_list[-1], "finish_export_button")
 
 
@@ -559,12 +570,12 @@ class FilesDescriptionTest(unittest.TestCase):
         Inputs: none.
         Outputs: none.
         """
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertEqual(self.view.description_list,
                          ["file1 = run_A.csv, file2 = run_B.mat"])
         # Taken again at each export: the files open at that moment.
         self.description_str = "file2 = run_B.mat"
-        self.controller.on_export_requested()
+        self.controller.on_export_window_requested()
         self.assertEqual(self.view.description_list[-1],
                          "file2 = run_B.mat")
 
@@ -601,7 +612,7 @@ class FilesDescriptionTest(unittest.TestCase):
         """
         controller = ExportController(self.view)
         self.assertEqual(controller.files_description(), "")
-        controller.on_export_requested()
+        controller.on_export_window_requested()
         self.assertEqual(self.view.description_list, [""])
 
 
@@ -706,6 +717,16 @@ class ImageExportFlowTest(unittest.TestCase):
         self.controller = ExportController(self.view, lambda: "file1 = a.csv",
                                            lambda: "/data/start")
 
+    def export_as(self, format_str: str) -> None:
+        """Click a format in the Export window (LLFR-01403).
+
+        Inputs:
+            format_str: "pdf", "docx" or "png".
+        Outputs: none.
+        """
+        self.view.format_answer_str = format_str
+        self.controller.on_export_window_requested()
+
     @covers("LLFR-01230", "LLFR-01231", "LLFR-01243", "HLFR-00038")
     def test_word_export_saves_with_docx_suffix(self) -> None:
         """The dialog opens in the Open file folder, ".docx" is added,
@@ -715,7 +736,7 @@ class ImageExportFlowTest(unittest.TestCase):
         Outputs: none.
         """
         self.view.docx_answer_str = "/out/report"
-        self.controller.on_docx_export_requested()
+        self.export_as("docx")
         self.assertIn(("save_tabs_docx", "/out/report.docx"),
                       self.view.call_list)
         self.assertEqual(self.view.description_list, ["file1 = a.csv"])
@@ -724,7 +745,7 @@ class ImageExportFlowTest(unittest.TestCase):
                          "finish_export_button")
         # LLFR-01243: one folder shared by the three exports.
         self.view.answer_path_str = ""
-        self.controller.on_export_requested()
+        self.export_as("pdf")
         self.assertEqual(self.view.folder_list[-1], os.path.abspath("/out"))
 
     @covers("LLFR-01237", "LLFR-01241", "LLFR-01242", "LLFR-00145",
@@ -738,20 +759,20 @@ class ImageExportFlowTest(unittest.TestCase):
         Outputs: none.
         """
         self.view.exportable_tab_count_i = 0
-        self.controller.on_docx_export_requested()
-        self.controller.on_png_export_requested()
+        self.export_as("docx")
+        self.export_as("png")
         self.assertEqual(self.view.called_names_list().count(
             "show_nothing_to_export"), 2)
         self.assertEqual(self.view.folder_list, [])
         self.view.exportable_tab_count_i = 2
         self.view.docx_answer_str = ""
-        self.controller.on_docx_export_requested()
-        self.controller.on_png_export_requested()
+        self.export_as("docx")
+        self.export_as("png")
         self.assertNotIn("save_tabs_docx", self.view.called_names_list())
         self.assertNotIn("save_tab_png_files", self.view.called_names_list())
         self.view.docx_answer_str = "/x/a.docx"
         self.view.save_result_tuple = (False, "disk full")
-        self.controller.on_docx_export_requested()
+        self.export_as("docx")
         self.assertIn(("show_export_error", "disk full"),
                       self.view.call_list)
         self.assertEqual(self.controller.pdf_folder_str, "")
@@ -767,7 +788,7 @@ class ImageExportFlowTest(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as folder_str:
             self.view.png_folder_str = folder_str
-            self.controller.on_png_export_requested()
+            self.export_as("png")
             self.assertIn(("save_tab_png_files", folder_str,
                            ["Tab 1.png", "a_b.png"]), self.view.call_list)
             self.assertNotIn("ask_replace_existing_files",
@@ -777,15 +798,131 @@ class ImageExportFlowTest(unittest.TestCase):
             open(os.path.join(folder_str, "a_b.png"), "wb").close()
             self.view.call_list = []
             self.view.replace_files_answer_b = False
-            self.controller.on_png_export_requested()
+            self.export_as("png")
             self.assertIn(("ask_replace_existing_files", ["a_b.png"]),
                           self.view.call_list)
             self.assertNotIn("save_tab_png_files",
                              self.view.called_names_list())
             self.view.replace_files_answer_b = True
-            self.controller.on_png_export_requested()
+            self.export_as("png")
             self.assertIn("save_tab_png_files",
                           self.view.called_names_list())
+
+
+class FakeExportWindowView(FakeImageExportView):
+    """The fake view, with the Export window of LLFR-00127."""
+
+    def __init__(self) -> None:
+        """Start with the Export window answering no format.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        super().__init__()
+        self.format_answer_str = ""
+
+    def ask_export_format(self) -> str:
+        """Record the Export window and return the prepared format.
+
+        Inputs: none.
+        Outputs: format_answer_str.
+        """
+        self.call_list.append("ask_export_format")
+        return self.format_answer_str
+
+
+class ExportWindowFlowTest(unittest.TestCase):
+    """The Export window starts the export of the chosen format
+    (LLFR-00127, LLFR-01403, LLFR-01404, LLFR-01407; the owner's answers
+    of 2026-11-06 in #268)."""
+
+    def setUp(self) -> None:
+        """Create the controller with the fake view.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view = FakeExportWindowView()
+        self.controller = ExportController(self.view, lambda: "file1 = a.csv",
+                                           lambda: "/data/start")
+
+    @covers("LLFR-01403", "LLFR-00128", "LLFR-01230", "LLFR-01233",
+            "LLFR-00003", "HLFR-00038")
+    def test_each_format_runs_its_export(self) -> None:
+        """"pdf", "docx" and "png" run the PDF, Word and PNG exports,
+        after the window, and the button finishes each time.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        for format_str, dialog_name_str in (
+                ("pdf", "ask_pdf_save_path"),
+                ("docx", "ask_docx_save_path"),
+                ("png", "ask_png_folder")):
+            with self.subTest(format_str=format_str):
+                self.view.call_list = []
+                # Every dialog is cancelled, so only the dialog shows.
+                self.view.answer_path_str = ""
+                self.view.docx_answer_str = ""
+                self.view.png_folder_str = ""
+                self.view.format_answer_str = format_str
+                self.controller.on_export_window_requested()
+                name_list = self.view.called_names_list()
+                self.assertEqual(name_list, [
+                    "exportable_tab_count", "ask_export_format",
+                    dialog_name_str, "finish_export_button"])
+
+    @covers("LLFR-01404", "LLFR-01414", "LLFR-01415", "LLFR-00003",
+            "HLFR-00038")
+    def test_no_format_saves_nothing(self) -> None:
+        """A window closed with no format opens no dialog, shows no box
+        and finishes the button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.controller.on_export_window_requested()
+        self.assertEqual(self.view.called_names_list(), [
+            "exportable_tab_count", "ask_export_format",
+            "finish_export_button"])
+
+    @covers("LLFR-01407", "LLFR-00145", "LLFR-00459", "LLFR-01237",
+            "HLFR-00038")
+    def test_nothing_to_export_shows_the_box_without_the_window(
+            self) -> None:
+        """With no plot in any tab, the box is shown and the Export window
+        is not (the owner's answer of 2026-11-06 in #268, item 4).
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.exportable_tab_count_i = 0
+        self.view.format_answer_str = "pdf"
+        self.controller.on_export_window_requested()
+        self.assertEqual(self.view.called_names_list(), [
+            "exportable_tab_count", "show_nothing_to_export",
+            "finish_export_button"])
+
+    @covers("LLFR-00003", "HLFR-00038")
+    def test_button_finishes_after_an_error_in_the_window(self) -> None:
+        """An unexpected error in the Export window still finishes the
+        button.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        def fail() -> str:
+            """Raise an unexpected error.
+
+            Inputs: none.
+            Outputs: none; raises RuntimeError.
+            """
+            raise RuntimeError("boom")
+
+        self.view.ask_export_format = fail
+        with self.assertRaises(RuntimeError):
+            self.controller.on_export_window_requested()
+        self.assertEqual(self.view.call_list[-1], "finish_export_button")
 
 
 if __name__ == "__main__":
