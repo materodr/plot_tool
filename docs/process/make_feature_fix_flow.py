@@ -48,6 +48,7 @@ STEP_LIST = [
                            "check_requirements = 0 problems"]),
     ("5b", "impl", "box", ["5b. Code"]),
     ("5c", "impl", "box", ["5c. Tests the implementer deems necessary",
+                           "no PyPI: packages from ci-wheels first",
                            "Fix: a test that reproduces the bug"]),
     ("5d", "impl", "box", ["5d. Branch up to date with develop?",
                            "if not, bring develop in"]),
@@ -58,7 +59,8 @@ STEP_LIST = [
     ("7", "rev", "box", ["7. Analyses code · requirements · tests · issue "
                          "Q&A", "Fix: checks the bug-reproducing test"]),
     ("8", "rev", "box", ["8. Adds its own tests (tests/ only)"]),
-    ("9", "rev", "box", ["9. Runs the tests it deems necessary"]),
+    ("9", "rev", "box", ["9. Runs the tests it deems necessary",
+                         "no PyPI: packages from ci-wheels first"]),
     ("10", "rev", "dec", ["10–12. No findings?",
                           "Branch still up to date?"]),
     ("F2", "frozen", "frz", ["GREEN LIGHT — BRANCH FROZEN · nobody "

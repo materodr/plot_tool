@@ -22,13 +22,13 @@ A fix follows the same steps as a feature. It differs only where a step says "Fi
 | 5 | **The implementer's loop** (no pull request, no CI): | PCR-00100 |
 | 5a | Requirement revision: LLFRs are written or changed, and `tests/check_requirements.py` shows 0 problems. | PCR-00030, PCR-00031, PCR-00115, PCR-00037 |
 | 5b | Code. | PCR-00100, COR rules |
-| 5c | The tests the implementer deems necessary are written and run before each push. Fix: a test that reproduces the bug, which fails before the fix and passes after it. | PCR-00024, PCR-00082; Fix: PCR-00116 |
+| 5c | The tests the implementer deems necessary are written and run before each push. A package of `requirements.txt` that the workspace can't install from PyPI, such as PyQt6 or h5py, is first installed from the `ci-wheels` branch with `tests/install_local_wheels.sh`. Fix: a test that reproduces the bug, which fails before the fix and passes after it. | PCR-00024, PCR-00082, PCR-00131; Fix: PCR-00116 |
 | 5d | The branch is up to date with `develop`; if it isn't, the implementer brings `develop` in. The branch leaves `tests/test_matrix.md` as `develop` has it. | PCR-00101, PCR-00060, PCR-00081 |
 | 5e | New questions go to the owner in one batch, recorded in the issue, and the loop starts again at 5a. | PCR-00100, PCR-00076, PCR-00103 |
 | 6 | **Handover** to the reviewer only with no open question, a satisfied implementer and an up-to-date branch. From then on the implementer changes nothing on the branch. | PCR-00102, PCR-00075, PCR-00098 |
 | 7 | The reviewer analyses the code, the requirements (with the judgement pass of the `requirement-validation` skill when requirements are new or changed), the tests and the issue's Q&A. Fix: it checks the bug-reproducing test. | PCR-00088, PCR-00089, PCR-00104, PCR-00016; Fix: PCR-00117 |
 | 8 | The reviewer adds its own tests, changing only files under `tests/`. | PCR-00090, PCR-00091, PCR-00098 |
-| 9 | The reviewer runs the tests it deems necessary. | PCR-00092 |
+| 9 | The reviewer runs the tests it deems necessary, after installing from the `ci-wheels` branch, as in step 5c, a package that the workspace can't install from PyPI. | PCR-00092, PCR-00131 |
 | 10 | Findings: the reviewer rejects the work, which goes back to 5a; after the fixes, it checks only the changes. | PCR-00093, PCR-00094 |
 | 11 | `develop` moved during the review: the branch is outdated, and the work goes back to the implementer. | PCR-00109 |
 | 12 | **Green light** only with no findings left and an up-to-date branch. From then on nobody changes the branch, the reviewer included. | PCR-00108, PCR-00105, PCR-00111 |

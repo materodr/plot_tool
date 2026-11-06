@@ -1,0 +1,152 @@
+name: Wheels
+
+# PCR-00130: downloads the Linux wheels of the packages of
+# requirements.txt that an agent's workspace can't install from PyPI
+# (PyQt6, which brings PyQt6-Qt6 and PyQt6-sip, and h5py), for CPython
+# 3.13 (the workspace) and 3.12 (CI), with their dependencies, and
+# replaces the content of the orphan branch ci-wheels with them, in one
+# commit that has no parent, so that the branch keeps no history. Agents
+# install them with tests/install_local_wheels.sh (PCR-00131).
+#
+# GitHub rejects files over 100 MB, so a wheel over 90 MiB is stored as
+# parts of 90 MiB (split -b 90m) that the install script joins again;
+# SHA256SUMS holds the checksums of the whole wheels.
+#
+# PCR-00121: this workflow runs on a push to develop, but it runs no
+# test and changes neither develop nor main; it only writes ci-wheels,
+# which the rulesets don't protect. The push trigger makes it run when
+# the pull request that adds it, or that changes requirements.txt, is
+# merged into develop; workflow_dispatch lets the owner start it by hand
+# once it is on the default branch.
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - requirements.txt
+      - .github/workflows/wheels.yml
+
+# Two runs never write ci-wheels at the same time; the last one wins.
+concurrency:
+  group: wheels
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # force-push the one commit of ci-wheels
+
+jobs:
+  wheels:
+    runs-on: ubuntu-latest
+    steps:
+      # Only the commit of the run, not every branch: ci-wheels itself
+      # isn't fetched.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Binary wheels only (no build from source), for the manylinux
+      # tags that the packages use. The second download skips the
+      # wheels that the first one already has (PyQt6-Qt6 and PyQt6 are
+      # the same for both Python versions).
+      - name: Download the wheels
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          grep -iE '^(pyqt6|h5py)\b' requirements.txt | cut -d' ' -f1 \
+            > wheel_requirements.txt
+          cat wheel_requirements.txt
+          for python_version in 3.13 3.12; do
+            pip download --dest ci_wheels --only-binary=:all: \
+              --implementation cp --python-version "$python_version" \
+              --platform manylinux_2_28_x86_64 \
+              --platform manylinux_2_17_x86_64 \
+              --platform manylinux2014_x86_64 \
+              -r wheel_requirements.txt
+          done
+          ls -l ci_wheels
+
+      - name: Write the checksums and split the big wheels
+        working-directory: ci_wheels
+        run: |
+          set -euo pipefail
+          sha256sum *.whl > SHA256SUMS
+          limit_bytes=$((90 * 1024 * 1024))
+          for wheel in *.whl; do
+            if [ "$(stat -c %s "$wheel")" -gt "$limit_bytes" ]; then
+              split -b 90m -d -a 2 "$wheel" "$wheel.part-"
+              rm "$wheel"
+              echo "split $wheel into $(ls "$wheel".part-* | wc -l) parts"
+            fi
+          done
+          ls -l
+
+      - name: Write the README
+        working-directory: ci_wheels
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          {
+            echo "# ci-wheels"
+            echo
+            echo "Linux x86_64 (manylinux) wheels of PyQt6 (with PyQt6-Qt6 and PyQt6-sip) and h5py, with their dependencies, for CPython 3.13 and 3.12, at the versions that \`requirements.txt\` allowed (PCR-00130). An agent whose workspace can't install these packages from PyPI installs them from here before it runs the tests (PCR-00131)."
+            echo
+            echo "Only \`.github/workflows/wheels.yml\` writes this branch: each run replaces its content with one commit that has no parent. Don't commit to it."
+            echo
+            echo "## Install"
+            echo
+            echo "From a worktree of plot_tool:"
+            echo
+            echo '```'
+            echo "bash tests/install_local_wheels.sh"
+            echo '```'
+            echo
+            echo "By hand: GitHub rejects files over 100 MB, so a wheel over 90 MiB is stored as parts \`<wheel>.part-00\`, \`<wheel>.part-01\`, ... that must be joined first. \`SHA256SUMS\` holds the checksums of the whole wheels."
+            echo
+            echo '```'
+            echo "git fetch origin ci-wheels"
+            echo "mkdir -p ~/plot_tool_wheels && git archive FETCH_HEAD | tar -x -C ~/plot_tool_wheels"
+            echo "cd ~/plot_tool_wheels"
+            echo 'for first_part in *.part-00; do [ -e "$first_part" ] || continue; wheel="${first_part%.part-00}"; cat "$wheel".part-* > "$wheel" && rm "$wheel".part-*; done'
+            echo "sha256sum --check SHA256SUMS"
+            echo "python3 -m pip install --no-index --find-links . PyQt6 h5py"
+            echo '```'
+            echo
+            echo "Add \`--break-system-packages\` to the pip command when pip refuses to install into an externally managed environment."
+            echo
+            echo "## Files"
+            echo
+            echo '```'
+            for name in *; do
+              [ "$name" = README.md ] && continue
+              echo "$(stat -c %s "$name") $name"
+            done
+            echo '```'
+            echo
+            echo "Written by $RUN_URL from $SOURCE_REF at commit $SOURCE_COMMIT."
+          } > README.md
+          cat README.md
+
+      # One commit with no parent, built from the folder with a separate
+      # index, so that the checkout isn't changed; the push uses the
+      # credentials that actions/checkout keeps.
+      - name: Replace the content of ci-wheels
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          export GIT_INDEX_FILE="$RUNNER_TEMP/ci_wheels_index"
+          rm -f "$GIT_INDEX_FILE"
+          git --work-tree=ci_wheels add --all .
+          tree=$(git write-tree)
+          commit=$(git commit-tree "$tree" \
+            -m "Wheels of PyQt6 and h5py from run $RUN_ID at $SOURCE_COMMIT (PCR-00130)")
+          git push --force origin "$commit:refs/heads/ci-wheels"
+          echo "::notice title=ci-wheels::branch replaced by commit $commit"
