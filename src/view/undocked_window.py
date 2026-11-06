@@ -131,6 +131,36 @@ def build_signal_list_button(parent=None):
     return button
 
 
+class WindowTabBar(QTabBar):
+    """The tab bar of an undocked window's tab row.
+
+    With its scroll buttons on (LLFR-01063), a QTabBar asks for a
+    minimum width of two scroll buttons and 75 pixels, wider than one
+    short tab, and the row's layout then gives it that width, so the "+"
+    button stood far from a single tab. This bar asks for at most the
+    width of its tabs, so the "+" button is 2 pixels after the last tab
+    (LLFR-01205) whatever the number of tabs, and still shrinks to its
+    scroll buttons when its tabs are wider than the row.
+
+    Inputs:
+        parent: optional parent widget.
+    """
+
+    def minimumSizeHint(self) -> QSize:
+        """Return the smallest size the row's layout may give the bar.
+
+        Inputs: none.
+        Outputs: a QSize: Qt's minimum, but no wider than the bar's
+            size hint, the width of its tabs.
+        """
+        # LLFR-01205, LLFR-01063: no wider than the tabs, so that the
+        # layout never widens the bar beyond its tabs.
+        minimum_size = super().minimumSizeHint()
+        hint_size = self.sizeHint()
+        return QSize(min(minimum_size.width(), hint_size.width()),
+                     minimum_size.height())
+
+
 class WindowPaneWidget(PlotTabWidget):
     """The plot well of an undocked window, holding its tab pages.
 
@@ -180,7 +210,7 @@ class UndockedWindow(QWidget):
             pages and runs the tab menu (LLFR-01064).
     Attributes:
         window_id_i: id of the window.
-        tab_bar: the movable QTabBar with one tab per tab of the window
+        tab_bar: the movable WindowTabBar with one tab per tab of the window
             (LLFR-01063, LLFR-01157), each with its dock button inside
             (LLFR-01025).
         dock_button_dict: tab id -> its TabIconButton.
@@ -257,7 +287,8 @@ class UndockedWindow(QWidget):
         # the same style sheet, on the whole window.
         self.setStyleSheet(build_tab_style_sheet())
         # LLFR-01032, LLFR-01063: the tab row.
-        self.tab_bar = QTabBar()
+        # LLFR-01205: a bar no wider than its tabs, also with one tab.
+        self.tab_bar = WindowTabBar()
         self.tab_bar.setObjectName(TAB_BAR_OBJECT_NAME_STR)
         self.tab_bar.setExpanding(False)
         self.tab_bar.setDrawBase(False)
