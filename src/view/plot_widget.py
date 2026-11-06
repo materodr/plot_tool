@@ -3736,7 +3736,8 @@ class PlotWidget(QWidget, ShapeLayer):
             if self.arrow_label_at_b(index_i, point_tuple):
                 return (LABEL_KIND_ARROW_STR, index_i)
         # LLFR-01364: then the shapes, drawn below the arrows;
-        # LLFR-01287: a hidden label is not there.
+        # LLFR-01287, LLFR-01385: a hidden label is not there, so the
+        # clicks and the previews act there as on no label.
         for index_i in reversed(range(len(self.shape_label_list))):
             if self.shape_label_at_b(index_i, point_tuple):
                 return (LABEL_KIND_SHAPE_STR, index_i)

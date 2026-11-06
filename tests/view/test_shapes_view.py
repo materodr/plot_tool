@@ -526,6 +526,47 @@ class LabelsAndTipNamesTest(ShapeWidgetTestCase):
         self.double_click(center_tuple)
         self.assertEqual(self.shape_rename_list, [])
 
+    @covers("LLFR-01252", "LLFR-01385", "LLFR-01238", "LLFR-00886",
+            "LLFR-01346", "LLFR-01287", "HLFR-00158", "HLFR-00161",
+            "HLFR-00028")
+    def test_flag_preview_over_a_shape_name(self) -> None:
+        """With the Flag tool, the flag preview is shown over the line
+        of a shape, hidden over the name in its label, and shown there
+        again while the labels are hidden.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from controller.plot_tools import MARKER_TOOL_STR
+        widget = self.plot_widget
+        self.set_one_shape(name_str="Zone")
+        center_tuple = self.label_center(widget.shape_label(0))
+        # LLFR-01238: on the right side of the box, away from its label.
+        line_tuple = self.display_of(EMPTY_BOX_TUPLE[2], 2.0)
+        widget.set_plot_tool(MARKER_TOOL_STR)
+        self.send("motion_notify_event", line_tuple)
+        self.assertTrue(widget.marker_preview_shown())
+        # LLFR-01252: none over the name, where a click changes nothing.
+        self.send("motion_notify_event", center_tuple)
+        self.assertFalse(widget.marker_preview_shown())
+        # LLFR-00886, LLFR-01346: a click on the name places no flag.
+        place_list = recorder(widget.marker_place_requested)
+        self.left_press(center_tuple)
+        self.left_release(center_tuple)
+        self.application.processEvents()
+        self.assertEqual(place_list, [])
+        # LLFR-01385: a hidden name is not there.
+        widget.set_labels_hidden(True)
+        self.draw()
+        self.send("motion_notify_event", line_tuple)
+        self.send("motion_notify_event", center_tuple)
+        self.assertTrue(widget.marker_preview_shown())
+        # LLFR-01287: and a click there places the flag.
+        self.left_press(center_tuple)
+        self.left_release(center_tuple)
+        self.application.processEvents()
+        self.assertEqual(len(place_list), 1)
+
 
 class ShapeEdgeTest(ShapeWidgetTestCase):
     """Shapes at the edge of the drawing area and under other items."""

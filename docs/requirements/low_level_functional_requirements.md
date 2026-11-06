@@ -2854,10 +2854,17 @@ While the labels are hidden, the app must leave them out of the PDF, Word and PN
 
 *Parent: HLFR-00161, HLFR-00038, HLFR-00039*
 
-### LLFR-01287 Double-click on a hidden label
-While the labels are hidden, a double-click where a hidden label would be must act as a double-click where no label is drawn.
+### LLFR-01287 Click on a hidden label
+While the labels are hidden, a single click or a double-click where a hidden label would be must act as a click or a double-click where no label is drawn (LLFR-00886, LLFR-00420, LLFR-01364).
 
 *Parent: HLFR-00161, HLFR-00094*
+
+### LLFR-01385 Previews where a hidden label would be
+While the labels are hidden, the app must show the flag preview and the previews of a delta marker where a hidden label would be, as where no label is drawn (LLFR-01252).
+
+Note: The previews hide over a name only because a click there changes nothing (LLFR-00886), and a hidden name is not there to click.
+
+*Parent: HLFR-00161, HLFR-00028, HLFR-00043, HLFR-00044*
 
 ### LLFR-01288 Labels setting from a layout
 When the app loads a layout file that holds whether the labels are hidden (LLFR-00225), it must hide or show the labels as saved.
