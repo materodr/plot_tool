@@ -25,9 +25,14 @@ EXPECTED_TIP_DICT = {
     "marker_button": ("Flag", ["Hold Shift"], ["Hold Shift"]),
     "delta_x_button": ("Delta X", ["Hold X"], ["Hold X"]),
     "delta_y_button": ("Delta Y", ["Hold Y"], ["Hold Y"]),
-    "area_button": ("Area", ["Hold A"], ["Hold A"]),
+    "area_button": ("Vert. Area", ["Hold V"], ["Hold V"]),
     "text_button": ("Text", ["Hold T"], ["Hold T"]),
-    "arrow_button": ("Arrow", ["Hold R"], ["Hold R"]),
+    "arrow_button": ("Arrow", ["Hold A"], ["Hold A"]),
+    # LLFR-00215: "Hold C" and "Hold R" for the shape tools.
+    "circle_button": ("Circle", ["Hold C"], ["Hold C"]),
+    "rectangle_button": ("Rectangle", ["Hold R"], ["Hold R"]),
+    # LLFR-00465: Hide labels shows only its name.
+    "labels_button": ("Hide labels", [], []),
     # LLFR-00215, LLFR-00207: "0".
     "reset_zoom_button": ("Reset zoom", ["0"], ["0"]),
     # LLFR-00463: "Hold Z", then the two mouse lines.
@@ -316,9 +321,11 @@ class ButtonTipTest(unittest.TestCase):
                 (tip_key_filter.MARKER_KEY_I, "Shift", "Shift"),
                 (tip_key_filter.DELTA_X_KEY_I, "X", "X"),
                 (tip_key_filter.DELTA_Y_KEY_I, "Y", "Y"),
-                (tip_key_filter.AREA_KEY_I, "A", "A"),
+                (tip_key_filter.AREA_KEY_I, "V", "V"),
                 (tip_key_filter.TEXT_KEY_I, "T", "T"),
-                (tip_key_filter.ARROW_KEY_I, "R", "R"),
+                (tip_key_filter.ARROW_KEY_I, "A", "A"),
+                (tip_key_filter.CIRCLE_KEY_I, "C", "C"),
+                (tip_key_filter.RECTANGLE_KEY_I, "R", "R"),
                 (tip_key_filter.ZOOM_KEY_I, "Z", "Z"),
                 (tip_key_filter.RESET_ZOOM_KEY_I, "0", "0")):
             with self.subTest(key_i=key_i):

@@ -186,28 +186,33 @@ class LayoutWriteTest(unittest.TestCase):
         first_plot_dict, second_plot_dict = layout_dict["tabs"][0]["plots"]
         self.assertEqual(layout_dict["tabs"][1]["plots"], [])
         self.assertEqual(first_plot_dict["curves"], [
-            {"signal": "Speed", "color": PALETTE_COLOR_TUPLE[0], "width": 3},
-            {"signal": "Torque", "color": "#123456", "width": 1}])
+            {"signal": "Speed", "color": PALETTE_COLOR_TUPLE[0], "width": 3,
+             "line_style": "continuous"},
+            {"signal": "Torque", "color": "#123456", "width": 1,
+             "line_style": "continuous"}])
         self.assertEqual(second_plot_dict["curves"][0]["signal"], "Power")
         self.assertEqual(layout_dict["time_range"],
                          {"start": 0.1, "end": 7.123456789012345})
         self.assertIs(layout_dict["grid"], True)
         self.assertEqual(layout_dict["flags"], [
-            {"name": "Flag 1", "time": 1.0, "color": "#ff8000"},
-            {"name": "Peak", "time": 4.25, "color": "#ff8000"}])
+            {"name": "Flag 1", "time": 1.0, "color": "#ff8000", "width": 1,
+             "line_style": "dashed"},
+            {"name": "Peak", "time": 4.25, "color": "#ff8000", "width": 1,
+             "line_style": "dashed"}])
         self.assertEqual(first_plot_dict["data_tips"], [
-            {"signal": "Speed", "time": 1.5,
+            {"name": "Data tip 1", "signal": "Speed", "time": 1.5,
              "label_position": {"right_points": 20.25, "up_points": -7.5}},
-            {"signal": "Torque", "time": 2.0, "label_position": None}])
+            {"name": "Data tip 2", "signal": "Torque", "time": 2.0,
+             "label_position": None}])
         self.assertEqual(first_plot_dict["delta_markers"], [
             {"name": "Delta X 1", "kind": "delta_x",
              "first_point": {"signal": "Speed", "time": 1.0},
              "second_point": {"signal": "Torque", "time": 3.0},
-             "color": "#ff8000"},
+             "color": "#ff8000", "width": 1, "line_style": "dashed"},
             {"name": "Delta Y 1", "kind": "delta_y",
              "first_point": {"signal": "Speed", "time": 0.5},
              "second_point": {"signal": "Speed", "time": 2.5},
-             "color": "#ff8000"}])
+             "color": "#ff8000", "width": 1, "line_style": "dashed"}])
         self.assertEqual(layout_dict["panel_widths"],
                          {"plot_panel": 900, "signal_list_panel": 300})
         # LLFR-00225 item 10 (issue #110): the place of the synthetic
@@ -999,7 +1004,8 @@ class LayoutMarkerTest(LayoutRebuildTestCase):
                           for flag_dict in flag_list],
                          [("Flag 1", 1.0), ("Flag 2", 2.5)])
         for flag_dict in flag_list:
-            self.assertEqual(sorted(flag_dict), ["color", "name", "time"])
+            self.assertEqual(sorted(flag_dict), [
+                "color", "line_style", "name", "time", "width"])
             self.assertRegex(flag_dict["color"], r"^#[0-9a-f]{6}$")
         # LLFR-00083: a new flag has the reserved marker color.
         self.assertEqual(flag_list[1]["color"], "#ff8000")

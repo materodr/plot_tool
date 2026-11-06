@@ -578,7 +578,11 @@ class FileCollapseEndToEndTest(unittest.TestCase):
         self.panel.execute_menu = record_menu
         self.panel.request_signal_menu(self.text_point(SECOND_ROW_STR))
         self.application.processEvents()
-        self.assertEqual(menu_text_list, [["Close file", "Close all files"]])
+        # LLFR-01262, LLFR-01289: the title line and "Create signal" come
+        # first (#260, answers 1 and 10).
+        self.assertEqual(menu_text_list, [[
+            "File: file2_b.csv", "", "Create signal", "", "Close file",
+            "Close all files"]])
         # LLFR-01008: an undoable action, then the icons.
         self.panel.signal_double_clicked.emit("file2_Force")
         self.application.processEvents()

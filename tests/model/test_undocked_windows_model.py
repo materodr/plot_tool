@@ -262,7 +262,7 @@ def layout_with_tabs(tab_list: list) -> dict:
     """
     return {"format": "plot_tool layout", "version": 3, "shown_tab": 0,
             "time_range": None, "grid": True, "panel_widths": None,
-            "flags": [], "areas": [], "synthetic_signals": [],
+            "flags": [], "vertical_areas": [], "synthetic_signals": [],
             "tabs": tab_list}
 
 

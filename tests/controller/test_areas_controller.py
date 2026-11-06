@@ -541,11 +541,11 @@ class LayoutAreaControllerTest(AreaControllerTestCase):
         Outputs: none.
         """
         self.create(1.0, 2.0)
-        self.assertEqual(self.controller.layout_dict()["areas"], [
+        self.assertEqual(self.controller.layout_dict()["vertical_areas"], [
             {"name": "Area 1", "start": 1.0, "end": 2.0,
              "color": DEFAULT_AREA_COLOR_STR}])
         result = self.controller.load_layout(minimal_layout(
-            [one_plot_tab([curve("s2")])], areas=[
+            [one_plot_tab([curve("s2")])], vertical_areas=[
                 {"name": "Saved", "start": 3.0, "end": 4.0},
                 {"name": "Clash", "start": 1.5, "end": 3.5}]))
         self.assertEqual(len(result.report.not_rebuilt_line_list), 1)

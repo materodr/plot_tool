@@ -937,8 +937,9 @@ class TipMoveEndToEndTest(unittest.TestCase):
         self.assertEqual((pinned_tip.signal_name_str, pinned_tip.time_s,
                           pinned_tip.value_f), ("file1_speed", 5.0, 10.0))
         self.assertEqual(len(pinned_tip.label_offset_tuple), 2)
+        # LLFR-01263, LLFR-01264: the name line first (#260, item 2).
         self.assertEqual(plot_widget.pinned_tip_text(0),
-                         "t = 5 s\nfile1_speed = 10")
+                         "Data tip 1\nt = 5 s\nfile1_speed = 10")
         center_tuple = plot_widget.tip_label_center_tuple(0)
         self.assertAlmostEqual(center_tuple[0], end_tuple[0],
                                delta=PIXEL_TOLERANCE_PX)

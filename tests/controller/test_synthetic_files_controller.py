@@ -24,7 +24,7 @@ from tests.controller.test_synthetic_controller import SAMPLE_COUNT_I
 from controller.main_controller import MainController
 from controller.save_signals_controller import SaveSignalsController
 from controller.synthetic_controller import (
-    CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)
+    CREATE_TITLE_STR, STATISTIC_NEEDS_TIME_PLOT_STR)
 from model import synthetic_operations as operations
 from model.data_files import DataFileSet, TIME_TOLERANCE_F, prefix_number
 from model.errors import SyntheticSourceError
@@ -121,6 +121,16 @@ class SeveralFilesTestCase(unittest.TestCase):
             operation_str: the operation id.
         Outputs: none.
         """
+        # LLFR-01308: a statistic asks for its range; with no answer
+        # given, the user keeps "Whole signal".
+        if (operation_str in ("max", "min", "rms", "mean", "std",
+                              "median")
+                and not self.view.parameter_answer_list):
+            self.view.parameter_answer_list.append([[]])
+        # LLFR-01308: the FFT asks for its range too; with no answer
+        # given, these tests choose "Shown x-axis range".
+        if operation_str == "fft" and not self.view.parameter_answer_list:
+            self.view.parameter_answer_list.append([["shown"]])
         self.view.signal_menu_handler_dict["create"](name_str, operation_str)
 
     def path(self, name_str: str) -> str:
@@ -499,10 +509,10 @@ class FftRangeTest(SeveralFilesTestCase):
         self.view.handler_dict["time_range_handler"](plot_id_i, start_s,
                                                      end_s)
 
-    @covers("LLFR-00592", "LLFR-00979", "HLFR-00057", "HLFR-00113")
+    @covers("LLFR-00592", "LLFR-01382", "HLFR-00057", "HLFR-00113")
     def test_no_time_plot_creates_no_fft(self) -> None:
-        """With no time plot, no FFT is created for any file, and each
-        try shows the box that asks for a time plot.
+        """With no time plot, no FFT of the shown range is created for
+        any file, and each try keeps the dialog open with the reason.
 
         Inputs: none.
         Outputs: none.
@@ -510,9 +520,9 @@ class FftRangeTest(SeveralFilesTestCase):
         self.create("file1_Speed", "fft")
         self.create("file2_Speed", "fft")
         self.assertEqual(self.store.names(), [])
-        self.assertEqual(self.view.information_list, [
-            (CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR),
-            (CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
+        self.assertEqual(self.view.information_list, [])
+        self.assertEqual(self.view.parameter_reason_list,
+                         [STATISTIC_NEEDS_TIME_PLOT_STR] * 2)
 
     @covers("LLFR-00968", "LLFR-00248", "LLFR-00240", "HLFR-00057",
             "HLFR-00113")
@@ -578,10 +588,10 @@ class FftRangeTest(SeveralFilesTestCase):
         self.create("file2_Speed", "fft")
         self.assertEqual(self.store.names(), ["file2_fft_20s_to_20p7s_Speed"])
 
-    @covers("LLFR-00592", "LLFR-00979", "LLFR-00594")
+    @covers("LLFR-00592", "LLFR-01382", "LLFR-00594")
     def test_short_file_without_time_plot(self) -> None:
-        """With no time plot, a file of 7 samples shows the box that asks
-        for a time plot, not the box of too few samples.
+        """With no time plot, a file of 7 samples keeps the dialog open
+        with the time plot reason, not the box of too few samples.
 
         Inputs: none.
         Outputs: none.
@@ -589,8 +599,9 @@ class FftRangeTest(SeveralFilesTestCase):
         self.open_file(make_file(np.arange(7) * 0.1), "c.csv")
         self.create("file3_Speed", "fft")
         self.assertEqual(self.store.names(), [])
-        self.assertEqual(self.view.information_list,
-                         [(CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
+        self.assertEqual(self.view.information_list, [])
+        self.assertEqual(self.view.parameter_reason_list,
+                         [STATISTIC_NEEDS_TIME_PLOT_STR])
 
     @covers("LLFR-00594", "LLFR-00250", "LLFR-00248")
     def test_short_file_with_a_time_plot(self) -> None:

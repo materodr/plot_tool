@@ -138,6 +138,17 @@ class FakePlotView:
         self.delta_name_question_list = []
         self.arrow_name_answer_list = []
         self.arrow_name_question_list = []
+        # LLFR-01266, LLFR-01359: answers of the data tip and shape
+        # rename dialogs, and the names they started with.
+        self.tip_name_answer_list = []
+        self.tip_name_question_list = []
+        self.shape_name_answer_list = []
+        self.shape_name_question_list = []
+        # LLFR-01329: plot id -> the shape tuples drawn in it.
+        self.shape_drawn_dict = {}
+        # LLFR-01281: whether the labels are hidden on the plots.
+        self.labels_hidden_b = False
+        self.labels_handler = None
         # LLFR-00032, LLFR-01127: the matrix each Full Tab box named.
         self.full_tab_matrix_list = []
         # LLFR-01100: tab id -> (rows, columns) shown.
@@ -440,6 +451,37 @@ class FakePlotView:
         """
         self.arrow_drawn_dict[plot_id_i] = list(arrow_data_list)
 
+    def set_shapes(self, plot_id_i: int, shape_data_list: list) -> None:
+        """Record the shapes drawn in a plot.
+
+        Not added to call_list, like set_arrows.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            shape_data_list: the shape tuples (kind_str, the four corner
+                values, color_str, name_str, width_i, line_style_str).
+        Outputs: none.
+        """
+        self.shape_drawn_dict[plot_id_i] = list(shape_data_list)
+
+    def set_labels_hidden(self, hidden_b: bool) -> None:
+        """Record whether the labels are hidden on every plot.
+
+        Inputs:
+            hidden_b: True to hide the labels.
+        Outputs: none.
+        """
+        self.labels_hidden_b = bool(hidden_b)
+
+    def set_labels_handler(self, handler) -> None:
+        """Keep the handler of the Hide labels button.
+
+        Inputs:
+            handler: function taking True (hide) or False (show).
+        Outputs: none.
+        """
+        self.labels_handler = handler
+
     def set_markers(self, marker_data_list: list) -> None:
         """Record the shared markers drawn on every shown plot.
 
@@ -664,6 +706,30 @@ class FakePlotView:
         if not self.delta_name_answer_list:
             return None
         return self.delta_name_answer_list.pop(0)
+
+    def ask_tip_name(self, current_name_str: str):
+        """Answer a data tip name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer, or None (cancelled) when there is none.
+        """
+        self.tip_name_question_list.append(current_name_str)
+        if not self.tip_name_answer_list:
+            return None
+        return self.tip_name_answer_list.pop(0)
+
+    def ask_shape_name(self, current_name_str: str):
+        """Answer a shape name question with the next prepared answer.
+
+        Inputs:
+            current_name_str: the name the dialog would start with.
+        Outputs: the next answer, or None (cancelled) when there is none.
+        """
+        self.shape_name_question_list.append(current_name_str)
+        if not self.shape_name_answer_list:
+            return None
+        return self.shape_name_answer_list.pop(0)
 
     def ask_arrow_name(self, current_name_str: str):
         """Answer an arrow name question with the next prepared answer.
@@ -1057,7 +1123,7 @@ class DoubleClickTest(PlotControllerTestCase):
             plot_id_list[0]]
         self.assertEqual(len(curve_data_list), 1)
         name_str, time_array, value_array, color_str, width_i = (
-            curve_data_list[0])
+            curve_data_list[0][:5])
         self.assertEqual(name_str, "s2")
         np.testing.assert_array_equal(time_array,
                                       self.signal_file.time_array)
@@ -1079,7 +1145,7 @@ class DoubleClickTest(PlotControllerTestCase):
         plot_id_i = self.current_plot_ids()[0]
         self.assertEqual(self.view.drawn_names(plot_id_i), ["Time"])
         _, time_array, value_array, _, _ = self.view.drawn_dict[
-            plot_id_i][0][0]
+            plot_id_i][0][0][:5]
         np.testing.assert_array_equal(time_array, value_array)
 
     @covers("LLFR-00019", "LLFR-01109")
@@ -1589,8 +1655,8 @@ class TipTest(PlotControllerTestCase):
         self.view.handler_dict["tip_pin_handler"](plot_id_i, "s1", 4.0,
                                                   4.0)
         curve_data_list, pinned_tip_list = self.view.drawn_dict[plot_id_i]
-        self.assertEqual(pinned_tip_list, [("s1", 2.0, 2.0, ()),
-                                           ("s1", 4.0, 4.0, ())])
+        self.assertEqual(pinned_tip_list, [("s1", 2.0, 2.0, (), "Data tip 1"),
+                                           ("s1", 4.0, 4.0, (), "Data tip 2")])
         self.assertEqual(len(curve_data_list), 1)
         self.assertEqual(len(self.workspace.find_plot(plot_id_i)
                              .pinned_tip_list), 2)
@@ -1624,7 +1690,8 @@ class TipTest(PlotControllerTestCase):
                                                       time_s, time_s)
         self.view.handler_dict["pinned_tip_delete_handler"](plot_id_i, 1)
         self.assertEqual(self.view.drawn_dict[plot_id_i][1],
-                         [("s1", 1.0, 1.0, ()), ("s1", 3.0, 3.0, ())])
+                         [("s1", 1.0, 1.0, (), "Data tip 1"),
+                          ("s1", 3.0, 3.0, (), "Data tip 3")])
         call_count_i = len(self.view.call_list)
         for tip_index_i in (-1, 2, 7):
             self.view.handler_dict["pinned_tip_delete_handler"](
@@ -1648,7 +1715,7 @@ class TipTest(PlotControllerTestCase):
                                                   2.0)
         self.view.handler_dict["curve_delete_handler"](plot_id_i, "s1")
         self.assertEqual(self.view.drawn_dict[plot_id_i][1],
-                         [("s2", 1.0, 2.0, ())])
+                         [("s2", 1.0, 2.0, (), "Data tip 2")])
 
 
 class TabActionTest(PlotControllerTestCase):

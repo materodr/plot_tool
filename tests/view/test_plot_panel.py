@@ -184,8 +184,9 @@ class TabTest(PlotPanelTestCase):
         Inputs: none.
         Outputs: none.
         """
+        from tests.view.menu_texts import menu_option_texts
         menu = self.panel.build_tab_menu(0)
-        self.assertEqual([action.text() for action in menu.actions()],
+        self.assertEqual(menu_option_texts(menu),
                          ["Delete", "Rename", "Plot matrix"])
         self.assertFalse(self.menu_action(menu, "Delete").isEnabled())
         self.assertTrue(self.menu_action(menu, "Rename").isEnabled())

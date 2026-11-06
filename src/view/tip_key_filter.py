@@ -108,12 +108,17 @@ MARKER_KEY_I = int(Qt.Key.Key_Shift.value)
 DELTA_X_KEY_I = int(Qt.Key.Key_X.value)
 # LLFR-00200: the key that holds the Delta Y tool.
 DELTA_Y_KEY_I = int(Qt.Key.Key_Y.value)
-# LLFR-00287: the key that holds the Area tool.
-AREA_KEY_I = int(Qt.Key.Key_A.value)
+# LLFR-00287: the key that holds the Vert. Area tool.
+AREA_KEY_I = int(Qt.Key.Key_V.value)
 # LLFR-00321: the key that holds the Text tool.
 TEXT_KEY_I = int(Qt.Key.Key_T.value)
 # LLFR-00367: the key that holds the Arrow tool.
-ARROW_KEY_I = int(Qt.Key.Key_R.value)
+ARROW_KEY_I = int(Qt.Key.Key_A.value)
+# LLFR-01274, LLFR-01277: the keys held for the Circle and Rectangle
+# tools. LLFR-01274 Note: C held with Ctrl or Cmd is not alone, so
+# Ctrl+C (Cmd+C) stays Copy.
+CIRCLE_KEY_I = int(Qt.Key.Key_C.value)
+RECTANGLE_KEY_I = int(Qt.Key.Key_R.value)
 # LLFR-01092: the key that holds the Zoom tool.
 ZOOM_KEY_I = int(Qt.Key.Key_Z.value)
 # LLFR-00207, LLFR-01095: the key that resets the zoom; the 0 of the
@@ -364,7 +369,8 @@ class ToolKeyFilter(QObject):
         # of Cmd+Z or the Y of Cmd+Y), so every held key except the
         # modifier tool keys is forgotten here; otherwise such a key
         # would stay "held" and block the next tool or action key press
-        # alone. Letter tool keys (X, Y, A, T, R, Z) are no exception.
+        # alone. Letter tool keys (X, Y, V, T, A, C, R, Z) are no
+        # exception.
         self.held_key_set.intersection_update(OWN_MODIFIER_DICT)
         # LLFR-00149, LLFR-00155: releasing the tool key ends its
         # activation; LLFR-01093: the Z key's too.

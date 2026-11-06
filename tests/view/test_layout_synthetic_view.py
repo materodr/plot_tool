@@ -17,6 +17,7 @@ from unittest import mock
 from tests.support import expand_all_files
 from tests.support import covers, get_qt_application, requires_qt
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
+from tests.view.test_frequency_plots_view import answer_range_dialog
 from tests.view.test_synthetic_signals_view import find_action
 
 
@@ -278,6 +279,8 @@ class LayoutSyntheticEndToEndTest(unittest.TestCase):
         # LLFR-00592: the FFT is created while a time plot exists.
         self.panel.signal_double_clicked.emit("file1_int_Speed")
         self.application.processEvents()
+        # LLFR-01308: "Shown x-axis range" in the FFT's range dialog.
+        answer_range_dialog(self.controller)
         self.choose("file1_Speed", "FFT (fft)")
         store = self.controller.synthetic_controller.store
         fft_name_str = [name_str for name_str in store.names()

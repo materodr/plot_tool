@@ -124,7 +124,7 @@ class NoTimePlotError(SyntheticOperationError):
     """An FFT is chosen while no time plot exists (LLFR-00592).
 
     Inputs:
-        message_str: the sentence of LLFR-00979, which asks the user to
+        message_str: the reason of LLFR-01382, which asks the user to
             plot a signal in a time plot and choose its time range.
     Outputs: the exception.
     """

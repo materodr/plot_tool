@@ -151,12 +151,43 @@ def parameter_name_part(operation_str: str, parameter) -> str:
                 f"{format_name_number(int(order_i))}")
     if kind_str == operations.WINDOW_PARAMETER_STR:
         return f"{format_name_number(int(parameter))}samples"
-    if kind_str == operations.TIME_RANGE_PARAMETER_STR:
-        # LLFR-00240: the FFT time range (LLFR-00248).
+    if kind_str == operations.TIME_RANGE_PARAMETER_STR or (
+            kind_str == operations.STATISTIC_RANGE_PARAMETER_STR
+            and parameter is not None):
+        # LLFR-00240: the FFT time range (LLFR-00248), and the shown
+        # range of a statistic (LLFR-01310).
         start_s, end_s = parameter
         return (f"{format_name_number(start_s)}s_to_"
                 f"{format_name_number(end_s)}s")
+    if kind_str == operations.GENERATOR_PARAMETER_STR:
+        # LLFR-01301: the values of a signal made from scratch.
+        return generator_name_part(operation_str, parameter)
     return ""
+
+
+def generator_name_part(operation_str: str, value_tuple: tuple) -> str:
+    """Return the part of a name that shows the values of a new signal.
+
+    Inputs:
+        operation_str: one of operations.GENERATOR_OPERATION_TUPLE.
+        value_tuple: its checked values.
+    Outputs: the text after the abbreviation of LLFR-01301, for example
+        "1s_0_to_5" for a step.
+    """
+    # LLFR-01301: every number written as in LLFR-00569.
+    number_list = [format_name_number(value_f) for value_f in value_tuple]
+    if operation_str == operations.STEP_SIGNAL_STR:
+        return f"{number_list[0]}s_{number_list[1]}_to_{number_list[2]}"
+    if operation_str == operations.RAMP_SIGNAL_STR:
+        return (f"{number_list[0]}s_slope{number_list[1]}_from"
+                f"{number_list[2]}")
+    if operation_str == operations.POLYNOMIAL_SIGNAL_STR:
+        return f"a{number_list[0]}_b{number_list[1]}_c{number_list[2]}"
+    if operation_str in (operations.SINE_SIGNAL_STR,
+                         operations.COSINE_SIGNAL_STR):
+        return (f"amp{number_list[0]}_{number_list[1]}Hz_ph"
+                f"{number_list[2]}deg_off{number_list[3]}")
+    return number_list[0]
 
 
 def base_synthetic_name(operation_str: str, source_name_list: list,
@@ -186,6 +217,10 @@ def base_synthetic_name(operation_str: str, source_name_list: list,
     part_list = [abbreviation_str]
     if parameter_str:
         part_list.append(parameter_str)
+    # LLFR-01301: a signal made from scratch shows no source, since its
+    # only source is the time signal of its file.
+    if operations.find_operation(operation_str).generator_b:
+        return "_".join(part_list)
     return "_".join(part_list + source_list)
 
 
@@ -338,10 +373,18 @@ def entry_parameter(signal: SyntheticSignal):
         return {CUTOFF_KEY_STR: float(cutoff_hz),
                 ORDER_KEY_STR: int(order_i),
                 FILTER_START_KEY_STR: str(start_str)}
-    if kind_str == operations.TIME_RANGE_PARAMETER_STR:
-        # LLFR-00227: times as floats, written with repr precision.
+    if kind_str == operations.TIME_RANGE_PARAMETER_STR or (
+            kind_str == operations.STATISTIC_RANGE_PARAMETER_STR
+            and signal.parameter is not None):
+        # LLFR-00227: times as floats, written with repr precision;
+        # LLFR-00225 item 10: the shown range of a statistic.
         start_s, end_s = signal.parameter
         return {START_KEY_STR: float(start_s), END_KEY_STR: float(end_s)}
+    if kind_str == operations.GENERATOR_PARAMETER_STR:
+        # LLFR-01304: the values of the dialog under English keys.
+        return {key_str: float(value_f) for key_str, value_f in zip(
+            operations.GENERATOR_VALUE_KEY_DICT[signal.operation_str],
+            signal.parameter)}
     if kind_str == operations.WINDOW_PARAMETER_STR:
         return int(signal.parameter)
     if kind_str == operations.CONSTANT_PARAMETER_STR:
@@ -376,7 +419,23 @@ def parameter_from_entry(operation_str: str, parameter_value):
         return (parameter_value[CUTOFF_KEY_STR],
                 parameter_value[ORDER_KEY_STR],
                 parameter_value[FILTER_START_KEY_STR])
-    if kind_str != operations.TIME_RANGE_PARAMETER_STR:
+    if kind_str == operations.GENERATOR_PARAMETER_STR:
+        # LLFR-01304: an object with the values under their keys.
+        key_tuple = operations.GENERATOR_VALUE_KEY_DICT[operation_str]
+        if (not isinstance(parameter_value, dict)
+                or not all(key_str in parameter_value
+                           for key_str in key_tuple)):
+            raise SyntheticEntryError(
+                "The parameter must be an object with the values "
+                + ", ".join(f'"{key_str}"' for key_str in key_tuple)
+                + ".")
+        return tuple(parameter_value[key_str] for key_str in key_tuple)
+    if kind_str == operations.STATISTIC_RANGE_PARAMETER_STR and (
+            parameter_value is None):
+        # LLFR-01309: null is the whole signal, as in older files.
+        return None
+    if kind_str not in (operations.TIME_RANGE_PARAMETER_STR,
+                        operations.STATISTIC_RANGE_PARAMETER_STR):
         return parameter_value
     if (not isinstance(parameter_value, dict)
             or START_KEY_STR not in parameter_value
@@ -410,6 +469,9 @@ class SyntheticSignalStore:
         """
         # LLFR-00242: synthetic signals, in the order they were created.
         self.signal_list = []
+        # LLFR-01294: tells whether a name is the time signal of a data
+        # file; the controller sets it (time_signal_name_set).
+        self.time_name_function = lambda name_str: True
 
     def names(self) -> list:
         """Return the names of the synthetic signals.
@@ -567,6 +629,13 @@ class SyntheticSignalStore:
             raise SyntheticEntryError(
                 'The names of the signals it is computed from must be '
                 'texts.')
+        # LLFR-01294, LLFR-01304: a signal made from scratch is computed
+        # from the time signal of its data file alone.
+        if operations.find_operation(operation_str).generator_b and (
+                not self.time_name_function(source_name_list[0])):
+            raise SyntheticSourceError(
+                f'The signal "{source_name_list[0]}" is not the time '
+                f'signal of a data file.')
         for name_str in source_name_list:
             # LLFR-00262: a missing source stops the creation.
             if name_str not in data_name_set and not self.contains(

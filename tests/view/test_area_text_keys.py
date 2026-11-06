@@ -1,10 +1,10 @@
-"""Tests for the A and T keys (LLFR-00287 to LLFR-00289, LLFR-00321 to
+"""Tests for the V and T keys (LLFR-00287 to LLFR-00289, LLFR-00321 to
 LLFR-00323) and for these keys while typing in a text field
 (LLFR-00157).
 
 The keys are sent to a MainWindow with the real controllers and the
 real ToolKeyFilter, so the tests also check that the window gives the
-filter the A and T keys. With the Area or Text tool active, clicks and
+filter the V and T keys. With the Area or Text tool active, clicks and
 drags must not change the time range, the markers, the tips or the
 delta markers (the Text tool's own text field and notes are tested in
 test_text_notes_view.py). No modal dialog is ever left open.
@@ -21,7 +21,7 @@ from controller.plot_tools import (
     NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 
 # LLFR-00287, LLFR-00321: each key and the tool it holds.
-KEY_TOOL_TUPLE = (("Key_A", AREA_TOOL_STR), ("Key_T", TEXT_TOOL_STR))
+KEY_TOOL_TUPLE = (("Key_V", AREA_TOOL_STR), ("Key_T", TEXT_TOOL_STR))
 # LLFR-00288, LLFR-00322: every state the tool can be in before a press.
 PREVIOUS_TOOL_TUPLE = (NO_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
                        MARKER_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
@@ -33,8 +33,8 @@ class AreaTextKeyFilterTest(unittest.TestCase):
     """The key constants and the filter of the main window."""
 
     @covers("LLFR-00287", "LLFR-00321")
-    def test_keys_are_the_letters_a_and_t(self) -> None:
-        """AREA_KEY_I is Qt's A key and TEXT_KEY_I is Qt's T key.
+    def test_keys_are_the_letters_v_and_t(self) -> None:
+        """AREA_KEY_I is Qt's V key and TEXT_KEY_I is Qt's T key.
 
         Inputs: none.
         Outputs: none.
@@ -42,7 +42,7 @@ class AreaTextKeyFilterTest(unittest.TestCase):
         from PyQt6.QtCore import Qt
         from view import tip_key_filter
         self.assertEqual(tip_key_filter.AREA_KEY_I,
-                         int(Qt.Key.Key_A.value))
+                         int(Qt.Key.Key_V.value))
         self.assertEqual(tip_key_filter.TEXT_KEY_I,
                          int(Qt.Key.Key_T.value))
         # Letters set no modifier of their own.
@@ -54,7 +54,7 @@ class AreaTextKeyFilterTest(unittest.TestCase):
 
 @requires_qt
 class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
-    """Holding A or T in the main window with the real controllers."""
+    """Holding V or T in the main window with the real controllers."""
 
     def select_tool(self, tool_str: str) -> None:
         """Make a tool active with a click on its button.
@@ -71,7 +71,7 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
     @covers("LLFR-00287", "LLFR-00288", "LLFR-00321", "LLFR-00322",
             "LLFR-00079", "LLFR-00286", "LLFR-00320")
     def test_hold_activates_and_release_leaves_no_tool(self) -> None:
-        """A or T alone makes its tool the only active tool, whatever
+        """V or T alone makes its tool the only active tool, whatever
         tool was active; the release leaves no tool active.
 
         Inputs: none.
@@ -92,16 +92,16 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-00289", "LLFR-00323", "LLFR-00199", "LLFR-00202")
     def test_other_key_ends_the_hold(self) -> None:
-        """Another key while A or T is held leaves no tool active, also
-        after both keys are released; A and T end each other and the
+        """Another key while V or T is held leaves no tool active, also
+        after both keys are released; V and T end each other and the
         other tool keys.
 
         Inputs: none.
         Outputs: none.
         """
         for key_name_str, tool_str in KEY_TOOL_TUPLE:
-            for other_key_name_str in ("Key_B", "Key_Shift", "Key_Control",
-                                       "Key_X", "Key_Y", "Key_A", "Key_T",
+            for other_key_name_str in ("Key_Q", "Key_Shift", "Key_Control",
+                                       "Key_X", "Key_Y", "Key_V", "Key_T",
                                        "Key_Z", "Key_0"):
                 if other_key_name_str == key_name_str:
                     continue
@@ -114,7 +114,7 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
                     self.release_key(other_key_name_str)
                     self.release_key(key_name_str)
                     self.assert_tool_everywhere(NO_TOOL_STR)
-        # A and T pressed while X or Y is held end that hold too.
+        # V and T pressed while X or Y is held end that hold too.
         for held_key_name_str, held_tool_str in (
                 ("Key_X", DELTA_X_TOOL_STR), ("Key_Y", DELTA_Y_TOOL_STR)):
             for key_name_str, _ in KEY_TOOL_TUPLE:
@@ -124,15 +124,15 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
                 self.assert_tool_everywhere(NO_TOOL_STR)
                 self.release_key(key_name_str)
                 self.release_key(held_key_name_str)
-        # A alone still works afterwards.
-        self.press_key("Key_A")
+        # V alone still works afterwards.
+        self.press_key("Key_V")
         self.assert_tool_everywhere(AREA_TOOL_STR)
-        self.release_key("Key_A")
+        self.release_key("Key_V")
         self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00287", "LLFR-00321", "LLFR-00150", "LLFR-00156")
     def test_not_alone_does_not_activate(self) -> None:
-        """A or T with a modifier (Ctrl+A, Cmd+T, Shift+A, Alt+T) or
+        """V or T with a modifier (Ctrl+V, Cmd+T, Shift+V, Alt+T) or
         with another key held activates nothing; Ctrl+A ends the Data
         tip hold and Shift+T ends the Vertical marker hold.
 
@@ -160,17 +160,17 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
                 self.release_key(key_name_str)
                 self.release_key(held_key_name_str)
                 self.assert_tool_everywhere(NO_TOOL_STR)
-            self.press_key("Key_B")
+            self.press_key("Key_Q")
             self.press_key(key_name_str)
             self.assert_tool_everywhere(NO_TOOL_STR)
             self.release_key(key_name_str)
-            self.release_key("Key_B")
+            self.release_key("Key_Q")
         self.assertEqual(self.main_window.tool_key_filter.held_key_set,
                          set())
 
     @covers("LLFR-00287", "LLFR-00321")
     def test_auto_repeat_keeps_the_hold(self) -> None:
-        """Auto-repeat events while A or T is held keep the tool active.
+        """Auto-repeat events while V or T is held keep the tool active.
 
         Inputs: none.
         Outputs: none.
@@ -186,7 +186,7 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-00288", "LLFR-00322", "LLFR-00079")
     def test_click_on_a_button_while_held_wins(self) -> None:
-        """A click on a tool button while A or T is held keeps the
+        """A click on a tool button while V or T is held keeps the
         clicked tool after the key is released.
 
         Inputs: none.
@@ -277,7 +277,7 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-00157", "LLFR-00287", "LLFR-00321")
     def test_typing_a_and_t_in_the_search_box(self) -> None:
-        """In the search box a, t, A and T are typed as letters and do
+        """In the search box a, t, V and T are typed as letters and do
         not change the tool, also when sent to the window.
 
         Inputs: none.
@@ -338,7 +338,7 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-00157", "LLFR-00288", "LLFR-00322")
     def test_focus_into_a_text_field_ends_the_hold(self) -> None:
-        """A text field getting the focus while A or T is held ends the
+        """A text field getting the focus while V or T is held ends the
         activation, leaving no tool active.
 
         Inputs: none.
@@ -358,8 +358,8 @@ class AreaTextKeyMainWindowTest(XyzKeyWindowTestCase):
 
     @covers("LLFR-00287", "LLFR-00207")
     def test_zero_still_resets_after_a_and_t(self) -> None:
-        """After A or T is released, 0 alone resets the zoom again; 0
-        while A or T is held ends the hold and does not reset.
+        """After V or T is released, 0 alone resets the zoom again; 0
+        while V or T is held ends the hold and does not reset.
 
         Inputs: none.
         Outputs: none.

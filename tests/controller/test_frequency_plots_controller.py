@@ -17,7 +17,7 @@ from tests.controller.test_synthetic_controller import (
 
 from controller.plot_tools import DELTA_X_TOOL_STR, MARKER_TOOL_STR
 from controller.synthetic_controller import (
-    CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)
+    CREATE_TITLE_STR, STATISTIC_NEEDS_TIME_PLOT_STR)
 from model.curve_colors import PALETTE_COLOR_TUPLE
 from model.workspace import (
     FREQUENCY_PLOT_KIND_STR, MAXIMUM_PLOTS_PER_TAB_I, TIME_PLOT_KIND_STR)
@@ -427,7 +427,7 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
                          (0.0, 9.9))
 
     @covers("LLFR-00248", "LLFR-00258", "HLFR-00057", "LLFR-00592",
-            "LLFR-00979")
+            "LLFR-01382")
     def test_fft_range_uses_only_the_time_plots(self) -> None:
         """The FFT range comes from the time plots only: a zoom of a
         frequency plot is not a time range, and while only frequency
@@ -450,13 +450,13 @@ class FrequencyPlotRangeTest(FrequencyPlotTestCase):
         self.view.handler_dict["plot_delete_handler"](time_plot_id_i)
         self.assertEqual(self.plot_controller.time_plot_range_tuple(),
                          (0.0, 9.9))
-        # LLFR-00592, LLFR-00979: only a frequency plot is left, so no
-        # FFT is created, and the box asks for a time plot.
+        # LLFR-00592, LLFR-01382: only a frequency plot is left, so no
+        # FFT of the shown range is created, and the dialog says why.
         name_list = self.store_names()
         self.create("file1_Torque", "fft", time_plot_b=False)
         self.assertEqual(self.store_names(), name_list)
-        self.assertEqual(self.view.information_list[-1],
-                         (CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR))
+        self.assertEqual(self.view.parameter_reason_list[-1],
+                         STATISTIC_NEEDS_TIME_PLOT_STR)
 
 
 class FrequencyPlotMarkerTest(FrequencyPlotTestCase):

@@ -105,7 +105,10 @@ SEGMENT_LAST_STR = "last"
 # Icons of the top panel buttons (LLFR-00158 to LLFR-00160)
 # ----------------------------------------------------------------------
 # LLFR-00158: the buttons are squares that show only their icon.
-ICON_BUTTON_SIZE_I = 32
+# LLFR-00523: 30 px lets the 23 buttons and the 5 gaps of LLFR-00349 fit
+# an 800 px wide main window with its margins (23 x 30 + 5 x 16 +
+# 2 x 12 = 794 px).
+ICON_BUTTON_SIZE_I = 30
 ICON_SIZE_I = 20
 # LLFR-01044, LLFR-01049: the signal list button of an undocked window,
 # like the sidebar button of Firefox: a round button with a pale round

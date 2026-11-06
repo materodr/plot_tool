@@ -198,7 +198,7 @@ from matplotlib.colors import to_hex, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
-from matplotlib.text import Annotation
+from matplotlib.text import Annotation, Text
 from matplotlib.transforms import IdentityTransform
 from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
@@ -207,8 +207,18 @@ from PyQt6.QtWidgets import QApplication, QMenu, QVBoxLayout, QWidget
 
 from controller.plot_tools import (
     ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, MARKER_TOOL_STR,
-    NO_TOOL_STR, PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR,
-    is_delta_tool)
+    NO_TOOL_STR, PAN_TOOL_STR, SHAPE_TOOL_TUPLE, TEXT_TOOL_STR,
+    TIP_TOOL_STR, ZOOM_TOOL_STR, is_delta_tool)
+from model import object_names
+from model.workspace import (
+    ARROW_LINE_KIND_STR, CURVE_LINE_KIND_STR, DEFAULT_ARROW_STYLE_STR,
+    DEFAULT_CURVE_STYLE_STR, DEFAULT_DELTA_STYLE_STR, DEFAULT_FLAG_STYLE_STR,
+    DEFAULT_TEXT_NOTE_STYLE_STR, DELTA_LINE_KIND_STR, FLAG_LINE_KIND_STR,
+    LINE_STYLE_TUPLE, SHAPE_LINE_KIND_STR, TEXT_NOTE_LINE_KIND_STR)
+from view.line_looks import (
+    LINE_STYLE_TEXT_DICT, line_style_or, line_width_f,
+    matplotlib_line_style, width_or_one)
+from view.shape_layer import NO_SHAPE_INDEX_I, ShapeLayer
 from model.curve_colors import MARKER_COLOR_STR, hex_color_or_none
 from model.workspace import (
     DEFAULT_AREA_COLOR_STR, DEFAULT_ARROW_COLOR_STR, DEFAULT_FLAG_COLOR_STR,
@@ -219,7 +229,8 @@ from model.workspace import (
     delta_value_zero_b)
 from view import (
     arrow_geometry, color_picker, delta_geometry, theme, value_text)
-from view.arrow_geometry import ArrowLabel, ArrowPatch
+from view.arrow_geometry import (
+    ARROW_LINE_STYLE_TUPLE, ARROW_LINE_WIDTH_F, ArrowLabel, ArrowPatch)
 from view.delta_geometry import DeltaBracketPatch
 from view.matrix_picker import add_picker_submenu
 from view.menu_title import add_menu_title
@@ -243,8 +254,6 @@ WIDTH_PIXELS_DICT = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.5, 5: 6.0}
 PICK_TOLERANCE_PIXELS_I = 6
 
 TIME_AXIS_LABEL_STR = "Time (s)"
-# LLFR-00426: the title of the menu of a plot.
-PLOT_MENU_TITLE_STR = "Plot"
 # LLFR-01112, LLFR-01113: the option that opens the position picker.
 POSITION_TEXT_STR = "Position"
 # LLFR-00420: the kinds of objects whose name label a double-click
@@ -253,6 +262,10 @@ LABEL_KIND_FLAG_STR = "flag"
 LABEL_KIND_AREA_STR = "area"
 LABEL_KIND_DELTA_STR = "delta"
 LABEL_KIND_ARROW_STR = "arrow"
+# LLFR-01364: and of a shape.
+LABEL_KIND_SHAPE_STR = "shape"
+# LLFR-01388: the name line of a pinned data tip.
+LABEL_KIND_TIP_STR = "tip"
 # LLFR-00886, LLFR-00798: a press on a name label becomes a drag once the
 # pointer is this far from it, in screen pixels.
 LABEL_DRAG_THRESHOLD_PIXELS_F = 5.0
@@ -266,7 +279,7 @@ DELETE_ALL_DELTAS_IN_PLOT_TEXT_STR = "Delete all delta markers in this plot"
 DELETE_ALL_DELTAS_IN_ALL_PLOTS_TEXT_STR = (
     "Delete all delta markers in all plots")
 DELETE_ALL_FLAGS_TEXT_STR = "Delete all flags"
-DELETE_ALL_AREAS_TEXT_STR = "Delete all areas"
+DELETE_ALL_AREAS_TEXT_STR = "Delete all vertical areas"
 # LLFR-00074, LLFR-00113: range width kept per forward wheel notch
 # (narrow to 95%; a backward notch widens to 1/0.95).
 ZOOM_IN_FACTOR_F = 0.95
@@ -312,6 +325,17 @@ TIP_OFFSET_POINTS_F = 10.0
 # LLFR-00423: the lines inside a hover or pinned data tip start at the
 # left edge of its box.
 TIP_TEXT_ALIGNMENT_STR = "left"
+# LLFR-01394: the drawing area is at least this many times as tall as
+# the box of a pinned data tip with a name line, an x value line and a
+# y value line; the sample text below has those three lines.
+MINIMUM_HEIGHT_TIP_COUNT_I = 3
+MINIMUM_HEIGHT_TIP_TEXT_STR = "Name\nx = 0 s\ny = 0"
+# LLFR-01394: the height of the legend, the x-axis numbers and labels
+# around the drawing area, guessed until a first draw measures it.
+FIRST_PLOT_FRAME_GUESS_PX_I = 60
+# LLFR-01394: a change of the minimum height smaller than this is
+# ignored, so rounding never starts a loop of resizes and draws.
+MINIMUM_HEIGHT_TOLERANCE_PX_I = 1
 DEFAULT_TIP_COLOR_STR = theme.DEFAULT_TIP_COLOR_STR
 # LLFR-00082, LLFR-00083, LLFR-00084, LLFR-00092: look of a vertical
 # marker. The marker is drawn above the curves and below the tips.
@@ -886,7 +910,7 @@ def flush_app_waiting_click() -> None:
     waiting_widget.flush_deferred_click()
 
 
-class PlotWidget(QWidget):
+class PlotWidget(QWidget, ShapeLayer):
     """One plot: signal curves against time, legend, menus and tips.
 
     Inputs:
@@ -1043,6 +1067,21 @@ class PlotWidget(QWidget):
     arrow_delete_requested = pyqtSignal(int)
     # LLFR-00439, LLFR-00420: "Rename" or a double-click on the label.
     arrow_rename_requested = pyqtSignal(int)
+    # LLFR-01316, LLFR-01334, LLFR-01338, LLFR-01348, LLFR-01350,
+    # LLFR-01359: a shape drawn (kind and two corners), moved or resized
+    # (index and two corners), recolored, deleted or renamed.
+    shape_create_requested = pyqtSignal(str, float, float, float, float)
+    shape_change_requested = pyqtSignal(int, float, float, float, float)
+    shape_color_requested = pyqtSignal(int, str)
+    shape_delete_requested = pyqtSignal(int)
+    shape_rename_requested = pyqtSignal(int)
+    # LLFR-01266: "Rename" in the menu of a pinned data tip (its index).
+    pinned_tip_rename_requested = pyqtSignal(int)
+    # LLFR-01371, LLFR-01376: a width or a line style chosen for an
+    # object: (kind of LINE_OBJECT_KIND_TUPLE, its id, index or signal
+    # name, the width or the style).
+    object_width_requested = pyqtSignal(str, object, int)
+    object_line_style_requested = pyqtSignal(str, object, str)
     # LLFR-00412 to LLFR-00417: the "Delete all ..." menu options.
     plot_pinned_tips_delete_requested = pyqtSignal()
     all_pinned_tips_delete_requested = pyqtSignal()
@@ -1283,6 +1322,20 @@ class PlotWidget(QWidget):
         self.arrow_preview_tuple = ()
         self.arrow_preview_color_str = DEFAULT_ARROW_COLOR_STR
         self.arrow_preview_patch = None
+        # LLFR-01371, LLFR-01376: the width and line style of each arrow,
+        # flag, delta marker and text note, and the style of each curve,
+        # kept beside the drawing data.
+        self.arrow_look_list = []
+        self.marker_look_dict = {}
+        self.delta_look_dict = {}
+        self.text_note_look_list = []
+        self.curve_style_dict = {}
+        # LLFR-01263: the name of each pinned data tip.
+        self.pinned_tip_name_list = []
+        # LLFR-01281, LLFR-01284: the labels are shown at start.
+        self.labels_hidden_b = False
+        # LLFR-01314 to LLFR-01364: the shapes of the plot.
+        self.init_shape_state()
 
         # LLFR-00035: constrained layout keeps room for the legend above
         # the axes when the widget is resized.
@@ -1335,7 +1388,11 @@ class PlotWidget(QWidget):
         # also on widgets that never take the focus.
         self.text_note_editor.outside_pressed.connect(
             self.confirm_text_note_editor_by_press)
+        # LLFR-01394: the height of the tip box, by figure dpi.
+        self.tip_box_height_cache_dict = {}
         self.rebuild_axes()
+        # LLFR-01394: a first minimum height before the first draw.
+        self.update_minimum_height(None, FIRST_PLOT_FRAME_GUESS_PX_I)
 
     # ----------------------------------------------------------------
     # Drawing
@@ -1350,6 +1407,14 @@ class PlotWidget(QWidget):
         Outputs: none. The time range is reset to the full range of the
             data.
         """
+        # LLFR-01376: the line style of each curve, continuous at first.
+        self.curve_style_dict = {
+            str(curve_tuple[0]): line_style_or(
+                curve_tuple[5] if len(curve_tuple) > 5 else None,
+                DEFAULT_CURVE_STYLE_STR)
+            for curve_tuple in curve_data_list}
+        curve_data_list = [tuple(curve_tuple)[:5]
+                           for curve_tuple in curve_data_list]
         # LLFR-00068: every curve is drawn against the time array.
         self.curve_data_list = [
             (str(signal_name_str), np.asarray(time_array, dtype=float),
@@ -1390,6 +1455,10 @@ class PlotWidget(QWidget):
             tip_tuple_list.append((str(tip_tuple[0]), float(tip_tuple[1]),
                                    float(tip_tuple[2]), offset_tuple))
         self.pinned_tip_list = tip_tuple_list
+        # LLFR-01263: the name of each tip, its fifth item.
+        self.pinned_tip_name_list = [
+            str(tip_tuple[4]) if len(tip_tuple) > 4 else ""
+            for tip_tuple in pinned_tip_list]
         self.draw_pinned_tips()
         self.canvas.draw_idle()
 
@@ -1468,6 +1537,15 @@ class PlotWidget(QWidget):
                 self.cancel_arrow_drag()
         elif self.plot_tool_str not in (ARROW_TOOL_STR, NO_TOOL_STR):
             self.cancel_arrow_drag()
+        # LLFR-01314: a shape is drawn only with the tool of its kind;
+        # LLFR-01334, LLFR-01338, LLFR-01344: one is moved or resized with
+        # that tool or with none.
+        if self.shape_drag_mode_str == "create":
+            if self.plot_tool_str != self.shape_drag_kind_str:
+                self.cancel_shape_drag()
+        elif self.plot_tool_str not in (self.shape_drag_kind_str,
+                                        NO_TOOL_STR):
+            self.cancel_shape_drag()
 
     def set_markers(self, marker_data_list: list) -> None:
         """Replace the vertical markers drawn in the plot.
@@ -1489,6 +1567,14 @@ class PlotWidget(QWidget):
               else None) or DEFAULT_FLAG_COLOR_STR)
             for marker_tuple in marker_data_list
             if not self.frequency_plot_b]
+        # LLFR-01371, LLFR-01376: the width and style of each flag.
+        self.marker_look_dict = {
+            int(marker_tuple[0]): (
+                width_or_one(marker_tuple[4] if len(marker_tuple) > 4
+                             else 1),
+                line_style_or(marker_tuple[5] if len(marker_tuple) > 5
+                              else None, DEFAULT_FLAG_STYLE_STR))
+            for marker_tuple in marker_data_list}
         # LLFR-00086: a drag of a marker that is gone ends here.
         if self.drag_marker_id_i not in {
                 marker_tuple[0] for marker_tuple in self.marker_data_list}:
@@ -1552,6 +1638,14 @@ class PlotWidget(QWidget):
             int(marker_tuple[0]): (str(marker_tuple[6])
                                    if len(marker_tuple) > 6 else "")
             for marker_tuple in delta_marker_data_list}
+        # LLFR-01371, LLFR-01376: the width and style of each bracket.
+        self.delta_look_dict = {
+            int(marker_tuple[0]): (
+                width_or_one(marker_tuple[7] if len(marker_tuple) > 7
+                             else 1),
+                line_style_or(marker_tuple[8] if len(marker_tuple) > 8
+                              else None, DEFAULT_DELTA_STYLE_STR))
+            for marker_tuple in delta_marker_data_list}
         self.draw_delta_markers()
         # LLFR-00168: the y range keeps room above the Delta X markers.
         self.apply_time_range()
@@ -1597,6 +1691,12 @@ class PlotWidget(QWidget):
         # LLFR-00385, LLFR-00387: each with its size and colors.
         new_note_list = [text_note_data_tuple(note_tuple)
                          for note_tuple in text_note_data_list]
+        # LLFR-01371, LLFR-01376: the width and style of each border.
+        self.text_note_look_list = [
+            (width_or_one(note_tuple[6] if len(note_tuple) > 6 else 1),
+             line_style_or(note_tuple[7] if len(note_tuple) > 7 else None,
+                           DEFAULT_TEXT_NOTE_STYLE_STR))
+            for note_tuple in text_note_data_list]
         # LLFR-00342: the field of "Edit" names its note by its place in
         # the list; when the list changes (an undo, a redo or another
         # rebuild), it might name another note, so it is closed and
@@ -1628,6 +1728,12 @@ class PlotWidget(QWidget):
         # LLFR-00436: and the name of each.
         self.arrow_name_list = [
             str(arrow_tuple[5]) if len(arrow_tuple) > 5 else ""
+            for arrow_tuple in arrow_data_list]
+        # LLFR-01371, LLFR-01376: and the width and style of each line.
+        self.arrow_look_list = [
+            (width_or_one(arrow_tuple[6] if len(arrow_tuple) > 6 else 1),
+             line_style_or(arrow_tuple[7] if len(arrow_tuple) > 7 else None,
+                           DEFAULT_ARROW_STYLE_STR))
             for arrow_tuple in arrow_data_list]
         self.draw_arrows()
         self.draw_when_visible()
@@ -1691,6 +1797,79 @@ class PlotWidget(QWidget):
                 self.figure.bbox)
             self.fast_drag_full_draw_count_i += 1
             QTimer.singleShot(0, self.blit_fast_drag)
+        # LLFR-01394: the draw gave the axes their size, so the space
+        # around the drawing area is known. Not inside an export, which
+        # draws at another size and dpi.
+        if not self.canvas.is_saving():
+            self.update_minimum_height(getattr(event, "renderer", None))
+
+    def tip_box_height_px(self, renderer=None) -> float:
+        """Return the height of a pinned data tip box with a name line.
+
+        Inputs:
+            renderer: the matplotlib renderer, or None for the canvas's.
+        Outputs: the height in widget pixels of the box that a pinned
+            data tip with a name line, an x value line and a y value line
+            has, with the font, font size and padding of the pinned data
+            tips (LLFR-01263, LLFR-00423).
+        """
+        # LLFR-01394: measured with the real font, so it follows it. The
+        # text is never added to the figure, so it is never drawn and
+        # never asks for a draw.
+        dpi_f = float(self.figure.dpi)
+        if dpi_f not in self.tip_box_height_cache_dict:
+            if renderer is None:
+                renderer = self.canvas.get_renderer()
+            sample_text = Text(
+                0.0, 0.0, MINIMUM_HEIGHT_TIP_TEXT_STR,
+                multialignment=TIP_TEXT_ALIGNMENT_STR,
+                fontsize=theme.PLOT_TIP_FONT_SIZE_F,
+                bbox=dict(theme.PINNED_TIP_BOX_DICT), parse_math=False)
+            sample_text.set_figure(self.figure)
+            sample_text.update_bbox_position_size(renderer)
+            box_height_f = float(sample_text.get_bbox_patch()
+                                 .get_window_extent(renderer).height)
+            self.tip_box_height_cache_dict[dpi_f] = (
+                box_height_f / self.pixel_ratio_f())
+        return self.tip_box_height_cache_dict[dpi_f]
+
+    def minimum_axes_height_px(self, renderer=None) -> float:
+        """Return the smallest height of the drawing area.
+
+        Inputs:
+            renderer: the matplotlib renderer, or None for the canvas's.
+        Outputs: three times the height of tip_box_height_px, in widget
+            pixels (LLFR-01394).
+        """
+        # LLFR-01394, HLFR-00165.
+        return MINIMUM_HEIGHT_TIP_COUNT_I * self.tip_box_height_px(renderer)
+
+    def update_minimum_height(self, renderer=None,
+                              frame_height_px_i=None) -> None:
+        """Ask the tab for the height that the drawing area needs.
+
+        Inputs:
+            renderer: the matplotlib renderer, or None for the canvas's.
+            frame_height_px_i: the height of the plot outside its drawing
+                area, in widget pixels, or None to measure it from the
+                last draw.
+        Outputs: none. The widget's minimum height becomes the minimum
+            height of the drawing area (LLFR-01394) plus the height of
+            the legend, the numbers and the labels around it, so the tab
+            gives the plot that height or scrolls (LLFR-01396).
+        """
+        # LLFR-01394: the space around the drawing area, as constrained
+        # layout drew it.
+        if frame_height_px_i is None:
+            axes_height_px_f = (float(self.axes.bbox.height)
+                                / self.pixel_ratio_f())
+            frame_height_px_i = max(
+                0, int(math.ceil(self.canvas.height() - axes_height_px_f)))
+        minimum_height_i = int(math.ceil(
+            self.minimum_axes_height_px(renderer) + frame_height_px_i))
+        if (abs(minimum_height_i - self.minimumHeight())
+                > MINIMUM_HEIGHT_TOLERANCE_PX_I):
+            self.setMinimumHeight(minimum_height_i)
 
     def static_artist_set(self) -> set:
         """Return the artists of the axes that a drag never changes.
@@ -1885,9 +2064,13 @@ class PlotWidget(QWidget):
              width_i) in self.curve_data_list:
             # HLFR-00020, LLFR-00041, LLFR-00052: color and width are
             # applied exactly as given.
+            # LLFR-01376: in its line style.
             (line,) = self.axes.plot(
                 time_array, value_array, color=color_str,
                 linewidth=WIDTH_PIXELS_DICT.get(width_i, 1.0),
+                linestyle=matplotlib_line_style(
+                    self.curve_style_dict.get(signal_name_str,
+                                              DEFAULT_CURVE_STYLE_STR)),
                 label=signal_name_str)
             self.curve_line_dict[signal_name_str] = line
             self.curve_width_dict[signal_name_str] = width_i
@@ -1934,6 +2117,10 @@ class PlotWidget(QWidget):
         self.arrow_label_list = []
         self.draw_arrows()
         self.create_arrow_preview_artist()
+        # LLFR-01329: and so do the shapes and their labels.
+        self.shape_artist_list = []
+        self.shape_label_list = []
+        self.draw_shapes()
         # LLFR-00203: the preview artists went away with axes.clear().
         self.create_preview_artists()
         # LLFR-00208: so did those of the time span selection line.
@@ -2036,7 +2223,8 @@ class PlotWidget(QWidget):
                 markersize=5, linestyle="none", zorder=9)
             marker.set_in_layout(False)
             annotation = self.axes.annotate(
-                self.point_tip_text(signal_name_str, time_s, value_f),
+                self.named_tip_text(len(self.pinned_annotation_list),
+                                    signal_name_str, time_s, value_f),
                 xy=(time_s, value_f),
                 xytext=(TIP_OFFSET_POINTS_F, TIP_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
@@ -2100,17 +2288,25 @@ class PlotWidget(QWidget):
             # LLFR-00083, LLFR-00392: in the flag's color, the reserved
             # marker color for a new flag.
             # LLFR-00143: the line is dashed.
+            # LLFR-01371, LLFR-01376: in its width and style, dashed with
+            # the flag dashes by default (LLFR-01378).
+            width_i, style_str = self.marker_look_dict.get(
+                marker_id_i, (1, DEFAULT_FLAG_STYLE_STR))
             line = self.axes.axvline(
                 time_s, color=color_str,
-                linewidth=MARKER_LINE_WIDTH_F,
-                linestyle=MARKER_LINE_STYLE_TUPLE, zorder=MARKER_ZORDER_F)
+                linewidth=line_width_f(MARKER_LINE_WIDTH_F, width_i),
+                linestyle=matplotlib_line_style(style_str,
+                                                MARKER_LINE_STYLE_TUPLE),
+                zorder=MARKER_ZORDER_F)
             line.set_in_layout(False)
             # LLFR-00084: the name at the top of the line, inside the
             # axes, shown literally (never as mathtext). LLFR-01202: on
             # a box with a contrast of at least 4.5:1 (LLFR-00704).
             flag_box_dict = theme.contrast_label_box_dict(color_str)
+            # LLFR-01281: no name while the labels are hidden; the time
+            # stays (LLFR-01281 Note).
             label = self.axes.annotate(
-                name_str, xy=(time_s, 1.0),
+                "" if self.labels_hidden_b else name_str, xy=(time_s, 1.0),
                 xycoords=self.axes.get_xaxis_transform(),
                 xytext=(MARKER_LABEL_OFFSET_POINTS_F,
                         -MARKER_LABEL_OFFSET_POINTS_F),
@@ -2150,14 +2346,25 @@ class PlotWidget(QWidget):
              second_point_tuple, delta_f,
              color_str) in self.delta_marker_data_list:
             # LLFR-00427: the label with the name, in the marker's color.
+            # LLFR-01281: no name label while the labels are hidden.
             name_label = self.new_delta_name_label(
-                self.delta_name_dict.get(delta_marker_id_i, ""), color_str)
+                "" if self.labels_hidden_b
+                else self.delta_name_dict.get(delta_marker_id_i, ""),
+                color_str)
             if name_label is not None:
                 self.delta_name_label_dict[delta_marker_id_i] = name_label
-            self.delta_artist_dict[delta_marker_id_i] = (
-                self.new_delta_artist_tuple(kind_str, first_point_tuple,
-                                            second_point_tuple, delta_f,
-                                            color_str, name_label))
+            artist_tuple = self.new_delta_artist_tuple(
+                kind_str, first_point_tuple, second_point_tuple, delta_f,
+                color_str, name_label)
+            # LLFR-01371, LLFR-01376: the bracket in its width and style,
+            # dashed with the delta dashes by default (LLFR-01378).
+            width_i, style_str = self.delta_look_dict.get(
+                delta_marker_id_i, (1, DEFAULT_DELTA_STYLE_STR))
+            artist_tuple[0].set_linewidth(
+                line_width_f(DELTA_LINE_WIDTH_F, width_i))
+            artist_tuple[0].set_linestyle(
+                matplotlib_line_style(style_str, DELTA_LINE_STYLE_TUPLE))
+            self.delta_artist_dict[delta_marker_id_i] = artist_tuple
 
     def new_delta_name_label(self, name_str: str, color_str: str):
         """Create the label with the name of a delta marker.
@@ -2729,6 +2936,9 @@ class PlotWidget(QWidget):
         return (self.preview_time_s is not None or self.time_span_shown_b
                 or self.area_preview_shown() or self.delta_preview_shown()
                 or self.arrow_preview_shown()
+                # LLFR-01314, LLFR-01335, LLFR-01339: and the shape
+                # previews.
+                or self.shape_preview_shown()
                 or bool(self.mirror_area_span_tuple)
                 or bool(self.mirror_span_tuple))
 
@@ -2817,6 +3027,8 @@ class PlotWidget(QWidget):
             # LLFR-00870: and its label.
             if self.arrow_preview_label is not None:
                 self.axes.draw_artist(self.arrow_preview_label)
+        # LLFR-01315, LLFR-01335, LLFR-01339: the shape preview, live.
+        self.draw_shape_preview()
         self.canvas.blit(self.figure.bbox)
 
     def show_marker_preview(self, time_s: float) -> None:
@@ -3235,8 +3447,8 @@ class PlotWidget(QWidget):
                 textcoords="offset points", parse_math=False,
                 horizontalalignment="left", verticalalignment="center",
                 color=text_color_str, fontsize=float(size_i),
-                bbox=dict(theme.TEXT_NOTE_BOX_DICT,
-                          edgecolor=border_color_str),
+                bbox=self.text_note_box_dict(
+                    len(self.text_note_annotation_list), border_color_str),
                 annotation_clip=False, zorder=TEXT_NOTE_ZORDER_F)
             annotation.set_in_layout(False)
             # LLFR-00386: the chosen size, from which every draw fits the
@@ -3249,6 +3461,25 @@ class PlotWidget(QWidget):
                 annotation, annotation.draw)
             self.text_note_annotation_list.append(annotation)
         self.place_text_notes()
+
+    def text_note_box_dict(self, note_index_i: int,
+                           border_color_str: str) -> dict:
+        """Return the box of a text note, with the look of its border.
+
+        Inputs:
+            note_index_i: index of the note.
+            border_color_str: the color of its border.
+        Outputs: a bbox dict of matplotlib.
+        """
+        # LLFR-01371, LLFR-01376: the border in its width and style.
+        width_i, style_str = (
+            self.text_note_look_list[note_index_i]
+            if 0 <= note_index_i < len(self.text_note_look_list)
+            else (1, DEFAULT_TEXT_NOTE_STYLE_STR))
+        base_width_f = float(theme.TEXT_NOTE_BOX_DICT.get("linewidth", 1.0))
+        return dict(theme.TEXT_NOTE_BOX_DICT, edgecolor=border_color_str,
+                    linewidth=line_width_f(base_width_f, width_i),
+                    linestyle=matplotlib_line_style(style_str))
 
     def draw_text_note(self, note_index_i: int, annotation, original_draw,
                        renderer) -> None:
@@ -3566,7 +3797,10 @@ class PlotWidget(QWidget):
             LABEL_KIND_FLAG_STR: self.marker_rename_requested,
             LABEL_KIND_AREA_STR: self.area_rename_requested,
             LABEL_KIND_DELTA_STR: self.delta_marker_rename_requested,
-            LABEL_KIND_ARROW_STR: self.arrow_rename_requested}
+            LABEL_KIND_ARROW_STR: self.arrow_rename_requested,
+            LABEL_KIND_SHAPE_STR: self.shape_rename_requested,
+            # LLFR-01388: "Rename" of a pinned data tip.
+            LABEL_KIND_TIP_STR: self.pinned_tip_rename_requested}
         rename_signal_dict[kind_str].emit(int(item_i))
 
     def name_label_tuple_at(self, widget_point) -> tuple:
@@ -3584,7 +3818,12 @@ class PlotWidget(QWidget):
         # a flag's time, an area's times or a delta marker's value.
         if self.text_note_at(widget_point) != NO_TEXT_NOTE_INDEX_I:
             return ()
-        if self.pinned_tip_at(widget_point) != NO_TIP_INDEX_I:
+        tip_index_i = self.pinned_tip_at(widget_point)
+        if tip_index_i != NO_TIP_INDEX_I:
+            # LLFR-01388, LLFR-01389: on a pinned tip, only its name line
+            # counts, never its value lines.
+            if self.tip_name_line_at_b(tip_index_i, widget_point):
+                return (LABEL_KIND_TIP_STR, tip_index_i)
             return ()
         point_tuple = self.widget_to_display_tuple(widget_point)
         renderer = self.canvas.get_renderer()
@@ -3593,6 +3832,12 @@ class PlotWidget(QWidget):
         for index_i in reversed(range(len(self.arrow_label_list))):
             if self.arrow_label_at_b(index_i, point_tuple):
                 return (LABEL_KIND_ARROW_STR, index_i)
+        # LLFR-01364: then the shapes, drawn below the arrows;
+        # LLFR-01287, LLFR-01385: a hidden label is not there, so the
+        # clicks and the previews act there as on no label.
+        for index_i in reversed(range(len(self.shape_label_list))):
+            if self.shape_label_at_b(index_i, point_tuple):
+                return (LABEL_KIND_SHAPE_STR, index_i)
         for delta_marker_id_i in reversed(self.delta_marker_id_list()):
             if self.delta_name_at_b(delta_marker_id_i, point_tuple[0],
                                     point_tuple[1], renderer):
@@ -3946,6 +4191,68 @@ class PlotWidget(QWidget):
         # LLFR-00043, LLFR-00044: the time in seconds, value as stored.
         return format_tip_text(signal_name_str, x_value_f, value_f)
 
+    def named_tip_text(self, tip_index_i: int, signal_name_str: str,
+                       x_value_f: float, value_f: float) -> str:
+        """Return the text of a pinned data tip, with its name first.
+
+        Inputs:
+            tip_index_i: index of the tip in the list of set_pinned_tips.
+            signal_name_str, x_value_f, value_f: its point.
+        Outputs: the name on the first line, then the values; the values
+            alone while the labels are hidden or the tip has no name.
+        """
+        # LLFR-01263: the name above the x value, aligned to the left
+        # (LLFR-00423); LLFR-01281: hidden with the other labels.
+        value_str = self.point_tip_text(signal_name_str, x_value_f, value_f)
+        name_str = (self.pinned_tip_name_list[tip_index_i]
+                    if 0 <= tip_index_i < len(self.pinned_tip_name_list)
+                    else "")
+        if not name_str or self.labels_hidden_b:
+            return value_str
+        return name_str + "\n" + value_str
+
+    def tip_name_line_at_b(self, tip_index_i: int, widget_point) -> bool:
+        """Tell whether a point is on the name line of a pinned data tip.
+
+        Inputs:
+            tip_index_i: index of the tip in the list of set_pinned_tips.
+            widget_point: QPoint in this widget's coordinates.
+        Outputs: True when the tip shows its name (LLFR-01263) and the
+            point is on its box, at the height of its first line.
+        """
+        # LLFR-01263: the name is the first line of the box; LLFR-01281,
+        # LLFR-01287: there is none while the labels are hidden.
+        if not 0 <= tip_index_i < len(self.pinned_annotation_list):
+            return False
+        annotation = self.pinned_annotation_list[tip_index_i]
+        text_str = annotation.get_text()
+        if (self.labels_hidden_b or not self.pinned_tip_name(tip_index_i)
+                or "\n" not in text_str):
+            return False
+        renderer = self.canvas.get_renderer()
+        display_x_px, display_y_px = self.widget_to_display_tuple(
+            widget_point)
+        box = self.tip_box_extent(annotation, renderer)
+        if not box.contains(display_x_px, display_y_px):
+            return False
+        # The lines share the height of the text; the box's padding
+        # above the first line counts with it.
+        text_box = annotation.get_window_extent(renderer)
+        line_height_f = text_box.height / (text_str.count("\n") + 1)
+        return display_y_px >= text_box.y1 - line_height_f
+
+    def pinned_tip_name(self, tip_index_i: int) -> str:
+        """Return the name of a pinned data tip.
+
+        Inputs:
+            tip_index_i: index of the tip.
+        Outputs: its name, or "".
+        """
+        # LLFR-00426, LLFR-01263: the label of its menu title.
+        if 0 <= tip_index_i < len(self.pinned_tip_name_list):
+            return self.pinned_tip_name_list[tip_index_i]
+        return ""
+
     def hover_tip_text(self) -> str:
         """Return the text of the visible hover tip.
 
@@ -4007,6 +4314,68 @@ class PlotWidget(QWidget):
         """
         # LLFR-00081: the markers given to set_markers.
         return [marker_tuple[0] for marker_tuple in self.marker_data_list]
+
+    def marker_name_str(self, marker_id_i: int) -> str:
+        """Return the name of a drawn flag, also while it is hidden.
+
+        Inputs:
+            marker_id_i: id of the flag.
+        Outputs: its name, or "" for an unknown id.
+        """
+        # LLFR-00426: the label of the menu title.
+        for marker_tuple in self.marker_data_list:
+            if marker_tuple[0] == marker_id_i:
+                return marker_tuple[1]
+        return ""
+
+    def area_name_str(self, area_id_i: int) -> str:
+        """Return the name of a drawn area, also while it is hidden.
+
+        Inputs:
+            area_id_i: id of the area.
+        Outputs: its name, or "" for an unknown id.
+        """
+        # LLFR-00426: the label of the menu title.
+        for area_tuple in self.area_data_list:
+            if area_tuple[0] == area_id_i:
+                return area_tuple[1]
+        return ""
+
+    def delta_object_kind(self, delta_marker_id_i: int) -> str:
+        """Return the object kind of a delta marker for its menu title.
+
+        Inputs:
+            delta_marker_id_i: id of the delta marker.
+        Outputs: object_names.DELTA_X_OBJECT_STR or DELTA_Y_OBJECT_STR.
+        """
+        # LLFR-01255: "Delta X" or "Delta Y".
+        for marker_tuple in self.delta_marker_data_list:
+            if marker_tuple[0] == delta_marker_id_i and (
+                    marker_tuple[1] == DELTA_Y_KIND_STR):
+                return object_names.DELTA_Y_OBJECT_STR
+        return object_names.DELTA_X_OBJECT_STR
+
+    def set_labels_hidden(self, hidden_b: bool) -> None:
+        """Hide or show the name labels of the objects of the plot.
+
+        Inputs:
+            hidden_b: True to hide the labels.
+        Outputs: none. Every object is drawn again with the new state.
+        """
+        # LLFR-01281, LLFR-01282: the names of the flags, areas, delta
+        # markers, arrows, shapes and pinned tips; their values and the
+        # text notes stay (LLFR-01281 Note).
+        hidden_b = bool(hidden_b)
+        if hidden_b == self.labels_hidden_b:
+            return
+        self.labels_hidden_b = hidden_b
+        self.draw_markers()
+        self.draw_areas()
+        self.draw_delta_markers()
+        self.draw_arrows()
+        self.draw_shapes()
+        self.draw_pinned_tips()
+        self.draw_when_visible()
 
     def marker_label_text(self, marker_id_i: int) -> str:
         """Return the text of a marker's label.
@@ -4481,12 +4850,47 @@ class PlotWidget(QWidget):
             return color_picker.add_color_submenu(menu, text_str,
                                                   add_color_entry)
 
+        def add_line_options(kind_str: str, item, width_i, style_str: str):
+            """Add the "Width" and "Line style" options of an object.
+
+            Inputs:
+                kind_str: one of LINE_OBJECT_KIND_TUPLE.
+                item: the id, index or signal name of the object.
+                width_i: its current width, or None for no "Width"
+                    option (a curve has its own, LLFR-00040).
+                style_str: its current line style.
+            Outputs: none.
+            """
+            # LLFR-01370: the preset widths 1 to 5, the current checked.
+            if width_i is not None:
+                width_menu = menu.addMenu("Width")
+                for preset_i in sorted(WIDTH_PIXELS_DICT):
+                    width_action = add_request_action(
+                        width_menu, str(preset_i),
+                        lambda chosen_i=preset_i:
+                        self.object_width_requested.emit(kind_str, item,
+                                                         chosen_i))
+                    width_action.setCheckable(True)
+                    width_action.setChecked(preset_i == width_i)
+            # LLFR-01375: the four styles, the current one checked.
+            style_menu = menu.addMenu("Line style")
+            for chosen_style_str in LINE_STYLE_TUPLE:
+                style_action = add_request_action(
+                    style_menu, LINE_STYLE_TEXT_DICT[chosen_style_str],
+                    lambda picked_str=chosen_style_str:
+                    self.object_line_style_requested.emit(kind_str, item,
+                                                          picked_str))
+                style_action.setCheckable(True)
+                style_action.setChecked(chosen_style_str == style_str)
+
         # LLFR-00341: a text note is drawn on top of everything, so its
         # menu has priority over every item under it.
         note_index_i = self.text_note_at(widget_point)
         if note_index_i != NO_TEXT_NOTE_INDEX_I:
-            # LLFR-00425, LLFR-00426: the title is the note's text.
-            add_menu_title(menu, self.text_note_list[note_index_i][0])
+            # LLFR-00425, LLFR-00426, LLFR-01256: "Text: <first word…>".
+            add_menu_title(menu, object_names.TEXT_NOTE_OBJECT_STR,
+                           object_names.text_note_label(
+                               self.text_note_list[note_index_i][0]))
             # LLFR-00341: Edit, Size, Border color, Text color, Delete.
             add_request_action(
                 menu, "Edit",
@@ -4512,6 +4916,13 @@ class PlotWidget(QWidget):
             add_color_option("Text color",
                              self.text_note_text_color_requested,
                              note_index_i)
+            # LLFR-01370, LLFR-01375: "Width" and "Line style" of the box.
+            note_width_i, note_style_str = (
+                self.text_note_look_list[note_index_i]
+                if note_index_i < len(self.text_note_look_list)
+                else (1, DEFAULT_TEXT_NOTE_STYLE_STR))
+            add_line_options(TEXT_NOTE_LINE_KIND_STR, note_index_i,
+                             note_width_i, note_style_str)
             add_request_action(
                 menu, "Delete",
                 lambda index_i=note_index_i:
@@ -4521,9 +4932,14 @@ class PlotWidget(QWidget):
         # (and over a marker: tips are drawn on top of markers).
         tip_index_i = self.pinned_tip_at(widget_point)
         if tip_index_i >= 0:
-            # LLFR-00425, LLFR-00426: the title is the signal of its
-            # point.
-            add_menu_title(menu, self.pinned_tip_list[tip_index_i][0])
+            # LLFR-00425, LLFR-00426: "Data Tip: <its name>".
+            add_menu_title(menu, object_names.DATA_TIP_OBJECT_STR,
+                           self.pinned_tip_name(tip_index_i))
+            # LLFR-00046, LLFR-01266: "Rename" first.
+            add_request_action(
+                menu, "Rename",
+                lambda index_i=tip_index_i:
+                self.pinned_tip_rename_requested.emit(index_i))
             add_request_action(
                 menu, "Delete",
                 lambda index_i=tip_index_i:
@@ -4541,8 +4957,9 @@ class PlotWidget(QWidget):
         # markers and areas, so its menu has priority over theirs.
         arrow_index_i = self.arrow_at(widget_point)
         if arrow_index_i != NO_ARROW_INDEX_I:
-            # LLFR-00425, LLFR-00426: the title is the arrow's name.
-            add_menu_title(menu, self.arrow_name_str(arrow_index_i))
+            # LLFR-00425, LLFR-00426: "Arrow: <its name>".
+            add_menu_title(menu, object_names.ARROW_OBJECT_STR,
+                           self.arrow_name_str(arrow_index_i))
             # LLFR-00378: "Rename", "Color" and "Delete". LLFR-00439:
             # "Rename" lets the user type a new name.
             add_request_action(
@@ -4552,17 +4969,48 @@ class PlotWidget(QWidget):
             # LLFR-00379, LLFR-00388: "Color" is the color submenu.
             add_color_option("Color", self.arrow_color_requested,
                              arrow_index_i)
+            # LLFR-00378, LLFR-01370, LLFR-01375: "Width", "Line style".
+            arrow_width_i, arrow_style_str = (
+                self.arrow_look_list[arrow_index_i]
+                if arrow_index_i < len(self.arrow_look_list)
+                else (1, DEFAULT_ARROW_STYLE_STR))
+            add_line_options(ARROW_LINE_KIND_STR, arrow_index_i,
+                             arrow_width_i, arrow_style_str)
             add_request_action(
                 menu, "Delete",
                 lambda index_i=arrow_index_i:
                 self.arrow_delete_requested.emit(index_i))
             return menu, request_list
+        # LLFR-01351: a shape is drawn above the curves, flags, delta
+        # markers and areas, so its menu has priority over theirs;
+        # LLFR-01352: the arrows, tips and notes above it came first.
+        shape_index_i = self.shape_at(widget_point)
+        if shape_index_i != NO_SHAPE_INDEX_I:
+            shape_tuple = self.shape_list[shape_index_i]
+            # LLFR-00425, LLFR-00426: "Circle: <name>", "Rectangle: ...".
+            add_menu_title(menu, shape_tuple[0], shape_tuple[6])
+            # LLFR-01347: Rename, Color, Width, Line style and Delete.
+            add_request_action(
+                menu, "Rename",
+                lambda index_i=shape_index_i:
+                self.shape_rename_requested.emit(index_i))
+            add_color_option("Color", self.shape_color_requested,
+                             shape_index_i)
+            add_line_options(SHAPE_LINE_KIND_STR, shape_index_i,
+                             shape_tuple[7], shape_tuple[8])
+            add_request_action(
+                menu, "Delete",
+                lambda index_i=shape_index_i:
+                self.shape_delete_requested.emit(index_i))
+            return menu, request_list
         # LLFR-00110: a marker has priority over a curve under it.
         # LLFR-00087, LLFR-00090: whatever plot tool is active.
         marker_id_i = self.marker_at(widget_point)
         if marker_id_i != NO_MARKER_ID_I:
-            # LLFR-00425, LLFR-00426: the title is the flag's name.
-            add_menu_title(menu, self.marker_label_text(marker_id_i))
+            # LLFR-00425, LLFR-00426: "Flag: <its name>", also while the
+            # labels are hidden.
+            add_menu_title(menu, object_names.FLAG_OBJECT_STR,
+                           self.marker_name_str(marker_id_i))
             add_request_action(
                 menu, "Rename",
                 lambda chosen_id_i=marker_id_i:
@@ -4571,6 +5019,11 @@ class PlotWidget(QWidget):
             # LLFR-00388: the color submenu.
             add_color_option("Color", self.marker_color_requested,
                              marker_id_i)
+            # LLFR-01370, LLFR-01375: "Width" and "Line style".
+            flag_width_i, flag_style_str = self.marker_look_dict.get(
+                marker_id_i, (1, DEFAULT_FLAG_STYLE_STR))
+            add_line_options(FLAG_LINE_KIND_STR, marker_id_i, flag_width_i,
+                             flag_style_str)
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=marker_id_i:
@@ -4585,8 +5038,9 @@ class PlotWidget(QWidget):
         # curve under it, whatever plot tool is active.
         delta_marker_id_i = self.delta_marker_at(widget_point)
         if delta_marker_id_i != NO_DELTA_MARKER_ID_I:
-            # LLFR-00425, LLFR-00426: the title is the marker's name.
-            add_menu_title(menu,
+            # LLFR-00425, LLFR-00426: "Delta X: <name>" or "Delta Y:
+            # <name>".
+            add_menu_title(menu, self.delta_object_kind(delta_marker_id_i),
                            self.delta_name_dict.get(delta_marker_id_i, ""))
             # LLFR-00175: "Rename" first; LLFR-00429: it lets the user
             # type a new name.
@@ -4598,6 +5052,11 @@ class PlotWidget(QWidget):
             # color submenu.
             add_color_option("Color", self.delta_marker_color_requested,
                              delta_marker_id_i)
+            # LLFR-00175, LLFR-01370, LLFR-01375: "Width", "Line style".
+            delta_width_i, delta_style_str = self.delta_look_dict.get(
+                delta_marker_id_i, (1, DEFAULT_DELTA_STYLE_STR))
+            add_line_options(DELTA_LINE_KIND_STR, delta_marker_id_i,
+                             delta_width_i, delta_style_str)
             add_request_action(
                 menu, "Delete",
                 lambda chosen_id_i=delta_marker_id_i:
@@ -4613,8 +5072,9 @@ class PlotWidget(QWidget):
             return menu, request_list
         signal_name_str = self.curve_at(widget_point)
         if signal_name_str:
-            # LLFR-00425, LLFR-00426: the title is the curve's signal.
-            add_menu_title(menu, signal_name_str)
+            # LLFR-00425, LLFR-00426: "Curve: <its signal>".
+            add_menu_title(menu, object_names.CURVE_OBJECT_STR,
+                           signal_name_str)
             # LLFR-00038: delete the curve.
             add_request_action(
                 menu, "Delete signal",
@@ -4632,13 +5092,18 @@ class PlotWidget(QWidget):
                                                     chosen_width_i))
                 width_action.setCheckable(True)
                 width_action.setChecked(width_i == current_width_i)
+            # LLFR-01375: "Line style", directly below "Width".
+            add_line_options(CURVE_LINE_KIND_STR, signal_name_str, None,
+                             self.curve_style_dict.get(
+                                 signal_name_str, DEFAULT_CURVE_STYLE_STR))
             return menu, request_list
         # LLFR-00314, LLFR-00317: inside an area, with nothing else drawn
         # at the point (the items above came first), the area menu.
         area_id_i = self.area_at(widget_point)
         if area_id_i != NO_AREA_ID_I:
-            # LLFR-00425, LLFR-00426: the title is the area's name.
-            add_menu_title(menu, self.area_label_text(area_id_i))
+            # LLFR-00425, LLFR-00426: "Vert. Area: <its name>".
+            add_menu_title(menu, object_names.AREA_OBJECT_STR,
+                           self.area_name_str(area_id_i))
             add_request_action(
                 menu, "Rename",
                 lambda chosen_id_i=area_id_i:
@@ -4650,8 +5115,8 @@ class PlotWidget(QWidget):
                 menu, "Delete",
                 lambda chosen_id_i=area_id_i:
                 self.area_delete_requested.emit(chosen_id_i))
-            # LLFR-00314, LLFR-00417: "Delete all areas" before "Delete
-            # plot".
+            # LLFR-00314, LLFR-00417: "Delete all vertical areas" before
+            # "Delete plot".
             add_request_action(
                 menu, DELETE_ALL_AREAS_TEXT_STR,
                 lambda: self.all_areas_delete_requested.emit())
@@ -4663,8 +5128,10 @@ class PlotWidget(QWidget):
             return menu, request_list
         # LLFR-00048: empty area of the plot (no curve, pinned tip,
         # vertical marker, delta marker, area or text note under the
-        # mouse). LLFR-00425, LLFR-00426: the title is "Plot".
-        add_menu_title(menu, PLOT_MENU_TITLE_STR)
+        # mouse). LLFR-00425, LLFR-00426: the title is "Plot: <row>x<column>"
+        # (LLFR-01390).
+        add_menu_title(menu, object_names.PLOT_OBJECT_STR,
+                       self.plot_place_str())
         # LLFR-01112: "Position", directly above "Delete plot".
         self.add_position_option(menu, add_request_action)
         add_request_action(menu, "Delete plot",
@@ -4726,7 +5193,7 @@ class PlotWidget(QWidget):
             all flags"; on a delta marker "Rename", "Color", "Delete" and
             "Delete
             all delta markers in this plot" and "... in all plots"; on
-            an area "Rename", "Color", "Delete", "Delete all areas",
+            an area "Rename", "Color", "Delete", "Delete all vertical areas",
             "Position" and "Delete plot"; every color option is a
             submenu of the recent colors and "Other color..."; on a
             curve "Delete signal" and a "Width" submenu with 1..5;
@@ -4744,6 +5211,27 @@ class PlotWidget(QWidget):
                     lambda checked_b=False,
                     request=request_list[action.data()]: request())
         return menu
+
+    def plot_place_str(self) -> str:
+        """Return the place of this plot in its tab, for its menu title.
+
+        Inputs: none.
+        Outputs: "<row>x<column>", both counted from 1, the row from the
+            top and the column from the left, for example "2x1" for the
+            second plot of a one-column matrix; "" when the plot is not
+            on a tab page.
+        """
+        # LLFR-01390: the slot of the plot in its tab's plot matrix, in
+        # the fill order (LLFR-01108), for time and frequency plots.
+        page = self.parentWidget()
+        while page is not None and not hasattr(page, "plot_slot_tuple"):
+            page = page.parentWidget()
+        if page is None:
+            return ""
+        slot_tuple = page.plot_slot_tuple(self)
+        if not slot_tuple:
+            return ""
+        return f"{slot_tuple[0] + 1}x{slot_tuple[1] + 1}"
 
     def request_context_menu(self, widget_point) -> None:
         """Open the context menu for a point once control is back in Qt.
@@ -4964,6 +5452,8 @@ class PlotWidget(QWidget):
         self.cancel_area_drag()
         self.cancel_note_drag()
         self.cancel_arrow_drag()
+        # LLFR-01334: and a shape drag.
+        self.cancel_shape_drag()
         self.cancel_delta_point_drag()
         # LLFR-00886: a press on a name label whose release was lost
         # does nothing.
@@ -4995,6 +5485,12 @@ class PlotWidget(QWidget):
         # a new arrow.
         if self.plot_tool_str == ARROW_TOOL_STR:
             self.arrow_tool_press_at(widget_point)
+            return
+        # LLFR-00383: then the shape. LLFR-01345, LLFR-01346: with the
+        # Circle or Rectangle tool, a press on a shape of its kind edits
+        # it, and anywhere else it draws a new shape (LLFR-01314).
+        if self.plot_tool_str in SHAPE_TOOL_TUPLE:
+            self.shape_tool_press_at(widget_point, self.plot_tool_str)
             return
         # LLFR-00382: with no plot tool active, only the objects react.
         if self.plot_tool_str == NO_TOOL_STR:
@@ -5187,6 +5683,12 @@ class PlotWidget(QWidget):
         arrow_index_i = self.arrow_at(widget_point)
         if arrow_index_i != NO_ARROW_INDEX_I:
             self.arrow_edit_press_at(widget_point, arrow_index_i)
+            return
+        # LLFR-00383: then the shape. LLFR-01344: a press on it moves or
+        # resizes it.
+        shape_index_i = self.shape_at(widget_point)
+        if shape_index_i != NO_SHAPE_INDEX_I:
+            self.shape_edit_press_at(widget_point, shape_index_i)
             return
         # LLFR-00383: then the delta marker point, before the flag and
         # the area. LLFR-00794: a press on a dot of a delta marker may
@@ -5536,6 +6038,8 @@ class PlotWidget(QWidget):
         self.cancel_area_drag()
         # LLFR-00371, LLFR-00376, LLFR-00377: and an arrow drag.
         self.cancel_arrow_drag()
+        # LLFR-01314, LLFR-01334, LLFR-01338: and a shape drag.
+        self.cancel_shape_drag()
         # LLFR-00433: and the drag of a delta marker point.
         self.cancel_delta_point_drag()
         # LLFR-00886: and a press on a name label that waits.
@@ -5584,6 +6088,8 @@ class PlotWidget(QWidget):
                 or self.area_drag_mode_str != AREA_DRAG_NONE_STR
                 # LLFR-00454: and the drawing or the drag of an arrow.
                 or self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR
+                # LLFR-00454: and the drawing or the drag of a shape.
+                or bool(self.shape_drag_mode_str)
                 # LLFR-00454: and the drag of a delta marker point.
                 or self.delta_drag_id_i != NO_DELTA_MARKER_ID_I)
 
@@ -5628,6 +6134,8 @@ class PlotWidget(QWidget):
         self.reset_area_drag()
         # LLFR-00371, LLFR-00376: so does an arrow drag.
         self.reset_arrow_drag()
+        # LLFR-01314, LLFR-01334: and a shape drag.
+        self.reset_shape_drag()
         # LLFR-00433: and the drag of a delta marker point.
         self.reset_delta_point_drag()
         # LLFR-00038, LLFR-00046, LLFR-00048: no menu for a removed plot.
@@ -6134,8 +6642,11 @@ class PlotWidget(QWidget):
             # inside the drawing area, shown literally (never as
             # mathtext); place_areas keeps it at the left of the part of
             # the band that is shown.
+            # LLFR-01281: no name while the labels are hidden; the times
+            # stay.
             label = self.axes.annotate(
-                name_str, xy=(start_s, 1.0), xycoords=x_axis_transform,
+                "" if self.labels_hidden_b else name_str, xy=(start_s, 1.0),
+                xycoords=x_axis_transform,
                 xytext=(AREA_LABEL_OFFSET_POINTS_F,
                         -AREA_LABEL_OFFSET_POINTS_F),
                 textcoords="offset points", parse_math=False,
@@ -6734,6 +7245,16 @@ class PlotWidget(QWidget):
             patch = ArrowPatch((start_time_s, start_value_f),
                                (end_time_s, end_value_f), color_str,
                                zorder=ARROW_ZORDER_F)
+            # LLFR-01371, LLFR-01376: its width and style, dashed with
+            # the arrow dashes by default (LLFR-01378).
+            arrow_index_i = len(self.arrow_artist_list)
+            width_i, style_str = (
+                self.arrow_look_list[arrow_index_i]
+                if arrow_index_i < len(self.arrow_look_list)
+                else (1, DEFAULT_ARROW_STYLE_STR))
+            patch.set_linewidth(line_width_f(ARROW_LINE_WIDTH_F, width_i))
+            patch.line_style_value = matplotlib_line_style(
+                style_str, ARROW_LINE_STYLE_TUPLE)
             self.axes.add_artist(patch)
             patch.set_in_layout(False)
             self.arrow_artist_list.append(patch)
@@ -6742,9 +7263,11 @@ class PlotWidget(QWidget):
             # of at least 4.5:1 (LLFR-00704);
             # LLFR-00437: placed again at every draw. Not clipped: it is
             # kept inside the drawing area by itself.
+            # LLFR-01281: no name while the labels are hidden.
             arrow_label = ArrowLabel(
                 patch, self.arrow_name_list[len(self.arrow_label_list)]
-                if len(self.arrow_label_list) < len(self.arrow_name_list)
+                if (len(self.arrow_label_list) < len(self.arrow_name_list)
+                    and not self.labels_hidden_b)
                 else "", color_str,
                 theme.contrast_label_box_dict(color_str),
                 zorder=ARROW_ZORDER_F + 0.05)
@@ -7374,6 +7897,15 @@ class PlotWidget(QWidget):
                 return
             self.arrow_drag_to(widget_point)
             return
+        if self.shape_drag_mode_str:
+            # LLFR-01315, LLFR-01335, LLFR-01339: a move with the left
+            # button held after a press on the shapes updates the
+            # preview. A lost release ends the drag at the last point.
+            if not mouse_button_held_b(event, Qt.MouseButton.LeftButton):
+                self.finish_shape_drag()
+                return
+            self.shape_drag_to(widget_point)
+            return
         if self.delta_drag_id_i != NO_DELTA_MARKER_ID_I:
             # LLFR-00433: a move with the left button held after a press
             # on a dot of a delta marker drags its point. A lost release
@@ -7513,6 +8045,10 @@ class PlotWidget(QWidget):
         # LLFR-00372, LLFR-00376, LLFR-00377: or ends an arrow drag.
         if self.arrow_drag_mode_str != ARROW_DRAG_NONE_STR:
             self.arrow_release_at(widget_point)
+            return
+        # LLFR-01316, LLFR-01334, LLFR-01338: or ends a shape drag.
+        if self.shape_drag_mode_str:
+            self.shape_release_at(widget_point)
             return
         # LLFR-00433, LLFR-00866, LLFR-00867: or ends a press on a dot of
         # a delta marker.

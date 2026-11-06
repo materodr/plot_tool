@@ -13,8 +13,8 @@ from PyQt6.QtWidgets import (
 
 from controller.plot_tools import (
     ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
-    MARKER_TOOL_STR, NO_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
-    ZOOM_TOOL_STR)
+    CIRCLE_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, RECTANGLE_TOOL_STR,
+    TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 from model import file_writer
 from model.message_lists import list_text
 from model.window_placement import (
@@ -30,6 +30,7 @@ from view.plot_panel import PlotPanel
 from view.search_box_alignment import SearchBoxAligner
 from view.signal_list_panel import SignalListPanel
 from view.tip_key_filter import (
+    CIRCLE_KEY_I, RECTANGLE_KEY_I,
     ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, ESCAPE_KEY_I,
     MARKER_KEY_I, RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ZOOM_KEY_I,
     ToolKeyFilter)
@@ -56,6 +57,11 @@ RENAME_DELTA_DIALOG_LABEL_STR = "New delta marker name:"
 # LLFR-00439: the dialog that renames an arrow.
 RENAME_ARROW_DIALOG_TITLE_STR = "Rename arrow"
 RENAME_ARROW_DIALOG_LABEL_STR = "New arrow name:"
+# LLFR-01266, LLFR-01359: the dialogs that rename a data tip or a shape.
+RENAME_TIP_DIALOG_TITLE_STR = "Rename data tip"
+RENAME_TIP_DIALOG_LABEL_STR = "New data tip name:"
+RENAME_SHAPE_DIALOG_TITLE_STR = "Rename shape"
+RENAME_SHAPE_DIALOG_LABEL_STR = "New shape name:"
 # LLFR-00266: title and label of the synthetic signal rename dialog.
 RENAME_SIGNAL_DIALOG_TITLE_STR = "Rename signal"
 RENAME_SIGNAL_DIALOG_LABEL_STR = "New signal name:"
@@ -329,6 +335,14 @@ class MainWindow(QMainWindow):
             lambda: self._on_grid_clicked(True))
         self.top_panel.grid_button.deactivated.connect(
             lambda: self._on_grid_clicked(False))
+        # LLFR-01281, LLFR-01282, LLFR-01284: the Hide labels button; the
+        # labels are shown at start.
+        self.labels_handler = None
+        self.labels_hidden_b = False
+        self.top_panel.labels_button.activated.connect(
+            lambda: self._on_labels_clicked(True))
+        self.top_panel.labels_button.deactivated.connect(
+            lambda: self._on_labels_clicked(False))
         # LLFR-00127, LLFR-00133: the export controller saves the PDF
         # and copies the image.
         self.pdf_export_handler = None
@@ -350,8 +364,10 @@ class MainWindow(QMainWindow):
         # tool active; LLFR-00154 to LLFR-00156: holding Shift keeps the
         # Vertical marker tool active; LLFR-00197 to LLFR-00202: holding
         # X or Y keeps the Delta X or Delta Y tool active; LLFR-00287,
-        # LLFR-00321: holding A or T keeps the Area or Text tool active;
-        # LLFR-00367: holding R keeps the Arrow tool active;
+        # LLFR-00321: holding V or T keeps the Vert. Area or Text tool
+        # active; LLFR-00367: holding A keeps the Arrow tool active;
+        # LLFR-01274, LLFR-01277: holding C or R keeps the Circle or
+        # Rectangle tool active;
         # LLFR-01092: holding Z keeps the Zoom tool active;
         # LLFR-00207, LLFR-01095: 0 alone, of the main keyboard or of
         # the keypad, resets the zoom; LLFR-00370: Esc alone
@@ -367,7 +383,10 @@ class MainWindow(QMainWindow):
              DELTA_X_KEY_I: DELTA_X_TOOL_STR,
              DELTA_Y_KEY_I: DELTA_Y_TOOL_STR,
              AREA_KEY_I: AREA_TOOL_STR, TEXT_KEY_I: TEXT_TOOL_STR,
-             ARROW_KEY_I: ARROW_TOOL_STR, ZOOM_KEY_I: ZOOM_TOOL_STR},
+             ARROW_KEY_I: ARROW_TOOL_STR, ZOOM_KEY_I: ZOOM_TOOL_STR,
+             # LLFR-01274, LLFR-01277: the shape tools.
+             CIRCLE_KEY_I: CIRCLE_TOOL_STR,
+             RECTANGLE_KEY_I: RECTANGLE_TOOL_STR},
             self.on_tool_key_activate, self.on_tool_key_release,
             TEXT_INPUT_WIDGET_TUPLE, self,
             {RESET_ZOOM_KEY_I: self.on_reset_zoom_key,
@@ -471,6 +490,10 @@ class MainWindow(QMainWindow):
                 "close_file", number_i))
         panel.close_all_files_requested.connect(
             lambda: self._run_signal_menu_handler("close_all_files"))
+        # LLFR-01289: an option of "Create signal" of a file menu.
+        panel.create_signal_requested.connect(
+            lambda number_i, operation_str: self._run_signal_menu_handler(
+                "create_signal", number_i, operation_str))
         # LLFR-00997, LLFR-00998: the icons of the file name rows go to
         # the signal list controller; LLFR-01036: a file hidden in one
         # panel is hidden in every panel.
@@ -1418,6 +1441,27 @@ class MainWindow(QMainWindow):
             "rename": rename_handler, "delete": delete_handler,
             "copy_equation": copy_equation_handler})
 
+    def set_generator_operations(self, operation_list: list) -> None:
+        """Set the options of "Create signal" of the file menus.
+
+        Inputs:
+            operation_list: list of (operation id, label), in menu order.
+        Outputs: none.
+        """
+        # LLFR-01289: the same options in every signal list panel.
+        self.broadcast_signal_list("set_generator_operations",
+                                   operation_list)
+
+    def set_create_signal_handler(self, handler) -> None:
+        """Set the function called by an option of "Create signal".
+
+        Inputs:
+            handler: function taking (file number, operation id).
+        Outputs: none.
+        """
+        # LLFR-01289: the synthetic controller creates the signal.
+        self.signal_menu_handler_dict["create_signal"] = handler
+
     def set_file_menu_handlers(self, close_file_handler,
                                close_all_files_handler) -> None:
         """Set the functions called by the options of the file menu.
@@ -2237,6 +2281,8 @@ class MainWindow(QMainWindow):
             plot_widget.set_plot_tool(self.plot_tool_str)
             # LLFR-00125: a new plot shows the grid while it is shown.
             plot_widget.set_grid_shown(self.grid_shown_b)
+            # LLFR-01285: and hides its labels while they are hidden.
+            plot_widget.set_labels_hidden(self.labels_hidden_b)
 
     def remove_plot_view(self, plot_id_i: int) -> None:
         """Remove a plot from its tab.
@@ -2320,6 +2366,58 @@ class MainWindow(QMainWindow):
         if plot_widget is not None:
             plot_widget.set_arrows(arrow_data_list)
 
+    def set_shapes(self, plot_id_i: int, shape_data_list: list) -> None:
+        """Draw the shapes of a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            shape_data_list: see PlotWidget.set_shapes.
+        Outputs: none. An unknown plot id is ignored.
+        """
+        # LLFR-01331: the shapes are shown only on their plot.
+        plot_widget = self.plot_panel.plot_view(plot_id_i)
+        if plot_widget is not None:
+            plot_widget.set_shapes(shape_data_list)
+
+    def set_labels_handler(self, handler) -> None:
+        """Set the function called by the Hide labels button.
+
+        Inputs:
+            handler: function taking True (hide) or False (show).
+        Outputs: none.
+        """
+        # LLFR-01281, LLFR-01282: the controller keeps the state.
+        self.labels_handler = handler
+
+    def set_labels_hidden(self, hidden_b: bool) -> None:
+        """Hide or show the labels on every plot, now and on later plots.
+
+        Inputs:
+            hidden_b: True to hide the labels.
+        Outputs: none. The Hide labels button is shown to match.
+        """
+        # LLFR-01283: the button is active while the labels are hidden;
+        # setChecked emits no click.
+        self.labels_hidden_b = bool(hidden_b)
+        self.top_panel.labels_button.setChecked(self.labels_hidden_b)
+        # LLFR-01281, LLFR-01282: every plot of every window.
+        for plot_widget in self.plot_panel.plot_widget_dict.values():
+            plot_widget.set_labels_hidden(self.labels_hidden_b)
+
+    def _on_labels_clicked(self, hidden_b: bool) -> None:
+        """Pass a click on the Hide labels button to its handler.
+
+        Inputs:
+            hidden_b: True when the click asks to hide the labels.
+        Outputs: none.
+        """
+        # LLFR-01281, LLFR-01282: with no controller the window applies
+        # it itself.
+        if self.labels_handler is None:
+            self.set_labels_hidden(hidden_b)
+            return
+        self.labels_handler(hidden_b)
+
     def set_markers(self, marker_data_list: list) -> None:
         """Draw the shared vertical markers on every plot of every tab.
 
@@ -2391,6 +2489,31 @@ class MainWindow(QMainWindow):
         # the controller keeps the old name without a message.
         return self.ask_name(RENAME_DELTA_DIALOG_TITLE_STR,
                              RENAME_DELTA_DIALOG_LABEL_STR,
+                             current_name_str)
+
+    def ask_tip_name(self, current_name_str: str):
+        """Let the user type a new name for a pinned data tip.
+
+        Inputs:
+            current_name_str: the tip's name, shown in the dialog.
+        Outputs: the typed text, or None when the user cancelled.
+        """
+        # LLFR-01266: the dialog starts from the current name;
+        # LLFR-01268, LLFR-01269: a blank answer is returned as typed.
+        return self.ask_name(RENAME_TIP_DIALOG_TITLE_STR,
+                             RENAME_TIP_DIALOG_LABEL_STR, current_name_str)
+
+    def ask_shape_name(self, current_name_str: str):
+        """Let the user type a new name for a shape.
+
+        Inputs:
+            current_name_str: the shape's name, shown in the dialog.
+        Outputs: the typed text, or None when the user cancelled.
+        """
+        # LLFR-01359: the dialog starts from the current name;
+        # LLFR-01361, LLFR-01362: a blank answer is returned as typed.
+        return self.ask_name(RENAME_SHAPE_DIALOG_TITLE_STR,
+                             RENAME_SHAPE_DIALOG_LABEL_STR,
                              current_name_str)
 
     def ask_arrow_name(self, current_name_str: str):

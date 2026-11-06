@@ -51,6 +51,39 @@ def find_action(menu, text_str: str):
     return None
 
 
+def answer_range_dialog(controller, choice_str: str = "shown") -> list:
+    """Make the range dialog of the FFT and the statistics answer alone.
+
+    Inputs:
+        controller: the MainController of the window under test.
+        choice_str: "shown" for "Shown x-axis range" or "whole" for
+            "Whole signal" (LLFR-01308).
+    Outputs: a list that collects each reason the dialog would show
+        (LLFR-01382); with a reason, the dialog is cancelled.
+    """
+    # LLFR-01308: no modal dialog in the tests; the controller's check
+    # is called as the dialog calls it.
+    reason_list = []
+
+    def answer(title_str, prompt_str, field_list, check_function,
+               choice_tuple=()):
+        """Answer the dialog with the chosen range.
+
+        Inputs:
+            title_str, prompt_str, field_list, check_function,
+            choice_tuple: as for MainWindow.ask_synthetic_parameter.
+        Outputs: [choice_str], or None when the check gives a reason.
+        """
+        reason_str = check_function([choice_str])
+        if reason_str:
+            reason_list.append(reason_str)
+            return None
+        return [choice_str]
+
+    controller.synthetic_controller.view.ask_synthetic_parameter = answer
+    return reason_list
+
+
 @requires_qt
 class FrequencyPlotWidgetTest(unittest.TestCase):
     """A frequency PlotWidget on its own."""
@@ -438,6 +471,8 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         Inputs: none.
         Outputs: the name of the FFT signal.
         """
+        # LLFR-01308: "Shown x-axis range" in the FFT's range dialog.
+        answer_range_dialog(self.controller)
         if self.plot_controller.time_plot_list():
             self.choose("file1_Speed", "FFT (fft)")
             return self.panel.signal_name_list()[-1]
@@ -631,24 +666,31 @@ class FrequencyPlotEndToEndTest(unittest.TestCase):
         self.assertTrue(copied_b, reason_str)
         self.assertFalse(QApplication.clipboard().image().isNull())
 
-    @covers("LLFR-00592", "LLFR-00979", "HLFR-00057")
-    def test_fft_without_a_time_plot_shows_a_box(self) -> None:
-        """With no time plot, choosing FFT creates nothing and shows an
-        information box with the text of LLFR-00979.
+    @covers("LLFR-00592", "LLFR-01311", "LLFR-01382", "LLFR-01392",
+            "LLFR-01308", "HLFR-00057")
+    def test_fft_range_choice_without_a_time_plot(self) -> None:
+        """With no time plot, "Shown x-axis range" keeps the dialog open
+        with the reason and creates nothing; "Whole signal" creates the
+        FFT of the whole file.
 
         Inputs: none.
         Outputs: none.
         """
         name_list = self.panel.signal_name_list()
+        reason_list = answer_range_dialog(self.controller, "shown")
         self.choose("file1_Speed", "FFT (fft)")
         self.assertEqual(self.panel.signal_name_list(), name_list)
         self.assertEqual(self.controller.synthetic_controller.store.names(),
                          [])
-        self.assertEqual(self.box_record_list, [(
-            "Create synthetic signal", self.message_box_class.Icon.Information,
-            "The FFT is computed only over the time range shown on the "
-            "x-axis of the time plots. Plot a signal in a time plot and "
-            "zoom to the time range you want, then create the FFT again.")])
+        self.assertEqual(len(reason_list), 1)
+        self.assertIn("needs a time plot", reason_list[0])
+        self.assertEqual(self.box_record_list, [])
+        # LLFR-01392: the whole signal needs no time plot.
+        answer_range_dialog(self.controller, "whole")
+        self.choose("file1_Speed", "FFT (fft)")
+        store = self.controller.synthetic_controller.store
+        self.assertEqual(len(store.names()), 1)
+        self.assertTrue(store.is_fft(store.names()[0]))
 
     @covers("LLFR-00140", "LLFR-00138", "LLFR-00192", "LLFR-00039",
             "LLFR-00051")

@@ -64,6 +64,11 @@ REPORT_BUG_ICON_STR = "report_bug"
 ARROW_ICON_STR = "arrow"
 # LLFR-00159 item 20, LLFR-00394: the Save signals icon.
 SAVE_SIGNALS_ICON_STR = "save_signals"
+# LLFR-00159 items 21 to 23, LLFR-01272, LLFR-01273, LLFR-01280: the
+# Circle, Rectangle and Hide labels icons.
+CIRCLE_ICON_STR = "circle"
+RECTANGLE_ICON_STR = "rectangle"
+HIDE_LABELS_ICON_STR = "hide_labels"
 # LLFR-00159 item 17: the four fingers of the Pan icon, as (x, top of
 # the finger), on the 24 by 24 grid; each finger ends at the palm.
 PAN_FINGER_TUPLE = ((8.75, 6.0), (11.75, 3.5), (15.0, 4.5), (18.25, 7.5))
@@ -561,6 +566,42 @@ def arrow_shape() -> list:
               ("Z",)], INK_ROLE_STR, INK_ROLE_STR, ICON_STROKE_WIDTH_F)]
 
 
+def circle_shape() -> list:
+    """Return the Circle icon: a circle drawn as a line (21).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 21: an unfilled circle, like the circles the tool
+    # draws (LLFR-01321).
+    return [ink_layer([("O", 12.0, 12.0, 8.0)])]
+
+
+def rectangle_shape() -> list:
+    """Return the Rectangle icon: a rectangle drawn as a line (22).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 22: an unfilled rectangle, wider than high, like
+    # the rectangles the tool draws (LLFR-01322).
+    return [ink_layer([("R", 3.5, 6.5, 17.0, 11.0, 0.5)])]
+
+
+def hide_labels_shape() -> list:
+    """Return the Hide labels icon: a label tag crossed out (23).
+
+    Inputs: none.
+    Outputs: the list of layers.
+    """
+    # LLFR-00159 item 23: a tag with a pointed left end and a hole,
+    # crossed by a diagonal line from the upper left to the lower right.
+    tag_list = [("M", 3.5, 12.0), ("L", 8.0, 7.0), ("L", 20.0, 7.0),
+                ("L", 20.0, 17.0), ("L", 8.0, 17.0), ("Z",)]
+    return [ink_layer(tag_list), ink_layer([("O", 9.0, 12.0, 1.25)]),
+            ink_layer(segment(4.0, 3.5, 20.0, 20.5))]
+
+
 # LLFR-00159: icon name -> function that returns its layers.
 ICON_SHAPE_FUNCTION_DICT = {
     OPEN_FILE_ICON_STR: open_file_shape,
@@ -583,6 +624,9 @@ ICON_SHAPE_FUNCTION_DICT = {
     REPORT_BUG_ICON_STR: report_bug_shape,
     ARROW_ICON_STR: arrow_shape,
     SAVE_SIGNALS_ICON_STR: save_signals_shape,
+    CIRCLE_ICON_STR: circle_shape,
+    RECTANGLE_ICON_STR: rectangle_shape,
+    HIDE_LABELS_ICON_STR: hide_labels_shape,
 }
 ICON_NAME_TUPLE = tuple(ICON_SHAPE_FUNCTION_DICT)
 

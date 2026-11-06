@@ -126,7 +126,7 @@ class UndoControllerTestCase(PlotControllerTestCase):
                 tip_tuple = tuple((tip[0], tip[1], tip[2], tuple(tip[3]))
                                   for tip in tip_list)
                 marker_tuple = tuple(
-                    tuple(marker)
+                    tuple(marker[:4])
                     for marker in self.view.marker_drawn_dict[plot_id_i])
                 plot_list.append((plot_id_i, tab_id_i, curve_tuple,
                                   tip_tuple, marker_tuple))

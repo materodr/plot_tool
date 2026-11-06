@@ -23,13 +23,14 @@ from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QMenu, QWidget
 
 from controller.plot_tools import (
-    ARROW_TOOL_STR, AREA_TOOL_STR, DELTA_X_TOOL_STR, DELTA_Y_TOOL_STR,
-    MARKER_TOOL_STR, NO_TOOL_STR, PAN_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR,
-    ZOOM_TOOL_STR)
+    ARROW_TOOL_STR, AREA_TOOL_STR, CIRCLE_TOOL_STR, DELTA_X_TOOL_STR,
+    DELTA_Y_TOOL_STR, MARKER_TOOL_STR, NO_TOOL_STR, PAN_TOOL_STR,
+    RECTANGLE_TOOL_STR, TEXT_TOOL_STR, TIP_TOOL_STR, ZOOM_TOOL_STR)
 from view import icon_shapes, theme
 from view.action_button import ActionButton
 from view.tip_key_filter import (
-    ARROW_KEY_I, AREA_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I, MARKER_KEY_I,
+    ARROW_KEY_I, AREA_KEY_I, CIRCLE_KEY_I, DELTA_X_KEY_I, DELTA_Y_KEY_I,
+    MARKER_KEY_I, RECTANGLE_KEY_I,
     RESET_ZOOM_KEY_I, TEXT_KEY_I, TIP_KEY_I, ZOOM_KEY_I)
 from view.text_note_editor import KEEPS_TEXT_NOTE_OPEN_PROPERTY_STR
 from view.toggle_button import ToggleButton
@@ -50,13 +51,18 @@ MARKER_TEXT_STR = "Flag"
 # LLFR-00161, LLFR-00162: the delta marker tool buttons.
 DELTA_X_TEXT_STR = "Delta X"
 DELTA_Y_TEXT_STR = "Delta Y"
-# LLFR-00286, LLFR-00320: the Area and Text tool buttons.
-AREA_TEXT_STR = "Area"
+# LLFR-00286, LLFR-00320: the Vert. Area and Text tool buttons.
+AREA_TEXT_STR = "Vert. Area"
 TEXT_TEXT_STR = "Text"
 # LLFR-00366: the Arrow tool button.
 ARROW_TEXT_STR = "Arrow"
+# LLFR-01272, LLFR-01273: the shape tool buttons, right of Arrow.
+CIRCLE_TEXT_STR = "Circle"
+RECTANGLE_TEXT_STR = "Rectangle"
 RESET_ZOOM_TEXT_STR = "Reset zoom"
 GRID_TEXT_STR = "Grid"
+# LLFR-01280: the Hide labels button, right of Grid.
+HIDE_LABELS_TEXT_STR = "Hide labels"
 # LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
 EXPORT_TEXT_STR = "Export"
 SAVE_PDF_TEXT_STR = "Save all tabs as PDF"
@@ -95,6 +101,9 @@ BUTTON_ICON_DICT = {
     AREA_TEXT_STR: icon_shapes.AREA_ICON_STR,
     TEXT_TEXT_STR: icon_shapes.TEXT_ICON_STR,
     ARROW_TEXT_STR: icon_shapes.ARROW_ICON_STR,
+    CIRCLE_TEXT_STR: icon_shapes.CIRCLE_ICON_STR,
+    RECTANGLE_TEXT_STR: icon_shapes.RECTANGLE_ICON_STR,
+    HIDE_LABELS_TEXT_STR: icon_shapes.HIDE_LABELS_ICON_STR,
     RESET_ZOOM_TEXT_STR: icon_shapes.RESET_ZOOM_ICON_STR,
     GRID_TEXT_STR: icon_shapes.GRID_ICON_STR,
     EXPORT_TEXT_STR: icon_shapes.EXPORT_ICON_STR,
@@ -164,11 +173,14 @@ BUTTON_TIP_SHORTCUT_DICT = {
     MARKER_TEXT_STR: (SHORTCUT_HOLD_STR, MARKER_KEY_I),
     DELTA_X_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_X_KEY_I),
     DELTA_Y_TEXT_STR: (SHORTCUT_HOLD_STR, DELTA_Y_KEY_I),
-    # LLFR-00287, LLFR-00321: "Hold A" and "Hold T".
+    # LLFR-00287, LLFR-00321: "Hold V" and "Hold T".
     AREA_TEXT_STR: (SHORTCUT_HOLD_STR, AREA_KEY_I),
     TEXT_TEXT_STR: (SHORTCUT_HOLD_STR, TEXT_KEY_I),
-    # LLFR-00367: "Hold R".
+    # LLFR-00367: "Hold A".
     ARROW_TEXT_STR: (SHORTCUT_HOLD_STR, ARROW_KEY_I),
+    # LLFR-00215: "Hold C" and "Hold R".
+    CIRCLE_TEXT_STR: (SHORTCUT_HOLD_STR, CIRCLE_KEY_I),
+    RECTANGLE_TEXT_STR: (SHORTCUT_HOLD_STR, RECTANGLE_KEY_I),
     # LLFR-00215, LLFR-00207: "0".
     RESET_ZOOM_TEXT_STR: (SHORTCUT_PRESS_STR, RESET_ZOOM_KEY_I),
     # LLFR-00463, LLFR-01092: "Hold Z", then the two mouse lines.
@@ -353,10 +365,14 @@ class TopPanel(QWidget):
         marker_button: the "Vertical marker" ToggleButton (LLFR-00080).
         delta_x_button: the "Delta X" ToggleButton (LLFR-00161).
         delta_y_button: the "Delta Y" ToggleButton (LLFR-00162).
-        area_button: the "Area" ToggleButton (LLFR-00286).
+        area_button: the "Vert. Area" ToggleButton (LLFR-00286).
         text_button: the "Text" ToggleButton (LLFR-00320).
         arrow_button: the "Arrow" ToggleButton (LLFR-00366), right of
             Text.
+        circle_button, rectangle_button: the "Circle" and "Rectangle"
+            ToggleButtons (LLFR-01272, LLFR-01273), right of Arrow.
+        labels_button: the "Hide labels" ToggleButton (LLFR-01280),
+            right of Grid; active while the labels are hidden.
         plot_tool_button_dict: plot tool name -> its ToggleButton, in
             the order of the buttons (LLFR-00347).
         reset_zoom_button: the "Reset zoom" ActionButton (LLFR-00114);
@@ -442,6 +458,11 @@ class TopPanel(QWidget):
         # LLFR-00366: the Arrow tool button, the last plot tool.
         self.arrow_button = new_icon_button(
             ToggleButton, ARROW_TEXT_STR, "arrow_button")
+        # LLFR-01272, LLFR-01273: the Circle and Rectangle tools.
+        self.circle_button = new_icon_button(
+            ToggleButton, CIRCLE_TEXT_STR, "circle_button")
+        self.rectangle_button = new_icon_button(
+            ToggleButton, RECTANGLE_TEXT_STR, "rectangle_button")
         # LLFR-00079, LLFR-00347: the plot tools, in the order of their
         # buttons.
         self.plot_tool_button_dict = {
@@ -453,7 +474,9 @@ class TopPanel(QWidget):
             DELTA_Y_TOOL_STR: self.delta_y_button,
             AREA_TOOL_STR: self.area_button,
             TEXT_TOOL_STR: self.text_button,
-            ARROW_TOOL_STR: self.arrow_button}
+            ARROW_TOOL_STR: self.arrow_button,
+            CIRCLE_TOOL_STR: self.circle_button,
+            RECTANGLE_TOOL_STR: self.rectangle_button}
         for tool_str, button in self.plot_tool_button_dict.items():
             # LLFR-00333: turning a plot tool on or off with its button
             # keeps a text note field open (TextNoteEditor).
@@ -470,6 +493,10 @@ class TopPanel(QWidget):
             ActionButton, RESET_ZOOM_TEXT_STR, "reset_zoom_button")
         self.grid_button = new_icon_button(
             ToggleButton, GRID_TEXT_STR, "grid_button")
+        # LLFR-01280, LLFR-01283: the Hide labels button, active while
+        # the labels are hidden; not a plot tool.
+        self.labels_button = new_icon_button(
+            ToggleButton, HIDE_LABELS_TEXT_STR, "labels_button")
         # LLFR-00126, LLFR-00132: the Export and Copy buttons; they are
         # active while their function runs (LLFR-00001, LLFR-00003).
         self.export_button = new_icon_button(
@@ -501,7 +528,7 @@ class TopPanel(QWidget):
             [self.open_file_button, self.save_layout_button,
              self.load_layout_button],
             list(self.plot_tool_button_dict.values()),
-            [self.reset_zoom_button, self.grid_button],
+            [self.reset_zoom_button, self.grid_button, self.labels_button],
             [self.export_button, self.copy_button,
              self.save_signals_button],
             [self.undo_button, self.redo_button],
