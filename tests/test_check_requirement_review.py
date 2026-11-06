@@ -1,5 +1,5 @@
 """Self-tests for tests/check_requirement_review.py (PCR-00050 to
-PCR-00053)."""
+PCR-00053, PCR-00125)."""
 
 import io
 import json
@@ -12,9 +12,13 @@ from unittest import mock
 from tests.check_requirement_review import (DEVELOP_HEADING_STR,
                                             DEVELOP_SCOPE_DICT,
                                             MAIN_HEADING_STR, MAIN_SCOPE_DICT,
+                                            MATRIX_SCOPE_DICT,
+                                            NOT_APPLICABLE_TEXT_STR,
                                             added_requirement_ids,
+                                            check_body_file,
                                             has_review_section, main,
-                                            missing_scope, run_hook)
+                                            missing_scope, run_hook,
+                                            scope_satisfied)
 from tests.support import covers
 
 MODULE_STR = "tests.check_requirement_review"
@@ -23,6 +27,8 @@ MAIN_BODY_STR = (f"Release.\n\n## {MAIN_HEADING_STR}\n"
 DEVELOP_BODY_STR = (f"Feature.\n\n## {DEVELOP_HEADING_STR}\n"
                     "Scope: PCR-00052. Result: pass.\n")
 BAD_BODY_STR = "No review.\n"
+MATRIX_BODY_STR = (f"Matrix of release #300.\n\n## {MAIN_HEADING_STR}\n\n"
+                   f"{NOT_APPLICABLE_TEXT_STR}\n")
 
 
 class ReviewSectionTest(unittest.TestCase):
@@ -224,7 +230,8 @@ class CommandTest(unittest.TestCase):
         self.folder_str = folder.name
         for name_str, text_str in (("main.md", MAIN_BODY_STR),
                                    ("develop.md", DEVELOP_BODY_STR),
-                                   ("bad.md", BAD_BODY_STR)):
+                                   ("bad.md", BAD_BODY_STR),
+                                   ("matrix.md", MATRIX_BODY_STR)):
             path_str = os.path.join(self.folder_str, name_str)
             with open(path_str, "w", encoding="utf-8") as text_file:
                 text_file.write(text_str)
@@ -391,6 +398,72 @@ class CommandTest(unittest.TestCase):
                     self.missing(f"gh api repos/a/b/pulls --input {name_str}",
                                  ["PCR-00052"]),
                     expected_dict)
+
+
+class MatrixPullRequestTest(unittest.TestCase):
+    """Check the section of the matrix pull request into main."""
+
+    def setUp(self) -> None:
+        """Create a folder with description files.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.folder_str = folder.name
+        for name_str, text_str in (("main.md", MAIN_BODY_STR),
+                                   ("matrix.md", MATRIX_BODY_STR)):
+            path_str = os.path.join(self.folder_str, name_str)
+            with open(path_str, "w", encoding="utf-8") as text_file:
+                text_file.write(text_str)
+
+    @covers("PCR-00125", "PCR-00051")
+    def test_not_applicable_only_for_the_matrix_scope(self) -> None:
+        """The "Not applicable" text passes only for a matrix branch.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.assertTrue(scope_satisfied(MATRIX_BODY_STR, MATRIX_SCOPE_DICT))
+        self.assertFalse(scope_satisfied(MATRIX_BODY_STR, MAIN_SCOPE_DICT))
+        self.assertFalse(scope_satisfied(MAIN_BODY_STR, MATRIX_SCOPE_DICT))
+        self.assertTrue(scope_satisfied(MAIN_BODY_STR, MAIN_SCOPE_DICT))
+
+    @covers("PCR-00125")
+    def test_hook_for_the_matrix_branch(self) -> None:
+        """The hook lets the matrix pull request with its section run.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        matrix_command_str = ("gh pr create --base main --head "
+                              "test-matrix/300-main --body-file matrix.md")
+        self.assertEqual(missing_scope(matrix_command_str, self.folder_str),
+                         {})
+        self.assertEqual(missing_scope(
+            "gh api repos/a/b/pulls -f base=main -f head=test-matrix/300-main"
+            " -F body=@matrix.md", self.folder_str), {})
+        self.assertEqual(missing_scope(
+            matrix_command_str.replace("matrix.md", "main.md"),
+            self.folder_str), MATRIX_SCOPE_DICT)
+        self.assertEqual(missing_scope(
+            "gh pr create --base main --head develop --body-file matrix.md",
+            self.folder_str), MAIN_SCOPE_DICT)
+
+    @covers("PCR-00125")
+    def test_ci_check_for_the_matrix_branch(self) -> None:
+        """The CI check uses the head branch to accept the section.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        matrix_path_str = os.path.join(self.folder_str, "matrix.md")
+        with mock.patch("sys.stdout", new_callable=io.StringIO):
+            self.assertEqual(check_body_file(
+                matrix_path_str, "main", "a" * 40, "test-matrix/300-main"), 0)
+            self.assertEqual(check_body_file(
+                matrix_path_str, "main", "a" * 40, "develop"), 1)
 
 
 class EntryPointTest(unittest.TestCase):

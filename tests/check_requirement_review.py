@@ -11,7 +11,10 @@ request has to show the result in a section with its own heading:
   into main, under MAIN_HEADING_STR (PCR-00050, PCR-00051);
 - into develop: the requirements that the branch adds, under
   DEVELOP_HEADING_STR (PCR-00052, PCR-00053). A branch that adds no
-  requirement needs no section.
+  requirement needs no section;
+- the matrix pull request into main, from a test-matrix/ branch: the
+  section MAIN_HEADING_STR with exactly NOT_APPLICABLE_TEXT_STR
+  (PCR-00125). That text is accepted only there.
 
 A script can't tell whether the review was good, so this only checks that
 the section is there.
@@ -42,6 +45,10 @@ MAIN_BRANCH_STR = "main"
 DEVELOP_BRANCH_STR = "develop"
 MAIN_HEADING_STR = "Requirement validation (PCR-00050)"
 DEVELOP_HEADING_STR = "Requirement validation (PCR-00052)"
+# PCR-00125: the section of the matrix pull request into main.
+NOT_APPLICABLE_TEXT_STR = ("Not applicable: this PR changes only "
+                           "tests/test_matrix.md.")
+TEST_MATRIX_BRANCH_PREFIX_STR = "test-matrix/"
 HEADING_PATTERN_STR = r"#{1,6}[ \t]+"
 # The four files of docs/requirements/README.md. README.md itself is left
 # out because its examples look like requirements.
@@ -75,6 +82,12 @@ MAIN_SCOPE_DICT = {"scope": "PCR-00050, PCR-00051",
 DEVELOP_SCOPE_DICT = {"scope": "PCR-00052, PCR-00053",
                       "reviewed": "every requirement that this branch adds",
                       "heading": DEVELOP_HEADING_STR}
+MATRIX_SCOPE_DICT = {"scope": "PCR-00125",
+                     "reviewed": ("nothing, as this pull request changes only "
+                                  "the matrix; write exactly \""
+                                  + NOT_APPLICABLE_TEXT_STR + "\" under it"),
+                     "heading": MAIN_HEADING_STR,
+                     "required_text": NOT_APPLICABLE_TEXT_STR}
 
 
 def has_review_section(body_str: str, heading_str: str) -> bool:
@@ -97,6 +110,69 @@ def has_review_section(body_str: str, heading_str: str) -> bool:
         if re.fullmatch(section_pattern_str, line_str.strip()):
             in_section_b = True
     return False
+
+
+def section_text(body_str: str, heading_str: str) -> str:
+    """Read the text of a section of a description.
+
+    Inputs:
+        body_str: the text of the pull request description.
+        heading_str: the section's heading, without its # characters.
+    Outputs: the lines between the first such heading and the next
+        heading, joined with spaces and stripped, or an empty text.
+    """
+    section_pattern_str = HEADING_PATTERN_STR + re.escape(heading_str)
+    line_list = []
+    in_section_b = False
+    for line_str in body_str.splitlines():
+        if in_section_b:
+            if re.match(HEADING_PATTERN_STR, line_str):
+                break
+            if line_str.strip():
+                line_list.append(line_str.strip())
+        elif re.fullmatch(section_pattern_str, line_str.strip()):
+            in_section_b = True
+    return " ".join(line_list)
+
+
+def scope_satisfied(body_str: str, scope_dict: dict) -> bool:
+    """Tell whether a description has the section that a scope needs.
+
+    Inputs:
+        body_str: the text of the pull request description.
+        scope_dict: MAIN_SCOPE_DICT, DEVELOP_SCOPE_DICT or
+            MATRIX_SCOPE_DICT.
+    Outputs: for the matrix pull request, True when the section holds
+        exactly NOT_APPLICABLE_TEXT_STR (PCR-00125); into main otherwise,
+        True when the section has content other than that text
+        (PCR-00051); into develop, True when the section has content
+        (PCR-00053).
+    """
+    text_str = section_text(body_str, scope_dict["heading"])
+    if "required_text" in scope_dict:
+        return text_str == scope_dict["required_text"]
+    if scope_dict is MAIN_SCOPE_DICT and text_str == NOT_APPLICABLE_TEXT_STR:
+        return False
+    return has_review_section(body_str, scope_dict["heading"])
+
+
+def branch_name(head_str: str, folder_str: str) -> str:
+    """Find the branch name of the head of a pull request.
+
+    Inputs:
+        head_str: the branch, commit or "HEAD" named by the command.
+        folder_str: a folder of the git checkout.
+    Outputs: the current branch's name for "HEAD", else head_str itself.
+        An empty text when git can't tell.
+    """
+    if head_str != "HEAD":
+        return head_str
+    try:
+        return subprocess.run(
+            ["git", "-C", folder_str, "rev-parse", "--abbrev-ref", "HEAD"],
+            check=True, capture_output=True, text=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
 
 
 def added_requirement_ids(base_str: str, head_str: str,
@@ -131,18 +207,26 @@ def added_requirement_ids(base_str: str, head_str: str,
     return None
 
 
-def needed_scope(base_str: str, head_str: str, folder_str: str) -> dict:
+def needed_scope(base_str: str, head_str: str, folder_str: str,
+                 head_branch_str: str = "") -> dict:
     """Choose the review section that a pull request needs.
 
     Inputs:
         base_str: the branch the pull request goes into.
         head_str: the branch or commit of the pull request.
         folder_str: a folder of the git checkout.
-    Outputs: MAIN_SCOPE_DICT or DEVELOP_SCOPE_DICT, or an empty dict when
-        it needs no section. When git can't tell what the branch adds, it
-        needs none here, because the CI job still checks the pull request.
+        head_branch_str: the name of the head branch, or empty to take it
+            from head_str (branch_name).
+    Outputs: MATRIX_SCOPE_DICT for a test-matrix/ branch into main
+        (PCR-00125), MAIN_SCOPE_DICT for any other pull request into main,
+        DEVELOP_SCOPE_DICT, or an empty dict when it needs no section.
+        When git can't tell what the branch adds, it needs none here,
+        because the CI job still checks the pull request.
     """
     if base_str == MAIN_BRANCH_STR:
+        if (head_branch_str or branch_name(head_str, folder_str)).startswith(
+                TEST_MATRIX_BRANCH_PREFIX_STR):
+            return MATRIX_SCOPE_DICT
         return MAIN_SCOPE_DICT
     if base_str == DEVELOP_BRANCH_STR and added_requirement_ids(
             base_str, head_str, folder_str):
@@ -199,16 +283,17 @@ def check_pr_create(command_str: str, folder_str: str) -> dict:
         return {}
     path_str = option_value(r"(?:--body-file[= ]|-F[= ]?)", command_str)
     if path_str and path_str != "-":
-        found_b = has_review_section(read_text_file(path_str, folder_str),
-                                     scope_dict["heading"])
+        found_b = scope_satisfied(read_text_file(path_str, folder_str),
+                                  scope_dict)
     else:
         # The description is in the command itself: an option or a here
         # document. Its quotes and line breaks can't be read reliably
         # here, so the heading is enough, and the CI job checks the
         # content.
-        found_b = re.search(HEADING_PATTERN_STR
-                            + re.escape(scope_dict["heading"]),
-                            command_str) is not None
+        found_b = (re.search(HEADING_PATTERN_STR
+                             + re.escape(scope_dict["heading"]),
+                             command_str) is not None
+                   and scope_dict.get("required_text", "") in command_str)
     return {} if found_b else scope_dict
 
 
@@ -233,8 +318,8 @@ def check_api_pulls(command_str: str, folder_str: str) -> dict:
         scope_dict = needed_scope(str(input_dict.get("base")),
                                   str(input_dict.get("head") or "HEAD"),
                                   folder_str)
-        if scope_dict and has_review_section(
-                str(input_dict.get("body") or ""), scope_dict["heading"]):
+        if scope_dict and scope_satisfied(
+                str(input_dict.get("body") or ""), scope_dict):
             return {}
         return scope_dict
     base_match = re.search(r"\bbase=['\"]?([^\s'\"]+)", command_str)
@@ -249,13 +334,13 @@ def check_api_pulls(command_str: str, folder_str: str) -> dict:
     body_path_match = re.search(r"\bbody=@(['\"]?)(.+?)\1(?:\s|$)",
                                 command_str, re.MULTILINE)
     if body_path_match:
-        found_b = has_review_section(
-            read_text_file(body_path_match.group(2), folder_str),
-            scope_dict["heading"])
+        found_b = scope_satisfied(
+            read_text_file(body_path_match.group(2), folder_str), scope_dict)
     else:
-        found_b = re.search(HEADING_PATTERN_STR
-                            + re.escape(scope_dict["heading"]),
-                            command_str) is not None
+        found_b = (re.search(HEADING_PATTERN_STR
+                             + re.escape(scope_dict["heading"]),
+                             command_str) is not None
+                   and scope_dict.get("required_text", "") in command_str)
     return {} if found_b else scope_dict
 
 
@@ -302,20 +387,23 @@ def run_hook() -> int:
     return 2
 
 
-def check_body_file(body_path_str: str, base_str: str, head_str: str) -> int:
+def check_body_file(body_path_str: str, base_str: str, head_str: str,
+                    head_branch_str: str = "") -> int:
     """Check a saved pull request description, for the CI job.
 
     Inputs:
         body_path_str: the path of the saved description.
         base_str: the branch the pull request goes into.
         head_str: the commit of the pull request.
+        head_branch_str: the name of the head branch of the pull request.
     Outputs: the process exit code, 0 when the description has what the
         pull request needs.
     """
     with open(body_path_str, encoding="utf-8") as body_file:
         body_str = body_file.read()
     if base_str == MAIN_BRANCH_STR:
-        scope_dict = MAIN_SCOPE_DICT
+        scope_dict = needed_scope(base_str, head_str, os.getcwd(),
+                                  head_branch_str or head_str)
     else:
         added_id_list = added_requirement_ids(base_str, head_str, os.getcwd())
         if added_id_list is None:
@@ -327,12 +415,13 @@ def check_body_file(body_path_str: str, base_str: str, head_str: str) -> int:
             return 0
         print("This branch adds: " + ", ".join(added_id_list))
         scope_dict = DEVELOP_SCOPE_DICT
-    if has_review_section(body_str, scope_dict["heading"]):
+    if scope_satisfied(body_str, scope_dict):
         print(f"Result: pass, the section \"{scope_dict['heading']}\" is "
               "there.")
         return 0
-    print(f"Result: fail, the section \"{scope_dict['heading']}\" is missing "
-          f"or empty ({scope_dict['scope']}). Run the "
+    print(f"Result: fail, the section \"{scope_dict['heading']}\" is missing, "
+          f"empty or not the one this pull request needs "
+          f"({scope_dict['scope']}). Run the "
           f"requirement-validation skill on {scope_dict['reviewed']} and add "
           "its result to the pull request description.")
     return 1
@@ -348,12 +437,14 @@ def main() -> int:
     parser.add_argument("--body-file", default="")
     parser.add_argument("--base", default=MAIN_BRANCH_STR)
     parser.add_argument("--head", default="HEAD")
+    parser.add_argument("--head-branch", default="")
     parser.add_argument("--hook", action="store_true")
     argument_namespace = parser.parse_args()
     if argument_namespace.hook:
         return run_hook()
     return check_body_file(argument_namespace.body_file,
-                           argument_namespace.base, argument_namespace.head)
+                           argument_namespace.base, argument_namespace.head,
+                           argument_namespace.head_branch)
 
 
 if __name__ == "__main__":

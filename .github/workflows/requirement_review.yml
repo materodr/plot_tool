@@ -34,8 +34,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # PCR-00125: the matrix pull request into main, from a test-matrix/
+      # branch, has the section with "Not applicable" instead.
       - name: Check the requirements review section
         env:
+          HEAD_BRANCH: ${{ github.head_ref }}
           PULL_REQUEST_BODY: ${{ github.event.pull_request.body }}
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
           HEAD_COMMIT: ${{ github.event.pull_request.head.sha }}
@@ -43,7 +46,8 @@ jobs:
           printf '%s' "$PULL_REQUEST_BODY" > pull_request_body.md
           python tests/check_requirement_review.py \
             --body-file pull_request_body.md \
-            --base "$BASE_BRANCH" --head "$HEAD_COMMIT"
+            --base "$BASE_BRANCH" --head "$HEAD_COMMIT" \
+            --head-branch "$HEAD_BRANCH"
 
   # PCR-00070: the reviewer sees every Fail*, with its justification, at
   # the top of the description, or "none".

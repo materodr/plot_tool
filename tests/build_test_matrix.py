@@ -45,10 +45,11 @@ table, and the script prints that section, ready to paste at the top of
 the pull request description, or the section with the single entry
 `none` when there is no Fail* (PCR-00070).
 
-CI is the only builder of tests/test_matrix.md (PCR-00061): it runs
-this script with --output test_matrix_ci.md, posts that file on each
-pull request and, after a release, opens one pull request into main
-that puts it in tests/test_matrix.md. Run locally, the script writes
+CI runs this script with --output test_matrix_ci.md and posts that
+file on each pull request. After a release, an agent opens two pull
+requests, one into main and one into develop, that put the release
+run's file in tests/test_matrix.md (PCR-00061, PCR-00085). Run locally,
+the script writes
 test_matrix_local.md at the repository root by default, which git
 ignores, so that a branch leaves tests/test_matrix.md unchanged
 (PCR-00081).

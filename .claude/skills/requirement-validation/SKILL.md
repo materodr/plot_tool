@@ -19,8 +19,8 @@ This skill checks, validates by independent review, and corrects the requirement
    - the same triggers, conditions, values, texts and exceptions.
    Keep an ambiguity rather than guess.
 3. The tests must pass.
-4. HLFR changes need the owner's approval (PCR-00029). Either ask him, or say in the PR that he approves the HLFR changes there.
-5. Agents never merge into `main` (PCR-00015). The owner approves requirement-fix PRs himself unless he says otherwise.
+4. Any new or changed HLFR, PCR or COR text needs the owner's **explicit** approval, given in the conversation with the coordinator **before the text is written** (PCR-00029, PCR-00123, PCR-00124). The PR's requirement validation section states that approval (PCR-00126). LLFRs are the agents' work (PCR-00030).
+5. A requirement-fix PR follows the flow of `docs/process/feature_fix_flow.md` like any fix (PCR-00120): the independent reviewer merges it into `develop` once CI passes (PCR-00096), and the owner is told with the link (PCR-00119). Agents never merge into `main` (PCR-00015).
 
 ---
 
@@ -89,10 +89,13 @@ When in doubt, don't split: over-splitting hurts readability.
 - stale wording such as "today" or "currently";
 - a wrong or missing reference or parent.
 
-## Step 4. Correction, through a Fix issue and PR
+## Step 4. Correction, through a Fix issue and the flow
+Corrections follow the flow of `docs/process/feature_fix_flow.md` (PCR-00120): this step is the implementer's loop (steps 3 to 6 of the flow), and step 5 below is the review before any PR (steps 7 to 12). No PR is opened and no CI runs before the reviewer's green light (PCR-00095).
+
 1. **Issue and branch:**
    - Open a Fix issue with the template sections (Bug description, Severity, Steps to reproduce, Solution, How the solution was tested, Evidence), through REST (`gh api repos/materodr/plot_tool/issues ...`). GraphQL is blocked.
-   - Create the branch `fix/<issue>-<short-name>` from `develop`, in its own worktree.
+   - Create the branch `fix/<issue>-<short-name>` from the latest `develop`, in its own worktree (PCR-00113).
+   - Get the owner's explicit approval of every HLFR, PCR or COR text before writing it (ground rule 4), and record the questions and his answers in the issue's "Questions and answers" section (PCR-00103).
 2. **Splitting:**
    - The original ID keeps the main obligation. Adjust its title if it now covers less.
    - Each other obligation gets a new requirement placed directly after the original. Its ID is the next free number of the prefix (PCR-00027). Never reuse or renumber an ID.
@@ -113,14 +116,12 @@ When in doubt, don't split: over-splitting hurts readability.
    - Never change test logic.
    - List the parts that no test checks.
 5. **Run the checks:**
-   - `python tests/check_requirements.py` must pass;
-   - `python -m unittest discover -s tests -t .`;
-   - `pycodestyle`.
+   - `python tests/check_requirements.py` until it shows 0 problems (PCR-00115);
+   - the local tests you deem necessary (PCR-00082), for example `tests.test_check_requirements` and the test files whose tags changed;
+   - `pycodestyle src tests`.
 
-   PyQt6 and h5py may not install locally (the proxy blocks pypi), so CI runs the GUI tests.
-6. **Matrix:** compare the matrix that CI posts on the fix PR with the one CI posted on the latest PR into `develop` that ran every test. `tests/test_matrix.md` is updated only once per release (PCR-00019), so it is older between releases.
-   - No HLFR that passed may become "fail" or "no tests", unless it only passed through a parent link that no longer fits. Report that case explicitly.
-   - The CI matrix comment is cut off at GitHub's size limit, so read the HLFR rows from the run's `test-matrix` artifact or the `tests` job log.
+   PyQt6 and h5py may not install locally (the proxy blocks pypi), so CI runs the GUI tests once on the PR.
+6. **Handover:** when you have no more questions, are satisfied and the branch contains the latest `develop`, hand it to the reviewer of step 5 (PCR-00102). From then on, you change nothing on the branch (PCR-00098).
 
 ### Large batches (dozens of requirements)
 - **Regions:** split the work into regions:
@@ -157,8 +158,8 @@ When in doubt, don't split: over-splitting hurts readability.
   ```
 - **Tag script:** parse each test file with `ast`, find `Class.method`, and append the IDs to its `@covers(...)` call. Wrap at 79 columns, and add `@covers` if it's missing.
 
-## Step 5. Independent validation (never the writer)
-- Start reviewer agents that didn't write the change: one per region for a big batch, one for a small change. Give them the code, not your conclusion. They report and don't edit.
+## Step 5. Independent validation, before the PR (never the writer)
+- Start reviewer agents that didn't write the change: one per region for a big batch, one for a small change. Give them the code and the issue's Q&A, not your conclusion (PCR-00088, PCR-00104). A reviewer changes no requirement text and no file under `src/`. It may add focused tests of its own under `tests/` (PCR-00090, PCR-00091), and runs the tests it deems necessary (PCR-00092).
 - For every changed requirement, the reviewer compares the old text at the base commit with the new original plus all its new parts, and checks:
   1. **Same meaning:**
      - nothing added, dropped, weakened or strengthened;
@@ -182,7 +183,14 @@ When in doubt, don't split: over-splitting hurts readability.
   - **MINOR:** style or over-splitting.
 
   Each finding gives the old text, the new text and an exact fix.
-- Fix every BLOCKING and SHOULD-FIX finding, then check again. Bring the owner every choice that is his: notes, HLFR wording, and parents that change matrix results.
+- Findings go back to the writer's loop (step 4), and the reviewer then checks only the changes (PCR-00093, PCR-00094). Bring the owner every choice that is his: notes, HLFR, PCR and COR wording, and parents that change matrix results.
+- **Green light** only with no findings left and a branch that contains the latest `develop` (PCR-00108). If `develop` moves during the review, the work goes back to the writer (PCR-00109). After the green light, nobody changes the branch (PCR-00105).
+- **The reviewer opens the PR** into `develop` (PCR-00095). Its description has the Fail* section first, the requirement validation section of step 6 with the owner's approvals, the line `Closes #<n>` (PCR-00118) and the line `Green light: <full head SHA>` (PCR-00111).
+- **Matrix, on the CI run, before the merge:** compare the matrix that CI posts on the PR with the one CI posted on the latest PR into `develop` that ran every test. `tests/test_matrix.md` is updated only once per release (PCR-00019), so it is older between releases.
+  - No HLFR that passed may become "fail" or "no tests", unless it only passed through a parent link that no longer fits. Report that case explicitly.
+  - The CI matrix comment is cut off at GitHub's size limit, so read the HLFR rows from the run's `test-matrix` artifact or the `tests` job log.
+  - A PR that changes only PCR or COR text skips the tests (PCR-00079); then there is no new matrix to compare.
+- **Merge:** when CI passes, with only declared `Fail*`, the reviewer merges into `develop` and tells the owner, with the link (PCR-00096, PCR-00119). If CI fails, or a commit lands after the green light, or `develop` moves, the work goes back to the writer (PCR-00097, PCR-00106, PCR-00110).
 
 ## Step 6. Report
 - **PR description and issue sections:**
@@ -196,9 +204,10 @@ When in doubt, don't split: over-splitting hurts readability.
   - the scope (the IDs created or changed since the last merge into `main`, or the IDs the branch adds);
   - the check result;
   - the judgement-pass findings and how each was resolved, with links to the fix issue and PR;
+  - the owner's approval of each HLFR, PCR or COR text that was created or changed (PCR-00126);
   - a statement that no finding is still open.
 
-  If a finding is still open, fix it first through a Fix issue and a PR into `develop`, then open the release PR.
+  If a finding is still open, fix it first through a Fix issue and a PR into `develop`, then open the release PR. The matrix PR into `main` after a release carries the section `## Requirement validation (PCR-00050)` with exactly "Not applicable: this PR changes only tests/test_matrix.md." (PCR-00125).
 - **`Fail*` first:** every description starts with the `## Fail* (PCR-00070)` section, before the validation section. It lists each `Fail*`, as `tests/build_test_matrix.py` prints it, or holds the single entry `- none` (PCR-00070). A release PR into `main` can't carry a `Fail*` of any kind (PCR-00069).
 
 ## Practical notes

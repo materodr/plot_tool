@@ -37,8 +37,8 @@ STEP_LIST = [
     ("1", "owner", "box", ["1. Feature or Fix issue, from its template",
                            "Fix: bug description, severity, steps to "
                            "reproduce"]),
-    ("2", "owner", "box", ["2. Owner approves HLFR texts, if any",
-                           "edge cases listed · direct link"]),
+    ("2", "owner", "box", ["2. Owner approves HLFR, PCR and COR texts, if "
+                           "any", "edge cases listed · direct link"]),
     ("3", "impl", "box", ["3. Branch feature/<n>-… or fix/<n>-… from "
                           "develop", "own worktree"]),
     ("4", "owner", "box", ["4. FIRST QUESTION BATCH to the owner",
@@ -64,8 +64,8 @@ STEP_LIST = [
     ("F2", "frozen", "frz", ["GREEN LIGHT — BRANCH FROZEN · nobody "
                              "changes it"]),
     ("13", "rev", "box", ["13. Open the PR into develop",
-                          "Fail* section (or 'none') · Req. validation · "
-                          "Closes #n"]),
+                          "Fail* section (or 'none') · Req. validation",
+                          "Closes #n · Green light: <SHA>"]),
     ("14", "ci", "dec", ["14. CI: full suite once + requirement checks",
                          "(docs-only PR: suite skipped)"]),
     ("18", "rev", "box", ["18. Issue sections filled",

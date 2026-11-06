@@ -81,7 +81,7 @@ When an agent asks the owner to decide a rule, it must list, in the same questio
 
 Note: For example, a question about what a click over one kind of object does also names clicks over name labels and double-clicks on that object.
 
-### PCR-00075 Questions before the pull request
+### PCR-00075 Questions before the handover
 An implementer agent must send its open questions about the app's behaviour to the owner before it hands its branch over to the reviewer (PCR-00102).
 
 Note: Every push to a pull request that changes a file of PCR-00078 runs the whole test suite again, so an answer given after the PR is open costs one more full CI run.
@@ -111,7 +111,7 @@ Note: "The last merge into `main`" means the merge of the last release pull requ
 ### PCR-00018 Evidence for develop to main
 A pull request from `develop` to `main` must show evidence that the code fulfils all the functional requirements.
 
-Note: The evidence is the test matrix that CI builds on the release pull request and posts on it (PCR-00058, PCR-00061), with no `Fail*` (PCR-00069).
+Note: The evidence is the test matrix that CI builds on the release pull request, which is complete in the `test-matrix` artifact of its last `tests` run (the comment that CI posts on the pull request may be cut), with no `Fail*` (PCR-00058, PCR-00061, PCR-00069).
 
 ### PCR-00050 Requirements review before develop to main
 Before a pull request from `develop` to `main` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement created or changed since the last merge into `main`.
@@ -179,9 +179,14 @@ For PCR-00057, a test shown with the `Fail*` of PCR-00063 must count as run, als
 Note: The `tests` CI job adds `--environment-limit` only when installing PyQt6 or h5py fails on the runner, with a justification that names the failed install. A test that runs and fails still fails the job. An environment `Fail*` is accepted into `develop` only: a pull request into `main` carries no `Fail*` (PCR-00069).
 
 ### PCR-00078 Every test for code and functional requirement changes
-A pull request into `develop` must run every test when its branch changes a file under `src/`, `tests/`, `bin/` or `.github/workflows/`, a build script (`build_executable.py`, `rebuild_and_launch.py`), a `requirements*.txt` file, or the HLFR or LLFR file.
+A pull request into `develop` must run every test when its branch changes a file under `src/`, `tests/`, `bin/` or `.github/workflows/`, a build script (`build_executable.py`, `rebuild_and_launch.py`), a `requirements*.txt` file, or the HLFR or LLFR file, except as in PCR-00083.
 
-Note: The branch is compared with its base branch. The sample files of PCR-00032 are under `tests/`. A renamed file counts with its old and its new path, and a deleted file counts too. A pull request from `develop` to `main` always runs every test (PCR-00058). A push to `develop` or `main` runs no test: the run of the pull request already tested the merged code, because its branch was up to date (PCR-00060). In the `tests` CI job, `tests/ci_changed_files.py` makes the decision, and only an explicit decision to skip skips. This follows the owner's decisions of 2026-11-05.
+Note: The branch is compared with its base branch. The sample files of PCR-00032 are under `tests/`. A renamed file counts with its old and its new path, and a deleted file counts too. A pull request from `develop` to `main` always runs every test (PCR-00058). A push runs no test (PCR-00121). In the `tests` CI job, `tests/ci_changed_files.py` makes the decision, and only an explicit decision to skip skips. This follows the owner's decisions of 2026-11-05.
+
+### PCR-00121 Pushes run only the requirement checks
+A push to `develop` or `main` must run only the requirement checks, with no run of the tests.
+
+Note: The run of the pull request already tested the merged code, because its branch was up to date (PCR-00060). The owner decided this on 2026-11-05.
 
 ### PCR-00079 Tests skipped for other changes
 A pull request into `develop` whose branch changes only files outside the list of PCR-00078 must skip the run of the tests.
@@ -212,7 +217,7 @@ A branch must contain the latest commit of `develop` when its pull request into 
 ### PCR-00061 Matrix pull request into main after a release
 After each release pull request is merged into `main`, an agent must open a pull request into `main`, from a test matrix branch (PCR-00002), that changes only `tests/test_matrix.md`, to the test matrix that CI built on the release pull request, except as in PCR-00086.
 
-Note: The matrix is the `test-matrix` artifact of the last `tests` run of the release pull request, which is complete; its comment on the pull request may be cut. On every pull request, the `tests` job builds the matrix from the code of the pull request, with PyQt6 and h5py installed, and posts it on the pull request; CI itself commits no matrix. An agent opens the matrix pull requests with its own account, because GitHub runs no workflow on a pull request opened with the workflow token. This follows the owner's decisions of 2026-11-05.
+Note: The matrix is the `test-matrix` artifact of the last `tests` run of the release pull request, which is complete; its comment on the pull request may be cut. Its description holds the section `## Requirement validation (PCR-00050)` with the text "Not applicable: this PR changes only tests/test_matrix.md." (PCR-00125). On every pull request, the `tests` job builds the matrix from the code of the pull request, with PyQt6 and h5py installed, and posts it on the pull request; CI itself commits no matrix. An agent opens the matrix pull requests with its own account, because GitHub runs no workflow on a pull request opened with the workflow token. This follows the owner's decisions of 2026-11-05.
 
 ### PCR-00085 Matrix pull request into develop after a release
 After each release pull request is merged into `main`, an agent must open a pull request into `develop`, from a test matrix branch (PCR-00002), that changes only `tests/test_matrix.md`, to the same matrix as the pull request of PCR-00061, except as in PCR-00086.
@@ -221,6 +226,11 @@ After each release pull request is merged into `main`, an agent must open a pull
 When the last CI run of a merged release pull request has failed, the agent must open an issue that names the failed tests, in place of the pull requests of PCR-00061 and PCR-00085.
 
 Note: A failed run shouldn't be offered as the matrix of `main` (PCR-00025).
+
+### PCR-00125 Requirement validation section of the matrix pull request into main
+The description of the pull request of PCR-00061 must hold the section `## Requirement validation (PCR-00050)` with the text "Not applicable: this PR changes only tests/test_matrix.md."
+
+Note: `tests/check_requirement_review.py` and its hook accept this form only for a `test-matrix/` branch into `main`. The owner decided this on 2026-11-05.
 
 ### PCR-00083 Matrix-only changes skip the tests
 A pull request into `develop` that changes only `tests/test_matrix.md`, and the pull request of PCR-00061, must skip the run of the tests.
@@ -271,7 +281,7 @@ Note: The reviewer then sees every exception first. CI builds the matrix with Py
 ### PCR-00120 One flow for features and fixes
 Every feature and every fix must go from its issue to its merge into `develop` through the steps of [feature_fix_flow.md](../process/feature_fix_flow.md).
 
-Note: A fix differs only where the document says so: its issue comes from the Fix template (PCR-00006, PCR-00007), it needs an HLFR approval only when it changes an HLFR (PCR-00029), its branch is `fix/<n>-…` (PCR-00039), it adds a test that reproduces the bug (PCR-00116), which the reviewer checks (PCR-00117), and its issue gets the Fix sections (PCR-00006). The owner approved this flow on 2026-11-05.
+Note: A fix differs only where the document says so: its issue comes from the Fix template (PCR-00006, PCR-00007), it needs an owner approval only when it changes an HLFR, PCR or COR requirement (PCR-00029, PCR-00123, PCR-00124), its branch is `fix/<n>-…` (PCR-00039), it adds a test that reproduces the bug (PCR-00116), which the reviewer checks (PCR-00117), and its issue gets the Fix sections (PCR-00006). The owner approved this flow on 2026-11-05.
 
 ### PCR-00099 First question batch
 Before it writes code or tests for a change, the implementer must send the owner, in one batch, every question about the change that it has at that moment.
@@ -359,7 +369,7 @@ After it merges a pull request into `develop`, the reviewer of PCR-00088 must te
 When the CI checks of the pull request fail, the branch must go back to the implementer for a fix, which the reviewer checks as in PCR-00094 before CI runs again.
 
 ### PCR-00098 Branch frozen after the handover
-After the handover (PCR-00102), only the reviewer of PCR-00088 must change the branch, with its own tests under `tests/` (PCR-00091), until the reviewer or CI sends the work back to the implementer.
+After the handover (PCR-00102), the branch must be changed only by the reviewer of PCR-00088, with its own tests under `tests/` (PCR-00091), until the reviewer or CI sends the work back to the implementer.
 
 Note: The implementer works on the branch again only in its loop (PCR-00100), after a rejection.
 
@@ -390,7 +400,10 @@ Note: The merge of `develop` changes the branch after the green light, so the `g
 ### PCR-00111 Green light recorded
 The reviewer of PCR-00088 must record its green light in the description of the pull request, as a line `Green light: <commit SHA>` with the full SHA of the head commit that it approved.
 
-Note: When a new green light is given after a rejection, a new line is added below; the last one counts.
+Note: When a new green light is given after a rejection, the reviewer adds a new line below the earlier ones (PCR-00122).
+
+### PCR-00122 Last green light counts
+The `green-light` check of PCR-00112 must use the last line `Green light: <commit SHA>` of the description.
 
 ### PCR-00112 Green light check
 The `green-light` CI check must fail a pull request into `develop` whose head commit isn't the commit of the last green-light line of its description (PCR-00111), except the pull request of PCR-00085.
@@ -420,6 +433,19 @@ Functional requirements must be divided into two categories: high-level function
 
 ### PCR-00029 HLFR approval
 High-level functional requirements must have human approval to be created or modified.
+
+Note: The approval is the owner's explicit approval of the text, given in the conversation with the coordinator before the text is written, as for PCR and COR requirements (PCR-00123, PCR-00124). The requirement validation section of the pull request states it (PCR-00126).
+
+### PCR-00123 PCR approval
+Each process of collaboration requirement (PCR) that is created or changed must have the owner's explicit approval of its text, given in the conversation with the coordinator before the text is written.
+
+Note: The owner decided this on 2026-11-05, with the reviewer merging into `develop` the pull requests that change requirements (PCR-00096).
+
+### PCR-00124 COR approval
+Each code and organization requirement (COR) that is created or changed must have the owner's explicit approval of its text, given in the conversation with the coordinator before the text is written.
+
+### PCR-00126 Approval stated in the pull request
+The requirement validation section of a pull request (PCR-00051, PCR-00053) must state the owner's approval of each HLFR, PCR or COR requirement that its branch creates or changes (PCR-00029, PCR-00123, PCR-00124).
 
 ### PCR-00030 LLFR ownership
 Low-level functional requirements must be created and edited by agents during development.
