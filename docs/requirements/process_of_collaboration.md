@@ -1,6 +1,7 @@
 # Process of Collaboration Requirements
 
 Prefix: `PCR`. Format rules: see [README.md](README.md).
+The steps from a feature or fix issue to its merge into `develop`, and the release steps, are drawn in [feature_fix_flow.md](../process/feature_fix_flow.md), with the PCRs that state each step.
 
 ### PCR-00001 Repository host
 The project must be kept in a GitHub repository.
@@ -29,6 +30,9 @@ Feature and fix branches must always be created pointing to an issue.
 
 ### PCR-00039 Issue in the branch name
 The issue that a feature or fix branch points to (PCR-00005) must be explicit in the branch name.
+
+### PCR-00113 Branch from develop
+Each feature or fix branch must be created from the latest commit of `develop`.
 
 ### PCR-00006 Fix issue contents
 A fix issue must contain:
@@ -78,7 +82,7 @@ When an agent asks the owner to decide a rule, it must list, in the same questio
 Note: For example, a question about what a click over one kind of object does also names clicks over name labels and double-clicks on that object.
 
 ### PCR-00075 Questions before the pull request
-An implementer agent must send its open questions about the app's behaviour to the owner before it opens its pull request.
+An implementer agent must send its open questions about the app's behaviour to the owner before it hands its branch over to the reviewer (PCR-00102).
 
 Note: Every push to a pull request that changes a file of PCR-00078 runs the whole test suite again, so an answer given after the PR is open costs one more full CI run.
 
@@ -264,6 +268,11 @@ Every pull request into `develop` or `main` must start its description with a se
 
 Note: The reviewer then sees every exception first. CI builds the matrix with PyQt6 and h5py, so a normal pull request has the section with `- none`. `tests/build_test_matrix.py` prints the section, ready to paste. The `fail-star-section` CI job checks it against `tests/not_implemented.txt`, and the `tests` job against the matrix of its run, which alone knows an environment `Fail*`. This follows the owner's decision of 2026-11-05.
 
+### PCR-00120 One flow for features and fixes
+Every feature and every fix must go from its issue to its merge into `develop` through the steps of [feature_fix_flow.md](../process/feature_fix_flow.md).
+
+Note: A fix differs only where the document says so: its issue comes from the Fix template (PCR-00006, PCR-00007), it needs an HLFR approval only when it changes an HLFR (PCR-00029), its branch is `fix/<n>-…` (PCR-00039), it adds a test that reproduces the bug (PCR-00116), which the reviewer checks (PCR-00117), and its issue gets the Fix sections (PCR-00006). The owner approved this flow on 2026-11-05.
+
 ### PCR-00099 First question batch
 Before it writes code or tests for a change, the implementer must send the owner, in one batch, every question about the change that it has at that moment.
 
@@ -273,6 +282,12 @@ Note: Each question names the neighbouring cases it also settles (PCR-00074).
 The implementer must repeat its loop of questions, requirement revision, code and tests, sending the questions of each round to the owner in one batch, until it has no more questions and is satisfied with the implementation.
 
 Note: The owner described this loop on 2026-11-05. The tests of each round are those of PCR-00082.
+
+### PCR-00115 Requirement check in the loop
+In each round of the loop of PCR-00100 that changes a requirement, the implementer must run `tests/check_requirements.py` until it shows 0 problems.
+
+### PCR-00116 Test that reproduces the bug
+For a fix, the implementer must add a test that reproduces the bug, which fails on the code before the fix and passes on the fixed code.
 
 ### PCR-00101 Branch kept up to date during the loop
 During the loop of PCR-00100, the implementer must merge `develop` into the branch each time it finds that the branch doesn't contain the latest commit of `develop`.
@@ -293,6 +308,9 @@ Note: The Feature and Fix issue templates have this section. The reviewer reads 
 Before a pull request into `develop` is opened, an agent other than its implementer must review the branch's code, requirements and tests, except as in PCR-00087.
 
 Note: This is the review of PCR-00016, done before CI. The owner agreed this flow on 2026-11-05 and refined it the same day (PCR-00098 to PCR-00112). A release keeps PCR-00050, and the owner merges it (PCR-00015).
+
+### PCR-00117 Reviewer checks the bug test
+For a fix, the reviewer of PCR-00088 must check that the test of PCR-00116 fails on the code before the fix and passes on the branch.
 
 ### PCR-00104 Questions and answers in the review
 The reviewer of PCR-00088 must read, as part of its review, the "Questions and answers" section of the issue of the change (PCR-00103).
@@ -322,14 +340,20 @@ The reviewer of PCR-00088 must send its findings to the implementer, whose loop 
 After the implementer has fixed the findings, the reviewer of PCR-00088 must check only the changes made since its last review.
 
 ### PCR-00095 Pull request after the green light
-A pull request into `develop`, other than the pull request of PCR-00085, must be opened only after the green light of the reviewer of PCR-00088.
+The reviewer of PCR-00088 must open the pull request into `develop` only after its green light, except the pull request of PCR-00085.
 
 Note: CI then runs the whole suite once on the pull request.
+
+### PCR-00118 Issue closed by the pull request
+The description of a pull request into `develop` must name its issue in a line `Closes #<issue number>`, except the pull request of PCR-00085.
 
 ### PCR-00096 Merge by the reviewer
 When the CI checks of the pull request pass, with no `Fail*` other than those declared in its Fail* section (PCR-00070), the reviewer of PCR-00088 must merge it into `develop` with no further review.
 
 Note: A declared `Fail*` is accepted into `develop` only (PCR-00069).
+
+### PCR-00119 Owner told of the merge
+After it merges a pull request into `develop`, the reviewer of PCR-00088 must tell the owner, with the link of the pull request.
 
 ### PCR-00097 CI failure goes back to the implementer
 When the CI checks of the pull request fail, the branch must go back to the implementer for a fix, which the reviewer checks as in PCR-00094 before CI runs again.
@@ -353,7 +377,7 @@ When a commit is added to the branch of a pull request, CI must cancel the `test
 Note: The `tests` workflow has a `concurrency` group per pull request with `cancel-in-progress: true`.
 
 ### PCR-00108 Green light only on an up-to-date branch
-The reviewer of PCR-00088 must give its green light only while the branch contains the latest commit of `develop`.
+The reviewer of PCR-00088 must give its green light only when it has no findings left and the branch contains the latest commit of `develop`.
 
 ### PCR-00109 Branch outdated during the review
 When `develop` gets a new commit during the review, the reviewer of PCR-00088 must send the work back to the implementer, who merges `develop` in, goes through its loop again (PCR-00100, PCR-00101) and hands over again (PCR-00102).
@@ -420,6 +444,11 @@ Note: The files are generated by `tests/user_tests/make_user_test_files.py`.
 The build of the standalone executable must generate, in a folder that is not committed, one sample file for each format of HLFR-00005 with 100 signals and a time signal of 4 hours sampled every 0.01 s.
 
 Note: An Excel file holds at most 1,048,576 rows, so the Excel file holds as many samples as fit (about 2.9 hours).
+
+### PCR-00114 Flow document kept up to date
+When a step of [feature_fix_flow.md](../process/feature_fix_flow.md) changes, the same branch must update that document, its image `feature_fix_flow.png`, the image's source `feature_fix_flow.svg` and the script `make_feature_fix_flow.py` so that they show the same steps as the PCRs.
+
+Note: The script writes the SVG, and the PNG is a render of the SVG at twice its size.
 
 ### PCR-00033 Language of the requirements
 All the requirements must be written in English.
