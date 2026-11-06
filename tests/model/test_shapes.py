@@ -1,12 +1,12 @@
 """Tests for the shapes, line looks, tip names and hidden labels of the
 model (issue #260).
 
-Covers the circles and rectangles of a plot (HLFR-00158: LLFR-01305,
-LLFR-01318, LLFR-01320 to LLFR-01323, LLFR-01327, LLFR-01337 to
-LLFR-01339, LLFR-01346 to LLFR-01352), the widths and line styles of
-the plot objects (HLFR-00159, HLFR-00160: LLFR-01359 to LLFR-01368),
-the names of the pinned data tips (LLFR-01252 to LLFR-01260), the
-hidden labels (LLFR-01270 to LLFR-01277), their undo states (LLFR-00140)
+Covers the circles and rectangles of a plot (HLFR-00158: LLFR-01316,
+LLFR-01329, LLFR-01331 to LLFR-01334, LLFR-01338, LLFR-01348 to
+LLFR-01350, LLFR-01357 to LLFR-01363), the widths and line styles of
+the plot objects (HLFR-00159, HLFR-00160: LLFR-01370 to LLFR-01379),
+the names of the pinned data tips (LLFR-01263 to LLFR-01271), the
+hidden labels (LLFR-01281 to LLFR-01288), their undo states (LLFR-00140)
 and their layout file entries (LLFR-00225, LLFR-01221).
 """
 
@@ -40,8 +40,8 @@ class ShapeModelTest(unittest.TestCase):
         self.plot = self.workspace.add_plot(self.workspace.tab_list[0]
                                             .tab_id_i)
 
-    @covers("LLFR-01305", "LLFR-01312", "LLFR-01318", "LLFR-01320",
-            "LLFR-01322", "LLFR-01346", "LLFR-01361", "LLFR-01366",
+    @covers("LLFR-01316", "LLFR-01323", "LLFR-01329", "LLFR-01331",
+            "LLFR-01333", "LLFR-01357", "LLFR-01372", "LLFR-01377",
             "HLFR-00158")
     def test_new_shapes_get_their_defaults(self) -> None:
         """A shape keeps its box and gets the defaults of a new shape.
@@ -68,7 +68,7 @@ class ShapeModelTest(unittest.TestCase):
             self.plot.add_shape(CIRCLE_KIND_STR, 0.0, 0.0, 1.0, 1.0)
         self.assertEqual(len(self.plot.shape_list), 7)
 
-    @covers("LLFR-01308", "LLFR-01356", "HLFR-00158")
+    @covers("LLFR-01319", "LLFR-01367", "HLFR-00158")
     def test_unusable_boxes_and_kinds_are_refused(self) -> None:
         """A box without a width or a height, a value that is not finite
         or an unknown kind gives no shape.
@@ -85,7 +85,7 @@ class ShapeModelTest(unittest.TestCase):
             self.plot.add_shape("triangle", 0.0, 0.0, 1.0, 1.0)
         self.assertEqual(self.plot.shape_list, [])
 
-    @covers("LLFR-01347", "HLFR-00158")
+    @covers("LLFR-01358", "HLFR-00158")
     def test_shape_numbers_keep_growing(self) -> None:
         """The numbers of each kind grow, also after a delete or undo.
 
@@ -103,9 +103,9 @@ class ShapeModelTest(unittest.TestCase):
         self.assertEqual(self.workspace.take_shape_name(RECTANGLE_KIND_STR),
                          "Rectangle 1")
 
-    @covers("LLFR-01323", "LLFR-01327", "LLFR-01337", "LLFR-01338",
-            "LLFR-01339", "LLFR-01348", "LLFR-01349", "LLFR-01350",
-            "LLFR-01352", "HLFR-00158")
+    @covers("LLFR-01334", "LLFR-01338", "LLFR-01348", "LLFR-01349",
+            "LLFR-01350", "LLFR-01359", "LLFR-01360", "LLFR-01361",
+            "LLFR-01363", "HLFR-00158")
     def test_edit_rename_recolor_and_delete(self) -> None:
         """Box, name and color change one at a time; blank names and the
         same values change nothing.
@@ -136,7 +136,7 @@ class ShapeModelTest(unittest.TestCase):
         self.assertTrue(self.plot.remove_shape(0))
         self.assertEqual(self.plot.shape_list, [])
 
-    @covers("LLFR-00140", "LLFR-00138", "LLFR-00192", "LLFR-01321",
+    @covers("LLFR-00140", "LLFR-00138", "LLFR-00192", "LLFR-01332",
             "HLFR-00158")
     def test_shapes_are_part_of_the_undo_state(self) -> None:
         """Every change of a shape changes the plot's undo state, and a
@@ -207,7 +207,7 @@ class LineLookModelTest(unittest.TestCase):
             ARROW_LINE_KIND_STR: (0, self.plot.arrow_list[0]),
             SHAPE_LINE_KIND_STR: (0, self.plot.shape_list[0])}
 
-    @covers("LLFR-01361", "LLFR-01366", "HLFR-00159", "HLFR-00160")
+    @covers("LLFR-01372", "LLFR-01377", "HLFR-00159", "HLFR-00160")
     def test_defaults_are_the_former_looks(self) -> None:
         """Width 1 everywhere; dashed flags, deltas and arrows, and
         continuous curves, text notes and shapes.
@@ -227,7 +227,7 @@ class LineLookModelTest(unittest.TestCase):
                 self.assertEqual(line_object.line_style_str,
                                  style_dict[kind_str])
 
-    @covers("LLFR-01360", "LLFR-01365", "LLFR-00140", "HLFR-00159",
+    @covers("LLFR-01371", "LLFR-01376", "LLFR-00140", "HLFR-00159",
             "HLFR-00160")
     def test_width_and_style_of_every_kind(self) -> None:
         """Each kind takes a preset width and a style, recorded in the
@@ -277,7 +277,7 @@ class TipNameModelTest(unittest.TestCase):
                                             .tab_id_i)
         self.plot.add_curve("s1")
 
-    @covers("LLFR-01253", "LLFR-01254", "HLFR-00025")
+    @covers("LLFR-01264", "LLFR-01265", "HLFR-00025")
     def test_default_names_keep_counting(self) -> None:
         """"Data tip N" grows for each new tip, also after an undo.
 
@@ -292,7 +292,7 @@ class TipNameModelTest(unittest.TestCase):
         tip = self.plot.add_pinned_tip("s1", 1.0, 1.0)
         self.assertEqual(tip.name_str, "Data tip 1")
 
-    @covers("LLFR-01255", "LLFR-01256", "LLFR-01257", "LLFR-01259",
+    @covers("LLFR-01266", "LLFR-01267", "LLFR-01268", "LLFR-01270",
             "LLFR-00140", "HLFR-00025")
     def test_rename_changes_only_the_name(self) -> None:
         """A rename strips spaces; a blank name or an unknown tip changes
@@ -318,7 +318,7 @@ class TipNameModelTest(unittest.TestCase):
 class LabelsHiddenModelTest(unittest.TestCase):
     """Whether the labels are hidden."""
 
-    @covers("LLFR-01273", "LLFR-00140", "LLFR-00138", "HLFR-00161")
+    @covers("LLFR-01284", "LLFR-00140", "LLFR-00138", "HLFR-00161")
     def test_hidden_labels_are_an_undo_state(self) -> None:
         """The labels are shown at start; hiding them changes the undo
         state, and a restore gives the state back.
@@ -380,7 +380,7 @@ class LayoutLooksTest(unittest.TestCase):
             True)))
 
     @covers("LLFR-00225", "LLFR-00227", "HLFR-00158", "HLFR-00159",
-            "HLFR-00160", "HLFR-00161", "LLFR-01252")
+            "HLFR-00160", "HLFR-00161", "LLFR-01263")
     def test_file_holds_the_new_values(self) -> None:
         """Curve style, tip name, delta and flag looks, shapes and the
         labels setting are written with English keys.
@@ -414,8 +414,8 @@ class LayoutLooksTest(unittest.TestCase):
         layout_dict = layout_with_save_options(self.saved_dict(), False)
         self.assertEqual(layout_dict["tabs"][0]["plots"][0]["shapes"], [])
 
-    @covers("LLFR-01355", "LLFR-01260", "LLFR-01277", "LLFR-01363",
-            "LLFR-01368", "HLFR-00158", "HLFR-00050")
+    @covers("LLFR-01366", "LLFR-01271", "LLFR-01288", "LLFR-01374",
+            "LLFR-01379", "HLFR-00158", "HLFR-00050")
     def test_load_rebuilds_the_new_values(self) -> None:
         """A load rebuilds the shapes, tip names, looks and the labels
         setting as saved.
@@ -443,8 +443,8 @@ class LayoutLooksTest(unittest.TestCase):
                          ("rectangle", "Zone", "#00aa00", 2, "dashed", 5.0))
         self.assertIs(result.labels_hidden_b, True)
 
-    @covers("LLFR-01356", "LLFR-01357", "LLFR-01358", "LLFR-01363",
-            "LLFR-01368", "LLFR-01260", "LLFR-01277", "HLFR-00052")
+    @covers("LLFR-01367", "LLFR-01368", "LLFR-01369", "LLFR-01374",
+            "LLFR-01379", "LLFR-01271", "LLFR-01288", "HLFR-00052")
     def test_unusable_values_are_replaced_or_reported(self) -> None:
         """Unknown kinds and boxes are left out and reported; unusable
         names, widths and styles get the defaults.

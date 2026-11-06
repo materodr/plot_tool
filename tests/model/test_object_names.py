@@ -1,9 +1,9 @@
 """Tests for the type names and menu title texts (issue #260).
 
-Covers the one table of type names (LLFR-01244), the title text
-`<type name>: <label>` (LLFR-00426, LLFR-01247, LLFR-01250,
-LLFR-01251), the shortening of long labels (LLFR-00850, LLFR-01249,
-LLFR-01246) and the label of a text note (LLFR-01245).
+Covers the one table of type names (LLFR-01255), the title text
+`<type name>: <label>` (LLFR-00426, LLFR-01258, LLFR-01261,
+LLFR-01262), the shortening of long labels (LLFR-00850, LLFR-01260,
+LLFR-01257) and the label of a text note (LLFR-01256).
 """
 
 import unittest
@@ -16,9 +16,9 @@ from model import object_names
 class TypeNameTest(unittest.TestCase):
     """The type names of the objects."""
 
-    @covers("LLFR-01244", "HLFR-00096")
+    @covers("LLFR-01255", "HLFR-00096")
     def test_one_name_per_kind(self) -> None:
-        """Every kind of the table has the name of LLFR-01244.
+        """Every kind of the table has the name of LLFR-01255.
 
         Inputs: none.
         Outputs: none.
@@ -32,7 +32,7 @@ class TypeNameTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             object_names.type_name("shape")
 
-    @covers("LLFR-00426", "LLFR-01247", "LLFR-01250", "LLFR-01251",
+    @covers("LLFR-00426", "LLFR-01258", "LLFR-01261", "LLFR-01262",
             "HLFR-00096")
     def test_title_is_the_type_and_the_label(self) -> None:
         """`<type name>: <label>`, or the type name alone for a plot.
@@ -50,7 +50,7 @@ class TypeNameTest(unittest.TestCase):
                          "File: file1: a.csv")
         self.assertEqual(object_names.menu_title_text("plot"), "Plot")
 
-    @covers("LLFR-00850", "LLFR-01249", "LLFR-01246", "HLFR-00096")
+    @covers("LLFR-00850", "LLFR-01260", "LLFR-01257", "HLFR-00096")
     def test_long_labels_are_shortened_in_the_middle(self) -> None:
         """A label of up to 40 characters is kept; a longer one becomes
         40 characters with "…" in the middle.
@@ -71,7 +71,7 @@ class TypeNameTest(unittest.TestCase):
         self.assertEqual(object_names.menu_title_text("signal", long_str),
                          "Signal: " + short_str)
 
-    @covers("LLFR-01245", "HLFR-00096")
+    @covers("LLFR-01256", "HLFR-00096")
     def test_text_note_label(self) -> None:
         """The first word and "…", or the one word alone.
 

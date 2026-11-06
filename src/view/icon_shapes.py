@@ -64,7 +64,7 @@ REPORT_BUG_ICON_STR = "report_bug"
 ARROW_ICON_STR = "arrow"
 # LLFR-00159 item 20, LLFR-00394: the Save signals icon.
 SAVE_SIGNALS_ICON_STR = "save_signals"
-# LLFR-00159 items 21 to 23, LLFR-01261, LLFR-01262, LLFR-01269: the
+# LLFR-00159 items 21 to 23, LLFR-01272, LLFR-01273, LLFR-01280: the
 # Circle, Rectangle and Hide labels icons.
 CIRCLE_ICON_STR = "circle"
 RECTANGLE_ICON_STR = "rectangle"
@@ -573,7 +573,7 @@ def circle_shape() -> list:
     Outputs: the list of layers.
     """
     # LLFR-00159 item 21: an unfilled circle, like the circles the tool
-    # draws (LLFR-01310).
+    # draws (LLFR-01321).
     return [ink_layer([("O", 12.0, 12.0, 8.0)])]
 
 
@@ -584,7 +584,7 @@ def rectangle_shape() -> list:
     Outputs: the list of layers.
     """
     # LLFR-00159 item 22: an unfilled rectangle, wider than high, like
-    # the rectangles the tool draws (LLFR-01311).
+    # the rectangles the tool draws (LLFR-01322).
     return [ink_layer([("R", 3.5, 6.5, 17.0, 11.0, 0.5)])]
 
 

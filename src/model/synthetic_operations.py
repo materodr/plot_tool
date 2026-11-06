@@ -78,16 +78,16 @@ DIVIDE_STR = "divide"
 ABSOLUTE_STR = "abs"
 PRODUCT_STR = "product"
 FFT_STR = "fft"
-# LLFR-01294, LLFR-00268: the trigonometric operations, in degrees.
+# LLFR-01305, LLFR-00268: the trigonometric operations, in degrees.
 SINE_DEGREES_STR = "sind"
 COSINE_DEGREES_STR = "cosd"
 TANGENT_DEGREES_STR = "tand"
-# LLFR-01296, LLFR-00268: the statistics beside Max and Min.
+# LLFR-01307, LLFR-00268: the statistics beside Max and Min.
 RMS_STR = "rms"
 MEAN_STR = "mean"
 STANDARD_DEVIATION_STR = "std"
 MEDIAN_STR = "median"
-# LLFR-01278, LLFR-01293: the signals made from scratch, from the time
+# LLFR-01289, LLFR-01304: the signals made from scratch, from the time
 # signal of a data file alone.
 CONSTANT_SIGNAL_STR = "constant"
 STEP_SIGNAL_STR = "step"
@@ -104,13 +104,13 @@ WINDOW_PARAMETER_STR = "window_i"
 CONSTANT_PARAMETER_STR = "constant_f"
 SECOND_SIGNAL_PARAMETER_STR = "second_signal"
 TIME_RANGE_PARAMETER_STR = "time_range"
-# LLFR-01297: the range of a statistic: None for the whole signal, or
+# LLFR-01308: the range of a statistic: None for the whole signal, or
 # (start_s, end_s) for the shown x-axis range.
 STATISTIC_RANGE_PARAMETER_STR = "statistic_range"
-# LLFR-01279: the values of a signal made from scratch, a tuple of
+# LLFR-01290: the values of a signal made from scratch, a tuple of
 # floats in the order of GENERATOR_VALUE_KEY_DICT.
 GENERATOR_PARAMETER_STR = "generator"
-# LLFR-01279, LLFR-01293: the values of each signal made from scratch,
+# LLFR-01290, LLFR-01304: the values of each signal made from scratch,
 # in dialog order, by their layout file keys.
 SINE_VALUE_KEY_TUPLE = ("amplitude", "frequency", "phase", "offset")
 GENERATOR_VALUE_KEY_DICT = {
@@ -121,7 +121,7 @@ GENERATOR_VALUE_KEY_DICT = {
     SINE_SIGNAL_STR: SINE_VALUE_KEY_TUPLE,
     COSINE_SIGNAL_STR: SINE_VALUE_KEY_TUPLE,
 }
-# LLFR-01279: the label of each value in its dialog.
+# LLFR-01290: the label of each value in its dialog.
 GENERATOR_LABEL_DICT = {
     "value": "Value", "time": "Step time (s)", "before": "Value before",
     "after": "Value after", "start_time": "Start time (s)",
@@ -153,7 +153,7 @@ MINIMUM_WINDOW_I = 2
 
 UNEVEN_STEP_MESSAGE_STR = (
     "The operation needs evenly spaced time samples.")
-# LLFR-01301, LLFR-01372: the reason of a statistic range that holds no sample.
+# LLFR-01312, LLFR-01383: the reason of a statistic range that holds no sample.
 EMPTY_RANGE_MESSAGE_STR = (
     "The x-axis range shown in the time plots holds no sample of the "
     "signal. Move the x-axis to a range where the signal has samples.")
@@ -192,9 +192,9 @@ class SyntheticOperation:
 
         Inputs: none.
         Outputs: True for Constant, Step, Ramp, Polynomial, Sine and
-            Cosine (LLFR-01278), computed from the time signal alone.
+            Cosine (LLFR-01289), computed from the time signal alone.
         """
-        # LLFR-01283: their only source is the time signal of the file.
+        # LLFR-01294: their only source is the time signal of the file.
         return self.parameter_kind_str == GENERATOR_PARAMETER_STR
 
     @property
@@ -223,8 +223,8 @@ OPERATION_TABLE_TUPLE = (
     ("Statistics", (
         (MAXIMUM_STR, "Max", "max", STATISTIC_RANGE_PARAMETER_STR),
         (MINIMUM_STR, "Min", "min", STATISTIC_RANGE_PARAMETER_STR),
-        # LLFR-01296: the other statistics, with the same range choice
-        # (LLFR-01297).
+        # LLFR-01307: the other statistics, with the same range choice
+        # (LLFR-01308).
         (RMS_STR, "RMS", "rms", STATISTIC_RANGE_PARAMETER_STR),
         (MEAN_STR, "Mean", "mean", STATISTIC_RANGE_PARAMETER_STR),
         (STANDARD_DEVIATION_STR, "Standard deviation", "std",
@@ -246,7 +246,7 @@ OPERATION_TABLE_TUPLE = (
         (ABSOLUTE_STR, "Absolute value", "abs", NO_PARAMETER_STR),
         (PRODUCT_STR, "Product with signal", "prod",
          SECOND_SIGNAL_PARAMETER_STR))),
-    # LLFR-01294: the angles of the signal are in degrees.
+    # LLFR-01305: the angles of the signal are in degrees.
     ("Trigonometric", (
         (SINE_DEGREES_STR, "Sine", "sind", NO_PARAMETER_STR),
         (COSINE_DEGREES_STR, "Cosine", "cosd", NO_PARAMETER_STR),
@@ -255,7 +255,7 @@ OPERATION_TABLE_TUPLE = (
         (FFT_STR, "FFT", "fft", TIME_RANGE_PARAMETER_STR),)),
 )
 
-# LLFR-01278: the options of "Create signal" of a file name row, in
+# LLFR-01289: the options of "Create signal" of a file name row, in
 # menu order; not in the "Create synthetic signal" menu.
 GENERATOR_GROUP_STR = "Signal from scratch"
 GENERATOR_TABLE_TUPLE = (
@@ -270,14 +270,14 @@ GENERATOR_TABLE_TUPLE = (
 )
 
 # LLFR-00268: operation id -> SyntheticOperation, in menu order, then
-# the signals made from scratch (LLFR-01278).
+# the signals made from scratch (LLFR-01289).
 OPERATION_DICT = {
     operation_str: SyntheticOperation(
         operation_str, label_str, abbreviation_str, group_str, kind_str,
         2 if kind_str == SECOND_SIGNAL_PARAMETER_STR else 1)
     for group_str, row_tuple in OPERATION_TABLE_TUPLE + GENERATOR_TABLE_TUPLE
     for operation_str, label_str, abbreviation_str, kind_str in row_tuple}
-# LLFR-01278: the ids of the signals made from scratch, in menu order.
+# LLFR-01289: the ids of the signals made from scratch, in menu order.
 GENERATOR_OPERATION_TUPLE = tuple(
     row[0] for _, row_tuple in GENERATOR_TABLE_TUPLE for row in row_tuple)
 
@@ -784,7 +784,7 @@ def sine_degrees(value_array) -> np.ndarray:
         value_array: the samples, in degrees.
     Outputs: a new float array of the sines.
     """
-    # LLFR-01294: the values are degrees.
+    # LLFR-01305: the values are degrees.
     return np.sin(np.deg2rad(as_float_array(value_array)))
 
 
@@ -795,7 +795,7 @@ def cosine_degrees(value_array) -> np.ndarray:
         value_array: the samples, in degrees.
     Outputs: a new float array of the cosines.
     """
-    # LLFR-01294: the values are degrees.
+    # LLFR-01305: the values are degrees.
     return np.cos(np.deg2rad(as_float_array(value_array)))
 
 
@@ -807,7 +807,7 @@ def tangent_degrees(value_array) -> np.ndarray:
     Outputs: a new float array of the tangents, NaN at each odd
         multiple of 90 degrees, where the tangent has no value.
     """
-    # LLFR-01294: the values are degrees; LLFR-01295: no number at the
+    # LLFR-01305: the values are degrees; LLFR-01306: no number at the
     # odd multiples of 90 degrees, so the curve shows a gap there.
     degrees_array = as_float_array(value_array)
     tangent_array = np.tan(np.deg2rad(degrees_array))
@@ -826,14 +826,14 @@ def range_values(time_array, value_array, range_tuple) -> np.ndarray:
         range, both ends included; every sample for None.
     Raises: SyntheticOperationError when no sample is in the range.
     """
-    # LLFR-01298: the whole signal; LLFR-01299: the shown range.
+    # LLFR-01309: the whole signal; LLFR-01310: the shown range.
     values_array = as_float_array(value_array)
     if range_tuple is not None:
         times_array = as_float_array(time_array)
         start_s, end_s = range_tuple
         values_array = values_array[(times_array >= start_s)
                                     & (times_array <= end_s)]
-    # LLFR-01301: a statistic needs at least one sample.
+    # LLFR-01312: a statistic needs at least one sample.
     if values_array.size == 0:
         raise SyntheticOperationError(EMPTY_RANGE_MESSAGE_STR)
     return values_array
@@ -853,14 +853,14 @@ def statistic(operation_str: str, time_array, value_array,
         statistic at every sample.
     Raises: SyntheticOperationError when no sample is in the range.
     """
-    # LLFR-00271, LLFR-01296: computed from the samples of the range,
+    # LLFR-00271, LLFR-01307: computed from the samples of the range,
     # the same value at every time sample.
     selected_array = range_values(time_array, value_array, range_tuple)
     statistic_function_dict = {
         MAXIMUM_STR: np.max, MINIMUM_STR: np.min,
         RMS_STR: lambda array: np.sqrt(np.mean(np.square(array))),
         MEAN_STR: np.mean,
-        # LLFR-01296: the population standard deviation (ddof 0).
+        # LLFR-01307: the population standard deviation (ddof 0).
         STANDARD_DEVIATION_STR: lambda array: np.std(array, ddof=0),
         MEDIAN_STR: np.median}
     return constant_like(value_array, float(
@@ -878,28 +878,28 @@ def generated_signal(operation_str: str, time_array,
             GENERATOR_VALUE_KEY_DICT.
     Outputs: a new float array with one sample per time sample.
     """
-    # LLFR-01283: one sample at each time sample of the file.
+    # LLFR-01294: one sample at each time sample of the file.
     times_array = as_float_array(time_array)
     if operation_str == CONSTANT_SIGNAL_STR:
-        # LLFR-01285: the value at every time sample.
+        # LLFR-01296: the value at every time sample.
         return np.full(times_array.shape, value_tuple[0], dtype=np.float64)
     if operation_str == STEP_SIGNAL_STR:
-        # LLFR-01286: the value before, then the value after from the
+        # LLFR-01297: the value before, then the value after from the
         # step time on.
         step_s, before_f, after_f = value_tuple
         return np.where(times_array < step_s, before_f,
                         after_f).astype(np.float64)
     if operation_str == RAMP_SIGNAL_STR:
-        # LLFR-01287: the start value, then a line of the slope from the
+        # LLFR-01298: the start value, then a line of the slope from the
         # start time on.
         start_s, slope_f, start_value_f = value_tuple
         return np.where(times_array < start_s, start_value_f,
                         start_value_f + slope_f * (times_array - start_s))
     if operation_str == POLYNOMIAL_SIGNAL_STR:
-        # LLFR-01288: a·t² + b·t + c.
+        # LLFR-01299: a·t² + b·t + c.
         a_f, b_f, c_f = value_tuple
         return a_f * np.square(times_array) + b_f * times_array + c_f
-    # LLFR-01289: offset + amplitude × sin or cos(2π f t + phase).
+    # LLFR-01300: offset + amplitude × sin or cos(2π f t + phase).
     amplitude_f, frequency_hz, phase_deg, offset_f = value_tuple
     angle_array = (2.0 * np.pi * frequency_hz * times_array
                    + np.deg2rad(phase_deg))
@@ -1077,7 +1077,7 @@ def check_statistic_range(range_value):
         of floats with start_s not after end_s.
     Raises: SyntheticParameterError for any other value.
     """
-    # LLFR-01298: the whole signal; LLFR-01299: a time range.
+    # LLFR-01309: the whole signal; LLFR-01310: a time range.
     if range_value is None or (isinstance(range_value, (tuple, list))
                                and len(range_value) == 0):
         return None
@@ -1100,7 +1100,7 @@ def check_generator(operation_str: str, value_tuple) -> tuple:
         number, or when the frequency of a sine or cosine is not greater
         than 0.
     """
-    # LLFR-01280: every value is a number.
+    # LLFR-01291: every value is a number.
     key_tuple = GENERATOR_VALUE_KEY_DICT[operation_str]
     if (not isinstance(value_tuple, (tuple, list))
             or len(value_tuple) != len(key_tuple)):
@@ -1113,7 +1113,7 @@ def check_generator(operation_str: str, value_tuple) -> tuple:
                 GENERATOR_LABEL_DICT.get(key_str, key_str)
                 + " must be a number.")
     checked_tuple = tuple(float(value) for value in value_tuple)
-    # LLFR-01280: a sine or a cosine has a frequency greater than 0.
+    # LLFR-01291: a sine or a cosine has a frequency greater than 0.
     if operation_str in (SINE_SIGNAL_STR, COSINE_SIGNAL_STR) and (
             checked_tuple[1] <= 0.0):
         raise SyntheticParameterError(
@@ -1151,10 +1151,10 @@ def check_parameter(operation_str: str, parameter, time_array,
     if kind_str == TIME_RANGE_PARAMETER_STR:
         return check_time_range(parameter)
     if kind_str == STATISTIC_RANGE_PARAMETER_STR:
-        # LLFR-01297: the whole signal or the shown range.
+        # LLFR-01308: the whole signal or the shown range.
         return check_statistic_range(parameter)
     if kind_str == GENERATOR_PARAMETER_STR:
-        # LLFR-01280: the values of the dialog.
+        # LLFR-01291: the values of the dialog.
         return check_generator(operation_str, parameter)
     # LLFR-00240: the other operations take no parameter.
     if parameter is not None:
@@ -1183,7 +1183,7 @@ def compute(operation_str: str, time_array, source_array_list: list,
     operation_function_dict = {
         INTEGRAL_STR: lambda: integral(time_array, first_array),
         DERIVATIVE_STR: lambda: derivative(time_array, first_array),
-        # LLFR-00271, LLFR-01296: the statistics of the chosen range.
+        # LLFR-00271, LLFR-01307: the statistics of the chosen range.
         MAXIMUM_STR: lambda: statistic(MAXIMUM_STR, time_array,
                                        first_array, parameter),
         MINIMUM_STR: lambda: statistic(MINIMUM_STR, time_array,
@@ -1196,7 +1196,7 @@ def compute(operation_str: str, time_array, source_array_list: list,
             STANDARD_DEVIATION_STR, time_array, first_array, parameter),
         MEDIAN_STR: lambda: statistic(MEDIAN_STR, time_array, first_array,
                                       parameter),
-        # LLFR-01294, LLFR-01295: the trigonometric operations.
+        # LLFR-01305, LLFR-01306: the trigonometric operations.
         SINE_DEGREES_STR: lambda: sine_degrees(first_array),
         COSINE_DEGREES_STR: lambda: cosine_degrees(first_array),
         TANGENT_DEGREES_STR: lambda: tangent_degrees(first_array),
@@ -1219,7 +1219,7 @@ def compute(operation_str: str, time_array, source_array_list: list,
         PRODUCT_STR: lambda: product(first_array, source_array_list[-1]),
     }
     if find_operation(operation_str).generator_b:
-        # LLFR-01283 to LLFR-01289: from the time signal of the file.
+        # LLFR-01294 to LLFR-01300: from the time signal of the file.
         return generated_signal(operation_str, time_array, parameter), None
     if operation_str == FFT_STR:
         # LLFR-00249: an FFT signal has its own frequency x-axis.

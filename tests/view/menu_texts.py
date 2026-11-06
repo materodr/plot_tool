@@ -42,5 +42,5 @@ PLOT_MENU_TEXT_LIST = ["Position", "Delete plot"]
 # LLFR-00378: the arrow menu.
 ARROW_MENU_TEXT_LIST = ["Rename", "Color", "Width", "Line style",
                         "Delete"]
-# LLFR-01336: the shape menu.
+# LLFR-01347: the shape menu.
 SHAPE_MENU_TEXT_LIST = ["Rename", "Color", "Width", "Line style", "Delete"]

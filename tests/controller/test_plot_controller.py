@@ -138,15 +138,15 @@ class FakePlotView:
         self.delta_name_question_list = []
         self.arrow_name_answer_list = []
         self.arrow_name_question_list = []
-        # LLFR-01255, LLFR-01348: answers of the data tip and shape
+        # LLFR-01266, LLFR-01359: answers of the data tip and shape
         # rename dialogs, and the names they started with.
         self.tip_name_answer_list = []
         self.tip_name_question_list = []
         self.shape_name_answer_list = []
         self.shape_name_question_list = []
-        # LLFR-01318: plot id -> the shape tuples drawn in it.
+        # LLFR-01329: plot id -> the shape tuples drawn in it.
         self.shape_drawn_dict = {}
-        # LLFR-01270: whether the labels are hidden on the plots.
+        # LLFR-01281: whether the labels are hidden on the plots.
         self.labels_hidden_b = False
         self.labels_handler = None
         # LLFR-00032, LLFR-01127: the matrix each Full Tab box named.

@@ -1,10 +1,10 @@
 """Tests for the new synthetic signals of the synthetic controller
 (issue #260).
 
-Covers "Create signal" of a file menu (HLFR-00162: LLFR-01278 to
-LLFR-01284, LLFR-01292), the range dialog of the statistics
-(HLFR-00164: LLFR-01297 to LLFR-01302) and the trigonometric operations
-(HLFR-00163: LLFR-01294), with the fake window of
+Covers "Create signal" of a file menu (HLFR-00162: LLFR-01289 to
+LLFR-01295, LLFR-01303), the range dialog of the statistics
+(HLFR-00164: LLFR-01308 to LLFR-01313) and the trigonometric operations
+(HLFR-00163: LLFR-01305), with the fake window of
 tests.controller.test_synthetic_controller.
 """
 
@@ -75,7 +75,7 @@ class NewSignalTestCase(SyntheticControllerTestCase):
 class CreateSignalTest(NewSignalTestCase):
     """The signals made from scratch."""
 
-    @covers("LLFR-01278", "HLFR-00162")
+    @covers("LLFR-01289", "HLFR-00162")
     def test_options_in_menu_order(self) -> None:
         """The view gets the six options, in order.
 
@@ -87,8 +87,8 @@ class CreateSignalTest(NewSignalTestCase):
             ("polynomial", "Polynomial"), ("sine", "Sine"),
             ("cosine", "Cosine")])
 
-    @covers("LLFR-01279", "LLFR-01283", "LLFR-01284", "LLFR-01286",
-            "LLFR-01290", "LLFR-01292", "HLFR-00162")
+    @covers("LLFR-01290", "LLFR-01294", "LLFR-01295", "LLFR-01297",
+            "LLFR-01301", "LLFR-01303", "HLFR-00162")
     def test_step_from_the_file_row(self) -> None:
         """The dialog has the fields of a step; the signal is on the time
         base of the file, belongs to it and is listed.
@@ -113,7 +113,7 @@ class CreateSignalTest(NewSignalTestCase):
         self.assertIn("file1_step_1s_0_to_5",
                       self.controller.signal_list_name_list())
 
-    @covers("LLFR-01279", "HLFR-00162")
+    @covers("LLFR-01290", "HLFR-00162")
     def test_fields_of_every_option(self) -> None:
         """Constant, Ramp, Polynomial, Sine and Cosine ask their values.
 
@@ -138,7 +138,7 @@ class CreateSignalTest(NewSignalTestCase):
                      in self.view.parameter_question_list[0][2]],
                     label_list)
 
-    @covers("LLFR-01280", "LLFR-01281", "LLFR-01369", "LLFR-01282",
+    @covers("LLFR-01291", "LLFR-01292", "LLFR-01380", "LLFR-01293",
             "HLFR-00162")
     def test_invalid_values_keep_the_dialog_open(self) -> None:
         """A text that is not a number or a frequency of 0 is refused
@@ -175,7 +175,7 @@ class StatisticRangeTest(NewSignalTestCase):
         plot_id_i = self.plot_controller.time_plot_list()[0].plot_id_i
         self.view.handler_dict["time_range_handler"](plot_id_i, 2.0, 4.0)
 
-    @covers("LLFR-01297", "LLFR-01370", "LLFR-01298", "LLFR-00271",
+    @covers("LLFR-01308", "LLFR-01381", "LLFR-01309", "LLFR-00271",
             "HLFR-00164")
     def test_whole_signal_is_chosen_at_first(self) -> None:
         """The dialog offers both ranges, the whole signal first, and
@@ -193,7 +193,7 @@ class StatisticRangeTest(NewSignalTestCase):
             self.controller.store.get("file1_mean_Torque").value_array,
             np.full(100, np.mean(np.arange(100) * 0.2)))
 
-    @covers("LLFR-01299", "LLFR-01296", "HLFR-00164")
+    @covers("LLFR-01310", "LLFR-01307", "HLFR-00164")
     def test_shown_range(self) -> None:
         """"Shown x-axis range" uses the samples of the shown range and
         puts it in the name.
@@ -209,7 +209,7 @@ class StatisticRangeTest(NewSignalTestCase):
             "file1_median_2s_to_4s_Torque").value_array
         np.testing.assert_allclose(value_array, np.full(100, 6.0))
 
-    @covers("LLFR-01300", "LLFR-01371", "LLFR-01301", "LLFR-01302",
+    @covers("LLFR-01311", "LLFR-01382", "LLFR-01312", "LLFR-01313",
             "HLFR-00164")
     def test_shown_range_refused_or_cancelled(self) -> None:
         """With no time plot the dialog says a time plot is needed; a
@@ -226,7 +226,7 @@ class StatisticRangeTest(NewSignalTestCase):
         self.create("file1_Torque", "std")
         self.assertEqual(self.store_names(), ["file1_rms_Torque"])
 
-    @covers("LLFR-01301", "LLFR-01372", "HLFR-00164")
+    @covers("LLFR-01312", "LLFR-01383", "HLFR-00164")
     def test_range_with_no_sample_of_the_signal(self) -> None:
         """A shown range outside the signal's file keeps the dialog
         open with the reason.
@@ -246,7 +246,7 @@ class StatisticRangeTest(NewSignalTestCase):
 class TrigonometricControllerTest(NewSignalTestCase):
     """The trigonometric operations in the menu."""
 
-    @covers("LLFR-01294", "LLFR-00268", "HLFR-00163")
+    @covers("LLFR-01305", "LLFR-00268", "HLFR-00163")
     def test_sine_runs_at_once(self) -> None:
         """Sine of a signal needs no dialog.
 

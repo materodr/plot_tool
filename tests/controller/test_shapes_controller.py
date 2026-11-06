@@ -3,10 +3,10 @@ the plot controller (issue #260).
 
 The fake view and the setup of tests.controller.test_plot_controller
 are reused. Covers drawing, moving, resizing, recoloring, renaming and
-deleting a shape (LLFR-01305, LLFR-01323, LLFR-01327, LLFR-01337 to
-LLFR-01339, LLFR-01346 to LLFR-01352), the "Width" and "Line style"
-options (LLFR-01360, LLFR-01365), the rename of a data tip (LLFR-01253 to
-LLFR-01259), the Hide labels button (LLFR-01270 to LLFR-01274), and the
+deleting a shape (LLFR-01316, LLFR-01334, LLFR-01338, LLFR-01348 to
+LLFR-01350, LLFR-01357 to LLFR-01363), the "Width" and "Line style"
+options (LLFR-01371, LLFR-01376), the rename of a data tip (LLFR-01264 to
+LLFR-01270), the Hide labels button (LLFR-01281 to LLFR-01285), and the
 undo and redo of each of them (LLFR-00140, LLFR-00138, LLFR-00192).
 """
 
@@ -50,7 +50,7 @@ class ShapeControllerTestCase(ArrowControllerTestCase):
 class ShapeCreateTest(ShapeControllerTestCase):
     """Drawing and editing shapes."""
 
-    @covers("LLFR-01305", "LLFR-01346", "LLFR-01347", "LLFR-00140",
+    @covers("LLFR-01316", "LLFR-01357", "LLFR-01358", "LLFR-00140",
             "LLFR-00138", "LLFR-00192", "HLFR-00158")
     def test_create_is_drawn_and_undoable(self) -> None:
         """A drawn shape is kept, named and drawn; undo and redo work and
@@ -77,7 +77,7 @@ class ShapeCreateTest(ShapeControllerTestCase):
                          ["Rectangle 1", "Circle 2"])
         self.assertEqual(self.undo_depth(), depth_i + 1)
 
-    @covers("LLFR-01308", "LLFR-01309", "HLFR-00158")
+    @covers("LLFR-01319", "LLFR-01320", "HLFR-00158")
     def test_bad_requests_create_nothing(self) -> None:
         """An unknown plot or kind, or a flat box, creates nothing and
         uses up no number.
@@ -95,9 +95,9 @@ class ShapeCreateTest(ShapeControllerTestCase):
         create(self.plot_id_i, "circle", 1.0, 1.0, 3.0, 2.0)
         self.assertEqual(self.drawn_shapes()[0][6], "Circle 1")
 
-    @covers("LLFR-01323", "LLFR-01327", "LLFR-01337", "LLFR-01338",
-            "LLFR-01339", "LLFR-01348", "LLFR-01349", "LLFR-01350",
-            "LLFR-01351", "LLFR-01352", "LLFR-00140", "HLFR-00158")
+    @covers("LLFR-01334", "LLFR-01338", "LLFR-01348", "LLFR-01349",
+            "LLFR-01350", "LLFR-01359", "LLFR-01360", "LLFR-01361",
+            "LLFR-01362", "LLFR-01363", "LLFR-00140", "HLFR-00158")
     def test_edits_are_undoable(self) -> None:
         """Move, color, rename and delete each give one undo step; the
         same box, a cancelled dialog and a blank name give none.
@@ -139,7 +139,7 @@ class ShapeCreateTest(ShapeControllerTestCase):
 class LineLookControllerTest(ShapeControllerTestCase):
     """The "Width" and "Line style" options."""
 
-    @covers("LLFR-01360", "LLFR-01365", "LLFR-00140", "LLFR-00138",
+    @covers("LLFR-01371", "LLFR-01376", "LLFR-00140", "LLFR-00138",
             "HLFR-00159", "HLFR-00160")
     def test_each_kind_is_drawn_again(self) -> None:
         """A width or style of a flag, curve, delta marker, text note,
@@ -187,8 +187,8 @@ class LineLookControllerTest(ShapeControllerTestCase):
 class TipRenameControllerTest(ShapeControllerTestCase):
     """The names of the pinned data tips."""
 
-    @covers("LLFR-01253", "LLFR-01255", "LLFR-01256", "LLFR-01257",
-            "LLFR-01258", "LLFR-01259", "LLFR-00140", "HLFR-00025")
+    @covers("LLFR-01264", "LLFR-01266", "LLFR-01267", "LLFR-01268",
+            "LLFR-01269", "LLFR-01270", "LLFR-00140", "HLFR-00025")
     def test_pinned_tips_are_named_and_renamed(self) -> None:
         """New tips get "Data tip N"; a rename asks from the name, a
         blank one changes nothing and a real one is undoable.
@@ -224,7 +224,7 @@ class TipRenameControllerTest(ShapeControllerTestCase):
 class LabelsControllerTest(ShapeControllerTestCase):
     """The Hide labels button."""
 
-    @covers("LLFR-01270", "LLFR-01271", "LLFR-01272", "LLFR-01273",
+    @covers("LLFR-01281", "LLFR-01282", "LLFR-01283", "LLFR-01284",
             "LLFR-00140", "LLFR-00138", "LLFR-00192", "HLFR-00161")
     def test_hide_and_show_are_undoable(self) -> None:
         """The labels are shown at start; each click is one undoable

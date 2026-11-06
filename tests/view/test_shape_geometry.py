@@ -1,10 +1,10 @@
 """Tests for the geometry of the shapes and the line looks (issue #260).
 
-Pure math, with no Qt: the box of two corners (LLFR-01303), the line of
-a circle and of a rectangle (LLFR-01310, LLFR-01311, LLFR-01313), the
-corners that a press drags (LLFR-01327 to LLFR-01330), the label place
-(LLFR-01342 to LLFR-01344) and the widths and styles of the lines
-(LLFR-01362, LLFR-01367).
+Pure math, with no Qt: the box of two corners (LLFR-01314), the line of
+a circle and of a rectangle (LLFR-01321, LLFR-01322, LLFR-01324), the
+corners that a press drags (LLFR-01338 to LLFR-01341), the label place
+(LLFR-01353 to LLFR-01355) and the widths and styles of the lines
+(LLFR-01373, LLFR-01378).
 """
 
 import unittest
@@ -19,7 +19,7 @@ AREA_TUPLE = (0.0, 0.0, 100.0, 100.0)
 class ShapeGeometryTest(unittest.TestCase):
     """The shapes in display pixels."""
 
-    @covers("LLFR-01303", "LLFR-01327", "LLFR-01328", "HLFR-00158")
+    @covers("LLFR-01314", "LLFR-01338", "LLFR-01339", "HLFR-00158")
     def test_box_and_corners(self) -> None:
         """Any two opposite corners give the same box and corners.
 
@@ -34,7 +34,7 @@ class ShapeGeometryTest(unittest.TestCase):
         self.assertEqual(shape_geometry.opposite_corner(0, (10, 20),
                                                         (30, 50)), (30, 50))
 
-    @covers("LLFR-01313", "LLFR-01310", "LLFR-01311", "HLFR-00158")
+    @covers("LLFR-01324", "LLFR-01321", "LLFR-01322", "HLFR-00158")
     def test_distance_to_the_line(self) -> None:
         """A point on the line is at 0; the center is far from it.
 
@@ -46,13 +46,13 @@ class ShapeGeometryTest(unittest.TestCase):
                 kind_str, (50.0, 80.0), (20.0, 20.0), (80.0, 80.0)), 0.5)
             self.assertGreater(shape_geometry.line_distance_f(
                 kind_str, (50.0, 50.0), (20.0, 20.0), (80.0, 80.0)), 25.0)
-        # LLFR-01310: a corner of the box is off the circle's line.
+        # LLFR-01321: a corner of the box is off the circle's line.
         self.assertGreater(shape_geometry.line_distance_f(
             "circle", (20.0, 20.0), (20.0, 20.0), (80.0, 80.0)), 5.0)
         self.assertLess(shape_geometry.line_distance_f(
             "rectangle", (20.0, 20.0), (20.0, 20.0), (80.0, 80.0)), 1e-9)
 
-    @covers("LLFR-01329", "LLFR-01330", "HLFR-00158")
+    @covers("LLFR-01340", "LLFR-01341", "HLFR-00158")
     def test_nearest_corner_and_minimum_size(self) -> None:
         """The nearest corner within 5 pixels moves; the box keeps 5
         pixels of width and height.
@@ -73,7 +73,7 @@ class ShapeGeometryTest(unittest.TestCase):
         self.assertEqual(shape_geometry.kept_apart_corner(
             (10.0, 10.0), (10.0, 10.0), (40.0, 0.0), 5.0), (15.0, 5.0))
 
-    @covers("LLFR-01342", "LLFR-01343", "LLFR-01344", "HLFR-00158")
+    @covers("LLFR-01353", "LLFR-01354", "LLFR-01355", "HLFR-00158")
     def test_label_place_and_hidden_label(self) -> None:
         """The label sits inside the top-left corner, kept inside the
         area; with no line in the area, the label is hidden.
@@ -98,7 +98,7 @@ class ShapeGeometryTest(unittest.TestCase):
 class LineLooksTest(unittest.TestCase):
     """The widths and the styles of the lines."""
 
-    @covers("LLFR-01362", "LLFR-01361", "LLFR-01373", "HLFR-00159")
+    @covers("LLFR-01373", "LLFR-01372", "LLFR-01384", "HLFR-00159")
     def test_width_factors(self) -> None:
         """Width N is width 1 times 1, 2, 3, 4.5 or 6.
 
@@ -112,7 +112,7 @@ class LineLooksTest(unittest.TestCase):
         self.assertEqual(line_looks.width_or_one(True), 1)
         self.assertEqual(line_looks.width_or_one(4), 4)
 
-    @covers("LLFR-01367", "LLFR-01364", "HLFR-00160")
+    @covers("LLFR-01378", "LLFR-01375", "HLFR-00160")
     def test_styles(self) -> None:
         """Continuous, the dashes of the kind, dots and dash-dots.
 

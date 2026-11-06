@@ -56,12 +56,12 @@ AREA_TEXT_STR = "Area"
 TEXT_TEXT_STR = "Text"
 # LLFR-00366: the Arrow tool button.
 ARROW_TEXT_STR = "Arrow"
-# LLFR-01261, LLFR-01262: the shape tool buttons, right of Arrow.
+# LLFR-01272, LLFR-01273: the shape tool buttons, right of Arrow.
 CIRCLE_TEXT_STR = "Circle"
 RECTANGLE_TEXT_STR = "Rectangle"
 RESET_ZOOM_TEXT_STR = "Reset zoom"
 GRID_TEXT_STR = "Grid"
-# LLFR-01269: the Hide labels button, right of Grid.
+# LLFR-01280: the Hide labels button, right of Grid.
 HIDE_LABELS_TEXT_STR = "Hide labels"
 # LLFR-00126, LLFR-00127, LLFR-00132: the export buttons and the menu.
 EXPORT_TEXT_STR = "Export"
@@ -371,8 +371,8 @@ class TopPanel(QWidget):
         arrow_button: the "Arrow" ToggleButton (LLFR-00366), right of
             Text.
         circle_button, rectangle_button: the "Circle" and "Rectangle"
-            ToggleButtons (LLFR-01261, LLFR-01262), right of Arrow.
-        labels_button: the "Hide labels" ToggleButton (LLFR-01269),
+            ToggleButtons (LLFR-01272, LLFR-01273), right of Arrow.
+        labels_button: the "Hide labels" ToggleButton (LLFR-01280),
             right of Grid; active while the labels are hidden.
         plot_tool_button_dict: plot tool name -> its ToggleButton, in
             the order of the buttons (LLFR-00347).
@@ -460,7 +460,7 @@ class TopPanel(QWidget):
         # LLFR-00366: the Arrow tool button, the last plot tool.
         self.arrow_button = new_icon_button(
             ToggleButton, ARROW_TEXT_STR, "arrow_button")
-        # LLFR-01261, LLFR-01262: the Circle and Rectangle tools.
+        # LLFR-01272, LLFR-01273: the Circle and Rectangle tools.
         self.circle_button = new_icon_button(
             ToggleButton, CIRCLE_TEXT_STR, "circle_button")
         self.rectangle_button = new_icon_button(
@@ -495,7 +495,7 @@ class TopPanel(QWidget):
             ActionButton, RESET_ZOOM_TEXT_STR, "reset_zoom_button")
         self.grid_button = new_icon_button(
             ToggleButton, GRID_TEXT_STR, "grid_button")
-        # LLFR-01269, LLFR-01272: the Hide labels button, active while
+        # LLFR-01280, LLFR-01283: the Hide labels button, active while
         # the labels are hidden; not a plot tool.
         self.labels_button = new_icon_button(
             ToggleButton, HIDE_LABELS_TEXT_STR, "labels_button")

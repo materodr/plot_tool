@@ -517,7 +517,7 @@ class SyntheticControllerTestCase(unittest.TestCase):
                 no time plot.
         Outputs: none.
         """
-        # LLFR-01297: a statistic asks for its range; with no answer
+        # LLFR-01308: a statistic asks for its range; with no answer
         # given, the user keeps "Whole signal".
         if (operation_str in ("max", "min", "rms", "mean", "std",
                               "median")

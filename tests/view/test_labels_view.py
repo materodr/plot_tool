@@ -192,7 +192,7 @@ class MenuTitleTest(LabelWidgetTestCase):
 
     @covers("LLFR-00425", "LLFR-00426", "LLFR-00845", "LLFR-00846",
             "LLFR-00847", "LLFR-00849", "LLFR-00378", "LLFR-00175",
-            "LLFR-01244", "LLFR-01245", "LLFR-01359", "LLFR-01364",
+            "LLFR-01255", "LLFR-01256", "LLFR-01370", "LLFR-01375",
             "HLFR-00096", "HLFR-00108", "HLFR-00109")
     def test_every_menu_has_its_title(self) -> None:
         """Curve, plot, pinned tip, flag, area, delta marker, text note
@@ -249,7 +249,7 @@ class MenuTitleTest(LabelWidgetTestCase):
             self.check_title(self.data_display(2.0, 2.0), "Arrow: Arrow 1",
                              ARROW_MENU_TEXT_LIST)
 
-    @covers("LLFR-00850", "LLFR-00426", "LLFR-01246", "HLFR-00096")
+    @covers("LLFR-00850", "LLFR-00426", "LLFR-01257", "HLFR-00096")
     def test_long_title_is_shortened(self) -> None:
         """A name of more than 40 characters is shortened to 40 with
         "…" in the middle, and the whole name is the title's tip.
@@ -269,7 +269,7 @@ class MenuTitleTest(LabelWidgetTestCase):
         self.assertEqual(len(label_str), 40)
         self.assertTrue(label_str.endswith("_end"))
         self.assertIn("\u2026", label_str)
-        # LLFR-01246: the whole name in the tip of the title.
+        # LLFR-01257: the whole name in the tip of the title.
         self.assertEqual(menu_title_label(menu).toolTip(), long_name_str)
         self.assertEqual(menu.actions()[0].toolTip(), long_name_str)
         self.assertTrue(menu.toolTipsVisible())

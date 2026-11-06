@@ -161,17 +161,17 @@ PLOT_SIGNAL_HANDLER_DICT = {
     # LLFR-00433, LLFR-00794: a point of a delta marker dragged to
     # another sample of its curve.
     "delta_point_move_requested": "delta_point_move_handler",
-    # LLFR-01255: "Rename" of a pinned data tip.
+    # LLFR-01266: "Rename" of a pinned data tip.
     "pinned_tip_rename_requested": "pinned_tip_rename_handler",
-    # LLFR-01305, LLFR-01323, LLFR-01327, LLFR-01337, LLFR-01339,
-    # LLFR-01348: a shape drawn, moved or resized, recolored, deleted or
+    # LLFR-01316, LLFR-01334, LLFR-01338, LLFR-01348, LLFR-01350,
+    # LLFR-01359: a shape drawn, moved or resized, recolored, deleted or
     # renamed.
     "shape_create_requested": "shape_create_handler",
     "shape_change_requested": "shape_change_handler",
     "shape_color_requested": "shape_color_handler",
     "shape_delete_requested": "shape_delete_handler",
     "shape_rename_requested": "shape_rename_handler",
-    # LLFR-01360, LLFR-01365: a width or a line style chosen for an
+    # LLFR-01371, LLFR-01376: a width or a line style chosen for an
     # object.
     "object_width_requested": "object_width_handler",
     "object_line_style_requested": "object_line_style_handler",
@@ -918,7 +918,7 @@ class PlotPanel(QWidget):
         Outputs: a QMenu with "Delete", "Rename" and "Plot matrix".
         """
         menu = QMenu(self if parent is None else parent)
-        # LLFR-01247, LLFR-01248: the title "Tab: <tab name>" first.
+        # LLFR-01258, LLFR-01259: the title "Tab: <tab name>" first.
         page = self.page_dict.get(tab_id_i)
         add_menu_title(menu, object_names.TAB_OBJECT_STR,
                        page.name_str if page is not None else "")

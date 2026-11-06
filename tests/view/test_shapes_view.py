@@ -2,18 +2,18 @@
 titles in the view (issue #260).
 
 Covers, on one plot widget, drawing a circle or a rectangle with its
-preview (LLFR-01303 to LLFR-01309, LLFR-01315 to LLFR-01317), the look
-and layer of a shape (LLFR-01310 to LLFR-01314), moving and resizing it
-(LLFR-01323 to LLFR-01335), its menu (LLFR-01336, LLFR-01340), its label
-(LLFR-01342, LLFR-01353), the shapes in the exported image (LLFR-01354,
-LLFR-01316), the "Width" and "Line style" options (LLFR-01359,
-LLFR-01360, LLFR-01362, LLFR-01364, LLFR-01365, LLFR-01367), the data tip
-name line (LLFR-01252) and the hidden labels (LLFR-01270, LLFR-01274,
-LLFR-01275, LLFR-01276); through MainWindow and the real controllers,
-the Circle and Rectangle buttons and the O and B keys (LLFR-01261 to
-LLFR-01268), the Hide labels button (LLFR-01269 to LLFR-01273) and the
+preview (LLFR-01314 to LLFR-01320, LLFR-01326 to LLFR-01328), the look
+and layer of a shape (LLFR-01321 to LLFR-01325), moving and resizing it
+(LLFR-01334 to LLFR-01346), its menu (LLFR-01347, LLFR-01351), its label
+(LLFR-01353, LLFR-01364), the shapes in the exported image (LLFR-01365,
+LLFR-01327), the "Width" and "Line style" options (LLFR-01370,
+LLFR-01371, LLFR-01373, LLFR-01375, LLFR-01376, LLFR-01378), the data tip
+name line (LLFR-01263) and the hidden labels (LLFR-01281, LLFR-01285,
+LLFR-01286, LLFR-01287); through MainWindow and the real controllers,
+the Circle and Rectangle buttons and the O and B keys (LLFR-01272 to
+LLFR-01279), the Hide labels button (LLFR-01280 to LLFR-01284) and the
 titles of the tab, signal and file menus with "Create signal"
-(LLFR-01246 to LLFR-01251, LLFR-01278). No modal dialog or menu is ever
+(LLFR-01257 to LLFR-01262, LLFR-01289). No modal dialog or menu is ever
 opened: ``execute_menu`` is replaced.
 """
 
@@ -144,8 +144,8 @@ class ShapeWidgetTestCase(ArrowWidgetTestCase):
 class ShapeDrawingTest(ShapeWidgetTestCase):
     """Drawing a new shape with the Circle or Rectangle tool."""
 
-    @covers("LLFR-01303", "LLFR-01304", "LLFR-01305", "LLFR-01306",
-            "LLFR-01317", "LLFR-01315", "HLFR-00158")
+    @covers("LLFR-01314", "LLFR-01315", "LLFR-01316", "LLFR-01317",
+            "LLFR-01328", "LLFR-01326", "HLFR-00158")
     def test_drag_shows_a_preview_and_release_creates(self) -> None:
         """Below 5 pixels nothing is shown; from 5 pixels on a preview of
         the tool's kind follows the pointer, with no label; the release
@@ -179,7 +179,7 @@ class ShapeDrawingTest(ShapeWidgetTestCase):
                     self.box_of(self.shape_create_list[0][1:]),
                     EMPTY_BOX_TUPLE)
 
-    @covers("LLFR-01308", "LLFR-01309", "HLFR-00158")
+    @covers("LLFR-01319", "LLFR-01320", "HLFR-00158")
     def test_small_box_creates_nothing(self) -> None:
         """A box less than 5 pixels high creates no shape.
 
@@ -191,7 +191,7 @@ class ShapeDrawingTest(ShapeWidgetTestCase):
         self.drag(press_tuple, (press_tuple[0] + 60.0, press_tuple[1] + 2.0))
         self.assertEqual(self.shape_create_list, [])
 
-    @covers("LLFR-01307", "HLFR-00158")
+    @covers("LLFR-01318", "HLFR-00158")
     def test_release_outside_ends_at_the_drawing_area(self) -> None:
         """A release right of the drawing area puts the corner on its
         right edge.
@@ -209,7 +209,7 @@ class ShapeDrawingTest(ShapeWidgetTestCase):
             self.box_of(self.shape_create_list[0][1:])[2], right_f,
             delta=VALUE_TOLERANCE_F)
 
-    @covers("LLFR-01303", "LLFR-01334", "HLFR-00158")
+    @covers("LLFR-01314", "LLFR-01345", "HLFR-00158")
     def test_no_shape_without_its_tool(self) -> None:
         """With no tool or the Zoom tool, a drag draws no shape.
 
@@ -226,8 +226,8 @@ class ShapeDrawingTest(ShapeWidgetTestCase):
 class ShapeLookTest(ShapeWidgetTestCase):
     """How a shape is drawn."""
 
-    @covers("LLFR-01310", "LLFR-01311", "LLFR-01314", "LLFR-01318",
-            "LLFR-01342", "LLFR-01362", "LLFR-01367", "HLFR-00158",
+    @covers("LLFR-01321", "LLFR-01322", "LLFR-01325", "LLFR-01329",
+            "LLFR-01353", "LLFR-01373", "LLFR-01378", "HLFR-00158",
             "HLFR-00159", "HLFR-00160")
     def test_patch_kind_color_width_style_and_layer(self) -> None:
         """A circle is an ellipse in its box and a rectangle a rectangle,
@@ -264,14 +264,14 @@ class ShapeLookTest(ShapeWidgetTestCase):
                          "Circle 1")
         self.assertEqual(self.plot_widget.shape_label(1).get_text(),
                          "Rectangle 1")
-        # LLFR-01318: the box follows its values when the range changes.
+        # LLFR-01329: the box follows its values when the range changes.
         before_tuple = self.plot_widget.shape_display_tuple(1)
         self.plot_widget.zoom_to_range(5.0, 10.0)
         self.draw()
         self.assertNotEqual(self.plot_widget.shape_display_tuple(1),
                             before_tuple)
 
-    @covers("LLFR-01354", "LLFR-01316", "HLFR-00158", "HLFR-00038",
+    @covers("LLFR-01365", "LLFR-01327", "HLFR-00158", "HLFR-00038",
             "HLFR-00039")
     def test_rendered_figure_shows_shapes_but_no_preview(self) -> None:
         """The export image holds a magenta rectangle, but not the
@@ -318,7 +318,7 @@ class ShapeLookTest(ShapeWidgetTestCase):
 class ShapeEditTest(ShapeWidgetTestCase):
     """Moving and resizing a shape."""
 
-    @covers("LLFR-01313", "LLFR-01323", "LLFR-01324", "LLFR-01333",
+    @covers("LLFR-01324", "LLFR-01334", "LLFR-01335", "LLFR-01344",
             "HLFR-00158", "HLFR-00085")
     def test_move_by_the_line_keeps_the_size(self) -> None:
         """With no tool, a drag from the bottom line moves the box by the
@@ -343,7 +343,7 @@ class ShapeEditTest(ShapeWidgetTestCase):
         self.assert_values_near(self.box_of(self.shape_change_list[0][1:]),
                                 (3.0, 1.75, 7.0, 2.75))
 
-    @covers("LLFR-01326", "LLFR-01332", "HLFR-00158")
+    @covers("LLFR-01337", "LLFR-01343", "HLFR-00158")
     def test_short_drag_changes_nothing(self) -> None:
         """A release less than 5 pixels from the press asks nothing.
 
@@ -357,7 +357,7 @@ class ShapeEditTest(ShapeWidgetTestCase):
         self.assertEqual(self.shape_change_list, [])
         self.assertEqual(self.shape_create_list, [])
 
-    @covers("LLFR-01327", "LLFR-01328", "LLFR-01329", "HLFR-00158")
+    @covers("LLFR-01338", "LLFR-01339", "LLFR-01340", "HLFR-00158")
     def test_resize_by_a_corner(self) -> None:
         """A drag from a corner moves that corner and keeps the opposite
         one.
@@ -372,7 +372,7 @@ class ShapeEditTest(ShapeWidgetTestCase):
         self.assert_values_near(self.box_of(self.shape_change_list[0][1:]),
                                 (2.0, 1.5, 8.0, 2.8))
 
-    @covers("LLFR-01334", "LLFR-01335", "HLFR-00158")
+    @covers("LLFR-01345", "LLFR-01346", "HLFR-00158")
     def test_other_tools_leave_the_shape(self) -> None:
         """The Circle tool and the Zoom tool do not edit a rectangle.
 
@@ -392,8 +392,8 @@ class ShapeEditTest(ShapeWidgetTestCase):
 class ShapeMenuTest(ShapeWidgetTestCase):
     """The shape menu and the line options."""
 
-    @covers("LLFR-01336", "LLFR-01339", "LLFR-01348", "LLFR-00426",
-            "LLFR-01244", "HLFR-00158", "HLFR-00096")
+    @covers("LLFR-01347", "LLFR-01350", "LLFR-01359", "LLFR-00426",
+            "LLFR-01255", "HLFR-00158", "HLFR-00096")
     def test_menu_options_and_requests(self) -> None:
         """The menu has its title and options; Rename and Delete ask for
         the shape.
@@ -413,8 +413,8 @@ class ShapeMenuTest(ShapeWidgetTestCase):
         self.choose_menu(point_tuple, "Delete")
         self.assertEqual(self.shape_delete_list, [(0,)])
 
-    @covers("LLFR-01359", "LLFR-01360", "LLFR-01364", "LLFR-01365",
-            "LLFR-01361", "LLFR-01366", "HLFR-00159", "HLFR-00160")
+    @covers("LLFR-01370", "LLFR-01371", "LLFR-01375", "LLFR-01376",
+            "LLFR-01372", "LLFR-01377", "HLFR-00159", "HLFR-00160")
     def test_width_and_line_style_options(self) -> None:
         """"Width" lists 1 to 5 and "Line style" the four styles, each
         with the current one checked; a choice asks for it.
@@ -441,7 +441,7 @@ class ShapeMenuTest(ShapeWidgetTestCase):
         self.assertEqual(self.width_list, [("shape", 0, 4)])
         self.assertEqual(self.style_list, [("shape", 0, "dash_dotted")])
 
-    @covers("LLFR-01340", "LLFR-01364", "HLFR-00158", "HLFR-00160")
+    @covers("LLFR-01351", "LLFR-01375", "HLFR-00158", "HLFR-00160")
     def test_shape_menu_over_a_curve_and_curve_line_style(self) -> None:
         """Over a curve, the line of a shape gets the shape menu; the
         curve menu alone has "Line style" too.
@@ -459,7 +459,7 @@ class ShapeMenuTest(ShapeWidgetTestCase):
         self.assertEqual(self.choose_menu(on_curve_tuple, ""),
                          SHAPE_MENU_TEXT_LIST)
 
-    @covers("LLFR-01353", "HLFR-00158", "HLFR-00094")
+    @covers("LLFR-01364", "HLFR-00158", "HLFR-00094")
     def test_double_click_on_the_label_renames(self) -> None:
         """A double-click on the name label asks to rename the shape.
 
@@ -474,7 +474,7 @@ class ShapeMenuTest(ShapeWidgetTestCase):
 class LabelsAndTipNamesTest(ShapeWidgetTestCase):
     """The data tip name line and the hidden labels on a plot widget."""
 
-    @covers("LLFR-01252", "LLFR-01270", "LLFR-01271", "LLFR-01274",
+    @covers("LLFR-01263", "LLFR-01281", "LLFR-01282", "LLFR-01285",
             "HLFR-00025", "HLFR-00161")
     def test_tip_name_line_and_hidden_names(self) -> None:
         """A pinned tip shows its name on its first line; hidden labels
@@ -500,7 +500,7 @@ class LabelsAndTipNamesTest(ShapeWidgetTestCase):
                          "\n".join(tip_text_str.splitlines()[1:]))
         self.assertEqual(self.plot_widget.marker_label_text(1), "")
         self.assertEqual(self.plot_widget.shape_label(0).get_text(), "")
-        # LLFR-01274: an object drawn afterwards has no name either.
+        # LLFR-01285: an object drawn afterwards has no name either.
         self.plot_widget.set_shapes([shape_tuple("circle",
                                                  name_str="Later")])
         self.draw()
@@ -511,7 +511,7 @@ class LabelsAndTipNamesTest(ShapeWidgetTestCase):
                          "Later")
         self.assertEqual(self.plot_widget.marker_label_text(1), "Start")
 
-    @covers("LLFR-01276", "HLFR-00161", "HLFR-00094")
+    @covers("LLFR-01287", "HLFR-00161", "HLFR-00094")
     def test_double_click_on_a_hidden_label_renames_nothing(self) -> None:
         """Where the hidden label of a shape would be, a double-click
         asks no rename.
@@ -530,7 +530,7 @@ class LabelsAndTipNamesTest(ShapeWidgetTestCase):
 class ShapeEdgeTest(ShapeWidgetTestCase):
     """Shapes at the edge of the drawing area and under other items."""
 
-    @covers("LLFR-01319", "HLFR-00158")
+    @covers("LLFR-01330", "HLFR-00158")
     def test_shape_is_cut_at_the_edge(self) -> None:
         """A shape partly outside the shown range is clipped to the
         drawing area.
@@ -544,7 +544,7 @@ class ShapeEdgeTest(ShapeWidgetTestCase):
         self.assertTrue(patch.get_clip_path() is not None
                         or patch.get_clip_box() is not None)
 
-    @covers("LLFR-01325", "HLFR-00158")
+    @covers("LLFR-01336", "HLFR-00158")
     def test_move_released_outside_uses_the_nearest_point(self) -> None:
         """A move released right of the drawing area moves the shape as
         far as the right edge.
@@ -563,7 +563,7 @@ class ShapeEdgeTest(ShapeWidgetTestCase):
         self.assert_values_near(self.box_of(self.shape_change_list[0][1:]),
                                 (2.0 + shift_f, 1.5, 6.0 + shift_f, 2.5))
 
-    @covers("LLFR-01331", "HLFR-00158")
+    @covers("LLFR-01342", "HLFR-00158")
     def test_corner_released_outside_uses_the_nearest_point(self) -> None:
         """A corner released above the drawing area stops at its top.
 
@@ -580,7 +580,7 @@ class ShapeEdgeTest(ShapeWidgetTestCase):
         self.assert_values_near(self.box_of(self.shape_change_list[0][1:]),
                                 (2.0, 1.5, 6.0, top_f))
 
-    @covers("LLFR-01341", "HLFR-00158")
+    @covers("LLFR-01352", "HLFR-00158")
     def test_arrow_over_a_shape_gets_its_menu(self) -> None:
         """Where an arrow is drawn over the line of a shape, the
         right-click shows the arrow menu.
@@ -597,7 +597,7 @@ class ShapeEdgeTest(ShapeWidgetTestCase):
         self.assertEqual(self.choose_menu(point_tuple, ""),
                          ARROW_MENU_TEXT_LIST)
 
-    @covers("LLFR-01345", "HLFR-00158")
+    @covers("LLFR-01356", "HLFR-00158")
     def test_label_follows_the_preview(self) -> None:
         """While a shape is moved, its label is drawn with the preview,
         moved with it.
@@ -617,7 +617,7 @@ class ShapeEdgeTest(ShapeWidgetTestCase):
                            before_tuple[0] + 5.0)
         self.plot_widget.cancel_drags()
 
-    @covers("LLFR-01275", "HLFR-00161", "HLFR-00038", "HLFR-00039")
+    @covers("LLFR-01286", "HLFR-00161", "HLFR-00038", "HLFR-00039")
     def test_hidden_labels_are_not_exported(self) -> None:
         """The export image of a magenta shape has fewer magenta pixels
         once its label is hidden, and the label stays empty.
@@ -694,7 +694,7 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
         plot_id_i = self.plot_widgets()[0].plot_id_i
         return list(workspace.find_plot(plot_id_i).shape_list)
 
-    @covers("LLFR-01261", "LLFR-01262", "LLFR-00347", "HLFR-00158",
+    @covers("LLFR-01272", "LLFR-01273", "LLFR-00347", "HLFR-00158",
             "HLFR-00032")
     def test_buttons_are_exclusive_plot_tools(self) -> None:
         """Circle and Rectangle are plot tool buttons right of Arrow.
@@ -715,8 +715,8 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
         self.assert_tool_everywhere(RECTANGLE_TOOL_STR)
         self.assertFalse(self.top_panel.circle_button.isChecked())
 
-    @covers("LLFR-01263", "LLFR-01264", "LLFR-01265", "LLFR-01266",
-            "LLFR-01267", "LLFR-01268", "LLFR-01071", "HLFR-00158")
+    @covers("LLFR-01274", "LLFR-01275", "LLFR-01276", "LLFR-01277",
+            "LLFR-01278", "LLFR-01279", "LLFR-01071", "HLFR-00158")
     def test_hold_o_and_b(self) -> None:
         """Holding O or B keeps Circle or Rectangle active; the release
         or another key leaves no tool.
@@ -739,7 +739,7 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
                 self.release_key(key_name_str)
                 self.assert_tool_everywhere(NO_TOOL_STR)
 
-    @covers("LLFR-01305", "LLFR-01346", "LLFR-01320", "LLFR-00140",
+    @covers("LLFR-01316", "LLFR-01357", "LLFR-01331", "LLFR-00140",
             "LLFR-00138", "HLFR-00158", "HLFR-00040")
     def test_draw_and_undo_on_one_plot(self) -> None:
         """A rectangle drawn on the first plot is named, kept on that
@@ -767,8 +767,8 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
         self.application.processEvents()
         self.assertEqual(self.model_shapes(), [])
 
-    @covers("LLFR-01269", "LLFR-01270", "LLFR-01271", "LLFR-01272",
-            "LLFR-01273", "LLFR-01274", "LLFR-00140", "HLFR-00161")
+    @covers("LLFR-01280", "LLFR-01281", "LLFR-01282", "LLFR-01283",
+            "LLFR-01284", "LLFR-01285", "LLFR-00140", "HLFR-00161")
     def test_hide_labels_button(self) -> None:
         """The button is off at start; a click hides the labels of every
         plot, also of a new plot, and is undoable.
@@ -796,8 +796,8 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
         self.assertFalse(any(widget.labels_hidden_b
                              for widget in self.all_plot_widgets()))
 
-    @covers("LLFR-01247", "LLFR-01248", "LLFR-01250", "LLFR-01251",
-            "LLFR-01278", "HLFR-00016", "HLFR-00061", "HLFR-00118",
+    @covers("LLFR-01258", "LLFR-01259", "LLFR-01261", "LLFR-01262",
+            "LLFR-01289", "HLFR-00016", "HLFR-00061", "HLFR-00118",
             "HLFR-00162")
     def test_titles_of_the_tab_signal_and_file_menus(self) -> None:
         """The tab, signal and file menus start with their title and a
@@ -830,7 +830,7 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
         self.assertTrue(set(all_menu_actions(create_menu))
                         <= set(all_menu_actions(file_menu)))
 
-    @covers("LLFR-01246", "LLFR-01249", "HLFR-00096")
+    @covers("LLFR-01257", "LLFR-01260", "HLFR-00096")
     def test_long_signal_name_tip(self) -> None:
         """A signal name longer than 40 characters is shortened in the
         title, and the whole name is its tip.

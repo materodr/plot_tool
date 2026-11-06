@@ -114,7 +114,7 @@ AREA_KEY_I = int(Qt.Key.Key_A.value)
 TEXT_KEY_I = int(Qt.Key.Key_T.value)
 # LLFR-00367: the key that holds the Arrow tool.
 ARROW_KEY_I = int(Qt.Key.Key_R.value)
-# LLFR-01263, LLFR-01266: the keys held for the Circle and Rectangle
+# LLFR-01274, LLFR-01277: the keys held for the Circle and Rectangle
 # tools.
 CIRCLE_KEY_I = int(Qt.Key.Key_O.value)
 RECTANGLE_KEY_I = int(Qt.Key.Key_B.value)

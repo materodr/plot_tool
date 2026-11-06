@@ -9,15 +9,15 @@ leave_marker_preview, hide_delta_preview).
 
 Shapes work like arrows (LLFR-00371 to LLFR-00381): they belong to the
 plot they were drawn on, are attached to the x and y values of two
-opposite corners of their box (LLFR-01318), and are drawn above the
+opposite corners of their box (LLFR-01329), and are drawn above the
 curves, flags, areas and delta markers and below the arrows, tips and
-text notes (LLFR-01314). With the Circle or the Rectangle tool, a press
+text notes (LLFR-01325). With the Circle or the Rectangle tool, a press
 on a shape of that kind, or with no tool a press on any shape, moves it
-(LLFR-01323) or, within 5 pixels of a corner of its box, resizes it
-(LLFR-01327); any other press with the tool draws a new shape
-(LLFR-01303). The previews are blitted like the arrow previews, so they
+(LLFR-01334) or, within 5 pixels of a corner of its box, resizes it
+(LLFR-01338); any other press with the tool draws a new shape
+(LLFR-01314). The previews are blitted like the arrow previews, so they
 are never part of a full draw, an export or the copied image
-(LLFR-01316), and the request is emitted once, at the release.
+(LLFR-01327), and the request is emitted once, at the release.
 """
 
 import functools
@@ -37,22 +37,22 @@ from view import shape_geometry, theme
 from view.line_looks import line_style_or, line_width_f, \
     matplotlib_line_style, width_or_one
 
-# LLFR-01314: shapes above the delta markers (8.5), below the arrows
+# LLFR-01325: shapes above the delta markers (8.5), below the arrows
 # (8.8).
 SHAPE_ZORDER_F = 8.7
-# LLFR-01310, LLFR-01311: the thickness of preset width 1, in points.
+# LLFR-01321, LLFR-01322: the thickness of preset width 1, in points.
 SHAPE_LINE_WIDTH_F = 1.5
-# LLFR-01303, LLFR-01313, LLFR-01327: the 5 pixel rules.
+# LLFR-01314, LLFR-01324, LLFR-01338: the 5 pixel rules.
 SHAPE_THRESHOLD_PIXELS_F = 5.0
-# LLFR-01315: the previews are the shape's color mixed with this share
+# LLFR-01326: the previews are the shape's color mixed with this share
 # of the plot background.
 SHAPE_PREVIEW_PALE_RATIO_F = 0.55
-# LLFR-01342: the label's font size and its gap to the box, in points.
+# LLFR-01353: the label's font size and its gap to the box, in points.
 SHAPE_LABEL_FONT_SIZE_F = 9.0
 SHAPE_LABEL_GAP_POINTS_F = 3.0
-# LLFR-01323: no shape is pressed.
+# LLFR-01334: no shape is pressed.
 NO_SHAPE_INDEX_I = -1
-# LLFR-01303, LLFR-01323, LLFR-01327: what a press on the shapes does.
+# LLFR-01314, LLFR-01334, LLFR-01338: what a press on the shapes does.
 SHAPE_DRAG_NONE_STR = ""
 SHAPE_DRAG_CREATE_STR = "create"
 SHAPE_DRAG_MOVE_STR = "move"
@@ -69,7 +69,7 @@ def shape_data_tuple(shape_tuple) -> tuple:
     Outputs: the 9-tuple with a known kind, floats, a "#rrggbb" color, a
         name, a preset width and a line style.
     """
-    # LLFR-01312, LLFR-01361, LLFR-01366: the defaults of a new shape.
+    # LLFR-01323, LLFR-01372, LLFR-01377: the defaults of a new shape.
     shape_tuple = tuple(shape_tuple)
     kind_str = (shape_tuple[0] if shape_tuple[0] in SHAPE_KIND_TUPLE
                 else RECTANGLE_KIND_STR)
@@ -92,7 +92,7 @@ def paler_color_str(color_str: str) -> str:
         color_str: any matplotlib color.
     Outputs: "#rrggbb".
     """
-    # LLFR-01315: the previews are paler.
+    # LLFR-01326: the previews are paler.
     color_tuple = to_rgb(color_str)
     background_tuple = to_rgb(theme.PLOT_BACKGROUND_COLOR_STR)
     return to_hex(tuple(
@@ -114,7 +114,7 @@ def new_shape_patch(kind_str: str, color_str: str, width_i: int,
             use display pixels).
     Outputs: an Ellipse or a Rectangle with no fill.
     """
-    # LLFR-01310, LLFR-01311: a line in the shape's color, width and
+    # LLFR-01321, LLFR-01322: a line in the shape's color, width and
     # style, with no fill.
     keyword_dict = {"fill": False, "edgecolor": color_str,
                     "linewidth": line_width_f(SHAPE_LINE_WIDTH_F, width_i),
@@ -135,7 +135,7 @@ def place_shape_patch(patch, first_tuple: tuple, second_tuple: tuple) -> None:
         first_tuple, second_tuple: the corners, in the patch's units.
     Outputs: none.
     """
-    # LLFR-01310: the ellipse fills the box; LLFR-01311: the rectangle
+    # LLFR-01321: the ellipse fills the box; LLFR-01322: the rectangle
     # is the box.
     left_f, bottom_f, right_f, top_f = shape_geometry.box_tuple(
         first_tuple, second_tuple)
@@ -161,12 +161,12 @@ class ShapeLayer:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01318, LLFR-01320: the shapes of this plot, as tuples of
+        # LLFR-01329, LLFR-01331: the shapes of this plot, as tuples of
         # shape_data_tuple, their patches and their labels.
         self.shape_list = []
         self.shape_artist_list = []
         self.shape_label_list = []
-        # LLFR-01303, LLFR-01323, LLFR-01327: the press in progress.
+        # LLFR-01314, LLFR-01334, LLFR-01338: the press in progress.
         self.shape_drag_mode_str = SHAPE_DRAG_NONE_STR
         self.shape_drag_index_i = NO_SHAPE_INDEX_I
         self.shape_drag_kind_str = RECTANGLE_KIND_STR
@@ -191,7 +191,7 @@ class ShapeLayer:
                 x values are in Hz on a frequency plot.
         Outputs: none. Only the shapes are drawn again.
         """
-        # LLFR-01318, LLFR-01320: exactly the shapes of this plot.
+        # LLFR-01329, LLFR-01331: exactly the shapes of this plot.
         self.shape_list = [shape_data_tuple(shape_tuple)
                            for shape_tuple in shape_data_list]
         self.draw_shapes()
@@ -203,7 +203,7 @@ class ShapeLayer:
         Inputs: none.
         Outputs: none. An edit drag in progress ends without a request.
         """
-        # LLFR-01339: remove the old artists first.
+        # LLFR-01350: remove the old artists first.
         for artist in self.shape_artist_list + self.shape_label_list:
             try:
                 artist.remove()
@@ -211,7 +211,7 @@ class ShapeLayer:
                 pass
         self.shape_artist_list = []
         self.shape_label_list = []
-        # LLFR-01323, LLFR-01327: a shape is named by its index, so a
+        # LLFR-01334, LLFR-01338: a shape is named by its index, so a
         # drag of one cannot go on with a new list.
         if self.shape_drag_mode_str not in (SHAPE_DRAG_NONE_STR,
                                             SHAPE_DRAG_CREATE_STR):
@@ -219,16 +219,16 @@ class ShapeLayer:
         for (kind_str, start_time_s, start_value_f, end_time_s,
              end_value_f, color_str, name_str, width_i,
              style_str) in self.shape_list:
-            # LLFR-01310, LLFR-01311, LLFR-01318: in data values, clipped
-            # to the drawing area (LLFR-01319).
+            # LLFR-01321, LLFR-01322, LLFR-01329: in data values, clipped
+            # to the drawing area (LLFR-01330).
             patch = new_shape_patch(kind_str, color_str, width_i, style_str)
             place_shape_patch(patch, (start_time_s, start_value_f),
                               (end_time_s, end_value_f))
             self.axes.add_patch(patch)
             patch.set_in_layout(False)
             self.shape_artist_list.append(patch)
-            # LLFR-01342, LLFR-01270: the name label, unless the labels
-            # are hidden (LLFR-01274).
+            # LLFR-01353, LLFR-01281: the name label, unless the labels
+            # are hidden (LLFR-01285).
             label = Text(0.0, 0.0, "" if self.labels_hidden_b else name_str,
                          color=color_str, fontsize=SHAPE_LABEL_FONT_SIZE_F,
                          horizontalalignment="left",
@@ -239,7 +239,7 @@ class ShapeLayer:
             label.set_in_layout(False)
             label.set_clip_on(False)
             self.axes.add_artist(label)
-            # LLFR-01343: placed again at every draw, inside the area.
+            # LLFR-01354: placed again at every draw, inside the area.
             label.draw = functools.partial(
                 self.draw_shape_label, len(self.shape_label_list), label,
                 label.draw)
@@ -256,7 +256,7 @@ class ShapeLayer:
             renderer: the renderer of this draw.
         Outputs: none.
         """
-        # LLFR-01342 to LLFR-01344: inside the top-left corner of the
+        # LLFR-01353 to LLFR-01355: inside the top-left corner of the
         # box, kept inside the drawing area, hidden with no line shown.
         corner_pair_tuple = self.shape_display_tuple(shape_index_i)
         if not corner_pair_tuple or not label.get_text():
@@ -278,7 +278,7 @@ class ShapeLayer:
         Outputs: none. The label is hidden while no part of the line is
             in the drawing area.
         """
-        # LLFR-01344: hidden while no part of the line is shown.
+        # LLFR-01355: hidden while no part of the line is shown.
         box = self.axes.bbox
         area_tuple = (float(box.x0), float(box.y0), float(box.x1),
                       float(box.y1))
@@ -301,7 +301,7 @@ class ShapeLayer:
             shape_index_i: index in the list of set_shapes.
         Outputs: ((x, y), (x, y)), or () for an unknown index.
         """
-        # LLFR-01318: where the values of its corners are shown now.
+        # LLFR-01329: where the values of its corners are shown now.
         if not 0 <= shape_index_i < len(self.shape_list):
             return ()
         shape_tuple = self.shape_list[shape_index_i]
@@ -319,7 +319,7 @@ class ShapeLayer:
         Inputs: none.
         Outputs: 5 screen pixels in display pixels.
         """
-        # LLFR-01313: screen pixels, whatever the device pixel ratio.
+        # LLFR-01324: screen pixels, whatever the device pixel ratio.
         return SHAPE_THRESHOLD_PIXELS_F * self.pixel_ratio_f()
 
     def shape_label_at_b(self, shape_index_i: int,
@@ -331,7 +331,7 @@ class ShapeLayer:
             point_tuple: (x, y), display pixels.
         Outputs: True when its label is shown and the point is on it.
         """
-        # LLFR-01313, LLFR-01276: a hidden label is not there.
+        # LLFR-01324, LLFR-01287: a hidden label is not there.
         if not 0 <= shape_index_i < len(self.shape_label_list):
             return False
         label = self.shape_label_list[shape_index_i]
@@ -359,7 +359,7 @@ class ShapeLayer:
         Outputs: the index of the shape drawn last among those under the
             point, or NO_SHAPE_INDEX_I.
         """
-        # LLFR-01313: within 5 pixels of its line or of a corner of its
+        # LLFR-01324: within 5 pixels of its line or of a corner of its
         # box, or on its label; only inside the drawing area.
         point_tuple = self.widget_to_display_tuple(widget_point)
         if not self.inside_axes_b(*point_tuple):
@@ -390,7 +390,7 @@ class ShapeLayer:
             shape_index_i: index of the shape.
         Outputs: its name, or "".
         """
-        # LLFR-00426, LLFR-01342: the name of its label and menu title.
+        # LLFR-00426, LLFR-01353: the name of its label and menu title.
         if not 0 <= shape_index_i < len(self.shape_list):
             return ""
         return self.shape_list[shape_index_i][6]
@@ -406,8 +406,8 @@ class ShapeLayer:
         Outputs: none. On a shape of that kind an edit starts; anywhere
             else on the drawing area a new shape may start.
         """
-        # LLFR-01334: the tool edits only the shapes of its kind;
-        # LLFR-01335: any other press draws a new shape (LLFR-01303).
+        # LLFR-01345: the tool edits only the shapes of its kind;
+        # LLFR-01346: any other press draws a new shape (LLFR-01314).
         shape_index_i = self.shape_at(widget_point, kind_str)
         if shape_index_i != NO_SHAPE_INDEX_I:
             self.shape_edit_press_at(widget_point, shape_index_i)
@@ -426,8 +426,8 @@ class ShapeLayer:
             shape_index_i: index of the pressed shape.
         Outputs: none.
         """
-        # LLFR-01327, LLFR-01329: within 5 pixels of a corner, the
-        # nearest corner moves; LLFR-01323: else the shape moves.
+        # LLFR-01338, LLFR-01340: within 5 pixels of a corner, the
+        # nearest corner moves; LLFR-01334: else the shape moves.
         point_tuple = self.widget_to_display_tuple(widget_point)
         first_tuple, second_tuple = self.shape_display_tuple(shape_index_i)
         corner_i = shape_geometry.nearest_corner_index(
@@ -452,7 +452,7 @@ class ShapeLayer:
         Outputs: none. Nothing is shown until the pointer is 5 pixels
             from the press.
         """
-        # LLFR-01303, LLFR-00454: from the press to the release.
+        # LLFR-01314, LLFR-00454: from the press to the release.
         self.shape_drag_mode_str = mode_str
         self.shape_drag_index_i = shape_index_i
         self.shape_drag_kind_str = kind_str
@@ -474,7 +474,7 @@ class ShapeLayer:
             widget_point: QPoint.
         Outputs: True from 5 screen pixels on.
         """
-        # LLFR-01303, LLFR-01326, LLFR-01332: screen pixels.
+        # LLFR-01314, LLFR-01337, LLFR-01343: screen pixels.
         return math.hypot(
             widget_point.x() - self.shape_press_point.x(),
             widget_point.y() - self.shape_press_point.y()
@@ -488,25 +488,25 @@ class ShapeLayer:
         Outputs: two opposite corners in display pixels, or () when the
             dragged shape is gone.
         """
-        # LLFR-01307, LLFR-01325, LLFR-01331: a pointer outside the
+        # LLFR-01318, LLFR-01336, LLFR-01342: a pointer outside the
         # drawing area counts at its nearest point.
         pointer_tuple = self.clamped_display_tuple(widget_point)
         if self.shape_drag_mode_str == SHAPE_DRAG_CREATE_STR:
-            # LLFR-01303: from the press to the pointer.
+            # LLFR-01314: from the press to the pointer.
             return (tuple(self.shape_press_display_tuple), pointer_tuple)
         corner_pair_tuple = self.shape_display_tuple(self.shape_drag_index_i)
         if not corner_pair_tuple:
             return ()
         first_tuple, second_tuple = corner_pair_tuple
         if self.shape_drag_mode_str == SHAPE_DRAG_MOVE_STR:
-            # LLFR-01323, LLFR-01324: moved, keeping its size.
+            # LLFR-01334, LLFR-01335: moved, keeping its size.
             shift_x_px = pointer_tuple[0] - self.shape_press_display_tuple[0]
             shift_y_px = pointer_tuple[1] - self.shape_press_display_tuple[1]
             return ((first_tuple[0] + shift_x_px, first_tuple[1] + shift_y_px),
                     (second_tuple[0] + shift_x_px,
                      second_tuple[1] + shift_y_px))
-        # LLFR-01328: the pressed corner follows, the opposite one stays;
-        # LLFR-01330: the box keeps 5 pixels of width and height.
+        # LLFR-01339: the pressed corner follows, the opposite one stays;
+        # LLFR-01341: the box keeps 5 pixels of width and height.
         corner_list = shape_geometry.corner_list(first_tuple, second_tuple)
         moved_tuple = corner_list[self.shape_drag_corner_i]
         fixed_tuple = shape_geometry.opposite_corner(
@@ -522,7 +522,7 @@ class ShapeLayer:
             widget_point: QPoint.
         Outputs: none.
         """
-        # LLFR-01304, LLFR-01324, LLFR-01328: the preview follows the
+        # LLFR-01315, LLFR-01335, LLFR-01339: the preview follows the
         # pointer once it is 5 pixels from the press.
         if self.shape_drag_mode_str == SHAPE_DRAG_NONE_STR:
             return
@@ -547,7 +547,7 @@ class ShapeLayer:
             widget_point: QPoint.
         Outputs: none.
         """
-        # LLFR-01305, LLFR-01323, LLFR-01327: only the release decides.
+        # LLFR-01316, LLFR-01334, LLFR-01338: only the release decides.
         if self.shape_drag_mode_str == SHAPE_DRAG_NONE_STR:
             return
         self.shape_last_point = QPoint(widget_point)
@@ -559,7 +559,7 @@ class ShapeLayer:
         Inputs: none.
         Outputs: none. Emits the request of the drag as the last step.
         """
-        # LLFR-01308, LLFR-01309, LLFR-01326, LLFR-01332: a release less
+        # LLFR-01319, LLFR-01320, LLFR-01337, LLFR-01343: a release less
         # than 5 pixels from the press changes nothing, silently.
         if self.shape_drag_mode_str == SHAPE_DRAG_NONE_STR:
             return
@@ -570,7 +570,7 @@ class ShapeLayer:
         mode_str = self.shape_drag_mode_str
         shape_index_i = self.shape_drag_index_i
         kind_str = self.shape_drag_kind_str
-        # LLFR-01306: the preview goes away.
+        # LLFR-01317: the preview goes away.
         self.cancel_shape_drag()
         if not final_tuple:
             return
@@ -578,7 +578,7 @@ class ShapeLayer:
         first_tuple, second_tuple = final_tuple
         if (abs(first_tuple[0] - second_tuple[0]) < threshold_px
                 or abs(first_tuple[1] - second_tuple[1]) < threshold_px):
-            # LLFR-01308: a box under 5 pixels wide or high draws nothing.
+            # LLFR-01319: a box under 5 pixels wide or high draws nothing.
             return
         inverse_transform = self.axes.transData.inverted()
         first_array = inverse_transform.transform(first_tuple)
@@ -588,10 +588,10 @@ class ShapeLayer:
         if not all(math.isfinite(value_f) for value_f in value_tuple):
             return
         if mode_str == SHAPE_DRAG_CREATE_STR:
-            # LLFR-01305: the shape of the preview.
+            # LLFR-01316: the shape of the preview.
             self.shape_create_requested.emit(kind_str, *value_tuple)
             return
-        # LLFR-01323, LLFR-01327: the shape takes the preview's box.
+        # LLFR-01334, LLFR-01338: the shape takes the preview's box.
         if 0 <= shape_index_i < len(self.shape_list):
             self.shape_list[shape_index_i] = (
                 (self.shape_list[shape_index_i][0],) + value_tuple
@@ -604,7 +604,7 @@ class ShapeLayer:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01306: the preview, if shown, is removed.
+        # LLFR-01317: the preview, if shown, is removed.
         shown_b = self.shape_preview_shown()
         self.reset_shape_drag()
         if shown_b:
@@ -632,7 +632,7 @@ class ShapeLayer:
         Outputs: True while a preview of a new, moved or resized shape is
             shown.
         """
-        # LLFR-01303, LLFR-01324, LLFR-01328.
+        # LLFR-01314, LLFR-01335, LLFR-01339.
         return (self.shape_drag_mode_str != SHAPE_DRAG_NONE_STR
                 and len(self.shape_preview_tuple) == 2)
 
@@ -642,8 +642,8 @@ class ShapeLayer:
         Inputs: none.
         Outputs: none.
         """
-        # LLFR-01315: in a paler version of the shape's color;
-        # LLFR-01316: not added to the axes, so never in an export.
+        # LLFR-01326: in a paler version of the shape's color;
+        # LLFR-01327: not added to the axes, so never in an export.
         if not self.shape_preview_shown():
             return
         color_str = MARKER_COLOR_STR
@@ -659,7 +659,7 @@ class ShapeLayer:
         patch.set_clip_box(self.axes.bbox)
         place_shape_patch(patch, *self.shape_preview_tuple)
         self.axes.draw_artist(patch)
-        # LLFR-01317: no label on a new shape; LLFR-01345: the label
+        # LLFR-01328: no label on a new shape; LLFR-01356: the label
         # follows the preview of a moved or resized shape.
         if (self.shape_drag_mode_str == SHAPE_DRAG_CREATE_STR or not name_str
                 or self.labels_hidden_b):
@@ -686,7 +686,7 @@ class ShapeLayer:
         Inputs: none.
         Outputs: two opposite corners in display pixels, or ().
         """
-        # LLFR-01303, LLFR-01324, LLFR-01328: for the tests.
+        # LLFR-01314, LLFR-01335, LLFR-01339: for the tests.
         if not self.shape_preview_shown():
             return ()
         return tuple(self.shape_preview_tuple)
@@ -697,7 +697,7 @@ class ShapeLayer:
         Inputs: none.
         Outputs: the number of shapes given to set_shapes.
         """
-        # LLFR-01322: for the tests.
+        # LLFR-01333: for the tests.
         return len(self.shape_artist_list)
 
     def shape_patch(self, shape_index_i: int):
@@ -707,7 +707,7 @@ class ShapeLayer:
             shape_index_i: index of the shape.
         Outputs: the Ellipse or Rectangle, or None.
         """
-        # LLFR-01310, LLFR-01311: for the tests.
+        # LLFR-01321, LLFR-01322: for the tests.
         if 0 <= shape_index_i < len(self.shape_artist_list):
             return self.shape_artist_list[shape_index_i]
         return None
@@ -719,7 +719,7 @@ class ShapeLayer:
             shape_index_i: index of the shape.
         Outputs: its Text, or None.
         """
-        # LLFR-01342: for the tests.
+        # LLFR-01353: for the tests.
         if 0 <= shape_index_i < len(self.shape_label_list):
             return self.shape_label_list[shape_index_i]
         return None

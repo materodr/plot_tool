@@ -90,7 +90,7 @@ RENAME_SIGNAL_TEXT_STR = "Rename"
 DELETE_SIGNAL_TEXT_STR = "Delete signal"
 # LLFR-00923: the options of the file menu, in this order.
 CLOSE_FILE_TEXT_STR = "Close file"
-# LLFR-01278: the submenu of the signals made from scratch.
+# LLFR-01289: the submenu of the signals made from scratch.
 CREATE_SIGNAL_TEXT_STR = "Create signal"
 CLOSE_ALL_FILES_TEXT_STR = "Close all files"
 # LLFR-00362, LLFR-00642, LLFR-00097: the kind of each row of the list,
@@ -739,7 +739,7 @@ class SignalListPanel(QWidget):
     # LLFR-00923: the options of the file menu.
     close_file_requested = pyqtSignal(int)
     close_all_files_requested = pyqtSignal()
-    # LLFR-01278: an option of "Create signal" of a file menu (the file
+    # LLFR-01289: an option of "Create signal" of a file menu (the file
     # number, then the operation id).
     create_signal_requested = pyqtSignal(int, str)
     # LLFR-00997, LLFR-00998: the icon of a file name row.
@@ -802,7 +802,7 @@ class SignalListPanel(QWidget):
         # LLFR-00268: the operation groups given by the controller, as
         # (group label, [(operation id, operation label)]).
         self.operation_group_list = []
-        # LLFR-01278: the options of "Create signal", as (operation id,
+        # LLFR-01289: the options of "Create signal", as (operation id,
         # label), in menu order.
         self.generator_operation_list = []
         # LLFR-00242, LLFR-00251: the synthetic and FFT signal names.
@@ -1252,7 +1252,7 @@ class SignalListPanel(QWidget):
             operation_list: list of (operation id, label), in menu order.
         Outputs: none.
         """
-        # LLFR-01278: Constant, Step, Ramp, Polynomial, Sine and Cosine.
+        # LLFR-01289: Constant, Step, Ramp, Polynomial, Sine and Cosine.
         self.generator_operation_list = [
             (str(operation_str), str(label_str))
             for operation_str, label_str in operation_list]
@@ -1311,7 +1311,7 @@ class SignalListPanel(QWidget):
             request_list.append(request)
             return action
 
-        # LLFR-01250: the title "Signal: <name>" first.
+        # LLFR-01261: the title "Signal: <name>" first.
         add_menu_title(menu, object_names.SIGNAL_OBJECT_STR, name_str)
         # LLFR-00239, LLFR-00268: the operations, in groups, with only
         # their names (not the names of the new signals).
@@ -1468,11 +1468,11 @@ class SignalListPanel(QWidget):
         # LLFR-00923: the two options, in this order.
         menu = QMenu(self)
         menu.setObjectName("file_menu")
-        # LLFR-01251: the title "File: <row text>" first.
+        # LLFR-01262: the title "File: <row text>" first.
         add_menu_title(menu, object_names.FILE_OBJECT_STR,
                        self.file_row_whole_text(number_i))
         request_list = []
-        # LLFR-01278: then "Create signal" with its options.
+        # LLFR-01289: then "Create signal" with its options.
         if self.generator_operation_list:
             create_menu = menu.addMenu(CREATE_SIGNAL_TEXT_STR)
             create_menu.setObjectName("create_signal_menu")
@@ -1501,7 +1501,7 @@ class SignalListPanel(QWidget):
             number_i: the number of the file.
         Outputs: the text of its row, or "" when it has no row.
         """
-        # LLFR-01251: the label of the title of the file menu.
+        # LLFR-01262: the label of the title of the file menu.
         for item in self.signal_list_widget.row_items(FILE_ROW_STR):
             number_value = item.data(FILE_NUMBER_ROLE_I)
             if number_value is not None and int(number_value) == number_i:
@@ -1517,7 +1517,7 @@ class SignalListPanel(QWidget):
             triggered, so tests can choose an option without a modal
             menu.
         """
-        # LLFR-00923: Close file and Close all files; LLFR-01278: and
+        # LLFR-00923: Close file and Close all files; LLFR-01289: and
         # the options of "Create signal".
         menu, request_list = self.file_menu_and_requests(number_i)
         action_list = list(menu.actions())

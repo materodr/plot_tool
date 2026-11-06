@@ -39,7 +39,7 @@ BUTTON_NAME_DICT = {
     "pan_button": "Pan",
     "report_bug_button": "Report a bug",
     "save_signals_button": "Save signals",
-    # LLFR-01261, LLFR-01262, LLFR-01269: the shape tools and Hide labels.
+    # LLFR-01272, LLFR-01273, LLFR-01280: the shape tools and Hide labels.
     "circle_button": "Circle",
     "rectangle_button": "Rectangle",
     "labels_button": "Hide labels",

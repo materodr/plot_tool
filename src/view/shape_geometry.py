@@ -3,18 +3,18 @@
 Pure math (numpy only), so that the hit tests of the plot widget and the
 drawn shapes always agree (HLFR-00158). A shape is drawn in its box, the
 rectangle with sides parallel to the axes between two opposite corners
-(LLFR-01303); a circle is the ellipse that fits inside the box
-(LLFR-01310), a rectangle the four sides of the box (LLFR-01311).
+(LLFR-01314); a circle is the ellipse that fits inside the box
+(LLFR-01321), a rectangle the four sides of the box (LLFR-01322).
 """
 
 import math
 
 import numpy as np
 
-# LLFR-01310, LLFR-01311: the two kinds, as the model names them.
+# LLFR-01321, LLFR-01322: the two kinds, as the model names them.
 CIRCLE_KIND_STR = "circle"
 RECTANGLE_KIND_STR = "rectangle"
-# LLFR-01313: the ellipse is compared with this many points of its line.
+# LLFR-01324: the ellipse is compared with this many points of its line.
 ELLIPSE_POINT_COUNT_I = 180
 
 
@@ -26,7 +26,7 @@ def box_tuple(first_tuple: tuple, second_tuple: tuple) -> tuple:
         second_tuple: (x, y) of the opposite corner.
     Outputs: (left, bottom, right, top), left <= right, bottom <= top.
     """
-    # LLFR-01303: the box with sides parallel to the axes.
+    # LLFR-01314: the box with sides parallel to the axes.
     return (min(first_tuple[0], second_tuple[0]),
             min(first_tuple[1], second_tuple[1]),
             max(first_tuple[0], second_tuple[0]),
@@ -41,7 +41,7 @@ def corner_list(first_tuple: tuple, second_tuple: tuple) -> list:
     Outputs: [(left, bottom), (right, bottom), (right, top),
         (left, top)].
     """
-    # LLFR-01327: the corners that a press may drag.
+    # LLFR-01338: the corners that a press may drag.
     left_f, bottom_f, right_f, top_f = box_tuple(first_tuple, second_tuple)
     return [(left_f, bottom_f), (right_f, bottom_f), (right_f, top_f),
             (left_f, top_f)]
@@ -56,7 +56,7 @@ def segment_distance_f(point_tuple: tuple, start_tuple: tuple,
         start_tuple, end_tuple: the ends of the segment.
     Outputs: the shortest distance.
     """
-    # LLFR-01313: within 5 pixels of the line of a rectangle.
+    # LLFR-01324: within 5 pixels of the line of a rectangle.
     delta_x_f = end_tuple[0] - start_tuple[0]
     delta_y_f = end_tuple[1] - start_tuple[1]
     length_f = delta_x_f * delta_x_f + delta_y_f * delta_y_f
@@ -78,7 +78,7 @@ def ellipse_point_array(first_tuple: tuple, second_tuple: tuple,
         point_count_i: the number of points.
     Outputs: an array of shape (point_count_i + 1, 2), closed.
     """
-    # LLFR-01310: the ellipse touches the middle of each side of the box.
+    # LLFR-01321: the ellipse touches the middle of each side of the box.
     left_f, bottom_f, right_f, top_f = box_tuple(first_tuple, second_tuple)
     angle_array = np.linspace(0.0, 2.0 * np.pi, point_count_i + 1)
     center_x_f = 0.5 * (left_f + right_f)
@@ -98,7 +98,7 @@ def line_distance_f(kind_str: str, point_tuple: tuple, first_tuple: tuple,
         first_tuple, second_tuple: two opposite corners of the box.
     Outputs: the shortest distance to the ellipse or to the four sides.
     """
-    # LLFR-01313: the inside of a shape is not on it.
+    # LLFR-01324: the inside of a shape is not on it.
     if kind_str == CIRCLE_KIND_STR:
         point_array = ellipse_point_array(first_tuple, second_tuple)
     else:
@@ -121,7 +121,7 @@ def nearest_corner_index(point_tuple: tuple, first_tuple: tuple,
     Outputs: the index in corner_list of the nearest corner within the
         distance, or -1 when none is.
     """
-    # LLFR-01327, LLFR-01329: the nearest corner moves.
+    # LLFR-01338, LLFR-01340: the nearest corner moves.
     best_index_i = -1
     best_distance_f = float(threshold_f)
     for index_i, corner_tuple in enumerate(corner_list(first_tuple,
@@ -143,7 +143,7 @@ def opposite_corner(corner_index_i: int, first_tuple: tuple,
         first_tuple, second_tuple: two opposite corners.
     Outputs: (x, y) of the opposite corner.
     """
-    # LLFR-01328: the opposite corner stays in place.
+    # LLFR-01339: the opposite corner stays in place.
     return corner_list(first_tuple, second_tuple)[(corner_index_i + 2) % 4]
 
 
@@ -160,7 +160,7 @@ def kept_apart_corner(fixed_tuple: tuple, pointer_tuple: tuple,
     Outputs: (x, y): the pointer, moved away from the fixed corner in x
         or y when it is closer than minimum_f.
     """
-    # LLFR-01330: at least 5 pixels wide and 5 pixels high.
+    # LLFR-01341: at least 5 pixels wide and 5 pixels high.
     result_list = []
     for axis_i in (0, 1):
         offset_f = pointer_tuple[axis_i] - fixed_tuple[axis_i]
@@ -181,7 +181,7 @@ def line_shown_b(kind_str: str, first_tuple: tuple, second_tuple: tuple,
         area_tuple: (left, bottom, right, top) of the drawing area.
     Outputs: True when some point of the line is inside the area.
     """
-    # LLFR-01344: the label is hidden while no part of the line shows.
+    # LLFR-01355: the label is hidden while no part of the line shows.
     left_f, bottom_f, right_f, top_f = area_tuple
     if kind_str == CIRCLE_KIND_STR:
         point_array = ellipse_point_array(first_tuple, second_tuple, 360)
@@ -212,7 +212,7 @@ def label_place_tuple(first_tuple: tuple, second_tuple: tuple,
         of the box, moved by the shortest distance that keeps the whole
         label inside the area.
     """
-    # LLFR-01342: inside the top-left corner; LLFR-01343: kept inside.
+    # LLFR-01353: inside the top-left corner; LLFR-01354: kept inside.
     left_f, _, _, top_f = box_tuple(first_tuple, second_tuple)
     width_f, height_f = label_size_tuple
     area_left_f, area_bottom_f, area_right_f, area_top_f = area_tuple

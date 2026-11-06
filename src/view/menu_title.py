@@ -4,7 +4,7 @@ HLFR-00109).
 The menus of the plot widget (curve, pinned data tip, plot, flag, delta
 marker, area, text note, arrow, shape), of the tabs and of the signal
 list start with the type name and the label of the object they act on
-(LLFR-00425, LLFR-00426, LLFR-01247, LLFR-01250, LLFR-01251), drawn
+(LLFR-00425, LLFR-00426, LLFR-01258, LLFR-01261, LLFR-01262), drawn
 in bold in a paler color than the options (LLFR-00846), above a
 separator line (LLFR-00845). The title is
 a disabled widget action holding a QLabel: a disabled action is never
@@ -40,9 +40,9 @@ def add_menu_title(menu, object_kind_str: str, label_str: str = ""):
     Outputs: the QWidgetAction of the title. It has no data, so no
         request is attached to it.
     """
-    # LLFR-00426, LLFR-01247, LLFR-01250, LLFR-01251: the type name, a
+    # LLFR-00426, LLFR-01258, LLFR-01261, LLFR-01262: the type name, a
     # colon and the label, shortened in the middle past 40 characters
-    # (LLFR-00850, LLFR-01249), shown literally.
+    # (LLFR-00850, LLFR-01260), shown literally.
     label = QLabel(object_names.menu_title_text(object_kind_str, label_str))
     label.setObjectName(MENU_TITLE_OBJECT_NAME_STR)
     label.setTextFormat(Qt.TextFormat.PlainText)
@@ -56,7 +56,7 @@ def add_menu_title(menu, object_kind_str: str, label_str: str = ""):
     # LLFR-00426: the action carries the title text too, for screen
     # readers and checks; the label is what is drawn.
     title_action.setText(label.text())
-    # LLFR-01246: the whole label in a tip when it was shortened; the
+    # LLFR-01257: the whole label in a tip when it was shortened; the
     # menu shows the tips of its actions, the disabled title's too.
     if object_names.is_label_shortened(label_str):
         label.setToolTip(str(label_str))

@@ -47,7 +47,7 @@ def sine_array(time_array: np.ndarray, frequency_hz: float,
 class OperationTableTest(unittest.TestCase):
     """Check the operation ids, menu labels and groups."""
 
-    @covers("LLFR-00268", "LLFR-01294", "LLFR-01296")
+    @covers("LLFR-00268", "LLFR-01305", "LLFR-01307")
     def test_groups_and_labels_follow_the_menu_order(self) -> None:
         """The groups and labels are those of LLFR-00268, in order.
 
@@ -130,7 +130,7 @@ class OperationTableTest(unittest.TestCase):
             "polynomial", "sine", "cosine"])
 
     @covers("LLFR-00245", "LLFR-00269", "LLFR-00272", "LLFR-00275",
-            "LLFR-00248", "LLFR-01297")
+            "LLFR-00248", "LLFR-01308")
     def test_parameter_kinds(self) -> None:
         """Each operation asks for the parameter its dialog asks for.
 
@@ -143,7 +143,7 @@ class OperationTableTest(unittest.TestCase):
         for operation_str in ("integral", "derivative", "abs", "sind",
                               "cosd", "tand"):
             self.assertEqual(kind_dict[operation_str], "none")
-        # LLFR-01297: every statistic asks for its range.
+        # LLFR-01308: every statistic asks for its range.
         for operation_str in ("max", "min", "rms", "mean", "std",
                               "median"):
             self.assertEqual(kind_dict[operation_str], "statistic_range")

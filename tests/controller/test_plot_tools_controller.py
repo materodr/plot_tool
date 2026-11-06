@@ -20,7 +20,7 @@ class PlotToolNameTest(unittest.TestCase):
     """The tool names shared by the controller and the view."""
 
     @covers("LLFR-00079", "LLFR-00286", "LLFR-00320", "LLFR-00366",
-            "LLFR-00347", "LLFR-00355", "LLFR-01261", "LLFR-01262")
+            "LLFR-00347", "LLFR-00355", "LLFR-01272", "LLFR-01273")
     def test_tool_names_are_distinct(self) -> None:
         """The eleven tools and "no tool" have different names.
 

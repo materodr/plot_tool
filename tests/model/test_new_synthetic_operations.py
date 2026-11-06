@@ -1,9 +1,9 @@
 """Tests for the trigonometric operations, the statistics and the
 signals from scratch of the model (issue #260).
 
-Covers HLFR-00163 (LLFR-01294, LLFR-01295), HLFR-00164 (LLFR-00271,
-LLFR-01296, LLFR-01298, LLFR-01299, LLFR-01301) and HLFR-00162
-(LLFR-01280, LLFR-01283 to LLFR-01291, LLFR-01293), with the names
+Covers HLFR-00163 (LLFR-01305, LLFR-01306), HLFR-00164 (LLFR-00271,
+LLFR-01307, LLFR-01309, LLFR-01310, LLFR-01312) and HLFR-00162
+(LLFR-01291, LLFR-01294 to LLFR-01302, LLFR-01304), with the names
 (LLFR-00240, LLFR-00569) and the layout file entries (LLFR-00225).
 """
 
@@ -62,7 +62,7 @@ class StoreTestCase(unittest.TestCase):
 class TrigonometricTest(StoreTestCase):
     """Sine, Cosine and Tangent in degrees."""
 
-    @covers("LLFR-01294", "LLFR-00240", "LLFR-00268", "HLFR-00163")
+    @covers("LLFR-01305", "LLFR-00240", "LLFR-00268", "HLFR-00163")
     def test_values_are_taken_as_degrees(self) -> None:
         """sind, cosd and tand of degrees, named with the abbreviation.
 
@@ -87,7 +87,7 @@ class TrigonometricTest(StoreTestCase):
         self.assertEqual(sine.value_array.size, angle_array.size)
         self.assertIsNone(self.store.layout_entry(sine)["parameter"])
 
-    @covers("LLFR-01295", "HLFR-00163")
+    @covers("LLFR-01306", "HLFR-00163")
     def test_tangent_has_gaps_at_odd_multiples_of_90(self) -> None:
         """90, 270, -90 and 450 degrees give NaN; 180 does not.
 
@@ -103,7 +103,7 @@ class TrigonometricTest(StoreTestCase):
 class StatisticTest(StoreTestCase):
     """RMS, Mean, Standard deviation, Median, Max and Min."""
 
-    @covers("LLFR-01296", "LLFR-01298", "LLFR-00271", "HLFR-00164")
+    @covers("LLFR-01307", "LLFR-01309", "LLFR-00271", "HLFR-00164")
     def test_whole_signal_statistics(self) -> None:
         """Each statistic of the whole signal, constant at every sample.
 
@@ -128,7 +128,7 @@ class StatisticTest(StoreTestCase):
                 self.assertIsNone(self.store.layout_entry(signal)
                                   ["parameter"])
 
-    @covers("LLFR-01296", "HLFR-00164")
+    @covers("LLFR-01307", "HLFR-00164")
     def test_population_standard_deviation(self) -> None:
         """The standard deviation divides by the number of samples.
 
@@ -141,7 +141,7 @@ class StatisticTest(StoreTestCase):
             value_array, None)
         np.testing.assert_allclose(result_array, [1.0, 1.0])
 
-    @covers("LLFR-01299", "LLFR-00240", "LLFR-00225", "HLFR-00164")
+    @covers("LLFR-01310", "LLFR-00240", "LLFR-00225", "HLFR-00164")
     def test_shown_range_statistics(self) -> None:
         """A range gives the statistic of its samples, its range in the
         name and in the layout entry.
@@ -168,7 +168,7 @@ class StatisticTest(StoreTestCase):
         self.assertEqual(maximum.name_str, "file1_max_1s_to_2s_Speed")
         np.testing.assert_allclose(maximum.value_array[0], 4.0)
 
-    @covers("LLFR-01301", "LLFR-01297", "HLFR-00164")
+    @covers("LLFR-01312", "LLFR-01308", "HLFR-00164")
     def test_empty_or_unusable_ranges_are_refused(self) -> None:
         """No sample in the range, a reversed range or a range that is
         not two numbers creates nothing.
@@ -188,12 +188,12 @@ class StatisticTest(StoreTestCase):
 class GeneratorTest(StoreTestCase):
     """The signals made from scratch."""
 
-    @covers("LLFR-01283", "LLFR-01284", "LLFR-01285", "LLFR-01286",
-            "LLFR-01287", "LLFR-01288", "LLFR-01289", "LLFR-01290",
+    @covers("LLFR-01294", "LLFR-01295", "LLFR-01296", "LLFR-01297",
+            "LLFR-01298", "LLFR-01299", "LLFR-01300", "LLFR-01301",
             "HLFR-00162")
     def test_values_and_names(self) -> None:
         """Each signal has one sample per time sample, its values and its
-        name of LLFR-01290.
+        name of LLFR-01301.
 
         Inputs: none.
         Outputs: none.
@@ -223,7 +223,7 @@ class GeneratorTest(StoreTestCase):
                 np.testing.assert_allclose(signal.value_array,
                                            expected_array, atol=1e-12)
 
-    @covers("LLFR-01291", "HLFR-00162")
+    @covers("LLFR-01302", "HLFR-00162")
     def test_name_in_use_gets_a_number(self) -> None:
         """A second constant of the same value is numbered.
 
@@ -235,7 +235,7 @@ class GeneratorTest(StoreTestCase):
                              (2.0,))
         self.assertEqual(second.name_str, "file1_const_2_2")
 
-    @covers("LLFR-01280", "HLFR-00162")
+    @covers("LLFR-01291", "HLFR-00162")
     def test_values_must_be_numbers(self) -> None:
         """A value that is not a number, a missing value or a frequency
         of 0 or less is refused.
@@ -256,7 +256,7 @@ class GeneratorTest(StoreTestCase):
             operations.check_parameter(operations.SINE_SIGNAL_STR,
                                        (1.0, 0.0, 0.0, 0.0), TIME_ARRAY, 41)
 
-    @covers("LLFR-01293", "LLFR-00279", "LLFR-00262", "HLFR-00162",
+    @covers("LLFR-01304", "LLFR-00279", "LLFR-00262", "HLFR-00162",
             "HLFR-00056", "HLFR-00062")
     def test_layout_entry_and_equation(self) -> None:
         """The entry names the time signal and holds the values under
@@ -285,7 +285,7 @@ class GeneratorTest(StoreTestCase):
             SyntheticSignalStore().create_from_entry(
                 broken_dict, self.lookup, TIME_ARRAY, set(SIGNAL_DICT))
 
-    @covers("LLFR-01283", "HLFR-00162")
+    @covers("LLFR-01294", "HLFR-00162")
     def test_source_must_be_a_time_signal(self) -> None:
         """With a store that knows the time signals, another signal is
         refused as the source of a signal from scratch.

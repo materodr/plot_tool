@@ -96,7 +96,7 @@ FFT_NEEDS_TIME_PLOT_STR = (
     "The FFT is computed only over the time range shown on the x-axis "
     "of the time plots. Plot a signal in a time plot and zoom to the "
     "time range you want, then create the FFT again.")
-# LLFR-01297: the range dialog of the statistics.
+# LLFR-01308: the range dialog of the statistics.
 STATISTIC_PROMPT_STR = (
     "Compute the statistic from the whole signal, or only from the "
     "samples within the x-axis range shown in the time plots.")
@@ -105,12 +105,12 @@ WHOLE_RANGE_ID_STR = "whole"
 SHOWN_RANGE_ID_STR = "shown"
 RANGE_CHOICE_LIST = [(WHOLE_RANGE_ID_STR, "Whole signal"),
                      (SHOWN_RANGE_ID_STR, "Shown x-axis range")]
-# LLFR-01300, LLFR-01371: the reason of a shown range chosen with no time plot.
+# LLFR-01311, LLFR-01382: the reason of a shown range chosen with no time plot.
 STATISTIC_NEEDS_TIME_PLOT_STR = (
     "The shown x-axis range needs a time plot. Plot a signal in a time "
     "plot and zoom to the time range you want, or choose the whole "
     "signal.")
-# LLFR-01279: the prompt of the dialogs of the signals from scratch.
+# LLFR-01290: the prompt of the dialogs of the signals from scratch.
 GENERATOR_PROMPT_DICT = {
     operations.CONSTANT_SIGNAL_STR: "The value at every time sample.",
     operations.STEP_SIGNAL_STR: (
@@ -203,9 +203,9 @@ class SyntheticController:
             self.on_create_requested, self.on_copy_name_requested,
             self.on_rename_requested, self.on_delete_requested,
             self.on_copy_equation_requested)
-        # LLFR-01283: a signal from scratch comes from a time signal.
+        # LLFR-01294: a signal from scratch comes from a time signal.
         self.store.time_name_function = self.is_time_signal_name
-        # LLFR-01278: the "Create signal" option of the file menu, on a
+        # LLFR-01289: the "Create signal" option of the file menu, on a
         # view that has it.
         if hasattr(view, "set_create_signal_handler"):
             view.set_generator_operations([
@@ -284,7 +284,7 @@ class SyntheticController:
             signal_name_str: a signal name.
         Outputs: True for the time signal of one of the open files.
         """
-        # LLFR-01283: the only source of a signal from scratch.
+        # LLFR-01294: the only source of a signal from scratch.
         if self.signal_file is None:
             return False
         return signal_name_str in self.signal_file.time_signal_name_list
@@ -440,14 +440,14 @@ class SyntheticController:
             operation_str: one of operations.GENERATOR_OPERATION_TUPLE.
         Outputs: none. A cancelled dialog creates nothing.
         """
-        # LLFR-01278: only the options of "Create signal" of an open file.
+        # LLFR-01289: only the options of "Create signal" of an open file.
         if (self.signal_file is None
                 or operation_str not in operations.GENERATOR_OPERATION_TUPLE):
             return
         data_file = self.signal_file.find(int(file_number_i))
         if data_file is None:
             return
-        # LLFR-01283, LLFR-01284: computed from the file's time signal,
+        # LLFR-01294, LLFR-01295: computed from the file's time signal,
         # so it belongs to that file.
         time_name_str = data_file.time_signal_name_str
         operation = operations.OPERATION_DICT[operation_str]
@@ -461,7 +461,7 @@ class SyntheticController:
             Outputs: the tuple of values.
             Raises: SyntheticSignalError when a value is not allowed.
             """
-            # LLFR-01280: the model's rules give the reason.
+            # LLFR-01291: the model's rules give the reason.
             return operations.check_parameter(
                 operation_str, tuple(parse_number_text(text_str)
                                      for text_str in text_list),
@@ -474,14 +474,14 @@ class SyntheticController:
                 text_list: the texts of the fields.
             Outputs: the reason, or "" when they are allowed.
             """
-            # LLFR-01281, LLFR-01369: the dialog stays open and says why.
+            # LLFR-01292, LLFR-01380: the dialog stays open and says why.
             try:
                 parameter_of(text_list)
             except SyntheticSignalError as error:
                 return str(error)
             return ""
 
-        # LLFR-01279: one field per value, with its label.
+        # LLFR-01290: one field per value, with its label.
         field_list = [
             (operations.GENERATOR_LABEL_DICT[key_str] + ":", "")
             for key_str in operations.GENERATOR_VALUE_KEY_DICT[
@@ -490,7 +490,7 @@ class SyntheticController:
             operation.label_str, GENERATOR_PROMPT_DICT[operation_str],
             field_list, check_text_list, ())
         if text_list is None:
-            # LLFR-01282: a cancelled dialog creates no signal.
+            # LLFR-01293: a cancelled dialog creates no signal.
             return
         try:
             new_signal = self.store.create(
@@ -500,7 +500,7 @@ class SyntheticController:
         except SyntheticSignalError as error:
             self.show_information(CREATE_TITLE_STR, str(error))
             return
-        # LLFR-01292, LLFR-00242: listed as a synthetic signal of its file.
+        # LLFR-01303, LLFR-00242: listed as a synthetic signal of its file.
         self.show_synthetic_signals()
         self.signal_list_controller.reveal_new_signal(
             new_signal.name_str, new_signal.file_number_i)
@@ -514,7 +514,7 @@ class SyntheticController:
         Outputs: a tuple (parameter,): None for the whole signal or the
             time range (start_s, end_s); () when the user cancelled.
         """
-        # LLFR-01297, LLFR-01370: the range dialog, "Whole signal" first.
+        # LLFR-01308, LLFR-01381: the range dialog, "Whole signal" first.
 
         def parameter_of(text_list):
             """Return the range of the choice of the dialog.
@@ -528,14 +528,14 @@ class SyntheticController:
             choice_str = (str(text_list[-1]) if text_list
                           else WHOLE_RANGE_ID_STR)
             if choice_str != SHOWN_RANGE_ID_STR:
-                # LLFR-01298: every sample of the signal.
+                # LLFR-01309: every sample of the signal.
                 return None
-            # LLFR-01300: the shown range needs a time plot.
+            # LLFR-01311: the shown range needs a time plot.
             if not self.plot_controller.time_plot_list():
                 raise NoTimePlotError(STATISTIC_NEEDS_TIME_PLOT_STR)
-            # LLFR-01299: the range LLFR-00968 gives an FFT.
+            # LLFR-01310: the range LLFR-00968 gives an FFT.
             start_s, end_s = self.shown_range_in_file(source_name_str)
-            # LLFR-01301: at least one sample of the signal in it.
+            # LLFR-01312: at least one sample of the signal in it.
             operations.range_values(
                 self.source_time_array(source_name_str),
                 self.signal_lookup(source_name_str), (start_s, end_s))
@@ -548,7 +548,7 @@ class SyntheticController:
                 text_list: the values of the dialog.
             Outputs: the reason, or "".
             """
-            # LLFR-01300, LLFR-01301, LLFR-01371, LLFR-01372: the dialog
+            # LLFR-01311, LLFR-01312, LLFR-01382, LLFR-01383: the dialog
             # stays open and says why.
             try:
                 parameter_of(text_list)
@@ -560,7 +560,7 @@ class SyntheticController:
             operation.label_str, STATISTIC_PROMPT_STR, [], check_text_list,
             (RANGE_LABEL_STR, list(RANGE_CHOICE_LIST), WHOLE_RANGE_ID_STR))
         if text_list is None:
-            # LLFR-01302: a cancelled dialog creates no signal.
+            # LLFR-01313: a cancelled dialog creates no signal.
             return ()
         return (parameter_of(list(text_list)),)
 
@@ -610,7 +610,7 @@ class SyntheticController:
             # the signal's file; no FFT with no time plot.
             return ([source_name_str], self.fft_range(source_name_str))
         if kind_str == operations.STATISTIC_RANGE_PARAMETER_STR:
-            # LLFR-01297: the whole signal or the shown range.
+            # LLFR-01308: the whole signal or the shown range.
             range_tuple = self.ask_statistic_range(operation,
                                                    source_name_str)
             if not range_tuple:

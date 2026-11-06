@@ -64,7 +64,7 @@ DEFAULT_TEXT_NOTE_BORDER_COLOR_STR = MARKER_COLOR_STR
 DEFAULT_ARROW_COLOR_STR = MARKER_COLOR_STR
 # LLFR-00438: default name of a new arrow ("Arrow 1", "Arrow 2", ...).
 DEFAULT_ARROW_NAME_FORMAT_STR = "Arrow {}"
-# LLFR-01364, LLFR-01366: the line styles of a line, as the layout
+# LLFR-01375, LLFR-01377: the line styles of a line, as the layout
 # file writes them, and the default style of each kind of object.
 LINE_STYLE_CONTINUOUS_STR = "continuous"
 LINE_STYLE_DASHED_STR = "dashed"
@@ -78,9 +78,9 @@ DEFAULT_DELTA_STYLE_STR = LINE_STYLE_DASHED_STR
 DEFAULT_ARROW_STYLE_STR = LINE_STYLE_DASHED_STR
 DEFAULT_TEXT_NOTE_STYLE_STR = LINE_STYLE_CONTINUOUS_STR
 DEFAULT_SHAPE_STYLE_STR = LINE_STYLE_CONTINUOUS_STR
-# LLFR-01361: every object with a width starts at preset width 1.
+# LLFR-01372: every object with a width starts at preset width 1.
 DEFAULT_OBJECT_WIDTH_I = 1
-# LLFR-01303, LLFR-01346: the two kinds of shapes, their default names
+# LLFR-01314, LLFR-01357: the two kinds of shapes, their default names
 # ("Circle 1", "Rectangle 1", ...) and the color of a new shape.
 CIRCLE_KIND_STR = "circle"
 RECTANGLE_KIND_STR = "rectangle"
@@ -88,7 +88,7 @@ SHAPE_KIND_TUPLE = (CIRCLE_KIND_STR, RECTANGLE_KIND_STR)
 DEFAULT_SHAPE_NAME_FORMAT_DICT = {CIRCLE_KIND_STR: "Circle {}",
                                   RECTANGLE_KIND_STR: "Rectangle {}"}
 DEFAULT_SHAPE_COLOR_STR = MARKER_COLOR_STR
-# LLFR-01359, LLFR-01364: the kinds of objects whose line has a width
+# LLFR-01370, LLFR-01375: the kinds of objects whose line has a width
 # and a style, as the view names them in its requests.
 FLAG_LINE_KIND_STR = "flag"
 CURVE_LINE_KIND_STR = "curve"
@@ -99,7 +99,7 @@ SHAPE_LINE_KIND_STR = "shape"
 LINE_OBJECT_KIND_TUPLE = (FLAG_LINE_KIND_STR, CURVE_LINE_KIND_STR,
                           DELTA_LINE_KIND_STR, ARROW_LINE_KIND_STR,
                           TEXT_NOTE_LINE_KIND_STR, SHAPE_LINE_KIND_STR)
-# LLFR-01253: default name of a new pinned data tip ("Data tip 1", ...).
+# LLFR-01264: default name of a new pinned data tip ("Data tip 1", ...).
 DEFAULT_TIP_NAME_FORMAT_STR = "Data tip {}"
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
@@ -137,7 +137,7 @@ class Curve:
     signal_name_str: str
     color_str: str
     width_i: int = DEFAULT_WIDTH_I
-    # LLFR-01364, LLFR-01366: one of LINE_STYLE_TUPLE, continuous at
+    # LLFR-01375, LLFR-01377: one of LINE_STYLE_TUPLE, continuous at
     # first.
     line_style_str: str = DEFAULT_CURVE_STYLE_STR
 
@@ -149,7 +149,7 @@ def is_line_style(style_value) -> bool:
         style_value: any value.
     Outputs: True for a str of LINE_STYLE_TUPLE.
     """
-    # LLFR-01364: continuous, dashed, dotted or dash-dotted.
+    # LLFR-01375: continuous, dashed, dotted or dash-dotted.
     return isinstance(style_value, str) and style_value in LINE_STYLE_TUPLE
 
 
@@ -160,7 +160,7 @@ def is_preset_width(width_value) -> bool:
         width_value: any value.
     Outputs: True for an int (not a bool) of PRESET_WIDTH_TUPLE.
     """
-    # LLFR-00041, LLFR-01359: only the preset widths.
+    # LLFR-00041, LLFR-01370: only the preset widths.
     return (isinstance(width_value, int) and not isinstance(width_value, bool)
             and width_value in PRESET_WIDTH_TUPLE)
 
@@ -186,7 +186,7 @@ class PinnedTip:
     time_s: float
     value_f: float
     label_offset_tuple: tuple = AUTOMATIC_LABEL_OFFSET_TUPLE
-    # LLFR-01252, LLFR-01253: the name on the first line of its box.
+    # LLFR-01263, LLFR-01264: the name on the first line of its box.
     name_str: str = ""
 
 
@@ -213,7 +213,7 @@ class TextNote:
     size_i: int = DEFAULT_TEXT_NOTE_SIZE_I
     border_color_str: str = DEFAULT_TEXT_NOTE_BORDER_COLOR_STR
     text_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
-    # LLFR-01359 to LLFR-01366: the width and style of its border.
+    # LLFR-01370 to LLFR-01377: the width and style of its border.
     width_i: int = DEFAULT_OBJECT_WIDTH_I
     line_style_str: str = DEFAULT_TEXT_NOTE_STYLE_STR
 
@@ -241,7 +241,7 @@ class Arrow:
     end_value_f: float
     color_str: str = DEFAULT_ARROW_COLOR_STR
     name_str: str = ""
-    # LLFR-01359 to LLFR-01366: the width and style of its line.
+    # LLFR-01370 to LLFR-01377: the width and style of its line.
     width_i: int = DEFAULT_OBJECT_WIDTH_I
     line_style_str: str = DEFAULT_ARROW_STYLE_STR
 
@@ -256,11 +256,11 @@ class Shape:
             its box (s, or Hz on a frequency plot).
         end_time_s, end_value_f: x and y values of the opposite corner.
         color_str: color of its line and label, "#rrggbb" in lowercase
-            (LLFR-01312, LLFR-01337).
-        name_str: name shown in its label (LLFR-01342), never empty once
-            the shape is in a plot (LLFR-01346, LLFR-01350).
-        width_i: preset width of its line (LLFR-01359).
-        line_style_str: style of its line (LLFR-01364).
+            (LLFR-01323, LLFR-01348).
+        name_str: name shown in its label (LLFR-01353), never empty once
+            the shape is in a plot (LLFR-01357, LLFR-01361).
+        width_i: preset width of its line (LLFR-01370).
+        line_style_str: style of its line (LLFR-01375).
     """
 
     kind_str: str
@@ -285,7 +285,7 @@ def finite_box_tuple(start_time_s: float, start_value_f: float,
         is not finite, or when the two x values or the two y values are
         equal, which gives no box.
     """
-    # LLFR-01305, LLFR-01318, LLFR-01356: a box of two different x
+    # LLFR-01316, LLFR-01329, LLFR-01367: a box of two different x
     # values and two different y values, at finite places.
     box_tuple = (float(start_time_s), float(start_value_f),
                  float(end_time_s), float(end_value_f))
@@ -303,7 +303,7 @@ def shape_box_tuple(shape) -> tuple:
         shape: a Shape.
     Outputs: (start_time_s, start_value_f, end_time_s, end_value_f).
     """
-    # LLFR-01318: the values the shape is attached to.
+    # LLFR-01329: the values the shape is attached to.
     return (shape.start_time_s, shape.start_value_f, shape.end_time_s,
             shape.end_value_f)
 
@@ -381,7 +381,7 @@ class VerticalMarker:
     name_str: str
     time_s: float
     color_str: str = DEFAULT_FLAG_COLOR_STR
-    # LLFR-01359 to LLFR-01366: the width and style of its line.
+    # LLFR-01370 to LLFR-01377: the width and style of its line.
     width_i: int = DEFAULT_OBJECT_WIDTH_I
     line_style_str: str = DEFAULT_FLAG_STYLE_STR
 
@@ -466,7 +466,7 @@ class DeltaMarker:
     second_point_tuple: tuple
     color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
     name_str: str = ""
-    # LLFR-01359 to LLFR-01366: the width and style of its bracket.
+    # LLFR-01370 to LLFR-01377: the width and style of its bracket.
     width_i: int = DEFAULT_OBJECT_WIDTH_I
     line_style_str: str = DEFAULT_DELTA_STYLE_STR
 
@@ -675,7 +675,7 @@ class Plot:
         # LLFR-00375: any number of arrows, in the order they were
         # drawn; they belong to this plot only.
         self.arrow_list = []
-        # LLFR-01320, LLFR-01322: any number of shapes, in the order they
+        # LLFR-01331, LLFR-01333: any number of shapes, in the order they
         # were drawn; they belong to this plot only.
         self.shape_list = []
 
@@ -848,7 +848,7 @@ class Plot:
             signal_name_str: name of the signal whose curve was clicked.
             time_s: x-axis value of the point, in seconds.
             value_f: y-axis value of the point.
-            name_str: its name (LLFR-01252); the workspace gives a new
+            name_str: its name (LLFR-01263); the workspace gives a new
                 tip "Data tip N" (Workspace.take_tip_name). Empty or
                 blank gives "Data tip N" with the smallest N not used by
                 a tip of this plot.
@@ -859,7 +859,7 @@ class Plot:
         if not self.has_signal(signal_name_str):
             raise ValueError(f"Signal {signal_name_str!r} is not in the "
                              f"plot.")
-        # LLFR-01253: every pinned tip has a name.
+        # LLFR-01264: every pinned tip has a name.
         tip_name_str = str(name_str).strip()
         if not tip_name_str:
             used_name_set = {held_tip.name_str
@@ -879,10 +879,10 @@ class Plot:
             tip_index_i: index of the tip in pinned_tip_list.
             new_name_str: the typed name.
         Outputs: True when the name changed; False for an unknown index,
-            an empty or blank name (LLFR-01257) or the same name.
+            an empty or blank name (LLFR-01268) or the same name.
         """
-        # LLFR-01255, LLFR-01256: the new name, without outer spaces;
-        # LLFR-01259: the point, values and offset stay.
+        # LLFR-01266, LLFR-01267: the new name, without outer spaces;
+        # LLFR-01270: the point, values and offset stay.
         stripped_name_str = str(new_name_str).strip()
         if (not stripped_name_str or isinstance(tip_index_i, bool)
                 or not isinstance(tip_index_i, int)
@@ -1242,7 +1242,7 @@ class Plot:
             kind_str: CIRCLE_KIND_STR or RECTANGLE_KIND_STR.
             start_time_s, start_value_f: one corner of its box.
             end_time_s, end_value_f: the opposite corner.
-            name_str: its name (LLFR-01342); the workspace gives a new
+            name_str: its name (LLFR-01353); the workspace gives a new
                 shape "Circle N" or "Rectangle N"
                 (Workspace.take_shape_name). Empty or blank gives the
                 default name with the smallest N not used by a shape of
@@ -1251,19 +1251,19 @@ class Plot:
             Raises ValueError for an unknown kind or a box that is not
             usable (finite_box_tuple).
         """
-        # LLFR-01305: a circle or a rectangle in the box of the drag.
+        # LLFR-01316: a circle or a rectangle in the box of the drag.
         if kind_str not in SHAPE_KIND_TUPLE:
             raise ValueError(f"Unknown shape kind {kind_str!r}.")
         box_tuple = finite_box_tuple(start_time_s, start_value_f,
                                      end_time_s, end_value_f)
-        # LLFR-01346: every shape has a name.
+        # LLFR-01357: every shape has a name.
         shape_name_str = str(name_str).strip()
         if not shape_name_str:
             used_name_set = {shape.name_str for shape in self.shape_list
                              if shape.kind_str == kind_str}
             shape_name_str = first_free_name(
                 DEFAULT_SHAPE_NAME_FORMAT_DICT[kind_str], used_name_set)
-        # LLFR-01322: any number of shapes per plot.
+        # LLFR-01333: any number of shapes per plot.
         shape = Shape(kind_str, *box_tuple, name_str=shape_name_str)
         self.shape_list.append(shape)
         return shape
@@ -1275,7 +1275,7 @@ class Plot:
             shape_index_i: index in shape_list.
         Outputs: True for a valid index.
         """
-        # LLFR-01323, LLFR-01336: the view names a shape by its index.
+        # LLFR-01334, LLFR-01347: the view names a shape by its index.
         return (isinstance(shape_index_i, int)
                 and not isinstance(shape_index_i, bool)
                 and 0 <= shape_index_i < len(self.shape_list))
@@ -1293,7 +1293,7 @@ class Plot:
             or the same box. Raises ValueError for a box that is not
             usable.
         """
-        # LLFR-01323, LLFR-01327: the shape takes the preview's box.
+        # LLFR-01334, LLFR-01338: the shape takes the preview's box.
         box_tuple = finite_box_tuple(start_time_s, start_value_f,
                                      end_time_s, end_value_f)
         if not self.has_shape_index(shape_index_i):
@@ -1312,9 +1312,9 @@ class Plot:
             shape_index_i: index of the shape in shape_list.
             new_name_str: the typed name.
         Outputs: True when the name changed; False for an unknown index,
-            an empty or blank name (LLFR-01350) or the same name.
+            an empty or blank name (LLFR-01361) or the same name.
         """
-        # LLFR-01348, LLFR-01349, LLFR-01352: only the name changes.
+        # LLFR-01359, LLFR-01360, LLFR-01363: only the name changes.
         stripped_name_str = str(new_name_str).strip()
         if not stripped_name_str or not self.has_shape_index(shape_index_i):
             return False
@@ -1333,7 +1333,7 @@ class Plot:
         Outputs: True when the color changed; False for an unknown index,
             a value that is not a color or the same color.
         """
-        # LLFR-01337, LLFR-01338: the line and the label take the color.
+        # LLFR-01348, LLFR-01349: the line and the label take the color.
         new_color_str = hex_color_or_none(color_str)
         if new_color_str is None or not self.has_shape_index(shape_index_i):
             return False
@@ -1350,7 +1350,7 @@ class Plot:
             shape_index_i: index of the shape in shape_list.
         Outputs: True when it was removed.
         """
-        # LLFR-01339: the shape leaves the plot.
+        # LLFR-01350: the shape leaves the plot.
         if not self.has_shape_index(shape_index_i):
             return False
         del self.shape_list[shape_index_i]
@@ -1366,7 +1366,7 @@ class Plot:
         Outputs: the Curve, DeltaMarker, TextNote, Arrow or Shape, or
             None when there is none.
         """
-        # LLFR-01360, LLFR-01365: the object the menu option acts on.
+        # LLFR-01371, LLFR-01376: the object the menu option acts on.
         if kind_str == CURVE_LINE_KIND_STR:
             return self.find_curve(item)
         if kind_str == DELTA_LINE_KIND_STR:
@@ -1847,7 +1847,7 @@ def plot_state_tuple(plot) -> tuple:
     curve_tuple = tuple((curve.signal_name_str, curve.color_str,
                          curve.width_i, curve.line_style_str)
                         for curve in plot.curve_list)
-    # LLFR-00140: renaming a pinned tip is undoable (LLFR-01255).
+    # LLFR-00140: renaming a pinned tip is undoable (LLFR-01266).
     pinned_tip_tuple = tuple(
         (pinned_tip.signal_name_str, pinned_tip.time_s, pinned_tip.value_f,
          tuple(pinned_tip.label_offset_tuple), pinned_tip.name_str)
@@ -1910,7 +1910,7 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
         grid_shown_b: True while the grid is shown (LLFR-01132).
         main_panel_shown_b: True while the main window shows its signal
             list panel (LLFR-01053, LLFR-01211).
-        labels_hidden_b: True while the labels are hidden (LLFR-01270).
+        labels_hidden_b: True while the labels are hidden (LLFR-01281).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
         width, grid shown, main panel shown, labels hidden): one entry
         (tab_id_i, name_str, plot state tuples, row_count_i, column_count_i,
@@ -1931,7 +1931,7 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
          tab.window_state_tuple())
         for tab in tab_list)
     # LLFR-00392, LLFR-00140: changing a flag's color is undoable.
-    # LLFR-00140: and changing its width or line style (LLFR-01360).
+    # LLFR-00140: and changing its width or line style (LLFR-01371).
     marker_tuple = tuple((marker.marker_id_i, marker.name_str, marker.time_s,
                           marker.color_str, marker.width_i,
                           marker.line_style_str)
@@ -2053,7 +2053,7 @@ class WorkspaceSnapshot:
         # LLFR-01053, LLFR-00138: and whether the main window showed its
         # signal list panel.
         self.main_panel_shown_b = bool(main_panel_shown_b)
-        # LLFR-01270, LLFR-00138: and whether the labels were hidden.
+        # LLFR-01281, LLFR-00138: and whether the labels were hidden.
         self.labels_hidden_b = bool(labels_hidden_b)
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
@@ -2127,13 +2127,13 @@ class Workspace:
         # LLFR-00438, LLFR-00872: number of the next "Arrow N", shared
         # by all plots; the same rules.
         self.next_arrow_number_i = 1
-        # LLFR-01253, LLFR-01254: number of the next "Data tip N";
-        # LLFR-01346, LLFR-01347: of the next "Circle N" and
+        # LLFR-01264, LLFR-01265: number of the next "Data tip N";
+        # LLFR-01357, LLFR-01358: of the next "Circle N" and
         # "Rectangle N". The same rules.
         self.next_tip_number_i = 1
         self.next_shape_number_dict = {kind_str: 1
                                        for kind_str in SHAPE_KIND_TUPLE}
-        # LLFR-01273: the labels are shown at start; LLFR-00140: hiding
+        # LLFR-01284: the labels are shown at start; LLFR-00140: hiding
         # or showing them is undoable.
         self.labels_hidden_b = False
         # LLFR-01055: width of the main window's signal list panel, in
@@ -2172,7 +2172,7 @@ class Workspace:
         self.next_delta_number_dict = {kind_str: 1
                                        for kind_str in DELTA_KIND_TUPLE}
         self.next_arrow_number_i = 1
-        # LLFR-01253, LLFR-01346: "Data tip 1", "Circle 1", "Rectangle 1".
+        # LLFR-01264, LLFR-01357: "Data tip 1", "Circle 1", "Rectangle 1".
         self.next_tip_number_i = 1
         self.next_shape_number_dict = {kind_str: 1
                                        for kind_str in SHAPE_KIND_TUPLE}
@@ -3066,10 +3066,10 @@ class Workspace:
         """Return the name of a new pinned tip and use up its number.
 
         Inputs: none.
-        Outputs: "Data tip N" (LLFR-01253), N growing by 1 for each new
+        Outputs: "Data tip N" (LLFR-01264), N growing by 1 for each new
             tip in any plot.
         """
-        # LLFR-01254: a number is never handed out twice, even when the
+        # LLFR-01265: a number is never handed out twice, even when the
         # pinning is undone or the tip deleted.
         name_str = DEFAULT_TIP_NAME_FORMAT_STR.format(self.next_tip_number_i)
         self.next_tip_number_i += 1
@@ -3080,10 +3080,10 @@ class Workspace:
 
         Inputs:
             kind_str: CIRCLE_KIND_STR or RECTANGLE_KIND_STR.
-        Outputs: "Circle N" or "Rectangle N" (LLFR-01346), N growing by
+        Outputs: "Circle N" or "Rectangle N" (LLFR-01357), N growing by
             1 for each new shape of that kind in any plot.
         """
-        # LLFR-01347: a number is never handed out twice.
+        # LLFR-01358: a number is never handed out twice.
         name_str = DEFAULT_SHAPE_NAME_FORMAT_DICT[kind_str].format(
             self.next_shape_number_dict[kind_str])
         self.next_shape_number_dict[kind_str] += 1
@@ -3106,7 +3106,7 @@ class Workspace:
         Outputs: True when the object changed; False for an unknown
             object, a value that is not allowed or the same value.
         """
-        # LLFR-01360, LLFR-01365: the line of the chosen object.
+        # LLFR-01371, LLFR-01376: the line of the chosen object.
         if kind_str == FLAG_LINE_KIND_STR:
             line_object = self.find_marker(item)
         else:
@@ -3117,13 +3117,13 @@ class Workspace:
             return False
         changed_b = False
         if width_i is not None:
-            # LLFR-01359: only the preset widths 1 to 5.
+            # LLFR-01370: only the preset widths 1 to 5.
             if not is_preset_width(width_i):
                 return False
             changed_b = line_object.width_i != width_i
             line_object.width_i = width_i
         if line_style_str is not None:
-            # LLFR-01364: only the four line styles.
+            # LLFR-01375: only the four line styles.
             if not is_line_style(line_style_str):
                 return False
             changed_b = (changed_b
@@ -3377,7 +3377,7 @@ class Workspace:
                                                "main_panel_shown_b", True))
         # LLFR-01132, LLFR-00138: the grid of that state.
         self.grid_shown_b = bool(getattr(snapshot, "grid_shown_b", True))
-        # LLFR-01270, LLFR-00138: the labels of that state.
+        # LLFR-01281, LLFR-00138: the labels of that state.
         self.labels_hidden_b = bool(getattr(snapshot, "labels_hidden_b",
                                             False))
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.

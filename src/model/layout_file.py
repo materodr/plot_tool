@@ -432,7 +432,7 @@ class LayoutResult:
         # LLFR-01214: whether the main window shows its signal list
         # panel, None when the file does not say.
         self.main_panel_shown_b = None
-        # LLFR-01277: whether the labels are hidden, None when the file
+        # LLFR-01288: whether the labels are hidden, None when the file
         # does not say.
         self.labels_hidden_b = None
 
@@ -608,7 +608,7 @@ def plot_entry(plot) -> dict:
             label_position_dict = {
                 RIGHT_POINTS_KEY_STR: float(offset_tuple[0]),
                 UP_POINTS_KEY_STR: float(offset_tuple[1])}
-        # LLFR-00225 item 7: and its name (LLFR-01252).
+        # LLFR-00225 item 7: and its name (LLFR-01263).
         data_tip_list.append({NAME_KEY_STR: pinned_tip.name_str,
                               SIGNAL_KEY_STR: pinned_tip.signal_name_str,
                               TIME_KEY_STR: float(pinned_tip.time_s),
@@ -1319,7 +1319,7 @@ class LayoutBuilder:
                     f"Data tip at {format_time(time_s)} in {owner_str}: "
                     f"{reason_str}.")
                 continue
-            # LLFR-00232: placed on the sample found. LLFR-01260: with its
+            # LLFR-00232: placed on the sample found. LLFR-01271: with its
             # saved name, or the name of a new data tip.
             name_value = (tip_entry.get(NAME_KEY_STR)
                           if isinstance(tip_entry, dict) else None)
@@ -1428,7 +1428,7 @@ class LayoutBuilder:
             # LLFR-00232: both points are placed on their samples.
             delta_marker = plot.add_delta_marker(
                 kind_str, point_list[0], point_list[1], color_str, name_str)
-            # LLFR-01363, LLFR-01368: the saved width and line style.
+            # LLFR-01374, LLFR-01379: the saved width and line style.
             self.apply_line_look(delta_marker, delta_entry, label_str,
                                  DEFAULT_DELTA_STYLE_STR)
             if NAME_KEY_STR not in delta_entry:
@@ -1512,7 +1512,7 @@ class LayoutBuilder:
                                        signal_name_str)
             curve = plot.add_styled_curve(signal_name_str, color_str,
                                           width_i)
-            # LLFR-01368: the saved line style of the curve.
+            # LLFR-01379: the saved line style of the curve.
             style_value = (curve_entry.get(LINE_STYLE_KEY_STR)
                            if isinstance(curve_entry, dict) else None)
             curve.line_style_str = (style_value if is_line_style(
@@ -1520,7 +1520,7 @@ class LayoutBuilder:
         # LLFR-00230, LLFR-00232: then its data tips and delta markers.
         self.rebuild_data_tips(plot, plot_entry_value, owner_str)
         self.rebuild_delta_markers(plot, plot_entry_value, owner_str)
-        # LLFR-01355: and its shapes.
+        # LLFR-01366: and its shapes.
         self.rebuild_shapes(plot, plot_entry_value, owner_str)
         return True
 
@@ -1533,16 +1533,16 @@ class LayoutBuilder:
             line_object: the rebuilt flag, delta marker or shape.
             entry_value: its entry of the file.
             label_str: how the report names it; not used.
-            default_style_str: its default line style (LLFR-01366).
+            default_style_str: its default line style (LLFR-01377).
         Outputs: none. A missing or unusable value gives the default
-            (LLFR-01363, LLFR-01368).
+            (LLFR-01374, LLFR-01379).
         """
-        # LLFR-01363: a preset width 1 to 5, else width 1.
+        # LLFR-01374: a preset width 1 to 5, else width 1.
         width_value = (entry_value.get(WIDTH_KEY_STR)
                        if isinstance(entry_value, dict) else None)
         line_object.width_i = (width_value if is_preset_width(width_value)
                                else DEFAULT_OBJECT_WIDTH_I)
-        # LLFR-01368: one of the four styles, else the default style.
+        # LLFR-01379: one of the four styles, else the default style.
         style_value = (entry_value.get(LINE_STYLE_KEY_STR)
                        if isinstance(entry_value, dict) else None)
         line_object.line_style_str = (style_value if is_line_style(
@@ -1557,9 +1557,9 @@ class LayoutBuilder:
             plot_entry_value: the plot entry of the file.
             owner_str: the plot, for the report.
         Outputs: none. Each shape that is not rebuilt is reported with
-            its name and the reason (LLFR-01357).
+            its name and the reason (LLFR-01368).
         """
-        # LLFR-01355: the shapes in the file's order.
+        # LLFR-01366: the shapes in the file's order.
         for shape_entry in list_entry(plot_entry_value, SHAPES_KEY_STR):
             entry_dict = shape_entry if isinstance(shape_entry, dict) else {}
             name_value = entry_dict.get(NAME_KEY_STR)
@@ -1567,7 +1567,7 @@ class LayoutBuilder:
             kind_value = entry_dict.get(KIND_KEY_STR)
             if not isinstance(kind_value, str) or (
                     kind_value not in SHAPE_KIND_TUPLE):
-                # LLFR-01356, LLFR-01357: an unknown kind.
+                # LLFR-01367, LLFR-01368: an unknown kind.
                 self.report.add_not_rebuilt(
                     f"{label_str}: its kind {describe_value(kind_value)} "
                     f"is neither \"circle\" nor \"rectangle\".")
@@ -1579,18 +1579,18 @@ class LayoutBuilder:
             if len(number_list) != 4 or None in number_list or (
                     number_list[0] == number_list[2]
                     or number_list[1] == number_list[3]):
-                # LLFR-01356, LLFR-01357: corners that give no box.
+                # LLFR-01367, LLFR-01368: corners that give no box.
                 self.report.add_not_rebuilt(
                     f"{label_str}: its corners are not four numbers that "
                     f"give a box with a width and a height.")
                 continue
-            # LLFR-01358: a missing or unusable name is a new name.
+            # LLFR-01369: a missing or unusable name is a new name.
             if isinstance(name_value, str) and name_value.strip():
                 name_str = name_value.strip()
             else:
                 name_str = self.workspace.take_shape_name(kind_value)
             shape = plot.add_shape(kind_value, *number_list, name_str)
-            # LLFR-01358: the saved color, or the default color.
+            # LLFR-01369: the saved color, or the default color.
             color_str, _ = saved_color(entry_dict, DEFAULT_SHAPE_COLOR_STR)
             shape.color_str = color_str
             self.apply_line_look(shape, entry_dict, label_str,
@@ -2003,7 +2003,7 @@ class LayoutBuilder:
                     f"Name {describe_value(name_value)} of the flag at "
                     f"{format_time(time_s)} is empty or not a text; "
                     f"replaced by \"{marker.name_str}\".")
-            # LLFR-01363, LLFR-01368: the saved width and line style.
+            # LLFR-01374, LLFR-01379: the saved width and line style.
             self.apply_line_look(marker, marker_entry, label_str,
                                  DEFAULT_FLAG_STYLE_STR)
             if color_reason_str == COLOR_MISSING_STR:
@@ -2338,7 +2338,7 @@ class LayoutBuilder:
             self.report.add_replaced(
                 f"Signal list panel shown {describe_value(shown_value)} is "
                 f"neither true nor false; the panel was left as it was.")
-        # LLFR-01277: the labels hidden or shown as saved; a file without
+        # LLFR-01288: the labels hidden or shown as saved; a file without
         # the value leaves them as they are.
         shown_value = layout_dict.get(LABELS_SHOWN_KEY_STR)
         if isinstance(shown_value, bool):
