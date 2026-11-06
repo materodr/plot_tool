@@ -335,8 +335,8 @@ def test_seconds_of(test_result) -> list:
         test_result: a RecordingResult, or a stand-in in the self-tests.
     Outputs: the list of (test ID, seconds) pairs, or an empty list.
     """
-    value = getattr(test_result, "test_seconds_list", [])
-    return value if isinstance(value, list) else []
+    seconds_list = getattr(test_result, "test_seconds_list", [])
+    return seconds_list if isinstance(seconds_list, list) else []
 
 
 def read_known_failures() -> set:
@@ -769,11 +769,11 @@ def run_shard(shard_str: str, results_path_str: str,
                      in test_status_list],
         "environment_text": extra_text_str if environment_limit_b else None,
         "qt_available": QT_AVAILABLE_B,
-        "module_seconds": {module_str: round(seconds_f, 3)
-                           for module_str, seconds_f in sorted(
+        "module_seconds": {module_str: round(seconds_s, 3)
+                           for module_str, seconds_s in sorted(
                                test_result.module_seconds_dict.items())},
-        "test_seconds": [[test_id_str, round(seconds_f, 3)]
-                         for test_id_str, seconds_f in test_seconds_list],
+        "test_seconds": [[test_id_str, round(seconds_s, 3)]
+                         for test_id_str, seconds_s in test_seconds_list],
         "expected_seconds": round(expected_s, 1),
         "run_seconds": round(run_s, 1)})
     print(f"Shard results written to {results_path_str} ({run_s:.0f} s).")

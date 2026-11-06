@@ -269,8 +269,8 @@ class DurationsFileTest(unittest.TestCase):
         """
         seconds_dict = ci_shards.read_durations()
         self.assertGreater(len(seconds_dict), 100)
-        self.assertTrue(all(seconds_f >= 0
-                            for seconds_f in seconds_dict.values()))
+        self.assertTrue(all(seconds_s >= 0
+                            for seconds_s in seconds_dict.values()))
 
     @covers("PCR-00127")
     def test_bad_files_give_no_entry(self) -> None:
@@ -426,11 +426,13 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(len(slowest_list), 30)
         self.assertEqual(slowest_list[0], ("tests.a.C.test_39", 39.0))
         report_str = ci_shards.timing_report([
-            shard_result(1, 2, [], [], test_seconds=[list(pair) for pair
-                                                     in pair_list[:20]],
+            shard_result(1, 2, [], [],
+                         test_seconds=[list(pair_tuple) for pair_tuple
+                                       in pair_list[:20]],
                          run_seconds=12.0, expected_seconds=10.0),
-            shard_result(2, 2, [], [], test_seconds=[list(pair) for pair
-                                                     in pair_list[20:]])])
+            shard_result(2, 2, [], [],
+                         test_seconds=[list(pair_tuple) for pair_tuple
+                                       in pair_list[20:]])])
         self.assertIn("| 1 of 2 | 0 | 12.0 | 10.0 |", report_str)
         self.assertIn("1. `tests.a.C.test_39`: 39.00 s", report_str)
         self.assertIn("30. `tests.a.C.test_10`: 10.00 s", report_str)

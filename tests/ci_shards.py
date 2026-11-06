@@ -99,10 +99,10 @@ def read_durations(path_str: str = DURATIONS_PATH_STR) -> dict:
         return {}
     if not isinstance(seconds_dict, dict):
         return {}
-    return {str(module_str): float(seconds_f)
-            for module_str, seconds_f in seconds_dict.items()
-            if isinstance(seconds_f, (int, float))
-            and not isinstance(seconds_f, bool) and seconds_f >= 0}
+    return {str(module_str): float(seconds_s)
+            for module_str, seconds_s in seconds_dict.items()
+            if isinstance(seconds_s, (int, float))
+            and not isinstance(seconds_s, bool) and seconds_s >= 0}
 
 
 def expected_seconds(count_dict: dict, durations_dict: dict) -> dict:
@@ -256,7 +256,8 @@ def shard_problems(result_list: list) -> list:
                  in result_list}
     if len(count_set) != 1:
         return ["The shards don't agree on the number of shards: "
-                + ", ".join(sorted(str(count) for count in count_set)) + "."]
+                + ", ".join(sorted(str(count_i) for count_i in count_set))
+                + "."]
     shard_count_i = count_set.pop()
     index_list = [content_dict.get("shard_index") for content_dict
                   in result_list]
@@ -288,7 +289,7 @@ def shard_problems(result_list: list) -> list:
         if len(shard_list) > 1:
             problem_list.append(
                 f"{test_id_str} ran in more than one shard: "
-                + ", ".join(str(index) for index in shard_list) + ".")
+                + ", ".join(str(index_i) for index_i in shard_list) + ".")
     return problem_list
 
 
@@ -346,10 +347,10 @@ def merged_module_seconds(result_list: list) -> dict:
     """
     seconds_dict = {}
     for content_dict in result_list:
-        for module_str, seconds_f in content_dict.get(
+        for module_str, seconds_s in content_dict.get(
                 "module_seconds", {}).items():
             seconds_dict[module_str] = round(
-                seconds_dict.get(module_str, 0.0) + seconds_f, 1)
+                seconds_dict.get(module_str, 0.0) + seconds_s, 1)
     return dict(sorted(seconds_dict.items()))
 
 
@@ -363,7 +364,8 @@ def slowest_tests(test_seconds_list: list,
     Outputs: the count_i slowest pairs, slowest first, then by test ID.
     """
     return sorted(test_seconds_list,
-                  key=lambda pair: (-pair[1], pair[0]))[:count_i]
+                  key=lambda pair_tuple: (-pair_tuple[1],
+                                          pair_tuple[0]))[:count_i]
 
 
 def timing_report(result_list: list) -> str:
@@ -385,9 +387,9 @@ def timing_report(result_list: list) -> str:
             f"{len(content_dict.get('planned_test_ids', []))} | "
             f"{content_dict.get('run_seconds', 0):.1f} | "
             f"{content_dict.get('expected_seconds', 0):.1f} |")
-    test_seconds_list = [(test_id_str, seconds_f)
+    test_seconds_list = [(test_id_str, seconds_s)
                          for content_dict in result_list
-                         for test_id_str, seconds_f
+                         for test_id_str, seconds_s
                          in content_dict.get("test_seconds", [])]
     line_list.extend(["", slowest_tests_report(test_seconds_list)])
     return "\n".join(line_list)
@@ -401,9 +403,9 @@ def slowest_tests_report(test_seconds_list: list) -> str:
     Outputs: a numbered list of the 30 slowest tests with their seconds.
     """
     line_list = [f"### The {SLOWEST_COUNT_I} slowest tests", ""]
-    for number_i, (test_id_str, seconds_f) in enumerate(
+    for number_i, (test_id_str, seconds_s) in enumerate(
             slowest_tests(test_seconds_list), start=1):
-        line_list.append(f"{number_i}. `{test_id_str}`: {seconds_f:.2f} s")
+        line_list.append(f"{number_i}. `{test_id_str}`: {seconds_s:.2f} s")
     if len(line_list) == 2:
         line_list.append("No test duration was measured.")
     return "\n".join(line_list) + "\n"
