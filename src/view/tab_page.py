@@ -1,7 +1,7 @@
 """Tab page: the plots of one tab, laid out in its plot matrix."""
 
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QPalette
+from PyQt6.QtCore import QPoint, QSize, Qt
+from PyQt6.QtGui import QPalette, QPixmap, QRegion
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget)
 
@@ -296,8 +296,21 @@ class TabPage(QWidget):
         Inputs: none.
         Outputs: a QPixmap of the whole plot area, laid out at its size
             in the scroll area, also the part scrolled out of view, and
-            without the scroll bar (LLFR-01398).
+            without the scroll bar (LLFR-01398), on the page's Window
+            color (LLFR-00892).
         """
         # LLFR-01398, LLFR-00129, LLFR-00133: the exports and Copy.
         self.fit_plot_area()
-        return self.plot_area.grab()
+        ratio_f = float(self.plot_area.devicePixelRatioF())
+        area_size = self.plot_area.size()
+        pixmap = QPixmap(QSize(max(1, round(area_size.width() * ratio_f)),
+                               max(1, round(area_size.height() * ratio_f))))
+        pixmap.setDevicePixelRatio(ratio_f)
+        # LLFR-00892: the gaps between the plots and the corners around
+        # them get the page's own Window color, as a grab of the page
+        # gave them, whatever palette or style sheet the widgets inside
+        # the scroll area take.
+        pixmap.fill(self.palette().color(QPalette.ColorRole.Window))
+        self.plot_area.render(pixmap, QPoint(0, 0), QRegion(),
+                              QWidget.RenderFlag.DrawChildren)
+        return pixmap
