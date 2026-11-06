@@ -91,7 +91,7 @@ Before a pull request from `develop` to `main` is opened, the requirements revie
 A pull request from `develop` to `main` must show the result of the requirements review of PCR-00050.
 
 ### PCR-00052 Requirements review before a pull request into develop
-Before a pull request into `develop` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement that its branch adds.
+Before a pull request into `develop` is opened, the requirements review of the `requirement-validation` skill must be run on every requirement that its branch adds or modifies
 
 Note: A branch that adds no requirement has nothing to review, so its pull request has no result to show (PCR-00053).
 
