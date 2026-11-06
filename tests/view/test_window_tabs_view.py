@@ -474,6 +474,117 @@ class WindowPlusAndSpacingTest(WindowTabsViewTestCase):
         self.assertLess(tab_bar.minimumSizeHint().width(),
                         tab_bar.sizeHint().width())
 
+    def one_tab_window(self):
+        """Undock a new tab with a plot into a window of its own, shown.
+
+        Inputs: none.
+        Outputs: (id of the undocked tab, its UndockedWindow).
+        """
+        self.main_window.show()
+        tab_id_i = self.add_tab()
+        self.main_window.signal_double_click_handler("speed")
+        self.process_events()
+        window = self.undock(tab_id_i)
+        window.resize(900, 500)
+        window.show()
+        self.process_events()
+        return tab_id_i, window
+
+    @covers("LLFR-01205", "LLFR-01063", "HLFR-00015")
+    def test_qt_minimum_of_one_short_tab_is_the_cause(self) -> None:
+        """#269, reviewer: Qt's own minimum width of a scrolling tab bar
+        with one short tab is wider than the tab, which is what placed
+        the "+" far from it; the window's bar no longer asks for it.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtWidgets import QTabBar
+        tab_id_i, window = self.one_tab_window()
+        self.plot_controller.on_rename_tab(tab_id_i, "y")
+        self.process_events()
+        tab_bar = window.tab_bar
+        self.assertTrue(tab_bar.usesScrollButtons())
+        # The cause: QTabBar's minimum (the code before the fix).
+        qt_minimum_i = QTabBar.minimumSizeHint(tab_bar).width()
+        self.assertGreater(qt_minimum_i, tab_bar.sizeHint().width())
+        # The fix: no wider than the tab.
+        self.assertLessEqual(tab_bar.minimumSizeHint().width(),
+                             tab_bar.sizeHint().width())
+        self.assertEqual(self.plus_gap_i(window), 2)
+
+    @covers("LLFR-01205", "LLFR-01063", "HLFR-00015", "HLFR-00126")
+    def test_plus_two_pixels_after_the_second_tab_is_deleted(self) -> None:
+        """#269, reviewer: when one of two tabs of a window is deleted,
+        the "+" button is 2 pixels after the tab left.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, second_id_i, third_id_i, window = self.two_tabs_in_one_window()
+        window.resize(900, 500)
+        window.show()
+        self.process_events()
+        self.assertEqual(self.plus_gap_i(window), 2)
+        self.plot_controller.on_delete_tab(third_id_i)
+        self.process_events()
+        window = self.main_window.window_of_tab(second_id_i)
+        self.assertEqual(window.tab_bar.count(), 1)
+        self.assertEqual(self.plus_gap_i(window), 2)
+
+    @covers("LLFR-01205", "LLFR-01063", "LLFR-01032", "HLFR-00015",
+            "HLFR-00130")
+    def test_single_tab_gap_after_resize_and_panel_toggle(self) -> None:
+        """#269, reviewer: with one tab, the "+" button stays 2 pixels
+        after it when the window is resized and when its signal list
+        panel is hidden and shown again.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        _, window = self.one_tab_window()
+        for width_i in (700, 1100):
+            with self.subTest(width_i=width_i):
+                window.resize(width_i, 500)
+                self.process_events()
+                self.assertEqual(self.plus_gap_i(window), 2)
+        for step_str in ("hidden", "shown"):
+            with self.subTest(panel=step_str):
+                window.signal_list_button.click()
+                self.process_events()
+                self.assertEqual(self.plus_gap_i(window), 2)
+
+    @covers("LLFR-01063", "LLFR-01205", "HLFR-00015", "HLFR-00014")
+    def test_single_long_tab_wider_than_the_window_scrolls(self) -> None:
+        """#269, reviewer: one tab wider than a narrow window still makes
+        the bar narrower than its tab, with its scroll buttons shown, and
+        the "+" button stays inside the tab row after the bar.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        from PyQt6.QtCore import QPoint, Qt
+        from PyQt6.QtWidgets import QToolButton
+        tab_id_i, window = self.one_tab_window()
+        self.plot_controller.on_rename_tab(tab_id_i, "W" * 120)
+        window.resize(500, 500)
+        self.process_events()
+        tab_bar = window.tab_bar
+        self.assertLess(tab_bar.width(), tab_bar.tabRect(0).width())
+        scroll_button_list = [
+            button for button in tab_bar.findChildren(QToolButton)
+            if button.arrowType() != Qt.ArrowType.NoArrow]
+        self.assertTrue(scroll_button_list)
+        self.assertTrue(any(button.isVisible()
+                            for button in scroll_button_list))
+        bar_right_i = tab_bar.mapTo(
+            window.tab_row, QPoint(tab_bar.width(), 0)).x()
+        plus_left_i = window.add_tab_button.mapTo(
+            window.tab_row, QPoint(0, 0)).x()
+        self.assertGreaterEqual(plus_left_i, bar_right_i)
+        plus_right_i = plus_left_i + window.add_tab_button.width()
+        self.assertLessEqual(plus_right_i, window.tab_row.width())
+
     @covers("LLFR-01204", "LLFR-01205", "HLFR-00014", "HLFR-00015")
     def test_main_window_tabs_two_pixels_apart(self) -> None:
         """In the main window too, the tabs are 2 pixels apart and the
