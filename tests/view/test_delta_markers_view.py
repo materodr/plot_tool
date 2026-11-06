@@ -692,8 +692,9 @@ class DeltaMenuTest(DeltaWidgetTestCase):
             "Sine")
         text_list = self.menu_texts_at(*self.first_tuple[1:])
         self.assertEqual(text_list, DELTA_MENU_TEXT_LIST)
+        # The curve menu's own option is absent; "Width" is now in the
+        # delta marker menu too (LLFR-01370, #260 item 7).
         self.assertNotIn("Delete signal", text_list)
-        self.assertNotIn("Width", text_list)
         # Away from the marker the curve menu is back.
         self.assertEqual(self.menu_texts_at(8.0, float(np.sin(8.0))),
                          ["Delete signal", "Width",

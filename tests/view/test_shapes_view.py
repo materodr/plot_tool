@@ -917,8 +917,15 @@ class ShapeWindowTest(XyzKeyWindowTestCase):
         signal_menu = signal_panel.build_signal_menu("speed")
         self.assertEqual(signal_menu.actions()[0].text(), "Signal: speed")
         self.assertFalse(signal_menu.actions()[0].isEnabled())
-        file_menu = signal_panel.build_file_menu(1)
-        self.assertTrue(file_menu.actions()[0].text().startswith("File: "))
+        from view.signal_list_panel import FILE_NUMBER_ROLE_I, FILE_ROW_STR
+        # LLFR-01262: the menu of the file row shown, by its own number.
+        file_row_list = signal_panel.signal_list_widget.row_items(
+            FILE_ROW_STR)
+        self.assertTrue(file_row_list)
+        file_number_i = int(file_row_list[0].data(FILE_NUMBER_ROLE_I))
+        file_menu = signal_panel.build_file_menu(file_number_i)
+        self.assertEqual(file_menu.actions()[0].text(),
+                         "File: " + file_row_list[0].text())
         self.assertTrue(is_menu_title(file_menu.actions()[0]))
         option_list = menu_option_texts(file_menu)
         self.assertEqual(option_list[0], "Create signal")

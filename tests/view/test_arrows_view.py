@@ -1146,7 +1146,8 @@ class ArrowButtonTest(unittest.TestCase):
             "LLFR-00213", "LLFR-00215")
     def test_button_icon_tip_and_place(self) -> None:
         """The Arrow button shows only the arrow icon, its tip says
-        "Hold A", and it is the last plot tool, right of Text.
+        "Hold A", and it comes right of Text, before the Circle and
+        Rectangle tools (LLFR-00347).
 
         Inputs: none.
         Outputs: none.
@@ -1159,7 +1160,9 @@ class ArrowButtonTest(unittest.TestCase):
         self.assertEqual(button_tip_line_list(button), ["Arrow", "Hold A"])
         tool_button_list = list(
             self.top_panel.plot_tool_button_dict.values())
-        self.assertIs(tool_button_list[-1], button)
+        # LLFR-00347: Arrow, then Circle and Rectangle (#260, item 6).
+        self.assertIs(tool_button_list[-3], button)
+        self.assertIs(tool_button_list[-2], self.top_panel.circle_button)
         self.assertIs(self.top_panel.plot_tool_button_dict[ARROW_TOOL_STR],
                       button)
         self.assertEqual(button.x(), self.top_panel.text_button.x()
@@ -1199,7 +1202,8 @@ class ArrowButtonTest(unittest.TestCase):
         reported_list = []
         self.top_panel.plot_tool_changed.connect(reported_list.append)
         button = self.top_panel.arrow_button
-        for other_tool_str in PLOT_TOOL_TUPLE[:-1]:
+        for other_tool_str in [tool_str for tool_str in PLOT_TOOL_TUPLE
+                               if tool_str != ARROW_TOOL_STR]:
             with self.subTest(other=other_tool_str):
                 other_button = self.top_panel.plot_tool_button_dict[
                     other_tool_str]

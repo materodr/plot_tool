@@ -104,7 +104,7 @@ class EscapeKeyFilterTest(unittest.TestCase):
 
     @covers("LLFR-00370", "LLFR-00150", "LLFR-00156", "LLFR-00289")
     def test_escape_while_a_tool_key_is_held_ends_the_hold(self) -> None:
-        """Esc pressed while the Tip key, Shift or A is held ends that
+        """Esc pressed while the Tip key, Shift or V is held ends that
         hold as another key does, and runs nothing more, so no plot tool
         is active afterwards.
 
@@ -114,7 +114,7 @@ class EscapeKeyFilterTest(unittest.TestCase):
         for key_name_str, modifier_name_str, tool_str in (
                 ("Key_Control", "ControlModifier", TIP_TOOL_STR),
                 ("Key_Shift", "ShiftModifier", MARKER_TOOL_STR),
-                ("Key_A", "NoModifier", AREA_TOOL_STR)):
+                ("Key_V", "NoModifier", AREA_TOOL_STR)):
             with self.subTest(key=key_name_str):
                 self.call_list.clear()
                 self.press(key_name_str, modifier_name_str)
@@ -200,7 +200,7 @@ class EscapeKeyMainWindowTest(XyzKeyWindowTestCase):
     @covers("LLFR-00370", "LLFR-00155", "LLFR-00156", "LLFR-00288",
             "LLFR-00289")
     def test_escape_while_a_tool_key_is_held(self) -> None:
-        """Esc while Shift or A holds its tool ends the hold: no tool is
+        """Esc while Shift or V holds its tool ends the hold: no tool is
         active, also after the key is released.
 
         Inputs: none.
@@ -215,11 +215,12 @@ class EscapeKeyMainWindowTest(XyzKeyWindowTestCase):
         self.release_key("Key_Escape")
         self.release_shift()
         self.assert_tool_everywhere(NO_TOOL_STR)
-        self.press_key("Key_A")
+        # LLFR-00287: V holds the vertical area tool (#260, answer 7).
+        self.press_key("Key_V")
         self.assert_tool_everywhere(AREA_TOOL_STR)
         self.press_escape()
         self.assert_tool_everywhere(NO_TOOL_STR)
-        self.release_key("Key_A")
+        self.release_key("Key_V")
         self.assert_tool_everywhere(NO_TOOL_STR)
 
     @covers("LLFR-00370", "LLFR-00157", "LLFR-00529")
