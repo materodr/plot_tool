@@ -23,7 +23,7 @@ from tests.support import (
 from tests.support import OPEN_FILE_DIALOG_TARGET_STR
 from tests.view.test_frequency_plots_view import (
     SAMPLE_COUNT_I, SAMPLE_RATE_HZ, SINE_AMPLITUDE_F, SINE_FREQUENCY_HZ,
-    find_action)
+    answer_range_dialog, find_action)
 from tests.view.test_navigation import (
     PIXEL_TOLERANCE_S, NavigationWidgetTestCase)
 from tests.view.test_plot_tools import recorder
@@ -637,6 +637,8 @@ class PanEndToEndTest(unittest.TestCase):
         time_plot_added_b = not plot_controller.time_plot_list()
         if time_plot_added_b:
             self.double_click("file1_Time")
+        # LLFR-01308: "Shown x-axis range" in the FFT's range dialog.
+        answer_range_dialog(self.controller)
         self.panel.execute_menu = lambda menu, point: find_action(
             menu, "FFT (fft)")
         self.panel.show_signal_menu("file1_Speed", QPoint(0, 0))

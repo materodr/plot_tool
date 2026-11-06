@@ -2907,6 +2907,18 @@ Note: The owner decided on 2026-11-05 that only the label renames a shape (LLFR-
 
 *Parent: HLFR-00094, HLFR-00158*
 
+### LLFR-01392 FFT of the whole signal
+With "Whole signal" (LLFR-01308), the app must take as the time range of an FFT the whole time range of the signal's data file (LLFR-00940), from its first to its last time sample, also when no time plot exists.
+
+Note: The FFT name then shows that whole range, for example `file1_fft_0s_to_10s_Speed` (LLFR-00240). Fewer than 8 samples still create no FFT (LLFR-00250, LLFR-00594).
+
+*Parent: HLFR-00057*
+
+### LLFR-01393 Uneven time samples before the FFT range dialog
+When the user chooses "FFT" and the time samples of the signal's data file are not evenly spaced (LLFR-00247), the app must show the information box of LLFR-00591 in place of the dialog of LLFR-01308.
+
+*Parent: HLFR-00057, HLFR-00053*
+
 ### LLFR-01288 Labels setting from a layout
 When the app loads a layout file that holds whether the labels are hidden (LLFR-00225), it must hide or show the labels as saved.
 
@@ -3323,7 +3335,7 @@ After the prefix of its data file (LLFR-00908), the app must name a synthetic si
 | FFT | `fft_<start>s_to_<end>s_<signal>` | `file1_fft_1p5s_to_3s_Speed` |
 | Product with signal | `<right-clicked signal>_prod_<second signal with its prefix>` (LLFR-00275, LLFR-00958) | `file1_Speed_prod_file1_Torque`; with `Torque` of file 2, `file1_Speed_prod_file2_Torque` |
 
-The FFT times are the time range of LLFR-00968, so two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
+The FFT times are the time range of LLFR-00248 (LLFR-00968, LLFR-01392), so an FFT of the whole signal shows the whole time range of its file, and two FFTs of the same signal over different time ranges get different names. When a signal it was computed from is itself a synthetic signal, its whole name without its prefix is used, so that the names build up from left to right, for example `file1_der_int_Speed` or `file1_fft_1p5s_to_3s_lpf_0p5Hz_order2_Speed`.
 
 *Parent: HLFR-00054, HLFR-00104, HLFR-00115, HLFR-00163, HLFR-00164*
 
@@ -3403,15 +3415,15 @@ The app must compute each synthetic signal with the time signal of its file (LLF
 
 *Parent: HLFR-00053, HLFR-00116*
 
-### LLFR-00968 FFT time range of a signal
-When at least one time plot exists when the user chooses "FFT", the app must take as the time range of the FFT the part of the x-axis range shared by the time plots (LLFR-00070) that lies within the time range of the signal's data file (LLFR-00940).
+### LLFR-00968 FFT time range of the shown range
+With "Shown x-axis range" (LLFR-01308), the app must take as the time range of an FFT the part of the x-axis range shared by the time plots (LLFR-00070) that lies within the time range of the signal's data file (LLFR-00940).
 
-Note: The FFT name shows this range (LLFR-00240). With no time plot, no FFT is created (LLFR-00592, LLFR-00979).
+Note: The FFT name shows this range (LLFR-00240). With no time plot, the dialog stays open (LLFR-01311, LLFR-00592).
 
 *Parent: HLFR-00057, HLFR-00113*
 
 ### LLFR-00969 Too few samples of the signal in the shown range
-When the user chooses "FFT", at least one time plot exists and the time range of LLFR-00968 holds fewer than 8 samples of the signal, the app must show an information box saying that the shown x-axis range does not hold enough samples of the signal to compute an FFT, and asking the user to move the x-axis to a range where the signal has samples.
+When the user confirms "Shown x-axis range" (LLFR-01308) for an FFT, at least one time plot exists and the time range of LLFR-00968 holds fewer than 8 samples of the signal, the app must show an information box saying that the shown x-axis range does not hold enough samples of the signal to compute an FFT, and asking the user to move the x-axis to a range where the signal has samples.
 
 Note: The FFT is then not created (LLFR-00250). This includes a range that does not overlap the signal's file at all.
 
@@ -3522,25 +3534,21 @@ When the user chooses "Low-pass filter", "High-pass filter" or "FFT" and any tim
 *Parent: HLFR-00053*
 
 ### LLFR-00248 FFT time range
-The FFT must use only the samples of the signal whose time is within the time range of LLFR-00968, taken when the FFT is created.
+The FFT must use only the samples of the signal whose time is within the time range of LLFR-00968 or LLFR-01392, taken when the FFT is created.
 
-Note: With no time plot, no FFT is created (LLFR-00592).
+Note: The owner decided on 2026-11-06 that the FFT, like the statistics, asks for the whole signal or the shown x-axis range (LLFR-01308).
 
 *Parent: HLFR-00057, HLFR-00113*
 
-### LLFR-00592 FFT without a time plot
-When the user chooses "FFT" and no time plot exists, the app must not create the FFT signal, whatever the number of samples of the signal.
+### LLFR-00592 FFT of the shown range without a time plot
+If the user confirms "Shown x-axis range" (LLFR-01308) for an FFT while no time plot exists, the app must create no FFT signal, whatever the number of samples of the signal.
 
-Note: A frequency plot is not a time plot (HLFR-00058).
+Note: The dialog stays open and says why (LLFR-01311, LLFR-01382). "Whole signal" works with no time plot (LLFR-01392). A frequency plot is not a time plot (HLFR-00058).
 
 *Parent: HLFR-00057*
 
-### LLFR-00979 FFT without a time plot message
-When the user chooses "FFT" and no time plot exists, the app must show an information box with the text "The FFT is computed only over the time range shown on the x-axis of the time plots. Plot a signal in a time plot and zoom to the time range you want, then create the FFT again.", except as in LLFR-00591.
-
-Note: The FFT is then not created (LLFR-00592). When the time samples are not evenly spaced, only the box of LLFR-00591 is shown.
-
-*Parent: HLFR-00057, HLFR-00053*
+### LLFR-00979 DELETED
+DELETED
 
 ### LLFR-00593 FFT fixed after creation
 A change of the time range after an FFT signal is created (LLFR-00248) must not change the FFT signal.
@@ -4486,14 +4494,14 @@ The RMS, the Mean, the Standard deviation and the Median of a signal must have, 
 *Parent: HLFR-00164*
 
 ### LLFR-01308 Statistic range dialog
-When the user chooses "Max", "Min", "RMS", "Mean", "Standard deviation" or "Median" (LLFR-00268), the app must show a dialog that asks for the range, "Whole signal" or "Shown x-axis range".
+When the user chooses "Max", "Min", "RMS", "Mean", "Standard deviation", "Median" or "FFT" (LLFR-00268), the app must show a dialog that asks for the range, "Whole signal" or "Shown x-axis range", except as in LLFR-01393.
 
-*Parent: HLFR-00164*
+*Parent: HLFR-00164, HLFR-00057*
 
 ### LLFR-01381 First choice of the statistic range dialog
 Each time the dialog of LLFR-01308 opens, it must show "Whole signal" chosen.
 
-*Parent: HLFR-00164*
+*Parent: HLFR-00164, HLFR-00057*
 
 ### LLFR-01309 Statistic of the whole signal
 With "Whole signal" (LLFR-01308), the app must compute the statistic from all the samples of the signal, over the whole time range of its data file (LLFR-00940).
@@ -4508,29 +4516,29 @@ Note: A later change of the time range leaves the signal unchanged.
 *Parent: HLFR-00164*
 
 ### LLFR-01311 Shown range with no time plot
-If the user confirms "Shown x-axis range" (LLFR-01308) while no time plot exists, the dialog must stay open, as for an FFT (LLFR-00592).
+If the user confirms "Shown x-axis range" (LLFR-01308) while no time plot exists, the dialog must stay open (LLFR-00592).
 
-*Parent: HLFR-00164*
+*Parent: HLFR-00164, HLFR-00057*
 
 ### LLFR-01382 Reason for a shown range with no time plot
-If the user confirms "Shown x-axis range" (LLFR-01308) while no time plot exists, the dialog must say that a time plot is needed, as for an FFT (LLFR-00592).
+If the user confirms "Shown x-axis range" (LLFR-01308) while no time plot exists, the dialog must say that a time plot is needed.
 
-*Parent: HLFR-00164*
+*Parent: HLFR-00164, HLFR-00057*
 
 ### LLFR-01312 Shown range with no sample
-If the user confirms "Shown x-axis range" (LLFR-01308) while no sample of the signal is within the range of LLFR-01310, the dialog must stay open.
+If the user confirms "Shown x-axis range" (LLFR-01308) for a statistic while no sample of the signal is within the range of LLFR-01310, the dialog must stay open.
 
 *Parent: HLFR-00164*
 
 ### LLFR-01383 Reason for a shown range with no sample
-If the user confirms "Shown x-axis range" (LLFR-01308) while no sample of the signal is within the range of LLFR-01310, the dialog must say that the range holds no sample of the signal.
+If the user confirms "Shown x-axis range" (LLFR-01308) for a statistic while no sample of the signal is within the range of LLFR-01310, the dialog must say that the range holds no sample of the signal.
 
 *Parent: HLFR-00164*
 
 ### LLFR-01313 Statistic range dialog cancelled
 If the user cancels the dialog of LLFR-01308, the app must leave the signal list unchanged.
 
-*Parent: HLFR-00164*
+*Parent: HLFR-00164, HLFR-00057*
 
 ## Plot panel
 

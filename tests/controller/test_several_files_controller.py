@@ -315,6 +315,8 @@ class CloseFileTest(SeveralFilesTestCase):
         self.open(make_time_file("b.csv", 0.0, 10.0))
         # LLFR-00592: an FFT needs a time plot.
         time_plot_id_i = self.plot("file2_Speed")
+        # LLFR-01308: "Shown x-axis range" in the FFT's range dialog.
+        self.view.parameter_answer_list.append([["shown"]])
         self.view.signal_menu_handler_dict["create"]("file1_Speed", "fft")
         fft_name_str = self.main_controller.synthetic_controller.store.names(
             )[0]

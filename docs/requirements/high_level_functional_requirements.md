@@ -294,7 +294,7 @@ The app must keep synthetic signals only in its memory.
 The app must not add synthetic signals to any data file.
 
 ### HLFR-00057 FFT time range
-The app must compute an FFT signal only from the samples within the time range shown in the plots when the FFT signal is created.
+The app must compute an FFT signal from the samples of the whole signal or within the time range shown in the plots, as the user chooses, when the FFT signal is created.
 
 ### HLFR-00059 Delete a synthetic signal
 The user must be able to delete a synthetic signal.
@@ -568,10 +568,10 @@ Note: The time of a flag, for example, changes only by moving the flag.
 Every menu that appears when the user right-clicks an object must show, at its top, the type and the name of the object it acts on.
 
 ### HLFR-00108 Menu name look
-The name at the top of a plot menu (HLFR-00096) must look different from the options.
+The type and name at the top of a menu of HLFR-00096 must look different from the options.
 
 ### HLFR-00109 Menu name not clickable
-The name at the top of a plot menu (HLFR-00096) must not be an option that can be clicked.
+The type and name at the top of a menu of HLFR-00096 must not be an option that can be clicked.
 
 ### HLFR-00097 Name of a delta marker
 Each delta marker must show a label with its name.
