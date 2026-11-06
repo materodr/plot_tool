@@ -275,6 +275,15 @@ class BigSampleBuildTest(unittest.TestCase):
             build_module.write_big_sample_files)
         self.assertIn("BIG_FILES_FLAG_STR", writer_source_str)
         self.assertEqual(build_module.BIG_FILES_FLAG_STR, "--big")
+        # COR-00025: --no-big-files keeps the files of an earlier build:
+        # neither main() nor the copy of COR-00020 removes them.
+        self.assertNotIn("BIG_FOLDER_STR", main_source_str)
+        self.assertNotIn("big", build_module.SAMPLE_FOLDER_NAME_TUPLE)
+        # COR-00025, COR-00007: the files go next to the app.
+        self.assertIn("BIG_FOLDER_STR", writer_source_str)
+        self.assertEqual(
+            os.path.normpath(build_module.BIG_FOLDER_STR),
+            os.path.join(build_module.BIN_FOLDER_STR, "user_tests", "big"))
         self.assertTrue(os.path.isfile(build_module.SAMPLE_SCRIPT_PATH_STR))
         with open(MACOS_WORKFLOW_PATH_STR, encoding="utf-8") as file:
             workflow_str = file.read()
