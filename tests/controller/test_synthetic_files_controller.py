@@ -35,7 +35,7 @@ from model.layout_file import (
 from model.signal_file import SignalFile
 from model.synthetic_signals import LAYOUT_KEY_STR, ordered_signal_names
 
-# The sample files of PCR-00032 whose time signals differ only by
+# The sample files of COR-00023 whose time signals differ only by
 # rounding (LLFR-00977).
 GOOD_FOLDER_STR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

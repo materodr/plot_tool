@@ -1,4 +1,4 @@
-"""Tests of the big sample files of the build (PCR-00073).
+"""Tests of the big sample files of the build (COR-00025).
 
 The generator of tests/user_tests/make_user_test_files.py is run with a
 short time signal, so that the test is quick, and every file it writes
@@ -38,7 +38,7 @@ def load_generator():
 class BigSampleFileTest(unittest.TestCase):
     """The big files open and hold the same samples in every format."""
 
-    @covers("PCR-00073", "HLFR-00005")
+    @covers("COR-00025", "HLFR-00005")
     def test_short_big_files_open_with_the_same_samples(self) -> None:
         """With 2 s at 0.01 s and 100 signals, each file opens with 101
         signals of 201 samples, the Excel file too, and the samples
@@ -70,7 +70,7 @@ class BigSampleFileTest(unittest.TestCase):
                                    dtype=float),
                         expected_array[:, 42], rtol=1e-5, atol=1e-5)
 
-    @covers("PCR-00073")
+    @covers("COR-00025")
     def test_sizes_of_the_real_files(self) -> None:
         """4 hours every 0.01 s give 1,440,001 samples; the Excel file
         holds the 1,048,575 that fit below its row of names; a MAT
@@ -87,7 +87,7 @@ class BigSampleFileTest(unittest.TestCase):
         self.assertEqual(generator.excel_column_name(0), "A")
         self.assertEqual(generator.excel_column_name(100), "CW")
 
-    @covers("PCR-00073")
+    @covers("COR-00025")
     def test_big_folder_is_never_committed(self) -> None:
         """tests/user_tests/big is ignored by git.
 

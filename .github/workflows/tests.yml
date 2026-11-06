@@ -121,7 +121,7 @@ jobs:
       - name: Check PEP 8
         run: python -m pycodestyle src tests
 
-      # PCR-00032: h5py can't be installed where some agents work, so
+      # COR-00023: h5py can't be installed where some agents work, so
       # when good/signals.h5 is missing CI writes the HDF5 sample files
       # and commits them to the pull request branch (same-repository
       # branches only). The checkout is the merge commit, so the files

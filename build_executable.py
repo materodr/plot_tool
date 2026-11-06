@@ -24,7 +24,7 @@ and ``tests/user_tests/bad`` are copied to ``bin/user_tests/good`` and
 they are next to the app, in the folder where the Open file dialog
 starts (LLFR-00204). The copy is never committed either.
 
-After the copy, the build writes the big sample files of PCR-00073 into
+After the copy, the build writes the big sample files of COR-00025 into
 ``tests/user_tests/big`` (never committed): one file per format with 100
 signals and a time signal of 4 hours sampled every 0.01 s, written by
 ``tests/user_tests/make_user_test_files.py --big``. They take a few
@@ -59,7 +59,7 @@ ICON_FOLDER_STR = os.path.join(WORK_FOLDER_STR, "app_icon")
 # COR-00020: the sample folders copied next to the app after the build.
 USER_TESTS_FOLDER_NAME_STR = "user_tests"
 SAMPLE_FOLDER_NAME_TUPLE = ("good", "bad")
-# PCR-00073: the script and flag that write the big sample files, and the
+# COR-00025: the script and flag that write the big sample files, and the
 # flag that leaves them out.
 SAMPLE_SCRIPT_PATH_STR = os.path.join(REPOSITORY_ROOT_STR, "tests",
                                       "user_tests",
@@ -178,12 +178,12 @@ def copy_sample_folders(repository_root_str: str = REPOSITORY_ROOT_STR,
 
 
 def write_big_sample_files() -> int:
-    """Write the big sample files of PCR-00073 into tests/user_tests/big.
+    """Write the big sample files of COR-00025 into tests/user_tests/big.
 
     Inputs: none.
     Outputs: the exit code of the generator, 0 on success.
     """
-    # PCR-00073: written by the generator in its own process, chunk by
+    # COR-00025: written by the generator in its own process, chunk by
     # chunk, into the folder that git ignores.
     return subprocess.run([sys.executable, SAMPLE_SCRIPT_PATH_STR,
                            BIG_FILES_FLAG_STR], check=False).returncode
@@ -195,7 +195,7 @@ def main(argument_list=None) -> int:
     Inputs:
         argument_list: the command-line arguments; None reads them from
             sys.argv. NO_BIG_FILES_FLAG_STR leaves out the big sample
-            files (PCR-00073).
+            files (COR-00025).
     Outputs: the exit code, 0 on success.
     """
     # LLFR-00182: the icon is written first and passed to PyInstaller.
@@ -218,7 +218,7 @@ def main(argument_list=None) -> int:
     # COR-00020: copied only after the build has succeeded.
     for folder_str in copy_sample_folders():
         print(f"Copied the sample files to {folder_str}")
-    # PCR-00073: the big sample files, unless left out.
+    # COR-00025: the big sample files, unless left out.
     if argument_list is None:
         argument_list = sys.argv[1:]
     if NO_BIG_FILES_FLAG_STR in argument_list:
