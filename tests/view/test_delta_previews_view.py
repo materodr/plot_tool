@@ -1606,13 +1606,15 @@ class DeltaPreviewWindowTest(SharedMarkerWindowTestCase):
         # grabs of the tab page; no preview is shown or drawn then.
         page = self.panel.page_dict[self.first_tab_id_i]
         shown_at_grab_list = []
-        original_grab = page.grab
+        # LLFR-01398 (#260 batch 4): the exports grab the page's whole
+        # plot area through grab_plot_area, so the hook is there.
+        original_grab = page.grab_plot_area
 
         def recording_grab(*argument_tuple):
             """Record which plots show a preview, then grab.
 
             Inputs:
-                argument_tuple: the arguments of QWidget.grab.
+                argument_tuple: the arguments of TabPage.grab_plot_area.
             Outputs: the QPixmap of the grab.
             """
             shown_at_grab_list.append(
@@ -1620,7 +1622,7 @@ class DeltaPreviewWindowTest(SharedMarkerWindowTestCase):
                  for page_widget in page.plot_widget_list])
             return original_grab(*argument_tuple)
 
-        page.grab = recording_grab
+        page.grab_plot_area = recording_grab
         patcher_list = [mock.patch.object(
             page_widget.axes, "draw_artist",
             wraps=page_widget.axes.draw_artist)
@@ -1632,7 +1634,7 @@ class DeltaPreviewWindowTest(SharedMarkerWindowTestCase):
         finally:
             for patcher in patcher_list:
                 patcher.stop()
-            del page.grab
+            del page.grab_plot_area
         self.assertFalse(page_image.isNull())
         self.assertEqual(shown_at_grab_list, [[False] * len(
             page.plot_widget_list)])

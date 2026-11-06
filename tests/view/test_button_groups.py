@@ -22,8 +22,8 @@ from view import icon_shapes, theme
 EXPECTED_GROUP_LIST = [
     ["Open file", "Save layout", "Load layout"],
     ["Data tip", "Zoom", "Pan", "Flag", "Delta X", "Delta Y",
-     "Area", "Text", "Arrow"],
-    ["Reset zoom", "Grid"],
+     "Vert. Area", "Text", "Arrow", "Circle", "Rectangle"],
+    ["Reset zoom", "Grid", "Hide labels"],
     ["Export", "Copy", "Save signals"],
     ["Undo", "Redo"],
     ["Report a bug"]]
@@ -264,8 +264,9 @@ class ButtonGroupTest(unittest.TestCase):
             with self.subTest(button=button_name(button)):
                 self.assertTrue(button.isVisible())
                 self.assertEqual(button.y(), flat_button_list[0].y())
-        # LLFR-00286, LLFR-00320: the Area and Text buttons.
-        self.assertEqual(button_name(self.top_panel.area_button), "Area")
+        # LLFR-00286, LLFR-00320: the Vert. Area and Text buttons.
+        self.assertEqual(button_name(self.top_panel.area_button),
+                         "Vert. Area")
         self.assertEqual(button_name(self.top_panel.text_button), "Text")
         self.assertEqual(list(self.top_panel.plot_tool_button_dict),
                          list(PLOT_TOOL_TUPLE))
@@ -448,7 +449,7 @@ class ButtonGroupTest(unittest.TestCase):
     def test_area_and_text_icons_and_tips(self) -> None:
         """Both buttons show only their own icon, distinct from every
         other icon in the normal, active and disabled states, and their
-        button tips say "Hold A" and "Hold T".
+        button tips say "Hold V" and "Hold T".
 
         Inputs: none.
         Outputs: none.
@@ -459,7 +460,7 @@ class ButtonGroupTest(unittest.TestCase):
         from view.icons import icon_for
         for button, icon_str, name_str, key_str in (
                 (self.top_panel.area_button, icon_shapes.AREA_ICON_STR,
-                 "Area", "Hold A"),
+                 "Vert. Area", "Hold V"),
                 (self.top_panel.text_button, icon_shapes.TEXT_ICON_STR,
                  "Text", "Hold T")):
             with self.subTest(button=name_str):

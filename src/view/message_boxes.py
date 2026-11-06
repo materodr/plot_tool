@@ -832,7 +832,7 @@ def build_signal_information_box(parent, title_str: str,
     Outputs: a QMessageBox with the information icon (not an error box)
         and an OK button.
     """
-    # LLFR-00247, LLFR-00250, LLFR-00267, LLFR-00979: information, not
+    # LLFR-00247, LLFR-00250, LLFR-00267, LLFR-00594: information, not
     # errors.
     return build_message_box(parent, QMessageBox.Icon.Information,
                              title_str, message_str)

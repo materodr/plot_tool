@@ -734,7 +734,7 @@ class AreaOtherToolsTest(AreaWidgetTestCase):
         menu, _ = self.plot_widget.context_menu_and_requests(note_point)
         self.assertEqual(menu_option_texts(menu),
                          ["Edit", "Size", "Border color", "Text color",
-                          "Delete"])
+                          "Width", "Line style", "Delete"])
 
     @covers("LLFR-00153", "LLFR-00318", "LLFR-00679")
     def test_press_on_a_pinned_tip_moves_the_tip(self) -> None:
@@ -871,7 +871,8 @@ class AreaMenuTest(AreaWidgetTestCase):
         """
         self.assertEqual(
             self.menu_texts(self.point_at(4.0, float(np.sin(4.0)))),
-            ["Delete signal", "Width"])
+            ["Delete signal", "Width",
+             "Line style"])
         self.plot_widget.set_markers([(5, "Flag 1", 3.0)])
         self.draw()
         self.assertEqual(self.menu_texts(self.at(3.0)),

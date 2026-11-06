@@ -442,11 +442,16 @@ class TabButtonMenuTest(UndockedWindowTestCase):
         Outputs: none.
         """
         _, second_id_i, _ = self.two_tabs_one_undocked()
+        from tests.view.menu_texts import menu_option_texts
+        from view.menu_title import is_menu_title
         menu = self.panel.build_tab_menu_of(second_id_i, True)
-        self.assertEqual([action.text() for action in menu.actions()],
+        self.assertEqual(menu_option_texts(menu),
                          ["Delete", "Rename", "Plot matrix"])
-        self.assertTrue(menu.actions()[0].isEnabled())
-        menu.actions()[0].trigger()
+        delete_action = [action for action in menu.actions()
+                         if not is_menu_title(action)
+                         and not action.isSeparator()][0]
+        self.assertTrue(delete_action.isEnabled())
+        delete_action.trigger()
         menu.deleteLater()
         self.process_events()
         self.assertIsNone(self.tab(second_id_i))

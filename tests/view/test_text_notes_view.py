@@ -719,7 +719,8 @@ class TextNoteMenuTest(TextNoteWidgetTestCase):
         self.assertNotEqual(self.plot_widget.text_note_at(widget_point), -1)
         shown_list = self.choose_menu(center_tuple, "")
         self.assertEqual(shown_list, ["Edit", "Size", "Border color",
-                                      "Text color", "Delete"])
+                                      "Text color", "Width", "Line style",
+                                      "Delete"])
         # Away from the note, the plot's own menus come back.
         self.assertEqual(self.choose_menu(self.display_of(1.0, 1.5), ""),
                          ["Position", "Delete plot"])

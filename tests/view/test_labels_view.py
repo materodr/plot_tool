@@ -192,6 +192,7 @@ class MenuTitleTest(LabelWidgetTestCase):
 
     @covers("LLFR-00425", "LLFR-00426", "LLFR-00845", "LLFR-00846",
             "LLFR-00847", "LLFR-00849", "LLFR-00378", "LLFR-00175",
+            "LLFR-01255", "LLFR-01256", "LLFR-01370", "LLFR-01375",
             "HLFR-00096", "HLFR-00108", "HLFR-00109")
     def test_every_menu_has_its_title(self) -> None:
         """Curve, plot, pinned tip, flag, area, delta marker, text note
@@ -203,54 +204,55 @@ class MenuTitleTest(LabelWidgetTestCase):
         """
         widget = self.plot_widget
         with self.subTest(menu="curve"):
-            self.check_title(self.data_display(5.0, 3.5), "Ramp",
-                             ["Delete signal", "Width"])
+            self.check_title(self.data_display(5.0, 3.5), "Curve: Ramp",
+                             ["Delete signal", "Width", "Line style"])
         with self.subTest(menu="plot"):
             self.check_title(self.data_display(9.0, -0.5), "Plot",
                              ["Position", "Delete plot"])
         with self.subTest(menu="tip"):
-            widget.set_pinned_tips([("Ramp", 4.0, 3.4, (0.0, -60.0))])
+            widget.set_pinned_tips([("Ramp", 4.0, 3.4, (0.0, -60.0),
+                                     "Data tip 1")])
             self.draw()
             self.check_title(center_of(self.box_of(
-                widget.pinned_tip_annotation(0))), "Ramp",
+                widget.pinned_tip_annotation(0))), "Data Tip: Data tip 1",
                 TIP_MENU_TEXT_LIST)
             widget.set_pinned_tips([])
         with self.subTest(menu="flag"):
             widget.set_markers([(9, "Start", 4.0, ORANGE_STR)])
             self.draw()
-            self.check_title(self.data_display(4.0, 2.0), "Start",
+            self.check_title(self.data_display(4.0, 2.0), "Flag: Start",
                              FLAG_MENU_TEXT_LIST)
             widget.set_markers([])
         with self.subTest(menu="area"):
             widget.set_areas([(1, "Warm-up", 6.0, 8.0, ORANGE_STR)])
             self.draw()
-            self.check_title(self.data_display(7.0, 1.6), "Warm-up",
-                             AREA_MENU_TEXT_LIST)
+            self.check_title(self.data_display(7.0, 1.6),
+                             "Vert. Area: Warm-up", AREA_MENU_TEXT_LIST)
             widget.set_areas([])
         with self.subTest(menu="delta"):
             widget.set_delta_markers([DELTA_X_TUPLE])
             self.draw()
-            self.check_title(self.data_display(2.0, 3.2), "Delta X 1",
-                             DELTA_MENU_TEXT_LIST)
+            self.check_title(self.data_display(2.0, 3.2),
+                             "Delta X: Delta X 1", DELTA_MENU_TEXT_LIST)
             widget.set_delta_markers([])
         with self.subTest(menu="text note"):
             widget.set_text_notes([("Note text", 4.5, 2.0)])
             self.draw()
             box = widget.text_note_box_extent(0)
-            self.check_title(center_of(box), "Note text",
+            self.check_title(center_of(box), "Text: Note\u2026",
                              ["Edit", "Size", "Border color", "Text color",
-                              "Delete"])
+                              "Width", "Line style", "Delete"])
             widget.set_text_notes([])
         with self.subTest(menu="arrow"):
             widget.set_arrows([ARROW_TUPLE])
             self.draw()
-            self.check_title(self.data_display(2.0, 2.0), "Arrow 1",
+            self.check_title(self.data_display(2.0, 2.0), "Arrow: Arrow 1",
                              ARROW_MENU_TEXT_LIST)
 
-    @covers("LLFR-00850", "LLFR-00426", "HLFR-00096")
+    @covers("LLFR-00850", "LLFR-00426", "LLFR-01257", "HLFR-00096")
     def test_long_title_is_shortened(self) -> None:
         """A name of more than 40 characters is shortened to 40 with
-        "..." in the middle.
+        "…" in the middle, and the whole name is the title's tip.
 
         Inputs: none.
         Outputs: none.
@@ -262,10 +264,15 @@ class MenuTitleTest(LabelWidgetTestCase):
         self.draw()
         menu = self.build_menu(self.data_display(4.0, 2.0))
         title_str = menu_title_label(menu).text()
-        self.assertEqual(len(title_str), 40)
-        self.assertTrue(title_str.startswith("Flag_"))
-        self.assertTrue(title_str.endswith("_end"))
-        self.assertIn("...", title_str)
+        self.assertTrue(title_str.startswith("Flag: Flag_"))
+        label_str = title_str[len("Flag: "):]
+        self.assertEqual(len(label_str), 40)
+        self.assertTrue(label_str.endswith("_end"))
+        self.assertIn("\u2026", label_str)
+        # LLFR-01257: the whole name in the tip of the title.
+        self.assertEqual(menu_title_label(menu).toolTip(), long_name_str)
+        self.assertEqual(menu.actions()[0].toolTip(), long_name_str)
+        self.assertTrue(menu.toolTipsVisible())
         sip.delete(menu)
 
     @covers("LLFR-00847", "LLFR-00848", "LLFR-00849", "HLFR-00109")

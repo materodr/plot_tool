@@ -69,7 +69,7 @@ class ItemColorControllerTestCase(PlotControllerTestCase):
         Inputs: none.
         Outputs: (size_i, border_color_str, text_color_str).
         """
-        return tuple(self.view.text_note_drawn_dict[self.plot_id_i][0][3:])
+        return tuple(self.view.text_note_drawn_dict[self.plot_id_i][0][3:6])
 
 
 class FlagColorControllerTest(ItemColorControllerTestCase):
@@ -284,8 +284,9 @@ class TextNoteStyleControllerTest(ItemColorControllerTestCase):
             self.plot_id_i, 0)
         self.view.handler_dict["text_note_edit_handler"](
             self.plot_id_i, 0, "Edited")
-        self.assertEqual(self.view.text_note_drawn_dict[self.plot_id_i][0],
-                         ("Edited", 2.0, 3.0, 8, "#aa00aa", "#00aaaa"))
+        self.assertEqual(
+            self.view.text_note_drawn_dict[self.plot_id_i][0][:6],
+            ("Edited", 2.0, 3.0, 8, "#aa00aa", "#00aaaa"))
 
 
 if __name__ == "__main__":

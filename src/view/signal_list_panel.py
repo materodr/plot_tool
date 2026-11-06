@@ -62,8 +62,10 @@ from PyQt6.QtWidgets import (
     QAbstractItemView, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMenu, QStyledItemDelegate, QVBoxLayout, QWidget)
 
+from model import object_names
 from view import theme
 from view.elided_text import is_elided, middle_elided_text
+from view.menu_title import add_menu_title
 
 # LLFR-00021: MIME type of a dragged signal name. The plot widget
 # accepts drops of this type, so the literal must stay the same there.
@@ -88,6 +90,8 @@ RENAME_SIGNAL_TEXT_STR = "Rename"
 DELETE_SIGNAL_TEXT_STR = "Delete signal"
 # LLFR-00923: the options of the file menu, in this order.
 CLOSE_FILE_TEXT_STR = "Close file"
+# LLFR-01289: the submenu of the signals made from scratch.
+CREATE_SIGNAL_TEXT_STR = "Create signal"
 CLOSE_ALL_FILES_TEXT_STR = "Close all files"
 # LLFR-00362, LLFR-00642, LLFR-00097: the kind of each row of the list,
 # kept in the item's data, and the number of the file of a file row.
@@ -735,6 +739,9 @@ class SignalListPanel(QWidget):
     # LLFR-00923: the options of the file menu.
     close_file_requested = pyqtSignal(int)
     close_all_files_requested = pyqtSignal()
+    # LLFR-01289: an option of "Create signal" of a file menu (the file
+    # number, then the operation id).
+    create_signal_requested = pyqtSignal(int, str)
     # LLFR-00997, LLFR-00998: the icon of a file name row.
     file_expand_toggled = pyqtSignal(int)
     # LLFR-01191, LLFR-01209: a double-click on a file name row.
@@ -795,6 +802,9 @@ class SignalListPanel(QWidget):
         # LLFR-00268: the operation groups given by the controller, as
         # (group label, [(operation id, operation label)]).
         self.operation_group_list = []
+        # LLFR-01289: the options of "Create signal", as (operation id,
+        # label), in menu order.
+        self.generator_operation_list = []
         # LLFR-00242, LLFR-00251: the synthetic and FFT signal names.
         self.synthetic_name_set = set()
         self.fft_name_set = set()
@@ -1235,6 +1245,18 @@ class SignalListPanel(QWidget):
                               in operation_list])
             for group_str, operation_list in group_list]
 
+    def set_generator_operations(self, operation_list: list) -> None:
+        """Keep the options of "Create signal" of the file menu.
+
+        Inputs:
+            operation_list: list of (operation id, label), in menu order.
+        Outputs: none.
+        """
+        # LLFR-01289: Constant, Step, Ramp, Polynomial, Sine and Cosine.
+        self.generator_operation_list = [
+            (str(operation_str), str(label_str))
+            for operation_str, label_str in operation_list]
+
     def set_signal_kinds(self, synthetic_name_set: set,
                          fft_name_set: set) -> None:
         """Keep which names are synthetic and which are FFT signals.
@@ -1289,6 +1311,8 @@ class SignalListPanel(QWidget):
             request_list.append(request)
             return action
 
+        # LLFR-01261: the title "Signal: <name>" first.
+        add_menu_title(menu, object_names.SIGNAL_OBJECT_STR, name_str)
         # LLFR-00239, LLFR-00268: the operations, in groups, with only
         # their names (not the names of the new signals).
         create_menu = menu.addMenu(CREATE_SYNTHETIC_TEXT_STR)
@@ -1444,14 +1468,45 @@ class SignalListPanel(QWidget):
         # LLFR-00923: the two options, in this order.
         menu = QMenu(self)
         menu.setObjectName("file_menu")
-        request_list = [
-            lambda: self.close_file_requested.emit(int(number_i)),
-            self.close_all_files_requested.emit]
-        for index_i, text_str in enumerate((CLOSE_FILE_TEXT_STR,
-                                            CLOSE_ALL_FILES_TEXT_STR)):
+        # LLFR-01262: the title "File: <row text>" first.
+        add_menu_title(menu, object_names.FILE_OBJECT_STR,
+                       self.file_row_whole_text(number_i))
+        request_list = []
+        # LLFR-01289: then "Create signal" with its options.
+        if self.generator_operation_list:
+            create_menu = menu.addMenu(CREATE_SIGNAL_TEXT_STR)
+            create_menu.setObjectName("create_signal_menu")
+            for operation_str, label_str in self.generator_operation_list:
+                action = create_menu.addAction(label_str)
+                action.setData(len(request_list))
+                request_list.append(
+                    lambda chosen_str=operation_str:
+                    self.create_signal_requested.emit(int(number_i),
+                                                      chosen_str))
+            menu.addSeparator()
+        for text_str, request in (
+                (CLOSE_FILE_TEXT_STR,
+                 lambda: self.close_file_requested.emit(int(number_i))),
+                (CLOSE_ALL_FILES_TEXT_STR,
+                 self.close_all_files_requested.emit)):
             action = menu.addAction(text_str)
-            action.setData(index_i)
+            action.setData(len(request_list))
+            request_list.append(request)
         return menu, request_list
+
+    def file_row_whole_text(self, number_i: int) -> str:
+        """Return the whole text of the file name row of a file.
+
+        Inputs:
+            number_i: the number of the file.
+        Outputs: the text of its row, or "" when it has no row.
+        """
+        # LLFR-01262: the label of the title of the file menu.
+        for item in self.signal_list_widget.row_items(FILE_ROW_STR):
+            number_value = item.data(FILE_NUMBER_ROLE_I)
+            if number_value is not None and int(number_value) == number_i:
+                return item.text()
+        return ""
 
     def build_file_menu(self, number_i: int) -> QMenu:
         """Build the file menu of a file name row, not shown.
@@ -1462,12 +1517,18 @@ class SignalListPanel(QWidget):
             triggered, so tests can choose an option without a modal
             menu.
         """
-        # LLFR-00923: Close file and Close all files.
+        # LLFR-00923: Close file and Close all files; LLFR-01289: and
+        # the options of "Create signal".
         menu, request_list = self.file_menu_and_requests(number_i)
-        for action in menu.actions():
-            action.triggered.connect(
-                lambda checked_b=False,
-                request=request_list[action.data()]: request())
+        action_list = list(menu.actions())
+        for action in list(action_list):
+            if action.menu() is not None:
+                action_list.extend(action.menu().actions())
+        for action in action_list:
+            if isinstance(action.data(), int):
+                action.triggered.connect(
+                    lambda checked_b=False,
+                    request=request_list[action.data()]: request())
         return menu
 
     def show_pending_file_menu(self) -> None:

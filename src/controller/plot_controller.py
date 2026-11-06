@@ -185,7 +185,9 @@ from model.undo_history import UndoHistory
 from model.workspace import (
     DELTA_X_KIND_STR, DELTA_Y_KIND_STR, FREQUENCY_PLOT_KIND_STR,
     TIME_PLOT_KIND_STR, WHOLE_FREQUENCY_RANGE_TUPLE, Workspace,
-    delta_value_zero_b, first_panel_width_i)
+    delta_value_zero_b, first_panel_width_i, ARROW_LINE_KIND_STR,
+    CURVE_LINE_KIND_STR, DELTA_LINE_KIND_STR, FLAG_LINE_KIND_STR,
+    SHAPE_KIND_TUPLE, SHAPE_LINE_KIND_STR, TEXT_NOTE_LINE_KIND_STR)
 
 
 class PlotController:
@@ -338,6 +340,23 @@ class PlotController:
         # another sample of its curve.
         view.set_plot_handlers(
             delta_point_move_handler=self.on_delta_point_move)
+        # LLFR-01266: "Rename" in the menu of a pinned data tip.
+        # LLFR-01316, LLFR-01334, LLFR-01338, LLFR-01348, LLFR-01350,
+        # LLFR-01359: the requests made on the shapes of a plot.
+        # LLFR-01371, LLFR-01376: the "Width" and "Line style" options.
+        view.set_plot_handlers(
+            pinned_tip_rename_handler=self.on_pinned_tip_rename,
+            shape_create_handler=self.on_shape_create,
+            shape_change_handler=self.on_shape_change,
+            shape_color_handler=self.on_shape_color,
+            shape_rename_handler=self.on_shape_rename,
+            shape_delete_handler=self.on_shape_delete,
+            object_width_handler=self.on_object_width,
+            object_line_style_handler=self.on_object_line_style)
+        # LLFR-01281, LLFR-01282: the Hide labels button; LLFR-01284:
+        # the labels are shown at start.
+        view.set_labels_handler(self.on_labels_toggled)
+        view.set_labels_hidden(self.workspace.labels_hidden_b)
         # LLFR-00115: the Reset zoom button of the top panel.
         view.set_reset_zoom_handler(self.on_reset_zoom)
         # LLFR-00122, LLFR-00123: the Grid button of the top panel.
@@ -641,10 +660,11 @@ class PlotController:
         # frequencies. LLFR-00033, LLFR-00034, LLFR-00041, LLFR-00052:
         # colors and widths come from the model. LLFR-00242: synthetic
         # signals too.
+        # LLFR-01376: and the line style of each curve.
         return [(curve.signal_name_str,
                  self.signal_x_values(curve.signal_name_str),
                  self.signal_values(curve.signal_name_str),
-                 curve.color_str, curve.width_i)
+                 curve.color_str, curve.width_i, curve.line_style_str)
                 for curve in plot.curve_list]
 
     def frequency_limit_tuple(self, plot) -> tuple:
@@ -678,8 +698,10 @@ class PlotController:
         """
         # LLFR-00045: the pinned tips; LLFR-00152: each tip with the
         # offset of its label.
+        # LLFR-01263: and its name, on the first line of its box.
         return [(pinned_tip.signal_name_str, pinned_tip.time_s,
-                 pinned_tip.value_f, pinned_tip.label_offset_tuple)
+                 pinned_tip.value_f, pinned_tip.label_offset_tuple,
+                 pinned_tip.name_str)
                 for pinned_tip in plot.pinned_tip_list]
 
     def plot_marker_data_list(self, plot) -> list:
@@ -707,8 +729,9 @@ class PlotController:
         # LLFR-00084, LLFR-00092: the label shows the name and the time.
         # LLFR-00205: the markers are shared by every plot.
         # LLFR-00392: each drawn in its own color.
+        # LLFR-01371, LLFR-01376: and the width and style of its line.
         return [(marker.marker_id_i, marker.name_str, marker.time_s,
-                 marker.color_str)
+                 marker.color_str, marker.width_i, marker.line_style_str)
                 for marker in self.workspace.marker_list]
 
     def show_markers(self) -> None:
@@ -779,7 +802,8 @@ class PlotController:
                  tuple(delta_marker.first_point_tuple),
                  tuple(delta_marker.second_point_tuple),
                  delta_marker.delta_f(), delta_marker.color_str,
-                 delta_marker.name_str)
+                 delta_marker.name_str, delta_marker.width_i,
+                 delta_marker.line_style_str)
                 for delta_marker in plot.delta_marker_list]
 
     def text_note_data_list(self, plot) -> list:
@@ -794,9 +818,11 @@ class PlotController:
         # LLFR-00336, LLFR-00337, LLFR-00340: the notes of this plot only,
         # each with the text and the place it is attached to.
         # LLFR-00385, LLFR-00387: and its chosen size and colors.
+        # LLFR-01371, LLFR-01376: and the width and style of its border.
         return [(text_note.text_str, text_note.time_s, text_note.value_f,
                  text_note.size_i, text_note.border_color_str,
-                 text_note.text_color_str)
+                 text_note.text_color_str, text_note.width_i,
+                 text_note.line_style_str)
                 for text_note in plot.text_note_list]
 
     def arrow_data_list(self, plot) -> list:
@@ -813,9 +839,29 @@ class PlotController:
         # LLFR-00373, LLFR-00374, LLFR-00375: the arrows of this plot
         # only, each with its two ends and its color. LLFR-00436: and
         # its name.
+        # LLFR-01371, LLFR-01376: and the width and style of its line.
         return [(arrow.start_time_s, arrow.start_value_f, arrow.end_time_s,
-                 arrow.end_value_f, arrow.color_str, arrow.name_str)
+                 arrow.end_value_f, arrow.color_str, arrow.name_str,
+                 arrow.width_i, arrow.line_style_str)
                 for arrow in plot.arrow_list]
+
+    def shape_data_list(self, plot) -> list:
+        """Return the drawing data of every shape of a plot.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: a list of tuples (kind_str, start_time_s,
+            start_value_f, end_time_s, end_value_f, color_str, name_str,
+            width_i, line_style_str) in the order the shapes were drawn;
+            the x values are in Hz on a frequency plot.
+        """
+        # LLFR-01321, LLFR-01322, LLFR-01329, LLFR-01331: the shapes of
+        # this plot only, each with its box, color, name, width and
+        # style.
+        return [(shape.kind_str, shape.start_time_s, shape.start_value_f,
+                 shape.end_time_s, shape.end_value_f, shape.color_str,
+                 shape.name_str, shape.width_i, shape.line_style_str)
+                for shape in plot.shape_list]
 
     def all_plot_list(self) -> list:
         """Return every plot of every tab.
@@ -922,6 +968,8 @@ class PlotController:
                                  self.text_note_data_list(plot))
         # LLFR-00374, LLFR-00375: and the arrows of the plot.
         self.view.set_arrows(plot.plot_id_i, self.arrow_data_list(plot))
+        # LLFR-01329, LLFR-01331: and the shapes of the plot.
+        self.view.set_shapes(plot.plot_id_i, self.shape_data_list(plot))
         # LLFR-00070, LLFR-00180: draw_plot shows the whole range; a new
         # or redrawn time plot takes the range shared by all time plots.
         # LLFR-00258: a frequency plot its own range.
@@ -1406,13 +1454,46 @@ class PlotController:
             return
         # LLFR-00140: pinning a tip is undoable.
         snapshot = self.take_snapshot()
+        # LLFR-01264, LLFR-01265: the name "Data tip N"; a tip that is not
+        # pinned uses up no number.
+        next_tip_number_i = self.workspace.next_tip_number_i
         try:
             plot.add_pinned_tip(signal_name_str, float(time_s),
-                                float(value_f))
+                                float(value_f), self.workspace.take_tip_name())
         except ValueError:
             # LLFR-00045: the signal is no longer in the plot.
+            self.workspace.next_tip_number_i = next_tip_number_i
             return
         self.record_undo(snapshot)
+        self.redraw_plot(plot)
+
+    def on_pinned_tip_rename(self, plot_id_i: int, tip_index_i: int) -> None:
+        """Ask the user for a new data tip name and show it in its box.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            tip_index_i: index of the tip in the list last drawn.
+        Outputs: none. A cancelled dialog, an empty name or the current
+            name changes nothing and shows no message.
+        """
+        # LLFR-01266: let the user type the name, from the current one.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not (isinstance(tip_index_i, int)
+                                and 0 <= tip_index_i
+                                < len(plot.pinned_tip_list)):
+            return
+        new_name_str = self.view.ask_tip_name(
+            plot.pinned_tip_list[tip_index_i].name_str)
+        if new_name_str is None:
+            return
+        # LLFR-00140: renaming a data tip is undoable.
+        snapshot = self.take_snapshot()
+        # LLFR-01268, LLFR-01269: a blank name keeps the old one, with no
+        # message. LLFR-01270: the point and the box stay.
+        if not plot.rename_pinned_tip(tip_index_i, str(new_name_str)):
+            return
+        self.record_undo(snapshot)
+        # LLFR-01267: the box shows the new name.
         self.redraw_plot(plot)
 
     def on_pinned_tip_delete(self, plot_id_i: int, tip_index_i: int) -> None:
@@ -1891,6 +1972,251 @@ class PlotController:
             return
         self.record_undo(snapshot)
         self.show_arrows(plot)
+
+    # ----------------------------------------------------------------
+    # Shapes
+    # ----------------------------------------------------------------
+
+    def on_shape_create(self, plot_id_i: int, kind_str: str,
+                        start_time_s: float, start_value_f: float,
+                        end_time_s: float, end_value_f: float) -> None:
+        """Keep a shape drawn on a plot with the Circle or Rectangle tool.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            kind_str: CIRCLE_KIND_STR or RECTANGLE_KIND_STR.
+            start_time_s, start_value_f: the corner of the press.
+            end_time_s, end_value_f: the corner of the release.
+        Outputs: none. An unknown plot or kind, or a box that is not
+            usable, creates nothing and shows no message.
+        """
+        # LLFR-01316: the shape in the box of the drag.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or kind_str not in SHAPE_KIND_TUPLE:
+            return
+        # LLFR-00140: drawing a shape is undoable.
+        snapshot = self.take_snapshot()
+        # LLFR-01357, LLFR-01358: the name of a new shape; a shape that is
+        # not drawn uses up no number.
+        number_dict = dict(self.workspace.next_shape_number_dict)
+        try:
+            plot.add_shape(kind_str, start_time_s, start_value_f,
+                           end_time_s, end_value_f,
+                           self.workspace.take_shape_name(kind_str))
+        except (TypeError, ValueError):
+            self.workspace.next_shape_number_dict = number_dict
+            return
+        self.record_undo(snapshot)
+        self.show_shapes(plot)
+
+    def on_shape_change(self, plot_id_i: int, shape_index_i: int,
+                        start_time_s: float, start_value_f: float,
+                        end_time_s: float, end_value_f: float) -> None:
+        """Give a shape the box it was moved or resized to.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            shape_index_i: index of the shape in the list last drawn.
+            start_time_s, start_value_f: one corner of the new box.
+            end_time_s, end_value_f: the opposite corner.
+        Outputs: none. An unknown plot or shape, or a box that is not
+            usable, changes nothing.
+        """
+        # LLFR-01334: a move; LLFR-01338: a resize.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: moving or resizing a shape is undoable.
+        snapshot = self.take_snapshot()
+        try:
+            changed_b = plot.set_shape_box(shape_index_i, start_time_s,
+                                           start_value_f, end_time_s,
+                                           end_value_f)
+        except (TypeError, ValueError):
+            changed_b = False
+        if changed_b:
+            self.record_undo(snapshot)
+        self.show_shapes(plot)
+
+    def on_shape_color(self, plot_id_i: int, shape_index_i: int,
+                       chosen_color_str: str = "") -> None:
+        """Let the user pick the color of a shape.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            shape_index_i: index of the shape in the list last drawn.
+            chosen_color_str: a recent color chosen in the submenu, or ""
+                to open the picker.
+        Outputs: none.
+        """
+        # LLFR-01348: the shared picker at the shape's color.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.has_shape_index(shape_index_i):
+            return
+        shape = plot.shape_list[shape_index_i]
+        # LLFR-01349, LLFR-00390: one undoable action on confirm.
+        if self.apply_picked_color(
+                shape.color_str,
+                lambda color_str: plot.set_shape_color(shape_index_i,
+                                                       color_str),
+                chosen_color_str):
+            self.show_shapes(plot)
+
+    def on_shape_rename(self, plot_id_i: int, shape_index_i: int) -> None:
+        """Ask the user for a new shape name and show it in its label.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            shape_index_i: index of the shape in the list last drawn.
+        Outputs: none. A cancelled dialog, an empty name or the current
+            name changes nothing and shows no message.
+        """
+        # LLFR-01359: let the user type the name, from the current one.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None or not plot.has_shape_index(shape_index_i):
+            return
+        new_name_str = self.view.ask_shape_name(
+            plot.shape_list[shape_index_i].name_str)
+        if new_name_str is None:
+            return
+        # LLFR-00140: renaming a shape is undoable.
+        snapshot = self.take_snapshot()
+        # LLFR-01361, LLFR-01362: a blank name keeps the old one, with no
+        # message; LLFR-01363: the box, color, width and style stay.
+        if not plot.rename_shape(shape_index_i, str(new_name_str)):
+            return
+        self.record_undo(snapshot)
+        # LLFR-01360: the label shows the new name.
+        self.show_shapes(plot)
+
+    def on_shape_delete(self, plot_id_i: int, shape_index_i: int) -> None:
+        """Remove a shape from a plot.
+
+        Inputs:
+            plot_id_i: id of the plot.
+            shape_index_i: index of the shape in the list last drawn.
+        Outputs: none.
+        """
+        # LLFR-01350: "Delete" in the shape menu.
+        plot = self.workspace.find_plot(plot_id_i)
+        if plot is None:
+            return
+        # LLFR-00140: deleting a shape is undoable.
+        snapshot = self.take_snapshot()
+        if not plot.remove_shape(shape_index_i):
+            return
+        self.record_undo(snapshot)
+        self.show_shapes(plot)
+
+    def show_shapes(self, plot) -> None:
+        """Draw the shapes of a plot again, and nothing else.
+
+        Inputs:
+            plot: the model Plot.
+        Outputs: none.
+        """
+        # LLFR-01329, LLFR-01331: only the shapes change.
+        self.view.set_shapes(plot.plot_id_i, self.shape_data_list(plot))
+
+    # ----------------------------------------------------------------
+    # Line widths and styles
+    # ----------------------------------------------------------------
+
+    def on_object_width(self, plot_id_i: int, kind_str: str, item,
+                        width_i: int) -> None:
+        """Draw the line of an object with a preset width.
+
+        Inputs:
+            plot_id_i: id of the plot of the menu.
+            kind_str: one of LINE_OBJECT_KIND_TUPLE.
+            item: the marker id of a flag, the signal of a curve, the id
+                of a delta marker or the index of a text note, an arrow
+                or a shape.
+            width_i: the chosen preset width, 1 to 5.
+        Outputs: none.
+        """
+        # LLFR-01371: the chosen width; LLFR-00041 for a curve.
+        self.change_line_look(plot_id_i, kind_str, item, width_i, None)
+
+    def on_object_line_style(self, plot_id_i: int, kind_str: str, item,
+                             line_style_str: str) -> None:
+        """Draw the line of an object in a line style.
+
+        Inputs:
+            plot_id_i: id of the plot of the menu.
+            kind_str: one of LINE_OBJECT_KIND_TUPLE.
+            item: as in on_object_width.
+            line_style_str: one of LINE_STYLE_TUPLE.
+        Outputs: none.
+        """
+        # LLFR-01376: the chosen line style.
+        self.change_line_look(plot_id_i, kind_str, item, None,
+                              line_style_str)
+
+    def change_line_look(self, plot_id_i: int, kind_str: str, item,
+                         width_i, line_style_str) -> None:
+        """Change the width or the style of a line and draw it again.
+
+        Inputs:
+            plot_id_i: id of the plot of the menu.
+            kind_str: one of LINE_OBJECT_KIND_TUPLE.
+            item: as in on_object_width.
+            width_i: the new width, or None.
+            line_style_str: the new style, or None.
+        Outputs: none. An unknown object or a value that is not allowed
+            changes nothing; the same value is not recorded.
+        """
+        # LLFR-00140: changing a width or a line style is undoable.
+        snapshot = self.take_snapshot()
+        if not self.workspace.set_line_look(plot_id_i, kind_str, item,
+                                            width_i, line_style_str):
+            return
+        self.record_undo(snapshot)
+        # LLFR-01371, LLFR-01376: only what holds the line is drawn again;
+        # a flag is on every time plot (LLFR-00205).
+        if kind_str == FLAG_LINE_KIND_STR:
+            self.show_markers()
+            return
+        plot = self.workspace.find_plot(plot_id_i)
+        if kind_str in (CURVE_LINE_KIND_STR, DELTA_LINE_KIND_STR):
+            self.redraw_plot(plot)
+        elif kind_str == TEXT_NOTE_LINE_KIND_STR:
+            self.show_text_notes(plot)
+        elif kind_str == ARROW_LINE_KIND_STR:
+            self.show_arrows(plot)
+        elif kind_str == SHAPE_LINE_KIND_STR:
+            self.show_shapes(plot)
+
+    # ----------------------------------------------------------------
+    # Hidden labels
+    # ----------------------------------------------------------------
+
+    def on_labels_toggled(self, hidden_b: bool) -> None:
+        """Hide or show the labels of every plot of every window.
+
+        Inputs:
+            hidden_b: True when the Hide labels button asks to hide them.
+        Outputs: none. A click that changes the labels is one undoable
+            action (LLFR-00140).
+        """
+        # LLFR-00140: each click that hides or shows the labels is one
+        # undoable action, like the Grid button.
+        snapshot = self.take_snapshot()
+        self.apply_labels_hidden(hidden_b)
+        self.record_undo(snapshot)
+
+    def apply_labels_hidden(self, hidden_b: bool) -> None:
+        """Hide or show the labels, with no undo record.
+
+        Inputs:
+            hidden_b: True to hide the labels.
+        Outputs: none.
+        """
+        # LLFR-01281, LLFR-01282: every plot of every window;
+        # LLFR-01285: the view applies the state to new objects too;
+        # LLFR-01283: and shows the button to match.
+        self.workspace.labels_hidden_b = bool(hidden_b)
+        self.view.set_labels_hidden(self.workspace.labels_hidden_b)
 
     def show_arrows(self, plot) -> None:
         """Draw the arrows of a plot again, and nothing else.
@@ -2830,7 +3156,8 @@ class PlotController:
         """Remove every area from every time plot of every tab.
 
         Inputs:
-            plot_id_i: id of the plot where "Delete all areas" was chosen.
+            plot_id_i: id of the plot where "Delete all vertical areas"
+                was chosen.
         Outputs: none. An unknown plot is ignored.
         """
         # LLFR-00417, LLFR-00310: every area, with its label and time
@@ -3205,6 +3532,8 @@ class PlotController:
         # LLFR-01132, LLFR-00124: the grid of that state, on every plot
         # and on the Grid button.
         self.view.set_grid_shown(self.grid_shown_b)
+        # LLFR-00138, LLFR-01283: and the labels of that state.
+        self.view.set_labels_hidden(self.workspace.labels_hidden_b)
         # LLFR-00138, LLFR-00192, LLFR-01055: the main window's panel
         # width of that state.
         if self.workspace.main_panel_width_i > 0:
@@ -3479,6 +3808,10 @@ class PlotController:
         # LLFR-00230, LLFR-00122, LLFR-00123: the file's grid setting.
         if result.grid_shown_b is not None:
             self.apply_grid_shown(result.grid_shown_b)
+        # LLFR-01288: the file's labels setting, when it holds one.
+        labels_hidden_b = getattr(result, "labels_hidden_b", None)
+        if labels_hidden_b is not None:
+            self.apply_labels_hidden(labels_hidden_b)
         # LLFR-00238: loading clears the undo and redo history and is not
         # itself undoable.
         self.undo_history.clear()

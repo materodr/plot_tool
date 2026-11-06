@@ -25,7 +25,7 @@ BUTTON_NAME_DICT = {
     "marker_button": "Flag",
     "delta_x_button": "Delta X",
     "delta_y_button": "Delta Y",
-    "area_button": "Area",
+    "area_button": "Vert. Area",
     "text_button": "Text",
     "arrow_button": "Arrow",
     "reset_zoom_button": "Reset zoom",
@@ -39,13 +39,17 @@ BUTTON_NAME_DICT = {
     "pan_button": "Pan",
     "report_bug_button": "Report a bug",
     "save_signals_button": "Save signals",
+    # LLFR-01272, LLFR-01273, LLFR-01280: the shape tools and Hide labels.
+    "circle_button": "Circle",
+    "rectangle_button": "Rectangle",
+    "labels_button": "Hide labels",
 }
-# LLFR-00159: the 20 icons of the requirement, in its order.
+# LLFR-00159: the 23 icons of the requirement, in its order.
 REQUIRED_ICON_TUPLE = (
     "open_file", "undo", "tip", "zoom", "reset_zoom", "vertical_marker",
     "delta_x", "delta_y", "grid", "export", "copy", "redo", "save_layout",
     "load_layout", "area", "text", "pan", "report_bug", "arrow",
-    "save_signals")
+    "save_signals", "circle", "rectangle", "hide_labels")
 
 
 def hex_to_rgb_tuple(color_str: str) -> tuple:

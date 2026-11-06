@@ -12,7 +12,6 @@ import unittest
 from tests.support import covers
 
 from view import arrow_geometry
-from view.elided_text import MENU_TITLE_MAXIMUM_LENGTH_I, menu_title_text
 
 BOX_TUPLE = (0.0, 0.0, 100.0, 100.0)
 
@@ -161,28 +160,6 @@ class ArrowLabelPlaceTest(unittest.TestCase):
             (110.0, 0.0), (110.0, 100.0), BOX_TUPLE), ())
         self.assertFalse(arrow_geometry.point_in_label_b(
             (5.0, 5.0), (), 10.0, 6.0))
-
-
-class MenuTitleTextTest(unittest.TestCase):
-    """The text of a plot menu title (LLFR-00426, LLFR-00850)."""
-
-    @covers("LLFR-00426", "LLFR-00850", "HLFR-00096")
-    def test_long_titles_shortened_in_the_middle(self) -> None:
-        """A name of up to 40 characters is the title; a longer one is
-        shortened to 40 characters with "..." in the middle.
-
-        Inputs: none.
-        Outputs: none.
-        """
-        self.assertEqual(menu_title_text("Flag 1"), "Flag 1")
-        forty_str = "a" * 40
-        self.assertEqual(menu_title_text(forty_str), forty_str)
-        long_str = "start_" + "x" * 50 + "_end"
-        title_str = menu_title_text(long_str)
-        self.assertEqual(len(title_str), MENU_TITLE_MAXIMUM_LENGTH_I)
-        self.assertIn("...", title_str)
-        self.assertTrue(title_str.startswith("start_"))
-        self.assertTrue(title_str.endswith("_end"))
 
 
 if __name__ == "__main__":

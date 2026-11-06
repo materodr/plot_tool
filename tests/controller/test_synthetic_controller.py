@@ -21,7 +21,8 @@ from tests.controller.test_plot_controller import FakePlotView
 
 from controller.main_controller import MainController
 from controller.synthetic_controller import (
-    CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR, parse_number_text)
+    CREATE_TITLE_STR, FFT_PROMPT_STR, STATISTIC_NEEDS_TIME_PLOT_STR,
+    parse_number_text)
 from model.file_loader import load_signal_file
 from model.signal_file import SignalFile
 from model.workspace import Workspace
@@ -517,6 +518,16 @@ class SyntheticControllerTestCase(unittest.TestCase):
                 no time plot.
         Outputs: none.
         """
+        # LLFR-01308: a statistic asks for its range; with no answer
+        # given, the user keeps "Whole signal".
+        if (operation_str in ("max", "min", "rms", "mean", "std",
+                              "median")
+                and not self.view.parameter_answer_list):
+            self.view.parameter_answer_list.append([[]])
+        # LLFR-01308: the FFT asks for its range too; with no answer
+        # given, these tests choose "Shown x-axis range".
+        if operation_str == "fft" and not self.view.parameter_answer_list:
+            self.view.parameter_answer_list.append([["shown"]])
         create_handler = self.view.signal_menu_handler_dict["create"]
         if (operation_str != "fft" or not time_plot_b
                 or self.plot_controller.time_plot_list()):
@@ -598,7 +609,9 @@ class MenuWiringTest(SyntheticControllerTestCase):
             ("Calculus", ["Integral (int)", "Derivative (der)"]),
             ("Filters", ["Low-pass filter (lpf)", "High-pass filter (hpf)",
                          "Moving average (mavg)"]),
-            ("Statistics", ["Max (max)", "Min (min)"]),
+            ("Statistics", ["Max (max)", "Min (min)", "RMS (rms)",
+                            "Mean (mean)", "Standard deviation (std)",
+                            "Median (median)"]),
             ("Comparison", ["Greater than (gt)", "Less than (lt)",
                             "Greater than or equal (ge)",
                             "Less than or equal (le)"]),
@@ -607,13 +620,15 @@ class MenuWiringTest(SyntheticControllerTestCase):
                             "Divide by constant (div)",
                             "Absolute value (abs)",
                             "Product with signal (prod)"]),
+            ("Trigonometric", ["Sine (sind)", "Cosine (cosd)",
+                               "Tangent (tand)"]),
             ("Spectrum", ["FFT (fft)"])])
         id_list = [operation_str
                    for _, operation_list in self.view.operation_group_list
                    for operation_str, _ in operation_list]
         self.assertEqual(id_list[:3], ["integral", "derivative", "lowpass"])
         self.assertEqual(id_list[-1], "fft")
-        self.assertEqual(id_list[-3:-1], ["abs", "product"])
+        self.assertEqual(id_list[-6:-4], ["abs", "product"])
 
     @covers("LLFR-00239", "LLFR-00254", "LLFR-00265", "LLFR-00277",
             "LLFR-00278")
@@ -1043,22 +1058,56 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(search_signals(name_list, "speed"),
                          ["file1_MaxSpeed", "file1_Speed"])
 
-    @covers("LLFR-00592", "LLFR-00979", "HLFR-00057")
-    def test_no_fft_without_a_time_plot(self) -> None:
-        """With no time plot, no FFT is created, whatever the number of
-        samples, and one box asks for a time plot.
+    @covers("LLFR-00592", "LLFR-01311", "LLFR-01382", "LLFR-01308",
+            "HLFR-00057")
+    def test_no_fft_of_the_shown_range_without_a_time_plot(self) -> None:
+        """With no time plot, "Shown x-axis range" keeps the dialog open
+        with the reason and creates no FFT, whatever the number of
+        samples; no information box is shown.
 
         Inputs: none.
         Outputs: none.
         """
         self.create("file1_Speed", "fft", time_plot_b=False)
         self.assertEqual(self.store_names(), [])
-        self.assertEqual(self.view.information_list,
-                         [(CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
-        self.assertEqual(self.view.parameter_question_list, [])
+        self.assertEqual(self.view.information_list, [])
+        self.assertEqual(self.view.parameter_reason_list,
+                         [STATISTIC_NEEDS_TIME_PLOT_STR])
+        self.assertEqual(len(self.view.parameter_question_list), 1)
         self.assertEqual(self.plot_id_list(), [])
 
-    @covers("LLFR-00592", "LLFR-00979", "LLFR-00256", "HLFR-00058")
+    @covers("LLFR-01392", "LLFR-01308", "LLFR-01381", "LLFR-00240",
+            "LLFR-00248", "HLFR-00057")
+    def test_fft_of_the_whole_signal(self) -> None:
+        """"Whole signal", chosen at first, gives the FFT of the whole
+        file, also with no time plot, named with that whole range.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.view.parameter_answer_list.append([[]])
+        self.create("file1_Speed", "fft", time_plot_b=False)
+        self.assertEqual(self.store_names(), ["file1_fft_0s_to_9p9s_Speed"])
+        self.assertEqual(self.controller.store.get(
+            "file1_fft_0s_to_9p9s_Speed").parameter, (0.0, 9.9))
+        self.assertEqual(self.view.parameter_choice_list[-1][2], "whole")
+        self.assertEqual(self.view.information_list, [])
+
+    @covers("LLFR-00250", "LLFR-00594", "LLFR-01392", "HLFR-00057")
+    def test_whole_signal_with_too_few_samples(self) -> None:
+        """A whole signal of 7 samples gives no FFT and one box.
+
+        Inputs: none.
+        Outputs: none.
+        """
+        self.open_file(make_signal_file(np.arange(7) * 0.1))
+        self.view.parameter_answer_list.append([[]])
+        self.create("file2_Speed", "fft", time_plot_b=False)
+        self.assertEqual(self.store_names(), [])
+        self.assertEqual(len(self.view.information_list), 1)
+        self.assertIn("holds 7 samples", self.view.information_list[0][1])
+
+    @covers("LLFR-00592", "LLFR-01382", "LLFR-00256", "HLFR-00058")
     def test_frequency_plot_alone_is_not_a_time_plot(self) -> None:
         """A frequency plot alone does not let an FFT be created.
 
@@ -1071,10 +1120,10 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(self.plot_controller.time_plot_list(), [])
         self.create("file1_Torque", "fft", time_plot_b=False)
         self.assertEqual(len(self.store_names()), 1)
-        self.assertEqual(self.view.information_list,
-                         [(CREATE_TITLE_STR, FFT_NEEDS_TIME_PLOT_STR)])
+        self.assertEqual(self.view.parameter_reason_list[-1],
+                         STATISTIC_NEEDS_TIME_PLOT_STR)
 
-    @covers("LLFR-00591", "LLFR-00592", "LLFR-00979")
+    @covers("LLFR-00591", "LLFR-01393", "LLFR-00592")
     def test_uneven_samples_without_a_time_plot(self) -> None:
         """With uneven time steps and no time plot, only the box of the
         uneven time samples is shown.
@@ -1104,7 +1153,9 @@ class CreateTest(SyntheticControllerTestCase):
         self.assertEqual(signal.value_array.size, SAMPLE_COUNT_I // 2 + 1)
         self.assertEqual(self.view.fft_name_set,
                          {"file1_fft_0s_to_9p9s_Speed"})
-        self.assertEqual(self.view.parameter_question_list, [])
+        # LLFR-01308: the one dialog is the FFT's range dialog.
+        self.assertEqual(self.view.parameter_question_list,
+                         [("FFT", FFT_PROMPT_STR, [])])
 
     @covers("LLFR-00248", "LLFR-00240", "LLFR-00070", "LLFR-00593")
     def test_fft_uses_the_shared_range_of_the_time_plots(self) -> None:
@@ -1166,7 +1217,9 @@ class CreateTest(SyntheticControllerTestCase):
         for operation_str in ("integral", "add", "fft", "product"):
             self.create(fft_name_str, operation_str)
         self.assertEqual(self.store_names(), [fft_name_str])
-        self.assertEqual(self.view.parameter_question_list, [])
+        # LLFR-00251: only the range dialog of the FFT itself was asked.
+        self.assertEqual(self.view.parameter_question_list,
+                         [("FFT", FFT_PROMPT_STR, [])])
         self.assertEqual(self.view.second_signal_question_list, [])
         self.assertEqual(self.view.information_list, [])
 

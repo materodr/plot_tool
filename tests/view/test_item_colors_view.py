@@ -369,7 +369,7 @@ class TextNoteStyleViewTest(PlotWidgetToolTestCase):
         menu = self.note_menu()
         self.assertEqual(menu_option_texts(menu),
                          ["Edit", "Size", "Border color", "Text color",
-                          "Delete"])
+                          "Width", "Line style", "Delete"])
         action_dict = menu_action_dict(menu)
         size_action_list = action_dict["Size"].menu().actions()
         self.assertEqual([action.text() for action in size_action_list],

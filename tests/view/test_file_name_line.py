@@ -159,7 +159,9 @@ class FileRowPanelTestCase(unittest.TestCase):
             global_point: where it would be shown.
         Outputs: the action whose text is chosen_text_str, or None.
         """
+        from view.menu_title import is_menu_title
         self.menu_list.append([action.text() for action in menu.actions()
+                               if not is_menu_title(action)
                                if not action.isSeparator()])
         for action in menu.actions():
             if action.text() == self.chosen_text_str:
@@ -556,11 +558,15 @@ class FileMenuTest(FileRowPanelTestCase):
         Inputs: none.
         Outputs: none.
         """
+        from view.menu_title import is_menu_title
         menu = self.panel.build_file_menu(3)
-        self.assertEqual([action.text() for action in menu.actions()],
+        option_list = [action for action in menu.actions()
+                       if not is_menu_title(action)
+                       and not action.isSeparator()]
+        self.assertEqual([action.text() for action in option_list],
                          ["Close file", "Close all files"])
-        menu.actions()[0].trigger()
-        menu.actions()[1].trigger()
+        option_list[0].trigger()
+        option_list[1].trigger()
         self.assertEqual(self.close_file_list, [3])
         self.assertEqual(self.close_all_count_list, [1])
         menu.deleteLater()

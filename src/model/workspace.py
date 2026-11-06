@@ -64,6 +64,43 @@ DEFAULT_TEXT_NOTE_BORDER_COLOR_STR = MARKER_COLOR_STR
 DEFAULT_ARROW_COLOR_STR = MARKER_COLOR_STR
 # LLFR-00438: default name of a new arrow ("Arrow 1", "Arrow 2", ...).
 DEFAULT_ARROW_NAME_FORMAT_STR = "Arrow {}"
+# LLFR-01375, LLFR-01377: the line styles of a line, as the layout
+# file writes them, and the default style of each kind of object.
+LINE_STYLE_CONTINUOUS_STR = "continuous"
+LINE_STYLE_DASHED_STR = "dashed"
+LINE_STYLE_DOTTED_STR = "dotted"
+LINE_STYLE_DASH_DOTTED_STR = "dash_dotted"
+LINE_STYLE_TUPLE = (LINE_STYLE_CONTINUOUS_STR, LINE_STYLE_DASHED_STR,
+                    LINE_STYLE_DOTTED_STR, LINE_STYLE_DASH_DOTTED_STR)
+DEFAULT_CURVE_STYLE_STR = LINE_STYLE_CONTINUOUS_STR
+DEFAULT_FLAG_STYLE_STR = LINE_STYLE_DASHED_STR
+DEFAULT_DELTA_STYLE_STR = LINE_STYLE_DASHED_STR
+DEFAULT_ARROW_STYLE_STR = LINE_STYLE_DASHED_STR
+DEFAULT_TEXT_NOTE_STYLE_STR = LINE_STYLE_CONTINUOUS_STR
+DEFAULT_SHAPE_STYLE_STR = LINE_STYLE_CONTINUOUS_STR
+# LLFR-01372: every object with a width starts at preset width 1.
+DEFAULT_OBJECT_WIDTH_I = 1
+# LLFR-01314, LLFR-01357: the two kinds of shapes, their default names
+# ("Circle 1", "Rectangle 1", ...) and the color of a new shape.
+CIRCLE_KIND_STR = "circle"
+RECTANGLE_KIND_STR = "rectangle"
+SHAPE_KIND_TUPLE = (CIRCLE_KIND_STR, RECTANGLE_KIND_STR)
+DEFAULT_SHAPE_NAME_FORMAT_DICT = {CIRCLE_KIND_STR: "Circle {}",
+                                  RECTANGLE_KIND_STR: "Rectangle {}"}
+DEFAULT_SHAPE_COLOR_STR = MARKER_COLOR_STR
+# LLFR-01370, LLFR-01375: the kinds of objects whose line has a width
+# and a style, as the view names them in its requests.
+FLAG_LINE_KIND_STR = "flag"
+CURVE_LINE_KIND_STR = "curve"
+DELTA_LINE_KIND_STR = "delta"
+ARROW_LINE_KIND_STR = "arrow"
+TEXT_NOTE_LINE_KIND_STR = "text_note"
+SHAPE_LINE_KIND_STR = "shape"
+LINE_OBJECT_KIND_TUPLE = (FLAG_LINE_KIND_STR, CURVE_LINE_KIND_STR,
+                          DELTA_LINE_KIND_STR, ARROW_LINE_KIND_STR,
+                          TEXT_NOTE_LINE_KIND_STR, SHAPE_LINE_KIND_STR)
+# LLFR-01264: default name of a new pinned data tip ("Data tip 1", ...).
+DEFAULT_TIP_NAME_FORMAT_STR = "Data tip {}"
 # LLFR-00152: label offset of a pinned tip that was never moved; the
 # view then places the label beside its point by itself.
 AUTOMATIC_LABEL_OFFSET_TUPLE = ()
@@ -100,6 +137,32 @@ class Curve:
     signal_name_str: str
     color_str: str
     width_i: int = DEFAULT_WIDTH_I
+    # LLFR-01375, LLFR-01377: one of LINE_STYLE_TUPLE, continuous at
+    # first.
+    line_style_str: str = DEFAULT_CURVE_STYLE_STR
+
+
+def is_line_style(style_value) -> bool:
+    """Tell whether a value is one of the line styles.
+
+    Inputs:
+        style_value: any value.
+    Outputs: True for a str of LINE_STYLE_TUPLE.
+    """
+    # LLFR-01375: continuous, dashed, dotted or dash-dotted.
+    return isinstance(style_value, str) and style_value in LINE_STYLE_TUPLE
+
+
+def is_preset_width(width_value) -> bool:
+    """Tell whether a value is one of the preset widths 1 to 5.
+
+    Inputs:
+        width_value: any value.
+    Outputs: True for an int (not a bool) of PRESET_WIDTH_TUPLE.
+    """
+    # LLFR-00041, LLFR-01370: only the preset widths.
+    return (isinstance(width_value, int) and not isinstance(width_value, bool)
+            and width_value in PRESET_WIDTH_TUPLE)
 
 
 @dataclass
@@ -123,6 +186,8 @@ class PinnedTip:
     time_s: float
     value_f: float
     label_offset_tuple: tuple = AUTOMATIC_LABEL_OFFSET_TUPLE
+    # LLFR-01263, LLFR-01264: the name on the first line of its box.
+    name_str: str = ""
 
 
 @dataclass
@@ -148,6 +213,9 @@ class TextNote:
     size_i: int = DEFAULT_TEXT_NOTE_SIZE_I
     border_color_str: str = DEFAULT_TEXT_NOTE_BORDER_COLOR_STR
     text_color_str: str = DEFAULT_TEXT_NOTE_COLOR_STR
+    # LLFR-01370 to LLFR-01377: the width and style of its border.
+    width_i: int = DEFAULT_OBJECT_WIDTH_I
+    line_style_str: str = DEFAULT_TEXT_NOTE_STYLE_STR
 
 
 @dataclass
@@ -173,6 +241,71 @@ class Arrow:
     end_value_f: float
     color_str: str = DEFAULT_ARROW_COLOR_STR
     name_str: str = ""
+    # LLFR-01370 to LLFR-01377: the width and style of its line.
+    width_i: int = DEFAULT_OBJECT_WIDTH_I
+    line_style_str: str = DEFAULT_ARROW_STYLE_STR
+
+
+@dataclass
+class Shape:
+    """A circle or a rectangle drawn on one plot (HLFR-00158).
+
+    Inputs:
+        kind_str: CIRCLE_KIND_STR or RECTANGLE_KIND_STR.
+        start_time_s, start_value_f: x and y values of one corner of
+            its box (s, or Hz on a frequency plot).
+        end_time_s, end_value_f: x and y values of the opposite corner.
+        color_str: color of its line and label, "#rrggbb" in lowercase
+            (LLFR-01323, LLFR-01348).
+        name_str: name shown in its label (LLFR-01353), never empty once
+            the shape is in a plot (LLFR-01357, LLFR-01361).
+        width_i: preset width of its line (LLFR-01370).
+        line_style_str: style of its line (LLFR-01375).
+    """
+
+    kind_str: str
+    start_time_s: float
+    start_value_f: float
+    end_time_s: float
+    end_value_f: float
+    color_str: str = DEFAULT_SHAPE_COLOR_STR
+    name_str: str = ""
+    width_i: int = DEFAULT_OBJECT_WIDTH_I
+    line_style_str: str = DEFAULT_SHAPE_STYLE_STR
+
+
+def finite_box_tuple(start_time_s: float, start_value_f: float,
+                     end_time_s: float, end_value_f: float) -> tuple:
+    """Return the two corners of a shape's box as four finite floats.
+
+    Inputs:
+        start_time_s, start_value_f: one corner (x, y).
+        end_time_s, end_value_f: the opposite corner (x, y).
+    Outputs: the four values as floats. Raises ValueError when a value
+        is not finite, or when the two x values or the two y values are
+        equal, which gives no box.
+    """
+    # LLFR-01316, LLFR-01329: a box of two different x
+    # values and two different y values, at finite places.
+    box_tuple = (float(start_time_s), float(start_value_f),
+                 float(end_time_s), float(end_value_f))
+    if not all(math.isfinite(number_f) for number_f in box_tuple):
+        raise ValueError("A shape needs finite x and y values.")
+    if box_tuple[0] == box_tuple[2] or box_tuple[1] == box_tuple[3]:
+        raise ValueError("The box of a shape needs a width and a height.")
+    return box_tuple
+
+
+def shape_box_tuple(shape) -> tuple:
+    """Return the two corners of a shape as plain values.
+
+    Inputs:
+        shape: a Shape.
+    Outputs: (start_time_s, start_value_f, end_time_s, end_value_f).
+    """
+    # LLFR-01329: the values the shape is attached to.
+    return (shape.start_time_s, shape.start_value_f, shape.end_time_s,
+            shape.end_value_f)
 
 
 def finite_arrow_tuple(start_time_s: float, start_value_f: float,
@@ -248,6 +381,9 @@ class VerticalMarker:
     name_str: str
     time_s: float
     color_str: str = DEFAULT_FLAG_COLOR_STR
+    # LLFR-01370 to LLFR-01377: the width and style of its line.
+    width_i: int = DEFAULT_OBJECT_WIDTH_I
+    line_style_str: str = DEFAULT_FLAG_STYLE_STR
 
 
 @dataclass
@@ -330,6 +466,9 @@ class DeltaMarker:
     second_point_tuple: tuple
     color_str: str = DEFAULT_DELTA_MARKER_COLOR_STR
     name_str: str = ""
+    # LLFR-01370 to LLFR-01377: the width and style of its bracket.
+    width_i: int = DEFAULT_OBJECT_WIDTH_I
+    line_style_str: str = DEFAULT_DELTA_STYLE_STR
 
     def delta_f(self) -> float:
         """Return the measured difference, second point minus first.
@@ -536,6 +675,9 @@ class Plot:
         # LLFR-00375: any number of arrows, in the order they were
         # drawn; they belong to this plot only.
         self.arrow_list = []
+        # LLFR-01331, LLFR-01333: any number of shapes, in the order they
+        # were drawn; they belong to this plot only.
+        self.shape_list = []
 
     def is_frequency_plot(self) -> bool:
         """Tell whether the plot is a frequency plot.
@@ -699,13 +841,17 @@ class Plot:
         curve.width_i = width_i
 
     def add_pinned_tip(self, signal_name_str: str, time_s: float,
-                       value_f: float) -> PinnedTip:
+                       value_f: float, name_str: str = "") -> PinnedTip:
         """Pin a tip at a point of a signal's curve.
 
         Inputs:
             signal_name_str: name of the signal whose curve was clicked.
             time_s: x-axis value of the point, in seconds.
             value_f: y-axis value of the point.
+            name_str: its name (LLFR-01263); the workspace gives a new
+                tip "Data tip N" (Workspace.take_tip_name). Empty or
+                blank gives "Data tip N" with the smallest N not used by
+                a tip of this plot.
         Outputs: the new PinnedTip. Raises ValueError when the signal is
             not in the plot.
         """
@@ -713,9 +859,40 @@ class Plot:
         if not self.has_signal(signal_name_str):
             raise ValueError(f"Signal {signal_name_str!r} is not in the "
                              f"plot.")
-        pinned_tip = PinnedTip(signal_name_str, time_s, value_f)
+        # LLFR-01264: every pinned tip has a name.
+        tip_name_str = str(name_str).strip()
+        if not tip_name_str:
+            used_name_set = {held_tip.name_str
+                             for held_tip in self.pinned_tip_list}
+            tip_name_str = first_free_name(DEFAULT_TIP_NAME_FORMAT_STR,
+                                           used_name_set)
+        pinned_tip = PinnedTip(signal_name_str, time_s, value_f,
+                               name_str=tip_name_str)
         self.pinned_tip_list.append(pinned_tip)
         return pinned_tip
+
+    def rename_pinned_tip(self, tip_index_i: int,
+                          new_name_str: str) -> bool:
+        """Give a pinned tip the name typed by the user.
+
+        Inputs:
+            tip_index_i: index of the tip in pinned_tip_list.
+            new_name_str: the typed name.
+        Outputs: True when the name changed; False for an unknown index,
+            an empty or blank name (LLFR-01268) or the same name.
+        """
+        # LLFR-01266, LLFR-01267: the new name, without outer spaces;
+        # LLFR-01270: the point, values and offset stay.
+        stripped_name_str = str(new_name_str).strip()
+        if (not stripped_name_str or isinstance(tip_index_i, bool)
+                or not isinstance(tip_index_i, int)
+                or not 0 <= tip_index_i < len(self.pinned_tip_list)):
+            return False
+        pinned_tip = self.pinned_tip_list[tip_index_i]
+        if pinned_tip.name_str == stripped_name_str:
+            return False
+        pinned_tip.name_str = stripped_name_str
+        return True
 
     def remove_pinned_tip(self, pinned_tip: PinnedTip) -> bool:
         """Remove a pinned tip from the plot.
@@ -1055,6 +1232,154 @@ class Plot:
             return False
         del self.arrow_list[arrow_index_i]
         return True
+
+    def add_shape(self, kind_str: str, start_time_s: float,
+                  start_value_f: float, end_time_s: float,
+                  end_value_f: float, name_str: str = "") -> Shape:
+        """Draw a new shape on the plot.
+
+        Inputs:
+            kind_str: CIRCLE_KIND_STR or RECTANGLE_KIND_STR.
+            start_time_s, start_value_f: one corner of its box.
+            end_time_s, end_value_f: the opposite corner.
+            name_str: its name (LLFR-01353); the workspace gives a new
+                shape "Circle N" or "Rectangle N"
+                (Workspace.take_shape_name). Empty or blank gives the
+                default name with the smallest N not used by a shape of
+                that kind in this plot.
+        Outputs: the new Shape, in the default color, width and style.
+            Raises ValueError for an unknown kind or a box that is not
+            usable (finite_box_tuple).
+        """
+        # LLFR-01316: a circle or a rectangle in the box of the drag.
+        if kind_str not in SHAPE_KIND_TUPLE:
+            raise ValueError(f"Unknown shape kind {kind_str!r}.")
+        box_tuple = finite_box_tuple(start_time_s, start_value_f,
+                                     end_time_s, end_value_f)
+        # LLFR-01357: every shape has a name.
+        shape_name_str = str(name_str).strip()
+        if not shape_name_str:
+            used_name_set = {shape.name_str for shape in self.shape_list
+                             if shape.kind_str == kind_str}
+            shape_name_str = first_free_name(
+                DEFAULT_SHAPE_NAME_FORMAT_DICT[kind_str], used_name_set)
+        # LLFR-01333: any number of shapes per plot.
+        shape = Shape(kind_str, *box_tuple, name_str=shape_name_str)
+        self.shape_list.append(shape)
+        return shape
+
+    def has_shape_index(self, shape_index_i: int) -> bool:
+        """Tell whether an index points at a shape of the plot.
+
+        Inputs:
+            shape_index_i: index in shape_list.
+        Outputs: True for a valid index.
+        """
+        # LLFR-01334, LLFR-01347: the view names a shape by its index.
+        return (isinstance(shape_index_i, int)
+                and not isinstance(shape_index_i, bool)
+                and 0 <= shape_index_i < len(self.shape_list))
+
+    def set_shape_box(self, shape_index_i: int, start_time_s: float,
+                      start_value_f: float, end_time_s: float,
+                      end_value_f: float) -> bool:
+        """Give a shape a new box, after a move or a resize.
+
+        Inputs:
+            shape_index_i: index of the shape in shape_list.
+            start_time_s, start_value_f: one corner of the new box.
+            end_time_s, end_value_f: the opposite corner.
+        Outputs: True when the shape changed; False for an unknown index
+            or the same box. Raises ValueError for a box that is not
+            usable.
+        """
+        # LLFR-01334, LLFR-01338: the shape takes the preview's box.
+        box_tuple = finite_box_tuple(start_time_s, start_value_f,
+                                     end_time_s, end_value_f)
+        if not self.has_shape_index(shape_index_i):
+            return False
+        shape = self.shape_list[shape_index_i]
+        if shape_box_tuple(shape) == box_tuple:
+            return False
+        (shape.start_time_s, shape.start_value_f, shape.end_time_s,
+         shape.end_value_f) = box_tuple
+        return True
+
+    def rename_shape(self, shape_index_i: int, new_name_str: str) -> bool:
+        """Give a shape the name typed by the user.
+
+        Inputs:
+            shape_index_i: index of the shape in shape_list.
+            new_name_str: the typed name.
+        Outputs: True when the name changed; False for an unknown index,
+            an empty or blank name (LLFR-01361) or the same name.
+        """
+        # LLFR-01359, LLFR-01360, LLFR-01363: only the name changes.
+        stripped_name_str = str(new_name_str).strip()
+        if not stripped_name_str or not self.has_shape_index(shape_index_i):
+            return False
+        shape = self.shape_list[shape_index_i]
+        if shape.name_str == stripped_name_str:
+            return False
+        shape.name_str = stripped_name_str
+        return True
+
+    def set_shape_color(self, shape_index_i: int, color_str: str) -> bool:
+        """Give a shape another color.
+
+        Inputs:
+            shape_index_i: index of the shape in shape_list.
+            color_str: the new color, "#rrggbb" in any case.
+        Outputs: True when the color changed; False for an unknown index,
+            a value that is not a color or the same color.
+        """
+        # LLFR-01348, LLFR-01349: the line and the label take the color.
+        new_color_str = hex_color_or_none(color_str)
+        if new_color_str is None or not self.has_shape_index(shape_index_i):
+            return False
+        shape = self.shape_list[shape_index_i]
+        if shape.color_str == new_color_str:
+            return False
+        shape.color_str = new_color_str
+        return True
+
+    def remove_shape(self, shape_index_i: int) -> bool:
+        """Remove a shape from the plot.
+
+        Inputs:
+            shape_index_i: index of the shape in shape_list.
+        Outputs: True when it was removed.
+        """
+        # LLFR-01350: the shape leaves the plot.
+        if not self.has_shape_index(shape_index_i):
+            return False
+        del self.shape_list[shape_index_i]
+        return True
+
+    def line_object(self, kind_str: str, item):
+        """Return an object of the plot whose line has a width and style.
+
+        Inputs:
+            kind_str: one of LINE_OBJECT_KIND_TUPLE but the flag kind.
+            item: the signal name of a curve, the id of a delta marker,
+                or the index of a text note, an arrow or a shape.
+        Outputs: the Curve, DeltaMarker, TextNote, Arrow or Shape, or
+            None when there is none.
+        """
+        # LLFR-01371, LLFR-01376: the object the menu option acts on.
+        if kind_str == CURVE_LINE_KIND_STR:
+            return self.find_curve(item)
+        if kind_str == DELTA_LINE_KIND_STR:
+            return self.find_delta_marker(item)
+        list_dict = {TEXT_NOTE_LINE_KIND_STR: self.text_note_list,
+                     ARROW_LINE_KIND_STR: self.arrow_list,
+                     SHAPE_LINE_KIND_STR: self.shape_list}
+        object_list = list_dict.get(kind_str)
+        if (object_list is None or isinstance(item, bool)
+                or not isinstance(item, int)
+                or not 0 <= item < len(object_list)):
+            return None
+        return object_list[item]
 
     def is_empty(self) -> bool:
         """Tell whether the plot has no curves.
@@ -1518,11 +1843,14 @@ def plot_state_tuple(plot) -> tuple:
     # label offsets, and the counter that picks the next color. The
     # vertical markers belong to the workspace (LLFR-00205), see
     # Workspace.state_tuple.
+    # LLFR-00140: changing a curve's line style is undoable too.
     curve_tuple = tuple((curve.signal_name_str, curve.color_str,
-                         curve.width_i) for curve in plot.curve_list)
+                         curve.width_i, curve.line_style_str)
+                        for curve in plot.curve_list)
+    # LLFR-00140: renaming a pinned tip is undoable (LLFR-01266).
     pinned_tip_tuple = tuple(
         (pinned_tip.signal_name_str, pinned_tip.time_s, pinned_tip.value_f,
-         tuple(pinned_tip.label_offset_tuple))
+         tuple(pinned_tip.label_offset_tuple), pinned_tip.name_str)
         for pinned_tip in plot.pinned_tip_list)
     # LLFR-00140: placing, changing the color of (LLFR-00409) and
     # deleting a delta marker are undoable.
@@ -1530,7 +1858,8 @@ def plot_state_tuple(plot) -> tuple:
         (delta_marker.delta_marker_id_i, delta_marker.kind_str,
          tuple(delta_marker.first_point_tuple),
          tuple(delta_marker.second_point_tuple), delta_marker.color_str,
-         delta_marker.name_str)
+         delta_marker.name_str, delta_marker.width_i,
+         delta_marker.line_style_str)
         for delta_marker in plot.delta_marker_list)
     # LLFR-00256, LLFR-00140: creating a frequency plot is undoable like
     # creating a time plot, and an undo gives the plot back its kind.
@@ -1541,24 +1870,35 @@ def plot_state_tuple(plot) -> tuple:
     text_note_tuple = tuple(
         (text_note.text_str, text_note.time_s, text_note.value_f,
          text_note.size_i, text_note.border_color_str,
-         text_note.text_color_str)
+         text_note.text_color_str, text_note.width_i,
+         text_note.line_style_str)
         for text_note in plot.text_note_list)
     # LLFR-00140: drawing, moving, rotating or stretching, recoloring and
     # deleting an arrow are undoable; LLFR-00375: the arrows are part of
     # their plot's state.
     # LLFR-00140: renaming a delta marker or an arrow is undoable too.
     arrow_tuple = tuple(arrow_end_tuple(arrow) + (arrow.color_str,
-                                                  arrow.name_str)
+                                                  arrow.name_str,
+                                                  arrow.width_i,
+                                                  arrow.line_style_str)
                         for arrow in plot.arrow_list)
+    # LLFR-00140: drawing, moving, resizing, renaming, recoloring and
+    # deleting a shape, and changing its width or style, are undoable.
+    shape_tuple = tuple(
+        (shape.kind_str,) + shape_box_tuple(shape)
+        + (shape.color_str, shape.name_str, shape.width_i,
+           shape.line_style_str)
+        for shape in plot.shape_list)
     return (plot.plot_id_i, plot.drawn_count_i, curve_tuple,
             pinned_tip_tuple, delta_marker_tuple, text_note_tuple,
-            arrow_tuple, plot.kind_str)
+            arrow_tuple, shape_tuple, plot.kind_str)
 
 
 def tabs_state_tuple(tab_list: list, marker_list: list,
                      area_list=(), main_panel_width_i: int = 0,
                      grid_shown_b: bool = True,
-                     main_panel_shown_b: bool = True) -> tuple:
+                     main_panel_shown_b: bool = True,
+                     labels_hidden_b: bool = False) -> tuple:
     """Return tabs, vertical markers and areas as plain values.
 
     Inputs:
@@ -1570,9 +1910,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
         grid_shown_b: True while the grid is shown (LLFR-01132).
         main_panel_shown_b: True while the main window shows its signal
             list panel (LLFR-01053, LLFR-01211).
+        labels_hidden_b: True while the labels are hidden (LLFR-01281).
     Outputs: a tuple (tab tuple, marker tuple, area tuple, main panel
-        width, grid shown, main panel shown): one entry (tab_id_i,
-        name_str, plot state tuples, row_count_i, column_count_i,
+        width, grid shown, main panel shown, labels hidden): one entry
+        (tab_id_i, name_str, plot state tuples, row_count_i, column_count_i,
         window state tuple) per tab, in tab order, one entry
         (marker_id_i, name_str, time_s, color_str) per marker and one
         entry (area_id_i, name_str, start_s, end_s, color_str) per area;
@@ -1590,8 +1931,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
          tab.window_state_tuple())
         for tab in tab_list)
     # LLFR-00392, LLFR-00140: changing a flag's color is undoable.
+    # LLFR-00140: and changing its width or line style (LLFR-01371).
     marker_tuple = tuple((marker.marker_id_i, marker.name_str, marker.time_s,
-                          marker.color_str)
+                          marker.color_str, marker.width_i,
+                          marker.line_style_str)
                          for marker in marker_list)
     # LLFR-00140: creating, moving, resizing, renaming and deleting an
     # area are undoable.
@@ -1603,8 +1946,10 @@ def tabs_state_tuple(tab_list: list, marker_list: list,
     # LLFR-01132: and so is a click on the Grid button.
     # LLFR-01053, LLFR-01211: hiding or showing the main window's panel
     # is undoable too.
+    # LLFR-00140: and so is a click on the Hide labels button.
     return (tab_tuple, marker_tuple, area_tuple, int(main_panel_width_i),
-            bool(grid_shown_b), bool(main_panel_shown_b))
+            bool(grid_shown_b), bool(main_panel_shown_b),
+            bool(labels_hidden_b))
 
 
 def renamed_point_tuple(point_tuple: tuple, old_name_str: str,
@@ -1681,7 +2026,8 @@ class WorkspaceSnapshot:
                  current_tab_id_i: int = -1, marker_list=(),
                  area_list=(), main_panel_width_i: int = 0,
                  grid_shown_b: bool = True,
-                 main_panel_shown_b: bool = True) -> None:
+                 main_panel_shown_b: bool = True,
+                 labels_hidden_b: bool = False) -> None:
         """Store the saved state.
 
         Inputs:
@@ -1707,6 +2053,8 @@ class WorkspaceSnapshot:
         # LLFR-01053, LLFR-00138: and whether the main window showed its
         # signal list panel.
         self.main_panel_shown_b = bool(main_panel_shown_b)
+        # LLFR-01281, LLFR-00138: and whether the labels were hidden.
+        self.labels_hidden_b = bool(labels_hidden_b)
 
     def rename_signal(self, old_name_str: str, new_name_str: str) -> None:
         """Rename a signal in the saved state.
@@ -1726,7 +2074,8 @@ class WorkspaceSnapshot:
                                             self.area_list,
                                             self.main_panel_width_i,
                                             self.grid_shown_b,
-                                            self.main_panel_shown_b)
+                                            self.main_panel_shown_b,
+                                            self.labels_hidden_b)
 
 
 class Workspace:
@@ -1778,6 +2127,15 @@ class Workspace:
         # LLFR-00438, LLFR-00872: number of the next "Arrow N", shared
         # by all plots; the same rules.
         self.next_arrow_number_i = 1
+        # LLFR-01264, LLFR-01265: number of the next "Data tip N";
+        # LLFR-01357, LLFR-01358: of the next "Circle N" and
+        # "Rectangle N". The same rules.
+        self.next_tip_number_i = 1
+        self.next_shape_number_dict = {kind_str: 1
+                                       for kind_str in SHAPE_KIND_TUPLE}
+        # LLFR-01284: the labels are shown at start; LLFR-00140: hiding
+        # or showing them is undoable.
+        self.labels_hidden_b = False
         # LLFR-01055: width of the main window's signal list panel, in
         # pixels, as the view last reported it; 0 while unknown.
         self.main_panel_width_i = 0
@@ -1814,6 +2172,10 @@ class Workspace:
         self.next_delta_number_dict = {kind_str: 1
                                        for kind_str in DELTA_KIND_TUPLE}
         self.next_arrow_number_i = 1
+        # LLFR-01264, LLFR-01357: "Data tip 1", "Circle 1", "Rectangle 1".
+        self.next_tip_number_i = 1
+        self.next_shape_number_dict = {kind_str: 1
+                                       for kind_str in SHAPE_KIND_TUPLE}
         # LLFR-00210, LLFR-00654: tab numbering starts with "Tab 1".
         self.next_tab_number_i = 1
         # LLFR-00024: one tab with no plots; ids keep counting up.
@@ -2700,6 +3062,75 @@ class Workspace:
         self.next_delta_number_dict[kind_str] = number_i + 1
         return name_str
 
+    def take_tip_name(self) -> str:
+        """Return the name of a new pinned tip and use up its number.
+
+        Inputs: none.
+        Outputs: "Data tip N" (LLFR-01264), N growing by 1 for each new
+            tip in any plot.
+        """
+        # LLFR-01265: a number is never handed out twice, even when the
+        # pinning is undone or the tip deleted.
+        name_str = DEFAULT_TIP_NAME_FORMAT_STR.format(self.next_tip_number_i)
+        self.next_tip_number_i += 1
+        return name_str
+
+    def take_shape_name(self, kind_str: str) -> str:
+        """Return the name of a new shape and use up its number.
+
+        Inputs:
+            kind_str: CIRCLE_KIND_STR or RECTANGLE_KIND_STR.
+        Outputs: "Circle N" or "Rectangle N" (LLFR-01357), N growing by
+            1 for each new shape of that kind in any plot.
+        """
+        # LLFR-01358: a number is never handed out twice.
+        name_str = DEFAULT_SHAPE_NAME_FORMAT_DICT[kind_str].format(
+            self.next_shape_number_dict[kind_str])
+        self.next_shape_number_dict[kind_str] += 1
+        return name_str
+
+    def set_line_look(self, plot_id_i: int, kind_str: str, item,
+                      width_i=None, line_style_str=None) -> bool:
+        """Give an object of a plot a new line width or line style.
+
+        Inputs:
+            plot_id_i: id of the plot (ignored for a flag, which is on
+                every time plot).
+            kind_str: one of LINE_OBJECT_KIND_TUPLE.
+            item: the marker id of a flag, the signal name of a curve,
+                the id of a delta marker, or the index of a text note,
+                an arrow or a shape.
+            width_i: a preset width 1 to 5, or None to keep the width.
+            line_style_str: one of LINE_STYLE_TUPLE, or None to keep the
+                style.
+        Outputs: True when the object changed; False for an unknown
+            object, a value that is not allowed or the same value.
+        """
+        # LLFR-01371, LLFR-01376: the line of the chosen object.
+        if kind_str == FLAG_LINE_KIND_STR:
+            line_object = self.find_marker(item)
+        else:
+            plot = self.find_plot(plot_id_i)
+            line_object = (None if plot is None
+                           else plot.line_object(kind_str, item))
+        if line_object is None:
+            return False
+        changed_b = False
+        if width_i is not None:
+            # LLFR-01370: only the preset widths 1 to 5.
+            if not is_preset_width(width_i):
+                return False
+            changed_b = line_object.width_i != width_i
+            line_object.width_i = width_i
+        if line_style_str is not None:
+            # LLFR-01375: only the four line styles.
+            if not is_line_style(line_style_str):
+                return False
+            changed_b = (changed_b
+                         or line_object.line_style_str != line_style_str)
+            line_object.line_style_str = line_style_str
+        return changed_b
+
     def take_arrow_name(self) -> str:
         """Return the name of a new arrow and use up its number.
 
@@ -2866,7 +3297,8 @@ class Workspace:
         # they only grow (LLFR-00111, LLFR-00309).
         return tabs_state_tuple(self.tab_list, self.marker_list,
                                 self.area_list, self.main_panel_width_i,
-                                self.grid_shown_b, self.main_panel_shown_b)
+                                self.grid_shown_b, self.main_panel_shown_b,
+                                self.labels_hidden_b)
 
     def copy_tab_list(self, tab_list: list) -> list:
         """Deep-copy tabs, keeping the shared generator and id counter.
@@ -2904,7 +3336,8 @@ class Workspace:
                                  copy.deepcopy(self.area_list),
                                  self.main_panel_width_i,
                                  self.grid_shown_b,
-                                 self.main_panel_shown_b)
+                                 self.main_panel_shown_b,
+                                 self.labels_hidden_b)
 
     def is_unchanged_since(self, snapshot: WorkspaceSnapshot) -> bool:
         """Tell whether the workspace still holds a saved state.
@@ -2944,6 +3377,9 @@ class Workspace:
                                                "main_panel_shown_b", True))
         # LLFR-01132, LLFR-00138: the grid of that state.
         self.grid_shown_b = bool(getattr(snapshot, "grid_shown_b", True))
+        # LLFR-01281, LLFR-00138: the labels of that state.
+        self.labels_hidden_b = bool(getattr(snapshot, "labels_hidden_b",
+                                            False))
         # LLFR-00024, LLFR-00081: ids only grow, also after an undo.
         highest_tab_id_i = max((tab.tab_id_i for tab in self.tab_list),
                                default=0)

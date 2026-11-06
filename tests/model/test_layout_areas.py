@@ -45,15 +45,15 @@ class LayoutAreaWriteTest(unittest.TestCase):
         layout_dict = build_layout_dict(workspace, -1, (), False)
         # LLFR-00225 item 11: colors as "#rrggbb" in lowercase; a new
         # area has the reserved marker color (LLFR-00351).
-        self.assertEqual(layout_dict["areas"], [
+        self.assertEqual(layout_dict["vertical_areas"], [
             {"name": "Area 1", "start": 0.1, "end": 1.0 / 3.0,
              "color": DEFAULT_AREA_COLOR_STR},
             {"name": "Run", "start": 5.0, "end": 7.25, "color": "#2ca02c"}])
         read_dict = json.loads(layout_text(layout_dict))
-        self.assertEqual(read_dict["areas"][0]["end"], 1.0 / 3.0)
+        self.assertEqual(read_dict["vertical_areas"][0]["end"], 1.0 / 3.0)
         workspace_without_area = Workspace()
         self.assertEqual(build_layout_dict(
-            workspace_without_area, -1, (), False)["areas"], [])
+            workspace_without_area, -1, (), False)["vertical_areas"], [])
 
 
 class LayoutAreaRebuildTest(LayoutRebuildTestCase):
@@ -63,11 +63,11 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         """Return a layout of one plot of Speed with some areas.
 
         Inputs:
-            area_entry_list: the "areas" entry.
+            area_entry_list: the "vertical_areas" entry.
         Outputs: the layout dict.
         """
         return minimal_layout([one_plot_tab([curve("Speed")])],
-                              areas=area_entry_list)
+                              vertical_areas=area_entry_list)
 
     @covers("LLFR-00319", "LLFR-00230", "LLFR-00310", "LLFR-00237",
             "LLFR-00351", "LLFR-00479", "LLFR-00493", "LLFR-00727")
@@ -150,7 +150,7 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
         """
         result = self.rebuild(minimal_layout(
             [one_plot_tab([curve("Gone")])],
-            areas=[{"name": "A", "start": 1.0, "end": 2.0}]))
+            vertical_areas=[{"name": "A", "start": 1.0, "end": 2.0}]))
         self.assertEqual(self.workspace.area_list, [])
         self.assertIn("no plot", result.report.not_rebuilt_line_list[-1])
 
@@ -242,8 +242,8 @@ class LayoutAreaRebuildTest(LayoutRebuildTestCase):
 
     @covers("LLFR-00319", "LLFR-00230", "LLFR-00479")
     def test_file_without_areas_entry_adds_none(self) -> None:
-        """A file without "areas", or with a value that is not a list,
-        adds no area and keeps the current ones.
+        """A file without "vertical_areas", or with a value that is not a
+        list, adds no area and keeps the current ones.
 
         Inputs: none.
         Outputs: none.

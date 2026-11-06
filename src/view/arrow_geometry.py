@@ -207,6 +207,8 @@ class ArrowPatch(PathPatch):
         self.start_tuple = tuple(float(value_f) for value_f in start_tuple)
         self.end_tuple = tuple(float(value_f) for value_f in end_tuple)
         self.data_b = bool(data_b)
+        # LLFR-01376: the style of the line, dashed for a new arrow.
+        self.line_style_value = ARROW_LINE_STYLE_TUPLE
 
     def display_end_tuple(self) -> tuple:
         """Return the two ends in display pixels for the current axes.
@@ -261,7 +263,8 @@ class ArrowPatch(PathPatch):
             self.set_linestyle(ARROW_HEAD_LINE_STYLE_STR)
             super().draw(renderer)
         self._path = line_path
-        self.set_linestyle(ARROW_LINE_STYLE_TUPLE)
+        # LLFR-01376: the line in the arrow's style.
+        self.set_linestyle(self.line_style_value)
         super().draw(renderer)
         # The patch keeps the whole path, line and head, for hit tests.
         self._path = full_path

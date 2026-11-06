@@ -1,7 +1,9 @@
 """Tab page: the plots of one tab, laid out in its plot matrix."""
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtCore import QPoint, QSize, Qt
+from PyQt6.QtGui import QPainter, QPalette, QPixmap
+from PyQt6.QtWidgets import (
+    QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget)
 
 from model.workspace import (
     DEFAULT_MATRIX_COLUMNS_I, DEFAULT_MATRIX_ROWS_I, matrix_row_list,
@@ -28,6 +30,12 @@ class TabPage(QWidget):
     no drops: a signal dropped on it, outside a plot, creates nothing and
     shows nothing (LLFR-00022, LLFR-00023).
 
+    The rows are held in a scroll area (HLFR-00166). Each plot asks for
+    a minimum height (LLFR-01394); while the rows fit, they share the
+    height of the page (LLFR-01395), and when they don't, each row gets
+    that minimum height and a vertical scroll bar appears (LLFR-01396,
+    LLFR-01401).
+
     Inputs:
         tab_id_i: id of the tab in the model.
         name_str: name shown on the tab.
@@ -35,8 +43,12 @@ class TabPage(QWidget):
     Attributes:
         tab_id_i: id of the tab in the model.
         name_str: name shown on the tab.
-        page_layout: the vertical layout that holds one row layout per
-            shown row.
+        scroll_area: the QScrollArea that fills the page and scrolls
+            the plots vertically when they don't fit (LLFR-01401).
+        plot_area: the widget inside the scroll area that holds the
+            plots, at its full height (LLFR-01398).
+        page_layout: the vertical layout of plot_area that holds one
+            row layout per shown row.
         row_layout_list: the horizontal layouts of the shown rows, top
             to bottom.
         plot_widget_list: the PlotWidgets, in fill order.
@@ -57,7 +69,34 @@ class TabPage(QWidget):
         # LLFR-00024, LLFR-00026: a new tab page has no plots.
         self.tab_id_i = tab_id_i
         self.name_str = name_str
-        self.page_layout = QVBoxLayout(self)
+        # LLFR-01395, LLFR-01401: the plots fill the page while they fit
+        # and scroll vertically when they don't; there is never a
+        # horizontal scroll bar.
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # LLFR-00890: the corners around the plots show the plot well.
+        # A scroll area paints its viewport in the Base color, and its
+        # children take that role; the page's Window color is kept, so
+        # that the grab of the exports fills the gaps and the corners
+        # around the plots with it (LLFR-00892).
+        self.scroll_area.setAutoFillBackground(False)
+        self.scroll_area.viewport().setAutoFillBackground(False)
+        self.scroll_area.viewport().setBackgroundRole(
+            QPalette.ColorRole.Window)
+        self.scroll_area.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.plot_area = QWidget()
+        self.plot_area.setAutoFillBackground(False)
+        self.plot_area.setBackgroundRole(QPalette.ColorRole.Window)
+        self.scroll_area.setWidget(self.plot_area)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(self.scroll_area)
+        self.page_layout = QVBoxLayout(self.plot_area)
         self.page_layout.setContentsMargins(0, 0, 0, 0)
         # LLFR-00069: a small gap of the plot well between the rows.
         self.page_layout.setSpacing(theme.PLOT_SPACING_I)
@@ -77,7 +116,7 @@ class TabPage(QWidget):
 
         Inputs: none.
         Outputs: none. The row layouts are made again from the fill
-            order; the plot widgets stay children of the page.
+            order; the plot widgets stay children of the plot area.
         """
         # LLFR-01108 to LLFR-01111: take every plot out of its row, then
         # put the plots back row by row.
@@ -172,8 +211,9 @@ class TabPage(QWidget):
             plot_widget: the PlotWidget to add.
         Outputs: none.
         """
-        # LLFR-01109: the new plot goes after the last one.
-        plot_widget.setParent(self)
+        # LLFR-01109: the new plot goes after the last one, in the
+        # scrolled plot area (LLFR-01396).
+        plot_widget.setParent(self.plot_area)
         self.plot_widget_list.append(plot_widget)
         self.relayout()
         plot_widget.show()
@@ -197,3 +237,91 @@ class TabPage(QWidget):
         # LLFR-00050: the plots after it move back one slot.
         self.relayout()
         return True
+
+    def plot_area_size(self) -> QSize:
+        """Return the size the plot area has inside the scroll area.
+
+        Inputs: none.
+        Outputs: a QSize as wide as the visible part of the scroll area
+            and as tall as the larger of that part and the height the
+            plots need (LLFR-01395, LLFR-01396).
+        """
+        # LLFR-01396: the rows need at least their minimum heights.
+        viewport_size = self.scroll_area.viewport().size()
+        needed_height_i = self.page_layout.minimumSize().height()
+        return QSize(viewport_size.width(),
+                     max(viewport_size.height(), needed_height_i))
+
+    def fit_plot_area(self) -> None:
+        """Lay the plot area out at once at its size in the scroll area.
+
+        Inputs: none.
+        Outputs: none. Used before a grab of a page that is not shown
+            (LLFR-01398), where the scroll area may not have resized
+            its widget yet.
+        """
+        # LLFR-01395, LLFR-01396, LLFR-01398.
+        self.layout().activate()
+        self.page_layout.activate()
+        area_size = self.plot_area_size()
+        if self.plot_area.size() != area_size:
+            self.plot_area.resize(area_size)
+        # A hidden widget gets its resize event only when shown, so the
+        # rows are placed here at once.
+        self.page_layout.setGeometry(self.plot_area.rect())
+
+    def scrolls_b(self) -> bool:
+        """Tell whether the plots need more height than the page has.
+
+        Inputs: none.
+        Outputs: True while the plot area is taller than its visible
+            part, so that the scroll bar is shown (LLFR-01401).
+        """
+        # LLFR-01395, LLFR-01401.
+        return (self.page_layout.minimumSize().height()
+                > self.scroll_area.viewport().height())
+
+    def visible_plot_area(self):
+        """Return the widget whose edges bound the visible plots.
+
+        Inputs: none.
+        Outputs: the viewport of the scroll area (LLFR-01400).
+        """
+        # LLFR-01400: the bottom of the visible part of the plot area.
+        return self.scroll_area.viewport()
+
+    def grab_plot_area(self):
+        """Return an image of every plot of the page at full height.
+
+        Inputs: none.
+        Outputs: a QPixmap of the whole plot area, laid out at its size
+            in the scroll area, also the part scrolled out of view, and
+            without the scroll bar (LLFR-01398), on the page's Window
+            color (LLFR-00892).
+        """
+        # LLFR-01398, LLFR-00129, LLFR-00133: the exports and Copy.
+        self.fit_plot_area()
+        ratio_f = float(self.plot_area.devicePixelRatioF())
+        area_size = self.plot_area.size()
+        pixmap = QPixmap(QSize(max(1, round(area_size.width() * ratio_f)),
+                               max(1, round(area_size.height() * ratio_f))))
+        pixmap.setDevicePixelRatio(ratio_f)
+        # LLFR-00892: the gaps between the plots get the page's own
+        # Window color, as a grab of the page gave them. Only the plots
+        # are drawn over it, each from its own grab at its place in the
+        # plot area: the widgets inside the scroll area are not drawn,
+        # so no background of theirs can cover the gaps. The canvases
+        # paint their corners opaque in the color corners_in_color gives
+        # them (LLFR-00892).
+        pixmap.fill(self.palette().color(QPalette.ColorRole.Window))
+        painter = QPainter(pixmap)
+        try:
+            for plot_widget in self.plot_widget_list:
+                if plot_widget.isHidden():
+                    continue
+                painter.drawPixmap(plot_widget.mapTo(self.plot_area,
+                                                     QPoint(0, 0)),
+                                   plot_widget.grab())
+        finally:
+            painter.end()
+        return pixmap

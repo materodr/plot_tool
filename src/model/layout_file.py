@@ -24,7 +24,7 @@ An example of a layout file::
       "grid": true,
       "panel_widths": {"plot_panel": 900, "signal_list_panel": 300},
       "flags": [{"name": "Flag 1", "time": 1.0, "color": "#ff8000"}],
-      "areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
+      "vertical_areas": [{"name": "Area 1", "start": 0.75, "end": 1.25,
                  "color": "#ff8000"}],
       "synthetic_signals": [],
       "tabs": [
@@ -96,7 +96,9 @@ from model.workspace import (
     DEFAULT_MATRIX_COLUMNS_I, DEFAULT_MATRIX_ROWS_I,
     DEFAULT_WIDTH_I, DELTA_X_KIND_STR,
     DELTA_Y_KIND_STR, PRESET_WIDTH_TUPLE, delta_value_zero_b,
-    first_panel_width_i, is_matrix_size, spans_overlap_b)
+    first_panel_width_i, is_matrix_size, spans_overlap_b,
+    DEFAULT_CURVE_STYLE_STR, DEFAULT_DELTA_STYLE_STR, DEFAULT_FLAG_STYLE_STR,
+    DEFAULT_OBJECT_WIDTH_I, is_line_style, is_preset_width)
 
 # LLFR-00228, LLFR-00471: the identification of a layout file; the
 # version is 3, whose signal names carry the file prefix (LLFR-00948).
@@ -127,6 +129,10 @@ TIME_RANGE_KEY_STR = "time_range"
 START_KEY_STR = "start"
 END_KEY_STR = "end"
 GRID_KEY_STR = "grid"
+# LLFR-00225 item 18: whether the labels are hidden; the line style of
+# a curve, flag and delta marker; the name of a data tip.
+LABELS_SHOWN_KEY_STR = "labels_shown"
+LINE_STYLE_KEY_STR = "line_style"
 PANEL_WIDTHS_KEY_STR = "panel_widths"
 # LLFR-00225 item 9, LLFR-01214: whether the main window shows its signal
 # list panel.
@@ -142,7 +148,7 @@ FLAGS_KEY_STR = "flags"
 # LLFR-00225 item 11: the list of areas, each with "name", "start",
 # "end" (START_KEY_STR, END_KEY_STR) and "color" ("#rrggbb",
 # COLOR_KEY_STR, LLFR-00351). A file without it has no area.
-AREAS_KEY_STR = "areas"
+AREAS_KEY_STR = "vertical_areas"
 SYNTHETIC_SIGNALS_KEY_STR = "synthetic_signals"
 # LLFR-00225 items 12 to 15, LLFR-01075: the keys of the undocked state,
 # the window, its signal list panel and the plot matrix of a tab.
@@ -421,6 +427,9 @@ class LayoutResult:
         # LLFR-01214: whether the main window shows its signal list
         # panel, None when the file does not say.
         self.main_panel_shown_b = None
+        # LLFR-01288: whether the labels are hidden, None when the file
+        # does not say.
+        self.labels_hidden_b = None
 
 
 # ----------------------------------------------------------------------
@@ -578,9 +587,11 @@ def plot_entry(plot) -> dict:
     """
     # LLFR-00225 item 3: the curves in drawing order, with signal name,
     # color and width.
+    # LLFR-00225 item 3: and the line style of each curve.
     curve_list = [{SIGNAL_KEY_STR: curve.signal_name_str,
                    COLOR_KEY_STR: curve.color_str,
-                   WIDTH_KEY_STR: int(curve.width_i)}
+                   WIDTH_KEY_STR: int(curve.width_i),
+                   LINE_STYLE_KEY_STR: curve.line_style_str}
                   for curve in plot.curve_list]
     # LLFR-00225 item 7: each pinned data tip, with the signal and time
     # of its point and the position of its label relative to the point.
@@ -592,7 +603,9 @@ def plot_entry(plot) -> dict:
             label_position_dict = {
                 RIGHT_POINTS_KEY_STR: float(offset_tuple[0]),
                 UP_POINTS_KEY_STR: float(offset_tuple[1])}
-        data_tip_list.append({SIGNAL_KEY_STR: pinned_tip.signal_name_str,
+        # LLFR-00225 item 7: and its name (LLFR-01263).
+        data_tip_list.append({NAME_KEY_STR: pinned_tip.name_str,
+                              SIGNAL_KEY_STR: pinned_tip.signal_name_str,
                               TIME_KEY_STR: float(pinned_tip.time_s),
                               LABEL_POSITION_KEY_STR: label_position_dict})
     # LLFR-00225 item 8: the name (LLFR-00427), the kind, the two points
@@ -603,10 +616,14 @@ def plot_entry(plot) -> dict:
          KIND_KEY_STR: KIND_NAME_DICT[delta_marker.kind_str],
          FIRST_POINT_KEY_STR: point_entry(delta_marker.first_point_tuple),
          SECOND_POINT_KEY_STR: point_entry(delta_marker.second_point_tuple),
-         COLOR_KEY_STR: delta_marker.color_str.lower()}
+         COLOR_KEY_STR: delta_marker.color_str.lower(),
+         # LLFR-00225 item 8: its width and line style.
+         WIDTH_KEY_STR: int(delta_marker.width_i),
+         LINE_STYLE_KEY_STR: delta_marker.line_style_str}
         for delta_marker in plot.delta_marker_list]
-    # LLFR-00226: the text notes of the plot (Plot.text_note_list) and
-    # its arrows (Plot.arrow_list) are never written to the layout file.
+    # LLFR-00226: the text notes of the plot (Plot.text_note_list), its
+    # arrows (Plot.arrow_list) and its shapes (Plot.shape_list) are never
+    # written to the layout file, nor their widths and line styles.
     return {CURVES_KEY_STR: curve_list, DATA_TIPS_KEY_STR: data_tip_list,
             DELTA_MARKERS_KEY_STR: delta_marker_list}
 
@@ -649,6 +666,10 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
         layout_dict[TIME_RANGE_KEY_STR] = None
     # LLFR-00225 item 5: whether the grid is shown.
     layout_dict[GRID_KEY_STR] = bool(grid_shown_b)
+    # LLFR-00225 item 18: whether the labels are hidden, written as
+    # whether they are shown.
+    layout_dict[LABELS_SHOWN_KEY_STR] = not bool(
+        getattr(workspace, "labels_hidden_b", False))
     # LLFR-00225 item 9: the panel widths, in pixels.
     if len(panel_width_tuple) == 2:
         layout_dict[PANEL_WIDTHS_KEY_STR] = {
@@ -664,7 +685,10 @@ def build_layout_dict(workspace, shown_tab_id_i: int,
     # and color ("#rrggbb" in lowercase).
     layout_dict[FLAGS_KEY_STR] = [
         {NAME_KEY_STR: marker.name_str, TIME_KEY_STR: float(marker.time_s),
-         COLOR_KEY_STR: marker.color_str}
+         COLOR_KEY_STR: marker.color_str,
+         # LLFR-00225 item 6: its width and line style.
+         WIDTH_KEY_STR: int(marker.width_i),
+         LINE_STYLE_KEY_STR: marker.line_style_str}
         for marker in workspace.marker_list]
     # LLFR-00225 item 11: each area, with its name, start and end time
     # and color ("#rrggbb" in lowercase).
@@ -1280,8 +1304,15 @@ class LayoutBuilder:
                     f"Data tip at {format_time(time_s)} in {owner_str}: "
                     f"{reason_str}.")
                 continue
-            # LLFR-00232: placed on the sample found.
-            pinned_tip = plot.add_pinned_tip(*point_tuple)
+            # LLFR-00232: placed on the sample found. LLFR-01271: with its
+            # saved name, or the name of a new data tip.
+            name_value = (tip_entry.get(NAME_KEY_STR)
+                          if isinstance(tip_entry, dict) else None)
+            if isinstance(name_value, str) and name_value.strip():
+                tip_name_str = name_value.strip()
+            else:
+                tip_name_str = self.workspace.take_tip_name()
+            pinned_tip = plot.add_pinned_tip(*point_tuple, tip_name_str)
             offset_tuple = self.label_offset(tip_entry, owner_str, time_s)
             if offset_tuple:
                 # LLFR-00152, LLFR-00225 item 7: where the user left it.
@@ -1380,8 +1411,11 @@ class LayoutBuilder:
             else:
                 name_str = self.workspace.take_delta_marker_name(kind_str)
             # LLFR-00232: both points are placed on their samples.
-            plot.add_delta_marker(kind_str, point_list[0], point_list[1],
-                                  color_str, name_str)
+            delta_marker = plot.add_delta_marker(
+                kind_str, point_list[0], point_list[1], color_str, name_str)
+            # LLFR-01374, LLFR-01379: the saved width and line style.
+            self.apply_line_look(delta_marker, delta_entry, label_str,
+                                 DEFAULT_DELTA_STYLE_STR)
             if NAME_KEY_STR not in delta_entry:
                 # LLFR-00857, LLFR-01200: a missing name is listed with
                 # the replaced values.
@@ -1461,11 +1495,41 @@ class LayoutBuilder:
                                          signal_name_str)
             width_i = self.curve_width(width_value, owner_str,
                                        signal_name_str)
-            plot.add_styled_curve(signal_name_str, color_str, width_i)
+            curve = plot.add_styled_curve(signal_name_str, color_str,
+                                          width_i)
+            # LLFR-01379: the saved line style of the curve.
+            style_value = (curve_entry.get(LINE_STYLE_KEY_STR)
+                           if isinstance(curve_entry, dict) else None)
+            curve.line_style_str = (style_value if is_line_style(
+                style_value) else DEFAULT_CURVE_STYLE_STR)
         # LLFR-00230, LLFR-00232: then its data tips and delta markers.
         self.rebuild_data_tips(plot, plot_entry_value, owner_str)
         self.rebuild_delta_markers(plot, plot_entry_value, owner_str)
         return True
+
+    @staticmethod
+    def apply_line_look(line_object, entry_value, label_str: str,
+                        default_style_str: str) -> None:
+        """Give a rebuilt object its saved width and line style.
+
+        Inputs:
+            line_object: the rebuilt flag or delta marker.
+            entry_value: its entry of the file.
+            label_str: how the report names it; not used.
+            default_style_str: its default line style (LLFR-01377).
+        Outputs: none. A missing or unusable value gives the default
+            (LLFR-01374, LLFR-01379).
+        """
+        # LLFR-01374: a preset width 1 to 5, else width 1.
+        width_value = (entry_value.get(WIDTH_KEY_STR)
+                       if isinstance(entry_value, dict) else None)
+        line_object.width_i = (width_value if is_preset_width(width_value)
+                               else DEFAULT_OBJECT_WIDTH_I)
+        # LLFR-01379: one of the four styles, else the default style.
+        style_value = (entry_value.get(LINE_STYLE_KEY_STR)
+                       if isinstance(entry_value, dict) else None)
+        line_object.line_style_str = (style_value if is_line_style(
+            style_value) else default_style_str)
 
     def tab_name(self, tab_entry, tab_number_i: int,
                  file_name_set: set) -> str:
@@ -1874,6 +1938,9 @@ class LayoutBuilder:
                     f"Name {describe_value(name_value)} of the flag at "
                     f"{format_time(time_s)} is empty or not a text; "
                     f"replaced by \"{marker.name_str}\".")
+            # LLFR-01374, LLFR-01379: the saved width and line style.
+            self.apply_line_look(marker, marker_entry, label_str,
+                                 DEFAULT_FLAG_STYLE_STR)
             if color_reason_str == COLOR_MISSING_STR:
                 # LLFR-00815, LLFR-01200, LLFR-00237: a missing color is
                 # listed as replaced by the default color.
@@ -1894,7 +1961,7 @@ class LayoutBuilder:
         """Add the saved areas to the current ones.
 
         Inputs:
-            area_entry_list: the "areas" list of the file.
+            area_entry_list: the "vertical_areas" list of the file.
         Outputs: none. Each area that is not rebuilt is reported with
             its times and the reason (LLFR-00319, LLFR-00237).
         """
@@ -2206,6 +2273,15 @@ class LayoutBuilder:
             self.report.add_replaced(
                 f"Signal list panel shown {describe_value(shown_value)} is "
                 f"neither true nor false; the panel was left as it was.")
+        # LLFR-01288: the labels hidden or shown as saved; a file without
+        # the value leaves them as they are.
+        shown_value = layout_dict.get(LABELS_SHOWN_KEY_STR)
+        if isinstance(shown_value, bool):
+            result.labels_hidden_b = not shown_value
+        elif shown_value is not None:
+            self.report.add_replaced(
+                f"Labels shown {describe_value(shown_value)} is neither "
+                f"true nor false; the labels were left as they were.")
         return result
 
 

@@ -106,9 +106,11 @@ class SignalMenuTest(unittest.TestCase):
             name_str: the right-clicked signal.
         Outputs: the texts, separators left out.
         """
+        from view.menu_title import is_menu_title
         menu = self.panel.build_signal_menu(name_str)
         text_list = [action.text() for action in menu.actions()
-                     if not action.isSeparator()]
+                     if not action.isSeparator()
+                     and not is_menu_title(action)]
         menu.deleteLater()
         return text_list
 
@@ -140,9 +142,10 @@ class SignalMenuTest(unittest.TestCase):
         Outputs: none.
         """
         menu = self.panel.build_signal_menu("file1_Speed")
-        create_menu = menu.actions()[0].menu()
+        create_action = find_action(menu, "Create synthetic signal")
+        create_menu = create_action.menu()
         self.assertIsNotNone(create_menu)
-        self.assertTrue(menu.actions()[0].isEnabled())
+        self.assertTrue(create_action.isEnabled())
         entry_list = [("section" if action.isSeparator() else "option",
                        action.text()) for action in create_menu.actions()]
         expected_list = []
@@ -173,13 +176,14 @@ class SignalMenuTest(unittest.TestCase):
         Outputs: none.
         """
         menu = self.panel.build_signal_menu("file1_fft_0s_to_1s_Speed")
-        self.assertEqual(menu.actions()[0].text(),
-                         "Create synthetic signal")
-        self.assertFalse(menu.actions()[0].isEnabled())
-        self.assertFalse(menu.actions()[0].menu().isEnabled())
+        create_action = find_action(menu, "Create synthetic signal")
+        self.assertIsNotNone(create_action)
+        self.assertFalse(create_action.isEnabled())
+        self.assertFalse(create_action.menu().isEnabled())
         menu.deleteLater()
         menu = self.panel.build_signal_menu("file1_int_Speed")
-        self.assertTrue(menu.actions()[0].isEnabled())
+        self.assertTrue(find_action(menu, "Create synthetic signal")
+                        .isEnabled())
         menu.deleteLater()
 
     @covers("LLFR-00239", "LLFR-00277", "LLFR-00278", "LLFR-00265",

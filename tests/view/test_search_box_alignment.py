@@ -108,8 +108,19 @@ class SearchBoxAlignmentTest(unittest.TestCase):
         lowest_bottom_i = max(bottom_edge_y(plot_widget)
                               for plot_widget in plot_widget_list)
         self.assertEqual(bottom_edge_y(lowest_widget), lowest_bottom_i)
+        # HLFR-00095 (approved 2026-11-06, #260 batch 5): the search box
+        # ends where the container of the plots ends. While the plots fit
+        # (LLFR-01395) that is the lowest plot (LLFR-00424); while they
+        # scroll (LLFR-01401) it is the visible part of the scroll area,
+        # and the lowest plot may be below it (LLFR-01400).
+        page = self.main_window.plot_panel.tab_widget.currentWidget()
+        if page.scrolls_b():
+            container_bottom_i = bottom_edge_y(page.visible_plot_area())
+            self.assertGreaterEqual(lowest_bottom_i, container_bottom_i)
+        else:
+            container_bottom_i = lowest_bottom_i
         self.assertLessEqual(
-            abs(self.search_box_bottom_y() - lowest_bottom_i),
+            abs(self.search_box_bottom_y() - container_bottom_i),
             EDGE_TOLERANCE_I)
         # The x-axis numbers and label are drawn inside the plot widget,
         # so its bottom edge is the bottom of the plot including them.
@@ -134,7 +145,7 @@ class SearchBoxAlignmentTest(unittest.TestCase):
             abs(self.search_box_bottom_y() - bottom_edge_y(page)),
             EDGE_TOLERANCE_I)
 
-    @covers("LLFR-00424", "HLFR-00095")
+    @covers("LLFR-00424", "LLFR-01400", "HLFR-00095")
     def test_level_with_the_lowest_plot_at_any_size(self) -> None:
         """With one, then three plots, at several window sizes.
 

@@ -140,6 +140,11 @@ class SearchBoxAligner(QObject):
             return
         self.watched_page_list.append(page)
         page.installEventFilter(self)
+        # LLFR-01400: the plot area grows past the page when the plots
+        # start to scroll, and shrinks back when they fit again.
+        plot_area = getattr(page, "plot_area", None)
+        if plot_area is not None:
+            plot_area.installEventFilter(self)
         page.destroyed.connect(partial(self.forget_page, page))
 
     def forget_page(self, page, *_ignored_tuple) -> None:
@@ -163,8 +168,10 @@ class SearchBoxAligner(QObject):
 
         Inputs: none.
         Outputs: the lowest visible plot widget of the current tab
-            (LLFR-00424), or the current tab page when it holds no plot
-            (LLFR-00652), or None when there is no tab page.
+            (LLFR-00424), the visible part of its plot area while its
+            plots scroll (LLFR-01400), or the current tab page when it
+            holds no plot (LLFR-00652), or None when there is no tab
+            page.
         """
         page = self.tab_widget.currentWidget()
         if page is None:
@@ -176,6 +183,13 @@ class SearchBoxAligner(QObject):
             plot_widget for plot_widget
             in getattr(page, "plot_widget_list", [])
             if not plot_widget.isHidden()]
+        # LLFR-01400, HLFR-00095: while the plots scroll, the last row may
+        # be out of view; the container of the plots is the visible part
+        # of the scroll area, which doesn't move while they scroll.
+        scrolls_function = getattr(page, "scrolls_b", None)
+        if (plot_widget_list and scrolls_function is not None
+                and scrolls_function()):
+            return page.visible_plot_area()
         if plot_widget_list:
             return max(plot_widget_list, key=bottom_edge_global_y)
         # LLFR-00652: with no plot, a plot would end at the page bottom.

@@ -605,7 +605,8 @@ class SaveLayoutTest(LayoutControllerTestCase):
         self.assertEqual(layout_dict["tabs"][0]["name"], "Main")
         self.assertEqual(len(layout_dict["tabs"][0]["plots"]), 2)
         self.assertEqual(layout_dict["flags"],
-                         [{"name": "Flag 1", "time": 4.0, "color": "#ff8000"}])
+                         [{"name": "Flag 1", "time": 4.0, "color": "#ff8000",
+                           "width": 1, "line_style": "dashed"}])
         self.assertIn('\n  "tabs": [\n', text_str)
         self.assertEqual(self.view.finished_list, ["save"])
         self.assertEqual(self.view.save_error_list, [])
@@ -1102,7 +1103,7 @@ class LayoutSaveOptionsTest(LayoutControllerTestCase):
         with open(path_str, encoding="utf-8") as layout_file:
             layout_dict = json.load(layout_file)
         self.assertEqual(layout_dict["flags"], [])
-        self.assertEqual(layout_dict["areas"], [])
+        self.assertEqual(layout_dict["vertical_areas"], [])
         self.assertEqual([tab["name"] for tab in layout_dict["tabs"]],
                          ["Main"])
         self.assertIs(layout_dict["tabs"][0]["undocked"], False)

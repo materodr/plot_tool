@@ -36,8 +36,10 @@ from PyQt6.QtWidgets import (
     QStyleOptionTabWidgetFrame, QTabBar, QTabWidget, QToolButton,
     QVBoxLayout, QWidget)
 
+from model import object_names
 from model.workspace import TIME_PLOT_KIND_STR
 from view import name_dialog, theme
+from view.menu_title import add_menu_title
 from view.matrix_picker import (
     MatrixPicker, PositionPicker, add_picker_submenu)
 from view.plot_widget import PlotWidget
@@ -159,6 +161,20 @@ PLOT_SIGNAL_HANDLER_DICT = {
     # LLFR-00433, LLFR-00794: a point of a delta marker dragged to
     # another sample of its curve.
     "delta_point_move_requested": "delta_point_move_handler",
+    # LLFR-01266: "Rename" of a pinned data tip.
+    "pinned_tip_rename_requested": "pinned_tip_rename_handler",
+    # LLFR-01316, LLFR-01334, LLFR-01338, LLFR-01348, LLFR-01350,
+    # LLFR-01359: a shape drawn, moved or resized, recolored, deleted or
+    # renamed.
+    "shape_create_requested": "shape_create_handler",
+    "shape_change_requested": "shape_change_handler",
+    "shape_color_requested": "shape_color_handler",
+    "shape_delete_requested": "shape_delete_handler",
+    "shape_rename_requested": "shape_rename_handler",
+    # LLFR-01371, LLFR-01376: a width or a line style chosen for an
+    # object.
+    "object_width_requested": "object_width_handler",
+    "object_line_style_requested": "object_line_style_handler",
 }
 
 
@@ -905,6 +921,10 @@ class PlotPanel(QWidget):
         Outputs: a QMenu with "Delete", "Rename" and "Plot matrix".
         """
         menu = QMenu(self if parent is None else parent)
+        # LLFR-01258, LLFR-01259: the title "Tab: <tab name>" first.
+        page = self.page_dict.get(tab_id_i)
+        add_menu_title(menu, object_names.TAB_OBJECT_STR,
+                       page.name_str if page is not None else "")
         # LLFR-00027, LLFR-00066: "Delete", disabled on the last docked
         # tab; LLFR-01069: always enabled on an undocked tab.
         delete_action = menu.addAction(DELETE_TAB_TEXT_STR)
